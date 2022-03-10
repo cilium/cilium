@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
+	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
@@ -99,6 +100,8 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 	}
 
 	helmMapOpts := map[string]string{}
+	deprecatedCfgOpts := map[string]string{}
+
 	switch {
 	// It's likely that certain helm options have changed since 1.9.0
 	// These were tested for the >=1.11.0. In case something breaks for versions
@@ -143,6 +146,32 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			helmMapOpts["preflight.image.useDigest"] = "false"
 			helmMapOpts["clustermesh.apiserver.image.override"] = fmt.Sprintf("quay.io/cilium/clustermesh-apiserver%s", imageSuffix)
 			helmMapOpts["clustermesh.apiserver.image.useDigest"] = "false"
+		}
+
+		// Pre-define all deprecated flags as helm options
+		for flagName, helmOpt := range FlagsToHelmOpts {
+			if v, ok := FlagValues[flagName]; ok {
+				if val := v.String(); val != "" {
+					helmMapOpts[helmOpt] = val
+				}
+			}
+		}
+		// Handle the "config" values in a special way since they are a
+		// stringSlice
+		if v, ok := FlagValues["config"]; ok {
+			switch sv := v.(type) {
+			case pflag.SliceValue:
+				for _, cfgOpt := range sv.GetSlice() {
+					cfgOptSplit := strings.Split(cfgOpt, "=")
+					if len(cfgOptSplit) != 2 {
+						return fmt.Errorf("--config should be in the format of <key=value>, got %s", cfgOpt)
+					}
+					deprecatedCfgOpts[cfgOptSplit[0]] = cfgOptSplit[1]
+				}
+
+			default:
+				panic("Config should be type pflag.SliceValue")
+			}
 		}
 
 		helmMapOpts["serviceAccounts.cilium.name"] = defaults.AgentServiceAccountName
@@ -291,13 +320,29 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 
 	// Get the user-defined helm options passed by flag
 	p := getter.All(settings)
-	vals, err := k.params.HelmOpts.MergeValues(p)
+	userVals, err := k.params.HelmOpts.MergeValues(p)
 	if err != nil {
 		return err
 	}
 
 	// User-defined helm options will overwrite the default cilium-cli helm options
-	vals = mergeMaps(ciliumCliHelmValues, vals)
+	userVals = mergeMaps(ciliumCliHelmValues, userVals)
+
+	// Store all the options passed by --config into helm extraConfig
+	extraConfigMap := map[string]interface{}{}
+	for k, v := range deprecatedCfgOpts {
+		extraConfigMap[k] = v
+	}
+
+	extraConfig := map[string]interface{}{}
+	if len(extraConfigMap) != 0 {
+		extraConfig["extraConfig"] = extraConfigMap
+	}
+
+	// Merge the user-defined helm options into the `--config` map. This
+	// effectively means that any --helm-set=extraConfig.<key> will overwrite
+	// the values of --config <key>
+	vals := mergeMaps(extraConfig, userVals)
 
 	valsStr := valuesToString("", vals)
 
@@ -309,10 +354,9 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 
 	// Store the current helm-opts used in this installation in Cilium's
 	// ConfigMap
-	extraConfig := map[string]interface{}{
-		"extraConfig": map[string]interface{}{
-			defaults.ExtraConfigMapUserOptsKey: valsStr,
-		},
+	extraConfigMap[defaults.ExtraConfigMapUserOptsKey] = valsStr
+	extraConfig = map[string]interface{}{
+		"extraConfig": extraConfigMap,
 	}
 
 	// User-defined helm options will overwrite the default cilium-cli helm options

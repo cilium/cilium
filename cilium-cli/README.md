@@ -236,7 +236,7 @@ To install Cilium while automatically detected:
 
 Install Cilium & enable ClusterMesh in Cluster 1
 
-    cilium install --cluster-id 1
+    cilium install --helm-set=cluster.id=1
     🔮 Auto-detected Kubernetes kind: GKE
     ℹ️  Cilium version not set, using default version "v1.9.1"
     🔮 Auto-detected cluster name: gke-cilium-dev-us-west2-a-tgraf-cluster1
@@ -263,7 +263,7 @@ Install Cilium & enable ClusterMesh in Cluster 1
 
 Install Cilium in Cluster 2
 
-    cilium install --context gke_cilium-dev_us-west2-a_tgraf-cluster2 --cluster-id 2
+    cilium install --context gke_cilium-dev_us-west2-a_tgraf-cluster2 --helm-set=cluster.id=2
     🔮 Auto-detected Kubernetes kind: GKE
     ℹ️  Cilium version not set, using default version "v1.9.1"
     🔮 Auto-detected cluster name: gke-cilium-dev-us-west2-a-tgraf-cluster2

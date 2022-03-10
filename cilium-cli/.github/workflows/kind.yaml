@@ -47,7 +47,7 @@ jobs:
         run: |
           cilium install \
             --wait=false \
-            --config monitor-aggregation=none
+            --helm-set=bpf.monitorAggregation=none
 
       - name: Enable Relay
         run: |
@@ -70,7 +70,7 @@ jobs:
 
       - name: Install Cilium with IPsec Encryption
         run: |
-          cilium install --encryption=ipsec --kube-proxy-replacement=probe
+          cilium install --encryption=ipsec --helm-set=kubeProxyReplacement=probe
 
       - name: Enable Relay
         run: |
