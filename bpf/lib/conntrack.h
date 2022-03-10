@@ -24,20 +24,6 @@ enum {
 	ACTION_CLOSE,
 };
 
-/* conn_is_dns returns true if the connection is DNS, false otherwise.
- *
- * @dport: Connection destination port.
- *
- * To reduce program complexity, we ignore nexthdr and dir here:
- * nexthdr: The parser will not fill dport if nexthdr is not TCP/UDP.
- * dir:     Ideally we would only consider responses, but requests are likely
- *          to be small anyway.
- */
-static __always_inline bool conn_is_dns(__u16 dport)
-{
-	return dport == bpf_htons(53);
-}
-
 static __always_inline bool ct_entry_seen_both_syns(const struct ct_entry *entry)
 {
 	bool rx_syn = entry->rx_flags_seen & TCP_FLAG_SYN;
@@ -454,8 +440,6 @@ static __always_inline int ct_lookup6(const void *map,
 #endif
 out:
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
-	if (conn_is_dns(tuple->dport))
-		*monitor = MTU;
 	return ret;
 }
 
@@ -754,8 +738,6 @@ static __always_inline int ct_lookup4(const void *map,
 	}
 out:
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
-	if (conn_is_dns(tuple->dport))
-		*monitor = MTU;
 	return ret;
 }
 
