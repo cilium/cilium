@@ -1,6 +1,6 @@
 |logo|
 
-|cii| |slack| |go-report| |go-doc| |rtd| |apache| |bsd| |gpl|
+|cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl|
 
 Cilium is open source software for providing and transparently securing network
 connectivity and loadbalancing between application workloads such as
@@ -324,3 +324,11 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. |cii| image:: https://bestpractices.coreinfrastructure.org/projects/1269/badge
     :alt: CII Best Practices
     :target: https://bestpractices.coreinfrastructure.org/projects/1269
+    
+.. |clomonitor| image:: https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cilium/cilium/badge
+    :alt: CLOMonitor
+    :target: https://clomonitor.io/projects/cilium/cilium
+    
+.. |artifacthub| image:: https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/cilium
+    :alt: Artifact Hub
+    :target: https://artifacthub.io/packages/helm/cilium/cilium
