@@ -5,11 +5,11 @@ set -e
 
 # Install Cilium
 cilium install \
-  --cluster-name "${CLUSTER_NAME}" \
+  --helm-set=cluster.name="${CLUSTER_NAME}" \
   --wait=false \
-  --config monitor-aggregation=none \
+  --helm-set=bpf.monitorAggregation=none \
   --datapath-mode=tunnel \
-  --ipam cluster-pool
+  --helm-set=ipam.mode=cluster-pool
 
 # Enable Relay
 cilium hubble enable

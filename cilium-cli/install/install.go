@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/versioncheck"
+	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -166,6 +167,28 @@ type AzureParameters struct {
 	ClientID             string
 	ClientSecret         string
 }
+
+var (
+	// FlagsToHelmOpts maps the deprecated install flags to the helm
+	// options
+	FlagsToHelmOpts = map[string]string{
+		"agent-image":              "image.override",
+		"azure-client-id":          "azure.clientID",
+		"azure-client-secret":      "azure.clientSecret",
+		"azure-resource-group":     "azure.resourceGroup",
+		"azure-subscription-id":    "azure.subscriptionID",
+		"azure-tenant-id":          "azure.tenantID",
+		"cluster-id":               "cluster.id",
+		"cluster-name":             "cluster.name",
+		"ipam":                     "ipam.mode",
+		"ipv4-native-routing-cidr": "ipv4NativeRoutingCIDR",
+		"kube-proxy-replacement":   "kubeProxyReplacement",
+		"node-encryption":          "encryption.nodeEncryption",
+		"operator-image":           "operator.image.override",
+	}
+	// FlagValues maps all FlagsToHelmOpts keys to their values
+	FlagValues = map[string]pflag.Value{}
+)
 
 type Parameters struct {
 	Namespace             string
