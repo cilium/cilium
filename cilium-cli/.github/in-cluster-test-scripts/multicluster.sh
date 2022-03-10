@@ -10,18 +10,18 @@ CONTEXT2=$(kubectl config view | grep "${CLUSTER_NAME_2}" | head -1 | awk '{prin
 # Install Cilium in cluster1
 cilium install \
   --context "${CONTEXT1}" \
-  --cluster-name "${CLUSTER_NAME_1}" \
-  --cluster-id 1 \
-  --config monitor-aggregation=none \
-  --ipv4-native-routing-cidr=10.0.0.0/9
+  --helm-set=cluster.name="${CLUSTER_NAME_1}" \
+  --helm-set=cluster.id=1 \
+  --helm-set=bpf.monitorAggregation=none \
+  --helm-set=ipv4NativeRoutingCIDR=10.0.0.0/9
 
 # Install Cilium in cluster2
 cilium install \
   --context "${CONTEXT2}" \
-  --cluster-name "${CLUSTER_NAME_2}" \
-  --cluster-id 2 \
-  --config monitor-aggregation=none \
-  --ipv4-native-routing-cidr=10.0.0.0/9 \
+  --helm-set=cluster.name="${CLUSTER_NAME_2}" \
+  --helm-set=cluster.id=2 \
+  --helm-set=bpf.monitorAggregation=none \
+  --helm-set=ipv4NativeRoutingCIDR=10.0.0.0/9 \
   --inherit-ca "${CONTEXT1}"
 
 # Enable Relay
