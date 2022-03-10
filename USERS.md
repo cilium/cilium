@@ -45,6 +45,12 @@ Requirements to be listed
 Users (Alphabetically)
 ----------------------
 
+    * N: AccuKnox
+      D: AccuKnox uses Cilium for network visibility and network policy enforcement.
+      U: L3/L4/L7 policy enforcement using Identity, External/VM Workloads, Network Visibility using Hubble
+      L: https://www.accuknox.com/spifee-identity-for-cilium-presentation-at-kubecon-2021, https://www.accuknox.com/cilium
+      Q: @nyrahul
+
     * N: Acoss
       D: Acoss is using cilium as their main CNI plugin (self hosted k8s, On-premises)
       U: CiliumNetworkPolicy, Hubble, BPF NodePort, Direct routing
