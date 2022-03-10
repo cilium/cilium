@@ -313,6 +313,17 @@ func (k *K8sInstaller) getCiliumVersion() semver.Version {
 	return v
 }
 
+func (k *K8sInstaller) getImagesSHA() string {
+	ersion := strings.TrimPrefix(k.params.Version, "v")
+	_, err := versioncheck.Version(ersion)
+	// If we got an error then it means this is a commit SHA that the user
+	// wants to install on all images.
+	if err != nil {
+		return k.params.Version
+	}
+	return ""
+}
+
 func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 	var (
 		cmFilename string
