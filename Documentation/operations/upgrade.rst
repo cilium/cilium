@@ -315,6 +315,13 @@ Annotations:
 * The Cilium agent does not support the legacy ``nat46-range`` option as well
   as the per-endpoint ``NAT46`` configuration anymore. Both are replaced in
   favor of NAT46/64 handling for services.
+* The kube-proxy replacement in the tunneling mode (i.e., ``vxlan`` or
+  ``geneve``) will set the ``reserved:world`` security identity for all service
+  requests coming from outside the cluster. Previously, when a selected service
+  endpoint was on a different node, the security identity was set to the
+  ``reserved:remote-node``. The change might impact those who have a network policy
+  allowing access to the service from inside the cluster, and the policy was used
+  to allow access from outside.
 
 New Options
 ~~~~~~~~~~~
