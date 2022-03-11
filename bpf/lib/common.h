@@ -768,7 +768,7 @@ struct lb6_backend {
 	union v6addr address;
 	__be16 port;
 	__u8 proto;
-	__u8 pad;
+	__u8 flags;
 };
 
 struct lb6_health {
@@ -822,7 +822,7 @@ struct lb4_backend {
 	__be32 address;		/* Service endpoint IPv4 address */
 	__be16 port;		/* L4 port filter */
 	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
-	__u8 pad;
+	__u8 flags;
 };
 
 struct lb4_health {

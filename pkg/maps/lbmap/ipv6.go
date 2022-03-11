@@ -287,7 +287,7 @@ type Backend6Value struct {
 	Address types.IPv6      `align:"address"`
 	Port    uint16          `align:"port"`
 	Proto   u8proto.U8proto `align:"proto"`
-	Pad     uint8           `align:"pad"`
+	Flags   uint8           `align:"flags"`
 }
 
 func NewBackend6Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend6Value, error) {
@@ -314,6 +314,7 @@ func (v *Backend6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) 
 
 func (b *Backend6Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend6Value) GetPort() uint16    { return b.Port }
+func (b *Backend6Value) GetFlags() uint8    { return b.Flags }
 
 func (v *Backend6Value) ToNetwork() BackendValue {
 	n := *v

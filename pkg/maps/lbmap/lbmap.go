@@ -297,9 +297,9 @@ func (*LBBPFMap) AddBackend(id loadbalancer.BackendID, ip net.IP, port uint16, i
 	}
 
 	if ipv6 {
-		backend, err = NewBackend6V2(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend6V2(id, ip, port, u8proto.ANY)
 	} else {
-		backend, err = NewBackend4V2(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend4V2(id, ip, port, u8proto.ANY)
 	}
 	if err != nil {
 		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",
@@ -568,6 +568,7 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		port := backendVal.GetPort()
 		proto := loadbalancer.NONE
 		lbBackend := loadbalancer.NewBackend(backendID, proto, ip, port)
+		lbBackend.State = loadbalancer.BackendState(backendVal.GetFlags())
 		lbBackends = append(lbBackends, lbBackend)
 	}
 
