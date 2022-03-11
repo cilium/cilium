@@ -318,16 +318,25 @@ func (b *cdsBalancer) handleWatchUpdate(update clusterHandlerUpdate) {
 				EDSServiceName:        cu.EDSServiceName,
 				MaxConcurrentRequests: cu.MaxRequests,
 			}
-			if cu.EnableLRS {
-				// An empty string here indicates that the cluster_resolver balancer should use the
-				// same xDS server for load reporting as it does for EDS
-				// requests/responses.
-				dms[i].LoadReportingServerName = new(string)
-
+			if cu.LRSServerConfig == xdsresource.ClusterLRSServerSelf {
+				bootstrapConfig := b.xdsClient.BootstrapConfig()
+				parsedName := xdsresource.ParseName(cu.ClusterName)
+				if parsedName.Scheme == xdsresource.FederationScheme {
+					// Is a federation resource name, find the corresponding
+					// authority server config.
+					if cfg, ok := bootstrapConfig.Authorities[parsedName.Authority]; ok {
+						dms[i].LoadReportingServer = cfg.XDSServer
+					}
+				} else {
+					// Not a federation resource name, use the default
+					// authority.
+					dms[i].LoadReportingServer = bootstrapConfig.XDSServer
+				}
 			}
 		case xdsresource.ClusterTypeLogicalDNS:
 			dms[i] = clusterresolver.DiscoveryMechanism{
 				Type:        clusterresolver.DiscoveryMechanismTypeLogicalDNS,
+				Cluster:     cu.ClusterName,
 				DNSHostname: cu.DNSHostName,
 			}
 		default:

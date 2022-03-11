@@ -68,25 +68,17 @@ type clientImpl struct {
 }
 
 // newWithConfig returns a new xdsClient with the given config.
-func newWithConfig(config *bootstrap.Config, watchExpiryTimeout time.Duration, idleAuthorityDeleteTimeout time.Duration) (_ *clientImpl, retErr error) {
+func newWithConfig(config *bootstrap.Config, watchExpiryTimeout time.Duration, idleAuthorityDeleteTimeout time.Duration) (*clientImpl, error) {
 	c := &clientImpl{
 		done:               grpcsync.NewEvent(),
 		config:             config,
 		watchExpiryTimeout: watchExpiryTimeout,
-
-		authorities:     make(map[string]*authority),
-		idleAuthorities: cache.NewTimeoutCache(idleAuthorityDeleteTimeout),
+		authorities:        make(map[string]*authority),
+		idleAuthorities:    cache.NewTimeoutCache(idleAuthorityDeleteTimeout),
 	}
-
-	defer func() {
-		if retErr != nil {
-			c.Close()
-		}
-	}()
 
 	c.logger = prefixLogger(c)
 	c.logger.Infof("Created ClientConn to xDS management server: %s", config.XDSServer)
-
 	c.logger.Infof("Created")
 	return c, nil
 }
