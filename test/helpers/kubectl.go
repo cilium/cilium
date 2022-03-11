@@ -3324,7 +3324,7 @@ func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
 			}
 		}
 		statusFilter := `Status: {.cilium.state}  Health: {.cluster.ciliumHealth.state}` +
-			` Nodes "{.cluster.nodes[*].name}" ContinerRuntime: {.container-runtime.state}` +
+			` Nodes "{.cluster.nodes[*].name}" ContainerRuntime: {.container-runtime.state}` +
 			` Kubernetes: {.kubernetes.state} KVstore: {.kvstore.state}`
 		data, _ := status.Filter(statusFilter)
 		fmt.Fprintf(CheckLogs, "%sCilium agent '%s': %s Controllers: Total %d Failed %d\n",
