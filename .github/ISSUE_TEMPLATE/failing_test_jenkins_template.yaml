@@ -60,8 +60,8 @@ body:
         CiliumNetworkPolicies loaded: default::fqdn-proxy-policy.yaml
         Endpoint Policy Enforcement:
         Pod   Ingress   Egress
-        Cilium agent 'cilium-9gp4w': Status: Ok  Health: Ok Nodes "" ContinerRuntime:  Kubernetes: Ok KVstore: Ok Controllers: Total 37 Failed 0
-        Cilium agent 'cilium-vpsn6': Status: Ok  Health: Ok Nodes "" ContinerRuntime:  Kubernetes: Ok KVstore: Ok Controllers: Total 33 Failed 0
+        Cilium agent 'cilium-9gp4w': Status: Ok  Health: Ok Nodes "" ContainerRuntime:  Kubernetes: Ok KVstore: Ok Controllers: Total 37 Failed 0
+        Cilium agent 'cilium-vpsn6': Status: Ok  Health: Ok Nodes "" ContainerRuntime:  Kubernetes: Ok KVstore: Ok Controllers: Total 33 Failed 0
       render: shell
     validations:
       required: true
