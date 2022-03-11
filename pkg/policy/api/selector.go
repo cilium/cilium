@@ -4,9 +4,10 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
+
+	jsoniter "github.com/json-iterator/go"
 
 	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -16,6 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
 

@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	stdlog "log"
 	"net"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/google/uuid"
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -38,6 +38,8 @@ import (
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/trigger"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // initPolicy initializes the core policy components of the daemon.
 func (d *Daemon) initPolicy(epMgr *endpointmanager.EndpointManager) error {

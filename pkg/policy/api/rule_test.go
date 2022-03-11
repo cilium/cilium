@@ -7,8 +7,6 @@
 package api
 
 import (
-	"encoding/json"
-
 	. "gopkg.in/check.v1"
 )
 

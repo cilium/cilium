@@ -5,7 +5,6 @@ package policy
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"

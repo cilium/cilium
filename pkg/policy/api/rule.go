@@ -5,7 +5,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/cilium/cilium/pkg/labels"
 )

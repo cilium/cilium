@@ -5,12 +5,12 @@ package policy
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type CertificateManager interface {
 	GetTLSContext(ctx context.Context, tls *api.TLSContext, defaultNs string) (ca, public, private string, err error)

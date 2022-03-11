@@ -6,7 +6,6 @@ package policy
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"net"
 	"sort"
 	"strings"
