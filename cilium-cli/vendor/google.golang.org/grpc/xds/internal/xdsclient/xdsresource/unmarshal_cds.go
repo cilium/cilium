@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 
 	v3clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -125,19 +126,39 @@ func validateClusterAndConstructClusterUpdate(cluster *v3clusterpb.Cluster) (Clu
 		}
 	}
 
+	// Process outlier detection received from the control plane iff the
+	// corresponding environment variable is set.
+	var od *OutlierDetection
+	if envconfig.XDSOutlierDetection {
+		var err error
+		if od, err = outlierConfigFromCluster(cluster); err != nil {
+			return ClusterUpdate{}, err
+		}
+	}
+
 	ret := ClusterUpdate{
-		ClusterName: cluster.GetName(),
-		EnableLRS:   cluster.GetLrsServer().GetSelf() != nil,
-		SecurityCfg: sc,
-		MaxRequests: circuitBreakersFromCluster(cluster),
-		LBPolicy:    lbPolicy,
+		ClusterName:      cluster.GetName(),
+		SecurityCfg:      sc,
+		MaxRequests:      circuitBreakersFromCluster(cluster),
+		LBPolicy:         lbPolicy,
+		OutlierDetection: od,
+	}
+
+	// Note that this is different from the gRFC (gRFC A47 says to include the
+	// full ServerConfig{URL,creds,server feature} here). This information is
+	// not available here, because this function doesn't have access to the
+	// xdsclient bootstrap information now (can be added if necessary). The
+	// ServerConfig will be read and populated by the CDS balancer when
+	// processing this field.
+	if cluster.GetLrsServer().GetSelf() != nil {
+		ret.LRSServerConfig = ClusterLRSServerSelf
 	}
 
 	// Validate and set cluster type from the response.
 	switch {
 	case cluster.GetType() == v3clusterpb.Cluster_EDS:
-		if cluster.GetEdsClusterConfig().GetEdsConfig().GetAds() == nil {
-			return ClusterUpdate{}, fmt.Errorf("unexpected edsConfig in response: %+v", cluster)
+		if configsource := cluster.GetEdsClusterConfig().GetEdsConfig(); configsource.GetAds() == nil && configsource.GetSelf() == nil {
+			return ClusterUpdate{}, fmt.Errorf("CDS's EDS config source is not ADS or Self: %+v", cluster)
 		}
 		ret.ClusterType = ClusterTypeEDS
 		ret.EDSServiceName = cluster.GetEdsClusterConfig().GetServiceName()
@@ -453,4 +474,126 @@ func circuitBreakersFromCluster(cluster *v3clusterpb.Cluster) *uint32 {
 		return &maxRequests
 	}
 	return nil
+}
+
+// outlierConfigFromCluster extracts the relevant outlier detection
+// configuration from the received cluster resource. Returns nil if no
+// OutlierDetection field set in the cluster resource.
+func outlierConfigFromCluster(cluster *v3clusterpb.Cluster) (*OutlierDetection, error) {
+	od := cluster.GetOutlierDetection()
+	if od == nil {
+		return nil, nil
+	}
+	const (
+		defaultInterval                       = 10 * time.Second
+		defaultBaseEjectionTime               = 30 * time.Second
+		defaultMaxEjectionTime                = 300 * time.Second
+		defaultMaxEjectionPercent             = 10
+		defaultSuccessRateStdevFactor         = 1900
+		defaultEnforcingSuccessRate           = 100
+		defaultSuccessRateMinimumHosts        = 5
+		defaultSuccessRateRequestVolume       = 100
+		defaultFailurePercentageThreshold     = 85
+		defaultEnforcingFailurePercentage     = 0
+		defaultFailurePercentageMinimumHosts  = 5
+		defaultFailurePercentageRequestVolume = 50
+	)
+	// "The google.protobuf.Duration fields interval, base_ejection_time, and
+	// max_ejection_time must obey the restrictions in the
+	// google.protobuf.Duration documentation and they must have non-negative
+	// values." - A50
+	interval := defaultInterval
+	if i := od.GetInterval(); i != nil {
+		if err := i.CheckValid(); err != nil {
+			return nil, fmt.Errorf("outlier_detection.interval is invalid with error %v", err)
+		}
+		if interval = i.AsDuration(); interval < 0 {
+			return nil, fmt.Errorf("outlier_detection.interval = %v; must be a valid duration and >= 0", interval)
+		}
+	}
+
+	baseEjectionTime := defaultBaseEjectionTime
+	if bet := od.GetBaseEjectionTime(); bet != nil {
+		if err := bet.CheckValid(); err != nil {
+			return nil, fmt.Errorf("outlier_detection.base_ejection_time is invalid with error %v", err)
+		}
+		if baseEjectionTime = bet.AsDuration(); baseEjectionTime < 0 {
+			return nil, fmt.Errorf("outlier_detection.base_ejection_time = %v; must be >= 0", baseEjectionTime)
+		}
+	}
+
+	maxEjectionTime := defaultMaxEjectionTime
+	if met := od.GetMaxEjectionTime(); met != nil {
+		if err := met.CheckValid(); err != nil {
+			return nil, fmt.Errorf("outlier_detection.max_ejection_time is invalid with error %v", err)
+		}
+		if maxEjectionTime = met.AsDuration(); maxEjectionTime < 0 {
+			return nil, fmt.Errorf("outlier_detection.max_ejection_time = %v; must be >= 0", maxEjectionTime)
+		}
+	}
+
+	// "The fields max_ejection_percent, enforcing_success_rate,
+	// failure_percentage_threshold, and enforcing_failure_percentage must have
+	// values less than or equal to 100. If any of these requirements is
+	// violated, the Cluster resource should be NACKed." - A50
+	maxEjectionPercent := uint32(defaultMaxEjectionPercent)
+	if mep := od.GetMaxEjectionPercent(); mep != nil {
+		if maxEjectionPercent = mep.GetValue(); maxEjectionPercent > 100 {
+			return nil, fmt.Errorf("outlier_detection.max_ejection_percent = %v; must be <= 100", maxEjectionPercent)
+		}
+	}
+	enforcingSuccessRate := uint32(defaultEnforcingSuccessRate)
+	if esr := od.GetEnforcingSuccessRate(); esr != nil {
+		if enforcingSuccessRate = esr.GetValue(); enforcingSuccessRate > 100 {
+			return nil, fmt.Errorf("outlier_detection.enforcing_success_rate = %v; must be <= 100", enforcingSuccessRate)
+		}
+	}
+	failurePercentageThreshold := uint32(defaultFailurePercentageThreshold)
+	if fpt := od.GetFailurePercentageThreshold(); fpt != nil {
+		if failurePercentageThreshold = fpt.GetValue(); failurePercentageThreshold > 100 {
+			return nil, fmt.Errorf("outlier_detection.failure_percentage_threshold = %v; must be <= 100", failurePercentageThreshold)
+		}
+	}
+	enforcingFailurePercentage := uint32(defaultEnforcingFailurePercentage)
+	if efp := od.GetEnforcingFailurePercentage(); efp != nil {
+		if enforcingFailurePercentage = efp.GetValue(); enforcingFailurePercentage > 100 {
+			return nil, fmt.Errorf("outlier_detection.enforcing_failure_percentage = %v; must be <= 100", enforcingFailurePercentage)
+		}
+	}
+
+	successRateStdevFactor := uint32(defaultSuccessRateStdevFactor)
+	if srsf := od.GetSuccessRateStdevFactor(); srsf != nil {
+		successRateStdevFactor = srsf.GetValue()
+	}
+	successRateMinimumHosts := uint32(defaultSuccessRateMinimumHosts)
+	if srmh := od.GetSuccessRateMinimumHosts(); srmh != nil {
+		successRateMinimumHosts = srmh.GetValue()
+	}
+	successRateRequestVolume := uint32(defaultSuccessRateRequestVolume)
+	if srrv := od.GetSuccessRateRequestVolume(); srrv != nil {
+		successRateRequestVolume = srrv.GetValue()
+	}
+	failurePercentageMinimumHosts := uint32(defaultFailurePercentageMinimumHosts)
+	if fpmh := od.GetFailurePercentageMinimumHosts(); fpmh != nil {
+		failurePercentageMinimumHosts = fpmh.GetValue()
+	}
+	failurePercentageRequestVolume := uint32(defaultFailurePercentageRequestVolume)
+	if fprv := od.GetFailurePercentageRequestVolume(); fprv != nil {
+		failurePercentageRequestVolume = fprv.GetValue()
+	}
+
+	return &OutlierDetection{
+		Interval:                       interval,
+		BaseEjectionTime:               baseEjectionTime,
+		MaxEjectionTime:                maxEjectionTime,
+		MaxEjectionPercent:             maxEjectionPercent,
+		EnforcingSuccessRate:           enforcingSuccessRate,
+		FailurePercentageThreshold:     failurePercentageThreshold,
+		EnforcingFailurePercentage:     enforcingFailurePercentage,
+		SuccessRateStdevFactor:         successRateStdevFactor,
+		SuccessRateMinimumHosts:        successRateMinimumHosts,
+		SuccessRateRequestVolume:       successRateRequestVolume,
+		FailurePercentageMinimumHosts:  failurePercentageMinimumHosts,
+		FailurePercentageRequestVolume: failurePercentageRequestVolume,
+	}, nil
 }

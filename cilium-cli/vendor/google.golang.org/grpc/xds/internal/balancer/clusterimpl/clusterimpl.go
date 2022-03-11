@@ -41,6 +41,7 @@ import (
 	xdsinternal "google.golang.org/grpc/xds/internal"
 	"google.golang.org/grpc/xds/internal/balancer/loadstore"
 	"google.golang.org/grpc/xds/internal/xdsclient"
+	"google.golang.org/grpc/xds/internal/xdsclient/bootstrap"
 	"google.golang.org/grpc/xds/internal/xdsclient/load"
 )
 
@@ -104,7 +105,7 @@ type clusterImplBalancer struct {
 	childLB          balancer.Balancer
 	cancelLoadReport func()
 	edsServiceName   string
-	lrsServerName    *string
+	lrsServer        *bootstrap.ServerConfig
 	loadWrapper      *loadstore.Wrapper
 
 	clusterNameMu sync.Mutex
@@ -171,22 +172,22 @@ func (b *clusterImplBalancer) updateLoadStore(newConfig *LBConfig) error {
 	)
 
 	// Check if it's necessary to restart load report.
-	if b.lrsServerName == nil {
-		if newConfig.LoadReportingServerName != nil {
+	if b.lrsServer == nil {
+		if newConfig.LoadReportingServer != nil {
 			// Old is nil, new is not nil, start new LRS.
-			b.lrsServerName = newConfig.LoadReportingServerName
+			b.lrsServer = newConfig.LoadReportingServer
 			startNewLoadReport = true
 		}
 		// Old is nil, new is nil, do nothing.
-	} else if newConfig.LoadReportingServerName == nil {
+	} else if newConfig.LoadReportingServer == nil {
 		// Old is not nil, new is nil, stop old, don't start new.
-		b.lrsServerName = newConfig.LoadReportingServerName
+		b.lrsServer = newConfig.LoadReportingServer
 		stopOldLoadReport = true
 	} else {
 		// Old is not nil, new is not nil, compare string values, if
 		// different, stop old and start new.
-		if *b.lrsServerName != *newConfig.LoadReportingServerName {
-			b.lrsServerName = newConfig.LoadReportingServerName
+		if *b.lrsServer != *newConfig.LoadReportingServer {
+			b.lrsServer = newConfig.LoadReportingServer
 			stopOldLoadReport = true
 			startNewLoadReport = true
 		}
@@ -206,7 +207,7 @@ func (b *clusterImplBalancer) updateLoadStore(newConfig *LBConfig) error {
 	if startNewLoadReport {
 		var loadStore *load.Store
 		if b.xdsClient != nil {
-			loadStore, b.cancelLoadReport = b.xdsClient.ReportLoad(*b.lrsServerName)
+			loadStore, b.cancelLoadReport = b.xdsClient.ReportLoad(b.lrsServer)
 		}
 		b.loadWrapper.UpdateLoadStore(loadStore)
 	}
