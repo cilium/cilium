@@ -260,7 +260,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 
 		subnet := net.IPNet{
 			IP:   net.IPv4zero,
-			Mask: net.CIDRMask(0, net.IPv4len),
+			Mask: net.CIDRMask(0, 8*net.IPv4len),
 		}
 		rt.Prefix = subnet
 		if _, err := route.Upsert(rt); err != nil {
@@ -274,7 +274,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 
 		subnet := net.IPNet{
 			IP:   net.IPv6zero,
-			Mask: net.CIDRMask(0, net.IPv6len),
+			Mask: net.CIDRMask(0, 8*net.IPv6len),
 		}
 		rt.Prefix = subnet
 		if _, err := route.Upsert(rt); err != nil {
