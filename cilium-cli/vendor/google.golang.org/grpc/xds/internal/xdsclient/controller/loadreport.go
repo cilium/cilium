@@ -35,9 +35,10 @@ import (
 // It returns a Store for the user to report loads, a function to cancel the
 // load reporting stream.
 //
-// TODO: LRS refactor; maybe a new controller should be created for a separate
-// server, so that the same stream can be shared by different reporters to the
-// same server, even if they originate from different Controllers.
+// TODO(xdsfed): LRS refactor, delete the parameter of this function, and
+// cleanup the multiple LRS ClientConn code. Each controller should have one
+// ClientConn to the authority it's created for, all LRS streams (and ADS
+// streams) in this controller should all share that ClientConn.
 func (c *Controller) ReportLoad(server string) (*load.Store, func()) {
 	c.lrsMu.Lock()
 	defer c.lrsMu.Unlock()
