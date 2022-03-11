@@ -25,17 +25,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"strings"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/google"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/tls/certprovider"
 	"google.golang.org/grpc/internal"
 	"google.golang.org/grpc/internal/envconfig"
 	"google.golang.org/grpc/internal/pretty"
+	"google.golang.org/grpc/xds/bootstrap"
 	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource/version"
 
 	v2corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -48,17 +51,43 @@ const (
 	// server supports the v3 version of the xDS transport protocol.
 	serverFeaturesV3 = "xds_v3"
 
-	// Type name for Google default credentials.
-	credsGoogleDefault              = "google_default"
-	credsInsecure                   = "insecure"
 	gRPCUserAgentName               = "gRPC Go"
 	clientFeatureNoOverprovisioning = "envoy.lb.does_not_support_overprovisioning"
 )
+
+func init() {
+	bootstrap.RegisterCredentials(&insecureCredsBuilder{})
+	bootstrap.RegisterCredentials(&googleDefaultCredsBuilder{})
+}
 
 var gRPCVersion = fmt.Sprintf("%s %s", gRPCUserAgentName, grpc.Version)
 
 // For overriding in unit tests.
 var bootstrapFileReadFunc = ioutil.ReadFile
+
+// insecureCredsBuilder implements the `Credentials` interface defined in
+// package `xds/bootstrap` and encapsulates an insecure credential.
+type insecureCredsBuilder struct{}
+
+func (i *insecureCredsBuilder) Build(json.RawMessage) (credentials.Bundle, error) {
+	return insecure.NewBundle(), nil
+}
+
+func (i *insecureCredsBuilder) Name() string {
+	return "insecure"
+}
+
+// googleDefaultCredsBuilder implements the `Credentials` interface defined in
+// package `xds/boostrap` and encapsulates a Google Default credential.
+type googleDefaultCredsBuilder struct{}
+
+func (d *googleDefaultCredsBuilder) Build(json.RawMessage) (credentials.Bundle, error) {
+	return google.NewDefaultCredentials(), nil
+}
+
+func (d *googleDefaultCredsBuilder) Name() string {
+	return "google_default"
+}
 
 // ServerConfig contains the configuration to connect to a server, including
 // URI, creds, and transport API version (e.g. v2 or v3).
@@ -106,35 +135,57 @@ func (sc *ServerConfig) String() string {
 	return strings.Join([]string{sc.ServerURI, sc.CredsType, ver}, "-")
 }
 
-// UnmarshalJSON takes the json data (a list of servers) and unmarshals the
-// first one in the list.
+// MarshalJSON marshals the ServerConfig to json.
+func (sc ServerConfig) MarshalJSON() ([]byte, error) {
+	server := xdsServer{
+		ServerURI:    sc.ServerURI,
+		ChannelCreds: []channelCreds{{Type: sc.CredsType, Config: nil}},
+	}
+	if sc.TransportAPI == version.TransportV3 {
+		server.ServerFeatures = []string{serverFeaturesV3}
+	}
+	return json.Marshal(server)
+}
+
+// UnmarshalJSON takes the json data (a server) and unmarshals it to the struct.
 func (sc *ServerConfig) UnmarshalJSON(data []byte) error {
-	var servers []*xdsServer
-	if err := json.Unmarshal(data, &servers); err != nil {
-		return fmt.Errorf("xds: json.Unmarshal(data) for field xds_servers failed during bootstrap: %v", err)
+	var server xdsServer
+	if err := json.Unmarshal(data, &server); err != nil {
+		return fmt.Errorf("xds: json.Unmarshal(data) for field ServerConfig failed during bootstrap: %v", err)
 	}
-	if len(servers) < 1 {
-		return fmt.Errorf("xds: bootstrap file parsing failed during bootstrap: file doesn't contain any management server to connect to")
-	}
-	xs := servers[0]
-	sc.ServerURI = xs.ServerURI
-	for _, cc := range xs.ChannelCreds {
+	sc.ServerURI = server.ServerURI
+	for _, cc := range server.ChannelCreds {
 		// We stop at the first credential type that we support.
 		sc.CredsType = cc.Type
-		if cc.Type == credsGoogleDefault {
-			sc.Creds = grpc.WithCredentialsBundle(google.NewDefaultCredentials())
-			break
-		} else if cc.Type == credsInsecure {
-			sc.Creds = grpc.WithTransportCredentials(insecure.NewCredentials())
-			break
+		c := bootstrap.GetCredentials(cc.Type)
+		if c == nil {
+			continue
 		}
+		bundle, err := c.Build(cc.Config)
+		if err != nil {
+			return fmt.Errorf("failed to build credentials bundle from bootstrap for %q: %v", cc.Type, err)
+		}
+		sc.Creds = grpc.WithCredentialsBundle(bundle)
+		break
 	}
-	for _, f := range xs.ServerFeatures {
+	for _, f := range server.ServerFeatures {
 		if f == serverFeaturesV3 {
 			sc.TransportAPI = version.TransportV3
 		}
 	}
 	return nil
+}
+
+// unmarshalJSONServerConfigSlice unmarshals JSON to a slice.
+func unmarshalJSONServerConfigSlice(data []byte) ([]*ServerConfig, error) {
+	var servers []*ServerConfig
+	if err := json.Unmarshal(data, &servers); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON to []*ServerConfig: %v", err)
+	}
+	if len(servers) < 1 {
+		return nil, fmt.Errorf("no management server found in JSON")
+	}
+	return servers, nil
 }
 
 // Authority contains configuration for an Authority for an xDS control plane
@@ -169,9 +220,11 @@ func (a *Authority) UnmarshalJSON(data []byte) error {
 	for k, v := range jsonData {
 		switch k {
 		case "xds_servers":
-			if err := json.Unmarshal(v, &a.XDSServer); err != nil {
-				return fmt.Errorf("xds: json.Unmarshal(%v) for field %q failed during bootstrap: %v", string(v), k, err)
+			servers, err := unmarshalJSONServerConfigSlice(v)
+			if err != nil {
+				return fmt.Errorf("xds: json.Unmarshal(data) for field %q failed during bootstrap: %v", k, err)
 			}
+			a.XDSServer = servers[0]
 		case "client_listener_resource_name_template":
 			if err := json.Unmarshal(v, &a.ClientListenerResourceNameTemplate); err != nil {
 				return fmt.Errorf("xds: json.Unmarshal(%v) for field %q failed during bootstrap: %v", string(v), k, err)
@@ -242,7 +295,7 @@ type Config struct {
 
 type channelCreds struct {
 	Type   string          `json:"type"`
-	Config json.RawMessage `json:"config"`
+	Config json.RawMessage `json:"config,omitempty"`
 }
 
 type xdsServer struct {
@@ -276,11 +329,13 @@ func bootstrapConfigFromEnvVariable() ([]byte, error) {
 }
 
 // NewConfig returns a new instance of Config initialized by reading the
-// bootstrap file found at ${GRPC_XDS_BOOTSTRAP}.
+// bootstrap file found at ${GRPC_XDS_BOOTSTRAP} or bootstrap contents specified
+// at ${GRPC_XDS_BOOTSTRAP_CONFIG}. If both env vars are set, the former is
+// preferred.
 //
-// Currently, we support exactly one type of credential, which is
-// "google_default", where we use the host's default certs for transport
-// credentials and a Google oauth token for call credentials.
+// We support a credential registration mechanism and only credentials
+// registered through that mechanism will be accepted here. See package
+// `xds/bootstrap` for details.
 //
 // This function tries to process as much of the bootstrap file as possible (in
 // the presence of the errors) and may return a Config object with certain
@@ -294,13 +349,18 @@ func NewConfig() (*Config, error) {
 		return nil, fmt.Errorf("xds: Failed to read bootstrap config: %v", err)
 	}
 	logger.Debugf("Bootstrap content: %s", data)
-	return NewConfigFromContents(data)
+	return newConfigFromContents(data)
 }
 
-// NewConfigFromContents returns a new Config using the specified bootstrap
-// file contents instead of reading the environment variable.  This is only
-// suitable for testing purposes.
-func NewConfigFromContents(data []byte) (*Config, error) {
+// NewConfigFromContentsForTesting returns a new Config using the specified
+// bootstrap file contents instead of reading the environment variable.
+//
+// This is only suitable for testing purposes.
+func NewConfigFromContentsForTesting(data []byte) (*Config, error) {
+	return newConfigFromContents(data)
+}
+
+func newConfigFromContents(data []byte) (*Config, error) {
 	config := &Config{}
 
 	var jsonData map[string]json.RawMessage
@@ -324,9 +384,11 @@ func NewConfigFromContents(data []byte) (*Config, error) {
 				return nil, fmt.Errorf("xds: jsonpb.Unmarshal(%v) for field %q failed during bootstrap: %v", string(v), k, err)
 			}
 		case "xds_servers":
-			if err := json.Unmarshal(v, &config.XDSServer); err != nil {
-				return nil, fmt.Errorf("xds: json.Unmarshal(%v) for field %q failed during bootstrap: %v", string(v), k, err)
+			servers, err := unmarshalJSONServerConfigSlice(v)
+			if err != nil {
+				return nil, fmt.Errorf("xds: json.Unmarshal(data) for field %q failed during bootstrap: %v", k, err)
 			}
+			config.XDSServer = servers[0]
 		case "certificate_providers":
 			var providerInstances map[string]json.RawMessage
 			if err := json.Unmarshal(v, &providerInstances); err != nil {
@@ -401,7 +463,7 @@ func NewConfigFromContents(data []byte) (*Config, error) {
 	// - if set, it must start with "xdstp://<authority_name>/"
 	// - if not set, it defaults to "xdstp://<authority_name>/envoy.config.listener.v3.Listener/%s"
 	for name, authority := range config.Authorities {
-		prefix := fmt.Sprintf("xdstp://%s", name)
+		prefix := fmt.Sprintf("xdstp://%s", url.PathEscape(name))
 		if authority.ClientListenerResourceNameTemplate == "" {
 			authority.ClientListenerResourceNameTemplate = prefix + "/envoy.config.listener.v3.Listener/%s"
 			continue
@@ -429,7 +491,7 @@ func NewConfigFromContents(data []byte) (*Config, error) {
 // file are populated here.
 // 3. For each server config (both top level and in each authority), we set its
 // node field to the v3.Node, or a v2.Node with the same content, depending on
-// the server's transprot API version.
+// the server's transport API version.
 func (c *Config) updateNodeProto(node *v3corepb.Node) error {
 	v3 := node
 	if v3 == nil {
@@ -439,11 +501,11 @@ func (c *Config) updateNodeProto(node *v3corepb.Node) error {
 	v3.UserAgentVersionType = &v3corepb.Node_UserAgentVersion{UserAgentVersion: grpc.Version}
 	v3.ClientFeatures = append(v3.ClientFeatures, clientFeatureNoOverprovisioning)
 
-	v2 := &v2corepb.Node{}
 	v3bytes, err := proto.Marshal(v3)
 	if err != nil {
 		return fmt.Errorf("xds: proto.Marshal(%v): %v", v3, err)
 	}
+	v2 := &v2corepb.Node{}
 	if err := proto.Unmarshal(v3bytes, v2); err != nil {
 		return fmt.Errorf("xds: proto.Unmarshal(%v): %v", v3bytes, err)
 	}

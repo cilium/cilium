@@ -82,7 +82,7 @@ func (b *priorityBalancer) syncPriority() {
 	for p, name := range b.priorities {
 		child, ok := b.children[name]
 		if !ok {
-			b.logger.Errorf("child with name %q is not found in children", name)
+			b.logger.Warningf("child with name %q is not found in children", name)
 			continue
 		}
 
@@ -112,7 +112,7 @@ func (b *priorityBalancer) stopSubBalancersLowerThanPriority(p int) {
 		name := b.priorities[i]
 		child, ok := b.children[name]
 		if !ok {
-			b.logger.Errorf("child with name %q is not found in children", name)
+			b.logger.Warningf("child with name %q is not found in children", name)
 			continue
 		}
 		child.stop()
@@ -197,12 +197,12 @@ func (b *priorityBalancer) handleChildStateUpdate(childName string, s balancer.S
 
 	priority, ok := b.childToPriority[childName]
 	if !ok {
-		b.logger.Errorf("priority: received picker update with unknown child %v", childName)
+		b.logger.Warningf("priority: received picker update with unknown child %v", childName)
 		return
 	}
 
 	if b.childInUse == "" {
-		b.logger.Errorf("priority: no child is in use when picker update is received")
+		b.logger.Warningf("priority: no child is in use when picker update is received")
 		return
 	}
 
@@ -219,7 +219,7 @@ func (b *priorityBalancer) handleChildStateUpdate(childName string, s balancer.S
 	// necessary.
 	child, ok := b.children[childName]
 	if !ok {
-		b.logger.Errorf("priority: child balancer not found for child %v, priority %v", childName, priority)
+		b.logger.Warningf("priority: child balancer not found for child %v, priority %v", childName, priority)
 		return
 	}
 	oldState := child.state.ConnectivityState

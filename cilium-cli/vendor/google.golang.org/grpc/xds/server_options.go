@@ -26,8 +26,8 @@ import (
 )
 
 type serverOptions struct {
-	modeCallback      ServingModeCallbackFunc
-	bootstrapContents []byte
+	modeCallback                ServingModeCallbackFunc
+	bootstrapContentsForTesting []byte
 }
 
 type serverOption struct {
@@ -72,5 +72,5 @@ type ServingModeChangeArgs struct {
 // Notice: This API is EXPERIMENTAL and may be changed or removed in a
 // later release.
 func BootstrapContentsForTesting(contents []byte) grpc.ServerOption {
-	return &serverOption{apply: func(o *serverOptions) { o.bootstrapContents = contents }}
+	return &serverOption{apply: func(o *serverOptions) { o.bootstrapContentsForTesting = contents }}
 }

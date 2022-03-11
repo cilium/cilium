@@ -161,11 +161,13 @@ func (s *GRPCServer) initXDSClient() error {
 	}
 
 	newXDSClient := newXDSClient
-	if s.opts.bootstrapContents != nil {
+	if s.opts.bootstrapContentsForTesting != nil {
+		// Bootstrap file contents may be specified as a server option for tests.
 		newXDSClient = func() (xdsclient.XDSClient, error) {
-			return xdsclient.NewClientWithBootstrapContents(s.opts.bootstrapContents)
+			return xdsclient.NewWithBootstrapContentsForTesting(s.opts.bootstrapContentsForTesting)
 		}
 	}
+
 	client, err := newXDSClient()
 	if err != nil {
 		return fmt.Errorf("xds: failed to create xds-client: %v", err)

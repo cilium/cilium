@@ -27,8 +27,6 @@ import (
 	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource"
 )
 
-const federationScheme = "xdstp"
-
 // findAuthority returns the authority for this name. If it doesn't already
 // exist, one will be created.
 //
@@ -49,7 +47,7 @@ func (c *clientImpl) findAuthority(n *xdsresource.Name) (_ *authority, unref fun
 	}
 
 	config := c.config.XDSServer
-	if scheme == federationScheme {
+	if scheme == xdsresource.FederationScheme {
 		cfg, ok := c.config.Authorities[authority]
 		if !ok {
 			return nil, nil, fmt.Errorf("xds: failed to find authority %q", authority)
@@ -77,6 +75,9 @@ func (c *clientImpl) findAuthority(n *xdsresource.Name) (_ *authority, unref fun
 
 // newAuthority creates a new authority for the config. But before that, it
 // checks the cache to see if an authority for this config already exists.
+//
+// The caller must take a reference of the returned authority before using, and
+// unref afterwards.
 //
 // caller must hold c.authorityMu
 func (c *clientImpl) newAuthority(config *bootstrap.ServerConfig) (_ *authority, retErr error) {
@@ -219,8 +220,12 @@ func (a *authority) watchEndpoints(clusterName string, cb func(xdsresource.Endpo
 	}
 }
 
-func (a *authority) reportLoad(server string) (*load.Store, func()) {
-	return a.controller.ReportLoad(server)
+func (a *authority) reportLoad() (*load.Store, func()) {
+	// An empty string means to report load to the same same used for ADS. There
+	// should never be a need to specify a string other than an empty string. If
+	// a different server is to be used, a different authority (controller) will
+	// be created.
+	return a.controller.ReportLoad("")
 }
 
 func (a *authority) dump(t xdsresource.ResourceType) map[string]xdsresource.UpdateWithMD {
