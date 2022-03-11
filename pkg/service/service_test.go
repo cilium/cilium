@@ -99,6 +99,100 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteServiceWithoutIPv6(c *C) {
 	m.testUpsertAndDeleteService(c)
 }
 
+func (m *ManagerTestSuite) TestUpsertAndDeleteServiceNat46(c *C) {
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = true
+	option.Config.NodePortNat46X64 = true
+	m.testUpsertAndDeleteService46(c)
+}
+
+func (m *ManagerTestSuite) TestUpsertAndDeleteServiceNat64(c *C) {
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = true
+	option.Config.NodePortNat46X64 = true
+	m.testUpsertAndDeleteService64(c)
+}
+
+func (m *ManagerTestSuite) testUpsertAndDeleteService46(c *C) {
+	// Should create a new v4 service with two v6 backends
+	p := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      backends3,
+		Type:          lb.SVCTypeNodePort,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc1",
+		Namespace:     "ns1",
+	}
+	created, id1, err := m.svc.UpsertService(p)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcNatPolicy, Equals, lb.SVCNatPolicyNat46)
+
+	// Should delete both backends of service
+	p.Backends = nil
+	created, id2, err := m.svc.UpsertService(p)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id2, Equals, id1)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 0)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id2].svcNatPolicy, Equals, lb.SVCNatPolicyNone)
+
+	// Should delete the remaining service
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+	c.Assert(len(m.lbmap.ServiceByID), Equals, 0)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+}
+
+func (m *ManagerTestSuite) testUpsertAndDeleteService64(c *C) {
+	// Should create a new v6 service with two v4 backends
+	p := &lb.SVC{
+		Frontend:      frontend3,
+		Backends:      backends1,
+		Type:          lb.SVCTypeNodePort,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc1",
+		Namespace:     "ns1",
+	}
+	created, id1, err := m.svc.UpsertService(p)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcNatPolicy, Equals, lb.SVCNatPolicyNat64)
+
+	// Should delete both backends of service
+	p.Backends = nil
+	created, id2, err := m.svc.UpsertService(p)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id2, Equals, id1)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 0)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id2].svcNatPolicy, Equals, lb.SVCNatPolicyNone)
+
+	// Should delete the remaining service
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+	c.Assert(len(m.lbmap.ServiceByID), Equals, 0)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+}
+
 func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	// Should create a new service with two backends and session affinity
 	p := &lb.SVC{
@@ -402,7 +496,6 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	for _, b := range lbmap.ServiceByID[uint16(id2)].Backends {
 		c.Assert(m.lbmap.AffinityMatch[uint16(id2)][b.ID], Equals, struct{}{})
 	}
-
 }
 
 func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
