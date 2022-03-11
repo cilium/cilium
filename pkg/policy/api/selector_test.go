@@ -113,3 +113,52 @@ func BenchmarkMatchesInvalid1000Parallel(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkMarshalJSON(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		es := EndpointSelector{
+			LabelSelector: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"k8s:io.kubernetes.pod.namespace": "default",
+					"random":                          "label1",
+					"random2":                         "label3",
+					"random3":                         "label4",
+					"random4":                         "label5",
+					"random5":                         "label6",
+					"averylonggarbagevaluethatweareusingtotestjson": "averylonggarbagevaluethatweareusingtotestjson",
+				},
+			},
+		}
+		_, err := es.MarshalJSON()
+		if err != nil {
+			b.Fatalf("error marshaling: %v", err)
+		}
+	}
+}
+
+func BenchmarkUnmarshalJSON(b *testing.B) {
+	j := []byte(`
+{
+  "endpointSelector": {
+    "matchLabels": {
+      "k8s:io.kubernetes.pod.namespace": "default",
+      "random": "label1",
+      "random2": "label3",
+      "random3": "label4",
+      "random4": "label5",
+      "random5": "label6",
+      "averylonggarbagevaluethatweareusingtotestjson": "averylonggarbagevaluethatweareusingtotestjson"
+    }
+  }
+}
+`)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		es := new(EndpointSelector)
+		err := es.UnmarshalJSON(j)
+		if err != nil {
+			b.Fatalf("error unmarshaling: %v", err)
+		}
+	}
+}
