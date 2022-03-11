@@ -102,8 +102,8 @@ func processClientSideListener(lis *v3listenerpb.Listener, logger *grpclog.Prefi
 
 	switch apiLis.RouteSpecifier.(type) {
 	case *v3httppb.HttpConnectionManager_Rds:
-		if apiLis.GetRds().GetConfigSource().GetAds() == nil {
-			return nil, fmt.Errorf("ConfigSource is not ADS: %+v", lis)
+		if configsource := apiLis.GetRds().GetConfigSource(); configsource.GetAds() == nil && configsource.GetSelf() == nil {
+			return nil, fmt.Errorf("LDS's RDS configSource is not ADS or Self: %+v", lis)
 		}
 		name := apiLis.GetRds().GetRouteConfigName()
 		if name == "" {
