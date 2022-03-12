@@ -213,6 +213,11 @@ Users (Alphabetically)
       U: CNI
       Q: @joey, @onur.gokkocabas
 
+    * N: Snapp
+      D: Snapp is using Cilium in production for its on premise openshift clusters
+      U: CNI, Network Policies, Hubble
+      Q: @m-yosefpor
+
     * N: Sphere Knowledge
       D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
       U: ENI Networking, Network policies, Service load-balancing, Hubble
