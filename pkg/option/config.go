@@ -136,6 +136,9 @@ const (
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs = "enable-external-ips"
 
+	// EnableUnsafeExternalIPs enables pods to connect to externalIPs on the same host
+	EnableUnsafeExternalIPs = "enable-unsafe-external-ips"
+
 	// K8sEnableEndpointSlice enables the k8s EndpointSlice feature into Cilium
 	K8sEnableEndpointSlice = "enable-k8s-endpoint-slice"
 
@@ -1802,6 +1805,9 @@ type DaemonConfig struct {
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs bool
 
+	// EnableUnsafeExternalIPs enables pods on to reach externalIPs on the same host
+	EnableUnsafeExternalIPs bool
+
 	// EnableHostFirewall enables network policies for the host
 	EnableHostFirewall bool
 
@@ -2607,6 +2613,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableLocalNodeRoute = viper.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
 	c.EnableExternalIPs = viper.GetBool(EnableExternalIPs)
+	c.EnableUnsafeExternalIPs = viper.GetBool(EnableUnsafeExternalIPs)
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableUnreachableRoutes = viper.GetBool(EnableUnreachableRoutes)

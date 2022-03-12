@@ -120,6 +120,7 @@ cilium-agent [flags]
       --enable-svc-source-range-check                        Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tracing                                       Enable tracing while determining policy (debugging)
       --enable-unreachable-routes                            Add unreachable routes on pod deletion
+      --enable-unsafe-external-ips                           Enable externalIPs from pods on same host feature (requires enabling enable-external-ips)
       --enable-vtep                                          Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)
       --enable-well-known-identities                         Enable well-known identities for known Kubernetes components (default true)
       --enable-wireguard                                     Enable wireguard

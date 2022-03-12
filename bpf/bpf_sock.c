@@ -223,16 +223,29 @@ int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 #endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
 
 static __always_inline bool
-sock4_skip_xlate(struct lb4_service *svc, __be32 address)
+sock4_skip_xlate(struct lb4_service *svc, const bool in_hostns __maybe_unused, __be32 address)
 {
 	if (lb4_svc_is_external_ip(svc) ||
 	    (lb4_svc_is_hostport(svc) && !is_v4_loopback(address))) {
 		struct remote_endpoint_info *info;
+    bool svc_is_local_scope;
 
 		info = ipcache_lookup4(&IPCACHE_MAP, address,
 				       V4_CACHE_KEY_LEN);
-		if (info == NULL || info->sec_label != HOST_ID)
+#ifdef ENABLE_UNSAFE_EXTERNAL_IP
+    svc_is_local_scope = lb4_svc_is_local_scope(svc);
+#else
+    svc_is_local_scope = true;
+#endif
+		if (info == NULL || (svc_is_local_scope && info->sec_label != HOST_ID))
 			return true;
+#ifdef ENABLE_UNSAFE_EXTERNAL_IP
+    if (lb4_svc_is_external_ip(svc)) {
+			if (info->sec_label != HOST_ID &&
+			    info->sec_label != REMOTE_NODE_ID)
+				return in_hostns;
+		}
+#endif
 	}
 
 	return false;
@@ -379,7 +392,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 * IP address. But do the service translation if the IP
 	 * is from the host.
 	 */
-	if (sock4_skip_xlate(svc, orig_key.address))
+	if (sock4_skip_xlate(svc, in_hostns, orig_key.address))
 		return -EPERM;
 
 	if (lb4_svc_is_affinity(svc)) {
@@ -708,16 +721,29 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 }
 
 static __always_inline __maybe_unused bool
-sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
+sock6_skip_xlate(struct lb6_service *svc, const bool in_hostns __maybe_unused, union v6addr *address)
 {
 	if (lb6_svc_is_external_ip(svc) ||
 	    (lb6_svc_is_hostport(svc) && !is_v6_loopback(address))) {
 		struct remote_endpoint_info *info;
+    bool svc_is_local_scope;
 
 		info = ipcache_lookup6(&IPCACHE_MAP, address,
 				       V6_CACHE_KEY_LEN);
-		if (info == NULL || info->sec_label != HOST_ID)
+#ifdef ENABLE_UNSAFE_EXTERNAL_IP
+    svc_is_local_scope = lb6_svc_is_local_scope(svc);
+#else
+    svc_is_local_scope = true;
+#endif
+		if (info == NULL || (svc_is_local_scope && info->sec_label != HOST_ID))
 			return true;
+#ifdef ENABLE_UNSAFE_EXTERNAL_IP
+    if (lb6_svc_is_external_ip(svc)) {
+			if (info->sec_label != HOST_ID &&
+			    info->sec_label != REMOTE_NODE_ID)
+				return in_hostns;
+		}
+#endif
 	}
 
 	return false;
@@ -973,7 +999,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
 
-	if (sock6_skip_xlate(svc, &orig_key.address))
+	if (sock6_skip_xlate(svc, in_hostns, &orig_key.address))
 		return -EPERM;
 
 	if (lb6_svc_is_affinity(svc)) {

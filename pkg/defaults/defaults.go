@@ -168,6 +168,9 @@ const (
 	// EnableExternalIPs is the default value for k8s service with externalIPs feature.
 	EnableExternalIPs = true
 
+	// EnableUnsafeExternalIPs is the default value for allowing pods to reach externalIPs on the same node
+	EnableUnsafeExternalIPs = false
+
 	// K8sEnableEndpointSlice is the default value for k8s EndpointSlice feature.
 	K8sEnableEndpointSlice = true
 

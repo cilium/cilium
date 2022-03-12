@@ -51,7 +51,7 @@
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 
-#if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_SOCKET_LB_HOST_ONLY)
+#if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_SOCKET_LB_HOST_ONLY) || (defined(ENABLE_EXTERNAL_IP) && !defined(BPF_HAVE_NETNS_COOKIE) && defined(ENABLE_UNSAFE_EXTERNAL_IP))
 # define ENABLE_PER_PACKET_LB
 #endif
 
@@ -154,7 +154,7 @@ ipv6_l3_from_lxc(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		 * state in the address.
 		 */
 		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
-		if (svc) {
+		if (svc && lb6_svc_needs_lxc_xlation(svc)) {
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, tuple, svc, &ct_state_new,
 					false);
@@ -592,7 +592,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 		}
 
 		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
-		if (svc) {
+		if (svc && lb4_svc_needs_lxc_xlation(svc)) {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					ip4->saddr, has_l4_header, false);

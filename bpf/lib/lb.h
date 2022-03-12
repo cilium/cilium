@@ -233,6 +233,26 @@ bool lb6_svc_is_external_ip(const struct lb6_service *svc __maybe_unused)
 }
 
 static __always_inline
+bool lb4_svc_needs_lxc_xlation(const struct lb4_service *svc __maybe_unused)
+{
+#if defined(ENABLE_HOST_SERVICES_FULL) && defined(ENABLE_EXTERNAL_IP) && defined(ENABLE_UNSAFE_EXTERNAL_IP)
+	return lb4_svc_is_external_ip(svc);
+#else
+	return true;
+#endif
+}
+
+static __always_inline
+bool lb6_svc_needs_lxc_xlation(const struct lb6_service *svc __maybe_unused)
+{
+#if defined(ENABLE_HOST_SERVICES_FULL) && defined(ENABLE_EXTERNAL_IP) && defined(ENABLE_UNSAFE_EXTERNAL_IP)
+	return lb6_svc_is_external_ip(svc);
+#else
+	return true;
+#endif
+}
+
+static __always_inline
 bool lb4_svc_is_hostport(const struct lb4_service *svc __maybe_unused)
 {
 	return svc->flags & SVC_FLAG_HOSTPORT;
