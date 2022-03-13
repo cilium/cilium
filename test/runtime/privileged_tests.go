@@ -42,7 +42,7 @@ var _ = Describe("RuntimePrivilegedUnitTests", func() {
 		path, _ := filepath.Split(vm.BasePath())
 		ctx, cancel := context.WithTimeout(context.Background(), privilegedUnitTestTimeout)
 		defer cancel()
-		res := vm.ExecContext(ctx, fmt.Sprintf("sudo make -C %s tests-privileged", path))
+		res := vm.ExecContext(ctx, fmt.Sprintf("sudo make -C %s tests-privileged | ts '[%%H:%%M:%%S]'", path))
 		res.ExpectSuccess("Failed to run privileged unit tests")
 	})
 })
