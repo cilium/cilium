@@ -181,6 +181,9 @@ github.com/cilium/ebpf/rlimit
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
+# github.com/cilium/lumberjack/v2 v2.2.1
+## explicit; go 1.13
+github.com/cilium/lumberjack/v2
 # github.com/cilium/proxy v0.0.0-20220202185058-28b3c32edfee
 ## explicit; go 1.13
 github.com/cilium/proxy/go/cilium/api
@@ -1088,9 +1091,6 @@ gopkg.in/inf.v0
 # gopkg.in/ini.v1 v1.66.4
 ## explicit
 gopkg.in/ini.v1
-# gopkg.in/natefinch/lumberjack.v2 v2.0.0
-## explicit
-gopkg.in/natefinch/lumberjack.v2
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 ## explicit
 gopkg.in/tomb.v1

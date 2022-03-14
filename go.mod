@@ -20,6 +20,7 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.8.1
 	github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
+	github.com/cilium/lumberjack/v2 v2.2.1
 	github.com/cilium/proxy v0.0.0-20220202185058-28b3c32edfee
 	github.com/cilium/workerpool v1.1.1
 	github.com/containernetworking/cni v1.0.1
@@ -90,7 +91,6 @@ require (
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/ini.v1 v1.66.4
-	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.23.3
 	k8s.io/apiextensions-apiserver v0.23.3
