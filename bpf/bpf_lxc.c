@@ -52,7 +52,7 @@
 #include "lib/policy_log.h"
 
 #if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_SOCKET_LB_HOST_ONLY)
-# define ENABLE_PER_PACKET_LB
+# define ENABLE_PER_PACKET_LB 1
 #endif
 
 #if defined(ENABLE_ARP_PASSTHROUGH) && defined(ENABLE_ARP_RESPONDER)
