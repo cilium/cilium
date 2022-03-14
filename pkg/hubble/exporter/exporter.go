@@ -14,8 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
+	"github.com/cilium/lumberjack/v2"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // exporter is an implementation of OnDecodedEvent interface that writes Hubble events to a file.
