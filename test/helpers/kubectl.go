@@ -4328,8 +4328,17 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 	}
 
 	for _, k8sSvc := range k8sSvcs {
-		if k8sSvc.Spec.ClusterIP == cSvc.Status.Realized.FrontendAddress.IP {
-			k8sService = &k8sSvc
+		clusterIPs := k8sSvc.Spec.ClusterIPs
+		if clusterIPs == nil || len(clusterIPs) == 0 {
+			clusterIPs = []string{k8sSvc.Spec.ClusterIP}
+		}
+		for _, clusterIP := range clusterIPs {
+			if clusterIP == cSvc.Status.Realized.FrontendAddress.IP {
+				k8sService = &k8sSvc
+				break
+			}
+		}
+		if k8sService != nil {
 			break
 		}
 		for _, clusterIP := range k8sSvc.Spec.ClusterIPs {
