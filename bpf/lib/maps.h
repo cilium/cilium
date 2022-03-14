@@ -140,7 +140,7 @@ static __always_inline int __##NAME(IPTYPE addr)			\
 	const int size = ARRAY_SIZE(prefixes);				\
 	int i;								\
 									\
-_Pragma("unroll")							\
+__unroll								\
 	for (i = 0; i < size; i++)					\
 		if (LOOKUP_FN(&MAP, addr, prefixes[i]))			\
 			return 1;					\

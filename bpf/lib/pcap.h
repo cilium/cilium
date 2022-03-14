@@ -245,7 +245,7 @@ cilium_capture4_classify_wcard(struct __ctx_buff *ctx)
 	okey.flags = 0;
 	lkey.flags = 0;
 
-_Pragma("unroll")
+__unroll
 	for (i = 0; i < size; i++) {
 		cilium_capture4_masked_key(&okey, &prefix_masks[i], &lkey);
 		match = map_lookup_elem(&CAPTURE4_RULES, &lkey);
@@ -370,7 +370,7 @@ cilium_capture6_classify_wcard(struct __ctx_buff *ctx)
 	okey.flags = 0;
 	lkey.flags = 0;
 
-_Pragma("unroll")
+__unroll
 	for (i = 0; i < size; i++) {
 		cilium_capture6_masked_key(&okey, &prefix_masks[i], &lkey);
 		match = map_lookup_elem(&CAPTURE6_RULES, &lkey);

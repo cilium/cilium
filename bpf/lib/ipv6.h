@@ -51,7 +51,7 @@ static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
 	struct ipv6_opt_hdr opthdr __align_stack_8;
 	__u8 nh = *nexthdr;
 
-#pragma unroll
+__unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
 		switch (nh) {
 		case NEXTHDR_NONE:

@@ -57,6 +57,12 @@
 #define CONDITIONAL_PREALLOC BPF_F_NO_PREALLOC
 #endif
 
+#ifdef HAVE_BOUNDED_LOOPS
+# define __unroll
+#else
+# define __unroll _Pragma("unroll")
+#endif
+
 /* TODO: ipsec v6 tunnel datapath still needs separate fixing */
 #ifndef ENABLE_IPSEC
 # ifdef ENABLE_IPV6

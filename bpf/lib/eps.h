@@ -106,7 +106,7 @@ NAME(IPTYPE addr)							\
 	struct remote_endpoint_info *info;				\
 	int i;								\
 									\
-_Pragma("unroll")							\
+__unroll								\
 	for (i = 0; i < size; i++) {					\
 		info = LOOKUP_FN(&MAP, addr, prefixes[i]);		\
 		if (info != NULL)					\

@@ -347,7 +347,7 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 	int i, len = sizeof(struct ipv6hdr);
 	__u8 nh = nexthdr;
 
-#pragma unroll
+__unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
 		switch (nh) {
 		case NEXTHDR_NONE:
