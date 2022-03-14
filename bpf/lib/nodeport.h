@@ -23,23 +23,9 @@
 #include "ghash.h"
 #include "pcap.h"
 #include "host_firewall.h"
+#include "stubs.h"
 
 #define CB_SRC_IDENTITY	0
-
-#ifdef ENABLE_NODEPORT
- /* Define dummy values to make bpf_{lxc,overlay}.c to compile */
-#ifndef NATIVE_DEV_IFINDEX
-#define NATIVE_DEV_IFINDEX 0
-#endif
-#ifndef DSR_ENCAP_MODE
-#define DSR_ENCAP_MODE 0
-#define DSR_ENCAP_IPIP 2
-#endif
-#if defined(ENABLE_IPV4) && defined(ENABLE_MASQUERADE) && !defined(IPV4_MASQUERADE)
-#define IPV4_MASQUERADE 0
-#endif
-
-#endif /* ENABLE_NODEPORT */
 
 static __always_inline __maybe_unused void
 bpf_skip_nodeport_clear(struct __ctx_buff *ctx)
