@@ -163,7 +163,8 @@ func GetBPFCPU() string {
 			// added in the same release.
 			// We want to enable v3 only on kernels 5.10+ where we have
 			// tested it and need it to work around complexity issues.
-			if h := manager.GetHelpers("sched_cls"); h != nil {
+			h := manager.GetHelpers("sched_cls")
+			if manager.GetMisc().HaveV3ISAExtension && h != nil {
 				if _, ok := h["bpf_redirect_neigh"]; ok {
 					nameBPFCPU = "v3"
 					return
@@ -171,10 +172,8 @@ func GetBPFCPU() string {
 			}
 			// We want to enable v2 on all kernels that support it, that is,
 			// kernels 4.14+.
-			if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
-				if _, ok := h["bpf_redirect_map"]; ok {
-					nameBPFCPU = "v2"
-				}
+			if manager.GetMisc().HaveV2ISAExtension {
+				nameBPFCPU = "v2"
 			}
 		}
 	})
