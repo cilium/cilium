@@ -4,8 +4,8 @@
 package hooks
 
 import (
+	"github.com/cilium/lumberjack/v2"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // FileRotationOption provides all parameters for file rotation

@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/lumberjack/v2"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
