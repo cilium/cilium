@@ -103,7 +103,8 @@ function download_to {
         log "Downloading ${component}..."
 
         rm -f "/tmp/${component}"
-        ${WGET} -O "/tmp/${component}" -nv "${url}"
+        # fix: No such file or directory
+        eval ${WGET} -O "/tmp/${component}" -nv "${url}"
         # Hide 'failed to preserve ownership' error
         mv "/tmp/${component}" "${cache_dir}/${component}" 2>/dev/null
 
