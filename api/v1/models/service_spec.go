@@ -35,6 +35,11 @@ type ServiceSpec struct {
 
 	// Unique identification
 	ID int64 `json:"id,omitempty"`
+
+	// Update all services selecting the backends with their given states
+	// (id and frontend are ignored)
+	//
+	UpdateServices bool `json:"updateServices,omitempty"`
 }
 
 // Validate validates this service spec

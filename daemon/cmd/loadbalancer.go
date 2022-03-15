@@ -28,7 +28,21 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
 
 	if params.Config.ID == 0 {
-		return api.Error(PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
+		if !params.Config.UpdateServices {
+			return api.Error(PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
+		}
+		backends := []loadbalancer.Backend{}
+		for _, v := range params.Config.BackendAddresses {
+			b, err := loadbalancer.NewBackendFromBackendModel(v)
+			if err != nil {
+				return api.Error(PutServiceIDInvalidBackendCode, err)
+			}
+			backends = append(backends, *b)
+		}
+		if err := h.svc.UpdateBackendsState(backends); err != nil {
+			return api.Error(PutServiceIDUpdateBackendFailureCode, err)
+		}
+		return NewPutServiceIDOK()
 	}
 
 	f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)

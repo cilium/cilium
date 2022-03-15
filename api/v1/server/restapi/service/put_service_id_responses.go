@@ -189,3 +189,45 @@ func (o *PutServiceIDFailure) WriteResponse(rw http.ResponseWriter, producer run
 		panic(err) // let the recovery middleware deal with this
 	}
 }
+
+// PutServiceIDUpdateBackendFailureCode is the HTTP code returned for type PutServiceIDUpdateBackendFailure
+const PutServiceIDUpdateBackendFailureCode int = 501
+
+/*PutServiceIDUpdateBackendFailure Error while updating backend states
+
+swagger:response putServiceIdUpdateBackendFailure
+*/
+type PutServiceIDUpdateBackendFailure struct {
+
+	/*
+	  In: Body
+	*/
+	Payload models.Error `json:"body,omitempty"`
+}
+
+// NewPutServiceIDUpdateBackendFailure creates PutServiceIDUpdateBackendFailure with default headers values
+func NewPutServiceIDUpdateBackendFailure() *PutServiceIDUpdateBackendFailure {
+
+	return &PutServiceIDUpdateBackendFailure{}
+}
+
+// WithPayload adds the payload to the put service Id update backend failure response
+func (o *PutServiceIDUpdateBackendFailure) WithPayload(payload models.Error) *PutServiceIDUpdateBackendFailure {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the put service Id update backend failure response
+func (o *PutServiceIDUpdateBackendFailure) SetPayload(payload models.Error) {
+	o.Payload = payload
+}
+
+// WriteResponse to the client
+func (o *PutServiceIDUpdateBackendFailure) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.WriteHeader(501)
+	payload := o.Payload
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
+	}
+}
