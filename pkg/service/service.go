@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"go.uber.org/multierr"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -159,6 +160,14 @@ type L7LBInfo struct {
 	// port number for L7 LB redirection. Can be zero if only backend sync
 	// hass been requested.
 	proxyPort uint16
+}
+
+func (svc *svcInfo) checkLBSourceRange() bool {
+	if option.Config.EnableSVCSourceRangeCheck {
+		return len(svc.loadBalancerSourceRanges) != 0
+	}
+
+	return false
 }
 
 // Service is a service handler. Its main responsibility is to reflect
@@ -625,6 +634,101 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	return new, lb.ID(svc.frontend.ID), nil
 }
 
+// UpdateBackendsState updates all the service(s) with the updated state of
+// the given backends. It also persists the updated backend states to the BPF maps.
+//
+// Backend state transitions are validated before processing.
+//
+// In case of duplicated backends in the list, the state will be updated to the
+// last duplicate entry.
+func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
+	if len(backends) == 0 {
+		return nil
+	}
+	for _, b := range backends {
+		log.WithFields(logrus.Fields{
+			logfields.L3n4Addr: b.L3n4Addr.String(),
+		}).Debug("Update backend states")
+	}
+
+	var (
+		errs            error
+		updatedBackends []*lb.Backend
+	)
+	updateSvcs := make(map[lb.ID]*lbmap.UpsertServiceParams)
+
+	s.Lock()
+	defer s.Unlock()
+	for _, updatedB := range backends {
+		hash := updatedB.L3n4Addr.Hash()
+
+		be, exists := s.backendByHash[hash]
+		if !exists {
+			// Cilium service API and Kubernetes events are asynchronous, so it's
+			// possible to receive an API call for a backend that's already deleted.
+			continue
+		}
+		if be.State == updatedB.State {
+			continue
+		}
+		if !lb.IsValidStateTransition(be.State, updatedB.State) {
+			currentState, _ := be.State.String()
+			newState, _ := updatedB.State.String()
+			e := fmt.Errorf("invalid state transition for backend"+
+				"[%s] (%s) -> (%s)", updatedB.String(), currentState, newState)
+			errs = multierr.Append(errs, e)
+			continue
+		}
+		be.State = updatedB.State
+
+		for id, info := range s.svcByID {
+			var p *lbmap.UpsertServiceParams
+			for i, b := range info.backends {
+				if b.L3n4Addr.String() != updatedB.L3n4Addr.String() {
+					continue
+				}
+				info.backends[i].State = updatedB.State
+				found := false
+				onlyLocalBackends, _ := info.requireNodeLocalBackends(info.frontend)
+
+				if p, found = updateSvcs[id]; !found {
+					p = &lbmap.UpsertServiceParams{
+						ID:                        uint16(id),
+						IP:                        info.frontend.L3n4Addr.IP,
+						Port:                      info.frontend.L3n4Addr.L4Addr.Port,
+						PrevBackendsCount:         len(info.backends),
+						IPv6:                      info.frontend.IsIPv6(),
+						Type:                      info.svcType,
+						Local:                     onlyLocalBackends,
+						Scope:                     info.frontend.L3n4Addr.Scope,
+						SessionAffinity:           info.sessionAffinity,
+						SessionAffinityTimeoutSec: info.sessionAffinityTimeoutSec,
+						CheckSourceRange:          info.checkLBSourceRange(),
+						UseMaglev:                 info.useMaglev(),
+					}
+				}
+				p.ActiveBackends, p.NonActiveBackends = segregateBackends(info.backends)
+				updateSvcs[id] = p
+				log.WithFields(logrus.Fields{
+					logfields.ServiceID: p.ID,
+					logfields.BackendID: b.ID,
+					logfields.L3n4Addr:  b.L3n4Addr.String(),
+				}).Info("Persisting service with backend state update")
+			}
+			s.svcByID[id] = info
+			s.svcByHash[info.frontend.Hash()] = info
+		}
+		updatedBackends = append(updatedBackends, be)
+	}
+
+	for i := range updateSvcs {
+		err := s.lbmap.UpsertService(updateSvcs[i])
+		errs = multierr.Append(errs, err)
+	}
+
+	return errs
+}
+
 // DeleteServiceByID removes a service identified by the given ID.
 func (s *Service) DeleteServiceByID(id lb.ServiceID) (bool, error) {
 	s.Lock()
@@ -992,14 +1096,12 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 
 	// Update LB source range check cidrs
-	if option.Config.EnableSVCSourceRangeCheck {
-		checkLBSrcRange = len(svc.loadBalancerSourceRanges) != 0
-		if checkLBSrcRange || len(prevLoadBalancerSourceRanges) != 0 {
-			if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
-				prevLoadBalancerSourceRanges, svc.loadBalancerSourceRanges,
-				v6FE); err != nil {
-				return err
-			}
+	if checkLBSrcRange = svc.checkLBSourceRange() || len(prevLoadBalancerSourceRanges) != 0; checkLBSrcRange {
+		if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
+			prevLoadBalancerSourceRanges, svc.loadBalancerSourceRanges,
+			v6FE); err != nil {
+
+			return err
 		}
 	}
 
@@ -1016,8 +1118,8 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 
 	// Upsert service entries into BPF maps
-	activeBackends := make(map[string]lb.BackendID, len(svc.backends))
-	var nonActiveBackends []lb.BackendID
+	activeBackends, nonActiveBackends := segregateBackends(svc.backends)
+
 	natPolicy := lb.SVCNatPolicyNone
 	natPolicySet := false
 	for _, b := range svc.backends {
@@ -1030,16 +1132,6 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 			} else if !v6FE && v6BE {
 				natPolicy = lb.SVCNatPolicyNat46
 			}
-		}
-		// Separate active from non-active backends so that they won't be selected
-		// to serve new requests, but can be restored after agent restart. Non-active backends
-		// are kept in the affinity and backend maps so that existing connections
-		// are able to terminate gracefully. Such backends would either be cleaned-up
-		// when the backends are deleted, or they could transition to active state.
-		if b.State == lb.BackendStateActive {
-			activeBackends[b.String()] = b.ID
-		} else {
-			nonActiveBackends = append(nonActiveBackends, b.ID)
 		}
 	}
 	if natPolicy == lb.SVCNatPolicyNat64 {
@@ -1304,21 +1396,31 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend)
 						backend.L3n4Addr, err)
 				}
 				backends[i].ID = id
+				// Default backend state is active.
+				backends[i].State = lb.BackendStateActive
 				newBackends = append(newBackends, backends[i])
 				// TODO make backendByHash by value not by ref
 				s.backendByHash[hash] = &backends[i]
 			} else {
 				backends[i].ID = s.backendByHash[hash].ID
+				backends[i].State = s.backendByHash[hash].State
 			}
 			svc.backendByHash[hash] = &backends[i]
 		} else {
 			backends[i].ID = b.ID
-			if b.State != backends[i].State {
-				if !lb.IsValidStateTransition(b.State, backends[i].State) {
-					return nil, nil, nil,
-						fmt.Errorf("invalid state transition [%d] -> [%d]", b.State, backends[i].State)
-
-				}
+			// Update backend state.
+			// Backend state can either be updated via kubernetes events,
+			// or service API. If the state update is coming via kubernetes events,
+			// then we need to update the internal state. Currently, the only state
+			// update in this case is for the terminating state. All other state
+			// updates happen via the API (UpdateBackendState) in which case we need
+			// to set the backend state to the saved state.
+			if backends[i].State == lb.BackendStateTerminating &&
+				b.State != lb.BackendStateTerminating {
+				b.State = backends[i].State
+			} else {
+				// Set the backend state to the saved state.
+				backends[i].State = b.State
 			}
 		}
 	}
@@ -1404,4 +1506,23 @@ func isWildcardAddr(frontend lb.L3n4AddrID) bool {
 		return net.IPv6zero.Equal(frontend.IP)
 	}
 	return net.IPv4zero.Equal(frontend.IP)
+}
+
+func segregateBackends(backends []lb.Backend) (activeBackends map[string]lb.BackendID, nonActiveBackends []lb.BackendID) {
+	activeBackends = make(map[string]lb.BackendID, len(backends))
+
+	for _, b := range backends {
+		// Separate active from non-active backends so that they won't be selected
+		// to serve new requests, but can be restored after agent restart. Non-active backends
+		// are kept in the affinity and backend maps so that existing connections
+		// are able to terminate gracefully. Such backends would either be cleaned-up
+		// when the backends are deleted, or they could transition to active state.
+		if b.State == lb.BackendStateActive {
+			activeBackends[b.String()] = b.ID
+		} else {
+			nonActiveBackends = append(nonActiveBackends, b.ID)
+		}
+	}
+
+	return activeBackends, nonActiveBackends
 }
