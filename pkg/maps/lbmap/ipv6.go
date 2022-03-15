@@ -290,15 +290,17 @@ type Backend6Value struct {
 	Flags   uint8           `align:"flags"`
 }
 
-func NewBackend6Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend6Value, error) {
+func NewBackend6Value(ip net.IP, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend6Value, error) {
 	ip6 := ip.To16()
 	if ip6 == nil {
 		return nil, fmt.Errorf("Not an IPv6 address")
 	}
+	flags := loadbalancer.NewBackendFlags(state)
 
 	val := Backend6Value{
 		Port:  port,
 		Proto: proto,
+		Flags: flags,
 	}
 	copy(val.Address[:], ip.To16())
 
@@ -334,8 +336,9 @@ type Backend6V2 struct {
 	Value *Backend6Value
 }
 
-func NewBackend6V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend6V2, error) {
-	val, err := NewBackend6Value(ip, port, proto)
+func NewBackend6V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto,
+	state loadbalancer.BackendState) (*Backend6V2, error) {
+	val, err := NewBackend6Value(ip, port, proto, state)
 	if err != nil {
 		return nil, err
 	}

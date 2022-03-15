@@ -39,7 +39,8 @@ type LBMap interface {
 	UpsertMaglevLookupTable(uint16, map[string]lb.BackendID, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(lb.L3n4AddrID, int, bool, lb.SVCNatPolicy) error
-	AddBackend(lb.BackendID, net.IP, uint16, bool) error
+	AddBackend(lb.Backend, bool) error
+	UpdateBackendWithState(lb.Backend) error
 	DeleteBackendByID(lb.BackendID) error
 	AddAffinityMatch(uint16, lb.BackendID) error
 	DeleteAffinityMatch(uint16, lb.BackendID) error
@@ -647,7 +648,8 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 	}
 	for _, b := range backends {
 		log.WithFields(logrus.Fields{
-			logfields.L3n4Addr: b.L3n4Addr.String(),
+			logfields.L3n4Addr:     b.L3n4Addr.String(),
+			logfields.BackendState: b.State,
 		}).Debug("Update backend states")
 	}
 
@@ -710,9 +712,10 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 				p.ActiveBackends, p.NonActiveBackends = segregateBackends(info.backends)
 				updateSvcs[id] = p
 				log.WithFields(logrus.Fields{
-					logfields.ServiceID: p.ID,
-					logfields.BackendID: b.ID,
-					logfields.L3n4Addr:  b.L3n4Addr.String(),
+					logfields.ServiceID:    p.ID,
+					logfields.BackendID:    b.ID,
+					logfields.L3n4Addr:     b.L3n4Addr.String(),
+					logfields.BackendState: b.State,
 				}).Info("Persisting service with backend state update")
 			}
 			s.svcByID[id] = info
@@ -1111,8 +1114,8 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 			logfields.BackendID: b.ID,
 			logfields.L3n4Addr:  b.L3n4Addr,
 		}).Debug("Adding new backend")
-		if err := s.lbmap.AddBackend(b.ID, b.L3n4Addr.IP,
-			b.L3n4Addr.L4Addr.Port, b.L3n4Addr.IsIPv6()); err != nil {
+
+		if err := s.lbmap.AddBackend(b, b.L3n4Addr.IsIPv6()); err != nil {
 			return err
 		}
 	}
@@ -1142,8 +1145,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		// and looks them up in the v6 backend map (v4-in-v6), and only later on
 		// after DNAT transforms the packet into a v4 one.
 		for _, b := range newBackends {
-			if err := s.lbmap.AddBackend(b.ID, b.L3n4Addr.IP,
-				b.L3n4Addr.L4Addr.Port, true); err != nil {
+			if err := s.lbmap.AddBackend(b, true); err != nil {
 				return err
 			}
 		}
@@ -1196,13 +1198,15 @@ func (s *Service) restoreBackendsLocked() error {
 
 	for _, b := range backends {
 		log.WithFields(logrus.Fields{
-			logfields.BackendID: b.ID,
-			logfields.L3n4Addr:  b.L3n4Addr.String(),
+			logfields.BackendID:    b.ID,
+			logfields.L3n4Addr:     b.L3n4Addr.String(),
+			logfields.BackendState: b.State,
 		}).Debug("Restoring backend")
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
-				logfields.BackendID: b.ID,
-				logfields.L3n4Addr:  b.L3n4Addr,
+				logfields.BackendID:    b.ID,
+				logfields.L3n4Addr:     b.L3n4Addr,
+				logfields.BackendState: b.State,
 			}).Warning("Unable to restore backend")
 			failed++
 			continue

@@ -396,15 +396,17 @@ type Backend4Value struct {
 	Flags   uint8           `align:"flags"`
 }
 
-func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4Value, error) {
+func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend4Value, error) {
 	ip4 := ip.To4()
 	if ip4 == nil {
 		return nil, fmt.Errorf("Not an IPv4 address")
 	}
+	flags := loadbalancer.NewBackendFlags(state)
 
 	val := Backend4Value{
 		Port:  port,
 		Proto: proto,
+		Flags: flags,
 	}
 	copy(val.Address[:], ip.To4())
 
@@ -440,8 +442,9 @@ type Backend4V2 struct {
 	Value *Backend4Value
 }
 
-func NewBackend4V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4V2, error) {
-	val, err := NewBackend4Value(ip, port, proto)
+func NewBackend4V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto,
+	state loadbalancer.BackendState) (*Backend4V2, error) {
+	val, err := NewBackend4Value(ip, port, proto, state)
 	if err != nil {
 		return nil, err
 	}

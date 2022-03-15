@@ -285,29 +285,38 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 	return nil
 }
 
-// AddBackend adds a backend into a BPF map.
-func (*LBBPFMap) AddBackend(id loadbalancer.BackendID, ip net.IP, port uint16, ipv6 bool) error {
+// AddBackend adds a backend into a BPF map. ipv6 indicates if the backend needs
+// to be added in the v4 or v6 backend map.
+func (*LBBPFMap) AddBackend(b loadbalancer.Backend, ipv6 bool) error {
 	var (
 		backend Backend
 		err     error
 	)
 
-	if id == 0 {
-		return fmt.Errorf("Invalid backend ID 0")
+	if backend, err = getBackend(b, ipv6); err != nil {
+		return err
 	}
-
-	if ipv6 {
-		backend, err = NewBackend6V2(id, ip, port, u8proto.ANY)
-	} else {
-		backend, err = NewBackend4V2(id, ip, port, u8proto.ANY)
-	}
-	if err != nil {
-		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",
-			id, ip, port, ipv6, err)
-	}
-
 	if err := updateBackend(backend); err != nil {
-		return fmt.Errorf("Unable to add backend %+v: %s", backend, err)
+		return fmt.Errorf("unable to add backend %+v: %s", backend, err)
+	}
+
+	return nil
+}
+
+// UpdateBackendWithState updates the state for the given backend.
+//
+// This function should only be called to update backend's state.
+func (*LBBPFMap) UpdateBackendWithState(b loadbalancer.Backend) error {
+	var (
+		backend Backend
+		err     error
+	)
+
+	if backend, err = getBackend(b, b.L3n4Addr.IsIPv6()); err != nil {
+		return err
+	}
+	if err := updateBackend(backend); err != nil {
+		return fmt.Errorf("unable to update backend %+v: %s", b, err)
 	}
 
 	return nil
@@ -567,8 +576,8 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		ip := backendVal.GetAddress()
 		port := backendVal.GetPort()
 		proto := loadbalancer.NONE
-		lbBackend := loadbalancer.NewBackend(backendID, proto, ip, port)
-		lbBackend.State = loadbalancer.BackendState(backendVal.GetFlags())
+		state := loadbalancer.GetBackendStateFromFlags(backendVal.GetFlags())
+		lbBackend := loadbalancer.NewBackendWithState(backendID, proto, ip, port, state)
 		lbBackends = append(lbBackends, lbBackend)
 	}
 
@@ -618,6 +627,31 @@ func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcTyp
 
 func deleteServiceLocked(key ServiceKey) error {
 	return key.Map().Delete(key.ToNetwork())
+}
+
+func getBackend(backend loadbalancer.Backend, ipv6 bool) (Backend, error) {
+	var (
+		lbBackend Backend
+		err       error
+	)
+
+	if backend.ID == 0 {
+		return lbBackend, fmt.Errorf("invalid backend ID 0")
+	}
+
+	if ipv6 {
+		lbBackend, err = NewBackend6V2(backend.ID, backend.IP, backend.Port, u8proto.ANY,
+			backend.State)
+	} else {
+		lbBackend, err = NewBackend4V2(backend.ID, backend.IP, backend.Port, u8proto.ANY,
+			backend.State)
+	}
+	if err != nil {
+		return lbBackend, fmt.Errorf("unable to create lbBackend (%d, %s, %d, %t): %s",
+			backend.ID, backend.IP, backend.Port, ipv6, err)
+	}
+
+	return lbBackend, nil
 }
 
 func updateBackend(backend Backend) error {

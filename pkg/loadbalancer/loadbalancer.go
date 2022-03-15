@@ -239,6 +239,47 @@ const (
 	BackendStateInvalid
 )
 
+// BackendStateFlags is the datapath representation of the backend flags that
+// are used in (lb{4,6}_backend.flags) to store backend state.
+type BackendStateFlags = uint8
+
+const (
+	BackendStateActiveFlag = iota
+	BackendStateTerminatingFlag
+	BackendStateQuarantinedFlag
+	BackendStateMaintenanceFlag
+)
+
+func NewBackendFlags(state BackendState) BackendStateFlags {
+	var flags BackendStateFlags
+
+	switch state {
+	case BackendStateActive:
+		flags = BackendStateActiveFlag
+	case BackendStateTerminating:
+		flags = BackendStateTerminatingFlag
+	case BackendStateQuarantined:
+		flags = BackendStateQuarantinedFlag
+	case BackendStateMaintenance:
+		flags = BackendStateMaintenanceFlag
+	}
+
+	return flags
+}
+
+func GetBackendStateFromFlags(flags uint8) BackendState {
+	switch flags {
+	case BackendStateTerminatingFlag:
+		return BackendStateTerminating
+	case BackendStateQuarantinedFlag:
+		return BackendStateQuarantined
+	case BackendStateMaintenanceFlag:
+		return BackendStateMaintenance
+	default:
+		return BackendStateActive
+	}
+}
+
 var (
 	// AllProtocols is the list of all supported L4 protocols
 	AllProtocols = []L4Type{TCP, UDP}
@@ -513,6 +554,18 @@ func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Ba
 		ID:       BackendID(id),
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 		State:    BackendStateActive,
+	}
+
+	return &b
+}
+
+// NewBackendWithState creates the Backend struct instance from given params.
+func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, state BackendState) *Backend {
+	lbport := NewL4Addr(protocol, portNumber)
+	b := Backend{
+		ID:       id,
+		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
+		State:    state,
 	}
 
 	return &b
