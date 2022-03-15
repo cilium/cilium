@@ -32,9 +32,7 @@ func (h *getIP) Handle(params GetIPParams) middleware.Responder {
 		}
 		listener.cidrFilter = cidrFilter
 	}
-	h.d.ipcache.RLock()
-	h.d.ipcache.DumpToListenerLocked(listener)
-	h.d.ipcache.RUnlock()
+	h.d.ipcache.DumpToListener(listener)
 	if len(listener.entries) == 0 {
 		return NewGetIPNotFound()
 	}
