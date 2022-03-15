@@ -2018,6 +2018,15 @@ definitions:
             properties:
               enabled:
                 type: boolean
+          nat46X64:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
+            type: object
+            properties:
+              enabled:
+                type: boolean
   AllocationMap:
     description: |
       Map of allocated IPs
