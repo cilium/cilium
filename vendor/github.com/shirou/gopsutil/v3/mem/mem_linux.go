@@ -305,7 +305,7 @@ func fillFromMeminfoWithContext() (*VirtualMemoryStat, *VirtualMemoryExStat, err
 
 	if !memavail {
 		if activeFile && inactiveFile && sReclaimable {
-			ret.Available = calcuateAvailVmem(ret, retEx)
+			ret.Available = calculateAvailVmem(ret, retEx)
 		} else {
 			ret.Available = ret.Cached + ret.Free
 		}
@@ -387,10 +387,10 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 	return ret, nil
 }
 
-// calcuateAvailVmem is a fallback under kernel 3.14 where /proc/meminfo does not provide
+// calculateAvailVmem is a fallback under kernel 3.14 where /proc/meminfo does not provide
 // "MemAvailable:" column. It reimplements an algorithm from the link below
 // https://github.com/giampaolo/psutil/pull/890
-func calcuateAvailVmem(ret *VirtualMemoryStat, retEx *VirtualMemoryExStat) uint64 {
+func calculateAvailVmem(ret *VirtualMemoryStat, retEx *VirtualMemoryExStat) uint64 {
 	var watermarkLow uint64
 
 	fn := common.HostProc("zoneinfo")

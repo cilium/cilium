@@ -9,6 +9,7 @@ package process
 // #include <sys/errno.h>
 // #include <sys/proc_info.h>
 // #include <sys/sysctl.h>
+// #include <mach/mach_time.h>
 import "C"
 
 import (
@@ -18,12 +19,18 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"github.com/shirou/gopsutil/v3/cpu"
 )
 
-var argMax int
+var (
+	argMax                 int
+	timescaleToNanoSeconds float64
+)
 
 func init() {
 	argMax = getArgMax()
+	timescaleToNanoSeconds = getTimeScaleToNanoSeconds()
 }
 
 func getArgMax() int {
@@ -37,6 +44,14 @@ func getArgMax() int {
 		return int(argmax)
 	}
 	return 0
+}
+
+func getTimeScaleToNanoSeconds() float64 {
+	var timeBaseInfo C.struct_mach_timebase_info
+
+	C.mach_timebase_info(&timeBaseInfo)
+
+	return float64(timeBaseInfo.numer) / float64(timeBaseInfo.denom)
 }
 
 func (p *Process) ExeWithContext(ctx context.Context) (string, error) {
@@ -82,7 +97,7 @@ func (p *Process) CwdWithContext(ctx context.Context) (string, error) {
 	return C.GoString(&vpi.pvi_cdir.vip_path[0]), err
 }
 
-func procArgs(pid int32) (*[]byte, int, error) {
+func procArgs(pid int32) ([]byte, int, error) {
 	var (
 		mib             = [...]C.int{C.CTL_KERN, C.KERN_PROCARGS2, C.int(pid)}
 		size   C.size_t = C.ulong(argMax)
@@ -91,23 +106,27 @@ func procArgs(pid int32) (*[]byte, int, error) {
 	)
 	procargs := (*C.char)(C.malloc(C.ulong(argMax)))
 	defer C.free(unsafe.Pointer(procargs))
-	retval := C.sysctl(&mib[0], 3, unsafe.Pointer(procargs), &size, C.NULL, 0)
+	retval, err := C.sysctl(&mib[0], 3, unsafe.Pointer(procargs), &size, C.NULL, 0)
 	if retval == 0 {
 		C.memcpy(unsafe.Pointer(&nargs), unsafe.Pointer(procargs), C.sizeof_int)
 		result = C.GoBytes(unsafe.Pointer(procargs), C.int(size))
 		// fmt.Printf("size: %d %d\n%s\n", size, nargs, hex.Dump(result))
-		return &result, int(nargs), nil
+		return result, int(nargs), nil
 	}
-	return nil, 0, fmt.Errorf("error: %d", retval)
+	return nil, 0, err
 }
 
 func (p *Process) CmdlineSliceWithContext(ctx context.Context) ([]string, error) {
+	return p.cmdlineSliceWithContext(ctx, true)
+}
+
+func (p *Process) cmdlineSliceWithContext(ctx context.Context, fallback bool) ([]string, error) {
 	pargs, nargs, err := procArgs(p.Pid)
 	if err != nil {
 		return nil, err
 	}
 	// The first bytes hold the nargs int, skip it.
-	args := bytes.Split((*pargs)[C.sizeof_int:], []byte{0})
+	args := bytes.Split((pargs)[C.sizeof_int:], []byte{0})
 	var argStr string
 	// The first element is the actual binary/command path.
 	// command := args[0]
@@ -131,10 +150,70 @@ func (p *Process) CmdlineSliceWithContext(ctx context.Context) ([]string, error)
 	return argSlice, err
 }
 
+// cmdNameWithContext returns the command name (including spaces) without any arguments
+func (p *Process) cmdNameWithContext(ctx context.Context) (string, error) {
+	r, err := p.cmdlineSliceWithContext(ctx, false)
+	if err != nil {
+		return "", err
+	}
+
+	if len(r) == 0 {
+		return "", nil
+	}
+
+	return r[0], err
+}
+
 func (p *Process) CmdlineWithContext(ctx context.Context) (string, error) {
 	r, err := p.CmdlineSliceWithContext(ctx)
 	if err != nil {
 		return "", err
 	}
 	return strings.Join(r, " "), err
+}
+
+func (p *Process) NumThreadsWithContext(ctx context.Context) (int32, error) {
+	const tiSize = C.sizeof_struct_proc_taskinfo
+	ti := (*C.struct_proc_taskinfo)(C.malloc(tiSize))
+
+	_, err := C.proc_pidinfo(C.int(p.Pid), C.PROC_PIDTASKINFO, 0, unsafe.Pointer(ti), tiSize)
+	if err != nil {
+		return 0, err
+	}
+
+	return int32(ti.pti_threadnum), nil
+}
+
+func (p *Process) TimesWithContext(ctx context.Context) (*cpu.TimesStat, error) {
+	const tiSize = C.sizeof_struct_proc_taskinfo
+	ti := (*C.struct_proc_taskinfo)(C.malloc(tiSize))
+
+	_, err := C.proc_pidinfo(C.int(p.Pid), C.PROC_PIDTASKINFO, 0, unsafe.Pointer(ti), tiSize)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := &cpu.TimesStat{
+		CPU:    "cpu",
+		User:   float64(ti.pti_total_user) * timescaleToNanoSeconds / 1e9,
+		System: float64(ti.pti_total_system) * timescaleToNanoSeconds / 1e9,
+	}
+	return ret, nil
+}
+
+func (p *Process) MemoryInfoWithContext(ctx context.Context) (*MemoryInfoStat, error) {
+	const tiSize = C.sizeof_struct_proc_taskinfo
+	ti := (*C.struct_proc_taskinfo)(C.malloc(tiSize))
+
+	_, err := C.proc_pidinfo(C.int(p.Pid), C.PROC_PIDTASKINFO, 0, unsafe.Pointer(ti), tiSize)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := &MemoryInfoStat{
+		RSS:  uint64(ti.pti_resident_size),
+		VMS:  uint64(ti.pti_virtual_size),
+		Swap: uint64(ti.pti_pageins),
+	}
+	return ret, nil
 }

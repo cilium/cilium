@@ -68,7 +68,7 @@ func fileAvgWithContext() (*AvgStat, error) {
 	return ret, nil
 }
 
-// Misc returnes miscellaneous host-wide statistics.
+// Misc returns miscellaneous host-wide statistics.
 // Note: the name should be changed near future.
 func Misc() (*MiscStat, error) {
 	return MiscWithContext(context.Background())
