@@ -11,8 +11,8 @@ RUN apk add --no-cache --virtual --update \
     enchant \
     git \
     libc6-compat \
-    py-pip \
-    python \
+    py3-setuptools \
+    python3 \
     sphinx-python \
     gcc \
     musl-dev \
