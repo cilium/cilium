@@ -1426,23 +1426,29 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend)
 		} else {
 			backends[i].ID = b.ID
 			// Update backend state.
-			// Backend state can either be updated via kubernetes events,
-			// or service API. If the state update is coming via kubernetes events,
-			// then we need to update the internal state. Currently, the only state
-			// update in this case is for the terminating state. All other state
-			// updates happen via the API (UpdateBackendState) in which case we need
-			// to set the backend state to the saved state.
-			if backends[i].State == lb.BackendStateTerminating &&
-				b.State != lb.BackendStateTerminating {
-				b.State = backends[i].State
-				// Update the persisted backend state in BPF maps.
-				if err := s.lbmap.UpdateBackendWithState(backends[i]); err != nil {
-					return nil, nil, nil, fmt.Errorf("failed to update backend %+v %w",
-						backends[i], err)
-				}
-			} else {
-				// Set the backend state to the saved state.
+			if b.RestoredFromDatapath {
 				backends[i].State = b.State
+				// Toggle the flag as the backend is now restored.
+				b.RestoredFromDatapath = false
+			} else {
+				// Backend state can either be updated via kubernetes events,
+				// or service API. If the state update is coming via kubernetes events,
+				// then we need to update the internal state. Currently, the only state
+				// update in this case is for the terminating state. All other state
+				// updates happen via the API (UpdateBackendState) in which case we need
+				// to set the backend state to the saved state.
+				if backends[i].State == lb.BackendStateTerminating &&
+					b.State != lb.BackendStateTerminating {
+					b.State = backends[i].State
+					// Update the persisted backend state in BPF maps.
+					if err := s.lbmap.UpdateBackendWithState(backends[i]); err != nil {
+						return nil, nil, nil, fmt.Errorf("failed to update backend %+v %w",
+							backends[i], err)
+					}
+				} else {
+					// Set the backend state to the saved state.
+					backends[i].State = b.State
+				}
 			}
 		}
 	}

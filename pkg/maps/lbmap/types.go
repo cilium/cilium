@@ -190,7 +190,7 @@ func svcBackend(backendID loadbalancer.BackendID, backend BackendValue) *loadbal
 	beIP := backend.GetAddress()
 	bePort := backend.GetPort()
 	beProto := loadbalancer.NONE
-	beBackend := loadbalancer.NewBackend(backendID, beProto, beIP, bePort)
-	beBackend.State = loadbalancer.BackendState(backend.GetFlags())
+	beState := loadbalancer.GetBackendStateFromFlags(backend.GetFlags())
+	beBackend := loadbalancer.NewBackendWithState(backendID, beProto, beIP, bePort, beState, true)
 	return beBackend
 }
