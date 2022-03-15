@@ -659,11 +659,11 @@ As an instance example, ``m5n.xlarge`` is used in the config ``nodegroup-config.
       ssh:
         allow: true
       ## taint nodes so that application pods are
-      ## not scheduled until Cilium is deployed.
+      ## not scheduled/executed until Cilium is deployed.
       taints:
         - key: "node.cilium.io/agent-not-ready"
           value: "true"
-          effect: "NoSchedule"
+          effect: "NoExecute"
 
 The nodegroup is created with:
 

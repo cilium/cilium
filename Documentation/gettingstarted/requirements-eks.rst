@@ -23,7 +23,7 @@ For more information on AWS ENI mode, see :ref:`ipam_eni`.
   Cilium:
 
   * ``managedNodeGroups`` must be tainted with
-    ``node.cilium.io/agent-not-ready=true:NoSchedule`` to ensure application
+    ``node.cilium.io/agent-not-ready=true:NoExecute`` to ensure application
     pods will only be scheduled once Cilium is ready to manage them. For
     example, when using a `ClusterConfig <https://eksctl.io/usage/creating-and-managing-clusters/#using-config-files>`_
     file to create the cluster:
@@ -37,11 +37,11 @@ For more information on AWS ENI mode, see :ref:`ipam_eni`.
         - name: ng-1
           ...
           # taint nodes so that application pods are
-          # not scheduled until Cilium is deployed.
+          # not scheduled/executed until Cilium is deployed.
           taints:
            - key: "node.cilium.io/agent-not-ready"
              value: "true"
-             effect: "NoSchedule"
+             effect: "NoExecute"
 
 **Limitations:**
 
