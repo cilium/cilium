@@ -145,29 +145,15 @@ func (enc *jsonEncoder) resetReflectBuf() {
 	}
 }
 
-var nullLiteralBytes = []byte("null")
-
-// Only invoke the standard JSON encoder if there is actually something to
-// encode; otherwise write JSON null literal directly.
-func (enc *jsonEncoder) encodeReflected(obj interface{}) ([]byte, error) {
-	if obj == nil {
-		return nullLiteralBytes, nil
-	}
-	enc.resetReflectBuf()
-	if err := enc.reflectEnc.Encode(obj); err != nil {
-		return nil, err
-	}
-	enc.reflectBuf.TrimNewline()
-	return enc.reflectBuf.Bytes(), nil
-}
-
 func (enc *jsonEncoder) AddReflected(key string, obj interface{}) error {
-	valueBytes, err := enc.encodeReflected(obj)
+	enc.resetReflectBuf()
+	err := enc.reflectEnc.Encode(obj)
 	if err != nil {
 		return err
 	}
+	enc.reflectBuf.TrimNewline()
 	enc.addKey(key)
-	_, err = enc.buf.Write(valueBytes)
+	_, err = enc.buf.Write(enc.reflectBuf.Bytes())
 	return err
 }
 
@@ -250,12 +236,14 @@ func (enc *jsonEncoder) AppendInt64(val int64) {
 }
 
 func (enc *jsonEncoder) AppendReflected(val interface{}) error {
-	valueBytes, err := enc.encodeReflected(val)
+	enc.resetReflectBuf()
+	err := enc.reflectEnc.Encode(val)
 	if err != nil {
 		return err
 	}
+	enc.reflectBuf.TrimNewline()
 	enc.addElementSeparator()
-	_, err = enc.buf.Write(valueBytes)
+	_, err = enc.buf.Write(enc.reflectBuf.Bytes())
 	return err
 }
 
