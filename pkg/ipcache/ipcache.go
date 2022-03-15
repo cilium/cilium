@@ -410,8 +410,18 @@ func (ipc *IPCache) upsertLocked(
 	return namedPortsChanged, nil
 }
 
+// DumpToListener dumps the entire contents of the IPCache by triggering
+// the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
+func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
+	ipc.RLock()
+	ipc.DumpToListenerLocked(listener)
+	ipc.RUnlock()
+}
+
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
+// The caller *MUST* grab the IPCache.Lock for reading before calling this
+// function.
 func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 	for ip, identity := range ipc.ipToIdentityCache {
 		if identity.shadowed {
