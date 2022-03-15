@@ -63,7 +63,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	log.Debugf("state log directory: %s", stateLogDir)
 
-	xdsServer := StartXDSServer(ipcache.NewIPCache(), stateLogDir)
+	xdsServer := StartXDSServer(ipcache.NewIPCache(nil), stateLogDir)
 	defer xdsServer.stop()
 	StartAccessLogServer(stateLogDir, xdsServer)
 
@@ -143,7 +143,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	log.Debugf("state log directory: %s", stateLogDir)
 
-	xdsServer := StartXDSServer(ipcache.NewIPCache(), stateLogDir)
+	xdsServer := StartXDSServer(ipcache.NewIPCache(nil), stateLogDir)
 	defer xdsServer.stop()
 	StartAccessLogServer(stateLogDir, xdsServer)
 

@@ -50,6 +50,14 @@ type K8sMetadata struct {
 	NamedPorts policy.NamedPortMap
 }
 
+// Configuration is init-time configuration for the IPCache.
+type Configuration struct {
+	// Accessors to other subsystems, provided by the daemon
+	cache.IdentityAllocator
+	ipcacheTypes.PolicyHandler
+	ipcacheTypes.DatapathHandler
+}
+
 // IPCache is a collection of mappings:
 // - mapping of endpoint IP or CIDR to security identities of all endpoints
 //   which are part of the same cluster, and vice-versa
@@ -83,10 +91,9 @@ type IPCache struct {
 	// has been fully synced.
 	k8sSyncedChecker k8sSyncedChecker
 
-	// Accessors to other subsystems, provided by the daemon
-	identityAllocator cache.IdentityAllocator
-	policyHandler     ipcacheTypes.PolicyHandler
-	datapathHandler   ipcacheTypes.DatapathHandler
+	// Configuration provides pointers towards other agent components that
+	// the IPCache relies upon at runtime.
+	*Configuration
 
 	// metadata is the ipcache identity metadata map, which maps IPs to labels.
 	metadata *metadata
@@ -94,7 +101,7 @@ type IPCache struct {
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
 // identity (and vice-versa) initialized.
-func NewIPCache() *IPCache {
+func NewIPCache(c *Configuration) *IPCache {
 	return &IPCache{
 		mutex:             lock.NewSemaphoredMutex(),
 		ipToIdentityCache: map[string]Identity{},
@@ -104,22 +111,8 @@ func NewIPCache() *IPCache {
 		controllers:       controller.NewManager(),
 		namedPorts:        nil,
 		metadata:          newMetadata(),
+		Configuration:     c,
 	}
-}
-
-func (ipc *IPCache) WithIdentityAllocator(idAllocator cache.IdentityAllocator) *IPCache {
-	ipc.identityAllocator = idAllocator
-	return ipc
-}
-
-func (ipc *IPCache) WithPolicyHandler(updater ipcacheTypes.PolicyHandler) *IPCache {
-	ipc.policyHandler = updater
-	return ipc
-}
-
-func (ipc *IPCache) WithDatapathHandler(triggerer ipcacheTypes.DatapathHandler) *IPCache {
-	ipc.datapathHandler = triggerer
-	return ipc
 }
 
 // Lock locks the IPCache's mutex.

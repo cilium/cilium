@@ -79,7 +79,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	// called.
 	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
 	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
-	id := IPIdentityCache.identityAllocator.LookupIdentityByID(
+	id := IPIdentityCache.IdentityAllocator.LookupIdentityByID(
 		context.TODO(),
 		identity.LocalIdentityFlag, // we assume first local ID
 	)
@@ -101,10 +101,11 @@ func setupTest(t *testing.T) {
 	t.Helper()
 
 	allocator := testidentity.NewMockIdentityAllocator(nil)
-	IPIdentityCache = NewIPCache().
-		WithIdentityAllocator(allocator).
-		WithPolicyHandler(&mockUpdater{}).
-		WithDatapathHandler(&mockTriggerer{})
+	IPIdentityCache = NewIPCache(&Configuration{
+		IdentityAllocator: allocator,
+		PolicyHandler:     &mockUpdater{},
+		DatapathHandler:   &mockTriggerer{},
+	})
 	IPIdentityCache.k8sSyncedChecker = &mockK8sSyncedChecker{}
 
 	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
