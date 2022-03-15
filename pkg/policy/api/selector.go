@@ -68,7 +68,7 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	if n.MatchLabels != nil {
-		ml := map[string]string{}
+		ml := make(map[string]string, len(n.MatchLabels))
 		for k, v := range n.MatchLabels {
 			ml[labels.GetExtendedKeyFrom(k)] = v
 		}
@@ -96,7 +96,7 @@ func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 	}
 
 	if n.MatchLabels != nil {
-		newLabels := map[string]string{}
+		newLabels := make(map[string]string, len(n.MatchLabels))
 		for k, v := range n.MatchLabels {
 			newLabels[labels.GetCiliumKeyFrom(k)] = v
 		}
