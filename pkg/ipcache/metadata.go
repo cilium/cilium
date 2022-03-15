@@ -105,7 +105,7 @@ func (m *metadata) get(prefix string) labels.Labels {
 // so a balance is kept, ensuring a one-to-one mapping between prefix and
 // identity.
 func (ipc *IPCache) InjectLabels(src source.Source) error {
-	if ipc.identityAllocator == nil || !ipc.identityAllocator.IsLocalIdentityAllocatorInitialized() {
+	if ipc.IdentityAllocator == nil || !ipc.IdentityAllocator.IsLocalIdentityAllocatorInitialized() {
 		return ErrLocalIdentityAllocatorUninitialized
 	}
 
@@ -174,7 +174,7 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 			// Unlikely, but to balance the allocation / release
 			// we must either add the identity to `toUpsert`, or
 			// immediately release it again. Otherwise it will leak.
-			if _, err := ipc.identityAllocator.Release(context.TODO(), id, false); err != nil {
+			if _, err := ipc.IdentityAllocator.Release(context.TODO(), id, false); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.IPAddr: prefix,
 					logfields.Labels: lbls,
@@ -229,10 +229,10 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 		// parameters here, so make two calls. These changes will not
 		// be propagated to the datapath until the UpdatePolicyMaps
 		// call below.
-		ipc.policyHandler.UpdateIdentities(nil, deletedIdentities, &wg)
+		ipc.PolicyHandler.UpdateIdentities(nil, deletedIdentities, &wg)
 	}
-	ipc.policyHandler.UpdateIdentities(addedIdentities, nil, &wg)
-	policyImplementedWG := ipc.datapathHandler.UpdatePolicyMaps(ctx, &wg)
+	ipc.PolicyHandler.UpdateIdentities(addedIdentities, nil, &wg)
+	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
 	policyImplementedWG.Wait()
 }
 
@@ -268,7 +268,7 @@ func (ipc *IPCache) injectLabels(prefix string, lbls labels.Labels) (*identity.I
 		return ipc.injectLabelsForCIDR(prefix, lbls)
 	}
 
-	return ipc.identityAllocator.AllocateIdentity(ctx, lbls, false)
+	return ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false)
 }
 
 // injectLabelsForCIDR will allocate a CIDR identity for the given prefix. The
@@ -392,7 +392,7 @@ func (ipc *IPCache) removeLabelsFromIPs(
 				identity.AddReservedIdentityWithLabels(id.ID, l)
 			}
 
-			newID, _, err := ipc.identityAllocator.AllocateIdentity(context.TODO(), l, false)
+			newID, _, err := ipc.IdentityAllocator.AllocateIdentity(context.TODO(), l, false)
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.IPAddr:         prefix,
@@ -487,7 +487,7 @@ func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, src source.S
 		return nil
 	}
 
-	realID := ipc.identityAllocator.LookupIdentityByID(context.TODO(), id.ID)
+	realID := ipc.IdentityAllocator.LookupIdentityByID(context.TODO(), id.ID)
 	if realID == nil {
 		log.WithFields(logrus.Fields{
 			logfields.CIDR:     prefix,
@@ -500,7 +500,7 @@ func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, src source.S
 		)
 		return nil
 	}
-	released, err := ipc.identityAllocator.Release(context.TODO(), realID, false)
+	released, err := ipc.IdentityAllocator.Release(context.TODO(), realID, false)
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
 			logfields.IPAddr:         prefix,

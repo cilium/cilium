@@ -22,7 +22,7 @@ import (
 
 func (s *EndpointSuite) TestPolicyLog(c *C) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
-	ep := NewEndpointWithState(do, do, ipcache.NewIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewEndpointWithState(do, do, ipcache.NewIPCache(nil), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	// Initially nil
 	policyLogger := ep.getPolicyLogger()

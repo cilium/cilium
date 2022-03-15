@@ -54,7 +54,7 @@ func (ipc *IPCache) AllocateCIDRs(
 
 		id, isNew, err := ipc.allocate(p, lbls)
 		if err != nil {
-			ipc.identityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
+			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, err
 		}
 
@@ -117,7 +117,7 @@ func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.I
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 	defer cancel()
 
-	id, isNew, err := ipc.identityAllocator.AllocateIdentity(allocateCtx, lbls, false)
+	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(allocateCtx, lbls, false)
 	if err != nil {
 		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
 	}
@@ -131,7 +131,7 @@ func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.I
 
 func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
 	for prefix, id := range identities {
-		released, err := ipc.identityAllocator.Release(ctx, id, false)
+		released, err := ipc.IdentityAllocator.Release(ctx, id, false)
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: id,
@@ -158,7 +158,7 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
 			continue
 		}
 
-		if id := ipc.identityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(prefix)); id != nil {
+		if id := ipc.IdentityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(prefix)); id != nil {
 			identities[prefix.String()] = id
 		} else {
 			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())
@@ -173,7 +173,7 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
 func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
 	fullIdentities := make(map[string]*identity.Identity, len(identities))
 	for _, nid := range identities {
-		if id := ipc.identityAllocator.LookupIdentityByID(ctx, nid); id != nil {
+		if id := ipc.IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
 			cidr := id.CIDRLabel.String()
 			if !strings.HasPrefix(cidr, labels.LabelSourceCIDR) {
 				log.WithFields(logrus.Fields{

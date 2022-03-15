@@ -479,10 +479,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if err := d.initPolicy(epMgr); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
-	d.ipcache = ipcache.NewIPCache().
-		WithIdentityAllocator(d.identityAllocator).
-		WithPolicyHandler(d.policy.GetSelectorCache()).
-		WithDatapathHandler(epMgr)
+	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
+		IdentityAllocator: d.identityAllocator,
+		PolicyHandler:     d.policy.GetSelectorCache(),
+		DatapathHandler:   epMgr,
+	})
 	nodeMngr = nodeMngr.WithIPCache(d.ipcache)
 	nodeMngr = nodeMngr.WithSelectorCacheUpdater(d.policy.GetSelectorCache()) // must be after initPolicy
 	nodeMngr = nodeMngr.WithPolicyTriggerer(epMgr)                            // must be after initPolicy
