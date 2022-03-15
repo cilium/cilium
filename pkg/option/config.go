@@ -1226,13 +1226,19 @@ type IpvlanConfig struct {
 	OperationMode     string
 }
 
+// IPAddrCIDR is a IP format structure used by NAT46Prefix, LoadBalancerRSSv4 and LoadBalancerRSSv6.
+type IPAddrCIDR struct {
+	IP   net.IP
+	Mask string
+}
+
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	CreationTime        time.Time
 	BpfDir              string     // BPF template files directory
 	LibDir              string     // Cilium library files directory
 	RunDir              string     // Cilium runtime directory
-	NAT46Prefix         *net.IPNet // NAT46 IPv6 Prefix
+	NAT46Prefix         IPAddrCIDR // NAT46 IPv6 Prefix
 	Devices             []string   // bpf_host device
 	DirectRoutingDevice string     // Direct routing device (used by BPF NodePort and BPF Host Routing)
 	LBDevInheritIPAddr  string     // Device which IP addr used by bpf_host devices
@@ -1749,11 +1755,11 @@ type DaemonConfig struct {
 
 	// LoadBalancerRSSv4CIDR defines the outer source IPv4 prefix for DSR/IPIP
 	LoadBalancerRSSv4CIDR string
-	LoadBalancerRSSv4     net.IPNet
+	LoadBalancerRSSv4     IPAddrCIDR
 
 	// LoadBalancerRSSv4CIDR defines the outer source IPv6 prefix for DSR/IPIP
 	LoadBalancerRSSv6CIDR string
-	LoadBalancerRSSv6     net.IPNet
+	LoadBalancerRSSv6     IPAddrCIDR
 
 	// LoadBalancerPMTUDiscovery indicates whether LB should reply with ICMP
 	// frag needed messages to client (when needed)

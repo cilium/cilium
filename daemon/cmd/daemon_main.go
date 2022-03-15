@@ -1334,7 +1334,8 @@ func initEnv(cmd *cobra.Command) {
 		log.WithError(err).WithField(logfields.V6Prefix, option.Config.NAT46Range).Fatal("Invalid NAT46 prefix")
 	}
 
-	option.Config.NAT46Prefix = r
+	option.Config.NAT46Prefix.IP = r.IP
+	option.Config.NAT46Prefix.Mask = "/" + strings.Split(option.Config.NAT46Range, "/")[1]
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:

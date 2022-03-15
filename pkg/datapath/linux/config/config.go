@@ -119,7 +119,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
+	if nat46Range := option.Config.NAT46Prefix; nat46Range.IP.String() != "" {
 		fw.WriteString(FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
 
@@ -347,9 +347,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv4 {
 			if option.Config.LoadBalancerRSSv4CIDR != "" {
 				ipv4 := byteorder.NetIPv4ToHost32(option.Config.LoadBalancerRSSv4.IP)
-				ones, _ := option.Config.LoadBalancerRSSv4.Mask.Size()
 				cDefinesMap["IPV4_RSS_PREFIX"] = fmt.Sprintf("%d", ipv4)
-				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
+				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = option.Config.LoadBalancerRSSv4.Mask
 			} else {
 				cDefinesMap["IPV4_RSS_PREFIX"] = "IPV4_DIRECT_ROUTING"
 				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = "32"
@@ -358,10 +357,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv6 {
 			if option.Config.LoadBalancerRSSv6CIDR != "" {
 				ipv6 := option.Config.LoadBalancerRSSv6.IP
-				ones, _ := option.Config.LoadBalancerRSSv6.Mask.Size()
 				extraMacrosMap["IPV6_RSS_PREFIX"] = ipv6.String()
 				fw.WriteString(FmtDefineAddress("IPV6_RSS_PREFIX", ipv6))
-				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
+				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = option.Config.LoadBalancerRSSv6.Mask
 			} else {
 				cDefinesMap["IPV6_RSS_PREFIX"] = "IPV6_DIRECT_ROUTING"
 				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = "128"
