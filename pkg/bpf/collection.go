@@ -6,7 +6,10 @@ import (
 	"fmt"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 )
+
+const globalDataMap = ".data"
 
 // LoadCollectionSpec loads the eBPF ELF at the given path and parses it into
 // a CollectionSpec. This spec is only a blueprint of the contents of the ELF
@@ -116,6 +119,10 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 	// allowing the spec to be safely re-used by the caller.
 	spec = spec.Copy()
 
+	if err := inlineGlobalData(spec); err != nil {
+		return nil, fmt.Errorf("inlining global data: %w", err)
+	}
+
 	coll, err := ebpf.NewCollectionWithOptions(spec, opts)
 	if err != nil {
 		return nil, err
@@ -160,4 +167,89 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) {
 			p.Type = t
 		}
 	}
+}
+
+// inlineGlobalData replaces all map loads from a global data section with
+// immediate dword loads, effectively performing those map lookups in the
+// loader. This is done for compatibility with kernels that don't support
+// global data maps yet.
+//
+// Currently, all map reads are expected to be 32 bits wide until BTF MapKV
+// can be fully accessed by the caller, which would allow for querying value
+// widths.
+//
+// This works in conjunction with the __fetch macros in the datapath, which
+// emit direct array accesses instead of memory loads with an offset from the
+// map's pointer.
+func inlineGlobalData(spec *ebpf.CollectionSpec) error {
+	data, err := globalData(spec)
+	if err != nil {
+		return err
+	}
+	if data == nil {
+		// No static data, nothing to replace.
+		return nil
+	}
+
+	// Don't attempt to create an empty map .bss in the kernel.
+	delete(spec.Maps, ".bss")
+
+	for _, prog := range spec.Programs {
+		for i, ins := range prog.Instructions {
+			if !ins.IsLoadFromMap() || ins.Src != asm.PseudoMapValue {
+				continue
+			}
+
+			// The compiler inserts relocations for .bss for zero values.
+			if ins.Reference() == ".bss" {
+				prog.Instructions[i] = asm.LoadImm(ins.Dst, 0, asm.DWord)
+				continue
+			}
+
+			if ins.Reference() != globalDataMap {
+				return fmt.Errorf("global constants must be in %s, but found reference to %s", globalDataMap, ins.Reference())
+			}
+
+			// Get the offset of the read within the target map,
+			// stored in the 32 most-significant bits of Constant.
+			// Equivalent to Instruction.mapOffset().
+			off := uint32(uint64(ins.Constant) >> 32)
+
+			if off%4 != 0 {
+				return fmt.Errorf("global const access at offset %d not 32-bit aligned", off)
+			}
+
+			imm := spec.ByteOrder.Uint32(data[off : off+4])
+
+			// Replace the map load with an immediate load. Must be a dword load
+			// to match the instruction width of a map load.
+			prog.Instructions[i] = asm.LoadImm(ins.Dst, int64(imm), asm.DWord)
+		}
+	}
+
+	return nil
+}
+
+// globalData gets the contents of the first entry in the global data map
+// and removes it from the spec to prevent it from being created in the kernel.
+func globalData(spec *ebpf.CollectionSpec) ([]byte, error) {
+	data := spec.Maps[globalDataMap]
+	if data == nil {
+		return nil, nil
+	}
+
+	if dl := len(data.Contents); dl != 1 {
+		return nil, fmt.Errorf("expected one key in %s, found %d", globalDataMap, dl)
+	}
+
+	out, ok := (data.Contents[0].Value).([]byte)
+	if !ok {
+		return nil, fmt.Errorf("expected %s value to be a byte slice, got: %T",
+			globalDataMap, data.Contents[0].Value)
+	}
+
+	// Remove the map definition to skip loading it into the kernel.
+	delete(spec.Maps, globalDataMap)
+
+	return out, nil
 }
