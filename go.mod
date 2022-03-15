@@ -66,9 +66,9 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/optiopay/kafka v0.0.0-20171218140449-a1e0071f1ce8
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/prometheus/client_golang v1.9.0
+	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.1-0.20200623203004-60555c9708c7
-	github.com/prometheus/procfs v0.2.0
+	github.com/prometheus/procfs v0.6.0
 	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0

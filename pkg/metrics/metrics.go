@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	log "github.com/sirupsen/logrus"
@@ -1321,9 +1322,8 @@ func NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThresho
 }
 
 func init() {
-	MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: Namespace}))
-	// TODO: Figure out how to put this into a Namespace
-	// MustRegister(prometheus.NewGoCollector())
+	MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
+	MustRegister(collectors.NewGoCollector())
 	MustRegister(newStatusCollector())
 	MustRegister(newbpfCollector())
 }
