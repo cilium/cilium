@@ -2985,6 +2985,15 @@ func init() {
                 }
               }
             },
+            "nat46X64": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "nodePort": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
@@ -7500,6 +7509,15 @@ func init() {
                 }
               }
             },
+            "nat46X64": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "nodePort": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
@@ -7625,6 +7643,15 @@ func init() {
             }
           }
         },
+        "nat46X64": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
         "nodePort": {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
@@ -7716,6 +7743,15 @@ func init() {
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesNat46X64": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
         }
       }
     },
