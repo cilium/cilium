@@ -162,6 +162,7 @@ Use ``--verbose`` for full details:
       Backend Selection:     Random
       Session Affinity:      Enabled
       Graceful Termination:  Enabled
+      NAT46/64 Support:      Enabled
       XDP Acceleration:      Disabled
       Services:
       - ClusterIP:      Enabled
