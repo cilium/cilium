@@ -1145,3 +1145,56 @@ func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 	c.Assert(m.lbmap.BackendByID[1].State, Equals, lb.BackendStateActive)
 	c.Assert(m.lbmap.BackendByID[2].State, Equals, lb.BackendStateActive)
 }
+
+// Tests that backend states are restored.
+func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	backends := append(backends1, backends4...)
+	p1 := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Type:                      lb.SVCTypeNodePort,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+	}
+	created, id1, err := m.svc.UpsertService(p1)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
+	c.Assert(len(m.svc.backendByHash), Equals, len(backends))
+
+	// Update backend states.
+	var updates []lb.Backend
+	backends[0].State = lb.BackendStateQuarantined
+	backends[1].State = lb.BackendStateMaintenance
+	updates = append(updates, backends[0], backends[1])
+	err = m.svc.UpdateBackendsState(updates)
+
+	c.Assert(err, IsNil)
+
+	// Simulate agent restart.
+	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
+	m.svc = NewService(nil, nil)
+	m.svc.lbmap = lbmap
+
+	// Restore services from lbmap
+	err = m.svc.RestoreServices()
+	c.Assert(err, IsNil)
+
+	// Check that backends along with their states have been restored
+	c.Assert(len(m.svc.backendByHash), Equals, len(backends))
+	statesMatched := 0
+	for _, b := range backends {
+		be, found := m.svc.backendByHash[b.Hash()]
+		c.Assert(found, Equals, true)
+		if be.String() == b.String() {
+			c.Assert(be.State, Equals, b.State, Commentf("before %+v restored %+v", b, be))
+			statesMatched++
+		}
+	}
+	c.Assert(statesMatched, Equals, len(backends))
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
+}

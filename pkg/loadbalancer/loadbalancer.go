@@ -313,6 +313,8 @@ type Backend struct {
 	L3n4Addr
 	// State of the backend for load-balancing service traffic
 	State BackendState
+	// RestoredFromDatapath indicates whether the backend was restored from BPF maps
+	RestoredFromDatapath bool
 }
 
 func (b *Backend) String() string {
@@ -559,13 +561,16 @@ func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Ba
 	return &b
 }
 
-// NewBackendWithState creates the Backend struct instance from given params.
-func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, state BackendState) *Backend {
+// NewBackendWithState creates the Backend struct instance from given params,
+// and sets the restore state for the Backend.
+func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber uint16,
+	state BackendState, restored bool) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
-		ID:       id,
-		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
-		State:    state,
+		ID:                   id,
+		L3n4Addr:             L3n4Addr{IP: ip, L4Addr: *lbport},
+		State:                state,
+		RestoredFromDatapath: restored,
 	}
 
 	return &b
