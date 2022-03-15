@@ -142,11 +142,11 @@ func Percent(interval time.Duration, percpu bool) ([]float64, error) {
 
 func PercentWithContext(ctx context.Context, interval time.Duration, percpu bool) ([]float64, error) {
 	if interval <= 0 {
-		return percentUsedFromLastCall(percpu)
+		return percentUsedFromLastCallWithContext(ctx, percpu)
 	}
 
 	// Get CPU usage at the start of the interval.
-	cpuTimes1, err := Times(percpu)
+	cpuTimes1, err := TimesWithContext(ctx, percpu)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func PercentWithContext(ctx context.Context, interval time.Duration, percpu bool
 	}
 
 	// And at the end of the interval.
-	cpuTimes2, err := Times(percpu)
+	cpuTimes2, err := TimesWithContext(ctx, percpu)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,11 @@ func PercentWithContext(ctx context.Context, interval time.Duration, percpu bool
 }
 
 func percentUsedFromLastCall(percpu bool) ([]float64, error) {
-	cpuTimes, err := Times(percpu)
+	return percentUsedFromLastCallWithContext(context.Background(), percpu)
+}
+
+func percentUsedFromLastCallWithContext(ctx context.Context, percpu bool) ([]float64, error) {
+	cpuTimes, err := TimesWithContext(ctx, percpu)
 	if err != nil {
 		return nil, err
 	}
