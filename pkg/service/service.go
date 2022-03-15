@@ -724,6 +724,19 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 		updatedBackends = append(updatedBackends, be)
 	}
 
+	// Update the persisted backend state in BPF maps.
+	for _, b := range updatedBackends {
+		log.WithFields(logrus.Fields{
+			logfields.BackendID:    b.ID,
+			logfields.L3n4Addr:     b.L3n4Addr.String(),
+			logfields.BackendState: b.State,
+		}).Info("Persisting updated backend state for backend")
+		if err := s.lbmap.UpdateBackendWithState(*b); err != nil {
+			e := fmt.Errorf("failed to update backend %+v %w", b, err)
+			errs = multierr.Append(errs, e)
+		}
+	}
+
 	for i := range updateSvcs {
 		err := s.lbmap.UpsertService(updateSvcs[i])
 		errs = multierr.Append(errs, err)
@@ -1422,6 +1435,11 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend)
 			if backends[i].State == lb.BackendStateTerminating &&
 				b.State != lb.BackendStateTerminating {
 				b.State = backends[i].State
+				// Update the persisted backend state in BPF maps.
+				if err := s.lbmap.UpdateBackendWithState(backends[i]); err != nil {
+					return nil, nil, nil, fmt.Errorf("failed to update backend %+v %w",
+						backends[i], err)
+				}
 			} else {
 				// Set the backend state to the saved state.
 				backends[i].State = b.State

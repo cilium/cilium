@@ -1099,6 +1099,9 @@ func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, len(backends))
 	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id2)], Equals, len(backends))
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
+	// Backend states are persisted in the map.
+	c.Assert(m.lbmap.BackendByID[1].State, Equals, lb.BackendStateActive)
+	c.Assert(m.lbmap.BackendByID[2].State, Equals, lb.BackendStateActive)
 
 	// Update the state for one of the backends.
 	updated := []lb.Backend{backends[0]}
@@ -1117,6 +1120,9 @@ func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, 1)
 	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id2)], Equals, 1)
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
+	// Updated backend states are persisted in the map.
+	c.Assert(m.lbmap.BackendByID[1].State, Equals, lb.BackendStateQuarantined)
+	c.Assert(m.lbmap.BackendByID[2].State, Equals, lb.BackendStateActive)
 
 	// Update the state again.
 	updated = []lb.Backend{backends[0]}
@@ -1135,4 +1141,7 @@ func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, len(backends))
 	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id2)], Equals, len(backends))
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
+	// Updated backend states are persisted in the map.
+	c.Assert(m.lbmap.BackendByID[1].State, Equals, lb.BackendStateActive)
+	c.Assert(m.lbmap.BackendByID[2].State, Equals, lb.BackendStateActive)
 }
