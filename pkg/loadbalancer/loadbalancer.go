@@ -398,6 +398,12 @@ func (state BackendState) String() (string, error) {
 	}
 }
 
+func IsValidBackendState(state string) bool {
+	_, err := GetBackendState(state)
+
+	return err == nil
+}
+
 func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
 	case "tcp":

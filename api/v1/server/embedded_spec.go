@@ -1426,6 +1426,13 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Failure"
+          },
+          "501": {
+            "description": "Error while updating backend states",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "UpdateBackendFailure"
           }
         }
       },
@@ -3882,6 +3889,10 @@ func init() {
         "id": {
           "description": "Unique identification",
           "type": "integer"
+        },
+        "updateServices": {
+          "description": "Update all services selecting the backends with their given states\n(id and frontend are ignored)\n",
+          "type": "boolean"
         }
       }
     },
@@ -5862,6 +5873,13 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Failure"
+          },
+          "501": {
+            "description": "Error while updating backend states",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "UpdateBackendFailure"
           }
         }
       },
@@ -8661,6 +8679,10 @@ func init() {
         "id": {
           "description": "Unique identification",
           "type": "integer"
+        },
+        "updateServices": {
+          "description": "Update all services selecting the backends with their given states\n(id and frontend are ignored)\n",
+          "type": "boolean"
         }
       }
     },

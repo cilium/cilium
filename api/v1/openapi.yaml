@@ -643,6 +643,11 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+        '501':
+          description: Error while updating backend states
+          x-go-name: UpdateBackendFailure
+          schema:
+            "$ref": "#/definitions/Error"
     delete:
       summary: Delete a service
       tags:
@@ -2595,6 +2600,12 @@ definitions:
           namespace:
             description: Service namespace  (e.g. Kubernetes namespace)
             type: string
+      updateServices:
+        description: |
+          Update all services selecting the backends with their given states
+          (id and frontend are ignored)
+        type: boolean
+
   ServiceStatus:
     description: Configuration of a service
     type: object
