@@ -5,7 +5,6 @@ package mockmaps
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -91,7 +90,11 @@ func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev b
 	return nil
 }
 
-func (m *LBMockMap) AddBackend(id lb.BackendID, ip net.IP, port uint16, ipv6 bool) error {
+func (m *LBMockMap) AddBackend(b lb.Backend, ipv6 bool) error {
+	id := b.ID
+	ip := b.IP
+	port := b.Port
+
 	if be, found := m.BackendByID[id]; found {
 		if be.L3n4Addr.IP.Equal(ip) && be.L4Addr.Port == port {
 			return nil
@@ -99,7 +102,24 @@ func (m *LBMockMap) AddBackend(id lb.BackendID, ip net.IP, port uint16, ipv6 boo
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port)
+	be := lb.NewBackendWithState(id, b.Protocol, ip, port, b.State)
+	m.BackendByID[id] = be
+
+	return nil
+}
+
+func (m *LBMockMap) UpdateBackendWithState(b lb.Backend) error {
+	id := b.ID
+
+	be, found := m.BackendByID[id]
+	if !found {
+		return fmt.Errorf("update failed : backend %d doesn't exist", id)
+	}
+	if b.ID != be.ID || b.Port != be.Port || !b.IP.Equal(be.IP) {
+		return fmt.Errorf("backend in the map  %+v doesn't match %+v: only backend"+
+			"state can be updated", be.String(), b.String())
+	}
+	be.State = b.State
 
 	return nil
 }
