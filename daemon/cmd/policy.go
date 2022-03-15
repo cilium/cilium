@@ -39,7 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+var json = jsoniter.ConfigFastest
 
 // initPolicy initializes the core policy components of the daemon.
 func (d *Daemon) initPolicy(epMgr *endpointmanager.EndpointManager) error {

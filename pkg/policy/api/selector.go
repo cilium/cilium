@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+var json = jsoniter.ConfigFastest
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
 

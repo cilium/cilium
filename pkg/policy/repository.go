@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+var json = jsoniter.ConfigFastest
 
 type CertificateManager interface {
 	GetTLSContext(ctx context.Context, tls *api.TLSContext, defaultNs string) (ca, public, private string, err error)
