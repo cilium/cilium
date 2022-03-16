@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
 
 	"gopkg.in/check.v1"
@@ -127,6 +128,7 @@ func (e *LinuxRoutingSuite) TestParse(c *check.C) {
 				IPv4CIDRs:       validCIDRs,
 				MasterIfMAC:     fakeMAC,
 				InterfaceNumber: 1,
+				IpamMode:        ipamOption.IPAMENI,
 			},
 			wantErr: false,
 		},
@@ -141,6 +143,7 @@ func (e *LinuxRoutingSuite) TestParse(c *check.C) {
 				IPv4Gateway: net.ParseIP("192.168.1.1"),
 				IPv4CIDRs:   []net.IPNet{},
 				MasterIfMAC: fakeMAC,
+				IpamMode:    ipamOption.IPAMENI,
 			},
 			wantErr: false,
 		},
@@ -156,7 +159,7 @@ func (e *LinuxRoutingSuite) TestParse(c *check.C) {
 	}
 	for _, tt := range tests {
 		c.Log(tt.name)
-		rInfo, err := NewRoutingInfo(tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, tt.masq)
+		rInfo, err := NewRoutingInfo(tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, ipamOption.IPAMENI, tt.masq)
 		c.Assert(rInfo, checker.DeepEquals, tt.wantRInfo)
 		c.Assert((err != nil), check.Equals, tt.wantErr)
 	}

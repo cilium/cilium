@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -260,6 +261,7 @@ func getFakes(c *C) (net.IP, RoutingInfo) {
 		[]string{fakeCIDR.String()},
 		fakeMAC.String(),
 		"1",
+		ipamOption.IPAMENI,
 		true,
 	)
 	c.Assert(err, IsNil)
