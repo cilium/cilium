@@ -6,10 +6,13 @@ package RuntimeTest
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
 
+	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -132,6 +135,155 @@ var _ = Describe("RuntimeLB", func() {
 		result = vm.ServiceGet(20)
 		result.ExpectFail("unexpected success fetching service with id 20, service should not be present")
 	}, 500)
+
+	It("validates service backend state updates", func() {
+		frontend1 := "2.2.2.2:8080"
+		frontend2 := "2.2.2.3:8080"
+		backend1 := "1.1.1.2:8080"
+		backend2 := "1.1.1.3:8080"
+		activeState := "active"
+		quarantineState := "quarantined"
+		type backendCheckTest struct {
+			frontend string
+			backend  string
+			state    string
+		}
+		getBackendState := func(test backendCheckTest) (bool, error) {
+			ip, port, err := net.SplitHostPort(test.frontend)
+			if err != nil {
+				return false, fmt.Errorf("invalid frontend %s : %s", test.frontend, err)
+			}
+			portInt, err := strconv.ParseUint(port, 10, 16)
+			if err != nil {
+				return false, fmt.Errorf("invalid frontend port %s: %s", test.frontend, err)
+			}
+			jq := "jq -r '[ .[].status.realized | select(.\"frontend-address\".ip==\"" + ip + "\") | . ]'"
+			cmd := "service list -o json | " + jq
+			result := vm.ExecCilium(cmd)
+			result.ExpectSuccess("failed to find frontend [%s] in service list: %s",
+				test.frontend, result.OutputPrettyPrint())
+			if strings.TrimSpace(result.Stdout()) == "" {
+				return false, fmt.Errorf("frontend %s not found in service list", test.frontend)
+			}
+
+			var services []models.ServiceSpec
+			err = result.Unmarshal(&services)
+			Expect(err).Should(BeNil(), "failed to unmarshal service spec '%s': %s", result.OutputPrettyPrint(), err)
+
+			for _, service := range services {
+				if portInt != uint64(service.FrontendAddress.Port) {
+					continue
+				}
+
+				for _, b := range service.BackendAddresses {
+					ba := net.JoinHostPort(*b.IP, fmt.Sprintf("%d", b.Port))
+					if ba != test.backend {
+						continue
+					}
+					return b.State == test.state, nil
+				}
+			}
+
+			return false, fmt.Errorf("failed to get backend %s", test.backend)
+		}
+
+		result := vm.ServiceAdd(1, frontend1, []string{backend1, backend2})
+		result.ExpectSuccess("unexpected failure to add service")
+		result = vm.ExecCilium("bpf lb list")
+		result.ExpectSuccess("bpf lb map cannot be retrieved")
+		Expect(result.WaitUntilMatch(frontend1), fmt.Sprintf(
+			"service backends not added to BPF map: %q", result.GetStdOut()))
+		result = vm.ServiceAdd(2, frontend2, []string{backend1, backend2})
+		result.ExpectSuccess("unexpected failure to add service")
+		result = vm.ExecCilium("bpf lb list")
+		result.ExpectSuccess("bpf lb map cannot be retrieved")
+		Expect(result.WaitUntilMatch(frontend2), fmt.Sprintf(
+			"service backends not added to BPF map: %q", result.GetStdOut()))
+
+		By("Validating default backend states")
+
+		testCases := []backendCheckTest{
+			{
+				frontend1,
+				backend1,
+				activeState,
+			},
+			{
+				frontend1,
+				backend2,
+				activeState,
+			},
+			{
+				frontend2,
+				backend1,
+				activeState,
+			},
+			{
+				frontend2,
+				backend2,
+				activeState,
+			},
+		}
+
+		for _, tc := range testCases {
+			matched, err := getBackendState(tc)
+			Expect(err).Should(BeNil(), "failed to get backend [%s] state from "+
+				"service list %s: %s", backend1, result.OutputPrettyPrint(), err)
+			Expect(matched).Should(BeTrue(), "backend [%s] state doesn't match [%s]",
+				tc.backend, tc.state)
+		}
+
+		By("Validating updated backend states for all services")
+
+		cmd := fmt.Sprintf("service update --backends %s --states %s", backend1, quarantineState)
+
+		result = vm.ExecCilium(cmd)
+		result.ExpectSuccess("failed to list cilium services")
+
+		testCases = []backendCheckTest{
+			{
+				frontend1,
+				backend1,
+				quarantineState,
+			},
+			{
+				frontend1,
+				backend2,
+				activeState,
+			},
+			{
+				frontend2,
+				backend1,
+				quarantineState,
+			},
+			{
+				frontend2,
+				backend2,
+				activeState,
+			},
+		}
+
+		for _, tc := range testCases {
+			matched, err := getBackendState(tc)
+			Expect(err).Should(BeNil(), "unable to get backend [%s] state from "+
+				"service list %s: %s", backend1, result.OutputPrettyPrint(), err)
+			Expect(matched).Should(BeTrue(), "backend [%s] state doesn't match [%s]",
+				tc.backend, tc.state)
+		}
+
+		By("Validating restored backend states for all services after restart")
+
+		err := vm.RestartCilium()
+		Expect(err).Should(BeNil(), "restarting Cilium failed")
+
+		for _, tc := range testCases {
+			matched, err := getBackendState(tc)
+			Expect(err).Should(BeNil(), "unable to get backend [%s] state from "+
+				"service list %s: %s", backend1, result.OutputPrettyPrint(), err)
+			Expect(matched).Should(BeTrue(), "backend [%s] state doesn't match [%s]",
+				tc.backend, tc.state)
+		}
+	})
 
 	Context("With Containers", func() {
 
