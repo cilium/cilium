@@ -551,14 +551,25 @@ func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]strin
 	e.rateLimit()
 	e.delaySim.Delay(TagENI)
 
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 
 	if err, ok := e.errors[TagENI]; ok {
 		return err
 	}
 
-	return nil
+	if eni, ok := e.unattached[eniID]; ok {
+		eni.Tags = eniTags
+		return nil
+	}
+
+	for _, enis := range e.enis {
+		if eni, ok := enis[eniID]; ok {
+			eni.Tags = eniTags
+			return nil
+		}
+	}
+	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
 func (e *API) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error) {

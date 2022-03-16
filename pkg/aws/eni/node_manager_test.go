@@ -576,6 +576,73 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
 }
 
+// TestNodeManagerENIExcludeInterfaceTags tests ENI allocation with interface exclusion
+//
+// - m5.large (3x ENIs, 2x10-2 IPs)
+// - MinAllocate 0
+// - MaxAllocate 0
+// - PreAllocate 8
+// - FirstInterfaceIndex 0
+// - ExcludeInterfaceTags {cilium.io/no_manage=true}
+func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
+	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	instances := NewInstancesManager(ec2api)
+	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	err = ec2api.TagENI(context.TODO(), eniID1, map[string]string{
+		"foo":                 "bar",
+		"cilium.io/no_manage": "true",
+	})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	c.Assert(err, check.IsNil)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	// Announce node wait for IPs to become available
+	cn := newCiliumNode("node1", "i-testNodeManagerDefaultAllocation-0", "m5.large", "us-west-1", "vpc-1", 0, 8, 0, 0)
+	cn.Spec.ENI.ExcludeInterfaceTags = map[string]string{
+		"cilium.io/no_manage": "true",
+	}
+	mngr.Update(cn)
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node := mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 8)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+
+	// Checks that we have created a new interface, and not allocated any IPs
+	// to the existing one
+	eniNode, castOK := node.Ops().(*Node)
+	c.Assert(castOK, check.Equals, true)
+	eniNode.mutex.RLock()
+	c.Assert(eniNode.enis, check.HasLen, 2)
+	c.Assert(eniNode.enis[eniID1].Addresses, check.HasLen, 0)
+	c.Assert(eniNode.enis[eniID1].Tags["cilium.io/no_manage"], check.Equals, "true")
+	eniNode.mutex.RUnlock()
+
+	// Use 7 out of 8 IPs
+	mngr.Update(updateCiliumNode(cn, 8, 7))
+	mngr.Resync(context.TODO(), instances.Resync(context.TODO()))
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node = mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 15)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 7)
+
+	// Unmanaged ENI remains unmanaged
+	eniNode.mutex.RLock()
+	c.Assert(eniNode.enis, check.HasLen, 3)
+	c.Assert(eniNode.enis[eniID1].Addresses, check.HasLen, 0)
+	c.Assert(eniNode.enis[eniID1].Tags["cilium.io/no_manage"], check.Equals, "true")
+	eniNode.mutex.RUnlock()
+}
+
 // TestNodeManagerExceedENICapacity tests exceeding ENI capacity
 //
 // - t2.xlarge (3x ENIs, 3x15-3 IPs)
