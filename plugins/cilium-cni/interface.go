@@ -51,6 +51,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		cidrs,
 		ipam.MasterMac,
 		ipam.InterfaceNumber,
+		conf.IpamMode,
 		masq,
 	)
 	if err != nil {

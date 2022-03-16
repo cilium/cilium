@@ -231,7 +231,8 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
 		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
-			result.PrimaryMAC, result.InterfaceNumber, option.Config.EnableIPv4Masquerade)
+			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
+			option.Config.EnableIPv4Masquerade)
 		if err != nil {
 			err = fmt.Errorf("failed to create router info %w", err)
 			return
@@ -405,6 +406,7 @@ func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 		result.CIDRs,
 		result.PrimaryMAC,
 		result.InterfaceNumber,
+		option.Config.IPAM,
 		option.Config.EnableIPv4Masquerade,
 	)
 	return err

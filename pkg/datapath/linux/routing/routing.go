@@ -74,7 +74,8 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 		tableID = computeTableIDFromIfaceNumber(info.InterfaceNumber)
 	}
 
-	if info.Masquerade {
+	// The condition here should mirror the condition in Delete.
+	if info.Masquerade && info.IpamMode == ipamOption.IPAMENI {
 		// Lookup a VPC specific table for all traffic from an endpoint to the
 		// CIDR configured for the VPC on which the endpoint has the IP on.
 		for _, cidr := range info.IPv4CIDRs {
