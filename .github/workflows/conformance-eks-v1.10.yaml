@@ -242,8 +242,8 @@ jobs:
 
       - name: Clean up Cilium
         run: |
-          cilium uninstall --wait
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
+          cilium uninstall --wait
 
       - name: Create custom IPsec secret
         run: |
