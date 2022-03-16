@@ -1064,7 +1064,6 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__u32 __maybe_unused src_id = 0;
 	__u16 __maybe_unused proto = 0;
 	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
@@ -1127,7 +1126,7 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	}
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 #endif /* ENABLE_HOST_FIREWALL */
 
@@ -1164,8 +1163,8 @@ out:
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 #endif
-	send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0, 0,
-			  trace.reason, trace.monitor);
+	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0,
+			  0, trace.reason, trace.monitor);
 
 	return ret;
 }
