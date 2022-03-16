@@ -177,7 +177,9 @@ func Delete(ip net.IP, compat bool) error {
 	}
 
 	// Egress rules
-	if info := node.GetRouterInfo(); info != nil && option.Config.IPAM == ipamOption.IPAMENI {
+	// The condition here should mirror the conditions in Configure.
+	info := node.GetRouterInfo()
+	if info != nil && option.Config.EnableIPv4Masquerade && option.Config.IPAM == ipamOption.IPAMENI {
 		ipv4CIDRs := info.GetIPv4CIDRs()
 		cidrs := make([]*net.IPNet, 0, len(ipv4CIDRs))
 		for i := range ipv4CIDRs {
