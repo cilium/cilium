@@ -69,11 +69,41 @@ type metadata struct {
 	// applyChangesMU protects InjectLabels and RemoveLabelsExcluded from being
 	// run in parallel
 	applyChangesMU lock.Mutex
+
+	// queued* handle updates into the IPCache. Whenever a label is added
+	// or removed from a specific IP prefix, that prefix is added into
+	// 'queuedPrefixes'. Each time label injection is triggered, it will
+	// process the metadata changes for these prefixes and potentially
+	// generate updates into the ipcache, policy engine and datapath.
+	queuedChangesMU lock.Mutex
+	queuedPrefixes  map[string]struct{}
 }
 
 func newMetadata() *metadata {
 	return &metadata{
-		m: make(map[string]prefixInfo),
+		m:              make(map[string]prefixInfo),
+		queuedPrefixes: make(map[string]struct{}),
+	}
+}
+
+func (m *metadata) dequeuePrefixUpdates() (modifiedPrefixes []string) {
+	m.queuedChangesMU.Lock()
+	modifiedPrefixes = make([]string, 0, len(m.queuedPrefixes))
+	for p := range m.queuedPrefixes {
+		modifiedPrefixes = append(modifiedPrefixes, p)
+	}
+	m.queuedPrefixes = make(map[string]struct{})
+	m.queuedChangesMU.Unlock()
+
+	return
+}
+
+func (m *metadata) enqueuePrefixUpdates(prefixes []string) {
+	m.queuedChangesMU.Lock()
+	defer m.queuedChangesMU.Unlock()
+
+	for _, prefix := range prefixes {
+		m.queuedPrefixes[prefix] = struct{}{}
 	}
 }
 
