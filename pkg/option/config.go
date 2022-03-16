@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -2234,7 +2235,7 @@ type DaemonConfig struct {
 
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
-	TCFilterPriority int
+	TCFilterPriority uint16
 
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
@@ -2940,7 +2941,6 @@ func (c *DaemonConfig) Populate() {
 	c.BGPAnnouncePodCIDR = viper.GetBool(BGPAnnouncePodCIDR)
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
-	c.TCFilterPriority = viper.GetInt(TCFilterPriority)
 
 	c.EnableIPv4Masquerade = viper.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
@@ -2961,6 +2961,12 @@ func (c *DaemonConfig) Populate() {
 		}
 		c.VLANBPFBypass = append(c.VLANBPFBypass, vlanID)
 	}
+
+	tcFilterPrio := viper.GetUint32(TCFilterPriority)
+	if tcFilterPrio > math.MaxUint16 {
+		log.Fatalf("%s cannot be higher than %d", TCFilterPriority, math.MaxUint16)
+	}
+	c.TCFilterPriority = uint16(tcFilterPrio)
 
 	c.Tunnel = viper.GetString(TunnelName)
 	c.TunnelPort = viper.GetInt(TunnelPortName)

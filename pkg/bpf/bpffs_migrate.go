@@ -24,10 +24,9 @@ const bpffsPending = ":pending"
 // Takes a bpffsPath explicitly since it does not necessarily execute within
 // the same runtime as the agent. It is imported from a Cilium cmd that takes
 // its bpffs path from an env.
-func StartBPFFSMigration(bpffsPath, elfPath string) error {
-	coll, err := ebpf.LoadCollectionSpec(elfPath)
-	if err != nil {
-		return err
+func StartBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec) error {
+	if coll == nil {
+		return errors.New("can't migrate a nil CollectionSpec")
 	}
 
 	for name, spec := range coll.Maps {
@@ -59,10 +58,9 @@ func StartBPFFSMigration(bpffsPath, elfPath string) error {
 // Takes a bpffsPath explicitly since it does not necessarily execute within
 // the same runtime as the agent. It is imported from a Cilium cmd that takes
 // its bpffs path from an env.
-func FinalizeBPFFSMigration(bpffsPath, elfPath string, revert bool) error {
-	coll, err := ebpf.LoadCollectionSpec(elfPath)
-	if err != nil {
-		return err
+func FinalizeBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec, revert bool) error {
+	if coll == nil {
+		return errors.New("can't migrate a nil CollectionSpec")
 	}
 
 	for name, spec := range coll.Maps {
