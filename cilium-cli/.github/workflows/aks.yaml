@@ -47,7 +47,7 @@ jobs:
       - name: Display Azure CLI info
         uses: azure/CLI@7378ce2ca3c38b4b063feb7a4cbe384fef978055
         with:
-          azcliversion: 2.0.72
+          azcliversion: 2.34.1
           inlineScript: |
             az account show
 
