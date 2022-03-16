@@ -95,7 +95,6 @@ func (c *Client) GetVSwitches(ctx context.Context) (ipamTypes.SubnetMap, error) 
 		req := vpc.CreateDescribeVSwitchesRequest()
 		req.PageNumber = requests.NewInteger(i)
 		req.PageSize = requests.NewInteger(50)
-		req.VpcId = c.filters[VPCID]
 		c.limiter.Limit(ctx, "DescribeVSwitches")
 		resp, err := c.vpcClient.DescribeVSwitches(req)
 		if err != nil {
