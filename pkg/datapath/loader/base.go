@@ -431,7 +431,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgProxyRule] = "false"
 	}
 
-	args[initTCFilterPriority] = strconv.Itoa(option.Config.TCFilterPriority)
+	args[initTCFilterPriority] = strconv.Itoa(int(option.Config.TCFilterPriority))
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
