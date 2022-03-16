@@ -1187,6 +1187,9 @@ func (d *Daemon) GetNodeSuffix() string {
 // K8sCacheIsSynced returns true if the agent has fully synced its k8s cache
 // with the API server
 func (d *Daemon) K8sCacheIsSynced() bool {
+	if !k8s.IsEnabled() {
+		return true
+	}
 	select {
 	case <-d.k8sCachesSynced:
 		return true
