@@ -3,7 +3,7 @@
 #
 FROM docker.io/cilium/cilium-llvm:cae23fe2f43497ae268bd8ec186930bc5f32afac as cilium-llvm
 
-FROM quay.io/cilium/cilium-runtime:2022-02-21-v1.9@sha256:f4b8e8702ff483ebd06fb40411023e628adc13835ad79c5241af5e841e5dfefe
+FROM quay.io/cilium/cilium-runtime:2022-03-17-v1.9@sha256:69cb50b7e6be369a22d2014a90e39ab480db95c081663cc0bd23ec993aeaf117
 LABEL maintainer="maintainer@cilium.io"
 ARG ARCH=amd64
 WORKDIR /go/src/github.com/cilium/cilium
