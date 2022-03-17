@@ -11,6 +11,113 @@ CI / Jenkins
 
 The main CI infrastructure is maintained at https://jenkins.cilium.io/
 
+Triggering Pull-Request Builds With Jenkins
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To ensure that build resources are used judiciously, builds on Jenkins
+are manually triggered via comments on each pull-request that contain
+"trigger-phrases". Only members of the Cilium GitHub organization are
+allowed to trigger these jobs.
+
+Depending on the PR target branch, a specific set of jobs is marked as required,
+as per the `Cilium CI matrix`_. They will be automatically featured in PR checks
+directly on the PR page. The following trigger phrases may be used to trigger
+them all at once:
+
++------------------+--------------------------+
+| PR target branch | Trigger required PR jobs |
++==================+==========================+
+| master           | /test                    |
++------------------+--------------------------+
+| v1.11            | /test-backport-1.11      |
++------------------+--------------------------+
+| v1.10            | /test-backport-1.10      |
++------------------+--------------------------+
+| v1.9             | /test-backport-1.9       |
++------------------+--------------------------+
+
+For ``master`` PRs: on top of ``/test``, one may use ``/test-missed-k8s`` to
+trigger all non-required K8s versions on Kernel 4.9 as per the `Cilium CI
+matrix`_.
+
+For a full list of Jenkins PR jobs, see `Jenkins (PR tab)
+<https://jenkins.cilium.io/view/PR/>`_. Trigger phrases are configured within
+each job's build triggers advanced options.
+
+There are some feature flags based on Pull Requests labels, the list of labels
+are the following:
+
+- ``area/containerd``: Enable containerd runtime on all Kubernetes test.
+- ``ci/net-next``: Run tests on net-next kernel. This causes the  ``/test``
+  target to only run on the net-next kernel. It is purely for testing on a
+  different kernel, to merge a PR it must pass the CI without this flag.
+
+Retrigger specific jobs
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For all PRs: one may manually retrigger a specific job (e.g. in case of a flake)
+with the individual trigger featured directly in the PR check's name (e.g. for
+``K8s-1.20-kernel-4.9 (test-1.20-4.9)``, use ``/test-1.20-4.9``).
+
+This works for all displayed Jenkins tests.
+
+Testing with race condition detection enabled
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Optional non-required Jenkins are available for running the test suite with race
+condition detection enabled, and may be triggered using the trigger phrase
+``/test-race``.
+
+For a full list of Jenkins PR jobs with race detection enabled, see `Jenkins
+(Race Detection tab) <https://jenkins.cilium.io/view/Race%20Detection/>`_.
+Trigger phrases are configured within each job's build triggers advanced
+options.
+
+Using Jenkins for testing
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Typically when running Jenkins tests via one of the above trigger phases, it
+will run all of the tests in that particular category. However, there may be
+cases where you just want to run a single test quickly on Jenkins and observe
+the test result. To do so, you need to update the relevant test to have a
+custom name, and to update the Jenkins file to focus that test. Below is an
+example patch that shows how this can be achieved.
+
+.. code-block:: diff
+
+    diff --git a/ginkgo.Jenkinsfile b/ginkgo.Jenkinsfile
+    index ee17808748a6..637f99269a41 100644
+    --- a/ginkgo.Jenkinsfile
+    +++ b/ginkgo.Jenkinsfile
+    @@ -62,10 +62,10 @@ pipeline {
+                 steps {
+                     parallel(
+                         "Runtime":{
+    -                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated" --tags=integration_tests'
+    +                        sh 'cd ${TESTDIR}; ginkgo --focus="XFoooo" --tags=integration_tests'
+                         },
+                         "K8s-1.9":{
+    -                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sValidated" --tags=integration_tests ${FAILFAST}'
+    +                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sFooooo" --tags=integration_tests ${FAILFAST}'
+                         },
+                         failFast: true
+                     )
+    diff --git a/test/k8s/nightly.go b/test/k8s/nightly.go
+    index 62b324619797..3f955c73a818 100644
+    --- a/test/k8s/nightly.go
+    +++ b/test/k8s/nightly.go
+    @@ -466,7 +466,7 @@ var _ = Describe("NightlyExamples", func() {
+
+                    })
+
+    -               It("K8sValidated Updating Cilium stable to master", func() {
+    +               FIt("K8sFooooo K8sValidated Updating Cilium stable to master", func() {
+                            podFilter := "k8s:zgroup=testapp"
+
+                            //This test should run in each PR for now.
+
+.. _ci_failure_triage:
+
 Jobs Overview
 ~~~~~~~~~~~~~
 
@@ -166,108 +273,6 @@ always be found in the `Cilium CI matrix`_.
 .. _Cilium CI matrix: https://docs.google.com/spreadsheets/d/1TThkqvVZxaqLR-Ela4ZrcJ0lrTJByCqrbdCjnI32_X0
 
 .. _trigger_phrases:
-
-Triggering Pull-Request Builds With Jenkins
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To ensure that build resources are used judiciously, builds on Jenkins
-are manually triggered via comments on each pull-request that contain
-"trigger-phrases". Only members of the Cilium GitHub organization are
-allowed to trigger these jobs.
-
-Depending on the PR target branch, a specific set of jobs is marked as required,
-as per the `Cilium CI matrix`_. They will be automatically featured in PR checks
-directly on the PR page. The following trigger phrases may be used to trigger
-them all at once:
-
-+------------------+--------------------------+
-| PR target branch | Trigger required PR jobs |
-+==================+==========================+
-| master           | /test                    |
-+------------------+--------------------------+
-| v1.11            | /test-backport-1.11      |
-+------------------+--------------------------+
-| v1.10            | /test-backport-1.10      |
-+------------------+--------------------------+
-| v1.9             | /test-backport-1.9       |
-+------------------+--------------------------+
-
-For ``master`` PRs: on top of ``/test``, one may use ``/test-missed-k8s`` to
-trigger all non-required K8s versions on Kernel 4.9 as per the `Cilium CI
-matrix`_.
-
-For all PRs: one may manually retrigger a specific job (e.g. in case of a flake)
-with the individual trigger featured directly in the PR check's name (e.g. for
-``K8s-1.20-kernel-4.9 (test-1.20-4.9)``, use ``/test-1.20-4.9``).
-
-For a full list of Jenkins PR jobs, see `Jenkins (PR tab)
-<https://jenkins.cilium.io/view/PR/>`_. Trigger phrases are configured within
-each job's build triggers advanced options.
-
-There are some feature flags based on Pull Requests labels, the list of labels
-are the following:
-
-- ``area/containerd``: Enable containerd runtime on all Kubernetes test.
-- ``ci/net-next``: Run tests on net-next kernel. This causes the  ``/test``
-  target to only run on the net-next kernel. It is purely for testing on a
-  different kernel, to merge a PR it must pass the CI without this flag.
-
-Testing with race condition detection enabled
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Optional non-required Jenkins are available for running the test suite with race
-condition detection enabled, and may be triggered using the trigger phrase
-``/test-race``.
-
-For a full list of Jenkins PR jobs with race detection enabled, see `Jenkins
-(Race Detection tab) <https://jenkins.cilium.io/view/Race%20Detection/>`_.
-Trigger phrases are configured within each job's build triggers advanced
-options.
-
-Using Jenkins for testing
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Typically when running Jenkins tests via one of the above trigger phases, it
-will run all of the tests in that particular category. However, there may be
-cases where you just want to run a single test quickly on Jenkins and observe
-the test result. To do so, you need to update the relevant test to have a
-custom name, and to update the Jenkins file to focus that test. Below is an
-example patch that shows how this can be achieved.
-
-.. code-block:: diff
-
-    diff --git a/ginkgo.Jenkinsfile b/ginkgo.Jenkinsfile
-    index ee17808748a6..637f99269a41 100644
-    --- a/ginkgo.Jenkinsfile
-    +++ b/ginkgo.Jenkinsfile
-    @@ -62,10 +62,10 @@ pipeline {
-                 steps {
-                     parallel(
-                         "Runtime":{
-    -                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated" --tags=integration_tests'
-    +                        sh 'cd ${TESTDIR}; ginkgo --focus="XFoooo" --tags=integration_tests'
-                         },
-                         "K8s-1.9":{
-    -                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sValidated" --tags=integration_tests ${FAILFAST}'
-    +                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sFooooo" --tags=integration_tests ${FAILFAST}'
-                         },
-                         failFast: true
-                     )
-    diff --git a/test/k8s/nightly.go b/test/k8s/nightly.go
-    index 62b324619797..3f955c73a818 100644
-    --- a/test/k8s/nightly.go
-    +++ b/test/k8s/nightly.go
-    @@ -466,7 +466,7 @@ var _ = Describe("NightlyExamples", func() {
-
-                    })
-
-    -               It("K8sValidated Updating Cilium stable to master", func() {
-    +               FIt("K8sFooooo K8sValidated Updating Cilium stable to master", func() {
-                            podFilter := "k8s:zgroup=testapp"
-
-                            //This test should run in each PR for now.
-
-.. _ci_failure_triage:
 
 CI Failure Triage
 ~~~~~~~~~~~~~~~~~
