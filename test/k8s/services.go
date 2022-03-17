@@ -609,12 +609,12 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			}
 
 			netpol = helpers.ManifestGet(kubectl.BasePath(), "netpol-deny-ns-lb-test-k8s2.yaml")
-			_, err = kubectl.CiliumClusterwidePolicyAction(netpol,
+			err = kubectl.CiliumClusterwidePolicyAction(netpol,
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy %s cannot be applied", netpol)
 
 			defer func() {
-				_, err := kubectl.CiliumClusterwidePolicyAction(netpol,
+				err := kubectl.CiliumClusterwidePolicyAction(netpol,
 					helpers.KubectlDelete, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Policy %s cannot be deleted", netpol)
 			}()
@@ -772,14 +772,14 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				})
 
 				ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
-				_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
+				err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
 					helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(),
-					"Policy %s cannot be applied", ccnpHostPolicy)
+					"Policy %s cannot be Applied", ccnpHostPolicy)
 			})
 
 			AfterAll(func() {
-				_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
+				err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
 					helpers.KubectlDelete, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(),
 					"Policy %s cannot be deleted", ccnpHostPolicy)

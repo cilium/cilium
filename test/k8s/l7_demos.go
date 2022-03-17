@@ -100,7 +100,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDemosTest", func() {
 		res.ExpectSuccess("unable to curl %s/v1: %s", deathstarFQDN, res.Stdout())
 
 		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
-		_, err = kubectl.CiliumPolicyAction(
+		err = kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, l7PolicyYAMLLink, helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Unable to apply %s", l7PolicyYAMLLink)
 

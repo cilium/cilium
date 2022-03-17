@@ -175,7 +175,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sKafkaPolicyTest", func() {
 
 			By("Apply L7 kafka policy and wait")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				helpers.DefaultNamespace, l7Policy,
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "L7 policy cannot be imported correctly")

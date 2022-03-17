@@ -181,7 +181,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			By("Importing policy")
 
-			_, err = kubectl.CiliumPolicyAction(helpers.DefaultNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
+			err = kubectl.CiliumPolicyAction(helpers.DefaultNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Error creating policy %q", policyPath)
 
 			By("Checking that policies were correctly imported into Cilium")

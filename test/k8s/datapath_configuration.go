@@ -955,7 +955,7 @@ func testHostFirewall(kubectl *helpers.Kubectl) {
 
 	demoHostPolicies := helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
 	By(fmt.Sprintf("Applying policies %s", demoHostPolicies))
-	_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
+	err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoHostPolicies, err))
 
 	var wg sync.WaitGroup
@@ -1091,7 +1091,7 @@ func fetchPodsWithOffset(kubectl *helpers.Kubectl, namespace, name, filter, host
 func applyL3Policy(kubectl *helpers.Kubectl, ns string) {
 	demoPolicyL3 := helpers.ManifestGet(kubectl.BasePath(), "l3-policy-demo.yaml")
 	By(fmt.Sprintf("Applying policy %s", demoPolicyL3))
-	_, err := kubectl.CiliumPolicyAction(ns, demoPolicyL3, helpers.KubectlApply, helpers.HelperTimeout)
+	err := kubectl.CiliumPolicyAction(ns, demoPolicyL3, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoPolicyL3, err))
 }
 

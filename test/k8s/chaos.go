@@ -244,7 +244,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sChaosTest", func() {
 				fmt.Sprintf("netperf -l 60 -t TCP_STREAM -H %s", podsIps[netperfServer]))
 
 			By("Installing the L3-L4 Policy")
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				helpers.DefaultNamespace, netperfPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", netperfPolicy)
 

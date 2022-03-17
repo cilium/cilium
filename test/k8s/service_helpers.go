@@ -35,7 +35,7 @@ func getTFTPLink(host string, port int32) string {
 
 func applyPolicy(kubectl *helpers.Kubectl, path string) {
 	By(fmt.Sprintf("Applying policy %s", path))
-	_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
+	err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
 }
 

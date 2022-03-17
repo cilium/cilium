@@ -153,7 +153,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 
 		fqndProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
 
-		_, err = kubectl.CiliumPolicyAction(
+		err = kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, fqndProxyPolicy,
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
@@ -251,7 +251,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		world1Target := worldTarget
 		world2Target := worldInvalidTarget
 
-		_, err := kubectl.CiliumPolicyAction(
+		err := kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, fqdnPolicy,
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
@@ -287,7 +287,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		world1Target := worldTarget
 		world2Target := worldInvalidTarget
 
-		_, err := kubectl.CiliumPolicyAction(
+		err := kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, fqdnPolicy,
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
@@ -305,7 +305,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 
 		By("Updating the policy to include an extra FQDN allow statement")
 		fqdnPolicy2 := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs-v2.yaml")
-		_, err = kubectl.CiliumPolicyAction(
+		err = kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, fqdnPolicy2,
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")

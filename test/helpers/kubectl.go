@@ -3068,10 +3068,10 @@ func getPolicyEnforcingJqFilter(numNodes int) string {
 // to be applied in all Cilium endpoints. Returns an error if the policy is not
 // imported before the timeout is
 // exceeded.
-func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
+func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) error {
 	podRevisions, err := kub.getPodRevisions()
 	if err != nil {
-		return "", err
+		return err
 	}
 	numNodes := len(podRevisions)
 
@@ -3079,7 +3079,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 
 	status := kub.Action(action, filepath, namespace)
 	if !status.WasSuccessful() {
-		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
+		return status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
 	unchanged := action == KubectlApply && strings.HasSuffix(status.Stdout(), " unchanged\n")
 
@@ -3124,24 +3124,24 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			&TimeoutConfig{Timeout: timeout})
 
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
 	// If the applied policy was unchanged, we don't need to wait for the next policy revision.
 	if unchanged {
-		return "", nil
+		return nil
 	}
 
-	return "", kub.waitNextPolicyRevisions(podRevisions, timeout)
+	return kub.waitNextPolicyRevisions(podRevisions, timeout)
 }
 
 // CiliumClusterwidePolicyAction applies a clusterwide policy action as described in action argument. It
 // then wait till timeout Duration for the policy to be applied to all the cilium endpoints.
-func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
+func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action ResourceLifeCycleAction, timeout time.Duration) error {
 	podRevisions, err := kub.getPodRevisions()
 	if err != nil {
-		return "", err
+		return err
 	}
 	numNodes := len(podRevisions)
 
@@ -3149,7 +3149,7 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 
 	status := kub.Action(action, filepath)
 	if !status.WasSuccessful() {
-		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
+		return status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
 	unchanged := action == KubectlApply && strings.HasSuffix(status.Stdout(), " unchanged\n")
 
@@ -3188,16 +3188,16 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 			&TimeoutConfig{Timeout: timeout})
 
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
 	// If the applied policy was unchanged, we don't need to wait for the next policy revision.
 	if unchanged {
-		return "", nil
+		return nil
 	}
 
-	return "", kub.waitNextPolicyRevisions(podRevisions, timeout)
+	return kub.waitNextPolicyRevisions(podRevisions, timeout)
 }
 
 // CiliumReport report the cilium pod to the log and appends the logs for the

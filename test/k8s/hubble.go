@@ -265,7 +265,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			fqdnProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
 			fqdnTarget := "vagrant-cache.ci.cilium.io"
 
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, fqdnProxyPolicy,
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")

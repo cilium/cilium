@@ -241,7 +241,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			By("Testing L3/L4 rules")
 
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, l3Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
@@ -272,7 +272,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			By("Testing L3/L4 deny rules")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3PolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
@@ -296,19 +296,19 @@ var _ = SkipDescribeIf(func() bool {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3Policy,
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3PolicyDeny,
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot delete L3 Policy Deny")
 
 			By("Testing L7 Policy")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
@@ -341,7 +341,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			By("Testing L7 Policy with L3/L4 deny rules")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3PolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
@@ -376,7 +376,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			By("Testing L3/L4 rules with named ports")
 
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, l3NamedPortPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
@@ -407,7 +407,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			By("Testing L3/L4 deny rules with named ports")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3NamedPortPolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
@@ -431,19 +431,19 @@ var _ = SkipDescribeIf(func() bool {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3NamedPortPolicy,
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3NamedPortPolicyDeny,
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot delete L3 Policy Deny")
 
 			By("Testing L7 Policy with named port")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l7NamedPortPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7NamedPortPolicy)
 
@@ -473,7 +473,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			By("Testing L7 Policy with L3/L4 deny rules with named ports")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3NamedPortPolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
@@ -520,7 +520,7 @@ var _ = SkipDescribeIf(func() bool {
 			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App2], TLSCaCerts, "/cacert.pem")
 			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App2])
 
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, l7PolicyTLS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7PolicyTLS)
 
@@ -578,7 +578,7 @@ var _ = SkipDescribeIf(func() bool {
 		It("ServiceAccount Based Enforcement", func() {
 			// Load policy allowing serviceAccount of app2 to talk
 			// to app1 on port 80 TCP
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, serviceAccountPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
@@ -611,7 +611,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			// Load policy denying serviceAccount of app2 to talk
 			// to app1 on port 80 TCP
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, serviceAccountPolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
@@ -643,7 +643,7 @@ var _ = SkipDescribeIf(func() bool {
 		}, 500)
 
 		It("CNP test MatchExpressions key", func() {
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, cnpMatchExpression, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "cannot install policy %s", cnpMatchExpression)
 
@@ -659,7 +659,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			By("Testing CNP test MatchExpressions key with policy Denies")
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				namespaceForTest, cnpMatchExpressionDeny, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "cannot install policy %s", cnpMatchExpression)
 
@@ -690,7 +690,7 @@ var _ = SkipDescribeIf(func() bool {
 			By("Installing knp ingress default-deny")
 
 			// Import the policy and wait for all required endpoints to enforce the policy
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, knpDenyIngress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress Policy cannot be applied in %q namespace", namespaceForTest)
@@ -711,7 +711,7 @@ var _ = SkipDescribeIf(func() bool {
 		It("Denies traffic with k8s default-deny egress policy", func() {
 			By("Installing knp egress default-deny")
 
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, knpDenyEgress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-egress Policy cannot be applied in %q namespace", namespaceForTest)
@@ -738,7 +738,7 @@ var _ = SkipDescribeIf(func() bool {
 		It("Denies traffic with k8s default-deny ingress-egress policy", func() {
 			By("Installing knp ingress-egress default-deny")
 
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, knpDenyIngressEgress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress-egress policy cannot be applied in %q namespace", namespaceForTest)
@@ -777,7 +777,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			By("Installing cnp ingress default-deny")
 
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, cnpDenyIngress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress Policy cannot be applied in %q namespace", namespaceForTest)
@@ -799,7 +799,7 @@ var _ = SkipDescribeIf(func() bool {
 		It("Denies traffic with cnp default-deny egress policy", func() {
 
 			By("Installing cnp egress default-deny")
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, cnpDenyEgress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-egress Policy cannot be applied in %q namespace", namespaceForTest)
@@ -824,7 +824,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		It("Allows traffic with k8s default-allow ingress policy", func() {
 			By("Installing ingress default-allow")
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, knpAllowIngress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 allow-ingress Policy cannot be applied in %q namespace", namespaceForTest)
@@ -843,7 +843,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		It("Allows traffic with k8s default-allow egress policy", func() {
 			By("Installing egress default-allow")
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				namespaceForTest, knpAllowEgress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 allow-egress Policy cannot be applied in %q namespace", namespaceForTest)
@@ -985,14 +985,14 @@ var _ = SkipDescribeIf(func() bool {
 
 			It("Enforces connectivity correctly when the same L3/L4 CNP is updated", func() {
 				By("Applying default allow policy")
-				_, err := kubectl.CiliumPolicyAction(
+				err := kubectl.CiliumPolicyAction(
 					namespaceForTest, cnpUpdateAllow, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 
 				validateL3L4(allowAll)
 
 				By("Applying l3-l4 policy")
-				_, err = kubectl.CiliumPolicyAction(
+				err = kubectl.CiliumPolicyAction(
 					namespaceForTest, cnpUpdateDeny, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
 
@@ -1010,21 +1010,21 @@ var _ = SkipDescribeIf(func() bool {
 				validateL3L4(denyFromApp3)
 
 				By("Applying l3-l4 policy with user-specified labels")
-				_, err = kubectl.CiliumPolicyAction(
+				err = kubectl.CiliumPolicyAction(
 					namespaceForTest, cnpUpdateDenyLabelled, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDenyLabelled)
 
 				validateL3L4(denyFromApp3)
 
 				By("Applying default allow policy (should remove policy with user labels)")
-				_, err = kubectl.CiliumPolicyAction(
+				err = kubectl.CiliumPolicyAction(
 					namespaceForTest, cnpUpdateAllow, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 
 				validateL3L4(allowAll)
 
 				By("Applying a full deny policy on all endpoints")
-				_, err = kubectl.CiliumPolicyAction(
+				err = kubectl.CiliumPolicyAction(
 					namespaceForTest, cnpUpdateDenyAll, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDenyAll)
 
@@ -1038,7 +1038,7 @@ var _ = SkipDescribeIf(func() bool {
 				// This HTTP policy was already validated in the
 				// test "checks all kind of Kubernetes policies".
 				// Install it then move on.
-				_, err := kubectl.CiliumPolicyAction(
+				err := kubectl.CiliumPolicyAction(
 					namespaceForTest, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
@@ -1046,7 +1046,7 @@ var _ = SkipDescribeIf(func() bool {
 				// to test ability to change L7 parser type of a port.
 				// Traffic cannot flow but policy must be able to be
 				// imported and applied to the endpoints.
-				_, err = kubectl.CiliumPolicyAction(
+				err = kubectl.CiliumPolicyAction(
 					namespaceForTest, l7PolicyKafka, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Cannot update L7 policy (%q) from parser http to kafka", l7PolicyKafka)
 
@@ -1255,7 +1255,7 @@ var _ = SkipDescribeIf(func() bool {
 
 				By("Importing policy which selects app1")
 
-				_, err := kubectl.CiliumPolicyAction(
+				err := kubectl.CiliumPolicyAction(
 					namespaceForTest, l3Policy, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(),
 					"policy %s cannot be applied in %q namespace", l3Policy, namespaceForTest)
@@ -1263,7 +1263,7 @@ var _ = SkipDescribeIf(func() bool {
 				By("Checking that proxy visibility annotation is still applied even while a policy was imported")
 				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
 
-				_, err = kubectl.CiliumPolicyAction(
+				err = kubectl.CiliumPolicyAction(
 					namespaceForTest, l3Policy, helpers.KubectlDelete, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(),
 					"policy %s cannot be deleted in %q namespace", l3Policy, namespaceForTest)
@@ -1273,7 +1273,7 @@ var _ = SkipDescribeIf(func() bool {
 
 				By("Importing policy using named ports which selects app1; proxy-visibility annotation should remain")
 
-				_, err = kubectl.CiliumPolicyAction(
+				err = kubectl.CiliumPolicyAction(
 					namespaceForTest, l3NamedPortPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(),
 					"policy %s cannot be applied in %q namespace", l3NamedPortPolicy, namespaceForTest)
@@ -1281,7 +1281,7 @@ var _ = SkipDescribeIf(func() bool {
 				By("Checking that proxy visibility annotation is still applied to policy being added")
 				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
 
-				_, err = kubectl.CiliumPolicyAction(
+				err = kubectl.CiliumPolicyAction(
 					namespaceForTest, l3NamedPortPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(),
 					"policy %s cannot be deleted in %q namespace", l3NamedPortPolicy, namespaceForTest)
@@ -1857,7 +1857,7 @@ var _ = SkipDescribeIf(func() bool {
 			waitforPods()
 
 			By("Apply policy to web")
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), webPolicy),
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply web-policy")
@@ -1868,7 +1868,7 @@ var _ = SkipDescribeIf(func() bool {
 			policyCheckStatus(policyCheck)
 
 			By("Apply policy to Redis")
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicy),
 				helpers.KubectlApply, helpers.HelperTimeout)
 
@@ -1881,7 +1881,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			testConnectivitytoRedis()
 
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicy),
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
@@ -1975,13 +1975,13 @@ var _ = SkipDescribeIf(func() bool {
 			// Tests that the same policy(name,labels) can enforce based on the
 			// namespace and all works as expected.
 			By("Applying Policy in %q namespace", secondNS)
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				secondNS, l3l4PolicySecondNS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Policy cannot be applied in %q namespace", l3l4PolicySecondNS, secondNS)
 
 			By("Applying Policy in default namespace")
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				helpers.DefaultNamespace, l3L4Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Policy cannot be applied in %q namespace", l3L4Policy, helpers.DefaultNamespace)
@@ -2031,7 +2031,7 @@ var _ = SkipDescribeIf(func() bool {
 			}
 
 			By("Applying Policy in %q namespace", secondNS)
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				secondNS, netpolNsSelector, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy cannot be applied")
 
@@ -2052,7 +2052,7 @@ var _ = SkipDescribeIf(func() bool {
 			}
 
 			By("Delete Kubernetes Network Policies in %q namespace", secondNS)
-			_, err = kubectl.CiliumPolicyAction(
+			err = kubectl.CiliumPolicyAction(
 				secondNS, netpolNsSelector, helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy %q cannot be deleted", netpolNsSelector)
 
@@ -2071,7 +2071,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		It("Cilium Network policy using namespace label and L7", func() {
 
-			_, err := kubectl.CiliumPolicyAction(
+			err := kubectl.CiliumPolicyAction(
 				helpers.DefaultNamespace, cnpSecondNS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpSecondNS)
 
@@ -2184,7 +2184,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		It("Test clusterwide connectivity with policies", func() {
 			By("Applying Egress deny all clusterwide policy")
-			_, err := kubectl.CiliumClusterwidePolicyAction(
+			err := kubectl.CiliumClusterwidePolicyAction(
 				egressDenyAllPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be applied", egressDenyAllPolicy)
@@ -2210,13 +2210,13 @@ var _ = SkipDescribeIf(func() bool {
 			res.ExpectFail("Egress DNS connectivity should be denied for pod %q", helpers.App3)
 
 			By("Deleting Egress deny all clusterwide policy")
-			_, err = kubectl.CiliumClusterwidePolicyAction(
+			err = kubectl.CiliumClusterwidePolicyAction(
 				egressDenyAllPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be deleted", egressDenyAllPolicy)
 
 			By("Applying Ingress deny all clusterwide policy")
-			_, err = kubectl.CiliumClusterwidePolicyAction(
+			err = kubectl.CiliumClusterwidePolicyAction(
 				ingressDenyAllPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be applied", egressDenyAllPolicy)
@@ -2249,13 +2249,13 @@ var _ = SkipDescribeIf(func() bool {
 			// Apply both ingress deny and egress deny all policies and override the policies with
 			// global allow all policy.
 			By("Applying Egress deny all clusterwide policy")
-			_, err = kubectl.CiliumClusterwidePolicyAction(
+			err = kubectl.CiliumClusterwidePolicyAction(
 				egressDenyAllPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be applied", egressDenyAllPolicy)
 
 			By("Applying Allow all clusterwide policy over ingress deny all and egress deny all")
-			_, err = kubectl.CiliumClusterwidePolicyAction(
+			err = kubectl.CiliumClusterwidePolicyAction(
 				allowAllPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be applied", allowAllPolicy)
@@ -2291,13 +2291,13 @@ var _ = SkipDescribeIf(func() bool {
 			// 3. Check denied ingress from app3.firstNS to app1.firstNS
 			// 4. Check denied ingress from app3.secondNS to app1.firstNS
 			By("Update allow all policy to allow ingress from a particular app only.")
-			_, err = kubectl.CiliumClusterwidePolicyAction(
+			err = kubectl.CiliumClusterwidePolicyAction(
 				allowIngressPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be applied", allowIngressPolicy)
 
 			By("Deleting Egress deny all clusterwide policy")
-			_, err = kubectl.CiliumClusterwidePolicyAction(
+			err = kubectl.CiliumClusterwidePolicyAction(
 				egressDenyAllPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be deleted", egressDenyAllPolicy)
@@ -2328,13 +2328,13 @@ var _ = SkipDescribeIf(func() bool {
 
 			// Cleanup all tested policies
 			By("Delete allow ingress from particular app policy")
-			_, err = kubectl.CiliumClusterwidePolicyAction(
+			err = kubectl.CiliumClusterwidePolicyAction(
 				allowIngressPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be deleted", allowIngressPolicy)
 
 			By("Deleting Ingress deny all clusterwide policy")
-			_, err = kubectl.CiliumClusterwidePolicyAction(
+			err = kubectl.CiliumClusterwidePolicyAction(
 				ingressDenyAllPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Clusterwide Policy cannot be deleted", ingressDenyAllPolicy)
@@ -2738,7 +2738,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 				)
 
 				By("Removing the previous toEntities KubeAPIServer policy")
-				_, err := kubectl.CiliumPolicyAction(
+				err := kubectl.CiliumPolicyAction(
 					testNamespace, cnpToEntitiesKubeAPIServer, helpers.KubectlDelete, helpers.HelperTimeout,
 				)
 				Expect(err).Should(
@@ -2805,7 +2805,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 	})
 
 func importPolicy(kubectl *helpers.Kubectl, namespace, file, name string) {
-	_, err := kubectl.CiliumPolicyAction(namespace,
+	err := kubectl.CiliumPolicyAction(namespace,
 		file,
 		helpers.KubectlApply,
 		helpers.HelperTimeout)
