@@ -39,6 +39,15 @@ func TestGetStringMapString(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
+			name: "valid empty json",
+			args: args{
+				key:   "FOO_BAR",
+				value: "{}",
+			},
+			want:    map[string]string{},
+			wantErr: assert.NoError,
+		},
+		{
 			name: "invalid json format with extra comma at the end",
 			args: args{
 				key:   "FOO_BAR",
