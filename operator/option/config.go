@@ -449,19 +449,19 @@ func (c *OperatorConfig) Populate() {
 
 	if m, err := command.GetStringMapStringE(viper.GetViper(), IPAMSubnetsTags); err != nil {
 		log.Fatalf("unable to parse %s: %s", IPAMSubnetsTags, err)
-	} else if len(m) != 0 {
+	} else {
 		c.IPAMSubnetsTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(viper.GetViper(), AWSInstanceLimitMapping); err != nil {
 		log.Fatalf("unable to parse %s: %s", AWSInstanceLimitMapping, err)
-	} else if len(m) != 0 {
+	} else {
 		c.AWSInstanceLimitMapping = m
 	}
 
 	if m, err := command.GetStringMapStringE(viper.GetViper(), ENITags); err != nil {
 		log.Fatalf("unable to parse %s: %s", ENITags, err)
-	} else if len(m) != 0 {
+	} else {
 		c.ENITags = m
 	}
 }

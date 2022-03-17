@@ -2881,19 +2881,19 @@ func (c *DaemonConfig) Populate() {
 
 	if m, err := command.GetStringMapStringE(viper.GetViper(), KVStoreOpt); err != nil {
 		log.Fatalf("unable to parse %s: %s", KVStoreOpt, err)
-	} else if len(m) != 0 {
+	} else {
 		c.KVStoreOpt = m
 	}
 
 	if m, err := command.GetStringMapStringE(viper.GetViper(), LogOpt); err != nil {
 		log.Fatalf("unable to parse %s: %s", LogOpt, err)
-	} else if len(m) != 0 {
+	} else {
 		c.LogOpt = m
 	}
 
 	if m, err := command.GetStringMapStringE(viper.GetViper(), APIRateLimitName); err != nil {
 		log.Fatalf("unable to parse %s: %s", APIRateLimitName, err)
-	} else if len(m) != 0 {
+	} else {
 		c.APIRateLimit = m
 	}
 
