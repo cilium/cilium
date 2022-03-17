@@ -22,7 +22,9 @@ LIBDIR?=$(PREFIX)/lib
 LOCALSTATEDIR?=/var
 RUNDIR?=/var/run
 CONFDIR?=/etc
-export GOARCH ?= $(shell $(GO) env GOARCH)
+
+NATIVE_ARCH = $(shell GOARCH= $(GO) env GOARCH)
+export GOARCH ?= $(NATIVE_ARCH)
 
 INSTALL = install
 
@@ -125,10 +127,17 @@ else
 endif
 
 GO_BUILD = CGO_ENABLED=0 $(GO) build
-# Currently crosscompiling only enabled for arm64 targets
+
+# Support CGO cross-compiling for amd64 and arm64 targets
 CGO_CC =
-ifeq ($(GOARCH),arm64)
+CROSS_ARCH =
+ifneq ($(GOARCH),$(NATIVE_ARCH))
+    CROSS_ARCH = $(GOARCH)
+endif
+ifeq ($(CROSS_ARCH),arm64)
     CGO_CC = CC=aarch64-linux-gnu-gcc
+else ifeq ($(CROSS_ARCH),amd64)
+    CGO_CC = CC=x86_64-linux-gnu-gcc
 endif
 GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(CGO_CC) $(GO) build
 
