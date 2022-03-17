@@ -223,6 +223,14 @@ allocation:
 
   If unspecified, no tags are required.
 
+``spec.eni.exclude-interface-tags``
+  The tags used to exclude interfaces from IP allocation. Any ENI attached to
+  a node which matches this set of tags will be ignored by Cilium and may be
+  used for other purposes. This parameter can be used in combination with
+  ``subnet-tags`` or ``first-interface-index`` to exclude additional interfaces.
+
+  If unspecified, no tags are used to exclude interfaces.
+
 ``spec.eni.delete-on-termination``
   Remove the ENI when the instance is terminated
 
