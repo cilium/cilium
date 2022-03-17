@@ -45,7 +45,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDemosTest", func() {
 
 	AfterEach(func() {
 		By("Deleting all resources created during test")
-		kubectl.Delete(l7PolicyYAMLLink)
+		kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 		kubectl.Delete(deathStarYAMLLink)
 		kubectl.Delete(xwingYAMLLink)
 

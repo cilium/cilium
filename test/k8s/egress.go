@@ -219,8 +219,7 @@ var _ = SkipDescribeIf(func() bool {
 			egressIP, originalPolicyYAML, policyYAML)).ExpectSuccess()
 		kubectl.ExecMiddle(fmt.Sprintf("sed 's/INPUT_OUTSIDE_NODE_IP/%s/' -i %s",
 			outsideIP, policyYAML)).ExpectSuccess()
-		res = kubectl.ApplyDefault(policyYAML)
-		Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", policyYAML)
+		applyPolicyDefault(kubectl, policyYAML)
 	}
 
 	doContext := func(name string, ciliumOpts map[string]string) {
@@ -244,13 +243,8 @@ var _ = SkipDescribeIf(func() bool {
 			})
 
 			Context("egress gw policy", func() {
-				BeforeAll(func() {
-					applyEgressPolicy()
-					kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-					kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
-				})
-				AfterAll(func() {
-					kubectl.Delete(policyYAML)
+				AfterEach(func() {
+					kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 				})
 
 				AfterFailed(func() {
@@ -258,6 +252,10 @@ var _ = SkipDescribeIf(func() bool {
 				})
 
 				It("both egress gw and basic connectivity work", func() {
+					applyEgressPolicy()
+					kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
+					kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
+
 					testEgressGateway(false)
 					testEgressGateway(true)
 					testConnectivity(false, ciliumOpts)

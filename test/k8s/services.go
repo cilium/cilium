@@ -102,6 +102,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			ExpectAllPodsTerminated(kubectl)
 		})
 
+		AfterEach(func() {
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
+		})
+
 		// This is testing bpf_lxc LB (= KPR=disabled) when both client and
 		// server are running on the same node. Thus, skipping when running with
 		// KPR.
@@ -215,11 +219,14 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 			Context("with L7 policy", func() {
 				AfterAll(func() {
-					kubectl.Delete(demoPolicyL7)
 					// Remove CT entries to avoid packet drops which could happen
 					// due to matching stale entries with proxy_redirect = 1
 					kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
 						"cilium bpf ct flush global", "Unable to flush CT maps")
+				})
+
+				AfterEach(func() {
+					kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 				})
 
 				It("Tests NodePort with L7 Policy", func() {
@@ -382,8 +389,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l4-policy-demo.yaml")
 			})
 
-			AfterAll(func() {
-				kubectl.Delete(demoPolicy)
+			AfterEach(func() {
+				kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 			})
 
 			It("Tests TFTP from DNS Proxy Port", func() {
@@ -446,8 +453,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l4-policy-demo.yaml")
 			})
 
-			AfterAll(func() {
-				kubectl.Delete(demoPolicy)
+			AfterEach(func() {
+				kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 			})
 
 			It("Tests NodePort with L4 Policy", func() {
@@ -477,10 +484,13 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			})
 
 			AfterAll(func() {
-				kubectl.Delete(demoPolicyL7)
 				// Same reason as in other L7 test above
 				kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
 					"cilium bpf ct flush global", "Unable to flush CT maps")
+			})
+
+			AfterEach(func() {
+				kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 			})
 
 			It("Tests NodePort with L7 Policy", func() {
@@ -540,6 +550,10 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				kubectl.Delete(yaml)
 			}
 			ExpectAllPodsTerminated(kubectl)
+		})
+
+		AfterEach(func() {
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 		})
 
 		It("Tests NodePort with sessionAffinity from outside", func() {
@@ -612,12 +626,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			err = kubectl.CiliumClusterwidePolicyAction(netpol,
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy %s cannot be applied", netpol)
-
-			defer func() {
-				err := kubectl.CiliumClusterwidePolicyAction(netpol,
-					helpers.KubectlDelete, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Policy %s cannot be deleted", netpol)
-			}()
 
 			// Now let's apply the policy. All request should fail.
 			for _, addr := range svcAddrs {
@@ -764,30 +772,27 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 		})
 
 		SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
-			var ccnpHostPolicy string
+			ccnpHostPolicy := helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
 
 			BeforeAll(func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"hostFirewall.enabled": "true",
 				})
-
-				ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
-				err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
-					helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(),
-					"Policy %s cannot be Applied", ccnpHostPolicy)
 			})
 
 			AfterAll(func() {
-				err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
-					helpers.KubectlDelete, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(),
-					"Policy %s cannot be deleted", ccnpHostPolicy)
-
 				DeployCiliumAndDNS(kubectl, ciliumFilename)
 			})
 
+			AfterEach(func() {
+				kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
+			})
+
 			It("Tests NodePort", func() {
+				err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
+					helpers.KubectlApply, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(),
+					"Policy %s cannot be applied", ccnpHostPolicy)
 				testNodePort(kubectl, ni, true, true, 0)
 			})
 		})

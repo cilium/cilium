@@ -174,6 +174,10 @@ var _ = Describe("K8sHubbleTest", func() {
 			kubectl.CloseSSHClient()
 		})
 
+		AfterEach(func() {
+			kubectl.DeleteAllPoliciesAndWait(namespaceForTest, helpers.HelperTimeout)
+		})
+
 		It("Test L3/L4 Flow", func() {
 			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
 			defer cancel()
@@ -266,7 +270,6 @@ var _ = Describe("K8sHubbleTest", func() {
 
 			fqdnProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
 			applyPolicy(kubectl, namespaceForTest, fqdnProxyPolicy)
-			defer deletePolicy(kubectl, namespaceForTest, fqdnProxyPolicy)
 
 			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s", fqdnTarget)))

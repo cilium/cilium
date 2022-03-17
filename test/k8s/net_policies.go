@@ -231,8 +231,7 @@ var _ = SkipDescribeIf(func() bool {
 		})
 
 		AfterEach(func() {
-			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
-			_ = kubectl.Exec(cmd)
+			kubectl.DeleteAllPoliciesAndWait(namespaceForTest, helpers.HelperTimeout)
 		})
 
 		It("checks all kind of Kubernetes policies", func() {
@@ -819,6 +818,10 @@ var _ = SkipDescribeIf(func() bool {
 				cnpToEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-host.yaml")
 			})
 
+			AfterEach(func() {
+				kubectl.DeleteAllPoliciesAndWait(namespaceForTest, helpers.HelperTimeout)
+			})
+
 			It("Validate toEntities All", func() {
 				By("Installing toEntities All")
 				applyPolicy(kubectl, namespaceForTest, cnpToEntitiesAll)
@@ -880,6 +883,10 @@ var _ = SkipDescribeIf(func() bool {
 				cnpUpdateDeny = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-ingress.yaml")
 				cnpUpdateNoSpecs = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-no-specs.yaml")
 				cnpUpdateDenyLabelled = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-ingress-labelled.yaml")
+			})
+
+			AfterEach(func() {
+				kubectl.DeleteAllPoliciesAndWait(namespaceForTest, helpers.HelperTimeout)
 			})
 
 			validateL3L4 := func(allow int) {
@@ -1035,8 +1042,7 @@ var _ = SkipDescribeIf(func() bool {
 				// Remove the proxy visibility annotation - this is done by specifying the annotation followed by a '-'.
 				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App1], namespaceForTest, annotation.ProxyVisibility))
 				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App2], namespaceForTest, annotation.ProxyVisibility))
-				cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
-				_ = kubectl.Exec(cmd)
+				kubectl.DeleteAllPoliciesAndWait(namespaceForTest, helpers.HelperTimeout)
 			})
 
 			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType, retryCurl bool) {
@@ -1217,8 +1223,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		AfterEach(func() {
 			By("Cleaning up after the test")
-			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, testNamespace)
-			_ = kubectl.Exec(cmd)
+			kubectl.DeleteAllPoliciesAndWait(testNamespace, helpers.HelperTimeout)
 		})
 
 		SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "validates ingress CIDR-dependent L4", func() {
@@ -1518,6 +1523,10 @@ var _ = SkipDescribeIf(func() bool {
 				RedeployCilium(kubectl, ciliumFilename, daemonCfg)
 			})
 
+			AfterEach(func() {
+				kubectl.DeleteAllPoliciesAndWait(testNamespace, helpers.HelperTimeout)
+			})
+
 			validateConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess, expectPodSuccess, expectWorldSuccess bool) {
 				var wg sync.WaitGroup
 				wg.Add(1)
@@ -1586,6 +1595,10 @@ var _ = SkipDescribeIf(func() bool {
 						})
 				})
 
+				AfterEach(func() {
+					kubectl.DeleteAllPoliciesAndWait(testNamespace, helpers.HelperTimeout)
+				})
+
 				It("Allows from all hosts with cnp fromEntities host policy", func() {
 
 					By("Installing fromEntities host policy")
@@ -1604,6 +1617,10 @@ var _ = SkipDescribeIf(func() bool {
 							"remoteNodeIdentity":   "true",
 							"enableIPv4Masquerade": "false",
 						})
+				})
+
+				AfterEach(func() {
+					kubectl.DeleteAllPoliciesAndWait(testNamespace, helpers.HelperTimeout)
 				})
 
 				It("Validates fromEntities remote-node policy", func() {
@@ -1654,6 +1671,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			AfterEach(func() {
 				kubectl.Delete(connectivityCheckYml)
+				kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 				ExpectAllPodsTerminated(kubectl)
 			})
 
@@ -1691,15 +1709,11 @@ var _ = SkipDescribeIf(func() bool {
 		}
 
 		AfterEach(func() {
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 
-			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), webPolicy)).ExpectSuccess(
-				"Web policy cannot be deleted")
 			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), deployment)).ExpectSuccess(
 				"Guestbook deployment cannot be deleted")
 
-			// This policy shouldn't be there, but test can fail before delete
-			// the policy and we want to make sure that it's deleted
-			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), redisPolicy))
 			for _, ciliumPod := range ciliumPods {
 				err := kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(webPolicyName))
 				Expect(err).To(
@@ -1769,7 +1783,6 @@ var _ = SkipDescribeIf(func() bool {
 			policyCheckStatus(policyCheck)
 
 			testConnectivitytoRedis()
-			deletePolicyDefault(kubectl, helpers.ManifestGet(kubectl.BasePath(), redisPolicy))
 		})
 	})
 
@@ -1841,16 +1854,13 @@ var _ = SkipDescribeIf(func() bool {
 
 		AfterEach(func() {
 			// Explicitly do not check results to avoid incomplete teardown of test.
-			_ = kubectl.Delete(l3l4PolicySecondNS)
-			_ = kubectl.Delete(l3L4Policy)
-			_ = kubectl.Delete(netpolNsSelector)
-
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
+			kubectl.DeleteAllPoliciesAndWait(secondNS, helpers.HelperTimeout)
 		})
 
 		AfterAll(func() {
 			_ = kubectl.Delete(demoPath)
 			_ = kubectl.Delete(demoManifest)
-			_ = kubectl.Delete(cnpSecondNS)
 			_ = kubectl.NamespaceDelete(secondNS)
 			ExpectAllPodsTerminated(kubectl)
 		})
@@ -2250,8 +2260,7 @@ var _ = SkipDescribeIf(func() bool {
 		})
 
 		AfterEach(func() {
-			_ = kubectl.Delete(policyLabeledPath)
-			_ = kubectl.Delete(policyPath)
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 			_ = kubectl.Delete(endpointPath)
 		})
 
@@ -2280,8 +2289,8 @@ var _ = SkipDescribeIf(func() bool {
 			applyPolicyDefault(kubectl, policyPath)
 			validateEgress(kubectl)
 
-			kubectl.Delete(policyPath)
 			kubectl.Delete(endpointPath)
+			deletePolicyDefault(kubectl, policyPath)
 			validateEgressAfterDeletion(kubectl)
 		})
 
@@ -2292,8 +2301,8 @@ var _ = SkipDescribeIf(func() bool {
 
 			validateEgress(kubectl)
 
-			kubectl.Delete(policyPath)
 			kubectl.Delete(endpointPath)
+			deletePolicyDefault(kubectl, policyPath)
 			validateEgressAfterDeletion(kubectl)
 		})
 
@@ -2306,8 +2315,8 @@ var _ = SkipDescribeIf(func() bool {
 
 			validateEgress(kubectl)
 
-			kubectl.Delete(policyLabeledPath)
 			kubectl.Delete(endpointPath)
+			deletePolicyDefault(kubectl, policyLabeledPath)
 			validateEgressAfterDeletion(kubectl)
 		})
 
@@ -2320,8 +2329,8 @@ var _ = SkipDescribeIf(func() bool {
 
 			validateEgress(kubectl)
 
-			kubectl.Delete(policyLabeledPath)
 			kubectl.Delete(endpointPath)
+			deletePolicyDefault(kubectl, policyLabeledPath)
 			validateEgressAfterDeletion(kubectl)
 		})
 	})
@@ -2351,6 +2360,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 		})
 
 		AfterAll(func() {
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 			UninstallCiliumFromManifest(kubectl, ciliumFilename)
 			kubectl.CloseSSHClient()
 		})
@@ -2430,8 +2440,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 			})
 
 			AfterEach(func() {
-				cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, testNamespace)
-				_ = kubectl.Exec(cmd)
+				kubectl.DeleteAllPoliciesAndWait(testNamespace, helpers.HelperTimeout)
 			})
 
 			validateConnectivity := func(

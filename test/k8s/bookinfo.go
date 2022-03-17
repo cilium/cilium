@@ -71,16 +71,16 @@ var _ = SkipDescribeIf(func() bool {
 		})
 
 		AfterAll(func() {
-
-			// Explicitly do not check result to avoid having assertions in AfterAll.
-			_ = kubectl.Delete(policyPath)
-
 			for _, resourcePath := range resourceYAMLs {
 				By("Deleting resource %s", resourcePath)
 				// Explicitly do not check result to avoid having assertions in AfterAll.
 				_ = kubectl.Delete(resourcePath)
 			}
 			ExpectAllPodsTerminated(kubectl)
+		})
+
+		AfterEach(func() {
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 		})
 
 		It("Tests bookinfo demo", func() {

@@ -193,7 +193,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sChaosTest", func() {
 		})
 
 		AfterEach(func() {
-			_ = kubectl.Delete(netperfPolicy)
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 		})
 
 		restartCilium := func() {

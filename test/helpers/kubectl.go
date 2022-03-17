@@ -3066,8 +3066,10 @@ func getPolicyEnforcingJqFilter(numNodes int) string {
 // CiliumPolicyAction performs the specified action in Kubernetes for the policy
 // stored in path filepath and waits up  until timeout seconds for the policy
 // to be applied in all Cilium endpoints. Returns an error if the policy is not
-// imported before the timeout is
-// exceeded.
+// imported before the timeout is exceeded.
+//
+// Returns without waiting if action is KubectlDelete and delete fails with an error containing
+// "NotFound".
 func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) error {
 	podRevisions, err := kub.getPodRevisions()
 	if err != nil {
@@ -3079,6 +3081,9 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 
 	status := kub.Action(action, filepath, namespace)
 	if !status.WasSuccessful() {
+		if action == KubectlDelete && strings.Contains(status.Stderr(), "NotFound") {
+			return nil
+		}
 		return status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
 	unchanged := action == KubectlApply && strings.HasSuffix(status.Stdout(), " unchanged\n")
@@ -3136,8 +3141,30 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	return kub.waitNextPolicyRevisions(podRevisions, timeout)
 }
 
+// DeleteAllPoliciesAndWait deletes all CNPs and NPs in the given 'namespace', as well as all
+// (cluster-scoped) CCNPs and waits up until 'timeout' seconds for the policies to be deleted from
+// all Cilium endpoints.
+//
+// Does NOT return an error as this is to be used from AfterEach blocks.
+func (kub *Kubectl) DeleteAllPoliciesAndWait(namespace string, timeout time.Duration) {
+	podRevisions, _ := kub.getPodRevisions()
+
+	kub.Logger().Infof("Deleting all CNPs and NPs in %s, and all CCNPs in the cluster",
+		namespace)
+
+	// Cluster-scoped CCNPs get deleted even when we give a namespace
+	status := kub.ExecShort(fmt.Sprintf("%s %s --all cnp,ccnp,netpol -n %s", KubectlCmd, KubectlDelete, namespace))
+
+	if status.WasSuccessful() && !strings.Contains(status.Stdout(), "No resources found") {
+		kub.waitNextPolicyRevisions(podRevisions, timeout)
+	}
+}
+
 // CiliumClusterwidePolicyAction applies a clusterwide policy action as described in action argument. It
 // then wait till timeout Duration for the policy to be applied to all the cilium endpoints.
+//
+// Returns without waiting if action is KubectlDelete and delete fails with an error containing
+// "NotFound".
 func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action ResourceLifeCycleAction, timeout time.Duration) error {
 	podRevisions, err := kub.getPodRevisions()
 	if err != nil {
@@ -3149,6 +3176,9 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 
 	status := kub.Action(action, filepath)
 	if !status.WasSuccessful() {
+		if action == KubectlDelete && strings.Contains(status.Stderr(), "NotFound") {
+			return nil
+		}
 		return status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
 	unchanged := action == KubectlApply && strings.HasSuffix(status.Stdout(), " unchanged\n")

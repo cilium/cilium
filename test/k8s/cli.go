@@ -83,6 +83,10 @@ var _ = Describe("K8sCLI", func() {
 				ExpectAllPodsTerminated(kubectl)
 			})
 
+			AfterEach(func() {
+				kubectl.DeleteAllPoliciesAndWait(namespaceForTest, helpers.HelperTimeout)
+			})
+
 			It("Test labelsSHA256", func() {
 				cmd := fmt.Sprintf("cilium identity get %d -o json", identity)
 				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
@@ -151,8 +155,6 @@ var _ = Describe("K8sCLI", func() {
 				countAfterK8s2, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s2, "Policy denied by denylist", "ingress")
 
 				Expect((countAfterK8s1 + countAfterK8s2) - (countBeforeK8s1 + countBeforeK8s2)).To(Equal(3))
-
-				deletePolicy(kubectl, namespaceForTest, l3L4DenyPolicy)
 			})
 		})
 

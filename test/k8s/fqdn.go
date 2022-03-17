@@ -91,7 +91,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 	})
 
 	AfterEach(func() {
-		_ = kubectl.Exec(fmt.Sprintf("%s delete --all cnp", helpers.KubectlCmd))
+		kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 	})
 
 	SkipItIf(helpers.SkipQuarantined, "Restart Cilium validate that FQDN is still working", func() {

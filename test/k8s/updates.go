@@ -65,8 +65,8 @@ var _ = Describe("K8sUpdates", func() {
 
 		kubectl.Delete(migrateSVCClient)
 		kubectl.Delete(migrateSVCServer)
-		kubectl.Delete(l7Policy)
 		kubectl.Delete(demoPath)
+		kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 
 		_ = kubectl.DeleteResource(
 			"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.CiliumNamespace))
@@ -181,7 +181,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 	cleanupCallback := func() {
 		kubectl.Delete(migrateSVCClient)
 		kubectl.Delete(migrateSVCServer)
-		kubectl.Delete(l7Policy)
+		kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 		kubectl.Delete(demoPath)
 
 		if res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {

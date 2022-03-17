@@ -838,7 +838,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		AfterEach(func() {
-			kubectl.Exec(fmt.Sprintf("%s delete --all ccnp", helpers.KubectlCmd))
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
 		})
 
 		SkipItIf(func() bool {

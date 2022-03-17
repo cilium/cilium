@@ -191,12 +191,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 				// Explicitly do not check result to avoid having assertions in AfterEach.
 				_ = kubectl.Delete(resourcePath)
 			}
+			resourceYAMLPaths = nil
 
-			for _, policyPath := range policyPaths {
-				By("Deleting policy in file %q", policyPath)
-				// Explicitly do not check result to avoid having assertions in AfterEach.
-				_ = kubectl.Delete(policyPath)
-			}
+			kubectl.DeleteAllPoliciesAndWait(helpers.DefaultNamespace, helpers.HelperTimeout)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		// shouldWgetConnect checks that srcPod can connect to dstURI.
