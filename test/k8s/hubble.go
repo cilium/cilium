@@ -262,15 +262,11 @@ var _ = Describe("K8sHubbleTest", func() {
 		})
 
 		It("Test FQDN Policy with Relay", func() {
-			fqdnProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
 			fqdnTarget := "vagrant-cache.ci.cilium.io"
 
-			err := kubectl.CiliumPolicyAction(
-				namespaceForTest, fqdnProxyPolicy,
-				helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
-			defer kubectl.CiliumPolicyAction(namespaceForTest, fqdnProxyPolicy,
-				helpers.KubectlDelete, helpers.HelperTimeout)
+			fqdnProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
+			applyPolicy(kubectl, namespaceForTest, fqdnProxyPolicy)
+			defer deletePolicy(kubectl, namespaceForTest, fqdnProxyPolicy)
 
 			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s", fqdnTarget)))

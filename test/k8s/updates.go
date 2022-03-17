@@ -330,9 +330,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
-		err = kubectl.CiliumPolicyAction(
-			helpers.DefaultNamespace, l7Policy, helpers.KubectlApply, timeout)
-		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
+		applyPolicyDefault(kubectl, l7Policy)
 
 		By("Creating service and clients for migration")
 

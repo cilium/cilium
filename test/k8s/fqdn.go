@@ -151,12 +151,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 			res.ExpectFail("%q can connect when it should not work", helpers.App2)
 		}
 
-		fqndProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
-
-		err = kubectl.CiliumPolicyAction(
-			helpers.DefaultNamespace, fqndProxyPolicy,
-			helpers.KubectlApply, helpers.HelperTimeout)
-		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
+		fqdnProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
+		applyPolicyDefault(kubectl, fqdnProxyPolicy)
 
 		connectivityTest()
 		By("restarting cilium pods")
@@ -247,14 +243,11 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 	It("Validate that multiple specs are working correctly", func() {
 		// To make sure that UUID in multiple specs are plumbed correctly to
 		// Cilium Policy
-		fqdnPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs.yaml")
 		world1Target := worldTarget
 		world2Target := worldInvalidTarget
 
-		err := kubectl.CiliumPolicyAction(
-			helpers.DefaultNamespace, fqdnPolicy,
-			helpers.KubectlApply, helpers.HelperTimeout)
-		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
+		fqdnPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs.yaml")
+		applyPolicyDefault(kubectl, fqdnPolicy)
 
 		By("Validating APP2 policy connectivity")
 		res := kubectl.ExecPodCmd(
@@ -283,14 +276,11 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 	It("Validate that FQDN policy continues to work after being updated", func() {
 		// To make sure that UUID in multiple specs are plumbed correctly to
 		// Cilium Policy
-		fqdnPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs.yaml")
 		world1Target := worldTarget
 		world2Target := worldInvalidTarget
 
-		err := kubectl.CiliumPolicyAction(
-			helpers.DefaultNamespace, fqdnPolicy,
-			helpers.KubectlApply, helpers.HelperTimeout)
-		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
+		fqdnPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs.yaml")
+		applyPolicyDefault(kubectl, fqdnPolicy)
 
 		By("Validating APP2 policy connectivity")
 		res := kubectl.ExecPodCmd(
@@ -305,10 +295,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 
 		By("Updating the policy to include an extra FQDN allow statement")
 		fqdnPolicy2 := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs-v2.yaml")
-		err = kubectl.CiliumPolicyAction(
-			helpers.DefaultNamespace, fqdnPolicy2,
-			helpers.KubectlApply, helpers.HelperTimeout)
-		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
+		applyPolicyDefault(kubectl, fqdnPolicy2)
 
 		By("Validating APP2 policy connectivity after policy change")
 		res = kubectl.ExecPodCmd(

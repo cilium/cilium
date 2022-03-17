@@ -123,9 +123,7 @@ var _ = Describe("K8sCLI", func() {
 				Expect(err).To(BeNil(),
 					"testapp pods are not ready after timeout in namespace %q", namespaceForTest)
 
-				err = kubectl.CiliumPolicyAction(
-					namespaceForTest, l3L4DenyPolicy, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Cannot apply L3 Deny Policy")
+				applyPolicy(kubectl, namespaceForTest, l3L4DenyPolicy)
 
 				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 				ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
@@ -151,9 +149,7 @@ var _ = Describe("K8sCLI", func() {
 
 				Expect((countAfterK8s1 + countAfterK8s2) - (countBeforeK8s1 + countBeforeK8s2)).To(Equal(3))
 
-				err = kubectl.CiliumPolicyAction(
-					namespaceForTest, l3L4DenyPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
+				deletePolicy(kubectl, namespaceForTest, l3L4DenyPolicy)
 
 				kubectl.NamespaceDelete(namespaceForTest)
 			})

@@ -180,9 +180,7 @@ var _ = SkipDescribeIf(func() bool {
 			policyCmd := "cilium policy get io.cilium.k8s.policy.name=cnp-specs"
 
 			By("Importing policy")
-
-			err = kubectl.CiliumPolicyAction(helpers.DefaultNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Error creating policy %q", policyPath)
+			applyPolicyDefault(kubectl, policyPath)
 
 			By("Checking that policies were correctly imported into Cilium")
 

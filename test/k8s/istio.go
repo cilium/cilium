@@ -317,9 +317,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 			// creation in this case.
 			policyPaths = []string{l7PolicyPath}
 			for _, policyPath := range policyPaths {
-				By("Creating policy in file %q", policyPath)
-				err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, policyPath, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Unable to create policy %q", policyPath)
+				applyPolicyDefault(kubectl, policyPath)
 			}
 
 			resourceYAMLPaths = []string{bookinfoV2YAML, bookinfoV1YAML}

@@ -33,10 +33,24 @@ func getTFTPLink(host string, port int32) string {
 		net.JoinHostPort(host, fmt.Sprintf("%d", port)))
 }
 
-func applyPolicy(kubectl *helpers.Kubectl, path string) {
+func applyPolicy(kubectl *helpers.Kubectl, namespace, path string) {
 	By(fmt.Sprintf("Applying policy %s", path))
-	err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
+	err := kubectl.CiliumPolicyAction(namespace, path, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
+}
+
+func applyPolicyDefault(kubectl *helpers.Kubectl, path string) {
+	applyPolicy(kubectl, helpers.DefaultNamespace, path)
+}
+
+func deletePolicy(kubectl *helpers.Kubectl, namespace, path string) {
+	By(fmt.Sprintf("Deleting policy %s", path))
+	err := kubectl.CiliumPolicyAction(namespace, path, helpers.KubectlDelete, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", path, err))
+}
+
+func deletePolicyDefault(kubectl *helpers.Kubectl, path string) {
+	deletePolicy(kubectl, helpers.DefaultNamespace, path)
 }
 
 func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backends []string, svcType, trafficPolicy string) {

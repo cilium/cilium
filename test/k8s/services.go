@@ -223,7 +223,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				})
 
 				It("Tests NodePort with L7 Policy", func() {
-					applyPolicy(kubectl, demoPolicyL7)
+					applyPolicyDefault(kubectl, demoPolicyL7)
 					testNodePort(kubectl, ni, false, false, 0)
 				})
 			})
@@ -399,7 +399,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "tftp-with-l4-policy-monitor-k8s2.log")
 				}()
 
-				applyPolicy(kubectl, demoPolicy)
+				applyPolicyDefault(kubectl, demoPolicy)
 
 				var data v1.Service
 				err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
@@ -464,7 +464,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "nodeport-with-l4-policy-monitor-k8s2.log")
 				}()
 
-				applyPolicy(kubectl, demoPolicy)
+				applyPolicyDefault(kubectl, demoPolicy)
 				testNodePort(kubectl, ni, false, false, 0)
 			})
 		})
@@ -497,7 +497,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "nodeport-with-l7-policy-monitor-k8s2.log")
 				}()
 
-				applyPolicy(kubectl, demoPolicyL7)
+				applyPolicyDefault(kubectl, demoPolicyL7)
 				testNodePort(kubectl, ni, false, false, 0)
 			})
 		})

@@ -173,12 +173,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sKafkaPolicyTest", func() {
 				helpers.DefaultNamespace, appPods[outpostApp], prodOutAnnounce)
 			Expect(err).Should(BeNil(), "Failed to produce to outpost on topic empire-announce")
 
-			By("Apply L7 kafka policy and wait")
-
-			err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, l7Policy,
-				helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).To(BeNil(), "L7 policy cannot be imported correctly")
+			applyPolicyDefault(kubectl, l7Policy)
 
 			By("Testing Kafka L7 policy enforcement status")
 			err = kubectl.ExecKafkaPodCmd(
