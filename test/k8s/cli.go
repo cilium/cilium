@@ -48,13 +48,18 @@ var _ = Describe("K8sCLI", func() {
 			)
 
 			var (
-				cliManifest string
-				ciliumPod   string
-				err         error
-				identity    int64
+				namespaceForTest string
+				cliManifest      string
+				ciliumPod        string
+				err              error
+				identity         int64
 			)
 
 			BeforeAll(func() {
+				namespaceForTest = helpers.GenerateNamespaceForTest("")
+				kubectl.NamespaceDelete(namespaceForTest)
+				kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
+
 				cliManifest = helpers.ManifestGet(kubectl.BasePath(), manifestYAML)
 				res := kubectl.ApplyDefault(cliManifest)
 				res.ExpectSuccess("Unable to apply %s", cliManifest)
@@ -73,6 +78,7 @@ var _ = Describe("K8sCLI", func() {
 			})
 
 			AfterAll(func() {
+				kubectl.NamespaceDelete(namespaceForTest)
 				_ = kubectl.Delete(cliManifest)
 				ExpectAllPodsTerminated(kubectl)
 			})
@@ -114,9 +120,6 @@ var _ = Describe("K8sCLI", func() {
 				app1Service := "app1-service"
 				l3L4DenyPolicy := helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy-deny.yaml")
 
-				namespaceForTest := helpers.GenerateNamespaceForTest("")
-				kubectl.NamespaceDelete(namespaceForTest)
-				kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
 				kubectl.Apply(helpers.ApplyOptions{FilePath: demoManifest, Namespace: namespaceForTest}).ExpectSuccess("could not create resource")
 
 				err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
@@ -150,8 +153,6 @@ var _ = Describe("K8sCLI", func() {
 				Expect((countAfterK8s1 + countAfterK8s2) - (countBeforeK8s1 + countBeforeK8s2)).To(Equal(3))
 
 				deletePolicy(kubectl, namespaceForTest, l3L4DenyPolicy)
-
-				kubectl.NamespaceDelete(namespaceForTest)
 			})
 		})
 
