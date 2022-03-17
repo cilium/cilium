@@ -1236,6 +1236,9 @@ func (m *IptablesManager) InstallRules(ifName string, firstInitialization, insta
 	// install rules if needed
 	if install {
 		err = m.installRules(ifName)
+		if err != nil {
+			log.WithError(err).WithField("interface", ifName).Error("failed to install iptables rules")
+		}
 		// copy old proxy rules over
 		match := ""
 		if firstInitialization {
@@ -1279,7 +1282,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 	}
 
 	if err := m.addCiliumAcceptXfrmRules(); err != nil {
-		return err
+		return fmt.Errorf("cannot add xfrm rules: %s", err)
 	}
 
 	localDeliveryInterface := getDeliveryInterface(ifName)
@@ -1290,7 +1293,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 
 	if option.Config.EnableIPv4 {
 		if err := m.installHostTrafficMarkRule(ip4tables); err != nil {
-			return err
+			return fmt.Errorf("cannot install ipv4 host traffic mark rule: %w", err)
 		}
 
 		if option.Config.EnableIPv4Masquerade && !option.Config.EnableBPFMasquerade {
@@ -1299,14 +1302,14 @@ func (m *IptablesManager) installRules(ifName string) error {
 				node.GetIPv4AllocRange().String(),
 				node.GetHostMasqueradeIPv4().String(),
 			); err != nil {
-				return err
+				return fmt.Errorf("cannot install ipv4 masquaerade rule: %w", err)
 			}
 		}
 	}
 
 	if option.Config.EnableIPv6 {
 		if err := m.installHostTrafficMarkRule(ip6tables); err != nil {
-			return err
+			return fmt.Errorf("cannot install ipv6 host traffic mark rule: %w", err)
 		}
 
 		if option.Config.EnableIPv6Masquerade && !option.Config.EnableBPFMasquerade {
@@ -1315,7 +1318,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 				node.GetIPv6AllocRange().String(),
 				node.GetHostMasqueradeIPv6().String(),
 			); err != nil {
-				return err
+				return fmt.Errorf("cannot install ipv6 masquaerade rule: %w", err)
 			}
 		}
 	}
@@ -1332,7 +1335,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 
 	if option.Config.EnableIPSec {
 		if err := m.addCiliumNoTrackXfrmRules(); err != nil {
-			return fmt.Errorf("cannot install xfrm rules: %s", err)
+			return fmt.Errorf("cannot install xfrm rules: %w", err)
 		}
 	}
 

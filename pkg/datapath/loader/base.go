@@ -405,6 +405,13 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	// Datapath initialization
 	hostDev1, hostDev2, err := setupBaseDevice(devices, mode, deviceMTU)
 	if err != nil {
+		log.WithError(err).
+			WithFields(logrus.Fields{
+				"devices":   devices,
+				"mode":      mode,
+				"deviceMTU": deviceMTU,
+			}).
+			Error("failed to set up base devices")
 		return err
 	}
 	args[initArgHostDev1] = hostDev1.Attrs().Name
@@ -449,14 +456,23 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	if err := l.reinitializeIPSec(ctx); err != nil {
+		log.WithError(err).Error("failed to initialize IPSec")
 		return err
 	}
 
 	if err := o.Datapath().Node().NodeConfigurationChanged(*o.LocalConfig()); err != nil {
+		log.WithError(err).Error("call to NodeConfigurationChanged() failed")
 		return err
 	}
 
 	if err := iptMgr.InstallRules(option.Config.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
+		log.
+			WithFields(logrus.Fields{
+				"host-device":          option.Config.HostDevice,
+				"first-initialization": firstInitialization,
+				"install-ip-rules":     option.Config.InstallIptRules,
+			}).
+			WithError(err).Error("failed to initialize iptables rules")
 		return err
 	}
 
