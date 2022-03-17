@@ -246,11 +246,6 @@ func (ipc *IPCache) upsertLocked(
 		newNamedPorts = k8sMeta.NamedPorts
 	}
 
-	// FIXME: WireGuard hack
-	if newIdentity.ID == identity.ReservedIdentityKubeAPIServer {
-		hostKey = uint8(1)
-	}
-
 	scopedLog := log
 	if option.Config.Debug {
 		scopedLog = log.WithFields(logrus.Fields{
@@ -333,6 +328,11 @@ func (ipc *IPCache) upsertLocked(
 			logfields.Key:      hostKey,
 		}).Error("Attempt to upsert invalid IP into ipcache layer")
 		return false, NewErrInvalidIP(ip)
+	}
+
+	// FIXME: WireGuard hack
+	if newIdentity.ID == identity.ReservedIdentityKubeAPIServer {
+		// TODO copy over old host key here
 	}
 
 	scopedLog.Debug("Upserting IP into ipcache layer")
