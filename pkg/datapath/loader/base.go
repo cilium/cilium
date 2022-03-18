@@ -403,6 +403,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	sysctl.ApplySettings(sysSettings)
 
 	// Datapath initialization
+	log.WithFields(logrus.Fields{
+		"devices":   devices,
+		"mode":      mode,
+		"deviceMTU": deviceMTU,
+	}).Info("setting up base devices")
 	hostDev1, hostDev2, err := setupBaseDevice(devices, mode, deviceMTU)
 	if err != nil {
 		log.WithError(err).
