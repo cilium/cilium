@@ -1140,7 +1140,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		 * into ctx->mark and *proxy_port can be left unset.
 		 */
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
-				   0, ifindex, 0, monitor);
+				   0, ifindex, (enum trace_reason)ret, monitor);
 		if (tuple_out)
 			memcpy(tuple_out, &tuple, sizeof(tuple));
 		return POLICY_ACT_PROXY_REDIRECT;
@@ -1434,7 +1434,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 		 * into ctx->mark and *proxy_port can be left unset.
 		 */
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
-				   0, ifindex, 0, monitor);
+				   0, ifindex, (enum trace_reason)ret, monitor);
 		if (tuple_out)
 			*tuple_out = tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
