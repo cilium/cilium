@@ -233,7 +233,7 @@ if [ -z "${RELOAD}" ]; then
 fi
 
 if [ -n "${VM_PROXY}" ]; then
-    export WGET="HTTPS_PROXY=${VM_PROXY} wget"
+    export WGET="https_proxy=${VM_PROXY} wget"
 else
     export WGET="wget"
 fi
@@ -284,7 +284,7 @@ if [ -z "${RELOAD}" ]; then
 fi
 
 if [ -n "${VM_PROXY}" ]; then
-    export WGET="HTTPS_PROXY=${VM_PROXY} wget"
+    export WGET="https_proxy=${VM_PROXY} wget"
 else
     export WGET="wget"
 fi
