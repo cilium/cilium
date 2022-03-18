@@ -234,7 +234,7 @@ func (d *Daemon) init() error {
 		bandwidth.InitBandwidthManager()
 
 		if err := d.createNodeConfigHeaderfile(); err != nil {
-			return err
+			return fmt.Errorf("failed while creating node config header file: %w", err)
 		}
 
 		if option.Config.SockopsEnable {
@@ -249,7 +249,7 @@ func (d *Daemon) init() error {
 		}
 
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-			return err
+			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 	}
 
@@ -367,6 +367,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if option.Config.ReadCNIConfiguration != "" {
 		netConf, err = cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
 		if err != nil {
+			log.WithError(err).Error("Unable to read CNI configuration")
 			return nil, nil, fmt.Errorf("unable to read CNI configuration: %w", err)
 		}
 
@@ -378,6 +379,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, &apiRateLimitingMetrics{})
 	if err != nil {
+		log.WithError(err).Error("unable to configure API rate limiting")
 		return nil, nil, fmt.Errorf("unable to configure API rate limiting: %w", err)
 	}
 
@@ -393,6 +395,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// created.
 	isKubeProxyReplacementStrict, err := initKubeProxyReplacementOptions()
 	if err != nil {
+		log.WithError(err).Error("unable to initialize Kube proxy replacement options")
 		return nil, nil, fmt.Errorf("unable to initialize Kube proxy replacement options: %w", err)
 	}
 
@@ -434,6 +437,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	if option.Config.DryMode == false {
 		if err := rlimit.RemoveMemlock(); err != nil {
+			log.WithError(err).Error("unable to set memory resource limits")
 			return nil, nil, fmt.Errorf("unable to set memory resource limits: %w", err)
 		}
 	}
@@ -498,6 +502,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.rec, err = recorder.NewRecorder(d.ctx, &d)
 	if err != nil {
+		log.WithError(err).Error("error while initializing BPF pcap recorder")
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
 	}
 
@@ -674,6 +679,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	err = d.initMaps()
 	bootstrapStats.mapsInit.EndError(err)
 	if err != nil {
+		log.WithError(err).Error("error while opening/creating BPF maps")
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 	// Upsert restored CIDRs after the new ipcache has been opened above
@@ -812,6 +818,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 
 		if err := k8s.WaitForNodeInformation(d.ctx, d.k8sWatcher); err != nil {
+			log.WithError(err).Error("unable to connect to get node spec from apiserver")
 			return nil, nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
 		}
 
@@ -829,6 +836,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
 		if err := wgAgent.(*wg.Agent).Init(d.ipcache, mtuConfig); err != nil {
+			log.WithError(err).Error("failed to initialize wireguard agent")
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
 	}
@@ -852,6 +860,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		disableNodePort()
 	}
 	if err := finishKubeProxyReplacementInit(isKubeProxyReplacementStrict); err != nil {
+		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
 
@@ -888,12 +897,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	if option.Config.EnableIPv4EgressGateway {
 		if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
+			log.WithError(err).Error("egress gateway needs kernel 5.2 or newer")
 			return nil, nil, fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 		}
 
 		// datapath code depends on remote node identities to distinguish between cluser-local and
 		// cluster-egress traffic
 		if !option.Config.EnableRemoteNodeIdentity {
+			log.WithError(err).Errorf("egress gateway requires remote node identities (--%s=\"true\").",
+				option.EnableRemoteNodeIdentity)
 			return nil, nil, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\").",
 				option.EnableRemoteNodeIdentity)
 		}
@@ -907,14 +919,18 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
 		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
+			log.WithError(err).Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
 			return nil, nil, fmt.Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
 		}
 		if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
+			log.WithError(err).Error("failed to determine BPF masquerade IPv4 addrs")
 			return nil, nil, fmt.Errorf("failed to determine BPF masquerade IPv4 addrs: %w", err)
 		}
 	} else if option.Config.EnableIPMasqAgent {
+		log.WithError(err).Errorf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	} else if option.Config.EnableIPv4EgressGateway {
+		log.WithError(err).Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 		return nil, nil, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	} else if !option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// There is not yet support for option.Config.EnableIPv6Masquerade
@@ -924,14 +940,17 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	if option.Config.EnableIPMasqAgent {
 		if !option.Config.EnableIPv4 {
+			log.WithError(err).Errorf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
 			return nil, nil, fmt.Errorf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
 		}
 		if !probe.HaveFullLPM() {
+			log.WithError(err).Error("BPF ip-masq-agent needs kernel 4.16 or newer")
 			return nil, nil, fmt.Errorf("BPF ip-masq-agent needs kernel 4.16 or newer")
 		}
 	}
 	if option.Config.EnableHostFirewall && len(option.Config.Devices) == 0 {
 		msg := "host firewall's external facing device could not be determined. Use --%s to specify."
+		log.WithError(err).Errorf(msg, option.Devices)
 		return nil, nil, fmt.Errorf(msg, option.Devices)
 	}
 
@@ -980,9 +999,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	if option.Config.JoinCluster {
 		if k8s.IsEnabled() {
+			log.WithError(err).Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 			return nil, nil, fmt.Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 		}
 		if option.Config.KVStore == "" {
+			log.WithError(err).Errorf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
 			return nil, nil, fmt.Errorf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
 		}
 		agentLabels := labels.NewLabelsFromModel(option.Config.AgentLabels).K8sStringMap()
@@ -1025,7 +1046,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	bootstrapStats.restore.End(true)
 
-	if err := d.allocateIPs(); err != nil {
+	if err := d.allocateIPs(); err != nil { // will log errors/fatal internally
 		return nil, nil, err
 	}
 
@@ -1094,25 +1115,28 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// iptables rules can be updated only after d.init() intializes the iptables above.
 	err = d.updateDNSDatapathRules()
 	if err != nil {
-		return nil, restoredEndpoints, err
+		log.WithError(err).Error("error encountered while updating DNS datapath rules.")
+		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
 	}
 
 	// We can only attach the monitor agent once cilium_event has been set up.
 	if option.Config.RunMonitorAgent {
 		err = d.monitorAgent.AttachToEventsMap(defaults.MonitorBufferPages)
 		if err != nil {
-			return nil, nil, err
+			log.WithError(err).Error("encountered error configuring run monitor agent")
+			return nil, nil, fmt.Errorf("encountered error configuring run monitor agent: %w", err)
 		}
 
 		if option.Config.EnableMonitor {
 			err = monitoragent.ServeMonitorAPI(d.monitorAgent)
 			if err != nil {
-				return nil, nil, err
+				log.WithError(err).Error("encountered error configuring run monitor agent")
+				return nil, nil, fmt.Errorf("encountered error configuring run monitor agent: %w", err)
 			}
 		}
 	}
 
-	if err := d.syncEndpointsAndHostIPs(); err != nil {
+	if err := d.syncEndpointsAndHostIPs(); err != nil { // logs errors/fatal internally
 		return nil, nil, err
 	}
 
