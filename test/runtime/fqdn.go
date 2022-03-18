@@ -175,8 +175,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		}
 
 		for name, image := range ciliumTestImages {
-			vm.ContainerCreate(name, image, helpers.WorldDockerNetwork, fmt.Sprintf("-l id.%s", name))
-			res := vm.ContainerInspect(name)
+			res := vm.ContainerCreate(name, image, helpers.WorldDockerNetwork, fmt.Sprintf("-l id.%s", name))
+			res.ExpectSuccess("failed to create container %s", name)
+
+			res = vm.ContainerInspect(name)
 			res.ExpectSuccess("Container is not ready after create it")
 			ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, helpers.WorldDockerNetwork))
 			Expect(err).To(BeNil(), "Cannot retrieve network info for %q", name)
@@ -193,8 +195,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		Expect(err).To(BeNil(), "bind file can't be created")
 
 		for name, image := range ciliumOutsideImages {
-			vm.ContainerCreate(name, image, helpers.WorldDockerNetwork, fmt.Sprintf("-l id.%s", name))
-			res := vm.ContainerInspect(name)
+			res := vm.ContainerCreate(name, image, helpers.WorldDockerNetwork, fmt.Sprintf("-l id.%s", name))
+			res.ExpectSuccess("failed to create container %s", name)
+
+			res = vm.ContainerInspect(name)
 			res.ExpectSuccess("Container is not ready after create it")
 			ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, helpers.WorldDockerNetwork))
 			Expect(err).To(BeNil(), "Cannot retrieve network info for %q", name)

@@ -211,12 +211,18 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 
 		BeforeEach(func() {
 			// TODO: provide map[string]string instead of one string representing KV pair.
-			vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
-			vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
-			vm.ContainerCreate(helpers.Httpd1, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd")
-			vm.ContainerCreate(helpers.Httpd2, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd_deny")
-			vm.ContainerCreate(curl1ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl")
-			vm.ContainerCreate(curl2ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl2")
+			res := vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+			res.ExpectSuccess("failed to create client container")
+			res = vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+			res.ExpectSuccess("failed to create server container")
+			res = vm.ContainerCreate(helpers.Httpd1, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd")
+			res.ExpectSuccess("failed to create httpd1 container")
+			res = vm.ContainerCreate(helpers.Httpd2, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd_deny")
+			res.ExpectSuccess("failed to create httpd2 container")
+			res = vm.ContainerCreate(curl1ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl")
+			res.ExpectSuccess("failed to create curl container")
+			res = vm.ContainerCreate(curl2ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl2")
+			res.ExpectSuccess("failed to create curl2 container")
 
 			vm.PolicyDelAll().ExpectSuccess("cannot delete all policies")
 

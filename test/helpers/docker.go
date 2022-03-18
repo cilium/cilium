@@ -175,7 +175,8 @@ func (s *SSHMeta) SampleContainersActions(mode string, networkName string, creat
 	switch mode {
 	case Create:
 		for k, v := range images {
-			s.ContainerCreate(k, v, networkName, fmt.Sprintf("-l id.%s %s", k, createOptionsString))
+			res := s.ContainerCreate(k, v, networkName, fmt.Sprintf("-l id.%s %s", k, createOptionsString))
+			res.ExpectSuccess("failed to create container %s", k)
 		}
 		s.WaitEndpointsReady()
 	case Delete:
