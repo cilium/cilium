@@ -618,7 +618,8 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 		if (info != NULL && info->tunnel_endpoint != 0) {
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  WORLD_ID, TRACE_PAYLOAD_LEN);
+						  WORLD_ID, 0,
+						  TRACE_PAYLOAD_LEN);
 			if (ret)
 				goto drop_err;
 
@@ -900,7 +901,8 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 			info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 			if (info != NULL && info->tunnel_endpoint != 0) {
 				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-							  SECLABEL, TRACE_PAYLOAD_LEN);
+							  SECLABEL, CT_REPLY,
+							  TRACE_PAYLOAD_LEN);
 				if (ret)
 					return ret;
 
@@ -1603,7 +1605,8 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 			 * outside.
 			 */
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  WORLD_ID, TRACE_PAYLOAD_LEN);
+						  WORLD_ID, 0,
+						  TRACE_PAYLOAD_LEN);
 			if (ret)
 				goto drop_err;
 
@@ -1859,7 +1862,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct csum_offset csum_off = {};
-	int ret, fib_ret, ret2, l3_off = ETH_HLEN, l4_off;
+	int ct_ret, ret, fib_ret, ret2, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state = {};
 	struct bpf_fib_lookup fib_params = {};
 	__u32 monitor = 0;
@@ -1901,10 +1904,10 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY */
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
-			 &monitor);
+	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
+			    &ct_state, &monitor);
 
-	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+	if (ct_ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 				   &ct_state, &tuple,
 				   REV_NAT_F_TUPLE_SADDR, ipv4_has_l4_header(ip4));
@@ -1996,7 +1999,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 #if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, TRACE_PAYLOAD_LEN);
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, ct_ret,
+				  TRACE_PAYLOAD_LEN);
 	if (ret)
 		return ret;
 

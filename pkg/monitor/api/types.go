@@ -173,7 +173,8 @@ func TraceObservationPointHasConnState(obsPoint uint8) bool {
 	case TraceToLxc,
 		TraceToProxy,
 		TraceToHost,
-		TraceToStack:
+		TraceToStack,
+		TraceToOverlay:
 		return true
 	default:
 		return false
