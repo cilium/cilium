@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -44,6 +45,10 @@ func initExcludedIPs() {
 			skip := true
 			for _, p := range prefixes {
 				if strings.HasPrefix(l.Attrs().Name, p) {
+					skip = false
+					break
+				}
+				if (l.Attrs().RawFlags & unix.IFF_LOOPBACK) != 0 {
 					skip = false
 					break
 				}
