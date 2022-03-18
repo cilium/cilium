@@ -12,7 +12,8 @@ Local Redirect Policy (beta)
 
 This document explains how to configure Cilium's Local Redirect Policy, that
 enables pod traffic destined to an IP address and port/protocol tuple
-or Kubernetes service to be redirected locally to a backend pod within a node.
+or Kubernetes service to be redirected locally to backend pod(s) within a node,
+using eBPF. The namespace of backend pod(s) need to match with that of the policy.
 The CiliumLocalRedirectPolicy is configured as a ``CustomResourceDefinition``.
 
 There are two types of Local Redirect Policies supported. When traffic for a
