@@ -177,11 +177,14 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 {
+	struct trace_ctx __maybe_unused trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	struct remote_endpoint_info *info = NULL;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
-	__u32 __maybe_unused monitor = 0;
 	__u32 __maybe_unused remote_id = WORLD_ID;
 	int ret, l3_off = ETH_HLEN, hdrlen;
 	bool skip_redirect = false;
@@ -226,7 +229,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
-		ret = ipv6_host_policy_egress(ctx, secctx, &monitor);
+		ret = ipv6_host_policy_egress(ctx, secctx, &trace);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -276,11 +279,9 @@ skip_host_firewall:
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
-		/* TODO We know the reason when host firewall is enabled  */
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						     info->key, secctx,
-						     TRACE_REASON_UNKNOWN,
-						     TRACE_PAYLOAD_LEN);
+						     trace.reason, trace.monitor);
 
 		/* If IPSEC is needed recirc through ingress to use xfrm stack
 		 * and then result will routed back through bpf_netdev on egress
@@ -301,10 +302,8 @@ skip_host_firewall:
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		/* TODO We know the reason when host firewall is enabled  */
 		ret = encap_and_redirect_netdev(ctx, &key, secctx,
-						TRACE_REASON_UNKNOWN,
-						TRACE_PAYLOAD_LEN);
+						trace.reason, trace.monitor);
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -363,7 +362,7 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 
 # ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
-handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 *monitor)
+handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -389,7 +388,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 *monitor)
 
 	/* to-netdev is attached to the egress path of the native device. */
 	src_id = ipcache_lookup_srcid6(ctx);
-	return ipv6_host_policy_egress(ctx, src_id, monitor);
+	return ipv6_host_policy_egress(ctx, src_id, trace);
 }
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV6 */
@@ -456,9 +455,12 @@ static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	    __u32 ipcache_srcid __maybe_unused, const bool from_host)
 {
+	struct trace_ctx __maybe_unused trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	struct remote_endpoint_info *info = NULL;
 	__u32 __maybe_unused remote_id = 0;
-	__u32 __maybe_unused monitor = 0;
 	struct ipv4_ct_tuple tuple = {};
 	bool skip_redirect = false;
 	struct endpoint_info *ep;
@@ -517,7 +519,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
 		/* We're on the egress path of cilium_host. */
-		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid, &monitor);
+		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid,
+					      &trace);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -568,11 +571,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 #ifdef TUNNEL_MODE
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
-		/* TODO We know the reason when host firewall is enabled  */
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						     info->key, secctx,
-						     TRACE_REASON_UNKNOWN,
-						     TRACE_PAYLOAD_LEN);
+						     trace.reason, trace.monitor);
 
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
@@ -586,10 +587,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(ctx, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		/* TODO We know the reason when host firewall is enabled  */
 		ret = encap_and_redirect_netdev(ctx, &key, secctx,
-						TRACE_REASON_UNKNOWN,
-						TRACE_PAYLOAD_LEN);
+						trace.reason, trace.monitor);
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -662,7 +661,7 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
-handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 *monitor)
+handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -679,7 +678,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 *monitor)
 	/* We need to pass the srcid from ipcache to host firewall. See
 	 * comment in ipv4_host_policy_egress() for details.
 	 */
-	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, monitor);
+	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, trace);
 }
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV4 */
@@ -1035,9 +1034,12 @@ int from_host(struct __ctx_buff *ctx)
 __section("to-netdev")
 int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 	__u32 __maybe_unused src_id = 0;
 	__u16 __maybe_unused proto = 0;
-	__u32 monitor = 0;
 	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
 
@@ -1070,12 +1072,12 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = handle_to_netdev_ipv6(ctx, &monitor);
+		ret = handle_to_netdev_ipv6(ctx, &trace);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
-		ret = handle_to_netdev_ipv4(ctx, &monitor);
+		ret = handle_to_netdev_ipv4(ctx, &trace);
 		break;
 	}
 # endif
@@ -1123,7 +1125,7 @@ out:
 					      METRIC_EGRESS);
 #endif
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0, 0,
-			  TRACE_REASON_UNKNOWN, monitor);
+			  TRACE_REASON_UNKNOWN, trace.monitor);
 
 	return ret;
 }
@@ -1301,9 +1303,12 @@ out:
 static __always_inline int
 from_host_to_lxc(struct __ctx_buff *ctx)
 {
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 	int ret = CTX_ACT_OK;
 	__u16 proto = 0;
-	__u32 __maybe_unused monitor = 0;
 
 	if (!validate_ethertype(ctx, &proto))
 		return DROP_UNSUPPORTED_L2;
@@ -1316,7 +1321,7 @@ from_host_to_lxc(struct __ctx_buff *ctx)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = ipv6_host_policy_egress(ctx, HOST_ID, &monitor);
+		ret = ipv6_host_policy_egress(ctx, HOST_ID, &trace);
 		break;
 # endif
 # ifdef ENABLE_IPV4
@@ -1328,7 +1333,7 @@ from_host_to_lxc(struct __ctx_buff *ctx)
 		 * src_id is HOST_ID. Therefore, we don't need to pass a value
 		 * for the last parameter. That avoids an ipcache lookup.
 		 */
-		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, &monitor);
+		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, &trace);
 		break;
 # endif
 	default:

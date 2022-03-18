@@ -11,10 +11,12 @@
 
 # include "policy.h"
 # include "policy_log.h"
+# include "trace.h"
 
 # ifdef ENABLE_IPV6
 static __always_inline int
-ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 *monitor)
+ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
+			struct trace_ctx *trace)
 {
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ct_state ct_state_new = {}, ct_state = {};
@@ -44,9 +46,11 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 *monitor)
 		return hdrlen;
 	l4_off = l3_off + hdrlen;
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, monitor);
+			 &ct_state, &trace->monitor);
 	if (ret < 0)
 		return ret;
+
+	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve destination identity. */
 	info = lookup_ip6_remote_endpoint(&orig_dip);
@@ -241,7 +245,8 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid)
 
 static __always_inline int
 ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
-			__u32 ipcache_srcid __maybe_unused, __u32 *monitor)
+			__u32 ipcache_srcid __maybe_unused,
+			struct trace_ctx *trace)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
@@ -271,9 +276,11 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	tuple.saddr = ip4->saddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, monitor);
+			 &ct_state, &trace->monitor);
 	if (ret < 0)
 		return ret;
+
+	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve destination identity. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr);
