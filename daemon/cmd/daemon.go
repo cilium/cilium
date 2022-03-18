@@ -408,18 +408,19 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	var mtuConfig mtu.Configuration
-	externalIP := node.GetIPv4()
-	if externalIP == nil {
-		externalIP = node.GetIPv6()
+	ipForMTU := node.GetInternalIPv4Router()
+	if ipForMTU == nil {
+		ipForMTU = node.GetIPv6Router()
 	}
-	// ExternalIP could be nil but we are covering that case inside NewConfiguration
+	log.WithField("ip-for-mtu", ipForMTU).Info("MICHI STRUGGLE")
+	// ipForMTU could be nil but we are covering that case inside NewConfiguration
 	mtuConfig = mtu.NewConfiguration(
 		authKeySize,
 		option.Config.EnableIPSec,
 		option.Config.TunnelingEnabled(),
 		option.Config.EnableWireguard,
 		configuredMTU,
-		externalIP,
+		ipForMTU,
 	)
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), option.Config, nil, nil)

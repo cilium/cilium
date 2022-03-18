@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -36,6 +37,11 @@ func initExcludedIPs() {
 					skip = false
 					break
 				}
+
+			}
+			// Exclude loopback addresses.
+			if (l.Attrs().RawFlags & unix.IFF_LOOPBACK) != 0 {
+				skip = false
 			}
 			if skip {
 				continue
