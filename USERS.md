@@ -240,6 +240,11 @@ Users (Alphabetically)
       L: https://github.com/talos-systems/talos
       Q: @frezbo, @smira, @Ulexus
 
+    * N: Tencent Cloud
+      D: Tencent Cloud container team designed the TKE hybrid cloud container network solution with Cilium as the cluster network base
+      U: Networking, CNI
+      L: https://segmentfault.com/a/1190000040298428/en
+      
     * N: T-Systems International
       D: TSI uses Cilium for it's Open Sovereign Cloud product, including as a CNI for Gardener-based Kubernetes clusters and bare-metal infrastructure managed by OnMetal.
       U: CNI, overlay network, NetworkPolicies
