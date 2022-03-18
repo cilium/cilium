@@ -54,6 +54,18 @@ enum trace_reason {
 	TRACE_REASON_ENCRYPTED = 0x80
 } __packed;
 
+/* When no reason is specified we currently pass a 0 value, which also
+ * corresponds to TRACE_REASON_POLICY above. This is not convenient, because
+ * user space struggles to figure out whether there is a reason
+ * (TRACE_REASON_POLICY) or no reason was specified. We want to address this in
+ * a future work. In the meantime, let's avoid new occurrences of passing 0 as
+ * reason across various functions. Instead, define TRACE_REASON_UNSPECIFIED,
+ * as a first step towards the work mentioned above.
+ * TODO: Pick another value, move into enum trace_reason, use where relevant,
+ * and process accordingly in user space.
+ */
+#define TRACE_REASON_UNSPECIFIED 0
+
 /* Trace aggregation levels. */
 enum {
 	TRACE_AGGREGATE_NONE = 0,      /* Trace every packet on rx & tx */
