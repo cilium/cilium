@@ -448,6 +448,9 @@ func initializeFlags() {
 	flags.Uint(option.ProxyConnectTimeout, 1, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	option.BindEnv(option.ProxyConnectTimeout)
 
+	flags.Uint(option.ProxyGID, 1337, "Group ID for proxy control plane sockets.")
+	option.BindEnv(option.ProxyGID)
+
 	flags.Int(option.ProxyPrometheusPort, 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	option.BindEnv(option.ProxyPrometheusPort)
 

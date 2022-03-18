@@ -169,10 +169,14 @@ func StartXDSServer(ipcache *ipcache.IPCache, stateDir string) *XDSServer {
 		log.WithError(err).Fatalf("Envoy: Failed to open xDS listen socket at %s", xdsPath)
 	}
 
-	// Make the socket accessible by non-root Envoy proxies, e.g. running in
-	// sidecar containers.
-	if err = os.Chmod(xdsPath, 0777); err != nil {
+	// Make the socket accessible by owner and group only. Group access is needed for Istio
+	// sidecar proxies.
+	if err = os.Chmod(xdsPath, 0660); err != nil {
 		log.WithError(err).Fatalf("Envoy: Failed to change mode of xDS listen socket at %s", xdsPath)
+	}
+	// Change the group to ProxyGID allowing access from any process from that group.
+	if err = os.Chown(xdsPath, -1, option.Config.ProxyGID); err != nil {
+		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", xdsPath)
 	}
 
 	ldsCache := xds.NewCache()
