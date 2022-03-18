@@ -416,6 +416,13 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 	args[initArgHostDev1] = hostDev1.Attrs().Name
 	args[initArgHostDev2] = hostDev2.Attrs().Name
+	log.WithFields(logrus.Fields{
+		"devices":   devices,
+		"mode":      mode,
+		"deviceMTU": deviceMTU,
+		"dev1":      hostDev1.Attrs().Name,
+		"dev2":      hostDev2.Attrs().Name,
+	}).Info("setting up base devices")
 
 	if option.Config.InstallIptRules {
 		args[initArgProxyRule] = "true"
