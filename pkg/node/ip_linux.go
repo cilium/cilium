@@ -28,6 +28,7 @@ func initExcludedIPs() {
 	// We exclude below bad device prefixes from address selection ...
 	prefixes := []string{
 		"docker",
+		"lo",
 	}
 	links, err := netlink.LinkList()
 	if err != nil {
