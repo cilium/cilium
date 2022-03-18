@@ -170,6 +170,11 @@ emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 	return true;
 }
 
+struct trace_ctx {
+	enum trace_reason reason;
+	__u32 monitor;
+};
+
 static __always_inline void
 send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		  __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
