@@ -596,7 +596,9 @@ var _ = Describe("RuntimePolicies", func() {
 			res = vm.NetworkGet(helpers.WorldDockerNetwork)
 			res.ExpectSuccess("Docker network for world containers is unavailable")
 
-			vm.ContainerCreate(helpers.WorldHttpd1, constants.HttpdImage, helpers.WorldDockerNetwork, fmt.Sprintf("-l id.%s", helpers.WorldHttpd1))
+			res = vm.ContainerCreate(helpers.WorldHttpd1, constants.HttpdImage, helpers.WorldDockerNetwork, fmt.Sprintf("-l id.%s", helpers.WorldHttpd1))
+			res.ExpectSuccess("failed to create world httpd1 container")
+
 			res = vm.ContainerInspect(helpers.WorldHttpd1)
 			res.ExpectSuccess("World container is not ready")
 
@@ -1733,7 +1735,8 @@ var _ = Describe("RuntimePolicies", func() {
 			// allocated an identity from the key-value store.
 			By("Creating new container with label id.httpd1, which has already " +
 				"been allocated an identity from the key-value store")
-			vm.ContainerCreate(newContainerName, constants.HttpdImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", helpers.Httpd1))
+			res := vm.ContainerCreate(newContainerName, constants.HttpdImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", helpers.Httpd1))
+			res.ExpectSuccess("failed to create httpd container")
 
 			By("Waiting for newly added endpoint to be ready")
 			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
