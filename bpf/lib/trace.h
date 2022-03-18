@@ -123,6 +123,13 @@ update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 	}
 }
 
+struct trace_ctx {
+	enum trace_reason reason;
+	__u32 monitor;	/* Monitor length for number of bytes to forward in
+			 * trace message. 0 means do not monitor.
+			 */
+};
+
 #ifdef TRACE_NOTIFY
 struct trace_notify {
 	NOTIFY_CAPTURE_HDR
