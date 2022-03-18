@@ -114,7 +114,7 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		    __u32 seclabel, __u32 monitor)
+		    __u32 seclabel, enum trace_reason ct_reason, __u32 monitor)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 node_id;
@@ -139,7 +139,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		return DROP_WRITE_ERROR;
 
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
-			  TRACE_REASON_UNKNOWN, monitor);
+			  ct_reason, monitor);
 	return 0;
 }
 
@@ -147,7 +147,8 @@ static __always_inline int
 __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 				 __u32 seclabel, __u32 monitor)
 {
-	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
+	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel,
+				      TRACE_REASON_UNKNOWN, monitor);
 	if (ret != 0)
 		return ret;
 
@@ -202,7 +203,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		 * the tunnel, to apply the correct reverse DNAT.
 		 * See #14674 for details.
 		 */
-		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
+		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel,
+					   TRACE_REASON_UNKNOWN, monitor);
 #else
 		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
 #endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */

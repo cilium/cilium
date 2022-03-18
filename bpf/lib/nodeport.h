@@ -607,7 +607,9 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 		if (info != NULL && info->tunnel_endpoint != 0) {
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  WORLD_ID, TRACE_PAYLOAD_LEN);
+						  WORLD_ID,
+						  TRACE_REASON_UNKNOWN,
+						  TRACE_PAYLOAD_LEN);
 			if (ret)
 				goto drop_err;
 
@@ -914,7 +916,9 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 			info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 			if (info != NULL && info->tunnel_endpoint != 0) {
 				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-							  SECLABEL, TRACE_PAYLOAD_LEN);
+							  SECLABEL,
+							  TRACE_REASON_CT_REPLY,
+							  TRACE_PAYLOAD_LEN);
 				if (ret)
 					return ret;
 
@@ -1628,7 +1632,9 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 			 * outside.
 			 */
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  WORLD_ID, TRACE_PAYLOAD_LEN);
+						  WORLD_ID,
+						  TRACE_REASON_UNKNOWN,
+						  TRACE_PAYLOAD_LEN);
 			if (ret)
 				goto drop_err;
 
@@ -1902,7 +1908,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	int ret, fib_ret, ret2, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state = {};
 	struct bpf_fib_lookup fib_params = {};
-	__u32 monitor = 0;
+	enum trace_reason __maybe_unused reason = TRACE_REASON_UNKNOWN;
+	__u32 monitor = TRACE_PAYLOAD_LEN;
 	bool l2_hdr_required = true;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 
@@ -1945,6 +1952,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 			 &monitor);
 
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+		reason = TRACE_REASON_CT_REPLY;
 		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 				   &ct_state, &tuple,
 				   REV_NAT_F_TUPLE_SADDR, ipv4_has_l4_header(ip4));
@@ -2036,7 +2044,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 #if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, TRACE_PAYLOAD_LEN);
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL,
+				  reason, monitor);
 	if (ret)
 		return ret;
 
