@@ -24,14 +24,11 @@ jobs:
         go-version: 1.18.0
 
     - name: Run static checks
-      run: make check
-      # TODO: uncomment config below and remove `run: make check` once a
-      # version of golangci-lint with support for Go 1.18 is released.
-      # uses: golangci/golangci-lint-action@b517f99ae23d86ecc4c0dec08dcf48d2336abc29
-      # with:
-      #   version: v1.44.2
-      #   args: --config=.golangci.yml --verbose
-      #   skip-cache: true
+      uses: golangci/golangci-lint-action@b517f99ae23d86ecc4c0dec08dcf48d2336abc29
+      with:
+        version: v1.45.0
+        args: --config=.golangci.yml --verbose
+        skip-cache: true
 
     - name: Check module vendoring
       run: |
