@@ -177,6 +177,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 {
+	__maybe_unused int ct_reason = TRACE_REASON_UNSPECIFIED;
 	struct remote_endpoint_info *info = NULL;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -226,7 +227,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
-		ret = ipv6_host_policy_egress(ctx, secctx, &monitor);
+		ret = ipv6_host_policy_egress(ctx, secctx, &ct_reason,
+					      &monitor);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -276,10 +278,9 @@ skip_host_firewall:
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
-		/* TODO We know the reason when host firewall is enabled  */
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						     info->key, secctx,
-						     TRACE_REASON_UNSPECIFIED,
+						     ct_reason,
 						     TRACE_PAYLOAD_LEN);
 
 		/* If IPSEC is needed recirc through ingress to use xfrm stack
@@ -301,9 +302,7 @@ skip_host_firewall:
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		/* TODO We know the reason when host firewall is enabled  */
-		ret = encap_and_redirect_netdev(ctx, &key, secctx,
-						TRACE_REASON_UNSPECIFIED,
+		ret = encap_and_redirect_netdev(ctx, &key, secctx, ct_reason,
 						TRACE_PAYLOAD_LEN);
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
@@ -389,7 +388,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 *monitor)
 
 	/* to-netdev is attached to the egress path of the native device. */
 	src_id = ipcache_lookup_srcid6(ctx);
-	return ipv6_host_policy_egress(ctx, src_id, monitor);
+	return ipv6_host_policy_egress(ctx, src_id, NULL, monitor);
 }
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV6 */
@@ -456,6 +455,7 @@ static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	    __u32 ipcache_srcid __maybe_unused, const bool from_host)
 {
+	__maybe_unused int ct_reason = TRACE_REASON_UNSPECIFIED;
 	struct remote_endpoint_info *info = NULL;
 	__u32 __maybe_unused remote_id = 0;
 	__u32 __maybe_unused monitor = 0;
@@ -509,7 +509,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
 		/* We're on the egress path of cilium_host. */
-		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid, &monitor);
+		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid,
+					      &ct_reason, &monitor);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -560,10 +561,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 #ifdef TUNNEL_MODE
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
-		/* TODO We know the reason when host firewall is enabled  */
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						     info->key, secctx,
-						     TRACE_REASON_UNSPECIFIED,
+						     ct_reason,
 						     TRACE_PAYLOAD_LEN);
 
 		if (ret == IPSEC_ENDPOINT)
@@ -578,9 +578,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(ctx, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		/* TODO We know the reason when host firewall is enabled  */
-		ret = encap_and_redirect_netdev(ctx, &key, secctx,
-						TRACE_REASON_UNSPECIFIED,
+		ret = encap_and_redirect_netdev(ctx, &key, secctx, ct_reason,
 						TRACE_PAYLOAD_LEN);
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
@@ -671,7 +669,8 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 *monitor)
 	/* We need to pass the srcid from ipcache to host firewall. See
 	 * comment in ipv4_host_policy_egress() for details.
 	 */
-	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, monitor);
+	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, NULL,
+				       monitor);
 }
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV4 */
@@ -1305,7 +1304,7 @@ from_host_to_lxc(struct __ctx_buff *ctx)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = ipv6_host_policy_egress(ctx, HOST_ID, &monitor);
+		ret = ipv6_host_policy_egress(ctx, HOST_ID, NULL, &monitor);
 		break;
 # endif
 # ifdef ENABLE_IPV4
@@ -1317,7 +1316,7 @@ from_host_to_lxc(struct __ctx_buff *ctx)
 		 * src_id is HOST_ID. Therefore, we don't need to pass a value
 		 * for the last parameter. That avoids an ipcache lookup.
 		 */
-		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, &monitor);
+		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, NULL, &monitor);
 		break;
 # endif
 	default:

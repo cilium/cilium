@@ -14,7 +14,8 @@
 
 # ifdef ENABLE_IPV6
 static __always_inline int
-ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 *monitor)
+ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id, int *ct_reason,
+			__u32 *monitor)
 {
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ct_state ct_state_new = {}, ct_state = {};
@@ -47,6 +48,8 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 *monitor)
 			 &ct_state, monitor);
 	if (ret < 0)
 		return ret;
+	if (ct_reason)
+		*ct_reason = ret;
 
 	/* Retrieve destination identity. */
 	info = lookup_ip6_remote_endpoint(&orig_dip);
@@ -241,7 +244,8 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid)
 
 static __always_inline int
 ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
-			__u32 ipcache_srcid __maybe_unused, __u32 *monitor)
+			__u32 ipcache_srcid __maybe_unused, int *ct_reason,
+			__u32 *monitor)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
@@ -274,6 +278,8 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 			 &ct_state, monitor);
 	if (ret < 0)
 		return ret;
+	if (ct_reason)
+		*ct_reason = ret;
 
 	/* Retrieve destination identity. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr);
