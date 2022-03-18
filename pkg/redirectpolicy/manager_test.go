@@ -548,4 +548,30 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigDualStack(c *C) {
 	}
 }
 
-//TODO Tests for svcMatcher
+// Tests add and update pod operations with namespace mismatched pods.
+func (m *ManagerSuite) TestManager_OnAddandUpdatePod(c *C) {
+	configFe := configAddrType
+	m.rpm.policyFrontendsByHash[fe1.Hash()] = configFe.id
+	configSvc := configSvcType
+	m.rpm.policyConfigs[configSvc.id] = &configSvc
+	pod := pod1.DeepCopy()
+	pod.Namespace = "ns2"
+	podID := k8s.ServiceID{
+		Name:      pod.Name,
+		Namespace: pod.Namespace,
+	}
+
+	m.rpm.OnAddPod(pod)
+
+	// Namespace mismatched pod not selected.
+	c.Assert(len(m.rpm.policyPods), Equals, 0)
+	_, found := m.rpm.policyPods[podID]
+	c.Assert(found, Equals, false)
+
+	m.rpm.OnUpdatePod(pod, true, true)
+
+	// Namespace mismatched pod not selected.
+	c.Assert(len(m.rpm.policyPods), Equals, 0)
+	_, found = m.rpm.policyPods[podID]
+	c.Assert(found, Equals, false)
+}
