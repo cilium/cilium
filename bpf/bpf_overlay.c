@@ -374,8 +374,11 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	for (i = 0; i < VTEP_NUMS; i++) {
 		if (info->tunnel_endpoint == VTEP_ENDPOINT[i])
-			return __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-									info->sec_label, monitor);
+			return __encap_and_redirect_with_nodeid(ctx,
+								info->tunnel_endpoint,
+								info->sec_label,
+								TRACE_REASON_UNKNOWN,
+								monitor);
 	}
 
 	return send_drop_notify_error(ctx, 0, DROP_UNKNOWN_L3, CTX_ACT_DROP, METRIC_EGRESS);
