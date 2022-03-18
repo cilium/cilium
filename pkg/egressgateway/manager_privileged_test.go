@@ -6,7 +6,7 @@
 package egressgateway
 
 import (
-	"fmt"
+	"context"
 	"net"
 	"testing"
 
@@ -16,12 +16,15 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/identity"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 const (
@@ -44,6 +47,8 @@ const (
 var (
 	ep1Labels = map[string]string{"test-key": "test-value-1"}
 	ep2Labels = map[string]string{"test-key": "test-value-2"}
+
+	identityAllocator = testidentity.NewMockIdentityAllocator(nil)
 )
 
 type egressRule struct {
@@ -92,7 +97,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	k8sCacheSyncedChecker := &k8sCacheSyncedCheckerMock{}
 
-	egressGatewayManager := NewEgressGatewayManager(k8sCacheSyncedChecker)
+	egressGatewayManager := NewEgressGatewayManager(k8sCacheSyncedChecker, identityAllocator)
 	c.Assert(egressGatewayManager, NotNil)
 
 	k8sCacheSyncedChecker.synced = true
@@ -103,23 +108,22 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	assertEgressRules(c, []egressRule{})
 
-	// Add a new endpoint which matches policy-1
-	ep1 := newEndpoint("ep-1", ep1IP, ep1Labels)
+	// Add a new endpoint & ID which matches policy-1
+	ep1, id1 := newEndpointAndIdentity("ep-1", ep1IP, ep1Labels)
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
 	assertEgressRules(c, []egressRule{
 		{ep1IP, destCIDR, egressIP1, egressIP1},
 	})
 
-	// Update the endpoint labels in order for it to not be a match
-	oldEp1Labels := ep1.Identity.Labels
-	ep1.Identity.Labels = []string{}
+	// Update the labels for ep1 in order for it to NOT be a match
+	id1 = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
 	assertEgressRules(c, []egressRule{})
 
-	// Restore the old endpoint lables in order for it to be a match
-	ep1.Identity.Labels = oldEp1Labels
+	// Restore the old ep1 lables in order for it to be a match
+	id1 = updateEndpointAndIdentity(&ep1, id1, ep1Labels)
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
 	assertEgressRules(c, []egressRule{
@@ -134,8 +138,8 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 		{ep1IP, destCIDR, egressIP1, egressIP1},
 	})
 
-	// Add a new endpoint which matches policy-2
-	ep2 := newEndpoint("ep-2", ep2IP, ep2Labels)
+	// Add a new endpoint and ID which matches policy-2
+	ep2, _ := newEndpointAndIdentity("ep-2", ep2IP, ep2Labels)
 	egressGatewayManager.OnUpdateEndpoint(&ep2)
 
 	assertEgressRules(c, []egressRule{
@@ -143,9 +147,8 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 		{ep2IP, destCIDR, egressIP2, egressIP2},
 	})
 
-	// Update the endpoint labels for policy-1 in order for it to not be a match
-	oldEp1Labels = ep1.Identity.Labels
-	ep1.Identity.Labels = []string{}
+	// Update the endpoint labels for policy-1 in order for it to NOT be a match
+	updateEndpointAndIdentity(&ep1, id1, map[string]string{})
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
 	assertEgressRules(c, []egressRule{
@@ -179,18 +182,16 @@ func newEgressPolicyConfig(policyName string, labels map[string]string, destinat
 	}
 }
 
-func newEndpoint(name, ip string, labels map[string]string) k8sTypes.CiliumEndpoint {
-	epLabels := []string{}
-	for k, v := range labels {
-		epLabels = append(epLabels, fmt.Sprintf("k8s:%s=%s", k, v))
-	}
+// Mock the creation of endpoint and its corresponding identity, returns endpoint and ID.
+func newEndpointAndIdentity(name, ip string, epLabels map[string]string) (k8sTypes.CiliumEndpoint, *identity.Identity) {
+	id, _, _ := identityAllocator.AllocateIdentity(context.Background(), labels.Map2Labels(epLabels, labels.LabelSourceK8s), true, identity.InvalidIdentity)
 
 	return k8sTypes.CiliumEndpoint{
 		ObjectMeta: slimv1.ObjectMeta{
 			Name: name,
 		},
 		Identity: &v2.EndpointIdentity{
-			Labels: epLabels,
+			ID: int64(id.ID),
 		},
 		Networking: &v2.EndpointNetworking{
 			Addressing: v2.AddressPairList{
@@ -199,7 +200,17 @@ func newEndpoint(name, ip string, labels map[string]string) k8sTypes.CiliumEndpo
 				},
 			},
 		},
-	}
+	}, id
+}
+
+// Mock the update of endpoint and its corresponding identity, with new labels. Returns new ID.
+func updateEndpointAndIdentity(endpoint *k8sTypes.CiliumEndpoint, oldID *identity.Identity, newEpLabels map[string]string) *identity.Identity {
+	ctx := context.Background()
+
+	identityAllocator.Release(ctx, oldID, true)
+	newID, _, _ := identityAllocator.AllocateIdentity(ctx, labels.Map2Labels(newEpLabels, labels.LabelSourceK8s), true, identity.InvalidIdentity)
+	endpoint.Identity.ID = int64(newID.ID)
+	return newID
 }
 
 func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string) parsedEgressRule {

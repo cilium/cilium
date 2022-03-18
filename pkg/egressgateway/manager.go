@@ -4,16 +4,22 @@
 package egressgateway
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/identity"
+	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -39,19 +45,39 @@ type Manager struct {
 
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
+
+	// identityAllocator is used to fetch identity labels for endpoint updates
+	identityAllocator identityCache.IdentityAllocator
 }
 
 // NewEgressGatewayManager returns a new Egress Gateway Manager.
-func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker) *Manager {
+func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker, identityAlocator identityCache.IdentityAllocator) *Manager {
 	manager := &Manager{
 		k8sCacheSyncedChecker: k8sCacheSyncedChecker,
 		policyConfigs:         make(map[policyID]*PolicyConfig),
 		epDataStore:           make(map[endpointID]*endpointMetadata),
+		identityAllocator:     identityAlocator,
 	}
 
 	manager.runReconciliationAfterK8sSync()
 
 	return manager
+}
+
+// getIdentityLabels waits for the global identities to be populated to the cache,
+// then looks up identity by ID from the cached identity allocator and return its labels.
+func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Labels, error) {
+	identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+	defer cancel()
+	if err := manager.identityAllocator.WaitForInitialGlobalIdentities(identityCtx); err != nil {
+		return nil, fmt.Errorf("failed to wait for initial global identities: %v", err)
+	}
+
+	identity := manager.identityAllocator.LookupIdentityByID(identityCtx, identity.NumericIdentity(securityIdentity))
+	if identity == nil {
+		return nil, fmt.Errorf("identity %d not found", securityIdentity)
+	}
+	return identity.Labels, nil
 }
 
 // runReconciliationAfterK8sSync spawns a goroutine that waits for the agent to
@@ -118,6 +144,7 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	var epData *endpointMetadata
 	var err error
+	var identityLabels labels.Labels
 
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
@@ -133,7 +160,13 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		return
 	}
 
-	if epData, err = getEndpointMetadata(endpoint); err != nil {
+	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
+		logger.WithError(err).
+			Error("Failed to get idenity labels for endpoint, skipping update to egress policy.")
+		return
+	}
+
+	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
 		logger.WithError(err).
 			Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
 		return

@@ -87,10 +87,7 @@ var _ = SkipDescribeIf(func() bool {
 		// We deploy cilium, to run the echo server and assign egress IP, and redeploy with
 		// different configurations for the tests.
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename,
-			// TODO Disable CES until https://github.com/cilium/cilium/issues/17669
-			//      has been resolved
-			map[string]string{"enableCiliumEndpointSlice": "false"})
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
 		runEchoServer()
 		assignEgressIP()
