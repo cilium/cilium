@@ -1083,6 +1083,10 @@ const (
 	// is considered timed out
 	ProxyConnectTimeout = "proxy-connect-timeout"
 
+	// ProxyGID specifies the group ID that has access to unix domain sockets opened by Cilium
+	// agent for proxy configuration and access logging.
+	ProxyGID = "proxy-gid"
+
 	// ReadCNIConfiguration reads the CNI configuration file and extracts
 	// Cilium relevant information. This can be used to pass per node
 	// configuration to Cilium.
@@ -1428,6 +1432,10 @@ type DaemonConfig struct {
 	// ProxyConnectTimeout is the time in seconds after which Envoy considers a TCP
 	// connection attempt to have timed out.
 	ProxyConnectTimeout int
+
+	// ProxyGID specifies the group ID that has access to unix domain sockets opened by Cilium
+	// agent for proxy configuration and access logging.
+	ProxyGID int
 
 	// ProxyPrometheusPort specifies the port to serve Envoy metrics on.
 	ProxyPrometheusPort int
@@ -2715,6 +2723,7 @@ func (c *DaemonConfig) Populate() {
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
 	c.PrometheusServeAddr = viper.GetString(PrometheusServeAddr)
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
+	c.ProxyGID = viper.GetInt(ProxyGID)
 	c.ProxyPrometheusPort = viper.GetInt(ProxyPrometheusPort)
 	c.ProxyMaxRequestsPerConnection = viper.GetInt(ProxyMaxRequestsPerConnection)
 	c.ProxyMaxConnectionDuration = time.Duration(viper.GetInt64(ProxyMaxConnectionDuration))
