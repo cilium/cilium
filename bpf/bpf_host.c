@@ -1125,7 +1125,7 @@ out:
 					      METRIC_EGRESS);
 #endif
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0, 0,
-			  TRACE_REASON_UNKNOWN, trace.monitor);
+			  trace.reason, trace.monitor);
 
 	return ret;
 }
