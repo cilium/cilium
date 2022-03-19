@@ -174,10 +174,11 @@ Install Cilium
           Kubernetes worker node than the ENI limit, but means that pod
           connectivity to resources outside the cluster (e.g., VMs in the VPC
           or AWS managed services) is masqueraded (i.e., SNAT) by Cilium to use
-          the VPC IP address of the Kubernetes worker node.  Excluding the
-          lines for ``eni.enabled=true``, ``ipam.mode=eni`` and
-          ``tunnel=disabled`` from the helm command will configure Cilium to
-          use overlay routing mode (which is the helm default).
+          the VPC IP address of the Kubernetes worker node.  
+          
+            * Excluding the lines for ``eni.enabled=true``, ``ipam.mode=eni`` and ``tunnel=disabled`` from the helm command will configure Cilium to use overlay routing mode (which is the helm default).
+            * Flush iptables to clear any iptables configurations done by VPC CNI
+            * Restart ``kube-proxy`` pod to reconfigure iptables
 
          Some Linux distributions use a different interface naming convention.
          If you use masquerading with the option ``egressMasqueradeInterfaces=eth0``,
