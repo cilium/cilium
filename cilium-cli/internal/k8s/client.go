@@ -664,7 +664,7 @@ func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) 
 			}
 			base := strings.Split(image[0], "/")
 			last := base[len(base)-1]
-			if !strings.Contains(last, "cilium") {
+			if !strings.HasPrefix(last, "cilium") {
 				// skip non cilium images
 				continue
 			}
