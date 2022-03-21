@@ -92,7 +92,7 @@ jobs:
           go-version: 1.17.8
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed
+        uses: actions/cache@4b0cf6cc4619e737324ddfcec08fff2413359514
         with:
           path: $HOME/.clang
           key: llvm-10.0
