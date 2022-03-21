@@ -317,6 +317,22 @@ to enable NFS.
       # vers3=y
       ...
 
+.. note::
+
+   A later version of VirtualBox (v6.1.28 or above) restricts IP ranges
+   for host-only networks by default. Make sure IP ranges used for VMs
+   are specified explicitly:
+
+   .. code-block:: none
+
+      # cat /etc/vbox/networks.conf
+      ...
+      * 192.168.56.0/21
+      * FD00::/16
+      ...
+
+   See `VirtualBox Host-Only Networking <https://www.virtualbox.org/manual/ch06.html#network_hostonly>`_ for more detail.
+
 If for some reason, running of the provisioning script fails, you should bring the VM down before trying again:
 
 .. code-block:: shell-session
