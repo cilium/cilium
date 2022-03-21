@@ -1110,7 +1110,7 @@ l2NeighDiscovery:
   # -- Enable L2 neighbor discovery in the agent
   enabled: true
   # -- Override the agent's default neighbor resolution refresh period.
-  arping-refresh-period: "30s"
+  refreshPeriod: "30s"
 
 # -- Enable Layer 7 network policy.
 l7Proxy: true
