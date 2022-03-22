@@ -1,5 +1,6 @@
 ACK
 AKS
+Anthos
 APIEndpoint
 AdapterLimitViaAPI
 Alemayhu
@@ -88,6 +89,7 @@ MaskSize
 Mbit
 Mellanox
 Menlo
+mentees
 Mesos
 MiB
 Minikube
