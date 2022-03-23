@@ -1644,7 +1644,21 @@ nodeinit:
 
   # -- Security context to be added to nodeinit pods.
   securityContext:
-    privileged: true
+    privileged: false
+    seLinuxOptions:
+      level: 's0'
+      # Running with spc_t since we have removed the privileged mode.
+      # Users can change it to a different type as long as they have the
+      # type available on the system.
+      type: 'spc_t'
+    capabilities:
+      add:
+        # Used in iptables. Consider removing once we are iptables-free
+        - SYS_MODULE
+        # Used for nsenter
+        - NET_ADMIN
+        - SYS_ADMIN
+        - SYS_PTRACE
 
   # -- bootstrapFile is the location of the file where the bootstrap timestamp is
   # written by the node-init DaemonSet
