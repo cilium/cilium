@@ -20,7 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -47,7 +47,7 @@ func newEnvoyConfigManager(maxRetries int) (*envoyConfigManager, error) {
 
 	// setup store and informer only for endpoints having label cilium.io/ingress
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2alpha1().RESTClient(), v2alpha1.CECPluralName, v1.NamespaceAll, fields.Everything()),
+		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2alpha1().RESTClient(), v2alpha1.CECPluralName, corev1.NamespaceAll, fields.Everything()),
 		&v2alpha1.CiliumEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{},
@@ -169,6 +169,9 @@ func getEnvoyConfigForIngress(k8sClient kubernetes.Interface, ingress *slim_netw
 
 func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2alpha1.Service {
 	var sortedServiceNames []string
+	if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
+		sortedServiceNames = append(sortedServiceNames, ingress.Spec.DefaultBackend.Service.Name)
+	}
 	for _, rule := range ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
 			sortedServiceNames = append(sortedServiceNames, path.Backend.Service.Name)
@@ -352,6 +355,7 @@ func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.I
 		}
 		routes = append(routes, &route)
 	}
+
 	domains := []string{"*"}
 	if rule.Host != "" {
 		domains = []string{
@@ -372,6 +376,30 @@ func getRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (v2alpha1
 	for _, rule := range ingress.Spec.Rules {
 		virtualhosts = append(virtualhosts, getVirtualHost(ingress, rule))
 	}
+
+	// The default backend route should be the last one
+	if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
+		route := &envoy_config_route_v3.Route{
+			Match: &envoy_config_route_v3.RouteMatch{
+				PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+					Prefix: "/",
+				},
+			},
+			Action: &envoy_config_route_v3.Route_Route{
+				Route: &envoy_config_route_v3.RouteAction{
+					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+						Cluster: fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Spec.DefaultBackend.Service.Name),
+					},
+				},
+			},
+		}
+		virtualhosts = append(virtualhosts, &envoy_config_route_v3.VirtualHost{
+			Name:    "default-backend",
+			Domains: []string{"*"},
+			Routes:  []*envoy_config_route_v3.Route{route},
+		})
+	}
+
 	routeConfig := envoy_config_route_v3.RouteConfiguration{
 		Name:         getCECNameForIngress(ingress) + "_route",
 		VirtualHosts: virtualhosts,
