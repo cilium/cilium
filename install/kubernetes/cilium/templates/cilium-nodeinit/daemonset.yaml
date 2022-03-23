@@ -21,6 +21,12 @@ spec:
         {{- with .Values.nodeinit.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- if not .Values.securityContext.privileged }}
+        # Set app AppArmor's profile to "unconfined". The value of this annotation
+        # can be modified as long users know which profiles they have available
+        # in AppArmor.
+        container.apparmor.security.beta.kubernetes.io/node-init: "unconfined"
+        {{- end }}
       labels:
         app: cilium-node-init
         {{- with .Values.nodeinit.podLabels }}
