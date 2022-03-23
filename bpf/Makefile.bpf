@@ -35,10 +35,10 @@ LLC   ?= llc
 HOST_CC    ?= gcc
 HOST_STRIP ?= strip
 
-ifeq ($(GOARCH),arm64)
+ifeq ($(CROSS_ARCH),arm64)
   HOST_CC = aarch64-linux-gnu-gcc
   HOST_STRIP = aarch64-linux-gnu-strip
-else ifeq ($(GOARCH),amd64)
+else ifeq ($(CROSS_ARCH),amd64)
   HOST_CC = x86_64-linux-gnu-gcc
   HOST_STRIP = x86_64-linux-gnu-strip
 endif
