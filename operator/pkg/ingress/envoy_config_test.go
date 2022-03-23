@@ -27,10 +27,14 @@ import (
 
 func Test_getBackendServices(t *testing.T) {
 	services := getBackendServices(baseIngress.DeepCopy())
-	assert.Len(t, services, 2)
+	assert.Len(t, services, 3)
 	assert.Equal(t, services, []*v2alpha1.Service{
 		{
 			Name:      "another-dummy-backend",
+			Namespace: "dummy-namespace",
+		},
+		{
+			Name:      "default-backend",
 			Namespace: "dummy-namespace",
 		},
 		{
@@ -84,10 +88,11 @@ func Test_getRouteConfigurationResource(t *testing.T) {
 	require.Len(t, routeConfig.VirtualHosts, 1)
 	require.Equal(t, "*", routeConfig.VirtualHosts[0].Name)
 	require.Equal(t, []string{"*"}, routeConfig.VirtualHosts[0].Domains)
-	require.Len(t, routeConfig.VirtualHosts[0].Routes, 2)
+	require.Len(t, routeConfig.VirtualHosts[0].Routes, 3)
 
 	require.Equal(t, "/dummy-path", routeConfig.VirtualHosts[0].Routes[0].Match.GetPath())
 	require.Equal(t, "/another-dummy-path", routeConfig.VirtualHosts[0].Routes[1].Match.GetPrefix())
+	require.Equal(t, "/", routeConfig.VirtualHosts[0].Routes[2].Match.GetPrefix())
 
 	clusters := []string{routeConfig.VirtualHosts[0].Routes[0].GetRoute().GetCluster(), routeConfig.VirtualHosts[0].Routes[1].GetRoute().GetCluster()}
 	require.Contains(t, clusters, "dummy-namespace/dummy-backend")
@@ -98,7 +103,7 @@ func Test_getClusterResources(t *testing.T) {
 	res, err := getClusterResources(getBackendServices(baseIngress.DeepCopy()))
 	require.NoError(t, err)
 
-	require.Len(t, res, 2)
+	require.Len(t, res, 3)
 
 	cluster1 := &envoy_config_cluster_v3.Cluster{}
 	err = proto.Unmarshal(res[0].Value, cluster1)
@@ -108,10 +113,15 @@ func Test_getClusterResources(t *testing.T) {
 	err = proto.Unmarshal(res[1].Value, cluster2)
 	require.NoError(t, err)
 
-	clusterNames := []string{cluster1.Name, cluster2.Name}
+	cluster3 := &envoy_config_cluster_v3.Cluster{}
+	err = proto.Unmarshal(res[2].Value, cluster3)
+	require.NoError(t, err)
+
+	clusterNames := []string{cluster1.Name, cluster2.Name, cluster3.Name}
 
 	require.Contains(t, clusterNames, "dummy-namespace/dummy-backend")
 	require.Contains(t, clusterNames, "dummy-namespace/another-dummy-backend")
+	require.Contains(t, clusterNames, "dummy-namespace/default-backend")
 }
 
 func Test_getEnvoyConfigForIngress(t *testing.T) {
@@ -141,8 +151,8 @@ func Test_getEnvoyConfigForIngress(t *testing.T) {
 	})
 
 	// check for count only, individual resource is covered in other tests
-	// 1 listener, 1 route configuration, 2 clusters
-	assert.Len(t, cec.Spec.Resources, 4)
+	// 1 listener, 1 route configuration, 3 clusters
+	assert.Len(t, cec.Spec.Resources, 5)
 }
 
 func fakeClient() *fake.Clientset {
