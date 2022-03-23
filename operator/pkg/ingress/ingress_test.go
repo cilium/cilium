@@ -23,6 +23,14 @@ var baseIngress = &slim_networkingv1.Ingress{
 	},
 	Spec: slim_networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
+		DefaultBackend: &slim_networkingv1.IngressBackend{
+			Service: &slim_networkingv1.IngressServiceBackend{
+				Name: "default-backend",
+				Port: slim_networkingv1.ServiceBackendPort{
+					Number: 8080,
+				},
+			},
+		},
 		TLS: []slim_networkingv1.IngressTLS{
 			{
 				Hosts:      []string{"very-secure.server.com"},
