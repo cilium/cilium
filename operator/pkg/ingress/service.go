@@ -185,6 +185,16 @@ func (sm *serviceManager) notify(service *slim_corev1.Service) {
 }
 
 func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
+	var targetPort int32
+	if len(ingress.Spec.Rules) > 0 && len(ingress.Spec.Rules[0].HTTP.Paths) > 0 &&
+		ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service != nil {
+		targetPort = ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number
+	} else {
+		if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
+			targetPort = ingress.Spec.DefaultBackend.Service.Port.Number
+		}
+	}
+
 	ports := []v1.ServicePort{
 		{
 			Name:     "http",
@@ -195,7 +205,7 @@ func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
 			//             NodePort all these targetports are ignored anyway,
 			//             and the targetport defined in the backend service is
 			//             used regardless what is specified here.
-			TargetPort: intstr.FromInt((int)(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number)),
+			TargetPort: intstr.FromInt((int)(targetPort)),
 		},
 	}
 	if len(ingress.Spec.TLS) > 0 {
