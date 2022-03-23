@@ -318,15 +318,30 @@ func toAny(message proto.Message) *anypb.Any {
 	return a
 }
 
+func getRouteMatch(ingressPath slim_networkingv1.HTTPIngressPath) *envoy_config_route_v3.RouteMatch {
+	if ingressPath.PathType == nil || *ingressPath.PathType == slim_networkingv1.PathTypeImplementationSpecific ||
+		*ingressPath.PathType == slim_networkingv1.PathTypePrefix {
+		return &envoy_config_route_v3.RouteMatch{
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+				Prefix: ingressPath.Path,
+			},
+		}
+	}
+	if *ingressPath.PathType == slim_networkingv1.PathTypeExact {
+		return &envoy_config_route_v3.RouteMatch{
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+				Path: ingressPath.Path,
+			},
+		}
+	}
+	return nil
+}
+
 func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.IngressRule) *envoy_config_route_v3.VirtualHost {
 	var routes []*envoy_config_route_v3.Route
 	for _, path := range rule.HTTP.Paths {
 		route := envoy_config_route_v3.Route{
-			Match: &envoy_config_route_v3.RouteMatch{
-				PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-					Prefix: path.Path,
-				},
-			},
+			Match: getRouteMatch(path),
 			Action: &envoy_config_route_v3.Route_Route{
 				Route: &envoy_config_route_v3.RouteAction{
 					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
