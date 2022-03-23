@@ -14,6 +14,8 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
+var exactPathType = slim_networkingv1.PathTypeExact
+
 var baseIngress = &slim_networkingv1.Ingress{
 	ObjectMeta: slim_metav1.ObjectMeta{
 		Name:      "dummy-ingress",
@@ -48,6 +50,7 @@ var baseIngress = &slim_networkingv1.Ingress{
 										},
 									},
 								},
+								PathType: &exactPathType,
 							},
 							{
 								Path: "/another-dummy-path",
