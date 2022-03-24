@@ -10,8 +10,10 @@ metadata:
     {{- with .Values.hubble.metrics.serviceAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{- if not .Values.hubble.metrics.serviceMonitor.enabled }}
     prometheus.io/scrape: "true"
     prometheus.io/port: {{ .Values.hubble.metrics.port | quote }}
+    {{- end }}
 spec:
   clusterIP: None
   type: ClusterIP
