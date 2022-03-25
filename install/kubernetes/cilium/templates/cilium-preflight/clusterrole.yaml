@@ -68,13 +68,17 @@ rules:
   # until we figure out how to avoid "get" inside the preflight, and then
   # should be removed ideally.
   - get
-{{- if eq "k8s" .Values.tls.secretsBackend }}
+{{- if or (eq "k8s" .Values.tls.secretsBackend) .Values.enableIngressController }}
 - apiGroups:
   - ""
   resources:
   - secrets
   verbs:
   - get
+{{- if .Values.enableIngressController }}
+  - list
+  - watch
+{{- end }}
 {{- end }}
 - apiGroups:
   - cilium.io

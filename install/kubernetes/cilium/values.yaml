@@ -429,6 +429,10 @@ enableIngressController: false
 # https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
 enableXTSocketFallback: true
 
+# -- Enable cilium ingress controller
+# This will automatically set enable-envoy-config as well.
+enableIngressController: false
+
 encryption:
   # -- Enable transparent network encryption.
   enabled: false
