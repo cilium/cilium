@@ -35,20 +35,15 @@ rules:
   - get
   - list
   - watch
+{{- if .Values.annotateK8sNode }}
 - apiGroups:
   - ""
   resources:
   - nodes
   verbs:
-  # To remove node taints and to annotate node
+  # To annotate the k8s node with Cilium's metadata
   - update
-- apiGroups:
-  - ""
-  resources:
-  # To set NodeNetworkUnavailable: false on startup
-  - nodes/status
-  verbs:
-  - patch
+{{- end }}
 - apiGroups:
   - apiextensions.k8s.io
   resources:
