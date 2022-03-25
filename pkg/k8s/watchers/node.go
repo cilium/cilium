@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
-	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -74,9 +73,6 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 					var valid bool
 					if node := k8s.ObjToV1Node(obj); node != nil {
 						valid = true
-						if hasAgentNotReadyTaint(node) || !k8s.HasCiliumIsUpCondition(node) {
-							k8sClient.ReMarkNodeReady()
-						}
 						errs := k.NodeChain.OnAddNode(node, swg)
 						k.K8sEventProcessed(metricNode, metricCreate, errs == nil)
 					}
@@ -87,10 +83,6 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 					if oldNode := k8s.ObjToV1Node(oldObj); oldNode != nil {
 						valid = true
 						if newNode := k8s.ObjToV1Node(newObj); newNode != nil {
-							if hasAgentNotReadyTaint(newNode) || !k8s.HasCiliumIsUpCondition(newNode) {
-								k8sClient.ReMarkNodeReady()
-							}
-
 							equal = nodeEventsAreEqual(oldNode, newNode)
 							if !equal {
 								errs := k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
@@ -112,17 +104,6 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 		go nodeController.Run(k.stop)
 		k.k8sAPIGroups.AddAPI(k8sAPIGroupNodeV1Core)
 	})
-}
-
-// hasAgentNotReadyTaint returns true if the given node has the Cilium Agen
-// Not Ready Node Taint.
-func hasAgentNotReadyTaint(k8sNode *v1.Node) bool {
-	for _, taint := range k8sNode.Spec.Taints {
-		if taint.Key == ciliumio.AgentNotReadyNodeTaint {
-			return true
-		}
-	}
-	return false
 }
 
 // GetK8sNode returns the *local Node* from the local store.

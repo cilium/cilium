@@ -14,6 +14,8 @@ cilium-operator-generic [flags]
       --bgp-announce-lb-ip                        Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 5m0s)
+      --cilium-pod-labels string                  Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
+      --cilium-pod-namespace string               Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace
       --cluster-id int                            Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")
       --cluster-pool-ipv4-cidr strings            IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2' and 'enable-ipv4=true'
@@ -62,6 +64,8 @@ cilium-operator-generic [flags]
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)
       --pprof                                     Enable pprof debugging endpoint
       --pprof-port int                            Port that the pprof listens on (default 6061)
+      --remove-cilium-node-taints                 Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
+      --set-cilium-is-up-condition                Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
       --skip-crd-creation                         When true, Kubernetes Custom Resource Definitions will not be created
       --subnet-ids-filter strings                 Subnets IDs (separated by commas)
       --subnet-tags-filter stringToString         Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag (default [])

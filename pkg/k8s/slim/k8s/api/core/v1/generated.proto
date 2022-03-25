@@ -273,6 +273,19 @@ message NodeAddress {
   optional string address = 2;
 }
 
+// NodeCondition contains condition information for a node.
+message NodeCondition {
+  // Type of node condition.
+  optional string type = 1;
+
+  // Status of the condition, one of True, False, Unknown.
+  optional string status = 2;
+
+  // (brief) reason for the condition's last transition.
+  // +optional
+  optional string reason = 5;
+}
+
 // NodeList is the whole list of all Nodes which have been registered with master.
 message NodeList {
   // Standard list metadata.
@@ -304,6 +317,13 @@ message NodeSpec {
 
 // NodeStatus is information about the current status of a node.
 message NodeStatus {
+  // Conditions is an array of current observed node conditions.
+  // More info: https://kubernetes.io/docs/concepts/nodes/node/#condition
+  // +optional
+  // +patchMergeKey=type
+  // +patchStrategy=merge
+  repeated NodeCondition conditions = 4;
+
   // List of addresses reachable to the node.
   // Queried from cloud provider, if available.
   // More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses

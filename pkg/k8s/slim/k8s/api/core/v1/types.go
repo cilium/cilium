@@ -837,6 +837,12 @@ type NodeSpec struct {
 
 // NodeStatus is information about the current status of a node.
 type NodeStatus struct {
+	// Conditions is an array of current observed node conditions.
+	// More info: https://kubernetes.io/docs/concepts/nodes/node/#condition
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []NodeCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,4,rep,name=conditions"`
 	// List of addresses reachable to the node.
 	// Queried from cloud provider, if available.
 	// More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses
@@ -847,6 +853,49 @@ type NodeStatus struct {
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	Addresses []NodeAddress `json:"addresses,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,5,rep,name=addresses"`
+}
+
+// +enum
+type NodePhase string
+
+// These are the valid phases of node.
+const (
+	// NodePending means the node has been created/added by the system, but not configured.
+	NodePending NodePhase = "Pending"
+	// NodeRunning means the node has been configured and has Kubernetes components running.
+	NodeRunning NodePhase = "Running"
+	// NodeTerminated means the node has been removed from the cluster.
+	NodeTerminated NodePhase = "Terminated"
+)
+
+// +enum
+type NodeConditionType string
+
+// These are valid conditions of node. Currently, we don't have enough information to decide
+// node condition. In the future, we will add more. The proposed set of conditions are:
+// NodeReachable, NodeLive, NodeReady, NodeSchedulable, NodeRunnable.
+const (
+	// NodeReady means kubelet is healthy and ready to accept pods.
+	NodeReady NodeConditionType = "Ready"
+	// NodeMemoryPressure means the kubelet is under pressure due to insufficient available memory.
+	NodeMemoryPressure NodeConditionType = "MemoryPressure"
+	// NodeDiskPressure means the kubelet is under pressure due to insufficient available disk.
+	NodeDiskPressure NodeConditionType = "DiskPressure"
+	// NodePIDPressure means the kubelet is under pressure due to insufficient available PID.
+	NodePIDPressure NodeConditionType = "PIDPressure"
+	// NodeNetworkUnavailable means that network for the node is not correctly configured.
+	NodeNetworkUnavailable NodeConditionType = "NetworkUnavailable"
+)
+
+// NodeCondition contains condition information for a node.
+type NodeCondition struct {
+	// Type of node condition.
+	Type NodeConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=NodeConditionType"`
+	// Status of the condition, one of True, False, Unknown.
+	Status ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=ConditionStatus"`
+	// (brief) reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
 }
 
 // +enum

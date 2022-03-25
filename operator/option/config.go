@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
@@ -222,6 +224,21 @@ const (
 	// EnforceIngressHttps enforces https for host having matching TLS host in Ingress.
 	// Incoming traffic to http listener will return 308 http error code with respective location in header.
 	EnforceIngressHttps = "enforce-ingress-https"
+
+	// CiliumK8sNamespace is the namespace where Cilium pods are running.
+	CiliumK8sNamespace = "cilium-pod-namespace"
+
+	// CiliumPodLabels specifies the pod labels that Cilium pods is running
+	// with.
+	CiliumPodLabels = "cilium-pod-labels"
+
+	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
+	// should be removed in Kubernetes nodes.
+	RemoveCiliumNodeTaints = "remove-cilium-node-taints"
+
+	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
+	// nodes.
+	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -410,6 +427,21 @@ type OperatorConfig struct {
 
 	// EnforceIngressHTTPS enforces https if required
 	EnforceIngressHTTPS bool
+
+	// CiliumK8sNamespace is the namespace where Cilium pods are running.
+	CiliumK8sNamespace string
+
+	// CiliumPodLabels specifies the pod labels that Cilium pods is running
+	// with.
+	CiliumPodLabels string
+
+	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
+	// should be removed in Kubernetes nodes.
+	RemoveCiliumNodeTaints bool
+
+	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
+	// nodes.
+	SetCiliumIsUpCondition bool
 }
 
 // Populate sets all options with the values from viper.
@@ -441,6 +473,18 @@ func (c *OperatorConfig) Populate() {
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.EnableIngressController = viper.GetBool(EnableIngressController)
 	c.EnforceIngressHTTPS = viper.GetBool(EnforceIngressHttps)
+	c.CiliumPodLabels = viper.GetString(CiliumPodLabels)
+	c.RemoveCiliumNodeTaints = viper.GetBool(RemoveCiliumNodeTaints)
+	c.SetCiliumIsUpCondition = viper.GetBool(SetCiliumIsUpCondition)
+
+	c.CiliumK8sNamespace = viper.GetString(CiliumK8sNamespace)
+	if c.CiliumK8sNamespace == "" {
+		if option.Config.K8sNamespace == "" {
+			c.CiliumK8sNamespace = metav1.NamespaceDefault
+		} else {
+			c.CiliumK8sNamespace = option.Config.K8sNamespace
+		}
+	}
 
 	if c.BGPAnnounceLBIP {
 		c.SyncK8sServices = true

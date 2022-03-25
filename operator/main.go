@@ -369,6 +369,8 @@ func onOperatorStartLeading(ctx context.Context) {
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be
 	// properly setup. If kube-dns is not managed by Cilium it can prevent
 	// etcd from reaching out kube-dns in EKS.
+	// If this logic is modified, make sure the operator's clusterrole logic for
+	// pods/delete is also up-to-date.
 	if option.Config.DisableCiliumEndpointCRD {
 		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
 	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
@@ -486,6 +488,20 @@ func onOperatorStartLeading(ctx context.Context) {
 		}
 
 		startKvstoreWatchdog()
+	}
+
+	if k8s.IsEnabled() &&
+		(operatorOption.Config.RemoveCiliumNodeTaints || operatorOption.Config.SetCiliumIsUpCondition) {
+		stopCh := make(chan struct{})
+
+		log.WithFields(logrus.Fields{
+			logfields.K8sNamespace:       operatorOption.Config.CiliumK8sNamespace,
+			"label-selector":             operatorOption.Config.CiliumPodLabels,
+			"remove-cilium-node-taints":  operatorOption.Config.RemoveCiliumNodeTaints,
+			"set-cilium-is-up-condition": operatorOption.Config.SetCiliumIsUpCondition,
+		}).Info("Removing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
+
+		operatorWatchers.HandleNodeTolerationAndTaints(stopCh)
 	}
 
 	if err := startSynchronizingCiliumNodes(ctx, nodeManager, withKVStore); err != nil {
