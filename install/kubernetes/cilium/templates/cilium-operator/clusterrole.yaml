@@ -49,14 +49,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - services
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   # to perform LB IP allocation for BGP
   - services/status
   verbs:
@@ -92,33 +84,62 @@ rules:
   - cilium.io
   resources:
   - ciliumnetworkpolicies
-  - ciliumnetworkpolicies/status
-  - ciliumnetworkpolicies/finalizers
   - ciliumclusterwidenetworkpolicies
-  - ciliumclusterwidenetworkpolicies/status
-  - ciliumclusterwidenetworkpolicies/finalizers
-  - ciliumendpoints
-  - ciliumendpoints/status
-  - ciliumendpoints/finalizers
-  - ciliumnodes
-  - ciliumnodes/status
-  - ciliumnodes/finalizers
-  - ciliumidentities
-  - ciliumendpointslices
-  - ciliumidentities/status
-  - ciliumidentities/finalizers
-  - ciliumlocalredirectpolicies
-  - ciliumlocalredirectpolicies/status
-  - ciliumlocalredirectpolicies/finalizers
-  - ciliumenvoyconfigs
-  - ciliumbgppeeringpolicies
-  - ciliumbgploadbalancerippools
   verbs:
+  # Create auto-generated CNPs and CCNPs from Policies that have 'toGroups'
+  - create
+  - update
+  - deletecollection
+  # To update the status of the CNPs and CCNPs
+  - patch
   - get
   - list
   - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies/status
+  - ciliumclusterwidenetworkpolicies/status
+  verbs:
+  # Update the auto-generated CNPs and CCNPs status.
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumendpoints
+  - ciliumidentities
+  verbs:
+  # To perform garbage collection of such resources
+  - delete
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnodes
+  verbs:
   - create
   - update
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnodes/status
+  verbs:
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumendpointslices
+  - ciliumenvoyconfigs
+  verbs:
+  - create
+  - update
+  - get
+  - list
+  - watch
   - delete
 - apiGroups:
   - apiextensions.k8s.io
@@ -128,8 +149,27 @@ rules:
   - create
   - get
   - list
-  - update
   - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - update
+  resourceNames:
+  - ciliumbgploadbalancerippools.cilium.io
+  - ciliumbgppeeringpolicies.cilium.io
+  - ciliumclusterwideenvoyconfigs.cilium.io
+  - ciliumclusterwidenetworkpolicies.cilium.io
+  - ciliumegressnatpolicies.cilium.io
+  - ciliumendpoints.cilium.io
+  - ciliumendpointslices.cilium.io
+  - ciliumenvoyconfigs.cilium.io
+  - ciliumexternalworkloads.cilium.io
+  - ciliumidentities.cilium.io
+  - ciliumlocalredirectpolicies.cilium.io
+  - ciliumnetworkpolicies.cilium.io
+  - ciliumnodes.cilium.io
 # For cilium-operator running in HA mode.
 #
 # Cilium operator running in HA mode requires the use of ResourceLock for Leader Election

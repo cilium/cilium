@@ -194,7 +194,7 @@ func (e *IPAMSuite) TestNodeManagerGet(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	//instances.Resync(context.TODO())
+	// instances.Resync(context.TODO())
 
 	mngr.Update(newCiliumNode("node1", 0, 0, 0))
 
@@ -222,10 +222,6 @@ func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
 
 func (k *k8sMock) Create(*v2.CiliumNode) (*v2.CiliumNode, error) {
 	return &v2.CiliumNode{}, nil
-}
-
-func (k *k8sMock) Delete(nodeName string) error {
-	return nil
 }
 
 func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNode {

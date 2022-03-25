@@ -262,10 +262,6 @@ func (c *ciliumNodeUpdateImplementation) Update(origNode, node *cilium_v2.Cilium
 	return nil, nil
 }
 
-func (c *ciliumNodeUpdateImplementation) Delete(nodeName string) error {
-	return ciliumK8sClient.CiliumV2().CiliumNodes().Delete(context.TODO(), nodeName, meta_v1.DeleteOptions{})
-}
-
 func RunCNPNodeStatusGC(nodeStore cache.Store) {
 	go runCNPNodeStatusGC("cnp-node-gc", false, nodeStore)
 	go runCNPNodeStatusGC("ccnp-node-gc", true, nodeStore)
