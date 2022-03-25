@@ -5,11 +5,46 @@ metadata:
   name: clustermesh-apiserver
 rules:
 - apiGroups:
-  - ""
+  - cilium.io
   resources:
-  - nodes/finalizers
+  - ciliumnodes
+  - ciliumendpoints
+  - ciliumidentities
+  verbs:
+  - create
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumexternalworkloads/status
+  - ciliumnodes
+  - ciliumidentities
   verbs:
   - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumendpoints
+  - ciliumendpoints/status
+  verbs:
+  - patch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumidentities
+  - ciliumexternalworkloads
+  - ciliumendpoints
+  - ciliumnodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -28,23 +63,4 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - list
-- apiGroups:
-  - cilium.io
-  resources:
-  - ciliumnodes
-  - ciliumnodes/status
-  - ciliumexternalworkloads
-  - ciliumexternalworkloads/status
-  - ciliumidentities
-  - ciliumidentities/status
-  - ciliumendpoints
-  - ciliumendpoints/status
-  verbs:
-  - '*'
 {{- end }}
