@@ -1930,12 +1930,6 @@ func runDaemon() {
 		errs <- srv.Serve()
 	}()
 
-	if k8s.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-		k8s.Client().MarkNodeReady(d.k8sWatcher, nodeTypes.GetName())
-		bootstrapStats.k8sInit.End(true)
-	}
-
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
 	go d.launchHubble()

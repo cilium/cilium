@@ -29,9 +29,6 @@ type K8sClient struct {
 	// kubernetes.Interface is the object through which interactions with
 	// Kubernetes are performed.
 	kubernetes.Interface
-
-	// ctrlMgr is the manager of controllers for this K8sClient.
-	ctrlMgr *controller.Manager
 }
 
 // K8sCiliumClient is a wrapper around clientset.Interface.
