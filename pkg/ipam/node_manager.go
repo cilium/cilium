@@ -27,7 +27,6 @@ type CiliumNodeGetterUpdater interface {
 	Update(origResource, newResource *v2.CiliumNode) (*v2.CiliumNode, error)
 	UpdateStatus(origResource, newResource *v2.CiliumNode) (*v2.CiliumNode, error)
 	Get(name string) (*v2.CiliumNode, error)
-	Delete(name string) error
 }
 
 // NodeOperations is the interface an IPAM implementation must provide in order

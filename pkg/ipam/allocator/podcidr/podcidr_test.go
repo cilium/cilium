@@ -173,13 +173,6 @@ func (k *k8sNodeMock) Create(n *v2.CiliumNode) (*v2.CiliumNode, error) {
 	panic("d.Create should not be called!")
 }
 
-func (k *k8sNodeMock) Delete(nodeName string) error {
-	if k.OnDelete != nil {
-		return k.OnDelete(nodeName)
-	}
-	panic("d.Delete should not be called!")
-}
-
 func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 	var reSyncCalls int32
 	type fields struct {

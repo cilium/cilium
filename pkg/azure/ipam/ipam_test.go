@@ -110,14 +110,6 @@ func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
 	return &v2.CiliumNode{}, nil
 }
 
-func (k *k8sMock) Delete(nodeName string) error {
-	k.mutex.Lock()
-	k.specRev++
-	delete(k.latestCiliumNode, nodeName)
-	k.mutex.Unlock()
-	return nil
-}
-
 func newCiliumNode(node, instanceID string, preAllocate, minAllocate int) *v2.CiliumNode {
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
