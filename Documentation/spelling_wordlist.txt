@@ -480,6 +480,7 @@ installIptablesRules
 installNoConntrackIptablesRules
 integrations
 internet
+intervalSeconds
 intra
 io
 ip
@@ -743,6 +744,7 @@ regex
 regexes
 relocations
 remoteNodeIdentity
+removeNodeTaints
 reparsing
 replicaset
 repo
@@ -791,6 +793,7 @@ serviceAnnotations
 serviceMonitor
 servicePort
 sessionAffinity
+setNodeNetworkStatus
 setrlimit
 setupinterface
 setupiptables
@@ -892,6 +895,7 @@ uninstall
 uninstallOnExit
 unix
 unmanaged
+unmanagedPodWatcher
 unsettable
 untriaged
 untrusted
