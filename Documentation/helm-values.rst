@@ -945,10 +945,22 @@
      - Security context to be added to cilium-operator pods
      - object
      - ``{}``
+   * - operator.setNodeNetworkStatus
+     - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
+     - bool
+     - ``true``
    * - operator.tolerations
      - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
      - ``[{"operator":"Exists"}]``
+   * - operator.unmanagedPodWatcher.intervalSeconds
+     - Interval, in seconds, to check if there are any pods that are not managed by Cilium.
+     - int
+     - ``15``
+   * - operator.unmanagedPodWatcher.restart
+     - Restart any pod that are not managed by Cilium.
+     - bool
+     - ``true``
    * - operator.updateStrategy
      - cilium-operator update strategy
      - object

@@ -186,6 +186,8 @@ data:
   disable-cnp-status-updates: "true"
   cgroup-root: "/run/cilium/cgroupv2"
   annotate-k8s-node: "true"
+  set-cilium-is-up-condition: "true"
+  unmanaged-pod-watcher-interval: "15"
 ---
 # Source: cilium/templates/hubble-relay-configmap.yaml
 apiVersion: v1
@@ -325,15 +327,8 @@ rules:
   resources:
   - nodes
   verbs:
-  # To annotate node
+  # To annotate the k8s node with Cilium's metadata
   - update
-- apiGroups:
-  - ""
-  resources:
-  # To set NodeNetworkUnavailable: false on startup
-  - nodes/status
-  verbs:
-  - patch
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -375,14 +370,25 @@ rules:
 - apiGroups:
   - ""
   resources:
-  # to automatically delete [core|kube]dns pods so that are starting to being
-  # managed by Cilium
   - pods
   verbs:
   - get
   - list
   - watch
-  - delete
+- apiGroups:
+  - ""
+  resources:
+  # To set NetworkUnavailable false on startup
+  - nodes/status
+  verbs:
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - list
+  - watch
 - apiGroups:
   - discovery.k8s.io
   resources:
