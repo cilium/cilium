@@ -357,7 +357,7 @@ func (ic *IngressController) createEndpoints(ingress *slim_networkingv1.Ingress)
 }
 
 func (ic *IngressController) createEnvoyConfig(ingress *slim_networkingv1.Ingress) error {
-	desired, err := getEnvoyConfigForIngress(k8s.Client(), ingress)
+	desired, err := getEnvoyConfigForIngress(ingress)
 	if err != nil {
 		return err
 	}

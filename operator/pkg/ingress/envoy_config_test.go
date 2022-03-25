@@ -7,7 +7,6 @@
 package ingress
 
 import (
-	"context"
 	"testing"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -19,8 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -45,7 +42,7 @@ func Test_getBackendServices(t *testing.T) {
 }
 
 func Test_getListenerResource(t *testing.T) {
-	res, err := getListenerResource(fakeClient(), baseIngress.DeepCopy())
+	res, err := getListenerResource(baseIngress.DeepCopy())
 	require.NoError(t, err)
 
 	listener := &envoy_config_listener.Listener{}
@@ -72,9 +69,10 @@ func Test_getListenerResource(t *testing.T) {
 	err = proto.Unmarshal(listener.FilterChains[0].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
 	require.NoError(t, err)
 
-	require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificates, 1)
-	require.Equal(t, "very-secure-key", downStreamTLS.CommonTlsContext.TlsCertificates[0].PrivateKey.GetInlineString())
-	require.Equal(t, "very-secure-cert", downStreamTLS.CommonTlsContext.TlsCertificates[0].CertificateChain.GetInlineString())
+	require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 1)
+	require.Equal(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].Name, "dummy-namespace/tls-very-secure-server-com")
+	require.Equal(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].SdsConfig.GetApiConfigSource().GetApiType().String(), "GRPC")
+	require.Equal(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].SdsConfig.GetApiConfigSource().GetGrpcServices()[0].GetEnvoyGrpc().ClusterName, "xds-grpc-cilium")
 }
 
 func Test_getRouteConfigurationResource(t *testing.T) {
@@ -125,7 +123,7 @@ func Test_getClusterResources(t *testing.T) {
 }
 
 func Test_getEnvoyConfigForIngress(t *testing.T) {
-	cec, err := getEnvoyConfigForIngress(fakeClient(), baseIngress.DeepCopy())
+	cec, err := getEnvoyConfigForIngress(baseIngress.DeepCopy())
 	require.NoError(t, err)
 
 	assert.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress", cec.Name)
@@ -153,12 +151,4 @@ func Test_getEnvoyConfigForIngress(t *testing.T) {
 	// check for count only, individual resource is covered in other tests
 	// 1 listener, 1 route configuration, 3 clusters
 	assert.Len(t, cec.Spec.Resources, 5)
-}
-
-func fakeClient() *fake.Clientset {
-	client := fake.NewSimpleClientset()
-	_, _ = client.CoreV1().Secrets("dummy-namespace").Create(context.TODO(), verySecureTLS, metav1.CreateOptions{})
-	_, _ = client.CoreV1().Secrets("dummy-namespace").Create(context.TODO(), anotherVerySecureTLS, metav1.CreateOptions{})
-
-	return client
 }
