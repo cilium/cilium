@@ -21,6 +21,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/spf13/cobra"
@@ -318,6 +319,18 @@ func init() {
 
 	flags.Bool(option.SkipCRDCreation, false, "When true, Kubernetes Custom Resource Definitions will not be created")
 	option.BindEnv(option.SkipCRDCreation)
+
+	flags.String(operatorOption.CiliumK8sNamespace, "", fmt.Sprintf("Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in %s", option.K8sNamespaceName))
+	option.BindEnv(operatorOption.CiliumK8sNamespace)
+
+	flags.String(operatorOption.CiliumPodLabels, "k8s-app=cilium", "Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false")
+	option.BindEnv(operatorOption.CiliumPodLabels)
+
+	flags.Bool(operatorOption.RemoveCiliumNodeTaints, true, fmt.Sprintf("Remove node taint %q from Kubernetes nodes once Cilium is up and running", ciliumio.AgentNotReadyNodeTaint))
+	option.BindEnv(operatorOption.RemoveCiliumNodeTaints)
+
+	flags.Bool(operatorOption.SetCiliumIsUpCondition, true, "Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node")
+	option.BindEnv(operatorOption.SetCiliumIsUpCondition)
 
 	viper.BindPFlags(flags)
 }
