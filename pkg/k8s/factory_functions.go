@@ -240,6 +240,26 @@ func ObjToV1PartialObjectMetadata(obj interface{}) *slim_metav1.PartialObjectMet
 	return nil
 }
 
+func ObjToV1Secret(obj interface{}) *slim_corev1.Secret {
+	secret, ok := obj.(*slim_corev1.Secret)
+	if ok {
+		return secret
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		secret, ok := deletedObj.Obj.(*slim_corev1.Secret)
+		if ok {
+			return secret
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 Secret")
+	return nil
+}
+
 func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing dpTypes.NodeAddressing) bool {
 	// Service annotations are used to mark services as global, shared, etc.
 	if !comparator.MapStringEquals(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
