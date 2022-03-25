@@ -17,6 +17,6 @@
     You have successfully installed {{ title .Chart.Name }}.
 {{- end }}
 
-Your release version is {{ .Chart.Version }}.
+Your release version is {{ .Chart.AppVersion }}.
 
-For any further help, visit https://docs.cilium.io/en/v{{ (semver .Chart.Version).Major }}.{{ (semver .Chart.Version).Minor }}/gettinghelp
+For any further help, visit https://docs.cilium.io/en/v{{ (semver .Chart.AppVersion).Major }}.{{ (semver .Chart.AppVersion).Minor }}/gettinghelp
