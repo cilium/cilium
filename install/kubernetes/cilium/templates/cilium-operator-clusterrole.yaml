@@ -7,14 +7,36 @@ rules:
 - apiGroups:
   - ""
   resources:
-  # to automatically delete [core|kube]dns pods so that are starting to being
-  # managed by Cilium
   - pods
   verbs:
   - get
   - list
   - watch
+{{- if hasKey .Values "disableEndpointCRD" }}
+{{- if (eq (.Values.disableEndpointCRD | quote ) ( "false" | quote )) }}
+{{- if (and .Values.operator.unmanagedPodWatcher.restart (ne (.Values.operator.unmanagedPodWatcher.intervalSeconds | int64) 0 ) ) }}
+  # to automatically delete [core|kube]dns pods so that are starting to being
+  # managed by Cilium
   - delete
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .Values.operator.setNodeNetworkStatus }}
+- apiGroups:
+  - ""
+  resources:
+  # To set NetworkUnavailable false on startup
+  - nodes/status
+  verbs:
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - list
+  - watch
+{{- end }}
 - apiGroups:
   - discovery.k8s.io
   resources:

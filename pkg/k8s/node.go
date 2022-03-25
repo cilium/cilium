@@ -16,14 +16,12 @@ package k8s
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/controller"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -214,38 +212,4 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 func GetNode(c kubernetes.Interface, nodeName string) (*corev1.Node, error) {
 	// Try to retrieve node's cidr and addresses from k8s's configuration
 	return c.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
-}
-
-// setNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
-// false as Cilium is managing the network connectivity.
-// https://kubernetes.io/docs/concepts/architecture/nodes/#condition
-func setNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) error {
-	condition := corev1.NodeCondition{
-		Type:               corev1.NodeNetworkUnavailable,
-		Status:             corev1.ConditionFalse,
-		Reason:             "CiliumIsUp",
-		Message:            "Cilium is running on this node",
-		LastTransitionTime: metav1.Now(),
-		LastHeartbeatTime:  metav1.Now(),
-	}
-	raw, err := json.Marshal(&[]corev1.NodeCondition{condition})
-	if err != nil {
-		return err
-	}
-	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
-	_, err = c.CoreV1().Nodes().PatchStatus(context.TODO(), nodeName, patch)
-	return err
-}
-
-// MarkNodeReady marks the Kubernetes node resource as ready from a networking
-// perspective
-func (k8sCli K8sClient) MarkNodeReady(nodeName string) {
-	log.WithField(logfields.NodeName, nodeName).Debug("Setting NetworkUnavailable=false")
-
-	controller.NewManager().UpdateController("mark-k8s-node-as-available",
-		controller.ControllerParams{
-			DoFunc: func(_ context.Context) error {
-				return setNodeNetworkUnavailableFalse(k8sCli, nodeName)
-			},
-		})
 }

@@ -21,6 +21,8 @@ cilium-operator-azure [flags]
       --azure-use-primary-address                 Use Azure IP address from interface's primary IPConfigurations (default true)
       --azure-user-assigned-identity-id string    ID of the user assigned identity used to auth with the Azure API
       --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 5m0s)
+      --cilium-pod-labels string                  Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
+      --cilium-pod-namespace string               Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace
       --cluster-id int                            Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")
       --cluster-pool-ipv4-cidr string             IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv4=true'
@@ -66,6 +68,7 @@ cilium-operator-azure [flags]
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
       --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":6942")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)
+      --set-cilium-is-up-condition                Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
       --subnet-ids-filter strings                 Subnets IDs (separated by commas)
       --subnet-tags-filter stringToString         Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag (default [])
       --synchronize-k8s-nodes                     Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)

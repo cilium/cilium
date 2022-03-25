@@ -17,6 +17,9 @@ package option
 import (
 	"time"
 
+	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/option"
+
 	"github.com/spf13/viper"
 )
 
@@ -176,6 +179,17 @@ const (
 	// LeaderElectionRetryPeriod is the duration the LeaderElector clients should wait between
 	// tries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod = "leader-election-retry-period"
+
+	// CiliumK8sNamespace is the namespace where Cilium pods are running.
+	CiliumK8sNamespace = "cilium-pod-namespace"
+
+	// CiliumPodLabels specifies the pod labels that Cilium pods is running
+	// with.
+	CiliumPodLabels = "cilium-pod-labels"
+
+	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
+	// nodes.
+	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -319,6 +333,17 @@ type OperatorConfig struct {
 	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
 	// retries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod time.Duration
+
+	// CiliumK8sNamespace is the namespace where Cilium pods are running.
+	CiliumK8sNamespace string
+
+	// CiliumPodLabels specifies the pod labels that Cilium pods is running
+	// with.
+	CiliumPodLabels string
+
+	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
+	// nodes.
+	SetCiliumIsUpCondition bool
 }
 
 // Populate sets all options with the values from viper.
@@ -346,6 +371,17 @@ func (c *OperatorConfig) Populate() {
 	c.LeaderElectionLeaseDuration = viper.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = viper.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = viper.GetDuration(LeaderElectionRetryPeriod)
+	c.CiliumPodLabels = viper.GetString(CiliumPodLabels)
+	c.SetCiliumIsUpCondition = viper.GetBool(SetCiliumIsUpCondition)
+
+	c.CiliumK8sNamespace = viper.GetString(CiliumK8sNamespace)
+	if c.CiliumK8sNamespace == "" {
+		if option.Config.K8sNamespace == "" {
+			c.CiliumK8sNamespace = metav1.NamespaceDefault
+		} else {
+			c.CiliumK8sNamespace = option.Config.K8sNamespace
+		}
+	}
 
 	// AWS options
 
