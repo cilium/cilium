@@ -19,6 +19,7 @@ type CoreV1Interface interface {
 	NamespacesGetter
 	NodesGetter
 	PodsGetter
+	SecretsGetter
 	ServicesGetter
 }
 
@@ -41,6 +42,10 @@ func (c *CoreV1Client) Nodes() NodeInterface {
 
 func (c *CoreV1Client) Pods(namespace string) PodInterface {
 	return newPods(c, namespace)
+}
+
+func (c *CoreV1Client) Secrets(namespace string) SecretInterface {
+	return newSecrets(c, namespace)
 }
 
 func (c *CoreV1Client) Services(namespace string) ServiceInterface {
