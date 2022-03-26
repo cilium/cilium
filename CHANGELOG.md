@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.9.14
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* docs: update Azure Service Principal / IPAM documentation (Backport PR #18986, Upstream PR #18891, @nbusseneau)
+
+**Bugfixes:**
+* Fix IPsec in Azure's IPAM mode (Backport PR #18986, Upstream PR #18911, @pchaigno)
+* Fix issue where StatefulSet pod restarts could trigger persistent connectivity issues for the pods due to overzealous CiliumEndpoint resource removal by cilium-agent instances (Backport PR #19154, Upstream PR #18864, @timoreimann)
+
+**CI Changes:**
+* ci: remove box download timeout in upstream tests (Backport PR #18986, Upstream PR #18707, @nbusseneau)
+* jenkinsfiles: bump runtime tests VM boot timeout (Backport PR #18986, Upstream PR #18886, @nbusseneau)
+
+**Misc Changes:**
+* build(deps): bump actions/cache from 2.1.7 to 3 (#19209, @dependabot[bot])
+* build(deps): bump actions/checkout from 2 to 3 (#18999, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 2.1.0 to 3 (#19018, @dependabot[bot])
+* build(deps): bump actions/setup-go from 2.2.0 to 3 (#18969, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.3.1 to 3 (#19034, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.9.0 to 2.10.0 (#19145, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.13.0 to 1.14.0 (#18970, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.14.0 to 1.14.1 (#19000, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 2.5.2 to 3 (#18946, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.0 to 1.5.1 (#18945, @dependabot[bot])
+* v1.9: Update Cilium runtime dependencies (#19180, @joestringer)
+
+**Other Changes:**
+* install: Update image digests for v1.9.13 (#18925, @joestringer)
+
 ## v1.9.13
 
 Summary of Changes
