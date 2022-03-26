@@ -603,11 +603,12 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetDestination().GetID())
 
-	// TRACE_FROM_LXC (traffic direction not supported)
+	// TRACE_FROM_LXC unknown
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(api.MessageTypeTrace),
 		Source:   localEP,
 		ObsPoint: api.TraceFromLxc,
+		Reason:   monitor.TraceReasonUnknown,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
@@ -677,20 +678,11 @@ func TestDecodeIsReply(t *testing.T) {
 	assert.Equal(t, true, f.GetIsReply().GetValue())
 	assert.Equal(t, true, f.GetReply())
 
-	// TRACE_FROM_LXC (connection tracking not supported)
+	// TRACE_FROM_LXC
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(api.MessageTypeTrace),
 		ObsPoint: api.TraceFromLxc,
-		Reason:   monitor.TraceReasonCtReply,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
-
-	tn = monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
-		ObsPoint: api.TraceFromLxc,
-		Reason:   0,
+		Reason:   monitor.TraceReasonUnknown,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())

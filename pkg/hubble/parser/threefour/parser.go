@@ -496,22 +496,8 @@ func isReply(reason uint8) bool {
 
 func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrapperspb.BoolValue {
 	switch {
-	case tn != nil && monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint):
-		// Unfortunately, not all trace points have the connection
-		// tracking state available. For certain trace point
-		// events, we do not know if it actually was a reply or not.
-		return &wrapperspb.BoolValue{
-			Value: isReply(tn.Reason),
-		}
-	case tn != nil && tn.ObsPoint == monitorAPI.TraceToNetwork && tn.Reason > 0:
-		// FIXME(GH-18460): Even though the BPF programs emitting TraceToNetwork
-		// do have access to connection tracking state, that state is currently
-		// not exposed to userspace by all trace points. Therefore TraceToNetwork
-		// is currently excluded in TraceObservationPointHasConnState.
-		// However, the NodePort return path in handle_ipv4_from_lxc does
-		// populate tn.Reason, and always has with a non-zero value due it
-		// only being used for replies. Therefore, if tn.Reason is non-zero,
-		// we can safely determine if the traced packet was a reply or not.
+	case tn != nil && monitor.TraceReasonIsKnown(tn.Reason):
+		// Reason was specified by the datapath, just reuse it.
 		return &wrapperspb.BoolValue{
 			Value: isReply(tn.Reason),
 		}
@@ -571,8 +557,8 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 		// ongoing connection. Therefore, we want to access the connection
 		// tracking result from the `Reason` field to invert the direction for
 		// reply packets. The datapath currently populates the `Reason` field
-		// with CT information for some observation points
-		if monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint) {
+		// with CT information for some observation points.
+		if monitor.TraceReasonIsKnown(tn.Reason) {
 			// true if the traffic source is the local endpoint, i.e. egress
 			isSourceEP := tn.Source == uint16(srcEP)
 			// true if the packet is a reply, i.e. reverse direction

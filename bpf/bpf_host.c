@@ -868,11 +868,13 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 #endif
 
 		send_trace_notify(ctx, trace, identity, 0, 0,
-				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	} else {
 		bpf_skip_nodeport_clear(ctx);
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
-				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	}
 
 	bpf_clear_meta(ctx);
@@ -953,7 +955,8 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 		return send_drop_notify(ctx, SECLABEL, WORLD_ID, 0, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 #else
-		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0, 0, 0);
+		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
+				  TRACE_REASON_UNKNOWN, 0);
 		/* Pass unknown traffic to the stack */
 		return CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
@@ -1099,8 +1102,8 @@ out:
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 #endif
-	send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0,
-			  0, 0, monitor);
+	send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0, 0,
+			  TRACE_REASON_UNKNOWN, monitor);
 
 	return ret;
 }
@@ -1183,7 +1186,7 @@ out:
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, 0, 0,
-				  CILIUM_IFINDEX, 0, 0);
+				  CILIUM_IFINDEX, TRACE_REASON_UNKNOWN, 0);
 
 	return ret;
 }

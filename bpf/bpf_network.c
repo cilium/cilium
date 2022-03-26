@@ -17,7 +17,7 @@ int from_network(struct __ctx_buff *ctx)
 	int ret = CTX_ACT_OK;
 
 	__u16 proto __maybe_unused;
-	enum trace_reason reason = 0;
+	enum trace_reason reason = TRACE_REASON_UNKNOWN;
 	enum trace_point obs_point_to = TRACE_TO_STACK;
 	enum trace_point obs_point_from = TRACE_FROM_NETWORK;
 
