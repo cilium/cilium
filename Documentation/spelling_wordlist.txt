@@ -30,6 +30,7 @@ DSR
 DTrace
 Dangaard
 Datapath
+Dataplane
 Deathstar
 Dinan
 Dockerfile
