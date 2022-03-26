@@ -1,5 +1,57 @@
 # Changelog
 
+## v1.10.9
+
+Summary of Changes
+------------------
+
+**Important Bugfixes**
+* Prevent unmanaged pods in GKE's containerd flavors. (Backport PR #18835, Upstream PR #18486, @bmcustodio)
+ *Important:* Users should update their node taints from `node.cilium.io/agent-not-ready=true:NoSchedule` to `node.cilium.io/agent-not-ready=true:NoExecute`.
+ *Important:* During the first node reboot after the fix is applied pods may still get IPs from the default CNI as cilium-node-init is only run later in the node startup process. The fix will then be in place for all subsequent reboots.
+* Clarify taint effects in the documentation. (Backport PR #19236, Upstream PR #19186, @bmcustodio)
+
+**Minor Changes:**
+* Adds support to connect Clustermesh clusters through Helm Chart. (Backport PR #18918, Upstream PR #17851, @samueltorres)
+* docs: update Azure Service Principal / IPAM documentation (Backport PR #19023, Upstream PR #18891, @nbusseneau)
+
+**Bugfixes:**
+* Fix 'node-init' in GKE's 'cos' images. (Backport PR #19062, Upstream PR #19017, @bmcustodio)
+* Fix concurrency issue while waiting for node-init DaemonSet to be ready (Backport PR #19062, Upstream PR #18897, @aanm)
+* Fix connectivity outage periods with ENI IPAM mode and IPsec enabled when nodes are deleted from the cluster (Backport PR #19023, Upstream PR #18827, @christarazi)
+* Fix IPsec in Azure's IPAM mode (Backport PR #19023, Upstream PR #18911, @pchaigno)
+* Fix issue where StatefulSet pod restarts could trigger persistent connectivity issues for the pods due to overzealous CiliumEndpoint resource removal by cilium-agent instances (Backport PR #19127, Upstream PR #18864, @timoreimann)
+* hubble: Added nil check in filterByTCPFlags() to avoid segfault (Backport PR #19023, Upstream PR #18877, @wazir-ahmed)
+* ipam/crd: Fix spurious "Unable to update CiliumNode custom resource" failures in cilium-agent (Backport PR #19062, Upstream PR #17856, @gandro)
+
+**CI Changes:**
+* Fix EncryptStatusSuite.TestCountUniqueIPsecKeys (Backport PR #19023, Upstream PR #18506, @tklauser)
+* jenkinsfiles: bump runtime tests VM boot timeout (Backport PR #19023, Upstream PR #18886, @nbusseneau)
+
+**Misc Changes:**
+* Alibabacloud fixes (Backport PR #18835, Upstream PR #18762, @jaffcheng)
+* bpf: avoid encrypt_key map lookup if IPsec is disabled (Backport PR #19062, Upstream PR #17840, @tklauser)
+* build(deps): bump actions/cache from 2.1.7 to 3 (#19210, @dependabot[bot])
+* build(deps): bump actions/checkout from 2.4.0 to 3 (#18993, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 2.1.0 to 3 (#19012, @dependabot[bot])
+* build(deps): bump actions/setup-go from 2.2.0 to 3 (#18964, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.3.1 to 3 (#19028, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.9.0 to 2.10.0 (#19147, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.13.0 to 1.14.0 (#18968, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.14.0 to 1.14.1 (#18994, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 2.5.2 to 3 (#18949, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.0.0 to 3.1.0 (#18967, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.0 to 1.5.1 (#18950, @dependabot[bot])
+* docs: fix tip about opening the Hubble server port on all nodes (Backport PR #19062, Upstream PR #19036, @rolinh)
+* docs: Remove trailing step in AWS helm install (Backport PR #19023, Upstream PR #18893, @joestringer)
+* helm: Enable offline deployments for OpenShift clusters (Backport PR #18918, Upstream PR #18849, @nathanjsweet)
+* pkg/maps: Fix data races around accessing nat maps (Backport PR #19023, Upstream PR #18952, @aditighag)
+* v1.10: Update Go to 1.16.15 (#19060, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.10.8 (#18926, @joestringer)
+* v1.10: Update Cilium runtime dependencies (#19178, @joestringer)
+
 ## v1.10.8
 
 Summary of Changes
