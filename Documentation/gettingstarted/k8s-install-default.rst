@@ -46,10 +46,15 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
            export NAME="$(whoami)-$RANDOM"
            # Create the node pool with the following taint to guarantee that
            # Pods are only scheduled/executed in the node when Cilium is ready.
+           # Alternatively, see the note below.
            gcloud container clusters create "${NAME}" \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --zone us-west2-a
            gcloud container clusters get-credentials "${NAME}" --zone us-west2-a
+
+       .. note::
+
+          Please make sure to read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
 
     .. group-tab:: AKS
 
@@ -119,10 +124,13 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
        .. note::
 
-          `Node pools <https://aka.ms/aks/nodepools>`_ must be tainted with
+          `Node pools <https://aka.ms/aks/nodepools>`_ should be tainted with
           ``node.cilium.io/agent-not-ready=true:NoExecute`` to ensure that
           applications pods will only be scheduled/executed once Cilium is ready
-          to manage them, however on AKS:
+          to manage them. However, there are other options. Please make sure to
+          read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
+
+          Additionally on AKS:
 
           * It is not possible to assign taints to the initial node pool at this
             time, cf. `Azure/AKS#1402 <https://github.com/Azure/AKS/issues/1402>`_.
@@ -165,13 +173,18 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
              desiredCapacity: 2
              privateNetworking: true
              # taint nodes so that application pods are
-             # not scheduled until Cilium is deployed.
+             # not scheduled/executed until Cilium is deployed.
+             # Alternatively, see the note below.
              taints:
               - key: "node.cilium.io/agent-not-ready"
                 value: "true"
                 effect: "NoExecute"
            EOF
            eksctl create cluster -f ./eks-config.yaml
+
+       .. note::
+
+          Please make sure to read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
 
     .. group-tab:: kind
 
