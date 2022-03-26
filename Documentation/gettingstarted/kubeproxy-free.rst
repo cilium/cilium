@@ -660,10 +660,15 @@ As an instance example, ``m5n.xlarge`` is used in the config ``nodegroup-config.
         allow: true
       ## taint nodes so that application pods are
       ## not scheduled/executed until Cilium is deployed.
+      ## Alternatively, see the note below.
       taints:
         - key: "node.cilium.io/agent-not-ready"
           value: "true"
           effect: "NoExecute"
+
+.. note::
+
+  Please make sure to read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
 
 The nodegroup is created with:
 
