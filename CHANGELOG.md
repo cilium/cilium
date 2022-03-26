@@ -1,5 +1,70 @@
 # Changelog
 
+## v1.11.3
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Adds support to connect Clustermesh clusters through Helm Chart. (Backport PR #19142, Upstream PR #17851, @samueltorres)
+* docs: update Azure Service Principal / IPAM documentation (Backport PR #19142, Upstream PR #18891, @nbusseneau)
+* Fixes L7 policies with Azure CNI chaining. (Backport PR #19142, Upstream PR #19088, @nitishm)
+
+**Bugfixes:**
+* Add missing & fix wrong traces for IPSec + overlay receive path (Backport PR #18905, Upstream PR #18731, @YutaroHayakawa)
+* Avoid deleting in-use program arrays in bpf_load() and bpf_load_cgroups() in init.sh (Backport PR #19066, Upstream PR #18985, @ti-mo)
+* Cilium monitor now correctly reports security identities for L7 flows. (Backport PR #19142, Upstream PR #18783, @jrajahalme)
+* Clarify taint effects in the documentation. (Backport PR #19237, Upstream PR #19186, @bmcustodio)
+* clustermesh: fix: identities allocation range (Backport PR #19142, Upstream PR #19076, @abocim)
+* clustermesh: Modify shared-service annotation after creation (Backport PR #18905, Upstream PR #18766, @sayboras)
+* datapath/config: Fix L2 addr retrieval (Backport PR #19142, Upstream PR #19081, @brb)
+* Fix 'node-init' in GKE's 'cos' images. (Backport PR #19142, Upstream PR #19017, @bmcustodio)
+* Fix a bug where Cilium would constantly create network interfaces if IPAM limits are reached (Backport PR #19142, Upstream PR #18975, @michi-covalent)
+* Fix bug where FQDN policy calculation could trigger a deadlock in cilium-agent (Backport PR #19142, Upstream PR #19031, @joestringer)
+* Fix bug where unnecessary ipset was created and populated in tunneling mode with iptables masquerading. (Backport PR #18905, Upstream PR #18788, @pchaigno)
+* Fix concurrency issue while waiting for node-init DaemonSet to be ready (Backport PR #19142, Upstream PR #18897, @aanm)
+* Fix connectivity outage periods with ENI IPAM mode and IPsec enabled when nodes are deleted from the cluster (Backport PR #18905, Upstream PR #18827, @christarazi)
+* Fix IPsec in Azure's IPAM mode (Backport PR #19142, Upstream PR #18911, @pchaigno)
+* Fix issue where StatefulSet pod restarts could trigger persistent connectivity issues for the pods due to overzealous CiliumEndpoint resource removal by cilium-agent instances (Backport PR #19142, Upstream PR #18864, @timoreimann)
+* Fix support of BPF-based HostPort on init containers. (Backport PR #18905, Upstream PR #18725, @pchaigno)
+* Fixed a bug where deleted identities would remain in BPF policy maps. (Backport PR #19142, Upstream PR #19005, @jrajahalme)
+* helm: Removed unnecessary Kubernetes RBAC permissions for cilium-agent (Backport PR #19142, Upstream PR #19053, @nathanjsweet)
+* hubble: Added nil check in filterByTCPFlags() to avoid segfault (Backport PR #19142, Upstream PR #18877, @wazir-ahmed)
+
+**CI Changes:**
+* jenkinsfiles: bump runtime tests VM boot timeout (Backport PR #19142, Upstream PR #18886, @nbusseneau)
+* test: Wait until host EP is ready (=regenerated) (Backport PR #18905, Upstream PR #18859, @brb)
+
+**Misc Changes:**
+* Add support for Amazon EC2 c7g instances (Backport PR #19142, Upstream PR #18708, @otterley)
+* bpf: Remove DNS quirk for monitor aggregation (Backport PR #19142, Upstream PR #19108, @borkmann)
+* build(deps): bump actions/cache from 2.1.7 to 3 (#19212, @dependabot[bot])
+* build(deps): bump actions/checkout from 2.4.0 to 3 (#18997, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 2.1.0 to 3 (#19011, @dependabot[bot])
+* build(deps): bump actions/setup-go from 2.2.0 to 3 (#18966, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.3.1 to 3 (#19029, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.9.0 to 2.10.0 (#19150, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.13.0 to 1.14.0 (#18963, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.14.0 to 1.14.1 (#18998, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.1.2 to 1.1.3 (#18931, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.1.3 to 1.1.4 (#19085, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.1.4 to 1.1.5 (#19161, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 2.5.2 to 3 (#18948, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 2.5.2 to 3.1.0 (#18961, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.0 to 1.5.1 (#18947, @dependabot[bot])
+* docs: fix tip about opening the Hubble server port on all nodes (Backport PR #19142, Upstream PR #19036, @rolinh)
+* docs: Remove trailing step in AWS helm install (Backport PR #18905, Upstream PR #18893, @joestringer)
+* helm: Enable offline deployments for OpenShift clusters (Backport PR #19142, Upstream PR #18849, @nathanjsweet)
+* Makefile: Fix TESTPKGS commandline (Backport PR #19142, Upstream PR #19100, @joestringer)
+* pkg/maps: Fix data races around accessing nat maps (Backport PR #19142, Upstream PR #18952, @aditighag)
+* v1.11: Update Go to 1.17.8 (#19059, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.11.2 (#18927, @joestringer)
+* v1.11 backport: manual backport of "Recommend 'NoExecute' instead of 'NoSchedule'" (#19143, @bmcustodio)
+* v1.11 backport: manual backport of "test: Restructure k8sT/Services.go" (#18881, @brb)
+* v1.11: Update Cilium runtime dependencies (#19179, @joestringer)
+
 ## v1.11.2
 
 Summary of Changes
