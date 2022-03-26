@@ -84,6 +84,7 @@ const (
 	TraceReasonCtReply
 	TraceReasonCtRelated
 	TraceReasonCtReopened
+	TraceReasonUnknown
 )
 
 var traceReasons = map[uint8]string{
@@ -92,6 +93,7 @@ var traceReasons = map[uint8]string{
 	TraceReasonCtReply:       "reply",
 	TraceReasonCtRelated:     "related",
 	TraceReasonCtReopened:    "reopened",
+	TraceReasonUnknown:       "unknown",
 }
 
 func connState(reason uint8) string {
@@ -100,6 +102,15 @@ func connState(reason uint8) string {
 		return str
 	}
 	return fmt.Sprintf("%d", reason)
+}
+
+func TraceReasonIsKnown(reason uint8) bool {
+	switch reason {
+	case TraceReasonUnknown:
+		return false
+	default:
+		return true
+	}
 }
 
 // DecodeTraceNotify will decode 'data' into the provided TraceNotify structure

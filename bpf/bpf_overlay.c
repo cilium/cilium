@@ -381,7 +381,8 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	return send_drop_notify_error(ctx, 0, DROP_UNKNOWN_L3, CTX_ACT_DROP, METRIC_EGRESS);
 
 pass_to_stack:
-	send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0, ctx->ingress_ifindex, 0, monitor);
+	send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0, ctx->ingress_ifindex,
+			  TRACE_REASON_UNKNOWN, monitor);
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_VTEP */
@@ -477,7 +478,8 @@ int from_overlay(struct __ctx_buff *ctx)
 		}
 
 		send_trace_notify(ctx, obs_point, identity, 0, 0,
-				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	}
 
 	switch (proto) {

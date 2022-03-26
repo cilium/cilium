@@ -139,7 +139,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		return DROP_WRITE_ERROR;
 
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
-			  0, monitor);
+			  TRACE_REASON_UNKNOWN, monitor);
 	return 0;
 }
 
