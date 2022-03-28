@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build integration_tests
-// +build integration_tests
 
 package ciliumTest
 

@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build ipam_provider_alibabacloud
-// +build ipam_provider_alibabacloud
 
 package main
 

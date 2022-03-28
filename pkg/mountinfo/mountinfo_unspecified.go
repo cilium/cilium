@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !linux
-// +build !linux
 
 package mountinfo
 

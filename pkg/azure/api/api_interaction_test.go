@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build azure
-// +build azure
 
 package api
 
