@@ -1,0 +1,5 @@
+# CLOMonitor metadata file
+
+exemptions:
+  - check: slack_presence
+    reason: "The Cilium slack community can be found at http://slack.cilium.io/" # Justification of this exemption
