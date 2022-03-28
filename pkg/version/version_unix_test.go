@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !windows && !privileged_tests
-// +build !windows,!privileged_tests
 
 package version
 

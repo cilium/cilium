@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests && !race
-// +build !privileged_tests,!race
 
 package idpool
 

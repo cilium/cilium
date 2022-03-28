@@ -2,7 +2,6 @@
 // Copyright Authors of Hubble
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package debug
 

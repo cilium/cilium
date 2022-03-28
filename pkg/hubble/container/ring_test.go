@@ -2,7 +2,6 @@
 // Copyright Authors of Hubble
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package container
 
@@ -670,7 +669,7 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 		// ignore go routines started by the redirect we do from klog to logrus
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).Read"))
+		goleak.IgnoreTopFunction("io.(*pipe).read"))
 	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
@@ -731,7 +730,7 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 		// ignore go routines started by the redirect we do from klog to logrus
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).Read"))
+		goleak.IgnoreTopFunction("io.(*pipe).read"))
 
 	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
@@ -830,7 +829,7 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 		// ignore go routines started by the redirect we do from klog to logrus
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).Read"))
+		goleak.IgnoreTopFunction("io.(*pipe).read"))
 	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))

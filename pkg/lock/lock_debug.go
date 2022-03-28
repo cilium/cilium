@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build lockdebug
-// +build lockdebug
 
 package lock
 

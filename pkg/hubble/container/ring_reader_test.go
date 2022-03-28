@@ -2,7 +2,6 @@
 // Copyright Authors of Hubble
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package container
 
@@ -206,7 +205,7 @@ func TestRingReader_NextFollow(t *testing.T) {
 		// ignore go routines started by the redirect we do from klog to logrus
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).Read"))
+		goleak.IgnoreTopFunction("io.(*pipe).read"))
 	ring := NewRing(Capacity15)
 	for i := 0; i < 15; i++ {
 		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
@@ -284,7 +283,7 @@ func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
 		// ignore go routines started by the redirect we do from klog to logrus
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).Read"))
+		goleak.IgnoreTopFunction("io.(*pipe).read"))
 	ring := NewRing(Capacity15)
 	reader := NewRingReader(ring, ring.LastWriteParallel())
 	ctx, cancel := context.WithCancel(context.Background())

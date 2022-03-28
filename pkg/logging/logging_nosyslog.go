@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build windows
-// +build windows
 
 package logging
 
