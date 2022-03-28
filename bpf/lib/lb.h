@@ -762,14 +762,19 @@ lb6_update_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 }
 
 static __always_inline int
-lb6_to_lb4(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
+lb6_to_lb4(struct __ctx_buff *ctx __maybe_unused,
+	   const struct ipv6hdr *ip6 __maybe_unused)
 {
+#ifdef ENABLE_NAT_46X64
 	__be32 src4, dst4;
 
 	build_v4_from_v6((const union v6addr *)&ip6->saddr, &src4);
 	build_v4_from_v6((const union v6addr *)&ip6->daddr, &dst4);
 
 	return ipv6_to_ipv4(ctx, src4, dst4);
+#else
+	return DROP_NAT_46X64_DISABLED;
+#endif
 }
 
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
@@ -1393,14 +1398,20 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 }
 
 static __always_inline int
-lb4_to_lb6(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
+lb4_to_lb6(struct __ctx_buff *ctx __maybe_unused,
+	   const struct iphdr *ip4 __maybe_unused,
+	   int l3_off __maybe_unused)
 {
+#ifdef ENABLE_NAT_46X64
 	union v6addr src6, dst6;
 
 	build_v4_in_v6(&src6, ip4->saddr);
 	build_v4_in_v6(&dst6, ip4->daddr);
 
 	return ipv4_to_ipv6(ctx, l3_off, &src6, &dst6);
+#else
+	return DROP_NAT_46X64_DISABLED;
+#endif
 }
 
 static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
