@@ -996,9 +996,13 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	/* We only enforce the host policies if nodeport.h is included from
 	 * bpf_host.
 	 */
+	struct trace_ctx __maybe_unused trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 	__u32 src_id = 0;
 
-	ret = ipv6_host_policy_ingress(ctx, &src_id);
+	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
@@ -2070,9 +2074,13 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	/* We only enforce the host policies if nodeport.h is included from
 	 * bpf_host.
 	 */
+	struct trace_ctx __maybe_unused trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 	__u32 src_id = 0;
 
-	ret = ipv4_host_policy_ingress(ctx, &src_id);
+	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
