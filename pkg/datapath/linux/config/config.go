@@ -157,9 +157,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["SRV6_POLICY_MAP4"] = srv6map.PolicyMapName4
 	cDefinesMap["SRV6_POLICY_MAP6"] = srv6map.PolicyMapName6
 	cDefinesMap["SRV6_SID_MAP"] = srv6map.SIDMapName
+	cDefinesMap["SRV6_STATE_MAP4"] = srv6map.StateMapName4
+	cDefinesMap["SRV6_STATE_MAP6"] = srv6map.StateMapName6
 	cDefinesMap["SRV6_VRF_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxVRFEntries)
 	cDefinesMap["SRV6_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxPolicyEntries)
 	cDefinesMap["SRV6_SID_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxSIDEntries)
+	cDefinesMap["SRV6_STATE_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxStateEntries)
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
 	cDefinesMap["SOCKOPS_MAP_SIZE"] = fmt.Sprintf("%d", sockmap.MaxEntries)
 	cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName
