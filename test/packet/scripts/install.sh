@@ -64,9 +64,8 @@ sudo ln -s /usr/local/go/bin/* /usr/local/bin/
 go version
 sudo mkdir /go/
 export GOPATH=/go/
-go get -u github.com/google/gops
-go get -u github.com/onsi/ginkgo/ginkgo
-go get -u github.com/onsi/gomega/...
+go install github.com/google/gops@db6b6e9ba07629c90654a7720c452fb44a864dfb # v0.3.22
+go install github.com/onsi/ginkgo/ginkgo@1ed6486197ba2a007858c59bdc4d1522631025d5 # v2.1.3
 sudo ln -sf /go/bin/* /usr/local/bin/
 
 echo 'cd /root/go/src/github.com/cilium/cilium' >> /root/.bashrc
