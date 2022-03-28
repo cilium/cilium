@@ -232,13 +232,24 @@ struct {							\
 	__uint(map_flags, BPF_F_NO_PREALLOC);			\
 } SRV6_POLICY_MAP ## IP_FAMILY __section_maps_btf;
 
+# define SRV6_STATE_MAP(IP_FAMILY)							\
+struct {										\
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);						\
+	__type(key, struct srv6_ipv ## IP_FAMILY ## _2tuple); /* inner header */	\
+	__type(value, struct srv6_ipv6_2tuple);               /* outer header */	\
+	__uint(pinning, LIBBPF_PIN_BY_NAME);						\
+	__uint(max_entries, SRV6_STATE_MAP_SIZE);					\
+} SRV6_STATE_MAP ## IP_FAMILY __section_maps_btf;
+
 # ifdef ENABLE_IPV4
 SRV6_VRF_MAP(4)
 SRV6_POLICY_MAP(4)
+SRV6_STATE_MAP(4)
 # endif /* ENABLE_IPV4 */
 
 SRV6_VRF_MAP(6)
 SRV6_POLICY_MAP(6)
+SRV6_STATE_MAP(6)
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);

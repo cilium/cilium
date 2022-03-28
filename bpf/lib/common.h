@@ -326,6 +326,16 @@ struct srv6_policy_key6 {
 	union v6addr dst_cidr;
 };
 
+struct srv6_ipv4_2tuple {
+	__u32 src;
+	__u32 dst;
+};
+
+struct srv6_ipv6_2tuple {
+	union v6addr src;
+	union v6addr dst;
+};
+
 struct vtep_key {
 	__u32 vtep_ip;
 };
