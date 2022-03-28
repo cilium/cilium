@@ -100,12 +100,13 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 }
 
 static __always_inline int
-ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
+ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
+			 struct trace_ctx *trace)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u32 monitor = 0, dst_id = WORLD_ID;
+	__u32 dst_id = WORLD_ID;
 	struct remote_endpoint_info *info;
 	int ret, verdict, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
@@ -137,9 +138,11 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 		return hdrlen;
 	l4_off = ETH_HLEN + hdrlen;
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			 &ct_state, &monitor);
+			 &ct_state, &trace->monitor);
 	if (ret < 0)
 		return ret;
+
+	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve source identity. */
 	info = lookup_ip6_remote_endpoint(&orig_sip);
@@ -199,13 +202,13 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 # ifdef ENABLE_IPV4
 #  ifndef ENABLE_MASQUERADE
 static __always_inline int
-whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid)
+whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid,
+				    struct trace_ctx *trace)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	__u32 monitor = 0;
 	int ret, l4_off;
 
 	/* If kube-proxy is in use (no BPF-based masquerading), packets from
@@ -227,9 +230,12 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid)
 		tuple.saddr = ip4->saddr;
 		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-				 CT_EGRESS, &ct_state, &monitor);
+				 CT_EGRESS, &ct_state, &trace->monitor);
 		if (ret < 0)
 			return ret;
+
+		trace->reason = (enum trace_reason)ret;
+
 		if (ret == CT_NEW) {
 			ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4,
 					 &tuple, ctx, CT_EGRESS, &ct_state_new,
@@ -260,7 +266,8 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 
 	if (src_id != HOST_ID) {
 #  ifndef ENABLE_MASQUERADE
-		return whitelist_snated_egress_connections(ctx, ipcache_srcid);
+		return whitelist_snated_egress_connections(ctx, ipcache_srcid,
+							   trace);
 #  else
 		/* Only enforce host policies for packets from host IPs. */
 		return CTX_ACT_OK;
@@ -330,13 +337,14 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 }
 
 static __always_inline int
-ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
+ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
+			 struct trace_ctx *trace)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u32 monitor = 0, dst_id = WORLD_ID;
+	__u32 dst_id = WORLD_ID;
 	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_untracked_fragment = false;
@@ -369,9 +377,11 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 	is_untracked_fragment = ipv4_is_fragment(ip4);
 #  endif
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			 &ct_state, &monitor);
+			 &ct_state, &trace->monitor);
 	if (ret < 0)
 		return ret;
+
+	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve source identity. */
 	info = lookup_ip4_remote_endpoint(ip4->saddr);
