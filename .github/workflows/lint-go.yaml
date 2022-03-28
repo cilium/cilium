@@ -55,8 +55,8 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@b517f99ae23d86ecc4c0dec08dcf48d2336abc29
         with:
-          version: v1.37.1
-          skip-go-installation: true
+          version: v1.45.2
+          skip-cache: true
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
