@@ -12,4 +12,4 @@ mkdir /src
 
 cd /src
 
-GO111MODULE=on go get github.com/gordonklaus/ineffassign@1003c8bd00dc2869cb5ca5282e6ce33834fed514
+go install github.com/gordonklaus/ineffassign@1003c8bd00dc2869cb5ca5282e6ce33834fed514

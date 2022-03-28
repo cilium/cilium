@@ -18,14 +18,14 @@ gen() {
 	if [ -z "$(which cfssl)" ]; then
 		echo "Please install the cfssl utility and make sure you have it in your \$PATH"
 		echo "You can install it in your \$GOPATH by running:"
-		echo "go get -u github.com/cloudflare/cfssl/cmd/cfssl"
+		echo "go install github.com/cloudflare/cfssl/cmd/cfssl@latest"
 		exit -1
 	fi
 
 	if [ -z "$(which cfssljson)" ]; then
 		echo "Please install the cfssljson utility and make sure you have it in your \$PATH"
 		echo "You can install it in your \$GOPATH by running:"
-		echo "go get -u github.com/cloudflare/cfssl/cmd/cfssljson"
+		echo "go install github.com/cloudflare/cfssl/cmd/cfssljson@latest"
 		exit -1
 	fi
 
