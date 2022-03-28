@@ -845,7 +845,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 
 	bpf_clear_meta(ctx);
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, src_id,
-						TRACE_REASON_UNKNOWN,
+						TRACE_REASON_ENCRYPTED,
 						TRACE_PAYLOAD_LEN);
 }
 

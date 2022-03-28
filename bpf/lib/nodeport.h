@@ -608,7 +608,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		if (info != NULL && info->tunnel_endpoint != 0) {
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 						  WORLD_ID,
-						  TRACE_REASON_UNKNOWN,
+						  (enum trace_reason)CT_NEW,
 						  TRACE_PAYLOAD_LEN);
 			if (ret)
 				goto drop_err;
@@ -1637,7 +1637,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 			 */
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 						  WORLD_ID,
-						  TRACE_REASON_UNKNOWN,
+						  (enum trace_reason)CT_NEW,
 						  TRACE_PAYLOAD_LEN);
 			if (ret)
 				goto drop_err;

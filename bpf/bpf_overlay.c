@@ -377,7 +377,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 			return __encap_and_redirect_with_nodeid(ctx,
 								info->tunnel_endpoint,
 								info->sec_label,
-								TRACE_REASON_UNKNOWN,
+								TRACE_REASON_CT_REPLY,
 								monitor);
 	}
 
@@ -385,7 +385,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 pass_to_stack:
 	send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0, ctx->ingress_ifindex,
-			  TRACE_REASON_UNKNOWN, monitor);
+			  TRACE_REASON_CT_REPLY, monitor);
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_VTEP */
