@@ -20,6 +20,7 @@ env:
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
   TIMEOUT: 2m
   LOG_TIME: 30m
+  PROM_VERSION: 2.34.0
 
 jobs:
   check_changes:
@@ -187,8 +188,14 @@ jobs:
           cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
           kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
           kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9090/metrics > metrics.prom
-          go install github.com/prometheus/prometheus/cmd/promtool@@e4487274853c587717006eeda8804e597d120340 # This is commit hash for v2.24.1
-          cat metrics.prom | $HOME/go/bin/promtool check metrics
+          # Install promtool binary release. `go install` doesn't work due to
+          # https://github.com/prometheus/prometheus/issues/8852 and related issues.
+          curl -sSL --remote-name-all https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/{prometheus-${PROM_VERSION}.linux-amd64.tar.gz,sha256sums.txt}
+          sha256sum --check --ignore-missing sha256sums.txt
+          tar xzvf prometheus-${PROM_VERSION}.linux-amd64.tar.gz prometheus-${PROM_VERSION}.linux-amd64/promtool
+          rm -f prometheus-${PROM_VERSION}.linux-amd64.tar.gz
+          sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
+          cat metrics.prom | promtool check metrics
 
       - name: Capture cilium-sysdump
         if: ${{ failure() }}
