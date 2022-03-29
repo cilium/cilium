@@ -19,12 +19,19 @@ func (k *K8sInstaller) NewServiceAccount(name string) *corev1.ServiceAccount {
 
 	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		switch name {
 		case defaults.AgentServiceAccountName:
 			saFileName = "templates/cilium-agent/serviceaccount.yaml"
 		case defaults.OperatorServiceAccountName:
 			saFileName = "templates/cilium-operator/serviceaccount.yaml"
+		}
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		switch name {
+		case defaults.AgentServiceAccountName:
+			saFileName = "templates/cilium-agent-serviceaccount.yaml"
+		case defaults.OperatorServiceAccountName:
+			saFileName = "templates/cilium-operator-serviceaccount.yaml"
 		}
 	}
 
@@ -42,12 +49,19 @@ func (k *K8sInstaller) NewClusterRole(name string) *rbacv1.ClusterRole {
 
 	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		switch name {
 		case defaults.AgentServiceAccountName:
 			crFileName = "templates/cilium-agent/clusterrole.yaml"
 		case defaults.OperatorServiceAccountName:
 			crFileName = "templates/cilium-operator/clusterrole.yaml"
+		}
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		switch name {
+		case defaults.AgentServiceAccountName:
+			crFileName = "templates/cilium-agent-clusterrole.yaml"
+		case defaults.OperatorServiceAccountName:
+			crFileName = "templates/cilium-operator-clusterrole.yaml"
 		}
 	}
 
@@ -65,12 +79,19 @@ func (k *K8sInstaller) NewClusterRoleBinding(crbName string) *rbacv1.ClusterRole
 
 	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		switch crbName {
 		case defaults.AgentClusterRoleName:
 			crbFileName = "templates/cilium-agent/clusterrolebinding.yaml"
 		case defaults.OperatorClusterRoleName:
 			crbFileName = "templates/cilium-operator/clusterrolebinding.yaml"
+		}
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		switch crbName {
+		case defaults.AgentClusterRoleName:
+			crbFileName = "templates/cilium-agent-clusterrolebinding.yaml"
+		case defaults.OperatorClusterRoleName:
+			crbFileName = "templates/cilium-operator-clusterrolebinding.yaml"
 		}
 	}
 
