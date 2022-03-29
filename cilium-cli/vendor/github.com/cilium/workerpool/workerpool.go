@@ -13,7 +13,19 @@
 // limitations under the License.
 
 // Package workerpool implements a concurrency limiting worker pool.
-// Worker routines are spawned on demand as tasks are submitted.
+// Worker routines are spawned on demand as tasks are submitted; up to the
+// configured limit of concurrent workers.
+//
+// When the limit of concurrently running workers is reached, submitting a task
+// blocks until a worker is able to pick it up. This behavior is intentional as
+// it prevents from accumulating tasks which could grow unbounded. Therefore,
+// it is the responsibility of the caller to queue up tasks if that's the
+// intended behavior.
+//
+// One caveat is that while the number of concurrently running workers is
+// limited, task results are not and they accumulate until they are collected.
+// Therefore, if a large number of tasks can be expected, the workerpool should
+// be periodically drained (e.g. every 10k tasks).
 package workerpool
 
 import (
@@ -35,13 +47,14 @@ var (
 // submitted tasks concurrently. The number of concurrent routines never
 // exceeds the specified limit.
 type WorkerPool struct {
-	workers  chan struct{}
-	tasks    chan *task
-	results  []Task
-	wg       sync.WaitGroup
+	workers chan struct{}
+	tasks   chan *task
+	cancel  context.CancelFunc
+	results []Task
+	wg      sync.WaitGroup
+
 	mu       sync.Mutex
 	draining bool
-	cancel   context.CancelFunc
 	closed   bool
 }
 
@@ -170,7 +183,9 @@ func (wp *WorkerPool) run(ctx context.Context) {
 		wp.workers <- struct{}{}
 		go func() {
 			defer wp.wg.Done()
-			result.err = t.run(ctx)
+			if t.run != nil {
+				result.err = t.run(ctx)
+			}
 			<-wp.workers
 		}()
 	}

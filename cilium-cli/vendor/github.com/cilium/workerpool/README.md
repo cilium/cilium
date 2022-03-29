@@ -5,7 +5,19 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/cilium/workerpool)](https://goreportcard.com/report/github.com/cilium/workerpool)
 
 Package workerpool implements a concurrency limiting worker pool. Worker
-routines are spawned on demand as tasks are submitted.
+routines are spawned on demand as tasks are submitted; up to the configured
+limit of concurrent workers.
+
+When the limit of concurrently running workers is reached, submitting a task
+blocks until a worker is able to pick it up. This behavior is intentional as it
+prevents from accumulating tasks which could grow unbounded. Therefore, it is
+the responsibility of the caller to queue up tasks if that's the intended
+behavior.
+
+One caveat is that while the number of concurrently running workers is limited,
+task results are not and they accumulate until they are collected. Therefore,
+if a large number of tasks can be expected, the workerpool should be
+periodically drained (e.g. every 10k tasks).
 
 This package is mostly useful when tasks are CPU bound and spawning too many
 routines would be detrimental to performance. It features a straightforward API
