@@ -21,9 +21,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/k8s"
-	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	pkgOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -60,7 +60,7 @@ func (n *NodeTaintSuite) TestNodeTaintWithoutCondition(c *check.C) {
 		Spec: slim_corev1.NodeSpec{
 			Taints: []slim_corev1.Taint{
 				{
-					Key: ciliumio.AgentNotReadyNodeTaint, Value: "Foo",
+					Key: pkgOption.Config.AgentNotReadyNodeTaintValue(), Value: "Foo",
 				},
 				{
 					Key: "DoNoRemoveThisTaint", Value: "Foo",
@@ -106,7 +106,7 @@ func (n *NodeTaintSuite) TestNodeTaintWithoutCondition(c *check.C) {
 				Path: "/spec/taints",
 				Value: []slim_corev1.Taint{
 					{
-						Key: ciliumio.AgentNotReadyNodeTaint, Value: "Foo",
+						Key: pkgOption.Config.AgentNotReadyNodeTaintValue(), Value: "Foo",
 					},
 					{
 						Key: "DoNoRemoveThisTaint", Value: "Foo",
@@ -196,7 +196,7 @@ func (n *NodeTaintSuite) TestNodeCondition(c *check.C) {
 		Spec: slim_corev1.NodeSpec{
 			Taints: []slim_corev1.Taint{
 				{
-					Key: ciliumio.AgentNotReadyNodeTaint, Value: "Foo",
+					Key: pkgOption.Config.AgentNotReadyNodeTaintValue(), Value: "Foo",
 				},
 				{
 					Key: "DoNoRemoveThisTaint", Value: "Foo",
@@ -329,7 +329,7 @@ func (n *NodeTaintSuite) TestNodeConditionIfCiliumIsNotReady(c *check.C) {
 		Spec: slim_corev1.NodeSpec{
 			Taints: []slim_corev1.Taint{
 				{
-					Key: ciliumio.AgentNotReadyNodeTaint, Value: "Foo",
+					Key: pkgOption.Config.AgentNotReadyNodeTaintValue(), Value: "Foo",
 				},
 				{
 					Key: "DoNoRemoveThisTaint", Value: "Foo",

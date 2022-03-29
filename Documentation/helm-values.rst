@@ -17,6 +17,10 @@
      - Install the cilium agent resources.
      - bool
      - ``true``
+   * - agentNotReadyTaintKey
+     - Configure the key of the taint indicating that Cilium is not ready on the node. When set to a value starting with ``ignore-taint.cluster-autoscaler.kubernetes.io/``\ , the Cluster Autoscaler will ignore the taint on its decisions, allowing the cluster to scale up.
+     - string
+     - ``"node.cilium.io/agent-not-ready"``
    * - alibabacloud.enabled
      - Enable AlibabaCloud ENI integration
      - bool
