@@ -55,8 +55,10 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 
 	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		dsFilename = "templates/cilium-agent/daemonset.yaml"
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		dsFilename = "templates/cilium-agent-daemonset.yaml"
 	}
 
 	dsFile := k.manifests[dsFilename]
@@ -73,8 +75,10 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 
 	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		deployFilename = "templates/cilium-operator/deployment.yaml"
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		deployFilename = "templates/cilium-operator-deployment.yaml"
 	}
 
 	deployFile := k.manifests[deployFilename]
