@@ -212,7 +212,7 @@ Vagrant.configure(2) do |config|
         end
 
         # Interface for the IPv6 NAT Service. The IP address doesn't matter as
-        # it won't be used. We use an IPv6 address as newer versions of VBox
+        # it won't be used. We use an IPv4 address as newer versions of VBox
         # reject all IPv6 addresses.
         cm.vm.network "private_network",
             ip: "192.168.59.15"
@@ -275,7 +275,7 @@ Vagrant.configure(2) do |config|
                 inline: "ip -6 a a #{ipv6_addr}/16 dev enp0s9"
 
             # Interface for the IPv6 NAT Service. The IP address doesn't matter
-            # as it won't be used. We use an IPv6 address as newer versions of
+            # as it won't be used. We use an IPv4 address as newer versions of
             # VBox reject all IPv6 addresses.
             node.vm.network "private_network",
                 ip: "192.168.59.15"
