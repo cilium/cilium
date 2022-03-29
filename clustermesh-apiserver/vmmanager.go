@@ -64,12 +64,12 @@ func (m *VMManager) startCiliumExternalWorkloadWatcher() {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				if cew, ok := obj.(*ciliumv2.CiliumExternalWorkload); ok {
-					log.Debugf("Added CEW: %v", cew)
+					log.Debugf("Added CEW: %+v", cew)
 				}
 			},
 			UpdateFunc: func(_, newObj interface{}) {
 				if cew, ok := newObj.(*ciliumv2.CiliumExternalWorkload); ok {
-					log.Debugf("Updated CEW: %v", cew)
+					log.Debugf("Updated CEW: %+v", cew)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
@@ -78,7 +78,7 @@ func (m *VMManager) startCiliumExternalWorkloadWatcher() {
 					obj = deletedObj.Obj
 				}
 				if cew, ok := obj.(*ciliumv2.CiliumExternalWorkload); ok {
-					log.Debugf("Deleted CEW: %v", cew)
+					log.Debugf("Deleted CEW: %+v", cew)
 				}
 			},
 		},
@@ -156,7 +156,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 		// Only handle registration events if CiliumExternalWorkload CRD with a matching name exists
 		cewObj, exists, _ := m.ciliumExternalWorkloadStore.GetByKey(n.Name)
 		if !exists {
-			log.Warningf("CEW: CiliumExternalWorkload resource not found for: %v", n)
+			log.Warningf("CEW: CiliumExternalWorkload resource not found for: %+v", n)
 			return
 		}
 		cew, ok := cewObj.(*ciliumv2.CiliumExternalWorkload)
@@ -169,7 +169,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 			// Phase 1: Initial registration with zero ID, return configuration
 			nk := nodeOverrideFromCEW(n, cew)
 
-			log.Debugf("CEW: VM Cilium Node updated: %v -> %v", n, nk)
+			log.Debugf("CEW: VM Cilium Node updated: %+v -> %+v", n, nk)
 			// FIXME: GH-17909 Balance this call with a call to release the identity.
 			id := m.AllocateNodeIdentity(nk)
 			if id != nil {
@@ -183,7 +183,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 				if err := ciliumNodeRegisterStore.UpdateKeySync(context.Background(), nk); err != nil {
 					log.WithError(err).Warning("CEW: Unable to update register node in etcd")
 				} else {
-					log.Debugf("CEW: Updated register node in etcd (nid: %d): %v", nid, nk)
+					log.Debugf("CEW: Updated register node in etcd (nid: %d): %+v", nid, nk)
 				}
 			}
 		} else if len(n.IPAddresses) > 0 {
@@ -194,7 +194,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 
 			id := m.LookupNodeIdentity(nk)
 			if id == nil || id.ID.Uint32() != nk.NodeIdentity {
-				log.Errorf("CEW: Invalid identity %d in %v", nk.NodeIdentity, nk)
+				log.Errorf("CEW: Invalid identity %d in %+v", nk.NodeIdentity, nk)
 			}
 
 			// Create cluster resources for the external node
@@ -216,18 +216,18 @@ func (m *VMManager) OnUpdate(k store.Key) {
 					}
 					log.WithError(err).Error("CEW: Unable to update CiliumExternalWorkload status")
 				} else {
-					log.Debugf("CEW: Successfully updated CiliumExternalWorkload status: %v", *cewCopy)
+					log.Debugf("CEW: Successfully updated CiliumExternalWorkload status: %+v", *cewCopy)
 					break
 				}
 			}
 		}
 	} else {
-		log.Errorf("CEW: VM Cilium Node not RegisterNode: %v", k)
+		log.Errorf("CEW: VM Cilium Node not RegisterNode: %+v", k)
 	}
 }
 
 func (m *VMManager) OnDelete(k store.NamedKey) {
-	log.Debugf("RegisterNode deleted: %v", k.GetKeyName())
+	log.Debugf("RegisterNode deleted: %+v", k.GetKeyName())
 }
 
 func (m *VMManager) AllocateNodeIdentity(n *nodeTypes.RegisterNode) *identity.Identity {
@@ -247,9 +247,9 @@ func (m *VMManager) AllocateNodeIdentity(n *nodeTypes.RegisterNode) *identity.Id
 		log.WithError(err).Error("unable to resolve identity")
 	} else {
 		if allocated {
-			log.Debugf("allocated identity %v", id)
+			log.Debugf("allocated identity %+v", id)
 		} else {
-			log.Debugf("identity %v was already allocated", id)
+			log.Debugf("identity %+v was already allocated", id)
 		}
 	}
 	return id
@@ -285,7 +285,7 @@ func (m *VMManager) UpdateCiliumNodeResource(n *nodeTypes.RegisterNode) {
 				}
 				log.WithError(err).Fatal("Unable to create CiliumNode resource")
 			} else {
-				log.Infof("Successfully created CiliumNode resource: %v", *nr)
+				log.Infof("Successfully created CiliumNode resource: %+v", *nr)
 				return
 			}
 		} else {
@@ -298,7 +298,7 @@ func (m *VMManager) UpdateCiliumNodeResource(n *nodeTypes.RegisterNode) {
 				}
 				log.WithError(err).Fatal("Unable to update CiliumNode resource")
 			} else {
-				log.Infof("Successfully updated CiliumNode resource: %v", *nodeResource)
+				log.Infof("Successfully updated CiliumNode resource: %+v", *nodeResource)
 				return
 			}
 		}
@@ -395,7 +395,7 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 		var createStatusPatch []byte
 		createStatusPatch, err = json.Marshal(replaceCEPStatus)
 		if err != nil {
-			log.WithError(err).Fatalf("json.Marshal(%v) failed", replaceCEPStatus)
+			log.WithError(err).Fatalf("json.Marshal(%+v) failed", replaceCEPStatus)
 		}
 		localCEP, err = m.ciliumClient.CiliumV2().CiliumEndpoints(namespace).Patch(context.TODO(), name,
 			types.JSONPatchType, createStatusPatch, metav1.PatchOptions{})
@@ -406,7 +406,7 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 			}
 			log.WithError(err).Fatal("Unable to update CiliumEndpoint resource")
 		} else {
-			log.Infof("Successfully patched CiliumEndpoint resource: %v", *localCEP)
+			log.Infof("Successfully patched CiliumEndpoint resource: %+v", *localCEP)
 			return
 		}
 	}
@@ -424,6 +424,6 @@ func getEndpointIdentity(mdlIdentity *models.Identity) (identity *ciliumv2.Endpo
 	identity.Labels = make([]string, len(mdlIdentity.Labels))
 	copy(identity.Labels, mdlIdentity.Labels)
 	sort.Strings(identity.Labels)
-	log.Infof("Got Endpoint Identity: %v", *identity)
+	log.Infof("Got Endpoint Identity: %+v", *identity)
 	return
 }

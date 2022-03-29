@@ -550,7 +550,7 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 
 	// we don't need to check if the current cluster is remote or local,
 	// as externalEndpoints should not have any local cluster endpoints anyway.
-	if !service.Shared {
+	if service.IncludeExternal && !service.Shared {
 		delete(externalEndpoints.endpoints, service.Cluster)
 	} else {
 		scopedLog.Debugf("Updating backends to %+v", service.Backends)
