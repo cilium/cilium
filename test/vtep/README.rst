@@ -54,8 +54,8 @@ VTEP integration test steps, You can also run install.sh for following steps
          --set vtep.enabled="true" \
          --set vtep.endpoint="172.18.0.1" \
          --set vtep.cidr="10.1.5.0/24" \
-         --set vtep.mac="00:50:56:A0:7D:D8" \
-         --set policyEnforcementMode="never"
+         --set vtep.mask="255.255.255.0" \
+         --set vtep.mac="00:50:56:A0:7D:D8"
    # docker pull the image and load in kind
    docker pull cilium/cilium:<version>
    kind load docker-image cilium/cilium:<version>
