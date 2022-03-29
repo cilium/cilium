@@ -511,6 +511,9 @@ func initializeFlags() {
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
 	option.BindEnv(option.K8sNamespaceName)
 
+	flags.String(option.AgentNotReadyNodeTaintKeyName, defaults.AgentNotReadyNodeTaint, "Key of the taint indicating that Cilium is not ready on the node")
+	option.BindEnv(option.AgentNotReadyNodeTaintKeyName)
+
 	flags.Bool(option.JoinClusterName, false, "Join a Cilium cluster via kvstore registration")
 	option.BindEnv(option.JoinClusterName)
 
