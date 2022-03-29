@@ -817,3 +817,7 @@ data:
   {{ toYaml .Values.extraConfig | nindent 2 }}
 {{- end }}
 {{- end }}
+
+{{- if hasKey .Values "agentNotReadyTaintKey" }}
+  agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
+{{- end }}
