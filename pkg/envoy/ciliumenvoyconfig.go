@@ -47,6 +47,10 @@ type PortAllocator interface {
 func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, validate bool, portAllocator PortAllocator) (Resources, error) {
 	resources := Resources{}
 	for _, r := range anySlice {
+		// Skip empty TypeURLs, which are left behind when Unmarshaling resource JSON fails
+		if r.TypeUrl == "" {
+			continue
+		}
 		message, err := r.UnmarshalNew()
 		if err != nil {
 			return Resources{}, err

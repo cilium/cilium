@@ -148,14 +148,13 @@ func (u *XDSResource) UnmarshalJSON(b []byte) (err error) {
 	}()
 	u.Any = &anypb.Any{}
 	err = protojson.Unmarshal(b, u.Any)
-	if option.Config.Debug {
-		if err == nil {
-			log.Debugf("CEC unmarshaled XDS Resource: %v", prototext.Format(u.Any))
-		} else {
-			var buf bytes.Buffer
-			json.Indent(&buf, b, "", "\t")
-			log.Debugf("CEC UnmarshalJSON failed for: %s", buf.String())
-		}
+	if err != nil {
+		var buf bytes.Buffer
+		json.Indent(&buf, b, "", "\t")
+		log.Warningf("Ignoring invalid CiliumEnvoyConfig JSON (%s): %s",
+			err, buf.String())
+	} else if option.Config.Debug {
+		log.Debugf("CEC unmarshaled XDS Resource: %v", prototext.Format(u.Any))
 	}
-	return err
+	return nil
 }
