@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
-	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -261,7 +260,7 @@ func removeNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter nod
 
 	var taints []corev1.Taint
 	for _, taint := range k8sNode.Spec.Taints {
-		if taint.Key != ciliumio.AgentNotReadyNodeTaint {
+		if taint.Key != option.Config.AgentNotReadyNodeTaintValue() {
 			taints = append(taints, taint)
 		} else {
 			taintFound = true
@@ -272,13 +271,13 @@ func removeNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter nod
 	if !taintFound {
 		log.WithFields(logrus.Fields{
 			logfields.NodeName: nodeName,
-			"taint":            ciliumio.AgentNotReadyNodeTaint,
+			"taint":            option.Config.AgentNotReadyNodeTaintValue(),
 		}).Debug("Taint not found in node")
 		return nil
 	}
 	log.WithFields(logrus.Fields{
 		logfields.NodeName: nodeName,
-		"taint":            ciliumio.AgentNotReadyNodeTaint,
+		"taint":            option.Config.AgentNotReadyNodeTaintValue(),
 	}).Debug("Removing Node Taint")
 
 	k8sNode.Spec.Taints = taints

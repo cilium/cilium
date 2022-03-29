@@ -67,12 +67,6 @@ const (
 
 	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
 	CiliumIdentityAnnotationDeprecated = "cilium-identity"
-
-	// AgentNotReadyNodeTaint is a node taint which prevents pods from being
-	// scheduled. Once cilium is setup it is removed from the node. Mostly
-	// used in cloud providers to prevent existing CNI plugins from managing
-	// pods.
-	AgentNotReadyNodeTaint = "node." + CiliumK8sAnnotationPrefix + "agent-not-ready"
 )
 
 const (

@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
-	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -103,7 +102,7 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 // Not Ready Node Taint.
 func hasAgentNotReadyTaint(k8sNode *v1.Node) bool {
 	for _, taint := range k8sNode.Spec.Taints {
-		if taint.Key == ciliumio.AgentNotReadyNodeTaint {
+		if taint.Key == option.Config.AgentNotReadyNodeTaintValue() {
 			return true
 		}
 	}
