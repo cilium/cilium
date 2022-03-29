@@ -20,8 +20,8 @@ helm install cilium cilium/cilium --version <cilium version> \
    --set vtep.enabled=true \
    --set vtep.endpoint="172.18.0.1" \
    --set vtep.cidr="10.1.5.0/24" \
-   --set vtep.mac="00:50:56:A0:7D:D8" \
-   --set policyEnforcementMode="never"
+   --set vtep.mask="255.255.255.0" \
+   --set vtep.mac="00:50:56:A0:7D:D8"
 
 # 3 deploy busybox on kind control plaine node
 

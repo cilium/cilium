@@ -58,10 +58,10 @@ as part of the configuration.
               --namespace kube-system \
               --reuse-values \
               --set vtep.enabled="true" \
-              --set vtep.endpoint="endpoint-1-IP endpoint-2-IP" \
-              --set vtep.cidr="endpoint-1-CIDR   endpoint-2-CIDR" \
-              --set vtep.mac="endpoint-1-MAC     endpoint-2-MAC" \
-	      --set policyEnforcementMode="never"
+              --set vtep.endpoint="10.169.72.236 10.169.72.238" \
+              --set vtep.cidr="10.1.1.0/24   10.1.2.0/24" \
+              --set vtep.mask="255.255.255.0" \
+              --set vtep.mac="82:36:4c:98:2e:56 82:36:4c:98:2e:58" \
 
     .. group-tab:: ConfigMap
 
@@ -71,10 +71,10 @@ as part of the configuration.
        .. code-block:: yaml
 
           enable-vtep:   "true"
-          vtep-endpoint: "endpoint-1-IP    endpoint-2-IP"
-          vtep-cidr:     "endpoint-1-CIDR  endpoint-2-CIDR"
-          vtep-mac:      "endpoint-1-MAC   endpoint-2-MAC"
-	  enable-policy: "never"
+          vtep-endpoint: "10.169.72.236    10.169.72.238"
+          vtep-cidr:     "10.1.1.0/24   10.1.2.0/24"
+          vtep-mask:     "255.255.255.0"
+          vtep-mac:      "82:36:4c:98:2e:56 82:36:4c:98:2e:58"
 
        Restart Cilium daemonset:
 
@@ -144,4 +144,3 @@ Limitations
 
 * This feature does not work with traffic from the host network namespace (including pods with ``hostNetwork=true``).
 * This feature does not work with ipsec encryption between Cilium managed pod and VTEPs.
-* This feature currently does not work with network policies,network policy must be explicitly disabled in order to try the feature.
