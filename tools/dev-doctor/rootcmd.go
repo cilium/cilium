@@ -90,6 +90,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionArgs:   []string{"version"},
 			versionRegexp: regexp.MustCompile(`Ginkgo Version (\d+\.\d+\S*)`),
 			minVersion:    &semver.Version{Major: 1, Minor: 4, Patch: 0},
+			maxVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
 			hint:          `Run "go install github.com/onsi/ginkgo/ginkgo@latest".`,
 		},
 		// FIXME add gomega check?
