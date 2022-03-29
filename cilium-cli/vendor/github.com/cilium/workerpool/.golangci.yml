@@ -5,8 +5,13 @@ linters:
   disable-all: true
   enable:
     - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - cyclop
     - deadcode
     - dogsled
+    - dupl
     - durationcheck
     - errcheck
     - errname
@@ -14,41 +19,52 @@ linters:
     - exhaustive
     - exportloopref
     - forcetypeassert
+    - gocognit
+    - goconst
+    - gocritic
     - godot
     - goerr113
     - gofmt
     - goimports
+    - gomnd
     - gosec
     - gosimple
     - govet
+    - grouper
     - ifshort
     - ineffassign
+    - ireturn
+    - makezero
     - misspell
     - nestif
     - nilerr
+    - nilnil
     - prealloc
     - predeclared
     - revive
     - rowserrcheck
     - staticcheck
     - structcheck
+    - tenv
     - thelper
+    - tparallel
     - typecheck
     - unconvert
     - unparam
     - unused
     - varcheck
+    - wastedassign
 
 linters-settings:
+  cyclop:
+    skip-tests: true
   gosimple:
-    go: "1.17"
+    go: "1.18"
   govet:
     enable-all: true
-    disable:
-      - fieldalignment
   staticcheck:
-    go: "1.17"
+    go: "1.18"
   stylecheck:
-    go: "1.17"
+    go: "1.18"
   unused:
-    go: "1.17"
+    go: "1.18"
