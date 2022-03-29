@@ -68,7 +68,7 @@ func (c *metalLBController) SetBalancer(name string, srvRo *v1.Service, eps k8s.
 	var (
 		l = log.WithFields(logrus.Fields{
 			"component": "metalLBController.SetBalancer",
-			"service":   srvRo.Name,
+			"service":   name,
 		})
 	)
 	l.Debug("assigning load balancer ip for service")
