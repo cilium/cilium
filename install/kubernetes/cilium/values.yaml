@@ -2036,3 +2036,7 @@ enableK8sTerminatingEndpoint: true
 
 # -- Configure whether to unload DNS policy rules on graceful shutdown
 # dnsPolicyUnloadOnShutdown: false
+
+# -- Configure the key of the taint indicating that Cilium is not ready on the node.
+# When set to a value starting with `ignore-taint.cluster-autoscaler.kubernetes.io/`, the Cluster Autoscaler will ignore the taint on its decisions, allowing the cluster to scale up.
+agentNotReadyTaintKey: "node.cilium.io/agent-not-ready"

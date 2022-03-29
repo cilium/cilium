@@ -645,6 +645,10 @@ const (
 	// K8sNamespaceName is the name of the K8sNamespace option
 	K8sNamespaceName = "k8s-namespace"
 
+	// AgentNotReadyNodeTaintKeyName is the name of the option to set
+	// AgentNotReadyNodeTaintKey
+	AgentNotReadyNodeTaintKeyName = "agent-not-ready-taint-key"
+
 	// JoinClusterName is the name of the JoinCluster Option
 	JoinClusterName = "join-cluster"
 
@@ -1524,6 +1528,12 @@ type DaemonConfig struct {
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
 	K8sNamespace string
+
+	// AgentNotReadyNodeTaint is a node taint which prevents pods from being
+	// scheduled. Once cilium is setup it is removed from the node. Mostly
+	// used in cloud providers to prevent existing CNI plugins from managing
+	// pods.
+	AgentNotReadyNodeTaintKey string
 
 	// JoinCluster is 'true' if the agent should join a Cilium cluster via kvstore
 	// registration
@@ -2481,6 +2491,16 @@ func (c *DaemonConfig) CiliumNamespaceName() string {
 	return c.K8sNamespace
 }
 
+// AgentNotReadyNodeTaintValue returns the value of the taint key that cilium agents
+// will manage on their nodes
+func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
+	if c.AgentNotReadyNodeTaintKey != "" {
+		return c.AgentNotReadyNodeTaintKey
+	} else {
+		return defaults.AgentNotReadyNodeTaint
+	}
+}
+
 // K8sAPIDiscoveryEnabled returns true if API discovery of API groups and
 // resources is enabled
 func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
@@ -3165,6 +3185,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTP403Message = viper.GetString(HTTP403Message)
 	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
 	c.K8sNamespace = viper.GetString(K8sNamespaceName)
+	c.AgentNotReadyNodeTaintKey = viper.GetString(AgentNotReadyNodeTaintKeyName)
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
 	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
