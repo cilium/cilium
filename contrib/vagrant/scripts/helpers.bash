@@ -67,7 +67,7 @@ cluster_dns_ip=${K8S_CLUSTER_DNS_IP:-"172.20.0.10,FD03::A"}
 cluster_api_server_ipv4=${K8S_CLUSTER_API_SERVER_IPV4:-"172.20.0.1"}
 cluster_api_server_ipv6=${K8S_CLUSTER_API_SERVER_IPV6:-"FD03::1"}
 
-k8s_version="v1.21.0"
+k8s_version="v1.21.11"
 etcd_version="v3.4.13"
 
 function restore_flag {
