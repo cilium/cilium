@@ -127,8 +127,8 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(len(IPIdentityCache.ipToK8sMetadata), Equals, 0)
 
 	// Test mapping of multiple IPs to same identity.
-	endpointIPs := []string{"192.168.0.1", "20.3.75.3", "27.2.2.2", "127.0.0.1", "127.0.0.1"}
-	identities := []identityPkg.NumericIdentity{5, 67, 29, 29, 29}
+	endpointIPs := []string{"192.168.0.1", "20.3.75.3", "27.2.2.2", "127.0.0.1", "127.0.0.1", "10.1.1.250"}
+	identities := []identityPkg.NumericIdentity{5, 67, 29, 29, 29, 42}
 
 	for index := range endpointIPs {
 		IPIdentityCache.Upsert(endpointIPs[index], nil, 0, nil, Identity{
@@ -168,6 +168,36 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	_, exists = IPIdentityCache.LookupByPrefix("127.0.0.1/32")
 	c.Assert(exists, Equals, false)
 
+	// Assert IPCache entry is overwritten when a different pod (different
+	// k8sMeta) with the same IP as what's already inside the IPCache is
+	// inserted.
+	_, err = IPIdentityCache.Upsert("10.1.1.250", net.ParseIP("10.0.0.1"), 0, &K8sMetadata{
+		Namespace: "ns-1",
+		PodName:   "pod1",
+	}, Identity{
+		ID:     42,
+		Source: source.KVStore,
+	})
+	c.Assert(err, IsNil)
+	_, exists = IPIdentityCache.LookupByPrefix("10.1.1.250/32")
+	c.Assert(exists, Equals, true)
+	// Insert different pod now.
+	_, err = IPIdentityCache.Upsert("10.1.1.250", net.ParseIP("10.0.0.2"), 0, &K8sMetadata{
+		Namespace: "ns-1",
+		PodName:   "pod2",
+	}, Identity{
+		ID:     43,
+		Source: source.KVStore,
+	})
+	c.Assert(err, IsNil)
+	cachedIdentity, _ = IPIdentityCache.LookupByPrefix("10.1.1.250/32")
+	c.Assert(cachedIdentity.ID, Equals, identityPkg.NumericIdentity(43)) // Assert entry overwritten.
+	// Assuming different pod with same IP 10.1.1.250 as a previous pod was
+	// deleted, assert IPCache entry is deleted is still deleted.
+	IPIdentityCache.Delete("10.1.1.250", source.KVStore)
+	_, exists = IPIdentityCache.LookupByPrefix("10.1.1.250/32")
+	c.Assert(exists, Equals, false) // Assert entry deleted.
+
 	// Clean up.
 	for index := range endpointIPs {
 		IPIdentityCache.Delete(endpointIPs[index], source.KVStore)
@@ -180,7 +210,6 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 0)
 	c.Assert(len(IPIdentityCache.identityToIPCache), Equals, 0)
-
 }
 
 func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
