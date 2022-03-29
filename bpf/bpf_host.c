@@ -280,8 +280,7 @@ skip_host_firewall:
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						     info->key, secctx,
-						     trace.reason, trace.monitor);
+						     info->key, secctx, &trace);
 
 		/* If IPSEC is needed recirc through ingress to use xfrm stack
 		 * and then result will routed back through bpf_netdev on egress
@@ -302,8 +301,7 @@ skip_host_firewall:
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect_netdev(ctx, &key, secctx,
-						trace.reason, trace.monitor);
+		ret = encap_and_redirect_netdev(ctx, &key, secctx, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -572,8 +570,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						     info->key, secctx,
-						     trace.reason, trace.monitor);
+						     info->key, secctx, &trace);
 
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
@@ -587,8 +584,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(ctx, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect_netdev(ctx, &key, secctx,
-						trace.reason, trace.monitor);
+		ret = encap_and_redirect_netdev(ctx, &key, secctx, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -838,6 +834,10 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 #else /* TUNNEL_MODE */
 static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32 src_id)
 {
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_ENCRYPTED,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	__u32 tunnel_endpoint = 0;
 
 	tunnel_endpoint = ctx_load_meta(ctx, 4);
@@ -845,8 +845,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 
 	bpf_clear_meta(ctx);
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, src_id,
-						TRACE_REASON_ENCRYPTED,
-						TRACE_PAYLOAD_LEN);
+						&trace);
 }
 
 static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused,

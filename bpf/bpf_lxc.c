@@ -113,11 +113,13 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	int ret, verdict = 0, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
-	__u32 monitor = 0;
 	enum ct_status ct_status;
-	enum trace_reason reason;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
@@ -179,12 +181,12 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * connection.
 	 */
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
+			 &ct_state, &trace.monitor);
 	if (ret < 0)
 		return ret;
 
 	ct_status = (enum ct_status)ret;
-	reason = (enum trace_reason)ret;
+	trace.reason = (enum trace_reason)ret;
 
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
@@ -234,7 +236,7 @@ ct_recreate6:
 				 CT_EGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
-		monitor = TRACE_PAYLOAD_LEN;
+		trace.monitor = TRACE_PAYLOAD_LEN;
 		break;
 
 	case CT_REOPENED:
@@ -263,7 +265,8 @@ ct_recreate6:
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state.node_port) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
-					  *dst_id, 0, 0, reason, monitor);
+					  *dst_id, 0, 0,
+					  trace.reason, trace.monitor);
 			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
@@ -297,7 +300,8 @@ ct_recreate6:
 		proxy_port = (__u16)verdict;
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
-				  bpf_ntohs(proxy_port), 0, reason, monitor);
+				  bpf_ntohs(proxy_port), 0,
+				  trace.reason, trace.monitor);
 		return ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, false);
 	}
 
@@ -369,9 +373,7 @@ ct_recreate6:
 		 * (c) packet was redirected to tunnel device so return.
 		 */
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, SECLABEL,
-					     (enum trace_reason)ct_status,
-					     monitor);
+					     &key, SECLABEL, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -387,7 +389,7 @@ ct_recreate6:
 to_host:
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_id == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
-				  HOST_IFINDEX, reason, monitor);
+				  HOST_IFINDEX, trace.reason, trace.monitor);
 		return ctx_redirect(ctx, HOST_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -435,7 +437,7 @@ pass_to_stack:
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_id, 0, 0,
-			  reason, monitor);
+			  trace.reason, trace.monitor);
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 
@@ -563,15 +565,17 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	int ret, verdict = 0, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
-	__u32 monitor = 0;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	bool has_l4_header = false;
 	bool __maybe_unused dst_remote_ep = false;
-	enum trace_reason reason;
 	enum ct_status ct_status;
 	__u16 proxy_port;
 
@@ -626,12 +630,12 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * connection.
 	 */
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
+			 &ct_state, &trace.monitor);
 	if (ret < 0)
 		return ret;
 
 	ct_status = (enum ct_status)ret;
-	reason = (enum trace_reason)ret;
+	trace.reason = (enum trace_reason)ret;
 
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) && ct_state.proxy_redirect) {
@@ -714,7 +718,8 @@ ct_recreate4:
 		 */
 		if (ct_state.node_port) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
-					  *dst_id, 0, 0, reason, monitor);
+					  *dst_id, 0, 0,
+					  trace.reason, trace.monitor);
 			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
@@ -743,7 +748,8 @@ ct_recreate4:
 		proxy_port = (__u16)verdict;
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
-				  bpf_ntohs(proxy_port), 0, reason, monitor);
+				  bpf_ntohs(proxy_port), 0,
+				  trace.reason, trace.monitor);
 		return ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, false);
 	}
 
@@ -825,9 +831,7 @@ ct_recreate4:
 		 * direct to external interface.
 		 */
 		ret = encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
-					     &key, SECLABEL,
-					     (enum trace_reason)ct_status,
-					     monitor);
+					     &key, SECLABEL, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else
@@ -851,9 +855,10 @@ skip_egress_gateway:
 		if (vtep_mac && tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
-								WORLD_ID, ct_status,
-								monitor);
+			return __encap_and_redirect_with_nodeid(ctx,
+								tunnel_endpoint,
+								WORLD_ID,
+								&trace);
 		}
 	}
 #endif
@@ -872,9 +877,7 @@ skip_egress_gateway:
 		key.family = ENDPOINT_KEY_IPV4;
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, SECLABEL,
-					     (enum trace_reason)ct_status,
-					     monitor);
+					     &key, SECLABEL, &trace);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack
@@ -898,7 +901,7 @@ skip_egress_gateway:
 to_host:
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_id == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
-				  HOST_IFINDEX, reason, monitor);
+				  HOST_IFINDEX, trace.reason, trace.monitor);
 		return ctx_redirect(ctx, HOST_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
@@ -943,7 +946,7 @@ pass_to_stack:
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_id, 0, 0,
-			  reason, monitor);
+			  trace.reason, trace.monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
