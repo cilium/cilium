@@ -505,7 +505,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 	SkipContextIf(func() bool {
 		return helpers.DoesNotRunWithKubeProxyReplacement() ||
-			helpers.DoesNotExistNodeWithoutCilium()
+			helpers.DoesNotExistNodeWithoutCilium() ||
+			helpers.DoesRunWithUnsafeExternalIPs()
 	}, "Checks N/S loadbalancing", func() {
 		var yamls []string
 
@@ -547,7 +548,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 		})
 
 		It("Tests externalIPs", func() {
-			testExternalIPs(kubectl, ni)
+			testExternalIPs(kubectl, ni, false)
 		})
 
 		It("Tests GH#10983", func() {
@@ -826,6 +827,16 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				Expect(curlClusterIPFromExternalHost(kubectl, ni)).
 					Should(helpers.CMDSuccess(), "Could not curl ClusterIP %s from external host", svcIP)
 			})
+		})
+	})
+
+	SkipContextIf(func() bool {
+		return helpers.DoesNotRunWithKubeProxyReplacement() ||
+			helpers.DoesNotExistNodeWithoutCilium() ||
+			helpers.DoesNotRunWithUnsafeExternalIPs()
+	}, "Checks N/S loadbalancing with unsafe external IPs", func() {
+		It("Tests externalIPs", func() {
+			testExternalIPs(kubectl, ni, true)
 		})
 	})
 

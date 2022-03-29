@@ -778,3 +778,11 @@ func CiliumEndpointSliceFeatureEnabled() bool {
 	return k8sVersionGreaterEqual121(k8sVersion) && (GetCurrentIntegration() == "" ||
 		IsIntegration(CIIntegrationKind))
 }
+
+func DoesRunWithUnsafeExternalIPs() bool {
+	return os.Getenv("ENABLE_UNSAFE_EXTERNAL_IP") == "1"
+}
+
+func DoesNotRunWithUnsafeExternalIPs() bool {
+	return !DoesRunWithUnsafeExternalIPs()
+}

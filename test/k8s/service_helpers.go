@@ -563,7 +563,7 @@ func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, 
 	wg.Wait()
 }
 
-func testExternalIPs(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
+func testExternalIPs(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, unsafeExternalIPsEnabled bool) {
 	var (
 		data                v1.Service
 		nodePortService     = "test-external-ips"
@@ -603,9 +603,15 @@ func testExternalIPs(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 		// Should work from outside via the external IP
 		testCurlFromOutside(kubectl, ni, httpURL, count, false)
 		testCurlFromOutside(kubectl, ni, tftpURL, count, false)
-		// Should fail from inside a pod & hostns
-		testCurlFromPodsFail(kubectl, testDSClient, httpURL)
-		testCurlFromPodsFail(kubectl, testDSClient, tftpURL)
+		if unsafeExternalIPsEnabled {
+			// Should NOT fail from inside a pod & hostns
+			testCurlFromPods(kubectl, testDSClient, httpURL, 10, 0)
+			testCurlFromPods(kubectl, testDSClient, tftpURL, 10, 0)
+		} else {
+			// Should fail from inside a pod & hostns
+			testCurlFromPodsFail(kubectl, testDSClient, httpURL)
+			testCurlFromPodsFail(kubectl, testDSClient, tftpURL)
+		}
 		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.K8s1NodeName)
 		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.K8s1NodeName)
 		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.K8s2NodeName)
