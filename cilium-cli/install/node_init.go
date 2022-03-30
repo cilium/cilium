@@ -11,12 +11,13 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 )
 
-var (
-	nodeInitScript = map[k8s.Kind]string{
-		k8s.KindEKS: "",
-		k8s.KindGKE: "",
+func needsNodeInit(k k8s.Kind) bool {
+	switch k {
+	case k8s.KindAKS, k8s.KindEKS, k8s.KindGKE:
+		return true
 	}
-)
+	return false
+}
 
 func (k *K8sInstaller) generateNodeInitDaemonSet(_ k8s.Kind) *appsv1.DaemonSet {
 	var (
