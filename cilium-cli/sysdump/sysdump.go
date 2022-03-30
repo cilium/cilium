@@ -760,11 +760,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting platform-specific data",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
-				f, err := c.Client.AutodetectFlavor(ctx)
-				if err != nil {
-					c.logWarn("Failed to autodetect Kubernetes flavor: %v", err)
-					return nil
-				}
+				f := c.Client.AutodetectFlavor(ctx)
 				c.logDebug("Detected flavor %q", f.Kind)
 				if err := c.submitFlavorSpecificTasks(ctx, f); err != nil {
 					return fmt.Errorf("failed to collect platform-specific data: %w", err)

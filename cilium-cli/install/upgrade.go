@@ -17,9 +17,7 @@ import (
 )
 
 func (k *K8sInstaller) Upgrade(ctx context.Context) error {
-	if err := k.autodetect(ctx); err != nil {
-		return err
-	}
+	k.autodetect(ctx)
 
 	// no need to determine KPR setting on upgrade, keep the setting configured with the old
 	// version.

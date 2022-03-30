@@ -21,7 +21,7 @@ import (
 )
 
 type KubernetesClient interface {
-	AutodetectFlavor(ctx context.Context) (f k8s.Flavor, err error)
+	AutodetectFlavor(ctx context.Context) k8s.Flavor
 	CopyFromPod(ctx context.Context, namespace, pod, container string, fromFile, destFile string) error
 	ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error)
 	ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error)
