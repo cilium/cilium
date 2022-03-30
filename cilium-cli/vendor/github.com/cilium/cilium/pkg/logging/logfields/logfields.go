@@ -542,6 +542,9 @@ const (
 	// CEPName is the name of the CiliumEndpoint.
 	CEPName = "ciliumEndpointName"
 
+	// CEPUID is the UID of the CiliumEndpoint.
+	CEPUID = "ciliumEndpointUID"
+
 	// CESName is the name of the CiliumEndpointSlice.
 	CESName = "ciliumEndpointSliceName"
 

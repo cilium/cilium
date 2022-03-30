@@ -280,8 +280,8 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/cilium/charts v0.0.0-20220328201227-74ca65b8ff86 h1:59ypwFmkjHMClmwZueQa9jvozfu+epY2LHKVjd2d2fg=
 github.com/cilium/charts v0.0.0-20220328201227-74ca65b8ff86/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
-github.com/cilium/cilium v1.11.2 h1:lpCgoLqnPOryj4KikPADkQJSQIeuqt+ehetShRTWx6I=
-github.com/cilium/cilium v1.11.2/go.mod h1:5//yZGCcUvOh+JlXk8ADfiLFTiVh92xzAn9t/5bpjj4=
+github.com/cilium/cilium v1.11.3 h1:ryoQH2SXtgXVG8wpUPJJPpxNPXz2JPx1QoxGfcHH818=
+github.com/cilium/cilium v1.11.3/go.mod h1:5//yZGCcUvOh+JlXk8ADfiLFTiVh92xzAn9t/5bpjj4=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
 github.com/cilium/ebpf v0.0.0-20200110133405-4032b1d8aae3/go.mod h1:MA5e5Lr8slmEg9bt0VpxxWqJlO4iwu3FBdHUzV7wQVg=
 github.com/cilium/ebpf v0.0.0-20200702112145-1c8d4c9ef775/go.mod h1:7cR51M8ViRLIdUjrmSXlK9pkrsDlLHbO8jiB8X8JnOc=
