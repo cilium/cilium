@@ -911,6 +911,10 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 
 	useDownstreamProtocol := map[string]*anypb.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
+				MaxRequestsPerConnection: wrapperspb.UInt32(uint32(option.Config.ProxyMaxRequestsPerConnection)),
+				MaxConnectionDuration:    durationpb.New(option.Config.ProxyMaxConnectionDuration * time.Second),
+			},
 			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
 				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
 			},
@@ -922,6 +926,10 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 			UpstreamHttpProtocolOptions: &envoy_config_core.UpstreamHttpProtocolOptions{
 				AutoSni:           true,
 				AutoSanValidation: true,
+			},
+			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
+				MaxRequestsPerConnection: wrapperspb.UInt32(uint32(option.Config.ProxyMaxRequestsPerConnection)),
+				MaxConnectionDuration:    durationpb.New(option.Config.ProxyMaxConnectionDuration * time.Second),
 			},
 			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
 				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
