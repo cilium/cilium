@@ -128,7 +128,7 @@ type k8sInstallerImplementation interface {
 	PatchSecret(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.Secret, error)
 	CreateResourceQuota(ctx context.Context, namespace string, r *corev1.ResourceQuota, opts metav1.CreateOptions) (*corev1.ResourceQuota, error)
 	DeleteResourceQuota(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
-	AutodetectFlavor(ctx context.Context) (k8s.Flavor, error)
+	AutodetectFlavor(ctx context.Context) k8s.Flavor
 	ContextName() (name string)
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)

@@ -43,9 +43,7 @@ func (k *K8sUninstaller) Log(format string, a ...interface{}) {
 }
 
 func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
-	if err := k.autodetect(ctx); err != nil {
-		return err
-	}
+	k.autodetect(ctx)
 
 	k.Log("🔥 Deleting %s namespace...", k.params.TestNamespace)
 	k.client.DeleteNamespace(ctx, k.params.TestNamespace, metav1.DeleteOptions{})

@@ -438,14 +438,14 @@ type Platform struct {
 	Arch string
 }
 
-func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
-	f = Flavor{
+func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
+	f := Flavor{
 		ClusterName: c.ClusterName(),
 	}
 
 	if c.ClusterName() == "minikube" || c.ContextName() == "minikube" {
 		f.Kind = KindMinikube
-		return
+		return f
 	}
 
 	if strings.HasPrefix(c.ClusterName(), "microk8s-") || c.ContextName() == "microk8s" {
@@ -454,19 +454,19 @@ func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 
 	if c.ClusterName() == "rancher-desktop" || c.ContextName() == "rancher-desktop" {
 		f.Kind = KindRancherDesktop
-		return
+		return f
 	}
 
 	// When creating a cluster with kind create cluster --name foo,
 	// the context and cluster name are kind-foo.
 	if strings.HasPrefix(c.ClusterName(), "kind-") || strings.HasPrefix(c.ContextName(), "kind-") {
 		f.Kind = KindKind
-		return
+		return f
 	}
 
 	if strings.HasPrefix(c.ClusterName(), "gke_") {
 		f.Kind = KindGKE
-		return
+		return f
 	}
 
 	// When creating a cluster with eksctl create cluster --name foo,
@@ -474,24 +474,22 @@ func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 	if strings.HasSuffix(c.ClusterName(), ".eksctl.io") {
 		f.ClusterName = strings.ReplaceAll(c.ClusterName(), ".", "-")
 		f.Kind = KindEKS
-		return
+		return f
 	}
 
 	if context, ok := c.RawConfig.Contexts[c.ContextName()]; ok {
 		if cluster, ok := c.RawConfig.Clusters[context.Cluster]; ok {
 			if strings.HasSuffix(cluster.Server, "eks.amazonaws.com") {
 				f.Kind = KindEKS
-				return
-			}
-
-			if strings.HasSuffix(cluster.Server, "azmk8s.io:443") {
+				return f
+			} else if strings.HasSuffix(cluster.Server, "azmk8s.io:443") {
 				f.Kind = KindAKS
-				return
+				return f
 			}
 		}
 	}
 
-	return
+	return f
 }
 
 func (c *Client) CreateResourceQuota(ctx context.Context, namespace string, rq *corev1.ResourceQuota, opts metav1.CreateOptions) (*corev1.ResourceQuota, error) {
