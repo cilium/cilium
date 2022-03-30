@@ -115,6 +115,7 @@ SIG
 SR-IOV
 Sharma
 Shirokov
+Shortnames
 Socionext
 Solarflare
 Spectre
@@ -580,6 +581,7 @@ linuxconf
 listenAddress
 listenHost
 listenPort
+listers
 liveblog
 liveness
 livenessProbe
@@ -868,6 +870,7 @@ subnetTagsFilter
 subnets
 subregister
 subregisters
+subtypes
 sudo
 supergalatic
 superset
