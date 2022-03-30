@@ -415,7 +415,7 @@ type k8sClusterMeshImplementation interface {
 	GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error)
 	ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
-	AutodetectFlavor(ctx context.Context) (k8s.Flavor, error)
+	AutodetectFlavor(ctx context.Context) k8s.Flavor
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	ClusterName() string
 	ListCiliumExternalWorkloads(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error)
@@ -490,11 +490,7 @@ func (k *K8sClusterMesh) Log(format string, a ...interface{}) {
 }
 
 func (k *K8sClusterMesh) GetClusterConfig(ctx context.Context) error {
-	f, err := k.client.AutodetectFlavor(ctx)
-	if err != nil {
-		return err
-	}
-	k.flavor = f
+	k.flavor = k.client.AutodetectFlavor(ctx)
 
 	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {

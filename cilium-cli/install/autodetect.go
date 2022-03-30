@@ -42,19 +42,12 @@ func (p Parameters) checkDisabled(name string) bool {
 	return false
 }
 
-func (k *K8sUninstaller) autodetect(ctx context.Context) error {
-	f, err := k.client.AutodetectFlavor(ctx)
-	if err != nil {
-		return err
+func (k *K8sUninstaller) autodetect(ctx context.Context) {
+	k.flavor = k.client.AutodetectFlavor(ctx)
+
+	if k.flavor.Kind != k8s.KindUnknown {
+		k.Log("🔮 Auto-detected Kubernetes kind: %s", k.flavor.Kind)
 	}
-
-	k.flavor = f
-
-	if f.Kind != k8s.KindUnknown {
-		k.Log("🔮 Auto-detected Kubernetes kind: %s", f.Kind)
-	}
-
-	return nil
 }
 
 func (k *K8sInstaller) detectDatapathMode(withKPR bool) {
@@ -91,25 +84,16 @@ func (k *K8sInstaller) detectDatapathMode(withKPR bool) {
 	}
 }
 
-func (k *K8sInstaller) autodetect(ctx context.Context) error {
-	f, err := k.client.AutodetectFlavor(ctx)
-	if err != nil {
-		return err
+func (k *K8sInstaller) autodetect(ctx context.Context) {
+	k.flavor = k.client.AutodetectFlavor(ctx)
+
+	if k.flavor.Kind != k8s.KindUnknown {
+		k.Log("🔮 Auto-detected Kubernetes kind: %s", k.flavor.Kind)
 	}
-
-	k.flavor = f
-
-	if f.Kind != k8s.KindUnknown {
-		k.Log("🔮 Auto-detected Kubernetes kind: %s", f.Kind)
-	}
-
-	return nil
 }
 
 func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
-	if err := k.autodetect(ctx); err != nil {
-		return err
-	}
+	k.autodetect(ctx)
 
 	if len(validationChecks[k.flavor.Kind]) > 0 {
 		k.Log("✨ Running %q validation checks", k.flavor.Kind)
