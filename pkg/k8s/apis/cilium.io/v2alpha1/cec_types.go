@@ -18,9 +18,8 @@ import (
 )
 
 // +genclient
-// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:categories={cilium},singular="ciliumenvoyconfig",path="ciliumenvoyconfigs",scope="Cluster",shortName={cec}
+// +kubebuilder:resource:categories={cilium},singular="ciliumenvoyconfig",path="ciliumenvoyconfigs",scope="Namespaced",shortName={cec}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of the identity",name="Age",type=date
 // +kubebuilder:storageversion
 
@@ -86,7 +85,9 @@ type Service struct {
 	Name string `json:"name"`
 
 	// Namespace is the Kubernetes service namespace.
-	// +kubebuilder:validation:Required
+	// In CiliumEnvoyConfig namespace defaults to the namespace of the CEC,
+	// In CiliumClusterwideEnvoyConfig namespace defaults to "default".
+	// +kubebuilder:validation:Optional
 	Namespace string `json:"namespace"`
 }
 
@@ -98,7 +99,9 @@ type ServiceListener struct {
 	Name string `json:"name"`
 
 	// Namespace is the Kubernetes service namespace.
-	// +kubebuilder:validation:Required
+	// In CiliumEnvoyConfig namespace defaults to the namespace of the CEC,
+	// In CiliumClusterwideEnvoyConfig namespace defaults to "default".
+	// +kubebuilder:validation:Optional
 	Namespace string `json:"namespace"`
 
 	// Listener specifies the name of the Envoy listener the

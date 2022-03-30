@@ -83,11 +83,12 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) 
 func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: cec.ObjectMeta.Name,
+		logfields.K8sNamespace:          cec.ObjectMeta.Namespace,
 		logfields.K8sUID:                cec.ObjectMeta.UID,
 		logfields.K8sAPIVersion:         cec.TypeMeta.APIVersion,
 	})
 
-	resources, err := envoy.ParseResources(cec.ObjectMeta.Name, cec)
+	resources, err := envoy.ParseResources(cec.ObjectMeta.Namespace, cec.Spec.Resources)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig: malformed Envoy config.")
 		return err
@@ -104,16 +105,17 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig
 func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2alpha1.CiliumEnvoyConfig, newCEC *cilium_v2alpha1.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: newCEC.ObjectMeta.Name,
+		logfields.K8sNamespace:          newCEC.ObjectMeta.Namespace,
 		logfields.K8sUID:                newCEC.ObjectMeta.UID,
 		logfields.K8sAPIVersion:         newCEC.TypeMeta.APIVersion,
 	})
 
-	oldResources, err := envoy.ParseResources(oldCEC.ObjectMeta.Name, oldCEC)
+	oldResources, err := envoy.ParseResources(oldCEC.ObjectMeta.Namespace, oldCEC.Spec.Resources)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed old Envoy config.")
 		return err
 	}
-	newResources, err := envoy.ParseResources(newCEC.ObjectMeta.Name, newCEC)
+	newResources, err := envoy.ParseResources(newCEC.ObjectMeta.Namespace, newCEC.Spec.Resources)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed new Envoy config.")
 		return err
@@ -130,11 +132,12 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2alpha1.CiliumEnvoy
 func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: cec.ObjectMeta.Name,
+		logfields.K8sNamespace:          cec.ObjectMeta.Namespace,
 		logfields.K8sUID:                cec.ObjectMeta.UID,
 		logfields.K8sAPIVersion:         cec.TypeMeta.APIVersion,
 	})
 
-	resources, err := envoy.ParseResources(cec.ObjectMeta.Name, cec)
+	resources, err := envoy.ParseResources(cec.ObjectMeta.Namespace, cec.Spec.Resources)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyConfig: parsing rersource names failed.")
 		return err

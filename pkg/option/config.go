@@ -364,7 +364,7 @@ const (
 	// EnableIPv4EgressGateway enables the IPv4 egress gateway
 	EnableIPv4EgressGateway = "enable-ipv4-egress-gateway"
 
-	// EnableEnvoyConfig enables processing of CiliumEnvoyConfig CRDs
+	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
 
 	// IPMasqAgentConfigPath is the configuration file path

@@ -58,6 +58,7 @@ func agentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v2.CLRPName))
 	}
 	if option.Config.EnableEnvoyConfig {
+		result = append(result, CRDResourceName(v2alpha1.CCECName))
 		result = append(result, CRDResourceName(v2alpha1.CECName))
 	}
 

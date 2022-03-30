@@ -15,6 +15,10 @@ type FakeCiliumV2alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeCiliumV2alpha1) CiliumClusterwideEnvoyConfigs() v2alpha1.CiliumClusterwideEnvoyConfigInterface {
+	return &FakeCiliumClusterwideEnvoyConfigs{c}
+}
+
 func (c *FakeCiliumV2alpha1) CiliumEgressNATPolicies() v2alpha1.CiliumEgressNATPolicyInterface {
 	return &FakeCiliumEgressNATPolicies{c}
 }
@@ -23,8 +27,8 @@ func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSlice
 	return &FakeCiliumEndpointSlices{c}
 }
 
-func (c *FakeCiliumV2alpha1) CiliumEnvoyConfigs() v2alpha1.CiliumEnvoyConfigInterface {
-	return &FakeCiliumEnvoyConfigs{c}
+func (c *FakeCiliumV2alpha1) CiliumEnvoyConfigs(namespace string) v2alpha1.CiliumEnvoyConfigInterface {
+	return &FakeCiliumEnvoyConfigs{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

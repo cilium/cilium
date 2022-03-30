@@ -56,6 +56,20 @@ const (
 	// CESName is the full name of Cilium Endpoint Slice
 	CESName = CESPluralName + "." + CustomResourceDefinitionGroup
 
+	// Cilium Cluster Envoy Config (CCEC)
+
+	// CCECSingularName is the singular name of Cilium Clusterwide Envoy Config
+	CCECSingularName = "ciliumclusterwideenvoyconfig"
+
+	// CCECPluralName is the plural name of Cilium Clusterwide Envoy Config
+	CCECPluralName = "ciliumclusterwideenvoyconfigs"
+
+	// CCECKindDefinition is the kind name of Cilium Clusterwide Envoy Config
+	CCECKindDefinition = "CiliumClusterwideEnvoyConfig"
+
+	// CCECName is the full name of Cilium Clusterwide Envoy Config
+	CCECName = CCECPluralName + "." + CustomResourceDefinitionGroup
+
 	// Cilium Envoy Config (CEC)
 
 	// CECSingularName is the singular name of Cilium Envoy Config
@@ -118,6 +132,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumEndpointSliceList{},
 		&CiliumEnvoyConfig{},
 		&CiliumEnvoyConfigList{},
+		&CiliumClusterwideEnvoyConfig{},
+		&CiliumClusterwideEnvoyConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
