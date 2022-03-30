@@ -90,10 +90,17 @@ annotations:
       description: |
         Cilium Egress NAT Policy provides control over the way that traffic
         leaves the cluster and which source addresses to use for that traffic.
+    - kind: CiliumClusterwideEnvoyConfig
+      version: v2alpha1
+      name: ciliumclusterwideenvoyconfigs.cilium.io
+      displayName: Cilium Clusterwide Envoy Config
+      description: |
+        Cilium Clusterwide Envoy Config specifies Envoy resources and K8s service mappings
+        to be provisioned into Cilium host proxy instances in cluster context.
     - kind: CiliumEnvoyConfig
       version: v2alpha1
       name: ciliumenvoyconfigs.cilium.io
       displayName: Cilium Envoy Config
       description: |
         Cilium Envoy Config specifies Envoy resources and K8s service mappings
-        to be provisioned into Cilium host proxy instances.
+        to be provisioned into Cilium host proxy instances in namespace context.

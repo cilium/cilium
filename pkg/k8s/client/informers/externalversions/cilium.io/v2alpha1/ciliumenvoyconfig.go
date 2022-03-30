@@ -29,32 +29,33 @@ type CiliumEnvoyConfigInformer interface {
 type ciliumEnvoyConfigInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
 }
 
 // NewCiliumEnvoyConfigInformer constructs a new informer for CiliumEnvoyConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewCiliumEnvoyConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredCiliumEnvoyConfigInformer(client, resyncPeriod, indexers, nil)
+func NewCiliumEnvoyConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredCiliumEnvoyConfigInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
 // NewFilteredCiliumEnvoyConfigInformer constructs a new informer for CiliumEnvoyConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredCiliumEnvoyConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredCiliumEnvoyConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2alpha1().CiliumEnvoyConfigs().List(context.TODO(), options)
+				return client.CiliumV2alpha1().CiliumEnvoyConfigs(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2alpha1().CiliumEnvoyConfigs().Watch(context.TODO(), options)
+				return client.CiliumV2alpha1().CiliumEnvoyConfigs(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&ciliumiov2alpha1.CiliumEnvoyConfig{},
@@ -64,7 +65,7 @@ func NewFilteredCiliumEnvoyConfigInformer(client versioned.Interface, resyncPeri
 }
 
 func (f *ciliumEnvoyConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredCiliumEnvoyConfigInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewFilteredCiliumEnvoyConfigInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
 func (f *ciliumEnvoyConfigInformer) Informer() cache.SharedIndexInformer {

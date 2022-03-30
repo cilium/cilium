@@ -6,19 +6,19 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.6.2
   creationTimestamp: null
-  name: ciliumenvoyconfigs.cilium.io
+  name: ciliumclusterwideenvoyconfigs.cilium.io
 spec:
   group: cilium.io
   names:
     categories:
     - cilium
-    kind: CiliumEnvoyConfig
-    listKind: CiliumEnvoyConfigList
-    plural: ciliumenvoyconfigs
+    kind: CiliumClusterwideEnvoyConfig
+    listKind: CiliumClusterwideEnvoyConfigList
+    plural: ciliumclusterwideenvoyconfigs
     shortNames:
-    - cec
-    singular: ciliumenvoyconfig
-  scope: Namespaced
+    - ccec
+    singular: ciliumclusterwideenvoyconfig
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - description: The age of the identity

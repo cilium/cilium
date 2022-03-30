@@ -18,9 +18,8 @@ type CiliumEnvoyConfigLister interface {
 	// List lists all CiliumEnvoyConfigs in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2alpha1.CiliumEnvoyConfig, err error)
-	// Get retrieves the CiliumEnvoyConfig from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2alpha1.CiliumEnvoyConfig, error)
+	// CiliumEnvoyConfigs returns an object that can list and get CiliumEnvoyConfigs.
+	CiliumEnvoyConfigs(namespace string) CiliumEnvoyConfigNamespaceLister
 	CiliumEnvoyConfigListerExpansion
 }
 
@@ -42,9 +41,41 @@ func (s *ciliumEnvoyConfigLister) List(selector labels.Selector) (ret []*v2alpha
 	return ret, err
 }
 
-// Get retrieves the CiliumEnvoyConfig from the index for a given name.
-func (s *ciliumEnvoyConfigLister) Get(name string) (*v2alpha1.CiliumEnvoyConfig, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
+// CiliumEnvoyConfigs returns an object that can list and get CiliumEnvoyConfigs.
+func (s *ciliumEnvoyConfigLister) CiliumEnvoyConfigs(namespace string) CiliumEnvoyConfigNamespaceLister {
+	return ciliumEnvoyConfigNamespaceLister{indexer: s.indexer, namespace: namespace}
+}
+
+// CiliumEnvoyConfigNamespaceLister helps list and get CiliumEnvoyConfigs.
+// All objects returned here must be treated as read-only.
+type CiliumEnvoyConfigNamespaceLister interface {
+	// List lists all CiliumEnvoyConfigs in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
+	List(selector labels.Selector) (ret []*v2alpha1.CiliumEnvoyConfig, err error)
+	// Get retrieves the CiliumEnvoyConfig from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
+	Get(name string) (*v2alpha1.CiliumEnvoyConfig, error)
+	CiliumEnvoyConfigNamespaceListerExpansion
+}
+
+// ciliumEnvoyConfigNamespaceLister implements the CiliumEnvoyConfigNamespaceLister
+// interface.
+type ciliumEnvoyConfigNamespaceLister struct {
+	indexer   cache.Indexer
+	namespace string
+}
+
+// List lists all CiliumEnvoyConfigs in the indexer for a given namespace.
+func (s ciliumEnvoyConfigNamespaceLister) List(selector labels.Selector) (ret []*v2alpha1.CiliumEnvoyConfig, err error) {
+	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
+		ret = append(ret, m.(*v2alpha1.CiliumEnvoyConfig))
+	})
+	return ret, err
+}
+
+// Get retrieves the CiliumEnvoyConfig from the indexer for a given namespace and name.
+func (s ciliumEnvoyConfigNamespaceLister) Get(name string) (*v2alpha1.CiliumEnvoyConfig, error) {
+	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
 	if err != nil {
 		return nil, err
 	}

@@ -32,9 +32,9 @@ type Resources struct {
 }
 
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources type
-func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (Resources, error) {
+func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource) (Resources, error) {
 	resources := Resources{}
-	for _, r := range cec.Spec.Resources {
+	for _, r := range anySlice {
 		message, err := r.UnmarshalNew()
 		if err != nil {
 			return Resources{}, err
@@ -146,9 +146,6 @@ func ParseResources(namePrefix string, cec *cilium_v2alpha1.CiliumEnvoyConfig) (
 		default:
 			return Resources{}, fmt.Errorf("Unsupported type: %s", typeURL)
 		}
-	}
-	if len(resources.Listeners) == 0 {
-		log.Debugf("ParseResources: No listeners parsed from %v", cec.Spec)
 	}
 	return resources, nil
 }

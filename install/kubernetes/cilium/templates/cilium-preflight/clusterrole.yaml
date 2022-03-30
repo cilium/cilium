@@ -103,6 +103,7 @@ rules:
 - apiGroups:
   - cilium.io
   resources:
+  - ciliumclusterwideenvoyconfigs
   - ciliumenvoyconfigs
   verbs:
   - list

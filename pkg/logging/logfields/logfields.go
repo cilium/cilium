@@ -286,6 +286,9 @@ const (
 	// CiliumEgressNATPolicyName is the name of a CiliumEgressNATPolicy
 	CiliumEgressNATPolicyName = "ciliumEgressNATPolicyName"
 
+	// CiliumClusterwideEnvoyConfigName is the name of a CiliumClusterwideEnvoyConfig
+	CiliumClusterwideEnvoyConfigName = "ciliumClusterwideEnvoyConfigName"
+
 	// CiliumEnvoyConfigName is the name of a CiliumEnvoyConfig
 	CiliumEnvoyConfigName = "ciliumEnvoyConfigName"
 

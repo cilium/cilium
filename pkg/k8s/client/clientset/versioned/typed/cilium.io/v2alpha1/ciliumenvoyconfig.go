@@ -20,7 +20,7 @@ import (
 // CiliumEnvoyConfigsGetter has a method to return a CiliumEnvoyConfigInterface.
 // A group's client should implement this interface.
 type CiliumEnvoyConfigsGetter interface {
-	CiliumEnvoyConfigs() CiliumEnvoyConfigInterface
+	CiliumEnvoyConfigs(namespace string) CiliumEnvoyConfigInterface
 }
 
 // CiliumEnvoyConfigInterface has methods to work with CiliumEnvoyConfig resources.
@@ -39,12 +39,14 @@ type CiliumEnvoyConfigInterface interface {
 // ciliumEnvoyConfigs implements CiliumEnvoyConfigInterface
 type ciliumEnvoyConfigs struct {
 	client rest.Interface
+	ns     string
 }
 
 // newCiliumEnvoyConfigs returns a CiliumEnvoyConfigs
-func newCiliumEnvoyConfigs(c *CiliumV2alpha1Client) *ciliumEnvoyConfigs {
+func newCiliumEnvoyConfigs(c *CiliumV2alpha1Client, namespace string) *ciliumEnvoyConfigs {
 	return &ciliumEnvoyConfigs{
 		client: c.RESTClient(),
+		ns:     namespace,
 	}
 }
 
@@ -52,6 +54,7 @@ func newCiliumEnvoyConfigs(c *CiliumV2alpha1Client) *ciliumEnvoyConfigs {
 func (c *ciliumEnvoyConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumEnvoyConfig, err error) {
 	result = &v2alpha1.CiliumEnvoyConfig{}
 	err = c.client.Get().
+		Namespace(c.ns).
 		Resource("ciliumenvoyconfigs").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -68,6 +71,7 @@ func (c *ciliumEnvoyConfigs) List(ctx context.Context, opts v1.ListOptions) (res
 	}
 	result = &v2alpha1.CiliumEnvoyConfigList{}
 	err = c.client.Get().
+		Namespace(c.ns).
 		Resource("ciliumenvoyconfigs").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -84,6 +88,7 @@ func (c *ciliumEnvoyConfigs) Watch(ctx context.Context, opts v1.ListOptions) (wa
 	}
 	opts.Watch = true
 	return c.client.Get().
+		Namespace(c.ns).
 		Resource("ciliumenvoyconfigs").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -94,6 +99,7 @@ func (c *ciliumEnvoyConfigs) Watch(ctx context.Context, opts v1.ListOptions) (wa
 func (c *ciliumEnvoyConfigs) Create(ctx context.Context, ciliumEnvoyConfig *v2alpha1.CiliumEnvoyConfig, opts v1.CreateOptions) (result *v2alpha1.CiliumEnvoyConfig, err error) {
 	result = &v2alpha1.CiliumEnvoyConfig{}
 	err = c.client.Post().
+		Namespace(c.ns).
 		Resource("ciliumenvoyconfigs").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(ciliumEnvoyConfig).
@@ -106,6 +112,7 @@ func (c *ciliumEnvoyConfigs) Create(ctx context.Context, ciliumEnvoyConfig *v2al
 func (c *ciliumEnvoyConfigs) Update(ctx context.Context, ciliumEnvoyConfig *v2alpha1.CiliumEnvoyConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumEnvoyConfig, err error) {
 	result = &v2alpha1.CiliumEnvoyConfig{}
 	err = c.client.Put().
+		Namespace(c.ns).
 		Resource("ciliumenvoyconfigs").
 		Name(ciliumEnvoyConfig.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -118,6 +125,7 @@ func (c *ciliumEnvoyConfigs) Update(ctx context.Context, ciliumEnvoyConfig *v2al
 // Delete takes name of the ciliumEnvoyConfig and deletes it. Returns an error if one occurs.
 func (c *ciliumEnvoyConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
+		Namespace(c.ns).
 		Resource("ciliumenvoyconfigs").
 		Name(name).
 		Body(&opts).
@@ -132,6 +140,7 @@ func (c *ciliumEnvoyConfigs) DeleteCollection(ctx context.Context, opts v1.Delet
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
+		Namespace(c.ns).
 		Resource("ciliumenvoyconfigs").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -144,6 +153,7 @@ func (c *ciliumEnvoyConfigs) DeleteCollection(ctx context.Context, opts v1.Delet
 func (c *ciliumEnvoyConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumEnvoyConfig, err error) {
 	result = &v2alpha1.CiliumEnvoyConfig{}
 	err = c.client.Patch(pt).
+		Namespace(c.ns).
 		Resource("ciliumenvoyconfigs").
 		Name(name).
 		SubResource(subresources...).

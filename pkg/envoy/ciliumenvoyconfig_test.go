@@ -105,7 +105,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec)
+	resources, err := ParseResources("prefix", cec.Spec.Resources)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
@@ -209,11 +209,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	cec := &cilium_v2alpha1.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
-
 	c.Assert(cec.Spec.Resources, HasLen, 5)
-
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
-	resources, err := ParseResources("prefix", cec)
+
+	resources, err := ParseResources("prefix", cec.Spec.Resources)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))

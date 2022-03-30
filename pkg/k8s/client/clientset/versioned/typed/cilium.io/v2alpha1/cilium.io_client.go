@@ -15,6 +15,7 @@ import (
 
 type CiliumV2alpha1Interface interface {
 	RESTClient() rest.Interface
+	CiliumClusterwideEnvoyConfigsGetter
 	CiliumEgressNATPoliciesGetter
 	CiliumEndpointSlicesGetter
 	CiliumEnvoyConfigsGetter
@@ -25,6 +26,10 @@ type CiliumV2alpha1Client struct {
 	restClient rest.Interface
 }
 
+func (c *CiliumV2alpha1Client) CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInterface {
+	return newCiliumClusterwideEnvoyConfigs(c)
+}
+
 func (c *CiliumV2alpha1Client) CiliumEgressNATPolicies() CiliumEgressNATPolicyInterface {
 	return newCiliumEgressNATPolicies(c)
 }
@@ -33,8 +38,8 @@ func (c *CiliumV2alpha1Client) CiliumEndpointSlices() CiliumEndpointSliceInterfa
 	return newCiliumEndpointSlices(c)
 }
 
-func (c *CiliumV2alpha1Client) CiliumEnvoyConfigs() CiliumEnvoyConfigInterface {
-	return newCiliumEnvoyConfigs(c)
+func (c *CiliumV2alpha1Client) CiliumEnvoyConfigs(namespace string) CiliumEnvoyConfigInterface {
+	return newCiliumEnvoyConfigs(c, namespace)
 }
 
 // NewForConfig creates a new CiliumV2alpha1Client for the given config.

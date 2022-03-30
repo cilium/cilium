@@ -735,6 +735,29 @@ func ConvertToCiliumEgressNATPolicy(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCiliumClusterwideEnvoyConfig converts a *cilium_v2alpha1.CiliumClusterwideEnvoyConfig into a
+// *cilium_v2alpha1.CiliumClusterwideEnvoyConfig or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2alpha1.CiliumClusterwideEnvoyConfig in its Obj.
+// If the given obj can't be cast into either *cilium_v2alpha1.CiliumClusterwideEnvoyConfig
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumClusterwideEnvoyConfig(obj interface{}) interface{} {
+	switch concreteObj := obj.(type) {
+	case *cilium_v2alpha1.CiliumClusterwideEnvoyConfig:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumClusterwideEnvoyConfig, ok := concreteObj.Obj.(*cilium_v2alpha1.CiliumClusterwideEnvoyConfig)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumClusterwideEnvoyConfig,
+		}
+	default:
+		return obj
+	}
+}
+
 // ConvertToCiliumEnvoyConfig converts a *cilium_v2alpha1.CiliumEnvoyConfig into a
 // *cilium_v2alpha1.CiliumEnvoyConfig or a cache.DeletedFinalStateUnknown into
 // a cache.DeletedFinalStateUnknown with a *cilium_v2alpha1.CiliumEnvoyConfig in its Obj.
@@ -979,6 +1002,28 @@ func ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep *cilium_v2alpha1.CoreCi
 		Networking: ccep.Networking,
 		NamedPorts: ccep.NamedPorts,
 	}
+}
+
+// ObjToCCEC attempts to cast object to a CCEC object and
+// returns the object if the cast succeeds. Otherwise, nil is returned.
+func ObjToCCEC(obj interface{}) *cilium_v2alpha1.CiliumClusterwideEnvoyConfig {
+	ccec, ok := obj.(*cilium_v2alpha1.CiliumClusterwideEnvoyConfig)
+	if ok {
+		return ccec
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		ccec, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumClusterwideEnvoyConfig)
+		if ok {
+			return ccec
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2alpha1 Cilium Clusterwide Envoy Config")
+	return nil
 }
 
 // ObjToCEC attempts to cast object to a CEC object and

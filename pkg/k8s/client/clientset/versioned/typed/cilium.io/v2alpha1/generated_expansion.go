@@ -5,6 +5,8 @@
 
 package v2alpha1
 
+type CiliumClusterwideEnvoyConfigExpansion interface{}
+
 type CiliumEgressNATPolicyExpansion interface{}
 
 type CiliumEndpointSliceExpansion interface{}
