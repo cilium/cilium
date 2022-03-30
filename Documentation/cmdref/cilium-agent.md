@@ -222,6 +222,8 @@ cilium-agent [flags]
       --prepend-iptables-chains                              Prepend custom iptables chains instead of appending (default true)
       --prometheus-serve-addr string                         IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-connect-timeout uint                           Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 1)
+      --proxy-max-connection-duration-seconds int            Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
+      --proxy-max-requests-per-connection int                Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
       --proxy-prometheus-port int                            Port to serve Envoy metrics on. Default 0 (disabled).
       --read-cni-conf string                                 Read to the CNI configuration at specified path to extract per node configuration
       --restore                                              Restores state, if possible, from previous daemon (default true)

@@ -166,6 +166,12 @@ const (
 	// ProxyPrometheusPort specifies the port to serve Cilium host proxy metrics on.
 	ProxyPrometheusPort = "proxy-prometheus-port"
 
+	// ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for the proxy
+	ProxyMaxRequestsPerConnection = "proxy-max-requests-per-connection"
+
+	// ProxyMaxConnectionDuration specifies the max_connection_duration setting for the proxy in seconds
+	ProxyMaxConnectionDuration = "proxy-max-connection-duration-seconds"
+
 	// FixedIdentityMapping is the key-value for the fixed identity mapping
 	// which allows to use reserved label for fixed identities
 	FixedIdentityMapping = "fixed-identity-mapping"
@@ -1425,6 +1431,12 @@ type DaemonConfig struct {
 
 	// ProxyPrometheusPort specifies the port to serve Envoy metrics on.
 	ProxyPrometheusPort int
+
+	// ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for the proxy
+	ProxyMaxRequestsPerConnection int
+
+	// ProxyMaxConnectionDuration specifies the max_connection_duration setting for the proxy
+	ProxyMaxConnectionDuration time.Duration
 
 	// EnvoyLogPath specifies where to store the Envoy proxy logs when Envoy
 	// runs in the same container as Cilium.
@@ -2704,6 +2716,8 @@ func (c *DaemonConfig) Populate() {
 	c.PrometheusServeAddr = viper.GetString(PrometheusServeAddr)
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
 	c.ProxyPrometheusPort = viper.GetInt(ProxyPrometheusPort)
+	c.ProxyMaxRequestsPerConnection = viper.GetInt(ProxyMaxRequestsPerConnection)
+	c.ProxyMaxConnectionDuration = time.Duration(viper.GetInt64(ProxyMaxConnectionDuration))
 	c.ReadCNIConfiguration = viper.GetString(ReadCNIConfiguration)
 	c.RestoreState = viper.GetBool(Restore)
 	c.RouteMetric = viper.GetInt(RouteMetric)
