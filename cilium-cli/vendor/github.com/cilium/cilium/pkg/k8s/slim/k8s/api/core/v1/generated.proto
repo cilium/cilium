@@ -407,6 +407,12 @@ message PodSpec {
   // +optional
   optional string serviceAccountName = 8;
 
+  // NodeName is a request to schedule this pod onto a specific node. If it is non-empty,
+  // the scheduler simply schedules this pod onto that node, assuming that it fits resource
+  // requirements.
+  // +optional
+  optional string nodeName = 10;
+
   // Host networking requested for this pod. Use the host's network namespace.
   // If this option is set, the ports that will be used must be specified.
   // Default to false.
