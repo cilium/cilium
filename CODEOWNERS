@@ -282,6 +282,7 @@ jenkinsfiles @cilium/ci-structure
 /test/runtime/memcache.go @cilium/proxy @cilium/ci-structure
 # Standalone L4LB tests
 /test/l4lb @cilium/loadbalancer @cilium/ci-structure
+/test/nat46x64 @cilium/loadbalancer @cilium/ci-structure
 # Misc. tests
 /test/k8s/cli.go @cilium/cli @cilium/ci-structure
 /test/k8s/health.go @cilium/health @cilium/ci-structure
