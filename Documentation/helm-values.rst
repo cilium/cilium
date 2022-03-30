@@ -466,11 +466,11 @@
      - string
      - ``""``
    * - eni.subnetIDsFilter
-     - Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs
+     - Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead.
      - string
      - ``""``
    * - eni.subnetTagsFilter
-     - Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs
+     - Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead.
      - string
      - ``""``
    * - eni.updateEC2AdapterLimitViaAPI
