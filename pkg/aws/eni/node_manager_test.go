@@ -588,7 +588,7 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
 	err = ec2api.TagENI(context.TODO(), eniID1, map[string]string{
 		"foo":                 "bar",
@@ -598,7 +598,7 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
