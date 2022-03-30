@@ -403,14 +403,13 @@ const (
 	KindAKS
 	KindMicrok8s
 	KindRancherDesktop
+	KindK3s
 )
 
 func (k Kind) String() string {
 	switch k {
 	case KindUnknown:
 		return "unknown"
-	case KindMicrok8s:
-		return "microk8s"
 	case KindMinikube:
 		return "minikube"
 	case KindKind:
@@ -421,8 +420,12 @@ func (k Kind) String() string {
 		return "GKE"
 	case KindAKS:
 		return "AKS"
+	case KindMicrok8s:
+		return "microk8s"
 	case KindRancherDesktop:
 		return "rancher-desktop"
+	case KindK3s:
+		return "K3s"
 	default:
 		return "invalid"
 	}
@@ -486,6 +489,26 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 				f.Kind = KindAKS
 				return f
 			}
+		}
+	}
+
+	nodeList, err := c.ListNodes(ctx, metav1.ListOptions{})
+	if err != nil {
+		return f
+	}
+	// Assume k3s if the k8s master node runs k3s
+	for _, node := range nodeList.Items {
+		isMaster := node.Labels["node-role.kubernetes.io/master"]
+		if isMaster != "true" {
+			continue
+		}
+		instanceType, ok := node.Labels[corev1.LabelInstanceTypeStable]
+		if !ok {
+			instanceType = node.Labels[corev1.LabelInstanceType]
+		}
+		if instanceType == "k3s" {
+			f.Kind = KindK3s
+			return f
 		}
 	}
 
