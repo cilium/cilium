@@ -83,7 +83,7 @@ github.com/chai2010/gettext-go/gettext/po
 # github.com/cilium/charts v0.0.0-20220328201227-74ca65b8ff86
 ## explicit; go 1.17
 github.com/cilium/charts
-# github.com/cilium/cilium v1.11.2
+# github.com/cilium/cilium v1.11.3
 ## explicit; go 1.17
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/daemon
