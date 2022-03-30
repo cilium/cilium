@@ -642,7 +642,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	})
 
 	// Create the node-init daemonset if one is required for the current kind.
-	if _, exists := nodeInitScript[k.flavor.Kind]; exists {
+	if needsNodeInit(k.flavor.Kind) {
 		k.Log("🚀 Creating %s Node Init DaemonSet...", k.flavor.Kind.String())
 		ds := k.generateNodeInitDaemonSet(k.flavor.Kind)
 		if _, err := k.client.CreateDaemonSet(ctx, k.params.Namespace, ds, metav1.CreateOptions{}); err != nil {

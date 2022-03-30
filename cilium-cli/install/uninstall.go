@@ -88,7 +88,7 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.OperatorResourceQuota, metav1.DeleteOptions{})
 	}
 
-	if _, exists := nodeInitScript[k.flavor.Kind]; exists {
+	if needsNodeInit(k.flavor.Kind) {
 		k.Log("🔥 Deleting node init daemonset...")
 		k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.NodeInitDaemonSetName, metav1.DeleteOptions{})
 	}
