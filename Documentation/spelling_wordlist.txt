@@ -1,10 +1,10 @@
 ACK
 AKS
-Anthos
 APIEndpoint
 AdapterLimitViaAPI
 Alemayhu
 Alibaba
+Anthos
 BPF
 Bertin
 Blanco
@@ -90,7 +90,6 @@ MaskSize
 Mbit
 Mellanox
 Menlo
-mentees
 Mesos
 MiB
 Minikube
@@ -116,6 +115,7 @@ SIG
 SR-IOV
 Sharma
 Shirokov
+Shortnames
 Socionext
 Solarflare
 Spectre
@@ -564,6 +564,7 @@ linuxconf
 listenAddress
 listenHost
 listenPort
+listers
 liveblog
 liveness
 livenessProbe
@@ -606,6 +607,7 @@ mediabot
 memcache
 memcached
 memcd
+mentees
 metadata
 metricsServer
 microk
@@ -841,6 +843,7 @@ subnetTagsFilter
 subnets
 subregister
 subregisters
+subtypes
 sudo
 supergalatic
 superset
