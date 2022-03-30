@@ -6,6 +6,7 @@ package clientset
 
 import (
 	"fmt"
+	"net/http"
 
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -51,10 +52,11 @@ func (c *Clientset) NetworkingV1() networkingv1.NetworkingV1Interface {
 	return c.networkingV1
 }
 
-// NewForConfig creates a new Clientset for the given config.
+// NewForConfigAndClient creates a new Clientset for the given config and http client.
 // If config's RateLimiter is not set and QPS and Burst are acceptable,
 // NewForConfig will generate a rate-limiter in configShallowCopy.
-func NewForConfig(c *rest.Config) (*Clientset, error) {
+// Note the http client provided takes precedence over the configured transport values.
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*Clientset, error) {
 	configShallowCopy := *c
 	if configShallowCopy.RateLimiter == nil && configShallowCopy.QPS > 0 {
 		if configShallowCopy.Burst <= 0 {
@@ -70,28 +72,28 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 
 	// Wrap coreV1 with our own implementation
-	slimCoreV1, err := slim_corev1.NewForConfig(&configShallowCopy)
+	slimCoreV1, err := slim_corev1.NewForConfigAndClient(&configShallowCopy, h)
 	if err != nil {
 		return nil, err
 	}
 	cs.coreV1 = corev1.New(slimCoreV1.RESTClient())
 
 	// Wrap discoveryV1beta1 with our own implementation
-	slimDiscoveryV1beta1, err := slim_discovery_v1beta1.NewForConfig(&configShallowCopy)
+	slimDiscoveryV1beta1, err := slim_discovery_v1beta1.NewForConfigAndClient(&configShallowCopy, h)
 	if err != nil {
 		return nil, err
 	}
 	cs.discoveryV1beta1 = discoveryv1beta1.New(slimDiscoveryV1beta1.RESTClient())
 
 	// Wrap discoveryV1 with our own implementation
-	slimDiscoveryV1, err := slim_discovery_v1.NewForConfig(&configShallowCopy)
+	slimDiscoveryV1, err := slim_discovery_v1.NewForConfigAndClient(&configShallowCopy, h)
 	if err != nil {
 		return nil, err
 	}
 	cs.discoveryV1 = discoveryv1.New(slimDiscoveryV1.RESTClient())
 
 	// Wrap networkingV1 with our own implementation
-	slimNetworkingV1, err := slim_networkingv1.NewForConfig(&configShallowCopy)
+	slimNetworkingV1, err := slim_networkingv1.NewForConfigAndClient(&configShallowCopy, h)
 	if err != nil {
 		return nil, err
 	}

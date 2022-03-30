@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
@@ -134,17 +135,32 @@ func useNodeCIDR(n *nodeTypes.Node) {
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init(conf k8sconfig.Configuration) error {
-	k8sRestClient, closeAllDefaultClientConns, err := createDefaultClient()
+	restConfig, err := CreateConfig()
+	if err != nil {
+		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+	}
+	closeAllDefaultClientConns := setDialer(restConfig)
+	// Use the same http client for all k8s connections. It does not matter that
+	// we are using a restConfig for the HTTP client that differs from each
+	// individual client since the rest.HTTPClientFor only does not use fields
+	// that are specific for each client, for example:
+	// restConfig.ContentConfig.ContentType.
+	httpClient, err := rest.HTTPClientFor(restConfig)
+	if err != nil {
+		return fmt.Errorf("unable to create k8s REST client: %s", err)
+	}
+
+	k8sRestClient, err := createDefaultClient(restConfig, httpClient)
 	if err != nil {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
-	closeAllCiliumClientConns, err := createDefaultCiliumClient()
+	err = createDefaultCiliumClient(restConfig, httpClient)
 	if err != nil {
 		return fmt.Errorf("unable to create cilium k8s client: %s", err)
 	}
 
-	if err := createAPIExtensionsClient(); err != nil {
+	if err := createAPIExtensionsClient(restConfig, httpClient); err != nil {
 		return fmt.Errorf("unable to create k8s apiextensions client: %s", err)
 	}
 
@@ -166,7 +182,6 @@ func Init(conf k8sconfig.Configuration) error {
 						heartBeat,
 						option.Config.K8sHeartbeatTimeout,
 						closeAllDefaultClientConns,
-						closeAllCiliumClientConns,
 					)
 					return nil
 				},
