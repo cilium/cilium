@@ -56,7 +56,7 @@ var errors = map[uint8]string{
 	157: "IP fragmentation not supported",
 	158: "Service backend not found",
 	160: "No tunnel/encapsulation endpoint (datapath BUG!)",
-	161: "Failed to insert into proxymap", // Unused
+	161: "NAT 46/64 not enabled",
 	162: "Reached EDT rate-limiting drop horizon",
 	163: "Unknown connection tracking state",
 	164: "Local host is unreachable",
