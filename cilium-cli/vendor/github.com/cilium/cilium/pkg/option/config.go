@@ -2183,6 +2183,12 @@ func (c *DaemonConfig) IptablesMasqueradingEnabled() bool {
 	return c.IptablesMasqueradingIPv4Enabled() || c.IptablesMasqueradingIPv6Enabled()
 }
 
+// NodeIpsetNeeded returns true if a node ipsets should be used to skip
+// masquerading for traffic to cluster nodes.
+func (c *DaemonConfig) NodeIpsetNeeded() bool {
+	return c.Tunnel == TunnelDisabled && c.IptablesMasqueradingEnabled()
+}
+
 // RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
 // is enabled
 func (c *DaemonConfig) RemoteNodeIdentitiesEnabled() bool {
