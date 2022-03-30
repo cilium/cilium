@@ -112,6 +112,10 @@ to them:
          ]
        }
 
+Additional parameters may be configured in the ``eni`` or ``ipam`` section of
+the CNI configuration file. See the list of ENI allocation parameters below
+for a reference of the supported options.
+
 Deploy the ``ConfigMap``:
 
 .. code-block:: shell-session
@@ -121,14 +125,13 @@ Deploy the ``ConfigMap``:
 Configure Cilium with subnet-tags-filter
 ----------------------------------------
 
-Using the instructions above to deploy Cilium, specify the following additional
-arguments to Helm:
+Using the instructions above to deploy Cilium and CNI config, specify the
+following additional arguments to Helm:
 
 .. code-block:: shell-session
 
    --set cni.customConf=true \
-   --set cni.configMap=cni-configuration \
-   --set eni.subnetTagsFilter="foo=true"
+   --set cni.configMap=cni-configuration
 
 ENI Allocation Parameters
 =========================
