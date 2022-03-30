@@ -34,6 +34,8 @@ type Options struct {
 	CiliumLabelSelector string
 	// The namespace Cilium is running in.
 	CiliumNamespace string
+	// The namespace Cilium operator is running in.
+	CiliumOperatorNamespace string
 	// The labels used to target Cilium daemon set. Usually, this label is same as CiliumLabelSelector.
 	CiliumDaemonSetSelector string
 	// The labels used to target Cilium operator pods.
@@ -557,7 +559,7 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Cilium operator deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetDeployment(ctx, c.Options.CiliumNamespace, ciliumOperatorDeploymentName, metav1.GetOptions{})
+				v, err := c.Client.GetDeployment(ctx, c.Options.CiliumOperatorNamespace, ciliumOperatorDeploymentName, metav1.GetOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator deployment: %w", err)
 				}
