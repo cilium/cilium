@@ -579,6 +579,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableBandwidthManager, false, "Enable BPF bandwidth manager")
 	option.BindEnv(option.EnableBandwidthManager)
 
+	flags.Bool(option.EnableBBR, false, "Enable BBR for the bandwidth manager")
+	option.BindEnv(option.EnableBBR)
+
 	flags.Bool(option.EnableRecorder, false, "Enable BPF datapath pcap recorder")
 	option.BindEnv(option.EnableRecorder)
 

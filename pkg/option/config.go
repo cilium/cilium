@@ -319,6 +319,9 @@ const (
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager = "enable-bandwidth-manager"
 
+	// EnableBBR enables BBR TCP congestion control for the node including Pods
+	EnableBBR = "enable-bbr"
+
 	// EnableRecorder enables the datapath pcap recorder
 	EnableRecorder = "enable-recorder"
 
@@ -1808,6 +1811,9 @@ type DaemonConfig struct {
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager bool
 
+	// EnableBBR enables BBR TCP congestion control for the node including Pods
+	EnableBBR bool
+
 	// ResetQueueMapping resets the Pod's skb queue mapping
 	ResetQueueMapping bool
 
@@ -2647,6 +2653,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableSessionAffinity = viper.GetBool(EnableSessionAffinity)
 	c.EnableServiceTopology = viper.GetBool(EnableServiceTopology)
 	c.EnableBandwidthManager = viper.GetBool(EnableBandwidthManager)
+	c.EnableBBR = viper.GetBool(EnableBBR)
 	c.EnableRecorder = viper.GetBool(EnableRecorder)
 	c.EnableMKE = viper.GetBool(EnableMKE)
 	c.CgroupPathMKE = viper.GetString(CgroupPathMKE)
