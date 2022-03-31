@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package npds
 
@@ -20,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/proxylib/test"
 )
 
@@ -89,7 +89,7 @@ func (s *ClientSuite) TestRequestAllResources(c *C) {
 
 	// Some wait before server is made available
 	time.Sleep(500 * time.Millisecond)
-	xdsServer := envoy.StartXDSServer(test.Tmpdir)
+	xdsServer := envoy.StartXDSServer(ipcache.NewIPCache(nil), test.Tmpdir)
 	time.Sleep(500 * time.Millisecond)
 
 	// Create version 1 with resource 0.

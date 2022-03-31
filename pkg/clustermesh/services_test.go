@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests && integration_tests
-// +build !privileged_tests,integration_tests
 
 package clustermesh
 
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -35,7 +35,7 @@ var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddre
 
 func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(clusterSuffix, backendIP, portName, port string) (string, string) {
 	return "cilium/state/services/v1/" + s.randomName + clusterSuffix + "/default/foo",
-		`{"cluster":"` + s.randomName + clusterSuffix + `","namespace":"default","name":"foo","frontends":{"172.20.0.177":{"port":{"protocol":"TCP","port":80}}},"backends":{"` + backendIP + `":{"` + portName + `":{"protocol":"TCP","port":` + port + `}}},"labels":{},"selector":{"name":"foo"}}`
+		`{"cluster":"` + s.randomName + clusterSuffix + `","namespace":"default","name":"foo","frontends":{"172.20.0.177":{"port":{"protocol":"TCP","port":80}}},"backends":{"` + backendIP + `":{"` + portName + `":{"protocol":"TCP","port":` + port + `}}},"labels":{},"selector":{"name":"foo"},"shared":true,"includeExternal":true}`
 
 }
 
@@ -81,6 +81,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		nodeObserver:          &testObserver{},
 		ServiceMerger:         &s.svcCache,
 		RemoteIdentityWatcher: mgr,
+		IPCache:               ipcache.NewIPCache(nil),
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))

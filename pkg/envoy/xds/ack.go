@@ -6,8 +6,8 @@ package xds
 import (
 	"errors"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
@@ -41,9 +41,22 @@ type ResourceVersionAckObserver interface {
 
 // AckingResourceMutatorRevertFunc is a function which reverts the effects of
 // an update on a AckingResourceMutator.
-// The completion is called back when the new resource update is
+// The completion, if not nil, is called back when the new resource update is
 // ACKed by the Envoy nodes.
 type AckingResourceMutatorRevertFunc func(completion *completion.Completion)
+
+type AckingResourceMutatorRevertFuncList []AckingResourceMutatorRevertFunc
+
+func (rl AckingResourceMutatorRevertFuncList) Revert(wg *completion.WaitGroup) {
+	// Revert the listed funcions in reverse order
+	for i := len(rl) - 1; i >= 0; i-- {
+		var c *completion.Completion
+		if wg != nil {
+			c = wg.AddCompletion()
+		}
+		rl[i](c)
+	}
+}
 
 // AckingResourceMutator is a variant of ResourceMutator which calls back a
 // Completion when a resource update is ACKed by a set of Envoy nodes.
@@ -152,12 +165,13 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	if !updated {
 		if wg != nil {
-			m.useCurrent(typeURL, nodeIDs, wg)
+			m.useCurrent(typeURL, nodeIDs, wg, callback)
 		}
 		return func(completion *completion.Completion) {}
 	}
 
 	if wg != nil {
+		// Create a new completion
 		c := wg.AddCompletionWithCallback(callback)
 		if _, found := m.pendingCompletions[c]; found {
 			log.WithFields(logrus.Fields{
@@ -178,6 +192,8 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 		m.pendingCompletions[c] = comp
 	}
 
+	// Returned revert function locks again, so it can NOT be called from 'callback' directly,
+	// as 'callback' is called with the lock already held.
 	return func(completion *completion.Completion) {
 		m.locker.Lock()
 		defer m.locker.Unlock()
@@ -195,10 +211,10 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	}
 }
 
-func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
+func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) {
 	if !m.currentVersionAcked(nodeIDs) {
 		// Add a completion object for 'version' so that the caller may wait for the N/ACK
-		m.addVersionCompletion(typeURL, m.version, nodeIDs, wg.AddCompletion())
+		m.addVersionCompletion(typeURL, m.version, nodeIDs, wg.AddCompletionWithCallback(callback))
 	}
 }
 
@@ -209,7 +225,7 @@ func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []stri
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	m.useCurrent(typeURL, nodeIDs, wg)
+	m.useCurrent(typeURL, nodeIDs, wg, nil)
 }
 
 func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) bool {
@@ -245,7 +261,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 	if !updated {
 		if wg != nil {
-			m.useCurrent(typeURL, nodeIDs, wg)
+			m.useCurrent(typeURL, nodeIDs, wg, callback)
 		}
 		return func(completion *completion.Completion) {}
 	}

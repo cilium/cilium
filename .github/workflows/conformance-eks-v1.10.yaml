@@ -219,7 +219,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
-            until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/$image/tag/${{ steps.vars.outputs.sha }}/images" &> /dev/null; do sleep 45s; done
+            until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/$image/tag/?specificTag=${{ steps.vars.outputs.sha }}" &> /dev/null; do sleep 45s; done
           done
 
       - name: Install Cilium
@@ -242,8 +242,8 @@ jobs:
 
       - name: Clean up Cilium
         run: |
-          cilium uninstall --wait
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
+          cilium uninstall --wait
 
       - name: Create custom IPsec secret
         run: |

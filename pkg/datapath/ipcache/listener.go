@@ -54,19 +54,22 @@ type BPFListener struct {
 
 	// monitorNotify is used to notify the monitor about ipcache updates
 	monitorNotify monitorNotify
+
+	ipcache *ipcache.IPCache
 }
 
-func newListener(m *ipcacheMap.Map, d datapath, mn monitorNotify) *BPFListener {
+func newListener(m *ipcacheMap.Map, d datapath, mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
 	return &BPFListener{
 		bpfMap:        m,
 		datapath:      d,
 		monitorNotify: mn,
+		ipcache:       ipc,
 	}
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(d datapath, mn monitorNotify) *BPFListener {
-	return newListener(ipcacheMap.IPCache, d, mn)
+func NewListener(d datapath, mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
+	return newListener(ipcacheMap.IPCache, d, mn, ipc)
 }
 
 func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
@@ -183,14 +186,14 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 // specified "keysToRemove" map with entries that exist in the BPF map which
 // do not exist in the in-memory ipcache.
 //
-// Must be called while holding ipcache.IPIdentityCache.Lock for reading.
-func updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) bpf.DumpCallback {
+// Must be called while holding l.ipcache.Lock for reading.
+func (l *BPFListener) updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) bpf.DumpCallback {
 	return func(key bpf.MapKey, _ bpf.MapValue) {
 		k := key.(*ipcacheMap.Key)
 		keyToIP := k.String()
 
 		// Don't RLock as part of the same goroutine.
-		if i, exists := ipcache.IPIdentityCache.LookupByPrefixRLocked(keyToIP); !exists {
+		if i, exists := l.ipcache.LookupByPrefixRLocked(keyToIP); !exists {
 			switch i.Source {
 			case source.KVStore, source.Local:
 				// Cannot delete from map during callback because DumpWithCallback
@@ -253,11 +256,11 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		// Since controllers run asynchronously, need to make sure
 		// IPIdentityCache is not being updated concurrently while we
 		// do GC;
-		ipcache.IPIdentityCache.RLock()
-		defer ipcache.IPIdentityCache.RUnlock()
+		l.ipcache.RLock()
+		defer l.ipcache.RUnlock()
 
 		keysToRemove := map[string]*ipcacheMap.Key{}
-		if err := l.bpfMap.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
+		if err := l.bpfMap.DumpWithCallback(l.updateStaleEntriesFunction(keysToRemove)); err != nil {
 			return nil, fmt.Errorf("error dumping ipcache BPF map: %s", err)
 		}
 
@@ -274,17 +277,17 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		// Since controllers run asynchronously, need to make sure
 		// IPIdentityCache is not being updated concurrently while we
 		// do GC;
-		ipcache.IPIdentityCache.RLock()
+		l.ipcache.RLock()
 
 		// Populate the map at the new path
 		pendingMapName := fmt.Sprintf("%s_pending", ipcacheMap.Name)
 		pendingMap := ipcacheMap.NewMap(pendingMapName)
 		if _, err := pendingMap.OpenOrCreate(); err != nil {
-			ipcache.IPIdentityCache.RUnlock()
+			l.ipcache.RUnlock()
 			return nil, fmt.Errorf("Unable to create %s map: %s", pendingMapName, err)
 		}
-		pendingListener := newListener(pendingMap, l.datapath, nil)
-		ipcache.IPIdentityCache.DumpToListenerLocked(pendingListener)
+		pendingListener := newListener(pendingMap, l.datapath, nil, l.ipcache)
+		l.ipcache.DumpToListenerLocked(pendingListener)
 		err := pendingMap.Close()
 		if err != nil {
 			log.WithError(err).WithField("map-name", pendingMapName).Warning("unable to close map")
@@ -294,7 +297,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		// will pick up the new paths without requiring recompilation.
 		backupMapName := fmt.Sprintf("%s_old", ipcacheMap.Name)
 		if err := shuffleMaps(ipcacheMap.Name, backupMapName, pendingMapName); err != nil {
-			ipcache.IPIdentityCache.RUnlock()
+			l.ipcache.RUnlock()
 			return nil, err
 		}
 
@@ -302,7 +305,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		// the new map
 		if err := ipcacheMap.Reopen(); err != nil {
 			handleMapShuffleFailure(backupMapName, ipcacheMap.Name)
-			ipcache.IPIdentityCache.RUnlock()
+			l.ipcache.RUnlock()
 			return nil, err
 		}
 
@@ -310,7 +313,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		// TriggerReloadWithoutCompile() to succeed, other endpoint
 		// regenerations which are blocking on the ipcache lock may
 		// need to succeed first (#11946)
-		ipcache.IPIdentityCache.RUnlock()
+		l.ipcache.RUnlock()
 
 		wg, err := l.datapath.TriggerReloadWithoutCompile("datapath ipcache")
 		if err != nil {
@@ -339,7 +342,7 @@ func (l *BPFListener) OnIPIdentityCacheGC() {
 	// fully to give us the history of all events. As such, periodically check
 	// for inconsistencies in the data-path with that in the agent to ensure
 	// consistent state.
-	ipcache.IPIdentityCache.UpdateController("ipcache-bpf-garbage-collection",
+	l.ipcache.UpdateController("ipcache-bpf-garbage-collection",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				wg, err := l.garbageCollect(ctx)

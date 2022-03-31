@@ -59,7 +59,8 @@ var _ = Describe("RuntimeLB", func() {
 		By("Creating containers for traffic test")
 
 		for k, v := range images {
-			vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
+			res := vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
+			res.ExpectSuccess("failed to create container %s", k)
 		}
 		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoint are not ready after timeout")
 	}

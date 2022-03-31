@@ -47,13 +47,13 @@ type Process struct {
 const (
 	// Running marks a task a running or runnable (on the run queue)
 	Running = "running"
-	// Blocked marks a task waiting on a short, uninterruptable operation (usually IO)
+	// Blocked marks a task waiting on a short, uninterruptible operation (usually I/O)
 	Blocked = "blocked"
 	// Idle marks a task sleeping for more than about 20 seconds
 	Idle = "idle"
 	// Lock marks a task waiting to acquire a lock
 	Lock = "lock"
-	// Sleep marks task waiting for short, interruptable operation
+	// Sleep marks task waiting for short, interruptible operation
 	Sleep = "sleep"
 	// Stop marks a stopped process
 	Stop = "stop"
@@ -230,7 +230,7 @@ func (p *Process) BackgroundWithContext(ctx context.Context) (bool, error) {
 }
 
 // If interval is 0, return difference from last call(non-blocking).
-// If interval > 0, wait interval sec and return diffrence between start and end.
+// If interval > 0, wait interval sec and return difference between start and end.
 func (p *Process) Percent(interval time.Duration) (float64, error) {
 	return p.PercentWithContext(context.Background(), interval)
 }
@@ -400,6 +400,15 @@ func (p *Process) Cwd() (string, error) {
 // Parent returns parent Process of the process.
 func (p *Process) Parent() (*Process, error) {
 	return p.ParentWithContext(context.Background())
+}
+
+// ParentWithContext returns parent Process of the process.
+func (p *Process) ParentWithContext(ctx context.Context) (*Process, error) {
+	ppid, err := p.PpidWithContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return NewProcessWithContext(ctx, ppid)
 }
 
 // Status returns the process status.

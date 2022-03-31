@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests && integration_tests
-// +build !privileged_tests,integration_tests
 
 package endpoint
 
@@ -14,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -21,7 +21,7 @@ import (
 
 func (s *EndpointSuite) TestPolicyLog(c *C) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
-	ep := NewEndpointWithState(do, do, nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewEndpointWithState(do, do, ipcache.NewIPCache(nil), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	// Initially nil
 	policyLogger := ep.getPolicyLogger()

@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !darwin && privileged_tests
-// +build !darwin,privileged_tests
 
 package node
 

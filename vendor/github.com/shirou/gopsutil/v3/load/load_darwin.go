@@ -39,7 +39,7 @@ func AvgWithContext(ctx context.Context) (*AvgStat, error) {
 	return ret, nil
 }
 
-// Misc returnes miscellaneous host-wide statistics.
+// Misc returns miscellaneous host-wide statistics.
 // darwin use ps command to get process running/blocked count.
 // Almost same as FreeBSD implementation, but state is different.
 // U means 'Uninterruptible Sleep'.

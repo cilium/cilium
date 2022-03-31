@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -59,6 +60,8 @@ type Configuration struct {
 	// RemoteIdentityWatcher provides identities that have been allocated on a
 	// remote cluster.
 	RemoteIdentityWatcher RemoteIdentityWatcher
+
+	IPCache *ipcache.IPCache
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
@@ -91,6 +94,8 @@ type ClusterMesh struct {
 	controllers   *controller.Manager
 	configWatcher *configDirectoryWatcher
 
+	ipcache *ipcache.IPCache
+
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
 	globalServices *globalServiceCache
@@ -114,6 +119,7 @@ func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
 			Name:      "remote_clusters",
 			Help:      "The total number of remote clusters meshed with the local cluster",
 		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName}),
+		ipcache: c.IPCache,
 	}
 
 	w, err := createConfigDirectoryWatcher(c.ConfigDirectory, cm)

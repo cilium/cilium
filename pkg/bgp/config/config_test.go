@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 // Package config provides BGP configuration logic.
 package config

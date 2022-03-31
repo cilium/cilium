@@ -70,6 +70,7 @@ func (d *Daemon) initHealth() {
 						ctx,
 						d,
 						d,
+						d.ipcache,
 						d.mtuConfig,
 						d.endpointManager,
 						d.l7Proxy,

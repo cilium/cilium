@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package command
 
@@ -36,6 +35,15 @@ func TestGetStringMapString(t *testing.T) {
 				value: `{"k1":"v1","k2":"v2"}`,
 			},
 			want:    expectedResult,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "valid empty json",
+			args: args{
+				key:   "FOO_BAR",
+				value: "{}",
+			},
+			want:    map[string]string{},
 			wantErr: assert.NoError,
 		},
 		{

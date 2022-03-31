@@ -54,7 +54,7 @@ func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
 		return e.getNamedPortIngress(k8sPorts, name, proto)
 	}
 	// egress needs named ports of all the pods
-	return e.getNamedPortEgress(ipcache.IPIdentityCache.GetNamedPorts(), name, proto)
+	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
 }
 
 // GetNamedPortLocked returns port for the given name. May return an invalid (0) port
@@ -65,7 +65,7 @@ func (e *Endpoint) GetNamedPortLocked(ingress bool, name string, proto uint8) ui
 		return e.getNamedPortIngress(e.k8sPorts, name, proto)
 	}
 	// egress needs named ports of all the pods
-	return e.getNamedPortEgress(ipcache.IPIdentityCache.GetNamedPorts(), name, proto)
+	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
 }
 
 func (e *Endpoint) getNamedPortIngress(npMap policy.NamedPortMap, name string, proto uint8) uint16 {

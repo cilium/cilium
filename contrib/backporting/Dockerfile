@@ -5,6 +5,7 @@ LABEL maintainer="maintainer@cilium.io"
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get -y install tzdata
 RUN apt-get install -y \
   git \
+  golang \
   jq \
   python3 \
   python3-pip \

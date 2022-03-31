@@ -197,15 +197,18 @@ type IPIdentityWatcher struct {
 	synced     chan struct{}
 	stopOnce   sync.Once
 	syncedOnce sync.Once
+
+	ipcache *IPCache
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
 // kvstore backend
-func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher {
+func NewIPIdentityWatcher(ipc *IPCache, backend kvstore.BackendOperations) *IPIdentityWatcher {
 	watcher := &IPIdentityWatcher{
 		backend: backend,
 		stop:    make(chan struct{}),
 		synced:  make(chan struct{}),
+		ipcache: ipc,
 	}
 
 	return watcher
@@ -256,11 +259,11 @@ restart:
 			//   the deletion event.
 			switch event.Typ {
 			case kvstore.EventTypeListDone:
-				IPIdentityCache.Lock()
-				for _, listener := range IPIdentityCache.listeners {
+				iw.ipcache.Lock()
+				for _, listener := range iw.ipcache.listeners {
 					listener.OnIPIdentityCacheGC()
 				}
-				IPIdentityCache.Unlock()
+				iw.ipcache.Unlock()
 				iw.closeSynced()
 
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
@@ -309,7 +312,7 @@ restart:
 				// and the endpoint-runIPIdentitySync where it bounded to a
 				// lease and a controller which is stopped/removed when the
 				// endpoint is gone.
-				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
+				iw.ipcache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
 					ID:     peerIdentity,
 					Source: source.KVStore,
 				})
@@ -344,7 +347,7 @@ restart:
 					// The key no longer exists in the
 					// local cache, it is safe to remove
 					// from the datapath ipcache.
-					IPIdentityCache.Delete(ip, source.KVStore)
+					iw.ipcache.Delete(ip, source.KVStore)
 				}
 			}
 		case <-ctx.Done():
@@ -384,11 +387,11 @@ var (
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
-func InitIPIdentityWatcher() {
+func (ipc *IPCache) InitIPIdentityWatcher() {
 	setupIPIdentityWatcher.Do(func() {
 		go func() {
 			log.Info("Starting IP identity watcher")
-			watcher = NewIPIdentityWatcher(kvstore.Client())
+			watcher = NewIPIdentityWatcher(ipc, kvstore.Client())
 			close(initialized)
 			watcher.Watch(context.TODO())
 		}()

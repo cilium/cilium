@@ -25,3 +25,4 @@ understand the workflow of getting these changes reviewed and merged upstream.
    debugging
    hubble
    documentation
+   season_of_docs

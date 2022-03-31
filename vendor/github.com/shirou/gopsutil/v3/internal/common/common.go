@@ -64,7 +64,7 @@ func (i Invoke) CommandWithContext(ctx context.Context, name string, arg ...stri
 
 type FakeInvoke struct {
 	Suffix string // Suffix species expected file name suffix such as "fail"
-	Error  error  // If Error specfied, return the error.
+	Error  error  // If Error specified, return the error.
 }
 
 // Command in FakeInvoke returns from expected file if exists.

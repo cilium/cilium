@@ -584,6 +584,10 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 		}
 	}
 
+	option.Config.NodePortNat46X64 = option.Config.EnableIPv4 && option.Config.EnableIPv6 &&
+		option.Config.NodePortMode == option.NodePortModeSNAT &&
+		probes.NewProbeManager().GetMisc().HaveLargeInsnLimit
+
 	for _, iface := range option.Config.Devices {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {

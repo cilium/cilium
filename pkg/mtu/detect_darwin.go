@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build darwin
-// +build darwin
 
 package mtu
 

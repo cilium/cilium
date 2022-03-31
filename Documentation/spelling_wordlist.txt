@@ -1,5 +1,6 @@
 ACK
 AKS
+Anthos
 APIEndpoint
 AdapterLimitViaAPI
 Alemayhu
@@ -31,6 +32,7 @@ DSR
 DTrace
 Dangaard
 Datapath
+Dataplane
 Deathstar
 Dinan
 Dockerfile
@@ -88,6 +90,7 @@ MaskSize
 Mbit
 Mellanox
 Menlo
+mentees
 Mesos
 MiB
 Minikube
@@ -171,6 +174,7 @@ autoload
 autoscaler
 awk
 aws
+awsEnablePrefixDelegation
 awsReleaseExcessIPs
 backend
 backends

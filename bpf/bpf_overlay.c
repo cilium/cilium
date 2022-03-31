@@ -350,9 +350,12 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 {
 	union macaddr mac = NODE_MAC;
 	union macaddr smac;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_CT_REPLY,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	__be32 sip;
 	__be32 tip;
-	__u32 monitor = TRACE_PAYLOAD_LEN;
 	int i;
 	int ret;
 	struct remote_endpoint_info *info;
@@ -374,14 +377,17 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	for (i = 0; i < VTEP_NUMS; i++) {
 		if (info->tunnel_endpoint == VTEP_ENDPOINT[i])
-			return __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-									info->sec_label, monitor);
+			return __encap_and_redirect_with_nodeid(ctx,
+								info->tunnel_endpoint,
+								info->sec_label,
+								&trace);
 	}
 
 	return send_drop_notify_error(ctx, 0, DROP_UNKNOWN_L3, CTX_ACT_DROP, METRIC_EGRESS);
 
 pass_to_stack:
-	send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0, ctx->ingress_ifindex, 0, monitor);
+	send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0, ctx->ingress_ifindex,
+			  trace.reason, trace.monitor);
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_VTEP */
@@ -477,7 +483,8 @@ int from_overlay(struct __ctx_buff *ctx)
 		}
 
 		send_trace_notify(ctx, obs_point, identity, 0, 0,
-				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	}
 
 	switch (proto) {

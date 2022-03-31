@@ -51,7 +51,11 @@ enum trace_reason {
 	TRACE_REASON_CT_REPLY = CT_REPLY,
 	TRACE_REASON_CT_RELATED = CT_RELATED,
 	TRACE_REASON_CT_REOPENED = CT_REOPENED,
-	TRACE_REASON_ENCRYPTED = 0x80
+	TRACE_REASON_UNKNOWN,
+	/* Note: TRACE_REASON_ENCRYPTED is used as a mask. Beware if you add
+	 * new values below it, they would match with that mask.
+	 */
+	TRACE_REASON_ENCRYPTED = 0x80,
 } __packed;
 
 /* Trace aggregation levels. */
@@ -118,6 +122,13 @@ update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 		break;
 	}
 }
+
+struct trace_ctx {
+	enum trace_reason reason;
+	__u32 monitor;	/* Monitor length for number of bytes to forward in
+			 * trace message. 0 means do not monitor.
+			 */
+};
 
 #ifdef TRACE_NOTIFY
 struct trace_notify {

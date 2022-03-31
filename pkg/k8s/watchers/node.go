@@ -5,6 +5,8 @@ package watchers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -16,12 +18,18 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 var (
@@ -35,6 +43,14 @@ var (
 // have their event handling methods called in order of registration.
 func (k *K8sWatcher) RegisterNodeSubscriber(s subscriber.Node) {
 	k.NodeChain.Register(s)
+}
+
+func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
+	if !comparator.MapStringEquals(oldNode.GetLabels(), newNode.GetLabels()) {
+		return false
+	}
+
+	return true
 }
 
 func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
@@ -68,11 +84,8 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 								k8sClient.ReMarkNodeReady()
 							}
 
-							oldNodeLabels := oldNode.GetLabels()
-							newNodeLabels := newNode.GetLabels()
-							if comparator.MapStringEquals(oldNodeLabels, newNodeLabels) {
-								equal = true
-							} else {
+							equal = nodeEventsAreEqual(oldNode, newNode)
+							if !equal {
 								errs := k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
 								k.K8sEventProcessed(metricNode, metricUpdate, errs == nil)
 							}
@@ -124,4 +137,80 @@ func (k *K8sWatcher) GetK8sNode(_ context.Context, nodeName string) (*v1.Node, e
 		}, nodeName)
 	}
 	return nodeInterface.(*v1.Node).DeepCopy(), nil
+}
+
+// ciliumNodeUpdater implements the subscriber.Node interface and is used
+// to keep CiliumNode objects in sync with the node ones.
+type ciliumNodeUpdater struct {
+	k8sWatcher *K8sWatcher
+}
+
+func NewCiliumNodeUpdater(k8sWatcher *K8sWatcher) *ciliumNodeUpdater {
+	return &ciliumNodeUpdater{
+		k8sWatcher: k8sWatcher,
+	}
+}
+
+func (u *ciliumNodeUpdater) OnAddNode(newNode *v1.Node, swg *lock.StoppableWaitGroup) error {
+	u.updateCiliumNode(newNode)
+
+	return nil
+}
+
+func (u *ciliumNodeUpdater) OnUpdateNode(oldNode, newNode *v1.Node, swg *lock.StoppableWaitGroup) error {
+	u.updateCiliumNode(newNode)
+
+	return nil
+}
+
+func (u *ciliumNodeUpdater) OnDeleteNode(*v1.Node, *lock.StoppableWaitGroup) error {
+	return nil
+}
+
+func (u *ciliumNodeUpdater) updateCiliumNode(node *v1.Node) {
+	var (
+		controllerName = fmt.Sprintf("sync-node-with-ciliumnode (%v)", node.Name)
+
+		nodeSlim      = k8s.ConvertToNode(node.DeepCopy()).(*slim_corev1.Node)
+		k8sNodeParsed = k8s.ParseNode(nodeSlim, source.Local)
+	)
+
+	k8sNodeParsed.NodeIdentity = uint32(identity.ReservedIdentityHost)
+
+	doFunc := func(ctx context.Context) (err error) {
+		if option.Config.KVStore != "" && !option.Config.JoinCluster {
+			// TODO(jibi) handle the KV store case
+			return nil
+		} else {
+			u.k8sWatcher.ciliumNodeStoreMU.RLock()
+			defer u.k8sWatcher.ciliumNodeStoreMU.RUnlock()
+
+			if u.k8sWatcher.ciliumNodeStore == nil {
+				return errors.New("CiliumNode cache store not yet initialized")
+			}
+
+			ciliumNodeInterface, exists, err := u.k8sWatcher.ciliumNodeStore.GetByKey(node.Name)
+			if err != nil {
+				return fmt.Errorf("failed to get CiliumNode resource from cache store: %w", err)
+			}
+			if !exists {
+				return nil
+			}
+
+			ciliumNode := ciliumNodeInterface.(*ciliumv2.CiliumNode).DeepCopy()
+
+			ciliumNode.Labels = node.GetLabels()
+
+			if _, err = k8s.CiliumClient().CiliumV2().CiliumNodes().Update(ctx, ciliumNode, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("failed to update CiliumNode labels: %w", err)
+			}
+		}
+
+		return nil
+	}
+
+	k8sCM.UpdateController(controllerName,
+		controller.ControllerParams{
+			DoFunc: doFunc,
+		})
 }

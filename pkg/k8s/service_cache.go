@@ -495,7 +495,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 		}
 	}
 
-	if svcFound && svc.IncludeExternal && svc.Shared {
+	if svcFound && svc.IncludeExternal {
 		externalEndpoints, hasExternalEndpoints := s.externalEndpoints[id]
 		if hasExternalEndpoints {
 			// remote cluster endpoints already contain all Endpoints from all
@@ -519,7 +519,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	}
 
 	// Report the service as ready if a local endpoints object exists or if
-	// external endpoints have have been identified
+	// external endpoints have been identified
 	return endpoints, hasLocalEndpoints || len(endpoints.Backends) > 0
 }
 
@@ -548,23 +548,27 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 		s.externalEndpoints[id] = externalEndpoints
 	}
 
-	scopedLog.Debugf("Updating backends to %+v", service.Backends)
-	backends := map[string]*Backend{}
-	for ipString, portConfig := range service.Backends {
-		backends[ipString] = &Backend{Ports: portConfig}
-	}
-	externalEndpoints.endpoints[service.Cluster] = &Endpoints{
-		Backends: backends,
+	// we don't need to check if the current cluster is remote or local,
+	// as externalEndpoints should not have any local cluster endpoints anyway.
+	if service.IncludeExternal && !service.Shared {
+		delete(externalEndpoints.endpoints, service.Cluster)
+	} else {
+		scopedLog.Debugf("Updating backends to %+v", service.Backends)
+		backends := map[string]*Backend{}
+		for ipString, portConfig := range service.Backends {
+			backends[ipString] = &Backend{Ports: portConfig}
+		}
+		externalEndpoints.endpoints[service.Cluster] = &Endpoints{
+			Backends: backends,
+		}
 	}
 
 	svc, ok := s.services[id]
 
 	endpoints, serviceReady := s.correlateEndpoints(id)
 
-	// Only send event notification if service is shared and ready.
-	// External endpoints are still tracked but correlation will not happen
-	// until the service is marked as shared.
-	if ok && svc.Shared && serviceReady {
+	// Only send event notification if service is ready.
+	if ok && serviceReady {
 		swg.Add()
 		s.Events <- ServiceEvent{
 			Action:     UpdateService,
@@ -604,9 +608,7 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *serviceStore.ClusterS
 
 		endpoints, serviceReady := s.correlateEndpoints(id)
 
-		// Only send event notification if service is shared. External
-		// endpoints are still tracked but correlation will not happen
-		// until the service is marked as shared.
+		// Only send event notification if service is shared.
 		if ok && svc.Shared {
 			swg.Add()
 			event := ServiceEvent{

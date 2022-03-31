@@ -86,7 +86,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed
+        uses: actions/cache@4b0cf6cc4619e737324ddfcec08fff2413359514
         id: cache
         with:
           path: /tmp/.cache/${{ matrix.name }}
@@ -104,7 +104,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         with:
           context: /tmp/.cache/${{ matrix.name }}
           file: ./images/cache/Dockerfile
@@ -115,7 +115,7 @@ jobs:
       # master branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         id: docker_build_ci_master
         with:
           context: .
@@ -133,7 +133,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         id: docker_build_ci_master_detect_race_condition
         with:
           context: .
@@ -147,7 +147,7 @@ jobs:
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:eaa047d20a1736c81bcd4cab603f6c47c5508b21@sha256:ec480391acffe3c30a05b6c3b583f28caa9d20f25f33a650416454b29dabf642
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:efb92c208c5f1f190243b361cbb43413ca49d534@sha256:8ca66f05327b5affad2bfb09614636f2b0d3fa24a9f40d1b5f86c2ef9ca2e46a
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -165,7 +165,7 @@ jobs:
       # PR updates
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         id: docker_build_ci_pr
         with:
           context: .
@@ -186,7 +186,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         id: docker_build_ci_pr_detect_race_condition
         with:
           context: .
@@ -196,7 +196,7 @@ jobs:
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:eaa047d20a1736c81bcd4cab603f6c47c5508b21@sha256:ec480391acffe3c30a05b6c3b583f28caa9d20f25f33a650416454b29dabf642
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:efb92c208c5f1f190243b361cbb43413ca49d534@sha256:8ca66f05327b5affad2bfb09614636f2b0d3fa24a9f40d1b5f86c2ef9ca2e46a
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -220,7 +220,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
         if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         with:
           context: .
           file: ./images/cache/Dockerfile
@@ -277,7 +277,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed
+        uses: actions/cache@4b0cf6cc4619e737324ddfcec08fff2413359514
         id: cache
         with:
           path: /tmp/.cache/${{ matrix.name }}
@@ -295,7 +295,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         with:
           context: /tmp/.cache/${{ matrix.name }}
           file: ./images/cache/Dockerfile
@@ -304,7 +304,7 @@ jobs:
           target: import-cache
 
       - name: CI Build ${{ matrix.name }}
-        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         id: docker_build_ci_master
         with:
           context: .
@@ -336,7 +336,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
         if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@7f9d37fa544684fb73bfe4835ed7214c255ce02b
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
         with:
           context: .
           file: ./images/cache/Dockerfile

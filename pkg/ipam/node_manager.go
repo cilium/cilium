@@ -85,6 +85,13 @@ type NodeOperations interface {
 	// GetMinimumAllocatableIPv4 returns the minimum amount of IPv4 addresses that
 	// must be allocated to the instance.
 	GetMinimumAllocatableIPv4() int
+
+	// IsPrefixDelegated helps identify if a node supports prefix delegation
+	IsPrefixDelegated() bool
+
+	// GetUsedIPWithPrefixes returns the total number of used IPs including all IPs in a prefix if at-least one of
+	// the prefix IPs is in use.
+	GetUsedIPWithPrefixes() int
 }
 
 // AllocationImplementation is the interface an implementation must provide.
@@ -136,10 +143,12 @@ type NodeManager struct {
 	parallelWorkers    int64
 	releaseExcessIPs   bool
 	stableInstancesAPI bool
+	prefixDelegation   bool
 }
 
 // NewNodeManager returns a new NodeManager
-func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI, parallelWorkers int64, releaseExcessIPs bool) (*NodeManager, error) {
+func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI,
+	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation bool) (*NodeManager, error) {
 	if parallelWorkers < 1 {
 		parallelWorkers = 1
 	}
@@ -151,6 +160,7 @@ func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGett
 		metricsAPI:       metrics,
 		parallelWorkers:  parallelWorkers,
 		releaseExcessIPs: releaseExcessIPs,
+		prefixDelegation: prefixDelegation,
 	}
 
 	resyncTrigger, err := trigger.NewTrigger(trigger.Parameters{

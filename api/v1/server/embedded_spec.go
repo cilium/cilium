@@ -2985,6 +2985,15 @@ func init() {
                 }
               }
             },
+            "nat46X64": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "nodePort": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
@@ -3817,6 +3826,15 @@ func init() {
             "namespace": {
               "description": "Service namespace  (e.g. Kubernetes namespace)",
               "type": "string"
+            },
+            "natPolicy": {
+              "description": "Service protocol NAT policy",
+              "type": "string",
+              "enum": [
+                "None",
+                "Nat46",
+                "Nat64"
+              ]
             },
             "trafficPolicy": {
               "description": "Service traffic policy",
@@ -7491,6 +7509,15 @@ func init() {
                 }
               }
             },
+            "nat46X64": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "nodePort": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
@@ -7616,6 +7643,15 @@ func init() {
             }
           }
         },
+        "nat46X64": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
         "nodePort": {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
@@ -7707,6 +7743,15 @@ func init() {
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesNat46X64": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
         }
       }
     },
@@ -8544,6 +8589,15 @@ func init() {
               "description": "Service namespace  (e.g. Kubernetes namespace)",
               "type": "string"
             },
+            "natPolicy": {
+              "description": "Service protocol NAT policy",
+              "type": "string",
+              "enum": [
+                "None",
+                "Nat46",
+                "Nat64"
+              ]
+            },
             "trafficPolicy": {
               "description": "Service traffic policy",
               "type": "string",
@@ -8592,6 +8646,15 @@ func init() {
         "namespace": {
           "description": "Service namespace  (e.g. Kubernetes namespace)",
           "type": "string"
+        },
+        "natPolicy": {
+          "description": "Service protocol NAT policy",
+          "type": "string",
+          "enum": [
+            "None",
+            "Nat46",
+            "Nat64"
+          ]
         },
         "trafficPolicy": {
           "description": "Service traffic policy",

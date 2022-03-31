@@ -691,9 +691,6 @@ func initializeFlags() {
 	flags.String(option.LoopbackIPv4, defaults.LoopbackIPv4, "IPv4 address for service loopback SNAT")
 	option.BindEnv(option.LoopbackIPv4)
 
-	flags.String(option.NAT46Range, defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
-	option.BindEnv(option.NAT46Range)
-
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(option.EnableIPv4Masquerade)
 
@@ -1732,7 +1729,7 @@ func runDaemon() {
 	} else {
 		log.Info("Creating host endpoint")
 		if err := d.endpointManager.AddHostEndpoint(
-			d.ctx, d, d, d.l7Proxy, d.identityAllocator,
+			d.ctx, d, d, d.ipcache, d.l7Proxy, d.identityAllocator,
 			"Create host endpoint", nodeTypes.GetName(),
 		); err != nil {
 			log.WithError(err).Fatal("Unable to create host endpoint")
@@ -2004,7 +2001,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	}
 
 	// /ip/
-	restAPI.PolicyGetIPHandler = NewGetIPHandler()
+	restAPI.PolicyGetIPHandler = NewGetIPHandler(d)
 
 	return restAPI
 }

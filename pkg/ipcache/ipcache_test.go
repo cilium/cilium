@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package ipcache
 
@@ -25,7 +24,10 @@ import (
 // Hook up gocheck into the "go test" runner.
 type IPCacheTestSuite struct{}
 
-var _ = Suite(&IPCacheTestSuite{})
+var (
+	_               = Suite(&IPCacheTestSuite{})
+	IPIdentityCache = NewIPCache(nil)
+)
 
 func Test(t *testing.T) {
 	TestingT(t)
@@ -543,7 +545,7 @@ func (s *IPCacheTestSuite) TestIPCacheShadowing(c *C) {
 	cidrOverlap := "10.0.0.15/32"
 	epIdentity := (identityPkg.NumericIdentity(68))
 	cidrIdentity := (identityPkg.NumericIdentity(202))
-	ipc := NewIPCache()
+	ipc := NewIPCache(nil)
 
 	// Assure sane state at start.
 	c.Assert(ipc.ipToIdentityCache, checker.DeepEquals, map[string]Identity{})

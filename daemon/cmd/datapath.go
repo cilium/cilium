@@ -249,9 +249,9 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		// This upsert will fail with ErrOverwrite continuously as long as the
 		// EP / CN watcher have found an apiserver IP and upserted it into the
 		// ipcache. Until then, it is expected to succeed.
-		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
+		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
-			Source: sourceByIP(ipIDPair.IP.String(), source.Local),
+			Source: d.sourceByIP(ipIDPair.IP.String(), source.Local),
 		})
 	}
 
@@ -265,7 +265,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
 			}
 
-			ipcache.IPIdentityCache.Delete(hostIP, sourceByIP(hostIP, source.Local))
+			d.ipcache.Delete(hostIP, d.sourceByIP(hostIP, source.Local))
 		}
 	}
 
@@ -279,8 +279,8 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	return nil
 }
 
-func sourceByIP(prefix string, defaultSrc source.Source) source.Source {
-	if lbls := ipcache.GetIDMetadataByIP(prefix); lbls.Has(
+func (d *Daemon) sourceByIP(prefix string, defaultSrc source.Source) source.Source {
+	if lbls := d.ipcache.GetIDMetadataByIP(prefix); lbls.Has(
 		labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer],
 	) {
 		return source.KubeAPIServer
@@ -405,8 +405,8 @@ func (d *Daemon) initMaps() error {
 	// Set up the list of IPCache listeners in the daemon, to be
 	// used by syncEndpointsAndHostIPs()
 	// xDS cache will be added later by calling AddListener(), but only if necessary.
-	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
-		datapathIpcache.NewListener(d, d),
+	d.ipcache.SetListeners([]ipcache.IPIdentityMappingListener{
+		datapathIpcache.NewListener(d, d, d.ipcache),
 	})
 
 	if option.Config.EnableIPv4 && option.Config.EnableIPMasqAgent {

@@ -19,6 +19,7 @@ var _ policy.Translator = RuleTranslator{}
 // Translate populates/depopulates given rule with ToCIDR rules
 // Based on provided service/endpoint
 type RuleTranslator struct {
+	ipcache          *ipcache.IPCache
 	Service          ServiceID
 	Endpoint         Endpoints
 	ServiceLabels    map[string]string
@@ -58,7 +59,7 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.Transl
 func (k RuleTranslator) populateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
-			if err := generateToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
+			if err := k.generateToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
 				return err
 			}
 			// TODO: generateToPortsFromEndpoint when ToPorts and ToCIDR are compatible
@@ -73,7 +74,7 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule, result *policy.Trans
 		// counting rules twice
 		result.NumToServicesRules++
 		if k.serviceMatches(service) {
-			if err := deleteToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
+			if err := k.deleteToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
 				return err
 			}
 			// TODO: generateToPortsFromEndpoint when ToPorts and ToCIDR are compatible
@@ -101,7 +102,7 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 
 // generateToCidrFromEndpoint takes an egress rule and populates it with
 // ToCIDR rules based on provided endpoint object
-func generateToCidrFromEndpoint(
+func (k RuleTranslator) generateToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoint Endpoints,
 	allocatePrefixes bool) error {
@@ -120,7 +121,7 @@ func generateToCidrFromEndpoint(
 		// policy would be first pushed to the endpoint policies and then to the ipcache to
 		// avoid traffic mapping to an ID that the endpoint policy maps do not know about
 		// yet.
-		if _, err := ipcache.AllocateCIDRs(prefixes, nil); err != nil {
+		if _, err := k.ipcache.AllocateCIDRs(prefixes, nil); err != nil {
 			return err
 		}
 	}
@@ -163,7 +164,7 @@ func generateToCidrFromEndpoint(
 // removed from the policy. On failure to release such kvstore mappings, errors
 // will be logged but this function will return nil to allow subsequent
 // processing to proceed.
-func deleteToCidrFromEndpoint(
+func (k RuleTranslator) deleteToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoint Endpoints,
 	releasePrefixes bool) error {
@@ -208,7 +209,7 @@ func deleteToCidrFromEndpoint(
 			delSlice = append(delSlice, *delCIDRRule)
 		}
 		prefixes := policy.GetPrefixesFromCIDRSet(delSlice)
-		ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
+		k.ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
 	}
 
 	// if endpoint is not in CIDR or it's not generated it's ok to retain it
@@ -227,7 +228,7 @@ func deleteToCidrFromEndpoint(
 }
 
 // PreprocessRules translates rules that apply to headless services
-func PreprocessRules(r api.Rules, cache *ServiceCache) error {
+func PreprocessRules(r api.Rules, cache *ServiceCache, ipcache *ipcache.IPCache) error {
 
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
@@ -242,7 +243,7 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 			if ok && svc.IsExternal() {
 				eps := ep.GetEndpoints()
 				if eps != nil {
-					t := NewK8sTranslator(ns, *eps, false, svc.Labels, false)
+					t := NewK8sTranslator(ipcache, ns, *eps, false, svc.Labels, false)
 					err := t.Translate(rule, &policy.TranslationResult{})
 					if err != nil {
 						return err
@@ -256,11 +257,12 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 
 // NewK8sTranslator returns RuleTranslator
 func NewK8sTranslator(
+	ipcache *ipcache.IPCache,
 	serviceInfo ServiceID,
 	endpoint Endpoints,
 	revert bool,
 	labels map[string]string,
 	allocatePrefixes bool) RuleTranslator {
 
-	return RuleTranslator{serviceInfo, endpoint, labels, revert, allocatePrefixes}
+	return RuleTranslator{ipcache, serviceInfo, endpoint, labels, revert, allocatePrefixes}
 }

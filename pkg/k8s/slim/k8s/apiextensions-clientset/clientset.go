@@ -6,6 +6,7 @@ package clientset
 
 import (
 	"fmt"
+	"net/http"
 
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -34,10 +35,11 @@ func (c *Clientset) ApiextensionsV1beta1() apiextensionsv1beta1.ApiextensionsV1b
 	return c.apiextensionsV1beta1
 }
 
-// NewForConfig creates a new Clientset for the given config.
+// NewForConfigAndClient creates a new Clientset for the given config and http client.
+// Note the http client provided takes precedence over the configured transport values.
 // If config's RateLimiter is not set and QPS and Burst are acceptable,
-// NewForConfig will generate a rate-limiter in configShallowCopy.
-func NewForConfig(c *rest.Config) (*Clientset, error) {
+// NewForConfigAndClient will generate a rate-limiter in configShallowCopy.
+func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset, error) {
 	configShallowCopy := *c
 	if configShallowCopy.RateLimiter == nil && configShallowCopy.QPS > 0 {
 		if configShallowCopy.Burst <= 0 {
@@ -47,13 +49,13 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.Clientset, err = apiextclientset.NewForConfig(&configShallowCopy)
+	cs.Clientset, err = apiextclientset.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
 
 	// Wrap extensionsV1 with our own implementation
-	extensionsV1, err := slim_apiextensionsv1.NewForConfig(&configShallowCopy)
+	extensionsV1, err := slim_apiextensionsv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}

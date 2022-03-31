@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_test
-// +build !privileged_test
 
 package ipam
 

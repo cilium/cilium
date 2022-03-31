@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cilium/lumberjack/v2"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"

@@ -39,6 +39,9 @@ type RoutingInfo struct {
 	// egress traffic is directed to. This is used to compute the table ID for
 	// the per-ENI tables.
 	InterfaceNumber int
+
+	// IpamMode tells us which IPAM mode is being used (e.g., ENI, AKS).
+	IpamMode string
 }
 
 func (info *RoutingInfo) GetIPv4CIDRs() []net.IPNet {
@@ -58,11 +61,11 @@ func (info *RoutingInfo) GetInterfaceNumber() int {
 // (on either ENI or Azure interface) is the only supported path currently.
 // Azure does not support masquerade yet (subnets CIDRs aren't provided):
 // until it does, we forward a masquerade bool to opt out ipam.Cidrs use.
-func NewRoutingInfo(gateway string, cidrs []string, mac, ifaceNum string, masquerade bool) (*RoutingInfo, error) {
-	return parse(gateway, cidrs, mac, ifaceNum, masquerade)
+func NewRoutingInfo(gateway string, cidrs []string, mac, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
+	return parse(gateway, cidrs, mac, ifaceNum, ipamMode, masquerade)
 }
 
-func parse(gateway string, cidrs []string, macAddr, ifaceNum string, masquerade bool) (*RoutingInfo, error) {
+func parse(gateway string, cidrs []string, macAddr, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
 	ip := net.ParseIP(gateway)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid ip: %s", gateway)
@@ -98,5 +101,6 @@ func parse(gateway string, cidrs []string, macAddr, ifaceNum string, masquerade 
 		MasterIfMAC:     parsedMAC,
 		Masquerade:      masquerade,
 		InterfaceNumber: parsedIfaceNum,
+		IpamMode:        ipamMode,
 	}, nil
 }

@@ -15,6 +15,7 @@
 #include "lib/eps.h"
 #include "lib/identity.h"
 #include "lib/metrics.h"
+#include "lib/nat_46x64.h"
 
 #define SYS_REJECT	0
 #define SYS_PROCEED	1
@@ -35,30 +36,6 @@ static __always_inline __maybe_unused bool is_v6_loopback(union v6addr *daddr)
 	union v6addr loopback = { .addr[15] = 1, };
 
 	return ipv6_addrcmp(&loopback, daddr) == 0;
-}
-
-static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr)
-{
-	/* Check for ::FFFF:<IPv4 address>. */
-	union v6addr dprobe  = {
-		.addr[10] = 0xff,
-		.addr[11] = 0xff,
-	};
-	union v6addr dmasked = {
-		.d1 = daddr->d1,
-	};
-
-	dmasked.p3 = daddr->p3;
-	return ipv6_addrcmp(&dprobe, &dmasked) == 0;
-}
-
-static __always_inline __maybe_unused void build_v4_in_v6(union v6addr *daddr,
-							  __be32 v4)
-{
-	memset(daddr, 0, sizeof(*daddr));
-	daddr->addr[10] = 0xff;
-	daddr->addr[11] = 0xff;
-	daddr->p4 = v4;
 }
 
 /* Hack due to missing narrow ctx access. */
@@ -225,6 +202,8 @@ int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 static __always_inline bool
 sock4_skip_xlate(struct lb4_service *svc, __be32 address)
 {
+	if (lb4_to_lb6_service(svc))
+		return true;
 	if (lb4_svc_is_external_ip(svc) ||
 	    (lb4_svc_is_hostport(svc) && !is_v4_loopback(address))) {
 		struct remote_endpoint_info *info;
@@ -710,6 +689,8 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 static __always_inline __maybe_unused bool
 sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
 {
+	if (lb6_to_lb4_service(svc))
+		return true;
 	if (lb6_svc_is_external_ip(svc) ||
 	    (lb6_svc_is_hostport(svc) && !is_v6_loopback(address))) {
 		struct remote_endpoint_info *info;

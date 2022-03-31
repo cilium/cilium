@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -96,16 +97,26 @@ type Proxy struct {
 	// Datapath updater for installing and removing proxy rules for a single
 	// proxy port
 	datapathUpdater DatapathUpdater
+
+	// IPCache is used for tracking IP->Identity mappings and propagating
+	// them to the proxy via NPHDS in the cases described
+	ipcache *ipcache.IPCache
+
+	// defaultEndpointInfoRegistry is the default instance implementing the
+	// EndpointInfoRegistry interface.
+	defaultEndpointInfoRegistry *endpointInfoRegistry
 }
 
 // StartProxySupport starts the servers to support L7 proxies: xDS GRPC server
 // and access log server.
 func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 	accessLogNotifier logger.LogRecordNotifier, accessLogMetadata []string,
-	datapathUpdater DatapathUpdater, mgr EndpointLookup) *Proxy {
+	datapathUpdater DatapathUpdater, mgr EndpointLookup,
+	ipcache *ipcache.IPCache) *Proxy {
 	endpointManager = mgr
-	logger.SetEndpointInfoRegistry(DefaultEndpointInfoRegistry)
-	xdsServer := envoy.StartXDSServer(stateDir)
+	eir := newEndpointInfoRegistry(ipcache)
+	logger.SetEndpointInfoRegistry(eir)
+	xdsServer := envoy.StartXDSServer(ipcache, stateDir)
 
 	if accessLogNotifier != nil {
 		logger.SetNotifier(accessLogNotifier)
@@ -118,12 +129,14 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 	envoy.StartAccessLogServer(stateDir, xdsServer)
 
 	return &Proxy{
-		XDSServer:       xdsServer,
-		stateDir:        stateDir,
-		rangeMin:        minPort,
-		rangeMax:        maxPort,
-		redirects:       make(map[string]*Redirect),
-		datapathUpdater: datapathUpdater,
+		XDSServer:                   xdsServer,
+		stateDir:                    stateDir,
+		rangeMin:                    minPort,
+		rangeMax:                    maxPort,
+		redirects:                   make(map[string]*Redirect),
+		datapathUpdater:             datapathUpdater,
+		ipcache:                     ipcache,
+		defaultEndpointInfoRegistry: eir,
 	}
 }
 
@@ -468,7 +481,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEn
 
 		switch l4.GetL7Parser() {
 		case policy.ParserTypeDNS:
-			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, DefaultEndpointInfoRegistry)
+			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, p.defaultEndpointInfoRegistry)
 
 		case policy.ParserTypeHTTP:
 			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)

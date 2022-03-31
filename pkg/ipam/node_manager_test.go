@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package ipam
 
@@ -67,6 +66,10 @@ type nodeOperationsMock struct {
 	// mutex protects allocatedIPs
 	mutex        lock.RWMutex
 	allocatedIPs []string
+}
+
+func (n *nodeOperationsMock) GetUsedIPWithPrefixes() int {
+	return len(n.allocatedIPs)
 }
 
 func (n *nodeOperationsMock) UpdatedNode(obj *v2.CiliumNode) {}
@@ -155,10 +158,14 @@ func (n *nodeOperationsMock) GetMinimumAllocatableIPv4() int {
 	return defaults.IPAMPreAllocation
 }
 
+func (n *nodeOperationsMock) IsPrefixDelegated() bool {
+	return false
+}
+
 func (e *IPAMSuite) TestGetNodeNames(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -183,7 +190,7 @@ func (e *IPAMSuite) TestGetNodeNames(c *check.C) {
 func (e *IPAMSuite) TestNodeManagerGet(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -276,7 +283,7 @@ func reachedAddressesNeeded(mngr *NodeManager, nodeName string, needed int) (suc
 func (e *IPAMSuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -307,7 +314,7 @@ func (e *IPAMSuite) TestNodeManagerDefaultAllocation(c *check.C) {
 func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -347,7 +354,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 func (e *IPAMSuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -396,7 +403,7 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, true)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, true, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -467,7 +474,7 @@ func (e *IPAMSuite) TestNodeManagerAbortRelease(c *check.C) {
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, true)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, true, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -553,7 +560,7 @@ func (e *IPAMSuite) TestNodeManagerManyNodes(c *check.C) {
 
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -597,7 +604,7 @@ func (e *IPAMSuite) TestNodeManagerManyNodes(c *check.C) {
 func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 

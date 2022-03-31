@@ -114,7 +114,7 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		    __u32 seclabel, __u32 monitor)
+		    __u32 seclabel, enum trace_reason ct_reason, __u32 monitor)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 node_id;
@@ -139,15 +139,16 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		return DROP_WRITE_ERROR;
 
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
-			  0, monitor);
+			  ct_reason, monitor);
 	return 0;
 }
 
 static __always_inline int
 __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-				 __u32 seclabel, __u32 monitor)
+				 __u32 seclabel, const struct trace_ctx *trace)
 {
-	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
+	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel,
+				      trace->reason, trace->monitor);
 	if (ret != 0)
 		return ret;
 
@@ -162,13 +163,14 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 			       __u8 key __maybe_unused, __u32 seclabel,
-			       __u32 monitor)
+			       const struct trace_ctx *trace)
 {
 #ifdef ENABLE_IPSEC
 	if (key)
 		return encap_and_redirect_nomark_ipsec(ctx, tunnel_endpoint, key, seclabel);
 #endif
-	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
+	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel,
+						trace);
 }
 
 /* encap_and_redirect based on ENABLE_IPSEC flag and from_host bool will decide
@@ -184,7 +186,8 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		       __u8 encrypt_key __maybe_unused,
-		       struct endpoint_key *key, __u32 seclabel, __u32 monitor)
+		       struct endpoint_key *key, __u32 seclabel,
+		       const struct trace_ctx *trace)
 {
 	struct endpoint_key *tunnel;
 
@@ -202,9 +205,11 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		 * the tunnel, to apply the correct reverse DNAT.
 		 * See #14674 for details.
 		 */
-		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
+		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel,
+					   trace->reason, trace->monitor);
 #else
-		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
+		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
+							seclabel, trace);
 #endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */
 	}
 
@@ -221,12 +226,13 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 						seclabel);
 	}
 #endif
-	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel, monitor);
+	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
+						trace);
 }
 
 static __always_inline int
 encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
-			  __u32 seclabel, __u32 monitor)
+			  __u32 seclabel, const struct trace_ctx *trace)
 {
 	struct endpoint_key *tunnel;
 
@@ -242,7 +248,8 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
 						       key, seclabel);
 	}
 #endif
-	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel, monitor);
+	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
+						trace);
 }
 #endif /* ENCAP_IFINDEX */
 #endif /* __LIB_ENCAP_H_ */

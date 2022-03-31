@@ -141,7 +141,7 @@ func (c *Completion) Err() error {
 // Idempotent.
 // If the operation completed successfully 'err' is passed as nil.
 // Returns the error state the completion completed with, which is
-// gnerally different from 'err' if already completed.
+// generally different from 'err' if already completed.
 func (c *Completion) Complete(err error) error {
 	c.lock.Lock()
 	select {

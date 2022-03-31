@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests && integration_tests
-// +build !privileged_tests,integration_tests
 
 package endpoint
 
@@ -17,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -163,7 +163,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 		redirectPortUserMap: make(map[uint16][]string),
 	}
 
-	ep := NewEndpointWithState(do, do, rsp, mgr, 12345, StateRegenerating)
+	ep := NewEndpointWithState(do, do, ipcache.NewIPCache(nil), rsp, mgr, 12345, StateRegenerating)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), qaBarLbls, true)

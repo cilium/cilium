@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package types
 
@@ -97,6 +96,9 @@ func (t *CNITypesSuite) TestReadCNIConfENIWithPlugins(c *check.C) {
         ],
         "subnet-tags":{
           "foo":"true"
+        },
+        "exclude-interface-tags":{
+          "baz":"false"
         }
       }
     }
@@ -116,6 +118,9 @@ func (t *CNITypesSuite) TestReadCNIConfENIWithPlugins(c *check.C) {
 			SubnetIDs:           []string{"subnet-xxx"},
 			SubnetTags: map[string]string{
 				"foo": "true",
+			},
+			ExcludeInterfaceTags: map[string]string{
+				"baz": "false",
 			},
 		},
 	}
@@ -140,6 +145,10 @@ func (t *CNITypesSuite) TestReadCNIConfENI(c *check.C) {
       "key1": "val1",
       "key2": "val2"
     },
+    "exclude-interface-tags": {
+      "key3": "val3",
+      "key4": "val4"
+    },
     "vpc-id": "vpc-1",
     "availability-zone": "us-west1"
   }
@@ -160,6 +169,10 @@ func (t *CNITypesSuite) TestReadCNIConfENI(c *check.C) {
 			SubnetTags: map[string]string{
 				"key1": "val1",
 				"key2": "val2",
+			},
+			ExcludeInterfaceTags: map[string]string{
+				"key3": "val3",
+				"key4": "val4",
 			},
 			VpcID:            "vpc-1",
 			AvailabilityZone: "us-west1",
@@ -187,6 +200,9 @@ func (t *CNITypesSuite) TestReadCNIConfENIv2WithPlugins(c *check.C) {
         ],
         "subnet-tags":{
           "foo":"true"
+        },
+        "exclude-interface-tags":{
+          "bar":"false"
         }
       },
       "ipam": {
@@ -208,6 +224,9 @@ func (t *CNITypesSuite) TestReadCNIConfENIv2WithPlugins(c *check.C) {
 			SubnetIDs:           []string{"subnet-xxx"},
 			SubnetTags: map[string]string{
 				"foo": "true",
+			},
+			ExcludeInterfaceTags: map[string]string{
+				"bar": "false",
 			},
 		},
 		IPAM: ipamTypes.IPAMSpec{

@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package eni
 
@@ -62,7 +61,7 @@ func (e *ENISuite) TestCreateInterface(c *check.C) {
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(context.TODO())
 
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -109,7 +108,7 @@ func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(context.TODO())
 
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 

@@ -3,12 +3,6 @@
 
 package option
 
-import (
-	"errors"
-
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
-)
-
 const (
 	PolicyTracing       = "PolicyTracing"
 	ConntrackAccounting = "ConntrackAccounting"
@@ -21,16 +15,9 @@ const (
 	PolicyVerdictNotify = "PolicyVerdictNotification"
 	PolicyAuditMode     = "PolicyAuditMode"
 	MonitorAggregation  = "MonitorAggregationLevel"
-	NAT46               = "NAT46"
 	AlwaysEnforce       = "always"
 	NeverEnforce        = "never"
 	DefaultEnforcement  = "default"
-)
-
-var (
-	ErrNAT46ReqIPv4 = errors.New("NAT46 requires IPv4 to be enabled")
-	ErrNAT46ReqIPv6 = errors.New("NAT46 requires IPv6 to be enabled")
-	ErrNAT46ReqVeth = errors.New("NAT46 not supported in ipvlan datapath mode")
 )
 
 var (
@@ -87,29 +74,5 @@ var (
 		Verify:      VerifyMonitorAggregationLevel,
 		Parse:       ParseMonitorAggregationLevel,
 		Format:      FormatMonitorAggregationLevel,
-	}
-
-	specNAT46 = Option{
-		Define:      "ENABLE_NAT46",
-		Description: "Enable automatic NAT46 translation",
-		Requires:    nil,
-		Verify: func(key string, val string) error {
-			opt, err := NormalizeBool(val)
-			if err != nil {
-				return err
-			}
-			if opt == OptionEnabled {
-				if !Config.EnableIPv4 {
-					return ErrNAT46ReqIPv4
-				}
-				if !Config.EnableIPv6 {
-					return ErrNAT46ReqIPv6
-				}
-				if Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-					return ErrNAT46ReqVeth
-				}
-			}
-			return nil
-		},
 	}
 )

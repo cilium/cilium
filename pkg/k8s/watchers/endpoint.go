@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -130,23 +129,17 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 	//     an update event.
 	//   * if the entire object is deleted, then it will quickly be recreated
 	//     and this will be in the form of an add event.
-	ipcache.RemoveLabelsExcluded(
+	k.ipcache.RemoveLabelsExcluded(
 		labels.LabelKubeAPIServer,
 		desiredIPs,
 		src,
-		k.policyRepository.GetSelectorCache(),
-		k.endpointManager,
 	)
 
 	for ip := range desiredIPs {
-		ipcache.UpsertMetadata(ip, labels.LabelKubeAPIServer)
+		k.ipcache.UpsertMetadata(ip, labels.LabelKubeAPIServer)
 	}
 
-	ipcache.IPIdentityCache.TriggerLabelInjection(
-		src,
-		k.policyRepository.GetSelectorCache(),
-		k.endpointManager,
-	)
+	k.ipcache.TriggerLabelInjection(src)
 }
 
 // TODO(christarazi): Convert to subscriber model along with the corresponding

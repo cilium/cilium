@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -201,6 +202,7 @@ type K8sWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	egressGatewayManager  egressGatewayManager
+	ipcache               *ipcache.IPCache
 
 	// controllersStarted is a channel that is closed when all controllers, i.e.,
 	// k8s watchers have started listening for k8s events.
@@ -216,6 +218,9 @@ type K8sWatcher struct {
 	podStoreOnce sync.Once
 
 	nodeStore cache.Store
+
+	ciliumNodeStoreMU lock.RWMutex
+	ciliumNodeStore   cache.Store
 
 	namespaceStore cache.Store
 	datapath       datapath.Datapath
@@ -236,6 +241,7 @@ func NewK8sWatcher(
 	bgpSpeakerManager bgpSpeakerManager,
 	egressGatewayManager egressGatewayManager,
 	cfg WatcherConfiguration,
+	ipcache *ipcache.IPCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
@@ -244,6 +250,7 @@ func NewK8sWatcher(
 		policyManager:         policyManager,
 		policyRepository:      policyRepository,
 		svcManager:            svcManager,
+		ipcache:               ipcache,
 		controllersStarted:    make(chan struct{}),
 		stop:                  make(chan struct{}),
 		podStoreSet:           make(chan struct{}),
@@ -507,7 +514,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				return
 			}
 
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, true)
+			translator := k8s.NewK8sTranslator(k.ipcache, event.ID, *event.Endpoints, false, svc.Labels, true)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to repopulate egress policies from ToService rules")
@@ -526,7 +533,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				return
 			}
 
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, true)
+			translator := k8s.NewK8sTranslator(k.ipcache, event.ID, *event.Endpoints, true, svc.Labels, true)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to depopulate egress policies from ToService rules")

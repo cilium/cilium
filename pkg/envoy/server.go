@@ -26,17 +26,17 @@ import (
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -50,12 +50,15 @@ import (
 var (
 	// allowAllPortNetworkPolicy is a PortNetworkPolicy that allows all traffic
 	// to any L4 port.
+	allowAllTCPPortNetworkPolicy = &cilium.PortNetworkPolicy{
+		// Allow all TCP traffic to any port.
+		Protocol: envoy_config_core.SocketAddress_TCP,
+	}
 	allowAllPortNetworkPolicy = []*cilium.PortNetworkPolicy{
 		// Allow all TCP traffic to any port.
-		{Protocol: envoy_config_core.SocketAddress_TCP},
+		allowAllTCPPortNetworkPolicy,
 		// Allow all UDP traffic to any port.
 		// UDP rules not sent to Envoy for now.
-		// {Protocol: envoy_config_core.SocketAddress_UDP},
 	}
 )
 
@@ -133,8 +136,8 @@ func getXDSPath(stateDir string) string {
 	return filepath.Join(stateDir, "xds.sock")
 }
 
-func toAny(pb proto.Message) *any.Any {
-	a, err := ptypes.MarshalAny(pb)
+func toAny(pb proto.Message) *anypb.Any {
+	a, err := anypb.New(pb)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -142,7 +145,7 @@ func toAny(pb proto.Message) *any.Any {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(stateDir string) *XDSServer {
+func StartXDSServer(ipcache *ipcache.IPCache, stateDir string) *XDSServer {
 	xdsPath := getXDSPath(stateDir)
 
 	os.Remove(xdsPath)
@@ -171,9 +174,10 @@ func StartXDSServer(stateDir string) *XDSServer {
 		AckObserver: npdsMutator,
 	}
 
+	nphdsCache := newNPHDSCache(ipcache)
 	nphdsConfig := &xds.ResourceTypeConfiguration{
-		Source:      NetworkPolicyHostsCache,
-		AckObserver: &NetworkPolicyHostsCache,
+		Source:      nphdsCache,
+		AckObserver: &nphdsCache,
 	}
 
 	stopServer := startXDSGRPCServer(socketListener, ldsConfig, npdsConfig, nphdsConfig, 5*time.Second)
@@ -211,7 +215,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		}, {
 			Name: "envoy.filters.http.router",
 		}},
-		StreamIdleTimeout: &duration.Duration{}, // 0 == disabled
+		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
 			RouteConfig: &envoy_config_route.RouteConfiguration{
 				VirtualHosts: []*envoy_config_route.VirtualHost{{
@@ -227,14 +231,14 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
 									Cluster: clusterName,
 								},
-								Timeout: &duration.Duration{Seconds: requestTimeout},
+								Timeout: &durationpb.Duration{Seconds: requestTimeout},
 								MaxStreamDuration: &envoy_config_route.RouteAction_MaxStreamDuration{
-									GrpcTimeoutHeaderMax: &duration.Duration{Seconds: maxGRPCTimeout},
+									GrpcTimeoutHeaderMax: &durationpb.Duration{Seconds: maxGRPCTimeout},
 								},
 								RetryPolicy: &envoy_config_route.RetryPolicy{
 									RetryOn:       "5xx",
-									NumRetries:    &wrappers.UInt32Value{Value: numRetries},
-									PerTryTimeout: &duration.Duration{Seconds: retryTimeout},
+									NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
+									PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
 								},
 							},
 						},
@@ -247,12 +251,12 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
 									Cluster: clusterName,
 								},
-								Timeout: &duration.Duration{Seconds: requestTimeout},
-								//IdleTimeout: &duration.Duration{Seconds: idleTimeout},
+								Timeout: &durationpb.Duration{Seconds: requestTimeout},
+								//IdleTimeout: &durationpb.Duration{Seconds: idleTimeout},
 								RetryPolicy: &envoy_config_route.RetryPolicy{
 									RetryOn:       "5xx",
-									NumRetries:    &wrappers.UInt32Value{Value: numRetries},
-									PerTryTimeout: &duration.Duration{Seconds: retryTimeout},
+									NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
+									PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
 								},
 							},
 						},
@@ -263,14 +267,14 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	}
 
 	if option.Config.HTTPNormalizePath {
-		hcmConfig.NormalizePath = &wrappers.BoolValue{Value: true}
+		hcmConfig.NormalizePath = &wrapperspb.BoolValue{Value: true}
 		hcmConfig.MergeSlashes = true
 		hcmConfig.PathWithEscapedSlashesAction = envoy_config_http.HttpConnectionManager_UNESCAPE_AND_REDIRECT
 	}
 
 	// Idle timeout can only be specified if non-zero
 	if idleTimeout > 0 {
-		hcmConfig.GetRouteConfig().VirtualHosts[0].Routes[1].GetRoute().IdleTimeout = &duration.Duration{Seconds: idleTimeout}
+		hcmConfig.GetRouteConfig().VirtualHosts[0].Routes[1].GetRoute().IdleTimeout = &durationpb.Duration{Seconds: idleTimeout}
 	}
 
 	chain := &envoy_config_listener.FilterChain{
@@ -302,7 +306,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 // When optional 'filterName' is given, it is configured as the first filter in the chain
 // and 'proxylib' is not configured. In this case the returned filter chain is only used
 // if the applicable network policy specifies 'filterName' as the L7 parser.
-func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string, config *any.Any) *envoy_config_listener.FilterChain {
+func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string, config *anypb.Any) *envoy_config_listener.FilterChain {
 	var filters []*envoy_config_listener.Filter
 
 	// 1. Add the filter 'filterName' to the beginning of the TCP chain with optional 'config', if needed.
@@ -389,7 +393,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 			HttpFilters: []*envoy_config_http.HttpFilter{{
 				Name: "envoy.filters.http.router",
 			}},
-			StreamIdleTimeout: &duration.Duration{}, // 0 == disabled
+			StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
 				RouteConfig: &envoy_config_route.RouteConfiguration{
 					VirtualHosts: []*envoy_config_route.VirtualHost{{
@@ -484,7 +488,7 @@ func (s *XDSServer) addListener(name string, port uint16, listenerConf func() *e
 		// Envoy since 1.20.0 uses SO_REUSEPORT on listeners by default.
 		// BPF TPROXY is currently not compatible with SO_REUSEPORT, so disable it.
 		// Note that this may degrade Envoy performance.
-		listenerConfig.EnableReusePort = &wrappers.BoolValue{Value: false}
+		listenerConfig.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 	}
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
 		func(err error) {
@@ -538,7 +542,7 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 				},
 			},
 		},
-		Transparent: &wrappers.BoolValue{Value: true},
+		Transparent: &wrapperspb.BoolValue{Value: true},
 		SocketOptions: []*envoy_config_core.SocketOption{{
 			Description: "Listener socket mark",
 			Level:       unix.SOL_SOCKET,
@@ -905,7 +909,7 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
 	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
 
-	useDownstreamProtocol := map[string]*any.Any{
+	useDownstreamProtocol := map[string]*anypb.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
 				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
@@ -913,7 +917,19 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 		}),
 	}
 
-	http2ProtocolOptions := map[string]*any.Any{
+	useDownstreamProtocolAutoSNI := map[string]*anypb.Any{
+		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+			UpstreamHttpProtocolOptions: &envoy_config_core.UpstreamHttpProtocolOptions{
+				AutoSni:           true,
+				AutoSanValidation: true,
+			},
+			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
+				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
+			},
+		}),
+	}
+
+	http2ProtocolOptions := map[string]*anypb.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_{
 				ExplicitHttpConfig: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig{
@@ -930,41 +946,41 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 				{
 					Name:                          egressClusterName,
 					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocol,
 				},
 				{
 					Name:                          egressTLSClusterName,
 					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocol,
+					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
 					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
 					Name:                          ingressClusterName,
 					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocol,
 				},
 				{
 					Name:                          ingressTLSClusterName,
 					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocol,
+					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
 					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
 					Name:                 "xds-grpc-cilium",
 					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
-					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					ConnectTimeout:       &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
 					LbPolicy:             envoy_config_cluster.Cluster_ROUND_ROBIN,
 					LoadAssignment: &envoy_config_endpoint.ClusterLoadAssignment{
 						ClusterName: "xds-grpc-cilium",
@@ -986,7 +1002,7 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 				{
 					Name:                 adminClusterName,
 					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
-					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					ConnectTimeout:       &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
 					LbPolicy:             envoy_config_cluster.Cluster_ROUND_ROBIN,
 					LoadAssignment: &envoy_config_endpoint.ClusterLoadAssignment{
 						ClusterName: adminClusterName,
@@ -1240,10 +1256,27 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 }
 
-func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy) []*cilium.PortNetworkPolicy {
+	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
-		// Return an allow-all policy.
-		return allowAllPortNetworkPolicy
+		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis))
+		// Always allow all ports
+		PerPortPolicies = append(PerPortPolicies, allowAllTCPPortNetworkPolicy)
+		for _, visMeta := range vis {
+			// Set up rule with 'L7Proto' as needed for proxylib parsers
+			if visMeta.Proto == u8proto.TCP && visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
+				PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
+					Port:     uint32(visMeta.Port),
+					Protocol: envoy_config_core.SocketAddress_TCP,
+					Rules: []*cilium.PortNetworkPolicyRule{
+						{
+							L7Proto: visMeta.Parser.String(),
+						},
+					},
+				})
+			}
+		}
+		return SortPortNetworkPolicies(PerPortPolicies)
 	}
 
 	if len(l4Policy) == 0 {
@@ -1348,66 +1381,17 @@ func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, n
 		EndpointId:       uint64(ep.GetID()),
 		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
-
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
 	if l4Policy != nil {
-		if vis != nil && !(ingressPolicyEnforced || egressPolicyEnforced) {
-			if vis.Ingress != nil {
-				PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis.Ingress))
-				for _, visMeta := range vis.Ingress {
-					// we only setup this for proxylib parsers
-					if visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
-						rules := []*cilium.PortNetworkPolicyRule{
-							{
-								L7Proto: visMeta.Parser.String(),
-							},
-						}
-						if visMeta.Proto != u8proto.TCP {
-							PerPortPolicies = allowAllPortNetworkPolicy
-						} else {
-							protocol := envoy_config_core.SocketAddress_TCP
-
-							PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
-								Port:     uint32(visMeta.Port),
-								Protocol: protocol,
-								Rules:    rules,
-							})
-						}
-					}
-				}
-				p.IngressPerPortPolicies = SortPortNetworkPolicies(PerPortPolicies)
-			}
-			if vis.Egress != nil {
-				PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis.Egress))
-				for _, visMeta := range vis.Egress {
-					// we only setup this for proxylib parsers
-					if visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
-						rules := []*cilium.PortNetworkPolicyRule{
-							{
-								L7Proto: visMeta.Parser.String(),
-							},
-						}
-						if visMeta.Proto != u8proto.TCP {
-							PerPortPolicies = allowAllPortNetworkPolicy
-						} else {
-							protocol := envoy_config_core.SocketAddress_TCP
-
-							PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
-								Port:     uint32(visMeta.Port),
-								Protocol: protocol,
-								Rules:    rules,
-							})
-						}
-					}
-				}
-				p.EgressPerPortPolicies = SortPortNetworkPolicies(PerPortPolicies)
-			}
-		} else {
-			p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced)
-			p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced)
+		var visIngress policy.DirectionalVisibilityPolicy
+		var visEgress policy.DirectionalVisibilityPolicy
+		if vis != nil {
+			visIngress = vis.Ingress
+			visEgress = vis.Egress
 		}
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced, visIngress)
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced, visEgress)
 	}
-
 	return p
 }
 
@@ -1479,7 +1463,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 	}
 
 	// When successful, push them into the cache.
-	revertFuncs := make([]xds.AckingResourceMutatorRevertFunc, 0, len(policies))
+	revertFuncs := make(xds.AckingResourceMutatorRevertFuncList, 0, len(policies))
 	revertUpdatedNetworkPolicyEndpoints := make(map[string]logger.EndpointUpdater, len(policies))
 	for _, p := range policies {
 		var callback func(error)
@@ -1512,9 +1496,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 
 		// Don't wait for an ACK for the reverted xDS updates.
 		// This is best-effort.
-		for _, revertFunc := range revertFuncs {
-			revertFunc(completion.NewCompletion(nil, nil))
-		}
+		revertFuncs.Revert(nil)
 
 		log.Debug("Finished reverting xDS network policy update")
 

@@ -59,8 +59,8 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
-          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-generic-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/?specificTag=${{ steps.vars.outputs.tag }}" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-generic-ci/tag/?specificTag=${{ steps.vars.outputs.tag }}" &> /dev/null; do sleep 45s; done
 
       - name: Create kind cluster
         uses: helm/kind-action@94729529f85113b88f4f819c17ce61382e6d8478

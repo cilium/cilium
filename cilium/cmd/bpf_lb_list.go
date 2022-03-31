@@ -19,10 +19,11 @@ const (
 	idTitle             = "ID"
 	serviceAddressTitle = "SERVICE ADDRESS"
 	backendAddressTitle = "BACKEND ADDRESS"
+	backendIdTitle      = "BACKEND ID"
 )
 
 var (
-	listRevNAT bool
+	listRevNAT, listFrontends, listBackends bool
 )
 
 func dumpRevNat(serviceList map[string][]string) {
@@ -31,6 +32,24 @@ func dumpRevNat(serviceList map[string][]string) {
 	}
 	if err := lbmap.RevNat6Map.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 reverse NAT table: %s", err)
+	}
+}
+
+func dumpFrontends(serviceList map[string][]string) {
+	if err := lbmap.Service4MapV2.DumpIfExists(serviceList); err != nil {
+		Fatalf("Unable to dump IPv4 frontend table: %s", err)
+	}
+	if err := lbmap.Service6MapV2.DumpIfExists(serviceList); err != nil {
+		Fatalf("Unable to dump IPv6 frontend table: %s", err)
+	}
+}
+
+func dumpBackends(serviceList map[string][]string) {
+	if err := lbmap.Backend4MapV2.DumpIfExists(serviceList); err != nil {
+		Fatalf("Unable to dump IPv4 backend table: %s", err)
+	}
+	if err := lbmap.Backend6MapV2.DumpIfExists(serviceList); err != nil {
+		Fatalf("Unable to dump IPv6 backend table: %s", err)
 	}
 }
 
@@ -105,11 +124,19 @@ var bpfLBListCmd = &cobra.Command{
 		lbmap.Init(lbmap.InitParams{IPv4: true, IPv6: true})
 
 		var firstTitle string
+		secondTitle := backendAddressTitle
 		serviceList := make(map[string][]string)
 		switch {
 		case listRevNAT:
 			firstTitle = idTitle
 			dumpRevNat(serviceList)
+		case listFrontends:
+			firstTitle = serviceAddressTitle
+			secondTitle = backendIdTitle
+			dumpFrontends(serviceList)
+		case listBackends:
+			firstTitle = idTitle
+			dumpBackends(serviceList)
 		default:
 			firstTitle = serviceAddressTitle
 			dumpSVC(serviceList)
@@ -122,12 +149,14 @@ var bpfLBListCmd = &cobra.Command{
 			return
 		}
 
-		TablePrinter(firstTitle, backendAddressTitle, serviceList)
+		TablePrinter(firstTitle, secondTitle, serviceList)
 	},
 }
 
 func init() {
 	bpfLBCmd.AddCommand(bpfLBListCmd)
 	bpfLBListCmd.Flags().BoolVarP(&listRevNAT, "revnat", "", false, "List reverse NAT entries")
+	bpfLBListCmd.Flags().BoolVarP(&listFrontends, "frontends", "", false, "List all service frontend entries")
+	bpfLBListCmd.Flags().BoolVarP(&listBackends, "backends", "", false, "List all service backend entries")
 	command.AddJSONOutput(bpfLBListCmd)
 }

@@ -2018,6 +2018,15 @@ definitions:
             properties:
               enabled:
                 type: boolean
+          nat46X64:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
+            type: object
+            properties:
+              enabled:
+                type: boolean
   AllocationMap:
     description: |
       Map of allocated IPs
@@ -2561,6 +2570,13 @@ definitions:
             enum:
             - Cluster
             - Local
+          natPolicy:
+            description: Service protocol NAT policy
+            type: string
+            enum:
+            - None
+            - Nat46
+            - Nat64
           healthCheckNodePort:
             description: Service health check node port
             type: integer

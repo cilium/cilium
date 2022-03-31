@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests && integration_tests
-// +build !privileged_tests,integration_tests
 
 package endpoint
 
@@ -22,6 +21,7 @@ import (
 	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -63,7 +63,7 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 	repo := ds.GetPolicyRepository()
 	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
 
-	ep := NewEndpointWithState(ds, ds, &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, StateReady)
+	ep := NewEndpointWithState(ds, ds, ipcache.NewIPCache(nil), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, StateReady)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.dockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID

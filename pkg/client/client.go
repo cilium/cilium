@@ -590,6 +590,11 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			gracefulTerm = "Enabled"
 		}
 
+		nat46X64 := "Disabled"
+		if sr.KubeProxyReplacement.Features.Nat46X64.Enabled {
+			nat46X64 = "Enabled"
+		}
+
 		fmt.Fprintf(w, "KubeProxyReplacement Details:\n")
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
@@ -607,6 +612,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 		fmt.Fprintf(tab, "  Session Affinity:\t%s\n", affinity)
 		fmt.Fprintf(tab, "  Graceful Termination:\t%s\n", gracefulTerm)
+		fmt.Fprintf(tab, "  NAT46/64 Support:\t%s\n", nat46X64)
 		if xdp != "" {
 			fmt.Fprintf(tab, "  XDP Acceleration:\t%s\n", xdp)
 		}

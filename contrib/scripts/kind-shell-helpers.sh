@@ -63,7 +63,7 @@ cilium-helm-install(){
         echo "\e[34mIf incorrect, set CILIUM_SRC env var to Cilium's source code"
         printf "%0.s\e[34m=" {1..$COLUMNS}
         ciliumVersion=${1}
-        cd $SRC
+        cd $SRC/install/kubernetes
         CILIUM_CI_TAG="${1}"
         helm template cilium ./cilium \
           --namespace kube-system \

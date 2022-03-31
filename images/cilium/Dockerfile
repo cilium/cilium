@@ -3,12 +3,12 @@
 # Copyright 2020-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:4eb9229c1f5288fead998a0401a75a05f945999b@sha256:a4ae408214e58850f8a53e66392fe1e6b16d01d2e5d1d983356089b5049382ef
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:eaa047d20a1736c81bcd4cab603f6c47c5508b21@sha256:ec480391acffe3c30a05b6c3b583f28caa9d20f25f33a650416454b29dabf642
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:ff6f18ae83fe9d80ac00e0204954cc27c73eecd0@sha256:87550fa6d231e660106bf8dd73609675213ff98621b02c2454d5f72125c13afd
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:efb92c208c5f1f190243b361cbb43413ca49d534@sha256:8ca66f05327b5affad2bfb09614636f2b0d3fa24a9f40d1b5f86c2ef9ca2e46a
 
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM quay.io/cilium/cilium-envoy:9c0d933166ba192713f9e2fc3901f788557286ee@sha256:943f1f522bdfcb1ca3fe951bd8186c41b970afa254096513ae6e0e0efda1a10d as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:617157adcd74e5e0f5cebe8a36c8c244335c5545@sha256:2146f1c98f7d87a91b58b2a86ba40f44d32b92fe26bb4f53b821e0a6688cafda as cilium-envoy
 
 #
 # Hubble CLI
@@ -49,7 +49,7 @@ ARG LIBNETWORK_PLUGIN
 #
 WORKDIR /go/src/github.com/cilium/cilium
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
-    make IMAGE_CROSS_TARGET_PLATFORM=${TARGETOS}/${TARGETARCH} GOARCH=${TARGETARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} PKG_BUILD=1 V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
+    make GOARCH=${TARGETARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} PKG_BUILD=1 V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
     DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} build-container install-container-binary
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \

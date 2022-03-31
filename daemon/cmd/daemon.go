@@ -82,6 +82,7 @@ import (
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
+	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -149,6 +150,8 @@ type Daemon struct {
 	endpointManager *endpointmanager.EndpointManager
 
 	identityAllocator CachingIdentityAllocator
+
+	ipcache *ipcache.IPCache
 
 	k8sWatcher *watchers.K8sWatcher
 
@@ -419,7 +422,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		externalIP,
 	)
 
-	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), ipcache.IPIdentityCache, option.Config, nil, nil)
+	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), option.Config, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -464,19 +467,27 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
 	}
 
+	// Propagate identity allocator down to packages which themselves do not
+	// have types to which we can add an allocator member.
+	//
+	// **NOTE** The identity allocator is not yet initialized here; that
+	// happens below. We've only allocated the structure at this point.
+	//
+	// TODO: convert these package level variables to types for easier unit
+	// testing in the future.
 	d.identityAllocator = NewCachingIdentityAllocator(&d)
 	if err := d.initPolicy(epMgr); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
+	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
+		IdentityAllocator: d.identityAllocator,
+		PolicyHandler:     d.policy.GetSelectorCache(),
+		DatapathHandler:   epMgr,
+	})
+	nodeMngr = nodeMngr.WithIPCache(d.ipcache)
 	nodeMngr = nodeMngr.WithSelectorCacheUpdater(d.policy.GetSelectorCache()) // must be after initPolicy
 	nodeMngr = nodeMngr.WithPolicyTriggerer(epMgr)                            // must be after initPolicy
 
-	// Propagate identity allocator down to packages which themselves do not
-	// have types to which we can add an allocator member.
-	//
-	// TODO: convert these package level variables to types for easier unit
-	// testing in the future.
-	ipcache.IdentityAllocator = d.identityAllocator
 	proxy.Allocator = d.identityAllocator
 
 	d.endpointManager = epMgr
@@ -509,11 +520,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.bgpSpeaker,
 		d.egressGatewayManager,
 		option.Config,
+		d.ipcache,
 	)
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
-	// GH-17849: The daemon does not have a reference to the ipcache,
-	// instead we rely on the global.
-	ipcache.IPIdentityCache.RegisterK8sSyncedChecker(&d)
+	d.ipcache.RegisterK8sSyncedChecker(&d)
 
 	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
@@ -527,6 +537,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if option.Config.EnableServiceTopology {
 		d.k8sWatcher.RegisterNodeSubscriber(&d.k8sWatcher.K8sSvcCache)
 	}
+
+	d.k8sWatcher.NodeChain.Register(watchers.NewCiliumNodeUpdater(d.k8sWatcher))
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
@@ -661,7 +673,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// FIXME: Make the port range configurable.
 	if option.Config.EnableL7Proxy {
 		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			&d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+			&d, option.Config.AgentLabels, d.datapath, d.endpointManager, d.ipcache)
 	} else {
 		log.Info("L7 proxies are disabled")
 	}
@@ -722,7 +734,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
-		if err := wgAgent.Init(mtuConfig); err != nil {
+		if err := wgAgent.(*wg.Agent).Init(d.ipcache, mtuConfig); err != nil {
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
 	}
@@ -1018,7 +1030,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.InitIPIdentityWatcher()
+	d.ipcache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
 
 	return &d, restoredEndpoints, nil
@@ -1056,6 +1068,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,
 				NodeManager:           nodeMngr,
 				RemoteIdentityWatcher: d.identityAllocator,
+				IPCache:               d.ipcache,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
@@ -1176,6 +1189,9 @@ func (d *Daemon) GetNodeSuffix() string {
 // K8sCacheIsSynced returns true if the agent has fully synced its k8s cache
 // with the API server
 func (d *Daemon) K8sCacheIsSynced() bool {
+	if !k8s.IsEnabled() {
+		return true
+	}
 	select {
 	case <-d.k8sCachesSynced:
 		return true

@@ -181,6 +181,9 @@ func (in *Limits) DeepEqual(other *Limits) bool {
 	if in.IPv6 != other.IPv6 {
 		return false
 	}
+	if in.HypervisorType != other.HypervisorType {
+		return false
+	}
 
 	return true
 }

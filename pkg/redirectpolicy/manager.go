@@ -291,7 +291,7 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 	if upsertNew {
 		// Check if any of the current redirect policies select this pod.
 		for _, config := range rpm.policyConfigs {
-			if config.policyConfigSelectsPod(podData) {
+			if config.checkNamespace(pod.GetNamespace()) && config.policyConfigSelectsPod(podData) {
 				rpm.processConfig(config, podData)
 			}
 		}

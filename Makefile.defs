@@ -22,7 +22,9 @@ LIBDIR?=$(PREFIX)/lib
 LOCALSTATEDIR?=/var
 RUNDIR?=/var/run
 CONFDIR?=/etc
-export GOARCH ?= $(shell $(GO) env GOARCH)
+
+NATIVE_ARCH = $(shell GOARCH= $(GO) env GOARCH)
+export GOARCH ?= $(NATIVE_ARCH)
 
 INSTALL = install
 
@@ -61,6 +63,10 @@ GO_TAGS_FLAGS = osusergo
 # This is declared here as it is needed to change the covermode depending on if
 # RACE is specified.
 GOTEST_COVER_OPTS =
+
+GOLANGCILINT_WANT_VERSION = 1.45.2
+GOLANGCILINT_IMAGE_SHA = sha256:e84b639c061c8888be91939c78dae9b1525359954e405ab0d9868a46861bd21b
+GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
 VERSION_MAJOR = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION | cut -d. -f1)
@@ -125,10 +131,17 @@ else
 endif
 
 GO_BUILD = CGO_ENABLED=0 $(GO) build
-# Currently crosscompiling only enabled for arm64 targets
+
+# Support CGO cross-compiling for amd64 and arm64 targets
 CGO_CC =
-ifeq ($(GOARCH),arm64)
+CROSS_ARCH =
+ifneq ($(GOARCH),$(NATIVE_ARCH))
+    CROSS_ARCH = $(GOARCH)
+endif
+ifeq ($(CROSS_ARCH),arm64)
     CGO_CC = CC=aarch64-linux-gnu-gcc
+else ifeq ($(CROSS_ARCH),amd64)
+    CGO_CC = CC=x86_64-linux-gnu-gcc
 endif
 GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(CGO_CC) $(GO) build
 

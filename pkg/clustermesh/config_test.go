@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests && integration_tests
-// +build !privileged_tests,integration_tests
 
 package clustermesh
 
@@ -14,6 +13,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -74,6 +74,7 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 		ConfigDirectory:       dir,
 		NodeKeyCreator:        testNodeCreator,
 		RemoteIdentityWatcher: mgr,
+		IPCache:               ipcache.NewIPCache(nil),
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))

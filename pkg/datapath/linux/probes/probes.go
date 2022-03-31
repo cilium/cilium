@@ -127,9 +127,12 @@ type MapTypes struct {
 	HaveStackMapType               bool `json:"have_stack_map_type"`
 }
 
-// Kernel misc configurations kernel large 1M instructions support
+// Kernel support for miscellaneous BPF features.
 type Misc struct {
 	HaveLargeInsnLimit bool `json:"have_large_insn_limit"`
+	HaveBoundedLoops   bool `json:"have_bounded_loops"`
+	HaveV2ISAExtension bool `json:"have_v2_isa_extension"`
+	HaveV3ISAExtension bool `json:"have_v3_isa_extension"`
 }
 
 // Features contains BPF feature checks returned by bpftool.

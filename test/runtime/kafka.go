@@ -41,13 +41,15 @@ var _ = Describe("RuntimeKafka", func() {
 		switch mode {
 		case "create":
 			for k, v := range images {
-				vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
+				res := vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
+				res.ExpectSuccess("failed to create container %s", k)
 			}
 			zook, err := vm.ContainerInspectNet("zook")
 			Expect(err).Should(BeNil())
 
-			vm.ContainerCreate("kafka", constants.KafkaImage, helpers.CiliumDockerNetwork, fmt.Sprintf(
+			res := vm.ContainerCreate("kafka", constants.KafkaImage, helpers.CiliumDockerNetwork, fmt.Sprintf(
 				"-l id.kafka -e KAFKA_ZOOKEEPER_CONNECT=%s:2181 -e KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS=60000 -e KAFKA_LISTENERS=PLAINTEXT://:9092 -e KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS=60000", zook["IPv4"]))
+			res.ExpectSuccess("failed to create kafka container")
 
 		case "delete":
 			for k := range images {

@@ -248,6 +248,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
 		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 		GracefulTermination:   &models.KubeProxyReplacementFeaturesGracefulTermination{},
+		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
 	}
 	if option.Config.EnableNodePort {
 		features.NodePort.Enabled = true
@@ -290,6 +291,9 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	}
 	if option.Config.EnableK8sTerminatingEndpoint {
 		features.GracefulTermination.Enabled = true
+	}
+	if option.Config.NodePortNat46X64 {
+		features.Nat46X64.Enabled = true
 	}
 
 	return &models.KubeProxyReplacement{

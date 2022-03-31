@@ -12,14 +12,10 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
 var (
-	// DefaultEndpointInfoRegistry is the default instance implementing the
-	// EndpointInfoRegistry interface.
-	DefaultEndpointInfoRegistry logger.EndpointInfoRegistry = &defaultEndpointInfoRegistry{}
-	endpointManager             EndpointLookup
+	endpointManager EndpointLookup
 	// Allocator is a package-level variable which is used to lookup security
 	// identities from their numeric representation.
 	// TODO: plumb an allocator in from callers of these functions vs. having
@@ -32,11 +28,19 @@ type EndpointLookup interface {
 	LookupIP(ip net.IP) (ep *endpoint.Endpoint)
 }
 
-// defaultEndpointInfoRegistry is the default implementation of the
-// EndpointInfoRegistry interface.
-type defaultEndpointInfoRegistry struct{}
+// endpointInfoRegistry provides a default implementation of the
+// logger.EndpointInfoRegistry interface.
+type endpointInfoRegistry struct {
+	ipcache *ipcache.IPCache
+}
 
-func (r *defaultEndpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, id identity.NumericIdentity) {
+func newEndpointInfoRegistry(ipc *ipcache.IPCache) *endpointInfoRegistry {
+	return &endpointInfoRegistry{
+		ipcache: ipc,
+	}
+}
+
+func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, id identity.NumericIdentity) {
 	var ep *endpoint.Endpoint
 	if ip != nil {
 		if ip.To4() != nil {
@@ -59,7 +63,7 @@ func (r *defaultEndpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointI
 		if ep != nil {
 			id = ep.GetIdentity()
 		} else if ip != nil {
-			ID, exists := ipcache.IPIdentityCache.LookupByIP(ip.String())
+			ID, exists := r.ipcache.LookupByIP(ip.String())
 			if exists {
 				id = ID.ID
 			}

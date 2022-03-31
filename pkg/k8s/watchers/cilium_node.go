@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -32,7 +33,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 	var once sync.Once
 	for {
 		swgNodes := lock.NewStoppableWaitGroup()
-		_, ciliumNodeInformer := informer.NewInformer(
+		ciliumNodeStore, ciliumNodeInformer := informer.NewInformer(
 			cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
 				cilium_v2.CNPluralName, v1.NamespaceAll, fields.Everything()),
 			&cilium_v2.CiliumNode{},
@@ -59,7 +60,8 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 						if ciliumNode := k8s.ObjToCiliumNode(newObj); ciliumNode != nil {
 							valid = true
 							isLocal := k8s.IsLocalCiliumNode(ciliumNode)
-							if oldCN.DeepEqual(ciliumNode) {
+							if oldCN.DeepEqual(ciliumNode) &&
+								comparator.MapStringEquals(oldCN.ObjectMeta.Labels, ciliumNode.ObjectMeta.Labels) {
 								equal = true
 								if !isLocal {
 									// For remote nodes, we return early here to avoid unnecessary update events if
@@ -102,6 +104,10 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
 		k.blockWaitGroupToSyncResources(isConnected, swgNodes, ciliumNodeInformer.HasSynced, k8sAPIGroupCiliumNodeV2)
+
+		k.ciliumNodeStoreMU.Lock()
+		k.ciliumNodeStore = ciliumNodeStore
+		k.ciliumNodeStoreMU.Unlock()
 
 		once.Do(func() {
 			// Signalize that we have put node controller in the wait group

@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package ipcache
 
@@ -24,24 +23,24 @@ import (
 func TestInjectLabels(t *testing.T) {
 	setupTest(t)
 
-	assert.Len(t, identityMetadata, 1)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	assert.Len(t, IPIdentityCache.metadata.m, 1)
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
 	// Insert kube-apiserver IP from outside of the cluster. This should create
 	// a CIDR ID for this IP.
-	UpsertMetadata("10.0.0.4", labels.LabelKubeAPIServer)
-	assert.Len(t, identityMetadata, 2)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelKubeAPIServer)
+	assert.Len(t, IPIdentityCache.metadata.m, 2)
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.True(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
 
 	// Upsert node labels to the kube-apiserver to validate that the CIDR ID is
 	// deallocated and the kube-apiserver reserved ID is associated with this
 	// IP now.
-	UpsertMetadata("10.0.0.4", labels.LabelRemoteNode)
-	assert.Len(t, identityMetadata, 2)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelRemoteNode)
+	assert.Len(t, IPIdentityCache.metadata.m, 2)
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
 }
@@ -49,63 +48,67 @@ func TestInjectLabels(t *testing.T) {
 func TestFilterMetadataByLabels(t *testing.T) {
 	setupTest(t)
 
-	UpsertMetadata("2.1.1.1", labels.LabelWorld)
-	UpsertMetadata("3.1.1.1", labels.LabelWorld)
+	IPIdentityCache.UpsertMetadata("2.1.1.1", labels.LabelWorld)
+	IPIdentityCache.UpsertMetadata("3.1.1.1", labels.LabelWorld)
 
-	assert.Len(t, filterMetadataByLabels(labels.LabelKubeAPIServer), 1)
-	assert.Len(t, filterMetadataByLabels(labels.LabelWorld), 2)
+	assert.Len(t, IPIdentityCache.metadata.filterByLabels(labels.LabelKubeAPIServer), 1)
+	assert.Len(t, IPIdentityCache.metadata.filterByLabels(labels.LabelWorld), 2)
 }
 
 func TestRemoveLabelsFromIPs(t *testing.T) {
 	setupTest(t)
 
-	assert.Len(t, identityMetadata, 1)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
+	assert.Len(t, IPIdentityCache.metadata.m, 1)
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
-	removeLabelsFromIPs(map[string]labels.Labels{
+	IPIdentityCache.removeLabelsFromIPs(map[string]labels.Labels{
 		"1.1.1.1": labels.LabelKubeAPIServer,
-	}, source.Local, &mockUpdater{}, &mockTriggerer{})
-	assert.Len(t, identityMetadata, 1)
-	assert.Equal(t, labels.LabelHost, identityMetadata["1.1.1.1"])
+	}, source.Local)
+	assert.Len(t, IPIdentityCache.metadata.m, 1)
+	assert.Equal(t, labels.LabelHost, IPIdentityCache.metadata.m["1.1.1.1"])
 
 	// Simulate kube-apiserver policy + CIDR policy on same prefix. Validate
 	// that removing the kube-apiserver policy will result in a new CIDR
 	// identity for the CIDR policy.
 
-	delete(identityMetadata, "1.1.1.1") // clean slate first
+	delete(IPIdentityCache.metadata.m, "1.1.1.1") // clean slate first
 	// Entry with only kube-apiserver labels means kube-apiserver is outside of
 	// the cluster, and thus will have a CIDR identity when InjectLabels() is
 	// called.
-	UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
-	assert.NoError(t, InjectLabels(source.Local, &mockUpdater{}, &mockTriggerer{}))
-	id := IdentityAllocator.LookupIdentityByID(
+	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
+	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
+	id := IPIdentityCache.IdentityAllocator.LookupIdentityByID(
 		context.TODO(),
 		identity.LocalIdentityFlag, // we assume first local ID
 	)
 	assert.NotNil(t, id)
 	assert.Equal(t, 1, id.ReferenceCount)
 	// Simulate adding CIDR policy.
-	ids, err := AllocateCIDRsForIPs([]net.IP{net.ParseIP("1.1.1.1")}, nil)
+	ids, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{net.ParseIP("1.1.1.1")}, nil)
 	assert.Nil(t, err)
 	assert.Len(t, ids, 1)
 	assert.Equal(t, 2, id.ReferenceCount)
-	removeLabelsFromIPs(map[string]labels.Labels{ // remove kube-apiserver policy
+	IPIdentityCache.removeLabelsFromIPs(map[string]labels.Labels{ // remove kube-apiserver policy
 		"1.1.1.1": labels.LabelKubeAPIServer,
-	}, source.Local, &mockUpdater{}, &mockTriggerer{})
-	assert.NotContains(t, identityMetadata["1.1.1.1"], labels.LabelKubeAPIServer)
+	}, source.Local)
+	assert.NotContains(t, IPIdentityCache.metadata.m["1.1.1.1"], labels.LabelKubeAPIServer)
 	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 }
 
 func setupTest(t *testing.T) {
-	IPIdentityCache = NewIPCache()
+	t.Helper()
+
+	allocator := testidentity.NewMockIdentityAllocator(nil)
+	IPIdentityCache = NewIPCache(&Configuration{
+		IdentityAllocator: allocator,
+		PolicyHandler:     &mockUpdater{},
+		DatapathHandler:   &mockTriggerer{},
+	})
 	IPIdentityCache.k8sSyncedChecker = &mockK8sSyncedChecker{}
 
-	IdentityAllocator = testidentity.NewMockIdentityAllocator(nil)
-	identityMetadata = make(map[string]labels.Labels)
-
-	UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
-	UpsertMetadata("1.1.1.1", labels.LabelHost)
+	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer)
+	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelHost)
 }
 
 type mockK8sSyncedChecker struct{}

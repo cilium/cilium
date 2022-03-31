@@ -45,6 +45,12 @@ Requirements to be listed
 Users (Alphabetically)
 ----------------------
 
+    * N: AccuKnox
+      D: AccuKnox uses Cilium for network visibility and network policy enforcement.
+      U: L3/L4/L7 policy enforcement using Identity, External/VM Workloads, Network Visibility using Hubble
+      L: https://www.accuknox.com/spifee-identity-for-cilium-presentation-at-kubecon-2021, https://www.accuknox.com/cilium
+      Q: @nyrahul
+
     * N: Acoss
       D: Acoss is using cilium as their main CNI plugin (self hosted k8s, On-premises)
       U: CiliumNetworkPolicy, Hubble, BPF NodePort, Direct routing
@@ -234,6 +240,11 @@ Users (Alphabetically)
       L: https://github.com/talos-systems/talos
       Q: @frezbo, @smira, @Ulexus
 
+    * N: Tencent Cloud
+      D: Tencent Cloud container team designed the TKE hybrid cloud container network solution with Cilium as the cluster network base
+      U: Networking, CNI
+      L: https://segmentfault.com/a/1190000040298428/en
+      
     * N: T-Systems International
       D: TSI uses Cilium for it's Open Sovereign Cloud product, including as a CNI for Gardener-based Kubernetes clusters and bare-metal infrastructure managed by OnMetal.
       U: CNI, overlay network, NetworkPolicies

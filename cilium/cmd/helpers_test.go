@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package cmd
 
@@ -94,7 +93,6 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
         "DebugPolicy": "Enabled",
         "DropNotification": "Enabled",
         "MonitorAggregationLevel": "None",
-        "NAT46": "Disabled",
         "TraceNotification": "Enabled"
       }
     },
@@ -284,7 +282,6 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
           "DebugPolicy": "Enabled",
           "DropNotification": "Enabled",
           "MonitorAggregationLevel": "None",
-          "NAT46": "Disabled",
           "TraceNotification": "Enabled"
         }
       },
@@ -308,7 +305,6 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
         "DebugPolicy": "Enabled",
         "DropNotification": "Enabled",
         "MonitorAggregationLevel": "None",
-        "NAT46": "Disabled",
         "TraceNotification": "Enabled"
       }
     },
@@ -528,7 +524,6 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
           "DebugPolicy": "Enabled",
           "DropNotification": "Enabled",
           "MonitorAggregationLevel": "None",
-          "NAT46": "Disabled",
           "TraceNotification": "Enabled"
         }
       },

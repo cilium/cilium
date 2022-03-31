@@ -121,9 +121,15 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 
 	if (!bpf_skip_nodeport(ctx)) {
 		ret = nodeport_lb4(ctx, 0);
-		if (IS_ERR(ret))
+		if (ret == NAT_46X64_RECIRC) {
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+						      CTX_ACT_DROP,
+						      METRIC_INGRESS);
+		} else if (IS_ERR(ret)) {
 			return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 						      METRIC_INGRESS);
+		}
 	}
 
 	return bpf_xdp_exit(ctx, ret);

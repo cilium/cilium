@@ -77,8 +77,8 @@
 #define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
 #define CILIUM_CALL_ARP				6
 #define CILIUM_CALL_IPV4_FROM_LXC		7
-#define CILIUM_CALL_NAT64			8
-#define CILIUM_CALL_NAT46			9
+#define CILIUM_CALL_UNUSED1			8
+#define CILIUM_CALL_UNUSED2			9
 #define CILIUM_CALL_IPV6_FROM_LXC		10
 #define CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY	11
 #define CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY
@@ -96,7 +96,9 @@
 #define CILIUM_CALL_IPV4_FROM_HOST		22
 #define CILIUM_CALL_IPV6_FROM_HOST		23
 #define CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT	24
-#define CILIUM_CALL_SIZE			25
+#define CILIUM_CALL_IPV4_FROM_LXC_CONT		25
+#define CILIUM_CALL_IPV6_FROM_LXC_CONT		26
+#define CILIUM_CALL_SIZE			27
 
 typedef __u64 mac_t;
 
@@ -411,7 +413,7 @@ enum {
 #define DROP_NO_SERVICE		-158
 #define DROP_UNUSED8		-159 /* unused */
 #define DROP_NO_TUNNEL_ENDPOINT -160
-#define DROP_UNUSED9		-161 /* unused */
+#define DROP_NAT_46X64_DISABLED	-161
 #define DROP_EDT_HORIZON	-162
 #define DROP_UNKNOWN_CT		-163
 #define DROP_HOST_UNREACHABLE	-164
@@ -436,6 +438,7 @@ enum {
 #define DROP_INVALID_VNI	-183
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
+#define NAT_46X64_RECIRC	100
 
 /* Cilium metrics reasons for forwarding packets and other stats.
  * If reason is larger than below then this is a drop reason and
@@ -577,6 +580,7 @@ enum {
 	CB_SRC_LABEL,
 #define	CB_PORT			CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_HINT			CB_SRC_LABEL	/* Alias, non-overlapping */
+#define	CB_NAT_46X64		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
@@ -587,23 +591,16 @@ enum {
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
-	CB_NAT46_STATE,
-#define CB_NAT			CB_NAT46_STATE	/* Alias, non-overlapping */
-#define	CB_ADDR_V6_3		CB_NAT46_STATE	/* Alias, non-overlapping */
-#define	CB_FROM_HOST		CB_NAT46_STATE	/* Alias, non-overlapping */
+#define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
+	CB_NAT,
+#define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
+#define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
-};
-
-/* State values for NAT46 */
-enum {
-	NAT46_CLEAR,
-	NAT64,
-	NAT46,
 };
 
 #define TUPLE_F_OUT		0	/* Outgoing flow */
@@ -646,6 +643,7 @@ enum {
 /* Service flags (lb{4,6}_service->flags2) */
 enum {
 	SVC_FLAG_LOCALREDIRECT = (1 << 0),  /* local redirect */
+	SVC_FLAG_NAT_46X64     = (1 << 1),  /* NAT-46/64 entry */
 };
 
 struct ipv6_ct_tuple {

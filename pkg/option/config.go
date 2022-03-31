@@ -50,6 +50,9 @@ const (
 	// ClusterHealthPort is the TCP port for cluster-wide network connectivity health API
 	ClusterHealthPort = "cluster-health-port"
 
+	// ClusterMeshHealthPort is the TCP port for ClusterMesh apiserver health API
+	ClusterMeshHealthPort = "clustermesh-health-port"
+
 	// AgentLabels are additional labels to identify this agent
 	AgentLabels = "agent-labels"
 
@@ -333,9 +336,6 @@ const (
 
 	// Logstash enables logstash integration
 	Logstash = "logstash"
-
-	// NAT46Range is the IPv6 prefix to map IPv4 addresses to
-	NAT46Range = "nat46-range"
 
 	// EnableIPv4Masquerade masquerades IPv4 packets from endpoints leaving the host.
 	EnableIPv4Masquerade = "enable-ipv4-masquerade"
@@ -1290,6 +1290,9 @@ type DaemonConfig struct {
 	// ClusterHealthPort is the TCP port for cluster-wide network connectivity health API
 	ClusterHealthPort int
 
+	// ClusterMeshHealthPort is the TCP port for ClusterMesh apiserver health API
+	ClusterMeshHealthPort int
+
 	// AgentLabels contains additional labels to identify this agent in monitor events.
 	AgentLabels []string
 
@@ -1529,7 +1532,6 @@ type DaemonConfig struct {
 	LogOpt                        map[string]string
 	Logstash                      bool
 	LogSystemLoadConfig           bool
-	NAT46Range                    string
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
@@ -1735,6 +1737,9 @@ type DaemonConfig struct {
 
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting bool
+
+	// NodePortNat46X64 indicates whether NAT46 / NAT64 can be used.
+	NodePortNat46X64 bool
 
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
@@ -2569,6 +2574,7 @@ func (c *DaemonConfig) Populate() {
 
 	c.AgentHealthPort = viper.GetInt(AgentHealthPort)
 	c.ClusterHealthPort = viper.GetInt(ClusterHealthPort)
+	c.ClusterMeshHealthPort = viper.GetInt(ClusterMeshHealthPort)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
@@ -2698,7 +2704,6 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
 	c.MTU = viper.GetInt(MTUName)
-	c.NAT46Range = viper.GetString(NAT46Range)
 	c.PProf = viper.GetBool(PProf)
 	c.PProfPort = viper.GetInt(PProfPort)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
@@ -2887,19 +2892,19 @@ func (c *DaemonConfig) Populate() {
 
 	if m, err := command.GetStringMapStringE(viper.GetViper(), KVStoreOpt); err != nil {
 		log.Fatalf("unable to parse %s: %s", KVStoreOpt, err)
-	} else if len(m) != 0 {
+	} else {
 		c.KVStoreOpt = m
 	}
 
 	if m, err := command.GetStringMapStringE(viper.GetViper(), LogOpt); err != nil {
 		log.Fatalf("unable to parse %s: %s", LogOpt, err)
-	} else if len(m) != 0 {
+	} else {
 		c.LogOpt = m
 	}
 
 	if m, err := command.GetStringMapStringE(viper.GetViper(), APIRateLimitName); err != nil {
 		log.Fatalf("unable to parse %s: %s", APIRateLimitName, err)
-	} else if len(m) != 0 {
+	} else {
 		c.APIRateLimit = m
 	}
 

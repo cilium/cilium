@@ -10,18 +10,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
-)
-
-var (
-	// IPIdentityCache caches the mapping of endpoint IPs to their corresponding
-	// security identities across the entire cluster in which this instance of
-	// Cilium is running.
-	IPIdentityCache = NewIPCache()
 )
 
 // Identity is the identity representation of an IP<->Identity cache.
@@ -53,6 +48,14 @@ type K8sMetadata struct {
 	PodName string
 	// NamedPorts is the set of named ports for the pod
 	NamedPorts policy.NamedPortMap
+}
+
+// Configuration is init-time configuration for the IPCache.
+type Configuration struct {
+	// Accessors to other subsystems, provided by the daemon
+	cache.IdentityAllocator
+	ipcacheTypes.PolicyHandler
+	ipcacheTypes.DatapathHandler
 }
 
 // IPCache is a collection of mappings:
@@ -87,11 +90,18 @@ type IPCache struct {
 	// k8sSyncedChecker knows how to check for whether the K8s watcher cache
 	// has been fully synced.
 	k8sSyncedChecker k8sSyncedChecker
+
+	// Configuration provides pointers towards other agent components that
+	// the IPCache relies upon at runtime.
+	*Configuration
+
+	// metadata is the ipcache identity metadata map, which maps IPs to labels.
+	metadata *metadata
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
 // identity (and vice-versa) initialized.
-func NewIPCache() *IPCache {
+func NewIPCache(c *Configuration) *IPCache {
 	return &IPCache{
 		mutex:             lock.NewSemaphoredMutex(),
 		ipToIdentityCache: map[string]Identity{},
@@ -100,6 +110,8 @@ func NewIPCache() *IPCache {
 		ipToK8sMetadata:   map[string]K8sMetadata{},
 		controllers:       controller.NewManager(),
 		namedPorts:        nil,
+		metadata:          newMetadata(),
+		Configuration:     c,
 	}
 }
 
@@ -391,8 +403,18 @@ func (ipc *IPCache) upsertLocked(
 	return namedPortsChanged, nil
 }
 
+// DumpToListener dumps the entire contents of the IPCache by triggering
+// the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
+func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
+	ipc.RLock()
+	ipc.DumpToListenerLocked(listener)
+	ipc.RUnlock()
+}
+
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
+// The caller *MUST* grab the IPCache.Lock for reading before calling this
+// function.
 func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 	for ip, identity := range ipc.ipToIdentityCache {
 		if identity.shadowed {

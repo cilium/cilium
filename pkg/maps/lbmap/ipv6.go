@@ -200,7 +200,7 @@ type Service6Value struct {
 
 func (s *Service6Value) String() string {
 	sHost := s.ToHost().(*Service6Value)
-	return fmt.Sprintf("%d (%d) [FLAGS: 0x%x]", sHost.BackendID, sHost.RevNat, sHost.Flags)
+	return fmt.Sprintf("%d %d (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.RevNat, sHost.Flags, sHost.Flags2)
 }
 
 func (s *Service6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
