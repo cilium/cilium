@@ -138,7 +138,7 @@ spec:
                     fi
 
 {{- if not (eq .Values.nodeinit.bootstrapFile "") }}
-                    rm -f {{ .Values.nodeinit.bootstrapFile }}
+                    rm -f {{ .Values.nodeinit.bootstrapFile | quote }}
 {{- end }}
 
                     rm -f /tmp/node-init.cilium.io
@@ -294,7 +294,8 @@ spec:
 {{- end }}
 
 {{- if not (eq .Values.nodeinit.bootstrapFile "") }}
-              date > {{ .Values.nodeinit.bootstrapFile }}
+              mkdir -p {{ .Values.nodeinit.bootstrapFile | dir | quote }}
+              date > {{ .Values.nodeinit.bootstrapFile | quote }}
 {{- end }}
 
 {{- if .Values.nodeinit.restartPods }}

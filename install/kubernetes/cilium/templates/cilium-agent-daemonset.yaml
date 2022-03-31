@@ -406,12 +406,12 @@ spec:
 {{- end }}
 {{- if and .Values.nodeinit.enabled (not (eq .Values.nodeinit.bootstrapFile "")) }}
       - name: wait-for-node-init
-        command: ['sh', '-c', 'until test -s {{ .Values.nodeinit.bootstrapFile | quote }}; do echo "Waiting on node-init to run..."; sleep 1; done']
+        command: ['sh', '-c', 'until test -s {{ (print "/tmp/cilium-bootstrap.d/" (.Values.nodeinit.bootstrapFile | base)) | quote }}; do echo "Waiting on node-init to run..."; sleep 1; done']
         image: "{{ if .Values.image.override }}{{ .Values.image.override }}{{ else }}{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
-        - mountPath: {{ .Values.nodeinit.bootstrapFile }}
-          name: cilium-bootstrap-file
+        - mountPath: "/tmp/cilium-bootstrap.d"
+          name: cilium-bootstrap-file-dir
 {{- end }}
       - command:
         - /init-container.sh
@@ -543,9 +543,9 @@ spec:
 {{- end }}
 {{- if and .Values.nodeinit.enabled (not (eq .Values.nodeinit.bootstrapFile "")) }}
       - hostPath:
-          path: {{ .Values.nodeinit.bootstrapFile }}
-          type: FileOrCreate
-        name: cilium-bootstrap-file
+          path: {{ .Values.nodeinit.bootstrapFile | dir | quote }}
+          type: DirectoryOrCreate
+        name: cilium-bootstrap-file-dir
 {{- end }}
 {{- range .Values.extraHostPathMounts }}
       - name: {{ .name }}
