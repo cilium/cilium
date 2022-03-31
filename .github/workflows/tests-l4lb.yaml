@@ -107,6 +107,7 @@ jobs:
               - 'daemon/**'
               - 'bpf/**'
               - 'test/l4lb/**'
+              - 'test/nat46x64/**'
 
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
@@ -184,6 +185,7 @@ jobs:
       - name: Run tests
         run: |
           ssh default "sudo /bin/sh -c 'cd /vagrant/test/l4lb && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }}'"
+          ssh default "sudo /bin/sh -c 'cd /vagrant/test/nat46x64 && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }}'"
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}

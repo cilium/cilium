@@ -112,3 +112,6 @@ ip r replace "${LB_VIP}/32" via "$SECOND_LB_NODE_IP"
 for i in $(seq 1 10); do
     curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
+
+# Cleanup
+kind delete cluster
