@@ -2800,6 +2800,11 @@ definitions:
         type: array
         items:
           type: string
+      congestionControl:
+        type: string
+        enum:
+        - cubic
+        - bbr
   Masquerading:
     description: |-
       Status of masquerading
