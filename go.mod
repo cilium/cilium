@@ -54,7 +54,7 @@ require (
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/miekg/dns v1.1.43
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.17.0
+	github.com/onsi/gomega v1.19.0
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.11.0
@@ -79,7 +79,7 @@ require (
 	go.uber.org/multierr v1.7.0
 	go.universe.tf/metallb v0.11.0
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20220111092808-5a964db01320
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac

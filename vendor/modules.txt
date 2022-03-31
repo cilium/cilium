@@ -629,11 +629,12 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
-# github.com/onsi/gomega v1.17.0
-## explicit; go 1.16
+# github.com/onsi/gomega v1.19.0
+## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
 github.com/onsi/gomega/internal
+github.com/onsi/gomega/internal/gutil
 github.com/onsi/gomega/matchers
 github.com/onsi/gomega/matchers/support/goraph/bipartitegraph
 github.com/onsi/gomega/matchers/support/goraph/edge
@@ -851,7 +852,7 @@ golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
+# golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 ## explicit; go 1.17
 golang.org/x/net/bpf
 golang.org/x/net/context
