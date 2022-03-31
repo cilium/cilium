@@ -7,11 +7,13 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/rest"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -139,7 +141,9 @@ func Init(conf k8sconfig.Configuration) error {
 	if err != nil {
 		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
 	}
-	closeAllDefaultClientConns := setDialer(restConfig)
+
+	defaultCloseAllConns := setDialer(restConfig)
+
 	// Use the same http client for all k8s connections. It does not matter that
 	// we are using a restConfig for the HTTP client that differs from each
 	// individual client since the rest.HTTPClientFor only does not use fields
@@ -164,6 +168,17 @@ func Init(conf k8sconfig.Configuration) error {
 		return fmt.Errorf("unable to create k8s apiextensions client: %s", err)
 	}
 
+	// We are implementing the same logic as Kubelet, see
+	// https://github.com/kubernetes/kubernetes/blob/v1.24.0-beta.0/cmd/kubelet/app/server.go#L852.
+	var closeAllConns func()
+	if s := os.Getenv("DISABLE_HTTP2"); len(s) > 0 {
+		closeAllConns = defaultCloseAllConns
+	} else {
+		closeAllConns = func() {
+			utilnet.CloseIdleConnectionsFor(restConfig.Transport)
+		}
+	}
+
 	heartBeat := func(ctx context.Context) error {
 		// Kubernetes does a get node of the node that kubelet is running [0]. This seems excessive in
 		// our case because the amount of data transferred is bigger than doing a Get of /healthz.
@@ -181,7 +196,7 @@ func Init(conf k8sconfig.Configuration) error {
 					runHeartbeat(
 						heartBeat,
 						option.Config.K8sHeartbeatTimeout,
-						closeAllDefaultClientConns,
+						closeAllConns,
 					)
 					return nil
 				},
