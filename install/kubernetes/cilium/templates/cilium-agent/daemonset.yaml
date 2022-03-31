@@ -372,13 +372,13 @@ spec:
         - sh
         - -c
         - |
-          until test -s {{ .Values.nodeinit.bootstrapFile | quote }}; do
+          until test -s {{ (print "/tmp/cilium-bootstrap.d/" (.Values.nodeinit.bootstrapFile | base)) | quote }}; do
             echo "Waiting on node-init to run...";
             sleep 1;
           done
         volumeMounts:
-        - name: cilium-bootstrap-file
-          mountPath: {{ .Values.nodeinit.bootstrapFile }}
+        - name: cilium-bootstrap-file-dir
+          mountPath: "/tmp/cilium-bootstrap.d"
       {{- end }}
       - name: clean-cilium-state
         image: {{ include "cilium.image" .Values.image | quote }}
@@ -515,10 +515,10 @@ spec:
           type: FileOrCreate
       {{- end }}
       {{- if and .Values.nodeinit.enabled .Values.nodeinit.bootstrapFile }}
-      - name: cilium-bootstrap-file
+      - name: cilium-bootstrap-file-dir
         hostPath:
-          path: {{ .Values.nodeinit.bootstrapFile }}
-          type: FileOrCreate
+          path: {{ .Values.nodeinit.bootstrapFile | dir | quote }}
+          type: DirectoryOrCreate
       {{- end }}
       {{- if .Values.etcd.enabled }}
         # To read the etcd config stored in config maps
