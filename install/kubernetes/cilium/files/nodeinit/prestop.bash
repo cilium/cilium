@@ -23,7 +23,7 @@ if ip link show cilium_host; then
 fi
 
 {{- if not (eq .Values.nodeinit.bootstrapFile "") }}
-rm -f {{ .Values.nodeinit.bootstrapFile }}
+rm -f {{ .Values.nodeinit.bootstrapFile | quote }}
 {{- end }}
 
 rm -f /tmp/node-init.cilium.io

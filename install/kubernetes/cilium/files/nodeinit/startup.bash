@@ -120,7 +120,8 @@ iptables -w -t nat -D POSTROUTING -m comment --comment "ip-masq: ensure nat POST
 {{- end }}
 
 {{- if not (eq .Values.nodeinit.bootstrapFile "") }}
-date > {{ .Values.nodeinit.bootstrapFile }}
+mkdir -p {{ .Values.nodeinit.bootstrapFile | dir | quote }}
+date > {{ .Values.nodeinit.bootstrapFile | quote }}
 {{- end }}
 
 {{- if .Values.azure.enabled }}
