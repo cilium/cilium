@@ -4,11 +4,11 @@
 package k8s
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -641,8 +641,8 @@ type ServiceIPGetter interface {
 // CreateCustomDialer returns a custom dialer that picks the service IP,
 // from the given ServiceIPGetter, if the address the used to dial is a k8s
 // service.
-func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(s string, duration time.Duration) (conn net.Conn, e error) {
-	return func(s string, duration time.Duration) (conn net.Conn, e error) {
+func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(ctx context.Context, addr string) (conn net.Conn, e error) {
+	return func(ctx context.Context, s string) (conn net.Conn, e error) {
 		// If the service is available, do the service translation to
 		// the service IP. Otherwise dial with the original service
 		// name `s`.
