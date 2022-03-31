@@ -113,6 +113,12 @@ Users (Alphabetically)
       L: https://github.com/slzcc/crane
       Q: @slzcc
 
+    * N: DaoCloud - spiderpool & merbridge
+      D: spiderpool is using Cilium as their main CNI plugin for overlay and merbridge is using  Cilium eBPF library to speed up your Service Mesh
+      U: CNI, Service load-balancing, cluster mesh
+      L: https://github.com/spidernet-io/spiderpool, https://github.com/merbridge/merbridge
+      Q: @weizhoublue, @kebe7jun
+
     * N: Datadog
       D: Datadog is using Cilium in AWS (self-hosted k8s)
       U: ENI Networking, Service load-balancing, Encryption
