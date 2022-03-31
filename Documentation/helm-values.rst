@@ -1100,7 +1100,7 @@
    * - nodeinit.bootstrapFile
      - bootstrapFile is the location of the file where the bootstrap timestamp is written by the node-init DaemonSet
      - string
-     - ``"/tmp/cilium-bootstrap-time"``
+     - ``"/tmp/cilium-bootstrap.d/cilium-bootstrap-time"``
    * - nodeinit.enabled
      - Enable the node initialization DaemonSet
      - bool
