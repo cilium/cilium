@@ -386,7 +386,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		if !sr.BandwidthManager.Enabled {
 			status = "Disabled"
 		} else {
-			status = fmt.Sprintf("EDT with BPF\t[%s]",
+			status = fmt.Sprintf("EDT with BPF [%s] [%s]",
+				strings.ToUpper(sr.BandwidthManager.CongestionControl),
 				strings.Join(sr.BandwidthManager.Devices, ", "))
 		}
 		fmt.Fprintf(w, "BandwidthManager:\t%s\n", status)

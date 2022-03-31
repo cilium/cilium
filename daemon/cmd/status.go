@@ -157,6 +157,11 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 		return s
 	}
 
+	s.CongestionControl = models.BandwidthManagerCongestionControlCubic
+	if option.Config.EnableBBR {
+		s.CongestionControl = models.BandwidthManagerCongestionControlBbr
+	}
+
 	devices := make([]string, len(option.Config.Devices))
 	for i, iface := range option.Config.Devices {
 		devices[i] = iface

@@ -86,7 +86,7 @@ is enforced:
 .. code-block:: shell-session
 
     $ kubectl -n kube-system exec ds/cilium -- cilium status | grep BandwidthManager
-    BandwidthManager:       EDT with BPF   [eth0]
+    BandwidthManager:       EDT with BPF [BBR] [eth0]
 
 To verify that egress bandwidth limits are indeed being enforced, one can deploy two
 ``netperf`` Pods in different nodes — one acting as a server and one acting as the client:
