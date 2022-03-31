@@ -1605,6 +1605,13 @@ func init() {
       "description": "Status of bandwidth manager\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "congestionControl": {
+          "type": "string",
+          "enum": [
+            "cubic",
+            "bbr"
+          ]
+        },
         "devices": {
           "type": "array",
           "items": {
@@ -6028,6 +6035,13 @@ func init() {
       "description": "Status of bandwidth manager\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "congestionControl": {
+          "type": "string",
+          "enum": [
+            "cubic",
+            "bbr"
+          ]
+        },
         "devices": {
           "type": "array",
           "items": {
