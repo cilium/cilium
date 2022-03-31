@@ -84,6 +84,9 @@ file format.
 
 ## Donating
 
-Donations free up time to make improvements to the library, and respond to
-bug reports. You can send donations via Paypal's "Send Money" feature to
-kev@inburke.com. Donations are not tax deductible in the USA.
+I don't get paid to maintain this project. Donations free up time to make
+improvements to the library, and respond to bug reports. You can send donations
+via Paypal's "Send Money" feature to kev@inburke.com. Donations are not tax
+deductible in the USA.
+
+You can also reach out about a consulting engagement: https://burke.services
