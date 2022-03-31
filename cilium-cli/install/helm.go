@@ -105,21 +105,43 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 	// older than 1.11.0 we will fix it afterwards.
 	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
 		// case versioncheck.MustCompile(">=1.11.0")(ciliumVer):
-		imageSHA := k.getImagesSHA()
-		if imageSHA != "" {
+		// If the user has specified a version with `--image-tag` then
+		// set all image tags with that version. The user will have the
+		// option to overwrite any of these options with the specific
+		// helm option.
+		imageTag := k.params.ImageTag
+		if imageTag == "" {
 			// If the user has specified a version with `--version` then
 			// set all image tags with that version. The user will have the
 			// option to overwrite any of these options with the specific
 			// helm option.
-			helmMapOpts["image.tag"] = imageSHA
+			imageTag = k.getImagesSHA()
+		}
+
+		if imageTag != "" {
+			helmMapOpts["image.tag"] = imageTag
 			helmMapOpts["image.useDigest"] = "false"
-			helmMapOpts["operator.image.tag"] = imageSHA
+			helmMapOpts["operator.image.tag"] = imageTag
 			helmMapOpts["operator.image.digest"] = "false"
-			helmMapOpts["hubble.relay.image.tag"] = imageSHA
+			helmMapOpts["hubble.relay.image.tag"] = imageTag
 			helmMapOpts["hubble.relay.image.useDigest"] = "false"
-			helmMapOpts["preflight.image.tag"] = imageSHA
+			helmMapOpts["preflight.image.tag"] = imageTag
 			helmMapOpts["preflight.image.useDigest"] = "false"
-			helmMapOpts["clustermesh.apiserver.image.tag"] = imageSHA
+			helmMapOpts["clustermesh.apiserver.image.tag"] = imageTag
+			helmMapOpts["clustermesh.apiserver.image.useDigest"] = "false"
+		}
+
+		imageSuffix := k.params.ImageSuffix
+		if imageSuffix != "" {
+			helmMapOpts["image.override"] = fmt.Sprintf("quay.io/cilium/cilium%s", imageSuffix)
+			helmMapOpts["image.useDigest"] = "false"
+			helmMapOpts["operator.image.suffix"] = imageSuffix
+			helmMapOpts["operator.image.digest"] = "false"
+			helmMapOpts["hubble.relay.image.override"] = fmt.Sprintf("quay.io/cilium/hubble-relay%s", imageSuffix)
+			helmMapOpts["hubble.relay.image.useDigest"] = "false"
+			helmMapOpts["preflight.image.override"] = fmt.Sprintf("quay.io/cilium/cilium%s", imageSuffix)
+			helmMapOpts["preflight.image.useDigest"] = "false"
+			helmMapOpts["clustermesh.apiserver.image.override"] = fmt.Sprintf("quay.io/cilium/clustermesh-apiserver%s", imageSuffix)
 			helmMapOpts["clustermesh.apiserver.image.useDigest"] = "false"
 		}
 
