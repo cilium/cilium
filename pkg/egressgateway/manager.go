@@ -226,7 +226,7 @@ func (manager *Manager) removeUnusedEgressRules() {
 		})
 
 nextPolicyKey:
-	for policyKey, policyVal := range egressPolicies {
+	for policyKey := range egressPolicies {
 		for _, policyConfig := range manager.policyConfigs {
 			for _, endpoint := range manager.epDataStore {
 				if !policyConfig.selectsEndpoint(endpoint) {
@@ -235,8 +235,7 @@ nextPolicyKey:
 
 				for _, endpointIP := range endpoint.ips {
 					for _, dstCIDR := range policyConfig.dstCIDRs {
-						if policyKey.Match(endpointIP, dstCIDR) &&
-							policyVal.Match(policyConfig.egressIP, policyConfig.egressIP) {
+						if policyKey.Match(endpointIP, dstCIDR) {
 							continue nextPolicyKey
 						}
 					}
