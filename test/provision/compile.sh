@@ -108,6 +108,9 @@ then
     else
         echo "Not on master K8S node; no need to compile Cilium container"
     fi
+
+    # Download all images needed for k8s tests.
+    ./test/provision/container-images.sh test_images test/k8s
 else
     echo "compiling cilium..."
     sudo -u vagrant -H -E make SKIP_CUSTOMVET_CHECK=true LOCKDEBUG=1 SKIP_K8S_CODE_GEN_CHECK=false SKIP_DOCS=true
@@ -129,7 +132,7 @@ else
     done
     echo "running \"sudo adduser vagrant cilium\" "
     sudo adduser vagrant cilium
-fi
 
-# Download all images needed for tests.
-./test/provision/container-images.sh test_images .
+    # Download all images needed for runtime tests.
+    ./test/provision/container-images.sh test_images test/helpers
+fi
