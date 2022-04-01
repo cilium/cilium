@@ -172,10 +172,16 @@ func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2alpha1.Service 
 	if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
 		sortedServiceNames = append(sortedServiceNames, ingress.Spec.DefaultBackend.Service.Name)
 	}
+	// make sure that we will not have any duplicated service
+	serviceMap := map[string]struct{}{}
 	for _, rule := range ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
-			sortedServiceNames = append(sortedServiceNames, path.Backend.Service.Name)
+			serviceMap[path.Backend.Service.Name] = struct{}{}
 		}
+	}
+
+	for k := range serviceMap {
+		sortedServiceNames = append(sortedServiceNames, k)
 	}
 	sort.Strings(sortedServiceNames)
 
