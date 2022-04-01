@@ -12,14 +12,10 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	ciliumhelm "github.com/cilium/charts"
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/spf13/pflag"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli/values"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -284,33 +280,6 @@ func (k *K8sInstaller) fqOperatorImage(imagePathMode utils.ImagePathMode) string
 	}
 
 	return utils.BuildImagePath(k.params.OperatorImage, k.params.Version, defaultImage, defaults.Version, imagePathMode)
-}
-
-func newHelmClient(namespace, k8sVersion string) (*action.Install, error) {
-	actionConfig := new(action.Configuration)
-	helmClient := action.NewInstall(actionConfig)
-	helmClient.DryRun = true
-	helmClient.ReleaseName = "release-name"
-	helmClient.Replace = true // Skip the name check
-	helmClient.ClientOnly = true
-	helmClient.APIVersions = []string{k8sVersion}
-	helmClient.Namespace = namespace
-
-	return helmClient, nil
-}
-
-func newHelmChartFromCiliumVersion(ciliumVersion string) (*chart.Chart, error) {
-	helmTgz, err := ciliumhelm.HelmFS.ReadFile(fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
-	if err != nil {
-		return nil, fmt.Errorf("cilium version not found: %s", err)
-	}
-
-	// Check chart dependencies to make sure all are present in /charts
-	return loader.LoadArchive(bytes.NewReader(helmTgz))
-}
-
-func newHelmChartFromDirectory(directory string) (*chart.Chart, error) {
-	return loader.LoadDir(directory)
 }
 
 func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInstaller, error) {
