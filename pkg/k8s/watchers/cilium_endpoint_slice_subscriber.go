@@ -40,7 +40,7 @@ func (cs *cesSubscriber) OnAdd(ces *cilium_v2a1.CiliumEndpointSlice) {
 			timeSinceCepCreated := time.Since(p.GetCreatedAt())
 			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
 		}
-		cs.kWatcher.endpointUpdated(nil, c)
+		cs.kWatcher.CiliumEndpointChain.OnAddCiliumEndpoint(c)
 	}
 }
 
@@ -78,7 +78,7 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 			// Delete CEP if and only if that CEP is owned by a CES, that was used during CES updated.
 			// Delete CEP only if there is match in CEPToCES map and also delete CEPName in CEPToCES map.
 			if cesName := cepMap.getCESName(CEPName); cesName == oldCES.GetName() {
-				cs.kWatcher.endpointDeleted(c)
+				cs.kWatcher.CiliumEndpointChain.OnDeleteCiliumEndpoint(c)
 				cepMap.deleteCEP(CEPName)
 			}
 		}
@@ -96,7 +96,7 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 				timeSinceCepCreated := time.Since(p.GetCreatedAt())
 				metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
 			}
-			cs.kWatcher.endpointUpdated(nil, c)
+			cs.kWatcher.CiliumEndpointChain.OnUpdateCiliumEndpoint(nil, c)
 			cepMap.insertCEP(CEPName, oldCES.GetName())
 		}
 	}
@@ -113,7 +113,7 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 			}).Debug("CES updated, calling endpointUpdated")
 			newC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCES.Namespace)
 			oldC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCES.Namespace)
-			cs.kWatcher.endpointUpdated(oldC, newC)
+			cs.kWatcher.CiliumEndpointChain.OnUpdateCiliumEndpoint(oldC, newC)
 			cepMap.insertCEP(CEPName, oldCES.GetName())
 		}
 	}
@@ -136,7 +136,7 @@ func (cs *cesSubscriber) OnDelete(ces *cilium_v2a1.CiliumEndpointSlice) {
 		// Delete CEP if and only if that CEP is owned by a CES, that was used during CES updated.
 		// Delete CEP only if there is match in CEPToCES map and also delete CEPName in CEPToCES map.
 		if cesName := cepMap.getCESName(ces.Namespace + "/" + ep.Name); cesName == ces.GetName() {
-			cs.kWatcher.endpointDeleted(c)
+			cs.kWatcher.CiliumEndpointChain.OnDeleteCiliumEndpoint(c)
 			cepMap.deleteCEP(ep.Name)
 		}
 	}

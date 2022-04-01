@@ -82,6 +82,9 @@ func (k *K8sWatcher) addCiliumEgressNATPolicy(cenp *cilium_v2alpha1.CiliumEgress
 		scopedLog.WithError(err).Warn("Failed to add CiliumEgressNATPolicy: malformed policy config.")
 		return err
 	}
+	// GH-15471: Create egress policy subscriber and convert logic here to the
+	// new subscriber. Remove egressGatewayManager interface from the
+	// K8sWatcher.
 	k.egressGatewayManager.OnAddEgressPolicy(*ep)
 
 	return err

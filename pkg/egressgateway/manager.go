@@ -114,8 +114,13 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 	manager.reconcile()
 }
 
-// OnUpdateEndpoint is the event handler for endpoint additions and updates.
-func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
+// OnAddCiliumEndpoint is the event handler for endpoint additions and updates.
+func (manager *Manager) OnAddCiliumEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
+	return manager.OnUpdateCiliumEndpoint(nil, endpoint)
+}
+
+// OnUpdateCiliumEndpoint is the event handler for endpoint additions and updates.
+func (manager *Manager) OnUpdateCiliumEndpoint(oldCEP, endpoint *k8sTypes.CiliumEndpoint) error {
 	var epData *endpointMetadata
 	var err error
 
@@ -130,22 +135,23 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	if len(endpoint.Networking.Addressing) == 0 {
 		logger.WithError(err).
 			Error("Failed to get valid endpoint IPs, skipping update to egress policy.")
-		return
+		return err
 	}
 
 	if epData, err = getEndpointMetadata(endpoint); err != nil {
 		logger.WithError(err).
 			Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
-		return
+		return err
 	}
 
 	manager.epDataStore[epData.id] = epData
-
 	manager.reconcile()
+
+	return nil
 }
 
-// OnDeleteEndpoint is the event handler for endpoint deletions.
-func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
+// OnDeleteCiliumEndpoint is the event handler for endpoint deletions.
+func (manager *Manager) OnDeleteCiliumEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
 
@@ -157,6 +163,8 @@ func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	delete(manager.epDataStore, id)
 
 	manager.reconcile()
+
+	return nil
 }
 
 // addMissingEgressRules is responsible for adding any missing egress gateway policy stored in the

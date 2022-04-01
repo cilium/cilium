@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/cep"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -174,6 +175,11 @@ type Daemon struct {
 
 	bgpSpeaker *speaker.MetalLBSpeaker
 
+	// egressGatewayManager manages the egress gateway policy events.
+	//
+	// GH-15471: Create egress policy subscriber and convert logic here to the
+	// new subscriber. Remove egressGatewayManager interface from the
+	// K8sWatcher.
 	egressGatewayManager *egressgateway.Manager
 
 	apiLimiterSet *rate.APILimiterSet
@@ -538,7 +544,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.k8sWatcher.RegisterNodeSubscriber(&d.k8sWatcher.K8sSvcCache)
 	}
 
-	d.k8sWatcher.NodeChain.Register(watchers.NewCiliumNodeUpdater(d.k8sWatcher))
+	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.k8sWatcher))
+	d.k8sWatcher.RegisterCiliumEndpointSubscriber(cep.New(d.policyUpdater, d.ipcache))
+	if option.Config.EnableIPv4EgressGateway {
+		d.k8sWatcher.RegisterCiliumEndpointSubscriber(d.egressGatewayManager)
+	}
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)

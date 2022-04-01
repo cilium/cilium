@@ -162,8 +162,8 @@ type bgpSpeakerManager interface {
 type egressGatewayManager interface {
 	OnAddEgressPolicy(config egressgateway.PolicyConfig)
 	OnDeleteEgressPolicy(configID types.NamespacedName)
-	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
-	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
+	OnUpdateCiliumEndpoint(oldCEP, endpoint *k8sTypes.CiliumEndpoint) error
+	OnDeleteCiliumEndpoint(endpoint *k8sTypes.CiliumEndpoint) error
 }
 
 type K8sWatcher struct {
@@ -192,6 +192,9 @@ type K8sWatcher struct {
 	// On CiliumNode events all registered subscriber.CiliumNode implementations will
 	// have their event handling methods called in order of registration.
 	CiliumNodeChain *subscriber.CiliumNodeChain
+
+	// CiliumEndpointChain is like CiliumNodeChain but for CiliumEndpoints.
+	CiliumEndpointChain *subscriber.CiliumEndpointChain
 
 	endpointManager endpointManager
 
@@ -260,6 +263,7 @@ func NewK8sWatcher(
 		egressGatewayManager:  egressGatewayManager,
 		NodeChain:             subscriber.NewNodeChain(),
 		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
+		CiliumEndpointChain:   subscriber.NewCiliumEndpointChain(),
 		cfg:                   cfg,
 	}
 }
