@@ -638,7 +638,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			err = ip4tables.runProg([]string{
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,
-				"-o", "cilium_host",
+				"-o", defaults.HostDevice,
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "CT", "--notrack"}, false)
@@ -1050,9 +1050,8 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 		return err
 	}
 	// Proxy return traffic to a remote source needs '-i cilium_net'.
-	// TODO: Make 'cilium_net' configurable if we ever support other than "cilium_host" as the Cilium host device.
-	if ifName == "cilium_host" {
-		ifPeerName := "cilium_net"
+	if ifName == defaults.HostDevice {
+		ifPeerName := defaults.SecondHostDevice
 		if err := prog.runProg([]string{
 			"-A", forwardChain,
 			"-i", ifPeerName,
@@ -1207,7 +1206,7 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 			"-A", ciliumPostNatChain,
 			"!", "-s", allocRange,
 			"!", "-d", allocRange,
-			"-o", "cilium_host",
+			"-o", defaults.HostDevice,
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", hostMasqueradeIP}, false); err != nil {
 			return err
