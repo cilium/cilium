@@ -203,6 +203,11 @@ Users (Alphabetically)
       D: Radio France is using Cilium in their production clusters (self-hosted k8s with kops on AWS)
       U: Mainly Service load-balancing
       Q: @francoisj
+    
+    * N: Rancher Labs, now part of SUSE
+      D: Rancher Labs certified Kubernetes distribution RKE2 can be deployed with Cilium.
+      U: Networking and network policy
+      L: https://github.com/rancher/rke and https://github.com/rancher/rke2
 
     * N: Rapyuta Robotics.
       D: Rapyuta is using cilium as their main CNI plugin. (self hosted k8s)
