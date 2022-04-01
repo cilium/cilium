@@ -330,7 +330,7 @@ function write_cilium_cfg() {
         cilium_options+=" --identity-allocation-mode=crd --enable-k8s-event-handover=false"
         cilium_operator_options+=" --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig"
         cilium_operator_options+=" --cluster-pool-ipv4-cidr=10.${master_ipv4_suffix}.0.0/16"
-        cilium_operator_options+=" --cluster-pool-ipv6-cidr=fd00::/104"
+        cilium_operator_options+=" --cluster-pool-ipv6-cidr=fd04::/104"
         cilium_operator_options_with_kvstore="${cilium_operator_options} ${cilium_kvstore_options}"
         cilium_operator_options+=" --identity-allocation-mode=crd"
     else
