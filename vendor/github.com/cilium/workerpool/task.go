@@ -29,13 +29,13 @@ type Task interface {
 }
 
 type task struct {
-	id  string
 	run func(context.Context) error
+	id  string
 }
 
 type taskResult struct {
-	id  string
 	err error
+	id  string
 }
 
 // Ensure that taskResult implements the Task interface.
