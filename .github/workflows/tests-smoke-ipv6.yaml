@@ -87,8 +87,9 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/?specificTag=${{ steps.vars.outputs.tag }}" &> /dev/null; do sleep 45s; done
-          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-ci/tag/?specificTag=${{ steps.vars.outputs.tag }}" &> /dev/null; do sleep 45s; done
+          for image in cilium-ci operator-generic-ci ; do
+            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+          done
 
       - name: Install cilium chart
         run: |
