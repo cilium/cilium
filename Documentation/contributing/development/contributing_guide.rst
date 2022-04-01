@@ -565,3 +565,5 @@ then you just add a line saying:
    Signed-off-by: Random J Developer <random@developer.example.org>
 
 Use your real name (sorry, no pseudonyms or anonymous contributions.)
+
+If you need to add your sign off to a commit you have already made, please see `this article <https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/managing-commits/amending-a-commit>`_.
