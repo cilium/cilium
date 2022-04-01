@@ -5,99 +5,23 @@
 package install
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/helm"
+	"github.com/cilium/cilium-cli/k8s"
+
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/spf13/pflag"
-	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/releaseutil"
-	"helm.sh/helm/v3/pkg/strvals"
-
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/k8s"
 )
 
-var settings = cli.New()
-
-// FilterManifests a map of generated manifests. The Key is the filename and the
-// Value is its manifest.
-func FilterManifests(manifest string) map[string]string {
-	// This is necessary to ensure consistent manifest ordering when using --show-only
-	// with globs or directory names.
-	var manifests bytes.Buffer
-	fmt.Fprintln(&manifests, strings.TrimSpace(manifest))
-
-	splitManifests := releaseutil.SplitManifests(manifests.String())
-	manifestsKeys := make([]string, 0, len(splitManifests))
-	for k := range splitManifests {
-		manifestsKeys = append(manifestsKeys, k)
-	}
-	sort.Sort(releaseutil.BySplitManifestsOrder(manifestsKeys))
-
-	manifestNameRegex := regexp.MustCompile("# Source: [^/]+/(.+)")
-
-	var (
-		manifestsToRender = map[string]string{}
-	)
-
-	for _, manifestKey := range manifestsKeys {
-		manifest := splitManifests[manifestKey]
-		submatch := manifestNameRegex.FindStringSubmatch(manifest)
-		if len(submatch) == 0 {
-			continue
-		}
-		manifestName := submatch[1]
-		// manifest.Name is rendered using linux-style filepath separators on Windows as
-		// well as macOS/linux.
-		manifestPathSplit := strings.Split(manifestName, "/")
-		// manifest.Path is connected using linux-style filepath separators on Windows as
-		// well as macOS/linux
-		manifestPath := strings.Join(manifestPathSplit, "/")
-
-		manifestsToRender[manifestPath] = manifest
-	}
-	return manifestsToRender
-}
-
 func (k *K8sInstaller) generateManifests(ctx context.Context) error {
-	k8sVersionStr := k.params.K8sVersion
-	if k8sVersionStr == "" {
-		k8sVersion, err := k.client.GetServerVersion()
-		if err != nil {
-			return fmt.Errorf("error getting Kubernetes version, try --k8s-version: %s", err)
-		}
-		k8sVersionStr = k8sVersion.String()
-	}
-
-	helmClient, err := newHelmClient(k.params.Namespace, k8sVersionStr)
-	if err != nil {
-		return err
-	}
-
 	ciliumVer := k.getCiliumVersion()
-
-	var helmChart *chart.Chart
-	if helmDir := k.params.HelmChartDirectory; helmDir != "" {
-		helmChart, err = newHelmChartFromDirectory(helmDir)
-		if err != nil {
-			return err
-		}
-	} else {
-		helmChart, err = newHelmChartFromCiliumVersion(ciliumVer.String())
-		if err != nil {
-			return err
-		}
-	}
 
 	helmMapOpts := map[string]string{}
 	deprecatedCfgOpts := map[string]string{}
@@ -301,68 +225,13 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		return fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
 
-	// Create helm values from helmMapOpts
-	var helmOpts []string
-	for k, v := range helmMapOpts {
-		if v == "" {
-			panic(fmt.Sprintf("empty value form helm option %q", k))
-		}
-		helmOpts = append(helmOpts, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	helmOptsStr := strings.Join(helmOpts, ",")
-
-	ciliumCliHelmValues := map[string]interface{}{}
-	err = strvals.ParseInto(helmOptsStr, ciliumCliHelmValues)
-	if err != nil {
-		return fmt.Errorf("error parsing helm options %q: %w", helmOptsStr, err)
-	}
-
-	// Get the user-defined helm options passed by flag
-	p := getter.All(settings)
-	userVals, err := k.params.HelmOpts.MergeValues(p)
-	if err != nil {
-		return err
-	}
-
-	// User-defined helm options will overwrite the default cilium-cli helm options
-	userVals = mergeMaps(ciliumCliHelmValues, userVals)
-
 	// Store all the options passed by --config into helm extraConfig
 	extraConfigMap := map[string]interface{}{}
 	for k, v := range deprecatedCfgOpts {
 		extraConfigMap[k] = v
 	}
 
-	extraConfig := map[string]interface{}{}
-	if len(extraConfigMap) != 0 {
-		extraConfig["extraConfig"] = extraConfigMap
-	}
-
-	// Merge the user-defined helm options into the `--config` map. This
-	// effectively means that any --helm-set=extraConfig.<key> will overwrite
-	// the values of --config <key>
-	vals := mergeMaps(extraConfig, userVals)
-
-	valsStr := valuesToString("", vals)
-
-	if helmChartDir := k.params.HelmChartDirectory; helmChartDir != "" {
-		k.Log("ℹ️  helm template --namespace %s cilium %q --version %s --set %s", k.params.Namespace, helmChartDir, ciliumVer, valsStr)
-	} else {
-		k.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s", k.params.Namespace, ciliumVer, valsStr)
-	}
-
-	// Store the current helm-opts used in this installation in Cilium's
-	// ConfigMap
-	extraConfigMap[defaults.ExtraConfigMapUserOptsKey] = valsStr
-	extraConfig = map[string]interface{}{
-		"extraConfig": extraConfigMap,
-	}
-
-	// User-defined helm options will overwrite the default cilium-cli helm options
-	vals = mergeMaps(extraConfig, vals)
-
-	rel, err := helmClient.RunWithContext(ctx, helmChart, vals)
+	vals, err := helm.MergeVals(k, k.params.HelmOpts, helmMapOpts, nil, extraConfigMap, k.params.HelmChartDirectory, ciliumVer.String(), k.params.Namespace)
 	if err != nil {
 		return err
 	}
@@ -375,46 +244,20 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		return os.WriteFile(k.params.HelmGenValuesFile, []byte(yamlValue), 0o600)
 	}
 
-	k.manifests = FilterManifests(rel.Manifest)
+	k8sVersionStr := k.params.K8sVersion
+	if k8sVersionStr == "" {
+		k8sVersion, err := k.client.GetServerVersion()
+		if err != nil {
+			return fmt.Errorf("error getting Kubernetes version, try --k8s-version: %s", err)
+		}
+		k8sVersionStr = k8sVersion.String()
+	}
+
+	manifests, err := helm.GenManifests(ctx, k.params.HelmChartDirectory, k8sVersionStr, ciliumVer.String(), k.params.Namespace, vals)
+	if err != nil {
+		return err
+	}
+
+	k.manifests = manifests
 	return nil
-}
-
-func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(a))
-	for k, v := range a {
-		out[k] = v
-	}
-	for k, v := range b {
-		if v, ok := v.(map[string]interface{}); ok {
-			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
-					out[k] = mergeMaps(bv, v)
-					continue
-				}
-			}
-		}
-		out[k] = v
-	}
-	return out
-}
-
-func valuesToString(prevKey string, b map[string]interface{}) string {
-	var out []string
-	for k, v := range b {
-		if v, ok := v.(map[string]interface{}); ok {
-			if prevKey != "" {
-				out = append(out, valuesToString(fmt.Sprintf("%s.%s", prevKey, k), v))
-			} else {
-				out = append(out, valuesToString(k, v))
-			}
-			continue
-		}
-		if prevKey != "" {
-			out = append(out, fmt.Sprintf("%s.%s=%v", prevKey, k, v))
-		} else {
-			out = append(out, fmt.Sprintf("%s=%v", k, v))
-		}
-	}
-	sort.Strings(out)
-	return strings.Join(out, ",")
 }
