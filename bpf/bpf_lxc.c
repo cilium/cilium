@@ -474,7 +474,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dst_id)
 	struct ipv6hdr *ip6;
 	int ret;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	/* Handle special ICMPv6 messages. This includes echo requests to the
@@ -544,7 +544,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	bool has_l4_header = false;
 	bool __maybe_unused dst_remote_ep = false;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 /* If IPv4 fragmentation is disabled
