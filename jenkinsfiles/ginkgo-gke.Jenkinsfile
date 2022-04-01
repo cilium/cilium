@@ -92,9 +92,9 @@ pipeline {
                     steps {
                         retry(25) {
                             sleep(time: 60)
-                            sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/cilium-ci/tag/?specificTag=${DOCKER_TAG}"'
-                            sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/operator-generic-ci/tag/?specificTag=${DOCKER_TAG}"'
-                            sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/hubble-relay-ci/tag/?specificTag=${DOCKER_TAG}"'
+                            sh 'docker manifest inspect quay.io/cilium/cilium-ci:${DOCKER_TAG}} &> /dev/null'
+                            sh 'docker manifest inspect quay.io/cilium/operator-generic-ci:${DOCKER_TAG}} &> /dev/null'
+                            sh 'docker manifest inspect quay.io/cilium/hubble-relay-ci:${DOCKER_TAG}} &> /dev/null'
                         }
                     }
                 }
