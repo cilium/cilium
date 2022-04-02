@@ -119,12 +119,15 @@ else
     make -C plugins/cilium-docker
     make -C plugins/cilium-docker install
     
-    echo "Building Cilium..."
-    make docker-cilium-image LOCKDEBUG=1
+    if [[ "${CILIUM_IMAGE}" == "" ]]; then
+	export CILIUM_IMAGE=cilium/cilium:latest
+	echo "Building Cilium..."
+	make docker-cilium-image LOCKDEBUG=1
+    fi
     sudo cp ${PROVISIONSRC}/docker-run-cilium.sh /usr/bin/docker-run-cilium
 
     mkdir -p /etc/sysconfig/
-    cp contrib/systemd/cilium /etc/sysconfig/cilium
+    sed "s|CILIUM_IMAGE[^[:space:]]*$|CILIUM_IMAGE=${CILIUM_IMAGE}|" contrib/systemd/cilium > /etc/sysconfig/cilium
 
     cp -f contrib/systemd/*.* /etc/systemd/system/
     # Use dockerized Cilium with runtime tests
