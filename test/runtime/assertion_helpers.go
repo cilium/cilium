@@ -4,6 +4,8 @@
 package RuntimeTest
 
 import (
+	"strings"
+
 	. "github.com/onsi/gomega"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -45,8 +47,8 @@ func ExpectCiliumReady(vm *helpers.SSHMeta) {
 // ExpectCiliumNotRunning checks that cilium has stopped with a grace period.
 func ExpectCiliumNotRunning(vm *helpers.SSHMeta) {
 	body := func() bool {
-		res := vm.Exec("systemctl is-active cilium")
-		return !res.WasSuccessful()
+		res := vm.Exec("docker inspect --format='{{.State.Running}}' cilium")
+		return !res.WasSuccessful() || strings.Trim(res.Stdout(), "\n") == "false"
 	}
 	err := helpers.WithTimeout(body, "Cilium is still running after timeout", &helpers.TimeoutConfig{Timeout: helpers.CiliumStartTimeout})
 	ExpectWithOffset(1, err).To(BeNil(), "Cilium is still running after timeout")

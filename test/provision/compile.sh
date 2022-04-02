@@ -115,26 +115,29 @@ then
     # Download all images needed for k8s tests.
     ./test/provision/container-images.sh test_images test/k8s
 else
-    echo "compiling cilium..."
-    sudo -u vagrant -H -E make build LOCKDEBUG=1
-    echo "installing cilium..."
-    make install
+    echo "Installing docker-plugin..."
+    make -C plugins/cilium-docker
+    make -C plugins/cilium-docker install
+    
+    echo "Building Cilium..."
+    make docker-cilium-image LOCKDEBUG=1
+
     mkdir -p /etc/sysconfig/
-    cp -f contrib/systemd/cilium /etc/sysconfig/cilium
     services=$(ls -1 ./contrib/systemd/*.*)
     for svc in ${services}; do
         cp -f "${svc}" /etc/systemd/system/
     done
-    for svc in ${services}; do
-        service=$(echo "$svc" | sed -E -n 's/.*\/(.*?).(service|mount)/\1.\2/p')
-        if [ -n "$service" ] ; then
-          echo "installing service $service"
-          systemctl enable $service || echo "service $service failed"
-          systemctl restart $service || echo "service $service failed to restart"
-        fi
+    for service in cilium-consul.service cilium-docker.service cilium-etcd.service sys-fs-bpf.mount; do
+        echo "installing service $service"
+        systemctl enable $service || echo "service $service failed"
+        systemctl restart $service || echo "service $service failed to restart"
     done
     echo "running \"sudo adduser vagrant cilium\" "
+    getent group cilium >/dev/null || sudo groupadd -r cilium
     sudo adduser vagrant cilium
+    echo "Starting Cilium..."
+    sudo cp ${PROVISIONSRC}/docker-run-cilium.sh /usr/bin/docker-run-cilium
+    docker-run-cilium
 
     # Download all images needed for runtime tests.
     ./test/provision/container-images.sh test_images test/helpers

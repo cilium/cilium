@@ -63,7 +63,7 @@ var _ = Describe("RuntimePolicies", func() {
 		// allow us to validate only the logs of the startup. The stop may
 		// contain "bad" log messages but they are expected (abrupt stop during
 		// endpoint regeneration).
-		vm.ExecWithSudo("systemctl stop cilium").ExpectSuccess("Failed trying to stop cilium via systemctl")
+		vm.ExecWithSudo("docker stop cilium").ExpectSuccess("Failed trying to stop cilium via docker")
 		ExpectCiliumNotRunning(vm)
 		testStartTime = time.Now()
 

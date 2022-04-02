@@ -883,27 +883,15 @@ func (s *SSHMeta) SetUpCilium() error {
 // SetUpCiliumWithOptions sets up Cilium as a systemd service with a given set of options. It
 // returns an error if any of the operations needed to start Cilium fail.
 func (s *SSHMeta) SetUpCiliumWithOptions(ciliumOpts string) error {
+	if !strings.Contains(ciliumOpts, "--kvstore") {
+		ciliumOpts += " --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500"
+	}
+	ciliumOpts += " --debug --pprof=true --log-system-load"
 	ciliumOpts += " --exclude-local-address=" + DockerBridgeIP + "/32"
 	ciliumOpts += " --exclude-local-address=" + FakeIPv4WorldAddress + "/32"
 	ciliumOpts += " --exclude-local-address=" + FakeIPv6WorldAddress + "/128"
 
-	systemdTemplate := `
-PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load %s
-INITSYSTEM=SYSTEMD`
-
-	ciliumConfig := "cilium.conf.ginkgo"
-	err := s.RenderTemplateToFile(ciliumConfig, fmt.Sprintf(systemdTemplate, ciliumOpts), os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	confPath := filepath.Join("/home/vagrant/go/src/github.com/cilium/cilium/test", ciliumConfig)
-	res := s.Exec(fmt.Sprintf("sudo cp %s /etc/sysconfig/cilium", confPath))
-	if !res.WasSuccessful() {
-		return fmt.Errorf("%s", res.CombineOutput())
-	}
-	res = s.Exec("sudo systemctl restart cilium")
+	res := s.ExecWithSudo(fmt.Sprintf("docker-run-cilium %s", ciliumOpts))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}
@@ -937,7 +925,7 @@ func (s *SSHMeta) WaitUntilReady(timeout time.Duration) error {
 func (s *SSHMeta) RestartCilium() error {
 	ginkgoext.By("Restarting Cilium")
 
-	res := s.ExecWithSudo("systemctl restart cilium")
+	res := s.ExecWithSudo("docker restart cilium")
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}

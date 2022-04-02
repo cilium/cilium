@@ -1065,12 +1065,12 @@ INITSYSTEM=SYSTEMD`
 
 		defer func() {
 			// Defer a Cilium restart to make sure that keep started when test finished.
-			_ = vm.ExecWithSudo("systemctl start cilium")
+			_ = vm.ExecWithSudo("docker start cilium")
 			vm.WaitEndpointsReady()
 		}()
 
-		res = vm.ExecWithSudo("systemctl stop cilium")
-		res.ExpectSuccess("Failed trying to stop cilium via systemctl")
+		res = vm.ExecWithSudo("docker stop cilium")
+		res.ExpectSuccess("Failed trying to stop cilium via docker")
 		ExpectCiliumNotRunning(vm)
 
 		By("Testing connectivity from %q to the IP %q without DNS request", helpers.App1, targetIP)
