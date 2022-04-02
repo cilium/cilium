@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/k8s"
 )
 
 func Test(t *testing.T) {

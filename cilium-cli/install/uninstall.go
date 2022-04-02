@@ -15,7 +15,7 @@ import (
 
 	"github.com/cilium/cilium-cli/clustermesh"
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/k8s"
 )
 
 type UninstallParameters struct {
