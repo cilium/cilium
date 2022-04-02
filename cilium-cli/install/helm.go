@@ -23,7 +23,7 @@ import (
 	"helm.sh/helm/v3/pkg/strvals"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/k8s"
 )
 
 var settings = cli.New()
