@@ -920,19 +920,27 @@ func (s *SSHMeta) SetUpCiliumWithOptions(ciliumOpts string) error {
 	ciliumOpts += " --exclude-local-address=" + FakeIPv4WorldAddress + "/32"
 	ciliumOpts += " --exclude-local-address=" + FakeIPv6WorldAddress + "/128"
 
+	// Get the current CILIUM_IMAGE from the service definition
+	res := s.Exec("grep CILIUM_IMAGE= /etc/sysconfig/cilium")
+	if !res.WasSuccessful() {
+		return fmt.Errorf("Could not find CILIUM_IMAGE from /etc/sysconfig/cilium: %s", res.CombineOutput())
+	}
+	ciliumImage := res.Stdout()
+
 	systemdTemplate := `
 PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+%s
 CILIUM_OPTS=--debug --pprof=true --log-system-load %s
 INITSYSTEM=SYSTEMD`
 
 	ciliumConfig := "cilium.conf.ginkgo"
-	err := s.RenderTemplateToFile(ciliumConfig, fmt.Sprintf(systemdTemplate, ciliumOpts), os.ModePerm)
+	err := s.RenderTemplateToFile(ciliumConfig, fmt.Sprintf(systemdTemplate, ciliumImage, ciliumOpts), os.ModePerm)
 	if err != nil {
 		return err
 	}
 
 	confPath := filepath.Join("/home/vagrant/go/src/github.com/cilium/cilium/test", ciliumConfig)
-	res := s.Exec(fmt.Sprintf("sudo cp %s /etc/sysconfig/cilium", confPath))
+	res = s.Exec(fmt.Sprintf("sudo cp %s /etc/sysconfig/cilium", confPath))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}
