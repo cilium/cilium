@@ -169,6 +169,34 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 
 }
 
+// WaitDockerPluginReady waits up until timeout reached for Cilium docker plugin to be ready
+func (s *SSHMeta) WaitDockerPluginReady() bool {
+	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitDockerPluginReady"})
+
+	body := func() bool {
+		// check that docker plugin socket exists
+		cmd := `stat /run/docker/plugins/cilium.sock`
+		res := s.ExecWithSudo(cmd)
+		if !res.WasSuccessful() {
+			return false
+		}
+		// check that connect works
+		cmd = `nc -U -z /run/docker/plugins/cilium.sock`
+		res = s.ExecWithSudo(cmd)
+		if !res.WasSuccessful() {
+			return false
+		}
+		return true
+	}
+	err := WithTimeout(body, "Docker plugin is not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
+	if err != nil {
+		logger.WithError(err).Warn("Docker plugin is not ready after timeout")
+		s.ExecWithSudo("ls -l /run/docker/plugins/cilium.sock") // This function is only for debugginag.
+		return false
+	}
+	return true
+}
+
 func (s *SSHMeta) MonitorDebug(on bool, epID string) bool {
 	logger := s.logger.WithFields(logrus.Fields{"functionName": "MonitorDebug"})
 	dbg := "Disabled"
@@ -883,13 +911,18 @@ func (s *SSHMeta) SetUpCilium() error {
 // SetUpCiliumWithOptions sets up Cilium as a systemd service with a given set of options. It
 // returns an error if any of the operations needed to start Cilium fail.
 func (s *SSHMeta) SetUpCiliumWithOptions(ciliumOpts string) error {
+	// Default kvstore options
+	if !strings.Contains(ciliumOpts, "--kvstore") {
+		ciliumOpts += " --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500"
+	}
+
 	ciliumOpts += " --exclude-local-address=" + DockerBridgeIP + "/32"
 	ciliumOpts += " --exclude-local-address=" + FakeIPv4WorldAddress + "/32"
 	ciliumOpts += " --exclude-local-address=" + FakeIPv6WorldAddress + "/128"
 
 	systemdTemplate := `
 PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load %s
+CILIUM_OPTS=--debug --pprof=true --log-system-load %s
 INITSYSTEM=SYSTEMD`
 
 	ciliumConfig := "cilium.conf.ginkgo"

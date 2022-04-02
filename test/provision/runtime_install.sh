@@ -19,7 +19,7 @@ sudo systemctl restart ssh
 
 if [[ "${PROVISION_EXTERNAL_WORKLOAD}" == "false" ]]; then
     "${PROVISIONSRC}"/compile.sh
-    "${PROVISIONSRC}"/wait-cilium.sh
+    "${PROVISIONSRC}"/wait-cilium-in-docker.sh
 else
     "${PROVISIONSRC}"/externalworkload_install.sh
 fi
