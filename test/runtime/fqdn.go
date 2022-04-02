@@ -861,13 +861,8 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 	})
 
 	Context("toFQDNs populates toCIDRSet (data from proxy)", func() {
-		var config = `
-PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load
-INITSYSTEM=SYSTEMD`
 		BeforeAll(func() {
-			vm.SetUpCiliumWithOptions(config)
-
+			vm.SetUpCilium()
 			ExpectCiliumReady(vm)
 			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 		})

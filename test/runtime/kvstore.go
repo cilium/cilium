@@ -4,7 +4,6 @@
 package RuntimeTest
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -22,7 +21,8 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		vm.ExecWithSudo("systemctl stop cilium")
+		ExpectCiliumNotRunning(vm)
 	})
 
 	containers := func(option string) {
@@ -37,20 +37,12 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		}
 	}
 
-	BeforeEach(func() {
-		res := vm.ExecWithSudo("systemctl stop cilium")
-		res.ExpectSuccess("Failed trying to stop cilium via systemctl")
-		ExpectCiliumNotRunning(vm)
-	}, 150)
-
 	JustBeforeEach(func() {
 		testStartTime = time.Now()
 	})
 
 	AfterEach(func() {
 		containers(helpers.Delete)
-		err := vm.RestartCilium()
-		Expect(err).Should(BeNil(), "restarting Cilium failed")
 	})
 
 	JustAfterEach(func() {
@@ -62,23 +54,25 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	})
 
 	AfterAll(func() {
+		// Other runtime tests fail if using etcd, as cilium-operator is not functional
+		// without k8s.
+		err := vm.SetUpCilium()
+		Expect(err).Should(BeNil(), "Cilium failed to start")
+		ExpectCiliumReady(vm)
 		vm.CloseSSHClient()
 	})
 
 	Context("KVStore tests", func() {
 		It("Consul KVStore", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
 			By("Starting Cilium with consul as kvstore")
-			vm.ExecInBackground(
-				ctx,
-				"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug 2>&1 | logger -t cilium")
-			err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
-			Expect(err).Should(BeNil())
+			err := vm.SetUpCiliumWithOptions("--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500")
+			Expect(err).Should(BeNil(), "Cilium failed to start")
 
 			By("Restarting cilium-docker service")
 			vm.Exec("sudo systemctl restart cilium-docker")
-			helpers.Sleep(2)
+			Expect(vm.WaitDockerPluginReady()).Should(BeTrue(), "Docker plugin is not ready after timeout")
+			ExpectCiliumReady(vm)
+
 			containers(helpers.Create)
 			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 			eps, err := vm.GetEndpointsNames()
@@ -87,18 +81,15 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		})
 
 		It("Etcd KVStore", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
 			By("Starting Cilium with etcd as kvstore")
-			vm.ExecInBackground(
-				ctx,
-				"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 --debug 2>&1 | logger -t cilium")
-			err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
-			Expect(err).Should(BeNil(), "Timed out waiting for VM to be ready after restarting Cilium")
+			err := vm.SetUpCiliumWithOptions("--kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001")
+			Expect(err).Should(BeNil(), "Cilium failed to start")
 
 			By("Restarting cilium-docker service")
 			vm.Exec("sudo systemctl restart cilium-docker")
-			helpers.Sleep(2)
+			Expect(vm.WaitDockerPluginReady()).Should(BeTrue(), "Docker plugin is not ready after timeout")
+			ExpectCiliumReady(vm)
+
 			containers(helpers.Create)
 
 			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
