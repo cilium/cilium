@@ -148,7 +148,8 @@ Vagrant.configure("2") do |config|
               "RACE" => "#{$RACE}",
               "LOCKDEBUG" => "#{$LOCKDEBUG}",
               "BASE_IMAGE" => "#{$BASE_IMAGE}",
-              "PROVISION_EXTERNAL_WORKLOAD" => "#{$PROVISION_EXTERNAL_WORKLOAD}"
+              "PROVISION_EXTERNAL_WORKLOAD" => "#{$PROVISION_EXTERNAL_WORKLOAD}",
+              "CILIUM_IMAGE" => "#{$CILIUM_IMAGE}"
             }
         end
     end
