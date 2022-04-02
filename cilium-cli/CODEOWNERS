@@ -28,7 +28,7 @@
 /hubble/ @cilium/hubble
 /install/azure.go @cilium/azure
 /internal/cli/ @cilium/cli
-/internal/k8s/ @cilium/kubernetes
+/k8s/ @cilium/kubernetes
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
 /vendor/ @cilium/vendor

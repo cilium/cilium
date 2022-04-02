@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/k8s"
 )
 
 type ExitCode int16
