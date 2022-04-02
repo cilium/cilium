@@ -4,7 +4,7 @@
 CILIUM_OPTS=$@
 # Default kvstore to consul
 if [[ "${CILIUM_OPTS}" != *--kvstore* ]]; then
-    CILIUM_OPTS+="--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500"
+    CILIUM_OPTS+=" --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500"
 fi
 
 CILIUM_IMAGE=${CILIUM_IMAGE:-cilium/cilium:latest}
