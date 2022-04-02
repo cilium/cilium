@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/k8s"
 )
 
 type validationCheck interface {
