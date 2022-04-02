@@ -10,7 +10,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/k8s"
 )
 
 // TestPeer is the abstraction used for all peer types (pods, services, IPs,
