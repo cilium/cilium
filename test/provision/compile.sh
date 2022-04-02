@@ -1,18 +1,20 @@
 #!/bin/bash
 set -e
 
-CILIUM_DS_TAG="k8s-app=cilium"
-KUBE_SYSTEM_NAMESPACE="kube-system"
-KUBECTL="/usr/bin/kubectl"
-PROVISIONSRC="/tmp/provision"
-GOPATH="/home/vagrant/go"
-REGISTRY="k8s1:5000"
-CILIUM_TAG="cilium/cilium-dev"
-CILIUM_OPERATOR_TAG="cilium/operator"
-CILIUM_OPERATOR_GENERIC_TAG="cilium/operator-generic"
-CILIUM_OPERATOR_AWS_TAG="cilium/operator-aws"
-CILIUM_OPERATOR_AZURE_TAG="cilium/operator-azure"
-HUBBLE_RELAY_TAG="cilium/hubble-relay"
+export CILIUM_DS_TAG="k8s-app=cilium"
+export KUBE_SYSTEM_NAMESPACE="kube-system"
+export KUBECTL="/usr/bin/kubectl"
+export VMUSER=${VMUSER:-vagrant}
+export PROVISIONSRC="/tmp/provision"
+export GOPATH="/home/${VMUSER}/go"
+export REGISTRY="k8s1:5000"
+export DOCKER_REGISTRY="docker.io"
+export CILIUM_TAG="cilium/cilium-dev"
+export CILIUM_OPERATOR_TAG="cilium/operator"
+export CILIUM_OPERATOR_GENERIC_TAG="cilium/operator-generic"
+export CILIUM_OPERATOR_AWS_TAG="cilium/operator-aws"
+export CILIUM_OPERATOR_AZURE_TAG="cilium/operator-azure"
+export HUBBLE_RELAY_TAG="cilium/hubble-relay"
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
@@ -138,10 +140,11 @@ else
         systemctl enable $service || echo "service $service failed"
         systemctl restart $service || echo "service $service failed to restart"
     done
-    echo "running \"sudo adduser vagrant cilium\" "
+
+    echo "running \"sudo adduser ${VMUSER} cilium\" "
     # Add group explicitly to avoid the case where the group was not added yet
     getent group cilium >/dev/null || sudo groupadd -r cilium
-    sudo adduser vagrant cilium
+    sudo adduser ${VMUSER} cilium
 
     # Download all images needed for runtime tests.
     ./test/provision/container-images.sh test_images test/helpers
