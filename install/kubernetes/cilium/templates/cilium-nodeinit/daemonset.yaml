@@ -74,8 +74,6 @@ spec:
                     {{- tpl (.Files.Get "files/nodeinit/prestop.bash") . | nindent 20 }}
           {{- end }}
           env:
-          - name: CHECKPOINT_PATH
-            value: /tmp/node-init.cilium.io
           # STARTUP_SCRIPT is the script run on node bootstrap. Node
           # bootstrapping can be customized in this script. This script is invoked
           # using nsenter, so it runs in the host's network and mount namespace using
