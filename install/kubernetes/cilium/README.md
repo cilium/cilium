@@ -58,7 +58,9 @@ contributors across the globe, there is almost always someone available to help.
 | alibabacloud.enabled | bool | `false` | Enable AlibabaCloud ENI integration |
 | autoDirectNodeRoutes | bool | `false` | Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment. |
 | azure.enabled | bool | `false` | Enable Azure integration |
-| bandwidthManager | bool | `false` | Optimize TCP and UDP workloads and enable rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation. |
+| bandwidthManager | object | `{"bbr":false,"enabled":false}` | Enable bandwidth manager to optimize TCP and UDP workloads and allow for rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation. |
+| bandwidthManager.bbr | bool | `false` | Activate BBR TCP congestion control for Pods |
+| bandwidthManager.enabled | bool | `false` | Enable bandwidth manager infrastructure (also prerequirement for BBR) |
 | bgp | object | `{"announce":{"loadbalancerIP":false,"podCIDR":false},"enabled":false}` | Configure BGP |
 | bgp.announce.loadbalancerIP | bool | `false` | Enable allocation and announcement of service LoadBalancer IPs |
 | bgp.announce.podCIDR | bool | `false` | Enable announcement of node pod CIDR |

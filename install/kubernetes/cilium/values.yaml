@@ -199,10 +199,20 @@ alibabacloud:
   # -- Enable AlibabaCloud ENI integration
   enabled: false
 
-# -- Optimize TCP and UDP workloads and enable rate-limiting traffic from
-# individual Pods with EDT (Earliest Departure Time)
-# through the "kubernetes.io/egress-bandwidth" Pod annotation.
-bandwidthManager: false
+# -- Deprecated in favor of bandwidthManager.enabled. To be removed in 1.13.
+# Optimize TCP and UDP workloads and enable rate-limiting traffic from
+# individual Pods with EDT (Earliest Departure Time) through the
+# "kubernetes.io/egress-bandwidth" Pod annotation.
+#bandwidthManager: false
+
+# -- Enable bandwidth manager to optimize TCP and UDP workloads and allow
+# for rate-limiting traffic from individual Pods with EDT (Earliest Departure
+# Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
+bandwidthManager:
+  # -- Enable bandwidth manager infrastructure (also prerequirement for BBR)
+  enabled: false
+  # -- Activate BBR TCP congestion control for Pods
+  bbr: false
 
 # -- Configure BGP
 bgp:

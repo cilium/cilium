@@ -231,7 +231,7 @@ jobs:
             --set tunnel=disabled \
             --set nodeinit.enabled=true \
             --set bpf.monitorAggregation=none \
-            --set bandwidthManager=false
+            --set bandwidthManager.enabled=false
 
       - name: Enable Relay
         run: |
