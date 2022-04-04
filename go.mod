@@ -22,7 +22,7 @@ require (
 	github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
 	github.com/cilium/lumberjack/v2 v2.2.1
 	github.com/cilium/proxy v0.0.0-20220310090216-617157adcd74
-	github.com/cilium/workerpool v1.1.1
+	github.com/cilium/workerpool v1.1.2
 	github.com/containernetworking/cni v1.0.1
 	github.com/containernetworking/plugins v1.1.1
 	github.com/davecgh/go-spew v1.1.1
@@ -49,7 +49,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/jeremywohl/flatten v1.0.1
-	github.com/kevinburke/ssh_config v1.1.0
+	github.com/kevinburke/ssh_config v1.2.0
 	github.com/kr/pretty v0.3.0
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/miekg/dns v1.1.43
