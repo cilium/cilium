@@ -767,6 +767,9 @@ data:
 {{- if .Values.egressGateway.enabled }}
   enable-ipv4-egress-gateway: "true"
 {{- end }}
+{{- if .Values.egressGateway.installRoutes }}
+  install-egress-gateway-routes: "true"
+{{- end }}
 
 {{- if hasKey .Values "vtep" }}
   enable-vtep: {{ .Values.vtep.enabled | quote }}

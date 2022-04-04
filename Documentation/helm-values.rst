@@ -368,7 +368,11 @@
    * - egressGateway
      - Enables egress gateway (beta) to redirect and SNAT the traffic that leaves the cluster.
      - object
-     - ``{"enabled":false}``
+     - ``{"enabled":false,"installRoutes":false}``
+   * - egressGateway.installRoutes
+     - Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
+     - bool
+     - ``false``
    * - enableCiliumEndpointSlice
      - Enable CiliumEndpointSlice feature.
      - bool
