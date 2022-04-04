@@ -159,3 +159,13 @@ func (c *CertManager) CACertBytes() []byte {
 	copy(crt, c.caCert)
 	return crt
 }
+
+// CAKeyBytes return the CA private certificate bytes, or nil when it is not
+// set.
+func (c *CertManager) CAKeyBytes() []byte {
+	// NOTE: return a copy just to avoid the caller modifiying our CA
+	// certificate.
+	crt := make([]byte, len(c.caKey))
+	copy(crt, c.caKey)
+	return crt
+}
