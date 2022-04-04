@@ -144,6 +144,55 @@ To validate whether your installation is running with Bandwidth Manager,
 run ``cilium status`` in any of the Cilium pods and look for the line
 reporting the status for "BandwidthManager" which should state "EDT with BPF".
 
+BBR congestion control for Pods
+===============================
+
+The base infrastructure around MQ/FQ setup provided by Cilium's Bandwidth Manager
+also allows for use of TCP `BBR congestion control <https://queue.acm.org/detail.cfm?id=3022184>`_
+for Pods. BBR is in particular suitable when Pods are exposed behind Kubernetes
+Services which face external clients from the Internet. BBR achieves higher
+bandwidths and lower latencies for Internet traffic, for example, it has been
+`shown <https://cloud.google.com/blog/products/networking/tcp-bbr-congestion-control-comes-to-gcp-your-internet-just-got-faster>`_
+that BBR's throughput can reach as much as 2,700x higher than today's best
+loss-based congestion control and queueing delays can be 25x lower.
+
+In order for BBR to work reliably for Pods, it requires a 5.18 or higher kernel.
+As outlined in our `Linux Plumbers 2021 talk <https://lpc.events/event/11/contributions/953/>`_,
+this is needed since older kernels do not retain timestamps of network packets
+when switching from Pod to host network namespace. Due to the latter, the kernel's
+pacing infrastructure does not function properly in general (not specific to Cilium).
+We helped fixing this issue for recent kernels to retain timestamps and therefore to
+get BBR for Pods working.
+
+BBR also needs eBPF Host-Routing in order to retain the network packet's socket
+association all the way until the packet hits the FQ queueing discipline on the
+physical device in the host namespace.
+
+**Requirements:**
+
+* Kernel >= 5.18
+* Bandwidth Manager
+* eBPF Host-Routing
+
+To enable the Bandwidth Manager with BBR for Pods:
+
+.. tabs::
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set bandwidthManager.enabled=true \\
+             --set bandwidthManager.bbr=true \\
+             --set kubeProxyReplacement=strict
+
+To validate whether your installation is running with BBR for Pods,
+run ``cilium status`` in any of the Cilium pods and look for the line
+reporting the status for "BandwidthManager" which should then state
+``EDT with BPF`` as well as ``[BBR]``.
+
 XDP Acceleration
 ================
 
