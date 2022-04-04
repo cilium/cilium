@@ -149,7 +149,7 @@ func Test_getRouteConfigurationResource(t *testing.T) {
 	require.Len(t, routeConfig.VirtualHosts[1].Routes, 1)
 
 	require.Equal(t, "/dummy-path", routeConfig.VirtualHosts[0].Routes[0].Match.GetPath())
-	require.Equal(t, "/another-dummy-path", routeConfig.VirtualHosts[0].Routes[1].Match.GetPrefix())
+	require.Equal(t, "/another-dummy-path(/.*)?$", routeConfig.VirtualHosts[0].Routes[1].Match.GetSafeRegex().GetRegex())
 	require.Equal(t, "/", routeConfig.VirtualHosts[1].Routes[0].Match.GetPrefix())
 
 	clusters := []string{routeConfig.VirtualHosts[0].Routes[0].GetRoute().GetCluster(), routeConfig.VirtualHosts[0].Routes[1].GetRoute().GetCluster()}
