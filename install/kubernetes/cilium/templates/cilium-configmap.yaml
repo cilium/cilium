@@ -493,7 +493,18 @@ data:
 {{- end }}
 
   auto-direct-node-routes: {{ .Values.autoDirectNodeRoutes | quote }}
+
+{{- if .Values.bandwidthManager }}
+{{- if typeIs "bool" .Values.bandwidthManager }}
+  # DEPRECATED: this block should be removed in 1.13
   enable-bandwidth-manager: {{ .Values.bandwidthManager | quote }}
+{{- else }}
+{{- if .Values.bandwidthManager.enabled }}
+  enable-bandwidth-manager: {{ .Values.bandwidthManager.enabled | quote }}
+  enable-bbr: {{ .Values.bandwidthManager.bbr | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
 
 {{- if hasKey .Values "localRedirectPolicy" }}
   enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}

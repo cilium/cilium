@@ -137,7 +137,7 @@ To enable the Bandwidth Manager:
 
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
-             --set bandwidthManager=true \\
+             --set bandwidthManager.enabled=true \\
              --set kubeProxyReplacement=strict
 
 To validate whether your installation is running with Bandwidth Manager,
