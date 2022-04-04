@@ -6,399 +6,282 @@ package hubble
 import (
 	"context"
 	"fmt"
-	"time"
-
-	"github.com/cloudflare/cfssl/config"
-	"github.com/cloudflare/cfssl/csr"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
-	"github.com/cilium/cilium-cli/k8s"
+
+	"github.com/cilium/cilium/pkg/versioncheck"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	relayPort     = int32(defaults.RelayPort)
-	relayPortName = "grpc"
-)
+func (k *K8sHubble) generateRelayService() (*corev1.Service, error) {
+	var (
+		svcFilename string
+	)
 
-var (
-	secretDefaultMode        = int32(0400)
-	relayReplicas            = int32(1)
-	relayPortIntstr          = intstr.FromInt(defaults.RelayPort)
-	deploymentMaxSurge       = intstr.FromInt(1)
-	deploymentMaxUnavailable = intstr.FromInt(1)
-)
-
-var relayClusterRole = &rbacv1.ClusterRole{
-	ObjectMeta: metav1.ObjectMeta{
-		Name: defaults.RelayClusterRoleName,
-	},
-	Rules: []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"componentstatuses", "endpoints", "namespaces", "nodes", "pods", "services"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-	},
-}
-
-func (k *K8sHubble) generateRelayService() *corev1.Service {
-	// NOTE: assuming "disable-server-tls: true", see generateRelayConfigMap().
-	s := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   defaults.RelayServiceName,
-			Labels: defaults.RelayDeploymentLabels,
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceType(k.params.RelayServiceType),
-			Ports: []corev1.ServicePort{
-				{
-					Port:       int32(defaults.RelayServicePlaintextPort),
-					TargetPort: relayPortIntstr,
-				},
-			},
-			Selector: defaults.RelayDeploymentLabels,
-		},
+	ciliumVer := k.semVerCiliumVersion
+	switch {
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		svcFilename = "templates/hubble-relay/service.yaml"
+	default:
+		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
-	return s
+
+	svcFile := k.manifests[svcFilename]
+
+	var svc corev1.Service
+	utils.MustUnmarshalYAML([]byte(svcFile), &svc)
+	return &svc, nil
 }
 
-func (k *K8sHubble) generateRelayDeployment() *appsv1.Deployment {
-	d := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   defaults.RelayDeploymentName,
-			Labels: defaults.RelayDeploymentLabels,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &relayReplicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: defaults.RelayDeploymentLabels,
-			},
-			Strategy: appsv1.DeploymentStrategy{
-				Type: appsv1.RollingUpdateDeploymentStrategyType,
-				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxUnavailable: &deploymentMaxUnavailable,
-					MaxSurge:       &deploymentMaxSurge,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   defaults.RelayDeploymentName,
-					Labels: defaults.RelayDeploymentLabels,
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      corev1.RestartPolicyAlways,
-					ServiceAccountName: defaults.RelayServiceAccountName,
-					Containers: []corev1.Container{
-						{
-							Name:    defaults.RelayContainerName,
-							Command: []string{"hubble-relay"},
-							Args: []string{
-								"serve",
-							},
-							Image:           k.relayImage(utils.ImagePathIncludeDigest),
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Ports: []corev1.ContainerPort{
-								{
-									Name:          relayPortName,
-									ContainerPort: relayPort,
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "hubble-sock-dir",
-									MountPath: "/var/run/cilium",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "config",
-									MountPath: "/etc/hubble-relay",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "tls",
-									MountPath: "/var/lib/hubble-relay/tls",
-									ReadOnly:  true,
-								},
-							},
-							ReadinessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									TCPSocket: &corev1.TCPSocketAction{
-										Port: relayPortIntstr,
-									},
-								},
-							},
-							LivenessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									TCPSocket: &corev1.TCPSocketAction{
-										Port: relayPortIntstr,
-									},
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: defaults.RelayConfigMapName,
-									},
-									Items: []corev1.KeyToPath{
-										{Key: "config.yaml", Path: "config.yaml"},
-									},
-								},
-							},
-						},
-						{
-							Name: "hubble-sock-dir",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/run/cilium",
-									Type: &hostPathDirectoryOrCreate,
-								},
-							},
-						},
-						{
-							Name: "tls",
-							VolumeSource: corev1.VolumeSource{
-								Projected: &corev1.ProjectedVolumeSource{
-									DefaultMode: &secretDefaultMode,
-									Sources: []corev1.VolumeProjection{
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: defaults.RelayClientSecretName,
-												},
-												Items: []corev1.KeyToPath{
-													{
-														Key:  corev1.TLSCertKey,
-														Path: "client.crt",
-													},
-													{
-														Key:  corev1.TLSPrivateKeyKey,
-														Path: "client.key",
-													},
-													{
-														Key:  defaults.CASecretCertName,
-														Path: "hubble-server-ca.crt",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+func (k *K8sHubble) generateRelayDeployment() (*appsv1.Deployment, error) {
+	var (
+		deployFilename string
+	)
+
+	ciliumVer := k.semVerCiliumVersion
+	switch {
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		deployFilename = "templates/hubble-relay/deployment.yaml"
+	default:
+		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
-	return d
+
+	deploymentFile := k.manifests[deployFilename]
+
+	var deploy appsv1.Deployment
+	utils.MustUnmarshalYAML([]byte(deploymentFile), &deploy)
+	return &deploy, nil
 }
 
-func (k *K8sHubble) generateRelayConfigMap() *corev1.ConfigMap {
+func (k *K8sHubble) generateRelayConfigMap() (*corev1.ConfigMap, error) {
+	var (
+		cmFilename string
+	)
 
-	var config = `
-peer-service: ` + defaults.HubbleSocketPath + `
-listen-address: ` + fmt.Sprintf("%s:%d", defaults.RelayListenHost, defaults.RelayPort) + `
-dial-timeout: ~
-retry-timeout: ~
-sort-buffer-len-max: ~
-sort-buffer-drain-timeout: ~
-tls-client-cert-file: /var/lib/hubble-relay/tls/client.crt
-tls-client-key-file: /var/lib/hubble-relay/tls/client.key
-tls-hubble-server-ca-files: /var/lib/hubble-relay/tls/hubble-server-ca.crt
-disable-server-tls: true
-`
-
-	//{{- if .Values.hubble.relay.tls.server.enabled }}
-	//tls-server-cert-file: /var/lib/hubble-relay/tls/server.crt
-	//tls-server-key-file: /var/lib/hubble-relay/tls/server.key
-	//{{- else }}
-	//{{- end }}
-	//{{- end }}
-
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: defaults.RelayConfigMapName,
-		},
-		Data: map[string]string{
-			"config.yaml": config,
-		},
+	ciliumVer := k.semVerCiliumVersion
+	switch {
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		cmFilename = "templates/hubble-relay/configmap.yaml"
+	default:
+		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
-}
 
-func (k *K8sHubble) relayImage(imagePathMode utils.ImagePathMode) string {
-	return utils.BuildImagePath(k.params.RelayImage, k.params.RelayVersion, defaults.RelayImage, k.ciliumVersion, imagePathMode)
+	cmFile := k.manifests[cmFilename]
+
+	var cm corev1.ConfigMap
+	utils.MustUnmarshalYAML([]byte(cmFile), &cm)
+	return &cm, nil
 }
 
 func (k *K8sHubble) disableRelay(ctx context.Context) error {
 	k.Log("🔥 Deleting Relay...")
-	k.client.DeleteService(ctx, k.params.Namespace, defaults.RelayServiceName, metav1.DeleteOptions{})
-	k.client.DeleteDeployment(ctx, k.params.Namespace, defaults.RelayDeploymentName, metav1.DeleteOptions{})
-	k.client.DeleteClusterRoleBinding(ctx, defaults.RelayClusterRoleName, metav1.DeleteOptions{})
-	k.client.DeleteClusterRole(ctx, defaults.RelayClusterRoleName, metav1.DeleteOptions{})
-	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.RelayServiceAccountName, metav1.DeleteOptions{})
-	k.client.DeleteConfigMap(ctx, k.params.Namespace, defaults.RelayConfigMapName, metav1.DeleteOptions{})
 
-	k.deleteRelayCertificates(ctx)
+	relaySvc, err := k.generateRelayService()
+	if err != nil {
+		return err
+	}
+	k.client.DeleteService(ctx, relaySvc.GetNamespace(), relaySvc.GetName(), metav1.DeleteOptions{})
 
-	return nil
+	relayDeployment, err := k.generateRelayDeployment()
+	if err != nil {
+		return err
+	}
+	k.client.DeleteDeployment(ctx, relayDeployment.GetNamespace(), relayDeployment.GetName(), metav1.DeleteOptions{})
+
+	crb := k.NewClusterRoleBinding(defaults.RelayClusterRoleName)
+	k.client.DeleteClusterRoleBinding(ctx, crb.GetName(), metav1.DeleteOptions{})
+
+	cr := k.NewClusterRole(defaults.RelayClusterRoleName)
+	k.client.DeleteClusterRole(ctx, cr.GetName(), metav1.DeleteOptions{})
+
+	sa := k.NewServiceAccount(defaults.RelayServiceAccountName)
+	k.client.DeleteServiceAccount(ctx, sa.GetNamespace(), sa.GetName(), metav1.DeleteOptions{})
+
+	relayConfigMap, err := k.generateRelayConfigMap()
+	if err != nil {
+		return err
+	}
+	k.client.DeleteConfigMap(ctx, relayConfigMap.GetNamespace(), relayConfigMap.GetName(), metav1.DeleteOptions{})
+
+	return k.deleteRelayCertificates(ctx)
 }
 
-func (k *K8sHubble) enableRelay(ctx context.Context) error {
-	_, err := k.client.GetDeployment(ctx, k.params.Namespace, defaults.RelayDeploymentName, metav1.GetOptions{})
+func (k *K8sHubble) enableRelay(ctx context.Context) (string, error) {
+	relayDeployment, err := k.generateRelayDeployment()
+	if err != nil {
+		return "", err
+	}
+
+	_, err = k.client.GetDeployment(ctx, relayDeployment.GetNamespace(), relayDeployment.GetName(), metav1.GetOptions{})
 	if err == nil {
 		k.Log("✅ Relay is already deployed")
-		return nil
+		return relayDeployment.GetName(), nil
 	}
+
+	k.Log("✨ Generating certificates...")
 
 	if err := k.createRelayCertificates(ctx); err != nil {
-		return err
+		return "", err
 	}
 
-	//	k.Log("✨ Generating certificates...")
-
-	k.Log("✨ Deploying Relay from %s...", k.relayImage(utils.ImagePathExcludeDigest))
-	if _, err := k.client.CreateConfigMap(ctx, k.params.Namespace, k.generateRelayConfigMap(), metav1.CreateOptions{}); err != nil {
-		return err
+	relayCm, err := k.generateRelayConfigMap()
+	if err != nil {
+		return "", err
+	}
+	k.Log("✨ Deploying Relay...")
+	if _, err := k.client.CreateConfigMap(ctx, relayCm.GetNamespace(), relayCm, metav1.CreateOptions{}); err != nil {
+		return "", err
 	}
 
-	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(defaults.RelayServiceAccountName), metav1.CreateOptions{}); err != nil {
-		return err
+	sa := k.NewServiceAccount(defaults.RelayServiceAccountName)
+	if _, err := k.client.CreateServiceAccount(ctx, sa.GetNamespace(), sa, metav1.CreateOptions{}); err != nil {
+		return "", err
 	}
 
-	if _, err := k.client.CreateClusterRole(ctx, relayClusterRole, metav1.CreateOptions{}); err != nil {
-		return err
+	if _, err := k.client.CreateDeployment(ctx, relayDeployment.GetNamespace(), relayDeployment, metav1.CreateOptions{}); err != nil {
+		return "", err
 	}
 
-	if _, err := k.client.CreateClusterRoleBinding(ctx, k8s.NewClusterRoleBinding(defaults.RelayClusterRoleName, k.params.Namespace, defaults.RelayServiceAccountName), metav1.CreateOptions{}); err != nil {
-		return err
+	relaySvc, err := k.generateRelayService()
+	if err != nil {
+		return "", err
+	}
+	if _, err := k.client.CreateService(ctx, relaySvc.GetNamespace(), relaySvc, metav1.CreateOptions{}); err != nil {
+		return "", err
 	}
 
-	if _, err := k.client.CreateDeployment(ctx, k.params.Namespace, k.generateRelayDeployment(), metav1.CreateOptions{}); err != nil {
-		return err
-	}
-
-	//relayService.Spec.Type = corev1.ServiceType(k.params.ServiceType)
-	if _, err := k.client.CreateService(ctx, k.params.Namespace, k.generateRelayService(), metav1.CreateOptions{}); err != nil {
-		return err
-	}
-
-	return nil
+	return relayDeployment.GetName(), nil
 }
 
 func (k *K8sHubble) deleteRelayCertificates(ctx context.Context) error {
 	k.Log("🔥 Deleting Relay certificates...")
-	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.RelayServerSecretName, metav1.DeleteOptions{})
-	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.RelayClientSecretName, metav1.DeleteOptions{})
+	secret, err := k.generateRelayCertificate(defaults.RelayServerSecretName)
+	if err != nil {
+		return err
+	}
+
+	k.client.DeleteSecret(ctx, secret.GetNamespace(), secret.GetName(), metav1.DeleteOptions{})
+
+	secret, err = k.generateRelayCertificate(defaults.RelayClientSecretName)
+	if err != nil {
+		return err
+	}
+	k.client.DeleteSecret(ctx, secret.GetNamespace(), secret.GetName(), metav1.DeleteOptions{})
 	return nil
 }
 
 func (k *K8sHubble) createRelayCertificates(ctx context.Context) error {
 	k.Log("🔑 Generating certificates for Relay...")
-	if err := k.createRelayServerCertificate(ctx); err != nil {
-		return err
-	}
+	// TODO we won't generate hubble-ui certificates because we don't want
+	//  to give a bad UX for hubble-cli (which connects to hubble-relay)
+	// if err := k.createRelayServerCertificate(ctx); err != nil {
+	// 	return err
+	// }
 
 	return k.createRelayClientCertificate(ctx)
 }
 
-func (k *K8sHubble) createRelayServerCertificate(ctx context.Context) error {
-	certReq := &csr.CertificateRequest{
-		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
-		KeyRequest: csr.NewKeyRequest(),
-		Hosts:      []string{"*.hubble-relay.cilium.io"},
-		CN:         "*.hubble-relay.cilium.io",
-	}
-
-	signConf := &config.Signing{
-		Default: &config.SigningProfile{Expiry: 5 * 365 * 24 * time.Hour},
-		Profiles: map[string]*config.SigningProfile{
-			defaults.RelayServerSecretName: {
-				Expiry: 3 * 365 * 24 * time.Hour,
-				Usage:  []string{"signing", "key encipherment", "server auth", "client auth"},
-			},
-		},
-	}
-
-	cert, key, err := k.certManager.GenerateCertificate(defaults.RelayServerSecretName, certReq, signConf)
-	if err != nil {
-		return fmt.Errorf("unable to generate certificate %s: %w", defaults.RelayServerSecretName, err)
-	}
-
-	data := map[string][]byte{
-		corev1.TLSCertKey:         cert,
-		corev1.TLSPrivateKeyKey:   key,
-		defaults.CASecretCertName: k.certManager.CACertBytes(),
-	}
-
-	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.RelayServerSecretName, k.params.Namespace, data), metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.RelayServerSecretName, err)
-	}
-
-	return nil
-}
+// TODO we won't generate hubble-ui certificates because we don't want
+//  to give a bad UX for hubble-cli (which connects to hubble-relay)
+// func (k *K8sHubble) createRelayServerCertificate(ctx context.Context) error {
+// 	secret, err := k.generateRelayCertificate(defaults.RelayServerSecretName)
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	_, err = k.client.CreateSecret(ctx, secret.GetNamespace(), &secret, metav1.CreateOptions{})
+// 	if err != nil {
+// 		return fmt.Errorf("unable to create secret %s/%s: %w", secret.GetNamespace(), secret.GetName(), err)
+// 	}
+//
+// 	return nil
+// }
 
 func (k *K8sHubble) createRelayClientCertificate(ctx context.Context) error {
-	certReq := &csr.CertificateRequest{
-		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
-		KeyRequest: csr.NewKeyRequest(),
-		Hosts:      []string{"*.hubble-relay.cilium.io"},
-		CN:         "*.hubble-relay.cilium.io",
-	}
-
-	signConf := &config.Signing{
-		Default: &config.SigningProfile{Expiry: 5 * 365 * 24 * time.Hour},
-		Profiles: map[string]*config.SigningProfile{
-			defaults.RelayClientSecretName: {
-				Expiry: 3 * 365 * 24 * time.Hour,
-				Usage:  []string{"signing", "key encipherment", "server auth", "client auth"},
-			},
-		},
-	}
-
-	cert, key, err := k.certManager.GenerateCertificate(defaults.RelayClientSecretName, certReq, signConf)
+	secret, err := k.generateRelayCertificate(defaults.RelayClientSecretName)
 	if err != nil {
-		return fmt.Errorf("unable to generate certificate %s: %w", defaults.RelayClientSecretName, err)
+		return err
 	}
 
-	data := map[string][]byte{
-		corev1.TLSCertKey:         cert,
-		corev1.TLSPrivateKeyKey:   key,
-		defaults.CASecretCertName: k.certManager.CACertBytes(),
-	}
-
-	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.RelayClientSecretName, k.params.Namespace, data), metav1.CreateOptions{})
+	_, err = k.client.CreateSecret(ctx, secret.GetNamespace(), &secret, metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.RelayClientSecretName, err)
+		return fmt.Errorf("unable to create secret %s/%s: %w", secret.GetNamespace(), secret.GetName(), err)
 	}
 
 	return nil
 }
 
-func (p *Parameters) PortForwardCommand(ctx context.Context) error {
+func (k *K8sHubble) generateRelayCertificate(name string) (corev1.Secret, error) {
+	var (
+		relaySecretFilename string
+	)
+
+	ciliumVer := k.semVerCiliumVersion
+
+	switch {
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
+		switch name {
+		case defaults.RelayServerSecretName:
+			relaySecretFilename = "templates/hubble/tls-helm/relay-server-secret.yaml"
+		case defaults.RelayClientSecretName:
+			relaySecretFilename = "templates/hubble/tls-helm/relay-client-secret.yaml"
+		}
+	}
+
+	relayFile := k.manifests[relaySecretFilename]
+
+	var secret corev1.Secret
+	utils.MustUnmarshalYAML([]byte(relayFile), &secret)
+	return secret, nil
+}
+
+func (k *K8sHubble) PortForwardCommand(ctx context.Context) error {
+	var err error
+	k.ciliumVersion, err = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
+	if err != nil {
+		return err
+	}
+
+	k.semVerCiliumVersion = k.getCiliumVersion()
+
+	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+
+	value, ok := cm.Data[defaults.ExtraConfigMapUserOptsKey]
+	if !ok {
+		return fmt.Errorf("configmap option not found")
+	}
+
+	// Generate the manifests has if hubble was being enabled so that we can
+	// retrieve all UI and Relay's resource names.
+	k.params.UI = true
+	k.params.Relay = true
+	err = k.generateManifestsEnable(ctx, false, value)
+	if err != nil {
+		return err
+	}
+
+	relaySvc, err := k.generateRelayService()
+	if err != nil {
+		return err
+	}
 	args := []string{
 		"port-forward",
-		"-n", p.Namespace,
+		"-n", k.params.Namespace,
 		"svc/hubble-relay",
 		"--address", "0.0.0.0",
 		"--address", "::",
-		fmt.Sprintf("%d:%d", p.PortForward, defaults.RelayServicePlaintextPort)}
+		fmt.Sprintf("%d:%d", k.params.PortForward, relaySvc.Spec.Ports[0].Port)}
 
-	if p.Context != "" {
-		args = append([]string{"--context", p.Context}, args...)
+	if k.params.Context != "" {
+		args = append([]string{"--context", k.params.Context}, args...)
 	}
 
-	_, err := utils.Exec(p, "kubectl", args...)
+	_, err = utils.Exec(k, "kubectl", args...)
 	return err
 }

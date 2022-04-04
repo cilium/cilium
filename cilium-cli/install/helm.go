@@ -231,7 +231,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		extraConfigMap[k] = v
 	}
 
-	vals, err := helm.MergeVals(k, k.params.HelmOpts, helmMapOpts, nil, extraConfigMap, k.params.HelmChartDirectory, ciliumVer.String(), k.params.Namespace)
+	vals, err := helm.MergeVals(k, true, k.params.HelmOpts, helmMapOpts, nil, extraConfigMap, k.params.HelmChartDirectory, ciliumVer.String(), k.params.Namespace)
 	if err != nil {
 		return err
 	}
