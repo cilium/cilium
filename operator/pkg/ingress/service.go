@@ -208,16 +208,14 @@ func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
 			TargetPort: intstr.FromInt((int)(targetPort)),
 		},
 	}
-	if len(ingress.Spec.TLS) > 0 {
-		ports = []v1.ServicePort{
-			{
-				Name:     "https",
-				Protocol: "TCP",
-				Port:     443,
-				// TODO(michi) how do we deal with multiple target ports?
-				TargetPort: intstr.FromInt((int)(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number)),
-			},
-		}
+	if tlsEnabled(ingress) {
+		ports = append(ports, v1.ServicePort{
+			Name:     "https",
+			Protocol: "TCP",
+			Port:     443,
+			// TODO(michi) how do we deal with multiple target ports?
+			TargetPort: intstr.FromInt((int)(targetPort)),
+		})
 	}
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{

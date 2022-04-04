@@ -147,7 +147,6 @@ contributors across the globe, there is almost always someone available to help.
 | enableCriticalPriorityClass | bool | `true` | Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in `helm template` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance. |
 | enableIPv4Masquerade | bool | `true` | Enables masquerading of IPv4 traffic leaving the node from endpoints. |
 | enableIPv6Masquerade | bool | `true` | Enables masquerading of IPv6 traffic leaving the node from endpoints. |
-| enableIngressController | bool | `false` | Enable cilium ingress controller This will automatically set enable-envoy-config as well. |
 | enableK8sEventHandover | bool | `false` | Configures the use of the KVStore to optimize Kubernetes event handling by mirroring it into the KVstore for reduced overhead in large clusters. |
 | enableK8sTerminatingEndpoint | bool | `true` | Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination. |
 | enableXTSocketFallback | bool | `true` | Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel. |
@@ -296,6 +295,8 @@ contributors across the globe, there is almost always someone available to help.
 | identityAllocationMode | string | `"crd"` | Method to use for identity allocation (`crd` or `kvstore`). |
 | image | object | `{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium","tag":"latest","useDigest":false}` | Agent container image. |
 | imagePullSecrets | string | `nil` | Configure image pull secrets for pulling container images |
+| ingressController.enabled | bool | `false` | Enable cilium ingress controller This will automatically set enable-envoy-config as well. |
+| ingressController.enforceHttps | bool | `true` | Enforce https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. |
 | installIptablesRules | bool | `true` | Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy. |
 | installNoConntrackIptablesRules | bool | `false` | Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup. |
 | ipMasqAgent | object | `{"enabled":false}` | Configure the eBPF-based ip-masq-agent |

@@ -186,6 +186,12 @@ func Test_getServiceForIngress(t *testing.T) {
 		assert.Equal(t, v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
+					Name:       "http",
+					Protocol:   "TCP",
+					Port:       80,
+					TargetPort: intstr.FromInt(8080),
+				},
+				{
 					Name:       "https",
 					Protocol:   "TCP",
 					Port:       443,

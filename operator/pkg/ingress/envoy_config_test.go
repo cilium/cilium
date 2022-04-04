@@ -44,36 +44,91 @@ func Test_getBackendServices(t *testing.T) {
 }
 
 func Test_getListenerResource(t *testing.T) {
-	res, err := getListenerResource(fakeClient(), baseIngress.DeepCopy())
-	require.NoError(t, err)
+	t.Run("with https enforcement", func(t *testing.T) {
+		res, err := getListenerResource(fakeClient(), baseIngress.DeepCopy(), true)
+		require.NoError(t, err)
 
-	listener := &envoy_config_listener.Listener{}
-	err = proto.Unmarshal(res.Value, listener)
-	require.NoError(t, err)
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.NoError(t, err)
 
-	require.Len(t, listener.FilterChains, 1)
-	require.Len(t, listener.FilterChains[0].Filters, 1)
-	require.IsType(t, &envoy_config_listener.Filter_TypedConfig{}, listener.FilterChains[0].Filters[0].ConfigType)
+		require.Len(t, listener.ListenerFilters, 1)
+		require.Len(t, listener.FilterChains, 2)
+		require.Len(t, listener.FilterChains[0].Filters, 1)
+		require.IsType(t, &envoy_config_listener.Filter_TypedConfig{}, listener.FilterChains[0].Filters[0].ConfigType)
 
-	// check for connection manager
-	connectionManager := &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{}
-	err = proto.Unmarshal(listener.FilterChains[0].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, connectionManager)
-	require.NoError(t, err)
+		// check for connection manager
+		redirectConnectionManager := &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{}
+		err = proto.Unmarshal(listener.FilterChains[0].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, redirectConnectionManager)
+		require.NoError(t, err)
 
-	require.Equal(t, "dummy-ingress", connectionManager.StatPrefix)
-	require.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress_route", connectionManager.GetRds().RouteConfigName)
+		require.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress", redirectConnectionManager.StatPrefix)
+		require.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress_redirect", redirectConnectionManager.GetRds().RouteConfigName)
 
-	// check TLS configuration
-	require.Equal(t, "envoy.transport_sockets.tls", listener.FilterChains[0].TransportSocket.Name)
-	require.IsType(t, &envoy_config_core_v3.TransportSocket_TypedConfig{}, listener.FilterChains[0].TransportSocket.ConfigType)
+		httpConnectionManager := &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{}
+		err = proto.Unmarshal(listener.FilterChains[1].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, httpConnectionManager)
+		require.NoError(t, err)
 
-	downStreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
-	err = proto.Unmarshal(listener.FilterChains[0].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
-	require.NoError(t, err)
+		require.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress", httpConnectionManager.StatPrefix)
+		require.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress_route", httpConnectionManager.GetRds().RouteConfigName)
 
-	require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificates, 1)
-	require.Equal(t, "very-secure-key", downStreamTLS.CommonTlsContext.TlsCertificates[0].PrivateKey.GetInlineString())
-	require.Equal(t, "very-secure-cert", downStreamTLS.CommonTlsContext.TlsCertificates[0].CertificateChain.GetInlineString())
+		// check TLS configuration
+		require.Equal(t, "envoy.transport_sockets.tls", listener.FilterChains[1].TransportSocket.Name)
+		require.IsType(t, &envoy_config_core_v3.TransportSocket_TypedConfig{}, listener.FilterChains[1].TransportSocket.ConfigType)
+
+		downStreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+		err = proto.Unmarshal(listener.FilterChains[1].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
+		require.NoError(t, err)
+
+		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificates, 1)
+		require.Equal(t, "very-secure-key", downStreamTLS.CommonTlsContext.TlsCertificates[0].PrivateKey.GetInlineString())
+		require.Equal(t, "very-secure-cert", downStreamTLS.CommonTlsContext.TlsCertificates[0].CertificateChain.GetInlineString())
+	})
+
+	t.Run("without https enforcment", func(t *testing.T) {
+		res, err := getListenerResource(fakeClient(), baseIngress.DeepCopy(), false)
+		require.NoError(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.NoError(t, err)
+
+		require.Len(t, listener.ListenerFilters, 1)
+		require.Len(t, listener.FilterChains, 2)
+		require.Len(t, listener.FilterChains[0].Filters, 1)
+		require.IsType(t, &envoy_config_listener.Filter_TypedConfig{}, listener.FilterChains[0].Filters[0].ConfigType)
+
+		// check for connection managers
+		// http connection manager
+		require.Equal(t, "raw_buffer", listener.FilterChains[0].FilterChainMatch.TransportProtocol)
+		httpConnectionManager := &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{}
+		err = proto.Unmarshal(listener.FilterChains[0].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, httpConnectionManager)
+		require.NoError(t, err)
+
+		require.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress", httpConnectionManager.StatPrefix)
+		require.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress_route", httpConnectionManager.GetRds().RouteConfigName)
+
+		// https connection manager
+		require.Equal(t, "tls", listener.FilterChains[1].FilterChainMatch.TransportProtocol)
+		httpsConnectionManager := &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{}
+		err = proto.Unmarshal(listener.FilterChains[1].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, httpsConnectionManager)
+		require.NoError(t, err)
+
+		require.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress", httpsConnectionManager.StatPrefix)
+		require.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress_route", httpsConnectionManager.GetRds().RouteConfigName)
+
+		// check TLS configuration
+		require.Equal(t, "envoy.transport_sockets.tls", listener.FilterChains[1].TransportSocket.Name)
+		require.IsType(t, &envoy_config_core_v3.TransportSocket_TypedConfig{}, listener.FilterChains[1].TransportSocket.ConfigType)
+
+		downStreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+		err = proto.Unmarshal(listener.FilterChains[1].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
+		require.NoError(t, err)
+
+		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificates, 1)
+		require.Equal(t, "very-secure-key", downStreamTLS.CommonTlsContext.TlsCertificates[0].PrivateKey.GetInlineString())
+		require.Equal(t, "very-secure-cert", downStreamTLS.CommonTlsContext.TlsCertificates[0].CertificateChain.GetInlineString())
+	})
 }
 
 func Test_getRouteConfigurationResource(t *testing.T) {
@@ -102,6 +157,23 @@ func Test_getRouteConfigurationResource(t *testing.T) {
 	require.Contains(t, clusters, "dummy-namespace/another-dummy-backend")
 }
 
+func Test_getRedirectConfigurationResource(t *testing.T) {
+	res, err := getRedirectRouteConfigurationResource(baseIngress.DeepCopy())
+
+	require.NoError(t, err)
+	routeConfig := &envoy_config_route_v3.RouteConfiguration{}
+	err = proto.Unmarshal(res.Value, routeConfig)
+	require.NoError(t, err)
+
+	require.Len(t, routeConfig.VirtualHosts, 1)
+	require.Equal(t, "default-redirect", routeConfig.VirtualHosts[0].Name)
+	require.Equal(t, []string{"*"}, routeConfig.VirtualHosts[0].Domains)
+	require.Len(t, routeConfig.VirtualHosts[0].Routes, 1)
+
+	require.Equal(t, true, routeConfig.VirtualHosts[0].Routes[0].GetRedirect().GetHttpsRedirect())
+	require.Equal(t, envoy_config_route_v3.RedirectAction_PERMANENT_REDIRECT, routeConfig.VirtualHosts[0].Routes[0].GetRedirect().GetResponseCode())
+}
+
 func Test_getClusterResources(t *testing.T) {
 	res, err := getClusterResources(getBackendServices(baseIngress.DeepCopy()))
 	require.NoError(t, err)
@@ -128,7 +200,7 @@ func Test_getClusterResources(t *testing.T) {
 }
 
 func Test_getEnvoyConfigForIngress(t *testing.T) {
-	cec, err := getEnvoyConfigForIngress(fakeClient(), baseIngress.DeepCopy())
+	cec, err := getEnvoyConfigForIngress(fakeClient(), baseIngress.DeepCopy(), false)
 	require.NoError(t, err)
 
 	assert.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress", cec.Name)

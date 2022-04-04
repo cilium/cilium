@@ -5,12 +5,14 @@ package ingress
 
 // Options stores all the configurations values for cilium ingress controller.
 type Options struct {
-	MaxRetries int
+	MaxRetries    int
+	EnforcedHTTPS bool
 }
 
 // DefaultIngressOptions specifies default values for cilium ingress controller.
 var DefaultIngressOptions = Options{
-	MaxRetries: 10,
+	MaxRetries:    10,
+	EnforcedHTTPS: true,
 }
 
 // Option customizes the configuration of cilium ingress controller
@@ -20,6 +22,14 @@ type Option func(o *Options) error
 func WithMaxRetries(maxRetries int) Option {
 	return func(o *Options) error {
 		o.MaxRetries = maxRetries
+		return nil
+	}
+}
+
+// WithHTTPSEnforced specifies if https enforcement should be done or not
+func WithHTTPSEnforced(enforcedHTTPS bool) Option {
+	return func(o *Options) error {
+		o.EnforcedHTTPS = enforcedHTTPS
 		return nil
 	}
 }

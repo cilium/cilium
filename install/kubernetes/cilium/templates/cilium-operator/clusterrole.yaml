@@ -43,7 +43,7 @@ rules:
   resources:
   # to check apiserver connectivity
   - namespaces
-{{- if .Values.enableIngressController }}
+{{- if .Values.ingressController.enabled }}
   - secrets
 {{- end }}
   verbs:
@@ -60,7 +60,7 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.enableIngressController }}
+{{- if .Values.ingressController.enabled }}
   - create
   - update
   - delete
@@ -121,7 +121,7 @@ rules:
   - create
   - get
   - update
-{{- if .Values.enableIngressController }}
+{{- if .Values.ingressController.enabled }}
 - apiGroups:
   - networking.k8s.io
   resources:

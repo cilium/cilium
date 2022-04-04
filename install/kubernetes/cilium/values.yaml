@@ -435,9 +435,14 @@ enableK8sEventHandover: false
 # -- Enable CiliumEndpointSlice feature.
 enableCiliumEndpointSlice: false
 
-# -- Enable cilium ingress controller
-# This will automatically set enable-envoy-config as well.
-enableIngressController: false
+ingressController:
+  # -- Enable cilium ingress controller
+  # This will automatically set enable-envoy-config as well.
+  enabled: false
+
+  # -- Enforce https for host having matching TLS host in Ingress.
+  # Incoming traffic to http listener will return 308 http error code with respective location in header.
+  enforceHttps: true
 
 # -- Enables the fallback compatibility solution for when the xt_socket kernel
 # module is missing and it is needed for the datapath L7 redirection to work
