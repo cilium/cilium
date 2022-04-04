@@ -64,6 +64,8 @@ type IngressController struct {
 
 	queue      workqueue.RateLimitingInterface
 	maxRetries int
+
+	enforcedHTTPS bool
 }
 
 // NewIngressController returns a controller for ingress objects having ingressClassName as cilium
@@ -76,8 +78,9 @@ func NewIngressController(options ...Option) (*IngressController, error) {
 	}
 
 	ic := &IngressController{
-		queue:      workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		maxRetries: opts.MaxRetries,
+		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		maxRetries:    opts.MaxRetries,
+		enforcedHTTPS: opts.EnforcedHTTPS,
 	}
 	ic.ingressStore, ic.ingressInformer = informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.WatcherClient().NetworkingV1().RESTClient(), "ingresses", corev1.NamespaceAll, fields.Everything()),
@@ -363,7 +366,7 @@ func (ic *IngressController) createEndpoints(ingress *slim_networkingv1.Ingress)
 }
 
 func (ic *IngressController) createEnvoyConfig(ingress *slim_networkingv1.Ingress) error {
-	desired, err := getEnvoyConfigForIngress(k8s.Client(), ingress)
+	desired, err := getEnvoyConfigForIngress(k8s.Client(), ingress, ic.enforcedHTTPS)
 	if err != nil {
 		return err
 	}

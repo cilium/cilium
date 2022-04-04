@@ -385,10 +385,6 @@
      - Enables masquerading of IPv6 traffic leaving the node from endpoints.
      - bool
      - ``true``
-   * - enableIngressController
-     - Enable cilium ingress controller This will automatically set enable-envoy-config as well.
-     - bool
-     - ``false``
    * - enableK8sEventHandover
      - Configures the use of the KVStore to optimize Kubernetes event handling by mirroring it into the KVstore for reduced overhead in large clusters.
      - bool
@@ -981,6 +977,14 @@
      - Configure image pull secrets for pulling container images
      - string
      - ``nil``
+   * - ingressController.enabled
+     - Enable cilium ingress controller This will automatically set enable-envoy-config as well.
+     - bool
+     - ``false``
+   * - ingressController.enforceHttps
+     - Enforce https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header.
+     - bool
+     - ``true``
    * - installIptablesRules
      - Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy.
      - bool

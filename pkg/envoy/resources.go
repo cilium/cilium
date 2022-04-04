@@ -26,6 +26,9 @@ const (
 	// ClusterTypeURL is the type URL of Cluster resources.
 	ClusterTypeURL = "type.googleapis.com/envoy.config.cluster.v3.Cluster"
 
+	// HttpConnectionManagerTypeURL is the type URL of HttpConnectionManager resources.
+	HttpConnectionManagerTypeURL = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+
 	// EndpointTypeURL is the type URL of Endpoint resources.
 	EndpointTypeURL = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
 

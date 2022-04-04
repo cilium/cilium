@@ -100,7 +100,7 @@ func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, v
 						foundCiliumNetworkFilter = true
 					}
 					tc := filter.GetTypedConfig()
-					if tc == nil || tc.GetTypeUrl() != "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager" {
+					if tc == nil || tc.GetTypeUrl() != HttpConnectionManagerTypeURL {
 						continue
 					}
 					any, err := tc.UnmarshalNew()

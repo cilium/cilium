@@ -363,6 +363,7 @@ endpointRoutes
 endpointSelector
 endpointStatus
 endpointmanager
+enforceHttps
 eni
 eniTags
 etcd
@@ -478,6 +479,7 @@ ifindex
 imagePullSecrets
 incrementing
 indices
+ingressController
 ingressing
 init
 initContainer

@@ -218,6 +218,10 @@ const (
 	// EnableIngressController enables cilium ingress controller
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableIngressController = "enable-ingress-controller"
+
+	// EnforceIngressHttps enforces https for host having matching TLS host in Ingress.
+	// Incoming traffic to http listener will return 308 http error code with respective location in header.
+	EnforceIngressHttps = "enforce-ingress-https"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -403,6 +407,9 @@ type OperatorConfig struct {
 
 	// EnableIngressController enables cilium ingress controller
 	EnableIngressController bool
+
+	// EnforceIngressHTTPS enforces https if required
+	EnforceIngressHTTPS bool
 }
 
 // Populate sets all options with the values from viper.
@@ -433,6 +440,7 @@ func (c *OperatorConfig) Populate() {
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.EnableIngressController = viper.GetBool(EnableIngressController)
+	c.EnforceIngressHTTPS = viper.GetBool(EnforceIngressHttps)
 
 	if c.BGPAnnounceLBIP {
 		c.SyncK8sServices = true
