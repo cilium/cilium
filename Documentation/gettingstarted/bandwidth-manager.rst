@@ -13,6 +13,8 @@ Bandwidth Manager
 This guide explains how to configure Cilium's bandwidth manager to
 optimize TCP and UDP workloads and efficiently rate limit individual Pods
 if needed through the help of EDT (Earliest Departure Time) and eBPF.
+Cilium's bandwidth manager is also prerequisite for enabling BBR congestion
+control for Pods as outlined :ref:`below<BBR Pods>`.
 
 The bandwidth manager does not rely on CNI chaining and is natively integrated
 into Cilium instead. Hence, it does not make use of the `bandwidth CNI
@@ -167,6 +169,69 @@ the ``netperf-server`` Pod):
 
 Each Pod is represented in Cilium as an :ref:`endpoint` which has an identity. The above
 identity can then be correlated with the ``cilium endpoint list`` command.
+
+.. _BBR Pods:
+
+BBR for Pods
+############
+
+The base infrastructure around MQ/FQ setup provided by Cilium's bandwidth manager
+also allows for use of TCP `BBR congestion control <https://queue.acm.org/detail.cfm?id=3022184>`_
+for Pods.
+
+BBR is in particular suitable when Pods are exposed behind Kubernetes Services which
+face external clients from the Internet. BBR achieves higher bandwidths and lower
+latencies for Internet traffic, for example, it has been `shown <https://cloud.google.com/blog/products/networking/tcp-bbr-congestion-control-comes-to-gcp-your-internet-just-got-faster>`_ that BBR's throughput can reach as much
+as 2,700x higher than today's best loss-based congestion control and queueing delays
+can be 25x lower.
+
+.. note::
+
+   BBR for Pods requires a v5.18.x or more recent Linux kernel.
+
+To enable the bandwidth manager with BBR congestion control, deploy with the following:
+
+.. parsed-literal::
+
+   helm upgrade cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --reuse-values \\
+     --set bandwidthManager.enabled=true \\
+     --set bandwidthManager.bbr=true
+   kubectl -n kube-system rollout restart ds/cilium
+
+In order for BBR to work reliably for Pods, it requires a 5.18 or higher kernel.
+As outlined in our `Linux Plumbers 2021 talk <https://lpc.events/event/11/contributions/953/>`_,
+this is needed since older kernels do not retain timestamps of network packets
+when switching from Pod to host network namespace. Due to the latter, the kernel's
+pacing infrastructure does not function properly in general (not specific to Cilium).
+
+We helped with fixing this issue for recent kernels to retain timestamps and therefore
+to get BBR for Pods working. Prior to that kernel, BBR was only working for sockets
+which are in the initial network namespace (hostns). BBR also needs eBPF Host-Routing
+in order to retain the network packet's socket association all the way until the
+packet hits the FQ queueing discipline on the physical device in the host namespace.
+(Without eBPF Host-Routing the packet's socket association would otherwise be orphaned
+inside the host stacks forwarding/routing layer.)
+
+In order to verify whether the bandwidth manager with BBR has been enabled in Cilium,
+the ``cilium status`` CLI command provides visibility again through the ``BandwidthManager``
+info line:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec ds/cilium -- cilium status | grep BandwidthManager
+    BandwidthManager:       EDT with BPF [BBR] [eth0]
+
+Once this setting is enabled, it will use BBR as a default for all newly spawned Pods.
+Ideally, BBR is selected upon initial Cilium installation when the cluster is created
+such that all nodes and Pods in the cluster homogeneously use BBR as otherwise there
+could be `potential unfairness issues <https://blog.apnic.net/2020/01/10/when-to-use-and-not-use-bbr/>`_
+for other connections still using CUBIC. Also note that due to the nature of BBR's
+probing you might observe a higher rate of TCP retransmissions compared to CUBIC.
+
+We recommend to use BBR in particular for clusters where Pods are exposed as Services
+which serve external clients connecting from the Internet.
 
 Limitations
 ###########
