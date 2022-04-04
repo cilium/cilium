@@ -163,6 +163,10 @@ func (c *Client) PatchConfigMap(ctx context.Context, namespace, name string, pt 
 	return c.Clientset.CoreV1().ConfigMaps(namespace).Patch(ctx, name, pt, data, opts)
 }
 
+func (c *Client) UpdateConfigMap(ctx context.Context, configMap *corev1.ConfigMap, opts metav1.UpdateOptions) (*corev1.ConfigMap, error) {
+	return c.Clientset.CoreV1().ConfigMaps(configMap.Namespace).Update(ctx, configMap, opts)
+}
+
 func (c *Client) CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error) {
 	return c.Clientset.CoreV1().Services(namespace).Create(ctx, service, opts)
 }

@@ -30,27 +30,20 @@ const (
 	OperatorImageAWS           = "quay.io/cilium/operator-aws"
 	OperatorImageAzure         = "quay.io/cilium/operator-azure"
 
-	HubbleSocketPath       = "/var/run/cilium/hubble.sock"
 	HubbleServerSecretName = "hubble-server-certs"
 
-	RelayContainerName        = "hubble-relay"
-	RelayDeploymentName       = "hubble-relay"
-	RelayClusterRoleName      = "hubble-relay"
-	RelayServiceAccountName   = "hubble-relay"
-	RelayServiceName          = "hubble-relay"
-	RelayConfigMapName        = "hubble-relay-config"
-	RelayImage                = "quay.io/cilium/hubble-relay"
-	RelayListenHost           = ""
-	RelayPort                 = 4245
-	RelayServicePlaintextPort = 80
-	RelayServiceTLSPort       = 443
-	RelayServerSecretName     = "hubble-relay-server-certs"
-	RelayClientSecretName     = "hubble-relay-client-certs"
+	RelayContainerName       = "hubble-relay"
+	RelayDeploymentName      = "hubble-relay"
+	RelayClusterRoleName     = "hubble-relay"
+	RelayServiceAccountName  = "hubble-relay"
+	RelayConfigMapName       = "hubble-relay-config"
+	RelayImage               = "quay.io/cilium/hubble-relay"
+	RelayServerSecretName    = "hubble-relay-server-certs"
+	RelayClientSecretName    = "hubble-relay-client-certs"
+	HubbleUIClientSecretName = "hubble-ui-client-certs"
 
-	HubbleUIServiceName        = "hubble-ui"
 	HubbleUIClusterRoleName    = "hubble-ui"
 	HubbleUIServiceAccountName = "hubble-ui"
-	HubbleUIConfigMapName      = "hubble-ui-envoy"
 	HubbleUIDeploymentName     = "hubble-ui"
 	HubbleUIImage              = "quay.io/cilium/hubble-ui"
 	HubbleUIBackendImage       = "quay.io/cilium/hubble-ui-backend"
@@ -72,9 +65,8 @@ const (
 	ConnectivityPerformanceImage     = "quay.io/cilium/network-perf:bf58fb8bc57c4933dfa6e2a9581d3925c0a0571e@sha256:9bef508b2dcaeb3e288a496b8d3f065e8636a4937ba3aebcb1732afffaccea34"
 	ConnectivityCheckJSONMockImage   = "quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b"
 
-	ConfigMapName   = "cilium-config"
-	Version         = "v1.11.3"
-	HubbleUIVersion = "v0.8.5"
+	ConfigMapName = "cilium-config"
+	Version       = "v1.11.3"
 
 	TunnelType = "vxlan"
 
@@ -98,16 +90,6 @@ const (
 )
 
 var (
-	// RelayDeploymentLabels are the labels set on the Hubble Relay Deployment by default.
-	RelayDeploymentLabels = map[string]string{
-		"k8s-app": "hubble-relay",
-	}
-
-	// HubbleUIDeploymentLabels are the labels set on the Hubble UI Deployment by default.
-	HubbleUIDeploymentLabels = map[string]string{
-		"k8s-app": "hubble-ui",
-	}
-
 	// ClusterMeshDeploymentLabels are the labels set on the clustermesh API server by default.
 	ClusterMeshDeploymentLabels = map[string]string{
 		"k8s-app": "clustermesh-apiserver",
