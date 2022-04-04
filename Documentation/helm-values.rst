@@ -372,7 +372,7 @@
    * - enableIngressController
      - Enable cilium ingress controller This will automatically set enable-envoy-config as well.
      - bool
-     - ``false``
+     - ``true``
    * - enableK8sEventHandover
      - Configures the use of the KVStore to optimize Kubernetes event handling by mirroring it into the KVstore for reduced overhead in large clusters.
      - bool

@@ -421,7 +421,7 @@ enableCiliumEndpointSlice: false
 
 # -- Enable cilium ingress controller
 # This will automatically set enable-envoy-config as well.
-enableIngressController: false
+enableIngressController: true
 
 # -- Enables the fallback compatibility solution for when the xt_socket kernel
 # module is missing and it is needed for the datapath L7 redirection to work
