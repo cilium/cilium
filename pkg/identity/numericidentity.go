@@ -471,6 +471,20 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 	return isReservedIdentity
 }
 
+// IsReservedNodeIdentity returns true if id is one of
+// - ReservedIdentityHost
+// - ReservedIdentityRemoteNode
+// - ReservedIdentityKubeAPIServer
+func (id NumericIdentity) IsReservedNodeIdentity() bool {
+	switch id {
+	case ReservedIdentityHost,
+		ReservedIdentityRemoteNode,
+		ReservedIdentityKubeAPIServer:
+		return true
+	}
+	return false
+}
+
 // ClusterID returns the cluster ID associated with the identity
 func (id NumericIdentity) ClusterID() int {
 	return int((uint32(id) >> 16) & 0xFF)

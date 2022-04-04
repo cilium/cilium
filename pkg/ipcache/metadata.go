@@ -146,7 +146,7 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 		// cluster), or CIDR IDs for kube-apiservers deployed outside of the
 		// cluster.
 		// Also, any new identity should be upserted, regardless.
-		if hasKubeAPIServerLabel || isNew {
+		if id.ID.IsReservedNodeIdentity() || hasKubeAPIServerLabel || isNew {
 			tmpSrc := src
 			if hasKubeAPIServerLabel {
 				// Overwrite the source because any IP associated with the
@@ -325,6 +325,19 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 			toRemove[ip] = lbls
 		}
 	}
+
+	ipc.removeLabelsFromIPs(toRemove, src)
+}
+
+// RemoveLabels removes the given labels from each given prefix. This may cause
+// updates to the ipcache, as well as to the identity and policy logic via
+// 'updater' and 'triggerer'.
+func (ipc *IPCache) RemoveLabels(toRemove map[string]labels.Labels, src source.Source) {
+	ipc.metadata.applyChangesMU.Lock()
+	defer ipc.metadata.applyChangesMU.Unlock()
+
+	ipc.metadata.Lock()
+	defer ipc.metadata.Unlock()
 
 	ipc.removeLabelsFromIPs(toRemove, src)
 }

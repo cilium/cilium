@@ -403,6 +403,18 @@ func (ipc *IPCache) upsertLocked(
 	return namedPortsChanged, nil
 }
 
+// UpsertAuxiliary upserts an auxiliary data mapping for the given IP.
+// Auxiliary data is the host / tunnel IP and the encryption key.
+func (ipc *IPCache) UpsertAuxiliary(prefix string, hostIP net.IP, key uint8) {
+	ipc.mutex.Lock()
+	defer ipc.mutex.Unlock()
+
+	ipc.ipToHostIPCache[prefix] = IPKeyPair{
+		IP:  hostIP,
+		Key: key,
+	}
+}
+
 // DumpToListener dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
 func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {

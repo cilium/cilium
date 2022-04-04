@@ -53,6 +53,8 @@ type IPCache interface {
 	Delete(IP string, source source.Source) bool
 	TriggerLabelInjection(source source.Source)
 	UpsertMetadata(string, labels.Labels)
+	UpsertAuxiliary(string, net.IP, uint8)
+	RemoveLabels(map[string]labels.Labels, source.Source)
 }
 
 // Configuration is the set of configuration options the node manager depends
@@ -379,6 +381,24 @@ func (m *Manager) legacyNodeIpBehavior() bool {
 	return true
 }
 
+func (m *Manager) nodeLabel(n nodeTypes.Node) labels.Labels {
+	remoteHostIdentity := identity.ReservedIdentityHost
+	if m.conf.RemoteNodeIdentitiesEnabled() {
+		nid := identity.NumericIdentity(n.NodeIdentity)
+		if nid != identity.IdentityUnknown && nid != identity.ReservedIdentityHost {
+			remoteHostIdentity = nid
+		} else if !n.IsLocal() {
+			remoteHostIdentity = identity.ReservedIdentityRemoteNode
+		}
+	}
+
+	if remoteHostIdentity == identity.ReservedIdentityHost {
+		return labels.LabelHost
+	}
+
+	return labels.LabelRemoteNode
+}
+
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
@@ -389,16 +409,6 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	nodeIdentity := n.Identity()
 	dpUpdate := true
 	nodeIP := n.GetNodeIP(false)
-
-	remoteHostIdentity := identity.ReservedIdentityHost
-	if m.conf.RemoteNodeIdentitiesEnabled() {
-		nid := identity.NumericIdentity(n.NodeIdentity)
-		if nid != identity.IdentityUnknown && nid != identity.ReservedIdentityHost {
-			remoteHostIdentity = nid
-		} else if !n.IsLocal() {
-			remoteHostIdentity = identity.ReservedIdentityRemoteNode
-		}
-	}
 
 	var ipsAdded, healthIPsAdded []string
 
@@ -439,22 +449,10 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 
 		ipAddrStr := address.IP.String()
-		_, err := m.ipcache.Upsert(ipAddrStr, tunnelIP, key, nil, ipcache.Identity{
-			ID:     remoteHostIdentity,
-			Source: n.Source,
-		})
+		m.ipcache.UpsertAuxiliary(ipAddrStr, tunnelIP, key)
+		m.ipcache.UpsertMetadata(ipAddrStr, m.nodeLabel(n))
 
-		m.upsertIntoIDMD(ipAddrStr, remoteHostIdentity)
-
-		// Upsert() will return true if the ipcache entry is owned by
-		// the source of the node update that triggered this node
-		// update (kvstore, k8s, ...) The datapath is only updated if
-		// that source of truth is updated.
-		if err != nil {
-			dpUpdate = false
-		} else {
-			ipsAdded = append(ipsAdded, ipAddrStr)
-		}
+		ipsAdded = append(ipsAdded, ipAddrStr)
 	}
 
 	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
@@ -504,8 +502,10 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			}
 			oldNodeIPAddrs = append(oldNodeIPAddrs, address.IP)
 		}
-		m.deleteIPCache(oldNode.Source, oldNodeIPAddrs, ipsAdded)
 
+		// Remove node identity metadata from old node addresses
+		m.removeIPMetadata(oldNode.Source, oldNodeIPAddrs, ipsAdded, m.nodeLabel(oldNode))
+		m.deleteIPCache(oldNode.Source, oldNodeIPAddrs, ipsAdded)
 		// Delete the old health IP addresses if they have changed in this node.
 		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP}, healthIPsAdded)
 
@@ -529,17 +529,6 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	m.ipcache.TriggerLabelInjection(n.Source)
 }
 
-// upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
-// (IDMD) map. The given node identity determines which labels are associated
-// with the CIDR.
-func (m *Manager) upsertIntoIDMD(prefix string, id identity.NumericIdentity) {
-	if id == identity.ReservedIdentityHost {
-		m.ipcache.UpsertMetadata(prefix, labels.LabelHost)
-	} else {
-		m.ipcache.UpsertMetadata(prefix, labels.LabelRemoteNode)
-	}
-}
-
 // deleteIPCache deletes the IP addresses from the IPCache with the 'oldSource'
 // if they are not found in the newIPs slice.
 func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs []string) {
@@ -561,6 +550,30 @@ func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs
 			m.ipcache.Delete(addrStr, oldSource)
 		}
 	}
+}
+
+// deleteIPMetadata deletes the given labels from all IP addresses in the IPCache
+// with the 'oldSource' if they are not found in the newIPs slice.
+func (m *Manager) removeIPMetadata(oldSource source.Source, oldIPs []net.IP, newIPs []string, removedLabel labels.Labels) {
+	toRemove := map[string]labels.Labels{}
+	for _, address := range oldIPs {
+		if address == nil {
+			continue
+		}
+		addrStr := address.String()
+		var found bool
+		for _, ipAdded := range newIPs {
+			if ipAdded == addrStr {
+				found = true
+				break
+			}
+		}
+		if !found {
+			toRemove[addrStr] = removedLabel
+		}
+	}
+
+	m.ipcache.RemoveLabels(toRemove, oldSource)
 }
 
 // NodeDeleted is called after a node has been deleted. It removes the node
@@ -596,6 +609,8 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
+	toRemove := map[string]labels.Labels{}
+	oldNodeLabel := m.nodeLabel(entry.node)
 	for _, address := range entry.node.IPAddresses {
 		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			iptables.RemoveFromNodeIpset(address.IP)
@@ -606,7 +621,9 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 		}
 
 		m.ipcache.Delete(address.IP.String(), n.Source)
+		toRemove[address.IP.String()] = oldNodeLabel
 	}
+	m.ipcache.RemoveLabels(toRemove, n.Source)
 
 	for _, address := range []net.IP{entry.node.IPv4HealthIP, entry.node.IPv6HealthIP} {
 		if address != nil {
