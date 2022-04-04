@@ -6,9 +6,9 @@
 
 .. _bandwidth-manager:
 
-************************
-Bandwidth Manager (beta)
-************************
+*****************
+Bandwidth Manager
+*****************
 
 This guide explains how to configure Cilium's bandwidth manager to
 optimize TCP and UDP workloads and efficiently rate limit individual Pods
