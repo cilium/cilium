@@ -1021,8 +1021,32 @@ func initializeFlags() {
 	flags.Int(option.FragmentsMapEntriesName, defaults.FragmentsMapEntries, "Maximum number of entries in fragments tracking map")
 	option.BindEnv(option.FragmentsMapEntriesName)
 
-	flags.Int(option.LBMapEntriesName, lbmap.MaxEntries, "Maximum number of entries in Cilium BPF lbmap")
+	flags.Int(option.LBMapEntriesName, lbmap.DefaultMaxEntries, "Maximum number of entries in Cilium BPF lbmap")
 	option.BindEnv(option.LBMapEntriesName)
+
+	flags.Int(option.LBServiceMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for services (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBServiceMapMaxEntries)
+	option.BindEnv(option.LBServiceMapMaxEntries)
+
+	flags.Int(option.LBBackendMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for service backends (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBBackendMapMaxEntries)
+	option.BindEnv(option.LBBackendMapMaxEntries)
+
+	flags.Int(option.LBRevNatMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for reverse NAT (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBRevNatMapMaxEntries)
+	option.BindEnv(option.LBRevNatMapMaxEntries)
+
+	flags.Int(option.LBAffinityMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for session affinities (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBAffinityMapMaxEntries)
+	option.BindEnv(option.LBAffinityMapMaxEntries)
+
+	flags.Int(option.LBSourceRangeMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for source ranges (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBSourceRangeMapMaxEntries)
+	option.BindEnv(option.LBSourceRangeMapMaxEntries)
+
+	flags.Int(option.LBMaglevMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for maglev (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBMaglevMapMaxEntries)
+	option.BindEnv(option.LBMaglevMapMaxEntries)
 
 	flags.String(option.LocalRouterIPv4, "", "Link-local IPv4 used for Cilium's router devices")
 	option.BindEnv(option.LocalRouterIPv4)

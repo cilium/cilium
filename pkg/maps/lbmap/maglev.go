@@ -50,7 +50,7 @@ func InitMaglevMaps(ipv4, ipv6 bool, tableSize uint32) error {
 
 	dummyInnerMapSpec := newMaglevInnerMapSpec(tableSize)
 	if ipv4 {
-		outer, err := NewMaglevOuterMap(MaglevOuter4MapName, MaxEntries, tableSize, dummyInnerMapSpec)
+		outer, err := NewMaglevOuterMap(MaglevOuter4MapName, MaglevMapMaxEntries, tableSize, dummyInnerMapSpec)
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func InitMaglevMaps(ipv4, ipv6 bool, tableSize uint32) error {
 	}
 
 	if ipv6 {
-		outer, err := NewMaglevOuterMap(MaglevOuter6MapName, MaxEntries, tableSize, dummyInnerMapSpec)
+		outer, err := NewMaglevOuterMap(MaglevOuter6MapName, MaglevMapMaxEntries, tableSize, dummyInnerMapSpec)
 		if err != nil {
 			return err
 		}

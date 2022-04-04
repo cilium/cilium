@@ -972,6 +972,24 @@ const (
 	// LBMapEntriesName configures max entries for BPF lbmap.
 	LBMapEntriesName = "bpf-lb-map-max"
 
+	// LBServiceMapMaxEntries configures max entries of bpf map for services.
+	LBServiceMapMaxEntries = "bpf-lb-service-map-max"
+
+	// LBBackendMapMaxEntries configures max entries of bpf map for service backends.
+	LBBackendMapMaxEntries = "bpf-lb-service-backend-map-max"
+
+	// LBRevNatMapMaxEntries configures max entries of bpf map for reverse NAT.
+	LBRevNatMapMaxEntries = "bpf-lb-rev-nat-map-max"
+
+	// LBAffinityMapMaxEntries configures max entries of bpf map for session affinity.
+	LBAffinityMapMaxEntries = "bpf-lb-affinity-map-max"
+
+	// LBSourceRangeMapMaxEntries configures max entries of bpf map for service source ranges.
+	LBSourceRangeMapMaxEntries = "bpf-lb-source-range-map-max"
+
+	// LBMaglevMapMaxEntries configures max entries of bpf map for Maglev.
+	LBMaglevMapMaxEntries = "bpf-lb-maglev-map-max"
+
 	// K8sServiceProxyName instructs Cilium to handle service objects only when
 	// service.kubernetes.io/service-proxy-name label equals the provided value.
 	K8sServiceProxyName = "k8s-service-proxy-name"
@@ -2059,6 +2077,24 @@ type DaemonConfig struct {
 
 	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
 	LBMapEntries int
+
+	// LBServiceMapEntries is the maximum number of entries allowed in BPF lbmap for services.
+	LBServiceMapEntries int
+
+	// LBBackendMapEntries is the maximum number of entries allowed in BPF lbmap for service backends.
+	LBBackendMapEntries int
+
+	// LBRevNatEntries is the maximum number of entries allowed in BPF lbmap for reverse NAT.
+	LBRevNatEntries int
+
+	// LBAffinityMapEntries is the maximum number of entries allowed in BPF lbmap for session affinities.
+	LBAffinityMapEntries int
+
+	// LBSourceRangeMapEntries is the maximum number of entries allowed in BPF lbmap for source ranges.
+	LBSourceRangeMapEntries int
+
+	// LBMaglevMapEntries is the maximum number of entries allowed in BPF lbmap for maglev.
+	LBMaglevMapEntries int
 
 	// K8sServiceProxyName is the value of service.kubernetes.io/service-proxy-name label,
 	// that identifies the service objects Cilium should handle.
@@ -3246,6 +3282,21 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 		return fmt.Errorf("specified LBMap max entries %d must be a value greater than 0", c.LBMapEntries)
 	}
 
+	if c.LBServiceMapEntries < 0 ||
+		c.LBBackendMapEntries < 0 ||
+		c.LBRevNatEntries < 0 ||
+		c.LBAffinityMapEntries < 0 ||
+		c.LBSourceRangeMapEntries < 0 ||
+		c.LBMaglevMapEntries < 0 {
+		return fmt.Errorf("specified LB Service Map max entries must not be a negative value"+
+			"(Service Map: %d, Service Backend: %d, Reverse NAT: %d, Session Affinity: %d, Source Range: %d, Maglev: %d)",
+			c.LBServiceMapEntries,
+			c.LBBackendMapEntries,
+			c.LBRevNatEntries,
+			c.LBAffinityMapEntries,
+			c.LBSourceRangeMapEntries,
+			c.LBMaglevMapEntries)
+	}
 	return nil
 }
 
@@ -3286,6 +3337,12 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 	c.PolicyMapEntries = viper.GetInt(PolicyMapEntriesName)
 	c.SockRevNatEntries = viper.GetInt(SockRevNatEntriesName)
 	c.LBMapEntries = viper.GetInt(LBMapEntriesName)
+	c.LBServiceMapEntries = viper.GetInt(LBServiceMapMaxEntries)
+	c.LBBackendMapEntries = viper.GetInt(LBBackendMapMaxEntries)
+	c.LBRevNatEntries = viper.GetInt(LBRevNatMapMaxEntries)
+	c.LBAffinityMapEntries = viper.GetInt(LBAffinityMapMaxEntries)
+	c.LBSourceRangeMapEntries = viper.GetInt(LBSourceRangeMapMaxEntries)
+	c.LBMaglevMapEntries = viper.GetInt(LBMaglevMapMaxEntries)
 
 	// Don't attempt dynamic sizing if any of the sizeof members was not
 	// populated by the daemon (or any other caller).

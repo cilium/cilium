@@ -23,12 +23,19 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+const DefaultMaxEntries = 65536
+
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
 
 var (
 	// MaxEntries contains the maximum number of entries that are allowed
 	// in Cilium LB service, backend and affinity maps.
-	MaxEntries = 65536
+	ServiceMapMaxEntries        = DefaultMaxEntries
+	ServiceBackEndMapMaxEntries = DefaultMaxEntries
+	RevNatMapMaxEntries         = DefaultMaxEntries
+	AffinityMapMaxEntries       = DefaultMaxEntries
+	SourceRangeMapMaxEntries    = DefaultMaxEntries
+	MaglevMapMaxEntries         = DefaultMaxEntries
 )
 
 // LBBPFMap is an implementation of the LBMap interface.
@@ -685,9 +692,7 @@ func Init(params InitParams) {
 		MaxSockRevNat6MapEntries = params.MaxSockRevNatMapEntries
 	}
 
-	if params.MaxEntries != 0 {
-		MaxEntries = params.MaxEntries
-	}
+	MaglevMapMaxEntries = params.MaglevMapMaxEntries
 
 	initSVC(params)
 	initAffinity(params)
@@ -698,5 +703,9 @@ func Init(params InitParams) {
 type InitParams struct {
 	IPv4, IPv6 bool
 
-	MaxSockRevNatMapEntries, MaxEntries int
+	MaxSockRevNatMapEntries                                         int
+	ServiceMapMaxEntries, BackEndMapMaxEntries, RevNatMapMaxEntries int
+	AffinityMapMaxEntries                                           int
+	SourceRangeMapMaxEntries                                        int
+	MaglevMapMaxEntries                                             int
 }

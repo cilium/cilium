@@ -56,6 +56,10 @@ var (
 // have their maximum entries configured. Note this does not create or open the
 // maps; it simply constructs the objects.
 func initSVC(params InitParams) {
+	ServiceMapMaxEntries = params.ServiceMapMaxEntries
+	ServiceBackEndMapMaxEntries = params.BackEndMapMaxEntries
+	RevNatMapMaxEntries = params.RevNatMapMaxEntries
+
 	if params.IPv4 {
 		Service4MapV2 = bpf.NewMap(Service4MapV2Name,
 			bpf.MapTypeHash,
@@ -63,7 +67,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Service4Key{})),
 			&Service4Value{},
 			int(unsafe.Sizeof(Service4Value{})),
-			MaxEntries,
+			ServiceMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -73,7 +77,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Backend4Key{})),
 			&Backend4Value{},
 			int(unsafe.Sizeof(Backend4Value{})),
-			MaxEntries,
+			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -83,7 +87,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Backend4KeyV2{})),
 			&Backend4Value{},
 			int(unsafe.Sizeof(Backend4Value{})),
-			MaxEntries,
+			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -93,7 +97,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(RevNat4Key{})),
 			&RevNat4Value{},
 			int(unsafe.Sizeof(RevNat4Value{})),
-			MaxEntries,
+			RevNatMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -106,7 +110,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Service6Key{})),
 			&Service6Value{},
 			int(unsafe.Sizeof(Service6Value{})),
-			MaxEntries,
+			ServiceMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -116,7 +120,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Backend6Key{})),
 			&Backend6Value{},
 			int(unsafe.Sizeof(Backend6Value{})),
-			MaxEntries,
+			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -126,7 +130,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Backend6KeyV2{})),
 			&Backend6Value{},
 			int(unsafe.Sizeof(Backend6Value{})),
-			MaxEntries,
+			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -136,7 +140,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(RevNat6Key{})),
 			&RevNat6Value{},
 			int(unsafe.Sizeof(RevNat6Value{})),
-			MaxEntries,
+			RevNatMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
