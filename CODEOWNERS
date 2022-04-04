@@ -100,6 +100,7 @@ Makefile* @cilium/build
 /Documentation/check-helmvalues.sh @cilium/docs-structure
 /Documentation/cmdref/
 /Documentation/community.rst @cilium/contributing
+/Documentation/concepts/clustermesh @cilium/sig-clustermesh @cilium/docs-structure
 /Documentation/concepts/ebpf/ @cilium/bpf @cilium/docs-structure
 /Documentation/concepts/index.rst @cilium/docs-structure
 /Documentation/concepts/kubernetes/ @cilium/kubernetes @cilium/docs-structure
@@ -118,6 +119,7 @@ Makefile* @cilium/build
 /Documentation/gettingstarted/alibabacloud* @cilium/alibabacloud @cilium/docs-structure
 /Documentation/gettingstarted/aws* @cilium/aws @cilium/docs-structure
 /Documentation/gettingstarted/bandwidth-manager.rst @cilium/bpf @cilium/docs-structure
+/Documentation/gettingstarted/clustermesh/ @cilium/sig-clustermesh @cilium/docs-structure
 /Documentation/gettingstarted/cni-chaining-aws-cni.rst @cilium/aws @cilium/docs-structure
 /Documentation/gettingstarted/cni-chaining-azure-cni.rst @cilium/azure @cilium/docs-structure
 /Documentation/gettingstarted/http.rst @cilium/policy @cilium/docs-structure
@@ -149,7 +151,9 @@ Makefile* @cilium/build
 /envoy/ @cilium/proxy
 /examples/ @cilium/docs-structure
 /examples/kubernetes/ @cilium/kubernetes
+/examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /examples/minikube/ @cilium/kubernetes
+/examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /FURTHER_READINGS.rst @cilium/docs-structure
 /hack/ @cilium/tophat
 /GO_VERSION @cilium/agent
@@ -175,6 +179,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/byteorder/ @cilium/bpf @cilium/api
 /pkg/cgroups/ @cilium/bpf
 /pkg/client @cilium/api
+/pkg/clustermesh @cilium/sig-clustermesh
 /pkg/completion/ @cilium/proxy
 /pkg/components/ @cilium/agent
 /pkg/controller @cilium/agent
