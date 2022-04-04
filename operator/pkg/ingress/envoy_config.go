@@ -426,7 +426,7 @@ func getRouteMatch(ingressPath slim_networkingv1.HTTPIngressPath) *envoy_config_
 }
 
 func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.IngressRule) *envoy_config_route_v3.VirtualHost {
-	var routes []*envoy_config_route_v3.Route
+	routes := make(SortableRoute, 0, len(rule.HTTP.Paths))
 	for _, path := range rule.HTTP.Paths {
 		route := envoy_config_route_v3.Route{
 			Match: getRouteMatch(path),
@@ -441,6 +441,11 @@ func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.I
 
 		routes = append(routes, &route)
 	}
+
+	// This is to make sure that the Exact match is always having higher priority.
+	// Each route entry in the virtual host is checked, in order. If there is a match, the route is used and no further route checks are made.
+	// Related docs https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/route_matching
+	sort.Sort(routes)
 
 	domains := []string{wildCard}
 	if rule.Host != "" {
