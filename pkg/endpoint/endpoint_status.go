@@ -323,7 +323,7 @@ func (e *Endpoint) GetCiliumEndpointStatus(conf EndpointStatusConfiguration) *ci
 		Identity:            getEndpointIdentity(identitymodel.CreateModel(e.SecurityIdentity)),
 		Networking:          getEndpointNetworking(e.getModelNetworkingRLocked()),
 		State:               compressEndpointState(e.getModelCurrentStateRLocked()),
-		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
+		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEncryptKeyIndex())},
 		NamedPorts:          e.getNamedPortsModel(),
 	}
 

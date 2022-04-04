@@ -9,4 +9,7 @@ const (
 	IfaceName = "cilium_wg0"
 	// PrivKeyFilename is the name of the Wireguard private key file
 	PrivKeyFilename = "cilium_wg0.key"
+	// StaticEncryptKey is used in the IPCache to mark entries for which we
+	// want to enable Wireguard encryption
+	StaticEncryptKey = uint8(0xFF)
 )

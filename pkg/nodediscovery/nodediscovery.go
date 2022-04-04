@@ -181,7 +181,7 @@ func (n *NodeDiscovery) StartDiscovery() {
 	n.localNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
 	n.localNode.IPv6HealthIP = node.GetEndpointHealthIPv6()
 	n.localNode.ClusterID = option.Config.ClusterID
-	n.localNode.EncryptionKey = node.GetIPsecKeyIdentity()
+	n.localNode.EncryptionKey = node.GetEncryptKeyIndex()
 	n.localNode.WireguardPubKey = node.GetWireguardPubKey()
 	n.localNode.Labels = node.GetLabels()
 	n.localNode.NodeIdentity = uint32(identity.ReservedIdentityHost)
@@ -446,7 +446,9 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		}
 	}
 
-	nodeResource.Spec.Encryption.Key = int(node.GetIPsecKeyIdentity())
+	if option.Config.EnableIPSec || (option.Config.EnableWireguard && option.Config.EncryptNode) {
+		nodeResource.Spec.Encryption.Key = int(node.GetEncryptKeyIndex())
+	}
 
 	nodeResource.Spec.HealthAddressing.IPv4 = ""
 	if ip := n.localNode.IPv4HealthIP; ip != nil {

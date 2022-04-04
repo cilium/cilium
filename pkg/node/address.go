@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const preferPublicIP bool = true
@@ -698,6 +699,22 @@ func SetEndpointHealthIPv6(ip net.IP) {
 // GetEndpointHealthIPv6 returns the IPv6 cilium-health endpoint address.
 func GetEndpointHealthIPv6() net.IP {
 	return ipv6HealthIP
+}
+
+// GetEncryptKeyIndex returns the encryption key value for the local node.
+// With IPSec encryption, this is equivalent to GetIPsecKeyIdentity().
+// With WireGuard encryption, this function returns a non-zero static value
+// if the local node has WireGuard enabled.
+func GetEncryptKeyIndex() uint8 {
+	switch {
+	case option.Config.EnableIPSec:
+		return GetIPsecKeyIdentity()
+	case option.Config.EnableWireguard:
+		if len(GetWireguardPubKey()) > 0 {
+			return wgTypes.StaticEncryptKey
+		}
+	}
+	return 0
 }
 
 func copyStringToNetIPMap(in map[string]net.IP) map[string]net.IP {
