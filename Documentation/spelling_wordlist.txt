@@ -491,6 +491,7 @@ inlining
 inodes
 installIptablesRules
 installNoConntrackIptablesRules
+installRoutes
 instanceTagsFilter
 integrations
 internet

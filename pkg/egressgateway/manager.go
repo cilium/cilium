@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -234,6 +235,96 @@ func (manager *Manager) regenerateGatewayConfigs() {
 	}
 }
 
+func (manager *Manager) addMissingIpRulesAndRoutes() (shouldRetry bool) {
+	addIPRulesAndRoutesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
+		if !gwc.localNodeConfiguredAsGateway {
+			return
+		}
+
+		logger := log.WithFields(logrus.Fields{
+			logfields.SourceIP:        endpointIP,
+			logfields.DestinationCIDR: dstCIDR.String(),
+			logfields.EgressIP:        gwc.egressIP.IP,
+			logfields.LinkIndex:       gwc.ifaceIndex,
+		})
+
+		if err := addEgressIpRule(endpointIP, dstCIDR, gwc.egressIP.IP, gwc.ifaceIndex); err != nil {
+			logger.WithError(err).Warn("Can't add IP rule")
+			shouldRetry = true
+		} else {
+			logger.Info("Added IP rule")
+		}
+
+		if err := addEgressIpRoutes(gwc.egressIP, gwc.ifaceIndex); err != nil {
+			logger.WithError(err).Warn("Can't add IP routes")
+			return
+		}
+		logger.Info("Added IP routes")
+	}
+
+	for _, policyConfig := range manager.policyConfigs {
+		policyConfig.forEachEndpointAndDestination(manager.epDataStore, addIPRulesAndRoutesForConfig)
+	}
+
+	return
+}
+
+func (manager *Manager) removeUnusedIpRulesAndRoutes() {
+	logger := log.WithFields(logrus.Fields{})
+
+	ipRules, err := listEgressIpRules()
+	if err != nil {
+		logger.WithError(err).Warn("Cannot list IP rules")
+		return
+	}
+
+	// Delete all IP rules that don't have a matching egress gateway rule
+nextIpRule:
+	for _, ipRule := range ipRules {
+		matchFunc := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
+			return gwc.localNodeConfiguredAsGateway &&
+				ipRule.Src.IP.Equal(endpointIP) && ipRule.Dst.String() == dstCIDR.String()
+		}
+
+		for _, policyConfig := range manager.policyConfigs {
+			if policyConfig.matches(manager.epDataStore, matchFunc) {
+				continue nextIpRule
+			}
+		}
+
+		deleteIpRule(ipRule)
+	}
+
+	// Build a list of all the network interfaces that are being actively used by egress gateway
+	activeEgressGwIfaceIndexes := map[int]struct{}{}
+	for _, policyConfig := range manager.policyConfigs {
+		for _, endpoint := range manager.epDataStore {
+			if policyConfig.selectsEndpoint(endpoint) {
+				if policyConfig.gatewayConfig.localNodeConfiguredAsGateway {
+					activeEgressGwIfaceIndexes[policyConfig.gatewayConfig.ifaceIndex] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Then go through each interface on the node
+	links, err := netlink.LinkList()
+	if err != nil {
+		logger.WithError(err).Error("Cannot list interfaces")
+		return
+	}
+
+	for _, l := range links {
+		// If egress gateway is active for this interface, move to the next interface
+		if _, ok := activeEgressGwIfaceIndexes[l.Attrs().Index]; ok {
+			continue
+		}
+
+		// Otherwise delete the whole routing table for that interface
+		deleteIpRouteTable(egressGatewayRoutingTableIdx(l.Attrs().Index))
+	}
+}
+
 func (manager *Manager) addMissingEgressRules() {
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
 	egressmap.EgressPolicyMap.IterateWithCallback(
@@ -315,6 +406,15 @@ func (manager *Manager) reconcile() {
 	}
 
 	manager.regenerateGatewayConfigs()
+
+	if option.Config.InstallEgressGatewayRoutes {
+		shouldRetry := manager.addMissingIpRulesAndRoutes()
+		manager.removeUnusedIpRulesAndRoutes()
+
+		if shouldRetry {
+			manager.addMissingIpRulesAndRoutes()
+		}
+	}
 
 	// The order of the next 2 function calls matters, as by first adding missing policies and
 	// only then removing obsolete ones we make sure there will be no connectivity disruption
