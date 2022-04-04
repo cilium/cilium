@@ -1,10 +1,10 @@
 ACK
 AKS
-Anthos
 APIEndpoint
 AdapterLimitViaAPI
 Alemayhu
 Alibaba
+Anthos
 BPF
 Bertin
 Blanco
@@ -90,7 +90,6 @@ MaskSize
 Mbit
 Mellanox
 Menlo
-mentees
 Mesos
 MiB
 Minikube
@@ -189,6 +188,7 @@ balancer
 balancers
 bandwidthManager
 battlestation
+bbr
 bcc
 behaviour
 benchmarking
@@ -446,6 +446,7 @@ hostPort
 hostRoot
 hostServices
 hostname
+hostns
 hostonlyif
 hostonlyifs
 hostport
@@ -606,6 +607,7 @@ mediabot
 memcache
 memcached
 memcd
+mentees
 metadata
 metricsServer
 microk
@@ -714,6 +716,7 @@ preloading
 prem
 prepend
 prepulls
+prerequirement
 priori
 priorityClassName
 productpage
@@ -759,6 +762,7 @@ requireIPv
 resourceQuotas
 retpoline
 retransmission
+retransmissions
 retrigger
 retryTimeout
 rn
