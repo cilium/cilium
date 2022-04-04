@@ -5,32 +5,36 @@ package hubble
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/certs"
+	"github.com/cilium/cilium-cli/internal/helm"
+	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium-cli/status"
+
+	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/versioncheck"
+	"github.com/spf13/pflag"
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v3/pkg/strvals"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/certs"
-	"github.com/cilium/cilium-cli/internal/utils"
-	"github.com/cilium/cilium-cli/status"
 )
 
 const (
 	configNameEnableHubble  = "enable-hubble"
 	configNameListenAddress = "hubble-listen-address"
-)
-
-var (
-	hostPathDirectoryOrCreate = corev1.HostPathDirectoryOrCreate
 )
 
 type k8sHubbleImplementation interface {
@@ -46,7 +50,7 @@ type k8sHubbleImplementation interface {
 	CreateConfigMap(ctx context.Context, namespace string, config *corev1.ConfigMap, opts metav1.CreateOptions) (*corev1.ConfigMap, error)
 	DeleteConfigMap(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
-	PatchConfigMap(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.ConfigMap, error)
+	UpdateConfigMap(ctx context.Context, configMap *corev1.ConfigMap, opts metav1.UpdateOptions) (*corev1.ConfigMap, error)
 	CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error)
 	GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error)
 	DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
@@ -58,14 +62,31 @@ type k8sHubbleImplementation interface {
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
+	GetServerVersion() (*semver.Version, error)
 }
 
 type K8sHubble struct {
-	client        k8sHubbleImplementation
-	params        Parameters
-	certManager   *certs.CertManager
-	ciliumVersion string
+	client              k8sHubbleImplementation
+	params              Parameters
+	certManager         *certs.CertManager
+	ciliumVersion       string
+	manifests           map[string]string
+	semVerCiliumVersion semver.Version
 }
+
+var (
+	// FlagsToHelmOpts maps the deprecated install flags to the helm
+	// options
+	FlagsToHelmOpts = map[string][]string{
+		"relay-image":      {"hubble.relay.image.override"},
+		"relay-version":    {"hubble.relay.image.tag"},
+		"ui-image":         {"hubble.ui.frontend.image.override"},
+		"ui-backend-image": {"hubble.ui.backend.image.override"},
+		"ui-version":       {"hubble.ui.frontend.image.tag", "hubble.ui.backend.image.tag"},
+	}
+	// FlagValues maps all FlagsToHelmOpts keys to their values
+	FlagValues = map[string]pflag.Value{}
+)
 
 type Parameters struct {
 	Namespace        string
@@ -84,6 +105,26 @@ type Parameters struct {
 	Context          string // Only for 'kubectl' pass-through commands
 	Wait             bool
 	WaitDuration     time.Duration
+
+	// BaseVersion is used to explicitly specify Cilium version for generating the config map
+	// in case it cannot be inferred from the Version field (e.g. commit SHA tags for CI images).
+	BaseVersion string
+
+	// K8sVersion is the Kubernetes version that will be used to generate the
+	// kubernetes manifests. If the auto-detection fails, this flag can be used
+	// as a workaround.
+	K8sVersion string
+	// HelmChartDirectory points to the location of a helm chart directory.
+	// Useful to test from upstream where a helm release is not available yet.
+	HelmChartDirectory string
+
+	// HelmOpts are all the options the user used to pass into the Cilium cli
+	// template.
+	HelmOpts values.Options
+
+	// HelmGenValuesFile points to the file that will store the generated helm
+	// options.
+	HelmGenValuesFile string
 }
 
 func (p *Parameters) Log(format string, a ...interface{}) {
@@ -158,56 +199,52 @@ func (k *K8sHubble) Validate(ctx context.Context) error {
 
 }
 
-var hubbleCfg = map[string]string{
-	// Enable Hubble gRPC service.
-	"enable-hubble": "true",
-	// UNIX domain socket for Hubble server to listen to.
-	"hubble-socket-path": defaults.HubbleSocketPath,
-	// An additional address for Hubble server to listen to (e.g. ":4244").
-	"hubble-listen-address":      ":4244",
-	"hubble-disable-tls":         "false",
-	"hubble-tls-cert-file":       "/var/lib/cilium/tls/hubble/server.crt",
-	"hubble-tls-key-file":        "/var/lib/cilium/tls/hubble/server.key",
-	"hubble-tls-client-ca-files": "/var/lib/cilium/tls/hubble/client-ca.crt",
-}
-
 func (k *K8sHubble) disableHubble(ctx context.Context) error {
-	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to get ConfigMap %s: %w", defaults.ConfigMapName, err)
-	}
+	k.Log("✨ Patching ConfigMap %s to disable Hubble...", defaults.ConfigMapName)
 
-	var changes []string
-	for k := range hubbleCfg {
-		if _, ok := cm.Data[k]; ok {
-			changes = append(changes, `{"op": "remove", "path": "/data/`+k+`"}`)
-		}
-	}
-	if len(changes) > 0 {
-		patch := []byte(`[` + strings.Join(changes, ",") + `]`)
-
-		k.Log("✨ Patching ConfigMap %s to disable Hubble...", defaults.ConfigMapName)
-		_, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, types.JSONPatchType, patch, metav1.PatchOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
-		}
-	}
-
-	if err := k.client.DeletePodCollection(ctx, k.params.Namespace, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.CiliumPodSelector}); err != nil {
-		k.Log("⚠️  Unable to restart Clium pods: %s", err)
-	} else {
-		k.Log("♻️  Restarted Cilium pods")
-	}
-
-	return nil
+	return k.updateConfigMap(ctx)
 }
 
 func (k *K8sHubble) Disable(ctx context.Context) error {
+	var err error
+	k.ciliumVersion, err = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
+	if err != nil {
+		return err
+	}
+
+	k.semVerCiliumVersion = k.getCiliumVersion()
+
+	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+
+	value, ok := cm.Data[defaults.ExtraConfigMapUserOptsKey]
+	if !ok {
+		return fmt.Errorf("configmap option not found")
+	}
+
+	// Generate the manifests has if hubble was being enabled so that we can
+	// retrieve all UI and Relay's resource names.
+	k.params.UI = true
+	k.params.Relay = true
+	err = k.generateManifestsEnable(ctx, false, value)
+	if err != nil {
+		return err
+	}
+
 	if err := k.disableUI(ctx); err != nil {
 		return err
 	}
 
 	if err := k.disableRelay(ctx); err != nil {
+		return err
+	}
+
+	// Now that we have delete all UI and Relay's resource names then we can
+	// generate the manifests with UI and Relay disabled.
+	err = k.generateManifestsDisable(ctx, value)
+	if err != nil {
 		return err
 	}
 
@@ -220,26 +257,176 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 	return nil
 }
 
-func (k *K8sHubble) enableHubble(ctx context.Context) error {
-	var changes []string
-	for k, v := range hubbleCfg {
-		changes = append(changes, `"`+k+`":"`+v+`"`)
+func (k *K8sHubble) generateConfigMap() (*corev1.ConfigMap, error) {
+	var (
+		cmFilename string
+	)
+
+	ciliumVer := k.semVerCiliumVersion
+	switch {
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		cmFilename = "templates/cilium-configmap.yaml"
+	default:
+		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
 
-	patch := []byte(`{"data":{` + strings.Join(changes, ",") + `}}`)
+	cmFile := k.manifests[cmFilename]
 
+	var cm corev1.ConfigMap
+	utils.MustUnmarshalYAML([]byte(cmFile), &cm)
+	k.Log("🚀 Creating ConfigMap for Cilium version %s...", ciliumVer.String())
+
+	return &cm, nil
+}
+
+func (k *K8sHubble) enableHubble(ctx context.Context) error {
 	k.Log("✨ Patching ConfigMap %s to enable Hubble...", defaults.ConfigMapName)
-	_, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+
+	return k.updateConfigMap(ctx)
+}
+
+func (k *K8sHubble) updateConfigMap(ctx context.Context) error {
+	cm, err := k.generateConfigMap()
 	if err != nil {
-		return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
+		return err
+	}
+
+	_, err = k.client.UpdateConfigMap(ctx, cm, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch ConfigMap %s with %s: %w", defaults.ConfigMapName, cm, err)
 	}
 
 	if err := k.client.DeletePodCollection(ctx, k.params.Namespace, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.CiliumPodSelector}); err != nil {
-		k.Log("⚠️  Unable to restart Clium pods: %s", err)
+		k.Log("⚠️  Unable to restart Cilium pods: %s", err)
 	} else {
 		k.Log("♻️  Restarted Cilium pods")
 	}
+	return nil
+}
 
+func (k *K8sHubble) getCiliumVersion() semver.Version {
+	v, err := utils.ParseCiliumVersion(k.ciliumVersion, k.params.BaseVersion)
+	if err != nil {
+		v = versioncheck.MustVersion(defaults.Version)
+		k.Log("Unable to parse the provided version %q, assuming %v for ConfigMap compatibility", k.ciliumVersion, defaults.Version)
+	}
+	return v
+}
+
+func (k *K8sHubble) generateManifestsEnable(ctx context.Context, printHelmTemplate bool, helmValues string) error {
+	ciliumVer := k.semVerCiliumVersion
+
+	helmMapOpts := map[string]string{}
+
+	switch {
+	// It's likely that certain helm options have changed since 1.9.0
+	// These were tested for the >=1.11.0. In case something breaks for versions
+	// older than 1.11.0 we will fix it afterwards.
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		// case versioncheck.MustCompile(">=1.11.0")(ciliumVer):
+
+		// Pre-define all deprecated flags as helm options
+		for flagName, helmOpts := range FlagsToHelmOpts {
+			if v, ok := FlagValues[flagName]; ok {
+				if val := v.String(); val != "" {
+					for _, helmOpt := range helmOpts {
+						helmMapOpts[helmOpt] = val
+						switch helmOpt {
+						// If the images or tag are overwritten then we need
+						// to disable 'useDigest'
+						case "hubble.relay.image.override", "hubble.relay.image.tag":
+							helmMapOpts["hubble.relay.image.useDigest"] = "false"
+						}
+					}
+				}
+			}
+		}
+
+		helmMapOpts["hubble.enabled"] = "true"
+		helmMapOpts["hubble.tls.ca.cert"] = base64.StdEncoding.EncodeToString(k.certManager.CACertBytes())
+		helmMapOpts["hubble.tls.ca.key"] = base64.StdEncoding.EncodeToString(k.certManager.CAKeyBytes())
+
+		if k.params.UI {
+			helmMapOpts["hubble.ui.enabled"] = "true"
+			// See for https://github.com/cilium/cilium/pull/19338 more details
+			switch {
+			case versioncheck.MustCompile(">=1.11.4")(ciliumVer):
+			default:
+				helmMapOpts["hubble.ui.securityContext.enabled"] = "false"
+			}
+		}
+		if k.params.Relay {
+			helmMapOpts["hubble.relay.enabled"] = "true"
+			// TODO we won't generate hubble-ui certificates because we don't want
+			//  to give a bad UX for hubble-cli (which connects to hubble-relay)
+			// helmMapOpts["hubble.relay.tls.server.enabled"] = "true"
+		}
+
+	default:
+		return fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
+	}
+
+	return k.genManifests(ctx, printHelmTemplate, helmValues, helmMapOpts, ciliumVer)
+}
+
+func (k *K8sHubble) generateManifestsDisable(ctx context.Context, helmValues string) error {
+	ciliumVer := k.semVerCiliumVersion
+
+	helmMapOpts := map[string]string{}
+
+	switch {
+	// It's likely that certain helm options have changed since 1.9.0
+	// These were tested for the >=1.11.0. In case something breaks for versions
+	// older than 1.11.0 we will fix it afterwards.
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		// case versioncheck.MustCompile(">=1.11.0")(ciliumVer):
+		helmMapOpts["hubble.enabled"] = "false"
+		helmMapOpts["hubble.ui.enabled"] = "false"
+		helmMapOpts["hubble.relay.enabled"] = "false"
+
+	default:
+		return fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
+	}
+
+	return k.genManifests(ctx, false, helmValues, helmMapOpts, ciliumVer)
+}
+
+func (k *K8sHubble) genManifests(ctx context.Context, printHelmTemplate bool, helmValues string, helmMapOpts map[string]string, ciliumVer semver.Version) error {
+	// Store all the options passed by --config into helm extraConfig
+	prevHelmValues := map[string]interface{}{}
+	err := strvals.ParseInto(helmValues, prevHelmValues)
+	if err != nil {
+		return fmt.Errorf("error parsing helm options %q: %w", helmValues, err)
+	}
+
+	vals, err := helm.MergeVals(k, printHelmTemplate, k.params.HelmOpts, helmMapOpts, prevHelmValues, nil, k.params.HelmChartDirectory, ciliumVer.String(), k.params.Namespace)
+	if err != nil {
+		return err
+	}
+
+	if k.params.HelmGenValuesFile != "" {
+		yamlValue, err := chartutil.Values(vals).YAML()
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(k.params.HelmGenValuesFile, []byte(yamlValue), 0o600)
+	}
+
+	k8sVersionStr := k.params.K8sVersion
+	if k8sVersionStr == "" {
+		k8sVersion, err := k.client.GetServerVersion()
+		if err != nil {
+			return fmt.Errorf("error getting Kubernetes version, try --k8s-version: %s", err)
+		}
+		k8sVersionStr = k8sVersion.String()
+	}
+
+	manifests, err := helm.GenManifests(ctx, k.params.HelmChartDirectory, k8sVersionStr, ciliumVer.String(), k.params.Namespace, vals)
+	if err != nil {
+		return err
+	}
+
+	k.manifests = manifests
 	return nil
 }
 
@@ -253,6 +440,8 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	k.semVerCiliumVersion = k.getCiliumVersion()
 
 	caSecret, created, err := k.certManager.GetOrCreateCASecret(ctx, defaults.CASecretName, k.params.CreateCA)
 	if err != nil {
@@ -271,6 +460,21 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		} else {
 			k.Log("🔑 Found CA in secret %s", caSecret.Name)
 		}
+	}
+
+	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+
+	value, ok := cm.Data[defaults.ExtraConfigMapUserOptsKey]
+	if !ok {
+		return fmt.Errorf("configmap option not found")
+	}
+
+	err = k.generateManifestsEnable(ctx, true, value)
+	if err != nil {
+		return err
 	}
 
 	if err := k.enableHubble(ctx); err != nil {
@@ -299,34 +503,32 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		}
 	}
 
+	var warnFreePods []string
 	if k.params.Relay {
-		if err := k.enableRelay(ctx); err != nil {
+		podsName, err := k.enableRelay(ctx)
+		if err != nil {
 			return err
 		}
+
+		warnFreePods = append(warnFreePods, podsName)
 	}
 
 	if k.params.UI {
-		if err := k.enableUI(ctx); err != nil {
+		podsName, err := k.enableUI(ctx)
+		if err != nil {
 			return err
 		}
+
+		warnFreePods = append(warnFreePods, podsName)
 	}
 
 	if k.params.Wait {
-		var pods []string
-
-		if k.params.Relay {
-			pods = append(pods, defaults.RelayDeploymentName)
-		}
-		if k.params.UI {
-			pods = append(pods, defaults.HubbleUIDeploymentName)
-		}
-
 		k.Log("⌛ Waiting for Hubble to be installed...")
 		collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
 			Namespace:       k.params.Namespace,
 			Wait:            true,
 			WaitDuration:    k.params.WaitDuration - dur,
-			WarningFreePods: pods,
+			WarningFreePods: warnFreePods,
 		})
 		if err != nil {
 			return err
@@ -342,4 +544,94 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 	k.Log("✅ Hubble was successfully enabled!")
 
 	return nil
+}
+
+func (k *K8sHubble) NewServiceAccount(name string) *corev1.ServiceAccount {
+	var (
+		saFileName string
+	)
+
+	ciliumVer := k.semVerCiliumVersion
+	switch {
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
+		switch name {
+		case defaults.RelayServiceAccountName:
+			saFileName = "templates/hubble-relay/serviceaccount.yaml"
+		case defaults.HubbleUIServiceAccountName:
+			saFileName = "templates/hubble-ui/serviceaccount.yaml"
+		}
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		switch name {
+		case defaults.RelayServiceAccountName:
+			saFileName = "templates/hubble-relay-serviceaccount.yaml"
+		case defaults.HubbleUIServiceAccountName:
+			saFileName = "templates/hubble-ui-serviceaccount.yaml"
+		}
+	}
+
+	saFile := k.manifests[saFileName]
+
+	var sa corev1.ServiceAccount
+	utils.MustUnmarshalYAML([]byte(saFile), &sa)
+	return &sa
+}
+
+func (k *K8sHubble) NewClusterRole(name string) *rbacv1.ClusterRole {
+	var (
+		crFileName string
+	)
+
+	ciliumVer := k.semVerCiliumVersion
+	switch {
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
+		switch name {
+		case defaults.RelayClusterRoleName:
+			crFileName = "templates/hubble-relay/clusterrole.yaml"
+		case defaults.HubbleUIClusterRoleName:
+			crFileName = "templates/hubble-ui/clusterrole.yaml"
+		}
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		switch name {
+		case defaults.RelayClusterRoleName:
+			crFileName = "templates/hubble-relay-clusterrole.yaml"
+		case defaults.HubbleUIClusterRoleName:
+			crFileName = "templates/hubble-ui-clusterrole.yaml"
+		}
+	}
+
+	crFile := k.manifests[crFileName]
+
+	var cr rbacv1.ClusterRole
+	utils.MustUnmarshalYAML([]byte(crFile), &cr)
+	return &cr
+}
+
+func (k *K8sHubble) NewClusterRoleBinding(crbName string) *rbacv1.ClusterRoleBinding {
+	var (
+		crbFileName string
+	)
+
+	ciliumVer := k.semVerCiliumVersion
+	switch {
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
+		switch crbName {
+		case defaults.RelayClusterRoleName:
+			crbFileName = "templates/hubble-relay/clusterrolebinding.yaml"
+		case defaults.HubbleUIClusterRoleName:
+			crbFileName = "templates/hubble-ui/clusterrolebinding.yaml"
+		}
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		switch crbName {
+		case defaults.RelayClusterRoleName:
+			crbFileName = "templates/hubble-relay-clusterrolebinding.yaml"
+		case defaults.HubbleUIClusterRoleName:
+			crbFileName = "templates/hubble-ui-clusterrolebinding.yaml"
+		}
+	}
+
+	crbFile := k.manifests[crbFileName]
+
+	var crb rbacv1.ClusterRoleBinding
+	utils.MustUnmarshalYAML([]byte(crbFile), &crb)
+	return &crb
 }
