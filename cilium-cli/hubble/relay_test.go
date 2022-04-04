@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
 )
 
@@ -44,4 +45,8 @@ func TestK8sHubbleRelayImage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (k *K8sHubble) relayImage(imagePathMode utils.ImagePathMode) string {
+	return utils.BuildImagePath(k.params.RelayImage, k.params.RelayVersion, defaults.RelayImage, k.ciliumVersion, imagePathMode)
 }
