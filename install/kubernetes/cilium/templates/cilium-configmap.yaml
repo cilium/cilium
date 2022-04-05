@@ -388,6 +388,7 @@ data:
   eni-tags: {{ .Values.eni.eniTags | toRawJson | quote }}
   subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | quote }}
   subnet-tags-filter: {{ .Values.eni.subnetTagsFilter | quote }}
+  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | quote }}
 {{- end }}
 
 {{- if .Values.azure.enabled }}

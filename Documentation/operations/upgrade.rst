@@ -322,6 +322,10 @@ New Options
 * ``ipv6-native-routing-cidr``: This option specifies the IPv6 CIDR for native
   routing. It must be set whenever running in direct routing mode with IPv6
   masquerading enabled.
+* ``instance-tags-filter``: This option specifies a list of tags used to search
+  for EC2 instances (and existing ENIs). EC2 Instances tags is in the form of k1=v1,k2=v2
+  (multiple k/v pairs can also be passed by repeating the CLI flag")
+  Use ``instanceTagsFilter`` in Helm chart.
 
 Removed Options
 ~~~~~~~~~~~~~~~

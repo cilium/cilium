@@ -484,6 +484,7 @@ inlining
 inodes
 installIptablesRules
 installNoConntrackIptablesRules
+instanceTagsFilter
 integrations
 internet
 intra

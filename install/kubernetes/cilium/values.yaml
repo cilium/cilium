@@ -536,6 +536,9 @@ eni:
   # when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium,
   # use the CNI configuration file settings (cni.customConf) instead.
   subnetTagsFilter: ""
+  # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
+  # are going to be used to create new ENIs
+  instanceTagsFilter: ""
 
 externalIPs:
   # -- Enable ExternalIPs service support.
