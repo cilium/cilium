@@ -177,6 +177,11 @@ Users (Alphabetically)
       U: ENI Networking, Encryption, Monitoring via Prometheus metrics & Hubble
       Q: @recollir, @dezmodue
 
+    * N: Nexxiot
+      D: Nexxiot is an IoT SaaS provider using Cilium as the main CNI plugin on AWS EKS clusters
+      U: Networking (IPAM, CNI), Security (Network Policies), Visibility (hubble)
+      L: https://nexxiot.com
+
     * N: Northflank
       D: Northflank is a PaaS and uses Cilium as the main CNI plugin across GCP, Azure, AWS and bare-metal
       U: Networking, network policy, hubble, packet monitoring and network visibility
