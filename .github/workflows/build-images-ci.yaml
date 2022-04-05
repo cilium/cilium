@@ -177,13 +177,6 @@ jobs:
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
 
-      - name: CI Image Releases digests
-        if: ${{ github.event_name == 'pull_request_target' }}
-        shell: bash
-        run: |
-          mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
         uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
@@ -206,7 +199,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
