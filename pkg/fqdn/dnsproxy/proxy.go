@@ -114,7 +114,7 @@ type DNSProxy struct {
 	maxIPsPerRestoredDNSRule int
 
 	// this mutex protects variables below this point
-	lock.Mutex
+	lock.RWMutex
 
 	// usedServers is the set of DNS servers that have been allowed and used successfully.
 	// This is used to limit the number of IPs we store for restored DNS rules.
@@ -180,8 +180,8 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPort uint16, destIP stri
 // GetRules creates a fresh copy of EP's DNS rules to be stored
 // for later restoration.
 func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
-	p.Lock()
-	defer p.Unlock()
+	p.RLock()
+	defer p.RUnlock()
 
 	restored := make(restore.DNSRules)
 	for port, entries := range p.allowed[uint64(endpointID)] {
@@ -491,8 +491,8 @@ func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPort 
 // something that was added (via UpdateAllowed or RestoreRules) previously.
 func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID identity.NumericIdentity, destIP net.IP, name string) (allowed bool, err error) {
 	name = strings.ToLower(dns.Fqdn(name))
-	p.Lock()
-	defer p.Unlock()
+	p.RLock()
+	defer p.RUnlock()
 
 	epAllow, exists := p.allowed.getPortRulesForID(endpointID, destPort)
 	if !exists {
