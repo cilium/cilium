@@ -2312,7 +2312,7 @@ func (e *Endpoint) WaitForFirstRegeneration(ctx context.Context) error {
 		}
 
 		if ctx.Err() != nil {
-			return fmt.Errorf("timeout while waiting for initial endpoint generation to complete")
+			return fmt.Errorf("timeout while waiting for initial endpoint generation to complete: %w", ctx.Err())
 		}
 	}
 }
