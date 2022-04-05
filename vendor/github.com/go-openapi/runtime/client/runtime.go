@@ -375,7 +375,12 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 	}
 
 	if auth == nil && r.DefaultAuthentication != nil {
-		auth = r.DefaultAuthentication
+		auth = runtime.ClientAuthInfoWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
+			if req.GetHeaderParams().Get(runtime.HeaderAuthorization) != "" {
+				return nil
+			}
+			return r.DefaultAuthentication.AuthenticateRequest(req, reg)
+		})
 	}
 	//if auth != nil {
 	//	if err := auth.AuthenticateRequest(request, r.Formats); err != nil {
