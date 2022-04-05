@@ -63,6 +63,7 @@ Debian_                    >= 9 Stretch
 `Fedora Atomic/Core`_      >= 25
 Flatcar_                   all
 LinuxKit_                  all
+Raspbian_                  [#raspbian_foot]_
 `RedHat Enterprise Linux`_ >= 8.0
 Ubuntu_                    >= 16.04.1 (Azure), >= 16.04.2 (Canonical), >= 16.10
 Opensuse_                  Tumbleweed, >=Leap 15.0
@@ -83,6 +84,9 @@ RancherOS_                 >= 1.5.5
 
 .. [#centos_foot] CentOS 7 requires a third-party kernel provided by `ElRepo <http://elrepo.org/tiki/tiki-index.php>`_
     whereas CentOS 8 ships with a supported kernel.
+
+.. [#raspbian_foot] Raspbian requires a custom-built kernel because some functionalities are not enabled in the default
+    kernel.
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
