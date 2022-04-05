@@ -99,6 +99,9 @@ func valuesToString(prevKey string, b map[string]interface{}) string {
 			continue
 		}
 		if prevKey != "" {
+			if strings.Contains(k, ".") {
+				k = strings.ReplaceAll(k, ".", `\\.`)
+			}
 			out = append(out, fmt.Sprintf("%s.%s=%v", prevKey, k, v))
 		} else {
 			out = append(out, fmt.Sprintf("%s=%v", k, v))
