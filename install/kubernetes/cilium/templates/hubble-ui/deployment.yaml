@@ -30,6 +30,8 @@ spec:
       {{- if .Values.hubble.ui.securityContext.enabled }}
       securityContext:
         runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
       {{- end }}
       priorityClassName: {{ .Values.hubble.ui.priorityClassName }}
       serviceAccount: {{ .Values.serviceAccounts.ui.name | quote }}
