@@ -217,7 +217,7 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 
 DoneChoosingBodySource:
 
-	if runtime.CanHaveBody(r.method) && body == nil && r.header.Get(runtime.HeaderContentType) == "" {
+	if runtime.CanHaveBody(r.method) && body != nil && r.header.Get(runtime.HeaderContentType) == "" {
 		r.header.Set(runtime.HeaderContentType, mediaType)
 	}
 
