@@ -6,10 +6,10 @@ set -e
 # Install Cilium
 cilium install \
   --disable-check=az-binary \
-  --helm-set=azure.subscriptionID="${AZURE_SUBSCRIPTION_ID}" \
-  --helm-set=azure.resourceGroup="${AZURE_NODE_RESOURCE_GROUP}" \
-  --helm-set=azure.tenantID="${AZURE_TENANT_ID}" \
-  --helm-set=azure.clientID="${AZURE_CLIENT_ID}" \
-  --helm-set=azure.clientSecret="${AZURE_CLIENT_SECRET}" \
+  --azure-subscription-id "${AZURE_SUBSCRIPTION_ID}" \
+  --azure-node-resource-group "${AZURE_NODE_RESOURCE_GROUP}" \
+  --azure-tenant-id "${AZURE_TENANT_ID}" \
+  --azure-client-id "${AZURE_CLIENT_ID}" \
+  --azure-client-secret "${AZURE_CLIENT_SECRET}" \
   --wait=false \
-  --helm-set=bpf.monitorAggregation=none
+  --config monitor-aggregation=none
