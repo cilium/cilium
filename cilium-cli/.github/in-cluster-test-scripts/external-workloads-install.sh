@@ -5,11 +5,11 @@ set -e
 
 # Install Cilium in cluster
 cilium install \
-  --helm-set=cluster.name="${CLUSTER_NAME}" \
-  --helm-set=bpf.monitorAggregation=none \
-  --helm-set=tunnel=vxlan \
-  --helm-set=kubeProxyReplacement=strict \
-  --helm-set=ipv4NativeRoutingCIDR="${CLUSTER_CIDR}"
+  --cluster-name "${CLUSTER_NAME}" \
+  --config monitor-aggregation=none \
+  --config tunnel=vxlan \
+  --kube-proxy-replacement=strict \
+  --ipv4-native-routing-cidr="${CLUSTER_CIDR}"
 
 # Enable Relay
 cilium hubble enable
