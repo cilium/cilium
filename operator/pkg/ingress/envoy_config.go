@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -35,7 +36,10 @@ import (
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 )
 
-const wildCard = "*"
+const (
+	wildCard       = "*"
+	envoyAuthority = ":authority"
+)
 
 type envoyConfigManager struct {
 	informer   cache.Controller
@@ -403,7 +407,8 @@ func toAny(message proto.Message) *anypb.Any {
 	return a
 }
 
-func getRouteMatch(ingressPath slim_networkingv1.HTTPIngressPath) *envoy_config_route_v3.RouteMatch {
+func getRouteMatch(host string, ingressPath slim_networkingv1.HTTPIngressPath) *envoy_config_route_v3.RouteMatch {
+	headerMatchers := getHeaderMatchers(host)
 	if ingressPath.PathType == nil || *ingressPath.PathType == slim_networkingv1.PathTypeImplementationSpecific ||
 		*ingressPath.PathType == slim_networkingv1.PathTypePrefix {
 		return &envoy_config_route_v3.RouteMatch{
@@ -413,6 +418,7 @@ func getRouteMatch(ingressPath slim_networkingv1.HTTPIngressPath) *envoy_config_
 					Regex:      getMatchingPrefixRegex(ingressPath.Path),
 				},
 			},
+			Headers: headerMatchers,
 		}
 	}
 	if *ingressPath.PathType == slim_networkingv1.PathTypeExact {
@@ -420,16 +426,40 @@ func getRouteMatch(ingressPath slim_networkingv1.HTTPIngressPath) *envoy_config_
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
 				Path: ingressPath.Path,
 			},
+			Headers: headerMatchers,
 		}
 	}
 	return nil
+}
+
+func getHeaderMatchers(host string) []*envoy_config_route_v3.HeaderMatcher {
+	if len(host) == 0 || host == wildCard || !strings.Contains(host, wildCard) {
+		return nil
+	}
+	// Make sure that wildcard character only match one single dns domain.
+	// For example, if host is *.foo.com, baz.bar.foo.com should not match
+	return []*envoy_config_route_v3.HeaderMatcher{
+		{
+			Name: envoyAuthority,
+			HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+				StringMatch: &envoy_type_matcher_v3.StringMatcher{
+					MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+						SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+							EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
+							Regex:      getMatchingHeaderRegex(host),
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.IngressRule) *envoy_config_route_v3.VirtualHost {
 	routes := make(SortableRoute, 0, len(rule.HTTP.Paths))
 	for _, path := range rule.HTTP.Paths {
 		route := envoy_config_route_v3.Route{
-			Match: getRouteMatch(path),
+			Match: getRouteMatch(rule.Host, path),
 			Action: &envoy_config_route_v3.Route_Route{
 				Route: &envoy_config_route_v3.RouteAction{
 					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{

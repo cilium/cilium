@@ -46,3 +46,33 @@ func Test_getMatchingPrefixRegex(t *testing.T) {
 		assert.True(t, rx.MatchString("/foo/bar"))
 	})
 }
+
+func Test_getMatchingHeaderRegex(t *testing.T) {
+	t.Run("starting with *.", func(t *testing.T) {
+		result := getMatchingHeaderRegex("*.foo.com")
+		rx, err := regexp.Compile(result)
+		assert.NoError(t, err)
+
+		// Match entire host
+		assert.True(t, rx.MatchString("bar.foo.com"))
+
+		// Not match
+		assert.False(t, rx.MatchString("foo.com"))
+		assert.False(t, rx.MatchString("baz.bar.foo.com"))
+		assert.False(t, rx.MatchString("some.random.host.com"))
+	})
+
+	t.Run("not starting with *.", func(t *testing.T) {
+		result := getMatchingHeaderRegex("foo.com")
+		rx, err := regexp.Compile(result)
+		assert.NoError(t, err)
+
+		// Match entire host
+		assert.True(t, rx.MatchString("foo.com"))
+
+		// Not match
+		assert.False(t, rx.MatchString("bar.foo.com"))
+		assert.False(t, rx.MatchString("abc.bar.foo.com"))
+		assert.False(t, rx.MatchString("some.random.host.com"))
+	})
+}
