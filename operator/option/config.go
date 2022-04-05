@@ -114,6 +114,9 @@ const (
 	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags = "subnet-tags-filter"
 
+	// IPAMInstanceTagFilter are optional tags used to filter instances for ENI discovery ; only used with AWS IPAM mode for now
+	IPAMInstanceTags = "instance-tags-filter"
+
 	// ClusterPoolIPv4CIDR is the cluster's IPv4 CIDR to allocate
 	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
 	ClusterPoolIPv4CIDR = "cluster-pool-ipv4-cidr"
@@ -307,6 +310,9 @@ type OperatorConfig struct {
 	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags map[string]string
 
+	// IPAMUInstanceTags are optional tags used to filter AWS EC2 instances, and interfaces (ENI) attached to them
+	IPAMInstanceTags map[string]string
+
 	// IPAM Operator options
 
 	// ClusterPoolIPv4CIDR is the cluster IPv4 podCIDR that should be used to
@@ -470,6 +476,12 @@ func (c *OperatorConfig) Populate() {
 		c.IPAMSubnetsTags = m
 	}
 
+	if m, err := command.GetStringMapStringE(viper.GetViper(), IPAMInstanceTags); err != nil {
+		log.Fatalf("unable to parse %s: %s", IPAMInstanceTags, err)
+	} else {
+		c.IPAMInstanceTags = m
+	}
+
 	if m, err := command.GetStringMapStringE(viper.GetViper(), AWSInstanceLimitMapping); err != nil {
 		log.Fatalf("unable to parse %s: %s", AWSInstanceLimitMapping, err)
 	} else {
@@ -487,6 +499,7 @@ func (c *OperatorConfig) Populate() {
 var Config = &OperatorConfig{
 	IPAMSubnetsIDs:          make([]string, 0),
 	IPAMSubnetsTags:         make(map[string]string),
+	IPAMInstanceTags:        make(map[string]string),
 	AWSInstanceLimitMapping: make(map[string]string),
 	ENITags:                 make(map[string]string),
 }

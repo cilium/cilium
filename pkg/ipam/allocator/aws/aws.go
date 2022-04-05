@@ -38,13 +38,14 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 		return err
 	}
 	subnetsFilters := ec2shim.NewSubnetsFilters(operatorOption.Config.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsIDs)
+	instancesFilters := ec2shim.NewInstancesFilters(operatorOption.Config.IPAMInstanceTags)
 
 	if operatorOption.Config.EnableMetrics {
 		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "ec2", operatorMetrics.Registry)
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
-	a.client = ec2shim.NewClient(ec2.NewFromConfig(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, subnetsFilters, operatorOption.Config.ENITags)
+	a.client = ec2shim.NewClient(ec2.NewFromConfig(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, subnetsFilters, instancesFilters, operatorOption.Config.ENITags)
 
 	if err := limits.UpdateFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
 		return fmt.Errorf("failed to parse aws-instance-limit-mapping: %w", err)
