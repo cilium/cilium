@@ -143,6 +143,7 @@ func Test_getRouteConfigurationResource(t *testing.T) {
 	require.Equal(t, "*", routeConfig.VirtualHosts[0].Name)
 	require.Equal(t, []string{"*"}, routeConfig.VirtualHosts[0].Domains)
 	require.Len(t, routeConfig.VirtualHosts[0].Routes, 2)
+	require.Len(t, routeConfig.VirtualHosts[0].Routes[0].Match.GetHeaders(), 0)
 
 	require.Equal(t, "default-backend", routeConfig.VirtualHosts[1].Name)
 	require.Equal(t, []string{"*"}, routeConfig.VirtualHosts[1].Domains)
@@ -151,6 +152,7 @@ func Test_getRouteConfigurationResource(t *testing.T) {
 	require.Equal(t, "/dummy-path", routeConfig.VirtualHosts[0].Routes[0].Match.GetPath())
 	require.Equal(t, "/another-dummy-path(/.*)?$", routeConfig.VirtualHosts[0].Routes[1].Match.GetSafeRegex().GetRegex())
 	require.Equal(t, "/", routeConfig.VirtualHosts[1].Routes[0].Match.GetPrefix())
+	require.Len(t, routeConfig.VirtualHosts[1].Routes[0].Match.GetHeaders(), 0)
 
 	clusters := []string{routeConfig.VirtualHosts[0].Routes[0].GetRoute().GetCluster(), routeConfig.VirtualHosts[0].Routes[1].GetRoute().GetCluster()}
 	require.Contains(t, clusters, "dummy-namespace/dummy-backend")
