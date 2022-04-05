@@ -347,6 +347,7 @@ enableCriticalPriorityClass
 enableHealthCheck
 enableIPv
 enableIdentityMark
+enableIngressController
 enableK
 enableXTSocketFallback
 enablement

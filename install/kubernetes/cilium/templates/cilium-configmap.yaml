@@ -189,6 +189,11 @@ data:
   skip-crd-creation: "true"
 {{- end }}
 
+{{- if .Values.enableIngressController }}
+  enable-ingress-controller: "true"
+  enable-envoy-config: "true"
+{{- end }}
+
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
   # address.
   enable-ipv4: {{ .Values.ipv4.enabled | quote }}
@@ -536,7 +541,7 @@ data:
   devices: {{ join " " .Values.devices | quote }}
 {{- end }}
 
-  kube-proxy-replacement:  {{ $kubeProxyReplacement | quote }}
+  kube-proxy-replacement: {{ $kubeProxyReplacement | quote }}
 {{- if ne $kubeProxyReplacement "disabled" }}
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
@@ -688,7 +693,7 @@ data:
   # Enable Hubble gRPC service.
   enable-hubble: {{ .Values.hubble.enabled  | quote }}
   # UNIX domain socket for Hubble server to listen to.
-  hubble-socket-path:  {{ .Values.hubble.socketPath | quote }}
+  hubble-socket-path: {{ .Values.hubble.socketPath | quote }}
 {{- if hasKey .Values.hubble "eventQueueSize" }}
   # Buffer size of the channel for Hubble to receive monitor events. If this field is not set,
   # the buffer size is set to the default monitor queue size.
