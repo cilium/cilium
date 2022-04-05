@@ -5,9 +5,9 @@ set -e
 
 # Install Cilium
 cilium install \
-  --helm-set=cluster.name="${CLUSTER_NAME}" \
+  --cluster-name "${CLUSTER_NAME}" \
   --wait=false \
-  --helm-set=bpf.monitorAggregation=none
+  --config monitor-aggregation=none
 
 # Enable Relay
 cilium hubble enable
