@@ -77,7 +77,7 @@ spec:
       - name: echo-c-host-container
         env:
         - name: PORT
-          value: "41002"
+          value: "31002"
         ports: []
         image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
         imagePullPolicy: IfNotPresent
@@ -92,7 +92,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41002
+            - localhost:31002
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -104,7 +104,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41002
+            - localhost:31002
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -1030,7 +1030,7 @@ spec:
       - name: echo-b-host-container
         env:
         - name: PORT
-          value: "41000"
+          value: "31000"
         ports: []
         image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
         imagePullPolicy: IfNotPresent
@@ -1045,7 +1045,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41000
+            - localhost:31000
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -1057,7 +1057,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41000
+            - localhost:31000
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -1217,7 +1217,7 @@ spec:
       - name: echo-c-host-container
         env:
         - name: PORT
-          value: "41002"
+          value: "31002"
         ports: []
         image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
         imagePullPolicy: IfNotPresent
@@ -1232,7 +1232,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41002
+            - localhost:31002
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -1244,7 +1244,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41002
+            - localhost:31002
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
