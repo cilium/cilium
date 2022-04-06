@@ -176,7 +176,12 @@ Users (Alphabetically)
       D: Meltwater is using Cilim in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
       U: ENI Networking, Encryption, Monitoring via Prometheus metrics & Hubble
       Q: @recollir, @dezmodue
-
+      
+    * N: MyFitnessPal
+      D: MyFitnessPal uses Cilium as the CNI for k8s clusters running in GCP and AWS and it touches almost all user traffic
+      U: Networking (CNI, Maglev, replace kube-proxy, local redirect policy),  Observability (Network metrics with Hubble, DNS proxy, service maps, policy troubleshooting) and Security (Network Policy)
+      Q: @audip, @dgaffney
+           
     * N: Nexxiot
       D: Nexxiot is an IoT SaaS provider using Cilium as the main CNI plugin on AWS EKS clusters
       U: Networking (IPAM, CNI), Security (Network Policies), Visibility (hubble)
