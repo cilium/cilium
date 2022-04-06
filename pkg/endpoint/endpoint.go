@@ -482,6 +482,8 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		noTrackPort:      0,
 	}
 
+	ep.initDNSHistoryTrigger()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
@@ -491,6 +493,19 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	return ep
+}
+
+func (e *Endpoint) initDNSHistoryTrigger() {
+	// Note: This can only fail if the trigger func is nil.
+	var err error
+	e.dnsHistoryTrigger, err = trigger.NewTrigger(trigger.Parameters{
+		Name:        "sync_endpoint_header_file",
+		MinInterval: 5 * time.Second,
+		TriggerFunc: e.syncEndpointHeaderFile,
+	})
+	if err != nil {
+		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Failed to create the endpoint header file sync trigger")
+	}
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
@@ -822,6 +837,8 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	if err := parseBase64ToEndpoint(epSlice[1], &ep); err != nil {
 		return nil, fmt.Errorf("failed to parse restored endpoint: %s", err)
 	}
+
+	ep.initDNSHistoryTrigger()
 
 	// Validate the options that were parsed
 	ep.SetDefaultOpts(ep.Options)
@@ -2153,30 +2170,12 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	}
 }
 
-// SyncEndpointHeaderFile it bumps the current DNS History information for the
-// endpoint in the ep_config.h file.
-func (e *Endpoint) SyncEndpointHeaderFile() error {
-	if err := e.lockAlive(); err != nil {
-		// endpoint was removed in the meanwhile, return
-		return nil
+// SyncEndpointHeaderFile triggers the header file sync to the ep_config.h
+// file. This includes updating the current DNS History information.
+func (e *Endpoint) SyncEndpointHeaderFile() {
+	if e.dnsHistoryTrigger != nil {
+		e.dnsHistoryTrigger.Trigger()
 	}
-	defer e.unlock()
-
-	if e.dnsHistoryTrigger == nil {
-		t, err := trigger.NewTrigger(trigger.Parameters{
-			Name:        "sync_endpoint_header_file",
-			MinInterval: 5 * time.Second,
-			TriggerFunc: func(reasons []string) { e.syncEndpointHeaderFile(reasons) },
-		})
-		if err != nil {
-			return fmt.Errorf(
-				"Sync Endpoint header file trigger for endpoint cannot be activated: %s",
-				err)
-		}
-		e.dnsHistoryTrigger = t
-	}
-	e.dnsHistoryTrigger.Trigger()
-	return nil
 }
 
 // Delete cleans up all resources associated with this endpoint, including the
