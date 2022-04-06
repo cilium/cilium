@@ -13,11 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
-
-	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
@@ -269,9 +268,9 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 // that the most up-to-date information has been retrieved. At this point, the
 // daemon is aware of all the necessary information to restore the appropriate
 // IP.
-func restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
+func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 	var (
-		cidr   *cidr.CIDR
+		cidrs  []*cidr.CIDR
 		fromFS net.IP
 	)
 
@@ -279,23 +278,27 @@ func restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 		switch option.Config.IPAMMode() {
 		case ipamOption.IPAMCRD:
 			// The native routing CIDR is the pod CIDR in these IPAM modes.
-			cidr = option.Config.GetIPv6NativeRoutingCIDR()
+			cidrs = []*cidr.CIDR{option.Config.GetIPv6NativeRoutingCIDR()}
 		default:
-			cidr = node.GetIPv6AllocRange()
+			cidrs = []*cidr.CIDR{node.GetIPv6AllocRange()}
 		}
 		fromFS = node.GetIPv6Router()
 	} else {
 		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
-			// The native routing CIDR is the pod CIDR in these IPAM modes.
-			cidr = option.Config.GetIPv4NativeRoutingCIDR()
+		case ipamOption.IPAMCRD:
+			// The native routing CIDR is the pod CIDR in CRD mode.
+			cidrs = []*cidr.CIDR{option.Config.GetIPv4NativeRoutingCIDR()}
+		case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
+			// d.startIPAM() has already been called at this stage to initialize sharedNodeStore with ownNode info
+			// needed for GetVpcCIDRs()
+			cidrs = d.ipam.GetVpcCIDRs()
 		default:
-			cidr = node.GetIPv4AllocRange()
+			cidrs = []*cidr.CIDR{node.GetIPv4AllocRange()}
 		}
 		fromFS = node.GetInternalIPv4Router()
 	}
 
-	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidr)
+	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
 	if err := removeOldRouterState(restoredIP); err != nil {
 		log.WithError(err).Warnf(
 			"Failed to remove old router IPs (restored IP: %s) from cilium_host. Manual intervention is required to remove all other old IPs.",
@@ -955,17 +958,16 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	// Start IPAM
 	d.startIPAM()
-
 	// After the IPAM is started, in particular IPAM modes (CRD, ENI, Alibaba)
 	// which use the VPC CIDR as the pod CIDR, we must attempt restoring the
 	// router IPs from the K8s resources if we weren't able to restore them
 	// from the fs. We must do this after IPAM because we must wait until the
 	// K8s resources have been synced. Part 2/2 of restoration.
 	if option.Config.EnableIPv4 {
-		restoreCiliumHostIPs(false, router4FromK8s)
+		d.restoreCiliumHostIPs(false, router4FromK8s)
 	}
 	if option.Config.EnableIPv6 {
-		restoreCiliumHostIPs(true, router6FromK8s)
+		d.restoreCiliumHostIPs(true, router6FromK8s)
 	}
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
