@@ -171,6 +171,12 @@ Users (Alphabetically)
       U: Networking, Security, Hubble UI for network visibility
       L: https://github.com/kubesphere/kubekey
       Q: @FeynmanZhou
+    
+    * N: Liquid Reply
+      D: Liquid Reply is a professional service provider and utilizes Cilium on suitable projects and implementations.
+      U: Networking, network policy, Hubble for network visibility, Security
+      L: http://liquidreply.com
+      Q: @mkorbi
 
     * N: Meltwater
       D: Meltwater is using Cilim in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
