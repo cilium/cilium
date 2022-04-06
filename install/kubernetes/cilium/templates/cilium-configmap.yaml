@@ -513,15 +513,14 @@ data:
     {{- else if .Values.encryption.interface }}
   encrypt-interface: {{ .Values.encryption.interface }}
     {{- end }}
-
-    {{- if .Values.encryption.nodeEncryption }}
-  encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
-    {{- end }}
   {{- else if eq .Values.encryption.type "wireguard" }}
   enable-wireguard: {{ .Values.encryption.enabled | quote }}
     {{- if .Values.encryption.wireguard.userspaceFallback }}
   enable-wireguard-userspace-fallback: {{ .Values.encryption.wireguard.userspaceFallback | quote }}
     {{- end }}
+  {{- end }}
+  {{- if .Values.encryption.nodeEncryption }}
+  encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
   {{- end }}
 {{- end }}
 
