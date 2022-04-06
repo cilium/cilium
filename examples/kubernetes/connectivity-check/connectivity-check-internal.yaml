@@ -133,7 +133,7 @@ spec:
       - name: echo-b-host-container
         env:
         - name: PORT
-          value: "41000"
+          value: "31000"
         ports: []
         image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
         imagePullPolicy: IfNotPresent
@@ -148,7 +148,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41000
+            - localhost:31000
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -160,7 +160,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41000
+            - localhost:31000
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

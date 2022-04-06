@@ -33,7 +33,7 @@ deployment: "echo-b": _echoDeployment & {
 }
 // Expose hostport by deploying a host pod and adding a headless service with no port.
 deployment: "echo-b-host": _echoDeploymentWithHostPort & {
-	_serverPort: "41000"
+	_serverPort: "31000"
 	_affinity:   "echo-b"
 
 	metadata: labels: component: "services-check"
@@ -72,7 +72,7 @@ ingressCNP: "echo-c": ingressL7Policy & {}
 // Expose hostport by deploying a host pod and adding a headless service with no port.
 // No ingress policy will apply in this case.
 deployment: "echo-c-host": _echoDeploymentWithHostPort & {
-	_serverPort: "41002"
+	_serverPort: "31002"
 	_affinity:   "echo-c"
 	metadata: labels: component: "proxy-check"
 }
