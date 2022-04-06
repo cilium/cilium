@@ -178,10 +178,10 @@ Users (Alphabetically)
       Q: @recollir, @dezmodue
       
     * N: MyFitnessPal
-      D: MyFitnessPal uses Cilium as the CNI for k8s clusters running in GCP and AWS and it touches almost all user traffic
-      U: Networking (CNI, Maglev, replace kube-proxy, local redirect policy),  Observability (Network metrics with Hubble, DNS proxy, service maps, policy troubleshooting) and Security (Network Policy)
-      Q: @audip, @dgaffney
-           
+      D: MyFitnessPal trusts Cilium with high volume user traffic in AWS on self-hosted k8s clusters as the CNI plugin and in GKE with Dataplane V2
+      U: Networking (CNI, Maglev, kube-proxy replacement, local redirect policy),  Observability (Network metrics with Hubble, DNS proxy, service maps, policy troubleshooting) and Security (Network Policy)
+      L: https://www.myfitnesspal.com
+
     * N: Nexxiot
       D: Nexxiot is an IoT SaaS provider using Cilium as the main CNI plugin on AWS EKS clusters
       U: Networking (IPAM, CNI), Security (Network Policies), Visibility (hubble)
