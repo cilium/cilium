@@ -383,7 +383,7 @@ func AutoComplete() error {
 // If not, then the router IP is discarded and not restored.
 //
 // The restored IP is returned.
-func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) net.IP {
+func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CIDR) net.IP {
 	if !option.Config.EnableHostIPRestore {
 		return nil
 	}
@@ -397,11 +397,11 @@ func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) net.IP {
 		setter = SetInternalIPv4Router
 	}
 
-	ip, err := chooseHostIPsToRestore(ipv6, fromK8s, fromFS, cidr)
+	ip, err := chooseHostIPsToRestore(ipv6, fromK8s, fromFS, cidrs)
 	switch {
 	case err != nil && errors.Is(err, errDoesNotBelong):
 		log.WithFields(logrus.Fields{
-			logfields.CIDR: cidr,
+			logfields.CIDRS: cidrs,
 		}).Infof(
 			"The router IP (%s) considered for restoration does not belong in the Pod CIDR of the node. Discarding old router IP.",
 			ip,
@@ -423,7 +423,7 @@ func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) net.IP {
 	return ip
 }
 
-func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) (ip net.IP, err error) {
+func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CIDR) (ip net.IP, err error) {
 	switch {
 	// If both IPs are available, then check both for validity. We prefer the
 	// local IP from the FS over the K8s IP.
@@ -438,11 +438,13 @@ func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) 
 			// case that the IP from the FS is not within the CIDR. If we
 			// fallback, then we also need to check the fromK8s IP is also
 			// within the CIDR.
-			if cidr != nil && cidr.Contains(ip) {
-				return
-			} else if cidr != nil && cidr.Contains(fromK8s) {
-				ip = fromK8s
-				return
+			for _, cidr := range cidrs {
+				if cidr != nil && cidr.Contains(ip) {
+					return
+				} else if cidr != nil && cidr.Contains(fromK8s) {
+					ip = fromK8s
+					return
+				}
 			}
 		}
 	case fromK8s == nil && fromFS != nil:
@@ -455,8 +457,10 @@ func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidr *cidr.CIDR) 
 		return
 	}
 
-	if cidr != nil && cidr.Contains(ip) {
-		return
+	for _, cidr := range cidrs {
+		if cidr != nil && cidr.Contains(ip) {
+			return
+		}
 	}
 
 	err = errDoesNotBelong
