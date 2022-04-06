@@ -74,6 +74,7 @@ type Agent struct {
 	privKey          wgtypes.Key
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
+	nodeNameByPubKey map[wgtypes.Key]string
 	restoredPubKeys  map[wgtypes.Key]struct{}
 }
 
@@ -98,6 +99,7 @@ func NewAgent(privKeyPath string) (*Agent, error) {
 		listenPort:       listenPort,
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
+		nodeNameByPubKey: map[wgtypes.Key]string{},
 		restoredPubKeys:  map[wgtypes.Key]struct{}{},
 	}, nil
 }
@@ -230,10 +232,22 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	a.Lock()
 	defer a.Unlock()
 
+	pubKey, err := wgtypes.ParseKey(pubKeyHex)
+	if err != nil {
+		return err
+	}
+
+	if prevNodeName, ok := a.nodeNameByPubKey[pubKey]; ok {
+		if nodeName != prevNodeName {
+			return fmt.Errorf("detected duplicate public key. "+
+				"node %q uses same key as existing node %q", nodeName, prevNodeName)
+		}
+	}
+
 	var allowedIPs []net.IPNet = nil
 	if prev := a.peerByNodeName[nodeName]; prev != nil {
 		// Handle pubKey change
-		if prev.pubKey.String() != pubKeyHex {
+		if prev.pubKey != pubKey {
 			log.WithField(logfields.NodeName, nodeName).Debug("Pubkey has changed")
 			// pubKeys differ, so delete old peer
 			if err := a.deletePeerByPubKey(prev.pubKey); err != nil {
@@ -267,11 +281,6 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 			lookupIPv6 = nodeIPv6
 		}
 		allowedIPs = append(allowedIPs, a.ipCache.LookupByHostRLocked(lookupIPv4, lookupIPv6)...)
-	}
-
-	pubKey, err := wgtypes.ParseKey(pubKeyHex)
-	if err != nil {
-		return err
 	}
 
 	ep := ""
@@ -308,6 +317,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	}
 
 	a.peerByNodeName[nodeName] = peer
+	a.nodeNameByPubKey[pubKey] = nodeName
 	if nodeIPv4 != nil {
 		a.nodeNameByNodeIP[nodeIPv4.String()] = nodeName
 	}
@@ -332,6 +342,8 @@ func (a *Agent) DeletePeer(nodeName string) error {
 	}
 
 	delete(a.peerByNodeName, nodeName)
+	delete(a.nodeNameByPubKey, peer.pubKey)
+
 	if peer.nodeIPv4 != nil {
 		delete(a.nodeNameByNodeIP, peer.nodeIPv4.String())
 	}
