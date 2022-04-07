@@ -1876,7 +1876,7 @@ func init() {
           }
         },
         "lookup-time": {
-          "description": "The absolute time when this data was recieved",
+          "description": "The absolute time when this data was received",
           "type": "string",
           "format": "date-time"
         },
@@ -6358,7 +6358,7 @@ func init() {
           }
         },
         "lookup-time": {
-          "description": "The absolute time when this data was recieved",
+          "description": "The absolute time when this data was received",
           "type": "string",
           "format": "date-time"
         },
