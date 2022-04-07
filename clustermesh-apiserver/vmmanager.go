@@ -242,7 +242,7 @@ func (m *VMManager) AllocateNodeIdentity(n *nodeTypes.RegisterNode) *identity.Id
 		return id
 	}
 
-	id, allocated, err := m.identityAllocator.AllocateIdentity(ctx, vmLabels, true)
+	id, allocated, err := m.identityAllocator.AllocateIdentity(ctx, vmLabels, true, identity.InvalidIdentity)
 	if err != nil {
 		log.WithError(err).Error("unable to resolve identity")
 	} else {

@@ -276,23 +276,23 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	prodBarLbls := labels.Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
-	prodBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodBarLbls, true)
+	prodBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), prodBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 	prodFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
-	prodFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooLbls, true)
+	prodFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), prodFooSecLblsCtx, false)
 	prodFooJoeLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
-	prodFooJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooJoeLbls, true)
+	prodFooJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooJoeLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), prodFooJoeSecLblsCtx, false)
 
@@ -409,11 +409,11 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 
@@ -493,11 +493,11 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 
@@ -571,15 +571,15 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 	qaJoeLbls := labels.Labels{lblJoe.Key: lblJoe, lblQA.Key: lblQA}
-	qaJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaJoeLbls, true)
+	qaJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaJoeLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaJoeSecLblsCtx, false)
 
@@ -733,7 +733,7 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 
 func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 
@@ -818,7 +818,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 
@@ -907,7 +907,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 
 	// Allocate identities needed for this test
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooID, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooID, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooID, false)
 

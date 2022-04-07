@@ -118,7 +118,10 @@ type IdentityAllocator interface {
 	IsLocalIdentityAllocatorInitialized() bool
 
 	// AllocateIdentity allocates an identity described by the specified labels.
-	AllocateIdentity(context.Context, labels.Labels, bool) (*identity.Identity, bool, error)
+	// A possible previously used numeric identity for these labels can be passed
+	// in as the last parameter; identity.InvalidIdentity must be passed if no
+	// previous numeric identity exists.
+	AllocateIdentity(context.Context, labels.Labels, bool, identity.NumericIdentity) (*identity.Identity, bool, error)
 
 	// Release is the reverse operation of AllocateIdentity() and releases the
 	// specified identity.
@@ -325,8 +328,11 @@ func (m *CachingIdentityAllocator) WaitForInitialGlobalIdentities(ctx context.Co
 // AllocateIdentity allocates an identity described by the specified labels. If
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
-// allocated via the kvstore.
-func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool) (id *identity.Identity, allocated bool, err error) {
+// allocated via the kvstore or via the local identity allocator.
+// A possible previously used numeric identity for these labels can be passed
+// in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
+// previous numeric identity exists.
+func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error) {
 	isNewLocally := false
 
 	// Notify the owner of the newly added identities so that the
@@ -367,7 +373,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 
 	if !identity.RequiresGlobalIdentity(lbls) {
 		<-m.localIdentityAllocatorInitialized
-		return m.localIdentities.lookupOrCreate(lbls)
+		return m.localIdentities.lookupOrCreate(lbls, oldNID)
 	}
 
 	// This will block until the kvstore can be accessed and all identities

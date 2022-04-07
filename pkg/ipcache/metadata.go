@@ -240,7 +240,7 @@ func injectLabels(prefix string, lbls labels.Labels) (*identity.Identity, bool, 
 		return injectLabelsForCIDR(prefix, lbls)
 	}
 
-	return IdentityAllocator.AllocateIdentity(ctx, lbls, false)
+	return IdentityAllocator.AllocateIdentity(ctx, lbls, false, identity.InvalidIdentity)
 }
 
 // injectLabelsForCIDR will allocate a CIDR identity for the given prefix. The
@@ -272,7 +272,7 @@ func injectLabelsForCIDR(p string, lbls labels.Labels) (*identity.Identity, bool
 		"Injecting CIDR labels for prefix",
 	)
 
-	return allocate(cidr, allLbls)
+	return allocate(cidr, allLbls, identity.InvalidIdentity)
 }
 
 // RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD
@@ -368,7 +368,7 @@ func removeLabelsFromIPs(
 				identity.AddReservedIdentityWithLabels(id.ID, l)
 			}
 
-			newID, _, err := IdentityAllocator.AllocateIdentity(context.TODO(), l, false)
+			newID, _, err := IdentityAllocator.AllocateIdentity(context.TODO(), l, false, identity.InvalidIdentity)
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.IPAddr:         prefix,
