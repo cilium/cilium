@@ -413,7 +413,7 @@ func probeCgroupSupportUDP(ipv4 bool) error {
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit() error {
-	if !option.Config.EnableNodePort {
+	if !(option.Config.EnableNodePort || option.Config.EnableWireguard) {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
 		return nil
