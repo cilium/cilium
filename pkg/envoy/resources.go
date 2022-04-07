@@ -32,6 +32,9 @@ const (
 	// EndpointTypeURL is the type URL of Endpoint resources.
 	EndpointTypeURL = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
 
+	// DownStreamTlsContextTypeURL is the type URL of DownstreamTlsContext resources. Used for tls transport socket.
+	DownStreamTlsContextTypeURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext"
+
 	// SecretTypeURL is the type URL of Endpoint resources.
 	SecretTypeURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret"
 

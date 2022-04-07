@@ -43,6 +43,7 @@ var baseIngress = &slim_networkingv1.Ingress{
 		},
 		Rules: []slim_networkingv1.IngressRule{
 			{
+				Host: "very-secure.server.com",
 				IngressRuleValue: slim_networkingv1.IngressRuleValue{
 					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
 						Paths: []slim_networkingv1.HTTPIngressPath{

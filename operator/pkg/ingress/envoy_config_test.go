@@ -78,7 +78,8 @@ func Test_getListenerResource(t *testing.T) {
 
 		// check TLS configuration
 		require.Equal(t, "envoy.transport_sockets.tls", listener.FilterChains[1].TransportSocket.Name)
-		require.IsType(t, &envoy_config_core_v3.TransportSocket_TypedConfig{}, listener.FilterChains[1].TransportSocket.ConfigType)
+		require.Equal(t, []string{"very-secure.server.com"}, listener.FilterChains[1].FilterChainMatch.ServerNames)
+	require.IsType(t, &envoy_config_core_v3.TransportSocket_TypedConfig{}, listener.FilterChains[1].TransportSocket.ConfigType)
 
 		downStreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
 		err = proto.Unmarshal(listener.FilterChains[1].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
@@ -143,8 +144,8 @@ func Test_getRouteConfigurationResource(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, routeConfig.VirtualHosts, 2)
-	require.Equal(t, "*", routeConfig.VirtualHosts[0].Name)
-	require.Equal(t, []string{"*"}, routeConfig.VirtualHosts[0].Domains)
+	require.Equal(t, "very-secure.server.com", routeConfig.VirtualHosts[0].Name)
+	require.Equal(t, []string{"very-secure.server.com", "very-secure.server.com:*"}, routeConfig.VirtualHosts[0].Domains)
 	require.Len(t, routeConfig.VirtualHosts[0].Routes, 2)
 	require.Len(t, routeConfig.VirtualHosts[0].Routes[0].Match.GetHeaders(), 0)
 

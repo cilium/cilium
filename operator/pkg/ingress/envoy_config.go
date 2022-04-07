@@ -88,6 +88,13 @@ func getCECNameForIngress(ingress *slim_networkingv1.Ingress) string {
 
 func getTransportSockets(ingress *slim_networkingv1.Ingress, secretNamespace string) (map[string]*envoy_config_core_v3.TransportSocket, error) {
 	tls := make(map[string]*envoy_config_core_v3.TransportSocket)
+	allIngressRuleHosts := map[string]struct{}{}
+	for _, rule := range ingress.Spec.Rules {
+		if len(rule.Host) != 0 {
+			allIngressRuleHosts[rule.Host] = struct{}{}
+		}
+	}
+
 	for _, tlsConfig := range ingress.Spec.TLS {
 		for _, host := range tlsConfig.Hosts {
 			sdsName := getSyncedSecretKey(secretNamespace, ingress.GetNamespace(), tlsConfig.SecretName)
@@ -285,14 +292,6 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 			return v2alpha1.XDSResource{}, err
 		}
 
-		// TODO(tam) extend to list of tls
-		// just take the first one for now
-		var tlsConf *envoy_config_core_v3.TransportSocket
-		if len(ingress.Spec.TLS[0].Hosts) > 0 {
-			domain := ingress.Spec.TLS[0].Hosts[0]
-			tlsConf = transportSockets[domain]
-		}
-
 		filterChains = []*envoy_config_listener.FilterChain{
 			{
 				FilterChainMatch: &envoy_config_listener.FilterChainMatch{
@@ -307,20 +306,27 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 					},
 				},
 			},
-			{
-				FilterChainMatch: &envoy_config_listener.FilterChainMatch{
-					TransportProtocol: "tls",
-				},
-				Filters: []*envoy_config_listener.Filter{
-					{
-						Name: "envoy.filters.network.http_connection_manager",
-						ConfigType: &envoy_config_listener.Filter_TypedConfig{
-							TypedConfig: defaultHttpConnectionManager.Any,
+		}
+
+		for _, rule := range ingress.Spec.Rules {
+			if len(rule.Host) > 0 && transportSockets[rule.Host] != nil {
+				filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+					FilterChainMatch: &envoy_config_listener.FilterChainMatch{
+						TransportProtocol: "tls",
+						// Matching SNI from ingress host
+						ServerNames: []string{rule.Host},
+					},
+					Filters: []*envoy_config_listener.Filter{
+						{
+							Name: "envoy.filters.network.http_connection_manager",
+							ConfigType: &envoy_config_listener.Filter_TypedConfig{
+								TypedConfig: defaultHttpConnectionManager.Any,
+							},
 						},
 					},
-				},
-				TransportSocket: tlsConf,
-			},
+					TransportSocket: transportSockets[rule.Host],
+				})
+			}
 		}
 	}
 
@@ -334,7 +340,6 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 		},
 		SocketOptions: getSocketOptions(ingress),
 	}
-
 	listenerBytes, err := proto.Marshal(&listener)
 	if err != nil {
 		return v2alpha1.XDSResource{}, err
