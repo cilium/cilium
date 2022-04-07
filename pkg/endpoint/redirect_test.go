@@ -175,7 +175,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	ep := NewEndpointWithState(do, rsp, mgr, 12345, StateRegenerating)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), qaBarLbls, true)
+	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, check.IsNil)
 	ep.SetIdentity(epIdentity, true)
 

@@ -185,6 +185,9 @@ type Daemon struct {
 
 	// event queue for serializing configuration updates to the daemon.
 	configModifyQueue *eventqueue.EventQueue
+
+	// CIDRs for which identities were restored during bootstrap
+	restoredCIDRs []*net.IPNet
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -457,6 +460,23 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if err != nil {
 		log.WithError(err).Error("Error while initializing BPF pcap recorder")
 		return nil, nil, err
+	}
+
+	// Collect old CIDR identities
+	var oldNIDs []identity.NumericIdentity
+	if option.Config.RestoreState && !option.Config.DryMode && ipcachemap.SupportsDump() {
+		if err := ipcachemap.IPCache.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+			k := key.(*ipcachemap.Key)
+			v := value.(*ipcachemap.RemoteEndpointInfo)
+			nid := identity.NumericIdentity(v.SecurityIdentity)
+			if nid.HasLocalScope() {
+				d.restoredCIDRs = append(d.restoredCIDRs, k.IPNet())
+				oldNIDs = append(oldNIDs, nid)
+			}
+		}); err != nil && !os.IsNotExist(err) {
+			log.WithError(err).Warning("Error dumping ipcache")
+		}
+		ipcachemap.IPCache.Close()
 	}
 
 	d.identityAllocator = NewCachingIdentityAllocator(&d)
@@ -878,6 +898,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		// identity allocator to run asynchronously.
 		realIdentityAllocator := d.identityAllocator
 		realIdentityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+
+		// Preallocate IDs for old CIDRs, must be called after InitIdentityAllocator
+		if len(d.restoredCIDRs) > 0 {
+			log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
+			_, err = ipcache.AllocateCIDRs(d.restoredCIDRs, oldNIDs, nil)
+			if err != nil {
+				log.WithError(err).Error("Error allocating old CIDR identities")
+			}
+		}
 
 		d.bootstrapClusterMesh(nodeMngr)
 	}
