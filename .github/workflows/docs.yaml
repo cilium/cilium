@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v3
-      - uses: docker://cilium/docs-builder:latest
+      - uses: docker://cilium/docs-builder:2021-06-09@sha256:7126ea9182667ab1961bd8bb71265cbd3ec951e412910a116e24e0e74d7fc653
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
