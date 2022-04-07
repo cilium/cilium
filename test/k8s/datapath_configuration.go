@@ -646,7 +646,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"autoDirectNodeRoutes": "true",
 				"encryption.enabled":   "true",
 				"encryption.type":      "wireguard",
-				"l7Proxy":              "false",
 			}, DeployCiliumOptionsAndDNS)
 
 			privateIface, err := kubectl.GetPrivateIface()
@@ -659,7 +658,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"tunnel":             "vxlan",
 				"encryption.enabled": "true",
 				"encryption.type":    "wireguard",
-				"l7Proxy":            "false",
 			}, DeployCiliumOptionsAndDNS)
 
 			testWireguard("cilium_vxlan")
@@ -671,7 +669,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"endpointRoutes.enabled": "true",
 				"encryption.enabled":     "true",
 				"encryption.type":        "wireguard",
-				"l7Proxy":                "false",
 			}, DeployCiliumOptionsAndDNS)
 
 			testWireguard("cilium_vxlan")
