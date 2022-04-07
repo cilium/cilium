@@ -32,6 +32,7 @@ jobs:
         with:
           filters: |
             src:
+              - .github/workflows/documentation.yaml
               - 'Documentation/**'
               - 'bugtool/cmd/**'
               - 'cilium/cmd/**'
