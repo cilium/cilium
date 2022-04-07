@@ -1,4 +1,4 @@
-# Copyright 2020 Authors of Cilium
+# Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 REGISTRIES ?= docker.io/cilium

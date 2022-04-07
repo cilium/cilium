@@ -1,4 +1,4 @@
-# Copyright 2020-2021 Authors of Cilium
+# Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:e847f4176cb42ae27fa459a10df6721c43702b64@sha256:78df068553627c53d8dbe0f61275271b597c55c60585f3ea9f6916bd3cfd611a
