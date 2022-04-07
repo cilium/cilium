@@ -2458,7 +2458,7 @@ func (c *DaemonConfig) TunnelExists() bool {
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
-	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager
+	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager || c.EnableWireguard
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
@@ -2603,7 +2603,7 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
-	return (c.EnableNodePort || BPFHostRoutingEnabled) && !c.TunnelingEnabled()
+	return (c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard) && !c.TunnelingEnabled()
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -4008,7 +4008,7 @@ func EndpointStatusValuesMap() (values map[string]struct{}) {
 // place.
 func MightAutoDetectDevices() bool {
 	devices := Config.GetDevices()
-	return (Config.EnableHostFirewall && len(devices) == 0) ||
+	return ((Config.EnableHostFirewall || Config.EnableWireguard) && len(devices) == 0) ||
 		(Config.KubeProxyReplacement != KubeProxyReplacementDisabled &&
 			(len(devices) == 0 || Config.DirectRoutingDevice == ""))
 }
