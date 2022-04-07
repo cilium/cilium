@@ -47,6 +47,22 @@ to your preferences:
   packets that involve an L4 connection state change. Valid options are
   ``none``, ``low``, ``medium``, ``maximum``.
 
+  - ``none`` - Generate a tracing event on every receive and send packet.
+  - ``low`` - Generate a tracing event on every send packet.
+  - ``medium`` - Generate a tracing event on every new connection, any time a
+    packet contains TCP flags that have not been previously seen for the packet
+    direction, and on average once per ``monitor-aggregation-interval``
+    (assuming that a packet is seen during the interval). Each direction tracks
+    TCP flags and report interval separately. If Cilium drops a packet, it will
+    emit one event per packet dropped.
+  - ``maximum`` - An alias for the most aggressive aggregation level. Currently
+    this is equivalent to setting ``monitor-aggregation`` to ``medium``.
+
+* ``monitor-aggregation-interval`` - Defines the interval to report tracing
+  events. Only applicable for ``monitor-aggregation`` levels ``medium`` or higher.
+  Assuming new packets are sent at least once per interval, this ensures that on
+  average one event is sent during the interval.
+
 * ``preallocate-bpf-maps`` - Pre-allocation of map entries allows per-packet
   latency to be reduced, at the expense of up-front memory allocation for the
   entries in the maps. Set to ``true`` to optimize for latency. If this value
