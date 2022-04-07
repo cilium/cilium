@@ -318,7 +318,7 @@ func (m *MigrateSuite) TestMigrateENIDatapathDowngradeFailure(c *C) {
 func (m *MigrateSuite) TestMigrateENIDatapathPartial(c *C) {
 	// This test case will cover one case where we find a partial rule. It will
 	// be set up with a rule with the newer priority and the user has indicated
-	// compatbility=false, meaning they intend to upgrade. The fact that
+	// compatibility=false, meaning they intend to upgrade. The fact that
 	// there's already a rule with a newer priority indicates that a previous
 	// migration has taken place and potentially failed. This simulates Cilium
 	// starting up from a potentially failed previous migration.

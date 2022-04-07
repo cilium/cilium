@@ -578,7 +578,7 @@ func (ipc *IPCache) LookupByIPRLocked(IP string) (Identity, bool) {
 // identity as well as whether the entry exists in the IPCache.
 func (ipc *IPCache) LookupByPrefixRLocked(prefix string) (identity Identity, exists bool) {
 	if _, cidr, err := net.ParseCIDR(prefix); err == nil {
-		// If it's a fully specfied prefix, attempt to find the host
+		// If it's a fully specified prefix, attempt to find the host
 		ones, bits := cidr.Mask.Size()
 		if ones == bits {
 			identity, exists = ipc.ipToIdentityCache[cidr.IP.String()]
@@ -634,7 +634,7 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 	return cidrs
 }
 
-// RegisterK8sWaiter registers the object that checks for wehther the K8s cache
+// RegisterK8sWaiter registers the object that checks for whether the K8s cache
 // has been fully synced.
 func (ipc *IPCache) RegisterK8sSyncedChecker(c k8sSyncedChecker) {
 	ipc.k8sSyncedChecker = c

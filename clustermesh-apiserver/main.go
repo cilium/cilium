@@ -332,7 +332,7 @@ func deleteIdentity(obj interface{}) {
 	}
 
 	if identity == nil {
-		log.Warningf("Igoring invalid identity %+v", identity)
+		log.Warningf("Ignoring invalid identity %+v", identity)
 		return
 	}
 

@@ -77,7 +77,7 @@ cilium-helm-install(){
     )
 }
 
-# cilium buid and deploy will build the agent and operator, push to a kind repo
+# cilium build and deploy will build the agent and operator, push to a kind repo
 # and install cilium via helm.
 cilium-build-and-deploy() {
     (

@@ -74,7 +74,7 @@ annotations:
       description: |
         Cilium Endpoint represents the status of individual pods or nodes in
         the cluster which are managed by Cilium, including enforcement status,
-        IP addressing and whether the networking is succesfully operational.
+        IP addressing and whether the networking is successfully operational.
     - kind: CiliumEndpointSlice
       version: v2alpha1
       name: ciliumendpointslices.cilium.io
@@ -82,7 +82,7 @@ annotations:
       description: |
         Cilium Endpoint Slice represents the status of groups of pods or nodes
         in the cluster which are managed by Cilium, including enforcement status,
-        IP addressing and whether the networking is succesfully operational.
+        IP addressing and whether the networking is successfully operational.
     - kind: CiliumEgressNATPolicy
       version: v2alpha1
       name: ciliumegressnatpolicies.cilium.io

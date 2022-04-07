@@ -618,7 +618,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		log.Debugf("Registering cleanup function to unload DNS policies due to --%s", option.DNSPolicyUnloadOnShutdown)
 
 		// add to pre-cleanup funcs because this needs to run on graceful shutdown, but
-		// before the relevant subystems are being shut down.
+		// before the relevant subsystems are being shut down.
 		cleaner.preCleanupFuncs.Add(func() {
 			// Stop k8s watchers
 			log.Info("Stopping k8s service handler")
@@ -993,7 +993,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
 	}
 
-	// iptables rules can be updated only after d.init() intializes the iptables above.
+	// iptables rules can be updated only after d.init() initializes the iptables above.
 	err = d.updateDNSDatapathRules()
 	if err != nil {
 		return nil, restoredEndpoints, err

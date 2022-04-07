@@ -159,7 +159,7 @@ func doCleanup(exitCode int) {
 		gops.Close()
 		close(shutdownSignal)
 
-		// Cancelling this conext here makes sure that if the operator hold the
+		// Cancelling this context here makes sure that if the operator hold the
 		// leader lease, it will be released.
 		leaderElectionCtxCancel()
 

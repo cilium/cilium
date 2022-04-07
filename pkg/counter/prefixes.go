@@ -128,7 +128,7 @@ func (p *PrefixLengthCounter) Add(prefixes []*net.IPNet) (bool, error) {
 
 // Delete reduces references to prefix lengths in the the specified IPNets from
 // the counter. Returns true if removing references to these prefix lengths
-// would result in a decrese in the total number of unique prefix lengths in
+// would result in a decrease in the total number of unique prefix lengths in
 // the counter.
 func (p *PrefixLengthCounter) Delete(prefixes []*net.IPNet) (changed bool) {
 	p.Lock()

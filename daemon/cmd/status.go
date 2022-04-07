@@ -765,7 +765,7 @@ func (d *Daemon) startStatusCollector() {
 					return backoff.CalculateDuration(5*time.Second, 2*time.Minute, 2.0, false, failures)
 				}
 
-				// The base interval is dependant on the
+				// The base interval is dependent on the
 				// cluster size. One status interval does not
 				// automatically translate to an apiserver
 				// interaction as any regular apiserver

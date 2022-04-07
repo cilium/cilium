@@ -53,7 +53,7 @@ type sessionUDP struct {
 var rawconn4 *net.IPConn // raw socket for sending IPv4
 var rawconn6 *net.IPConn // raw socket for sending IPv6
 
-// Set the socket options needed for tranparent proxying for the listening socket
+// Set the socket options needed for transparent proxying for the listening socket
 // IP(V6)_TRANSPARENT allows socket to receive packets with any destination address/port
 // IP(V6)_RECVORIGDSTADDR tells the kernel to pass the original destination address/port on recvmsg
 // The socket may be receiving both IPv4 and IPv6 data, so set both options, if enabled.

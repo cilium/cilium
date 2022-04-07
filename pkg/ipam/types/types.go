@@ -307,7 +307,7 @@ type InterfaceRevision struct {
 	// Resource is the interface resource
 	Resource Interface
 
-	// Fingerprint is the fingerprint reprsenting the network interface
+	// Fingerprint is the fingerprint representing the network interface
 	// configuration. It is typically implemented as the result of a hash
 	// function calculated off the resource. This field is optional, not
 	// all IPAM backends make use of fingerprints.

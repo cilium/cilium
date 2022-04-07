@@ -136,7 +136,7 @@ if [ -f /etc/cni/net.d/10-azure.conflist ]; then
 fi
 
 # The azure0 interface being present means the node was booted with azure-vnet configured
-# in bridge mode. This means there might be ebtables rules and neight entries interfering
+# in bridge mode. This means there might be ebtables rules and neither entries interfering
 # with pod connectivity if we deploy with Azure IPAM.
 if ip l show dev azure0 >/dev/null 2>&1; then
 

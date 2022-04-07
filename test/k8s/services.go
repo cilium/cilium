@@ -286,7 +286,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				ExpectAllPodsTerminated(kubectl)
 			})
 
-			// In adition to the bpf_sock bypass, this test is testing whether bpf_lxc
+			// In addition to the bpf_sock bypass, this test is testing whether bpf_lxc
 			// ClusterIP for IPv6 is working
 			It("Checks ClusterIP connectivity", func() {
 				services := []string{testDSServiceIPv4}

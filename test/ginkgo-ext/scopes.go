@@ -553,7 +553,7 @@ func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, f
 }
 
 // isTestFocused checks the value of FocusString and return true if the given
-// text name is focussed, returns false if the test is not focused.
+// text name is focused, returns false if the test is not focused.
 func isTestFocused(text string) bool {
 	if len(config.GinkgoConfig.FocusStrings) == 0 {
 		return false
@@ -599,7 +599,7 @@ func calculateCounters(s *scope, focusedOnly bool) (int, bool) {
 	for _, child := range s.children {
 		if child.focused {
 			if !child.isUnset() {
-				panic("unexepcted redundant recursive call")
+				panic("unexpected redundant recursive call")
 			}
 			child.setSafely(0)
 			c, _ := calculateCounters(child, false)
@@ -615,7 +615,7 @@ func calculateCounters(s *scope, focusedOnly bool) (int, bool) {
 	for _, child := range s.children {
 		if !child.focused {
 			if !child.isUnset() {
-				panic("unexepcted redundant recursive call")
+				panic("unexpected redundant recursive call")
 			}
 			child.setSafely(0)
 			c, f := calculateCounters(child, focusedOnly || haveFocused)

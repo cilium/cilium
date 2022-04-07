@@ -107,7 +107,7 @@ var LogTags logTags
 
 type logTags struct{}
 
-// Verdict attachs verdict information to the log record
+// Verdict attaches verdict information to the log record
 func (logTags) Verdict(v accesslog.FlowVerdict, info string) LogTag {
 	return func(lr *LogRecord) {
 		lr.Verdict = v

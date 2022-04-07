@@ -48,7 +48,7 @@ type AckingResourceMutatorRevertFunc func(completion *completion.Completion)
 type AckingResourceMutatorRevertFuncList []AckingResourceMutatorRevertFunc
 
 func (rl AckingResourceMutatorRevertFuncList) Revert(wg *completion.WaitGroup) {
-	// Revert the listed funcions in reverse order
+	// Revert the listed functions in reverse order
 	for i := len(rl) - 1; i >= 0; i-- {
 		var c *completion.Completion
 		if wg != nil {

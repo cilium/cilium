@@ -146,7 +146,7 @@ type Allocator struct {
 	// disableGC disables the garbage collector
 	disableGC bool
 
-	// backend is the upstream, shared, backend to which we syncronize local
+	// backend is the upstream, shared, backend to which we synchronize local
 	// information
 	backend Backend
 }
@@ -235,7 +235,7 @@ type Backend interface {
 	// RunGC reaps stale or unused identities within the Backend and makes them
 	// available for reuse. It is used by the cilium-operator and is not invoked
 	// by cilium-agent.
-	// Note: not all Backend implemenations rely on this, such as the kvstore
+	// Note: not all Backend implementations rely on this, such as the kvstore
 	// backends, and may use leases to expire keys.
 	RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64, minID idpool.ID, maxID idpool.ID) (map[string]uint64, *GCStats, error)
 

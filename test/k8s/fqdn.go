@@ -220,7 +220,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		// local-identities will be added in the future.
 		//
 		// 2) On restore, the Kubernetes watcher is sending the CNP back to
-		// Cilium, and before the endoint is restored the CNP can be applied
+		// Cilium, and before the endpoint is restored the CNP can be applied
 		// without the ToCIDRSet, this means that there is no TOCIDR rule in
 		// the cilium policy and traffic will be drop.
 

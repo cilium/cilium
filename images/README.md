@@ -94,7 +94,7 @@ tool (see [`cilium/image-tools` docs for details](https://github.com/cilium/imag
 
 A multi-platform `Dockerfile` pattern applied to Cilium images is as follows:
 ```
-## select host platfrom as linux/amd64, since that's that is what's currently
+## select host platform as linux/amd64, since that's that is what's currently
 ## available in GitHub Actions;
 ## it's possible to use `--platform=${BUILDPLATFORM}`, but that requires more
 ## logic to decide which target is built natively and which one is

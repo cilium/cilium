@@ -1,6 +1,6 @@
 # The default family of the cluster is IPv4 so we have V4 version of these
 # services as defaults in the manfiests/ directory.
-# For IPv6 we can have different configuration for different Kuberentes
+# For IPv6 we can have different configuration for different Kubernetes
 # versions. Therefore v6 services manfiests are placed in version specific
 # directories inside manifests/.
 apiVersion: v1

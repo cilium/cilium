@@ -16,7 +16,7 @@ var (
 	allowedMatchNameChars = regexp.MustCompile("^[-a-zA-Z0-9_.]+$")
 
 	// allowedPatternChars tests that the MatchPattern field contains only the
-	// characters we want in our wilcard scheme.
+	// characters we want in our wildcard scheme.
 	allowedPatternChars = regexp.MustCompile("^[-a-zA-Z0-9_.*]+$") // the * inside the [] is a literal *
 
 	// FQDNMatchNameRegexString is a regex string which matches what's expected

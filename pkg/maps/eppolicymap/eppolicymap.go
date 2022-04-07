@@ -106,7 +106,7 @@ func writeEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
 		return fmt.Errorf("WriteEndpoint invalid policy fd %d", fd)
 	}
 
-	/* Casting file desriptor into uint32 required by BPF syscall */
+	/* Casting file descriptor into uint32 required by BPF syscall */
 	epFd := &EPPolicyValue{Fd: uint32(fd)}
 
 	for _, v := range keys {

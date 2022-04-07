@@ -1603,7 +1603,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		adds      Keys
 		deletes   Keys
 	}{{
-		name: "test-1a - Adding identity to deny with visibilty",
+		name: "test-1a - Adding identity to deny with visibility",
 		setup: MapState{
 			AnyIngressKey():           allowEntry(0),
 			testIngressKey(234, 0, 0): denyEntry(0, csFoo),
@@ -1935,7 +1935,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil)
 		}
 		adds, deletes = policyMaps.consumeMapChanges(policyMapState)
-		// Visibilty redirects need to be re-applied after consumeMapChanges()
+		// Visibility redirects need to be re-applied after consumeMapChanges()
 		visOld = make(MapState)
 		for _, arg := range tt.visArgs {
 			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, adds, visOld)

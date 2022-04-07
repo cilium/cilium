@@ -505,7 +505,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 		e.PolicyDebug(logrus.Fields{
 			logfields.BPFMapKey:   key,
 			logfields.BPFMapValue: entry,
-		}, "AddVisibilityKeys: Adding L4-only ALLOW key for visibilty redirect")
+		}, "AddVisibilityKeys: Adding L4-only ALLOW key for visibility redirect")
 		addL4OnlyKey = true
 		keys[key] = entry
 		adds[key] = struct{}{}
@@ -555,7 +555,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 					e.PolicyDebug(logrus.Fields{
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
-					}, "AddVisibilityKeys: Extending L3-only ALLOW key to L3/L4 key for visibilty redirect")
+					}, "AddVisibilityKeys: Extending L3-only ALLOW key to L3/L4 key for visibility redirect")
 					keys[k2] = v2
 					adds[k2] = struct{}{}
 

@@ -46,7 +46,7 @@ func (gi GlobalIdentity) GetKey() (str string) {
 }
 
 // GetAsMap encodes a GlobalIdentity a map of keys to values. The keys will
-// include a source delimted by a ':'. This output is pareable by PutKeyFromMap.
+// include a source delimited by a ':'. This output is pareable by PutKeyFromMap.
 func (gi GlobalIdentity) GetAsMap() map[string]string {
 	return gi.StringMap()
 }

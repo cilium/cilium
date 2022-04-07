@@ -41,8 +41,8 @@ func (s *KafkaSuite) SetUpSuite(c *C) {
 
 func (s *KafkaSuite) checkAccessLogs(c *C, expPasses, expDrops int) {
 	passes, drops := s.logServer.Clear()
-	c.Check(passes, Equals, expPasses, Commentf("Unxpected number of passed access log messages"))
-	c.Check(drops, Equals, expDrops, Commentf("Unxpected number of passed access log messages"))
+	c.Check(passes, Equals, expPasses, Commentf("Unexpected number of passed access log messages"))
+	c.Check(drops, Equals, expDrops, Commentf("Unexpected number of passed access log messages"))
 }
 
 func (s *KafkaSuite) TearDownTest(c *C) {

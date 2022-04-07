@@ -22,7 +22,7 @@ type CESToCEPMapping struct {
 	desiredCESs map[CESName]*cesTracker
 }
 
-// Creates and intializes the new CESToCEPMapping
+// Creates and initializes the new CESToCEPMapping
 func newDesiredCESMap() *CESToCEPMapping {
 	return &CESToCEPMapping{
 		desiredCESs:      make(map[CESName]*cesTracker),

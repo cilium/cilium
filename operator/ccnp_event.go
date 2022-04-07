@@ -26,7 +26,7 @@ import (
 // enableCCNPWatcher is similar to enableCNPWatcher but handles the watch events for
 // clusterwide policies. Since, internally Clusterwide policies are implemented
 // using CiliumNetworkPolicy itself, the entire implementation uses the methods
-// associcated with CiliumNetworkPolicy.
+// associated with CiliumNetworkPolicy.
 func enableCCNPWatcher() error {
 	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
 	if enableCNPStatusUpdates {

@@ -119,7 +119,7 @@ func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 }
 
 /*
-  GetDebuginfo retrieves information about the agent and evironment for debugging
+  GetDebuginfo retrieves information about the agent and environment for debugging
 */
 func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, error) {
 	// TODO: Validate the params before sending

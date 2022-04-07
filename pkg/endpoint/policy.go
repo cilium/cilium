@@ -381,10 +381,10 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 			return
 		}
 
-		// Guarntee removal of temporary directory regardless of outcome of
+		// Guarantee removal of temporary directory regardless of outcome of
 		// build. If the build was successful, the temporary directory will
 		// have been moved to a new permanent location. If the build failed,
-		// the temporary directory will still exist and we will reomve it.
+		// the temporary directory will still exist and we will remove it.
 		e.removeDirectory(tmpDir)
 
 		// Set to Ready, but only if no other changes are pending.
@@ -841,7 +841,7 @@ func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
 }
 
 // UpdateBandwidthPolicy updates the egress bandwidth of this endpoint to
-// progagate the throttle rate to the BPF data path.
+// propagate the throttle rate to the BPF data path.
 func (e *Endpoint) UpdateBandwidthPolicy(annoCB AnnotationsResolverCB) {
 	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyBandwidthEvent{
 		ep:     e,

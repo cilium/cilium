@@ -116,7 +116,7 @@ func init() {
         "tags": [
           "daemon"
         ],
-        "summary": "Retrieve information about the agent and evironment for debugging",
+        "summary": "Retrieve information about the agent and environment for debugging",
         "responses": {
           "200": {
             "description": "Success",
@@ -1876,7 +1876,7 @@ func init() {
           }
         },
         "lookup-time": {
-          "description": "The absolute time when this data was recieved",
+          "description": "The absolute time when this data was received",
           "type": "string",
           "format": "date-time"
         },
@@ -3728,7 +3728,7 @@ func init() {
           "type": "integer"
         },
         "ready": {
-          "description": "Indicates readiness of the remote cluser",
+          "description": "Indicates readiness of the remote cluster",
           "type": "boolean"
         },
         "status": {
@@ -4377,7 +4377,7 @@ func init() {
         "tags": [
           "daemon"
         ],
-        "summary": "Retrieve information about the agent and evironment for debugging",
+        "summary": "Retrieve information about the agent and environment for debugging",
         "responses": {
           "200": {
             "description": "Success",
@@ -6358,7 +6358,7 @@ func init() {
           }
         },
         "lookup-time": {
-          "description": "The absolute time when this data was recieved",
+          "description": "The absolute time when this data was received",
           "type": "string",
           "format": "date-time"
         },
@@ -8497,7 +8497,7 @@ func init() {
           "type": "integer"
         },
         "ready": {
-          "description": "Indicates readiness of the remote cluser",
+          "description": "Indicates readiness of the remote cluster",
           "type": "boolean"
         },
         "status": {

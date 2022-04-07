@@ -183,7 +183,7 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 				proto := loadbalancer.L4Type(port.Protocol)
 				port := uint16(port.NodePort)
 				// This can happen if the service type is NodePort/LoadBalancer but the upstream apiserver
-				// did not assign any NodePort to the serivce port field.
+				// did not assign any NodePort to the service port field.
 				// For example if `allocateLoadBalancerNodePorts` is set to false in the service
 				// spec. For more details see -
 				// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1864-disable-lb-node-ports

@@ -15,7 +15,7 @@ import (
 
 // MustCompile wraps go-version.NewConstraint, panicing when an error is
 // returns (this occurs when the constraint cannot be parsed).
-// It is intended to be use similar to re.MustCompile, to ensure unparseable
+// It is intended to be use similar to re.MustCompile, to ensure unparsable
 // constraints are caught in testing.
 func MustCompile(constraint string) semver.Range {
 	verCheck, err := Compile(constraint)

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	// fqdnRegexpStr matches an FQDN, inluding underscores.
+	// fqdnRegexpStr matches an FQDN, including underscores.
 	// FIXME this should not match components that begin or end with hyphens, e.g. -foo-
 	fqdnRegexpStr = `(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*)`
 	_             = regexp.MustCompile(fqdnRegexpStr) // compile regexp to ensure that it is valid

@@ -132,7 +132,7 @@ func (c *Client) Run(connected func()) (err error) {
 
 	//
 	// WithInsecure() is safe here because we are connecting to a Unix-domain socket,
-	// data of whch is never on the wire and security for which can be managed with file permissions.
+	// data of which is never on the wire and security for which can be managed with file permissions.
 	//
 	conn, err := grpc.Dial(unixPath, grpc.WithInsecure())
 	if err != nil {

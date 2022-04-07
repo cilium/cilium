@@ -75,7 +75,7 @@ type cesMgr struct {
 	desiredCESs *CESToCEPMapping
 
 	// workqueue is used to sync CESs with the api-server. this will rate-limit the
-	// CES requests going to api-server, ensures a single CES will not be proccessed
+	// CES requests going to api-server, ensures a single CES will not be processed
 	// multiple times concurrently, and if CES is added multiple times before it
 	// can be processed, this will only be processed only once.
 	queue workqueue.RateLimitingInterface

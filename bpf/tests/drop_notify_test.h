@@ -29,7 +29,7 @@
 // avoid it to be included again in lib/drop.h.
 #include "lib/metrics.h"
 
-// Define macros like the followings to make sure the original tailcall is redirected
+// Define macros like the following to make sure the original tailcall is redirected
 // to the mock tailcall function, the last 0 does not matter because we do not
 // actually use the arguments.
 #define ep_tail_call(a, b) tail_call(a, NULL, 0)

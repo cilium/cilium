@@ -51,7 +51,7 @@ type CiliumEnvoyConfigList struct {
 type CiliumEnvoyConfigSpec struct {
 	// Services specifies Kubernetes services for which traffic is
 	// forwarded to an Envoy listener for L7 load balancing. Backends
-	// of these services are automatically synced to Envoy usign EDS.
+	// of these services are automatically synced to Envoy using EDS.
 	//
 	// +kubebuilder:validation:Optional
 	Services []*ServiceListener `json:"services,omitempty"`

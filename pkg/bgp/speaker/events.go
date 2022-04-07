@@ -152,7 +152,7 @@ func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
 
 		st := s.speaker.SetService(k.id.String(), k.svc, k.eps)
 		if st == types.SyncStateSuccess && k.op == Delete {
-			// this is a delete operation and we have succcessfully
+			// this is a delete operation and we have successfully
 			// processed it, delete it from our fence.
 			s.Clear(k.UUID)
 		}
@@ -170,7 +170,7 @@ func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
 
 		st := s.speaker.SetService(k.id.String(), k.svc, k.eps)
 		if st == types.SyncStateSuccess && k.op == Delete {
-			// this is a delete operation and we have succcessfully
+			// this is a delete operation and we have successfully
 			// processed it, delete it from our fence.
 			s.Clear(k.UUID)
 		}

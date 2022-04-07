@@ -392,7 +392,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 				return allGood
 			}, helpers.HelperTimeout, 1*time.Second).Should(BeTrue(), "Istio services are not reachable")
 
-			// This is kept here for potential future debuging
+			// This is kept here for potential future debugging
 			//
 			// if !shouldWgetConnect(reviewsPodV1.String(), "reviews", formatAPI(ratings, apiPort, health)) {
 			// 	helpers.HoldEnvironment("Pausing test for debugging...")

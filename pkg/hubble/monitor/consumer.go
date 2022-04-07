@@ -85,7 +85,7 @@ func (c *consumer) sendEvent(event *observerTypes.MonitorEvent) {
 }
 
 // logStartedDropping logs that the events channel is full
-// and starts couting exactly how many messages it has
+// and starts counting exactly how many messages it has
 // lost until the consumer can recover.
 func (c *consumer) logStartedDropping() {
 	c.lostLock.Lock()

@@ -25,7 +25,7 @@ func UpdateCNPInformation() {
 		sem <- true
 		go func(cnp *cilium_v2.CiliumNetworkPolicy) {
 			defer func() { <-sem }()
-			// We use the saame cache for Clusterwide and Namespaced cilium policies
+			// We use the same cache for Clusterwide and Namespaced cilium policies
 			if cnp.ObjectMeta.Namespace == "" {
 				addDerivativePolicy(context.TODO(), cnp, true)
 			} else {

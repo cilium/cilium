@@ -155,7 +155,7 @@ func checkWildCardToFromEndpoint(ccnp *unstructured.Unstructured) error {
 		return err
 	}
 
-	// Print the warninig only once per CCNP.
+	// Print the warning only once per CCNP.
 	if resCCNP.Spec != nil {
 		if containsWildcardToFromEndpoint(resCCNP.Spec) {
 			logOnce.Do(func() {

@@ -94,7 +94,7 @@ func (d *daemonCleanup) Clean() {
 }
 
 // SetCancelFunc sets the function which is called when we receive a signal to
-// propagate cancelation down to ongoing operations. If it's already set,
+// propagate cancellation down to ongoing operations. If it's already set,
 // it does nothing.
 func (d *daemonCleanup) SetCancelFunc(cfunc context.CancelFunc) {
 	d.Lock()

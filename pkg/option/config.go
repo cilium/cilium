@@ -76,7 +76,7 @@ const (
 	AllowLocalhostPolicy = "policy"
 
 	// AnnotateK8sNode enables annotating a kubernetes node while bootstrapping
-	// the daemon, which can also be disbled using this option.
+	// the daemon, which can also be disabled using this option.
 	AnnotateK8sNode = "annotate-k8s-node"
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period
@@ -615,7 +615,7 @@ const (
 	SockRevNatEntriesName = "bpf-sock-rev-map-max"
 
 	// LogSystemLoadConfigName is the name of the option to enable system
-	// load loggging
+	// load logging
 	LogSystemLoadConfigName = "log-system-load"
 
 	// PrependIptablesChainsName is the name of the option to enable
@@ -657,7 +657,7 @@ const (
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName = "monitor-queue-size"
 
-	//FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
+	// FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
 
 	// FQDNProxyDenyWithNameError is useful when stub resolvers, like the one
@@ -856,7 +856,7 @@ const (
 	EnableLocalNodeRoute = "enable-local-node-route"
 
 	// EnableWellKnownIdentities enables the use of well-known identities.
-	// This is requires if identiy resolution is required to bring up the
+	// This is requires if identity resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities = "enable-well-known-identities"
 
@@ -1074,7 +1074,7 @@ const (
 	// HTTPRequestTimeout specifies the time in seconds after which forwarded requests time out
 	HTTPRequestTimeout = "http-request-timeout"
 
-	// HTTPIdleTimeout spcifies the time in seconds if http stream being idle after which the
+	// HTTPIdleTimeout specifies the time in seconds if http stream being idle after which the
 	// request times out
 	HTTPIdleTimeout = "http-idle-timeout"
 
@@ -1722,7 +1722,7 @@ type DaemonConfig struct {
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes bool
 
-	// Specifies wheather to annotate the kubernetes nodes or not
+	// Specifies whether to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
 
 	// RunMonitorAgent indicates whether to run the monitor agent
@@ -1908,7 +1908,7 @@ type DaemonConfig struct {
 	AllowICMPFragNeeded bool
 
 	// EnableWellKnownIdentities enables the use of well-known identities.
-	// This is requires if identiy resolution is required to bring up the
+	// This is requires if identity resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities bool
 
@@ -1923,7 +1923,7 @@ type DaemonConfig struct {
 
 	// PolicyAuditMode enables non-drop mode for installed policies. In
 	// audit mode packets affected by policies will not be dropped.
-	// Policy related decisions can be checked via the poicy verdict messages.
+	// Policy related decisions can be checked via the policy verdict messages.
 	PolicyAuditMode bool
 
 	// EnableHubble specifies whether to enable the hubble server.
@@ -3395,7 +3395,7 @@ func (c *DaemonConfig) validateVTEP() error {
 		len(vtepEndpoints) != len(vtepMACs) {
 		return fmt.Errorf("VTEP configuration must have the same number of Endpoint, VTEP and MAC configurations (Found %d endpoints, %d MACs, %d CIDR ranges)", len(vtepEndpoints), len(vtepMACs), len(vtepCIDRs))
 	}
-	//Todo: resolve github issue 18616 to lift the maximum 2 VTEP limit
+	// Todo: resolve github issue 18616 to lift the maximum 2 VTEP limit
 	if len(vtepEndpoints) > 2 {
 		return fmt.Errorf("VTEP must not exceed 2 VTEP devices (Found %d VTEPs)", len(vtepEndpoints))
 	}

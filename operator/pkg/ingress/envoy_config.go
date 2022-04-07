@@ -81,7 +81,7 @@ func getCECNameForIngress(ingress *slim_networkingv1.Ingress) string {
 func getSecret(k8sClient kubernetes.Interface, namespace, name string) (string, string, error) {
 	secret, err := k8sClient.CoreV1().Secrets(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
-		return "", "", fmt.Errorf("failied to get secret %s/%s: %v", namespace, name, err)
+		return "", "", fmt.Errorf("failed to get secret %s/%s: %v", namespace, name, err)
 	}
 	var tlsKey, tlsCrt []byte
 	var ok bool

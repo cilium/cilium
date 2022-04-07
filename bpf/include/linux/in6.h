@@ -123,7 +123,7 @@ struct in6_addr {
 #define IPV6_PMTUDISC_WANT		1
 #define IPV6_PMTUDISC_DO		2
 #define IPV6_PMTUDISC_PROBE		3
-/* same as IPV6_PMTUDISC_PROBE, provided for symetry with IPv4
+/* same as IPV6_PMTUDISC_PROBE, provided for symmetry with IPv4
  * also see comments on IP_PMTUDISC_INTERFACE
  */
 #define IPV6_PMTUDISC_INTERFACE		4

@@ -121,7 +121,7 @@ func NewTrigger(p Parameters) (*Trigger, error) {
 	return t, nil
 }
 
-// needsDelay returns whether and how long of a delay is required to fullfil
+// needsDelay returns whether and how long of a delay is required to fulfill
 // MinInterval
 func (t *Trigger) needsDelay() (bool, time.Duration) {
 	if t.params.MinInterval == time.Duration(0) {

@@ -105,7 +105,7 @@ func GetServiceListOptionsModifier(cfg ServiceConfiguration) (func(options *v1me
 	}, nil
 }
 
-// GetLatestPodReadiness returns the lastest podReady condition on a given pod.
+// GetLatestPodReadiness returns the latest podReady condition on a given pod.
 func GetLatestPodReadiness(podStatus slim_corev1.PodStatus) slim_corev1.ConditionStatus {
 	for _, cond := range podStatus.Conditions {
 		if cond.Type == slim_corev1.PodReady {

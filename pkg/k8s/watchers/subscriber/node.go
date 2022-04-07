@@ -20,7 +20,7 @@ type Node interface {
 	OnDeleteNode(*v1.Node, *lock.StoppableWaitGroup) error
 }
 
-// NodeChain holds the subsciber.Node implementations that are notified when reacting
+// NodeChain holds the subscriber.Node implementations that are notified when reacting
 // to K8s Node resource / object changes in the K8s watchers.
 //
 // NodeChain itself is an implementation of subscriber.Node with an additional

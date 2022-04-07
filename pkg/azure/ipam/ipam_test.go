@@ -150,7 +150,7 @@ func updateCiliumNode(cn *v2.CiliumNode, used int) *v2.CiliumNode {
 		}
 	}
 
-	log.Fatalf("Not enough adddresses available to simulate usage")
+	log.Fatalf("Not enough addresses available to simulate usage")
 
 	return cn
 }

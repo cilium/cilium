@@ -38,10 +38,10 @@
 #include "node_config.h"
 
 // To use mock library for functions in lib/conntrack.h, lib/conntrack.h must
-// be inlcude as well as mock/mock_conntrack_stub.h.
+// be include as well as mock/mock_conntrack_stub.h.
 #include "lib/conntrack.h"
 
-// Define macros like the followings to make sure the original customized
+// Define macros like the following to make sure the original customized
 // functions are mapped to the mock functions. To avoid conflict, we do not
 // name the mock customized functions as the original name like mock helper
 // functions because customized functions are actually implemented. Instead, we

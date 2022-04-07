@@ -385,7 +385,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 	bootstrapStats.restore.Start()
 	var restoreComplete chan struct{}
 	if option.Config.RestoreState {
-		// When we regenerate restored endpoints, it is guaranteed tha we have
+		// When we regenerate restored endpoints, it is guaranteed that we have
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
 		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints)

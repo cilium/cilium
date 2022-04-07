@@ -81,7 +81,7 @@ func newSelectorPolicy(revision uint64, selectorCache *SelectorCache) *selectorP
 }
 
 // insertUser adds a user to the L4Policy so that incremental
-// updates of the L4Policy may be fowarded.
+// updates of the L4Policy may be forwarded.
 func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
 	if p.L4Policy != nil {
 		p.L4Policy.insertUser(user)

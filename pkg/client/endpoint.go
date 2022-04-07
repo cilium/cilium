@@ -109,7 +109,7 @@ func (c *Client) EndpointLabelsGet(id string) (*models.LabelConfiguration, error
 // EndpointLabelsPut modifies endpoint label configuration
 // add: List of labels to add and enable. If the label is an orchestration
 // system label which has been disabled before, it will be removed from
-// the disabled list and readded to the orchestration list. Otherwise
+// the disabled list and rendered to the orchestration list. Otherwise
 // it will be added to the custom label list.
 //
 // delete: List of labels to delete. If the label is an orchestration system

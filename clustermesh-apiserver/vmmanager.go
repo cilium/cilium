@@ -189,7 +189,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 		} else if len(n.IPAddresses) > 0 {
 			// Phase 2: non-zero ID registration with addresses
 
-			// Override again, just in case the extenal node is misbehaving
+			// Override again, just in case the external node is misbehaving
 			nk := nodeOverrideFromCEW(n, cew)
 
 			id := m.LookupNodeIdentity(nk)

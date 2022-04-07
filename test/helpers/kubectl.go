@@ -467,7 +467,7 @@ func (kub *Kubectl) DeleteResourcesInAnyNamespace(resource string, names []strin
 	for _, combinedName := range allNames {
 		parts := strings.SplitN(combinedName, "/", 2)
 		if len(parts) != 2 {
-			return fmt.Errorf("The %s idenfifier '%s' is not in the form <namespace>/<name>", resource, combinedName)
+			return fmt.Errorf("The %s identifier '%s' is not in the form <namespace>/<name>", resource, combinedName)
 		}
 		namespace, name := parts[0], parts[1]
 		if _, ok := namesMap[name]; ok {
@@ -1054,7 +1054,7 @@ func (kub *Kubectl) GetPodNamesContext(ctx context.Context, namespace string, la
 
 	out := strings.Trim(stdout.String(), "\n")
 	if len(out) == 0 {
-		//Small hack. String split always return an array with an empty string
+		// Small hack. String split always return an array with an empty string
 		return []string{}, nil
 	}
 	return strings.Split(out, " "), nil
@@ -1937,7 +1937,7 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 			var err error
 			// The plumbing of Kubernetes services typically lags
 			// behind a little bit if Cilium was just restarted.
-			// Give this a thight timeout to avoid always failing.
+			// Give this a tight timeout to avoid always failing.
 			timeoutErr := RepeatUntilTrue(func() bool {
 				err = kub.validateServicePlumbingInCiliumPod(fullName, ciliumPod, serviceObj, endpointsObj)
 				if err != nil {
@@ -1963,7 +1963,7 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 // ValidateKubernetesDNS validates that the Kubernetes DNS server has been
 // deployed correctly and can resolve DNS names. The following validations are
 // done:
-//  - The Kuberentes DNS deployment has at least one replica
+//  - The Kubernetes DNS deployment has at least one replica
 //  - All replicas are up-to-date and ready
 //  - All pods matching the deployment are represented by a CiliumEndpoint with an identity
 //  - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
@@ -2250,7 +2250,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 }
 
 // WaitTerminatingPods waits until all nodes that are in `Terminating`
-// state are deleted correctly in the platform. In case of excedding the
+// state are deleted correctly in the platform. In case of exceeding the
 // given timeout (in seconds) it returns an error.
 
 func (kub *Kubectl) WaitTerminatingPods(timeout time.Duration) error {
@@ -2258,14 +2258,14 @@ func (kub *Kubectl) WaitTerminatingPods(timeout time.Duration) error {
 }
 
 // WaitTerminatingPodsInNs waits until all nodes that are in `Terminating`
-// state are deleted correctly in the platform. In case of excedding the
+// state are deleted correctly in the platform. In case of exceeding the
 // given timeout (in seconds) it returns an error.
 func (kub *Kubectl) WaitTerminatingPodsInNs(ns string, timeout time.Duration) error {
 	return kub.WaitTerminatingPodsInNsWithFilter(ns, "", timeout)
 }
 
 // WaitTerminatingPodsInNs waits until all nodes that are in `Terminating`
-// state are deleted correctly in the platform. In case of excedding the
+// state are deleted correctly in the platform. In case of exceeding the
 // given timeout (in seconds) it returns an error.
 func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout time.Duration) error {
 	var innerErr error
@@ -3564,7 +3564,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 					"Cannot untar bugtool output: %s", res.CombineOutput())
 				continue
 			}
-			//Remove bugtool artifact, so it'll be not used if any other fail test
+			// Remove bugtool artifact, so it'll be not used if any other fail test
 			_ = kub.ExecPodCmdBackground(ctx, namespace, pod, "cilium-agent", fmt.Sprintf("rm /tmp/%s", line))
 		}
 
@@ -3682,7 +3682,7 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(ctx context.Context, reportC
 }
 
 // getCiliumPodOnNodeByName returns the name of the Cilium pod that is running on / in
-//the specified node / namespace.
+// the specified node / namespace.
 func (kub *Kubectl) getCiliumPodOnNodeByName(node string) (string, error) {
 	filter := fmt.Sprintf(
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
@@ -4606,7 +4606,7 @@ func hasIPAddress(output []string) (bool, string) {
 }
 
 func (kub *Kubectl) ensureKubectlVersion() error {
-	//check current kubectl version
+	// check current kubectl version
 	type Version struct {
 		ClientVersion struct {
 			Major string `json:"major"`
@@ -4632,7 +4632,7 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 	})
 	versionstring := fmt.Sprintf("%s.%s", v.ClientVersion.Major, minor)
 	if versionstring == GetCurrentK8SEnv() {
-		//version available on host is matching current env
+		// version available on host is matching current env
 		return nil
 	}
 

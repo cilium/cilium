@@ -270,7 +270,7 @@ func (m *Manager) Close() {
 	}
 }
 
-// ClusterSizeDependantInterval returns a time.Duration that is dependant on
+// ClusterSizeDependantInterval returns a time.Duration that is dependent on
 // the cluster size, i.e. the number of nodes that have been discovered. This
 // can be used to control sync intervals of shared or centralized resources to
 // avoid overloading these resources as the cluster grows.

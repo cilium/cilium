@@ -221,7 +221,7 @@ bench: start-kvstores ## Run benchmarks for Cilium integration-tests in the repo
 	done
 	$(MAKE) stop-kvstores
 
-bench-privileged: GO_TAGS_FLAGS+=privileged_tests ## Run benchmarks for priviliged tests.
+bench-privileged: GO_TAGS_FLAGS+=privileged_tests ## Run benchmarks for privileged tests.
 bench-privileged:
 	# Process the packages in different subshells. See comment in the
 	# "integration-tests" target above for an explanation.
@@ -521,7 +521,7 @@ kind-image:
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_IMAGE)
 
-precheck: logging-subsys-field ## Peform build precheck for the source code.
+precheck: logging-subsys-field ## Perform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh

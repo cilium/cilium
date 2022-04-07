@@ -8,7 +8,7 @@ TESTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 BPFDIR="$TESTDIR/../../bpf/"
 
 function get_insn_cnt {
-	grep -e "^Prog" -e processed -e "Proccessed" -e "^=>" -e "over limit"
+	grep -e "^Prog" -e processed -e "Processed" -e "^=>" -e "over limit"
 }
 
 # These are derived from bpf/lib/common.h CILIUM_CALL_*.

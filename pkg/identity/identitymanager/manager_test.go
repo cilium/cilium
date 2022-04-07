@@ -182,7 +182,7 @@ func (s *IdentityManagerTestSuite) TestLocalEndpointIdentityRemoved(c *C) {
 	// - nil Identity.
 	// - Identity that isn't managed
 	idm.Remove(nil)
-	// This will log a warnign!
+	// This will log a warning!
 	idm.Remove(fooIdentity)
 
 	// Basic remove

@@ -177,7 +177,7 @@ program can have a kernel representation of the network packet (``skb``) as the
 input argument.
 
 The general operation of BPF is 64 bit to follow the natural model of 64 bit
-architectures in order to perform pointer arithmetics, pass pointers but also pass 64
+architectures in order to perform pointer arithmetic, pass pointers but also pass 64
 bit values into helper functions, and to allow for 64 bit atomic operations.
 
 The maximum instruction limit per program is restricted to 4096 BPF instructions,

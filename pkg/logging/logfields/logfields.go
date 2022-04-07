@@ -186,7 +186,7 @@ const (
 	// NewCIDR is the new subnet/CIDR
 	NewCIDR = "newCIDR"
 
-	// IPAddrs is a lsit of IP addrs
+	// IPAddrs is a list of IP addrs
 	IPAddrs = "ipAddrs"
 
 	// MTU is the maximum transmission unit of one interface
@@ -310,7 +310,7 @@ const (
 	// Devices is the devices name
 	Devices = "devices"
 
-	//DirectRoutingDevice is the name of the direct routing device
+	// DirectRoutingDevice is the name of the direct routing device
 	DirectRoutingDevice = "directRoutingDevice"
 
 	// IpvlanMasterDevice is the ipvlan master device name

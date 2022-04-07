@@ -36,7 +36,7 @@ const (
 // +k8s:openapi-gen=false
 // +deepequal-gen=false
 type LabelPrefix struct {
-	// Ignore if true will cause this prefix to be ignored insted of being accepted
+	// Ignore if true will cause this prefix to be ignored instead of being accepted
 	Ignore bool   `json:"invert"`
 	Prefix string `json:"prefix"`
 	Source string `json:"source"`

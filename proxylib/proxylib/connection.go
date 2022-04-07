@@ -26,7 +26,7 @@ import (
 // of the buffer in the slice header is increased correspondingly. To make
 // the the injected data visible to the caller we need to pass the slice header
 // by reference rather than by value, hence the pointer in the type.
-// As the caller is typically in a differnent memory management domain (not
+// As the caller is typically in a different memory management domain (not
 // subject to Go runtime garbage collection), the underlying buffer may never
 // be expanded or otherwise reallocated.
 type InjectBuf *[]byte

@@ -31,7 +31,7 @@ type ServiceMerger interface {
 }
 
 // PortConfiguration is the L4 port configuration of a frontend or backend. The
-// map is indexed by the name of the port and the value constains the L4 port
+// map is indexed by the name of the port and the value contains the L4 port
 // and protocol.
 //
 // +deepequal-gen=true

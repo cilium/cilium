@@ -963,7 +963,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	_, exists := s.proxy.restored[epID1]
 	c.Assert(exists, Equals, true)
 
-	// 3nd request, answered due to restored Endpoint and rules being found
+	// 3rd request, answered due to restored Endpoint and rules being found
 	request = new(dns.Msg)
 	request.SetQuestion(query, dns.TypeA)
 	response, rtt, err = s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())

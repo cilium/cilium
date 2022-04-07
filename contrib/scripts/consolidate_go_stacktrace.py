@@ -68,7 +68,7 @@ if __name__ == "__main__":
     # print count of each unique stack, and a sample, sorted by frequency
     print("{} unique stack traces".format(len(consolidated)))
     for stack in sorted(consolidated.values(), key=cmp_to_key(lambda a,b: len(a)-len(b)), reverse=True):
-        print("{} occurences. Sample stack trace:".format(len(stack)))
+        print("{} occurrences. Sample stack trace:".format(len(stack)))
         print("\n".join(stack[0]))
 
     if f != sys.stdin:

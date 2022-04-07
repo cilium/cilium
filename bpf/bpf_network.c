@@ -54,7 +54,7 @@ int from_network(struct __ctx_buff *ctx)
  * do_decrypt marks them with MARK_MAGIC_DECRYPT.
  *
  * 2. will be traced without TRACE_REASON_ENCRYPTED, because
- * do_decrypt does't touch to mark.
+ * do_decrypt doesn't touch to mark.
  *
  * 3. will be traced without TRACE_REASON_ENCRYPTED, because
  * do_decrypt clears the mark.

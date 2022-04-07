@@ -257,7 +257,7 @@ func init() {
 	}
 }
 
-// Hint tries to improve the error message displayed to te user.
+// Hint tries to improve the error message displayed to the user.
 func Hint(err error) error {
 	switch err {
 	case context.DeadlineExceeded:
@@ -1564,7 +1564,7 @@ func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, va
 // FIXME: When we rebase to etcd 3.3
 //
 // DeleteOnZeroCount deletes the key if no matching keys for prefix exist
-//func (e *etcdClient) DeleteOnZeroCount(key, prefix string) error {
+// func (e *etcdClient) DeleteOnZeroCount(key, prefix string) error {
 //	txnresp, err := e.client.Txn(ctx.TODO()).
 //		If(client.Compare(client.Version(prefix).WithPrefix(), "=", 0)).
 //		Then(client.OpDelete(key)).
@@ -1578,7 +1578,7 @@ func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, va
 //	}
 //
 //	return nil
-//}
+// }
 
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
 func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (v KeyValuePairs, err error) {

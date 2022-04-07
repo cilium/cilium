@@ -635,7 +635,7 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 	l4.attach(nil, nil)
 }
 
-// attach signifies that the L4Filter is ready and reacheable for updates
+// attach signifies that the L4Filter is ready and reachable for updates
 // from SelectorCache. L4Filter is read-only after this is called,
 // multiple goroutines will be reading the fields from that point on.
 func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {

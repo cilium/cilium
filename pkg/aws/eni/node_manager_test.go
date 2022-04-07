@@ -792,7 +792,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	// Announce node, ENI attachement will fail
+	// Announce node, ENI attachment will fail
 	cn := newCiliumNode("node1", "i-testNodeManagerInstanceNotRunning-0", "m4.large", "us-west-1", "vpc-1", 1, 8, 0, 0)
 	mngr.Update(cn)
 

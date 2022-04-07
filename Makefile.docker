@@ -69,7 +69,7 @@ else
 endif
 
 #
-# Template for Docker images. Paramaters are:
+# Template for Docker images. Parameters are:
 # $(1) image target name
 # $(2) Dockerfile path
 # $(3) image name stem (e.g., cilium, cilium-operator, etc)

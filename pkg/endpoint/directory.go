@@ -109,7 +109,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 			return fmt.Errorf("unable to rename current endpoint directory: %s", err)
 		}
 
-		// Regarldess of whether the atomic replace succeeds or not,
+		// Regardless of whether the atomic replace succeeds or not,
 		// ensure that the backup directory is removed when the
 		// function returns.
 		defer e.removeDirectory(backupDir)

@@ -19,7 +19,7 @@ type CiliumNode interface {
 	OnDeleteCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error
 }
 
-// CiliumNodeChain holds the subsciber.CiliumNode implementations that are
+// CiliumNodeChain holds the subscriber.CiliumNode implementations that are
 // notified when reacting to CiliumNode resource / object changes in the K8s
 // watchers.
 //

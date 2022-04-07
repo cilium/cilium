@@ -30,7 +30,7 @@ import (
 // query_action = 'select', query_table = 'deathstar.scrum_notes'
 // query_action = 'insert', query_table = 'covalent.foo'
 //
-// Batch requests are logged as invidual queries, but an entire batch request will be allowed
+// Batch requests are logged as individual queries, but an entire batch request will be allowed
 // only if all requests are allowed.
 
 // Non-query client requests, including 'Options', 'Auth_Response', 'Startup', and 'Register'

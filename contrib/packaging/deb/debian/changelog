@@ -13,7 +13,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * Minor formatting and graphic fixes for k8s getting started guide
 
   [ André Martins ]
-  * cni: ommiting errors for endpoint not found on DEL
+  * cni: omitting errors for endpoint not found on DEL
   * cni: setting net.ipv6.conf.all.disable_ipv6=0
 
   [ Thomas Graf ]
@@ -31,7 +31,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * cilium: data
 
   [ Eloy Coto ]
-  * Monitor: omiting panic when no events Fix #757
+  * Monitor: omitting panic when no events Fix #757
 
   [ Jarno Rajahalme ]
   * tests: Show which test is running.
@@ -279,7 +279,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
 
   [ André Martins ]
   * add bindata.go to the list of ignore files
-  * daemon: reoder flags and enhanced flags description
+  * daemon: reorder flags and enhanced flags description
 
   [ craigbox ]
   * Update gettingstarted.rst for minikube 0.20
@@ -369,8 +369,8 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * vagrant: Use --ipv6-range to set per node prefix
   * agent: Print IPv4/IPv6 node IPs when starting up
   * agent: Provide options to overwrite IPv4/IPv6 node address
-  * agent: Derive real IPv6 node adress and split router address
-  * tests/lb: Do not rely on cilium_host having a global scope addres
+  * agent: Derive real IPv6 node address and split router address
+  * tests/lb: Do not rely on cilium_host having a global scope address
   * tests/proxy: Show return http codes
   * agent: Masquerade IPv4 packets which leave the host
   * bpf: Delay opening of maps to after mount
@@ -437,7 +437,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * api: Regenerate API code
   * agent/client: Report policy revision via API and print in CLI
   * agent: Report repository revision as endpoint policy build
-  * cilium: New 'cilium policy wait <revison>` command
+  * cilium: New 'cilium policy wait <revision>` command
   * tests: Add helpers to wait for all endpoints to run a policy revision
   * Makefile: run etcd 3.1.0 for unit tests
   * vagrant: Fail if cilium.service fails and print log
@@ -530,7 +530,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * Minor formatting and graphic fixes for k8s getting started guide
 
   [ André Martins ]
-  * cni: ommiting errors for endpoint not found on DEL
+  * cni: omitting errors for endpoint not found on DEL
   * cni: setting net.ipv6.conf.all.disable_ipv6=0
 
   [ Thomas Graf ]
@@ -556,7 +556,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * Minor formatting and graphic fixes for k8s getting started guide
 
   [ André Martins ]
-  * cni: ommiting errors for endpoint not found on DEL
+  * cni: omitting errors for endpoint not found on DEL
   * cni: setting net.ipv6.conf.all.disable_ipv6=0
 
   [ Thomas Graf ]
@@ -574,7 +574,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * cilium: data
 
   [ Eloy Coto ]
-  * Monitor: omiting panic when no events Fix #757
+  * Monitor: omitting panic when no events Fix #757
 
   [ Jarno Rajahalme ]
   * tests: Show which test is running.
@@ -822,7 +822,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
 
   [ André Martins ]
   * add bindata.go to the list of ignore files
-  * daemon: reoder flags and enhanced flags description
+  * daemon: reorder flags and enhanced flags description
 
   [ craigbox ]
   * Update gettingstarted.rst for minikube 0.20
@@ -912,8 +912,8 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * vagrant: Use --ipv6-range to set per node prefix
   * agent: Print IPv4/IPv6 node IPs when starting up
   * agent: Provide options to overwrite IPv4/IPv6 node address
-  * agent: Derive real IPv6 node adress and split router address
-  * tests/lb: Do not rely on cilium_host having a global scope addres
+  * agent: Derive real IPv6 node address and split router address
+  * tests/lb: Do not rely on cilium_host having a global scope address
   * tests/proxy: Show return http codes
   * agent: Masquerade IPv4 packets which leave the host
   * bpf: Delay opening of maps to after mount
@@ -980,7 +980,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * api: Regenerate API code
   * agent/client: Report policy revision via API and print in CLI
   * agent: Report repository revision as endpoint policy build
-  * cilium: New 'cilium policy wait <revison>` command
+  * cilium: New 'cilium policy wait <revision>` command
   * tests: Add helpers to wait for all endpoints to run a policy revision
   * Makefile: run etcd 3.1.0 for unit tests
   * vagrant: Fail if cilium.service fails and print log
@@ -1082,7 +1082,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * Minor formatting and graphic fixes for k8s getting started guide
 
   [ André Martins ]
-  * cni: ommiting errors for endpoint not found on DEL
+  * cni: omitting errors for endpoint not found on DEL
   * cni: setting net.ipv6.conf.all.disable_ipv6=0
 
   [ Thomas Graf ]
@@ -1100,7 +1100,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * cilium: data
 
   [ Eloy Coto ]
-  * Monitor: omiting panic when no events Fix #757
+  * Monitor: omitting panic when no events Fix #757
 
   [ Jarno Rajahalme ]
   * tests: Show which test is running.
@@ -1348,7 +1348,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
 
   [ André Martins ]
   * add bindata.go to the list of ignore files
-  * daemon: reoder flags and enhanced flags description
+  * daemon: reorder flags and enhanced flags description
 
   [ craigbox ]
   * Update gettingstarted.rst for minikube 0.20
@@ -1438,8 +1438,8 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * vagrant: Use --ipv6-range to set per node prefix
   * agent: Print IPv4/IPv6 node IPs when starting up
   * agent: Provide options to overwrite IPv4/IPv6 node address
-  * agent: Derive real IPv6 node adress and split router address
-  * tests/lb: Do not rely on cilium_host having a global scope addres
+  * agent: Derive real IPv6 node address and split router address
+  * tests/lb: Do not rely on cilium_host having a global scope address
   * tests/proxy: Show return http codes
   * agent: Masquerade IPv4 packets which leave the host
   * bpf: Delay opening of maps to after mount
@@ -1506,7 +1506,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * api: Regenerate API code
   * agent/client: Report policy revision via API and print in CLI
   * agent: Report repository revision as endpoint policy build
-  * cilium: New 'cilium policy wait <revison>` command
+  * cilium: New 'cilium policy wait <revision>` command
   * tests: Add helpers to wait for all endpoints to run a policy revision
   * Makefile: run etcd 3.1.0 for unit tests
   * vagrant: Fail if cilium.service fails and print log
@@ -1603,7 +1603,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * Minor formatting and graphic fixes for k8s getting started guide
 
   [ André Martins ]
-  * cni: ommiting errors for endpoint not found on DEL
+  * cni: omitting errors for endpoint not found on DEL
   * cni: setting net.ipv6.conf.all.disable_ipv6=0
 
   [ Thomas Graf ]
@@ -1621,7 +1621,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * cilium: data
 
   [ Eloy Coto ]
-  * Monitor: omiting panic when no events Fix #757
+  * Monitor: omitting panic when no events Fix #757
 
   [ Jarno Rajahalme ]
   * tests: Show which test is running.
@@ -1838,7 +1838,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * Minor formatting and graphic fixes for k8s getting started guide
 
   [ André Martins ]
-  * cni: ommiting errors for endpoint not found on DEL
+  * cni: omitting errors for endpoint not found on DEL
   * cni: setting net.ipv6.conf.all.disable_ipv6=0
 
   [ Thomas Graf ]
@@ -1856,7 +1856,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * cilium: data
 
   [ Eloy Coto ]
-  * Monitor: omiting panic when no events Fix #757
+  * Monitor: omitting panic when no events Fix #757
 
   [ Jarno Rajahalme ]
   * tests: Show which test is running.
@@ -2104,7 +2104,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
 
   [ André Martins ]
   * add bindata.go to the list of ignore files
-  * daemon: reoder flags and enhanced flags description
+  * daemon: reorder flags and enhanced flags description
 
   [ craigbox ]
   * Update gettingstarted.rst for minikube 0.20
@@ -2194,8 +2194,8 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * vagrant: Use --ipv6-range to set per node prefix
   * agent: Print IPv4/IPv6 node IPs when starting up
   * agent: Provide options to overwrite IPv4/IPv6 node address
-  * agent: Derive real IPv6 node adress and split router address
-  * tests/lb: Do not rely on cilium_host having a global scope addres
+  * agent: Derive real IPv6 node address and split router address
+  * tests/lb: Do not rely on cilium_host having a global scope address
   * tests/proxy: Show return http codes
   * agent: Masquerade IPv4 packets which leave the host
   * bpf: Delay opening of maps to after mount
@@ -2262,7 +2262,7 @@ cilium (0.9.90) UNRELEASED; urgency=medium
   * api: Regenerate API code
   * agent/client: Report policy revision via API and print in CLI
   * agent: Report repository revision as endpoint policy build
-  * cilium: New 'cilium policy wait <revison>` command
+  * cilium: New 'cilium policy wait <revision>` command
   * tests: Add helpers to wait for all endpoints to run a policy revision
   * Makefile: run etcd 3.1.0 for unit tests
   * vagrant: Fail if cilium.service fails and print log

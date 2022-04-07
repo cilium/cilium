@@ -118,7 +118,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	assertEgressRules(c, []egressRule{})
 
-	// Restore the old endpoint lables in order for it to be a match
+	// Restore the old endpoint labels in order for it to be a match
 	ep1.Identity.Labels = oldEp1Labels
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
