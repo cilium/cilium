@@ -128,6 +128,7 @@ Terraform
 Tierney
 Tu
 Twilio
+Uptime
 VM
 VPC
 Vagrantcloud
@@ -258,6 +259,7 @@ cnpStatusUpdates
 codebase
 committer
 committers
+compat
 compinit
 conf
 confFileMountPath
@@ -307,6 +309,7 @@ decapsulated
 decapsulation
 decrypt
 decrypted
+deepcopy
 deletetopic
 demux
 dereference
@@ -471,6 +474,7 @@ identityChangeGracePeriod
 identityGCInterval
 identityHeartbeatTimeout
 ie
+ifindex
 imagePullSecrets
 incrementing
 indices
@@ -685,6 +689,7 @@ originatingTLS
 pahole
 parserfactory
 parsers
+passthrough
 pc
 pcap
 perf
@@ -728,6 +733,7 @@ prog
 programmability
 prometheus
 protobuf
+proxying
 proxylib
 pullPolicy
 qdisc

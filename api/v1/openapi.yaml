@@ -3064,7 +3064,7 @@ definitions:
         description: The TTL in the DNS response
         type: integer
       lookup-time:
-        description: The absolute time when this data was recieved
+        description: The absolute time when this data was received
         type: string
         format: date-time
       expiration-time:
