@@ -290,7 +290,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// Release of these identities will be tied to the corresponding policy
 	// in the policy.Repository and released upon policyDelete().
 	newlyAllocatedIdentities := make(map[string]*identity.Identity)
-	if _, err := d.ipcache.AllocateCIDRs(prefixes, newlyAllocatedIdentities); err != nil {
+	if _, err := d.ipcache.AllocateCIDRs(prefixes, nil, newlyAllocatedIdentities); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")

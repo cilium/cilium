@@ -164,6 +164,7 @@ cilium-agent [flags]
       --hubble-tls-key-file string                           Path to the private key file for the Hubble server. The file must contain PEM encoded data.
       --identity-allocation-mode string                      Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration                Time to wait before using new identity on endpoint identity change (default 5s)
+      --identity-restore-grace-period duration               Time to wait before releasing unused restored CIDR identities during agent restart (default 10m0s)
       --install-iptables-rules                               Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
       --install-no-conntrack-iptables-rules                  Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.
       --ip-allocation-timeout duration                       Time after which an incomplete CIDR allocation is considered failed (default 2m0s)

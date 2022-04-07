@@ -27,10 +27,13 @@ import (
 // identities are placed in 'newlyAllocatedIdentities' and it is the caller's
 // responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
 //
+// Previously used numeric identities for the given prefixes may be passed in as the
+// 'oldNIDs' parameter; nil slice must be passed if no previous numeric identities exist.
+//
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
 func (ipc *IPCache) AllocateCIDRs(
-	prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity,
+	prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[string]*identity.Identity,
 ) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
 	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
@@ -44,15 +47,18 @@ func (ipc *IPCache) AllocateCIDRs(
 	}
 
 	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
-	for _, p := range prefixes {
+	for i, p := range prefixes {
 		if p == nil {
 			continue
 		}
 
 		lbls := cidr.GetCIDRLabels(p)
 		lbls.MergeLabels(ipc.GetIDMetadataByIP(p.IP.String()))
-
-		id, isNew, err := ipc.allocate(p, lbls)
+		oldNID := identity.InvalidIdentity
+		if oldNIDs != nil && len(oldNIDs) > i {
+			oldNID = oldNIDs[i]
+		}
+		id, isNew, err := ipc.allocate(p, lbls, oldNID)
 		if err != nil {
 			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, err
@@ -87,7 +93,7 @@ func (ipc *IPCache) AllocateCIDRs(
 func (ipc *IPCache) AllocateCIDRsForIPs(
 	prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity,
 ) ([]*identity.Identity, error) {
-	return ipc.AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), newlyAllocatedIdentities)
+	return ipc.AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), nil, newlyAllocatedIdentities)
 }
 
 func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity) {
@@ -107,9 +113,13 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[strin
 // If the identity is a CIDR identity, then its corresponding Identity will
 // have its CIDR labels set correctly.
 //
+// A possible previously used numeric identity for these labels can be passed
+// in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
+// previous numeric identity exists.
+//
 // It is up to the caller to provide the full set of labels for identity
 // allocation.
-func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.Identity, bool, error) {
+func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	if prefix == nil {
 		return nil, false, nil
 	}
@@ -117,7 +127,7 @@ func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.I
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 	defer cancel()
 
-	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(allocateCtx, lbls, false)
+	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(allocateCtx, lbls, false, oldNID)
 	if err != nil {
 		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
 	}

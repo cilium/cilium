@@ -469,6 +469,9 @@ func initializeFlags() {
 	flags.Duration(option.IdentityChangeGracePeriod, defaults.IdentityChangeGracePeriod, "Time to wait before using new identity on endpoint identity change")
 	option.BindEnv(option.IdentityChangeGracePeriod)
 
+	flags.Duration(option.IdentityRestoreGracePeriod, defaults.IdentityRestoreGracePeriod, "Time to wait before releasing unused restored CIDR identities during agent restart")
+	option.BindEnv(option.IdentityRestoreGracePeriod)
+
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(option.IdentityAllocationMode)
 
@@ -1768,6 +1771,23 @@ func runDaemon() {
 			})
 			ms.CollectStaleMapGarbage()
 			ms.RemoveDisabledMaps()
+
+			if len(d.restoredCIDRs) > 0 {
+				// Release restored CIDR identities after a grace period (default 10
+				// minutes).  Any identities actually in use will still exist after
+				// this.
+				//
+				// This grace period is needed when running on an external workload
+				// where policy synchronization is not done via k8s. Also in k8s
+				// case it is prudent to allow concurrent endpoint regenerations to
+				// (re-)allocate the restored identities before we release them.
+				time.Sleep(option.Config.IdentityRestoreGracePeriod)
+				log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
+
+				d.ipcache.ReleaseCIDRIdentitiesByCIDR(d.restoredCIDRs)
+				// release the memory held by restored CIDRs
+				d.restoredCIDRs = nil
+			}
 		}()
 		d.endpointManager.Subscribe(d)
 		defer d.endpointManager.Unsubscribe(d)
