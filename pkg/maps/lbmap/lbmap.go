@@ -597,7 +597,8 @@ func updateBackend(backend Backend) error {
 }
 
 func deleteBackendLocked(key BackendKey) error {
-	return key.Map().Delete(key)
+	_, err := key.Map().SilentDelete(key)
+	return err
 }
 
 func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
