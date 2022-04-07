@@ -239,7 +239,7 @@ func (e *Endpoint) restoreIdentity() error {
 	// requests.
 	controllerName := fmt.Sprintf("restoring-ep-identity (%v)", e.ID)
 	var (
-		identity          *identity.Identity
+		id                *identity.Identity
 		allocatedIdentity = make(chan struct{})
 	)
 	e.UpdateController(controllerName,
@@ -247,7 +247,7 @@ func (e *Endpoint) restoreIdentity() error {
 			DoFunc: func(ctx context.Context) (err error) {
 				allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 				defer cancel()
-				identity, _, err = e.allocator.AllocateIdentity(allocateCtx, l, true)
+				id, _, err = e.allocator.AllocateIdentity(allocateCtx, l, true, identity.InvalidIdentity)
 				if err != nil {
 					return err
 				}
@@ -268,7 +268,7 @@ func (e *Endpoint) restoreIdentity() error {
 	// kvstore before doing any policy calculation for
 	// endpoints that don't have a fixed identity or are
 	// not well known.
-	if !identity.IsFixed() && !identity.IsWellKnown() {
+	if !id.IsFixed() && !id.IsWellKnown() {
 		// Getting the initial global identities while we are restoring should
 		// block the restoring of the endpoint.
 		// If the endpoint is removed, this controller will cancel the allocator
@@ -315,11 +315,11 @@ func (e *Endpoint) restoreIdentity() error {
 	e.setState(StateRestoring, "Synchronizing endpoint labels with KVStore")
 
 	if e.SecurityIdentity != nil {
-		if oldSecID := e.SecurityIdentity.ID; identity.ID != oldSecID {
+		if oldSecID := e.SecurityIdentity.ID; id.ID != oldSecID {
 			log.WithFields(logrus.Fields{
 				logfields.EndpointID:              e.ID,
 				logfields.IdentityLabels + ".old": oldSecID,
-				logfields.IdentityLabels + ".new": identity.ID,
+				logfields.IdentityLabels + ".new": id.ID,
 			}).Info("Security identity for endpoint is different from the security identity restored for the endpoint")
 
 			// The identity of the endpoint being
@@ -364,7 +364,7 @@ func (e *Endpoint) restoreIdentity() error {
 	// The identity of a freshly restored endpoint is incomplete due to some
 	// parts of the identity not being marshaled to JSON. Hence we must set
 	// the identity even if has not changed.
-	e.SetIdentity(identity, true)
+	e.SetIdentity(id, true)
 	e.unlock()
 
 	return nil
