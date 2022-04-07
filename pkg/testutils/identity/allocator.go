@@ -56,7 +56,7 @@ func (f *FakeIdentityAllocator) GetIdentities() cache.IdentitiesModel {
 }
 
 // AllocateIdentity does nothing.
-func (f *FakeIdentityAllocator) AllocateIdentity(context.Context, labels.Labels, bool) (*identity.Identity, bool, error) {
+func (f *FakeIdentityAllocator) AllocateIdentity(context.Context, labels.Labels, bool, identity.NumericIdentity) (*identity.Identity, bool, error) {
 	return nil, true, nil
 }
 

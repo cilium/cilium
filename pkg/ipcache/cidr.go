@@ -47,10 +47,13 @@ var (
 // identities are placed in 'newlyAllocatedIdentities' and it is the caller's
 // responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
 //
+// Previously used numeric identities for the given prefixes may be passed in as the
+// 'oldNIDs' parameter; nil slice must be passed if no previous numeric identities exist.
+//
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
-func AllocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
-	return allocateCIDRs(prefixes, newlyAllocatedIdentities)
+func AllocateCIDRs(prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
+	return allocateCIDRs(prefixes, oldNIDs, newlyAllocatedIdentities)
 }
 
 // AllocateCIDRsForIPs attempts to allocate identities for a list of CIDRs. If
@@ -63,7 +66,7 @@ func AllocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByID().
 func AllocateCIDRsForIPs(prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
-	return allocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), newlyAllocatedIdentities)
+	return allocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), nil, newlyAllocatedIdentities)
 }
 
 func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity) {
@@ -75,7 +78,7 @@ func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Ide
 	}
 }
 
-func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
+func allocateCIDRs(prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
 	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
 
@@ -88,7 +91,7 @@ func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 		newlyAllocatedIdentities = map[string]*identity.Identity{}
 	}
 
-	for _, prefix := range prefixes {
+	for i, prefix := range prefixes {
 		if prefix == nil {
 			continue
 		}
@@ -102,7 +105,11 @@ func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 		if IdentityAllocator == nil {
 			return nil, fmt.Errorf("IdentityAllocator not initialized!")
 		}
-		id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false)
+		oldNID := identity.InvalidIdentity
+		if oldNIDs != nil && len(oldNIDs) > i {
+			oldNID = oldNIDs[i]
+		}
+		id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false, oldNID)
 		if err != nil {
 			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefixStr, err)
@@ -115,7 +122,6 @@ func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*i
 		if isNew {
 			newlyAllocatedIdentities[prefixStr] = id
 		}
-
 	}
 
 	allocatedIdentitiesSlice := make([]*identity.Identity, 0, len(allocatedIdentities))
