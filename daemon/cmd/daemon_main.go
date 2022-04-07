@@ -1578,13 +1578,9 @@ func (d *Daemon) initKVStore() {
 func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
 	var wgAgent *wireguard.Agent
 	if option.Config.EnableWireguard {
-		switch {
-		case option.Config.EnableIPSec:
+		if option.Config.EnableIPSec {
 			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
 				option.EnableWireguard, option.EnableIPSecName)
-		case option.Config.EnableL7Proxy:
-			log.Fatalf("Wireguard (--%s) is not compatible with L7 proxy (--%s)",
-				option.EnableWireguard, option.EnableL7Proxy)
 		}
 
 		var err error
