@@ -346,7 +346,8 @@ func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 func areDevicesRequired() bool {
 	return option.Config.EnableNodePort ||
 		option.Config.EnableHostFirewall ||
-		option.Config.EnableBandwidthManager
+		option.Config.EnableBandwidthManager ||
+		option.Config.EnableWireguard
 }
 
 func findK8SNodeIPLink() (netlink.Link, error) {

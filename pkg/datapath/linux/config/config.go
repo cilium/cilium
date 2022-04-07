@@ -446,7 +446,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if !ok {
 				log.WithFields(logrus.Fields{
 					"directRoutingIface": directRoutingIface,
-				}).Fatal("NodePort enabled but direct routing device's IPv4 address not found")
+				}).Fatal("Direct routing device's IPv4 address not found")
 			}
 
 			ipv4 := byteorder.NetIPv4ToHost32(ip)
@@ -458,7 +458,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if !ok {
 				log.WithFields(logrus.Fields{
 					"directRoutingIface": directRoutingIface,
-				}).Fatal("NodePort enabled but direct routing device's IPv6 address not found")
+				}).Fatal("Direct routing device's IPv6 address not found")
 			}
 
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
