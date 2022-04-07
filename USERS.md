@@ -2,22 +2,23 @@ Who is using Cilium?
 ====================
 
 Sharing experiences and learning from other users is essential. We are
-frequently asked who is using a particular feature of Cilium to get in
-contact with other users to share experiences and best-practices. While the
-[Cilium Slack community](https://cilium.herokuapp.com/) allows users to
-get in touch, it can be challenging to find users of a particular feature
-quickly.
+frequently asked who is using a particular feature of Cilium so people can get in
+contact with other users to share experiences and best practices. People
+also often want to know if product/platform X has integrated Cilium. 
+While the [Cilium Slack community](https://cilium.herokuapp.com/) allows
+users to get in touch, it can be challenging to find this information quickly.
 
-The following is a directory of users to help identify users of individual
+The following is a directory of adopters to help identify users of individual
 features. The users themselves directly maintain the list.
 
 Adding yourself as a user
 -------------------------
 
-If you are using Cilium, please consider adding yourself as a user with a quick
+If you are using Cilium or it is integrated into your product, service, or 
+platform, please consider adding yourself as a user with a quick
 description of your use case by opening a pull request to this file and adding
 a section describing your usage of Cilium. If you are open to others contacting
-you about your use of Cilium on Slack, add your Slack nick as well.
+you about your use of Cilium on Slack, add your Slack nickname as well.
 
     N: Name of user (company or individual)
     D: Description
