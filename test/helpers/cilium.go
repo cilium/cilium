@@ -10,12 +10,14 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
@@ -64,6 +66,66 @@ func (s *SSHMeta) BpfLBList(noDuplicates bool) (map[string][]string, error) {
 	}
 
 	return result, nil
+}
+
+// BpfIPCacheList returns the output of `cilium bpf ipcache list -o json` as a map
+// Key will be the CIDR (address with mask) and the value is the associated numeric security identity
+func (s *SSHMeta) BpfIPCacheList(localScopeOnly bool) (map[string]uint32, error) {
+	var (
+		dump   map[string][]string
+		result map[string]uint32
+		res    *CmdRes
+	)
+
+	res = s.ExecCilium("bpf ipcache list -o json")
+
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("cannot get bpf ipcache list: %s", res.CombineOutput())
+	}
+	err := res.Unmarshal(&dump)
+	if err != nil {
+		return nil, err
+	}
+
+	result = make(map[string]uint32, len(dump))
+	for k, v := range dump {
+		var nid uint32
+		for _, s := range v {
+			idWord := "identity="
+			idIdx := strings.Index(s, idWord)
+			if idIdx >= 0 {
+				idIdx += len(idWord)
+				endIdx := strings.Index(s[idIdx:], " ")
+				if endIdx >= 0 {
+					endIdx += idIdx
+				} else {
+					endIdx = len(s)
+				}
+				nid64, err := strconv.ParseUint(s[idIdx:endIdx], 10, 32)
+				if err != nil {
+					return nil, fmt.Errorf("cannot parse identity from: %s (%s): %s", s, s[idIdx:endIdx], err)
+				}
+				nid = uint32(nid64)
+				if localScopeOnly && !identity.NumericIdentity(nid).HasLocalScope() {
+					nid = 0
+					continue
+				}
+			}
+		}
+		if nid != 0 {
+			result[k] = nid
+		}
+	}
+
+	return result, nil
+}
+
+// SelectedIdentities returns filtered identities from the output of `cilium policy selectors list
+// -o json` as a string
+func (s *SSHMeta) SelectedIdentities(match string) string {
+	res := s.Exec(fmt.Sprintf(`cilium policy selectors list -o json | jq '.[] | select(.selector | test("%s")) | .identities[] | .'`, match))
+	res.ExpectSuccess("Failed getting identities for %s selectors", match)
+	return res.Stdout()
 }
 
 // ExecCilium runs a Cilium CLI command and returns the resultant cmdRes.

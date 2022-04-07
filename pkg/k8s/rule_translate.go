@@ -121,7 +121,7 @@ func (k RuleTranslator) generateToCidrFromEndpoint(
 		// policy would be first pushed to the endpoint policies and then to the ipcache to
 		// avoid traffic mapping to an ID that the endpoint policy maps do not know about
 		// yet.
-		if _, err := k.ipcache.AllocateCIDRs(prefixes, nil); err != nil {
+		if _, err := k.ipcache.AllocateCIDRs(prefixes, nil, nil); err != nil {
 			return err
 		}
 	}

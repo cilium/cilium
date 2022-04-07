@@ -83,6 +83,20 @@ func (k Key) String() string {
 	return "<unknown>"
 }
 
+func (k Key) IPNet() *net.IPNet {
+	cidr := &net.IPNet{}
+	prefixLen := k.Prefixlen - getStaticPrefixBits()
+	switch k.Family {
+	case bpf.EndpointKeyIPv4:
+		cidr.IP = net.IP(k.IP[:net.IPv4len])
+		cidr.Mask = net.CIDRMask(int(prefixLen), 32)
+	case bpf.EndpointKeyIPv6:
+		cidr.IP = net.IP(k.IP[:net.IPv6len])
+		cidr.Mask = net.CIDRMask(int(prefixLen), 128)
+	}
+	return cidr
+}
+
 // getPrefixLen determines the length that should be set inside the Key so that
 // the lookup prefix is correct in the BPF map key. The specified 'prefixBits'
 // indicates the number of bits in the IP that must match to match the entry in

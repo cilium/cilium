@@ -44,12 +44,22 @@ func (l *localIdentityCache) bumpNextNumericIdentity() {
 }
 
 // getNextFreeNumericIdentity returns the next available numeric identity or an error
+// If idCandidate has the local scope and is available, it will be returned instead of
+// searching for a new numeric identity.
 // The l.mutex must be held
-func (l *localIdentityCache) getNextFreeNumericIdentity() (identity.NumericIdentity, error) {
+func (l *localIdentityCache) getNextFreeNumericIdentity(idCandidate identity.NumericIdentity) (identity.NumericIdentity, error) {
+	// Try first with the given candidate
+	if idCandidate.HasLocalScope() {
+		if _, taken := l.identitiesByID[idCandidate]; !taken {
+			// let nextNumericIdentity be, allocated identities will be skipped anyway
+			log.Debugf("Reallocated restored CIDR identity: %d", idCandidate)
+			return idCandidate, nil
+		}
+	}
 	firstID := l.nextNumericIdentity
 	for {
-		idCandidate := l.nextNumericIdentity | identity.LocalIdentityFlag
-		if _, ok := l.identitiesByID[idCandidate]; !ok {
+		idCandidate = l.nextNumericIdentity | identity.LocalIdentityFlag
+		if _, taken := l.identitiesByID[idCandidate]; !taken {
 			l.bumpNextNumericIdentity()
 			return idCandidate, nil
 		}
@@ -66,7 +76,10 @@ func (l *localIdentityCache) getNextFreeNumericIdentity() (identity.NumericIdent
 // returned. If it does not exist, a new identity is created with a unique
 // numeric identity. All identities returned by lookupOrCreate() must be
 // released again via localIdentityCache.release().
-func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels) (*identity.Identity, bool, error) {
+// A possible previously used numeric identity for these labels can be passed
+// in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
+// previous numeric identity exists. 'oldNID' will be reallocated if available.
+func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -76,7 +89,7 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels) (*identity.Ident
 		return id, false, nil
 	}
 
-	numericIdentity, err := l.getNextFreeNumericIdentity()
+	numericIdentity, err := l.getNextFreeNumericIdentity(oldNID)
 	if err != nil {
 		return nil, false, err
 	}

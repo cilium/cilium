@@ -718,6 +718,10 @@ const (
 	// IdentityChangeGracePeriod option
 	IdentityChangeGracePeriod = "identity-change-grace-period"
 
+	// IdentityRestoreGracePeriod is the name of the
+	// IdentityRestoreGracePeriod option
+	IdentityRestoreGracePeriod = "identity-restore-grace-period"
+
 	// EnableHealthChecking is the name of the EnableHealthChecking option
 	EnableHealthChecking = "enable-health-checking"
 
@@ -1675,6 +1679,13 @@ type DaemonConfig struct {
 	// to whitelist the new upcoming identity of the endpoint.
 	IdentityChangeGracePeriod time.Duration
 
+	// IdentityRestoreGracePeriod is the grace period that needs to pass before CIDR identities
+	// restored during agent restart are released. If any of the restored identities remains
+	// unused after this time, they will be removed from the IP cache. Any of the restored
+	// identities that are used in network policies will remain in the IP cache until all such
+	// policies are removed.
+	IdentityRestoreGracePeriod time.Duration
+
 	// PolicyQueueSize is the size of the queues for the policy repository.
 	// A larger queue means that more events related to policy can be buffered.
 	PolicyQueueSize int
@@ -2148,6 +2159,7 @@ var (
 		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
 		IPAllocationTimeout:          defaults.IPAllocationTimeout,
 		IdentityChangeGracePeriod:    defaults.IdentityChangeGracePeriod,
+		IdentityRestoreGracePeriod:   defaults.IdentityRestoreGracePeriod,
 		FixedIdentityMapping:         make(map[string]string),
 		KVStoreOpt:                   make(map[string]string),
 		LogOpt:                       make(map[string]string),
@@ -2677,6 +2689,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTPRetryCount = viper.GetInt(HTTPRetryCount)
 	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
 	c.IdentityChangeGracePeriod = viper.GetDuration(IdentityChangeGracePeriod)
+	c.IdentityRestoreGracePeriod = viper.GetDuration(IdentityRestoreGracePeriod)
 	c.IPAM = viper.GetString(IPAM)
 	c.IPv4Range = viper.GetString(IPv4Range)
 	c.IPv4NodeAddr = viper.GetString(IPv4NodeAddr)

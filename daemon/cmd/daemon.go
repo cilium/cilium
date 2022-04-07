@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
@@ -184,6 +185,9 @@ type Daemon struct {
 
 	// controller for Cilium's BGP control plane.
 	bgpControlPlaneController *bgpv1.Controller
+
+	// CIDRs for which identities were restored during bootstrap
+	restoredCIDRs []*net.IPNet
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -467,6 +471,23 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	d.rec, err = recorder.NewRecorder(d.ctx, &d)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
+	}
+
+	// Collect old CIDR identities
+	var oldNIDs []identity.NumericIdentity
+	if option.Config.RestoreState && !option.Config.DryMode && ipcachemap.SupportsDump() {
+		if err := ipcachemap.IPCache.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+			k := key.(*ipcachemap.Key)
+			v := value.(*ipcachemap.RemoteEndpointInfo)
+			nid := identity.NumericIdentity(v.SecurityIdentity)
+			if nid.HasLocalScope() {
+				d.restoredCIDRs = append(d.restoredCIDRs, k.IPNet())
+				oldNIDs = append(oldNIDs, nid)
+			}
+		}); err != nil && !os.IsNotExist(err) {
+			log.WithError(err).Warning("Error dumping ipcache")
+		}
+		ipcachemap.IPCache.Close()
 	}
 
 	// Propagate identity allocator down to packages which themselves do not
@@ -984,6 +1005,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		// identity allocator to run asynchronously.
 		realIdentityAllocator := d.identityAllocator
 		realIdentityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+
+		// Preallocate IDs for old CIDRs, must be called after InitIdentityAllocator
+		if len(d.restoredCIDRs) > 0 {
+			log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
+			_, err = d.ipcache.AllocateCIDRs(d.restoredCIDRs, oldNIDs, nil)
+			if err != nil {
+				log.WithError(err).Error("Error allocating old CIDR identities")
+			}
+		}
 
 		d.bootstrapClusterMesh(nodeMngr)
 	}
