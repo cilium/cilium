@@ -318,11 +318,18 @@ spec:
       - name: cilium-monitor
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        command: ["cilium"]
+        command:
+        - /bin/bash
+        - -c
+        - --
         args:
-        - monitor
-        {{- range $type := .Values.monitor.eventTypes }}
-        - --type={{ $type }}
+        - |-
+          for i in {1..5}; do \
+            [ -S /var/run/cilium/monitor1_2.sock ] && break || sleep 10;\
+            done; \
+          cilium monitor
+        {{- range $type := .Values.monitor.eventTypes -}} 
+          {{ " " }}--type={{ $type }}
         {{- end }}
         volumeMounts:
         - name: cilium-run
