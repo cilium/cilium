@@ -685,6 +685,10 @@ const (
 	// FQDNProxyResponseMaxDelay is the maximum time the proxy holds back a response
 	FQDNProxyResponseMaxDelay = "tofqdns-proxy-response-max-delay"
 
+	// FQDNRegexCompileLRUSize is the size of the FQDN regex compilation LRU.
+	// Useful for heavy but repeated FQDN MatchName or MatchPattern use.
+	FQDNRegexCompileLRUSize = "fqdn-regex-compile-lru-size"
+
 	// PreAllocateMapsName is the name of the option PreAllocateMaps
 	PreAllocateMapsName = "preallocate-bpf-maps"
 
@@ -1662,6 +1666,10 @@ type DaemonConfig struct {
 	// DNS response before sending it along. Responses are sent as soon as the
 	// datapath is updated with the new IP information.
 	FQDNProxyResponseMaxDelay time.Duration
+
+	// FQDNRegexCompileLRUSize is the size of the FQDN regex compilation LRU.
+	// Useful for heavy but repeated FQDN MatchName or MatchPattern use.
+	FQDNRegexCompileLRUSize int
 
 	// Path to a file with DNS cache data to preload on startup
 	ToFQDNsPreCache string
@@ -2955,6 +2963,7 @@ func (c *DaemonConfig) Populate() {
 	// toFQDNs options
 	c.DNSMaxIPsPerRestoredRule = viper.GetInt(DNSMaxIPsPerRestoredRule)
 	c.DNSPolicyUnloadOnShutdown = viper.GetBool(DNSPolicyUnloadOnShutdown)
+	c.FQDNRegexCompileLRUSize = viper.GetInt(FQDNRegexCompileLRUSize)
 	c.ToFQDNsMaxIPsPerHost = viper.GetInt(ToFQDNsMaxIPsPerHost)
 	if maxZombies := viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
 		c.ToFQDNsMaxDeferredConnectionDeletes = viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
