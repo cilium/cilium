@@ -160,6 +160,18 @@ func TestHTTPFilters(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "invalid status code text",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpStatusCode: []string{"HTTP 200 OK"},
+						EventType:      []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name: "invalid status code prefix",
 			args: args{
 				f: []*flowpb.FlowFilter{

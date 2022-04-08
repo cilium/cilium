@@ -31,8 +31,8 @@ func httpMatchCompatibleEventFilter(types []*flowpb.EventTypeFilter) bool {
 }
 
 var (
-	httpStatusCodeFull   = regexp.MustCompile(`[1-5][0-9]{2}`)
-	httpStatusCodePrefix = regexp.MustCompile(`^([1-5][0-9]?\+)$`)
+	httpStatusCodeFull   = regexp.MustCompile(`^[1-5][0-9]{2}$`)
+	httpStatusCodePrefix = regexp.MustCompile(`^[1-5][0-9]?\+$`)
 )
 
 func filterByHTTPStatusCode(statusCodePrefixes []string) (FilterFunc, error) {
