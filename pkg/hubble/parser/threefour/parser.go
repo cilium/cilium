@@ -263,7 +263,7 @@ func filterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
 }
 
 func sortAndFilterLabels(log logrus.FieldLogger, labels []string, securityIdentity uint32) []string {
-	if securityIdentity&uint32(identity.LocalIdentityFlag) != 0 {
+	if identity.NumericIdentity(securityIdentity).HasLocalScope() {
 		labels = filterCIDRLabels(log, labels)
 	}
 	sort.Strings(labels)
