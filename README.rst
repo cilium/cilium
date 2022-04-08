@@ -324,11 +324,11 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. |cii| image:: https://bestpractices.coreinfrastructure.org/projects/1269/badge
     :alt: CII Best Practices
     :target: https://bestpractices.coreinfrastructure.org/projects/1269
-    
-.. |clomonitor| image:: https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cilium/cilium/badge
+
+.. |clomonitor| image:: https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/cilium/cilium/badge
     :alt: CLOMonitor
-    :target: https://clomonitor.io/projects/cilium/cilium
-    
+    :target: https://clomonitor.io/projects/cncf/cilium/cilium
+
 .. |artifacthub| image:: https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/cilium
     :alt: Artifact Hub
     :target: https://artifacthub.io/packages/helm/cilium/cilium
