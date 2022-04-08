@@ -193,12 +193,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
-      - name: Display Azure CLI info
-        uses: azure/CLI@7378ce2ca3c38b4b063feb7a4cbe384fef978055
-        with:
-          azcliversion: 2.0.72
-          inlineScript: |
-            az account show
+      - name: Install aks-preview CLI extension
+        run: |
+            az extension add --name aks-preview
+            az extension update --name aks-preview
+            az version
 
       - name: Create AKS cluster
         run: |
@@ -213,40 +212,10 @@ jobs:
             --resource-group ${{ env.name }} \
             --name ${{ env.name }} \
             --location ${{ env.location }} \
-            --network-plugin azure \
-            --node-count 1 \
+            --network-plugin none \
+            --node-count 2 \
             ${{ env.cost_reduction }} \
             --generate-ssh-keys
-
-          # Get name of initial system node pool
-          nodepool_to_delete=$(az aks nodepool list --resource-group ${{ env.name }} --cluster-name ${{ env.name }} --output tsv --query "[0].name")
-
-          # Create system node pool tainted with `CriticalAddonsOnly=true:NoSchedule`
-          az aks nodepool add \
-            --resource-group ${{ env.name }} \
-            --cluster-name ${{ env.name }} \
-            --name systempool \
-            --mode system \
-            --node-count 1 \
-            --node-taints "CriticalAddonsOnly=true:NoSchedule" \
-            ${{ env.cost_reduction }} \
-            --no-wait
-
-          # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoExecute`
-          az aks nodepool add \
-            --resource-group ${{ env.name }} \
-            --cluster-name ${{ env.name }} \
-            --name userpool \
-            --mode user \
-            --node-count 2 \
-            --node-taints "node.cilium.io/agent-not-ready=true:NoExecute" \
-            ${{ env.cost_reduction }}
-
-          # Delete the initial system node pool
-          az aks nodepool delete \
-            --resource-group ${{ env.name }} \
-            --cluster-name ${{ env.name }} \
-            --name "${nodepool_to_delete}"
 
       - name: Get cluster credentials
         run: |
