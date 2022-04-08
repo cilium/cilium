@@ -90,11 +90,19 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 func valuesToString(prevKey string, b map[string]interface{}) string {
 	var out []string
 	for k, v := range b {
-		if v, ok := v.(map[string]interface{}); ok {
+		switch v := v.(type) {
+		case map[string]interface{}:
 			if prevKey != "" {
 				out = append(out, valuesToString(fmt.Sprintf("%s.%s", prevKey, k), v))
 			} else {
 				out = append(out, valuesToString(k, v))
+			}
+			continue
+		case []interface{}:
+			if prevKey != "" {
+				out = append(out, sliceValuesToString(fmt.Sprintf("%s.%s", prevKey, k), v))
+			} else {
+				out = append(out, sliceValuesToString(k, v))
 			}
 			continue
 		}
@@ -105,6 +113,22 @@ func valuesToString(prevKey string, b map[string]interface{}) string {
 			out = append(out, fmt.Sprintf("%s.%s=%v", prevKey, k, v))
 		} else {
 			out = append(out, fmt.Sprintf("%s=%v", k, v))
+		}
+	}
+	sort.Strings(out)
+	return strings.Join(out, ",")
+}
+
+func sliceValuesToString(prevKey string, b []interface{}) string {
+	var out []string
+	for i, v := range b {
+		switch v := v.(type) {
+		case map[string]interface{}:
+			out = append(out, valuesToString(fmt.Sprintf("%s[%d]", prevKey, i), v))
+			continue
+		case []interface{}:
+			out = append(out, sliceValuesToString(fmt.Sprintf("%s[%d]", prevKey, i), v))
+			continue
 		}
 	}
 	sort.Strings(out)
