@@ -933,6 +933,10 @@ func initializeFlags() {
 	flags.DurationVar(&option.Config.FQDNProxyResponseMaxDelay, option.FQDNProxyResponseMaxDelay, 100*time.Millisecond, "The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.")
 	option.BindEnv(option.FQDNProxyResponseMaxDelay)
 
+	flags.Int(option.FQDNRegexCompileLRUSize, 128, "Size of the FQDN regex compilation LRU. Useful for heavy but repeated FQDN MatchName or MatchPattern use")
+	flags.MarkHidden(option.FQDNRegexCompileLRUSize)
+	option.BindEnv(option.FQDNRegexCompileLRUSize)
+
 	flags.String(option.ToFQDNsPreCache, defaults.ToFQDNsPreCache, "DNS cache data at this path is preloaded on agent startup")
 	option.BindEnv(option.ToFQDNsPreCache)
 
