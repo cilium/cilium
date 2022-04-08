@@ -56,7 +56,52 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
           Please make sure to read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
 
-    .. group-tab:: AKS
+    .. group-tab:: AKS (BYOCNI)
+
+       .. note::
+
+          BYOCNI is the preferred way to run Cilium on AKS, however integration
+          with the Azure stack via the :ref:`Azure IPAM<ipam_azure>` is not
+          available. If you require Azure IPAM, refer to the AKS (Azure IPAM)
+          installation.
+
+       The following commands create a Kubernetes cluster using `Azure
+       Kubernetes Service <https://docs.microsoft.com/en-us/azure/aks/>`_ with
+       no CNI plugin pre-installed (BYOCNI). See `Azure Cloud CLI
+       <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
+       for instructions on how to install ``az`` and prepare your account, and
+       the `Bring your own CNI documentation
+       <https://docs.microsoft.com/en-us/azure/aks/use-byo-cni?tabs=azure-cli>`_
+       for more details about BYOCNI prerequisites / implications.
+
+       .. note::
+
+          BYOCNI requires the ``aks-preview`` CLI extension with version >=
+          0.5.55, which itself requires an ``az`` CLI version >= 2.32.0 .
+
+       .. code-block:: bash
+
+           export NAME="$(whoami)-$RANDOM"
+           export AZURE_RESOURCE_GROUP="${NAME}-group"
+           az group create --name "${AZURE_RESOURCE_GROUP}" -l westus2
+
+           # Create AKS cluster
+           az aks create \
+             --resource-group "${AZURE_RESOURCE_GROUP}" \
+             --name "${NAME}" \
+             --network-plugin none
+
+           # Get the credentials to access the cluster with kubectl
+           az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}"
+
+    .. group-tab:: AKS (Azure IPAM)
+
+       .. note::
+
+          :ref:`Azure IPAM<ipam_azure>` offers integration with the Azure stack
+          but is not the preferred way to run Cilium on AKS. If you do not
+          require Azure IPAM, we recommend you to switch to the AKS (BYOCNI)
+          installation.
 
        The following commands create a Kubernetes cluster using `Azure
        Kubernetes Service <https://docs.microsoft.com/en-us/azure/aks/>`_. See
@@ -264,9 +309,21 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
            cilium install
 
-    .. group-tab:: AKS
+    .. group-tab:: AKS (BYOCNI)
 
-       .. include:: requirements-aks.rst
+       .. include:: requirements-aks-byocni.rst
+
+       **Install Cilium:**
+
+       Install Cilium into the AKS cluster:
+
+       .. code-block:: shell-session
+
+           cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
+
+    .. group-tab:: AKS (Azure IPAM)
+
+       .. include:: requirements-aks-azure-ipam.rst
 
        **Install Cilium:**
 
