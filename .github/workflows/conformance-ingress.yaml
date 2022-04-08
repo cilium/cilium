@@ -1,0 +1,162 @@
+name: ConformanceIngress
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+  push:
+    branches:
+      - master
+      - ft/master/**
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  minikube_version: 1.25.2
+  cilium_cli_version: v0.11.5
+  timeout: 5m
+
+jobs:
+  ingress-conformance-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+
+      - name: Install Cilium CLI
+        run: |
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request }} ]; then
+            SHA=${{ github.event.pull_request.head.sha }}
+          else
+            SHA=${{ github.sha }}
+          fi
+          echo ::set-output name=sha::${SHA}
+
+      - name: Checkout
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Create minikube cluster with multiple nodes
+        run: |
+          # Use at least 3 nodes, so that at least 2 worker nodes are available for scheduling
+          minikube start --network-plugin=cni --cni=false \
+            --docker-opt="default-ulimit=nofile=102400:102400" \
+            --nodes 3 \
+
+      # Start minikube tunnel
+      - name: Setup minikube
+        run: |
+          docker pull ${{ env.ECHO_SERVER_IMAGE }}
+          minikube image load ${{ env.ECHO_SERVER_IMAGE }}
+          minikube tunnel &
+        env:
+          ECHO_SERVER_IMAGE: k8s.gcr.io/ingressconformance/echoserver:v0.0.1@sha256:9b34b17f391f87fb2155f01da2f2f90b7a4a5c1110ed84cb5379faa4f570dc52
+
+      - name: Checkout ingress-controller-conformance
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          repository: kubernetes-sigs/ingress-controller-conformance
+          path: ingress-controller-conformance
+          ref: cec7cf25b0291933426e256065ef4afc981ea1fa
+          persist-credentials: false
+
+      - name: Install Ingress conformance test tool
+        timeout-minutes: 10
+        run: |
+          cd ingress-controller-conformance
+          make build
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci ; do
+            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Cilium
+        run: |
+          helm upgrade -i cilium ./install/kubernetes/cilium \
+            --wait \
+            --namespace kube-system \
+            --set kubeProxyReplacement=strict \
+            --set nodeinit.enabled=true \
+            --set ipam.mode=kubernetes \
+            --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --set image.tag=${{ steps.vars.outputs.sha }} \
+            --set image.pullPolicy=IfNotPresent \
+            --set image.useDigest=false \
+            --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --set operator.image.suffix=-ci \
+            --set operator.image.tag=${{ steps.vars.outputs.sha }} \
+            --set operator.image.pullPolicy=IfNotPresent \
+            --set operator.image.useDigest=false \
+            --set securityContext.privileged=true \
+            --set ingressController.enabled=true
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+
+          # To make sure that cilium envoy CRs are available
+          kubectl wait --for condition=Established crd/ciliumenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/ciliumclusterwideenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
+
+      # Run the quick sanity check
+      - name: Run Sanity check
+        timeout-minutes: 5
+        run: |
+          kubectl apply -n default -f examples/kubernetes/ingress/bookinfo-ingress.yaml
+          kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+
+          lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl --fail -- http://"$lb"
+          curl --fail -- http://"$lb"/details/1
+
+      - name: Run Ingress conformance test
+        timeout-minutes: 30
+        run: |
+          cd ingress-controller-conformance
+          ./ingress-controller-conformance -ingress-class cilium -wait-time-for-ingress-status 10s -wait-time-for-ready 30s
+
+      - name: Post-test information gathering
+        if: ${{ !success() }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
+
+      - name: Send slack notification
+        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
