@@ -54,6 +54,12 @@ Prerequisites
 * So far this functionality is only tested with the vxlan tunneling
   datapath mode (default for most installations).
 
+Limitations
+###########
+
+* Transparent encryption of traffic to/from external workloads is currently not
+  supported.
+
 Prepare your cluster
 ####################
 
