@@ -243,6 +243,12 @@ Users (Alphabetically)
       L: https://www.concur.com, https://gardener.cloud/, https://github.com/gardener/gardener-extension-networking-cilium
       Q: @dragan (SAP Concur), @docktofuture & @ScheererJ (Gardener)
 
+    * N: Simple
+      D: Simple uses cilium as default CNI in Kubernetes clusters (AWS EKS) for both development and production environments.
+      U: CNI, Network Policies, Hubble
+      L: https://simple.life
+      Q: @sergeyshevch
+
     * N: Scaleway
       D: Scaleway uses Cilium as the default CNI for Kubernetes Kapsule
       U: Networking, NetworkPolicy, Services
