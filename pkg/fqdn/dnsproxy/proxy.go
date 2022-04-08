@@ -447,7 +447,7 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		restoredEPs:              make(restoredEPs),
 		EnableDNSCompression:     enableDNSCompression,
 		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
-		regexCompileLRU:          lru.New(128),
+		regexCompileLRU:          lru.New(option.Config.FQDNRegexCompileLRUSize),
 	}
 	if concurrencyLimit > 0 {
 		p.ConcurrencyLimit = semaphore.NewWeighted(int64(concurrencyLimit))
