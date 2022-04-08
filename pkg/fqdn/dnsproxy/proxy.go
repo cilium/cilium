@@ -389,7 +389,7 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		restoredEPs:              make(restoredEPs),
 		EnableDNSCompression:     enableDNSCompression,
 		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
-		regexCompileLRU:          lru.New(128),
+		regexCompileLRU:          lru.New(option.Config.FQDNRegexCompileLRUSize),
 	}
 	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
