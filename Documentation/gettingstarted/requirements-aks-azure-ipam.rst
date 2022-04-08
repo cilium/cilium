@@ -1,5 +1,6 @@
-To install Cilium on `Azure Kubernetes Service (AKS) <https://docs.microsoft.com/en-us/azure/aks/>`_,
-perform the following steps:
+To install Cilium on `Azure Kubernetes Service (AKS) <https://docs.microsoft.com/en-us/azure/aks/>`_
+with Azure integration via :ref:`Azure IPAM<ipam_azure>`, perform the following
+steps:
 
 **Default Configuration:**
 
@@ -8,6 +9,12 @@ Datapath        IPAM                Datastore
 =============== =================== ==============
 Direct Routing  Azure IPAM          Kubernetes CRD
 =============== =================== ==============
+
+.. note::
+
+   :ref:`Azure IPAM<ipam_azure>` offers integration with the Azure stack but is
+   not the preferred way to run Cilium on AKS. If you do not require Azure IPAM,
+   we recommend you to switch to the AKS (BYOCNI) installation.
 
 .. tip::
 

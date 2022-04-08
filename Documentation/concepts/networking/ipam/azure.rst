@@ -10,6 +10,10 @@
 Azure IPAM
 ##########
 
+.. note::
+
+   Azure IPAM is not compatible with AKS clusters created in BYOCNI mode.
+
 The Azure IPAM allocator is specific to Cilium deployments running in the Azure
 cloud and performs IP allocation based on `Azure Private IP addresses
 <https://docs.microsoft.com/en-us/azure/virtual-network/private-ip-addresses>`__.
