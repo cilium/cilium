@@ -14,7 +14,7 @@ Quick Installation
 
 This guide will walk you through the quick default installation. It will
 automatically detect and use the best configuration possible for the Kubernetes
-distribution you are using. All state is stored using Kubernetes CRDs.
+distribution you are using. All state is stored using Kubernetes custom resource definitions (CRDs).
 
 This is the best installation method for most use cases.  For large
 environments (> 500 nodes) or if you want to run specific datapath modes, refer
