@@ -81,9 +81,24 @@ Install Cilium
        * Reconfigure kubelet to run in CNI mode
        * Mount the eBPF filesystem
 
-    .. group-tab:: AKS
+    .. group-tab:: AKS (BYOCNI)
 
-       .. include:: requirements-aks.rst
+       .. include:: requirements-aks-byocni.rst
+
+       **Install Cilium:**
+
+       Deploy Cilium release via Helm:
+
+       .. parsed-literal::
+
+          helm install cilium |CHART_RELEASE| \\
+            --namespace kube-system \\
+            --set aksbyocni.enabled=true \\
+            --set nodeinit.enabled=true
+
+    .. group-tab:: AKS (Azure IPAM)
+
+       .. include:: requirements-aks-azure-ipam.rst
 
        **Create a Service Principal:**
 
