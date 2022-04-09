@@ -119,6 +119,10 @@ func (c *Client) CreateSecret(ctx context.Context, namespace string, secret *cor
 	return c.Clientset.CoreV1().Secrets(namespace).Create(ctx, secret, opts)
 }
 
+func (c *Client) UpdateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.UpdateOptions) (*corev1.Secret, error) {
+	return c.Clientset.CoreV1().Secrets(namespace).Update(ctx, secret, opts)
+}
+
 func (c *Client) PatchSecret(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.Secret, error) {
 	return c.Clientset.CoreV1().Secrets(namespace).Patch(ctx, name, pt, data, opts)
 }

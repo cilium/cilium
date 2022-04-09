@@ -79,6 +79,7 @@ func newCmdHubbleEnable() *cobra.Command {
 	cmd.Flags().StringArrayVar(&params.HelmOpts.StringValues, "helm-set-string", []string{}, "Set helm STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	cmd.Flags().StringArrayVar(&params.HelmOpts.FileValues, "helm-set-file", []string{}, "Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)")
 	cmd.Flags().StringVar(&params.HelmGenValuesFile, "helm-auto-gen-values", "", "Write an auto-generated helm values into this file")
+	cmd.Flags().StringVar(&params.HelmValuesSecretName, "helm-values-secret-name", defaults.HelmValuesSecretName, "Secret name to store the auto-generated helm values file. The namespace is the same as where Cilium will be installed")
 
 	for flagName := range hubble.FlagsToHelmOpts {
 		// TODO(aanm) Do not mark the flags has deprecated for now.
@@ -111,6 +112,7 @@ func newCmdHubbleDisable() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&params.HelmValuesSecretName, "helm-values-secret-name", defaults.HelmValuesSecretName, "Secret name to store the auto-generated helm values file. The namespace is the same as where Cilium will be installed")
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
@@ -135,6 +137,7 @@ func newCmdPortForwardCommand() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&params.HelmValuesSecretName, "helm-values-secret-name", defaults.HelmValuesSecretName, "Secret name to store the auto-generated helm values file. The namespace is the same as where Cilium will be installed")
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&params.Context, "context", "", "Kubernetes configuration context")
 	cmd.Flags().IntVar(&params.PortForward, "port-forward", 4245, "Local port to forward to")
