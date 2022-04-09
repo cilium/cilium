@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
+	"helm.sh/helm/v3/pkg/chartutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -244,21 +245,25 @@ func (k *K8sHubble) PortForwardCommand(ctx context.Context) error {
 	k.ciliumVersion, _ = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
 	k.semVerCiliumVersion = k.getCiliumVersion()
 
-	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	helmSecret, err := k.client.GetSecret(ctx, k.params.Namespace, k.params.HelmValuesSecretName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+		return fmt.Errorf("unable to retrieve helm values secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
+	}
+	yamlSecret, ok := helmSecret.Data[defaults.HelmValuesSecretKeyName]
+	if !ok {
+		return fmt.Errorf("unable to retrieve helm values from secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
 	}
 
-	value, ok := cm.Data[defaults.ExtraConfigMapUserOptsKey]
-	if !ok {
-		return fmt.Errorf("configmap option not found")
+	vals, err := chartutil.ReadValues(yamlSecret)
+	if err != nil {
+		return fmt.Errorf("unable to parse helm values from secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
 	}
 
 	// Generate the manifests has if hubble was being enabled so that we can
 	// retrieve all UI and Relay's resource names.
 	k.params.UI = true
 	k.params.Relay = true
-	err = k.generateManifestsEnable(ctx, false, value)
+	err = k.generateManifestsEnable(ctx, false, vals)
 	if err != nil {
 		return err
 	}
