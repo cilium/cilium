@@ -236,11 +236,12 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		return err
 	}
 
+	yamlValue, err := chartutil.Values(vals).YAML()
+	if err != nil {
+		return err
+	}
+
 	if k.params.HelmGenValuesFile != "" {
-		yamlValue, err := chartutil.Values(vals).YAML()
-		if err != nil {
-			return err
-		}
 		return os.WriteFile(k.params.HelmGenValuesFile, []byte(yamlValue), 0o600)
 	}
 
@@ -259,5 +260,6 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 	}
 
 	k.manifests = manifests
+	k.helmYAMLValues = yamlValue
 	return nil
 }
