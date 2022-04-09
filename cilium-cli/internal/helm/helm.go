@@ -12,13 +12,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
 
 	helm "github.com/cilium/charts"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
@@ -208,8 +208,8 @@ func MergeVals(
 	printHelmTemplate bool,
 	helmFlagOpts values.Options,
 	helmMapOpts map[string]string,
-	helmValues map[string]interface{},
-	extraConfigMapOpts map[string]interface{},
+	helmValues,
+	extraConfigMapOpts chartutil.Values,
 	helmChartDirectory, ciliumVer, namespace string,
 ) (map[string]interface{}, error) {
 
@@ -245,8 +245,6 @@ func MergeVals(
 	extraConfig := map[string]interface{}{}
 	if len(extraConfigMapOpts) != 0 {
 		extraConfig["extraConfig"] = extraConfigMapOpts
-	} else if extraConfigMapOpts == nil {
-		extraConfigMapOpts = map[string]interface{}{}
 	}
 
 	vals := mergeMaps(extraConfig, userVals)
@@ -260,18 +258,6 @@ func MergeVals(
 			logger.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s", namespace, ciliumVer, valsStr)
 		}
 	}
-
-	// Store the current helm-opts used in this installation in Cilium's
-	// ConfigMap
-	// To avoid verbosity in the terminal we don't print the `valsStr` in the
-	// log above
-	extraConfigMapOpts[defaults.ExtraConfigMapUserOptsKey] = valsStr
-	extraConfig = map[string]interface{}{
-		"extraConfig": extraConfigMapOpts,
-	}
-
-	// User-defined helm options will overwrite the default cilium-cli helm options
-	vals = mergeMaps(extraConfig, vals)
 
 	return vals, nil
 }

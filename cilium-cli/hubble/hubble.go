@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli/values"
-	"helm.sh/helm/v3/pkg/strvals"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -39,6 +38,7 @@ const (
 
 type k8sHubbleImplementation interface {
 	CreateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error)
+	UpdateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.UpdateOptions) (*corev1.Secret, error)
 	DeleteSecret(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error)
 	CreateServiceAccount(ctx context.Context, namespace string, account *corev1.ServiceAccount, opts metav1.CreateOptions) (*corev1.ServiceAccount, error)
@@ -72,6 +72,7 @@ type K8sHubble struct {
 	ciliumVersion       string
 	manifests           map[string]string
 	semVerCiliumVersion semver.Version
+	helmYAMLValues      string
 }
 
 var (
@@ -125,6 +126,10 @@ type Parameters struct {
 	// HelmGenValuesFile points to the file that will store the generated helm
 	// options.
 	HelmGenValuesFile string
+
+	// HelmValuesSecretName is the name of the secret where helm values will be
+	// stored.
+	HelmValuesSecretName string
 }
 
 func (p *Parameters) Log(format string, a ...interface{}) {
@@ -212,21 +217,25 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 	k.ciliumVersion, _ = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
 	k.semVerCiliumVersion = k.getCiliumVersion()
 
-	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	helmSecret, err := k.client.GetSecret(ctx, k.params.Namespace, k.params.HelmValuesSecretName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+		return fmt.Errorf("unable to retrieve helm values secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
+	}
+	yamlSecret, ok := helmSecret.Data[defaults.HelmValuesSecretKeyName]
+	if !ok {
+		return fmt.Errorf("unable to retrieve helm values from secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
 	}
 
-	value, ok := cm.Data[defaults.ExtraConfigMapUserOptsKey]
-	if !ok {
-		return fmt.Errorf("configmap option not found")
+	vals, err := chartutil.ReadValues(yamlSecret)
+	if err != nil {
+		return fmt.Errorf("unable to parse helm values from secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
 	}
 
 	// Generate the manifests has if hubble was being enabled so that we can
 	// retrieve all UI and Relay's resource names.
 	k.params.UI = true
 	k.params.Relay = true
-	err = k.generateManifestsEnable(ctx, false, value)
+	err = k.generateManifestsEnable(ctx, false, vals)
 	if err != nil {
 		return err
 	}
@@ -241,12 +250,20 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 
 	// Now that we have delete all UI and Relay's resource names then we can
 	// generate the manifests with UI and Relay disabled.
-	err = k.generateManifestsDisable(ctx, value)
+	err = k.generateManifestsDisable(ctx, vals)
 	if err != nil {
 		return err
 	}
 
 	if err := k.disableHubble(ctx); err != nil {
+		return err
+	}
+
+	k.Log("ℹ️  Storing helm values file in %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
+
+	helmSecret.Data[defaults.HelmValuesSecretKeyName] = []byte(k.helmYAMLValues)
+	if _, err := k.client.UpdateSecret(ctx, k.params.Namespace, helmSecret, metav1.UpdateOptions{}); err != nil {
+		k.Log("❌ Unable to store helm values file %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
 		return err
 	}
 
@@ -311,7 +328,7 @@ func (k *K8sHubble) getCiliumVersion() semver.Version {
 	return v
 }
 
-func (k *K8sHubble) generateManifestsEnable(ctx context.Context, printHelmTemplate bool, helmValues string) error {
+func (k *K8sHubble) generateManifestsEnable(ctx context.Context, printHelmTemplate bool, helmValues chartutil.Values) error {
 	ciliumVer := k.semVerCiliumVersion
 
 	helmMapOpts := map[string]string{}
@@ -367,7 +384,7 @@ func (k *K8sHubble) generateManifestsEnable(ctx context.Context, printHelmTempla
 	return k.genManifests(ctx, printHelmTemplate, helmValues, helmMapOpts, ciliumVer)
 }
 
-func (k *K8sHubble) generateManifestsDisable(ctx context.Context, helmValues string) error {
+func (k *K8sHubble) generateManifestsDisable(ctx context.Context, helmValues chartutil.Values) error {
 	ciliumVer := k.semVerCiliumVersion
 
 	helmMapOpts := map[string]string{}
@@ -389,24 +406,19 @@ func (k *K8sHubble) generateManifestsDisable(ctx context.Context, helmValues str
 	return k.genManifests(ctx, false, helmValues, helmMapOpts, ciliumVer)
 }
 
-func (k *K8sHubble) genManifests(ctx context.Context, printHelmTemplate bool, helmValues string, helmMapOpts map[string]string, ciliumVer semver.Version) error {
+func (k *K8sHubble) genManifests(ctx context.Context, printHelmTemplate bool, prevHelmValues chartutil.Values, helmMapOpts map[string]string, ciliumVer semver.Version) error {
 	// Store all the options passed by --config into helm extraConfig
-	prevHelmValues := map[string]interface{}{}
-	err := strvals.ParseInto(helmValues, prevHelmValues)
-	if err != nil {
-		return fmt.Errorf("error parsing helm options %q: %w", helmValues, err)
-	}
-
 	vals, err := helm.MergeVals(k, printHelmTemplate, k.params.HelmOpts, helmMapOpts, prevHelmValues, nil, k.params.HelmChartDirectory, ciliumVer.String(), k.params.Namespace)
 	if err != nil {
 		return err
 	}
 
+	yamlValue, err := chartutil.Values(vals).YAML()
+	if err != nil {
+		return err
+	}
+
 	if k.params.HelmGenValuesFile != "" {
-		yamlValue, err := chartutil.Values(vals).YAML()
-		if err != nil {
-			return err
-		}
 		return os.WriteFile(k.params.HelmGenValuesFile, []byte(yamlValue), 0o600)
 	}
 
@@ -425,6 +437,7 @@ func (k *K8sHubble) genManifests(ctx context.Context, printHelmTemplate bool, he
 	}
 
 	k.manifests = manifests
+	k.helmYAMLValues = yamlValue
 	return nil
 }
 
@@ -457,17 +470,21 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		}
 	}
 
-	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	helmSecret, err := k.client.GetSecret(ctx, k.params.Namespace, k.params.HelmValuesSecretName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+		return fmt.Errorf("unable to retrieve helm values secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
 	}
-
-	value, ok := cm.Data[defaults.ExtraConfigMapUserOptsKey]
+	yamlSecret, ok := helmSecret.Data[defaults.HelmValuesSecretKeyName]
 	if !ok {
-		return fmt.Errorf("configmap option not found")
+		return fmt.Errorf("unable to retrieve helm values from secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
 	}
 
-	err = k.generateManifestsEnable(ctx, true, value)
+	vals, err := chartutil.ReadValues(yamlSecret)
+	if err != nil {
+		return fmt.Errorf("unable to parse helm values from secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
+	}
+
+	err = k.generateManifestsEnable(ctx, true, vals)
 	if err != nil {
 		return err
 	}
@@ -534,6 +551,14 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 			fmt.Println(s.Format())
 			return err
 		}
+	}
+
+	k.Log("ℹ️  Storing helm values file in %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
+
+	helmSecret.Data[defaults.HelmValuesSecretKeyName] = []byte(k.helmYAMLValues)
+	if _, err := k.client.UpdateSecret(ctx, k.params.Namespace, helmSecret, metav1.UpdateOptions{}); err != nil {
+		k.Log("❌ Unable to store helm values file %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
+		return err
 	}
 
 	k.Log("✅ Hubble was successfully enabled!")

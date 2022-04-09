@@ -86,7 +86,8 @@ const (
 	IngressClassName      = "cilium"
 	IngressControllerName = "cilium.io/ingress-controller"
 
-	ExtraConfigMapUserOptsKey = "io.cilium.cilium-cli"
+	HelmValuesSecretName    = "cilium-cli-helm-values"
+	HelmValuesSecretKeyName = "io.cilium.cilium-cli"
 )
 
 var (

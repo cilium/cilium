@@ -19,10 +19,11 @@ import (
 )
 
 type UninstallParameters struct {
-	Namespace     string
-	TestNamespace string
-	Writer        io.Writer
-	Wait          bool
+	Namespace            string
+	TestNamespace        string
+	Writer               io.Writer
+	Wait                 bool
+	HelmValuesSecretName string
 }
 
 type K8sUninstaller struct {
@@ -115,6 +116,9 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 			goto retryNamespace
 		}
 	}
+
+	k.Log("🔥 Deleting secret with the helm values configuration...")
+	k.client.DeleteSecret(ctx, k.params.Namespace, k.params.HelmValuesSecretName, metav1.DeleteOptions{})
 
 	k.Log("✅ Cilium was successfully uninstalled.")
 
