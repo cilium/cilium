@@ -5,6 +5,7 @@ package certs
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/cloudflare/cfssl/cli/genkey"
@@ -168,4 +169,14 @@ func (c *CertManager) CAKeyBytes() []byte {
 	crt := make([]byte, len(c.caKey))
 	copy(crt, c.caKey)
 	return crt
+}
+
+// EncodeCertBytes returns an encoded format of the certificate bytes.
+func EncodeCertBytes(cert []byte) string {
+	return base64.StdEncoding.EncodeToString(cert)
+}
+
+// DecodeCertBytes returns a decoded format of the certificate bytes.
+func DecodeCertBytes(cert string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(cert)
 }
