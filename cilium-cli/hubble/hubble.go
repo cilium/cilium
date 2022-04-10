@@ -5,7 +5,6 @@ package hubble
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -130,6 +129,9 @@ type Parameters struct {
 	// HelmValuesSecretName is the name of the secret where helm values will be
 	// stored.
 	HelmValuesSecretName string
+
+	// RedactHelmCertKeys does not print helm certificate keys into the terminal.
+	RedactHelmCertKeys bool
 }
 
 func (p *Parameters) Log(format string, a ...interface{}) {
@@ -161,6 +163,18 @@ func NewK8sHubble(client k8sHubbleImplementation, p Parameters) *K8sHubble {
 }
 
 func (k *K8sHubble) Log(format string, a ...interface{}) {
+	if k.params.RedactHelmCertKeys {
+		formattedString := fmt.Sprintf(format+"\n", a...)
+		for _, certKey := range []string{
+			certs.EncodeCertBytes(k.certManager.CAKeyBytes()),
+		} {
+			if certKey != "" {
+				formattedString = strings.ReplaceAll(formattedString, certKey, "[--- REDACTED WHEN PRINTING TO TERMINAL (USE --redact-helm-certificate-keys=false TO PRINT) ---]")
+			}
+		}
+		fmt.Fprint(k.params.Writer, formattedString)
+		return
+	}
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 
@@ -358,8 +372,8 @@ func (k *K8sHubble) generateManifestsEnable(ctx context.Context, printHelmTempla
 		}
 
 		helmMapOpts["hubble.enabled"] = "true"
-		helmMapOpts["hubble.tls.ca.cert"] = base64.StdEncoding.EncodeToString(k.certManager.CACertBytes())
-		helmMapOpts["hubble.tls.ca.key"] = base64.StdEncoding.EncodeToString(k.certManager.CAKeyBytes())
+		helmMapOpts["hubble.tls.ca.cert"] = certs.EncodeCertBytes(k.certManager.CACertBytes())
+		helmMapOpts["hubble.tls.ca.key"] = certs.EncodeCertBytes(k.certManager.CAKeyBytes())
 
 		if k.params.UI {
 			helmMapOpts["hubble.ui.enabled"] = "true"
