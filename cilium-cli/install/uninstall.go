@@ -24,6 +24,7 @@ type UninstallParameters struct {
 	Writer               io.Writer
 	Wait                 bool
 	HelmValuesSecretName string
+	RedactHelmCertKeys   bool
 }
 
 type K8sUninstaller struct {
