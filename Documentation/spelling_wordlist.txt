@@ -736,6 +736,7 @@ recompiles
 recv
 recvmsg
 refactoring
+refreshPeriod
 regenerations
 regex
 regexes
