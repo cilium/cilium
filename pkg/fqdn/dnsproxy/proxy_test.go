@@ -10,7 +10,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -18,6 +20,7 @@ import (
 	"github.com/golang/groupcache/lru"
 	"github.com/miekg/dns"
 	. "gopkg.in/check.v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
@@ -29,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -980,6 +984,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 }
 
 type selectorMock struct {
+	key string
 }
 
 func (t selectorMock) GetSelections() []identity.NumericIdentity {
@@ -999,7 +1004,7 @@ func (t selectorMock) IsNone() bool {
 }
 
 func (t selectorMock) String() string {
-	panic("implement me")
+	return t.key
 }
 
 func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
@@ -1027,8 +1032,8 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 			},
 		}
 	}
-	pea := perEPAllow{}
 
+	pea := perEPAllow{}
 	lru := lru.New(128)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -1037,4 +1042,104 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 			pea.setPortRulesForID(lru, epID, 8053, newRules)
 		}
 	}
+}
+
+func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
+	b.Skip()
+
+	bb, err := ioutil.ReadFile("testdata/cnps-large.yaml")
+	if err != nil {
+		b.Fatal(err)
+	}
+	var cnpList v2.CiliumNetworkPolicyList
+	if err := yaml.Unmarshal(bb, &cnpList); err != nil {
+		b.Fatal(err)
+	}
+
+	rules := policy.L7DataMap{}
+
+	addEgress := func(e []api.EgressRule) {
+		var (
+			portRuleDNS []api.PortRuleDNS
+		)
+		for _, egress := range e {
+			if egress.ToPorts != nil {
+				for _, ports := range egress.ToPorts {
+					if ports.Rules != nil {
+						for _, dns := range ports.Rules.DNS {
+							if len(dns.MatchPattern) > 0 {
+								portRuleDNS = append(portRuleDNS, api.PortRuleDNS{
+									MatchPattern: dns.MatchPattern,
+								})
+							}
+							if len(dns.MatchName) > 0 {
+								portRuleDNS = append(portRuleDNS, api.PortRuleDNS{
+									MatchName: dns.MatchName,
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+		rules[new(selectorMock)] = &policy.PerSelectorPolicy{
+			L7Rules: api.L7Rules{
+				DNS: portRuleDNS,
+			},
+		}
+	}
+
+	for _, cnp := range cnpList.Items {
+		if cnp.Specs != nil {
+			for _, spec := range cnp.Specs {
+				if spec.Egress != nil {
+					addEgress(spec.Egress)
+				}
+			}
+		}
+		if cnp.Spec != nil {
+			if cnp.Spec.Egress != nil {
+				addEgress(cnp.Spec.Egress)
+			}
+		}
+	}
+
+	fmt.Printf("Before (N=%v)\n", b.N)
+
+	runtime.GC()
+
+	m := getMemStats()
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tHeapInuse = %v MiB", bToMb(m.HeapInuse))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+
+	pea := perEPAllow{}
+	lru := lru.New(128) // modify to 1024 and compare results
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for epID := uint64(0); epID < 20; epID++ {
+			pea.setPortRulesForID(lru, epID, 8053, rules)
+		}
+	}
+	b.StopTimer()
+
+	fmt.Printf("After (N=%v)\n", b.N)
+
+	m = getMemStats()
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tHeapInuse = %v MiB", bToMb(m.HeapInuse))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+}
+
+func getMemStats() runtime.MemStats {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return m
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
 }
