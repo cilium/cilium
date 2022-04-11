@@ -393,9 +393,6 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			oldcstate := agent.ControlPlaneState{
-				IPv4: net.ParseIP("127.0.0.1"),
-			}
 			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
 				ExportPodCIDR: tt.enabled,
@@ -407,7 +404,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			}
 			testSC.Config = oldc
 			for _, cidr := range tt.advertised {
-				advrt, err := testSC.AdvertisePath(context.Background(), cidr, &oldcstate)
+				advrt, err := testSC.AdvertisePath(context.Background(), cidr)
 				if err != nil {
 					t.Fatalf("failed to advertise initial pod cidr routes: %v", err)
 				}
