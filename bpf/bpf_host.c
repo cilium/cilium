@@ -59,6 +59,10 @@
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
 
+#ifdef ENABLE_WIREGUARD
+#include "lib/wireguard.h"
+#endif
+
 static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id) {
 	VLAN_FILTER(ifindex, vlan_id);
 }
@@ -1184,6 +1188,25 @@ out:
 		return ret;
 	}
 #endif
+
+#ifdef ENABLE_WIREGUARD
+	/* Redirect the packet to the WireGuard tunnel device for encryption
+	 * if needed.
+	 * We assume that a packet, which is a subject to the encryption, is
+	 * NOT a subject to the BPF SNAT (happening below), as the former's
+	 * destination resides in the cluster, while the latter - outside the
+	 * cluster.
+	 * Once the assumption is no longer true, we will need to recirculate
+	 * the packet back to the "to-netdev" section for the SNAT instead of
+	 * returning TC_ACT_REDIRECT.
+	 */
+	ret = wg_maybe_redirect_to_encrypt(ctx);
+	if (ret == CTX_ACT_REDIRECT)
+		return ret;
+	else if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
+					      METRIC_EGRESS);
+#endif /* ENABLE_WIREGUARD */
 
 #ifdef ENABLE_SRV6
 	ret = handle_srv6(ctx);
