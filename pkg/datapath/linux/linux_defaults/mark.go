@@ -19,7 +19,8 @@ package linux_defaults
 // +-----------------------------------------------+
 //  1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
 //
-// Kubernetes Mark (4 bits):
+// Kubernetes Mark (4 bits; see MagicMarkWireGuardEncrypted for usage of some of
+// K8s mark space):
 // R R R R
 // 0 1 0 0  Masquerade
 // 1 0 0 0  Drop
@@ -82,6 +83,16 @@ const (
 	// MagicMarkK8sDrop determines that the traffic should be dropped in
 	// kubernetes environments.
 	MagicMarkK8sDrop int = 0x8000
+
+	// MagicMarkWireGuardEncrypted is set by the WireGuard tunnel device
+	// in order to indicate that a packet has been encrypted, and that there
+	// is no need to forward it again to the WG tunnel netdev.
+	//
+	// The mark invades the K8s mark space described above. This is because
+	// some packets might carry a security identity which is indicated with
+	// MagicMarkIdentity which takes all 4 bits. The LSB bit which we take
+	// from the K8s space is not used, so this is fine).
+	MagicMarkWireGuardEncrypted int = 0x1E00
 )
 
 // getMagicMark returns the magic marker with which each packet must be marked.
