@@ -54,6 +54,7 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-linux-config")
@@ -241,6 +242,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableWireguard {
 		cDefinesMap["ENABLE_WIREGUARD"] = "1"
+		ifindex, err := link.GetIfIndex(wgtypes.IfaceName)
+		if err != nil {
+			return err
+		}
+		cDefinesMap["WG_IFINDEX"] = fmt.Sprintf("%d", ifindex)
+
 		if option.Config.EncryptNode {
 			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
 		}
