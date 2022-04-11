@@ -453,7 +453,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	SkipContextIf(helpers.DoesNotRunOnNetNextKernel, "Wireguard encryption", func() {
+	SkipContextIf(helpers.DoesNotRunOnNetNextKernel, "WireGuard encryption", func() {
 		testWireguard := func(interNodeDev string) {
 			randomNamespace := deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
 			deploymentManager.WaitUntilReady()
@@ -564,9 +564,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Pod2pod is encrypted in tunneling mode", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":             "vxlan",
-				"encryption.enabled": "true",
-				"encryption.type":    "wireguard",
+				"tunnel":                    "vxlan",
+				"encryption.enabled":        "true",
+				"encryption.type":           "wireguard",
+				"encryption.nodeEncryption": "true",
 			}, DeployCiliumOptionsAndDNS)
 
 			testWireguard("cilium_vxlan")
@@ -574,10 +575,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Pod2pod is encrypted in tunneling mode with per-endpoint routes", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "vxlan",
-				"endpointRoutes.enabled": "true",
-				"encryption.enabled":     "true",
-				"encryption.type":        "wireguard",
+				"tunnel":                    "vxlan",
+				"endpointRoutes.enabled":    "true",
+				"encryption.enabled":        "true",
+				"encryption.type":           "wireguard",
+				"encryption.nodeEncryption": "true",
 			}, DeployCiliumOptionsAndDNS)
 
 			testWireguard("cilium_vxlan")
