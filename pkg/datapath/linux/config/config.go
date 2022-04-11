@@ -241,6 +241,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableWireguard {
 		cDefinesMap["ENABLE_WIREGUARD"] = "1"
+		if option.Config.EncryptNode {
+			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
+		}
 	}
 
 	if option.Config.EnableBPFTProxy {

@@ -223,6 +223,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
+#ifdef ENABLE_WIREGUARD
+# define WG_IFINDEX	42
+#endif
+
 #ifdef ENABLE_VTEP
 # define VTEP_MASK 0xffffff
 #endif
