@@ -1,12 +1,12 @@
 ---
 name: Feature Request
 about: Suggest a feature to Cilium
-title: 'RFE: '
+title: 'CFP: '
 labels: 'kind/feature'
 assignees: ''
 ---
 
-## Proposal / RFE
+## Cilium Feature Proposal
         
 Thanks for taking time to make a feature request for Cilium! If you have usage questions, please try the [slack channel](http://slack.cilium.io/) and see the [FAQ](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is:issue+label:kind/question+) first.
 
