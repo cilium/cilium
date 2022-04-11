@@ -47,6 +47,9 @@ func (ipc *IPCache) AllocateCIDRs(
 		newlyAllocatedIdentities = map[string]*identity.Identity{}
 	}
 
+	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
+	defer cancel()
+
 	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
 	for i, p := range prefixes {
 		if p == nil {
@@ -59,7 +62,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		if oldNIDs != nil && len(oldNIDs) > i {
 			oldNID = oldNIDs[i]
 		}
-		id, isNew, err := ipc.allocate(p, lbls, oldNID)
+		id, isNew, err := ipc.allocate(allocateCtx, p, lbls, oldNID)
 		if err != nil {
 			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, err
@@ -120,15 +123,12 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[strin
 //
 // It is up to the caller to provide the full set of labels for identity
 // allocation.
-func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
+func (ipc *IPCache) allocate(ctx context.Context, prefix *net.IPNet, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	if prefix == nil {
 		return nil, false, nil
 	}
 
-	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
-	defer cancel()
-
-	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(allocateCtx, lbls, false, oldNID)
+	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, oldNID)
 	if err != nil {
 		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
 	}
