@@ -213,6 +213,10 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
+#ifdef ENABLE_WIREGUARD
+# define WG_IFINDEX	42
+#endif
+
 #ifdef ENABLE_VTEP
 # define VTEP_MASK 0xffffff
 #endif
