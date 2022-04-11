@@ -206,12 +206,10 @@ func (k *K8sHubble) disableHubble(ctx context.Context) error {
 }
 
 func (k *K8sHubble) Disable(ctx context.Context) error {
-	var err error
-	k.ciliumVersion, err = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
-	if err != nil {
-		return err
-	}
 
+	// Ignore the GetRunningCiliumVersion error since it doesn't work for
+	// unreleased versions, and we will fall back to the --base-version
+	k.ciliumVersion, _ = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
 	k.semVerCiliumVersion = k.getCiliumVersion()
 
 	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
@@ -435,12 +433,9 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		return err
 	}
 
-	var err error
-	k.ciliumVersion, err = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
-	if err != nil {
-		return err
-	}
-
+	// Ignore the GetRunningCiliumVersion error since it doesn't work for
+	// unreleased versions, and we will fall back to the --base-version
+	k.ciliumVersion, _ = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
 	k.semVerCiliumVersion = k.getCiliumVersion()
 
 	caSecret, created, err := k.certManager.GetOrCreateCASecret(ctx, defaults.CASecretName, k.params.CreateCA)
