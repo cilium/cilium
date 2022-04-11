@@ -69,7 +69,7 @@ Configuration Key                 Example   Default   Description
 ``min-wait-duration``             ``10ms``  ``0``     Minimum wait duration each API call has to wait before being processed.
 ``max-wait-duration``             ``15s``   ``0``     Maximum duration an API call is allowed to wait before it fails.
 ``estimated-processing-duration`` ``100ms`` ``0``     Estimated processing duration of an average API call. Used for automatic adjustment.
-``auto-adjust``                   ``true``  ``false`` Enable automatic adjustment of ``rate-limit``, ``rate-burst`` and ``parallel-requests``.
+``auto-adjust``                   ``false``  ``true`` Enable automatic adjustment of ``rate-limit``, ``rate-burst`` and ``parallel-requests``.
 ``parallel-requests``             ``4``     ``0``     Number of parallel API calls allowed.
 ``min-parallel-requests``         ``2``     ``0``     Lower limit of parallel requests when auto-adjusting.
 ``max-parallel-requests``         ``6``     ``0``     Upper limit of parallel requests when auto-adjusting.
