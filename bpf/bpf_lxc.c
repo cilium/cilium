@@ -129,7 +129,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	bool __maybe_unused dst_remote_ep = false;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
 
@@ -159,11 +158,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
-#ifdef ENABLE_WIREGUARD
-			if (info->tunnel_endpoint != 0 &&
-			    !identity_is_node(info->sec_label))
-				dst_remote_ep = true;
-#endif /* ENABLE_WIREGUARD */
 		} else {
 			*dst_id = WORLD_ID;
 		}
@@ -372,9 +366,6 @@ ct_recreate6:
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef TUNNEL_MODE
-# ifdef ENABLE_WIREGUARD
-	if (!dst_remote_ep)
-# endif /* ENABLE_WIREGUARD */
 	{
 		struct endpoint_key key = {};
 		union v6addr *daddr = (union v6addr *)&ip6->daddr;
@@ -428,11 +419,7 @@ pass_to_stack:
 	if (ipv6_store_flowlabel(ctx, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
-#ifdef ENABLE_WIREGUARD
-	if (dst_remote_ep)
-		set_encrypt_mark(ctx);
-	else
-#elif !defined(TUNNEL_MODE)
+#if !defined(TUNNEL_MODE)
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key);
@@ -606,7 +593,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	bool has_l4_header = false;
-	bool __maybe_unused dst_remote_ep = false;
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
@@ -631,17 +617,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
-#ifdef ENABLE_WIREGUARD
-			/* If we detect that the dst is a remote endpoint, we
-			 * need to mark the packet. The ip rule which matches
-			 * on the MARK_MAGIC_ENCRYPT mark will steer the packet
-			 * to the Wireguard tunnel. The marking happens lower
-			 * in the code in the same place where we handle IPSec.
-			 */
-			if (info->tunnel_endpoint != 0 &&
-			    !identity_is_node(info->sec_label))
-				dst_remote_ep = true;
-#endif /* ENABLE_WIREGUARD */
 		} else {
 			*dst_id = WORLD_ID;
 		}
@@ -912,12 +887,6 @@ skip_egress_gateway:
 #endif
 
 #ifdef TUNNEL_MODE
-# ifdef ENABLE_WIREGUARD
-	/* In the tunnel mode we encapsulate pod2pod traffic only via Wireguard
-	 * device, i.e. we do not encapsulate twice.
-	 */
-	if (!dst_remote_ep)
-# endif /* ENABLE_WIREGUARD */
 	{
 		struct endpoint_key key = {};
 
@@ -961,11 +930,7 @@ pass_to_stack:
 		return ret;
 #endif
 
-#ifdef ENABLE_WIREGUARD
-	if (dst_remote_ep)
-		set_encrypt_mark(ctx);
-	else /* Wireguard and identity mark are mutually exclusive */
-#elif !defined(TUNNEL_MODE)
+#if !defined(TUNNEL_MODE)
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key);

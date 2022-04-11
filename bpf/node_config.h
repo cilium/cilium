@@ -178,6 +178,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
+#ifdef ENABLE_WIREGUARD
+# define WG_IFINDEX	42
+#endif
+
 #ifdef ENABLE_VTEP
 #define VTEP_ENDPOINT (__u32[]){0xeb48a90a, 0xec48a90a}
 /* HEX representation of VTEP IP
