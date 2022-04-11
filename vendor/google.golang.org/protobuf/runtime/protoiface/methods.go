@@ -103,7 +103,6 @@ type UnmarshalInput = struct {
 		FindExtensionByName(field protoreflect.FullName) (protoreflect.ExtensionType, error)
 		FindExtensionByNumber(message protoreflect.FullName, field protoreflect.FieldNumber) (protoreflect.ExtensionType, error)
 	}
-	Depth int
 }
 
 // UnmarshalOutput is output from the Unmarshal method.
