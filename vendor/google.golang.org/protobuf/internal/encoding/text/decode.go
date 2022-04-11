@@ -381,7 +381,7 @@ func (d *Decoder) currentOpenKind() (Kind, byte) {
 	case '[':
 		return ListOpen, ']'
 	}
-	panic(fmt.Sprintf("Decoder: openStack contains invalid byte %c", openCh))
+	panic(fmt.Sprintf("Decoder: openStack contains invalid byte %s", string(openCh)))
 }
 
 func (d *Decoder) pushOpenStack(ch byte) {

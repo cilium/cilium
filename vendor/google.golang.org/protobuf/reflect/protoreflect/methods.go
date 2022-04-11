@@ -53,7 +53,6 @@ type (
 			FindExtensionByName(field FullName) (ExtensionType, error)
 			FindExtensionByNumber(message FullName, field FieldNumber) (ExtensionType, error)
 		}
-		Depth int
 	}
 	unmarshalOutput = struct {
 		pragma.NoUnkeyedLiterals
