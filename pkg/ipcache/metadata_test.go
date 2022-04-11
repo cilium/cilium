@@ -22,9 +22,10 @@ import (
 
 func TestInjectLabels(t *testing.T) {
 	setupTest(t)
+	ctx := context.Background()
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
-	remaining, err := IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
+	remaining, err := IPIdentityCache.InjectLabels(ctx, []string{"1.1.1.1"})
 	assert.Len(t, remaining, 0)
 	assert.NoError(t, err)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
@@ -33,7 +34,7 @@ func TestInjectLabels(t *testing.T) {
 	// a CIDR ID for this IP.
 	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelKubeAPIServer, source.KubeAPIServer, "kube-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
-	remaining, err = IPIdentityCache.InjectLabels([]string{"10.0.0.4"})
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []string{"10.0.0.4"})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
@@ -44,7 +45,7 @@ func TestInjectLabels(t *testing.T) {
 	// IP now.
 	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelRemoteNode, source.CustomResource, "node-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
-	remaining, err = IPIdentityCache.InjectLabels([]string{"10.0.0.4"})
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []string{"10.0.0.4"})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
@@ -63,9 +64,10 @@ func TestFilterMetadataByLabels(t *testing.T) {
 
 func TestRemoveLabelsFromIPs(t *testing.T) {
 	setupTest(t)
+	ctx := context.Background()
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
-	remaining, err := IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
+	remaining, err := IPIdentityCache.InjectLabels(ctx, []string{"1.1.1.1"})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
@@ -85,7 +87,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	// the cluster, and thus will have a CIDR identity when InjectLabels() is
 	// called.
 	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer, source.CustomResource, "kube-uid")
-	remaining, err = IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []string{"1.1.1.1"})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	id := IPIdentityCache.IdentityAllocator.LookupIdentityByID(
@@ -102,7 +104,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	IPIdentityCache.RemoveLabelsExcluded(
 		labels.LabelKubeAPIServer, map[string]struct{}{},
 		"kube-uid")
-	remaining, err = IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []string{"1.1.1.1"})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.NotContains(t, IPIdentityCache.metadata.m["1.1.1.1"].ToLabels(), labels.LabelKubeAPIServer)
