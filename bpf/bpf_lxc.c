@@ -1862,7 +1862,8 @@ int handle_policy_egress(struct __ctx_buff *ctx)
 
 	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
 	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, 0, 0,
-			  0 /*ifindex*/, 0, TRACE_PAYLOAD_LEN);
+			  0 /*ifindex*/,
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
