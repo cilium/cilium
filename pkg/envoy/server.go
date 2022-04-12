@@ -31,7 +31,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -64,13 +64,14 @@ var (
 )
 
 const (
+	CiliumXDSClusterName = "xds-grpc-cilium"
+
 	adminClusterName      = "envoy-admin"
 	egressClusterName     = "egress-cluster"
 	egressTLSClusterName  = "egress-cluster-tls"
 	ingressClusterName    = "ingress-cluster"
 	ingressTLSClusterName = "ingress-cluster-tls"
 	metricsListenerName   = "envoy-prometheus-metrics-listener"
-	EnvoyTimeout          = 300 * time.Second // must be smaller than endpoint.EndpointGenerationTimeout
 )
 
 type Listener struct {
@@ -1074,7 +1075,7 @@ var ciliumXDS = &envoy_config_core.ConfigSource{
 				{
 					TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
 						EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
-							ClusterName: "xds-grpc-cilium",
+							ClusterName: CiliumXDSClusterName,
 						},
 					},
 				},
@@ -1163,12 +1164,12 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
-					Name:                 "xds-grpc-cilium",
+					Name:                 CiliumXDSClusterName,
 					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
 					ConnectTimeout:       &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
 					LbPolicy:             envoy_config_cluster.Cluster_ROUND_ROBIN,
 					LoadAssignment: &envoy_config_endpoint.ClusterLoadAssignment{
-						ClusterName: "xds-grpc-cilium",
+						ClusterName: CiliumXDSClusterName,
 						Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
 							LbEndpoints: []*envoy_config_endpoint.LbEndpoint{{
 								HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{

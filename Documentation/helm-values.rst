@@ -998,11 +998,11 @@
      - object
      - ``{"create":true,"name":"cilium-secrets","sync":true}``
    * - ingressController.secretsNamespace.create
-     - Create secrets namespace for Ingress
+     - Create secrets namespace for Ingress.
      - bool
      - ``true``
    * - ingressController.secretsNamespace.name
-     - Name of Ingress secret namespace
+     - Name of Ingress secret namespace.
      - string
      - ``"cilium-secrets"``
    * - ingressController.secretsNamespace.sync

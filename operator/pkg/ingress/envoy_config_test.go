@@ -45,7 +45,7 @@ func Test_getBackendServices(t *testing.T) {
 
 func Test_getListenerResource(t *testing.T) {
 	t.Run("with https enforcement", func(t *testing.T) {
-		res, err := getListenerResource(fakeClient(), baseIngress.DeepCopy(), true)
+		res, err := getListenerResource(baseIngress.DeepCopy(), "cilium-secrets", true)
 		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -80,13 +80,12 @@ func Test_getListenerResource(t *testing.T) {
 		err = proto.Unmarshal(listener.FilterChains[1].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
 		require.NoError(t, err)
 
-		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificates, 1)
-		require.Equal(t, "very-secure-key", downStreamTLS.CommonTlsContext.TlsCertificates[0].PrivateKey.GetInlineString())
-		require.Equal(t, "very-secure-cert", downStreamTLS.CommonTlsContext.TlsCertificates[0].CertificateChain.GetInlineString())
+		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 1)
+		require.Equal(t, "cilium-secrets/dummy-namespace-tls-very-secure-server-com", downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
 	})
 
-	t.Run("without https enforcment", func(t *testing.T) {
-		res, err := getListenerResource(fakeClient(), baseIngress.DeepCopy(), false)
+	t.Run("without https enforcement", func(t *testing.T) {
+		res, err := getListenerResource(baseIngress.DeepCopy(), "cilium-secrets", false)
 		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -125,9 +124,8 @@ func Test_getListenerResource(t *testing.T) {
 		err = proto.Unmarshal(listener.FilterChains[1].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
 		require.NoError(t, err)
 
-		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificates, 1)
-		require.Equal(t, "very-secure-key", downStreamTLS.CommonTlsContext.TlsCertificates[0].PrivateKey.GetInlineString())
-		require.Equal(t, "very-secure-cert", downStreamTLS.CommonTlsContext.TlsCertificates[0].CertificateChain.GetInlineString())
+		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 1)
+		require.Equal(t, "cilium-secrets/dummy-namespace-tls-very-secure-server-com", downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
 	})
 }
 
@@ -202,7 +200,7 @@ func Test_getClusterResources(t *testing.T) {
 }
 
 func Test_getEnvoyConfigForIngress(t *testing.T) {
-	cec, err := getEnvoyConfigForIngress(fakeClient(), baseIngress.DeepCopy(), false)
+	cec, err := getEnvoyConfigForIngress(baseIngress.DeepCopy(), "cilium-secrets", false)
 	require.NoError(t, err)
 
 	assert.Equal(t, "cilium-ingress-dummy-namespace-dummy-ingress", cec.Name)
