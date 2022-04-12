@@ -42,9 +42,6 @@ func agentCRDResourceNames() []string {
 		CRDResourceName(v2.CCNPName),
 		CRDResourceName(v2.CNName),
 		CRDResourceName(v2.CIDName),
-		CRDResourceName(v2.CIDName),
-		CRDResourceName(v2alpha1.BGPPName),
-		CRDResourceName(v2alpha1.BGPPoolName),
 	}
 
 	if !option.Config.DisableCiliumEndpointCRD {
@@ -63,6 +60,10 @@ func agentCRDResourceNames() []string {
 	if option.Config.EnableEnvoyConfig {
 		result = append(result, CRDResourceName(v2alpha1.CCECName))
 		result = append(result, CRDResourceName(v2alpha1.CECName))
+	}
+	if option.Config.EnableBGPControlPlane {
+		result = append(result, CRDResourceName(v2alpha1.BGPPName))
+		result = append(result, CRDResourceName(v2alpha1.BGPPoolName))
 	}
 
 	return result
