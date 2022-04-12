@@ -14,7 +14,7 @@ const (
 	info  = "ℹ️ "
 	warn  = "⚠️ "
 	fail  = "❌"
-	fatal = "🔥"
+	fatal = "🟥"
 
 	testPrefix = "  "
 )
