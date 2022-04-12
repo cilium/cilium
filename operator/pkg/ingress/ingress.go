@@ -54,6 +54,8 @@ type ingressServiceUpdatedEvent struct {
 //   	- Service
 //      - Endpoint
 //      - CiliumEnvoyConfig
+//   - Manage synced TLS secrets in given namespace
+//		- TLS secrets
 type IngressController struct {
 	ingressInformer cache.Controller
 	ingressStore    cache.Store
@@ -61,11 +63,14 @@ type IngressController struct {
 	serviceManager     *serviceManager
 	endpointManager    *endpointManager
 	envoyConfigManager *envoyConfigManager
+	secretManager      secretManager
 
 	queue      workqueue.RateLimitingInterface
 	maxRetries int
 
-	enforcedHTTPS bool
+	enforcedHTTPS      bool
+	enabledSecretsSync bool
+	secretsNamespace   string
 }
 
 // NewIngressController returns a controller for ingress objects having ingressClassName as cilium
@@ -78,9 +83,11 @@ func NewIngressController(options ...Option) (*IngressController, error) {
 	}
 
 	ic := &IngressController{
-		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		maxRetries:    opts.MaxRetries,
-		enforcedHTTPS: opts.EnforcedHTTPS,
+		queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		maxRetries:         opts.MaxRetries,
+		enforcedHTTPS:      opts.EnforcedHTTPS,
+		enabledSecretsSync: opts.EnabledSecretsSync,
+		secretsNamespace:   opts.SecretsNamespace,
 	}
 	ic.ingressStore, ic.ingressInformer = informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.WatcherClient().NetworkingV1().RESTClient(), "ingresses", corev1.NamespaceAll, fields.Everything()),
@@ -112,6 +119,15 @@ func NewIngressController(options ...Option) (*IngressController, error) {
 	}
 	ic.envoyConfigManager = envoyConfigManager
 
+	ic.secretManager = newNoOpsSecretManager()
+	if ic.enabledSecretsSync {
+		secretManager, err := newSyncSecretsManager(opts.SecretsNamespace, opts.MaxRetries)
+		if err != nil {
+			return nil, err
+		}
+		ic.secretManager = secretManager
+	}
+
 	return ic, nil
 }
 
@@ -124,6 +140,7 @@ func (ic *IngressController) Run() {
 	}
 
 	go ic.serviceManager.Run()
+	go ic.secretManager.Run()
 
 	for ic.processEvent() {
 	}
@@ -152,6 +169,8 @@ func (ic *IngressController) handleIngressAddedEvent(event ingressAddedEvent) er
 	if ingressClass == nil || *ingressClass != ciliumIngressClassName {
 		return nil
 	}
+
+	ic.secretManager.Add(event)
 	if err := ic.createEnvoyConfig(event.ingress); err != nil {
 		log.WithError(err).Warn("Failed to create CiliumEnvoyConfig")
 		return err
@@ -172,6 +191,7 @@ func (ic *IngressController) handleIngressUpdatedEvent(event ingressUpdatedEvent
 	if ingressClass == nil || *ingressClass != ciliumIngressClassName {
 		return nil
 	}
+	ic.secretManager.Add(event)
 	if err := ic.createEnvoyConfig(event.newIngress); err != nil {
 		log.WithError(err).Warn("Failed to update CiliumEnvoyConfig")
 		return err
@@ -191,6 +211,8 @@ func (ic *IngressController) handleIngressDeletedEvent(event ingressDeletedEvent
 	// as ciliumEnvoyConfig is non-namespace scoped, it should be removed manually.
 	// other resources (e.g service, endpoints) will be removed automatically via ownerReferences
 	log.WithField(logfields.Ingress, event.ingress.Name).Debug("Deleting CiliumEnvoyConfig for ingress")
+
+	ic.secretManager.Add(event)
 	if err := ic.deleteCiliumEnvoyConfig(event.ingress); err != nil {
 		log.WithError(err).Warn("Failed to delete cilium-envoy-config")
 		return err

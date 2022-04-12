@@ -225,6 +225,13 @@ const (
 	// Incoming traffic to http listener will return 308 http error code with respective location in header.
 	EnforceIngressHttps = "enforce-ingress-https"
 
+	// EnableIngressSecretsSync enables fan-in TLS secrets from multiple namespaces to singular namespace (specified
+	// by ingress-secrets-namespace flag
+	EnableIngressSecretsSync = "enable-ingress-secrets-sync"
+
+	// IngressSecretsNamespace is the namespace having tls secrets used by Ingress and CEC.
+	IngressSecretsNamespace = "ingress-secrets-namespace"
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace = "cilium-pod-namespace"
 
@@ -428,6 +435,12 @@ type OperatorConfig struct {
 	// EnforceIngressHTTPS enforces https if required
 	EnforceIngressHTTPS bool
 
+	// EnableIngressSecretsSync enables background TLS secret sync
+	EnableIngressSecretsSync bool
+
+	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
+	IngressSecretsNamespace string
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace string
 
@@ -473,6 +486,8 @@ func (c *OperatorConfig) Populate() {
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.EnableIngressController = viper.GetBool(EnableIngressController)
 	c.EnforceIngressHTTPS = viper.GetBool(EnforceIngressHttps)
+	c.IngressSecretsNamespace = viper.GetString(IngressSecretsNamespace)
+	c.EnableIngressSecretsSync = viper.GetBool(EnableIngressSecretsSync)
 	c.CiliumPodLabels = viper.GetString(CiliumPodLabels)
 	c.RemoveCiliumNodeTaints = viper.GetBool(RemoveCiliumNodeTaints)
 	c.SetCiliumIsUpCondition = viper.GetBool(SetCiliumIsUpCondition)

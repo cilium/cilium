@@ -985,10 +985,6 @@
      - Configure image pull secrets for pulling container images
      - string
      - ``nil``
-   * - ingressController.enableSecretsSync
-     - EnableSecretsSync will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name If disabled, TLS secrets must be maintained externally.
-     - bool
-     - ``true``
    * - ingressController.enabled
      - Enable cilium ingress controller This will automatically set enable-envoy-config as well.
      - bool
@@ -1000,7 +996,7 @@
    * - ingressController.secretsNamespace
      - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
      - object
-     - ``{"create":true,"name":"cilium-secrets"}``
+     - ``{"create":true,"name":"cilium-secrets","sync":true}``
    * - ingressController.secretsNamespace.create
      - Create secrets namespace for Ingress
      - bool
@@ -1009,6 +1005,10 @@
      - Name of Ingress secret namespace
      - string
      - ``"cilium-secrets"``
+   * - ingressController.secretsNamespace.sync
+     - Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
+     - bool
+     - ``true``
    * - installIptablesRules
      - Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy.
      - bool

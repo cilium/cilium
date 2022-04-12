@@ -5,14 +5,17 @@ package ingress
 
 // Options stores all the configurations values for cilium ingress controller.
 type Options struct {
-	MaxRetries    int
-	EnforcedHTTPS bool
+	MaxRetries         int
+	EnforcedHTTPS      bool
+	EnabledSecretsSync bool
+	SecretsNamespace   string
 }
 
 // DefaultIngressOptions specifies default values for cilium ingress controller.
 var DefaultIngressOptions = Options{
-	MaxRetries:    10,
-	EnforcedHTTPS: true,
+	MaxRetries:         10,
+	EnforcedHTTPS:      true,
+	EnabledSecretsSync: true,
 }
 
 // Option customizes the configuration of cilium ingress controller
@@ -30,6 +33,22 @@ func WithMaxRetries(maxRetries int) Option {
 func WithHTTPSEnforced(enforcedHTTPS bool) Option {
 	return func(o *Options) error {
 		o.EnforcedHTTPS = enforcedHTTPS
+		return nil
+	}
+}
+
+// WithSecretsSyncEnabled specifies if secrets syncs process should be done or not
+func WithSecretsSyncEnabled(enabledSecretsSync bool) Option {
+	return func(o *Options) error {
+		o.EnabledSecretsSync = enabledSecretsSync
+		return nil
+	}
+}
+
+// WithSecretsNamespace configures destination namespace for syncing all TLS secrets across namespaces.
+func WithSecretsNamespace(secretsNamespace string) Option {
+	return func(o *Options) error {
+		o.SecretsNamespace = secretsNamespace
 		return nil
 	}
 }

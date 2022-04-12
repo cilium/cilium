@@ -193,6 +193,7 @@ data:
   enable-ingress-controller: "true"
   enable-envoy-config: "true"
   enforce-ingress-https: {{ .Values.ingressController.enforceHttps | quote }}
+  enable-ingress-secrets-sync: {{ .Values.ingressController.secretsNamespace.sync | quote }}
   ingress-secrets-namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
 {{- end }}
 
