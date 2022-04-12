@@ -146,7 +146,7 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 static __always_inline __maybe_unused bool
 ____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 			 void **l3, const __u32 l3_len, const bool pull,
-			 __u8 eth_hlen)
+			 __u32 eth_hlen)
 {
 	const __u64 tot_len = eth_hlen + l3_len;
 	void *data_end;
