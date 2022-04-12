@@ -26,8 +26,10 @@ func (k *K8sHubble) generateHubbleUIService() (*corev1.Service, error) {
 
 	ciliumVer := k.semVerCiliumVersion
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		svcFilename = "templates/hubble-ui/service.yaml"
+	case versioncheck.MustCompile(">1.8.99")(ciliumVer):
+		svcFilename = "templates/hubble-ui-service.yaml"
 	default:
 		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
@@ -46,8 +48,10 @@ func (k *K8sHubble) generateHubbleUIConfigMap() (*corev1.ConfigMap, error) {
 
 	ciliumVer := k.semVerCiliumVersion
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		cmFilename = "templates/hubble-ui/configmap.yaml"
+	case versioncheck.MustCompile(">1.8.99")(ciliumVer):
+		cmFilename = "templates/hubble-ui-configmap.yaml"
 	default:
 		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
@@ -66,8 +70,10 @@ func (k *K8sHubble) generateHubbleUIDeployment() (*appsv1.Deployment, error) {
 
 	ciliumVer := k.semVerCiliumVersion
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		deployFilename = "templates/hubble-ui/deployment.yaml"
+	case versioncheck.MustCompile(">1.8.99")(ciliumVer):
+		deployFilename = "templates/hubble-ui-deployment.yaml"
 	default:
 		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
@@ -113,13 +119,15 @@ func (k *K8sHubble) disableUI(ctx context.Context) error {
 }
 
 func (k *K8sHubble) deleteUICertificates(ctx context.Context) error {
-	k.Log("🔥 Deleting Hubble UI certificates...")
-	secret, err := k.generateUICertificate(defaults.HubbleUIClientSecretName)
-	if err != nil {
-		return err
-	}
-
-	k.client.DeleteSecret(ctx, secret.GetNamespace(), secret.GetName(), metav1.DeleteOptions{})
+	// TODO we won't generate hubble-ui certificates because we don't want
+	//  to give a bad UX for hubble-cli (which connects to hubble-relay)
+	// k.Log("🔥 Deleting Hubble UI certificates...")
+	// secret, err := k.generateUICertificate(defaults.HubbleUIClientSecretName)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// k.client.DeleteSecret(ctx, secret.GetNamespace(), secret.GetName(), metav1.DeleteOptions{})
 
 	return nil
 }
@@ -199,27 +207,29 @@ func (k *K8sHubble) enableUI(ctx context.Context) (string, error) {
 // 	return nil
 // }
 
-func (k *K8sHubble) generateUICertificate(name string) (corev1.Secret, error) {
-	var (
-		relaySecretFilename string
-	)
-
-	ciliumVer := k.semVerCiliumVersion
-
-	switch {
-	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
-		switch name {
-		case defaults.HubbleUIClientSecretName:
-			relaySecretFilename = "templates/hubble/tls-helm/ui-client-certs.yaml"
-		}
-	}
-
-	relayFile := k.manifests[relaySecretFilename]
-
-	var secret corev1.Secret
-	utils.MustUnmarshalYAML([]byte(relayFile), &secret)
-	return secret, nil
-}
+// TODO we won't generate hubble-ui certificates because we don't want
+//  to give a bad UX for hubble-cli (which connects to hubble-relay)
+// func (k *K8sHubble) generateUICertificate(name string) (corev1.Secret, error) {
+// 	var (
+// 		relaySecretFilename string
+// 	)
+//
+// 	ciliumVer := k.semVerCiliumVersion
+//
+// 	switch {
+// 	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
+// 		switch name {
+// 		case defaults.HubbleUIClientSecretName:
+// 			relaySecretFilename = "templates/hubble/tls-helm/ui-client-certs.yaml"
+// 		}
+// 	}
+//
+// 	relayFile := k.manifests[relaySecretFilename]
+//
+// 	var secret corev1.Secret
+// 	utils.MustUnmarshalYAML([]byte(relayFile), &secret)
+// 	return secret, nil
+// }
 
 func (p *Parameters) UIPortForwardCommand(ctx context.Context) error {
 	args := []string{
