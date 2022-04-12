@@ -39,6 +39,11 @@ type ReleaseIpamPoolAllocationInput struct {
 	// This member is required.
 	Cidr *string
 
+	// The ID of the allocation.
+	//
+	// This member is required.
+	IpamPoolAllocationId *string
+
 	// The ID of the IPAM pool which contains the allocation you want to release.
 	//
 	// This member is required.
@@ -49,9 +54,6 @@ type ReleaseIpamPoolAllocationInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
-
-	// The ID of the allocation.
-	IpamPoolAllocationId *string
 
 	noSmithyDocumentSerde
 }

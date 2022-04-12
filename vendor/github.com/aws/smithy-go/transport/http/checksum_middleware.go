@@ -45,6 +45,11 @@ func (m *contentMD5Checksum) HandleBuild(
 	stream := req.GetStream()
 	// compute checksum if payload is explicit
 	if stream != nil {
+		if !req.IsStreamSeekable() {
+			return out, metadata, fmt.Errorf(
+				"unseekable stream is not supported for computing md5 checksum")
+		}
+
 		v, err := computeMD5Checksum(stream)
 		if err != nil {
 			return out, metadata, fmt.Errorf("error computing md5 checksum, %w", err)

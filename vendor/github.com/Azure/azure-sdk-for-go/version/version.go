@@ -4,4 +4,4 @@ package version
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 // Number contains the semantic version of this SDK.
-const Number = "v62.0.0"
+const Number = "v63.2.0"

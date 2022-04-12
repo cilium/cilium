@@ -58,7 +58,7 @@ type DescribeImageAttributeOutput struct {
 	// The block device mapping entries.
 	BlockDeviceMappings []types.BlockDeviceMapping
 
-	// Describes a value for a resource attribute that is a String.
+	// The boot mode.
 	BootMode *types.AttributeValue
 
 	// A description for the AMI.
@@ -69,6 +69,12 @@ type DescribeImageAttributeOutput struct {
 
 	// The kernel ID.
 	KernelId *types.AttributeValue
+
+	// The date and time, in ISO 8601 date-time format
+	// (http://www.iso.org/iso/iso8601), when the AMI was last used to launch an EC2
+	// instance. When the AMI is used, there is a 24-hour delay before that usage is
+	// reported. lastLaunchedTime data is available starting April 2017.
+	LastLaunchedTime *types.AttributeValue
 
 	// The launch permissions.
 	LaunchPermissions []types.LaunchPermission

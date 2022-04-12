@@ -5,13 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	sdkrand "github.com/aws/aws-sdk-go-v2/internal/rand"
+	"github.com/aws/aws-sdk-go-v2/internal/sdk"
 	"github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/logging"
+	"github.com/aws/smithy-go/middleware"
 )
 
 // ProviderName provides a name of EC2Role provider
@@ -26,14 +31,10 @@ type GetMetadataAPIClient interface {
 // A Provider retrieves credentials from the EC2 service, and keeps track if
 // those credentials are expired.
 //
-// The New function must be used to create the Provider.
+// The New function must be used to create the with a custom EC2 IMDS client.
 //
-//     p := &ec2rolecreds.New(ec2rolecreds.Options{
-//          Client: imds.New(imds.Options{}),
-//
-//          // Expire the credentials 10 minutes before IAM states they should.
-//          // Proactively refreshing the credentials.
-//          ExpiryWindow: 10 * time.Minute
+//     p := &ec2rolecreds.New(func(o *ec2rolecreds.Options{
+//          o.Client = imds.New(imds.Options{/* custom options */})
 //     })
 type Provider struct {
 	options Options
@@ -66,9 +67,8 @@ func New(optFns ...func(*Options)) *Provider {
 	}
 }
 
-// Retrieve retrieves credentials from the EC2 service.
-// Error will be returned if the request fails, or unable to extract
-// the desired credentials.
+// Retrieve retrieves credentials from the EC2 service. Error will be returned
+// if the request fails, or unable to extract the desired credentials.
 func (p *Provider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	credsList, err := requestCredList(ctx, p.options.Client)
 	if err != nil {
@@ -96,10 +96,65 @@ func (p *Provider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 		Expires:   roleCreds.Expiration,
 	}
 
+	// Cap role credentials Expires to 1 hour so they can be refreshed more
+	// often. Jitter will be applied credentials cache if being used.
+	if anHour := sdk.NowTime().Add(1 * time.Hour); creds.Expires.After(anHour) {
+		creds.Expires = anHour
+	}
+
 	return creds, nil
 }
 
-// A ec2RoleCredRespBody provides the shape for unmarshaling credential
+// HandleFailToRefresh will extend the credentials Expires time if it it is
+// expired. If the credentials will not expire within the minimum time, they
+// will be returned.
+//
+// If the credentials cannot expire, the original error will be returned.
+func (p *Provider) HandleFailToRefresh(ctx context.Context, prevCreds aws.Credentials, err error) (
+	aws.Credentials, error,
+) {
+	if !prevCreds.CanExpire {
+		return aws.Credentials{}, err
+	}
+
+	if prevCreds.Expires.After(sdk.NowTime().Add(5 * time.Minute)) {
+		return prevCreds, nil
+	}
+
+	newCreds := prevCreds
+	randFloat64, err := sdkrand.CryptoRandFloat64()
+	if err != nil {
+		return aws.Credentials{}, fmt.Errorf("failed to get random float, %w", err)
+	}
+
+	// Random distribution of [5,15) minutes.
+	expireOffset := time.Duration(randFloat64*float64(10*time.Minute)) + 5*time.Minute
+	newCreds.Expires = sdk.NowTime().Add(expireOffset)
+
+	logger := middleware.GetLogger(ctx)
+	logger.Logf(logging.Warn, "Attempting credential expiration extension due to a credential service availability issue. A refresh of these credentials will be attempted again in %v minutes.", math.Floor(expireOffset.Minutes()))
+
+	return newCreds, nil
+}
+
+// AdjustExpiresBy will adds the passed in duration to the passed in
+// credential's Expires time, unless the time until Expires is less than 15
+// minutes. Returns the credentials, even if not updated.
+func (p *Provider) AdjustExpiresBy(creds aws.Credentials, dur time.Duration) (
+	aws.Credentials, error,
+) {
+	if !creds.CanExpire {
+		return creds, nil
+	}
+	if creds.Expires.Before(sdk.NowTime().Add(15 * time.Minute)) {
+		return creds, nil
+	}
+
+	creds.Expires = creds.Expires.Add(dur)
+	return creds, nil
+}
+
+// ec2RoleCredRespBody provides the shape for unmarshaling credential
 // request responses.
 type ec2RoleCredRespBody struct {
 	// Success State

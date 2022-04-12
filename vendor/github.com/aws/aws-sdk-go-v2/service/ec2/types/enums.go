@@ -2185,6 +2185,7 @@ const (
 	ImageAttributeNameBlockDeviceMapping ImageAttributeName = "blockDeviceMapping"
 	ImageAttributeNameSriovNetSupport    ImageAttributeName = "sriovNetSupport"
 	ImageAttributeNameBootMode           ImageAttributeName = "bootMode"
+	ImageAttributeNameLastLaunchedTime   ImageAttributeName = "lastLaunchedTime"
 )
 
 // Values returns all known values for ImageAttributeName. Note that this can be
@@ -2200,6 +2201,7 @@ func (ImageAttributeName) Values() []ImageAttributeName {
 		"blockDeviceMapping",
 		"sriovNetSupport",
 		"bootMode",
+		"lastLaunchedTime",
 	}
 }
 
@@ -2292,6 +2294,24 @@ func (InstanceAttributeName) Values() []InstanceAttributeName {
 		"sriovNetSupport",
 		"enaSupport",
 		"enclaveOptions",
+	}
+}
+
+type InstanceAutoRecoveryState string
+
+// Enum values for InstanceAutoRecoveryState
+const (
+	InstanceAutoRecoveryStateDisabled InstanceAutoRecoveryState = "disabled"
+	InstanceAutoRecoveryStateDefault  InstanceAutoRecoveryState = "default"
+)
+
+// Values returns all known values for InstanceAutoRecoveryState. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (InstanceAutoRecoveryState) Values() []InstanceAutoRecoveryState {
+	return []InstanceAutoRecoveryState{
+		"disabled",
+		"default",
 	}
 }
 
@@ -3930,6 +3950,25 @@ func (KeyType) Values() []KeyType {
 	}
 }
 
+type LaunchTemplateAutoRecoveryState string
+
+// Enum values for LaunchTemplateAutoRecoveryState
+const (
+	LaunchTemplateAutoRecoveryStateDefault  LaunchTemplateAutoRecoveryState = "default"
+	LaunchTemplateAutoRecoveryStateDisabled LaunchTemplateAutoRecoveryState = "disabled"
+)
+
+// Values returns all known values for LaunchTemplateAutoRecoveryState. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (LaunchTemplateAutoRecoveryState) Values() []LaunchTemplateAutoRecoveryState {
+	return []LaunchTemplateAutoRecoveryState{
+		"default",
+		"disabled",
+	}
+}
+
 type LaunchTemplateErrorCode string
 
 // Enum values for LaunchTemplateErrorCode
@@ -5078,6 +5117,7 @@ const (
 	ResourceTypeSpotFleetRequest                                       ResourceType = "spot-fleet-request"
 	ResourceTypeSpotInstancesRequest                                   ResourceType = "spot-instances-request"
 	ResourceTypeSubnet                                                 ResourceType = "subnet"
+	ResourceTypeSubnetCidrReservation                                  ResourceType = "subnet-cidr-reservation"
 	ResourceTypeTrafficMirrorFilter                                    ResourceType = "traffic-mirror-filter"
 	ResourceTypeTrafficMirrorSession                                   ResourceType = "traffic-mirror-session"
 	ResourceTypeTrafficMirrorTarget                                    ResourceType = "traffic-mirror-target"
@@ -5152,6 +5192,7 @@ func (ResourceType) Values() []ResourceType {
 		"spot-fleet-request",
 		"spot-instances-request",
 		"subnet",
+		"subnet-cidr-reservation",
 		"traffic-mirror-filter",
 		"traffic-mirror-session",
 		"traffic-mirror-target",

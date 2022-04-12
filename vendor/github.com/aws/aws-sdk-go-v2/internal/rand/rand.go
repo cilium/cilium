@@ -29,5 +29,5 @@ func Float64(reader io.Reader) (float64, error) {
 // CryptoRandFloat64 returns a random float64 obtained from the crypto rand
 // source.
 func CryptoRandFloat64() (float64, error) {
-	return Float64(rand.Reader)
+	return Float64(Reader)
 }
