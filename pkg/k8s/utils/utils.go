@@ -66,6 +66,12 @@ type ServiceConfiguration interface {
 	K8sServiceProxyNameValue() string
 }
 
+// IngressConfiguration is the required configuration for GetServiceListOptionsModifier
+type IngressConfiguration interface {
+	// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
+	K8sIngressControllerEnabled() bool
+}
+
 // GetServiceListOptionsModifier returns the options modifier for service object list.
 // This methods returns a ListOptions modifier which adds a label selector to only
 // select services that are in context of Cilium.
