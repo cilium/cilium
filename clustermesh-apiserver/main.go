@@ -308,7 +308,7 @@ func updateIdentity(obj interface{}) {
 
 	var key []byte
 	for _, l := range labelArray {
-		key = append(key, []byte(l.FormatForKVStore())...)
+		key = append(key, l.FormatForKVStore()...)
 	}
 
 	if len(key) == 0 {
