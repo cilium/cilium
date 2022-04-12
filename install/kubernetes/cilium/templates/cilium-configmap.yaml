@@ -193,6 +193,7 @@ data:
   enable-ingress-controller: "true"
   enable-envoy-config: "true"
   enforce-ingress-https: {{ .Values.ingressController.enforceHttps | quote }}
+  ingress-secrets-namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
 {{- end }}
 
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4

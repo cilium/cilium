@@ -367,6 +367,7 @@ endpointmanager
 enforceHttps
 eni
 eniTags
+envoySecretNamespace
 etcd
 ethernet
 ethtool
@@ -808,6 +809,7 @@ scp
 seccomp
 secretName
 secretsBackend
+secretsNamespace
 securityContext
 selftest
 selftests

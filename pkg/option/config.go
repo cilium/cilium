@@ -374,6 +374,9 @@ const (
 	// InstallEgressGatewayRoutes installs IP rules and routes required to steer traffic to the correct network interface
 	InstallEgressGatewayRoutes = "install-egress-gateway-routes"
 
+	// EnableIngressController enables Ingress Controller
+	EnableIngressController = "enable-ingress-controller"
+
 	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
 
@@ -1073,6 +1076,9 @@ const (
 
 	// Flag to enable BGP control plane features
 	EnableBGPControlPlane = "enable-bgp-control-plane"
+
+	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
+	IngressSecretsNamespace = "ingress-secrets-namespace"
 )
 
 // Default string arguments
@@ -1605,6 +1611,7 @@ type DaemonConfig struct {
 	EnableIPv4EgressGateway    bool
 	InstallEgressGatewayRoutes bool
 	EnableEnvoyConfig          bool
+	EnableIngressController    bool
 	EnvoyConfigTimeout         time.Duration
 	IPMasqAgentConfigPath      string
 	InstallIptRules            bool
@@ -2200,6 +2207,9 @@ type DaemonConfig struct {
 
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
+
+	// EnvoySecretNamespace for TLS secrets. Used by CiliumEnvoyConfig via SDS.
+	EnvoySecretNamespace string
 }
 
 var (
@@ -2442,6 +2452,11 @@ func (c *DaemonConfig) CiliumNamespaceName() string {
 // resources is enabled
 func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
 	return c.K8sEnableAPIDiscovery
+}
+
+// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
+func (c *DaemonConfig) K8sIngressControllerEnabled() bool {
+	return c.EnableIngressController
 }
 
 // K8sLeasesFallbackDiscoveryEnabled returns true if we should fallback to direct API
@@ -2797,6 +2812,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPv4EgressGateway = viper.GetBool(EnableIPv4EgressGateway)
 	c.InstallEgressGatewayRoutes = viper.GetBool(InstallEgressGatewayRoutes)
 	c.EnableEnvoyConfig = viper.GetBool(EnableEnvoyConfig)
+	c.EnableIngressController = viper.GetBool(EnableIngressController)
 	c.EnvoyConfigTimeout = viper.GetDuration(EnvoyConfigTimeout)
 	c.IPMasqAgentConfigPath = viper.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
@@ -3140,6 +3156,9 @@ func (c *DaemonConfig) Populate() {
 
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = viper.GetBool(EnableBGPControlPlane)
+
+	// Envoy secrets namespace to watch
+	c.EnvoySecretNamespace = viper.GetString(IngressSecretsNamespace)
 }
 
 func (c *DaemonConfig) populateDevices() {

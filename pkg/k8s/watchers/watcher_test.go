@@ -47,6 +47,10 @@ func (f *fakeWatcherConfiguration) K8sServiceProxyNameValue() string {
 	return ""
 }
 
+func (f *fakeWatcherConfiguration) K8sIngressControllerEnabled() bool {
+	return false
+}
+
 type fakeEndpointManager struct {
 	OnGetEndpoints                func() []*endpoint.Endpoint
 	OnLookupPodName               func(string) *endpoint.Endpoint

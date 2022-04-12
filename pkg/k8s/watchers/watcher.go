@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -59,6 +59,7 @@ const (
 	K8sAPIGroupServiceV1Core                        = "core/v1::Service"
 	K8sAPIGroupEndpointV1Core                       = "core/v1::Endpoint"
 	K8sAPIGroupPodV1Core                            = "core/v1::Pods"
+	K8sAPIGroupSecretV1Core                         = "core/v1::Secrets"
 	k8sAPIGroupNetworkingV1Core                     = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2                = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2     = "cilium/v2::CiliumClusterwideNetworkPolicy"
@@ -78,6 +79,7 @@ const (
 	metricEndpointSlice  = "EndpointSlice"
 	metricKNP            = "NetworkPolicy"
 	metricNS             = "Namespace"
+	metricSecret         = "Secret"
 	metricCiliumNode     = "CiliumNode"
 	metricCiliumEndpoint = "CiliumEndpoint"
 	metricCLRP           = "CiliumLocalRedirectPolicy"
@@ -364,6 +366,12 @@ func (k *K8sWatcher) resourceGroups() []string {
 		k8sAPIGroupNodeV1Core,
 	}
 
+	if k.cfg.K8sIngressControllerEnabled() {
+		// While Ingress controller is part of operator, we need to watch
+		// TLS secrets in pre-defined namespace for populating Envoy xDS SDS cache.
+		k8sGroups = append(k8sGroups, K8sAPIGroupSecretV1Core)
+	}
+
 	// To perform the service translation and have the BPF LB datapath
 	// with the right service -> backend (k8s endpoints) translation.
 	if k8s.SupportsEndpointSlice() {
@@ -443,6 +451,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 // WatcherConfiguration is the required configuration for EnableK8sWatcher
 type WatcherConfiguration interface {
 	utils.ServiceConfiguration
+	utils.IngressConfiguration
 }
 
 // EnableK8sWatcher watches for policy, services and endpoint changes on the
@@ -489,6 +498,10 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context, resources []string) e
 			// no-op; handled in K8sAPIGroupEndpointV1Core.
 		case K8sAPIGroupEndpointV1Core:
 			k.initEndpointsOrSlices(k8s.WatcherClient(), serviceOptModifier)
+		case K8sAPIGroupSecretV1Core:
+			swgSecret := lock.NewStoppableWaitGroup()
+			// only watch tls secret
+			k.tlsSecretInit(k8s.WatcherClient(), option.Config.EnvoySecretNamespace, swgSecret)
 		// Custom resource definitions
 		case k8sAPIGroupCiliumNetworkPolicyV2:
 			k.ciliumNetworkPoliciesInit(ciliumNPClient)
