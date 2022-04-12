@@ -388,7 +388,7 @@ func (ic *IngressController) createEndpoints(ingress *slim_networkingv1.Ingress)
 }
 
 func (ic *IngressController) createEnvoyConfig(ingress *slim_networkingv1.Ingress) error {
-	desired, err := getEnvoyConfigForIngress(k8s.Client(), ingress, ic.enforcedHTTPS)
+	desired, err := getEnvoyConfigForIngress(ingress, ic.secretsNamespace, ic.enforcedHTTPS)
 	if err != nil {
 		return err
 	}

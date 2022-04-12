@@ -4,7 +4,6 @@
 package ingress
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"sort"
@@ -26,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/envoy"
@@ -85,43 +83,56 @@ func getCECNameForIngress(ingress *slim_networkingv1.Ingress) string {
 	return ciliumIngressPrefix + ingress.Namespace + "-" + ingress.Name
 }
 
-func getSecret(k8sClient kubernetes.Interface, namespace, name string) (string, string, error) {
-	secret, err := k8sClient.CoreV1().Secrets(namespace).Get(context.Background(), name, metav1.GetOptions{})
-	if err != nil {
-		return "", "", fmt.Errorf("failied to get secret %s/%s: %v", namespace, name, err)
-	}
-	var tlsKey, tlsCrt []byte
-	var ok bool
-	if tlsKey, ok = secret.Data["tls.key"]; !ok {
-		return "", "", fmt.Errorf("missing tls.key field in secret: %s/%s", namespace, name)
-	}
-	if tlsCrt, ok = secret.Data["tls.crt"]; !ok {
-		return "", "", fmt.Errorf("missing tls.crt field in secret: %s/%s", namespace, name)
-	}
-	return string(tlsCrt), string(tlsKey), nil
-}
-
-func getTLS(k8sClient kubernetes.Interface, ingress *slim_networkingv1.Ingress) (map[string]*envoy_config_core_v3.TransportSocket, error) {
+func getTransportSockets(ingress *slim_networkingv1.Ingress, secretNamespace string) (map[string]*envoy_config_core_v3.TransportSocket, error) {
 	tls := make(map[string]*envoy_config_core_v3.TransportSocket)
 	for _, tlsConfig := range ingress.Spec.TLS {
-		crt, key, err := getSecret(k8sClient, ingress.Namespace, tlsConfig.SecretName)
-		if err != nil {
-			return nil, err
-		}
 		for _, host := range tlsConfig.Hosts {
+			sdsName := getSyncedSecretKey(secretNamespace, ingress.GetNamespace(), tlsConfig.SecretName)
 			downStreamContext := envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
 				CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
-					TlsCertificates: []*envoy_extensions_transport_sockets_tls_v3.TlsCertificate{
+					TlsCertificateSdsSecretConfigs: []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
 						{
-							CertificateChain: &envoy_config_core_v3.DataSource{
-								Specifier: &envoy_config_core_v3.DataSource_InlineString{
-									InlineString: crt,
+							Name: sdsName,
+							SdsConfig: &envoy_config_core_v3.ConfigSource{
+								ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &envoy_config_core_v3.ApiConfigSource{
+										ApiType:             envoy_config_core_v3.ApiConfigSource_GRPC,
+										TransportApiVersion: envoy_config_core_v3.ApiVersion_V3,
+										GrpcServices: []*envoy_config_core_v3.GrpcService{
+											{
+												TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+														ClusterName: envoy.CiliumXDSClusterName,
+													},
+												},
+											},
+										},
+									},
 								},
+								ResourceApiVersion: envoy_config_core_v3.ApiVersion_V3,
 							},
-							PrivateKey: &envoy_config_core_v3.DataSource{
-								Specifier: &envoy_config_core_v3.DataSource_InlineString{
-									InlineString: key,
+						},
+					},
+					ValidationContextType: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_ValidationContextSdsSecretConfig{
+						ValidationContextSdsSecretConfig: &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+							Name: sdsName,
+							SdsConfig: &envoy_config_core_v3.ConfigSource{
+								ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &envoy_config_core_v3.ApiConfigSource{
+										ApiType:             envoy_config_core_v3.ApiConfigSource_GRPC,
+										TransportApiVersion: envoy_config_core_v3.ApiVersion_V3,
+										GrpcServices: []*envoy_config_core_v3.GrpcService{
+											{
+												TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+														ClusterName: envoy.CiliumXDSClusterName,
+													},
+												},
+											},
+										},
+									},
 								},
+								ResourceApiVersion: envoy_config_core_v3.ApiVersion_V3,
 							},
 						},
 					},
@@ -135,7 +146,7 @@ func getTLS(k8sClient kubernetes.Interface, ingress *slim_networkingv1.Ingress) 
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
 					TypedConfig: &anypb.Any{
-						TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+						TypeUrl: envoy.DownstreamTlsContextURL,
 						Value:   upstreamContextBytes,
 					},
 				},
@@ -145,9 +156,9 @@ func getTLS(k8sClient kubernetes.Interface, ingress *slim_networkingv1.Ingress) 
 	return tls, nil
 }
 
-func getEnvoyConfigForIngress(k8sClient kubernetes.Interface, ingress *slim_networkingv1.Ingress, enforcedHTTPS bool) (*v2alpha1.CiliumEnvoyConfig, error) {
+func getEnvoyConfigForIngress(ingress *slim_networkingv1.Ingress, secretsNamespace string, enforcedHTTPS bool) (*v2alpha1.CiliumEnvoyConfig, error) {
 	backendServices := getBackendServices(ingress)
-	resources, err := getResources(k8sClient, ingress, backendServices, enforcedHTTPS)
+	resources, err := getResources(ingress, backendServices, secretsNamespace, enforcedHTTPS)
 	if err != nil {
 		return nil, err
 	}
@@ -202,9 +213,9 @@ func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2alpha1.Service 
 	return backendServices
 }
 
-func getResources(k8sClient kubernetes.Interface, ingress *slim_networkingv1.Ingress, backendServices []*v2alpha1.Service, enforcedHTTPS bool) ([]v2alpha1.XDSResource, error) {
+func getResources(ingress *slim_networkingv1.Ingress, backendServices []*v2alpha1.Service, secretsNamespace string, enforcedHTTPS bool) ([]v2alpha1.XDSResource, error) {
 	var resources []v2alpha1.XDSResource
-	listener, err := getListenerResource(k8sClient, ingress, enforcedHTTPS)
+	listener, err := getListenerResource(ingress, secretsNamespace, enforcedHTTPS)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +243,7 @@ func getResources(k8sClient kubernetes.Interface, ingress *slim_networkingv1.Ing
 	return resources, nil
 }
 
-func getListenerResource(k8sClient kubernetes.Interface, ingress *slim_networkingv1.Ingress, enforcedHTTPS bool) (v2alpha1.XDSResource, error) {
+func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace string, enforcedHTTPS bool) (v2alpha1.XDSResource, error) {
 	cecName := getCECNameForIngress(ingress)
 	defaultHttpConnectionManager, err := getConnectionManager(cecName, fmt.Sprintf("%s_route", cecName))
 	if err != nil {
@@ -265,9 +276,10 @@ func getListenerResource(k8sClient kubernetes.Interface, ingress *slim_networkin
 			}
 		}
 
-		tls, err := getTLS(k8sClient, ingress)
+		transportSockets, err := getTransportSockets(ingress, secretNamespace)
 		if err != nil {
-			log.WithError(err).Warn("Failed to get secret for ingress")
+			log.WithError(err).Error("Failed for construct transport sockets")
+			return v2alpha1.XDSResource{}, err
 		}
 
 		// TODO(tam) extend to list of tls
@@ -275,7 +287,7 @@ func getListenerResource(k8sClient kubernetes.Interface, ingress *slim_networkin
 		var tlsConf *envoy_config_core_v3.TransportSocket
 		if len(ingress.Spec.TLS[0].Hosts) > 0 {
 			domain := ingress.Spec.TLS[0].Hosts[0]
-			tlsConf = tls[domain]
+			tlsConf = transportSockets[domain]
 		}
 
 		filterChains = []*envoy_config_listener.FilterChain{

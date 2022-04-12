@@ -40,6 +40,9 @@ const (
 
 	// NetworkPolicyHostsTypeURL is the type URL of NetworkPolicyHosts resources.
 	NetworkPolicyHostsTypeURL = "type.googleapis.com/cilium.NetworkPolicyHosts"
+
+	// DownstreamTlsContextURL is the type URL of DownstreamTlsContext
+	DownstreamTlsContextURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext"
 )
 
 // NPHDSCache is a cache of resources in the Network Policy Hosts Discovery
