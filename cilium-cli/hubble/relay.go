@@ -24,8 +24,10 @@ func (k *K8sHubble) generateRelayService() (*corev1.Service, error) {
 
 	ciliumVer := k.semVerCiliumVersion
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		svcFilename = "templates/hubble-relay/service.yaml"
+	case versioncheck.MustCompile(">1.8.99")(ciliumVer):
+		svcFilename = "templates/hubble-relay-service.yaml"
 	default:
 		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
@@ -44,8 +46,10 @@ func (k *K8sHubble) generateRelayDeployment() (*appsv1.Deployment, error) {
 
 	ciliumVer := k.semVerCiliumVersion
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		deployFilename = "templates/hubble-relay/deployment.yaml"
+	case versioncheck.MustCompile(">1.8.99")(ciliumVer):
+		deployFilename = "templates/hubble-relay-deployment.yaml"
 	default:
 		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
@@ -64,8 +68,10 @@ func (k *K8sHubble) generateRelayConfigMap() (*corev1.ConfigMap, error) {
 
 	ciliumVer := k.semVerCiliumVersion
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		cmFilename = "templates/hubble-relay/configmap.yaml"
+	case versioncheck.MustCompile(">1.8.99")(ciliumVer):
+		cmFilename = "templates/hubble-relay-configmap.yaml"
 	default:
 		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
 	}
@@ -229,6 +235,13 @@ func (k *K8sHubble) generateRelayCertificate(name string) (corev1.Secret, error)
 			relaySecretFilename = "templates/hubble/tls-helm/relay-server-secret.yaml"
 		case defaults.RelayClientSecretName:
 			relaySecretFilename = "templates/hubble/tls-helm/relay-client-secret.yaml"
+		}
+	case versioncheck.MustCompile(">1.8.99")(ciliumVer):
+		switch name {
+		case defaults.RelayServerSecretName:
+			relaySecretFilename = "templates/hubble-relay-tls-server-secret.yaml"
+		case defaults.RelayClientSecretName:
+			relaySecretFilename = "templates/hubble-relay-client-tls-secret.yaml"
 		}
 	}
 
