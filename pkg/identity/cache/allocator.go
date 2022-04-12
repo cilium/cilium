@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
@@ -38,11 +39,12 @@ type GlobalIdentity struct {
 }
 
 // GetKey encodes an Identity as string
-func (gi GlobalIdentity) GetKey() (str string) {
+func (gi GlobalIdentity) GetKey() string {
+	var str strings.Builder
 	for _, l := range gi.LabelArray {
-		str += l.FormatForKVStore()
+		str.Write(l.FormatForKVStore())
 	}
-	return
+	return str.String()
 }
 
 // GetAsMap encodes a GlobalIdentity a map of keys to values. The keys will
