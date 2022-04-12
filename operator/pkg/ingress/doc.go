@@ -9,4 +9,7 @@
 // - Create CiliumEnvoyConfig with all routing details.
 // - Create dummy Endpoint for above LB service
 // All above child resources are having respective ownerReferences for proper cleanup.
+//
+// There is a small secret sync component, which will watch all tls ingress secrets and sync them to another give
+// namespace. This is to limit the permission during runtime in all nodes.
 package ingress

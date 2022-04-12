@@ -456,6 +456,10 @@ ingressController:
     # -- Name of Ingress secret namespace.
     name: cilium-secrets
 
+    # -- Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name.
+    # If disabled, TLS secrets must be maintained externally.
+    sync: true
+
 # -- Enables the fallback compatibility solution for when the xt_socket kernel
 # module is missing and it is needed for the datapath L7 redirection to work
 # properly. See documentation for details on when this can be disabled:
