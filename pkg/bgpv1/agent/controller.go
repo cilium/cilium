@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	v1 "k8s.io/client-go/listers/core/v1"
@@ -30,8 +31,7 @@ import (
 )
 
 var (
-	log                   = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
-	defaultInformerResync = 30 * time.Second
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
 )
 
 var (
@@ -148,8 +148,12 @@ func NewController(ctx context.Context, rtMgr BGPRouterManager, opts ...Controll
 
 	// informers setup
 	clientset := k8s.CiliumClient()
-	factory := externalversions.NewSharedInformerFactory(clientset, defaultInformerResync)
-	k8sfactory := informers.NewSharedInformerFactory(k8s.Client(), defaultInformerResync)
+	factory := externalversions.NewSharedInformerFactory(clientset, 0)
+
+	selfTweakList := informers.WithTweakListOptions(func(lo *metav1.ListOptions) {
+		lo.FieldSelector = "metadata.name=" + nodetypes.GetName()
+	})
+	k8sfactory := informers.NewSharedInformerFactoryWithOptions(k8s.Client(), 0, selfTweakList)
 
 	nodeLister := k8sfactory.Core().V1().Nodes().Lister()
 	nodeInformer := k8sfactory.Core().V1().Nodes().Informer()
