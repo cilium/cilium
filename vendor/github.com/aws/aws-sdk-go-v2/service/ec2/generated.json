@@ -431,6 +431,7 @@
         "api_op_ModifyInstanceCreditSpecification.go",
         "api_op_ModifyInstanceEventStartTime.go",
         "api_op_ModifyInstanceEventWindow.go",
+        "api_op_ModifyInstanceMaintenanceOptions.go",
         "api_op_ModifyInstanceMetadataOptions.go",
         "api_op_ModifyInstancePlacement.go",
         "api_op_ModifyIpam.go",

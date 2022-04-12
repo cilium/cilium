@@ -35,14 +35,16 @@ func (c *Client) CreateIpamPool(ctx context.Context, params *CreateIpamPoolInput
 
 type CreateIpamPoolInput struct {
 
+	// The IP protocol assigned to this IPAM pool. You must choose either IPv4 or IPv6
+	// protocol for a pool.
+	//
+	// This member is required.
+	AddressFamily types.AddressFamily
+
 	// The ID of the scope in which you would like to create the IPAM pool.
 	//
 	// This member is required.
 	IpamScopeId *string
-
-	// The IP protocol assigned to this IPAM pool. You must choose either IPv4 or IPv6
-	// protocol for a pool.
-	AddressFamily types.AddressFamily
 
 	// The default netmask length for allocations added to this pool. If, for example,
 	// the CIDR assigned to this pool is 10.0.0.0/8 and you enter 16 here, new

@@ -273,7 +273,7 @@ type AssumeRoleInput struct {
 	// session. If you pass a session tag with the same key as an inherited tag, the
 	// operation fails. To view the inherited tags for a session, see the CloudTrail
 	// logs. For more information, see Viewing Session Tags in CloudTrail
-	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/session-tags.html#id_session-tags_ctlogs)
+	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_ctlogs)
 	// in the IAM User Guide.
 	Tags []types.Tag
 

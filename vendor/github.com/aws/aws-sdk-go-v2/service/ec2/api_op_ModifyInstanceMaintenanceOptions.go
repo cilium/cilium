@@ -11,41 +11,35 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Resets an attribute of an instance to its default value. To reset the kernel or
-// ramdisk, the instance must be in a stopped state. To reset the sourceDestCheck,
-// the instance can be either running or stopped. The sourceDestCheck attribute
-// controls whether source/destination checking is enabled. The default value is
-// true, which means checking is enabled. This value must be false for a NAT
-// instance to perform NAT. For more information, see NAT Instances
-// (https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_NAT_Instance.html)
-// in the Amazon VPC User Guide.
-func (c *Client) ResetInstanceAttribute(ctx context.Context, params *ResetInstanceAttributeInput, optFns ...func(*Options)) (*ResetInstanceAttributeOutput, error) {
+// Modifies the recovery behavior of your instance to disable simplified automatic
+// recovery or set the recovery behavior to default. The default configuration will
+// not enable simplified automatic recovery for an unsupported instance type. For
+// more information, see Simplified automatic recovery
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-recover.html#instance-configuration-recovery).
+func (c *Client) ModifyInstanceMaintenanceOptions(ctx context.Context, params *ModifyInstanceMaintenanceOptionsInput, optFns ...func(*Options)) (*ModifyInstanceMaintenanceOptionsOutput, error) {
 	if params == nil {
-		params = &ResetInstanceAttributeInput{}
+		params = &ModifyInstanceMaintenanceOptionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ResetInstanceAttribute", params, optFns, c.addOperationResetInstanceAttributeMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceMaintenanceOptions", params, optFns, c.addOperationModifyInstanceMaintenanceOptionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*ResetInstanceAttributeOutput)
+	out := result.(*ModifyInstanceMaintenanceOptionsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type ResetInstanceAttributeInput struct {
-
-	// The attribute to reset. You can only reset the following attributes: kernel |
-	// ramdisk | sourceDestCheck.
-	//
-	// This member is required.
-	Attribute types.InstanceAttributeName
+type ModifyInstanceMaintenanceOptionsInput struct {
 
 	// The ID of the instance.
 	//
 	// This member is required.
 	InstanceId *string
+
+	// Disables the automatic recovery behavior of your instance or sets it to default.
+	AutoRecovery types.InstanceAutoRecoveryState
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -56,19 +50,27 @@ type ResetInstanceAttributeInput struct {
 	noSmithyDocumentSerde
 }
 
-type ResetInstanceAttributeOutput struct {
+type ModifyInstanceMaintenanceOptionsOutput struct {
+
+	// Provides information on the current automatic recovery behavior of your
+	// instance.
+	AutoRecovery types.InstanceAutoRecoveryState
+
+	// The ID of the instance.
+	InstanceId *string
+
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
 
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationResetInstanceAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	err = stack.Serialize.Add(&awsEc2query_serializeOpResetInstanceAttribute{}, middleware.After)
+func (c *Client) addOperationModifyInstanceMaintenanceOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyInstanceMaintenanceOptions{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpResetInstanceAttribute{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyInstanceMaintenanceOptions{}, middleware.After)
 	if err != nil {
 		return err
 	}
@@ -108,10 +110,10 @@ func (c *Client) addOperationResetInstanceAttributeMiddlewares(stack *middleware
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addOpResetInstanceAttributeValidationMiddleware(stack); err != nil {
+	if err = addOpModifyInstanceMaintenanceOptionsValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opResetInstanceAttribute(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyInstanceMaintenanceOptions(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -126,11 +128,11 @@ func (c *Client) addOperationResetInstanceAttributeMiddlewares(stack *middleware
 	return nil
 }
 
-func newServiceMetadataMiddleware_opResetInstanceAttribute(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opModifyInstanceMaintenanceOptions(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
 		SigningName:   "ec2",
-		OperationName: "ResetInstanceAttribute",
+		OperationName: "ModifyInstanceMaintenanceOptions",
 	}
 }

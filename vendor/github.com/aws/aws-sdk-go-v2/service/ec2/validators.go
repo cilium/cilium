@@ -5250,6 +5250,26 @@ func (m *validateOpModifyInstanceEventWindow) HandleInitialize(ctx context.Conte
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifyInstanceMaintenanceOptions struct {
+}
+
+func (*validateOpModifyInstanceMaintenanceOptions) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyInstanceMaintenanceOptions) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyInstanceMaintenanceOptionsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyInstanceMaintenanceOptionsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifyInstanceMetadataOptions struct {
 }
 
@@ -8078,6 +8098,10 @@ func addOpModifyInstanceEventWindowValidationMiddleware(stack *middleware.Stack)
 	return stack.Initialize.Add(&validateOpModifyInstanceEventWindow{}, middleware.After)
 }
 
+func addOpModifyInstanceMaintenanceOptionsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyInstanceMaintenanceOptions{}, middleware.After)
+}
+
 func addOpModifyInstanceMetadataOptionsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyInstanceMetadataOptions{}, middleware.After)
 }
@@ -10095,6 +10119,9 @@ func validateOpCreateIpamPoolInput(v *CreateIpamPoolInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "CreateIpamPoolInput"}
 	if v.IpamScopeId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("IpamScopeId"))
+	}
+	if len(v.AddressFamily) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("AddressFamily"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -13588,6 +13615,21 @@ func validateOpModifyInstanceEventWindowInput(v *ModifyInstanceEventWindowInput)
 	}
 }
 
+func validateOpModifyInstanceMaintenanceOptionsInput(v *ModifyInstanceMaintenanceOptionsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyInstanceMaintenanceOptionsInput"}
+	if v.InstanceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpModifyInstanceMetadataOptionsInput(v *ModifyInstanceMetadataOptionsInput) error {
 	if v == nil {
 		return nil
@@ -14424,6 +14466,9 @@ func validateOpReleaseIpamPoolAllocationInput(v *ReleaseIpamPoolAllocationInput)
 	}
 	if v.Cidr == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("Cidr"))
+	}
+	if v.IpamPoolAllocationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamPoolAllocationId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

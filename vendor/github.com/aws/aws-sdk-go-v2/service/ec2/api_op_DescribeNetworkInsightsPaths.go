@@ -36,17 +36,17 @@ type DescribeNetworkInsightsPathsInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The filters. The following are possible values:
+	// The filters. The following are the possible values:
 	//
-	// * Destination - The ID of the
-	// resource.
+	// * Destination - The ID of
+	// the resource.
 	//
 	// * DestinationPort - The destination port.
 	//
-	// * Name - The path name.
+	// * Name - The path
+	// name.
 	//
-	// *
-	// Protocol - The protocol.
+	// * Protocol - The protocol.
 	//
 	// * Source - The ID of the resource.
 	Filters []types.Filter

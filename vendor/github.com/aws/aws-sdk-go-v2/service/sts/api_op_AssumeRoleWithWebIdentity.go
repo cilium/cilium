@@ -12,10 +12,12 @@ import (
 
 // Returns a set of temporary security credentials for users who have been
 // authenticated in a mobile or web application with a web identity provider.
-// Example providers include Amazon Cognito, Login with Amazon, Facebook, Google,
-// or any OpenID Connect-compatible identity provider. For mobile applications, we
-// recommend that you use Amazon Cognito. You can use Amazon Cognito with the
-// Amazon Web Services SDK for iOS Developer Guide
+// Example providers include the OAuth 2.0 providers Login with Amazon and
+// Facebook, or any OpenID Connect-compatible identity provider such as Google or
+// Amazon Cognito federated identities
+// (https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-identity.html).
+// For mobile applications, we recommend that you use Amazon Cognito. You can use
+// Amazon Cognito with the Amazon Web Services SDK for iOS Developer Guide
 // (http://aws.amazon.com/sdkforios/) and the Amazon Web Services SDK for Android
 // Developer Guide (http://aws.amazon.com/sdkforandroid/) to uniquely identify a
 // user. You can also supply the user with a consistent identity throughout the
@@ -244,11 +246,11 @@ type AssumeRoleWithWebIdentityInput struct {
 	// in the IAM User Guide.
 	PolicyArns []types.PolicyDescriptorType
 
-	// The fully qualified host component of the domain name of the identity provider.
-	// Specify this value only for OAuth 2.0 access tokens. Currently www.amazon.com
-	// and graph.facebook.com are the only supported identity providers for OAuth 2.0
-	// access tokens. Do not include URL schemes and port numbers. Do not specify this
-	// value for OpenID Connect ID tokens.
+	// The fully qualified host component of the domain name of the OAuth 2.0 identity
+	// provider. Do not specify this value for an OpenID Connect identity provider.
+	// Currently www.amazon.com and graph.facebook.com are the only supported identity
+	// providers for OAuth 2.0 access tokens. Do not include URL schemes and port
+	// numbers. Do not specify this value for OpenID Connect ID tokens.
 	ProviderId *string
 
 	noSmithyDocumentSerde

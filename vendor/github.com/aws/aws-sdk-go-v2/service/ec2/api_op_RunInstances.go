@@ -258,6 +258,9 @@ type RunInstancesInput struct {
 	// The license configurations.
 	LicenseSpecifications []types.LicenseConfigurationRequest
 
+	// The maintenance and recovery options for the instance.
+	MaintenanceOptions *types.InstanceMaintenanceOptionsRequest
+
 	// The metadata options for the instance. For more information, see Instance
 	// metadata and user data
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html).

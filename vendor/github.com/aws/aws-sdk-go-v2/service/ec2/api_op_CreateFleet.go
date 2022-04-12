@@ -107,7 +107,7 @@ type CreateFleetInput struct {
 	// that could not be launched.
 	//
 	// For more information, see EC2 Fleet request types
-	// (https://docs.aws.amazon.com/https:/docs.aws.amazon.com/ec2-fleet-request-type.html)
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-request-type.html)
 	// in the Amazon EC2 User Guide.
 	Type types.FleetType
 
