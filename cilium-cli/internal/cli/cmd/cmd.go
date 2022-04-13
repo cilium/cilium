@@ -14,7 +14,9 @@ import (
 
 var (
 	contextName string
-	k8sClient   *k8s.Client
+	namespace   string
+
+	k8sClient *k8s.Client
 )
 
 func NewDefaultCiliumCommand() *cobra.Command {
@@ -62,6 +64,9 @@ cilium connectivity test`,
 		SilenceErrors: true, // this is being handled in main, no need to duplicate error messages
 		SilenceUsage:  true, // avoid showing help when usage is correct but an error occurred
 	}
+
+	cmd.PersistentFlags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 
 	cmd.AddCommand(
 		newCmdClusterMesh(),
