@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/sysctl"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // initKubeProxyReplacementOptions will grok the global config and determine
@@ -535,6 +536,18 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 	// +-------------------------------------------------------+
 	// | After this point, BPF NodePort should not be disabled |
 	// +-------------------------------------------------------+
+
+	// When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
+	// to a remote node running a selected service endpoint must be encrypted.
+	// To make the NodePort's rev-{S,D}NAT translations to happen for a reply
+	// from the remote node, we need to attach bpf_host to the Cilium's WG
+	// netdev (otherwise, the WG netdev after decrypting the reply will pass
+	// it to the stack which drops the packet).
+	if option.Config.EnableNodePort &&
+		option.Config.EnableWireguard && option.Config.EncryptNode {
+
+		option.Config.Devices = append(option.Config.Devices, wgTypes.IfaceName)
+	}
 
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
