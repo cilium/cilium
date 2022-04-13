@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -236,7 +237,12 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		interfaceNames = append(interfaceNames, device)
 		symbols = append(symbols, symbolFromHostNetdevEp)
 		directions = append(directions, dirIngress)
-		if option.Config.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired() &&
+			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
+			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
+			// the rev-NAT xlations.
+			device != wgTypes.IfaceName {
+
 			interfaceNames = append(interfaceNames, device)
 			symbols = append(symbols, symbolToHostNetdevEp)
 			directions = append(directions, dirEgress)
