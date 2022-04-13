@@ -1033,7 +1033,8 @@ handle_srv6(struct __ctx_buff *ctx)
  * from-netdev is attached as a tc ingress filter to one or more physical devices
  * managed by Cilium (e.g., eth0). This program is only attached when:
  * - the host firewall is enabled, or
- * - BPF NodePort is enabled
+ * - BPF NodePort is enabled, or
+ * - WireGuard's host-to-host encryption and BPF NodePort are enabled
  */
 __section("from-netdev")
 int cil_from_netdev(struct __ctx_buff *ctx)
