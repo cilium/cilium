@@ -37,7 +37,5 @@ func newCmdContext() *cobra.Command {
 		Short: "Display the configuration context",
 	}
 
-	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
-
 	return cmd
 }
