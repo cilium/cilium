@@ -60,6 +60,10 @@ linters-settings:
     # locale: US
     ignore-words:
       - rela # This is for elf.SHT_RELA
+  staticcheck:
+    go: "1.18"
+  unused:
+    go: "1.18"
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
@@ -102,7 +106,6 @@ linters:
 #    - deadcode
 #    - errcheck
 #    - gocyclo
-#    - goimports
 #    - golint
 #    - gosec
 #    - gosimple
