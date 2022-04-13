@@ -43,9 +43,6 @@ func newCmdSysdump() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&contextName,
-		"context", "",
-		"Kubernetes configuration context")
 	cmd.Flags().StringVar(&sysdumpOptions.CiliumLabelSelector,
 		"cilium-label-selector", sysdump.DefaultCiliumLabelSelector,
 		"The labels used to target Cilium pods")

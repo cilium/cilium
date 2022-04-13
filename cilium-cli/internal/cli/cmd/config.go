@@ -39,6 +39,8 @@ func newCmdConfigView() *cobra.Command {
 		Short: "View current configuration",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+
 			check := config.NewK8sConfig(k8sClient, params)
 			out, err := check.View(context.Background())
 			if err != nil {
@@ -48,8 +50,6 @@ func newCmdConfigView() *cobra.Command {
 			return nil
 		},
 	}
-
-	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 
 	return cmd
 }
@@ -65,6 +65,8 @@ func newCmdConfigSet() *cobra.Command {
 		Long:  ``,
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+
 			check := config.NewK8sConfig(k8sClient, params)
 			if err := check.Set(context.Background(), args[0], args[1], params); err != nil {
 				fatalf("Unable to set config:  %s", err)
@@ -73,7 +75,6 @@ func newCmdConfigSet() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().BoolVarP(&params.Restart, "restart", "r", true, "Restart Cilium pods")
 	return cmd
 }
@@ -89,6 +90,8 @@ func newCmdConfigDelete() *cobra.Command {
 		Long:  ``,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+
 			check := config.NewK8sConfig(k8sClient, params)
 			if err := check.Delete(context.Background(), args[0], params); err != nil {
 				fatalf("Unable to delete config:  %s", err)
@@ -97,7 +100,6 @@ func newCmdConfigDelete() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().BoolVarP(&params.Restart, "restart", "r", true, "Restart Cilium pods")
 
 	return cmd
