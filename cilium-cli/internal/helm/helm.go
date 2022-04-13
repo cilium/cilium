@@ -91,6 +91,13 @@ func valuesToString(prevKey string, b map[string]interface{}) string {
 	var out []string
 	for k, v := range b {
 		switch v := v.(type) {
+		case chartutil.Values:
+			if prevKey != "" {
+				out = append(out, valuesToString(fmt.Sprintf("%s.%s", prevKey, k), v))
+			} else {
+				out = append(out, valuesToString(k, v))
+			}
+			continue
 		case map[string]interface{}:
 			if prevKey != "" {
 				out = append(out, valuesToString(fmt.Sprintf("%s.%s", prevKey, k), v))
@@ -123,6 +130,9 @@ func sliceValuesToString(prevKey string, b []interface{}) string {
 	var out []string
 	for i, v := range b {
 		switch v := v.(type) {
+		case chartutil.Values:
+			out = append(out, valuesToString(fmt.Sprintf("%s[%d]", prevKey, i), v))
+			continue
 		case map[string]interface{}:
 			out = append(out, valuesToString(fmt.Sprintf("%s[%d]", prevKey, i), v))
 			continue
