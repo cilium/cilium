@@ -122,10 +122,6 @@ getent group cilium >/dev/null || sudo groupadd -r cilium
 sudo usermod -a -G cilium vagrant
 SCRIPT
 
-$testsuite = <<SCRIPT
-sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/cilium/cilium/ runtime-tests
-SCRIPT
-
 $node_ip_base = ENV['IPV4_BASE_ADDR'] || ""
 $node_nfs_base_ip = ENV['IPV4_BASE_ADDR_NFS'] || ""
 $num_workers = (ENV['NWORKERS'] || 0).to_i
@@ -255,9 +251,6 @@ Vagrant.configure(2) do |config|
                    privileged: true,
                    path: k8sinstall
            end
-        end
-        if ENV['RUN_TEST_SUITE'] then
-           cm.vm.provision "testsuite", run: "always", type: "shell", privileged: false, inline: $testsuite
         end
     end
 

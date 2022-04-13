@@ -286,12 +286,6 @@ build-deb: ## Build deb package of cilium.
 build-rpm: ## Build rpm package of cilium.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm
 
-runtime-tests: ## Run runtime-tests for Cilium.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tests runtime-tests
-
-k8s-tests:
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tests k8s-tests
-
 -include Makefile.docker
 
 ##@ API targets
