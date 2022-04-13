@@ -611,6 +611,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		if (info != NULL && info->tunnel_endpoint != 0) {
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 						  WORLD_ID,
+						  NOT_VTEP_DST,
 						  (enum trace_reason)CT_NEW,
 						  TRACE_PAYLOAD_LEN);
 			if (ret)
@@ -931,6 +932,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 			if (info != NULL && info->tunnel_endpoint != 0) {
 				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 							  SECLABEL,
+							  NOT_VTEP_DST,
 							  TRACE_REASON_CT_REPLY,
 							  TRACE_PAYLOAD_LEN);
 				if (ret)
@@ -1667,6 +1669,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 			 */
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 						  WORLD_ID,
+						  NOT_VTEP_DST,
 						  (enum trace_reason)CT_NEW,
 						  TRACE_PAYLOAD_LEN);
 			if (ret)
@@ -2105,7 +2108,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 #if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)) && \
 	__ctx_is != __ctx_xdp
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL,
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, NOT_VTEP_DST,
 				  reason, monitor);
 	if (ret)
 		return ret;
