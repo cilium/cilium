@@ -27,7 +27,7 @@ release:
 		--rm \
 		--workdir /cilium \
 		--volume `pwd`:/cilium docker.io/library/golang:1.18.0-alpine3.15 \
-		sh -c "apk add --no-cache make git && make local-release VERSION=${VERSION}"
+		sh -c "apk add --no-cache make git && git config --global --add safe.directory /cilium && make local-release VERSION=${VERSION}"
 
 local-release: clean
 	for OS in darwin linux windows; do \
