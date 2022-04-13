@@ -21,6 +21,8 @@ func newCmdStatus() *cobra.Command {
 		Short: "Display status",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+
 			collector, err := status.NewK8sStatusCollector(k8sClient, params)
 			if err != nil {
 				return err
@@ -35,11 +37,9 @@ func newCmdStatus() *cobra.Command {
 			return err
 		},
 	}
-	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for status to report success (no errors and warnings)")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
 	cmd.Flags().BoolVar(&params.IgnoreWarnings, "ignore-warnings", false, "Ignore warnings when waiting for status to report success")
-	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }

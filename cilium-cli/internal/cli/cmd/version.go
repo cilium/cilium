@@ -38,7 +38,6 @@ func getLatestStableVersion() string {
 }
 
 func newCmdVersion() *cobra.Command {
-	var namespace string
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Display detailed version information",
@@ -57,7 +56,5 @@ func newCmdVersion() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
-	cmd.Flags().StringVarP(&namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	return cmd
 }
