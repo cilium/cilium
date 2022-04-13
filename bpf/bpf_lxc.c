@@ -1062,7 +1062,7 @@ skip_egress_gateway:
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
-								WORLD_ID, &trace);
+								SECLABEL, WORLD_ID, &trace);
 		}
 	}
 skip_vtep:

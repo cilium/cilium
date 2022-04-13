@@ -609,7 +609,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
-								WORLD_ID, &trace);
+								secctx, WORLD_ID, &trace);
 		}
 	}
 skip_vtep:
@@ -898,7 +898,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 
 	bpf_clear_meta(ctx);
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, src_id,
-						&trace);
+						NOT_VTEP_DST, &trace);
 }
 
 static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused,
