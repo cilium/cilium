@@ -52,7 +52,7 @@ by the "janitor role" which is rotated between all committers.
  * [Quentin Monnet] (Isovalent)
  * [Ray Bejjani]
  * [Robin Hahling] (Isovalent)
- * [Tam Mach] (Zendesk)
+ * [Tam Mach] (Isovalent)
  * [Thomas Graf] (Isovalent)
  * [Timo Beckers] (Isovalent)
  * [Tobias Klauser] (Isovalent)
