@@ -1014,6 +1014,13 @@ hubble:
       runAsGroup: 1001
       fsGroup: 1001
 
+    # -- hubble-ui service configuration.
+    service:
+      # --- The type of service used for Hubble UI access, either ClusterIP or NodePort. 
+      type: ClusterIP
+      # --- The port to use when the service type is set to NodePort.
+      nodePort: 31235
+
     # -- hubble-ui ingress configuration.
     ingress:
       enabled: false
