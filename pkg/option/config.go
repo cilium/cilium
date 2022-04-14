@@ -1076,6 +1076,10 @@ const (
 
 	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
 	IngressSecretsNamespace = "ingress-secrets-namespace"
+
+	// DotGraphOutputFile sets the file to which the agent dependency graph
+	// should be written to.
+	DotGraphOutputFile = "dot-graph-output-file"
 )
 
 // Default string arguments
@@ -2211,6 +2215,10 @@ type DaemonConfig struct {
 
 	// EnvoySecretNamespace for TLS secrets. Used by CiliumEnvoyConfig via SDS.
 	EnvoySecretNamespace string
+
+	// DotGraphOutputFile sets the file to which the agent dependency graph
+	// should be written to.
+	DotGraphOutputFile string
 }
 
 var (
@@ -2934,7 +2942,6 @@ func (c *DaemonConfig) Populate() {
 		log.Warnf("If %s is enabled, then you are recommended to also configure %s. If %s is not configured, this may lead to pod to pod traffic being masqueraded, "+
 			"which can cause problems with performance, observability and policy", EnableAutoDirectRoutingName, IPv6NativeRoutingCIDR, IPv6NativeRoutingCIDR)
 	}
-
 	if err := c.calculateBPFMapSizes(); err != nil {
 		log.Fatal(err)
 	}
@@ -3150,6 +3157,8 @@ func (c *DaemonConfig) Populate() {
 
 	// Envoy secrets namespace to watch
 	c.EnvoySecretNamespace = viper.GetString(IngressSecretsNamespace)
+
+	c.DotGraphOutputFile = viper.GetString(DotGraphOutputFile)
 }
 
 func (c *DaemonConfig) populateDevices() {

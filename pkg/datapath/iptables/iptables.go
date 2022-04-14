@@ -410,6 +410,12 @@ type IptablesManager struct {
 	ipEarlyDemuxDisabled bool
 }
 
+func NewIptablesManager() datapath.IptablesManager {
+	m := &IptablesManager{}
+	m.Init()
+	return m
+}
+
 // Init initializes the iptables manager and checks for iptables kernel modules
 // availability.
 func (m *IptablesManager) Init() {
