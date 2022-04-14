@@ -182,7 +182,7 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-#ifdef ENABLE_NODEPORT
+#ifdef ENABLE_NODEPORT_ACCELERATION
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
 int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
@@ -209,7 +209,7 @@ static __always_inline int check_v6_lb(struct __ctx_buff *ctx __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_NODEPORT */
+#endif /* ENABLE_NODEPORT_ACCELERATION */
 
 #ifdef ENABLE_PREFILTER
 static __always_inline int check_v6(struct __ctx_buff *ctx)
