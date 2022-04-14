@@ -189,6 +189,10 @@ func (c *fakeClient) ListNamespaces(ctx context.Context, o metav1.ListOptions) (
 	panic("implement me")
 }
 
+func (c *fakeClient) ListEndpoints(ctx context.Context, o metav1.ListOptions) (*corev1.EndpointsList, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListNetworkPolicies(ctx context.Context, o metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {
 	panic("implement me")
 }

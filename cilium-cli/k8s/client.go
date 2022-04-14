@@ -652,6 +652,10 @@ func (c *Client) ListUnstructured(ctx context.Context, gvr schema.GroupVersionRe
 	return c.DynamicClientset.Resource(gvr).Namespace(*namespace).List(ctx, o)
 }
 
+func (c *Client) ListEndpoints(ctx context.Context, o metav1.ListOptions) (*corev1.EndpointsList, error) {
+	return c.Clientset.CoreV1().Endpoints(corev1.NamespaceAll).List(ctx, o)
+}
+
 func (c *Client) ListNetworkPolicies(ctx context.Context, o metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {
 	return c.Clientset.NetworkingV1().NetworkPolicies(corev1.NamespaceAll).List(ctx, o)
 }
