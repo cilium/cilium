@@ -119,6 +119,9 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 		trigger bool
 		// toUpsert stores IPKeyPairs to upsert into the ipcache.
 		toUpsert = make(map[string]Identity)
+		// reuseSource stores all prefixes for which we want to reuse the
+		// entry's existing source when upserting
+		reuseSource = make(map[string]bool)
 		// idsToPropagate stores the identities that must be updated via the
 		// selector cache.
 		idsToPropagate = make(map[identity.NumericIdentity]labels.LabelArray)
@@ -146,7 +149,7 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 		// cluster), or CIDR IDs for kube-apiservers deployed outside of the
 		// cluster.
 		// Also, any new identity should be upserted, regardless.
-		if hasKubeAPIServerLabel || isNew {
+		if hasKubeAPIServerLabel || id.ID.IsReservedNodeIdentity() || isNew {
 			tmpSrc := src
 			if hasKubeAPIServerLabel {
 				// Overwrite the source because any IP associated with the
@@ -164,6 +167,12 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 					identity.AddReservedIdentityWithLabels(id.ID, newLbls)
 				}
 				idsToPropagate[id.ID] = newLbls.LabelArray()
+			} else if id.ID.IsReservedNodeIdentity() {
+				// The node manager is also triggering label injection after
+				// calling UpsertAuxiliary to update the IP/Key pair. To ensure
+				// this update always succeeds, we want to keep the original
+				// source here.
+				reuseSource[prefix] = true
 			}
 
 			toUpsert[prefix] = Identity{
@@ -204,6 +213,13 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 	for ip, id := range toUpsert {
 		hIP, key := ipc.getHostIPCache(ip)
 		meta := ipc.getK8sMetadata(ip)
+
+		if reuseSource[ip] {
+			if cachedIdentity, ok := ipc.LookupByIPRLocked(ip); ok {
+				id.Source = cachedIdentity.Source
+			}
+		}
+
 		if _, err := ipc.upsertLocked(ip, hIP, key, meta, Identity{
 			ID:     id.ID,
 			Source: id.Source,
@@ -325,6 +341,19 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 			toRemove[ip] = lbls
 		}
 	}
+
+	ipc.removeLabelsFromIPs(toRemove, src)
+}
+
+// RemoveLabels removes the given labels from each given prefix. This may cause
+// updates to the ipcache, as well as to the identity and policy logic via
+// 'updater' and 'triggerer'.
+func (ipc *IPCache) RemoveLabels(toRemove map[string]labels.Labels, src source.Source) {
+	ipc.metadata.applyChangesMU.Lock()
+	defer ipc.metadata.applyChangesMU.Unlock()
+
+	ipc.metadata.Lock()
+	defer ipc.metadata.Unlock()
 
 	ipc.removeLabelsFromIPs(toRemove, src)
 }
