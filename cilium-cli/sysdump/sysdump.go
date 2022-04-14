@@ -335,6 +335,20 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Kubernetes endpoints",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListEndpoints(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes endpoints: %w", err)
+				}
+				if err := c.WriteYAML(kubernetesEndpointsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes endpoints: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting Cilium network policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
