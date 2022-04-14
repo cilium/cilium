@@ -965,6 +965,18 @@
      - Deprecated in favor of hubble.ui.securityContext. Whether to set the security context on the Hubble UI pods.
      - bool
      - ``true``
+   * - hubble.ui.service
+     - hubble-ui service configuration.
+     - object
+     - ``{"nodePort":31235,"type":"ClusterIP"}``
+   * - hubble.ui.service.nodePort
+     - - The port to use when the service type is set to NodePort.
+     - int
+     - ``31235``
+   * - hubble.ui.service.type
+     - - The type of service used for Hubble UI access, either ClusterIP or NodePort.
+     - string
+     - ``"ClusterIP"``
    * - hubble.ui.standalone.enabled
      - When true, it will allow installing the Hubble UI only, without checking dependencies. It is useful if a cluster already has cilium and Hubble relay installed and you just want Hubble UI to be deployed. When installed via helm, installing UI should be done via ``helm upgrade`` and when installed via the cilium cli, then ``cilium hubble enable --ui``
      - bool
