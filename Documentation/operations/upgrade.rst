@@ -350,6 +350,8 @@ Helm Options
   will be removed in 1.13.
 * ``hubble.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``, and will be
   removed in 1.13.
+* ``hubble.ui.securityContext.enabled`` has been deprecated in favor of
+  ``hubble.ui.securityContext``, and will be removed in 1.13.
 * ``clustermesh.apiserver.tls.ca.cert`` has been deprecated in favor of ``tls.ca.key``,
   and will be removed in 1.13.
 * ``clustermesh.apiserver.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``,

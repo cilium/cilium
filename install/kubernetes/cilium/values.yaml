@@ -997,9 +997,14 @@ hubble:
       rollingUpdate:
         maxUnavailable: 1
 
+    # -- Security context to be added to Hubble UI pods
     securityContext:
-      # -- Whether to set the security context on the Hubble UI pods.
+      # -- Deprecated in favor of hubble.ui.securityContext.
+      # Whether to set the security context on the Hubble UI pods.
       enabled: true
+      runAsUser: 1001
+      runAsGroup: 1001
+      fsGroup: 1001
 
     # -- hubble-ui ingress configuration.
     ingress:

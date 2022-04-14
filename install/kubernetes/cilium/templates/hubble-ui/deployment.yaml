@@ -27,11 +27,11 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- if .Values.hubble.ui.securityContext.enabled }}
+      {{- with .Values.hubble.ui.securityContext }}
+        {{- if .enabled }}
       securityContext:
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
+        {{- omit . "enabled" | toYaml | nindent 8 }}
+        {{- end}}
       {{- end }}
       priorityClassName: {{ .Values.hubble.ui.priorityClassName }}
       serviceAccount: {{ .Values.serviceAccounts.ui.name | quote }}
