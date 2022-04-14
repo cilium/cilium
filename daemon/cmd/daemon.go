@@ -119,6 +119,7 @@ type Daemon struct {
 
 	deviceManager *DeviceManager
 
+	dnsProxySemaphore *semaphore.Weighted
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
 	dnsNameManager *fqdn.NameManager
@@ -484,6 +485,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
+		// TODO: Make this configurable? After implementing DNS proxy latency +
+		// throughput metrics, can be pick an optimal value?
+		dnsProxySemaphore: semaphore.NewWeighted(int64(runtime.NumCPU() * 2)),
 	}
 
 	if option.Config.RunMonitorAgent {

@@ -395,6 +395,12 @@ func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
 func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+	// TODO: At this point, a goroutine has already spun off and starts
+	// executing this function. Is this too late in the flow in acquire the
+	// semaphore? Do we need deeper integration with the miekg DNS library?
+	d.dnsProxySemaphore.Acquire(context.TODO(), 1)
+	defer d.dnsProxySemaphore.Release(1)
+
 	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
