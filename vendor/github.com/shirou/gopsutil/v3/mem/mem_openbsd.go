@@ -9,8 +9,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"os/exec"
-
 	"github.com/shirou/gopsutil/v3/internal/common"
 	"golang.org/x/sys/unix"
 )
@@ -76,12 +74,7 @@ func SwapMemory() (*SwapMemoryStat, error) {
 }
 
 func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
-	swapctl, err := exec.LookPath("swapctl")
-	if err != nil {
-		return nil, err
-	}
-
-	out, err := invoke.CommandWithContext(ctx, swapctl, "-sk")
+	out, err := invoke.CommandWithContext(ctx, "swapctl", "-sk")
 	if err != nil {
 		return &SwapMemoryStat{}, nil
 	}

@@ -697,8 +697,8 @@ func (p *Process) OpenFilesWithContext(ctx context.Context) ([]OpenFilesStat, er
 		// release the new handle
 		defer windows.CloseHandle(windows.Handle(file))
 
-		fileType, _ := windows.GetFileType(windows.Handle(file))
-		if fileType != windows.FILE_TYPE_DISK {
+		fileType, err := windows.GetFileType(windows.Handle(file))
+		if err != nil || fileType != windows.FILE_TYPE_DISK {
 			continue
 		}
 
@@ -720,8 +720,8 @@ func (p *Process) OpenFilesWithContext(ctx context.Context) ([]OpenFilesStat, er
 		case <-time.NewTimer(100 * time.Millisecond).C:
 			continue
 		case <-ch:
-			fileInfo, _ := os.Stat(fileName)
-			if fileInfo.IsDir() {
+			fileInfo, err := os.Stat(fileName)
+			if err != nil || fileInfo.IsDir() {
 				continue
 			}
 

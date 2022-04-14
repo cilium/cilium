@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -17,12 +16,7 @@ func Avg() (*AvgStat, error) {
 }
 
 func AvgWithContext(ctx context.Context) (*AvgStat, error) {
-	kstat, err := exec.LookPath("kstat")
-	if err != nil {
-		return nil, err
-	}
-
-	out, err := invoke.CommandWithContext(ctx, kstat, "-p", "unix:0:system_misc:avenrun_*")
+	out, err := invoke.CommandWithContext(ctx, "kstat", "-p", "unix:0:system_misc:avenrun_*")
 	if err != nil {
 		return nil, err
 	}
@@ -63,11 +57,7 @@ func Misc() (*MiscStat, error) {
 }
 
 func MiscWithContext(ctx context.Context) (*MiscStat, error) {
-	bin, err := exec.LookPath("ps")
-	if err != nil {
-		return nil, err
-	}
-	out, err := invoke.CommandWithContext(ctx, bin, "-efo", "s")
+	out, err := invoke.CommandWithContext(ctx, "ps", "-efo", "s")
 	if err != nil {
 		return nil, err
 	}

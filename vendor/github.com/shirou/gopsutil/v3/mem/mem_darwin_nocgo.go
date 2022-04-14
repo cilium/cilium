@@ -5,7 +5,6 @@ package mem
 
 import (
 	"context"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -14,11 +13,7 @@ import (
 
 // Runs vm_stat and returns Free and inactive pages
 func getVMStat(vms *VirtualMemoryStat) error {
-	vm_stat, err := exec.LookPath("vm_stat")
-	if err != nil {
-		return err
-	}
-	out, err := invoke.Command(vm_stat)
+	out, err := invoke.Command("vm_stat")
 	if err != nil {
 		return err
 	}

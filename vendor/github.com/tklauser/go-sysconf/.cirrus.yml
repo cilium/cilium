@@ -3,20 +3,20 @@ env:
 
 freebsd_12_task:
   freebsd_instance:
-    image_family: freebsd-12-2
+    image_family: freebsd-12-3
   install_script: |
     pkg install -y git go
-    GOBIN=$PWD/bin go get golang.org/dl/go1.17
-    bin/go1.17 download
-  build_script: bin/go1.17 build -v ./...
-  test_script: bin/go1.17 test -race ./...
+    GOBIN=$PWD/bin go install golang.org/dl/go1.17.7@latest
+    bin/go1.17.7 download
+  build_script: bin/go1.17.7 build -v ./...
+  test_script: bin/go1.17.7 test -race ./...
 
 freebsd_13_task:
   freebsd_instance:
     image_family: freebsd-13-0
   install_script: |
     pkg install -y git go
-    GOBIN=$PWD/bin go get golang.org/dl/go1.17
-    bin/go1.17 download
-  build_script: bin/go1.17 build -v ./...
-  test_script: bin/go1.17 test -race ./...
+    GOBIN=$PWD/bin go install golang.org/dl/go1.17.7@latest
+    bin/go1.17.7 download
+  build_script: bin/go1.17.7 build -v ./...
+  test_script: bin/go1.17.7 test -race ./...

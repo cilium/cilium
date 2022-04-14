@@ -5,7 +5,6 @@ package load
 
 import (
 	"context"
-	"os/exec"
 	"strings"
 	"unsafe"
 
@@ -52,11 +51,7 @@ func Misc() (*MiscStat, error) {
 }
 
 func MiscWithContext(ctx context.Context) (*MiscStat, error) {
-	bin, err := exec.LookPath("ps")
-	if err != nil {
-		return nil, err
-	}
-	out, err := invoke.CommandWithContext(ctx, bin, "axo", "state")
+	out, err := invoke.CommandWithContext(ctx, "ps", "axo", "state")
 	if err != nil {
 		return nil, err
 	}
