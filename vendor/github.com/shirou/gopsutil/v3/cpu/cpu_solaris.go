@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"runtime"
 	"sort"
@@ -38,9 +37,9 @@ func Times(percpu bool) ([]TimesStat, error) {
 }
 
 func TimesWithContext(ctx context.Context, percpu bool) ([]TimesStat, error) {
-	kstatSys, err := exec.LookPath("kstat")
+	kstatSysOut, err := invoke.CommandWithContext(ctx, "kstat", "-p", "cpu_stat:*:*:/^idle$|^user$|^kernel$|^iowait$|^swap$/")
 	if err != nil {
-		return nil, fmt.Errorf("cannot find kstat: %s", err)
+		return nil, fmt.Errorf("cannot execute kstat: %s", err)
 	}
 	cpu := make(map[float64]float64)
 	idle := make(map[float64]float64)
@@ -48,10 +47,6 @@ func TimesWithContext(ctx context.Context, percpu bool) ([]TimesStat, error) {
 	kern := make(map[float64]float64)
 	iowt := make(map[float64]float64)
 	// swap := make(map[float64]float64)
-	kstatSysOut, err := invoke.CommandWithContext(ctx, kstatSys, "-p", "cpu_stat:*:*:/^idle$|^user$|^kernel$|^iowait$|^swap$/")
-	if err != nil {
-		return nil, fmt.Errorf("cannot execute kstat: %s", err)
-	}
 	re := regexp.MustCompile(`[:\s]+`)
 	for _, line := range strings.Split(string(kstatSysOut), "\n") {
 		fields := re.Split(line, -1)
@@ -122,27 +117,19 @@ func Info() ([]InfoStat, error) {
 }
 
 func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
-	psrInfo, err := exec.LookPath("psrinfo")
-	if err != nil {
-		return nil, fmt.Errorf("cannot find psrinfo: %s", err)
-	}
-	psrInfoOut, err := invoke.CommandWithContext(ctx, psrInfo, "-p", "-v")
+	psrInfoOut, err := invoke.CommandWithContext(ctx, "psrinfo", "-p", "-v")
 	if err != nil {
 		return nil, fmt.Errorf("cannot execute psrinfo: %s", err)
-	}
-
-	isaInfo, err := exec.LookPath("isainfo")
-	if err != nil {
-		return nil, fmt.Errorf("cannot find isainfo: %s", err)
-	}
-	isaInfoOut, err := invoke.CommandWithContext(ctx, isaInfo, "-b", "-v")
-	if err != nil {
-		return nil, fmt.Errorf("cannot execute isainfo: %s", err)
 	}
 
 	procs, err := parseProcessorInfo(string(psrInfoOut))
 	if err != nil {
 		return nil, fmt.Errorf("error parsing psrinfo output: %s", err)
+	}
+
+	isaInfoOut, err := invoke.CommandWithContext(ctx, "isainfo", "-b", "-v")
+	if err != nil {
+		return nil, fmt.Errorf("cannot execute isainfo: %s", err)
 	}
 
 	flags, err := parseISAInfo(string(isaInfoOut))

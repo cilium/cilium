@@ -1,4 +1,4 @@
-// Copyright 2021 Tobias Klauser
+// Copyright 2022 Tobias Klauser
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !darwin && !dragonfly && !freebsd && !linux && !netbsd && !openbsd && !solaris && !windows
-// +build !darwin,!dragonfly,!freebsd,!linux,!netbsd,!openbsd,!solaris,!windows
-
 package numcpus
 
+import "golang.org/x/sys/windows"
+
 func getConfigured() (int, error) {
-	return 0, ErrNotSupported
+	return int(windows.GetActiveProcessorCount(windows.ALL_PROCESSOR_GROUPS)), nil
 }
 
 func getKernelMax() (int, error) {
-	return 0, ErrNotSupported
+	return int(windows.GetMaximumProcessorCount(windows.ALL_PROCESSOR_GROUPS)), nil
 }
 
 func getOffline() (int, error) {
@@ -30,13 +29,13 @@ func getOffline() (int, error) {
 }
 
 func getOnline() (int, error) {
-	return 0, ErrNotSupported
+	return int(windows.GetActiveProcessorCount(windows.ALL_PROCESSOR_GROUPS)), nil
 }
 
 func getPossible() (int, error) {
-	return 0, ErrNotSupported
+	return int(windows.GetActiveProcessorCount(windows.ALL_PROCESSOR_GROUPS)), nil
 }
 
 func getPresent() (int, error) {
-	return 0, ErrNotSupported
+	return int(windows.GetActiveProcessorCount(windows.ALL_PROCESSOR_GROUPS)), nil
 }
