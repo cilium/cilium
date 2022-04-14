@@ -53,6 +53,7 @@ const (
 	hubbleRelayConfigMapFileName             = "hubble-relay-configmap-<ts>.yaml"
 	hubbleRelayDeploymentFileName            = "hubble-relay-deployment-<ts>.yaml"
 	hubbleUIDeploymentFileName               = "hubble-ui-deployment-<ts>.yaml"
+	kubernetesEndpointsFileName              = "k8s-endpoints-<ts>.yaml"
 	kubernetesEventsFileName                 = "k8s-events-<ts>.yaml"
 	kubernetesNamespacesFileName             = "k8s-namespaces-<ts>.yaml"
 	kubernetesNetworkPoliciesFileName        = "k8s-networkpolicies-<ts>.yaml"
