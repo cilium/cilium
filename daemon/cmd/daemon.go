@@ -1167,7 +1167,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	// Start listening to changed devices if requested.
 	if option.Config.EnableRuntimeDeviceDetection {
-		if linuxdatapath.AreDevicesRequired() {
+		if d.deviceManager.AreDevicesRequired() {
 			devicesChan, err := d.deviceManager.Listen(ctx)
 			if err != nil {
 				log.WithError(err).Warn("Runtime device detection failed to start")

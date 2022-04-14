@@ -45,11 +45,13 @@ var (
 type DeviceManager struct {
 	lock.Mutex
 	devices map[string]struct{}
+	filter  deviceFilter
 }
 
 func NewDeviceManager() *DeviceManager {
 	return &DeviceManager{
 		devices: make(map[string]struct{}),
+		filter:  deviceFilter(option.Config.Devices),
 	}
 }
 
@@ -79,7 +81,7 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 		l3DevOK = supportL3Dev()
 	}
 
-	if len(option.Config.Devices) == 0 && AreDevicesRequired() {
+	if len(option.Config.Devices) == 0 && dm.AreDevicesRequired() {
 		// Detect the devices from the system routing table by finding the devices
 		// which have global unicast routes.
 		family := netlink.FAMILY_ALL
@@ -198,6 +200,11 @@ func (dm *DeviceManager) isViableDevice(l3DevOK, hasDefaultRoute bool, link netl
 	if !l3DevOK && !mac.LinkHasMacAddr(link) {
 		log.WithField(logfields.Device, name).
 			Info("Ignoring L3 device; >= 5.8 kernel is required.")
+		return false
+	}
+
+	// If user specified devices or wildcards, then skip the device if it doesn't match.
+	if !dm.filter.match(name) {
 		return false
 	}
 
@@ -330,9 +337,8 @@ func (dm *DeviceManager) listen(ctx context.Context, netNS *netns.NsHandle) (cha
 
 	linkChan := make(chan netlink.LinkUpdate)
 	err = netlink.LinkSubscribeWithOptions(linkChan, closeChan, netlink.LinkSubscribeOptions{
-		Namespace: netNS,
-		// FIXME(JM): What if a device is removed between Detect() and Listen()?
-		ListExisting: false,
+		Namespace:    netNS,
+		ListExisting: true,
 	})
 	if err != nil {
 		return nil, err
@@ -455,12 +461,6 @@ func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 	return expandedDevices, nil
 }
 
-func AreDevicesRequired() bool {
-	return option.Config.EnableNodePort ||
-		option.Config.EnableHostFirewall ||
-		option.Config.EnableBandwidthManager
-}
-
 func findK8SNodeIPLink() (netlink.Link, error) {
 	nodeIP := node.GetK8sNodeIP()
 
@@ -496,6 +496,23 @@ func supportL3Dev() bool {
 	if h := probesManager.GetHelpers("sched_cls"); h != nil {
 		_, found := h["bpf_skb_change_head"]
 		return found
+	}
+	return false
+}
+
+type deviceFilter []string
+
+func (lst deviceFilter) match(dev string) bool {
+	if len(lst) == 0 {
+		return true
+	}
+	for _, entry := range lst {
+		if strings.HasSuffix(entry, "+") {
+			prefix := strings.TrimRight(entry, "+")
+			return strings.HasPrefix(dev, prefix)
+		} else if dev == entry {
+			return true
+		}
 	}
 	return false
 }
