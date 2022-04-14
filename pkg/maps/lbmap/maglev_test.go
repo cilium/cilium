@@ -47,12 +47,15 @@ func (s *MaglevSuite) SetUpSuite(c *C) {
 	err = rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 
+	option.Config.LBMapEntries = DefaultMaxEntries
+
 	Init(InitParams{
 		IPv4: option.Config.EnableIPv4,
 		IPv6: option.Config.EnableIPv6,
 
-		MaxSockRevNatMapEntries: option.Config.SockRevNatEntries,
-		MaxEntries:              option.Config.LBMapEntries,
+		ServiceMapMaxEntries: option.Config.LBMapEntries,
+		RevNatMapMaxEntries:  option.Config.LBMapEntries,
+		MaglevMapMaxEntries:  option.Config.LBMapEntries,
 	})
 }
 
