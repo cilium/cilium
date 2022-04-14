@@ -43,7 +43,7 @@ jobs:
         uses: docker/setup-qemu-action@27d0a4f181a40b142cce983c5393082c365d1480
 
       - name: Checkout Source Code
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+        uses: actions/checkout@dcd71f646680f2efd8db4afa5ad64fdcba30e748
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
