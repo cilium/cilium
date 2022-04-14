@@ -215,7 +215,7 @@ func (k *K8sInstaller) createAKSSecrets(ctx context.Context) error {
 	secretFile := k.manifests[secretFileName]
 
 	var secret corev1.Secret
-	utils.MustUnmarshalYAML([]byte(secretFile), &secretFile)
+	utils.MustUnmarshalYAML([]byte(secretFile), &secret)
 
 	k.Log("🔑 Generated AKS secret %s", defaults.AKSSecretName)
 	_, err = k.client.CreateSecret(ctx, k.params.Namespace, &secret, metav1.CreateOptions{})
