@@ -44,6 +44,42 @@ func (config *PolicyConfig) selectsEndpoint(endpointInfo *endpointMetadata) bool
 	return false
 }
 
+func (config *PolicyConfig) forEachEndpointAndDestination(epDataStore map[endpointID]*endpointMetadata,
+	f func(net.IP, *net.IPNet, net.IP)) {
+
+	for _, endpoint := range epDataStore {
+		if !config.selectsEndpoint(endpoint) {
+			continue
+		}
+
+		for _, endpointIP := range endpoint.ips {
+			for _, dstCIDR := range config.dstCIDRs {
+				f(endpointIP, dstCIDR, config.egressIP)
+			}
+		}
+	}
+}
+
+func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata,
+	f func(net.IP, *net.IPNet, net.IP) bool) bool {
+
+	for _, endpoint := range epDataStore {
+		if !config.selectsEndpoint(endpoint) {
+			continue
+		}
+
+		for _, endpointIP := range endpoint.ips {
+			for _, dstCIDR := range config.dstCIDRs {
+				if f(endpointIP, dstCIDR, config.egressIP) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 // ParsePolicy takes a CiliumEgressNATPolicy CR and converts to PolicyConfig,
 // the internal representation of the egress nat policy
 func ParsePolicy(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
