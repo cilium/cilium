@@ -1,5 +1,50 @@
 # Changelog
 
+## v1.10.10
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Locally allocated identities are now restored during restart, helping avoid transient drops due to identity changes in policies. (Backport PR #19404, Upstream PR #19360, @jrajahalme)
+
+**Bugfixes:**
+* cmd: Fix issue where a ConfigMap value of `{}` was parsed as `map["{}":""]`. (Backport PR #19254, Upstream PR #19172, @gandro)
+* Fix a bug where a backend pod can be selected by a local redirect policy deployed in a different namespace if the local redirect policy was deployed first. (Backport PR #19254, Upstream PR #19193, @aditighag)
+* Fix bug that would cause some pod traffic to leave through the wrong interface if --aws-release-excess-ips is used and masquerading disabled. (Backport PR #19296, Upstream PR #19162, @pchaigno)
+* Fix bug where FQDN policy calculation could trigger a deadlock in cilium-agent (Backport PR #19254, Upstream PR #19031, @joestringer)
+* Fix bug where the Cilium DNS proxy slows down significantly (and even OOMs) due to lock contention from spawning many goroutines when handling bursty DNS traffic (Backport PR #19416, Upstream PR #19336, @nebril)
+* Fixed node init in RKE (Backport PR #19416, Upstream PR #19286, @raphink)
+* helm: Removed unnecessary Kubernetes RBAC permissions for cilium-agent (Backport PR #19254, Upstream PR #19053, @nathanjsweet)
+* helm: Update Clustermesh-APIServer RBAC permissions for platforms (like Openshift) that have the OwnerReferencesPermissionEnforcement admission controller enabled. (Backport PR #19254, Upstream PR #19071, @nathanjsweet)
+* hubble/recorder: Sanitize pcap filename (Backport PR #19254, Upstream PR #18612, @gandro)
+* wireguard: Reject duplicate public keys (Backport PR #19416, Upstream PR #19344, @gandro)
+
+**CI Changes:**
+* jenkinsfiles: Update calls to Quay API (Backport PR #19254, Upstream PR #19229, @pchaigno)
+* test: Wait until host EP is ready (=regenerated) (Backport PR #19331, Upstream PR #18859, @brb)
+* Use docker manifest inspect to wait for images instead of using quay API (Backport PR #19331, Upstream PR #19307, @YutaroHayakawa)
+* workflows: Update call to Quay API (Backport PR #19254, Upstream PR #19228, @pchaigno)
+
+**Misc Changes:**
+* Add a 'Limitations' section to 'External Workloads'. (Backport PR #19416, Upstream PR #19366, @bmcustodio)
+* add context when return errors during datapath initialization (Backport PR #19254, Upstream PR #18011, @kerthcet)
+* build(deps): bump actions/cache from 3.0.0 to 3.0.1 (#19272, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.1 to 3.0.2 (#19392, @dependabot[bot])
+* build(deps): bump actions/checkout from 3.0.0 to 3.0.1 (#19446, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.1 to 1.5.2 (#19324, @dependabot[bot])
+* ci: Pin down image for the documentation workflow (Backport PR #19416, Upstream PR #19356, @qmonnet)
+* docs: Clarify use of the `eni.subnetTagsFilter` option (Backport PR #19331, Upstream PR #19276, @gandro)
+* envoy: Limit accesslog socket permissions (Backport PR #19416, Upstream PR #19190, @jrajahalme)
+* ipcache: Add test asserting out-of-order Kubernetes events (Backport PR #19331, Upstream PR #19258, @christarazi)
+* Test runtime cilium in container (take two) (Backport PR #19404, Upstream PR #19310, @jrajahalme)
+* test: Fix whitespace in docker-run-cilium (Backport PR #19404, Upstream PR #19358, @jrajahalme)
+* vendor: pull in the latest changes from github.com/vishvananda/netlink (Backport PR #19404, Upstream PR #18618, @aditighag)
+* wireguard: Fix invalid bits when agent init (Backport PR #19254, Upstream PR #19118, @Junnplus)
+
+**Other Changes:**
+* install: Update image digests for v1.10.9 (#19239, @aanm)
+
 ## v1.10.9
 
 Summary of Changes
