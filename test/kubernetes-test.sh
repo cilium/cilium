@@ -10,11 +10,11 @@
 # Cluster.
 helm template --validate install/kubernetes/cilium \
   --namespace=kube-system \
-  --set image.tag=$1 \
-  --set image.repository=quay.io/cilium/cilium-ci \
+  --set image.tag=$2 \
+  --set image.repository=$1/cilium-ci \
   --set image.useDigest=false \
-  --set operator.image.repository=quay.io/cilium/operator \
-  --set operator.image.tag=$1 \
+  --set operator.image.repository=$1/operator \
+  --set operator.image.tag=$2 \
   --set operator.image.suffix=-ci \
   --set operator.image.useDigest=false \
   --set debug.enabled=true \

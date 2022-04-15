@@ -86,6 +86,8 @@ pipeline {
                             echo -n "K8s"
                         fi''', returnStdout: true
 
+                    env.IMAGE_REGISTRY = sh script: 'echo -n ${JobImageRegistry:-quay.io/cilium}', returnStdout: true
+
                     if (env.ghprbActualCommit?.trim()) {
                         env.DOCKER_TAG = env.ghprbActualCommit
                     } else {
@@ -178,9 +180,9 @@ pipeline {
                     steps {
                         retry(25) {
                             sleep(time: 60)
-                            sh 'docker manifest inspect quay.io/cilium/cilium-ci:${DOCKER_TAG} &> /dev/null'
-                            sh 'docker manifest inspect quay.io/cilium/operator-generic-ci:${DOCKER_TAG} &> /dev/null'
-                            sh 'docker manifest inspect quay.io/cilium/hubble-relay-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/cilium-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/operator-generic-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/hubble-relay-ci:${DOCKER_TAG} &> /dev/null'
                         }
                     }
                     post {
@@ -227,11 +229,11 @@ pipeline {
                     returnStdout: true,
                     script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "0"; else echo -n ""; fi'
                     )}"""
-                CILIUM_IMAGE = "quay.io/cilium/cilium-ci"
+                CILIUM_IMAGE = "${IMAGE_REGISTRY}/cilium-ci"
                 CILIUM_TAG = "${DOCKER_TAG}"
-                CILIUM_OPERATOR_IMAGE= "quay.io/cilium/operator"
+                CILIUM_OPERATOR_IMAGE= "${IMAGE_REGISTRY}/operator"
                 CILIUM_OPERATOR_TAG = "${DOCKER_TAG}"
-                HUBBLE_RELAY_IMAGE= "quay.io/cilium/hubble-relay-ci"
+                HUBBLE_RELAY_IMAGE= "${IMAGE_REGISTRY}/hubble-relay-ci"
                 HUBBLE_RELAY_TAG = "${DOCKER_TAG}"
             }
             steps {
