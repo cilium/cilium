@@ -615,7 +615,7 @@ func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string
 
 func (ds *DNSCacheTestSuite) TestZombiesSiblingsGC(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	// Siblings are IPs that resolve to the same name.
 	zombies.Upsert(now, "1.1.1.1", "test.com")
@@ -640,7 +640,7 @@ func (ds *DNSCacheTestSuite) TestZombiesSiblingsGC(c *C) {
 
 func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	zombies.Upsert(now, "1.1.1.1", "test.com")
 	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
@@ -719,9 +719,33 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	})
 }
 
+func (ds *DNSCacheTestSuite) TestZombiesGCOverLimit(c *C) {
+	now := time.Now()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, 1)
+
+	// Limit the total number of IPs to be associated with a specific host
+	// to 1, but associate 'test.com' with multiple IPs.
+	zombies.Upsert(now, "1.1.1.1", "test.com")
+	zombies.Upsert(now, "2.2.2.2", "somethingelse.com", "test.com")
+	zombies.Upsert(now, "3.3.3.3", "anothertest.com")
+
+	// Based on the zombie liveness sorting, the '2.2.2.2' entry is more
+	// important (as it could potentially impact multiple apps connecting
+	// to different domains), so it should be kept alive when sweeping to
+	// enforce the max per-host IP limit for names.
+	alive, dead := zombies.GC()
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.1": {"test.com"},
+	})
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"somethingelse.com", "test.com"},
+		"3.3.3.3": {"anothertest.com"},
+	})
+}
+
 func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
 	zombies.Upsert(now.Add(1*time.Second), "2.2.2.2", "somethingelse.com")
@@ -736,7 +760,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 		"3.3.3.3": {"onemorething.com"},
 	})
 
-	zombies = NewDNSZombieMappings(2)
+	zombies = NewDNSZombieMappings(2, defaults.ToFQDNsMaxIPsPerHost)
 	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
 
 	// No zombies should be evicted because we are below the limit
@@ -779,7 +803,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 
 func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	zombies.Upsert(now, "1.1.1.1", "test.com", "anothertest.com")
 	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
@@ -854,7 +878,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 	now := time.Now()
 	cache := NewDNSCache(0)
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	// Add entries that should expire at different times
 	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")}, 3)
@@ -885,7 +909,7 @@ func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 
 func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	alive := zombies.DumpAlive(nil)
 	c.Assert(alive, HasLen, 0)
