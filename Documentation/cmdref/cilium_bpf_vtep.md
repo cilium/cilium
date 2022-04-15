@@ -21,5 +21,7 @@ Manage the VTEP mappings for IP/CIDR <-> VTEP MAC/IP
 ### SEE ALSO
 
 * [cilium bpf](cilium_bpf.md)	 - Direct access to local BPF maps
+* [cilium bpf vtep delete](cilium_bpf_vtep_delete.md)	 - Delete vtep entries
 * [cilium bpf vtep list](cilium_bpf_vtep_list.md)	 - List VTEP CIDR and their corresponding VTEP MAC/IP
+* [cilium bpf vtep update](cilium_bpf_vtep_update.md)	 - Update vtep entries
 
