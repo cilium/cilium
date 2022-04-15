@@ -71,10 +71,10 @@ rollOutCiliumPods: false
 image:
   override: ~
   repository: quay.io/cilium/cilium
-  tag: v1.9.14
+  tag: v1.9.15
   pullPolicy: IfNotPresent
   # cilium-digest
-  digest: "sha256:2c6ce93fa7e625979043a387eb998c17ad57df8768d89facb9b715da42a4c51c"
+  digest: ""
   useDigest: false
 
 # -- Pod affinity for cilium-agent.
@@ -553,10 +553,10 @@ hubble:
     image:
       override: ~
       repository: quay.io/cilium/hubble-relay
-      tag: v1.9.14
+      tag: v1.9.15
       pullPolicy: IfNotPresent
        # hubble-relay-digest
-      digest: "sha256:fd6ab1aea260abc5f64eca26c1b1e7009983e4aaa8e5d098e8d442f7659603fb"
+      digest: ""
       useDigest: false
 
     # -- Specifies the resources for the hubble-relay pods
@@ -1085,15 +1085,15 @@ operator:
   image:
     override: ~
     repository: quay.io/cilium/operator
-    tag: v1.9.14
+    tag: v1.9.15
     pullPolicy: IfNotPresent
     suffix: ""
     # operator-generic-digest
-    genericDigest: "sha256:bdcfd2eade99933f2fda55ef79ea697ddfad3512f65b15bcd0ba7702518c1ba3"
+    genericDigest: ""
     # operator-azure-digest
-    azureDigest: "sha256:a118239016a7dab7bc3fedfa3d4f0c632867529e23952b0a0bf5ab2cbaa7d9b2"
+    azureDigest: ""
     # operator-aws-digest
-    awsDigest: "sha256:8484021ef6a794027b0dae5625d7248402686a7338d6cd36300885cf3d4f5e47"
+    awsDigest: ""
     useDigest: false
 
   # -- Number of replicas to run for the cilium-operator deployment
@@ -1306,10 +1306,10 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     repository: quay.io/cilium/cilium
-    tag: v1.9.14
+    tag: v1.9.15
     pullPolicy: IfNotPresent
     # cilium-digest
-    digest: "sha256:2c6ce93fa7e625979043a387eb998c17ad57df8768d89facb9b715da42a4c51c"
+    digest: ""
     useDigest: false
 
   # -- The priority class to use for the preflight pod.
@@ -1421,10 +1421,10 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       repository: quay.io/cilium/clustermesh-apiserver
-      tag: v1.9.14
+      tag: v1.9.15
       pullPolicy: IfNotPresent
       # clustermesh-apiserver-digest
-      digest: "sha256:a0da5edf0372899647da51de1b277f0bab8e676d694aee7f939cddfdd3172010"
+      digest: ""
       useDigest: false
 
     etcd:
