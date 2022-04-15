@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.15
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fix a bug where a backend pod can be selected by a local redirect policy deployed in a different namespace if the local redirect policy was deployed first. (Backport PR #19252, Upstream PR #19193, @aditighag)
+* helm: Removed unnecessary Kubernetes RBAC permissions for cilium-agent (Backport PR #19252, Upstream PR #19053, @nathanjsweet)
+* helm: Update Clustermesh-APIServer RBAC permissions for platforms (like Openshift) that have the OwnerReferencesPermissionEnforcement admission controller enabled. (Backport PR #19252, Upstream PR #19071, @nathanjsweet)
+
+**CI Changes:**
+* test/helpers: Fix incorrect count of endpoints (Backport PR #19373, Upstream PR #16437, @pchaigno)
+
+**Misc Changes:**
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.1 to 1.5.2 (#19323, @dependabot[bot])
+* ci: Pin down image for the documentation workflow (Backport PR #19412, Upstream PR #19356, @qmonnet)
+* docs: mark node-to-node IPSec encryption as beta (Backport PR #19412, Upstream PR #16200, @qmonnet)
+* envoy: Limit accesslog socket permissions (Backport PR #19412, Upstream PR #19190, @jrajahalme)
+* helm: Enable offline deployments for OpenShift clusters (Backport PR #19420, Upstream PR #18849, @nathanjsweet)
+* ipcache: Add test asserting out-of-order Kubernetes events (Backport PR #19412, Upstream PR #19258, @christarazi)
+* Test runtime cilium in container (take two) (Backport PR #19373, Upstream PR #19310, @jrajahalme)
+* test: Fix whitespace in docker-run-cilium (Backport PR #19373, Upstream PR #19358, @jrajahalme)
+
+**Other Changes:**
+* install: Update image digests for v1.9.14 (#19238, @aanm)
+
 ## v1.9.14
 
 Summary of Changes
