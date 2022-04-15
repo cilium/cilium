@@ -798,6 +798,19 @@ func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveN
 	return false
 }
 
+// sortZombieMappingSlice sorts the provided slice by whether the connection is
+// marked alive or not, the oldest created connections, and tie-break by the
+// number of DNS names for that IP.
+//
+// Important zombies shuffle to the end of the slice.
+func sortZombieMappingSlice(alive []*DNSZombieMapping) {
+	sort.Slice(alive, func(i, j int) bool {
+		return alive[i].AliveAt.Before(alive[j].AliveAt) ||
+			alive[i].DeletePendingAt.Before(alive[j].DeletePendingAt) ||
+			len(alive[i].Names) < len(alive[j].Names)
+	})
+}
+
 // GC returns alive and dead DNSZombieMapping entries. This removes dead
 // zombies interally, and repeated calls will return different data.
 // Zombies are alive if they have been marked alive (with MarkAlive). When
@@ -828,11 +841,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 	// that IP.
 	overLimit := len(alive) - zombies.max
 	if overLimit > 0 {
-		sort.Slice(alive, func(i, j int) bool {
-			return alive[i].AliveAt.Before(alive[j].AliveAt) ||
-				alive[i].DeletePendingAt.Before(alive[j].DeletePendingAt) ||
-				len(alive[i].Names) < len(alive[j].Names)
-		})
+		sortZombieMappingSlice(alive)
 		dead = append(dead, alive[:overLimit]...)
 		alive = alive[overLimit:]
 		if dead[len(dead)-1].AliveAt.IsZero() {
