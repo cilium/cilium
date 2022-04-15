@@ -863,6 +863,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			return nil, nil, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\").",
 				option.EnableRemoteNodeIdentity)
 		}
+
+		if option.Config.EnableL7Proxy {
+			return nil, nil, fmt.Errorf("egress gateway requires L7 proxy to be disabled (--%s=\"false\").",
+				option.EnableL7Proxy)
+		}
 	}
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored

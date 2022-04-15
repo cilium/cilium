@@ -275,6 +275,7 @@ var _ = SkipDescribeIf(func() bool {
 			"autoDirectNodeRoutes":      "true",
 			"endpointRoutes.enabled":    "true",
 			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
 		},
 	)
 
@@ -286,6 +287,7 @@ var _ = SkipDescribeIf(func() bool {
 			"autoDirectNodeRoutes":      "true",
 			"endpointRoutes.enabled":    "false",
 			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
 		},
 	)
 
@@ -297,6 +299,7 @@ var _ = SkipDescribeIf(func() bool {
 			"autoDirectNodeRoutes":      "false",
 			"endpointRoutes.enabled":    "true",
 			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
 		},
 	)
 
@@ -308,6 +311,7 @@ var _ = SkipDescribeIf(func() bool {
 			"autoDirectNodeRoutes":      "false",
 			"endpointRoutes.enabled":    "false",
 			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
 		},
 	)
 })
