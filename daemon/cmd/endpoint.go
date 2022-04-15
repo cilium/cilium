@@ -731,7 +731,7 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 	}
 }
 
-// EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
+// EndpointCreated is a callback to satisfy EndpointManager.Subscriber,
 // allowing the EndpointManager to be the primary implementer of the core
 // endpoint management functionality while deferring other responsibilities
 // to the daemon.
