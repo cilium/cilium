@@ -1,5 +1,68 @@
 # Changelog
 
+## v1.11.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* k8s: keep CiliumNode labels synced with Node object (Backport PR #19277, Upstream PR #18609, @jibi)
+* Locally allocated identities are now restored during restart, helping avoid transient drops due to identity changes in policies. (Backport PR #19403, Upstream PR #19360, @jrajahalme)
+
+**Bugfixes:**
+* bpf: Fix maglev hash with hostServices.hostNamespaceOnly (Backport PR #19277, Upstream PR #18336, @ysksuzuki)
+* clustermesh: Correct shared service annotation behaviour (Backport PR #19277, Upstream PR #19042, @sayboras)
+* cmd: Fix issue where a ConfigMap value of `{}` was parsed as `map["{}":""]`. (Backport PR #19277, Upstream PR #19172, @gandro)
+* Fix a bug where a backend pod can be selected by a local redirect policy deployed in a different namespace if the local redirect policy was deployed first. (Backport PR #19277, Upstream PR #19193, @aditighag)
+* Fix bug that would cause some pod traffic to leave through the wrong interface if --aws-release-excess-ips is used and masquerading disabled. (Backport PR #19277, Upstream PR #19162, @pchaigno)
+* Fix bug where the 'ipcache-inject-labels' controller constantly fails in non-Kubernetes environments (Backport PR #19277, Upstream PR #19165, @christarazi)
+* Fix bug where the Cilium DNS proxy slows down significantly (and even OOMs) due to lock contention from spawning many goroutines when handling bursty DNS traffic (Backport PR #19418, Upstream PR #19336, @nebril)
+* Fix log rotation of compressed logs (Backport PR #19277, Upstream PR #19152, @chancez)
+* Fixed node init in RKE (Backport PR #19418, Upstream PR #19286, @raphink)
+* helm: Update Clustermesh-APIServer RBAC permissions for platforms (like Openshift) that have the OwnerReferencesPermissionEnforcement admission controller enabled. (Backport PR #19277, Upstream PR #19071, @nathanjsweet)
+* Improve endpoint and DNS proxy lock contention during bursty DNS traffic (Backport PR #19418, Upstream PR #19347, @christarazi)
+* Improve reliably of faulty connections for kube-apiservers behind a LB. Reduce the number of connections to kube-apiserver by 6 for each cilium-agent. (Backport PR #19330, Upstream PR #19259, @aanm)
+* install/kubernetes: fix hubble-ui with TLS (Backport PR #19418, Upstream PR #19338, @aanm)
+* metallb: fix SIGSEGV error when Service resource is deleted. (Backport PR #19277, Upstream PR #19249, @Inode1)
+* Update the 'refresh period' formatting in readme and doc (Backport PR #19418, Upstream PR #19205, @dongwangdw)
+* wireguard: Reject duplicate public keys (Backport PR #19418, Upstream PR #19344, @gandro)
+
+**CI Changes:**
+* jenkinsfiles: Update calls to Quay API (Backport PR #19277, Upstream PR #19229, @pchaigno)
+* test: Don't redeploy in AfterAll of K8sServices test case (Backport PR #19277, Upstream PR #18869, @brb)
+* test: Flush CT tables after L7 proxy tests in K8sServices (Backport PR #19277, Upstream PR #18857, @brb)
+* Use docker manifest inspect to wait for images instead of using quay API (Backport PR #19330, Upstream PR #19307, @YutaroHayakawa)
+* workflows: Update call to Quay API (Backport PR #19277, Upstream PR #19228, @pchaigno)
+
+**Misc Changes:**
+* add 'refreshPeriod' to spelling wordlist (Backport PR #19418, Upstream PR #19394, @aanm)
+* Add a 'Limitations' section to 'External Workloads'. (Backport PR #19418, Upstream PR #19366, @bmcustodio)
+* add context when return errors during datapath initialization (Backport PR #19277, Upstream PR #18011, @kerthcet)
+* Bpf fix conditional compilation (Backport PR #19277, Upstream PR #19104, @jrajahalme)
+* build(deps): bump actions/cache from 3.0.0 to 3.0.1 (#19268, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.1 to 3.0.2 (#19389, @dependabot[bot])
+* build(deps): bump actions/checkout from 3.0.0 to 3.0.1 (#19447, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.1.5 to 2.1.6 (#19270, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.6 to 2.1.7 (#19343, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.7 to 2.1.8 (#19374, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.1 to 1.5.2 (#19325, @dependabot[bot])
+* build(deps): bump library/alpine from 3.12.7 to 3.15.4 in /images/cache (#19414, @dependabot[bot])
+* ci: Pin down image for the documentation workflow (Backport PR #19418, Upstream PR #19356, @qmonnet)
+* docs: Clarify use of the `eni.subnetTagsFilter` option (Backport PR #19330, Upstream PR #19276, @gandro)
+* docs: Update shared service annotation docs (Backport PR #19418, Upstream PR #19313, @sayboras)
+* envoy: Limit accesslog socket permissions (Backport PR #19418, Upstream PR #19190, @jrajahalme)
+* ipcache: Add test asserting out-of-order Kubernetes events (Backport PR #19330, Upstream PR #19258, @christarazi)
+* k8s: Use kubelet's logic to close all idle connections (Backport PR #19330, Upstream PR #19290, @christarazi)
+* logo: fix position of central polygon (Backport PR #19277, Upstream PR #19216, @sisp)
+* Test runtime cilium in container (take two) (Backport PR #19403, Upstream PR #19310, @jrajahalme)
+* test: Fix whitespace in docker-run-cilium (Backport PR #19403, Upstream PR #19358, @jrajahalme)
+* v1.11: Update Go to 1.17.9 (#19445, @tklauser)
+* vendor: pull in the latest changes from github.com/vishvananda/netlink (Backport PR #19403, Upstream PR #18618, @aditighag)
+* wireguard: Fix invalid bits when agent init (Backport PR #19277, Upstream PR #19118, @Junnplus)
+
+**Other Changes:**
+* install: Update image digests for v1.11.3 (#19240, @aanm)
+
 ## v1.11.3
 
 Summary of Changes
