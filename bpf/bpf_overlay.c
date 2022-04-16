@@ -19,6 +19,10 @@
  */
 #define SKIP_ICMPV6_ECHO_HANDLING
 
+/* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
+ */
+#define SKIP_SRV6_HANDLING
+
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/edt.h"

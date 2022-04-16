@@ -97,7 +97,8 @@
 #define CILIUM_CALL_IPV6_CT_INGRESS		30
 #define CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY	31
 #define CILIUM_CALL_IPV6_CT_EGRESS		32
-#define CILIUM_CALL_SIZE			33
+#define CILIUM_CALL_SRV6_ENCAP			33
+#define CILIUM_CALL_SIZE			34
 
 typedef __u64 mac_t;
 
@@ -631,23 +632,28 @@ enum {
 #define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
+#define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_IFINDEX,
 #define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
+#define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
+#define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT,
 #define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
+#define CB_SRV6_SID_4		CB_NAT		/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
+#define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* Magic values for CB_FROM_HOST.

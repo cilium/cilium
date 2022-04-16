@@ -11,6 +11,10 @@
 
 #include <linux/icmpv6.h>
 
+/* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
+ */
+#define SKIP_SRV6_HANDLING
+
 #define EVENT_SOURCE LXC_ID
 
 #include "lib/tailcall.h"

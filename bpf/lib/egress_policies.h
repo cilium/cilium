@@ -110,5 +110,46 @@ srv6_lookup_policy6(__u32 vrf_id, const struct in6_addr *dip)
 	};
 	return map_lookup_elem(&SRV6_POLICY_MAP6, &key);
 }
+
+# ifndef SKIP_SRV6_HANDLING
+static __always_inline void
+srv6_load_meta_sid(struct __ctx_buff *ctx, struct in6_addr *sid)
+{
+	sid->s6_addr32[0] = ctx_load_meta(ctx, CB_SRV6_SID_1);
+	sid->s6_addr32[1] = ctx_load_meta(ctx, CB_SRV6_SID_2);
+	sid->s6_addr32[2] = ctx_load_meta(ctx, CB_SRV6_SID_3);
+	sid->s6_addr32[3] = ctx_load_meta(ctx, CB_SRV6_SID_4);
+}
+
+static __always_inline void
+srv6_store_meta_sid(struct __ctx_buff *ctx, const union v6addr *sid)
+{
+	ctx_store_meta(ctx, CB_SRV6_SID_1, sid->p1);
+	ctx_store_meta(ctx, CB_SRV6_SID_2, sid->p2);
+	ctx_store_meta(ctx, CB_SRV6_SID_3, sid->p3);
+	ctx_store_meta(ctx, CB_SRV6_SID_4, sid->p4);
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_ENCAP)
+int tail_srv6_encap(struct __ctx_buff *ctx)
+{
+	struct in6_addr dst_sid;
+	__u32 vrf_id;
+	int ret = 0;
+
+	srv6_load_meta_sid(ctx, &dst_sid);
+	vrf_id = ctx_load_meta(ctx, CB_SRV6_VRF_ID);
+
+	/* TODO: Perform SRv6 encapsulation. */
+
+	if (ret < 0)
+		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
+					      METRIC_EGRESS);
+
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+			  TRACE_REASON_UNKNOWN, 0);
+	return CTX_ACT_OK;
+}
+# endif /* SKIP_SRV6_HANDLING */
 #endif /* ENABLE_SRV6 */
 #endif /* __LIB_EGRESS_POLICIES_H_ */
