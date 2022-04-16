@@ -111,6 +111,28 @@ srv6_lookup_policy6(__u32 vrf_id, const struct in6_addr *dip)
 	return map_lookup_elem(&SRV6_POLICY_MAP6, &key);
 }
 
+static __always_inline __u32
+srv6_lookup_sid(const struct in6_addr *sid)
+{
+	__u32 *vrf_id;
+
+	vrf_id = map_lookup_elem(&SRV6_SID_MAP, sid);
+	if (vrf_id)
+		return *vrf_id;
+	return 0;
+}
+
+static __always_inline bool
+is_srv6_packet(const struct ipv6hdr *ip6)
+{
+#ifndef ENABLE_SRV6_REDUCED_ENCAP
+	if (ip6->nexthdr == NEXTHDR_ROUTING)
+		return true;
+#endif
+	return ip6->nexthdr == IPPROTO_IPIP ||
+	       ip6->nexthdr == IPPROTO_IPV6;
+}
+
 # ifndef SKIP_SRV6_HANDLING
 static __always_inline __u64 ctx_adjust_hroom_flags(void)
 {
@@ -145,6 +167,45 @@ srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct ipv6hdr, daddr),
 			    sid, sizeof(struct in6_addr), 0) < 0)
 		return DROP_WRITE_ERROR;
+	return 0;
+}
+
+static __always_inline int
+srv6_decapsulation(struct __ctx_buff *ctx)
+{
+	__u16 new_proto = bpf_htons(ETH_P_IP);
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	int shrink;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	switch (ip6->nexthdr) {
+	case IPPROTO_IPIP:
+		if (ctx_change_proto(ctx, new_proto, 0) < 0)
+			return DROP_WRITE_ERROR;
+		if (ctx_store_bytes(ctx, offsetof(struct ethhdr, h_proto),
+				    &new_proto, sizeof(new_proto), 0) < 0)
+			return DROP_WRITE_ERROR;
+		/* ctx_change_proto above shrinks the packet from IPv6 header
+		 * length to IPv4 header length. It removes that space from the
+		 * same header we will later delete.
+		 * Thus, deduce this space from the next packet shrinking.
+		 */
+		shrink = sizeof(struct iphdr);
+		break;
+	case IPPROTO_IPV6:
+		shrink = sizeof(struct ipv6hdr);
+		break;
+	default:
+		return DROP_INVALID;
+	}
+
+	/* Remove the outer IPv6 header. */
+	if (ctx_adjust_hroom(ctx, -shrink, BPF_ADJ_ROOM_MAC,
+			     ctx_adjust_hroom_flags()))
+		return DROP_INVALID;
 	return 0;
 }
 
@@ -290,6 +351,23 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
 			  TRACE_REASON_UNKNOWN, 0);
 	return CTX_ACT_OK;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_DECAP)
+int tail_srv6_decap(struct __ctx_buff *ctx)
+{
+	int ret = 0;
+
+	ret = srv6_decapsulation(ctx);
+	if (ret < 0)
+		goto error_drop;
+
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+			  TRACE_REASON_UNKNOWN, 0);
+	return CTX_ACT_OK;
+error_drop:
+		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
+					      METRIC_EGRESS);
 }
 # endif /* SKIP_SRV6_HANDLING */
 #endif /* ENABLE_SRV6 */
