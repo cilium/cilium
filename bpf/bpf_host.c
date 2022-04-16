@@ -250,6 +250,18 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		return CTX_ACT_OK;
 
 skip_host_firewall:
+#ifdef ENABLE_SRV6
+	if (!from_host) {
+		if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
+			/* This packet is destined to an SID so we need to decapsulate it
+			 * and forward it.
+			 */
+			ep_tail_call(ctx, CILIUM_CALL_SRV6_DECAP);
+			return DROP_MISSED_TAIL_CALL;
+		}
+	}
+#endif /* ENABLE_SRV6 */
+
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination MAC address to the MAC of cilium_net.
