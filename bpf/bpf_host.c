@@ -1055,6 +1055,7 @@ static __always_inline
 handle_srv6(struct __ctx_buff *ctx)
 {
 	__u32 *vrf_id, dst_id, tunnel_ep = 0;
+	struct srv6_ipv6_2tuple *outer_ips;
 	struct iphdr *ip4 __maybe_unused;
 	struct remote_endpoint_info *ep;
 	void *data, *data_end;
@@ -1069,6 +1070,12 @@ handle_srv6(struct __ctx_buff *ctx)
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
+
+		outer_ips = srv6_lookup_state_entry6(ip6);
+		if (outer_ips) {
+			ep_tail_call(ctx, CILIUM_CALL_SRV6_REPLY);
+			return DROP_MISSED_TAIL_CALL;
+		}
 
 		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr);
 		if (ep) {
@@ -1097,6 +1104,12 @@ handle_srv6(struct __ctx_buff *ctx)
 	case bpf_htons(ETH_P_IP):
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
+
+		outer_ips = srv6_lookup_state_entry4(ip4);
+		if (outer_ips) {
+			ep_tail_call(ctx, CILIUM_CALL_SRV6_REPLY);
+			return DROP_MISSED_TAIL_CALL;
+		}
 
 		ep = lookup_ip4_remote_endpoint(ip4->daddr);
 		if (ep) {

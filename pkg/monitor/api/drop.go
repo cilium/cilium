@@ -81,6 +81,7 @@ var errors = map[uint8]string{
 	183: "Incorrect VNI from VTEP",
 	184: "Failed to update or lookup TC buffer",
 	185: "No SID was found for the IP address",
+	186: "SRv6 state was removed during tail call",
 }
 
 func extendedReason(reason uint8, extError int8) string {
