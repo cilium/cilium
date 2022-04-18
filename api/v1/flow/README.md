@@ -887,6 +887,7 @@ here.
 | INVALID_VNI | 183 |  |
 | INVALID_TC_BUFFER | 184 |  |
 | NO_SID | 185 |  |
+| MISSING_SRV6_STATE | 186 |  |
 
 
 

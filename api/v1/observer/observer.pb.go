@@ -146,6 +146,7 @@ const DropReason_VLAN_FILTERED = flow.DropReason_VLAN_FILTERED
 const DropReason_INVALID_VNI = flow.DropReason_INVALID_VNI
 const DropReason_INVALID_TC_BUFFER = flow.DropReason_INVALID_TC_BUFFER
 const DropReason_NO_SID = flow.DropReason_NO_SID
+const DropReason_MISSING_SRV6_STATE = flow.DropReason_MISSING_SRV6_STATE
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value
