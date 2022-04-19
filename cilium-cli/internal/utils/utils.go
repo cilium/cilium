@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 )
 
-var versionRegexp = regexp.MustCompile(`^(v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-zA-Z0-9]+)*|[a-zA-Z0-9-_.@:]*:[a-zA-Z0-9-_.@:]+)$`).MatchString
+var versionRegexp = regexp.MustCompile(`^((v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-zA-Z0-9]+)*|[a-zA-Z0-9-_.@:]*:[a-zA-Z0-9-_.@:]+)|([0-9a-fA-F]{40})|(latest))$`).MatchString
 
 func CheckVersion(version string) bool {
 	return versionRegexp(version)
