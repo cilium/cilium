@@ -1961,11 +1961,11 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 		egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
 		if (egress_policy) {
-			struct remote_endpoint_info *info;
+			struct remote_endpoint_info *remote_ep;
 
-			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
-			if (info && info->tunnel_endpoint != 0) {
-				tunnel_endpoint = info->tunnel_endpoint;
+			remote_ep = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+			if (remote_ep && remote_ep->tunnel_endpoint != 0) {
+				tunnel_endpoint = remote_ep->tunnel_endpoint;
 				goto encap_redirect;
 			}
 		}
