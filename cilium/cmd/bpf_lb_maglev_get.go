@@ -40,7 +40,7 @@ var bpfMaglevGetCmd = &cobra.Command{
 			Fatalf("No entry found for service %d", svcID)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(backends); err != nil {
 				Fatalf("Unable to generate JSON output: %s", err)
 			}
@@ -96,5 +96,5 @@ func dumpMaglevServiceBackends(mapName string, svcID uint16) (string, error) {
 
 func init() {
 	bpfMaglevCmd.AddCommand(bpfMaglevGetCmd)
-	command.AddJSONOutput(bpfMaglevGetCmd)
+	command.AddOutputOption(bpfMaglevGetCmd)
 }

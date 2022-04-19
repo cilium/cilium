@@ -38,7 +38,7 @@ var mapGetCmd = &cobra.Command{
 			return
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(m); err != nil {
 				os.Exit(1)
 			}
@@ -73,5 +73,5 @@ func printMapEntries(m *models.BPFMap) {
 
 func init() {
 	mapCmd.AddCommand(mapGetCmd)
-	command.AddJSONOutput(mapGetCmd)
+	command.AddOutputOption(mapGetCmd)
 }

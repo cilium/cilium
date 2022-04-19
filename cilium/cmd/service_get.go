@@ -43,7 +43,7 @@ var serviceGetCmd = &cobra.Command{
 			}
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(svc); err != nil {
 				os.Exit(1)
 			}
@@ -64,5 +64,5 @@ var serviceGetCmd = &cobra.Command{
 
 func init() {
 	serviceCmd.AddCommand(serviceGetCmd)
-	command.AddJSONOutput(serviceGetCmd)
+	command.AddOutputOption(serviceGetCmd)
 }

@@ -34,7 +34,7 @@ var identityListCmd = &cobra.Command{
 
 func init() {
 	identityCmd.AddCommand(identityListCmd)
-	command.AddJSONOutput(identityListCmd)
+	command.AddOutputOption(identityListCmd)
 	flags := identityListCmd.Flags()
 	flags.Bool("endpoints", false, "list identities of locally managed endpoints")
 	viper.BindPFlags(flags)
@@ -73,7 +73,7 @@ func listIdentities(args []string) {
 }
 
 func printIdentitesEndpoints(identities []*models.IdentityEndpoints) {
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(identities); err != nil {
 			Fatalf("Unable to provide JSON output: %s", err)
 		}

@@ -14,7 +14,7 @@ cilium bpf policy get [flags]
       --all             Dump all policy maps
   -h, --help            help for get
   -n, --numeric         Do not resolve IDs
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands

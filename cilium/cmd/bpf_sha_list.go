@@ -41,7 +41,7 @@ var (
 
 func init() {
 	bpfTemplateCmd.AddCommand(bpfTemplateListCmd)
-	command.AddJSONOutput(bpfTemplateListCmd)
+	command.AddOutputOption(bpfTemplateListCmd)
 }
 
 func isEndpointID(name string) bool {
@@ -97,7 +97,7 @@ func dumpShaList() {
 		}
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(bpfTemplateList); err != nil {
 			Fatalf("error getting output of map in JSON: %s\n", err)
 		}

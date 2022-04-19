@@ -24,5 +24,5 @@ var encryptFlushCmd = &cobra.Command{
 
 func init() {
 	encryptCmd.AddCommand(encryptFlushCmd)
-	command.AddJSONOutput(encryptFlushCmd)
+	command.AddOutputOption(encryptFlushCmd)
 }

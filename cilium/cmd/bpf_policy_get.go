@@ -50,7 +50,7 @@ func init() {
 	bpfPolicyCmd.AddCommand(bpfPolicyListCmd)
 	bpfPolicyListCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
 	bpfPolicyListCmd.Flags().BoolVarP(&allList, "all", "", false, "Dump all policy maps")
-	command.AddJSONOutput(bpfPolicyListCmd)
+	command.AddOutputOption(bpfPolicyListCmd)
 }
 
 func listAllMaps() {
@@ -94,7 +94,7 @@ func dumpMap(file string) {
 	}
 	sort.Slice(statsMap, statsMap.Less)
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(statsMap); err != nil {
 			os.Exit(1)
 		}

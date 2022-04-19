@@ -33,7 +33,7 @@ var bpfShaGetCmd = &cobra.Command{
 
 func init() {
 	bpfTemplateCmd.AddCommand(bpfShaGetCmd)
-	command.AddJSONOutput(bpfShaGetCmd)
+	command.AddOutputOption(bpfShaGetCmd)
 }
 
 func dumpSha(sha string) {
@@ -43,7 +43,7 @@ func dumpSha(sha string) {
 		Fatalf("Failed to describe SHA: %s", err)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		regex, err := regexp.Compile("// JSON_OUTPUT: (?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)")
 		if err != nil {
 			Fatalf("Error preparing regex for parsing JSON: %s\n", err)

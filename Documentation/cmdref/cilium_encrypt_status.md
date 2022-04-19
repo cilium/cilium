@@ -12,7 +12,7 @@ cilium encrypt status [flags]
 
 ```
   -h, --help            help for status
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands

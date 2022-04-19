@@ -35,7 +35,7 @@ var endpointConfigCmd = &cobra.Command{
 func init() {
 	endpointCmd.AddCommand(endpointConfigCmd)
 	endpointConfigCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
-	command.AddJSONOutput(endpointConfigCmd)
+	command.AddOutputOption(endpointConfigCmd)
 }
 
 var endpointMutableOptionLibrary = option.GetEndpointMutableOptionLibrary()
@@ -55,7 +55,7 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 
 	opts := args[1:]
 	if len(opts) == 0 {
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(cfg); err != nil {
 				os.Exit(1)
 			}
