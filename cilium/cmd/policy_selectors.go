@@ -20,7 +20,7 @@ var policyCacheGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if resp, err := client.PolicyCacheGet(); err != nil {
 			Fatalf("Cannot get policy: %s\n", err)
-		} else if command.OutputJSON() {
+		} else if command.OutputOption() {
 			if err := command.PrintOutput(resp); err != nil {
 				os.Exit(1)
 			}
@@ -52,5 +52,5 @@ var policyCacheGetCmd = &cobra.Command{
 
 func init() {
 	policyCmd.AddCommand(policyCacheGetCmd)
-	command.AddJSONOutput(policyCacheGetCmd)
+	command.AddOutputOption(policyCacheGetCmd)
 }

@@ -31,7 +31,7 @@ var bpfBandwidthListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(bpfBandwidthList); err != nil {
 				fmt.Fprintf(os.Stderr, "error getting output of map in JSON: %s\n", err)
 				os.Exit(1)
@@ -88,5 +88,5 @@ func listBandwidth(bpfBandwidthList map[string][]string) {
 
 func init() {
 	bpfBandwidthCmd.AddCommand(bpfBandwidthListCmd)
-	command.AddJSONOutput(bpfBandwidthListCmd)
+	command.AddOutputOption(bpfBandwidthListCmd)
 }

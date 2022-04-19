@@ -143,7 +143,7 @@ var bpfLBListCmd = &cobra.Command{
 			dumpSVC(serviceList)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(serviceList); err != nil {
 				Fatalf("Unable to generate JSON output: %s", err)
 			}
@@ -159,5 +159,5 @@ func init() {
 	bpfLBListCmd.Flags().BoolVarP(&listRevNAT, "revnat", "", false, "List reverse NAT entries")
 	bpfLBListCmd.Flags().BoolVarP(&listFrontends, "frontends", "", false, "List all service frontend entries")
 	bpfLBListCmd.Flags().BoolVarP(&listBackends, "backends", "", false, "List all service backend entries")
-	command.AddJSONOutput(bpfLBListCmd)
+	command.AddOutputOption(bpfLBListCmd)
 }

@@ -26,7 +26,7 @@ var endpointHealthCmd = &cobra.Command{
 
 func init() {
 	endpointCmd.AddCommand(endpointHealthCmd)
-	command.AddJSONOutput(endpointHealthCmd)
+	command.AddOutputOption(endpointHealthCmd)
 }
 
 func getEndpointHealth(cmd *cobra.Command, args []string) {
@@ -37,7 +37,7 @@ func getEndpointHealth(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get endpoint healthz %s: %s\n", eID, err)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(epHealth); err != nil {
 			os.Exit(1)
 		}

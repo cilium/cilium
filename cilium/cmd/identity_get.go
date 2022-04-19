@@ -22,7 +22,7 @@ var (
 )
 
 func printIdentities(identities []*models.Identity) {
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(identities); err != nil {
 			Fatalf("Unable to provide JSON output: %s", err)
 		}
@@ -76,5 +76,5 @@ var identityGetCmd = &cobra.Command{
 func init() {
 	identityCmd.AddCommand(identityGetCmd)
 	identityGetCmd.Flags().StringSliceVar(&lookupLabels, "label", []string{}, "Label to lookup")
-	command.AddJSONOutput(identityGetCmd)
+	command.AddOutputOption(identityGetCmd)
 }

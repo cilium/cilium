@@ -30,7 +30,7 @@ var bpfEndpointListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(bpfEndpointList); err != nil {
 				os.Exit(1)
 			}
@@ -43,5 +43,5 @@ var bpfEndpointListCmd = &cobra.Command{
 
 func init() {
 	bpfEndpointCmd.AddCommand(bpfEndpointListCmd)
-	command.AddJSONOutput(bpfEndpointListCmd)
+	command.AddOutputOption(bpfEndpointListCmd)
 }

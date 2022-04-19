@@ -37,7 +37,7 @@ var bpfVtepListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(bpfVtepList); err != nil {
 				fmt.Fprintf(os.Stderr, "error getting output of map in JSON: %s\n", err)
 				os.Exit(1)
@@ -55,5 +55,5 @@ var bpfVtepListCmd = &cobra.Command{
 
 func init() {
 	bpfVtepCmd.AddCommand(bpfVtepListCmd)
-	command.AddJSONOutput(bpfVtepListCmd)
+	command.AddOutputOption(bpfVtepListCmd)
 }

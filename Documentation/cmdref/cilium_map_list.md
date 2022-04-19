@@ -18,7 +18,7 @@ cilium map list
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
       --verbose         Print cache contents of all maps
 ```
 

@@ -20,28 +20,28 @@ var (
 	re        = regexp.MustCompile(`^jsonpath\=(.*)`)
 )
 
-// OutputJSON returns true if the JSON output option was specified
-func OutputJSON() bool {
+// OutputOption returns true if an output option was specified.
+func OutputOption() bool {
 	return len(outputOpt) > 0
 }
 
-//AddJSONOutput adds the -o|--output option to any cmd to export to json
-func AddJSONOutput(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&outputOpt, "output", "o", "", "json| jsonpath='{}'")
+// AddOutputOption adds the -o|--output option to any cmd to export to json or yaml.
+func AddOutputOption(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&outputOpt, "output", "o", "", "json| yaml| jsonpath='{}'")
 }
 
-//ForceJSON sets output mode to JSON (for unit tests)
+// ForceJSON sets output mode to JSON (for unit tests)
 func ForceJSON() {
 	outputOpt = "json"
 }
 
-//PrintOutput receives an interface and dump the data using the --output flag.
-//ATM only json or jsonpath. In the future yaml
+// PrintOutput receives an interface and dump the data using the --output flag.
+// ATM only json or jsonpath. In the future yaml
 func PrintOutput(data interface{}) error {
 	return PrintOutputWithType(data, outputOpt)
 }
 
-//PrintOutputWithPatch merges data with patch and dump the data using the --output flag.
+// PrintOutputWithPatch merges data with patch and dump the data using the --output flag.
 func PrintOutputWithPatch(data interface{}, patch interface{}) error {
 	mergedInterface, err := mergeInterfaces(data, patch)
 	if err != nil {
@@ -96,8 +96,8 @@ func recursiveMerge(i1, i2 interface{}) interface{} {
 	return i1
 }
 
-//PrintOutputWithType receives an interface and dump the data using the --output flag.
-//ATM only json or jsonpath. In the future yaml
+// PrintOutputWithType receives an interface and dump the data using the --output flag.
+// ATM only json, yaml, or jsonpath.
 func PrintOutputWithType(data interface{}, outputType string) error {
 	if outputType == "json" {
 		return dumpJSON(data, "")

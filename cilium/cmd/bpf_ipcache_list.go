@@ -37,7 +37,7 @@ var bpfIPCacheListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(bpfIPCacheList); err != nil {
 				fmt.Fprintf(os.Stderr, "error getting output of map in JSON: %s\n", err)
 				os.Exit(1)
@@ -55,5 +55,5 @@ var bpfIPCacheListCmd = &cobra.Command{
 
 func init() {
 	bpfIPCacheCmd.AddCommand(bpfIPCacheListCmd)
-	command.AddJSONOutput(bpfIPCacheListCmd)
+	command.AddOutputOption(bpfIPCacheListCmd)
 }

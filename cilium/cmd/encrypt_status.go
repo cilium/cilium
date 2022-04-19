@@ -44,7 +44,7 @@ var encryptStatusCmd = &cobra.Command{
 
 func init() {
 	encryptCmd.AddCommand(encryptStatusCmd)
-	command.AddJSONOutput(encryptStatusCmd)
+	command.AddOutputOption(encryptStatusCmd)
 }
 
 func getXfrmStats(mountPoint string) (int, map[string]int) {

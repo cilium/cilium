@@ -15,7 +15,7 @@ cilium config [<option>=(enable|disable) ...] [flags]
   -h, --help            help for config
       --list-options    List available options
   -n, --num-pages int   Number of pages for perf ring buffer. New values have to be > 0
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
   -r, --read-only       Display read only configurations
 ```
 

@@ -27,7 +27,7 @@ var bpfMaglevListCmd = &cobra.Command{
 			Fatalf("Unable to dump Maglev lookup tables: %s", err)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(backends); err != nil {
 				Fatalf("Unable to generate JSON output: %s", err)
 			}
@@ -78,5 +78,5 @@ func dumpMaglevTable(name string, ipv6 bool) (map[string][]string, error) {
 
 func init() {
 	bpfMaglevCmd.AddCommand(bpfMaglevListCmd)
-	command.AddJSONOutput(bpfMaglevListCmd)
+	command.AddOutputOption(bpfMaglevListCmd)
 }

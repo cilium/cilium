@@ -14,7 +14,7 @@ cilium bpf lb list [flags]
       --backends        List all service backend entries
       --frontends       List all service frontend entries
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
       --revnat          List reverse NAT entries
 ```
 

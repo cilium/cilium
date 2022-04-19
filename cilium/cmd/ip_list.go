@@ -35,7 +35,7 @@ var numeric bool
 
 func init() {
 	ipCmd.AddCommand(ipListCmd)
-	command.AddJSONOutput(ipListCmd)
+	command.AddOutputOption(ipListCmd)
 	flags := ipListCmd.Flags()
 	flags.BoolVarP(&numeric, "numeric", "n", false, "Print numeric identities")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "Print all fields of ipcache")
@@ -54,7 +54,7 @@ func listIPs() {
 }
 
 func printIPcacheEntries(entries []*models.IPListEntry) {
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(entries); err != nil {
 			Fatalf("Unable to provide JSON output: %s", err)
 		}

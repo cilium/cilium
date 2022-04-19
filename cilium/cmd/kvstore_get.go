@@ -36,7 +36,7 @@ var kvstoreGetCmd = &cobra.Command{
 			if err != nil {
 				Fatalf("Unable to list keys: %s", err)
 			}
-			if command.OutputJSON() {
+			if command.OutputOption() {
 				if err := command.PrintOutput(pairs); err != nil {
 					os.Exit(1)
 				}
@@ -53,7 +53,7 @@ var kvstoreGetCmd = &cobra.Command{
 			if val == nil {
 				Fatalf("key %s is not found", key)
 			}
-			if command.OutputJSON() {
+			if command.OutputOption() {
 				if err := command.PrintOutput(string(val)); err != nil {
 					os.Exit(1)
 				}
@@ -67,5 +67,5 @@ var kvstoreGetCmd = &cobra.Command{
 func init() {
 	kvstoreCmd.AddCommand(kvstoreGetCmd)
 	kvstoreGetCmd.Flags().BoolVar(&recursive, "recursive", false, "Recursive lookup")
-	command.AddJSONOutput(kvstoreGetCmd)
+	command.AddOutputOption(kvstoreGetCmd)
 }

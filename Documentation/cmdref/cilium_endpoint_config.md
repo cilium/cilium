@@ -19,7 +19,7 @@ endpoint config 5421 DropNotification=false TraceNotification=false PolicyVerdic
 ```
   -h, --help            help for config
       --list-options    List available options
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands

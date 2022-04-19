@@ -48,7 +48,7 @@ func init() {
 	bpfCtListCmd.Flags().StringVar(&timeDiffClockSourceMode, "time-diff-clocksource-mode", "", "manually set clock source mode (instead of contacting the server)")
 	bpfCtListCmd.Flags().Int64Var(&timeDiffClockSourceHz, "time-diff-clocksource-hz", 250, "manually set clock source Hz")
 	bpfCtCmd.AddCommand(bpfCtListCmd)
-	command.AddJSONOutput(bpfCtListCmd)
+	command.AddOutputOption(bpfCtListCmd)
 }
 
 func getMaps(eID string) []*ctmap.Map {
@@ -142,7 +142,7 @@ func dumpCt(maps []interface{}, args ...interface{}) {
 		defer m.(ctmap.CtMap).Close()
 		// Plain output prints immediately, JSON output holds until it
 		// collected values from all maps to have one consistent object
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			callback := func(key bpf.MapKey, value bpf.MapValue) {
 				record := ctmap.CtMapRecord{Key: key.(ctmap.CtKey), Value: *value.(*ctmap.CtEntry)}
 				entries = append(entries, record)
@@ -154,7 +154,7 @@ func dumpCt(maps []interface{}, args ...interface{}) {
 			doDumpEntries(m.(ctmap.CtMap))
 		}
 	}
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(entries); err != nil {
 			os.Exit(1)
 		}

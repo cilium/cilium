@@ -71,7 +71,7 @@ func init() {
 
 	fqdnListCacheCmd.Flags().StringVarP(&fqdnCacheMatchPattern, "matchpattern", "p", "", "List cache entries with FQDN that match matchpattern")
 	fqdnListCacheCmd.Flags().StringVarP(&fqdnEndpointID, "endpoint", "e", "", "List cache entries for a specific endpoint id")
-	command.AddJSONOutput(fqdnListCacheCmd)
+	command.AddOutputOption(fqdnListCacheCmd)
 }
 
 func cleanFQDNCache() {
@@ -140,7 +140,7 @@ func listFQDNCache() {
 		}
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(lookups); err != nil {
 			Fatalf("Unable to provide JSON output: %s", err)
 		}

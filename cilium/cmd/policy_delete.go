@@ -25,7 +25,7 @@ var policyDeleteCmd = &cobra.Command{
 
 		if resp, err := client.PolicyDelete(args); err != nil {
 			Fatalf("Cannot delete policy: %s\n", err)
-		} else if command.OutputJSON() {
+		} else if command.OutputOption() {
 			if err := command.PrintOutput(resp); err != nil {
 				os.Exit(1)
 			}
@@ -38,5 +38,5 @@ var policyDeleteCmd = &cobra.Command{
 func init() {
 	policyCmd.AddCommand(policyDeleteCmd)
 	policyDeleteCmd.Flags().BoolVarP(&confirmDeleteAll, "all", "", false, "Delete all policies")
-	command.AddJSONOutput(policyDeleteCmd)
+	command.AddOutputOption(policyDeleteCmd)
 }

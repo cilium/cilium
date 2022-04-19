@@ -30,7 +30,7 @@ var bpfTunnelListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(tunnelList); err != nil {
 				os.Exit(1)
 			}
@@ -43,5 +43,5 @@ var bpfTunnelListCmd = &cobra.Command{
 
 func init() {
 	bpfTunnelCmd.AddCommand(bpfTunnelListCmd)
-	command.AddJSONOutput(bpfTunnelListCmd)
+	command.AddOutputOption(bpfTunnelListCmd)
 }
