@@ -28,7 +28,7 @@ import (
 // required via UpdateSelectors.
 // DNS information is cached, respecting TTL.
 type NameManager struct {
-	lock.Mutex
+	lock.RWMutex
 
 	// config is a copy from when this instance was initialized.
 	// It is read-only once set
@@ -46,8 +46,8 @@ type NameManager struct {
 
 // GetModel returns the API model of the NameManager.
 func (n *NameManager) GetModel() *models.NameManager {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	n.RWMutex.RLock()
+	defer n.RWMutex.RUnlock()
 
 	allSelectors := make([]*models.SelectorEntry, 0, len(n.allSelectors))
 	for fqdnSel, regex := range n.allSelectors {
@@ -66,13 +66,13 @@ func (n *NameManager) GetModel() *models.NameManager {
 // Lock must be held during any calls to RegisterForIdentityUpdatesLocked or
 // UnregisterForIdentityUpdatesLocked.
 func (n *NameManager) Lock() {
-	n.Mutex.Lock()
+	n.RWMutex.Lock()
 }
 
 // Unlock must be called after calls to RegisterForIdentityUpdatesLocked or
 // UnregisterForIdentityUpdatesLocked are done.
 func (n *NameManager) Unlock() {
-	n.Mutex.Unlock()
+	n.RWMutex.Unlock()
 }
 
 // RegisterForIdentityUpdatesLocked exposes this FQDNSelector so that identities
@@ -137,8 +137,8 @@ func (n *NameManager) GetDNSCache() *DNSCache {
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
 func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	n.RWMutex.Lock()
+	defer n.RWMutex.Unlock()
 
 	// Update IPs in n
 	fqdnSelectorsToUpdate, updatedDNSNames := n.updateDNSIPs(lookupTime, updatedDNSIPs)
@@ -165,8 +165,8 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 // Note: This is used only when DNS entries are cleaned up, not when new results
 // are ingested.
 func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, err error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	n.RWMutex.Lock()
+	defer n.RWMutex.Unlock()
 
 	affectedFQDNSels := make(map[api.FQDNSelector]struct{}, 0)
 	for _, dnsName := range namesToRegen {
