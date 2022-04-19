@@ -468,7 +468,7 @@ func (m *Map) OpenParallel() (bool, error) {
 	defer m.lock.Unlock()
 
 	if m.fd != 0 {
-		return false, fmt.Errorf("OpenParallel() called on already open map")
+		return false, fmt.Errorf("OpenParallel() called on already open map: %s", m.name)
 	}
 
 	if err := m.setPathIfUnset(); err != nil {
