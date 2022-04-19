@@ -18,7 +18,7 @@ import (
 const (
 	// The privileged unit tests can take more than 4 minutes, the default
 	// timeout for helper commands.
-	privilegedUnitTestTimeout = 16 * time.Minute
+	privilegedUnitTestTimeout = 30 * time.Minute
 )
 
 var _ = Describe("RuntimePrivilegedUnitTests", func() {
