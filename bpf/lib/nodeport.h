@@ -1946,15 +1946,15 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-#if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE)
-	/* Traffic from clients to egress gateway nodes reaches said gateways
-	 * by a vxlan tunnel. If we are not using TUNNEL_MODE, we need to
+#if defined(ENABLE_EGRESS_GATEWAY) && DIRECT_ROUTING_DEV_IFINDEX != 0
+	/* Traffic from clients to egress gateway nodes reaches said nodes via
+	 * a vxlan tunnel.
+	 * If the datapath is running in direct routing mode, we need to
 	 * identify reverse traffic from the gateway to clients and also steer
-	 * it via the vxlan tunnel to avoid issues with iptables dropping these
-	 * packets. We do this in the code below, by performing a lookup in the
-	 * egress gateway map using a reverse address tuple. A match means that
-	 * the corresponding forward traffic was forwarded to the egress gateway
-	 * via the tunnel.
+	 * it to the vxlan tunnel to avoid issues with iptables dropping these
+	 * packets. We do this by performing a lookup in the egress gateway map
+	 * using a reverse address tuple. A match means that the corresponding
+	 * forward traffic was forwarded to the egress gateway via the tunnel.
 	 */
 	{
 		struct egress_gw_policy_entry *egress_policy;
@@ -1970,7 +1970,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 			}
 		}
 	}
-#endif /* ENABLE_EGRESS_GATEWAY */
+#endif /* defined(ENABLE_EGRESS_GATEWAY) && DIRECT_ROUTING_DEV_IFINDEX != 0 */
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
 
