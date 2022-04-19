@@ -36,6 +36,7 @@ func TestCheckVersion(t *testing.T) {
 		{"v.1.9", false},
 		{"v..1.9", false},
 		{":latest", true},
+		{"92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", true},
 		{":92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", true},
 		{":92ff7ffa762f6f8bc397a28e6f3147906e20e8fa@sha256:4fde4abc19a1cbedb5084f683f5d91c0ea04b964a029e6d0ba43961e1ff5b5d8", true},
 		{"-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", true},
