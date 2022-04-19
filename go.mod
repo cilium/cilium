@@ -76,6 +76,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.4
 	go.etcd.io/etcd/client/pkg/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
+	go.uber.org/fx v1.17.1
 	go.uber.org/goleak v1.1.12
 	go.uber.org/multierr v1.8.0
 	go.universe.tf/metallb v0.11.0
