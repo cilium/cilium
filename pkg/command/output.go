@@ -111,7 +111,7 @@ func PrintOutputWithType(data interface{}, outputType string) error {
 		return dumpJSON(data, re.ReplaceAllString(outputType, "$1"))
 	}
 
-	return fmt.Errorf("couldn't found output printer")
+	return fmt.Errorf("couldn't find output printer")
 }
 
 // DumpJSONToString dumps the contents of data into a string. If jsonpath is
