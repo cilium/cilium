@@ -2,7 +2,7 @@ The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
 Àbéjídé Àyodélé                         abejideayodele@gmail.com
-Adam Bocim                              adam.bocim@firma.seznam.cz
+Adam Bocim                              adam.bocim@seznam.cz
 Adam Korcz                              adam@adalogics.com
 Adam Wolfe Gordon                       awg@digitalocean.com
 adamzhoul                               adamzhoul186@gmail.com
@@ -35,6 +35,7 @@ Anish Shah                              anishshah@google.com
 Anit Gandhi                             anitgandhi@gmail.com
 Ankur Kothiwal                          ankur.kothiwal@accuknox.com
 Anthony Rabbito                         hello@anthonyrabbito.com
+Anton Protopopov                        a.s.protopopov@gmail.com
 Archana Shinde                          archana.m.shinde@intel.com
 Arika Chen                              eaglesora@gmail.com
 Arthur Chiao                            arthurchiao@hotmail.com
@@ -113,6 +114,7 @@ Divyansh Kamboj                         divyansh.kamboj@accuknox.com
 Divya Rani                              ranidivya063@gmail.com
 Djalal Harouni                          tixxdz@gmail.com
 Dmitriy Zinin                           admin@kami-no.ru
+Dmitry Ilyevsky                         dilyevsky@mux.com
 Dmitry Kharitonov                       geakstr@me.com
 Dmitry Savintsev                        dsavints@verizonmedia.com
 Dom Del Nano                            ddelnano@gmail.com
@@ -144,7 +146,7 @@ George Gaál                             gb12335@gmail.com
 George Kontridze                        gkontridze@plaid.com
 Geyslan G. Bem                          geyslan@gmail.com
 Gianluca Arbezzano                      gianarb92@gmail.com
-Gilberto Bertin                         gilberto@isovalent.com
+Gilberto Bertin                         jibi@cilium.io
 Glib Smaga                              code@gsmaga.com
 Gobinath Krishnamoorthy                 gobinathk@google.com
 Gowtham Sundara                         gowtham.sundara@rapyuta-robotics.com
@@ -164,7 +166,7 @@ Ian Vernon                              ian@cilium.io
 Ifeanyi Ubah                            ify1992@yahoo.com
 Ilya Dmitrichenko                       errordeveloper@gmail.com
 Ilya Shaisultanov                       ilya.shaisultanov@gmail.com
-Ivan                                    i.makarychev@tinkoff.ru
+Ivan Makarychev                         i.makarychev@tinkoff.ru
 Ivar Lazzaro                            ivarlazzaro@gmail.com
 Jaff Cheng                              jaff.cheng.sh@gmail.com
 Jaime Caamaño Ruiz                      jcaamano@suse.com
@@ -199,6 +201,7 @@ Joseph-Irving                           joseph.irving500@gmail.com
 Joseph Stevens                          thejosephstevens@gmail.com
 Joshua Roppo                            joshroppo@gmail.com
 Juan Jimenez-Anca                       cortopy@users.noreply.github.com
+Juha Tiensyrjä                          juha.tiensyrja@ouraring.com
 Julian Wiedmann                         jwi@isovalent.com
 Julien Balestra                         julien.balestra@datadoghq.com
 Julien Kassar                           github@kassisol.com
@@ -210,6 +213,7 @@ Kamil Lach                              kamil.lach.rs@gmail.com
 Karl Heins                              karlheins@northwesternmutual.com
 Katarzyna Borkmann                      kasia@iogearbox.net
 Kazuki Suda                             kazuki.suda@gmail.com
+Keisuke Kondo                           k.gryphus@gmail.com
 kerthcet                                kerthcet@gmail.com
 Kevin Burke                             kevin@burke.dev
 Kevin Holditch                          82885135+kevholditch-f3@users.noreply.github.com
@@ -267,7 +271,7 @@ Michael Petrov                          michael@openai.com
 Michael Ryan Dempsey                    bluestealth@bluestealth.pw
 Michael Schubert                        michael@kinvolk.io
 Michael Vorburger                       vorburger@redhat.com
-Michal Rostecki                         mrostecki@opensuse.org
+Michal Rostecki                         vadorovsky@gmail.com
 Michi Mutsuzaki                         michi@isovalent.com
 Mike Fedosin                            mfedosin@gmail.com
 Moh Ahmed                               moh.ahmed@cengn.ca
@@ -287,6 +291,7 @@ Nirmoy Das                              ndas@suse.de
 Nitish Malhotra                         nitishm@microsoft.com
 Noel Georgi                             git@frezbo.dev
 Ole Markus With                         o.with@sportradar.com
+Oliver Wang                             a0924100192@gmail.com
 Omar Aloraini                           ooraini.dev@gmail.com
 Ondrej Blazek                           ondrej.blazek@firma.seznam.cz
 Paco Xu                                 paco.xu@daocloud.io
