@@ -45,30 +45,40 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			imageTag = k.getImagesSHA()
 		}
 
-		if imageTag != "" {
+		imageSuffix := k.params.ImageSuffix
+		if imageSuffix != "" {
+			// When using suffix tag must be defaulted to "latest" to prevent deduced
+			// version from being used as the operator tag by Cilium Helm charts.
+			// This also makes k8s pod list to actually contain the image tag.
+			if imageTag == "" {
+				k.Log("ℹ️  Defaulting image tag to \"latest\" due to \"--image-suffix\" option")
+
+				imageTag = "latest"
+			}
+			colonTag := ":" + imageTag
+			helmMapOpts["image.override"] = fmt.Sprintf("quay.io/cilium/cilium%s%s", imageSuffix, colonTag)
+			helmMapOpts["image.useDigest"] = "false"
+			// operator has different cloud variants and supports image.suffix
+			helmMapOpts["operator.image.suffix"] = imageSuffix
+			helmMapOpts["operator.image.tag"] = imageTag
+			helmMapOpts["operator.image.useDigest"] = "false"
+			helmMapOpts["hubble.relay.image.override"] = fmt.Sprintf("quay.io/cilium/hubble-relay%s%s", imageSuffix, colonTag)
+			helmMapOpts["hubble.relay.image.useDigest"] = "false"
+			helmMapOpts["preflight.image.override"] = fmt.Sprintf("quay.io/cilium/cilium%s%s", imageSuffix, colonTag)
+			helmMapOpts["preflight.image.useDigest"] = "false"
+			helmMapOpts["clustermesh.apiserver.image.override"] = fmt.Sprintf("quay.io/cilium/clustermesh-apiserver%s%s", imageSuffix, colonTag)
+			helmMapOpts["clustermesh.apiserver.image.useDigest"] = "false"
+		} else if imageTag != "" {
+			// Helm ignores image.tag if image.override is set
 			helmMapOpts["image.tag"] = imageTag
 			helmMapOpts["image.useDigest"] = "false"
 			helmMapOpts["operator.image.tag"] = imageTag
-			helmMapOpts["operator.image.digest"] = "false"
+			helmMapOpts["operator.image.useDigest"] = "false"
 			helmMapOpts["hubble.relay.image.tag"] = imageTag
 			helmMapOpts["hubble.relay.image.useDigest"] = "false"
 			helmMapOpts["preflight.image.tag"] = imageTag
 			helmMapOpts["preflight.image.useDigest"] = "false"
 			helmMapOpts["clustermesh.apiserver.image.tag"] = imageTag
-			helmMapOpts["clustermesh.apiserver.image.useDigest"] = "false"
-		}
-
-		imageSuffix := k.params.ImageSuffix
-		if imageSuffix != "" {
-			helmMapOpts["image.override"] = fmt.Sprintf("quay.io/cilium/cilium%s", imageSuffix)
-			helmMapOpts["image.useDigest"] = "false"
-			helmMapOpts["operator.image.suffix"] = imageSuffix
-			helmMapOpts["operator.image.digest"] = "false"
-			helmMapOpts["hubble.relay.image.override"] = fmt.Sprintf("quay.io/cilium/hubble-relay%s", imageSuffix)
-			helmMapOpts["hubble.relay.image.useDigest"] = "false"
-			helmMapOpts["preflight.image.override"] = fmt.Sprintf("quay.io/cilium/cilium%s", imageSuffix)
-			helmMapOpts["preflight.image.useDigest"] = "false"
-			helmMapOpts["clustermesh.apiserver.image.override"] = fmt.Sprintf("quay.io/cilium/clustermesh-apiserver%s", imageSuffix)
 			helmMapOpts["clustermesh.apiserver.image.useDigest"] = "false"
 		}
 
