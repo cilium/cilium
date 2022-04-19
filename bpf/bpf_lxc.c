@@ -895,7 +895,12 @@ ct_recreate4:
 skip_egress_gateway:
 #endif
 
-#ifdef ENABLE_VTEP
+	/* L7 proxy result in VTEP redirection in bpf_host, but when L7 proxy disabled
+	 * We want VTEP redirection handled earlier here to avoid packets passing to
+	 * stack to bpf_host for VTEP redirection. When L7 proxy enabled, but no
+	 * L7 policy applied to pod, VTEP redirection also happen here.
+	 */
+#if defined(ENABLE_VTEP)
 	{
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
