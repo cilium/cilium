@@ -579,6 +579,29 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	if (!from_host)
 		return CTX_ACT_OK;
 
+	/* Handle VTEP integration in bpf_host to support pod L7 PROXY.
+	 * It requires route setup to VTEP CIDR via dev cilium_host scope link.
+	 */
+#ifdef ENABLE_VTEP
+	{
+		struct vtep_key vkey = {};
+		struct vtep_value *vtep;
+
+		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
+		vtep = map_lookup_elem(&VTEP_MAP, &vkey);
+		if (!vtep)
+			goto skip_vtep;
+
+		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
+			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+								WORLD_ID, &trace);
+		}
+	}
+skip_vtep:
+#endif
+
 #ifdef TUNNEL_MODE
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {

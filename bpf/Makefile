@@ -182,6 +182,11 @@ MAX_HOST_OPTIONS = $(MAX_BASE_OPTIONS) -DENCAP_IFINDEX=1 -DTUNNEL_MODE=1
 ifneq (,$(filter $(KERNEL),"54" "netnext"))
 MAX_HOST_OPTIONS += -DENABLE_EGRESS_GATEWAY=1
 endif
+ifeq ("$(KERNEL)","54")
+MAX_HOST_OPTIONS+= -DENABLE_VTEP=1
+else ifeq ("$(KERNEL)","netnext")
+MAX_HOST_OPTIONS+= -DENABLE_VTEP=1
+endif
 endif
 
 bpf_host.ll: bpf_host.c $(LIB)
