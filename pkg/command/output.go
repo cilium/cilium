@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/util/jsonpath"
 )
 
@@ -102,6 +103,10 @@ func PrintOutputWithType(data interface{}, outputType string) error {
 		return dumpJSON(data, "")
 	}
 
+	if outputType == "yaml" {
+		return dumpYAML(data)
+	}
+
 	if re.MatchString(outputType) {
 		return dumpJSON(data, re.ReplaceAllString(outputType, "$1"))
 	}
@@ -139,14 +144,26 @@ func DumpJSONToString(data interface{}, jsonPath string) (string, error) {
 	return sb.String(), nil
 }
 
-// dumpJSON dump the data variable to the stdout as json.
-// If somethings fail, it'll return an error
-// If jsonPath is passed, it'll run the json query over data var.
+// dumpJSON dumps the data variable to the stdout as json.
+// If something fails, it returns an error
+// If jsonPath is passed, it runs the json query over data var.
 func dumpJSON(data interface{}, jsonPath string) error {
 	jsonStr, err := DumpJSONToString(data, jsonPath)
 	if err != nil {
 		return err
 	}
 	fmt.Println(jsonStr)
+	return nil
+}
+
+// dumpYAML dumps the data variable to the stdout as yaml.
+// If something fails, it returns an error
+func dumpYAML(data interface{}) error {
+	result, err := yaml.Marshal(data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Couldn't marshal to yaml: '%s'\n", err)
+		return err
+	}
+	fmt.Println(string(result))
 	return nil
 }
