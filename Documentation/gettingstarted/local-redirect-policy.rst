@@ -33,8 +33,8 @@ the redirection.
 
 .. include:: ../beta.rst
 
-Deploy Cilium
-===============
+Prerequisites
+=============
 
 .. note::
 
