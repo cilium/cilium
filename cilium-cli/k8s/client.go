@@ -699,19 +699,23 @@ func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) 
 	if len(pods.Items) > 0 && len(pods.Items[0].Spec.Containers) > 0 {
 		for _, container := range pods.Items[0].Spec.Containers {
 			image := strings.SplitN(container.Image, ":", 2)
-			if len(image) != 2 {
-				// skip invalid images
-				continue
-			}
 			base := strings.Split(image[0], "/")
 			last := base[len(base)-1]
 			if !strings.HasPrefix(last, "cilium") {
 				// skip non cilium images
 				continue
 			}
-			version := image[1]
-			if digest := strings.Index(version, "@"); digest > 0 {
-				version = version[:digest]
+			// default to "latest" as k8s may not include it explicitly
+			version := "latest"
+			if len(image) > 2 {
+				// skip image with too many colons
+				continue
+			} else if len(image) == 2 {
+				version = image[1]
+				// chop off digest if any
+				if digest := strings.Index(version, "@"); digest > 0 {
+					version = version[:digest]
+				}
 			}
 			// Add any part in the pod image separated by a '-` to the version,
 			// e.g., "quay.io/cilium/cilium-ci:1234" -> "-ci:1234"
