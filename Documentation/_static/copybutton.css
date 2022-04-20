@@ -2,7 +2,7 @@ div.code-wrapper {
   position: relative !important;
 }
 
-.section > div.code-wrapper {
+section > div.code-wrapper {
   margin-bottom: 24px !important;
 }
 
