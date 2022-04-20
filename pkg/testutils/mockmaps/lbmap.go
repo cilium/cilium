@@ -13,34 +13,37 @@ import (
 )
 
 type LBMockMap struct {
-	BackendByID      map[lb.BackendID]*lb.Backend
-	ServiceByID      map[uint16]*lb.SVC
-	AffinityMatch    lbmap.BackendIDByServiceIDSet
-	SourceRanges     lbmap.SourceRangeSetByServiceID
-	DummyMaglevTable map[uint16]int // svcID => backends count
+	BackendByID            map[lb.BackendID]*lb.Backend
+	ServiceByID            map[uint16]*lb.SVC
+	AffinityMatch          lbmap.BackendIDByServiceIDSet
+	SourceRanges           lbmap.SourceRangeSetByServiceID
+	DummyMaglevTable       map[uint16]int // svcID => backends count
+	SvcActiveBackendsCount map[uint16]int
 }
 
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
-		BackendByID:      map[lb.BackendID]*lb.Backend{},
-		ServiceByID:      map[uint16]*lb.SVC{},
-		AffinityMatch:    lbmap.BackendIDByServiceIDSet{},
-		SourceRanges:     lbmap.SourceRangeSetByServiceID{},
-		DummyMaglevTable: map[uint16]int{},
+		BackendByID:            map[lb.BackendID]*lb.Backend{},
+		ServiceByID:            map[uint16]*lb.SVC{},
+		AffinityMatch:          lbmap.BackendIDByServiceIDSet{},
+		SourceRanges:           lbmap.SourceRangeSetByServiceID{},
+		DummyMaglevTable:       map[uint16]int{},
+		SvcActiveBackendsCount: map[uint16]int{},
 	}
 }
 
 func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
-	backendsList := make([]lb.Backend, 0, len(p.Backends))
-	for name, backendID := range p.Backends {
+	backendIDs := lbmap.GetOrderedBackends(p)
+	backendsList := make([]lb.Backend, 0, len(backendIDs))
+	for _, backendID := range backendIDs {
 		b, found := m.BackendByID[backendID]
 		if !found {
-			return fmt.Errorf("Backend %s (%d) not found", name, p.ID)
+			return fmt.Errorf("backend %d not found", p.ID)
 		}
 		backendsList = append(backendsList, *b)
 	}
-	if p.UseMaglev && len(p.Backends) != 0 {
-		if err := m.UpsertMaglevLookupTable(p.ID, p.Backends, p.IPv6); err != nil {
+	if p.UseMaglev && len(p.ActiveBackends) != 0 {
+		if err := m.UpsertMaglevLookupTable(p.ID, p.ActiveBackends, p.IPv6); err != nil {
 			return err
 		}
 	}
@@ -49,8 +52,8 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 		frontend := lb.NewL3n4AddrID(lb.NONE, p.IP, p.Port, p.Scope, lb.ID(p.ID))
 		svc = &lb.SVC{Frontend: *frontend}
 	} else {
-		if p.PrevActiveBackendCount != len(svc.Backends) {
-			return fmt.Errorf("Invalid backends count: %d vs %d", p.PrevActiveBackendCount, len(svc.Backends))
+		if p.PrevBackendsCount != len(svc.Backends) {
+			return fmt.Errorf("Invalid backends count: %d vs %d", p.PrevBackendsCount, len(svc.Backends))
 		}
 	}
 	svc.Backends = backendsList
@@ -59,6 +62,7 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	svc.Type = p.Type
 
 	m.ServiceByID[p.ID] = svc
+	m.SvcActiveBackendsCount[p.ID] = len(p.ActiveBackends)
 
 	return nil
 }

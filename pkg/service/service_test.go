@@ -817,8 +817,8 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 // affinity maps.
 func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
-	backends := append(backends1, backends4...)
-	backends[2].State = lb.BackendStateTerminating
+	backends := append(backends4, backends1...)
+	backends[0].State = lb.BackendStateTerminating
 	p := &lb.SVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
@@ -835,7 +835,12 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, len(backends1))
+	// Sorted active backends by ID first followed by non-active
+	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[0].ID, Equals, lb.BackendID(2))
+	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[1].ID, Equals, lb.BackendID(3))
+	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[2].ID, Equals, lb.BackendID(1))
 	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
 	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")

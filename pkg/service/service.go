@@ -77,11 +77,10 @@ type envoyCache interface {
 }
 
 type svcInfo struct {
-	hash                string
-	frontend            lb.L3n4AddrID
-	backends            []lb.Backend
-	activeBackendsCount int // Non-terminating backends count
-	backendByHash       map[string]*lb.Backend
+	hash          string
+	frontend      lb.L3n4AddrID
+	backends      []lb.Backend
+	backendByHash map[string]*lb.Backend
 
 	svcType                   lb.SVCType
 	svcTrafficPolicy          lb.SVCTrafficPolicy
@@ -561,7 +560,7 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	scopedLog.Debug("Acquired service ID")
 
 	onlyLocalBackends, filterBackends := svc.requireNodeLocalBackends(params.Frontend)
-	prevActiveBackendCount := svc.activeBackendsCount
+	prevBackendCount := len(svc.backends)
 
 	backendsCopy := []lb.Backend{}
 	for _, b := range params.Backends {
@@ -593,7 +592,7 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	}
 
 	// Update lbmaps (BPF service maps)
-	if err = s.upsertServiceIntoLBMaps(svc, onlyLocalBackends, prevActiveBackendCount,
+	if err = s.upsertServiceIntoLBMaps(svc, onlyLocalBackends, prevBackendCount,
 		newBackends, obsoleteBackendIDs, prevSessionAffinity, prevLoadBalancerSourceRanges,
 		obsoleteSVCBackendIDs, scopedLog); err != nil {
 
@@ -949,7 +948,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 }
 
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
-	prevActiveBackendCount int, newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
+	prevBackendCount int, newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
 	prevSessionAffinity bool, prevLoadBalancerSourceRanges []*cidr.CIDR,
 	obsoleteSVCBackendIDs []lb.BackendID, scopedLog *logrus.Entry) error {
 
@@ -1017,10 +1016,10 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 
 	// Upsert service entries into BPF maps
+	activeBackends := make(map[string]lb.BackendID, len(svc.backends))
+	var nonActiveBackends []lb.BackendID
 	natPolicy := lb.SVCNatPolicyNone
 	natPolicySet := false
-	backends := make(map[string]lb.BackendID, len(svc.backends))
-	activeBackendsCount := 0
 	for _, b := range svc.backends {
 		// All backends have been previously checked to be either v4 or v6.
 		if !natPolicySet {
@@ -1032,14 +1031,15 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 				natPolicy = lb.SVCNatPolicyNat46
 			}
 		}
-		// Skip adding backends that are not active to the service map so that they
-		// won't be selected to serve new requests. However, non-active backends
-		// are still kept in the affinity and backend maps so that existing connections
+		// Separate active from non-active backends so that they won't be selected
+		// to serve new requests, but can be restored after agent restart. Non-active backends
+		// are kept in the affinity and backend maps so that existing connections
 		// are able to terminate gracefully. Such backends would either be cleaned-up
-		// when the backends are deleted, or they would transition to active state.
+		// when the backends are deleted, or they could transition to active state.
 		if b.State == lb.BackendStateActive {
-			backends[b.String()] = b.ID
-			activeBackendsCount++
+			activeBackends[b.String()] = b.ID
+		} else {
+			nonActiveBackends = append(nonActiveBackends, b.ID)
 		}
 	}
 	if natPolicy == lb.SVCNatPolicyNat64 {
@@ -1056,15 +1056,15 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 			}
 		}
 	}
-	svc.activeBackendsCount = activeBackendsCount
 	svc.svcNatPolicy = natPolicy
 
 	p := &lbmap.UpsertServiceParams{
 		ID:                        uint16(svc.frontend.ID),
 		IP:                        svc.frontend.L3n4Addr.IP,
 		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
-		Backends:                  backends,
-		PrevActiveBackendCount:    prevActiveBackendCount,
+		ActiveBackends:            activeBackends,
+		NonActiveBackends:         nonActiveBackends,
+		PrevBackendsCount:         prevBackendCount,
 		IPv6:                      v6FE,
 		NatPolicy:                 natPolicy,
 		Type:                      svc.svcType,
@@ -1165,14 +1165,13 @@ func (s *Service) restoreServicesLocked() error {
 		}
 
 		newSVC := &svcInfo{
-			hash:                svc.Frontend.Hash(),
-			frontend:            svc.Frontend,
-			backends:            svc.Backends,
-			activeBackendsCount: len(svc.Backends),
-			backendByHash:       map[string]*lb.Backend{},
-			svcType:             svc.Type,
-			svcTrafficPolicy:    svc.TrafficPolicy,
-			svcNatPolicy:        svc.NatPolicy,
+			hash:             svc.Frontend.Hash(),
+			frontend:         svc.Frontend,
+			backends:         svc.Backends,
+			backendByHash:    map[string]*lb.Backend{},
+			svcType:          svc.Type,
+			svcTrafficPolicy: svc.TrafficPolicy,
+			svcNatPolicy:     svc.NatPolicy,
 
 			sessionAffinity:           svc.SessionAffinity,
 			sessionAffinityTimeoutSec: svc.SessionAffinityTimeoutSec,
