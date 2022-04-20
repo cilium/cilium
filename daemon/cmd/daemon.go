@@ -503,7 +503,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	// Collect old CIDR identities
 	var oldNIDs []identity.NumericIdentity
-	if option.Config.RestoreState && !option.Config.DryMode && ipcachemap.SupportsDump() {
+	if option.Config.RestoreState && !option.Config.DryMode {
 		if err := ipcachemap.IPCache.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 			k := key.(*ipcachemap.Key)
 			v := value.(*ipcachemap.RemoteEndpointInfo)
@@ -513,8 +513,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 				oldNIDs = append(oldNIDs, nid)
 			}
 		}); err != nil && !os.IsNotExist(err) {
-			log.WithError(err).Warning("Error dumping ipcache")
+			log.WithError(err).Debug("Error dumping ipcache")
 		}
+		// DumpWithCallback() leaves the ipcache map open, must close before opened for
+		// parallel mode in Daemon.initMaps()
 		ipcachemap.IPCache.Close()
 	}
 
