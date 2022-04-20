@@ -74,9 +74,6 @@ const (
 	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
 	IdentityHeartbeatTimeout = "identity-heartbeat-timeout"
 
-	// NodesGCInterval is the duration for which the nodes are GC in the KVStore.
-	NodesGCInterval = "nodes-gc-interval"
-
 	// OperatorAPIServeAddr IP:Port on which to serve api requests in
 	// operator (pass ":Port" to bind on all interfaces, "" is off)
 	OperatorAPIServeAddr = "operator-api-serve-addr"

@@ -338,6 +338,7 @@ Removed Options
   in version 1.13.
 * The ``host-reachable-services-protos`` option (``.hostServices.protocols`` in
   Helm) was deprecated, and it will be removed in version 1.13.
+* The deprecated ``nodes-gc-interval`` option was removed.
 
 Helm Options
 ~~~~~~~~~~~~
