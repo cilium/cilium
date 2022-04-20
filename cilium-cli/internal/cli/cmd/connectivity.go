@@ -125,6 +125,7 @@ func newCmdConnectivityTest() *cobra.Command {
 	cmd.Flags().DurationVar(&params.PerfDuration, "perf-duration", 10*time.Second, "Duration for the Performance test to run")
 	cmd.Flags().IntVar(&params.PerfSamples, "perf-samples", 1, "Number of Performance samples to capture (how many times to run each test)")
 	cmd.Flags().BoolVar(&params.PerfCRR, "perf-crr", false, "Run Netperf CRR Test. --perf-samples and --perf-duration ignored")
+	cmd.Flags().BoolVar(&params.PerfHost, "perf-host", false, "Use host networking during network performance tests")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().StringVar(&params.CiliumBaseVersion, "base-version", defaults.Version,
 		"Specify the base Cilium version for configuration purpose in case image tag doesn't indicate the actual Cilium version")
