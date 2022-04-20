@@ -133,14 +133,10 @@ func (c *counter) Inc() {
 	atomic.AddUint64(&c.valInt, 1)
 }
 
-func (c *counter) get() float64 {
+func (c *counter) Write(out *dto.Metric) error {
 	fval := math.Float64frombits(atomic.LoadUint64(&c.valBits))
 	ival := atomic.LoadUint64(&c.valInt)
-	return fval + float64(ival)
-}
-
-func (c *counter) Write(out *dto.Metric) error {
-	val := c.get()
+	val := fval + float64(ival)
 
 	var exemplar *dto.Exemplar
 	if e := c.exemplar.Load(); e != nil {
