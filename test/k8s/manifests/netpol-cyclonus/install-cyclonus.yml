@@ -17,5 +17,5 @@ spec:
             - --cleanup-namespaces=true
           name: cyclonus
           imagePullPolicy: IfNotPresent
-          image: mfenwick100/cyclonus:v0.2.0@sha256:e489de547399d248703623fb471c0d6221d3f479
+          image: mfenwick100/cyclonus:v0.4.7@sha256:20103a6c8ffae57864d3c665612e69708f3efe6566492776340bad9c4cd98116
       serviceAccount: cyclonus
