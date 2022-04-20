@@ -270,7 +270,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			zone = lz
 		}
 
-		if ct.params.PerfHost {
+		if ct.params.PerfHostNet {
 			ct.Info("Deploying Perf deployments using host networking")
 		}
 
@@ -301,7 +301,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
-				HostNetwork: ct.params.PerfHost,
+				HostNetwork: ct.params.PerfHostNet,
 			})
 			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
 			if err != nil {
@@ -347,7 +347,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
-				HostNetwork: ct.params.PerfHost,
+				HostNetwork: ct.params.PerfHostNet,
 			})
 			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfServerDeployment, metav1.CreateOptions{})
 			if err != nil {
@@ -389,7 +389,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{PerfClientDeploymentName}}}},
 									TopologyKey: "kubernetes.io/hostname"}}}},
 					},
-					HostNetwork: ct.params.PerfHost,
+					HostNetwork: ct.params.PerfHostNet,
 				})
 				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
 				if err != nil {
@@ -587,7 +587,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 	for _, perfPod := range perfPods.Items {
 		// Individual endpoints will not be created for pods using node's network stack
-		if !ct.params.PerfHost {
+		if !ct.params.PerfHostNet {
 			ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
 			defer cancel()
 			if err := ct.waitForCiliumEndpoint(ctx, ct.clients.src, ct.params.TestNamespace, perfPod.Name); err != nil {

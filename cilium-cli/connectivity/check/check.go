@@ -38,7 +38,7 @@ type Parameters struct {
 	Perf                  bool
 	PerfDuration          time.Duration
 	PerfCRR               bool
-	PerfHost              bool
+	PerfHostNet           bool
 	PerfSamples           int
 	CiliumBaseVersion     string
 }
