@@ -13,7 +13,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/types"
@@ -283,22 +282,4 @@ var (
 // on the filesystem.
 func Reopen() error {
 	return IPCache.Map.Reopen()
-}
-
-// Function to update IPCache map with VTEP CIDR
-func UpdateIPCacheVTEPMapping(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP,
-	securityIdentity uint32, encryptKey uint8) error {
-
-	key := NewKey(newCIDR.IP, newCIDR.Mask)
-
-	value := RemoteEndpointInfo{
-		SecurityIdentity: securityIdentity,
-		Key:              encryptKey,
-	}
-	if ip4 := newTunnelEndpoint.To4(); ip4 != nil {
-		copy(value.TunnelEndpoint[:], ip4)
-	}
-
-	return IPCache.Update(&key, &value)
-
 }
