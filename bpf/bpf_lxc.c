@@ -888,7 +888,7 @@ ct_recreate4:
 skip_egress_gateway:
 #endif
 
-#ifdef ENABLE_VTEP
+#if defined(ENABLE_VTEP) && !defined(ENABLE_L7_PROXY)
 	{
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;

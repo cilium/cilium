@@ -1082,6 +1082,31 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		}
 	}
 
+#ifdef ENABLE_VTEP
+	{
+		void *data, *data_end;
+		struct iphdr *ip4;
+		struct vtep_key vkey = {};
+		struct vtep_value *vtep;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
+		vtep = map_lookup_elem(&VTEP_MAP, &vkey);
+		if (!vtep)
+			goto skip;
+
+		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
+			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+								WORLD_ID, &trace);
+		}
+	}
+skip:
+#endif /* ENABLE_VTEP */
+
 #if defined(ENABLE_L7_LB)
 	{
 		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
