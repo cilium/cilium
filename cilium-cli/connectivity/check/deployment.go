@@ -50,6 +50,7 @@ type deploymentParameters struct {
 	Affinity       *corev1.Affinity
 	ReadinessProbe *corev1.Probe
 	Labels         map[string]string
+	HostNetwork    bool
 }
 
 func newDeployment(p deploymentParameters) *appsv1.Deployment {
@@ -95,7 +96,8 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 							},
 						},
 					},
-					Affinity: p.Affinity,
+					Affinity:    p.Affinity,
+					HostNetwork: p.HostNetwork,
 				},
 			},
 			Replicas: &replicas32,
@@ -268,6 +270,10 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			zone = lz
 		}
 
+		if ct.params.PerfHost {
+			ct.Info("Deploying Perf deployments using host networking")
+		}
+
 		// Need to capture the IP of the Server Deployment, and pass to the client to execute benchmark
 		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, PerfClientDeploymentName, metav1.GetOptions{})
 		if err != nil {
@@ -295,6 +301,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
+				HostNetwork: ct.params.PerfHost,
 			})
 			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
 			if err != nil {
@@ -340,6 +347,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
+				HostNetwork: ct.params.PerfHost,
 			})
 			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfServerDeployment, metav1.CreateOptions{})
 			if err != nil {
@@ -381,6 +389,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{PerfClientDeploymentName}}}},
 									TopologyKey: "kubernetes.io/hostname"}}}},
 					},
+					HostNetwork: ct.params.PerfHost,
 				})
 				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
 				if err != nil {
@@ -577,10 +586,13 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		return fmt.Errorf("unable to list perf pods: %w", err)
 	}
 	for _, perfPod := range perfPods.Items {
-		ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
-		defer cancel()
-		if err := ct.waitForCiliumEndpoint(ctx, ct.clients.src, ct.params.TestNamespace, perfPod.Name); err != nil {
-			return err
+		// Individual endpoints will not be created for pods using node's network stack
+		if !ct.params.PerfHost {
+			ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
+			defer cancel()
+			if err := ct.waitForCiliumEndpoint(ctx, ct.clients.src, ct.params.TestNamespace, perfPod.Name); err != nil {
+				return err
+			}
 		}
 		_, hasLabel := perfPod.GetLabels()["server"]
 		if hasLabel {
