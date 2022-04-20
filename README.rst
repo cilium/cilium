@@ -32,11 +32,11 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-03-28 | ``quay.io/cilium/cilium:v1.11.3`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.3>`__ | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-04-15 | ``quay.io/cilium/cilium:v1.11.4`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.4>`__ | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
 +---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-03-28 | ``quay.io/cilium/cilium:v1.10.9`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.9>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
+| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-04-15 | ``quay.io/cilium/cilium:v1.10.10`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.10>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
 +---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__   | 2022-03-28 | ``quay.io/cilium/cilium:v1.9.14`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.14>`__ | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__         |
+| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__   | 2022-04-15 | ``quay.io/cilium/cilium:v1.9.15`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.15>`__ | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__         |
 +---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 
 Functionality Overview
