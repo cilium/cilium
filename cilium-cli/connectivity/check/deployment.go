@@ -871,7 +871,7 @@ func (ct *ConnectivityTest) waitForService(ctx context.Context, service Service)
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for %s", service)
+			return fmt.Errorf("timeout reached waiting for service %s", service.Name())
 		default:
 		}
 
