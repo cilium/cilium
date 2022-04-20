@@ -335,6 +335,6 @@ Users (Alphabetically)
       
     * N: Equinix
       D: Equinix Metal is using Cilium for production and non-production environments on bare metal 
-      U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble
+      U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble, network visibility
       L: https://metal.equinix.com/
       Q: @matoszz
