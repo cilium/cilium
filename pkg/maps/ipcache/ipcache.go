@@ -159,11 +159,6 @@ type Map struct {
 	// whether the underlying kernel supports delete operations on the map
 	// the first time that supportsDelete() is called.
 	deleteSupport bool
-
-	// dumpSupport is set to 'true' initially, then is updated to set
-	// whether the underlying kernel supports dump operations on the map
-	// the first time that supportsDelete() or supportsDump() is called.
-	dumpSupport bool
 }
 
 // NewMap instantiates a Map.
@@ -181,7 +176,6 @@ func NewMap(name string) *Map {
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric(),
 		deleteSupport: true,
-		dumpSupport:   true,
 	}
 }
 
@@ -231,14 +225,14 @@ func (m *Map) supportsDelete() bool {
 
 		// Detect dump support
 		err := m.Dump(map[string][]string{})
-		m.dumpSupport = err == nil
-		log.Debugf("Detected IPCache dump operation support: %t", m.dumpSupport)
+		dumpSupport := err == nil
+		log.Debugf("Detected IPCache dump operation support: %t", dumpSupport)
 
 		// In addition to delete support, ability to dump the map is
 		// also required in order to run the garbage collector which
 		// will iterate over the map and delete entries.
 		if m.deleteSupport {
-			m.deleteSupport = m.dumpSupport
+			m.deleteSupport = dumpSupport
 		}
 
 		if !m.deleteSupport {
@@ -248,21 +242,10 @@ func (m *Map) supportsDelete() bool {
 	return m.deleteSupport
 }
 
-func (m *Map) supportsDump() bool {
-	m.supportsDelete()
-	return m.dumpSupport
-}
-
 // SupportsDelete determines whether the underlying kernel map type supports
 // the delete operation.
 func SupportsDelete() bool {
 	return IPCache.supportsDelete()
-}
-
-// SupportsDump determines whether the underlying kernel map type supports
-// the dump operation.
-func SupportsDump() bool {
-	return IPCache.supportsDump()
 }
 
 // BackedByLPM returns true if the IPCache is backed by a proper LPM
