@@ -332,3 +332,9 @@ Users (Alphabetically)
     * N: Yahoo!
       D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services
       L: https://www.youtube.com/watch?v=-C86fBMcp5Q
+      
+    * N: Equinix
+      D: Equinix Metal is using Cilium for production and non-production environments on bare metal 
+      U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble
+      L: https://metal.equinix.com/
+      Q: @matoszz
