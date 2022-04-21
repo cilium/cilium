@@ -2494,6 +2494,11 @@ definitions:
           - terminating
           - quarantined
           - maintenance
+      preferred:
+        description: |-
+          Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based
+          on related annotation of global service. Applicable for active state only.
+        type: boolean
   LRPBackend:
     description: Pod backend of an LRP
     type: object
