@@ -164,6 +164,9 @@ func (in *Service) deepEqual(other *Service) bool {
 	if in.Shared != other.Shared {
 		return false
 	}
+	if in.ServiceAffinity != other.ServiceAffinity {
+		return false
+	}
 	if in.TrafficPolicy != other.TrafficPolicy {
 		return false
 	}
