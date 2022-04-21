@@ -58,6 +58,7 @@ type Backend struct {
 	NodeName      string
 	Terminating   bool
 	HintsForZones []string
+	Preferred     bool
 }
 
 // String returns the string representation of an endpoints resource, with
