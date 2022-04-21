@@ -140,11 +140,13 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 	switch config.lrpType {
 	case lrpConfigTypeAddr:
 		log.WithFields(logrus.Fields{
+			logfields.LRPType:                  config.lrpType,
 			logfields.K8sNamespace:             config.id.Namespace,
 			logfields.LRPName:                  config.id.Name,
 			logfields.LRPFrontends:             config.frontendMappings,
 			logfields.LRPLocalEndpointSelector: config.backendSelector,
 			logfields.LRPBackendPorts:          config.backendPorts,
+			logfields.LRPFrontendType:          config.frontendType,
 		}).Debug("Add local redirect policy")
 		pods := rpm.getLocalPodsForPolicy(&config)
 		if len(pods) == 0 {
@@ -154,12 +156,14 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 
 	case lrpConfigTypeSvc:
 		log.WithFields(logrus.Fields{
+			logfields.LRPType:                  config.lrpType,
 			logfields.K8sNamespace:             config.id.Namespace,
 			logfields.LRPName:                  config.id.Name,
 			logfields.K8sSvcID:                 config.serviceID,
 			logfields.LRPFrontends:             config.frontendMappings,
 			logfields.LRPLocalEndpointSelector: config.backendSelector,
 			logfields.LRPBackendPorts:          config.backendPorts,
+			logfields.LRPFrontendType:          config.frontendType,
 		}).Debug("Add local redirect policy")
 
 		rpm.getAndUpsertPolicySvcConfig(&config)
@@ -615,6 +619,10 @@ func (rpm *Manager) isValidConfig(config LRPConfig) error {
 }
 
 func (rpm *Manager) processConfig(config *LRPConfig, pods ...*podMetadata) {
+	if config.lrpType == lrpConfigTypeSvc && len(config.frontendMappings) == 0 {
+		// Frontend information will be available when the selected service is added.
+		return
+	}
 	switch config.frontendType {
 	case svcFrontendSinglePort:
 		fallthrough
