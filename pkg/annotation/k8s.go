@@ -56,6 +56,16 @@ const (
 	// sharing local endpoints.
 	SharedService = Prefix + "/shared-service"
 
+	// ServiceAffinity annotations determines the preferred endpoint destination
+	// Allowed values:
+	//  - local
+	//		preferred endpoints from local cluster if available
+	//  - remote
+	// 		preferred endpoints from remote cluster if available
+	//  - none (default)
+	//		no preference. Default behavior if this annotation does not exist
+	ServiceAffinity = Prefix + "/service-affinity"
+
 	// ProxyVisibility is the annotation name used to indicate whether proxy
 	// visibility should be enabled for a given pod (i.e., all traffic for the
 	// pod is redirected to the proxy for the given port / protocol in the
