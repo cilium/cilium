@@ -491,6 +491,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 		localEndpoints = s.filterEndpoints(localEndpoints, svc)
 
 		for ip, e := range localEndpoints.Backends {
+			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == serviceAffinityLocal
 			endpoints.Backends[ip] = e
 		}
 	}
@@ -511,6 +512,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 							"cluster":              clusterName,
 						}).Warning("Conflicting service backend IP")
 					} else {
+						e.Preferred = svc.ServiceAffinity == serviceAffinityRemote
 						endpoints.Backends[ip] = e
 					}
 				}
