@@ -585,6 +585,10 @@ func initializeFlags() {
 	flags.Bool(option.EnableSVCSourceRangeCheck, true, "Enable check of service source ranges (currently, only for LoadBalancer)")
 	option.BindEnv(option.EnableSVCSourceRangeCheck)
 
+	flags.String(option.AddressScopeMax, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
+	flags.MarkHidden(option.AddressScopeMax)
+	option.BindEnv(option.AddressScopeMax)
+
 	flags.Bool(option.EnableBandwidthManager, false, "Enable BPF bandwidth manager")
 	option.BindEnv(option.EnableBandwidthManager)
 

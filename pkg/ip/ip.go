@@ -9,6 +9,9 @@ import (
 	"math/big"
 	"net"
 	"sort"
+	"strconv"
+
+	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -855,6 +858,24 @@ func IsIPv4(ip net.IP) bool {
 // IsIPv6 returns if netIP is IPv6.
 func IsIPv6(ip net.IP) bool {
 	return ip != nil && ip.To4() == nil
+}
+
+// ParseScope returns the parsed address scope number.
+func ParseScope(scope string) (int, error) {
+	switch scope {
+	case "global":
+		return int(netlink.SCOPE_UNIVERSE), nil
+	case "nowhere":
+		return int(netlink.SCOPE_NOWHERE), nil
+	case "host":
+		return int(netlink.SCOPE_HOST), nil
+	case "link":
+		return int(netlink.SCOPE_LINK), nil
+	case "site":
+		return int(netlink.SCOPE_SITE), nil
+	default:
+		return strconv.Atoi(scope)
+	}
 }
 
 // SortIPList sorts the provided net.IP slice in place.

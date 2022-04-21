@@ -5,11 +5,17 @@ package defaults
 
 import (
 	"time"
+
+	"github.com/vishvananda/netlink"
 )
 
 const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
 	AgentHealthPort = 9876
+
+	// AddressScopeMax controls the maximum address scope for addresses to be
+	// considered local ones with HOST_ID in the ipcache
+	AddressScopeMax = int(netlink.SCOPE_LINK) - 1
 
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240

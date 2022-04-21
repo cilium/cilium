@@ -13,42 +13,45 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // FIXME: This currently maps to the code in pkg/node/node_address.go. That
 // code should really move into this package.
 
 func listLocalAddresses(family int) ([]net.IP, error) {
+	var addresses []net.IP
+
 	ipsToExclude := node.GetExcludedIPs()
 	addrs, err := netlink.AddrList(nil, family)
 	if err != nil {
 		return nil, err
 	}
 
-	var addresses []net.IP
-
 	for _, addr := range addrs {
-		if addr.Scope == int(netlink.SCOPE_LINK) {
+		if addr.Scope > option.Config.AddressScopeMax {
 			continue
 		}
 		if ip.IsExcluded(ipsToExclude, addr.IP) {
 			continue
 		}
-		if addr.IP.IsLoopback() {
+		if addr.IP.IsLoopback() || addr.IP.IsLinkLocalUnicast() {
 			continue
 		}
 
 		addresses = append(addresses, addr.IP)
 	}
 
-	if hostDevice, err := netlink.LinkByName(defaults.HostDevice); hostDevice != nil && err == nil {
-		addrs, err = netlink.AddrList(hostDevice, family)
-		if err != nil {
-			return nil, err
-		}
-		for _, addr := range addrs {
-			if addr.Scope == int(netlink.SCOPE_LINK) {
-				addresses = append(addresses, addr.IP)
+	if option.Config.AddressScopeMax < int(netlink.SCOPE_LINK) {
+		if hostDevice, err := netlink.LinkByName(defaults.HostDevice); hostDevice != nil && err == nil {
+			addrs, err = netlink.AddrList(hostDevice, family)
+			if err != nil {
+				return nil, err
+			}
+			for _, addr := range addrs {
+				if addr.Scope == int(netlink.SCOPE_LINK) {
+					addresses = append(addresses, addr.IP)
+				}
 			}
 		}
 	}
