@@ -132,7 +132,8 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				return false, fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv4CIDR, option.Config.LoadBalancerRSSv4CIDR)
 			}
-			option.Config.LoadBalancerRSSv4 = *cidr
+			option.Config.LoadBalancerRSSv4.IP = cidr.IP
+			option.Config.LoadBalancerRSSv4.Mask = "/" + strings.Split(option.Config.LoadBalancerRSSv4CIDR, "/")[1]
 		}
 
 		if option.Config.LoadBalancerRSSv6CIDR != "" {
@@ -149,7 +150,8 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				return false, fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv6CIDR, option.Config.LoadBalancerRSSv6CIDR)
 			}
-			option.Config.LoadBalancerRSSv6 = *cidr
+			option.Config.LoadBalancerRSSv6.IP = cidr.IP
+			option.Config.LoadBalancerRSSv6.Mask = "/" + strings.Split(option.Config.LoadBalancerRSSv6CIDR, "/")[1]
 		}
 
 		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") &&

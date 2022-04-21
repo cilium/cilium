@@ -1273,6 +1273,12 @@ type IpvlanConfig struct {
 	OperationMode     string
 }
 
+// IPAddrCIDR is a IP format structure used by LoadBalancerRSSv4 and LoadBalancerRSSv6.
+type IPAddrCIDR struct {
+	IP   net.IP
+	Mask string
+}
+
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	CreationTime        time.Time
@@ -1819,11 +1825,11 @@ type DaemonConfig struct {
 
 	// LoadBalancerRSSv4CIDR defines the outer source IPv4 prefix for DSR/IPIP
 	LoadBalancerRSSv4CIDR string
-	LoadBalancerRSSv4     net.IPNet
+	LoadBalancerRSSv4     IPAddrCIDR
 
 	// LoadBalancerRSSv4CIDR defines the outer source IPv6 prefix for DSR/IPIP
 	LoadBalancerRSSv6CIDR string
-	LoadBalancerRSSv6     net.IPNet
+	LoadBalancerRSSv6     IPAddrCIDR
 
 	// LoadBalancerPMTUDiscovery indicates whether LB should reply with ICMP
 	// frag needed messages to client (when needed)
