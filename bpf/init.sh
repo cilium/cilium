@@ -320,52 +320,49 @@ function encap_fail()
 }
 
 # node_config.h header generation
-case "${MODE}" in
-	*)
-		sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
-		CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')
-		CILIUM_NET_MAC=$(mac2array $CILIUM_NET_MAC)
+sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')
+CILIUM_NET_MAC=$(mac2array $CILIUM_NET_MAC)
 
-		# Remove the entire '#ifndef ... #endif block
-		# Each line must contain the string '#.*CILIUM_NET_MAC.*'
-		sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
-		echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
-		echo "#define CILIUM_NET_MAC { .addr = ${CILIUM_NET_MAC}}" >> $RUNDIR/globals/node_config.h
-		echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
+# Remove the entire '#ifndef ... #endif block
+# Each line must contain the string '#.*CILIUM_NET_MAC.*'
+sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
+echo "#define CILIUM_NET_MAC { .addr = ${CILIUM_NET_MAC}}" >> $RUNDIR/globals/node_config.h
+echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
 
-		sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-		HOST_IDX=$(cat "${SYSCLASSNETDIR}/${HOST_DEV2}/ifindex")
-		echo "#define HOST_IFINDEX $HOST_IDX" >> $RUNDIR/globals/node_config.h
+sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
+HOST_IDX=$(cat "${SYSCLASSNETDIR}/${HOST_DEV2}/ifindex")
+echo "#define HOST_IFINDEX $HOST_IDX" >> $RUNDIR/globals/node_config.h
 
-		sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
-		HOST_MAC=$(ip link show $HOST_DEV1 | grep ether | awk '{print $2}')
-		HOST_MAC=$(mac2array $HOST_MAC)
-		echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
+sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
+HOST_MAC=$(ip link show $HOST_DEV1 | grep ether | awk '{print $2}')
+HOST_MAC=$(mac2array $HOST_MAC)
+echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
 
-		sed -i '/^#.*CILIUM_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-		CILIUM_IDX=$(cat "${SYSCLASSNETDIR}/${HOST_DEV1}/ifindex")
-		echo "#define CILIUM_IFINDEX $CILIUM_IDX" >> $RUNDIR/globals/node_config.h
+sed -i '/^#.*CILIUM_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
+CILIUM_IDX=$(cat "${SYSCLASSNETDIR}/${HOST_DEV1}/ifindex")
+echo "#define CILIUM_IFINDEX $CILIUM_IDX" >> $RUNDIR/globals/node_config.h
 
-		CILIUM_EPHEMERAL_MIN=$(cat "${PROCSYSNETDIR}/ipv4/ip_local_port_range" | awk '{print $1}')
-		echo "#define EPHEMERAL_MIN $CILIUM_EPHEMERAL_MIN" >> $RUNDIR/globals/node_config.h
-esac
+CILIUM_EPHEMERAL_MIN=$(cat "${PROCSYSNETDIR}/ipv4/ip_local_port_range" | awk '{print $1}')
+echo "#define EPHEMERAL_MIN $CILIUM_EPHEMERAL_MIN" >> $RUNDIR/globals/node_config.h
 
-	# If the host does not have an IPv6 address assigned, assign our generated host
-	# IP to make the host accessible to endpoints
-	if [ "$IP6_HOST" != "<nil>" ]; then
-		[ -n "$(ip -6 addr show to $IP6_HOST dev $HOST_DEV1)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
-	fi
-	if [ "$IP4_HOST" != "<nil>" ]; then
-		[ -n "$(ip -4 addr show to $IP4_HOST dev $HOST_DEV1)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
-	fi
+# If the host does not have an IPv6 address assigned, assign our generated host
+# IP to make the host accessible to endpoints
+if [ "$IP6_HOST" != "<nil>" ]; then
+	[ -n "$(ip -6 addr show to $IP6_HOST dev $HOST_DEV1)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
+fi
+if [ "$IP4_HOST" != "<nil>" ]; then
+	[ -n "$(ip -4 addr show to $IP4_HOST dev $HOST_DEV1)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
+fi
 
 if [ "$PROXY_RULE" = "true" ]; then
-# Decrease priority of the rule to identify local addresses
-move_local_rules
+	# Decrease priority of the rule to identify local addresses
+	move_local_rules
 
-# Install new rules before local rule to ensure that packets from the proxy are
-# using a separate routing table
-setup_proxy_rules
+	# Install new rules before local rule to ensure that packets from the proxy are
+	# using a separate routing table
+	setup_proxy_rules
 fi
 
 if [ "$MODE" = "ipip" ]; then
