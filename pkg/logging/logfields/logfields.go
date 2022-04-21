@@ -294,7 +294,7 @@ const (
 	// Devices is the devices name
 	Devices = "devices"
 
-	//DirectRoutingDevice is the name of the direct routing device
+	// DirectRoutingDevice is the name of the direct routing device
 	DirectRoutingDevice = "directRoutingDevice"
 
 	// IpvlanMasterDevice is the ipvlan master device name
@@ -507,6 +507,12 @@ const (
 
 	// LRPBackendPorts are the parsed backend ports of the Local Redirect Policy.
 	LRPBackendPorts = "lrpBackendPorts"
+
+	// LRPType is the type of the Local Redirect Policy.
+	LRPType = "lrpType"
+
+	// LRPFrontendType is the parsed frontend type of the Local Redirect Policy.
+	LRPFrontendType = "lrpFrontendType"
 
 	// Mode describes an operations mode
 	Mode = "mode"
