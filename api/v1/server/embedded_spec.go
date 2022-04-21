@@ -1606,6 +1606,10 @@ func init() {
           "type": "integer",
           "format": "uint16"
         },
+        "preferred": {
+          "description": "Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based\non related annotation of global service. Applicable for active state only.",
+          "type": "boolean"
+        },
         "state": {
           "description": "State of the backend for load-balancing service traffic",
           "type": "string",
@@ -6060,6 +6064,10 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "preferred": {
+          "description": "Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based\non related annotation of global service. Applicable for active state only.",
+          "type": "boolean"
         },
         "state": {
           "description": "State of the backend for load-balancing service traffic",

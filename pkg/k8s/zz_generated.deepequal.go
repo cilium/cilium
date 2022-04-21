@@ -59,6 +59,10 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 		}
 	}
 
+	if in.Preferred != other.Preferred {
+		return false
+	}
+
 	return true
 }
 
