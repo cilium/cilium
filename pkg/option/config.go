@@ -316,6 +316,10 @@ const (
 	// conflicting marks.
 	EnableIdentityMark = "enable-identity-mark"
 
+	// AddressScopeMax controls the maximum address scope for addresses to be
+	// considered local ones with HOST_ID in the ipcache
+	AddressScopeMax = "local-max-addr-scope"
+
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager = "enable-bandwidth-manager"
 
@@ -1855,6 +1859,10 @@ type DaemonConfig struct {
 	// features in BPF datapath
 	KubeProxyReplacement string
 
+	// AddressScopeMax controls the maximum address scope for addresses to be
+	// considered local ones with HOST_ID in the ipcache
+	AddressScopeMax int
+
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager bool
 
@@ -2864,6 +2872,15 @@ func (c *DaemonConfig) Populate() {
 		case TunnelGeneve:
 			c.TunnelPort = defaults.TunnelPortGeneve
 		}
+	}
+
+	if viper.IsSet(AddressScopeMax) {
+		c.AddressScopeMax, err = ip.ParseScope(viper.GetString(AddressScopeMax))
+		if err != nil {
+			log.WithError(err).Fatalf("Cannot parse scope integer from --%s option", AddressScopeMax)
+		}
+	} else {
+		c.AddressScopeMax = defaults.AddressScopeMax
 	}
 
 	nativeRoutingCIDR := viper.GetString(NativeRoutingCIDR)
