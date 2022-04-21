@@ -742,7 +742,8 @@ func genCartesianProduct(
 						IP:     parsedIP,
 						L4Addr: *backendPort,
 					},
-					State: backendState,
+					State:     backendState,
+					Preferred: loadbalancer.Preferred(backend.Preferred),
 				})
 			}
 		}

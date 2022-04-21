@@ -286,6 +286,9 @@ const (
 	// BackendState is the state of the backend
 	BackendState = "backendState"
 
+	// BackendPreferred is the indicator if this backend is preferred if active.
+	BackendPreferred = "backendPreferred"
+
 	// CiliumNetworkPolicy is a cilium specific NetworkPolicy
 	CiliumNetworkPolicy = "ciliumNetworkPolicy"
 
