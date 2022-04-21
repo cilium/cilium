@@ -46,6 +46,11 @@ end
 
 $cleanup = <<SCRIPT
 i=1
+while [ "$i" -le "$((num_workers+1))" ]; do
+    VBoxManage natnetwork add --netname natnet$i --network fd08::/64 --ipv6 on --enable
+    i=$((i+1))
+done 2>/dev/null
+
 res=0
 while [ "$res" == "0" ]; do
     VBoxManage natnetwork remove --netname natnet$i
@@ -217,7 +222,6 @@ Vagrant.configure(2) do |config|
         cm.vm.network "private_network",
             ip: "192.168.59.15"
         cm.vm.provider "virtualbox" do |vb|
-            vb.customize ["natnetwork", "add", "--netname", "natnet1", "--network", "fd08::/64", "--ipv6", "on", "--enable"]
             vb.customize ["modifyvm", :id, "--nic4", "natnetwork"]
             vb.customize ["modifyvm", :id, "--nat-network4", "natnet1"]
         end
@@ -280,7 +284,6 @@ Vagrant.configure(2) do |config|
             node.vm.network "private_network",
                 ip: "192.168.59.15"
             node.vm.provider "virtualbox" do |vb|
-                vb.customize ["natnetwork", "add", "--netname", "natnet#{n+2}", "--network", "fd08::/64", "--ipv6", "on", "--enable"]
                 vb.customize ["modifyvm", :id, "--nic4", "natnetwork"]
                 vb.customize ["modifyvm", :id, "--nat-network4", "natnet#{n+2}"]
             end
