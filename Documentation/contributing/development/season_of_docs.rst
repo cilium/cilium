@@ -10,11 +10,12 @@
 Google Season of Docs 2022
 ==========================
 
-Cilium is interested in applying to the 2022 Google Season of Docs to improve the documentation experience for our users and contributors.
-Below is our project ideas, if you have any questions, please reach out to gsod@cilium.io.
+Cilium has been accepted into the 2022 Google Season of Docs to improve the documentation experience for our users and contributors.
+Below is our project ideas, if you have any questions, please reach out to gsod@cilium.io. Technical writers can apply until April 27th
+in this `form`_.
 
-Reorganize Cilium Features and Getting Started 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Reorganize Cilium Features and Getting Started
+----------------------------------------------
 
 About Our Organization
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -112,3 +113,5 @@ before the summer's end. One of them presented it afterward at a national confer
 This experience highlighted the importance of regular status reports/meetings between mentors and mentees. 
 We also gained experience establishing realistic timelines for people with diverse backgrounds. 
 Finally, this experience highlighted the need for better documentation and led us to apply for Season of Docs.
+
+.. _form: https://forms.gle/zmR5SAeKiJvXpg5Z7
