@@ -699,8 +699,9 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 	}
 	for _, b := range backends {
 		log.WithFields(logrus.Fields{
-			logfields.L3n4Addr:     b.L3n4Addr.String(),
-			logfields.BackendState: b.State,
+			logfields.L3n4Addr:         b.L3n4Addr.String(),
+			logfields.BackendState:     b.State,
+			logfields.BackendPreferred: b.Preferred,
 		}).Debug("Update backend states")
 	}
 
@@ -733,6 +734,7 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 			continue
 		}
 		be.State = updatedB.State
+		be.Preferred = updatedB.Preferred
 
 		for id, info := range s.svcByID {
 			var p *lbmap.UpsertServiceParams
@@ -741,6 +743,7 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 					continue
 				}
 				info.backends[i].State = updatedB.State
+				info.backends[i].Preferred = updatedB.Preferred
 				found := false
 				onlyLocalBackends, _ := info.requireNodeLocalBackends(info.frontend)
 
@@ -760,13 +763,14 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 						UseMaglev:                 info.useMaglev(),
 					}
 				}
-				p.ActiveBackends, p.NonActiveBackends = segregateBackends(info.backends)
+				p.PreferredBackends, p.ActiveBackends, p.NonActiveBackends = segregateBackends(info.backends)
 				updateSvcs[id] = p
 				log.WithFields(logrus.Fields{
-					logfields.ServiceID:    p.ID,
-					logfields.BackendID:    b.ID,
-					logfields.L3n4Addr:     b.L3n4Addr.String(),
-					logfields.BackendState: b.State,
+					logfields.ServiceID:        p.ID,
+					logfields.BackendID:        b.ID,
+					logfields.L3n4Addr:         b.L3n4Addr.String(),
+					logfields.BackendState:     b.State,
+					logfields.BackendPreferred: b.Preferred,
 				}).Info("Persisting service with backend state update")
 			}
 			s.svcByID[id] = info
@@ -778,9 +782,10 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 	// Update the persisted backend state in BPF maps.
 	for _, b := range updatedBackends {
 		log.WithFields(logrus.Fields{
-			logfields.BackendID:    b.ID,
-			logfields.L3n4Addr:     b.L3n4Addr.String(),
-			logfields.BackendState: b.State,
+			logfields.BackendID:        b.ID,
+			logfields.L3n4Addr:         b.L3n4Addr.String(),
+			logfields.BackendState:     b.State,
+			logfields.BackendPreferred: b.Preferred,
 		}).Info("Persisting updated backend state for backend")
 		if err := s.lbmap.UpdateBackendWithState(*b); err != nil {
 			e := fmt.Errorf("failed to update backend %+v %w", b, err)
@@ -1187,7 +1192,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 
 	// Upsert service entries into BPF maps
-	activeBackends, nonActiveBackends := segregateBackends(svc.backends)
+	preferredBackends, activeBackends, nonActiveBackends := segregateBackends(svc.backends)
 
 	natPolicy := lb.SVCNatPolicyNone
 	natPolicySet := false
@@ -1222,6 +1227,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		ID:                        uint16(svc.frontend.ID),
 		IP:                        svc.frontend.L3n4Addr.IP,
 		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
+		PreferredBackends:         preferredBackends,
 		ActiveBackends:            activeBackends,
 		NonActiveBackends:         nonActiveBackends,
 		PrevBackendsCount:         prevBackendCount,
@@ -1264,15 +1270,17 @@ func (s *Service) restoreBackendsLocked() error {
 
 	for _, b := range backends {
 		log.WithFields(logrus.Fields{
-			logfields.BackendID:    b.ID,
-			logfields.L3n4Addr:     b.L3n4Addr.String(),
-			logfields.BackendState: b.State,
+			logfields.BackendID:        b.ID,
+			logfields.L3n4Addr:         b.L3n4Addr.String(),
+			logfields.BackendState:     b.State,
+			logfields.BackendPreferred: b.Preferred,
 		}).Debug("Restoring backend")
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
-				logfields.BackendID:    b.ID,
-				logfields.L3n4Addr:     b.L3n4Addr,
-				logfields.BackendState: b.State,
+				logfields.BackendID:        b.ID,
+				logfields.L3n4Addr:         b.L3n4Addr,
+				logfields.BackendState:     b.State,
+				logfields.BackendPreferred: b.Preferred,
 			}).Warning("Unable to restore backend")
 			failed++
 			continue
@@ -1589,7 +1597,9 @@ func isWildcardAddr(frontend lb.L3n4AddrID) bool {
 	return net.IPv4zero.Equal(frontend.IP)
 }
 
-func segregateBackends(backends []lb.Backend) (activeBackends map[string]lb.BackendID, nonActiveBackends []lb.BackendID) {
+func segregateBackends(backends []lb.Backend) (preferredBackends map[string]lb.BackendID,
+	activeBackends map[string]lb.BackendID, nonActiveBackends []lb.BackendID) {
+	preferredBackends = make(map[string]lb.BackendID)
 	activeBackends = make(map[string]lb.BackendID, len(backends))
 
 	for _, b := range backends {
@@ -1600,12 +1610,16 @@ func segregateBackends(backends []lb.Backend) (activeBackends map[string]lb.Back
 		// when the backends are deleted, or they could transition to active state.
 		if b.State == lb.BackendStateActive {
 			activeBackends[b.String()] = b.ID
+			// keep another list of preferred backends if available
+			if b.Preferred {
+				preferredBackends[b.String()] = b.ID
+			}
 		} else {
 			nonActiveBackends = append(nonActiveBackends, b.ID)
 		}
 	}
 
-	return activeBackends, nonActiveBackends
+	return preferredBackends, activeBackends, nonActiveBackends
 }
 
 // SyncServicesOnDeviceChange finds and adds missing load-balancing entries for
