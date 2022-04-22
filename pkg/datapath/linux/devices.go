@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -46,13 +45,25 @@ type DeviceManager struct {
 	lock.Mutex
 	devices map[string]struct{}
 	filter  deviceFilter
+	handle  *netlink.Handle
+	netns   netns.NsHandle
 }
 
-func NewDeviceManager() *DeviceManager {
+func NewDeviceManager() (*DeviceManager, error) {
+	return NewDeviceManagerAt(netns.None())
+}
+
+func NewDeviceManagerAt(netns netns.NsHandle) (*DeviceManager, error) {
+	handle, err := netlink.NewHandleAt(netns)
+	if err != nil {
+		return nil, err
+	}
 	return &DeviceManager{
 		devices: make(map[string]struct{}),
 		filter:  deviceFilter(option.Config.Devices),
-	}
+		handle:  handle,
+		netns:   netns,
+	}, err
 }
 
 // Detect tries to detect devices to which BPF programs may be loaded.
@@ -65,11 +76,11 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 	defer dm.Unlock()
 	dm.devices = make(map[string]struct{})
 
-	if err := expandDevices(); err != nil {
+	if err := dm.expandDevices(); err != nil {
 		return nil, err
 	}
 
-	if err := expandDirectRoutingDevice(); err != nil {
+	if err := dm.expandDirectRoutingDevice(); err != nil {
 		return nil, err
 	}
 
@@ -91,7 +102,7 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 			family = netlink.FAMILY_V6
 		}
 
-		routes, err := netlink.RouteListFiltered(family, &routeFilter, routeFilterMask)
+		routes, err := dm.handle.RouteListFiltered(family, &routeFilter, routeFilterMask)
 		if err != nil {
 			return nil, fmt.Errorf("cannot retrieve routes for device detection: %w", err)
 		}
@@ -229,7 +240,7 @@ func (dm *DeviceManager) isViableDevice(l3DevOK, hasDefaultRoute bool, link netl
 	}
 
 	if link.Attrs().MasterIndex > 0 {
-		if master, err := netlink.LinkByIndex(link.Attrs().MasterIndex); err == nil {
+		if master, err := dm.handle.LinkByIndex(link.Attrs().MasterIndex); err == nil {
 			switch master.Type() {
 			case "bridge", "openvswitch":
 				log.WithField(logfields.Device, name).Debug("Ignoring device attached to bridge")
@@ -272,7 +283,7 @@ func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.
 
 	changed := false
 	for index, info := range linkInfos {
-		link, err := netlink.LinkByIndex(index)
+		link, err := dm.handle.LinkByIndex(index)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LinkIndex, index).
 				Warn("Failed to get link by index")
@@ -296,67 +307,59 @@ func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.
 	return changed
 }
 
-func (dm *DeviceManager) handleLinkUpdate(update netlink.LinkUpdate) bool {
-	if update.Header.Type != unix.RTM_DELLINK {
-		return false
-	}
-
-	name := update.Attrs().Name
-
-	if _, ok := dm.devices[name]; !ok {
-		return false
-	}
-
-	delete(dm.devices, name)
-
-	return true
-}
-
 // Listen starts listening to changes to network devices. When devices change the new set
 // of devices is sent on the returned channel.
 func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
-	return dm.listen(ctx, nil)
-}
-
-// listen is the internal method to start listening for changes to network devices. This is split from the
-// public method to allow tests to listen to devices in specific network namespace.
-func (dm *DeviceManager) listen(ctx context.Context, netNS *netns.NsHandle) (chan []string, error) {
 	l3DevOK := supportL3Dev()
 	routeChan := make(chan netlink.RouteUpdate)
 	closeChan := make(chan struct{})
 
 	err := netlink.RouteSubscribeWithOptions(routeChan, closeChan,
 		netlink.RouteSubscribeOptions{
-			Namespace: netNS,
 			// List existing routes to make sure we did not miss changes that happened after Detect().
 			ListExisting: true,
+			Namespace:    &dm.netns,
 		})
 	if err != nil {
 		return nil, err
 	}
 
 	linkChan := make(chan netlink.LinkUpdate)
+
 	err = netlink.LinkSubscribeWithOptions(linkChan, closeChan, netlink.LinkSubscribeOptions{
-		Namespace:    netNS,
-		ListExisting: true,
+		ListExisting: false,
+		Namespace:    &dm.netns,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	devicesChan := make(chan []string)
+	devicesChan := make(chan []string, 1)
 
-	go func() {
-		// If a specific namespace is requested, lock the thread and set the
-		// threads namespace. This is currently only relevant for testing.
-		if netNS != nil {
-			runtime.LockOSThread()
-			defer runtime.UnlockOSThread()
-			if err := netns.Set(*netNS); err != nil {
-				log.WithError(err).Fatal("Failed to set network namespace")
+	// Find links deleted after Detect()
+	if allLinks, err := dm.handle.LinkList(); err == nil {
+		changed := false
+		linksByName := map[string]struct{}{}
+		for _, link := range allLinks {
+			linksByName[link.Attrs().Name] = struct{}{}
+		}
+		dm.Lock()
+		for name := range dm.devices {
+			if _, exists := linksByName[name]; !exists {
+				delete(dm.devices, name)
+				changed = true
 			}
 		}
+		devices := dm.getDevices()
+		dm.Unlock()
 
+		if changed {
+			log.WithField(logfields.Devices, devices).Info("Devices changed")
+			devicesChan <- devices
+		}
+	}
+
+	go func() {
 		log.Info("Listening for device changes")
 
 		for {
@@ -382,9 +385,15 @@ func (dm *DeviceManager) listen(ctx context.Context, netNS *netns.NsHandle) (cha
 				}
 
 			case update := <-linkChan:
-				dm.Lock()
-				devicesChanged = dm.handleLinkUpdate(update)
-				dm.Unlock()
+				if update.Header.Type == unix.RTM_DELLINK {
+					name := update.Attrs().Name
+					dm.Lock()
+					if _, ok := dm.devices[name]; ok {
+						delete(dm.devices, name)
+						devicesChanged = true
+					}
+					dm.Unlock()
+				}
 			}
 
 			if devicesChanged {
@@ -405,8 +414,8 @@ func (dm *DeviceManager) AreDevicesRequired() bool {
 
 // expandDevices expands all wildcard device names to concrete devices.
 // e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
-func expandDevices() error {
-	expandedDevices, err := expandDeviceWildcards(option.Config.Devices, option.Devices)
+func (dm *DeviceManager) expandDevices() error {
+	expandedDevices, err := dm.expandDeviceWildcards(option.Config.Devices, option.Devices)
 	if err != nil {
 		return err
 	}
@@ -415,11 +424,11 @@ func expandDevices() error {
 }
 
 // expandDirectRoutingDevice expands all wildcard device names to concrete devices and picks a first one.
-func expandDirectRoutingDevice() error {
+func (dm *DeviceManager) expandDirectRoutingDevice() error {
 	if option.Config.DirectRoutingDevice == "" {
 		return nil
 	}
-	expandedDevices, err := expandDeviceWildcards([]string{option.Config.DirectRoutingDevice}, option.DirectRoutingDevice)
+	expandedDevices, err := dm.expandDeviceWildcards([]string{option.Config.DirectRoutingDevice}, option.DirectRoutingDevice)
 	if err != nil {
 		return err
 	}
@@ -427,8 +436,8 @@ func expandDirectRoutingDevice() error {
 	return nil
 }
 
-func expandDeviceWildcards(devices []string, option string) ([]string, error) {
-	allLinks, err := netlink.LinkList()
+func (dm *DeviceManager) expandDeviceWildcards(devices []string, option string) ([]string, error) {
+	allLinks, err := dm.handle.LinkList()
 	if err != nil {
 		return nil, fmt.Errorf("device wildcard expansion failed to fetch devices: %w", err)
 	}
