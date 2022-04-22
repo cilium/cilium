@@ -192,6 +192,7 @@ cilium upgrade --version %s
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
 	cmd.Flags().StringVar(&params.AgentImage, "agent-image", "", "Image path to use for Cilium agent")
 	cmd.Flags().StringVar(&params.OperatorImage, "operator-image", "", "Image path to use for Cilium operator")
+	cmd.Flags().StringVar(&params.RelayImage, "hubble-relay-image", "", "Image path to use for Hubble Relay")
 
 	return cmd
 }

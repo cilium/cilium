@@ -26,6 +26,7 @@ const (
 	OperatorServiceAccountName = "cilium-operator"
 	OperatorClusterRoleName    = "cilium-operator"
 	OperatorSecretsRoleName    = "cilium-operator-secrets"
+	OperatorContainerName      = "cilium-operator"
 	OperatorDeploymentName     = "cilium-operator"
 	OperatorResourceQuota      = "cilium-operator-resource-quota"
 	OperatorImage              = "quay.io/cilium/operator-generic"

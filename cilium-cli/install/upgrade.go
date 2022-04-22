@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -35,19 +37,13 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 
 	var patched int
 
-	if deployment.Spec.Template.Spec.Containers[0].Image == k.fqOperatorImage(utils.ImagePathIncludeDigest) ||
-		deployment.Spec.Template.Spec.Containers[0].Image == k.fqOperatorImage(utils.ImagePathExcludeDigest) {
-		k.Log("✅ cilium-operator is already up to date")
-	} else {
-		k.Log("🚀 Upgrading cilium-operator to version %s...", k.fqOperatorImage(utils.ImagePathExcludeDigest))
-		patch := []byte(`{"spec":{"template":{"spec":{"containers":[{"name": "cilium-operator", "image":"` + k.fqOperatorImage(utils.ImagePathIncludeDigest) + `"}]}}}}`)
-
-		_, err = k.client.PatchDeployment(ctx, k.params.Namespace, defaults.OperatorDeploymentName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to patch Deployment %s with patch %q: %w", defaults.OperatorDeploymentName, patch, err)
-		}
-
-		patched++
+	if err = upgradeDeployment(ctx, k, upgradeDeploymentParams{
+		deployment:         deployment,
+		imageIncludeDigest: k.fqOperatorImage(utils.ImagePathIncludeDigest),
+		imageExcludeDigest: k.fqOperatorImage(utils.ImagePathExcludeDigest),
+		containerName:      defaults.OperatorContainerName,
+	}, &patched); err != nil {
+		return err
 	}
 
 	agentImage := k.fqAgentImage(utils.ImagePathIncludeDigest)
@@ -78,13 +74,29 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 		patched++
 	}
 
+	hubbleRelayDeployment, err := k.client.GetDeployment(ctx, k.params.Namespace, defaults.RelayDeploymentName, metav1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("unable to retrieve Deployment of %s: %w", defaults.RelayDeploymentName, err)
+	}
+
+	if err == nil { // only update if hubble relay deployment was found on the cluster
+		if err = upgradeDeployment(ctx, k, upgradeDeploymentParams{
+			deployment:         hubbleRelayDeployment,
+			imageIncludeDigest: k.fqRelayImage(utils.ImagePathIncludeDigest),
+			imageExcludeDigest: k.fqRelayImage(utils.ImagePathExcludeDigest),
+			containerName:      defaults.RelayContainerName,
+		}, &patched); err != nil {
+			return err
+		}
+	}
+
 	if patched > 0 && k.params.Wait {
 		k.Log("⌛ Waiting for Cilium to be upgraded...")
 		collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
 			Namespace:       k.params.Namespace,
 			Wait:            true,
 			WaitDuration:    k.params.WaitDuration,
-			WarningFreePods: []string{defaults.AgentDaemonSetName, defaults.OperatorDeploymentName},
+			WarningFreePods: []string{defaults.AgentDaemonSetName, defaults.OperatorDeploymentName, defaults.RelayDeploymentName},
 		})
 		if err != nil {
 			return err
@@ -97,5 +109,32 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 		}
 	}
 
+	return nil
+}
+
+type upgradeDeploymentParams struct {
+	deployment         *appsv1.Deployment
+	imageIncludeDigest string
+	imageExcludeDigest string
+	containerName      string
+}
+
+func upgradeDeployment(ctx context.Context, k *K8sInstaller, params upgradeDeploymentParams, patched *int) error {
+	if params.deployment.Spec.Template.Spec.Containers[0].Image == params.imageIncludeDigest ||
+		params.deployment.Spec.Template.Spec.Containers[0].Image == params.imageExcludeDigest {
+		k.Log("✅ %s is already up to date", params.deployment.Name)
+		return nil
+	}
+
+	k.Log("🚀 Upgrading %s to version %s...", params.deployment.Name, params.imageExcludeDigest)
+	containerPath := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name": "%s", "image":"`, params.containerName)
+	patch := []byte(containerPath + params.imageIncludeDigest + `"}]}}}}`)
+
+	_, err := k.client.PatchDeployment(ctx, k.params.Namespace, params.deployment.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch Deployment %s with patch %q: %w", params.deployment.Name, patch, err)
+	}
+
+	*patched++
 	return nil
 }
