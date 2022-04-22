@@ -256,9 +256,9 @@ jobs:
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
-      - name: Enable hubble in cluster
-        run: |
-          cilium hubble enable
+#      - name: Enable hubble in cluster
+#        run: |
+#          cilium hubble enable
 
       - name: Enable cluster mesh
         run: |
