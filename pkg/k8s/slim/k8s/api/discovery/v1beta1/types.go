@@ -64,7 +64,8 @@ type Endpoint struct {
 	// according to the corresponding EndpointSlice addressType field. Consumers
 	// must handle different types of addresses in the context of their own
 	// capabilities. This must contain at least one address but no more than
-	// 100.
+	// 100. These are all assumed to be fungible and clients may choose to only
+	// use the first element. Refer to: https://issue.k8s.io/106267
 	// +listType=set
 	Addresses []string `json:"addresses" protobuf:"bytes,1,rep,name=addresses"`
 	// conditions contains information about the current status of the endpoint.
@@ -115,6 +116,20 @@ type EndpointConditions struct {
 	// with the EndpointSliceTerminatingCondition feature gate.
 	// +optional
 	Terminating *bool `json:"terminating,omitempty" protobuf:"bytes,3,name=terminating"`
+}
+
+// EndpointHints provides hints describing how an endpoint should be consumed.
+type EndpointHints struct {
+	// forZones indicates the zone(s) this endpoint should be consumed by to
+	// enable topology aware routing. May contain a maximum of 8 entries.
+	// +listType=atomic
+	ForZones []ForZone `json:"forZones,omitempty" protobuf:"bytes,1,name=forZones"`
+}
+
+// ForZone provides information about which zones should consume this endpoint.
+type ForZone struct {
+	// name represents the name of the zone.
+	Name string `json:"name" protobuf:"bytes,1,name=name"`
 }
 
 // EndpointPort represents a Port used by an EndpointSlice

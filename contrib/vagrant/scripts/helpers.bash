@@ -37,12 +37,6 @@ fi
 
 # container runtime options
 case "${RUNTIME}" in
-    "containerd" | "containerD")
-        container_runtime_name="containerd"
-        container_runtime_kubelet="remote"
-        container_runtime_endpoint="--container-runtime-endpoint=unix:///var/run/containerd/containerd.sock"
-        cgroup_driver='--cgroup-driver=/system.slice/containerd.service'
-        ;;
     "crio" | "cri-o")
         container_runtime_name="crio"
         container_runtime_kubelet="remote"
@@ -50,9 +44,10 @@ case "${RUNTIME}" in
         cgroup_driver='--cgroup-driver=systemd'
         ;;
     *)
-        container_runtime_name="docker"
-        container_runtime_kubelet="docker"
-        container_runtime_endpoint="--docker-endpoint=unix:///var/run/docker.sock"
+        container_runtime_name="containerd"
+        container_runtime_kubelet="remote"
+        container_runtime_endpoint="--container-runtime-endpoint=unix:///var/run/containerd/containerd.sock"
+        cgroup_driver='--cgroup-driver=/system.slice/containerd.service'
         ;;
 esac
 
@@ -72,7 +67,7 @@ cluster_dns_ipv6=${K8S_CLUSTER_DNS_IPV6:-"FD03::A"}
 cluster_api_server_ipv4=${K8S_CLUSTER_API_SERVER_IPV4:-"172.20.0.1"}
 cluster_api_server_ipv6=${K8S_CLUSTER_API_SERVER_IPV6:-"FD03::1"}
 
-k8s_version="v1.23.3"
+k8s_version="v1.24.0-rc.1"
 etcd_version="v3.5.1"
 
 function restore_flag {

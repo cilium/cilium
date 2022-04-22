@@ -138,6 +138,7 @@ The Kubernetes tests support the following Kubernetes versions:
 * 1.21
 * 1.22
 * 1.23
+* 1.24
 
 By default, the Vagrant VMs are provisioned with Kubernetes 1.23. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
