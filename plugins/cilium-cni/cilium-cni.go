@@ -14,6 +14,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -127,7 +128,7 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlin
 		addr.Flags = unix.IFA_F_NODAD
 	}
 	if err := netlink.AddrAdd(link, addr); err != nil {
-		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
+		return fmt.Errorf("failed to add addr %v to %q: %w", addr, ifName, err)
 	}
 
 	// ipvlan needs to be UP before we add routes, and can only be UPed after
@@ -169,22 +170,22 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlin
 func configureIface(ipv4, ipv6 bool, ifName string, state *CmdState) (string, error) {
 	l, err := netlink.LinkByName(ifName)
 	if err != nil {
-		return "", fmt.Errorf("failed to lookup %q: %v", ifName, err)
+		return "", fmt.Errorf("failed to lookup %q: %w", ifName, err)
 	}
 
 	if err := netlink.LinkSetUp(l); err != nil {
-		return "", fmt.Errorf("failed to set %q UP: %v", ifName, err)
+		return "", fmt.Errorf("failed to set %q UP: %w", ifName, err)
 	}
 
 	if ipv4 {
 		if err := addIPConfigToLink(state.IP4, state.IP4routes, l, ifName); err != nil {
-			return "", fmt.Errorf("error configuring IPv4: %s", err.Error())
+			return "", fmt.Errorf("error configuring IPv4: %w", err)
 		}
 	}
 
 	if ipv6 {
 		if err := addIPConfigToLink(state.IP6, state.IP6routes, l, ifName); err != nil {
-			return "", fmt.Errorf("error configuring IPv6: %s", err.Error())
+			return "", fmt.Errorf("error configuring IPv6: %w", err)
 		}
 	}
 
@@ -373,8 +374,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		return
 	}
 
-	addLabels := models.Labels{}
-
 	configResult, err := c.ConfigGet()
 	if err != nil {
 		err = fmt.Errorf("unable to retrieve configuration from cilium-agent: %s", err)
@@ -415,7 +414,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	ep := &models.EndpointChangeRequest{
 		ContainerID:  args.ContainerID,
-		Labels:       addLabels,
+		Labels:       models.Labels{},
 		State:        models.EndpointStateWaitingForIdentity,
 		Addressing:   &models.AddressPair{},
 		K8sPodName:   string(cniArgs.K8S_POD_NAME),
@@ -527,7 +526,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		macAddrStr, err = configureIface(hasIPv4, hasIPv6, args.IfName, &state)
 		return err
 	}); err != nil {
-		err = fmt.Errorf("unable to configure interfaces in container namespace: %s", err)
+		err = fmt.Errorf("unable to configure interface %s in container namespace: %w", args.IfName, err)
 		return
 	}
 
@@ -551,6 +550,78 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	logger.WithField(logfields.ContainerID, ep.ContainerID).Debug("Endpoint successfully created")
+
+	// multi-homing mode is only supported for veth datapath mode at the moment
+	if conf.DatapathMode == datapathOption.DatapathModeVeth && len(conf.MultiHomingConfiguration.Devices) > 0 {
+		logger.Debugf("Multi-homing configured for devices %v", conf.MultiHomingConfiguration.Devices)
+
+		var eps *models.Endpoint
+		epID := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
+		eps, err = c.EndpointGet(epID)
+		if err != nil {
+			err = fmt.Errorf("failed to get endpoint: %v", err)
+			return
+		}
+
+		logger.WithField(logfields.Labels, eps.Status.Identity.Labels).Debugf("Got endpoint labels")
+
+		isValidMultiHomingSpec := func(hostIfName, attachIfName string) bool {
+			if hostIfName == "" || attachIfName == "" {
+				return false
+			}
+			for _, dev := range conf.MultiHomingConfiguration.Devices {
+				if dev == hostIfName {
+					return true
+				}
+			}
+			return false
+		}
+
+		// check whether pod has network interface attachment labels
+		for _, lbl := range eps.Status.Identity.Labels {
+			if !strings.HasPrefix(lbl, networkInterfaceAttachPrefix) {
+				continue
+			}
+
+			logger.Debugf("Found network interface attachment label %q", lbl)
+			s := strings.Split(strings.TrimPrefix(lbl, networkInterfaceAttachPrefix), "=")
+			if len(s) != 2 {
+				log.Debugf("Invalid multi-homing configuration format %q", lbl)
+				continue
+			}
+			hostIfaceName, attachIfaceName := s[0], s[1]
+			if !isValidMultiHomingSpec(hostIfaceName, attachIfaceName) {
+				log.Debugf("Invalid multi-homing device configuration spec %q", lbl)
+				continue
+			}
+
+			var res2 *cniTypesVer.Result
+			res2, err = attachInterfaceInPod(
+				c,
+				cniArgs,
+				args,
+				&conf,
+				hostIfaceName,
+				attachIfaceName,
+				state.IP4.IP(),
+				state.IP6.IP(),
+				netNs,
+				logger,
+			)
+			if err != nil {
+				err = fmt.Errorf("failed to attach additional network interface: %v", err)
+				return
+			}
+			_ = res2
+
+			/*
+				res.Interfaces = append(res.Interfaces, res2.Interfaces...)
+				res.IPs = append(res.IPs, res2.IPs...)
+				res.Routes = append(res.Routes, res2.Routes...)
+			*/
+		}
+	}
+
 	return cniTypes.PrintResult(res, n.CNIVersion)
 }
 
@@ -618,14 +689,51 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
-	if err := c.EndpointDelete(id); err != nil {
-		// EndpointDelete returns an error in the following scenarios:
-		// DeleteEndpointIDInvalid: Invalid delete parameters, no need to retry
-		// DeleteEndpointIDNotFound: No need to retry
-		// DeleteEndpointIDErrors: Errors encountered while deleting,
-		//                         the endpoint is always deleted though, no
-		//                         need to retry
-		log.WithError(err).Warning("Errors encountered while deleting endpoint")
+	epIDsToDelete := []string{id}
+	ifacesToDelete := []string{args.IfName}
+
+	ep, err := c.EndpointGet(id)
+	if err == nil {
+		logger.WithField(logfields.Labels, ep.Status.Identity.Labels).Debugf("Got endpoint labels")
+
+		// check whether pod has network interface attachment labels
+		for _, lbl := range ep.Status.Identity.Labels {
+			if !strings.HasPrefix(lbl, networkInterfaceAttachPrefix) {
+				continue
+			}
+
+			logger.Debugf("Found network interface attachment label %q", lbl)
+			s := strings.Split(strings.TrimPrefix(lbl, networkInterfaceAttachPrefix), "=")
+			if len(s) != 2 {
+				log.Debugf("Invalid multi-homing configuration format %q", lbl)
+				continue
+			}
+			hostIfaceName, attachIfaceName := s[0], s[1]
+
+			if hostIfaceName != "" && attachIfaceName != "" {
+				epIDsToDelete = append(epIDsToDelete, endpointid.NewID(
+					endpointid.ContainerIdPrefix,
+					getMultiHomingEndpointID(args.ContainerID, hostIfaceName, attachIfaceName),
+				))
+				ifacesToDelete = append(ifacesToDelete, attachIfaceName)
+			}
+		}
+	} else {
+		log.WithError(err).Warning("Errors encountered while getting endpoint")
+	}
+
+	for _, epID := range epIDsToDelete {
+		if err := c.EndpointDelete(epID); err != nil {
+			// EndpointDelete returns an error in the following scenarios:
+			// DeleteEndpointIDInvalid: Invalid delete parameters, no need to retry
+			// DeleteEndpointIDNotFound: No need to retry
+			// DeleteEndpointIDErrors: Errors encountered while deleting,
+			//                         the endpoint is always deleted though, no
+			//                         need to retry
+			log.WithError(err).Warning("Errors encountered while deleting endpoint")
+		} else {
+			logger.WithField(logfields.ContainerID, epID).Debug("Endpoint successfully deleted")
+		}
 	}
 
 	netNs, err := ns.GetNS(args.Netns)
@@ -636,10 +744,12 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 	defer netNs.Close()
 
-	err = netns.RemoveIfFromNetNSIfExists(netNs, args.IfName)
-	if err != nil {
-		log.WithError(err).Warningf("Unable to delete interface %s in namespace %q, will not delete interface", args.IfName, args.Netns)
-		// We are not returning an error as this is very unlikely to be recoverable
+	for _, ifName := range ifacesToDelete {
+		err = netns.RemoveIfFromNetNSIfExists(netNs, ifName)
+		if err != nil {
+			log.WithError(err).Warningf("Unable to delete interface %s in namespace %q, will not delete interface", ifName, args.Netns)
+			// We are not returning an error as this is very unlikely to be recoverable
+		}
 	}
 
 	return nil
