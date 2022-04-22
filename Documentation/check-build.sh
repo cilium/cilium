@@ -36,7 +36,7 @@ has_spelling_errors() {
 describe_spelling_errors() {
     printf "\nPlease fix the following spelling mistakes:\n"
     # show file paths relative to repo root
-    sed 's/^/* Documentation\//' "${spelldir}"/*
+    find "${spelldir}" -type f -print0 | xargs -0 sed 's/^/* Documentation\//'
 }
 
 hint_about_wordlist_update() {
