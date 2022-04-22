@@ -239,6 +239,11 @@ jobs:
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }} --zone ${{ env.zone }}
 
+      - name: Find node IP
+        id: node-ips
+        run: |
+          echo ::set-output name=cluster_node_ip::$(kubectl get nodes -o json | jq '.items[0].status.addresses[0].address')
+
       - name: Wait for images to be available
         timeout-minutes: 10
         shell: bash
@@ -250,6 +255,10 @@ jobs:
       - name: Install Cilium in cluster
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Enable hubble in cluster
+        run: |
+          cilium hubble enable
 
       - name: Enable cluster mesh
         run: |
@@ -273,12 +282,16 @@ jobs:
           sleep 5s
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
             --command "cilium status"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+            --command "echo \"Cilium services:\"; sudo cilium service list"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+            --command "echo pinging cluster node from the VM...; ping -c 5  ${{ steps.node-ips.outputs.cluster_node_ip }}"
 
       - name: Verify cluster DNS on VM
         # Limit nslookup to the first (global) DNS server setting
         run: |
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
-            --command "nslookup -d2 -retry=10 -timeout=5 -norecurse clustermesh-apiserver.kube-system.svc.cluster.local \$(systemd-resolve --status | grep -m 1 \"Current DNS Server:\" | cut -d':' -f2)"
+            --command "cilium monitor >monitor.txt & echo \$! >monitor.pid; nslookup -d2 -retry=10 -timeout=15 -norecurse clustermesh-apiserver.kube-system.svc.cluster.local \$(systemd-resolve --status | grep -m 1 \"Current DNS Server:\" | cut -d':' -f2) || true; kill -SIGSTOP \$(cat monitor.pid); cat monitor.txt"
 
       - name: Ping clustermesh-apiserver from VM
         run: |
@@ -299,6 +312,7 @@ jobs:
           cilium clustermesh status
           cilium clustermesh vm status
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "echo \"Cilium services:\"; sudo cilium service list"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
           cilium sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
