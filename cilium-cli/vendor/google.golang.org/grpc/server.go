@@ -134,7 +134,7 @@ type Server struct {
 	channelzRemoveOnce sync.Once
 	serveWG            sync.WaitGroup // counts active Serve goroutines for GracefulStop
 
-	channelzID int64 // channelz unique identification number
+	channelzID *channelz.Identifier
 	czData     *channelzData
 
 	serverWorkerChannels []chan *serverWorkerData
@@ -584,9 +584,8 @@ func NewServer(opt ...ServerOption) *Server {
 		s.initServerWorkers()
 	}
 
-	if channelz.IsOn() {
-		s.channelzID = channelz.RegisterServer(&channelzServer{s}, "")
-	}
+	s.channelzID = channelz.RegisterServer(&channelzServer{s}, "")
+	channelz.Info(logger, s.channelzID, "Server created")
 	return s
 }
 
@@ -712,7 +711,7 @@ var ErrServerStopped = errors.New("grpc: the server has been stopped")
 
 type listenSocket struct {
 	net.Listener
-	channelzID int64
+	channelzID *channelz.Identifier
 }
 
 func (l *listenSocket) ChannelzMetric() *channelz.SocketInternalMetric {
@@ -724,9 +723,8 @@ func (l *listenSocket) ChannelzMetric() *channelz.SocketInternalMetric {
 
 func (l *listenSocket) Close() error {
 	err := l.Listener.Close()
-	if channelz.IsOn() {
-		channelz.RemoveEntry(l.channelzID)
-	}
+	channelz.RemoveEntry(l.channelzID)
+	channelz.Info(logger, l.channelzID, "ListenSocket deleted")
 	return err
 }
 
@@ -759,11 +757,6 @@ func (s *Server) Serve(lis net.Listener) error {
 	ls := &listenSocket{Listener: lis}
 	s.lis[ls] = true
 
-	if channelz.IsOn() {
-		ls.channelzID = channelz.RegisterListenSocket(ls, s.channelzID, lis.Addr().String())
-	}
-	s.mu.Unlock()
-
 	defer func() {
 		s.mu.Lock()
 		if s.lis != nil && s.lis[ls] {
@@ -773,8 +766,16 @@ func (s *Server) Serve(lis net.Listener) error {
 		s.mu.Unlock()
 	}()
 
-	var tempDelay time.Duration // how long to sleep on accept failure
+	var err error
+	ls.channelzID, err = channelz.RegisterListenSocket(ls, s.channelzID, lis.Addr().String())
+	if err != nil {
+		s.mu.Unlock()
+		return err
+	}
+	s.mu.Unlock()
+	channelz.Info(logger, ls.channelzID, "ListenSocket created")
 
+	var tempDelay time.Duration // how long to sleep on accept failure
 	for {
 		rawConn, err := lis.Accept()
 		if err != nil {
@@ -1709,11 +1710,7 @@ func (s *Server) Stop() {
 		s.done.Fire()
 	}()
 
-	s.channelzRemoveOnce.Do(func() {
-		if channelz.IsOn() {
-			channelz.RemoveEntry(s.channelzID)
-		}
-	})
+	s.channelzRemoveOnce.Do(func() { channelz.RemoveEntry(s.channelzID) })
 
 	s.mu.Lock()
 	listeners := s.lis
@@ -1751,11 +1748,7 @@ func (s *Server) GracefulStop() {
 	s.quit.Fire()
 	defer s.done.Fire()
 
-	s.channelzRemoveOnce.Do(func() {
-		if channelz.IsOn() {
-			channelz.RemoveEntry(s.channelzID)
-		}
-	})
+	s.channelzRemoveOnce.Do(func() { channelz.RemoveEntry(s.channelzID) })
 	s.mu.Lock()
 	if s.conns == nil {
 		s.mu.Unlock()

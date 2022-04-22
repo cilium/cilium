@@ -102,13 +102,13 @@ func (c *clientImpl) newAuthority(config *bootstrap.ServerConfig) (_ *authority,
 	}
 
 	// Make a new authority since there's no existing authority for this config.
-	ret := &authority{config: config, pubsub: pubsub.New(c.watchExpiryTimeout, c.logger)}
+	ret := &authority{config: config, pubsub: pubsub.New(c.watchExpiryTimeout, c.config.XDSServer.NodeProto, c.logger)}
 	defer func() {
 		if retErr != nil {
 			ret.close()
 		}
 	}()
-	ctr, err := newController(config, ret.pubsub, c.updateValidator, c.logger)
+	ctr, err := newController(config, ret.pubsub, c.updateValidator, c.logger, nil)
 	if err != nil {
 		return nil, err
 	}

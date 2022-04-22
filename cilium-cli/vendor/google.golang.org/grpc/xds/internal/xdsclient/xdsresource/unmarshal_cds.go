@@ -51,6 +51,11 @@ func UnmarshalCluster(opts *UnmarshalOptions) (map[string]ClusterUpdateErrTuple,
 }
 
 func unmarshalClusterResource(r *anypb.Any, f UpdateValidatorFunc, logger *grpclog.PrefixLogger) (string, ClusterUpdate, error) {
+	r, err := unwrapResource(r)
+	if err != nil {
+		return "", ClusterUpdate{}, fmt.Errorf("failed to unwrap resource: %v", err)
+	}
+
 	if !IsClusterResource(r.GetTypeUrl()) {
 		return "", ClusterUpdate{}, fmt.Errorf("unexpected resource type: %q ", r.GetTypeUrl())
 	}
