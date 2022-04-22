@@ -66,7 +66,9 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 
 func (s *DevicesSuite) TestDetect(c *C) {
 	s.withFreshNetNS(c, func() {
-		dm := NewDeviceManager()
+		dm, err := NewDeviceManager()
+		c.Assert(err, IsNil)
+
 		option.Config.Devices = []string{}
 		option.Config.DirectRoutingDevice = ""
 
@@ -175,14 +177,17 @@ func (s *DevicesSuite) TestExpandDevices(c *C) {
 		c.Assert(createDummy("other1", "192.168.3.4/24", false), IsNil)
 		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
 
+		dm, err := NewDeviceManager()
+		c.Assert(err, IsNil)
+
 		// 1. Check expansion works and non-matching prefixes are ignored
 		option.Config.Devices = []string{"dummy+", "missing+", "other0+" /* duplicates: */, "dum+", "other0", "other1"}
-		c.Assert(expandDevices(), IsNil)
+		c.Assert(dm.expandDevices(), IsNil)
 		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0", "dummy1", "other0", "other1"})
 
 		// 2. Check that expansion fails if devices are specified but yields empty expansion
 		option.Config.Devices = []string{"none+"}
-		c.Assert(expandDevices(), NotNil)
+		c.Assert(dm.expandDevices(), NotNil)
 	})
 }
 
@@ -192,14 +197,17 @@ func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
 		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
 
+		dm, err := NewDeviceManager()
+		c.Assert(err, IsNil)
+
 		// 1. Check expansion works and non-matching prefixes are ignored
 		option.Config.DirectRoutingDevice = "dummy+"
-		c.Assert(expandDirectRoutingDevice(), IsNil)
+		c.Assert(dm.expandDirectRoutingDevice(), IsNil)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy0")
 
 		// 2. Check that expansion fails if directRoutingDevice is specified but yields empty expansion
 		option.Config.DirectRoutingDevice = "none+"
-		c.Assert(expandDirectRoutingDevice(), NotNil)
+		c.Assert(dm.expandDirectRoutingDevice(), NotNil)
 	})
 }
 
@@ -210,13 +218,11 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 
 		timeout := time.After(time.Second)
 
-		netns, err := netns.Get()
+		option.Config.Devices = []string{}
+		dm, err := NewDeviceManager()
 		c.Assert(err, IsNil)
 
-		option.Config.Devices = []string{}
-		dm := NewDeviceManager()
-
-		devicesChan, err := dm.listen(ctx, &netns)
+		devicesChan, err := dm.Listen(ctx)
 		c.Assert(err, IsNil)
 
 		// Create the IPv4 & IPv6 devices that should be detected.
@@ -271,13 +277,11 @@ func (s *DevicesSuite) TestListenForNewDevicesFiltered(c *C) {
 
 		timeout := time.After(time.Second)
 
-		netns, err := netns.Get()
+		option.Config.Devices = []string{"dummy+"}
+		dm, err := NewDeviceManager()
 		c.Assert(err, IsNil)
 
-		option.Config.Devices = []string{"dummy+"}
-		dm := NewDeviceManager()
-
-		devicesChan, err := dm.listen(ctx, &netns)
+		devicesChan, err := dm.Listen(ctx)
 		c.Assert(err, IsNil)
 
 		// Create the IPv4 & IPv6 devices that should be detected.
@@ -296,6 +300,48 @@ func (s *DevicesSuite) TestListenForNewDevicesFiltered(c *C) {
 				c.Fatal("Test timed out")
 			case devices := <-devicesChan:
 				passed, _ = checker.DeepEqual(devices, []string{"dummy0", "dummy1"})
+			}
+		}
+	})
+}
+
+func (s *DevicesSuite) TestListenAfterDelete(c *C) {
+	s.withFreshNetNS(c, func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		timeout := time.After(time.Second)
+
+		option.Config.Devices = []string{"dummy+"}
+		dm, err := NewDeviceManager()
+		c.Assert(err, IsNil)
+
+		c.Assert(createDummy("dummy0", "192.168.1.2/24", false), IsNil)
+		c.Assert(createDummy("dummy1", "2001:db8::face/64", true), IsNil)
+
+		// Detect the devices
+		devices, err := dm.Detect()
+		c.Assert(err, IsNil)
+		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1"})
+
+		// Delete one of the devices before listening
+		link, err := netlink.LinkByName("dummy1")
+		c.Assert(err, IsNil)
+		err = netlink.LinkDel(link)
+		c.Assert(err, IsNil)
+
+		// Now start listening to device changes. We expect the dummy1 to
+		// be deleted.
+		devicesChan, err := dm.Listen(ctx)
+		c.Assert(err, IsNil)
+
+		passed := false
+		for !passed {
+			select {
+			case <-timeout:
+				c.Fatal("Test timed out")
+			case devices := <-devicesChan:
+				passed, _ = checker.DeepEqual(devices, []string{"dummy0"})
 			}
 		}
 	})

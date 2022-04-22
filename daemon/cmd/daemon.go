@@ -479,6 +479,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
 
+	devMngr, err := linuxdatapath.NewDeviceManager()
+	if err != nil {
+		return nil, nil, err
+	}
+
 	d := Daemon{
 		ctx:               ctx,
 		cancel:            cancel,
@@ -488,7 +493,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		netConf:           netConf,
 		mtuConfig:         mtuConfig,
 		datapath:          dp,
-		deviceManager:     linuxdatapath.NewDeviceManager(),
+		deviceManager:     devMngr,
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
