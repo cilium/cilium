@@ -145,7 +145,7 @@ var bpfLBListCmd = &cobra.Command{
 
 		if command.OutputOption() {
 			if err := command.PrintOutput(serviceList); err != nil {
-				Fatalf("Unable to generate JSON output: %s", err)
+				Fatalf("Unable to generate %s output: %s", command.OutputOptionString(), err)
 			}
 			return
 		}

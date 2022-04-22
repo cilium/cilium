@@ -29,7 +29,7 @@ var bpfMaglevListCmd = &cobra.Command{
 
 		if command.OutputOption() {
 			if err := command.PrintOutput(backends); err != nil {
-				Fatalf("Unable to generate JSON output: %s", err)
+				Fatalf("Unable to generate %s output: %s", command.OutputOptionString(), err)
 			}
 			return
 		}

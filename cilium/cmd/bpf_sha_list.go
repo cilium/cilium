@@ -99,7 +99,7 @@ func dumpShaList() {
 
 	if command.OutputOption() {
 		if err := command.PrintOutput(bpfTemplateList); err != nil {
-			Fatalf("error getting output of map in JSON: %s\n", err)
+			Fatalf("error getting output of map in %s: %s\n", command.OutputOptionString(), err)
 		}
 		return
 	}

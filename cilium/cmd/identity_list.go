@@ -75,7 +75,7 @@ func listIdentities(args []string) {
 func printIdentitesEndpoints(identities []*models.IdentityEndpoints) {
 	if command.OutputOption() {
 		if err := command.PrintOutput(identities); err != nil {
-			Fatalf("Unable to provide JSON output: %s", err)
+			Fatalf("Unable to provide %s output: %s", command.OutputOptionString(), err)
 		}
 		return
 	}
