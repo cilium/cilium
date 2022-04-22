@@ -95,10 +95,9 @@ func (m *LBMockMap) AddBackend(b lb.Backend, ipv6 bool) error {
 	ip := b.IP
 	port := b.Port
 
-	if be, found := m.BackendByID[id]; found {
-		if be.L3n4Addr.IP.Equal(ip) && be.L4Addr.Port == port {
-			return nil
-		}
+	// Backends can be added to both v4 and v6 lb maps (when nat64 policies
+	// are enabled).
+	if _, found := m.BackendByID[id]; found && !b.L3n4Addr.IsIPv6() && !ipv6 {
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
