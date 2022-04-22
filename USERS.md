@@ -129,6 +129,12 @@ Users (Alphabetically)
       D: DigitalOcean is using Cilium as the CNI for Digital Ocean's managed Kubernetes Services (DOKS)
       U: Networking and network policy
       L: https://github.com/digitalocean/DOKS
+           
+    * N: Equinix
+      D: Equinix Metal is using Cilium for production and non-production environments on bare metal 
+      U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble, network visibility
+      L: https://metal.equinix.com/
+      Q: @matoszz
 
     * N: finleap connect
       D: finleap connect is using Cilium in their production clusters (self-hosted, bare-metal, private cloud)
@@ -332,9 +338,3 @@ Users (Alphabetically)
     * N: Yahoo!
       D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services
       L: https://www.youtube.com/watch?v=-C86fBMcp5Q
-      
-    * N: Equinix
-      D: Equinix Metal is using Cilium for production and non-production environments on bare metal 
-      U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble, network visibility
-      L: https://metal.equinix.com/
-      Q: @matoszz
