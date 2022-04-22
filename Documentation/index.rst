@@ -70,7 +70,8 @@ get started and experiment with Cilium.
 
    community/community
    community/governance/index
-   
+   community/roadmap
+
 .. toctree::
    :maxdepth: 3
    :caption: For Developers
