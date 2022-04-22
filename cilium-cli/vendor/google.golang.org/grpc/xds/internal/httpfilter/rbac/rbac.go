@@ -43,16 +43,21 @@ func init() {
 	}
 }
 
-// RegisterForTesting registers the RBAC HTTP Filter for testing purposes, regardless
-// of the RBAC environment variable. This is needed because there is no way to set the RBAC
-// environment variable to true in a test before init() in this package is run.
+// RegisterForTesting registers the RBAC HTTP Filter for testing purposes,
+// regardless of the RBAC environment variable. This is needed because there is
+// no way to set the RBAC environment variable to true in a test before init()
+// in this package is run.
+//
+// TODO: Remove this function once the RBAC env var is removed.
 func RegisterForTesting() {
 	httpfilter.Register(builder{})
 }
 
-// UnregisterForTesting unregisters the RBAC HTTP Filter for testing purposes. This is needed because
-// there is no way to unregister the HTTP Filter after registering it solely for testing purposes using
-// rbac.RegisterForTesting()
+// UnregisterForTesting unregisters the RBAC HTTP Filter for testing purposes.
+// This is needed because there is no way to unregister the HTTP Filter after
+// registering it solely for testing purposes using rbac.RegisterForTesting().
+//
+// TODO: Remove this function once the RBAC env var is removed.
 func UnregisterForTesting() {
 	for _, typeURL := range builder.TypeURLs(builder{}) {
 		httpfilter.UnregisterForTesting(typeURL)

@@ -59,26 +59,21 @@ func (t *Controller) run(ctx context.Context) {
 	// report error (and log) when stats is transient failure.
 
 	retries := 0
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		if retries != 0 {
-			timer := time.NewTimer(t.backoff(retries))
+	lastStreamStartTime := time.Time{}
+	for ctx.Err() == nil {
+		dur := time.Until(lastStreamStartTime.Add(t.backoff(retries)))
+		if dur > 0 {
+			timer := time.NewTimer(dur)
 			select {
 			case <-timer.C:
 			case <-ctx.Done():
-				if !timer.Stop() {
-					<-timer.C
-				}
+				timer.Stop()
 				return
 			}
 		}
 
 		retries++
+		lastStreamStartTime = time.Now()
 		stream, err := t.vClient.NewStream(ctx, t.cc)
 		if err != nil {
 			t.updateHandler.NewConnectionError(err)
@@ -188,17 +183,17 @@ func (t *Controller) sendExisting(stream grpc.ClientStream) bool {
 // recv receives xDS responses on the provided ADS stream and branches out to
 // message specific handlers.
 func (t *Controller) recv(stream grpc.ClientStream) bool {
-	success := false
+	msgReceived := false
 	for {
 		resp, err := t.vClient.RecvResponse(stream)
 		if err != nil {
 			t.updateHandler.NewConnectionError(err)
 			t.logger.Warningf("ADS stream is closed with error: %v", err)
-			return success
+			return msgReceived
 		}
+		msgReceived = true
 
 		rType, version, nonce, err := t.handleResponse(resp)
-
 		if e, ok := err.(xdsresourceversion.ErrResourceTypeUnsupported); ok {
 			t.logger.Warningf("%s", e.ErrStr)
 			continue
@@ -221,7 +216,6 @@ func (t *Controller) recv(stream grpc.ClientStream) bool {
 			stream:  stream,
 		})
 		t.logger.Infof("Sending ACK for response type: %v, version: %v, nonce: %v", rType, version, nonce)
-		success = true
 	}
 }
 
@@ -371,24 +365,21 @@ func (t *Controller) processAckInfo(ack *ackAction, stream grpc.ClientStream) (t
 // It blocks until the context is cancelled.
 func (t *Controller) reportLoad(ctx context.Context, cc *grpc.ClientConn, opts controllerversion.LoadReportingOptions) {
 	retries := 0
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-
-		if retries != 0 {
-			timer := time.NewTimer(t.backoff(retries))
+	lastStreamStartTime := time.Time{}
+	for ctx.Err() == nil {
+		dur := time.Until(lastStreamStartTime.Add(t.backoff(retries)))
+		if dur > 0 {
+			timer := time.NewTimer(dur)
 			select {
 			case <-timer.C:
 			case <-ctx.Done():
-				if !timer.Stop() {
-					<-timer.C
-				}
+				timer.Stop()
 				return
 			}
 		}
 
 		retries++
+		lastStreamStartTime = time.Now()
 		stream, err := t.vClient.NewLoadStatsStream(ctx, cc)
 		if err != nil {
 			t.logger.Warningf("lrs: failed to create stream: %v", err)
