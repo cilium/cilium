@@ -353,6 +353,7 @@ type HTTPIngressRuleValue struct {
 }
 
 // PathType represents the type of path referred to by a HTTPIngressPath.
+// +enum
 type PathType string
 
 const (
@@ -387,8 +388,8 @@ const (
 type HTTPIngressPath struct {
 	// Path is matched against the path of an incoming request. Currently it can
 	// contain characters disallowed from the conventional "path" part of a URL
-	// as defined by RFC 3986. Paths must begin with a '/'. When unspecified,
-	// all paths from incoming requests are matched.
+	// as defined by RFC 3986. Paths must begin with a '/' and must be present
+	// when using PathType with value "Exact" or "Prefix".
 	// +optional
 	Path string `json:"path,omitempty" protobuf:"bytes,1,opt,name=path"`
 
@@ -406,7 +407,7 @@ type HTTPIngressPath struct {
 	//   the IngressClass. Implementations can treat this as a separate PathType
 	//   or treat it identically to Prefix or Exact path types.
 	// Implementations are required to support all path types.
-	PathType *PathType `json:"pathType,omitempty" protobuf:"bytes,3,opt,name=pathType"`
+	PathType *PathType `json:"pathType" protobuf:"bytes,3,opt,name=pathType"`
 
 	// Backend defines the referenced service endpoint to which the traffic
 	// will be forwarded to.
@@ -514,15 +515,12 @@ type IngressClassParametersReference struct {
 	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
 	// Scope represents if this refers to a cluster or namespace scoped resource.
 	// This may be set to "Cluster" (default) or "Namespace".
-	// Field can be enabled with IngressClassNamespacedParams feature gate.
 	// +optional
-	// +featureGate=IngressClassNamespacedParams
 	Scope *string `json:"scope" protobuf:"bytes,4,opt,name=scope"`
 	// Namespace is the namespace of the resource being referenced. This field is
 	// required when scope is set to "Namespace" and must be unset when scope is set to
 	// "Cluster".
 	// +optional
-	// +featureGate=IngressClassNamespacedParams
 	Namespace *string `json:"namespace,omitempty" protobuf:"bytes,5,opt,name=namespace"`
 }
 

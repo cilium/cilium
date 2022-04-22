@@ -70,7 +70,6 @@ ExecStart=/usr/bin/kube-apiserver \\
   --bind-address=0.0.0.0 \\
   --cert-dir=/var/run/kubernetes \\
   --client-ca-file='/var/lib/kubernetes/ca-k8s.pem' \\
-  --enable-swagger-ui=false \\
   --etcd-cafile='/var/lib/kubernetes/ca-etcd.pem' \\
   --etcd-certfile='/var/lib/kubernetes/etcd-k8s-api-server.pem' \\
   --etcd-keyfile='/var/lib/kubernetes/etcd-k8s-api-server-key.pem' \\
