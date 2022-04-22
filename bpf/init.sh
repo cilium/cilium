@@ -29,6 +29,7 @@ NR_CPUS=${22}
 ENDPOINT_ROUTES=${23}
 PROXY_RULE=${24}
 FILTER_PRIO=${25}
+IP4_HOST_SECONDARY=${26}
 
 ID_HOST=1
 ID_WORLD=2
@@ -354,6 +355,10 @@ if [ "$IP6_HOST" != "<nil>" ]; then
 fi
 if [ "$IP4_HOST" != "<nil>" ]; then
 	[ -n "$(ip -4 addr show to $IP4_HOST dev $HOST_DEV1)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
+fi
+
+if [ "$IP4_HOST_SECONDARY" != "<nil>" ]; then
+	[ -n "$(ip -4 addr show to $IP4_HOST_SECONDARY dev $HOST_DEV1)" ] || ip -4 addr add $IP4_HOST_SECONDARY dev $HOST_DEV1 scope link
 fi
 
 if [ "$PROXY_RULE" = "true" ]; then

@@ -27,17 +27,18 @@ import (
 const preferPublicIP bool = true
 
 var (
-	ipv4Loopback      net.IP
-	ipv4Address       net.IP
-	ipv4RouterAddress net.IP
-	ipv4NodePortAddrs map[string]net.IP // iface name => ip addr
-	ipv4MasqAddrs     map[string]net.IP // iface name => ip addr
-	ipv6Address       net.IP
-	ipv6RouterAddress net.IP
-	ipv6NodePortAddrs map[string]net.IP // iface name => ip addr
-	ipv4AllocRange    *cidr.CIDR
-	ipv6AllocRange    *cidr.CIDR
-	routerInfo        RouterInfo
+	ipv4Loopback               net.IP
+	ipv4Address                net.IP
+	ipv4RouterAddress          net.IP
+	ipv4SecondaryRouterAddress net.IP
+	ipv4NodePortAddrs          map[string]net.IP // iface name => ip addr
+	ipv4MasqAddrs              map[string]net.IP // iface name => ip addr
+	ipv6Address                net.IP
+	ipv6RouterAddress          net.IP
+	ipv6NodePortAddrs          map[string]net.IP // iface name => ip addr
+	ipv4AllocRange             *cidr.CIDR
+	ipv6AllocRange             *cidr.CIDR
+	routerInfo                 RouterInfo
 
 	// k8s Node External IP
 	ipv4ExternalAddress net.IP
@@ -265,6 +266,14 @@ func GetIPv4() net.IP {
 // for tunnel mode).
 func SetInternalIPv4Router(ip net.IP) {
 	ipv4RouterAddress = ip
+	if option.Config.MultiHomingEnabled() && len(ip) >= net.IPv4len {
+		// XXX: heuristic to derive secondary address as A.B+1.C.D. This should later come
+		// from IPAM.
+		p := make(net.IP, len(ip))
+		copy(p, ip)
+		p.To4()[1] += 1
+		ipv4SecondaryRouterAddress = p
+	}
 }
 
 // GetInternalIPv4Router returns the cilium internal IPv4 node address. This must not be conflated with
@@ -272,6 +281,11 @@ func SetInternalIPv4Router(ip net.IP) {
 // within the node for direct routing mode and on the overlay for tunnel mode).
 func GetInternalIPv4Router() net.IP {
 	return ipv4RouterAddress
+}
+
+// GetSecondaryInternalIPv4Router ...
+func GetSecondaryInternalIPv4Router() net.IP {
+	return ipv4SecondaryRouterAddress
 }
 
 // SetK8sExternalIPv4 sets the external IPv4 node address. It must be a public IP that is routable
@@ -314,6 +328,7 @@ func Uninitialize() {
 	ipv4AllocRange = nil
 	ipv6AllocRange = nil
 	ipv4RouterAddress, ipv6RouterAddress = nil, nil
+	ipv4SecondaryRouterAddress = nil
 }
 
 // GetNodePortIPv4Addrs returns the node-port IPv4 address for NAT
