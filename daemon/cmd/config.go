@@ -162,7 +162,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 
 	for i := 0; i < e.NumField(); i++ {
 		if e.Field(i).Kind() != reflect.Func {
-			// Remove configurable opttions from read-only map
+			// Remove configurable options from read-only map
 			if e.Type().Field(i).Name != "Opts" && e.Type().Field(i).Name != "ConfigPatchMutex" {
 				m[e.Type().Field(i).Name] = e.Field(i).Interface()
 			}
@@ -200,6 +200,9 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
 		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
+		MultiHomingConfiguration: &models.MultiHomingConfiguration{
+			Devices: option.Config.MultiHomingDevices,
+		},
 	}
 
 	cfg := &models.DaemonConfiguration{

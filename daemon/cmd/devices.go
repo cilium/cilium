@@ -68,6 +68,10 @@ func (dm *DeviceManager) Detect() error {
 		return err
 	}
 
+	if err := expandMultiHomingDevices(); err != nil {
+		return err
+	}
+
 	l3DevOK := true
 	if !option.Config.EnableHostLegacyRouting {
 		// Probe whether BPF host routing is supported for L3 devices. This will
@@ -149,6 +153,19 @@ func (dm *DeviceManager) Detect() error {
 
 	option.Config.Devices = dm.getDevices()
 	log.WithField(logfields.Devices, option.Config.Devices).Info("Detected devices")
+
+	if len(option.Config.MultiHomingDevices) > 0 {
+		var multiHomingDevices []string
+		for _, mhd := range option.Config.MultiHomingDevices {
+			if _, ok := dm.devices[mhd]; ok {
+				multiHomingDevices = append(multiHomingDevices, mhd)
+				log.WithField(option.MultiHomingDevices, mhd).Info("Allowing device for multi-homing")
+			} else {
+				log.WithField(option.MultiHomingDevices, mhd).Warning("Ignoring inexistent device for multi-homing")
+			}
+		}
+		option.Config.MultiHomingDevices = multiHomingDevices
+	}
 
 	return nil
 }
@@ -309,6 +326,17 @@ func expandDirectRoutingDevice() error {
 	return nil
 }
 
+// expandMultiHomingDevices expands all wildcard multi-homing device names to concrete devices.
+// e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
+func expandMultiHomingDevices() error {
+	expandedMultiHomingDevices, err := expandDeviceWildcards(option.Config.MultiHomingDevices, option.MultiHomingDevices)
+	if err != nil {
+		return err
+	}
+	option.Config.MultiHomingDevices = expandedMultiHomingDevices
+	return nil
+}
+
 func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 	allLinks, err := netlink.LinkList()
 	if err != nil {
@@ -346,7 +374,8 @@ func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 func areDevicesRequired() bool {
 	return option.Config.EnableNodePort ||
 		option.Config.EnableHostFirewall ||
-		option.Config.EnableBandwidthManager
+		option.Config.EnableBandwidthManager ||
+		len(option.Config.MultiHomingDevices) > 0
 }
 
 func findK8SNodeIPLink() (netlink.Link, error) {

@@ -192,6 +192,25 @@ func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 	})
 }
 
+func (s *DevicesSuite) TestExpandMultiHomingDevices(c *C) {
+	s.withFreshNetNS(c, func() {
+		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
+		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
+		c.Assert(createDummy("other0", "192.168.2.3/24", false), IsNil)
+		c.Assert(createDummy("other1", "192.168.3.4/24", false), IsNil)
+		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
+
+		// 1. Check expansion works and non-matching prefixes are ignored
+		option.Config.MultiHomingDevices = []string{"other+"}
+		c.Assert(expandMultiHomingDevices(), IsNil)
+		c.Assert(option.Config.MultiHomingDevices, checker.DeepEquals, []string{"other0", "other1"})
+
+		// 2. Check that expansion fails if directRoutingDevice is specified but yields empty expansion
+		option.Config.MultiHomingDevices = []string{"none+"}
+		c.Assert(expandDirectRoutingDevice(), NotNil)
+	})
+}
+
 func (s *DevicesSuite) withFreshNetNS(c *C, test func()) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

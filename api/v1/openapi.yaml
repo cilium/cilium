@@ -2243,6 +2243,8 @@ definitions:
           ipv6:
             description: Status of masquerading for IPv6 traffic
             type: boolean
+      multi-homing-configuration:
+        "$ref": "#/definitions/MultiHomingConfiguration"
       egress-multi-home-ip-rule-compat:
         description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
         type: boolean
@@ -2269,6 +2271,15 @@ definitions:
         enum:
           - L3
           - L3S
+  MultiHomingConfiguration:
+    description: Multi-homing configuration
+    type: object
+    properties:
+      devices:
+        description: List of devices used in multi-homing mode
+        type: array
+        items:
+          type: string
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
