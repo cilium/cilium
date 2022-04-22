@@ -18,6 +18,8 @@
 package xdsclient
 
 import (
+	"time"
+
 	"google.golang.org/grpc/internal/grpclog"
 	"google.golang.org/grpc/xds/internal/xdsclient/bootstrap"
 	"google.golang.org/grpc/xds/internal/xdsclient/controller"
@@ -33,6 +35,6 @@ type controllerInterface interface {
 	Close()
 }
 
-var newController = func(config *bootstrap.ServerConfig, pubsub *pubsub.Pubsub, validator xdsresource.UpdateValidatorFunc, logger *grpclog.PrefixLogger) (controllerInterface, error) {
-	return controller.New(config, pubsub, validator, logger)
+var newController = func(config *bootstrap.ServerConfig, pubsub *pubsub.Pubsub, validator xdsresource.UpdateValidatorFunc, logger *grpclog.PrefixLogger, boff func(int) time.Duration) (controllerInterface, error) {
+	return controller.New(config, pubsub, validator, logger, boff)
 }
