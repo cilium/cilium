@@ -25,6 +25,19 @@ func OutputOption() bool {
 	return len(outputOpt) > 0
 }
 
+// OutputOptionString returns the output option as a string
+func OutputOptionString() string {
+	if outputOpt == "yaml" {
+		return "YAML"
+	}
+
+	if outputOpt == "json" || re.MatchString(outputOpt) {
+		return "JSON"
+	}
+
+	return "unknown"
+}
+
 // AddOutputOption adds the -o|--output option to any cmd to export to json or yaml.
 func AddOutputOption(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&outputOpt, "output", "o", "", "json| yaml| jsonpath='{}'")

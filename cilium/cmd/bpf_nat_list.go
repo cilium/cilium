@@ -55,7 +55,7 @@ func dumpNat(maps []interface{}, args ...interface{}) {
 			Fatalf("Unable to open %s: %s", path, err)
 		}
 		defer m.(nat.NatMap).Close()
-		// Plain output prints immediately, JSON output holds until it
+		// Plain output prints immediately, JSON/YAML output holds until it
 		// collected values from all maps to have one consistent object
 		if command.OutputOption() {
 			callback := func(key bpf.MapKey, value bpf.MapValue) {

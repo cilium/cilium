@@ -60,7 +60,7 @@ func dumpSha(sha string) {
 		}
 
 		if err := command.PrintOutput(jsonStr); err != nil {
-			Fatalf("error printing output in JSON: %s\n", err)
+			Fatalf("error printing output in %s: %s\n", command.OutputOptionString(), err)
 		}
 		return
 	}
