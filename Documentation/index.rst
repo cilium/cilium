@@ -68,13 +68,13 @@ get started and experiment with Cilium.
    :maxdepth: 2
    :caption: Community
 
-   community
-
+   community/community
+   community/governance/index
+   
 .. toctree::
    :maxdepth: 3
    :caption: For Developers
 
-   contributing/governance/index
    contributing/development/index
    contributing/release/index
    contributing/testing/index
