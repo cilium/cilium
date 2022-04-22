@@ -9,6 +9,8 @@ traditional networking and security services as well as Layer 7 to protect and
 secure use of modern application protocols such as HTTP, gRPC and Kafka. Cilium
 is integrated into common orchestration frameworks such as Kubernetes.
 
+bla
+
 A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
 supports dynamic insertion of eBPF bytecode into the Linux kernel at various
 integration points such as: network IO, application sockets, and tracepoints to
