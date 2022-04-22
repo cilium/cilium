@@ -384,7 +384,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 			l7backend.address = bpf_htonl(0x7f000001);
 			l7backend.port = (__be16)svc->l7_lb_proxy_port;
 			l7backend.proto = 0;
-			l7backend.pad = 0;
+			l7backend.flags = 0;
 			backend = &l7backend;
 			goto out;
 		}
@@ -1003,7 +1003,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 			l7backend.address = loopback;
 			l7backend.port = (__be16)svc->l7_lb_proxy_port;
 			l7backend.proto = 0;
-			l7backend.pad = 0;
+			l7backend.flags = 0;
 			backend = &l7backend;
 			goto out;
 		}
