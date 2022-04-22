@@ -222,6 +222,7 @@ type Parameters struct {
 	Version               string
 	AgentImage            string
 	OperatorImage         string
+	RelayImage            string
 	InheritCA             string
 	Wait                  bool
 	WaitDuration          time.Duration
@@ -289,7 +290,7 @@ func (p *Parameters) validate() error {
 
 		p.configOverwrites[t[0]] = t[1]
 	}
-	if p.AgentImage != "" || p.OperatorImage != "" {
+	if p.AgentImage != "" || p.OperatorImage != "" || p.RelayImage != "" {
 		return nil
 	} else if !utils.CheckVersion(p.Version) && p.Version != "" {
 		return fmt.Errorf("invalid syntax %q for image tag", p.Version)
@@ -312,6 +313,10 @@ func (k *K8sInstaller) fqOperatorImage(imagePathMode utils.ImagePathMode) string
 	}
 
 	return utils.BuildImagePath(k.params.OperatorImage, k.params.Version, defaultImage, defaults.Version, imagePathMode)
+}
+
+func (k *K8sInstaller) fqRelayImage(imagePathMode utils.ImagePathMode) string {
+	return utils.BuildImagePath(k.params.RelayImage, k.params.Version, defaults.RelayImage, defaults.Version, imagePathMode)
 }
 
 func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInstaller, error) {
