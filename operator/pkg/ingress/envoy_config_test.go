@@ -7,6 +7,7 @@ package ingress
 
 import (
 	"context"
+	"syscall"
 	"testing"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -22,6 +23,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func Test_getBackendServices(t *testing.T) {
@@ -55,6 +58,7 @@ func Test_getListenerResource(t *testing.T) {
 		require.Len(t, listener.ListenerFilters, 1)
 		require.Len(t, listener.FilterChains, 2)
 		require.Len(t, listener.FilterChains[0].Filters, 1)
+		require.Len(t, listener.SocketOptions, 4)
 		require.IsType(t, &envoy_config_listener.Filter_TypedConfig{}, listener.FilterChains[0].Filters[0].ConfigType)
 
 		// check for connection manager
@@ -95,6 +99,7 @@ func Test_getListenerResource(t *testing.T) {
 		require.Len(t, listener.ListenerFilters, 1)
 		require.Len(t, listener.FilterChains, 2)
 		require.Len(t, listener.FilterChains[0].Filters, 1)
+		require.Len(t, listener.SocketOptions, 4)
 		require.IsType(t, &envoy_config_listener.Filter_TypedConfig{}, listener.FilterChains[0].Filters[0].ConfigType)
 
 		// check for connection managers
@@ -236,4 +241,140 @@ func fakeClient() *fake.Clientset {
 	_, _ = client.CoreV1().Secrets("dummy-namespace").Create(context.TODO(), anotherVerySecureTLS, metav1.CreateOptions{})
 
 	return client
+}
+
+func Test_getSocketOptions(t *testing.T) {
+	type args struct {
+		ingress *slim_networkingv1.Ingress
+	}
+	tests := []struct {
+		name string
+		args args
+		want assert.ValueAssertionFunc
+	}{
+		{
+			name: "sensible defaults",
+			args: args{
+				ingress: baseIngress,
+			},
+			want: assertSame([]*envoy_config_core_v3.SocketOption{
+				{
+					Description: "Enable TCP keep-alive, annotation io.cilium/tcp-keep-alive. (default to enabled)",
+					Level:       syscall.SOL_SOCKET,
+					Name:        syscall.SO_KEEPALIVE,
+					Value:       &envoy_config_core_v3.SocketOption_IntValue{IntValue: 1},
+					State:       envoy_config_core_v3.SocketOption_STATE_LISTENING,
+				},
+				{
+					Description: "TCP keep-alive idle time (in seconds). Annotation io.cilium/tcp-keep-alive-idle (defaults to 10s)",
+					Level:       syscall.IPPROTO_TCP,
+					Name:        syscall.TCP_KEEPIDLE,
+					Value:       &envoy_config_core_v3.SocketOption_IntValue{IntValue: 10},
+					State:       envoy_config_core_v3.SocketOption_STATE_LISTENING,
+				},
+				{
+					Description: "TCP keep-alive probe intervals (in seconds). Annotation io.cilium/tcp-keep-alive-probe-interval (defaults to 5s)",
+					Level:       syscall.IPPROTO_TCP,
+					Name:        syscall.TCP_KEEPINTVL,
+					Value:       &envoy_config_core_v3.SocketOption_IntValue{IntValue: 5},
+					State:       envoy_config_core_v3.SocketOption_STATE_LISTENING,
+				},
+				{
+					Description: "TCP keep-alive probe max failures. Annotation io.cilium/tcp-keep-alive-probe-max-failures (defaults to 10)",
+					Level:       syscall.IPPROTO_TCP,
+					Name:        syscall.TCP_KEEPCNT,
+					Value:       &envoy_config_core_v3.SocketOption_IntValue{IntValue: 10},
+					State:       envoy_config_core_v3.SocketOption_STATE_LISTENING,
+				},
+			}),
+		},
+		{
+			name: "disabled TCP keep-alive",
+			args: args{
+				ingress: &slim_networkingv1.Ingress{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"io.cilium/tcp-keep-alive": "disabled",
+						},
+					},
+				},
+			},
+			want: assertSame(nil),
+		},
+		{
+			name: "user provided initial idle",
+			args: args{
+				ingress: &slim_networkingv1.Ingress{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"io.cilium/tcp-keep-alive-idle": "20",
+						},
+					},
+				},
+			},
+			want: assertContains(&envoy_config_core_v3.SocketOption{
+				Description: "TCP keep-alive idle time (in seconds). Annotation io.cilium/tcp-keep-alive-idle (defaults to 10s)",
+				Level:       syscall.IPPROTO_TCP,
+				Name:        syscall.TCP_KEEPIDLE,
+				Value:       &envoy_config_core_v3.SocketOption_IntValue{IntValue: 20},
+				State:       envoy_config_core_v3.SocketOption_STATE_LISTENING,
+			}),
+		},
+		{
+			name: "user provided probe interval",
+			args: args{
+				ingress: &slim_networkingv1.Ingress{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"io.cilium/tcp-keep-alive-probe-interval": "20",
+						},
+					},
+				},
+			},
+			want: assertContains(&envoy_config_core_v3.SocketOption{
+				Description: "TCP keep-alive probe intervals (in seconds). Annotation io.cilium/tcp-keep-alive-probe-interval (defaults to 5s)",
+				Level:       syscall.IPPROTO_TCP,
+				Name:        syscall.TCP_KEEPINTVL,
+				Value:       &envoy_config_core_v3.SocketOption_IntValue{IntValue: 20},
+				State:       envoy_config_core_v3.SocketOption_STATE_LISTENING,
+			}),
+		},
+		{
+			name: "user provided probe max failures",
+			args: args{
+				ingress: &slim_networkingv1.Ingress{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"io.cilium/tcp-keep-alive-probe-max-failures": "10",
+						},
+					},
+				},
+			},
+			want: assertContains(&envoy_config_core_v3.SocketOption{
+				Description: "TCP keep-alive probe max failures. Annotation io.cilium/tcp-keep-alive-probe-max-failures (defaults to 10)",
+				Level:       syscall.IPPROTO_TCP,
+				Name:        syscall.TCP_KEEPCNT,
+				Value:       &envoy_config_core_v3.SocketOption_IntValue{IntValue: 10},
+				State:       envoy_config_core_v3.SocketOption_STATE_LISTENING,
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			socketOptions := getSocketOptions(tt.args.ingress)
+			tt.want(t, socketOptions)
+		})
+	}
+}
+
+func assertSame(have []*envoy_config_core_v3.SocketOption) assert.ValueAssertionFunc {
+	return func(t assert.TestingT, want interface{}, msg ...interface{}) bool {
+		return assert.Equal(t, want, have, msg)
+	}
+}
+
+func assertContains(expected *envoy_config_core_v3.SocketOption) assert.ValueAssertionFunc {
+	return func(t assert.TestingT, have interface{}, msg ...interface{}) bool {
+		return assert.Contains(t, have, expected, msg)
+	}
 }
