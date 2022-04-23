@@ -8,6 +8,9 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"syscall"
+
+	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -329,6 +332,7 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 				Name: "envoy.filters.listener.tls_inspector",
 			},
 		},
+		SocketOptions: getSocketOptions(ingress),
 	}
 
 	listenerBytes, err := proto.Marshal(&listener)
@@ -588,6 +592,57 @@ func getRedirectRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (
 			Value:   routeBytes,
 		},
 	}, nil
+}
+
+// getSocketOptions returns socket options for downstream connection.
+// Currently, only TPC keep-alive related options are specified.
+//
+// Related references:
+//  - https://man7.org/linux/man-pages/man7/tcp.7.html
+//  - https://github.com/envoyproxy/envoy/issues/3634
+func getSocketOptions(ingress *slim_networkingv1.Ingress) []*envoy_config_core_v3.SocketOption {
+	tcpKeepAliveEnabled := annotations.GetAnnotationTCPKeepAliveEnabled(ingress)
+	if tcpKeepAliveEnabled == 0 {
+		return nil
+	}
+	return []*envoy_config_core_v3.SocketOption{
+		{
+			Description: "Enable TCP keep-alive, annotation io.cilium/tcp-keep-alive. (default to enabled)",
+			Level:       syscall.SOL_SOCKET,
+			Name:        syscall.SO_KEEPALIVE,
+			Value: &envoy_config_core_v3.SocketOption_IntValue{
+				IntValue: tcpKeepAliveEnabled,
+			},
+			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+		},
+		{
+			Description: "TCP keep-alive idle time (in seconds). Annotation io.cilium/tcp-keep-alive-idle (defaults to 10s)",
+			Level:       syscall.IPPROTO_TCP,
+			Name:        syscall.TCP_KEEPIDLE,
+			Value: &envoy_config_core_v3.SocketOption_IntValue{
+				IntValue: annotations.GetAnnotationTCPKeepAliveIdle(ingress),
+			},
+			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+		},
+		{
+			Description: "TCP keep-alive probe intervals (in seconds). Annotation io.cilium/tcp-keep-alive-probe-interval (defaults to 5s)",
+			Level:       syscall.IPPROTO_TCP,
+			Name:        syscall.TCP_KEEPINTVL,
+			Value: &envoy_config_core_v3.SocketOption_IntValue{
+				IntValue: annotations.GetAnnotationTCPKeepAliveProbeInterval(ingress),
+			},
+			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+		},
+		{
+			Description: "TCP keep-alive probe max failures. Annotation io.cilium/tcp-keep-alive-probe-max-failures (defaults to 10)",
+			Level:       syscall.IPPROTO_TCP,
+			Name:        syscall.TCP_KEEPCNT,
+			Value: &envoy_config_core_v3.SocketOption_IntValue{
+				IntValue: annotations.GetAnnotationTCPKeepAliveProbeMaxFailures(ingress),
+			},
+			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+		},
+	}
 }
 
 func tlsEnabled(ingress *slim_networkingv1.Ingress) bool {
