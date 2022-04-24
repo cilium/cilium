@@ -615,10 +615,6 @@ const (
 	// K8sNamespaceName is the name of the K8sNamespace option
 	K8sNamespaceName = "k8s-namespace"
 
-	// AgentNotReadyNodeTaintPrefixDefault hold the default value of
-	// AgentNotReadyNodeTaintPrefix
-	AgentNotReadyNodeTaintPrefixDefault = ""
-
 	// AgentNotReadyNodeTaintPrefixName is the name of the option to set
 	// AgentNotReadyNodeTaintPrefix
 	AgentNotReadyNodeTaintPrefixName = "agent-not-ready-taint-prefix"
@@ -2299,7 +2295,11 @@ func (c *DaemonConfig) CiliumNamespaceName() string {
 // AgentNotReadyNodeTaintValue returns the value of the taint key that cilium agents
 // will manage on their nodes
 func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
-	return c.AgentNotReadyNodeTaintPrefix + "node." + ciliumio.CiliumK8sAnnotationPrefix + "agent-not-ready"
+	if c.AgentNotReadyNodeTaintPrefix != "" {
+		return c.AgentNotReadyNodeTaintPrefix + "cilium-agent-not-ready"
+	} else {
+		return "node." + ciliumio.CiliumK8sAnnotationPrefix + "agent-not-ready"
+	}
 }
 
 // K8sAPIDiscoveryEnabled returns true if API discovery of API groups and
