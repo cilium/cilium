@@ -154,6 +154,7 @@ jobs:
             --version="
           HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --base-version=v1.10 \
             --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10 \
             --flow-validation=disabled"
