@@ -762,7 +762,7 @@ hubble:
       image:
         override: ~
         repository: quay.io/cilium/hubble-ui-backend
-        tag: v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed
+        tag: v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b
         pullPolicy: IfNotPresent
       # [Example]
       # resources:
@@ -780,7 +780,7 @@ hubble:
       image:
         override: ~
         repository: quay.io/cilium/hubble-ui
-        tag: v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4
+        tag: v0.9.0@sha256:0ef04e9a29212925da6bdfd0ba5b581765e41a01f1cc30563cef9b30b457fea0
         pullPolicy: IfNotPresent
       # [Example]
       # resources:
@@ -791,24 +791,6 @@ hubble:
       #     cpu: 100m
       #     memory: 64Mi
       # -- Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
-      resources: {}
-
-    proxy:
-      # -- Hubble-ui ingress proxy image.
-      image:
-        override: ~
-        repository: docker.io/envoyproxy/envoy
-        tag: v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935
-        pullPolicy: IfNotPresent
-      # [Example]
-      # resources:
-      #   limits:
-      #     cpu: 1000m
-      #     memory: 1024M
-      #   requests:
-      #     cpu: 100m
-      #     memory: 64Mi
-      # -- Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
       resources: {}
 
     # -- The number of replicas of Hubble UI to deploy.

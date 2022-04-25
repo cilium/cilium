@@ -16,7 +16,7 @@ spec:
       annotations:
 {{- if .Values.hubble.ui.rollOutPods }}
         # ensure pods roll when configmap updates
-        cilium.io/hubble-ui-envoy-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-ui-configmap.yaml") . | sha256sum | quote }}
+        cilium.io/hubble-ui-nginx-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-ui-configmap.yaml") . | sha256sum | quote }}
 {{- end }}
 {{- with .Values.hubble.ui.podAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -50,10 +50,14 @@ spec:
           image: "{{ if .Values.hubble.ui.frontend.image.override }}{{ .Values.hubble.ui.frontend.image.override }}{{ else }}{{ .Values.hubble.ui.frontend.image.repository }}:{{ .Values.hubble.ui.frontend.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.ui.frontend.image.pullPolicy }}
           ports:
-            - containerPort: 8080
+            - containerPort: 8081
               name: http
           resources:
             {{- toYaml .Values.hubble.ui.frontend.resources | trim | nindent 12 }}
+          volumeMounts:
+            - name: hubble-ui-nginx-conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: nginx.conf
         - name: backend
           image: "{{ if .Values.hubble.ui.backend.image.override }}{{ .Values.hubble.ui.backend.image.override }}{{ else }}{{ .Values.hubble.ui.backend.image.repository }}:{{ .Values.hubble.ui.backend.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.ui.backend.image.pullPolicy }}
@@ -67,28 +71,10 @@ spec:
               name: grpc
           resources:
             {{- toYaml .Values.hubble.ui.backend.resources  | trim | nindent 12 }}
-        - name: proxy
-          image: "{{ if .Values.hubble.ui.proxy.image.override }}{{ .Values.hubble.ui.proxy.image.override }}{{ else }}{{ .Values.hubble.ui.proxy.image.repository }}:{{ .Values.hubble.ui.proxy.image.tag }}{{ end }}"
-          imagePullPolicy: {{ .Values.hubble.ui.proxy.image.pullPolicy }}
-          ports:
-            - containerPort: 8081
-              name: http
-          resources:
-          {{- toYaml .Values.hubble.ui.proxy.resources | trim | nindent 12 }}
-          command: ["envoy"]
-          args:
-            [
-              "-c",
-              "/etc/envoy.yaml",
-              "-l",
-              "info"
-            ]
-          volumeMounts:
-            - name: hubble-ui-envoy-yaml
-              mountPath: /etc/envoy.yaml
-              subPath: envoy.yaml
+
       volumes:
-        - name: hubble-ui-envoy-yaml
-          configMap:
-            name: hubble-ui-envoy
+        - configMap:
+            defaultMode: 420
+            name: hubble-ui-nginx
+          name: hubble-ui-nginx-conf
 {{- end }}
