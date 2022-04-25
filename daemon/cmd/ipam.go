@@ -135,12 +135,12 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 		Status: st,
 	}
 
-	v4 := []string{}
+	v4 := make([]string, 0, len(allocv4))
 	for ip := range allocv4 {
 		v4 = append(v4, ip)
 	}
 
-	v6 := []string{}
+	v6 := make([]string, 0, len(allocv6))
 	if allocv4 == nil {
 		allocv4 = map[string]string{}
 	}
