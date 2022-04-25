@@ -1328,14 +1328,14 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.DevicePreFilter != "undefined" {
 		option.Config.EnableXDPPrefilter = true
 		found := false
-		for _, dev := range option.Config.Devices {
+		for _, dev := range option.Config.GetDevices() {
 			if dev == option.Config.DevicePreFilter {
 				found = true
 				break
 			}
 		}
 		if !found {
-			option.Config.Devices = append(option.Config.Devices, option.Config.DevicePreFilter)
+			option.Config.AppendDevice(option.Config.DevicePreFilter)
 		}
 		if err := loader.SetXDPMode(option.Config.ModePreFilter); err != nil {
 			scopedLog.WithError(err).Fatal("Cannot set prefilter XDP mode")
@@ -1406,9 +1406,9 @@ func initEnv(cmd *cobra.Command) {
 			log.WithField(logfields.Tunnel, option.Config.Tunnel).
 				Fatal("tunnel cannot be set in the 'ipvlan' datapath mode")
 		}
-		if len(option.Config.Devices) != 0 {
-			log.WithField(logfields.Devices, option.Config.Devices).
-				Fatal("device cannot be set in the 'ipvlan' datapath mode")
+		if len(option.Config.GetDevices()) != 0 {
+			log.WithField(logfields.Devices, option.Config.GetDevices()).
+				Fatal("devices cannot be set in the 'ipvlan' datapath mode")
 		}
 		if option.Config.EnableIPSec {
 			log.Fatal("Currently ipsec cannot be used in the 'ipvlan' datapath mode.")
@@ -1425,13 +1425,13 @@ func initEnv(cmd *cobra.Command) {
 		// ipvlan it is desired to have a separate one, see PR #6608.
 		iface := option.Config.IpvlanMasterDevice
 		if iface == "undefined" {
-			log.WithField(logfields.IpvlanMasterDevice, option.Config.Devices[0]).
+			log.WithField(logfields.IpvlanMasterDevice, iface).
 				Fatal("ipvlan master device must be specified in the 'ipvlan' datapath mode")
 		}
-		option.Config.Devices = []string{iface}
-		link, err := netlink.LinkByName(option.Config.Devices[0])
+		option.Config.SetDevices([]string{iface})
+		link, err := netlink.LinkByName(iface)
 		if err != nil {
-			log.WithError(err).WithField(logfields.IpvlanMasterDevice, option.Config.Devices[0]).
+			log.WithError(err).WithField(logfields.IpvlanMasterDevice, iface).
 				Fatal("Cannot find device interface")
 		}
 		option.Config.Ipvlan.MasterDeviceIndex = link.Attrs().Index

@@ -39,7 +39,7 @@ var _ = Suite(&DevicesSuite{})
 func (s *DevicesSuite) SetUpSuite(c *C) {
 	var err error
 
-	s.prevConfigDevices = option.Config.Devices
+	s.prevConfigDevices = option.Config.GetDevices()
 	s.prevConfigDirectRoutingDevice = option.Config.DirectRoutingDevice
 	s.prevConfigEnableIPv4 = option.Config.EnableIPv4
 	s.prevConfigEnableIPv6 = option.Config.EnableIPv6
@@ -53,7 +53,7 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 }
 
 func (s *DevicesSuite) TearDownTest(c *C) {
-	option.Config.Devices = s.prevConfigDevices
+	option.Config.SetDevices(s.prevConfigDevices)
 	option.Config.DirectRoutingDevice = s.prevConfigDirectRoutingDevice
 	option.Config.EnableIPv4 = s.prevConfigEnableIPv4
 	option.Config.EnableIPv6 = s.prevConfigEnableIPv6
@@ -69,7 +69,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		dm, err := NewDeviceManager()
 		c.Assert(err, IsNil)
 
-		option.Config.Devices = []string{}
+		option.Config.SetDevices([]string{})
 		option.Config.DirectRoutingDevice = ""
 
 		// 1. No devices, nothing to detect.
@@ -85,22 +85,21 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
-		c.Assert(dm.GetDevices(), checker.DeepEquals, devices)
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "")
 
 		// 3. Manually specified devices, no detection is performed
 		option.Config.EnableNodePort = true
 		node.SetK8sNodeIP(net.ParseIP("192.168.0.1"))
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
-		option.Config.Devices = []string{"dummy0"}
+		option.Config.SetDevices([]string{"dummy0"})
 
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
-		c.Assert(dm.GetDevices(), checker.DeepEquals, devices)
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "")
-
-		option.Config.Devices = []string{}
+		option.Config.SetDevices([]string{})
 
 		// 4. Direct routing mode, should find all devices and set direct
 		// routing device to the one with k8s node ip.
@@ -114,9 +113,10 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
-		c.Assert(dm.GetDevices(), checker.DeepEquals, devices)
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
 		option.Config.DirectRoutingDevice = ""
+		option.Config.SetDevices([]string{})
 
 		// 5. Use IPv6 node IP and enable IPv6NDP and check that multicast device is detected.
 		// Use an excluded device name to verify that device with NodeIP is still picked.
@@ -127,38 +127,49 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2"})
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, checker.Equals, "cilium_foo")
 		c.Assert(option.Config.IPv6MCastDevice, checker.DeepEquals, "cilium_foo")
 		option.Config.DirectRoutingDevice = ""
+		option.Config.SetDevices([]string{})
 
 		// 6. Only consider veth devices if they have a default route.
 		c.Assert(createVeth("veth0", "192.168.4.1/24", false), IsNil)
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2"})
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
+		option.Config.SetDevices([]string{})
 
 		c.Assert(addRoute(addRouteParams{iface: "veth0", gw: "192.168.4.254", table: unix.RT_TABLE_MAIN}), IsNil)
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "veth0"})
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
+		option.Config.SetDevices([]string{})
 
 		// 7. Detect devices that only have routes in non-main tables
 		c.Assert(addRoute(addRouteParams{iface: "dummy3", dst: "192.168.3.1/24", scope: unix.RT_SCOPE_LINK, table: 11}), IsNil)
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "dummy3", "veth0"})
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
+		option.Config.SetDevices([]string{})
 
 		// 8. Skip bridge devices, and devices added to the bridge
 		c.Assert(createBridge("br0", "192.168.5.1/24", false), IsNil)
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "dummy3", "veth0"})
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
+		option.Config.SetDevices([]string{})
 
 		c.Assert(setMaster("dummy3", "br0"), IsNil)
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "veth0"})
-		option.Config.Devices = []string{}
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
+		option.Config.SetDevices([]string{})
 
 		// 9. Don't skip bond devices, but do skip bond slaves.
 		c.Assert(createBond("bond0", "192.168.6.1/24", false), IsNil)
@@ -166,6 +177,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect()
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"bond0", "cilium_foo", "dummy0", "dummy1", "veth0"})
+		option.Config.SetDevices([]string{})
 	})
 }
 
@@ -181,12 +193,12 @@ func (s *DevicesSuite) TestExpandDevices(c *C) {
 		c.Assert(err, IsNil)
 
 		// 1. Check expansion works and non-matching prefixes are ignored
-		option.Config.Devices = []string{"dummy+", "missing+", "other0+" /* duplicates: */, "dum+", "other0", "other1"}
+		option.Config.SetDevices([]string{"dummy+", "missing+", "other0+" /* duplicates: */, "dum+", "other0", "other1"})
 		c.Assert(dm.expandDevices(), IsNil)
-		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy0", "dummy1", "other0", "other1"})
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, []string{"dummy0", "dummy1", "other0", "other1"})
 
 		// 2. Check that expansion fails if devices are specified but yields empty expansion
-		option.Config.Devices = []string{"none+"}
+		option.Config.SetDevices([]string{"none+"})
 		c.Assert(dm.expandDevices(), NotNil)
 	})
 }
@@ -218,7 +230,7 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 
 		timeout := time.After(time.Second)
 
-		option.Config.Devices = []string{}
+		option.Config.SetDevices([]string{})
 		dm, err := NewDeviceManager()
 		c.Assert(err, IsNil)
 
@@ -277,7 +289,7 @@ func (s *DevicesSuite) TestListenForNewDevicesFiltered(c *C) {
 
 		timeout := time.After(time.Second)
 
-		option.Config.Devices = []string{"dummy+"}
+		option.Config.SetDevices([]string{"dummy+"})
 		dm, err := NewDeviceManager()
 		c.Assert(err, IsNil)
 
@@ -312,7 +324,7 @@ func (s *DevicesSuite) TestListenAfterDelete(c *C) {
 
 		timeout := time.After(time.Second)
 
-		option.Config.Devices = []string{"dummy+"}
+		option.Config.SetDevices([]string{"dummy+"})
 		dm, err := NewDeviceManager()
 		c.Assert(err, IsNil)
 

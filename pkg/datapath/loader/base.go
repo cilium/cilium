@@ -108,7 +108,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.Devices, " "))
+	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.GetDevices(), " "))
 	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.ModePreFilter)
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
@@ -213,11 +213,11 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 }
 
 func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
-	maybeUnloadObsoleteXDPPrograms(option.Config.Devices, option.Config.XDPMode)
+	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode)
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}
-	for _, dev := range option.Config.Devices {
+	for _, dev := range option.Config.GetDevices() {
 		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
 			return err
 		}
@@ -269,7 +269,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initArgSysDir] = filepath.Join("/sys", "class", "net")
 
 	if option.Config.EnableXDPPrefilter {
-		scopedLog := log.WithField(logfields.Devices, option.Config.Devices)
+		scopedLog := log.WithField(logfields.Devices, option.Config.GetDevices())
 
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
@@ -327,9 +327,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgHostReachableServicesPeer] = "false"
 	}
 
-	devices := make([]netlink.Link, 0, len(option.Config.Devices))
-	if len(option.Config.Devices) != 0 {
-		for _, device := range option.Config.Devices {
+	devices := make([]netlink.Link, 0, len(option.Config.GetDevices()))
+	if len(option.Config.GetDevices()) != 0 {
+		for _, device := range option.Config.GetDevices() {
 			link, err := netlink.LinkByName(device)
 			if err != nil {
 				log.WithError(err).WithField("device", device).Warn("Link does not exist")
@@ -337,7 +337,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			}
 			devices = append(devices, link)
 		}
-		args[initArgDevices] = strings.Join(option.Config.Devices, ";")
+		args[initArgDevices] = strings.Join(option.Config.GetDevices(), ";")
 	} else {
 		args[initArgDevices] = "<nil>"
 	}

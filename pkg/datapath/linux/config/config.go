@@ -609,7 +609,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 // are written to node_config.h
 func vlanFilterMacros() (string, error) {
 	devices := make(map[int]bool)
-	for _, device := range option.Config.Devices {
+	for _, device := range option.Config.GetDevices() {
 		ifindex, err := link.GetIfIndex(device)
 		if err != nil {
 			return "", err
@@ -684,7 +684,7 @@ func devMacros() (string, string, error) {
 	macByIfIndex := make(map[int]string)
 	l3DevIfIndices := make([]int, 0)
 
-	for _, iface := range option.Config.Devices {
+	for _, iface := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
@@ -782,7 +782,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))
 
 		// Use templating for ETH_HLEN only if there is any L2-less device
-		if !mac.HaveMACAddrs(option.Config.Devices) {
+		if !mac.HaveMACAddrs(option.Config.GetDevices()) {
 			// L2 hdr len (for L2-less devices it will be replaced with "0")
 			fmt.Fprint(fw, defineUint32("ETH_HLEN", mac.EthHdrLen))
 		}
@@ -863,7 +863,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 			return err
 		}
 		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
-		if len(option.Config.Devices) == 1 {
+		if len(option.Config.GetDevices()) == 1 {
 			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
 		}
 	}
