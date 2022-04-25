@@ -231,24 +231,29 @@ func Delete(ip net.IP, compat bool) error {
 	return nil
 }
 
-// SetupRules installs routing rules based on the passed attributes. It accounts
-// for option.Config.EgressMultiHomeIPRuleCompat while configuring the rules.
-func SetupRules(from, to *net.IPNet, mac string, ifaceNum int) error {
-	var (
-		prio    int
-		tableId int
-	)
-
+// getPriorityAndTableId computes priority and table ID needed for IP rules by accounting for
+// option.Config.EgressMultiHomeIPRuleCompat flag.
+func getPriorityAndTableId(mac string, ifaceNum int) (prio int, tableId int, err error) {
 	if option.Config.EgressMultiHomeIPRuleCompat {
 		prio = linux_defaults.RulePriorityEgress
 		ifindex, err := retrieveIfaceIdxFromMAC(mac)
 		if err != nil {
-			return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
+			return prio, tableId, fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
 		}
 		tableId = ifindex
 	} else {
 		prio = linux_defaults.RulePriorityEgressv2
 		tableId = computeTableIDFromIfaceNumber(ifaceNum)
+	}
+	return prio, tableId, nil
+}
+
+// SetupRule installs routing rule based on the passed attributes. It accounts
+// for option.Config.EgressMultiHomeIPRuleCompat while configuring the rules.
+func SetupRule(from, to *net.IPNet, mac string, ifaceNum int) error {
+	prio, tableId, err := getPriorityAndTableId(mac, ifaceNum)
+	if err != nil {
+		return err
 	}
 	return route.ReplaceRule(route.Rule{
 		Priority: prio,
@@ -256,6 +261,22 @@ func SetupRules(from, to *net.IPNet, mac string, ifaceNum int) error {
 		To:       to,
 		Table:    tableId,
 	})
+}
+
+// DeleteRule deletes the routing rule based on the passed attributes. It accounts
+// for option.Config.EgressMultiHomeIPRuleCompat while deleting the rule.
+func DeleteRule(from, to *net.IPNet, mac string, ifaceNum int) error {
+	prio, tableId, err := getPriorityAndTableId(mac, ifaceNum)
+	if err != nil {
+		return err
+	}
+	rule := route.Rule{
+		Priority: prio,
+		From:     from,
+		To:       to,
+		Table:    tableId,
+	}
+	return deleteRule(rule)
 }
 
 // RetrieveIfaceNameFromMAC finds the corresponding device name for a

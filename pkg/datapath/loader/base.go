@@ -163,9 +163,11 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing types.NodeAddressi
 		Mask: net.CIDRMask(32, 32),
 	}
 
-	for _, cidr := range cidrs {
-		if err = linuxrouting.SetupRules(&routerIP, &cidr, info.GetMac().String(), info.GetInterfaceNumber()); err != nil {
-			return nil, fmt.Errorf("unable to install ip rule for cilium_host: %w", err)
+	if option.Config.EnableIPSec {
+		for _, cidr := range cidrs {
+			if err = linuxrouting.SetupRule(&routerIP, &cidr, info.GetMac().String(), info.GetInterfaceNumber()); err != nil {
+				return nil, fmt.Errorf("unable to install ip rule for cilium_host: %w", err)
+			}
 		}
 	}
 

@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
@@ -357,9 +358,41 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 		if err := netlink.AddrDel(l, &a); err != nil {
 			errs = append(errs, fmt.Errorf("failed to remove IP %s: %w", a.IP, err))
 		}
+		// Clean up old router based IP rules installed for encryption. See https://github.com/cilium/cilium/pull/14924
+		// Previously, these rules were always installed in ENI mode. This clean up is not gated with IPsec to handle
+		// for cases where a rollout disables IPsec or if user upgrades from prior versions.
+		if option.Config.IPAM == ipamOption.IPAMENI {
+			err := removeOldRouterIPRules(a.IP)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to remove IP rule for old router IP %s: %w", a.IP, err))
+			}
+		}
 	}
 	if len(errs) > 0 {
-		return fmt.Errorf("failed to remove all old router IPs: %v", errs)
+		return fmt.Errorf("failed to clean up old router state: %v", errs)
+	}
+
+	return nil
+}
+
+// removeOldRouterIPRules cleans up IP rules installed for the old router IP.
+func removeOldRouterIPRules(ip net.IP) error {
+	info := node.GetRouterInfo()
+	cidrs := info.GetIPv4CIDRs()
+	routerIP := net.IPNet{
+		IP:   ip,
+		Mask: net.CIDRMask(32, 32),
+	}
+	var errs []error
+	for _, cidr := range cidrs {
+		err := linuxrouting.DeleteRule(&routerIP, &cidr, info.GetMac().String(), info.GetInterfaceNumber())
+		if err != nil && !errors.Is(err, unix.ENOENT) {
+			// Ignore rules that are already deleted.
+			errs = append(errs, fmt.Errorf("unable to delete ip rule from %s to %s: %w", ip.String(), cidr.String(), err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to clean up ip rules for cilium_host: %v", errs)
 	}
 
 	return nil
