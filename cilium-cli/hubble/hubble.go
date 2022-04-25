@@ -178,6 +178,31 @@ func (k *K8sHubble) Log(format string, a ...interface{}) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 
+func (k *K8sHubble) generatePeerService() *corev1.Service {
+	var (
+		svcFilename string
+	)
+	ciliumVer := k.semVerCiliumVersion
+	switch {
+	case versioncheck.MustCompile(">1.11.0")(ciliumVer):
+		svcFilename = "templates/cilium-agent/peer-service.yaml"
+	case versioncheck.MustCompile(">1.9.0")(ciliumVer):
+		svcFilename = "templates/cilium-agent-peer-service.yaml"
+	}
+	if svcFilename == "" {
+		return nil
+	}
+
+	svcFile, ok := k.manifests[svcFilename]
+	if !ok || len(strings.TrimSpace(svcFile)) == 0 {
+		return nil
+	}
+
+	var svc corev1.Service
+	utils.MustUnmarshalYAML([]byte(svcFile), &svc)
+	return &svc
+}
+
 func (k *K8sHubble) Validate(ctx context.Context) error {
 	var failures int
 	k.Log("✨ Validating cluster configuration...")
@@ -260,6 +285,10 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 
 	if err := k.disableRelay(ctx); err != nil {
 		return err
+	}
+
+	if peerSvc := k.generatePeerService(); peerSvc != nil {
+		k.client.DeleteService(ctx, peerSvc.GetNamespace(), peerSvc.GetName(), metav1.DeleteOptions{})
 	}
 
 	// Now that we have delete all UI and Relay's resource names then we can
@@ -537,6 +566,12 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		}
 
 		warnFreePods = append(warnFreePods, podsName)
+	}
+
+	if peerSvc := k.generatePeerService(); peerSvc != nil {
+		if _, err := k.client.CreateService(ctx, k.params.Namespace, peerSvc, metav1.CreateOptions{}); err != nil {
+			return err
+		}
 	}
 
 	if k.params.UI {
