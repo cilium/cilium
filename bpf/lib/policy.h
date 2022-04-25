@@ -186,6 +186,18 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 				return DROP_POLICY_DENY;
 			return policy->proxy_port;
 		}
+		
+		/* L4-only lookup, If not fill out port*/
+		key.dport = 0;
+		policy = map_lookup_elem(map, &key);
+		if (likely(policy)) {
+			account(ctx, policy);
+			*match_type = POLICY_MATCH_L4_ONLY;
+			if (unlikely(policy->deny))
+				return DROP_POLICY_DENY;
+			return policy->proxy_port;
+		}
+		
 		key.sec_label = remote_id;
 	}
 
