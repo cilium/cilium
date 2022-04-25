@@ -162,13 +162,17 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 
 	for i := 0; i < e.NumField(); i++ {
 		if e.Field(i).Kind() != reflect.Func {
-			// Remove configurable opttions from read-only map
-			if e.Type().Field(i).Name != "Opts" && e.Type().Field(i).Name != "ConfigPatchMutex" {
+			field := e.Type().Field(i)
+			// Only consider exported fields and ignore the mutable options.
+			if field.IsExported() && field.Name != "Opts" && field.Name != "ConfigPatchMutex" {
 				m[e.Type().Field(i).Name] = e.Field(i).Interface()
 			}
 		}
 	}
 	option.Config.ConfigPatchMutex.RUnlock()
+
+	// Manually add fields that are behind accessors.
+	m["Devices"] = option.Config.GetDevices()
 
 	spec := &models.DaemonConfigurationSpec{
 		Options:           *option.Config.Opts.GetMutableModel(),

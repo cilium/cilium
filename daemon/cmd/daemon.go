@@ -857,15 +857,13 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	if devices, err := d.deviceManager.Detect(); err != nil {
+	if _, err := d.deviceManager.Detect(); err != nil {
 		if d.deviceManager.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
 		}
 		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 		disableNodePort()
-	} else {
-		option.Config.Devices = devices
 	}
 	if err := finishKubeProxyReplacementInit(isKubeProxyReplacementStrict); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
@@ -930,7 +928,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			log.WithError(err).Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
 			return nil, nil, fmt.Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
 		}
-		if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
+		if err := node.InitBPFMasqueradeAddrs(option.Config.GetDevices()); err != nil {
 			log.WithError(err).Error("failed to determine BPF masquerade IPv4 addrs")
 			return nil, nil, fmt.Errorf("failed to determine BPF masquerade IPv4 addrs: %w", err)
 		}
@@ -956,7 +954,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			return nil, nil, fmt.Errorf("BPF ip-masq-agent needs kernel 4.16 or newer")
 		}
 	}
-	if option.Config.EnableHostFirewall && len(option.Config.Devices) == 0 {
+	if option.Config.EnableHostFirewall && len(option.Config.GetDevices()) == 0 {
 		msg := "host firewall's external facing device could not be determined. Use --%s to specify."
 		log.WithError(err).Errorf(msg, option.Devices)
 		return nil, nil, fmt.Errorf(msg, option.Devices)
@@ -1237,7 +1235,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 // ReloadOnDeviceChange regenerates device related information and reloads the datapath.
 // The devices is the new set of devices that replaces the old set.
 func (d *Daemon) ReloadOnDeviceChange(devices []string) {
-	option.Config.Devices = devices
+	option.Config.SetDevices(devices)
 
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {

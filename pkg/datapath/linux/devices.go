@@ -60,7 +60,7 @@ func NewDeviceManagerAt(netns netns.NsHandle) (*DeviceManager, error) {
 	}
 	return &DeviceManager{
 		devices: make(map[string]struct{}),
-		filter:  deviceFilter(option.Config.Devices),
+		filter:  deviceFilter(option.Config.GetDevices()),
 		handle:  handle,
 		netns:   netns,
 	}, err
@@ -92,7 +92,7 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 		l3DevOK = supportL3Dev()
 	}
 
-	if len(option.Config.Devices) == 0 && dm.AreDevicesRequired() {
+	if len(option.Config.GetDevices()) == 0 && dm.AreDevicesRequired() {
 		// Detect the devices from the system routing table by finding the devices
 		// which have global unicast routes.
 		family := netlink.FAMILY_ALL
@@ -108,7 +108,7 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 		}
 		dm.updateDevicesFromRoutes(l3DevOK, routes)
 	} else {
-		for _, dev := range option.Config.Devices {
+		for _, dev := range option.Config.GetDevices() {
 			dm.devices[dev] = struct{}{}
 		}
 	}
@@ -163,12 +163,13 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 		}
 	}
 
-	deviceList := dm.getDevices()
+	deviceList := dm.getDeviceList()
+	option.Config.SetDevices(deviceList)
 	log.WithField(logfields.Devices, deviceList).Info("Detected devices")
 	return deviceList, nil
 }
 
-func (dm *DeviceManager) getDevices() []string {
+func (dm *DeviceManager) getDeviceList() []string {
 	devs := make([]string, 0, len(dm.devices))
 	for dev := range dm.devices {
 		devs = append(devs, dev)
@@ -179,13 +180,6 @@ func (dm *DeviceManager) getDevices() []string {
 
 // Exclude devices that have one or more of these flags set.
 var excludedIfFlagsMask uint32 = unix.IFF_SLAVE | unix.IFF_LOOPBACK
-
-// GetDevices returns the current set of devices.
-func (dm *DeviceManager) GetDevices() []string {
-	dm.Lock()
-	defer dm.Unlock()
-	return dm.getDevices()
-}
 
 // isViableDevice returns true if the given link is usable and Cilium should attach
 // programs to it.
@@ -350,7 +344,7 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 				changed = true
 			}
 		}
-		devices := dm.getDevices()
+		devices := dm.getDeviceList()
 		dm.Unlock()
 
 		if changed {
@@ -364,6 +358,7 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 
 		for {
 			devicesChanged := false
+			var devices []string
 
 			select {
 			case <-ctx.Done():
@@ -381,6 +376,7 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 				if update.Type == unix.RTM_NEWROUTE {
 					dm.Lock()
 					devicesChanged = dm.updateDevicesFromRoutes(l3DevOK, []netlink.Route{update.Route})
+					devices = dm.getDeviceList()
 					dm.Unlock()
 				}
 
@@ -392,12 +388,12 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 						delete(dm.devices, name)
 						devicesChanged = true
 					}
+					devices = dm.getDeviceList()
 					dm.Unlock()
 				}
 			}
 
 			if devicesChanged {
-				devices := dm.GetDevices()
 				log.WithField(logfields.Devices, devices).Info("Devices changed")
 				devicesChan <- devices
 			}
@@ -415,11 +411,11 @@ func (dm *DeviceManager) AreDevicesRequired() bool {
 // expandDevices expands all wildcard device names to concrete devices.
 // e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
 func (dm *DeviceManager) expandDevices() error {
-	expandedDevices, err := dm.expandDeviceWildcards(option.Config.Devices, option.Devices)
+	expandedDevices, err := dm.expandDeviceWildcards(option.Config.GetDevices(), option.Devices)
 	if err != nil {
 		return err
 	}
-	option.Config.Devices = expandedDevices
+	option.Config.SetDevices(expandedDevices)
 	return nil
 }
 

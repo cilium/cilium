@@ -195,7 +195,7 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 // will return with an error. Failing to load or to attach the host device
 // always results in reloadHostDatapath returning with an error.
 func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string) error {
-	nbInterfaces := len(option.Config.Devices) + 2
+	nbInterfaces := len(option.Config.GetDevices()) + 2
 	symbols := make([]string, 2, nbInterfaces)
 	directions := make([]string, 2, nbInterfaces)
 	objPaths := make([]string, 2, nbInterfaces)
@@ -223,7 +223,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	bpfMasqIPv4Addrs := node.GetMasqIPv4AddrsWithDevices()
 
-	for _, device := range option.Config.Devices {
+	for _, device := range option.Config.GetDevices() {
 		if _, err := netlink.LinkByName(device); err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")
 			continue

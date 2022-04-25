@@ -162,12 +162,7 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 		s.CongestionControl = models.BandwidthManagerCongestionControlBbr
 	}
 
-	devices := make([]string, len(option.Config.Devices))
-	for i, iface := range option.Config.Devices {
-		devices[i] = iface
-	}
-
-	s.Devices = devices
+	s.Devices = option.Config.GetDevices()
 	return s
 }
 
@@ -184,13 +179,9 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 	if option.Config.EnableHostFirewall {
 		mode = models.HostFirewallModeEnabled
 	}
-	devices := make([]string, len(option.Config.Devices))
-	for i, iface := range option.Config.Devices {
-		devices[i] = iface
-	}
 	return &models.HostFirewall{
 		Mode:    mode,
-		Devices: devices,
+		Devices: option.Config.GetDevices(),
 	}
 }
 
@@ -227,12 +218,11 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devicesLegacy := make([]string, len(option.Config.Devices))
-	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(option.Config.Devices))
+	devicesLegacy := option.Config.GetDevices()
+	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(devicesLegacy))
 	v4Addrs := node.GetNodePortIPv4AddrsWithDevices()
 	v6Addrs := node.GetNodePortIPv6AddrsWithDevices()
-	for i, iface := range option.Config.Devices {
-		devicesLegacy[i] = iface
+	for i, iface := range devicesLegacy {
 		info := &models.KubeProxyReplacementDeviceListItems0{
 			Name: iface,
 			IP:   make([]string, 0),
