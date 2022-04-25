@@ -87,7 +87,7 @@ Service Mesh (in no particular order) are:
   * Support for additional annotations
  
 * Graduating Prometheus metrics and OpenTelemetry collector to stable
-* Using Kubernetes as servicemesh control plane 
+* Using Kubernetes as service mesh control plane 
  
   * Simple to use sidecar-free service mesh configured using Kubernetes Services
     and Ingress with support for additional annotations
@@ -138,7 +138,7 @@ following features to graduate to stable:
 * :ref:`Local Redirect Policy<local-redirect-policy>`
 * :ref:`Egress Gateway<egress-gateway>`
 * :ref:`CiliumEndpointSlice<gsg_ces>`
-* `Maglev Consistent Hashing`_
+* :ref:`Maglev Consistent Hashing<maglev>`
 
 .. _rm-hubble-observability:
 
@@ -189,7 +189,9 @@ channel on `Cilium Slack <slack_>`_ and/or bring them to the :ref:`weekly-commun
 This roadmap does not give date commitments since the work is dependent on the
 community. If you're looking for commitments to apply engineering resources to
 work on particular features, one option is to discuss this with the companies
-who offer `commercial distributions of Cilium <enterprise_>`_ and may be able to help. 
+who offer `commercial distributions of Cilium <enterprise_>`_ and may be able to
+help. 
+
 Changes to this roadmap page 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -209,5 +211,3 @@ anything other than trivial fixes.
 .. _good-first-issue: https://github.com/cilium/cilium/labels/good-first-issue
 .. _slack: https://cilium.io/slack
 .. _enterprise: https://cilium.io/enterprise
-
-.. _Maglev Consistent Hashing: ../../gettingstarted/kubeproxy-free.html#maglev-consistent-hashing-beta

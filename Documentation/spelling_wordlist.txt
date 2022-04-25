@@ -270,6 +270,7 @@ configMap
 configMapKey
 configmap
 configs
+conformant
 conntrack
 conntrackGCInterval
 containerRuntime
