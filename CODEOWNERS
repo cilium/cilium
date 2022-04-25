@@ -99,7 +99,10 @@ Makefile* @cilium/build
 /Documentation/check-examples.sh @cilium/docs-structure
 /Documentation/check-helmvalues.sh @cilium/docs-structure
 /Documentation/cmdref/
-/Documentation/community.rst @cilium/contributing
+/Documentation/community/community.rst @cilium/contributing
+/Documentation/community/governance/ @cilium/contributing
+/Documentation/community/governance/commit_access.rst @cilium/contributing @cilium/docs-structure
+/Documentation/community/roadmap.rst @cilium/contributing @cilium/docs-structure
 /Documentation/concepts/clustermesh @cilium/sig-clustermesh @cilium/docs-structure
 /Documentation/concepts/ebpf/ @cilium/bpf @cilium/docs-structure
 /Documentation/concepts/index.rst @cilium/docs-structure
