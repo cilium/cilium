@@ -174,12 +174,10 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 	owner := newDummyOwner()
 	events := make(allocator.AllocatorEventChan, 1024)
 	watcher := identityWatcher{
-		stopChan: make(chan struct{}),
-		owner:    owner,
+		owner: owner,
 	}
 
 	watcher.watch(events)
-	defer close(watcher.stopChan)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
 	key := GlobalIdentity{lbls.LabelArray()}

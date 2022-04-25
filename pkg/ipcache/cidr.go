@@ -29,6 +29,7 @@ import (
 //
 // Previously used numeric identities for the given prefixes may be passed in as the
 // 'oldNIDs' parameter; nil slice must be passed if no previous numeric identities exist.
+// Previously used NID is allocated if still available. Non-availability is not an error.
 //
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
