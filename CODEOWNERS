@@ -116,7 +116,6 @@ Makefile* @cilium/build
 /Documentation/conf.py @cilium/docs-structure
 /Documentation/configuration/index.rst @cilium/docs-structure
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
-/Documentation/contributing/governance/commit_access.rst @cilium/contributing @cilium/docs-structure
 /Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettinghelp.rst @cilium/contributing @cilium/docs-structure
 /Documentation/gettingstarted/alibabacloud* @cilium/alibabacloud @cilium/docs-structure
