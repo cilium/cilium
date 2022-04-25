@@ -43,81 +43,10 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hubble-ui-envoy
+  name: hubble-ui-nginx
   namespace: kube-system
 data:
-  envoy.yaml: |
-    static_resources:
-      listeners:
-        - name: listener_hubble_ui
-          address:
-            socket_address:
-              address: 0.0.0.0
-              port_value: 8081
-          filter_chains:
-            - filters:
-                - name: envoy.filters.network.http_connection_manager
-                  typed_config:
-                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-                    codec_type: auto
-                    stat_prefix: ingress_http
-                    route_config:
-                      name: local_route
-                      virtual_hosts:
-                        - name: local_service
-                          domains: ["*"]
-                          routes:
-                            - match:
-                                prefix: "/api/"
-                              route:
-                                cluster: backend
-                                prefix_rewrite: "/"
-                                timeout: 0s
-                                max_stream_duration:
-                                  grpc_timeout_header_max: 0s
-                            - match:
-                                prefix: "/"
-                              route:
-                                cluster: frontend
-                          cors:
-                            allow_origin_string_match:
-                              - prefix: "*"
-                            allow_methods: GET, PUT, DELETE, POST, OPTIONS
-                            allow_headers: keep-alive,user-agent,cache-control,content-type,content-transfer-encoding,x-accept-content-transfer-encoding,x-accept-response-streaming,x-user-agent,x-grpc-web,grpc-timeout
-                            max_age: "1728000"
-                            expose_headers: grpc-status,grpc-message
-                    http_filters:
-                      - name: envoy.filters.http.grpc_web
-                      - name: envoy.filters.http.cors
-                      - name: envoy.filters.http.router
-      clusters:
-        - name: frontend
-          connect_timeout: 0.25s
-          type: strict_dns
-          lb_policy: round_robin
-          load_assignment:
-            cluster_name: frontend
-            endpoints:
-              - lb_endpoints:
-                  - endpoint:
-                      address:
-                        socket_address:
-                          address: 127.0.0.1
-                          port_value: 8080
-        - name: backend
-          connect_timeout: 0.25s
-          type: logical_dns
-          lb_policy: round_robin
-          http2_protocol_options: {}
-          load_assignment:
-            cluster_name: backend
-            endpoints:
-              - lb_endpoints:
-                  - endpoint:
-                      address:
-                        socket_address:
-                          address: 127.0.0.1
-                          port_value: 8090
+  nginx.conf: "server {\n    listen       8081;\n    listen       [::]:8081;\n    server_name  localhost;\n    root /app;\n    index index.html;\n    client_max_body_size 1G;\n\n    location / {\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n\n        # CORS\n        add_header Access-Control-Allow-Methods \"GET, POST, PUT, HEAD, DELETE, OPTIONS\";\n        add_header Access-Control-Allow-Origin *;\n        add_header Access-Control-Max-Age 1728000;\n        add_header Access-Control-Expose-Headers content-length,grpc-status,grpc-message;\n        add_header Access-Control-Allow-Headers range,keep-alive,user-agent,cache-control,content-type,content-transfer-encoding,x-accept-content-transfer-encoding,x-accept-response-streaming,x-user-agent,x-grpc-web,grpc-timeout;\n        if ($request_method = OPTIONS) {\n            return 204;\n        }\n        # /CORS\n\n        location /api {\n            proxy_http_version 1.1;\n            proxy_pass_request_headers on;\n            proxy_hide_header Access-Control-Allow-Origin;\n            proxy_pass http://127.0.0.1:8090;\n        }\n\n        location / {\n            try_files $uri $uri/ /index.html;\n        }\n    }\n}"
 ---
 # Source: cilium/templates/hubble-generate-certs-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -383,15 +312,19 @@ spec:
       serviceAccountName: hubble-ui
       containers:
         - name: frontend
-          image: "quay.io/cilium/hubble-ui:v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4"
+          image: "quay.io/cilium/hubble-ui:v0.9.0@sha256:0ef04e9a29212925da6bdfd0ba5b581765e41a01f1cc30563cef9b30b457fea0"
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - containerPort: 8081
               name: http
           resources:
             {}
+          volumeMounts:
+            - name: hubble-ui-nginx-conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: nginx.conf
         - name: backend
-          image: "quay.io/cilium/hubble-ui-backend:v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed"
+          image: "quay.io/cilium/hubble-ui-backend:v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b"
           imagePullPolicy: IfNotPresent
           env:
             - name: EVENTS_SERVER_PORT
@@ -403,30 +336,12 @@ spec:
               name: grpc
           resources:
             {}
-        - name: proxy
-          image: "docker.io/envoyproxy/envoy:v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"
-          imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 8081
-              name: http
-          resources:
-            {}
-          command: ["envoy"]
-          args:
-            [
-              "-c",
-              "/etc/envoy.yaml",
-              "-l",
-              "info"
-            ]
-          volumeMounts:
-            - name: hubble-ui-envoy-yaml
-              mountPath: /etc/envoy.yaml
-              subPath: envoy.yaml
+
       volumes:
-        - name: hubble-ui-envoy-yaml
-          configMap:
-            name: hubble-ui-envoy
+        - configMap:
+            defaultMode: 420
+            name: hubble-ui-nginx
+          name: hubble-ui-nginx-conf
 ---
 # Source: cilium/templates/hubble-generate-certs-job.yaml
 apiVersion: batch/v1
