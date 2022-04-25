@@ -174,6 +174,10 @@ Users (Alphabetically)
       L: kops.sigs.k8s.io/
       Q: @olemarkus
 
+    * N: Kryptos Logic
+      D: Kryptos is a cyber security company that is using Kubernetes on-prem in which Cilium is our CNI of choice.
+      U: Networking, Observability, kube-proxy replacement
+
     * N: Kubermatic
       D: Kubermatic Kubernetes Platform is using Cilium as a one of the supported CNIs.
       U: Networking, network policy, Hubble for network visibility
