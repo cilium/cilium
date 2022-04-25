@@ -315,6 +315,8 @@ be lost on its path to the service endpoint.
   or :ref:`Hybrid<Hybrid Mode>` mode if only TCP-based services are exposed to the outside
   world for the latter.
 
+.. _maglev:
+
 Maglev Consistent Hashing (Beta)
 ********************************
 
@@ -348,7 +350,7 @@ There are two more Maglev-specific configuration settings: ``maglev.tableSize``
 and ``maglev.hashSeed``.
 
 ``maglev.tableSize`` specifies the size of the Maglev lookup table for each single service.
-`Maglev <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`_
+`Maglev <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`__
 recommends the table size (``M``) to be significantly larger than the number of maximum expected
 backends (``N``). In practice that means that ``M`` should be larger than ``100 * N`` in
 order to guarantee the property of at most 1% difference in the reassignments on backend
