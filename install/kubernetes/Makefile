@@ -3,9 +3,8 @@
 
 include Makefile.digests ../../Makefile.defs
 
-HUBBLE_PROXY_VERSION := "v1.18.4@sha256:e5c2bb2870d0e59ce917a5100311813b4ede96ce4eb0c6bfa879e3fbe3e83935"
-HUBBLE_UI_VERSION := "v0.8.5@sha256:4eaca1ec1741043cfba6066a165b3bf251590cf4ac66371c4f63fbed2224ebb4"
-HUBBLE_UI_BACKEND_VERSION := "v0.8.5@sha256:2bce50cf6c32719d072706f7ceccad654bfa907b2745a496da99610776fe31ed"
+HUBBLE_UI_VERSION := "v0.9.0@sha256:0ef04e9a29212925da6bdfd0ba5b581765e41a01f1cc30563cef9b30b457fea0"
+HUBBLE_UI_BACKEND_VERSION := "v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b"
 MANAGED_ETCD_VERSION := "v2.0.7"
 ETCD_VERSION := "v3.4.13"
 NODEINIT_VERSION := "62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
@@ -118,8 +117,6 @@ update-versions:
 		sed -i '/repository.*etcd-operator.*/{!b;n;s/tag.*/tag: '$(MANAGED_ETCD_VERSION)'/}' $(CILIUM_VALUES)		\
 		# clustermesh.apiserver.etcd.image.tag										\
 		sed -i '/repository.*etcd$$/{!b;n;s/tag.*/tag: '$(ETCD_VERSION)'/}' $(CILIUM_VALUES)				\
-		# hubble.ui.proxy.image.tag											\
-		sed -i '/repository.*envoy.*/{!b;n;s/tag.*/tag: '$(HUBBLE_PROXY_VERSION)'/}' $(CILIUM_VALUES)			\
 		# nodeinit.image.tag												\
 		sed -i '/repository.*cilium\/startup-script.*/{!b;n;s/tag.*/tag: '$(NODEINIT_VERSION)'/}' $(CILIUM_VALUES)	\
 		# certgen.image.tag												\
@@ -145,7 +142,6 @@ docs:
 
 check-docker-images:
 	$(QUIET)\
-         HUBBLE_PROXY_VERSION=$(HUBBLE_PROXY_VERSION) \
          HUBBLE_UI_VERSION=$(HUBBLE_UI_VERSION) \
          MANAGED_ETCD_VERSION=$(MANAGED_ETCD_VERSION) \
          ETCD_VERSION=$(ETCD_VERSION) \

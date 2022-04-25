@@ -16,3 +16,13 @@
       {{ fail "Service Monitor requires monitoring.coreos.com/v1 CRDs. Please refer to https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml" }}
   {{- end }}
 {{- end }}
+
+{{/* validate hubble-ui specific config */}}
+{{- if .Values.hubble.ui.enabled }}
+  {{- if regexReplaceAll "@.*$" .Values.hubble.ui.backend.image.tag "" | trimPrefix "v" | semverCompare "<0.9.0" }}
+    {{ fail "Hubble UI requires hubble.ui.backend.image.tag to be '>=v0.9.0'" }}
+  {{- end }}
+  {{- if regexReplaceAll "@.*$" .Values.hubble.ui.frontend.image.tag "" | trimPrefix "v" | semverCompare "<0.9.0" }}
+    {{ fail "Hubble UI requires hubble.ui.frontend.image.tag to be '>=v0.9.0'" }}
+  {{- end }}
+{{- end }}
