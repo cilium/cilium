@@ -949,18 +949,6 @@
      - The priority class to use for hubble-ui
      - string
      - ``""``
-   * - hubble.ui.proxy.extraEnv
-     - Additional hubble-ui proxy environment variables.
-     - list
-     - ``[]``
-   * - hubble.ui.proxy.image
-     - Hubble-ui ingress proxy image.
-     - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"docker.io/envoyproxy/envoy","tag":"v1.20.2@sha256:eb7d88d5186648049f0a80062120bd45e7557bdff3f6a30e1fc92cbb50916868"}``
-   * - hubble.ui.proxy.resources
-     - Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
-     - object
-     - ``{}``
    * - hubble.ui.replicas
      - The number of replicas of Hubble UI to deploy.
      - int

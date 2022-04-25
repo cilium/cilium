@@ -962,26 +962,6 @@ hubble:
       #     cpu: 100m
       #     memory: 64Mi
 
-    proxy:
-      # -- Hubble-ui ingress proxy image.
-      image:
-        override: ~
-        repository: docker.io/envoyproxy/envoy
-        tag: v1.20.2@sha256:eb7d88d5186648049f0a80062120bd45e7557bdff3f6a30e1fc92cbb50916868
-        pullPolicy: Always
-
-      # -- Additional hubble-ui proxy environment variables.
-      extraEnv: []
-
-      # -- Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
-      resources: {}
-      #   limits:
-      #     cpu: 1000m
-      #     memory: 1024M
-      #   requests:
-      #     cpu: 100m
-      #     memory: 64Mi
-
     # -- The number of replicas of Hubble UI to deploy.
     replicas: 1
 

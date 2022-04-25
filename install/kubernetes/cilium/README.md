@@ -288,9 +288,6 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.podDisruptionBudget.minAvailable | string | `nil` | Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by `maxUnavailable: null` |
 | hubble.ui.podLabels | object | `{}` | Labels to be added to hubble-ui pods |
 | hubble.ui.priorityClassName | string | `""` | The priority class to use for hubble-ui |
-| hubble.ui.proxy.extraEnv | list | `[]` | Additional hubble-ui proxy environment variables. |
-| hubble.ui.proxy.image | object | `{"override":null,"pullPolicy":"Always","repository":"docker.io/envoyproxy/envoy","tag":"v1.20.2@sha256:eb7d88d5186648049f0a80062120bd45e7557bdff3f6a30e1fc92cbb50916868"}` | Hubble-ui ingress proxy image. |
-| hubble.ui.proxy.resources | object | `{}` | Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment. |
 | hubble.ui.replicas | int | `1` | The number of replicas of Hubble UI to deploy. |
 | hubble.ui.rollOutPods | bool | `false` | Roll out Hubble-ui pods automatically when configmap is updated. |
 | hubble.ui.securityContext | object | `{"enabled":true,"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}` | Security context to be added to Hubble UI pods |

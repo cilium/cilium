@@ -6,7 +6,6 @@ cilium_tag="${1}"
 org="cilium"
 
 external_dependencies=(
-  "docker.io/envoyproxy/envoy:${HUBBLE_PROXY_VERSION}" \
   "quay.io/coreos/etcd:${ETCD_VERSION}" \
 )
 
