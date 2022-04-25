@@ -801,7 +801,7 @@ github.com/yusufpapurcu/wmi
 # gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f
 ## explicit; go 1.13
 gitlab.com/golang-commonmark/puny
-# go.etcd.io/etcd/api/v3 v3.5.3
+# go.etcd.io/etcd/api/v3 v3.5.4
 ## explicit; go 1.16
 go.etcd.io/etcd/api/v3/authpb
 go.etcd.io/etcd/api/v3/etcdserverpb
