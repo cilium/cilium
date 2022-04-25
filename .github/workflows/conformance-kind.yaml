@@ -56,6 +56,7 @@ jobs:
             --version="
           HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --base-version=v1.12 \
             --relay-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
