@@ -288,7 +288,7 @@ func (c *DNSCache) cleanupOverLimitEntries() (affectedNames []string, removed ma
 		if overlimit <= 0 {
 			continue
 		}
-		sortedEntries := []IPEntry{}
+		sortedEntries := make([]IPEntry, 0, len(entries))
 		for ip, entry := range entries {
 			sortedEntries = append(sortedEntries, IPEntry{ip, entry})
 		}
