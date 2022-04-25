@@ -65,6 +65,31 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 	return &ds
 }
 
+func (k *K8sInstaller) generatePeerService() *corev1.Service {
+	var (
+		svcFilename string
+	)
+	ciliumVer := k.getCiliumVersion()
+	switch {
+	case versioncheck.MustCompile(">1.11.0")(ciliumVer):
+		svcFilename = "templates/cilium-agent/peer-service.yaml"
+	case versioncheck.MustCompile(">1.9.0")(ciliumVer):
+		svcFilename = "templates/cilium-agent-peer-service.yaml"
+	}
+	if svcFilename == "" {
+		return nil
+	}
+
+	svcFile, ok := k.manifests[svcFilename]
+	if !ok || len(strings.TrimSpace(svcFile)) == 0 {
+		return nil
+	}
+
+	var svc corev1.Service
+	utils.MustUnmarshalYAML([]byte(svcFile), &svc)
+	return &svc
+}
+
 func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 	var (
 		deployFilename string
@@ -695,6 +720,13 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 			k.Log("Cannot delete %s DaemonSet: %s", defaults.AgentDaemonSetName, err)
 		}
 	})
+
+	if peerSvc := k.generatePeerService(); peerSvc != nil {
+		k.Log("🚀 Creating Peer Service...")
+		if _, err := k.client.CreateService(ctx, k.params.Namespace, peerSvc, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+	}
 
 	k.Log("🚀 Creating Operator Deployment...")
 	if _, err := k.client.CreateDeployment(ctx, k.params.Namespace, k.generateOperatorDeployment(), metav1.CreateOptions{}); err != nil {
