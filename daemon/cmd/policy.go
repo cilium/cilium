@@ -81,6 +81,11 @@ func (d *Daemon) policyUpdateTrigger(reasons []string) {
 // in agent configuration, changes in endpoint labels, and change of security
 // identities.
 func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
+	// CIDR identity restoration may trigger early when endpoints can not yet be regenerated
+	if d.policyTrigger == nil {
+		return
+	}
+
 	if force {
 		log.Debugf("Artificially increasing policy revision to enforce policy recalculation")
 		d.policy.BumpRevision()

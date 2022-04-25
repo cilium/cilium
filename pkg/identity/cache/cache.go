@@ -79,10 +79,8 @@ func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 		cache[key] = identity.Labels.LabelArray()
 	}
 
-	if m.isLocalIdentityAllocatorInitialized() {
-		for _, identity := range m.localIdentities.GetIdentities() {
-			cache[identity.ID] = identity.Labels.LabelArray()
-		}
+	for _, identity := range m.localIdentities.GetIdentities() {
+		cache[identity.ID] = identity.Labels.LabelArray()
 	}
 
 	return cache
@@ -106,17 +104,15 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 		identities = append(identities, identitymodel.CreateModel(v))
 	}
 
-	if m.isLocalIdentityAllocatorInitialized() {
-		for _, v := range m.localIdentities.GetIdentities() {
-			identities = append(identities, identitymodel.CreateModel(v))
-		}
+	for _, v := range m.localIdentities.GetIdentities() {
+		identities = append(identities, identitymodel.CreateModel(v))
 	}
+
 	return identities
 }
 
 type identityWatcher struct {
-	stopChan chan struct{}
-	owner    IdentityAllocatorOwner
+	owner IdentityAllocatorOwner
 }
 
 // collectEvent records the 'event' as an added or deleted identity,
@@ -175,8 +171,6 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventChan) {
 					default:
 						// Ignore modify events
 					}
-				case <-w.stopChan:
-					return
 				}
 			}
 
@@ -207,21 +201,6 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventChan) {
 	}()
 }
 
-// stop stops the identity watcher
-func (w *identityWatcher) stop() {
-	close(w.stopChan)
-}
-
-// isLocalIdentityAllocatorInitialized returns true if m.localIdentities is not nil.
-func (m *CachingIdentityAllocator) isLocalIdentityAllocatorInitialized() bool {
-	select {
-	case <-m.localIdentityAllocatorInitialized:
-		return m.localIdentities != nil
-	default:
-		return false
-	}
-}
-
 // isGlobalIdentityAllocatorInitialized returns true if m.IdentityAllocator is not nil.
 // Note: This does not mean that the identities have been synchronized,
 // see WaitForInitialGlobalIdentities to wait for a fully populated cache.
@@ -243,15 +222,11 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 		return reservedIdentity
 	}
 
-	if !m.isLocalIdentityAllocatorInitialized() {
-		return nil
+	if !identity.RequiresGlobalIdentity(lbls) {
+		return m.localIdentities.lookup(lbls)
 	}
 
-	if identity := m.localIdentities.lookup(lbls); identity != nil {
-		return identity
-	}
-
-	if !identity.RequiresGlobalIdentity(lbls) || !m.isGlobalIdentityAllocatorInitialized() {
+	if !m.isGlobalIdentityAllocatorInitialized() {
 		return nil
 	}
 
@@ -283,15 +258,11 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id id
 		return identity
 	}
 
-	if !m.isLocalIdentityAllocatorInitialized() {
-		return nil
+	if id.HasLocalScope() {
+		return m.localIdentities.lookupByID(id)
 	}
 
-	if identity := m.localIdentities.lookupByID(id); identity != nil {
-		return identity
-	}
-
-	if !m.isGlobalIdentityAllocatorInitialized() || id.HasLocalScope() {
+	if !m.isGlobalIdentityAllocatorInitialized() {
 		return nil
 	}
 

@@ -240,6 +240,7 @@ const (
 	uninitializedRegen  = "Uninitialized regeneration level"                         // from https://github.com/cilium/cilium/pull/10949
 	unstableStat        = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
 	removeTransientRule = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
+	localIDRestoreFail  = "Could not restore all CIDR identities"                    // from https://github.com/cilium/cilium/pull/19556
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -304,6 +305,7 @@ var badLogMessages = map[string][]string{
 	uninitializedRegen:  nil,
 	unstableStat:        nil,
 	removeTransientRule: nil,
+	localIDRestoreFail:  nil,
 	"DATA RACE":         nil,
 }
 
