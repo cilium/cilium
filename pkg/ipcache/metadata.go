@@ -86,7 +86,7 @@ func GetIDMetadataByIP(prefix string) labels.Labels {
 // so a balance is kept, ensuring a one-to-one mapping between prefix and
 // identity.
 func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTriggerer) error {
-	if IdentityAllocator == nil || !IdentityAllocator.IsLocalIdentityAllocatorInitialized() {
+	if IdentityAllocator == nil {
 		return ErrLocalIdentityAllocatorUninitialized
 	}
 
