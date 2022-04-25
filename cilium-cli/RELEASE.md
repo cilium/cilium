@@ -12,11 +12,10 @@ copy-pasting.
 
 ### Version
 
-If releasing a new version v5.4.0 with the latest release being v5.3.8, for
-example, they will look as follows:
+Set `RELEASE` environment variable to the new version. For example, if you are
+releasing `v5.4.0`:
 
     export RELEASE=v5.4.0
-    export LAST_RELEASE=v5.3.8
 
 ### Commit SHA to release
 
