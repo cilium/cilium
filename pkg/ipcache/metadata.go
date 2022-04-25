@@ -105,7 +105,7 @@ func (m *metadata) get(prefix string) labels.Labels {
 // so a balance is kept, ensuring a one-to-one mapping between prefix and
 // identity.
 func (ipc *IPCache) InjectLabels(src source.Source) error {
-	if ipc.IdentityAllocator == nil || !ipc.IdentityAllocator.IsLocalIdentityAllocatorInitialized() {
+	if ipc.IdentityAllocator == nil {
 		return ErrLocalIdentityAllocatorUninitialized
 	}
 

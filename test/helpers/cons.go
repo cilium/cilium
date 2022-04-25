@@ -228,6 +228,7 @@ const (
 	unstableStat        = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
 	removeTransientRule = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
 	missingIptablesWait = "Missing iptables wait arg (-w):"
+	localIDRestoreFail  = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
 
 	// ...and their exceptions.
 	lrpExists                = "local-redirect service exists for frontend"                         // cf. https://github.com/cilium/cilium/issues/16400
@@ -299,6 +300,7 @@ var badLogMessages = map[string][]string{
 	unstableStat:        nil,
 	removeTransientRule: nil,
 	missingIptablesWait: nil,
+	localIDRestoreFail:  nil,
 	"DATA RACE":         nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.

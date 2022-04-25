@@ -1124,9 +1124,9 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		By("Dumping IP cache after Cilium is restarted")
 		ipcacheAfter, err := vm.BpfIPCacheList(true)
 		Expect(err).To(BeNil(), "ipcache can not be dumped")
+		GinkgoPrint(fmt.Sprintf("Local scope identities in IP cache after Cilium restart: %v", ipcacheAfter))
 		equal, diff := checker.DeepEqual(ipcacheBefore, ipcacheAfter)
 		Expect(equal).To(BeTrue(), "CIDR identities were not restored correctly: %s", diff)
-		GinkgoPrint(fmt.Sprintf("Local scope identities in IP cache after Cilium restart: %v", ipcacheAfter))
 
 		// Reapply FQDN policy and check that selectors still have same ids
 		_, err = vm.PolicyRenderAndImport(policy)

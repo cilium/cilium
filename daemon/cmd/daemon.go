@@ -523,8 +523,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// Propagate identity allocator down to packages which themselves do not
 	// have types to which we can add an allocator member.
 	//
-	// **NOTE** The identity allocator is not yet initialized here; that
-	// happens below. We've only allocated the structure at this point.
+	// **NOTE** The global identity allocator is not yet initialized here; that
+	// happens below vie InitIdentityAllocator(). Only the local identity allocator
+	// is initialized here.
 	//
 	// TODO: convert these package level variables to types for easier unit
 	// testing in the future.
@@ -537,6 +538,33 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		PolicyHandler:     d.policy.GetSelectorCache(),
 		DatapathHandler:   epMgr,
 	})
+	// Preallocate IDs for old CIDRs. This must be done before any Identity allocations are
+	// possible so that the old IDs are still available. That is why we do this ASAP after the
+	// new (userspace) ipcache is created above.
+	//
+	// CIDRs were dumped from the old ipcache, they are re-allocated here, hopefully with the
+	// same numeric IDs as before, but the restored identities are to be upsterted to the new
+	// (datapath) ipcache after it has been initialized below. This is accomplished by passing
+	// 'restoredCIDRidentities' to AllocateCIDRs() and then calling
+	// UpsertGeneratedIdentities(restoredCIDRidentities) after initMaps() below.
+	restoredCIDRidentities := make(map[string]*identity.Identity)
+	if len(d.restoredCIDRs) > 0 {
+		log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
+		_, err = d.ipcache.AllocateCIDRs(d.restoredCIDRs, oldNIDs, restoredCIDRidentities)
+		if err != nil {
+			log.WithError(err).Error("Error allocating old CIDR identities")
+		}
+		// Log a warning for the first CIDR identity than could not be restored with the
+		// same numeric identity as before the restart. This can only happen if we have
+		// re-introduced bugs into this agent bootstrap order, so we want to surface this.
+		for i, prefix := range d.restoredCIDRs {
+			id, exists := restoredCIDRidentities[prefix.String()]
+			if !exists || id.ID != oldNIDs[i] {
+				log.WithField(logfields.Identity, oldNIDs[i]).Warn("Could not restore all CIDR identities")
+				break
+			}
+		}
+	}
 	nodeMngr = nodeMngr.WithIPCache(d.ipcache)
 	nodeMngr = nodeMngr.WithSelectorCacheUpdater(d.policy.GetSelectorCache()) // must be after initPolicy
 	nodeMngr = nodeMngr.WithPolicyTriggerer(epMgr)                            // must be after initPolicy
@@ -647,6 +675,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	bootstrapStats.mapsInit.EndError(err)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
+	}
+	// Upsert restored CIDRs after the new ipcache has been opened above
+	if len(restoredCIDRidentities) > 0 {
+		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities)
 	}
 
 	// Read the service IDs of existing services from the BPF map and
@@ -1039,15 +1071,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		// identity allocator to run asynchronously.
 		realIdentityAllocator := d.identityAllocator
 		realIdentityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
-
-		// Preallocate IDs for old CIDRs, must be called after InitIdentityAllocator
-		if len(d.restoredCIDRs) > 0 {
-			log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
-			_, err = d.ipcache.AllocateCIDRs(d.restoredCIDRs, oldNIDs, nil)
-			if err != nil {
-				log.WithError(err).Error("Error allocating old CIDR identities")
-			}
-		}
 
 		d.bootstrapClusterMesh(nodeMngr)
 	}
