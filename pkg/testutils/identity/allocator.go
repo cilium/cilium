@@ -54,11 +54,6 @@ func (f *MockIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) 
 	return nil
 }
 
-// IsLocalIdentityAllocatorInitialized returns true.
-func (f *MockIdentityAllocator) IsLocalIdentityAllocatorInitialized() bool {
-	return true
-}
-
 // GetIdentities returns the identities from the identity cache.
 func (f *MockIdentityAllocator) GetIdentities() cache.IdentitiesModel {
 	result := cache.IdentitiesModel{}

@@ -75,18 +75,15 @@ type CachingIdentityAllocator struct {
 	// allocator is initialized.
 	globalIdentityAllocatorInitialized chan struct{}
 
-	// localIdentityAllocatorInitialized is closed whenever the local identity
-	// allocator is initialized.
-	localIdentityAllocatorInitialized chan struct{}
-
 	localIdentities *localIdentityCache
 
 	identitiesPath string
 
+	events  allocator.AllocatorEventChan
+	watcher identityWatcher
+
 	// setupMutex synchronizes InitIdentityAllocator() and Close()
 	setupMutex lock.Mutex
-
-	watcher identityWatcher
 
 	owner IdentityAllocatorOwner
 }
@@ -112,10 +109,6 @@ type IdentityAllocator interface {
 	// WaitForInitialGlobalIdentities waits for the initial set of global
 	// security identities to have been received.
 	WaitForInitialGlobalIdentities(context.Context) error
-
-	// IsLocalIdentityAllocatorInitialized returns true if the local identity
-	// allocator has been initialized.
-	IsLocalIdentityAllocatorInitialized() bool
 
 	// AllocateIdentity allocates an identity described by the specified labels.
 	// A possible previously used numeric identity for these labels can be passed
@@ -165,7 +158,7 @@ type IdentityAllocator interface {
 	ReleaseCIDRIdentitiesByID(context.Context, []identity.NumericIdentity)
 }
 
-// InitIdentityAllocator creates the the identity allocator. Only the first
+// InitIdentityAllocator creates the global identity allocator. Only the first
 // invocation of this function will have an effect. The Caller must have
 // initialized well known identities before calling this (by calling
 // identity.InitWellKnownIdentities()).
@@ -186,23 +179,12 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 	log.Info("Initializing identity allocator")
 
-	// Local identity cache can be created synchronously since it doesn't
-	// rely upon any external resources (e.g., external kvstore).
-	events := make(allocator.AllocatorEventChan, 1024)
-	m.localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
-	close(m.localIdentityAllocatorInitialized)
-
 	minID := idpool.ID(identity.MinimalAllocationIdentity)
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
 
-	// It is important to start listening for events before calling
-	// NewAllocator() as it will emit events while filling the
-	// initial cache
-	m.watcher.watch(events)
-
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
-	go func(owner IdentityAllocatorOwner, evs allocator.AllocatorEventChan, minID, maxID idpool.ID) {
+	go func(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan, minID, maxID idpool.ID) {
 		m.setupMutex.Lock()
 		defer m.setupMutex.Unlock()
 
@@ -246,7 +228,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 		m.IdentityAllocator = a
 		close(m.globalIdentityAllocatorInitialized)
-	}(m.owner, events, minID, maxID)
+	}(m.owner, m.events, minID, maxID)
 
 	return m.globalIdentityAllocatorInitialized
 }
@@ -267,18 +249,23 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 // CachingIdentityAllocator.
 func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
 	watcher := identityWatcher{
-		stopChan: make(chan struct{}),
-		owner:    owner,
+		owner: owner,
 	}
 
-	mgr := &CachingIdentityAllocator{
+	m := &CachingIdentityAllocator{
 		globalIdentityAllocatorInitialized: make(chan struct{}),
-		localIdentityAllocatorInitialized:  make(chan struct{}),
 		owner:                              owner,
 		identitiesPath:                     IdentitiesPath,
 		watcher:                            watcher,
+		events:                             make(allocator.AllocatorEventChan, 1024),
 	}
-	return mgr
+	m.watcher.watch(m.events)
+
+	// Local identity cache can be created synchronously since it doesn't
+	// rely upon any external resources (e.g., external kvstore).
+	m.localIdentities = newLocalIdentityCache(1, 0xFFFFFF, m.events)
+
+	return m
 }
 
 // Close closes the identity allocator and allows to call
@@ -296,21 +283,9 @@ func (m *CachingIdentityAllocator) Close() {
 		}
 	}
 
-	select {
-	case <-m.localIdentityAllocatorInitialized:
-		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
-	default:
-		if m.IdentityAllocator == nil {
-			log.Panic("Close() called without calling InitIdentityAllocator() first")
-		}
-	}
-
 	m.IdentityAllocator.Delete()
-	m.watcher.stop()
 	m.IdentityAllocator = nil
 	m.globalIdentityAllocatorInitialized = make(chan struct{})
-	m.localIdentityAllocatorInitialized = make(chan struct{})
-	m.localIdentities = nil
 }
 
 // WaitForInitialGlobalIdentities waits for the initial set of global security
@@ -372,7 +347,6 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	}
 
 	if !identity.RequiresGlobalIdentity(lbls) {
-		<-m.localIdentityAllocatorInitialized
 		return m.localIdentities.lookupOrCreate(lbls, oldNID)
 	}
 
@@ -429,7 +403,6 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	}
 
 	if !identity.RequiresGlobalIdentity(id.Labels) {
-		<-m.localIdentityAllocatorInitialized
 		return m.localIdentities.release(id), nil
 	}
 
