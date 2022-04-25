@@ -42,7 +42,7 @@ We aim to make 2-3 point releases per year of Cilium and its core components
 (Hubble, Cilium CLI etc). We also make patch releases available as necessary for
 security or urgent fixes. 
 
-Focus areas
+Focus Areas
 -----------
 
 For a finer-granularity view, and insight into detailed enhancements and fixes,
@@ -119,18 +119,12 @@ Core :ref:`ClusterMesh<clustermesh>` is stable and widely adopted. Future extens
 
 .. _rm-advanced-networking:
 
-Advanced Networking features
+Advanced Networking Features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 There are several advanced networking features currently in beta, several of
 these are already in production use with a set of adopters. We expect the
 following features to graduate to stable:
-
-.. 
-   Docs comment: Wondering why the Maglev link looks different from the rest? For some 
-   reason, possibly to do with the heading level that Maglev Consistent Hashing has 
-   in the docs, defining a target for it just didn't want to work. Please feel free to 
-   make this better! 
 
 * :ref:`gsg_encryption` (IPsec & WireGuard)
 * :ref:`BGP<bgp>`
@@ -152,7 +146,7 @@ focus currently include:
 * Graduating the `Hubble OpenTelemetry collector`_ to stable
 * Hubble UI additional features
 
-CI test improvements
+CI Test Improvements
 ~~~~~~~~~~~~~~~~~~~~
 
 We have a comprehensive set of tests running in CI, but several contributors are
@@ -160,7 +154,7 @@ currently working on `CI improvements`_ to make these more reliable and easier t
 maintain. This is a good area to get involved if you are interested in learning
 more about Cilium internals and development. 
 
-Documentation improvements 
+Documentation Improvements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We would like to make this Cilium documentation :ref:`easier to
@@ -192,7 +186,7 @@ work on particular features, one option is to discuss this with the companies
 who offer `commercial distributions of Cilium <enterprise_>`_ and may be able to
 help. 
 
-Changes to this roadmap page 
+Changes to this Roadmap Page
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This roadmap page will be updated through documentation pull requests in the
