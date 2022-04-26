@@ -516,6 +516,10 @@ func onOperatorStartLeading(ctx context.Context) {
 		operatorWatchers.HandleNodeTolerationAndTaints(stopCh)
 	}
 
+	if operatorOption.Config.NodeGCInterval != 0 {
+		operatorWatchers.RunCiliumNodeGC(ctx, ciliumNodeStore, operatorOption.Config.NodeGCInterval)
+	}
+
 	if operatorOption.Config.IdentityGCInterval != 0 {
 		identityRateLimiter = rate.NewLimiter(
 			operatorOption.Config.IdentityGCRateInterval,

@@ -145,7 +145,7 @@ func (n *NodeTaintSuite) TestNodeTaintWithoutCondition(c *check.C) {
 
 	nodeQueue.Add(key)
 
-	continueProcess := processNextNodeItem(fakeClient, fng, nodeQueue)
+	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, nodeQueue)
 	c.Assert(continueProcess, check.Equals, true)
 
 	err = testutils.WaitUntil(func() bool {
@@ -278,7 +278,7 @@ func (n *NodeTaintSuite) TestNodeCondition(c *check.C) {
 
 	nodeQueue.Add(key)
 
-	continueProcess := processNextNodeItem(fakeClient, fng, nodeQueue)
+	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, nodeQueue)
 	c.Assert(continueProcess, check.Equals, true)
 
 	err = testutils.WaitUntil(func() bool {
@@ -384,7 +384,7 @@ func (n *NodeTaintSuite) TestNodeConditionIfCiliumIsNotReady(c *check.C) {
 
 	nodeQueue.Add(key)
 
-	continueProcess := processNextNodeItem(fakeClient, fng, nodeQueue)
+	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, nodeQueue)
 	c.Assert(continueProcess, check.Equals, true)
 
 	err = testutils.WaitUntil(func() bool {
@@ -490,7 +490,7 @@ func (n *NodeTaintSuite) TestNodeConditionIfCiliumAndNodeAreReady(c *check.C) {
 
 	nodeQueue.Add(key)
 
-	continueProcess := processNextNodeItem(fakeClient, fng, nodeQueue)
+	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, nodeQueue)
 	c.Assert(continueProcess, check.Equals, true)
 
 	err = testutils.WaitUntil(func() bool {
