@@ -1447,6 +1447,9 @@ operator:
   # -- Interval for endpoint garbage collection.
   endpointGCInterval: "5m0s"
 
+  # -- Interval for cilium node garbage collection.
+  nodeGCInterval: "5m0s"
+
   # -- Interval for identity garbage collection.
   identityGCInterval: "15m0s"
 

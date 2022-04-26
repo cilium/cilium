@@ -330,6 +330,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.identityGCInterval | string | `"15m0s"` | Interval for identity garbage collection. |
 | operator.identityHeartbeatTimeout | string | `"30m0s"` | Timeout for identity heartbeats. |
 | operator.image | object | `{"alibabacloudDigest":"sha256:bb6eb1d389d87d435b6ddb7c32955459ccdea15d6542da2bcb38738c8dca15d9","awsDigest":"sha256:3ef7a13d962d977815d12846c04fade989195722ba6628bffaf865fb46d4b6a0","azureDigest":"sha256:e507e3ece5a3cb45daf2e879bd3888681f297c76523661551ecdd38d8c46c798","genericDigest":"sha256:bf75ad0dc47691a3a519b8ab148ed3a792ffa2f1e309e6efa955f30a40e95adc","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.11.4","useDigest":true}` | cilium-operator image. |
+| operator.nodeGCInterval | string | `"5m0s"` | Interval for cilium node garbage collection. |
 | operator.nodeSelector | object | `{}` | Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | operator.podAnnotations | object | `{}` | Annotations to be added to cilium-operator pods |
 | operator.podDisruptionBudget | object | `{"enabled":false,"maxUnavailable":1}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
