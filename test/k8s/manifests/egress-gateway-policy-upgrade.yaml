@@ -1,9 +1,9 @@
-apiVersion: cilium.io/v2alpha1
-kind: CiliumEgressNATPolicy
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
 metadata:
-  name: egress-sample
+  name: cegp-sample
 spec:
-  egress:
+  selectors:
   - podSelector:
       matchLabels:
         zgroup: testDSClient
@@ -18,12 +18,49 @@ spec:
         cilium.io/ci-node: k8s2
     egressIP: INPUT_EGRESS_IP
 ---
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: cegp-sample-upgrade
+spec:
+  selectors:
+  - podSelector:
+      matchLabels:
+        zgroup: testDSClient2
+    namespaceSelector:
+      matchLabels:
+        ns: cilium-test
+  destinationCIDRs:
+  - INPUT_OUTSIDE_NODE_IP/32
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        cilium.io/ci-node: k8s2
+    egressIP: INPUT_EGRESS_IP
+---
+# the same policy as 'cegp-sample-upgrade', but expressed through CENP
 apiVersion: cilium.io/v2alpha1
 kind: CiliumEgressNATPolicy
 metadata:
-  name: egress-to-black-hole
+  name: cenp-sample-upgrade
 spec:
   egress:
+  - podSelector:
+      matchLabels:
+        zgroup: testDSClient2
+    namespaceSelector:
+      matchLabels:
+        ns: cilium-test
+  destinationCIDRs:
+  - INPUT_OUTSIDE_NODE_IP/32
+  egressSourceIP: INPUT_EGRESS_IP
+---
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: egress-to-black-hole
+spec:
+  selectors:
   - podSelector:
       matchLabels:
         zgroup: testDSClient
@@ -38,7 +75,7 @@ spec:
     nodeSelector:
       matchLabels:
         cilium.io/ci-node: k8s2
-    egressIP: 192.0.2.13 # It's a black hole, https://datatracker.ietf.org/doc/html/rfc5737#section-3 
+    egressIP: 192.0.2.13 # It's a black hole, https://datatracker.ietf.org/doc/html/rfc5737#section-3
 ---
 # egress-testds is a policy matching all traffic (i.e. destination CIDR
 # 0.0.0.0/0) from the zgroup=testDS echo server pods.
@@ -46,12 +83,12 @@ spec:
 # This policy is used to test that reply traffic from pods that are selected by
 # an egress policy is not SNATed with the egress IP (only connections
 # originating from these pods should go through egress gateway).
-apiVersion: cilium.io/v2alpha1
-kind: CiliumEgressNATPolicy
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
 metadata:
   name: egress-testds
 spec:
-  egress:
+  selectors:
   - podSelector:
       matchLabels:
         zgroup: testDS
@@ -62,19 +99,3 @@ spec:
       matchLabels:
         cilium.io/ci-node: k8s2
     egressIP: INPUT_EGRESS_IP
----
-apiVersion: cilium.io/v2alpha1
-kind: CiliumEgressNATPolicy
-metadata:
-  name: egress-sample-2
-spec:
-  egress:
-  - podSelector:
-      matchLabels:
-        zgroup: testDSClient2
-    namespaceSelector:
-      matchLabels:
-        ns: cilium-test
-  destinationCIDRs:
-  - INPUT_OUTSIDE_NODE_IP/32
-  egressSourceIP: INPUT_EGRESS_IP

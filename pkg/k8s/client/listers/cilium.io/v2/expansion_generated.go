@@ -13,6 +13,10 @@ type CiliumClusterwideEnvoyConfigListerExpansion interface{}
 // CiliumClusterwideNetworkPolicyLister.
 type CiliumClusterwideNetworkPolicyListerExpansion interface{}
 
+// CiliumEgressGatewayPolicyListerExpansion allows custom methods to be added to
+// CiliumEgressGatewayPolicyLister.
+type CiliumEgressGatewayPolicyListerExpansion interface{}
+
 // CiliumEndpointListerExpansion allows custom methods to be added to
 // CiliumEndpointLister.
 type CiliumEndpointListerExpansion interface{}
