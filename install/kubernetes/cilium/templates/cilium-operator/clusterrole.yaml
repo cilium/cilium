@@ -21,7 +21,7 @@ rules:
 {{- end }}
 {{- end }}
 {{- end }}
-{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus }}
+{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus .Values.operator.endpointGCInterval }}
 - apiGroups:
   - ""
   resources:
@@ -29,6 +29,8 @@ rules:
   verbs:
   - list
   - watch
+{{- end }}
+{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus }}
 - apiGroups:
   - ""
   resources:
