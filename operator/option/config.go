@@ -76,7 +76,7 @@ const (
 	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
 	IdentityHeartbeatTimeout = "identity-heartbeat-timeout"
 
-	// NodesGCInterval is the duration for which the nodes are GC in the KVStore.
+	// NodesGCInterval is the duration for which the cilium nodes are GC.
 	NodesGCInterval = "nodes-gc-interval"
 
 	// OperatorAPIServeAddr IP:Port on which to serve api requests in
@@ -258,6 +258,9 @@ type OperatorConfig struct {
 	// CNPStatusUpdateInterval is the interval between status updates
 	// being sent to the K8s apiserver for a given CNP.
 	CNPStatusUpdateInterval time.Duration
+
+	// NodeGCInterval is the GC interval for CiliumNodes
+	NodeGCInterval time.Duration
 
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
@@ -461,6 +464,7 @@ type OperatorConfig struct {
 func (c *OperatorConfig) Populate() {
 	c.CNPNodeStatusGCInterval = viper.GetDuration(CNPNodeStatusGCInterval)
 	c.CNPStatusUpdateInterval = viper.GetDuration(CNPStatusUpdateInterval)
+	c.NodeGCInterval = viper.GetDuration(NodesGCInterval)
 	c.EnableMetrics = viper.GetBool(EnableMetrics)
 	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
 	c.IdentityGCInterval = viper.GetDuration(IdentityGCInterval)

@@ -512,6 +512,10 @@ func onOperatorStartLeading(ctx context.Context) {
 		RunCNPNodeStatusGC(ciliumNodeStore)
 	}
 
+	if operatorOption.Config.NodeGCInterval != 0 {
+		operatorWatchers.RunCiliumNodeGC(ctx, ciliumNodeStore, operatorOption.Config.NodeGCInterval)
+	}
+
 	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
 		// We will use CiliumNodes as the source of truth for the podCIDRs.
 		// Once the CiliumNodes are synchronized with the operator we will
