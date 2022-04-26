@@ -1,6 +1,8 @@
 package watchers
 
 import (
+	"sync"
+
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -15,8 +17,15 @@ import (
 )
 
 var (
+	// nodeSyncOnce is used to make sure nodesInit is only setup once.
+	nodeSyncOnce sync.Once
+
 	// slimNodeStore contains all cluster nodes store as slim_core.Node
 	slimNodeStore cache.Store
+
+	// slimNodeStoreSynced is closed once the slimNodeStore is synced
+	// with k8s.
+	slimNodeStoreSynced = make(chan struct{})
 
 	nodeController cache.Controller
 
@@ -48,24 +57,29 @@ func (nodeGetter) GetK8sSlimNode(nodeName string) (*slim_corev1.Node, error) {
 
 // nodesInit starts up a node watcher to handle node events.
 func nodesInit(k8sClient kubernetes.Interface, stopCh <-chan struct{}) {
-	slimNodeStore, nodeController = informer.NewInformer(
-		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"nodes", metav1.NamespaceAll, fields.Everything()),
-		&slim_corev1.Node{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				key, _ := queueKeyFunc(obj)
-				nodeQueue.Add(key)
+	nodeSyncOnce.Do(func() {
+		slimNodeStore, nodeController = informer.NewInformer(
+			cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
+				"nodes", metav1.NamespaceAll, fields.Everything()),
+			&slim_corev1.Node{},
+			0,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					key, _ := queueKeyFunc(obj)
+					nodeQueue.Add(key)
+				},
+				UpdateFunc: func(_, newObj interface{}) {
+					key, _ := queueKeyFunc(newObj)
+					nodeQueue.Add(key)
+				},
 			},
-			UpdateFunc: func(_, newObj interface{}) {
-				key, _ := queueKeyFunc(newObj)
-				nodeQueue.Add(key)
-			},
-		},
-		convertToNode,
-	)
-	go nodeController.Run(stopCh)
+			convertToNode,
+		)
+		go nodeController.Run(stopCh)
+
+		cache.WaitForCacheSync(stopCh, nodeController.HasSynced)
+		close(slimNodeStoreSynced)
+	})
 }
 
 func convertToNode(obj interface{}) interface{} {
