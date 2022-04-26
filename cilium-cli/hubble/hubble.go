@@ -185,9 +185,9 @@ func (k *K8sHubble) generatePeerService() *corev1.Service {
 	ciliumVer := k.semVerCiliumVersion
 	switch {
 	case versioncheck.MustCompile(">1.11.0")(ciliumVer):
-		svcFilename = "templates/cilium-agent/peer-service.yaml"
+		svcFilename = "templates/hubble/peer-service.yaml"
 	case versioncheck.MustCompile(">1.9.0")(ciliumVer):
-		svcFilename = "templates/cilium-agent-peer-service.yaml"
+		svcFilename = "templates/hubble-peer-service.yaml"
 	}
 	if svcFilename == "" {
 		return nil
@@ -558,6 +558,12 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		}
 	}
 
+	if peerSvc := k.generatePeerService(); peerSvc != nil {
+		if _, err := k.client.CreateService(ctx, k.params.Namespace, peerSvc, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+	}
+
 	var warnFreePods []string
 	if k.params.Relay {
 		podsName, err := k.enableRelay(ctx)
@@ -566,12 +572,6 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		}
 
 		warnFreePods = append(warnFreePods, podsName)
-	}
-
-	if peerSvc := k.generatePeerService(); peerSvc != nil {
-		if _, err := k.client.CreateService(ctx, k.params.Namespace, peerSvc, metav1.CreateOptions{}); err != nil {
-			return err
-		}
 	}
 
 	if k.params.UI {
