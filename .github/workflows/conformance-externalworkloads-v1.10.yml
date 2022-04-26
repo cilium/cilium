@@ -158,7 +158,7 @@ jobs:
             --base-version=v1.10 \
             --version="
           HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
             --base-version=v1.10 \
             --relay-version=${SHA}"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
