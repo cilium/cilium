@@ -109,6 +109,10 @@ data:
   cilium-endpoint-gc-interval: "{{ .Values.operator.endpointGCInterval }}"
 {{- end }}
 
+{{- if hasKey .Values.operator "nodeGCInterval" }}
+  nodes-gc-interval: "{{ .Values.operator.nodeGCInterval | default "0s" }}"
+{{- end }}
+
 {{- if hasKey .Values "identityChangeGracePeriod" }}
   # identity-change-grace-period is the grace period that needs to pass
   # before an endpoint that has changed its identity will start using
