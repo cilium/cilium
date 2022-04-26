@@ -21,7 +21,7 @@ rules:
 {{- end }}
 {{- end }}
 {{- end }}
-{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus }}
+{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus .Values.operator.endpointGCInterval }}
 - apiGroups:
   - ""
   resources:
@@ -29,6 +29,8 @@ rules:
   verbs:
   - list
   - watch
+{{- end }}
+{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus }}
 - apiGroups:
   - ""
   resources:
@@ -128,6 +130,12 @@ rules:
   - get
   - list
   - watch
+{{- if .Values.operator.nodeGCInterval }}
+{{- if ne .Values.operator.nodeGCInterval "0s" }}
+    # To perform CiliumNode garbage collector
+  - delete
+{{- end }}
+{{- end }}
 - apiGroups:
   - cilium.io
   resources:

@@ -1257,6 +1257,10 @@
      - cilium-operator image.
      - object
      - ``{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/operator","suffix":"","tag":"latest","useDigest":false}``
+   * - operator.nodeGCInterval
+     - Interval for cilium node garbage collection.
+     - string
+     - ``"5m0s"``
    * - operator.nodeSelector
      - Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object

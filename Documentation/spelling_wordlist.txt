@@ -674,6 +674,7 @@ nfsd
 nftables
 nginx
 nodeEncryption
+nodeGCInterval
 nodePort
 nodeSelector
 nodeX
