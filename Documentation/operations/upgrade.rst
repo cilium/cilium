@@ -344,6 +344,13 @@ Removed Options
 * The ``native-routing-cidr`` option deprecated in 1.11 in favor of
   ``ipv4-native-routing-cidr`` has been removed.
 
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``CiliumEgressNATPolicy`` CRD has been deprecated, and will be removed in
+  version 1.13. It is superseded by the ``CiliumEgressGatewayPolicy`` CRD, which
+  allows for better selection of the Egress Node, Egress Interface and Masquerade IP.
+
 Helm Options
 ~~~~~~~~~~~~
 

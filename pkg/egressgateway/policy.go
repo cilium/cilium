@@ -221,6 +221,8 @@ func ParseCENP(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("CiliumEgressNATPolicy must have a name")
 	}
 
+	log.WithFields(logrus.Fields{logfields.CiliumEgressNATPolicyName: name}).Warn("CiliumEgressNATPolicy is deprecated and will be removed in version 1.13. Use CiliumEgressGatewayPolicy instead.")
+
 	for _, cidrString := range cenp.Spec.DestinationCIDRs {
 		_, cidr, err := net.ParseCIDR(string(cidrString))
 		if err != nil {
