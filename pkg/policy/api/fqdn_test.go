@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !privileged_tests
 // +build !privileged_tests
 
 package api
 
 import (
+	"testing"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -73,5 +76,22 @@ func (s *PolicyAPITestSuite) TestPortRuleDNSSanitize(c *C) {
 	} {
 		err := reject.Sanitize()
 		c.Assert(err, Not(IsNil), Commentf("PortRuleDNS %+v was accepted but it should be invalid", reject))
+	}
+}
+
+// TestPortRuleDNSSanitize tests that the sanitizer correctly catches bad
+// cases, and allows good ones.
+func BenchmarkFQDNSelectorString(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, s := range []FQDNSelector{
+			{MatchName: "cilium.io"},
+			{MatchPattern: "[a-z]*.cilium.io"},
+			{MatchName: "a{1,2}.cilium.io", MatchPattern: "[a-z]*.cilium.io"},
+			{MatchPattern: "*.cilium.io"},
+		} {
+			_ = s.String()
+		}
 	}
 }
