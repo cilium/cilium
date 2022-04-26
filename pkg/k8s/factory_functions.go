@@ -761,6 +761,30 @@ func ConvertToCiliumLocalRedirectPolicy(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCiliumEgressGatewayPolicy converts a *cilium_v2.CiliumEgressGatewayPolicy into a
+// *cilium_v2.CiliumEgressGatewayPolicy or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumEgressGatewayPolicy in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumEgressGatewayPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumEgressGatewayPolicy(obj interface{}) interface{} {
+	// TODO create a slim type of the CiliumEgressGatewayPolicy
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumEgressGatewayPolicy:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumEgressGatewayPolicy, ok := concreteObj.Obj.(*cilium_v2.CiliumEgressGatewayPolicy)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumEgressGatewayPolicy,
+		}
+	default:
+		return obj
+	}
+}
+
 // ConvertToCiliumEgressNATPolicy converts a *cilium_v2.CiliumEgressNATPolicy into a
 // *cilium_v2.CiliumEgressNATPolicy or a cache.DeletedFinalStateUnknown into
 // a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumEgressNATPolicy in its Obj.
@@ -965,6 +989,28 @@ func ObjToCLRP(obj interface{}) *cilium_v2.CiliumLocalRedirectPolicy {
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid v2 Cilium Local Redirect Policy")
+	return nil
+}
+
+// ObjToCEGP attempts to cast object to a CEGP object and
+// returns the CEGP object if the cast succeeds. Otherwise, nil is returned.
+func ObjToCEGP(obj interface{}) *cilium_v2.CiliumEgressGatewayPolicy {
+	cEGP, ok := obj.(*cilium_v2.CiliumEgressGatewayPolicy)
+	if ok {
+		return cEGP
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		cn, ok := deletedObj.Obj.(*cilium_v2.CiliumEgressGatewayPolicy)
+		if ok {
+			return cn
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2 Cilium Egress Gateway Policy")
 	return nil
 }
 

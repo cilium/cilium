@@ -17,6 +17,7 @@ type CiliumV2Interface interface {
 	RESTClient() rest.Interface
 	CiliumClusterwideEnvoyConfigsGetter
 	CiliumClusterwideNetworkPoliciesGetter
+	CiliumEgressGatewayPoliciesGetter
 	CiliumEndpointsGetter
 	CiliumEnvoyConfigsGetter
 	CiliumExternalWorkloadsGetter
@@ -37,6 +38,10 @@ func (c *CiliumV2Client) CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyC
 
 func (c *CiliumV2Client) CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInterface {
 	return newCiliumClusterwideNetworkPolicies(c)
+}
+
+func (c *CiliumV2Client) CiliumEgressGatewayPolicies() CiliumEgressGatewayPolicyInterface {
+	return newCiliumEgressGatewayPolicies(c)
 }
 
 func (c *CiliumV2Client) CiliumEndpoints(namespace string) CiliumEndpointInterface {

@@ -70,6 +70,7 @@ rules:
   - ciliumbgppeeringpolicies
   - ciliumclusterwideenvoyconfigs
   - ciliumclusterwidenetworkpolicies
+  - ciliumegressgatewaypolicies
   - ciliumegressnatpolicies
   - ciliumendpoints
   - ciliumendpointslices

@@ -90,6 +90,13 @@ annotations:
       description: |
         Cilium Egress NAT Policy provides control over the way that traffic
         leaves the cluster and which source addresses to use for that traffic.
+    - kind: CiliumEgressGatewayPolicy
+      version: v2
+      name: ciliumegressgatewaypolicies.cilium.io
+      displayName: Cilium Egress Gateway Policy
+      description: |
+        Cilium Egress Gateway Policy provides control over the way that traffic
+        leaves the cluster and which source addresses to use for that traffic.
     - kind: CiliumClusterwideEnvoyConfig
       version: v2
       name: ciliumclusterwideenvoyconfigs.cilium.io

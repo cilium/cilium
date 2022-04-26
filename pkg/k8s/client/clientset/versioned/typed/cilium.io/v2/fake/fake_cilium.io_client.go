@@ -23,6 +23,10 @@ func (c *FakeCiliumV2) CiliumClusterwideNetworkPolicies() v2.CiliumClusterwideNe
 	return &FakeCiliumClusterwideNetworkPolicies{c}
 }
 
+func (c *FakeCiliumV2) CiliumEgressGatewayPolicies() v2.CiliumEgressGatewayPolicyInterface {
+	return &FakeCiliumEgressGatewayPolicies{c}
+}
+
 func (c *FakeCiliumV2) CiliumEndpoints(namespace string) v2.CiliumEndpointInterface {
 	return &FakeCiliumEndpoints{c, namespace}
 }

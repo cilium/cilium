@@ -55,6 +55,9 @@ const (
 	// CLRPCRDName is the full name of the CLRP CRD.
 	CLRPCRDName = k8sconstv2.CLRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
+	// CEGPCRDName is the full name of the CEGP CRD.
+	CEGPCRDName = k8sconstv2.CEGPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
 	// CENPCRDName is the full name of the CENP CRD.
 	CENPCRDName = k8sconstv2alpha1.CENPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 
@@ -96,6 +99,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv2.CEPName):           createCEPCRD,
 		synced.CRDResourceName(k8sconstv2.CEWName):           createCEWCRD,
 		synced.CRDResourceName(k8sconstv2.CLRPName):          createCLRPCRD,
+		synced.CRDResourceName(k8sconstv2.CEGPName):          createCEGPCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.CENPName):    createCENPCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.CESName):     createCESCRD,
 		synced.CRDResourceName(k8sconstv2.CCECName):          createCCECCRD,
@@ -137,6 +141,9 @@ var (
 
 	//go:embed crds/v2/ciliumlocalredirectpolicies.yaml
 	crdsCiliumlocalredirectpolicies []byte
+
+	//go:embed crds/v2/ciliumegressgatewaypolicies.yaml
+	crdsv2Ciliumegressgatewaypolicies []byte
 
 	//go:embed crds/v2alpha1/ciliumegressnatpolicies.yaml
 	crdsv2Alpha1Ciliumegressnatpolicies []byte
@@ -184,6 +191,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsCiliumexternalworkloads
 	case CLRPCRDName:
 		crdBytes = crdsCiliumlocalredirectpolicies
+	case CEGPCRDName:
+		crdBytes = crdsv2Ciliumegressgatewaypolicies
 	case CENPCRDName:
 		crdBytes = crdsv2Alpha1Ciliumegressnatpolicies
 	case CESCRDName:
@@ -294,6 +303,17 @@ func createCLRPCRD(clientset apiextensionsclient.Interface) error {
 		clientset,
 		CLRPCRDName,
 		constructV1CRD(k8sconstv2.CLRPName, cLrpCRD),
+		newDefaultPoller(),
+	)
+}
+
+func createCEGPCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(CEGPCRDName)
+
+	return createUpdateCRD(
+		clientset,
+		CEGPCRDName,
+		constructV1CRD(k8sconstv2.CEGPName, ciliumCRD),
 		newDefaultPoller(),
 	)
 }

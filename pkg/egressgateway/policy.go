@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -204,9 +205,9 @@ func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata
 	return false
 }
 
-// ParsePolicy takes a CiliumEgressNATPolicy CR and converts to PolicyConfig,
+// ParseCENP takes a CiliumEgressNATPolicy CR and converts to PolicyConfig,
 // the internal representation of the egress nat policy
-func ParsePolicy(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
+func ParseCENP(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
 	var endpointSelectorList []api.EndpointSelector
 	var dstCidrList []*net.IPNet
 
@@ -218,22 +219,6 @@ func ParsePolicy(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
 	name := cenp.ObjectMeta.Name
 	if name == "" {
 		return nil, fmt.Errorf("CiliumEgressNATPolicy must have a name")
-	}
-
-	egressIP := net.ParseIP(cenp.Spec.EgressSourceIP).To4()
-	egressGateway := cenp.Spec.EgressGateway
-
-	var policyGwc *policyGatewayConfig
-	if egressGateway != nil {
-		if egressGateway.Interface != "" && egressGateway.EgressIP != "" {
-			return nil, fmt.Errorf("CiliumEgressNATPolicy's gateway configuration can't specify both an interface and an egress IP")
-		}
-
-		policyGwc = &policyGatewayConfig{
-			nodeSelector: api.NewESFromK8sLabelSelector("", egressGateway.NodeSelector),
-			iface:        egressGateway.Interface,
-			egressIP:     net.ParseIP(egressGateway.EgressIP),
-		}
 	}
 
 	for _, cidrString := range cenp.Spec.DestinationCIDRs {
@@ -285,7 +270,98 @@ func ParsePolicy(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
 	return &PolicyConfig{
 		endpointSelectors: endpointSelectorList,
 		dstCIDRs:          dstCidrList,
-		egressIP:          egressIP,
+		egressIP:          net.ParseIP(cenp.Spec.EgressSourceIP).To4(),
+		policyGwConfig:    nil,
+		id: types.NamespacedName{
+			Name: name,
+		},
+	}, nil
+}
+
+// ParseCENPConfigID takes a CiliumEgressNATPolicy CR and returns only the config id
+func ParseCENPConfigID(cenp *v2alpha1.CiliumEgressNATPolicy) types.NamespacedName {
+	return policyID{
+		Name: cenp.Name,
+	}
+}
+
+// ParseCEGP takes a CiliumEgressGatewayPolicy CR and converts to PolicyConfig,
+// the internal representation of the egress gateway policy
+func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
+	var endpointSelectorList []api.EndpointSelector
+	var dstCidrList []*net.IPNet
+
+	allowAllNamespacesRequirement := slim_metav1.LabelSelectorRequirement{
+		Key:      k8sConst.PodNamespaceLabel,
+		Operator: slim_metav1.LabelSelectorOpExists,
+	}
+
+	name := cegp.ObjectMeta.Name
+	if name == "" {
+		return nil, fmt.Errorf("CiliumEgressGatewayPolicy must have a name")
+	}
+
+	egressGateway := cegp.Spec.EgressGateway
+	if egressGateway.Interface != "" && egressGateway.EgressIP != "" {
+		return nil, fmt.Errorf("CiliumEgressGatewayPolicy's gateway configuration can't specify both an interface and an egress IP")
+	}
+
+	policyGwc := &policyGatewayConfig{
+		nodeSelector: api.NewESFromK8sLabelSelector("", egressGateway.NodeSelector),
+		iface:        egressGateway.Interface,
+		egressIP:     net.ParseIP(egressGateway.EgressIP),
+	}
+
+	for _, cidrString := range cegp.Spec.DestinationCIDRs {
+		_, cidr, err := net.ParseCIDR(string(cidrString))
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{logfields.CiliumEgressGatewayPolicyName: name}).Warn("Error parsing cidr.")
+			return nil, err
+		}
+		dstCidrList = append(dstCidrList, cidr)
+	}
+
+	for _, egressRule := range cegp.Spec.Selectors {
+		if egressRule.NamespaceSelector != nil {
+			prefixedNsSelector := egressRule.NamespaceSelector
+			matchLabels := map[string]string{}
+			// We use our own special label prefix for namespace metadata,
+			// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+			for k, v := range egressRule.NamespaceSelector.MatchLabels {
+				matchLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
+			}
+
+			prefixedNsSelector.MatchLabels = matchLabels
+
+			// We use our own special label prefix for namespace metadata,
+			// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+			for i, lsr := range egressRule.NamespaceSelector.MatchExpressions {
+				lsr.Key = policy.JoinPath(k8sConst.PodNamespaceMetaLabels, lsr.Key)
+				prefixedNsSelector.MatchExpressions[i] = lsr
+			}
+
+			// Empty namespace selector selects all namespaces (i.e., a namespace
+			// label exists).
+			if len(egressRule.NamespaceSelector.MatchLabels) == 0 && len(egressRule.NamespaceSelector.MatchExpressions) == 0 {
+				prefixedNsSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
+			}
+
+			endpointSelectorList = append(
+				endpointSelectorList,
+				api.NewESFromK8sLabelSelector("", prefixedNsSelector, egressRule.PodSelector))
+		} else if egressRule.PodSelector != nil {
+			endpointSelectorList = append(
+				endpointSelectorList,
+				api.NewESFromK8sLabelSelector("", egressRule.PodSelector))
+		} else {
+			return nil, fmt.Errorf("CiliumEgressGatewayPolicy cannot have both nil namespace selector and nil pod selector")
+		}
+	}
+
+	return &PolicyConfig{
+		endpointSelectors: endpointSelectorList,
+		dstCIDRs:          dstCidrList,
+		egressIP:          nil,
 		policyGwConfig:    policyGwc,
 		id: types.NamespacedName{
 			Name: name,
@@ -293,9 +369,9 @@ func ParsePolicy(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
 	}, nil
 }
 
-// ParsePolicyConfigID takes a CiliumEgressNATPolicy CR and returns only the config id
-func ParsePolicyConfigID(cenp *v2alpha1.CiliumEgressNATPolicy) types.NamespacedName {
+// ParseCEGPConfigID takes a CiliumEgressGatewayPolicy CR and returns only the config id
+func ParseCEGPConfigID(cegp *v2.CiliumEgressGatewayPolicy) types.NamespacedName {
 	return policyID{
-		Name: cenp.Name,
+		Name: cegp.Name,
 	}
 }

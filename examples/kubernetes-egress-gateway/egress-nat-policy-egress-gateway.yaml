@@ -1,9 +1,9 @@
-apiVersion: cilium.io/v2alpha1
-kind: CiliumEgressNATPolicy
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
 metadata:
   name: egress-sample
 spec:
-  egress:
+  selectors:
   - podSelector:
       matchLabels:
         org: empire
