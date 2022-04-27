@@ -47,12 +47,6 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	k8sCLI.Interface = fakeK8sClient
 	fakeK8sClient.AddReactor("patch", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
-			// If subresource is empty it means we are patching status and not
-			// patching annotations
-			if action.GetSubresource() != "" {
-				return true, nil, nil
-			}
-
 			n1copy := node1.DeepCopy()
 			n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
 			raw, err := json.Marshal(n1copy.Annotations)
@@ -112,11 +106,6 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	k8sCLI.Interface = fakeK8sClient
 	fakeK8sClient.AddReactor("patch", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
-			// If subresource is empty it means we are patching status and not
-			// patching annotations
-			if action.GetSubresource() != "" {
-				return true, nil, nil
-			}
 			// first call will be a patch for annotations
 			if failAttempts == 0 {
 				failAttempts++
