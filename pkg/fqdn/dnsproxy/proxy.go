@@ -18,6 +18,7 @@ import (
 	"github.com/golang/groupcache/lru"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -103,6 +105,15 @@ type DNSProxy struct {
 	// EnableDNSCompression allows the DNS proxy to compress responses to
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
 	EnableDNSCompression bool
+
+	// ConcurrencyLimit limits parallel goroutines number that serve DNS
+	ConcurrencyLimit *semaphore.Weighted
+	// ConcurrencyGracePeriod is the grace period for waiting on
+	// ConcurrencyLimit before timing out
+	ConcurrencyGracePeriod time.Duration
+	// logLimiter limits log msgs that could be bursty and too verbose.
+	// Currently used when ConcurrencyLimit is set.
+	logLimiter logging.Limiter
 
 	// lookupTargetDNSServer extracts the originally intended target of a DNS
 	// query. It is always set to lookupTargetDNSServer in
@@ -338,13 +349,49 @@ type LookupIPsBySecIDFunc func(nid identity.NumericIdentity) []string
 // See DNSProxy.LookupEndpointIDByIP for usage.
 type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error
 
+// errFailedAcquireSemaphore is an an error representing the DNS proxy's
+// failure to acquire the semaphore. This is error is treated like a timeout.
+type errFailedAcquireSemaphore struct {
+	parallel int
+}
+
+func (e errFailedAcquireSemaphore) Timeout() bool { return true }
+
+// Temporary is deprecated. Return false.
+func (e errFailedAcquireSemaphore) Temporary() bool { return false }
+func (e errFailedAcquireSemaphore) Error() string {
+	return fmt.Sprintf(
+		"failed to acquire DNS proxy semaphore, %d parallel requests already in-flight",
+		e.parallel,
+	)
+}
+
+// errTimedOutAcquireSemaphore is an an error representing the DNS proxy timing
+// out when acquiring the semaphore. It is treated the same as
+// errTimedOutAcquireSemaphore.
+type errTimedOutAcquireSemaphore struct {
+	errFailedAcquireSemaphore
+
+	gracePeriod time.Duration
+}
+
+func (e errTimedOutAcquireSemaphore) Error() string {
+	return fmt.Sprintf(
+		"timed out after %v acquiring DNS proxy semaphore, %d parallel requests already in-flight",
+		e.gracePeriod,
+		e.parallel,
+	)
+}
+
 // ProxyRequestContext proxy dns request context struct to send in the callback
 type ProxyRequestContext struct {
 	ProcessingTime spanstat.SpanStat // This is going to happen at the end of the second callback.
 	// Error is a enum of [timeout, allow, denied, proxyerr].
-	UpstreamTime spanstat.SpanStat
-	Success      bool
-	Err          error
+	UpstreamTime         spanstat.SpanStat
+	SemaphoreAcquireTime spanstat.SpanStat
+	PolicyCheckTime      spanstat.SpanStat
+	Success              bool
+	Err                  error
 }
 
 // IsTimeout return true if the ProxyRequest timeout
@@ -367,7 +414,7 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
+func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc, concurrencyLimit int) (*DNSProxy, error) {
 	if port == 0 {
 		log.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
 	}
@@ -381,6 +428,7 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		LookupSecIDByIP:          lookupSecIDFunc,
 		LookupIPsBySecID:         lookupIPsFunc,
 		NotifyOnDNSMsg:           notifyFunc,
+		logLimiter:               logging.NewLimiter(10*time.Second, 1),
 		lookupTargetDNSServer:    lookupTargetDNSServer,
 		usedServers:              make(map[string]struct{}),
 		allowed:                  make(perEPAllow),
@@ -389,6 +437,10 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		EnableDNSCompression:     enableDNSCompression,
 		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
 		regexCompileLRU:          lru.New(option.Config.FQDNRegexCompileLRUSize),
+	}
+	if concurrencyLimit > 0 {
+		p.ConcurrencyLimit = semaphore.NewWeighted(int64(concurrencyLimit))
+		p.ConcurrencyGracePeriod = option.Config.DNSProxyConcurrencyProcessingGracePeriod
 	}
 	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
@@ -520,18 +572,42 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 //  fqdn/NameManager instance).
 //  - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
-	stat := ProxyRequestContext{}
-	stat.ProcessingTime.Start()
 	requestID := request.Id // keep the original request ID
 	qname := string(request.Question[0].Name)
 	protocol := w.LocalAddr().Network()
+	epIPPort := w.RemoteAddr().String()
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.DNSName:      qname,
-		logfields.IPAddr:       w.RemoteAddr(),
-		logfields.DNSRequestID: request.Id})
+		logfields.IPAddr:       epIPPort,
+		logfields.DNSRequestID: requestID,
+	})
+
+	var stat ProxyRequestContext
+	if p.ConcurrencyLimit != nil {
+		// TODO: Consider plumbing the daemon context here.
+		ctx, cancel := context.WithTimeout(context.TODO(), p.ConcurrencyGracePeriod)
+		defer cancel()
+
+		stat.SemaphoreAcquireTime.Start()
+		// Enforce the concurrency limit by attempting to acquire the
+		// semaphore.
+		if err := p.enforceConcurrencyLimit(ctx); err != nil {
+			stat.SemaphoreAcquireTime.End(false)
+			if p.logLimiter.Allow() {
+				scopedLog.WithError(err).Error("Dropping DNS request due to too many DNS requests already in-flight")
+			}
+			stat.Err = err
+			p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, 0, "", request, protocol, false, &stat)
+			p.sendRefused(scopedLog, w, request)
+			return
+		}
+		stat.SemaphoreAcquireTime.End(true)
+		defer p.ConcurrencyLimit.Release(1)
+	}
+	stat.ProcessingTime.Start()
+
 	scopedLog.Debug("Handling DNS query from endpoint")
 
-	epIPPort := w.RemoteAddr().String()
 	addr, _, err := net.SplitHostPort(epIPPort)
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint IP from DNS request")
@@ -576,7 +652,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// Note: The cache doesn't know about the source of the DNS data (yet) and so
 	// it won't enforce any separation between results from different endpoints.
 	// This isn't ideal but we are trusting the DNS responses anyway.
+	stat.PolicyCheckTime.Start()
 	allowed, err := p.CheckAllowed(uint64(ep.ID), targetServerPort, targetServerID, targetServerIP, qname)
+	stat.PolicyCheckTime.End(err == nil)
 	switch {
 	case err != nil:
 		scopedLog.WithError(err).Error("Rejecting DNS query from endpoint due to error")
@@ -654,6 +732,29 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.usedServers[targetServerIP.String()] = struct{}{}
 		p.Unlock()
 	}
+}
+
+func (p *DNSProxy) enforceConcurrencyLimit(ctx context.Context) error {
+	if p.ConcurrencyGracePeriod == 0 {
+		// No grace time configured. Failing to acquire semaphore means
+		// immediately give up.
+		if !p.ConcurrencyLimit.TryAcquire(1) {
+			return errFailedAcquireSemaphore{
+				parallel: option.Config.DNSProxyConcurrencyLimit,
+			}
+		}
+	} else if err := p.ConcurrencyLimit.Acquire(ctx, 1); err != nil && errors.Is(err, context.DeadlineExceeded) {
+		// We ignore err because errTimedOutAcquireSemaphore implements the
+		// net.Error interface deeming it a timeout error which will be
+		// treated the same as context.DeadlineExceeded.
+		return errTimedOutAcquireSemaphore{
+			errFailedAcquireSemaphore: errFailedAcquireSemaphore{
+				parallel: option.Config.DNSProxyConcurrencyLimit,
+			},
+			gracePeriod: p.ConcurrencyGracePeriod,
+		}
+	}
+	return nil
 }
 
 // sendRefused creates and sends a REFUSED response for request to w
