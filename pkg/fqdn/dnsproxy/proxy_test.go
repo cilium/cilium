@@ -238,7 +238,9 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 		// NotifyOnDNSMsg
 		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
 			return nil
-		})
+		},
+		0,
+	)
 	c.Assert(err, IsNil, Commentf("error starting DNS Proxy"))
 	s.proxy = proxy
 
@@ -1000,6 +1002,13 @@ func (s *DNSProxyTestSuite) TestProxyRequestContext_IsTimeout(c *C) {
 	// IsTimeout() to return the wrong value.
 	p.Err = fmt.Errorf("sample err: %s", context.DeadlineExceeded)
 	c.Assert(p.IsTimeout(), Equals, false)
+
+	p.Err = errFailedAcquireSemaphore{}
+	c.Assert(p.IsTimeout(), Equals, true)
+	p.Err = errTimedOutAcquireSemaphore{
+		gracePeriod: 1 * time.Second,
+	}
+	c.Assert(p.IsTimeout(), Equals, true)
 }
 
 type selectorMock struct {
