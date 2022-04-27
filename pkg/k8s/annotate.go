@@ -80,7 +80,7 @@ func updateNodeAnnotation(c kubernetes.Interface, nodeName string, encryptKey ui
 	}
 	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
 
-	_, err = c.CoreV1().Nodes().Patch(context.TODO(), nodeName, types.StrategicMergePatchType, patch, v1.PatchOptions{})
+	_, err = c.CoreV1().Nodes().Patch(context.TODO(), nodeName, types.StrategicMergePatchType, patch, v1.PatchOptions{}, "status")
 
 	return err
 }
