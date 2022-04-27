@@ -337,16 +337,11 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			option.Config.NodePortMode = option.NodePortModeSNAT
 		}
 
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-			if option.Config.TunnelingEnabled() {
-				return false, fmt.Errorf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
-					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
-			}
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
+			option.Config.TunnelingEnabled() {
 
-			if option.Config.EnableIPv4EgressGateway {
-				return false, fmt.Errorf("Cannot use NodePort acceleration with the egress gateway. Run cilium-agent with either --%s=%s or %s=false",
-					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.EnableIPv4EgressGateway)
-			}
+			return false, fmt.Errorf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
+				option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
