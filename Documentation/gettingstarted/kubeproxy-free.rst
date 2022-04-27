@@ -702,7 +702,7 @@ with XDP, and number of combined channels need to be adapted.
 The default MTU is set to 9001 on the ena driver. Given XDP buffers are linear, they
 operate on a single page. A driver typically reserves some headroom for XDP as well
 (e.g. for encapsulation purpose), therefore, the highest possible MTU for XDP would
-be 3818.
+be 3498.
 
 In terms of ena channels, the settings can be gathered via ``ethtool -l eth0``. For the
 ``m5n.xlarge`` instance, the default output should look like::
@@ -724,7 +724,7 @@ In order to use XDP the channels must be set to at most 1/2 of the value from
 
 .. code-block:: shell-session
 
-  $ for ip in $IPS ; do ssh ec2-user@$ip "sudo ip link set dev eth0 mtu 3818"; done
+  $ for ip in $IPS ; do ssh ec2-user@$ip "sudo ip link set dev eth0 mtu 3498"; done
   $ for ip in $IPS ; do ssh ec2-user@$ip "sudo ethtool -L eth0 combined 2"; done
 
 In order to deploy Cilium, the Kubernetes API server IP and port is needed:
