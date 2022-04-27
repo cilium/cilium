@@ -65,6 +65,7 @@ cilium-agent [flags]
       --disable-endpoint-crd                                 Disable use of CiliumEndpoint CRD
       --disable-iptables-feeder-rules strings                Chains to ignore when installing feeder rules.
       --dns-max-ips-per-restored-rule int                    Maximum number of IPs to maintain for each restored DNS rule (default 1000)
+      --dnsproxy-concurrency-limit int                       Limit concurrency of DNS message processing
       --egress-masquerade-interfaces string                  Limit egress masquerading to interface selector
       --egress-multi-home-ip-rule-compat                     Use a new scheme to store rules and routes under ENI and Azure IPAM modes, if false. Otherwise, it will use the old scheme.
       --enable-auto-protect-node-port-range                  Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)

@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
@@ -113,6 +114,9 @@ type DNSProxy struct {
 	// EnableDNSCompression allows the DNS proxy to compress responses to
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
 	EnableDNSCompression bool
+
+	//ConcurrencyLimit limits parallel goroutines number that serve DNS
+	ConcurrencyLimit *semaphore.Weighted
 
 	// lookupTargetDNSServer extracts the originally intended target of a DNS
 	// query. It is always set to lookupTargetDNSServer in
@@ -344,9 +348,10 @@ type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPo
 type ProxyRequestContext struct {
 	ProcessingTime spanstat.SpanStat // This is going to happen at the end of the second callback.
 	// Error is a enum of [timeout, allow, denied, proxyerr].
-	UpstreamTime spanstat.SpanStat
-	Success      bool
-	Err          error
+	UpstreamTime         spanstat.SpanStat
+	SemaphoreAcquireTime spanstat.SpanStat
+	Success              bool
+	Err                  error
 }
 
 // IsTimeout return true if the ProxyRequest timeout
@@ -370,7 +375,7 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
+func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc, concurrencyLimit int) (*DNSProxy, error) {
 	if port == 0 {
 		log.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
 	}
@@ -391,6 +396,9 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		restoredEPs:              make(restoredEPs),
 		EnableDNSCompression:     enableDNSCompression,
 		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
+	}
+	if concurrencyLimit > 0 {
+		p.ConcurrencyLimit = semaphore.NewWeighted(int64(concurrencyLimit))
 	}
 	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
@@ -510,7 +518,14 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 //  - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat := ProxyRequestContext{}
+	stat.SemaphoreAcquireTime.Start()
+	if p.ConcurrencyLimit != nil {
+		p.ConcurrencyLimit.Acquire(context.TODO(), 1)
+		defer p.ConcurrencyLimit.Release(1)
+	}
+	stat.SemaphoreAcquireTime.End(true)
 	stat.ProcessingTime.Start()
+
 	requestID := request.Id // keep the original request ID
 	qname := string(request.Question[0].Name)
 	protocol := w.LocalAddr().Network()

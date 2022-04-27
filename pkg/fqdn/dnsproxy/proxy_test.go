@@ -235,7 +235,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 		// NotifyOnDNSMsg
 		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
 			return nil
-		})
+		}, 0)
 	c.Assert(err, IsNil, Commentf("error starting DNS Proxy"))
 	s.proxy = proxy
 
