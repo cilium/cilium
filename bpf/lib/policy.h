@@ -187,7 +187,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 			return policy->proxy_port;
 		}
 		
-		/* L4-only lookup, If not fill out port*/
+		/* L4-only lookup, If not fill out port, podSelector and namespaceSelector */
 		key.dport = 0;
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
@@ -198,7 +198,16 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 			return policy->proxy_port;
 		}
 		
+		/* L4-only lookup, If not fill out port ,but use podSelector and namespaceSelector */
 		key.sec_label = remote_id;
+		policy = map_lookup_elem(map, &key);
+		if (likely(policy)) {
+			account(ctx, policy);
+			*match_type = POLICY_MATCH_L4_ONLY;
+			if (unlikely(policy->deny))
+				return DROP_POLICY_DENY;
+			return policy->proxy_port;
+		}
 	}
 
 	/* If L4 policy check misses, fall back to L3. */
