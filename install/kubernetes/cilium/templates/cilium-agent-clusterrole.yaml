@@ -39,10 +39,10 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - nodes
+  - nodes/status
   verbs:
   # To annotate the k8s node with Cilium's metadata
-  - update
+  - patch
 {{- end }}
 - apiGroups:
   - apiextensions.k8s.io
