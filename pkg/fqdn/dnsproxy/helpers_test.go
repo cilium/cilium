@@ -7,12 +7,15 @@
 package dnsproxy
 
 import (
+	"testing"
+
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/golang/groupcache/lru"
+
 	. "gopkg.in/check.v1"
-	"testing"
 )
 
 type DNSProxyHelperTestSuite struct{}
@@ -38,8 +41,8 @@ func (s *DNSProxyHelperTestSuite) TestGetSelectorRegexMap(c *C) {
 			}},
 		},
 	}
-	cache := &lru.Cache{}
-	m, err := GetSelectorRegexMap(l7, cache)
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+	m, err := GetSelectorRegexMap(l7)
 
 	c.Assert(err, Equals, nil)
 

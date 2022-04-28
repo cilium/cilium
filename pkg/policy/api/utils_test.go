@@ -9,6 +9,8 @@ package api
 import (
 	"testing"
 
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
 
 	. "gopkg.in/check.v1"
@@ -17,6 +19,10 @@ import (
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) {
 	TestingT(t)
+}
+
+func (s *PolicyAPITestSuite) SetUpSuite(c *C) {
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 }
 
 type PolicyAPITestSuite struct{}
