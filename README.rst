@@ -257,12 +257,16 @@ We host a weekly community `YouTube livestream called eCHO <https://www.youtube.
 Governance
 ----------
 The Cilium project is governed by a group of `Maintainers and Committers <https://raw.githubusercontent.com/cilium/cilium/master/MAINTAINERS.md>`__.
-How they are selected and govern is outlined in our `governance document <https://docs.cilium.io/en/latest/contributing/governance/commit_access/>`__.
+How they are selected and govern is outlined in our `governance document <https://docs.cilium.io/en/latest/community/governance/commit_access/>`__.
 
 Adopters
 --------
 A list of adopters of the Cilium project who are deploying it in production, and of their use cases,
 can be found in file `USERS.md <https://raw.githubusercontent.com/cilium/cilium/master/USERS.md>`__.
+
+Roadmap
+-------
+Cilium maintains a `public roadmap <https://docs.cilium.io/en/latest/community/roadmap/>`__. It gives a a high-level view of the main priorities for the project, the maturity of different features, and how to influence the project direction.
 
 License
 =======
