@@ -2616,6 +2616,10 @@ func (c *DaemonConfig) Validate() error {
 		return err
 	}
 
+	if err := c.checkIPAMDelegatedPlugin(); err != nil {
+		return err
+	}
+
 	// Validate that the KVStore Lease TTL value lies between a particular range.
 	if c.KVstoreLeaseTTL > defaults.KVstoreLeaseMaxTTL || c.KVstoreLeaseTTL < defaults.LockLeaseTTL {
 		return fmt.Errorf("KVstoreLeaseTTL does not lie in required range(%ds, %ds)",
@@ -3414,6 +3418,24 @@ func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
 			EnableIPv6Name)
 	}
 
+	return nil
+}
+
+func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {
+	if c.IPAM == ipamOption.IPAMDelegatedPlugin {
+		// When using IPAM delegated plugin, IP addresses are allocated by the CNI binary,
+		// not the daemon. Therefore, features which require the daemon to allocate IPs for itself
+		// must be disabled.
+		if c.EnableIPv4 && c.LocalRouterIPv4 == "" {
+			return fmt.Errorf("--%s must be provided when IPv4 is enabled with --%s=%s", LocalRouterIPv4, IPAM, ipamOption.IPAMDelegatedPlugin)
+		}
+		if c.EnableIPv6 && c.LocalRouterIPv6 == "" {
+			return fmt.Errorf("--%s must be provided when IPv6 is enabled with --%s=%s", LocalRouterIPv6, IPAM, ipamOption.IPAMDelegatedPlugin)
+		}
+		if c.EnableEndpointHealthChecking {
+			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEndpointHealthChecking, IPAM, ipamOption.IPAMDelegatedPlugin)
+		}
+	}
 	return nil
 }
 

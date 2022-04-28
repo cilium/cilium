@@ -609,6 +609,71 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 
 }
 
+func TestCheckIPAMDelegatedPlugin(t *testing.T) {
+	tests := []struct {
+		name      string
+		d         *DaemonConfig
+		expectErr error
+	}{
+		{
+			name: "IPAMDelegatedPlugin with local router IPv4 set and endpoint health checking disabled",
+			d: &DaemonConfig{
+				IPAM:            ipamOption.IPAMDelegatedPlugin,
+				EnableIPv4:      true,
+				LocalRouterIPv4: "169.254.0.0",
+			},
+			expectErr: nil,
+		},
+		{
+			name: "IPAMDelegatedPlugin with local router IPv6 set and endpoint health checking disabled",
+			d: &DaemonConfig{
+				IPAM:            ipamOption.IPAMDelegatedPlugin,
+				EnableIPv6:      true,
+				LocalRouterIPv6: "fe80::1",
+			},
+			expectErr: nil,
+		},
+		{
+			name: "IPAMDelegatedPlugin with health checking enabled",
+			d: &DaemonConfig{
+				IPAM:                         ipamOption.IPAMDelegatedPlugin,
+				EnableHealthChecking:         true,
+				EnableEndpointHealthChecking: true,
+			},
+			expectErr: fmt.Errorf("--enable-endpoint-health-checking must be disabled with --ipam=delegated-plugin"),
+		},
+		{
+			name: "IPAMDelegatedPlugin without local router IPv4",
+			d: &DaemonConfig{
+				IPAM:       ipamOption.IPAMDelegatedPlugin,
+				EnableIPv4: true,
+			},
+			expectErr: fmt.Errorf("--local-router-ipv4 must be provided when IPv4 is enabled with --ipam=delegated-plugin"),
+		},
+		{
+			name: "IPAMDelegatedPlugin without local router IPv6",
+			d: &DaemonConfig{
+				IPAM:       ipamOption.IPAMDelegatedPlugin,
+				EnableIPv6: true,
+			},
+			expectErr: fmt.Errorf("--local-router-ipv6 must be provided when IPv6 is enabled with --ipam=delegated-plugin"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.d.checkIPAMDelegatedPlugin()
+			if tt.expectErr != nil && err == nil {
+				t.Errorf("expected error but got none")
+			} else if tt.expectErr == nil && err != nil {
+				t.Errorf("expected no error but got %q", err)
+			} else if tt.expectErr != nil && tt.expectErr.Error() != err.Error() {
+				t.Errorf("expected error %q but got %q", tt.expectErr, err)
+			}
+		})
+	}
+}
+
 func Test_populateNodePortRange(t *testing.T) {
 	type want struct {
 		wantMin int
