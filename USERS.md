@@ -129,7 +129,13 @@ Users (Alphabetically)
       D: DigitalOcean is using Cilium as the CNI for Digital Ocean's managed Kubernetes Services (DOKS)
       U: Networking and network policy
       L: https://github.com/digitalocean/DOKS
-           
+
+    * N: Elastic Path
+      D: Elastic Path is using Cilium in their CloudOps for Kubernetes production clusters
+      U: CNI
+      L: https://documentation.elasticpath.com/cloudops-kubernetes/docs/index.html
+      Q: @Neil Seward
+
     * N: Equinix
       D: Equinix Metal is using Cilium for production and non-production environments on bare metal 
       U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble, network visibility
