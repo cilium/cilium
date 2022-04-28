@@ -18,9 +18,11 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -36,6 +38,10 @@ type DaemonFQDNSuite struct {
 }
 
 var _ = Suite(&DaemonFQDNSuite{})
+
+func (ds *DaemonFQDNSuite) SetUpSuite(c *C) {
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+}
 
 type FakeRefcountingIdentityAllocator struct {
 	*testidentity.MockIdentityAllocator

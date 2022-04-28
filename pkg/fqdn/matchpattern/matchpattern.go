@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 )
 
 const allowedDNSCharsREGroup = "[-a-zA-Z0-9_]"
@@ -24,7 +25,7 @@ func Validate(pattern string) (matcher *regexp.Regexp, err error) {
 		return nil, errors.New(`Only alphanumeric ASCII characters, the hyphen "-", underscore "_", "." and "*" are allowed in a matchPattern`)
 	}
 
-	return regexp.Compile(ToRegexp(pattern))
+	return re.CompileRegex(ToRegexp(pattern))
 }
 
 // Sanitize canonicalized the pattern for use by ToRegexp

@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/groupcache/lru"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -149,11 +149,6 @@ type DNSProxy struct {
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
 	rejectReply int32
-
-	// regexCompileLRU contains an LRU cache for the regex.Compile of rules.
-	// Keeping an LRU cache avoids excessive memory allocations when compiling
-	// regex strings via regex.Compile.
-	regexCompileLRU *lru.Cache
 }
 
 // perEPAllow maps EndpointIDs to ports + selectors + rules
@@ -276,7 +271,7 @@ func (p *DNSProxy) RemoveRestoredRules(endpointID uint16) {
 // setPortRulesForID sets the matching rules for endpointID and destPort for
 // later lookups. It converts newRules into a unified regexp that can be reused
 // later.
-func (allow perEPAllow) setPortRulesForID(lru *lru.Cache, endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
+func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
 	// This is the delete case
 	if len(newRules) == 0 {
 		epPorts := allow[endpointID]
@@ -287,7 +282,7 @@ func (allow perEPAllow) setPortRulesForID(lru *lru.Cache, endpointID uint64, des
 		return nil
 	}
 
-	newRE, err := GetSelectorRegexMap(newRules, lru)
+	newRE, err := GetSelectorRegexMap(newRules)
 	if err != nil {
 		return err
 	}
@@ -415,6 +410,10 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
 func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc, concurrencyLimit int) (*DNSProxy, error) {
+	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
+		return nil, fmt.Errorf("failed to start DNS proxy: %w", err)
+	}
+
 	if port == 0 {
 		log.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
 	}
@@ -436,7 +435,6 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		restoredEPs:              make(restoredEPs),
 		EnableDNSCompression:     enableDNSCompression,
 		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
-		regexCompileLRU:          lru.New(option.Config.FQDNRegexCompileLRUSize),
 	}
 	if concurrencyLimit > 0 {
 		p.ConcurrencyLimit = semaphore.NewWeighted(int64(concurrencyLimit))
@@ -446,9 +444,10 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 
 	// Start the DNS listeners on UDP and TCP
 	var (
-		UDPConn                *net.UDPConn
-		TCPListener            *net.TCPListener
-		err                    error
+		UDPConn     *net.UDPConn
+		TCPListener *net.TCPListener
+		err         error
+
 		EnableIPv4, EnableIPv6 = option.Config.EnableIPv4, option.Config.EnableIPv6
 	)
 
@@ -516,7 +515,7 @@ func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules po
 	p.Lock()
 	defer p.Unlock()
 
-	err := p.allowed.setPortRulesForID(p.regexCompileLRU, endpointID, destPort, newRules)
+	err := p.allowed.setPortRulesForID(endpointID, destPort, newRules)
 	if err == nil {
 		// Rules were updated based on policy, remove restored rules
 		p.removeRestoredRulesLocked(endpointID)
@@ -901,7 +900,7 @@ func shouldCompressResponse(request, response *dns.Msg) bool {
 	return false
 }
 
-func GetSelectorRegexMap(l7 policy.L7DataMap, lru *lru.Cache) (CachedSelectorREEntry, error) {
+func GetSelectorRegexMap(l7 policy.L7DataMap) (CachedSelectorREEntry, error) {
 	newRE := make(CachedSelectorREEntry)
 	for selector, l7Rules := range l7 {
 		if l7Rules == nil {
@@ -921,18 +920,11 @@ func GetSelectorRegexMap(l7 policy.L7DataMap, lru *lru.Cache) (CachedSelectorREE
 			}
 		}
 		mp := strings.Join(reStrings, "|")
-		rei, ok := lru.Get(mp)
-		if ok {
-			re := rei.(*regexp.Regexp)
-			newRE[selector] = re
-		} else {
-			re, err := regexp.Compile(mp)
-			if err != nil {
-				return nil, err
-			}
-			lru.Add(mp, re)
-			newRE[selector] = re
+		rei, err := re.CompileRegex(mp)
+		if err != nil {
+			return nil, err
 		}
+		newRE[selector] = rei
 	}
 
 	return newRE, nil
