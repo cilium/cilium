@@ -79,6 +79,8 @@ type Options struct {
 	Writer io.Writer
 	// Flags to pass to cilium-bugtool command
 	CiliumBugtoolFlags []string
+	// Whether to automatically detect the gops agent PID
+	DetectGopsPID bool
 }
 
 // Task defines a task for the sysdump collector to execute.
@@ -1018,6 +1020,24 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 	return nil
 }
 
+func extractGopsPID(output string) (string, error) {
+	entries := strings.Split(output, "\n")
+	for _, entry := range entries {
+		match := gopsRegexp.FindStringSubmatch(entry)
+		if len(match) > 0 {
+			result := make(map[string]string)
+			for i, name := range gopsRegexp.SubexpNames() {
+				if i != 0 && name != "" {
+					result[name] = match[i]
+				}
+			}
+			return result["pid"], nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to extract pid from output: %q", output)
+}
+
 // SubmitGopsSubtasks submits tasks to collect kubernetes logs from pods.
 func (c *Collector) SubmitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
@@ -1026,10 +1046,25 @@ func (c *Collector) SubmitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, 
 			g := g
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
 				// Run 'gops' on the pod.
+				gopsOutput, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{
+					gopsCommand,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to list processes %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
+				}
+				agentPID := gopsPID
+				if c.Options.DetectGopsPID {
+					var err error
+					outputStr := gopsOutput.String()
+					agentPID, err = extractGopsPID(outputStr)
+					if err != nil {
+						return err
+					}
+				}
 				o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{
 					gopsCommand,
 					g,
-					gopsPID,
+					agentPID,
 				})
 				if err != nil {
 					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
