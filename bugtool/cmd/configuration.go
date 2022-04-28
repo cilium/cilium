@@ -368,6 +368,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf lb list --frontends",
 		"cilium bpf lb list --backends",
 		"cilium bpf egress list",
+		"cilium bpf vtep list",
 		"cilium bpf endpoint list",
 		"cilium bpf ct list global",
 		"cilium bpf nat list",
