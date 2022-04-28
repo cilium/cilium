@@ -101,6 +101,46 @@ func (b *SysdumpSuite) TestAddTasks(c *check.C) {
 	c.Assert(len(collector.additionalTasks), check.Equals, 6)
 }
 
+func (b *SysdumpSuite) TestExtractGopsPID(c *check.C) {
+	var pid string
+	var err error
+
+	normalOutput := `
+25863 0     gops          unknown Go version /usr/bin/gops
+25852 25847 cilium        unknown Go version /usr/bin/cilium
+10    1     cilium-agent* unknown Go version /usr/bin/cilium-agent
+1     0     custom        go1.16.3           /usr/local/bin/custom
+	`
+	pid, err = extractGopsPID(normalOutput)
+	c.Assert(err, check.IsNil)
+	c.Assert(pid, check.Equals, "10")
+
+	missingAgent := `
+25863 0     gops          unknown Go version /usr/bin/gops
+25852 25847 cilium        unknown Go version /usr/bin/cilium
+10    1     cilium-agent unknown Go version /usr/bin/cilium-agent
+1     0     custom        go1.16.3           /usr/local/bin/custom
+	`
+	pid, err = extractGopsPID(missingAgent)
+	c.Assert(err, check.NotNil)
+	c.Assert(pid, check.Equals, "")
+
+	multipleAgents := `
+25863 0     gops*          unknown Go version /usr/bin/gops
+25852 25847 cilium*        unknown Go version /usr/bin/cilium
+10    1     cilium-agent unknown Go version /usr/bin/cilium-agent
+1     0     custom        go1.16.3           /usr/local/bin/custom
+	`
+	pid, err = extractGopsPID(multipleAgents)
+	c.Assert(err, check.IsNil)
+	c.Assert(pid, check.Equals, "25863")
+
+	noOutput := ``
+	_, err = extractGopsPID(noOutput)
+	c.Assert(err, check.NotNil)
+
+}
+
 type fakeClient struct {
 	nodeList *corev1.NodeList
 }

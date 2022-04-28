@@ -88,6 +88,7 @@ var (
 		Version:  "v1beta1",
 	}
 	ciliumBugtoolFileNameRegex = regexp.MustCompile("ARCHIVE at (.*)\n")
+	gopsRegexp                 = regexp.MustCompile(`^(?P<pid>\d+).*\*`)
 	gopsStats                  = []string{
 		"memstats",
 		"stack",
