@@ -142,6 +142,14 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = newCRDAllocator(IPv4, c, owner, k8sEventReg, mtuConfig)
 		}
+	case ipamOption.IPAMDelegatedPlugin:
+		log.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")
+		if c.IPv6Enabled() {
+			ipam.IPv6Allocator = &noOpAllocator{}
+		}
+		if c.IPv4Enabled() {
+			ipam.IPv4Allocator = &noOpAllocator{}
+		}
 	default:
 		log.Fatalf("Unknown IPAM backend %s", c.IPAMMode())
 	}
