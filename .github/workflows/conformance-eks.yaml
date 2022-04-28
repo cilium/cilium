@@ -68,6 +68,7 @@ env:
   region: us-east-2
   cilium_cli_version: v0.11.3
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  eksctl_version: v0.94.0
 
 jobs:
   check_changes:
@@ -185,7 +186,7 @@ jobs:
 
       - name: Install eksctl CLI
         run: |
-          curl -LO "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
+          curl -LO "https://github.com/weaveworks/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
           sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
           rm eksctl_$(uname -s)_amd64.tar.gz
 
