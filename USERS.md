@@ -88,6 +88,11 @@ Users (Alphabetically)
       U: Hubble for Visibility, Cilium as Mesh between Services
       L: https://www.ayedo.de/
 
+    * N: ByteDance
+      D: ByteDance is using Cilium as CNI plug-in for self-hosted Kubernetes.
+      U: CNI, Networking
+      L: @Jiang Wang
+
     * N: Canonical
       D: Canonical's Kubernetes distribution microk8s uses Cilium as CNI plugin
       U: Networking, NetworkPolicy, and Kubernetes services
