@@ -121,6 +121,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 				helmMapOpts["encryption.nodeEncryption"] = "true"
 			}
 		case encryptionWireguard:
+			helmMapOpts["encryption.enabled"] = "true"
 			helmMapOpts["encryption.type"] = "wireguard"
 			// TODO(gandro): Future versions of Cilium will remove the following
 			// two limitations, we will need to have set the config map values
