@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 )
 
-func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf models.DaemonConfigurationStatus) error {
+func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
 	// If the gateway IP is not available, it is already set up
 	if ipam.Gateway == "" {
 		return nil
