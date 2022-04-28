@@ -213,8 +213,8 @@ jobs:
 
       - name: Install Cilium
         run: |
-          curl -LO https://github.com/cilium/cilium/archive/master.tar.gz
-          tar xzf master.tar.gz
+          curl -LO https://github.com/cilium/cilium/archive/v1.10.tar.gz
+          tar xzf v1.10.tar.gz
           cd cilium-master/install/kubernetes
           helm install cilium ./cilium \
             --namespace kube-system \
