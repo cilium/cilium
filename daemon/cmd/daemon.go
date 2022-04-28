@@ -939,9 +939,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// are set.
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
+
+		// Initialize d.k8sCachesSynced before any k8s watchers are alive, as they may
+		// access it to check the status of k8s initialization
+		cachesSynced := make(chan struct{})
+		d.k8sCachesSynced = cachesSynced
+
 		// Launch the K8s watchers in parallel as we continue to process other
 		// daemon options.
-		d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem(d.ctx)
+		d.k8sWatcher.InitK8sSubsystem(d.ctx, cachesSynced)
 		bootstrapStats.k8sInit.End(true)
 	}
 

@@ -413,21 +413,18 @@ func (k *K8sWatcher) resourceGroups() []string {
 	return append(k8sGroups, ciliumGroups...)
 }
 
-// InitK8sSubsystem returns a channel for which it will be closed when all
+// InitK8sSubsystem takes a channel for which it will be closed when all
 // caches essential for daemon are synchronized.
 // To be called after WaitForCRDsToRegister() so that all needed CRDs have
 // already been registered.
-func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
-	cachesSynced := make(chan struct{})
-
+func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
 	resources := k.resourceGroups()
 	if err := k.EnableK8sWatcher(ctx, resources); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
 		}
 		// If the context was canceled it means the daemon is being stopped
-		// so we can return a non-closed channel.
-		return cachesSynced
+		return
 	}
 
 	go func() {
@@ -444,8 +441,6 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 			log.Fatal("Timed out waiting for pre-existing resources to be received; exiting")
 		}
 	}()
-
-	return cachesSynced
 }
 
 // WatcherConfiguration is the required configuration for EnableK8sWatcher
