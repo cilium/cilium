@@ -107,6 +107,19 @@ func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
 	return true
 }
 
+func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfigurationStatus, error) {
+	configResult, err := client.ConfigGet()
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve configuration from cilium-agent: %w", err)
+	}
+
+	if configResult == nil || configResult.Status == nil {
+		return nil, fmt.Errorf("received empty configuration object from cilium-agent")
+	}
+
+	return configResult.Status, nil
+}
+
 func releaseIP(client *client.Client, ip string) {
 	if ip != "" {
 		if err := client.IPAMReleaseIP(ip); err != nil {
@@ -287,6 +300,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		n        *types.NetConf
 		c        *client.Client
 		netNs    ns.NetNS
+		conf     *models.DaemonConfigurationStatus
 	)
 
 	n, err = types.LoadNetConf(args.StdinData)
@@ -371,18 +385,10 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	addLabels := models.Labels{}
 
-	configResult, err := c.ConfigGet()
+	conf, err = getConfigFromCiliumAgent(c)
 	if err != nil {
-		err = fmt.Errorf("unable to retrieve configuration from cilium-agent: %s", err)
 		return
 	}
-
-	if configResult == nil || configResult.Status == nil {
-		err = fmt.Errorf("did not receive configuration from cilium-agent")
-		return
-	}
-
-	conf := *configResult.Status
 
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
 	ipam, err = c.IPAMAllocate("", podName, true)
