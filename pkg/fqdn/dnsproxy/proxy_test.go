@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/groupcache/lru"
 	"github.com/miekg/dns"
 	. "gopkg.in/check.v1"
 	"sigs.k8s.io/yaml"
@@ -29,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -192,6 +192,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
+	option.Config.FQDNRegexCompileLRUSize = 1024
 	proxy, err := StartDNSProxy("", 0, true, 1000, // any address, any port, enable compression, max 1000 restore IPs
 		// LookupEPByIP
 		func(ip net.IP) (*endpoint.Endpoint, error) {
@@ -1055,12 +1056,12 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	}
 
 	pea := perEPAllow{}
-	lru := lru.New(128)
+	re.InitRegexCompileLRU(128)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for epID := uint64(0); epID < 20; epID++ {
-			pea.setPortRulesForID(lru, epID, 8053, newRules)
+			pea.setPortRulesForID(epID, 8053, newRules)
 		}
 	}
 }
@@ -1136,12 +1137,12 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 
 	pea := perEPAllow{}
-	lru := lru.New(128) // modify to 1024 and compare results
+	re.InitRegexCompileLRU(128) // modify to 1024 and compare results
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for epID := uint64(0); epID < 20; epID++ {
-			pea.setPortRulesForID(lru, epID, 8053, rules)
+			pea.setPortRulesForID(epID, 8053, rules)
 		}
 	}
 	b.StopTimer()
