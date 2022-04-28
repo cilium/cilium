@@ -30,6 +30,7 @@ const (
 	DefaultNodeList                          = ""
 	DefaultQuick                             = false
 	DefaultOutputFileName                    = "cilium-sysdump-<ts>" // "<ts>" will be replaced with the timestamp
+	DefaultDetectGopsPID                     = false
 )
 
 var (

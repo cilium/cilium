@@ -103,6 +103,9 @@ func newCmdSysdump() *cobra.Command {
 	cmd.Flags().StringArrayVar(&sysdumpOptions.CiliumBugtoolFlags,
 		"cilium-bugtool-flags", nil,
 		"Optional set of flags to pass to cilium-bugtool command.")
+	cmd.Flags().BoolVar(&sysdumpOptions.DetectGopsPID,
+		"detect-gops-pid", false,
+		"Whether to automatically detect the gops agent PID.")
 
 	return cmd
 }
