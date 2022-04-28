@@ -899,8 +899,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 
 		if option.Config.EnableL7Proxy {
-			return nil, nil, fmt.Errorf("egress gateway requires L7 proxy to be disabled (--%s=\"false\").",
-				option.EnableL7Proxy)
+			log.Warningf("both egress gateway and L7 proxy (--%s) are enabled. This is currently not fully supported: "+
+				"if the same endpoint is selected both by an egress gateway and a L7 policy, endpoint traffic will not go through egress gateway.", option.EnableL7Proxy)
 		}
 	}
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
