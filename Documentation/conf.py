@@ -70,7 +70,7 @@ author = u'Cilium Authors'
 release = open("../VERSION", "r").read().strip()
 # Used by version warning
 versionwarning_body_selector = "div.document"
-versionwarning_api_url = "docs.cilium.io"
+versionwarning_api_url = "https://docs.cilium.io/"
 
 # The version of Go used to compile Cilium
 go_release = open("../GO_VERSION", "r").read().strip()
