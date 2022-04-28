@@ -851,6 +851,7 @@ ct_recreate4:
 #ifdef ENABLE_EGRESS_GATEWAY
 	{
 		struct egress_gw_policy_entry *egress_gw_policy;
+		struct endpoint_info *gateway_node_ep;
 		struct endpoint_key key = {};
 
 		/* If the packet is destined to an entity inside the cluster,
@@ -873,10 +874,16 @@ ct_recreate4:
 		if (!egress_gw_policy)
 			goto skip_egress_gateway;
 
-		/* Encap and redirect the packet to egress gateway node through a tunnel.
-		 * Even if the tunnel endpoint is on the same host, follow the same data
-		 * path to be consistent. In future, it can be optimized by directly
-		 * direct to external interface.
+		/* If the gateway node is the local node, then just let the
+		 * packet go through, as it will be SNATed later on by
+		 * handle_nat_fwd().
+		 */
+		gateway_node_ep = __lookup_ip4_endpoint(egress_gw_policy->gateway_ip);
+		if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
+			goto skip_egress_gateway;
+
+		/* Otherwise encap and redirect the packet to egress gateway
+		 * node through a tunnel.
 		 */
 		ret = encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
 					     &key, SECLABEL, &trace);
