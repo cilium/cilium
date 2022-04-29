@@ -11,7 +11,14 @@ function check_img_list {
       #echo "*******************************"
       echo -e "not cached in VM: \t$img"
       echo -e "pulling: \t\t$img"
-      docker pull $img --quiet &
+      case $K8S_VERSION in
+        "1.16"|"1.17"|"1.18"|"1.19"|"1.20"|"1.21"|"1.22"|"1.23")
+          docker pull $img --quiet &
+        ;;
+        *)
+          sudo ctr images pull "${img}" >/dev/null &
+        ;;
+      esac
       #echo "*******************************"
     else
       echo -e "already cached: \t$img"
@@ -26,8 +33,8 @@ function test_images {
   # sed's -n does not print non-matching lines and the `#p` prints only
   # matching groups. `#` is used as the sed delimiter to avoid escaping `/` in
   # the regex.
-  DOCKER_IMAGES=$(grep -rI --no-filename "docker.io" . | sed -nEe 's#.*(docker.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p' | sort | uniq)
-  QUAY_IMAGES=$(grep -rI --no-filename "quay.io" .     | sed -nEe   's#.*(quay.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p' | sort | uniq)
+  DOCKER_IMAGES=$(grep -rI --no-filename "docker.io" . | sed -nEe 's#.*(docker.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+).*#\1#p' | sort | uniq)
+  QUAY_IMAGES=$(grep -rI --no-filename "quay.io" .     | sed -nEe   's#.*(quay.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+).*#\1#p' | sort | uniq)
 
   check_img_list $DOCKER_IMAGES
   check_img_list $QUAY_IMAGES
