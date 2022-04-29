@@ -560,6 +560,7 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 	}
 
 	if peerSvc := k.generatePeerService(); peerSvc != nil {
+		k.Log("🚀 Creating Peer Service...")
 		if _, err := k.client.CreateService(ctx, k.params.Namespace, peerSvc, metav1.CreateOptions{}); err != nil {
 			return err
 		}
