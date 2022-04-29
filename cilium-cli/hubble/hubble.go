@@ -288,6 +288,7 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 	}
 
 	if peerSvc := k.generatePeerService(); peerSvc != nil {
+		k.Log("🔥 Deleting Peer Service...")
 		k.client.DeleteService(ctx, peerSvc.GetNamespace(), peerSvc.GetName(), metav1.DeleteOptions{})
 	}
 
