@@ -155,7 +155,21 @@ type Allocator struct {
 type AllocatorOption func(*Allocator)
 
 // NewAllocatorForGC returns an allocator that can be used to run RunGC()
-func NewAllocatorForGC(backend Backend) *Allocator {
+//
+// The allocator can be configured by passing in additional options:
+//  - WithMin(id) - minimum ID to allocate (default: 1)
+//  - WithMax(id) - maximum ID to allocate (default max(uint64))
+func NewAllocatorForGC(backend Backend, opts ...AllocatorOption) *Allocator {
+	a := &Allocator{
+		backend: backend,
+		min:     idpool.ID(1),
+		max:     idpool.ID(^uint64(0)),
+	}
+
+	for _, fn := range opts {
+		fn(a)
+	}
+
 	return &Allocator{backend: backend}
 }
 
