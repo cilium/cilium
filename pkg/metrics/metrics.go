@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	"golang.org/x/sys/unix"
@@ -40,7 +41,7 @@ const (
 	// ErrorProxy is the value used to notify errors on Proxy.
 	ErrorProxy = "proxy"
 
-	//L7DNS is the value used to report DNS label on metrics
+	// L7DNS is the value used to report DNS label on metrics
 	L7DNS = "dns"
 
 	// SubsystemBPF is the subsystem to scope metrics related to the bpf syscalls.
@@ -555,21 +556,21 @@ type Configuration struct {
 func DefaultMetrics() map[string]struct{} {
 	return map[string]struct{}{
 		Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":               {},
-		Namespace + "_endpoint_regenerations":                                        {}, //TODO(sayboras): Remove deprecated metric in 1.10
+		Namespace + "_endpoint_regenerations":                                        {}, // TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_endpoint_regenerations_total":                                  {},
 		Namespace + "_endpoint_state":                                                {},
 		Namespace + "_endpoint_regeneration_time_stats_seconds":                      {},
 		Namespace + "_policy":                                                        {},
-		Namespace + "_policy_count":                                                  {}, //TODO(sayboras): Remove deprecated metric in 1.10
+		Namespace + "_policy_count":                                                  {}, // TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_policy_regeneration_total":                                     {},
 		Namespace + "_policy_regeneration_time_stats_seconds":                        {},
 		Namespace + "_policy_max_revision":                                           {},
-		Namespace + "_policy_import_errors":                                          {}, //TODO(sayboras): Remove deprecated metric in 1.10
+		Namespace + "_policy_import_errors":                                          {}, // TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_policy_import_errors_total":                                    {},
 		Namespace + "_policy_endpoint_enforcement_status":                            {},
 		Namespace + "_policy_implementation_delay":                                   {},
 		Namespace + "_identity":                                                      {},
-		Namespace + "_identity_count":                                                {}, //TODO(sayboras): Remove deprecated metric in 1.10
+		Namespace + "_identity_count":                                                {}, // TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_event_ts":                                                      {},
 		Namespace + "_proxy_redirects":                                               {},
 		Namespace + "_policy_l7_total":                                               {},
@@ -596,7 +597,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_kubernetes_events_total":                                       {},
 		Namespace + "_kubernetes_events_received_total":                              {},
 		Namespace + "_" + SubsystemK8sClient + "_api_latency_time_seconds":           {},
-		Namespace + "_" + SubsystemK8sClient + "_api_calls_counter":                  {}, //TODO(sayboras): Remove deprecated metric in 1.10
+		Namespace + "_" + SubsystemK8sClient + "_api_calls_counter":                  {}, // TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_" + SubsystemK8sClient + "_api_calls_total":                    {},
 		Namespace + "_" + SubsystemK8s + "_cnp_status_completion_seconds":            {},
 		Namespace + "_ipam_events_total":                                             {},
@@ -1360,9 +1361,8 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 }
 
 func init() {
-	MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: Namespace}))
-	// TODO: Figure out how to put this into a Namespace
-	// MustRegister(prometheus.NewGoCollector())
+	MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
+	MustRegister(collectors.NewGoCollector())
 	MustRegister(newStatusCollector())
 	MustRegister(newbpfCollector())
 }

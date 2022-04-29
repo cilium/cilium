@@ -12,7 +12,8 @@
 // limitations under the License.
 
 // +build linux
+// +build riscv riscv64
 
 package procfs
 
-var parseCPUInfo = parseCPUInfoPPC
+var parseCPUInfo = parseCPUInfoRISCV
