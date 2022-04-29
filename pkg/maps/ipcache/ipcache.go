@@ -218,22 +218,31 @@ func (m *Map) GetMaxPrefixLengths() (ipv6, ipv4 int) {
 
 func (m *Map) supportsDelete() bool {
 	m.detectDeleteSupport.Do(func() {
+		// Create a separate map for the probing since this map may not have been created yet.
+		probeMap := NewMap(m.Name() + "_probe")
+		_, err := probeMap.OpenOrCreate()
+		defer probeMap.Unpin()
+		if err != nil {
+			log.WithError(err).Warn("Failed to open IPCache map for feature probing, assuming delete and dump unsupported")
+			m.deleteSupport = false
+			return
+		}
+		defer probeMap.Close()
+
 		// Entry is invalid because IPCache needs a family specified.
 		invalidEntry := &Key{}
-		m.deleteSupport, _ = m.delete(invalidEntry, false)
+		m.deleteSupport, _ = probeMap.delete(invalidEntry, false)
 		log.Debugf("Detected IPCache delete operation support: %t", m.deleteSupport)
 
 		// Detect dump support
-		err := m.Dump(map[string][]string{})
+		err = probeMap.Dump(map[string][]string{})
 		dumpSupport := err == nil
 		log.Debugf("Detected IPCache dump operation support: %t", dumpSupport)
 
 		// In addition to delete support, ability to dump the map is
 		// also required in order to run the garbage collector which
 		// will iterate over the map and delete entries.
-		if m.deleteSupport {
-			m.deleteSupport = dumpSupport
-		}
+		m.deleteSupport = m.deleteSupport && dumpSupport
 
 		if !m.deleteSupport {
 			log.Infof("Periodic IPCache map swap will occur due to lack of kernel support for LPM delete operation. Upgrade to Linux 4.15 or higher to avoid this.")
