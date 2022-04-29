@@ -1,4 +1,4 @@
-// Copyright 2020 The Prometheus Authors
+// Copyright 2021 The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -11,8 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux
-
-package procfs
-
-var parseCPUInfo = parseCPUInfoPPC
+// Package collectors provides implementations of prometheus.Collector to
+// conveniently collect process and Go-related metrics.
+package collectors
