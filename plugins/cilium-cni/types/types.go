@@ -26,11 +26,17 @@ type NetConf struct {
 	Args         Args                   `json:"args"`
 	ENI          eniTypes.ENISpec       `json:"eni,omitempty"`
 	Azure        azureTypes.AzureSpec   `json:"azure,omitempty"`
-	IPAM         ipamTypes.IPAMSpec     `json:"ipam,omitempty"`
+	IPAM         IPAM                   `json:"ipam,omitempty"` // Shadows the JSON field "ipam" in cniTypes.NetConf.
 	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
 	EnableDebug  bool                   `json:"enable-debug"`
 	LogFormat    string                 `json:"log-format"`
 	LogFile      string                 `json:"log-file"`
+}
+
+// IPAM is the Cilium specific CNI IPAM configuration
+type IPAM struct {
+	cniTypes.IPAM
+	ipamTypes.IPAMSpec
 }
 
 // NetConfList is a CNI chaining configuration
