@@ -485,20 +485,20 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
-			Description: "Collecting the Cilium daemonset",
+			Description: "Collecting the Cilium daemonset(s)",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.ListDaemonSet(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
 					LabelSelector: c.Options.CiliumDaemonSetSelector,
 				})
 				if err != nil {
-					return fmt.Errorf("failed to collect the Cilium daemonset: %w", err)
+					return fmt.Errorf("failed to list Cilium daemonsets: %w", err)
 				}
 				if len(v.Items) == 0 {
-					return fmt.Errorf("failed to find Cilium daemonset with label %q in namespace %q", c.Options.CiliumDaemonSetSelector, c.Options.CiliumNamespace)
+					return fmt.Errorf("failed to find Cilium daemonsets with label %q in namespace %q", c.Options.CiliumDaemonSetSelector, c.Options.CiliumNamespace)
 				}
-				if err = c.WriteYAML(ciliumDaemonSetFileName, &v.Items[0]); err != nil {
-					return fmt.Errorf("failed to collect the Cilium daemonset: %w", err)
+				if err = c.WriteYAML(ciliumDaemonSetFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium daemonsets: %w", err)
 				}
 				return nil
 			},
