@@ -356,7 +356,6 @@ enableIPv
 enableIdentityMark
 enableIngressController
 enableK
-enableSecretsSync
 enableXTSocketFallback
 enablement
 endian
