@@ -173,6 +173,14 @@ func getEnvoyConfigForIngress(ingress *slim_networkingv1.Ingress, secretsNamespa
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getCECNameForIngress(ingress),
 			Namespace: ingress.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
+					Kind:       "Ingress",
+					Name:       ingress.Name,
+					UID:        ingress.UID,
+				},
+			},
 		},
 		Spec: v2.CiliumEnvoyConfigSpec{
 			Services: []*v2.ServiceListener{

@@ -10,6 +10,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -208,10 +209,7 @@ func (ic *IngressController) handleIngressUpdatedEvent(event ingressUpdatedEvent
 }
 
 func (ic *IngressController) handleIngressDeletedEvent(event ingressDeletedEvent) error {
-	// as ciliumEnvoyConfig is non-namespace scoped, it should be removed manually.
-	// other resources (e.g service, endpoints) will be removed automatically via ownerReferences
 	log.WithField(logfields.Ingress, event.ingress.Name).Debug("Deleting CiliumEnvoyConfig for ingress")
-
 	ic.secretManager.Add(event)
 	if err := ic.deleteCiliumEnvoyConfig(event.ingress); err != nil {
 		log.WithError(err).Warn("Failed to delete cilium-envoy-config")
@@ -473,7 +471,7 @@ func (ic *IngressController) deleteCiliumEnvoyConfig(ingress *slim_networkingv1.
 		return nil
 	}
 	err = k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(ingress.Namespace).Delete(context.Background(), resourceName, metav1.DeleteOptions{})
-	if err != nil {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		scopedLog.Error("Failed to delete CiliumEnvoyConfig for ingress")
 		return err
 	}
