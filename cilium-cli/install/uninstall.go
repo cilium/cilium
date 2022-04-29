@@ -25,6 +25,7 @@ type UninstallParameters struct {
 	Wait                 bool
 	HelmValuesSecretName string
 	RedactHelmCertKeys   bool
+	HelmChartDirectory   string
 }
 
 type K8sUninstaller struct {
