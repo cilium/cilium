@@ -170,7 +170,7 @@ func (sm *serviceManager) handleServiceUpdatedEvent(event serviceUpdatedEvent) e
 		}).Debug("Service is being deleted")
 		return nil
 	}
-	log.WithField("old", event.oldService).WithField("new", event.newService).Info("Handling service update")
+	log.WithField("old", event.oldService).WithField("new", event.newService).Debug("Handling service update")
 	sm.notify(event.newService)
 	return nil
 }
