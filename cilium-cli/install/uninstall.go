@@ -50,6 +50,21 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	k.Log("🔥 Deleting %s namespace...", k.params.TestNamespace)
 	k.client.DeleteNamespace(ctx, k.params.TestNamespace, metav1.DeleteOptions{})
 
+	// To avoid cases where test pods are stuck in terminating state because
+	// cni (cilium) pods were deleted sooner, wait until test pods are deleted
+	// before moving onto deleting cilium pods.
+	if k.params.Wait {
+	retryNamespace:
+		// Wait for the test namespace to be terminated. Subsequent connectivity checks would fail
+		// if the test namespace is in Terminating state.
+		_, err := k.client.GetNamespace(ctx, k.params.TestNamespace, metav1.GetOptions{})
+		if err == nil {
+			time.Sleep(defaults.WaitRetryInterval)
+			k.Log("⌛ Waiting for %s namespace to be terminated...", k.params.TestNamespace)
+			goto retryNamespace
+		}
+	}
+
 	k.Log("🔥 Deleting Service accounts...")
 	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.AgentServiceAccountName, metav1.DeleteOptions{})
 	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.OperatorServiceAccountName, metav1.DeleteOptions{})
@@ -105,16 +120,6 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		if len(pods.Items) > 0 {
 			time.Sleep(defaults.WaitRetryInterval)
 			goto retry
-		}
-
-		k.Log("⌛ Waiting for %s namespace to be terminated...", k.params.TestNamespace)
-	retryNamespace:
-		// Wait for the test namespace to be terminated. Subsequent connectivity checks would fail
-		// if the test namespace is in Terminating state.
-		_, err = k.client.GetNamespace(ctx, k.params.TestNamespace, metav1.GetOptions{})
-		if err == nil {
-			time.Sleep(defaults.WaitRetryInterval)
-			goto retryNamespace
 		}
 	}
 
