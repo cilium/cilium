@@ -95,6 +95,8 @@ const (
 	// ConfigModifyQueueSize is the size of the event queue for serializing
 	// configuration updates to the daemon
 	ConfigModifyQueueSize = 10
+
+	syncEndpointsAndHostIPsController = "sync-endpoints-and-host-ips"
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -188,6 +190,9 @@ type Daemon struct {
 
 	// CIDRs for which identities were restored during bootstrap
 	restoredCIDRs []*net.IPNet
+
+	// Controllers owned by the daemon
+	controllers *controller.Manager
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -497,6 +502,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
+		controllers:       controller.NewManager(),
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -1142,21 +1148,29 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 	}
 
-	if err := d.syncEndpointsAndHostIPs(); err != nil { // logs errors/fatal internally
-		return nil, nil, err
-	}
-
 	// Start the controller for periodic sync. The purpose of the
 	// controller is to ensure that endpoints and host IPs entries are
 	// reinserted to the bpf maps if they are ever removed from them.
-	controller.NewManager().UpdateController("sync-endpoints-and-host-ips",
+	syncErrs := make(chan error, 1)
+	d.controllers.UpdateController(
+		syncEndpointsAndHostIPsController,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return d.syncEndpointsAndHostIPs()
+				err := d.syncEndpointsAndHostIPs()
+				select {
+				case syncErrs <- err:
+				default:
+				}
+				return err
 			},
 			RunInterval: time.Minute,
 			Context:     d.ctx,
 		})
+
+	// Wait for the initial sync and check that it succeeded.
+	if err := <-syncErrs; err != nil {
+		return nil, nil, err
+	}
 
 	if err := loader.RestoreTemplates(option.Config.StateDir); err != nil {
 		log.WithError(err).Error("Unable to restore previous BPF templates")
@@ -1249,7 +1263,7 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 		} else {
 			// Synchronize services and endpoints to reflect new addresses onto lbmap.
 			d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
-			d.syncEndpointsAndHostIPs()
+			d.controllers.TriggerController(syncEndpointsAndHostIPsController)
 		}
 	}
 
