@@ -205,13 +205,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		checks = append(checks,
 			etcNFSConfCheck{},
 			&iptablesRuleCheck{
-				rule: []string{"INPUT", "-p", "tcp", "-s", "192.168.61.0/24", "--dport", "111", "-j", "ACCEPT"},
-			},
-			&iptablesRuleCheck{
-				rule: []string{"INPUT", "-p", "tcp", "-s", "192.168.61.0/24", "--dport", "2049", "-j", "ACCEPT"},
-			},
-			&iptablesRuleCheck{
-				rule: []string{"INPUT", "-p", "tcp", "-s", "192.168.61.0/24", "--dport", "20048", "-j", "ACCEPT"},
+				rule: []string{"INPUT", "-p", "tcp", "-s", "192.168.61.0/24", "-j", "ACCEPT"},
 			},
 		)
 	}

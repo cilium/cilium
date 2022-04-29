@@ -97,6 +97,12 @@ sudo rm /var/lib/apt/lists/lock || true
 retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
 apt-key add apt-key.gpg
 
+case $K8S_VERSION in
+    "1.23")
+        KUBEADM_CRI_SOCKET="unix:///run/containerd/containerd.sock"
+        ;;
+esac
+
 KUBEADM_CONFIG_ALPHA1=$(cat <<-EOF
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
@@ -212,7 +218,7 @@ EOF
 # It also sets the cgroup-driver to "cgroupfs", away from "systemd",
 # so that docker does not have to be reconfigured and restarted.
 KUBEADM_CONFIG_V1BETA3=$(cat <<-EOF
-apiVersion: kubeadm.k8s.io/v1beta2
+apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
 localAPIEndpoint:
   advertiseAddress: "{{ .KUBEADM_ADDR }}"
@@ -249,6 +255,20 @@ apiServer:
 kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1
 cgroupDriver: cgroupfs
+---
+kind: JoinConfiguration
+apiVersion: kubeadm.k8s.io/v1beta3
+nodeRegistration:
+  criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+  ignorePreflightErrors:
+    - "cri"
+    - "SystemVerification"
+    - "swap"
+discovery:
+  bootstrapToken:
+    token: {{ .TOKEN }}
+    apiServerEndpoint: "k8s1:6443"
+    unsafeSkipCAVerification: true
 EOF
 )
 
@@ -270,7 +290,7 @@ case $K8S_VERSION in
         KUBERNETES_CNI_VERSION="0.7.5"
         K8S_FULL_VERSION="1.16.15"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
         ;;
@@ -278,7 +298,7 @@ case $K8S_VERSION in
         KUBERNETES_CNI_VERSION="0.8.7"
         K8S_FULL_VERSION="1.17.17"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
         ;;
@@ -290,7 +310,7 @@ case $K8S_VERSION in
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.18.20"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
@@ -304,7 +324,7 @@ case $K8S_VERSION in
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.19.16"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
@@ -318,7 +338,7 @@ case $K8S_VERSION in
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.20.15"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
@@ -332,7 +352,7 @@ case $K8S_VERSION in
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.21.9"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
@@ -346,7 +366,7 @@ case $K8S_VERSION in
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.22.6"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA3}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
@@ -360,7 +380,7 @@ case $K8S_VERSION in
         KUBERNETES_CNI_OS="-linux"
         K8S_FULL_VERSION="1.23.3"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_WORKER_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        KUBEADM_WORKER_OPTIONS="--config=/tmp/config.yaml"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA3}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
@@ -458,8 +478,9 @@ if [[ "${HOST}" == "k8s1" ]]; then
     $PROVISIONSRC/compile.sh
 else
     if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
+      echo "${KUBEADM_CONFIG}" | envtpl > /tmp/config.yaml
       sudo -E bash -c 'echo "${KUBEADM_ADDR} k8s1" >> /etc/hosts'
-      kubeadm join --token=$TOKEN ${KUBEADM_ADDR}:6443 \
+      kubeadm join ${KUBEADM_ADDR}:6443 \
           ${KUBEADM_WORKER_OPTIONS}
     else
       echo "SKIPPING K8S INSTALLATION"
