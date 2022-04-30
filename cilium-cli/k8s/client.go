@@ -556,6 +556,10 @@ func (c *Client) ListCiliumEndpoints(ctx context.Context, namespace string, opti
 	return c.CiliumClientset.CiliumV2().CiliumEndpoints(namespace).List(ctx, options)
 }
 
+func (c *Client) ListCiliumEnvoyConfigs(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2alpha1.CiliumEnvoyConfigList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumEnvoyConfigs(namespace).List(ctx, options)
+}
+
 func (c *Client) ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error) {
 	return c.Clientset.CoreV1().Nodes().List(ctx, options)
 }
@@ -598,6 +602,10 @@ func (c *Client) DeleteCiliumNetworkPolicy(ctx context.Context, namespace, name 
 
 func (c *Client) ListCiliumClusterwideNetworkPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumClusterwideEnvoyConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumClusterwideEnvoyConfigList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumClusterwideEnvoyConfigs().List(ctx, opts)
 }
 
 func (c *Client) GetCiliumClusterwideNetworkPolicy(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumClusterwideNetworkPolicy, error) {
@@ -671,6 +679,10 @@ func (c *Client) ListUnstructured(ctx context.Context, gvr schema.GroupVersionRe
 
 func (c *Client) ListEndpoints(ctx context.Context, o metav1.ListOptions) (*corev1.EndpointsList, error) {
 	return c.Clientset.CoreV1().Endpoints(corev1.NamespaceAll).List(ctx, o)
+}
+
+func (c *Client) ListIngresses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressList, error) {
+	return c.Clientset.NetworkingV1().Ingresses(corev1.NamespaceAll).List(ctx, o)
 }
 
 func (c *Client) ListNetworkPolicies(ctx context.Context, o metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {
