@@ -149,6 +149,24 @@ github.com/cilium/cilium/pkg/versioncheck
 # github.com/cilium/hubble v0.9.0
 ## explicit; go 1.17
 github.com/cilium/hubble/pkg/printer
+# github.com/cilium/proxy v0.0.0-20220310090216-617157adcd74
+## explicit; go 1.13
+github.com/cilium/proxy/go/envoy/annotations
+github.com/cilium/proxy/go/envoy/config/accesslog/v3
+github.com/cilium/proxy/go/envoy/config/cluster/v3
+github.com/cilium/proxy/go/envoy/config/core/v3
+github.com/cilium/proxy/go/envoy/config/endpoint/v3
+github.com/cilium/proxy/go/envoy/config/listener/v3
+github.com/cilium/proxy/go/envoy/config/route/v3
+github.com/cilium/proxy/go/envoy/config/trace/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3
+github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3
+github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3
+github.com/cilium/proxy/go/envoy/type/http/v3
+github.com/cilium/proxy/go/envoy/type/matcher/v3
+github.com/cilium/proxy/go/envoy/type/metadata/v3
+github.com/cilium/proxy/go/envoy/type/tracing/v3
+github.com/cilium/proxy/go/envoy/type/v3
 # github.com/cilium/workerpool v1.1.2
 ## explicit; go 1.15
 github.com/cilium/workerpool
