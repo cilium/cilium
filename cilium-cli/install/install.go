@@ -85,6 +85,27 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 	return &deploy
 }
 
+func (k *K8sInstaller) getSecretNamespace() string {
+	var (
+		nsFilename string
+	)
+
+	ciliumVer := k.getCiliumVersion()
+	switch {
+	case versioncheck.MustCompile(">1.11.99")(ciliumVer):
+		nsFilename = "templates/cilium-secrets-namespace.yaml"
+	}
+
+	nsFile, ok := k.manifests[nsFilename]
+	if !ok {
+		return ""
+	}
+
+	var ns corev1.Namespace
+	utils.MustUnmarshalYAML([]byte(nsFile), &ns)
+	return ns.GetName()
+}
+
 type k8sInstallerImplementation interface {
 	ClusterName() string
 	ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error)
@@ -664,6 +685,18 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 			k.Log("Cannot delete %s IngressClass: %s", defaults.IngressClassName, err)
 		}
 	})
+
+	secretsNamespace := k.getSecretNamespace()
+	if len(secretsNamespace) != 0 {
+		if _, err := k.client.CreateNamespace(ctx, secretsNamespace, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+		k.pushRollbackStep(func(ctx context.Context) {
+			if err := k.client.DeleteNamespace(ctx, secretsNamespace, metav1.DeleteOptions{}); err != nil {
+				k.Log("Cannot delete %s Namespace: %s", secretsNamespace, err)
+			}
+		})
+	}
 
 	configMap, err := k.generateConfigMap()
 	if err != nil {
