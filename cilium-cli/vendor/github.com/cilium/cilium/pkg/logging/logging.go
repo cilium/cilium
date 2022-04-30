@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package logging
 
@@ -13,10 +13,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/sirupsen/logrus"
 	"k8s.io/klog/v2"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type LogFormat string
@@ -136,9 +136,16 @@ func SetLogFormat(logFormat LogFormat) {
 	DefaultLogger.SetFormatter(GetFormatter(logFormat))
 }
 
-// SetLogLevel updates the DefaultLogger with the DefaultLogFormat
+// SetDefaultLogFormat updates the DefaultLogger with the DefaultLogFormat
 func SetDefaultLogFormat() {
 	DefaultLogger.SetFormatter(GetFormatter(DefaultLogFormat))
+}
+
+// AddHooks adds additional logrus hook to default logger
+func AddHooks(hooks ...logrus.Hook) {
+	for _, hook := range hooks {
+		DefaultLogger.AddHook(hook)
+	}
 }
 
 // SetupLogging sets up each logging service provided in loggers and configures

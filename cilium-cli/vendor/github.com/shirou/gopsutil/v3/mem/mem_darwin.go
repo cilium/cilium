@@ -1,10 +1,10 @@
+//go:build darwin
 // +build darwin
 
 package mem
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"unsafe"
 
@@ -13,17 +13,10 @@ import (
 )
 
 func getHwMemsize() (uint64, error) {
-	totalString, err := unix.Sysctl("hw.memsize")
+	total, err := unix.SysctlUint64("hw.memsize")
 	if err != nil {
 		return 0, err
 	}
-
-	// unix.sysctl() helpfully assumes the result is a null-terminated string and
-	// removes the last byte of the result if it's 0 :/
-	totalString += "\x00"
-
-	total := uint64(binary.LittleEndian.Uint64([]byte(totalString)))
-
 	return total, nil
 }
 

@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -63,7 +64,7 @@ func (i Invoke) CommandWithContext(ctx context.Context, name string, arg ...stri
 
 type FakeInvoke struct {
 	Suffix string // Suffix species expected file name suffix such as "fail"
-	Error  error  // If Error specfied, return the error.
+	Error  error  // If Error specified, return the error.
 }
 
 // Command in FakeInvoke returns from expected file if exists.
@@ -97,7 +98,6 @@ var ErrNotImplementedError = errors.New("not implemented yet")
 // ReadFile reads contents from a file
 func ReadFile(filename string) (string, error) {
 	content, err := ioutil.ReadFile(filename)
-
 	if err != nil {
 		return "", err
 	}
@@ -111,7 +111,7 @@ func ReadLines(filename string) ([]string, error) {
 	return ReadLinesOffsetN(filename, 0, -1)
 }
 
-// ReadLines reads contents from file and splits them by new line.
+// ReadLinesOffsetN reads contents from file and splits them by new line.
 // The offset tells at which line number to start.
 // The count determines the number of lines to read (starting from offset):
 //   n >= 0: at most n lines
@@ -129,6 +129,9 @@ func ReadLinesOffsetN(filename string, offset uint, n int) ([]string, error) {
 	for i := 0; i < n+int(offset) || n < 0; i++ {
 		line, err := r.ReadString('\n')
 		if err != nil {
+			if err == io.EOF && len(line) > 0 {
+				ret = append(ret, strings.Trim(line, "\n"))
+			}
 			break
 		}
 		if i < int(offset) {
@@ -308,7 +311,7 @@ func PathExists(filename string) bool {
 	return false
 }
 
-//GetEnv retrieves the environment variable key. If it does not exist it returns the default.
+// GetEnv retrieves the environment variable key. If it does not exist it returns the default.
 func GetEnv(key string, dfault string, combineWith ...string) string {
 	value := os.Getenv(key)
 	if value == "" {

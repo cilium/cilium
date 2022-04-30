@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2017 Authors of Cilium
+// Copyright Authors of Cilium
 
 package defaults
 
@@ -15,9 +15,6 @@ const (
 
 	// DefaultIPv4PrefixLen is the length used to allocate container IPv4 addresses from.
 	DefaultIPv4PrefixLen = 16
-
-	// DefaultNAT46Prefix is the IPv6 prefix to represent NATed IPv4 addresses.
-	DefaultNAT46Prefix = "0:0:0:0:0:FFFF::/96"
 
 	// HostDevice is the name of the device that connects the cilium IP
 	// space with the host's networking model

@@ -91,7 +91,7 @@ type SwapMemoryStat struct {
 
 	// Linux specific numbers
 	// https://www.kernel.org/doc/Documentation/cgroup-v2.txt
-	PgMajFault  uint64  `json:"pgMajFault"`
+	PgMajFault uint64 `json:"pgMajFault"`
 }
 
 func (m VirtualMemoryStat) String() string {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018-2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 package utils
 
@@ -7,13 +7,13 @@ import (
 	"net"
 	"sort"
 
+	v1 "k8s.io/api/core/v1"
+	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
-
-	v1 "k8s.io/api/core/v1"
-	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -64,6 +64,12 @@ type ServiceConfiguration interface {
 	// K8sServiceProxyNameValue must return the value of the proxy name
 	// annotation. If set, only services with this label will be handled.
 	K8sServiceProxyNameValue() string
+}
+
+// IngressConfiguration is the required configuration for GetServiceListOptionsModifier
+type IngressConfiguration interface {
+	// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
+	K8sIngressControllerEnabled() bool
 }
 
 // GetServiceListOptionsModifier returns the options modifier for service object list.
