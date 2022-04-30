@@ -83,8 +83,9 @@ const (
 	ConfigMapKeyMonitorAggregation      = "monitor-aggregation"
 	ConfigMapValueMonitorAggregatonNone = "none"
 
-	IngressClassName      = "cilium"
-	IngressControllerName = "cilium.io/ingress-controller"
+	IngressClassName        = "cilium"
+	IngressControllerName   = "cilium.io/ingress-controller"
+	IngressSecretsNamespace = "cilium-secrets"
 
 	HelmValuesSecretName    = "cilium-cli-helm-values"
 	HelmValuesSecretKeyName = "io.cilium.cilium-cli"
