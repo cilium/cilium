@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 package api
 
@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cilium/cilium/api/v1/models"
-
 	"github.com/go-openapi/runtime"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // APIError is the error representation for the API.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018-2019 Authors of Cilium
+// Copyright Authors of Cilium
 
 package api
 
@@ -8,9 +8,9 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/cilium/cilium/pkg/logging"
-
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // APIPanicHandler recovers from API panics and logs encountered panics

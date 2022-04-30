@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 package option
 
@@ -326,7 +326,7 @@ func (o *IntOptions) GetFmtList() string {
 	txt := ""
 
 	o.optsMU.RLock()
-	opts := []string{}
+	opts := make([]string, 0, len(o.Opts))
 	for k := range o.Opts {
 		opts = append(opts, k)
 	}
@@ -349,7 +349,7 @@ func (o *IntOptions) Dump() {
 	}
 
 	o.optsMU.RLock()
-	opts := []string{}
+	opts := make([]string, 0, len(o.Opts))
 	for k := range o.Opts {
 		opts = append(opts, k)
 	}

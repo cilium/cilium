@@ -79,11 +79,11 @@ would.
 
 So if my application before had:
 ```go
-os.Open('/tmp/foo')
+os.Open("/tmp/foo")
 ```
 We would replace it with:
 ```go
-AppFs.Open('/tmp/foo')
+AppFs.Open("/tmp/foo")
 ```
 
 `AppFs` being the variable we defined above.
@@ -258,6 +258,18 @@ system using InMemoryFile.
 
 Afero has experimental support for secure file transfer protocol (sftp). Which can
 be used to perform file operations over a encrypted channel.
+
+### GCSFs
+
+Afero has experimental support for Google Cloud Storage (GCS). You can either set the
+`GOOGLE_APPLICATION_CREDENTIALS_JSON` env variable to your JSON credentials or use `opts` in
+`NewGcsFS` to configure access to your GCS bucket.
+
+Some known limitations of the existing implementation:
+* No Chmod support - The GCS ACL could probably be mapped to *nix style permissions but that would add another level of complexity and is ignored in this version.
+* No Chtimes support - Could be simulated with attributes (gcs a/m-times are set implicitly) but that's is left for another version.
+* Not thread safe - Also assumes all file operations are done through the same instance of the GcsFs. File operations between different GcsFs instances are not guaranteed to be consistent.
+
 
 ## Filtering Backends
 

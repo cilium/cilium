@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 // +k8s:deepcopy-gen=package
 // +k8s:openapi-gen=true

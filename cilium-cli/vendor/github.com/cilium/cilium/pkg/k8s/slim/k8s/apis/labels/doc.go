@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2014 The Kubernetes Authors.
-// Copyright 2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 // +deepequal-gen=package
 

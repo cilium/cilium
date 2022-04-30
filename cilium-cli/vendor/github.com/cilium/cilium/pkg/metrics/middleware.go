@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2017-2019 Authors of Cilium
+// Copyright Authors of Cilium
 
 package metrics
 
@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/spanstat"
-
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 // APIEventTSHelper is intended to be a global middleware to track metrics

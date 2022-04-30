@@ -93,6 +93,15 @@ func (r *request) BuildHTTP(mediaType, basePath string, producers map[string]run
 func escapeQuotes(s string) string {
 	return strings.NewReplacer("\\", "\\\\", `"`, "\\\"").Replace(s)
 }
+
+func logClose(err error, pw *io.PipeWriter) {
+	log.Println(err)
+	closeErr := pw.CloseWithError(err)
+	if closeErr != nil {
+		log.Println(closeErr)
+	}
+}
+
 func (r *request) buildHTTP(mediaType, basePath string, producers map[string]runtime.Producer, registry strfmt.Registry, auth runtime.ClientAuthInfoWriter) (*http.Request, error) {
 	// build the data
 	if err := r.writer.WriteToRequest(r, registry); err != nil {
@@ -137,8 +146,7 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 			for fn, v := range r.formFields {
 				for _, vi := range v {
 					if err := mp.WriteField(fn, vi); err != nil {
-						pw.CloseWithError(err)
-						log.Println(err)
+						logClose(err, pw)
 						return
 					}
 				}
@@ -157,8 +165,7 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 					buf := make([]byte, 512)
 					size, err := fi.Read(buf)
 					if err != nil {
-						_ = pw.CloseWithError(err)
-						log.Println(err)
+						logClose(err, pw)
 						return
 					}
 					fileContentType := http.DetectContentType(buf)
@@ -173,13 +180,11 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 
 					wrtr, err := mp.CreatePart(h)
 					if err != nil {
-						pw.CloseWithError(err)
-						log.Println(err)
+						logClose(err, pw)
 						return
 					}
 					if _, err := io.Copy(wrtr, newFi); err != nil {
-						pw.CloseWithError(err)
-						log.Println(err)
+						logClose(err, pw)
 					}
 				}
 			}
@@ -212,7 +217,7 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 
 DoneChoosingBodySource:
 
-	if runtime.CanHaveBody(r.method) && body == nil && r.header.Get(runtime.HeaderContentType) == "" {
+	if runtime.CanHaveBody(r.method) && body != nil && r.header.Get(runtime.HeaderContentType) == "" {
 		r.header.Set(runtime.HeaderContentType, mediaType)
 	}
 

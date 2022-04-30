@@ -1,11 +1,12 @@
+//go:build solaris
 // +build solaris
 
 package mem
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -53,13 +54,8 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 }
 
 func zoneName() (string, error) {
-	zonename, err := exec.LookPath("zonename")
-	if err != nil {
-		return "", err
-	}
-
 	ctx := context.Background()
-	out, err := invoke.CommandWithContext(ctx, zonename)
+	out, err := invoke.CommandWithContext(ctx, "zonename")
 	if err != nil {
 		return "", err
 	}
@@ -70,20 +66,15 @@ func zoneName() (string, error) {
 var globalZoneMemoryCapacityMatch = regexp.MustCompile(`[Mm]emory size: (\d+) Megabytes`)
 
 func globalZoneMemoryCapacity() (uint64, error) {
-	prtconf, err := exec.LookPath("prtconf")
-	if err != nil {
-		return 0, err
-	}
-
 	ctx := context.Background()
-	out, err := invoke.CommandWithContext(ctx, prtconf)
+	out, err := invoke.CommandWithContext(ctx, "prtconf")
 	if err != nil {
 		return 0, err
 	}
 
 	match := globalZoneMemoryCapacityMatch.FindAllStringSubmatch(string(out), -1)
 	if len(match) != 1 {
-		return 0, fmt.Errorf("memory size not contained in output of %q", prtconf)
+		return 0, errors.New("memory size not contained in output of prtconf")
 	}
 
 	totalMB, err := strconv.ParseUint(match[0][1], 10, 64)
@@ -97,13 +88,8 @@ func globalZoneMemoryCapacity() (uint64, error) {
 var kstatMatch = regexp.MustCompile(`(\S+)\s+(\S*)`)
 
 func nonGlobalZoneMemoryCapacity() (uint64, error) {
-	kstat, err := exec.LookPath("kstat")
-	if err != nil {
-		return 0, err
-	}
-
 	ctx := context.Background()
-	out, err := invoke.CommandWithContext(ctx, kstat, "-p", "-c", "zone_memory_cap", "memory_cap:*:*:physcap")
+	out, err := invoke.CommandWithContext(ctx, "kstat", "-p", "-c", "zone_memory_cap", "memory_cap:*:*:physcap")
 	if err != nil {
 		return 0, err
 	}
@@ -140,11 +126,7 @@ func SwapDevices() ([]*SwapDevice, error) {
 }
 
 func SwapDevicesWithContext(ctx context.Context) ([]*SwapDevice, error) {
-	swapCommandPath, err := exec.LookPath(swapCommand)
-	if err != nil {
-		return nil, fmt.Errorf("could not find command %q: %w", swapCommand, err)
-	}
-	output, err := invoke.CommandWithContext(ctx, swapCommandPath, "-l")
+	output, err := invoke.CommandWithContext(ctx, swapCommand, "-l")
 	if err != nil {
 		return nil, fmt.Errorf("could not execute %q: %w", swapCommand, err)
 	}

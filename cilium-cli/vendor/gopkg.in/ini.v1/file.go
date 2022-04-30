@@ -442,16 +442,16 @@ func (f *File) writeToBuffer(indent string) (*bytes.Buffer, error) {
 				kname = `"""` + kname + `"""`
 			}
 
-			for _, val := range key.ValueWithShadows() {
+			writeKeyValue := func(val string) (bool, error) {
 				if _, err := buf.WriteString(kname); err != nil {
-					return nil, err
+					return false, err
 				}
 
 				if key.isBooleanType {
 					if kname != sec.keyList[len(sec.keyList)-1] {
 						buf.WriteString(LineBreak)
 					}
-					continue KeyList
+					return true, nil
 				}
 
 				// Write out alignment spaces before "=" sign
@@ -468,7 +468,24 @@ func (f *File) writeToBuffer(indent string) (*bytes.Buffer, error) {
 					val = `"` + val + `"`
 				}
 				if _, err := buf.WriteString(equalSign + val + LineBreak); err != nil {
+					return false, err
+				}
+				return false, nil
+			}
+
+			shadows := key.ValueWithShadows()
+			if len(shadows) == 0 {
+				if _, err := writeKeyValue(""); err != nil {
 					return nil, err
+				}
+			}
+
+			for _, val := range shadows {
+				exitLoop, err := writeKeyValue(val)
+				if err != nil {
+					return nil, err
+				} else if exitLoop {
+					continue KeyList
 				}
 			}
 

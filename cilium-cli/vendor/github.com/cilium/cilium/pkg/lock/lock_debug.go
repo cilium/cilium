@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2017-2019 Authors of Cilium
+// Copyright Authors of Cilium
 
 //go:build lockdebug
-// +build lockdebug
 
 package lock
 
@@ -14,11 +13,11 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (

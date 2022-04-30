@@ -1,3 +1,4 @@
+//go:build freebsd || openbsd
 // +build freebsd openbsd
 
 package common
@@ -28,11 +29,7 @@ func SysctlUint(mib string) (uint64, error) {
 }
 
 func DoSysctrl(mib string) ([]string, error) {
-	sysctl, err := exec.LookPath("sysctl")
-	if err != nil {
-		return []string{}, err
-	}
-	cmd := exec.Command(sysctl, "-n", mib)
+	cmd := exec.Command("sysctl", "-n", mib)
 	cmd.Env = getSysctrlEnv(os.Environ())
 	out, err := cmd.Output()
 	if err != nil {
