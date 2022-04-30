@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +19,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 
 	"github.com/cilium/cilium-cli/k8s"
 )
@@ -143,6 +144,18 @@ func (b *SysdumpSuite) TestExtractGopsPID(c *check.C) {
 
 type fakeClient struct {
 	nodeList *corev1.NodeList
+}
+
+func (c *fakeClient) ListCiliumClusterwideEnvoyConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumClusterwideEnvoyConfigList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) ListCiliumEnvoyConfigs(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2alpha1.CiliumEnvoyConfigList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) ListIngresses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressList, error) {
+	panic("implement me")
 }
 
 func (c *fakeClient) CopyFromPod(ctx context.Context, namespace, pod, container string, fromFile, destFile string) error {
