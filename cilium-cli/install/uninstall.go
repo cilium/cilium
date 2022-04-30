@@ -48,10 +48,10 @@ func (k *K8sUninstaller) Log(format string, a ...interface{}) {
 func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	k.autodetect(ctx)
 
-	k.Log("🔥 Deleting %s namespace...", k.params.TestNamespace)
-	k.client.DeleteNamespace(ctx, k.params.TestNamespace, metav1.DeleteOptions{})
-	k.Log("🔥 Deleting Ingress Secrets Namespace...")
-	k.client.DeleteNamespace(ctx, defaults.IngressSecretsNamespace, metav1.DeleteOptions{})
+	for _, n := range []string{k.params.TestNamespace, defaults.IngressSecretsNamespace} {
+		k.Log("🔥 Deleting %s namespace...", n)
+		k.client.DeleteNamespace(ctx, n, metav1.DeleteOptions{})
+	}
 
 	// To avoid cases where test pods are stuck in terminating state because
 	// cni (cilium) pods were deleted sooner, wait until test pods are deleted
