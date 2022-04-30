@@ -431,10 +431,11 @@ enableCnpStatusUpdates: false
 # mirroring it into the KVstore for reduced overhead in large clusters.
 enableK8sEventHandover: false
 
-# TODO: Add documentation
-# enableIdentityMark: false
+# -- Enable setting identity mark for local traffic.
+# enableIdentityMark: true
 
-# enableK8sEndpointSlice: false
+# -- Enable Kubernetes EndpointSlice feature in Cilium if the cluster supports it.
+# enableK8sEndpointSlice: true
 
 # -- Enable CiliumEndpointSlice feature.
 enableCiliumEndpointSlice: false
@@ -1032,14 +1033,14 @@ hubble:
 # -- Method to use for identity allocation (`crd` or `kvstore`).
 identityAllocationMode: "crd"
 
-# TODO: Add documentation
+# -- Time to wait before using new identity on endpoint identity change.
 # identityChangeGracePeriod: "5s"
 
-# TODO: Add documentation
-# identityGCInterval:
+# -- GC interval for security identities.
+# identityGCInterval: "15m0s"
 
-# TODO: Add documentation
-# identityHeartbeatTimeout: ""
+# -- Timeout after which identity expires on lack of heartbeat.
+# identityHeartbeatTimeout: "30m0s"
 
 
 # -- Configure whether to install iptables rules to allow for TPROXY
@@ -1344,10 +1345,11 @@ sockops:
   # enabled enables installation of socket options acceleration.
   enabled: false
 
-# TODO: Add documentation, default value
-# svcSourceRangeCheck:
+# -- Enable check of service source ranges (currently, only for LoadBalancer).
+svcSourceRangeCheck: true
 
-# synchronizeK8sNodes: true
+# -- Synchronize Kubernetes nodes to kvstore and perform CNP GC.
+synchronizeK8sNodes: true
 
 # -- Configure TLS configuration in the agent.
 tls:
