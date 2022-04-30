@@ -50,6 +50,8 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 
 	k.Log("🔥 Deleting %s namespace...", k.params.TestNamespace)
 	k.client.DeleteNamespace(ctx, k.params.TestNamespace, metav1.DeleteOptions{})
+	k.Log("🔥 Deleting Ingress Secrets Namespace...")
+	k.client.DeleteNamespace(ctx, defaults.IngressSecretsNamespace, metav1.DeleteOptions{})
 
 	// To avoid cases where test pods are stuck in terminating state because
 	// cni (cilium) pods were deleted sooner, wait until test pods are deleted
