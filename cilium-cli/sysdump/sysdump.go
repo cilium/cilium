@@ -453,6 +453,48 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Ingresses",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListIngresses(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Ingresses: %w", err)
+				}
+				if err := c.WriteYAML(ciliumIngressesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Ingresses: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting CiliumClusterwideEnvoyConfigs",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumClusterwideEnvoyConfigs(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect CiliumClusterwideEnvoyConfigs: %w", err)
+				}
+				if err := c.WriteYAML(ciliumClusterwideEnvoyConfigsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect CiliumClusterwideEnvoyConfigs: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting CiliumEnvoyConfigs",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumEnvoyConfigs(ctx, corev1.NamespaceAll, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect CiliumEnvoyConfigs: %w", err)
+				}
+				if err := c.WriteYAML(ciliumEnvoyConfigsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect CiliumEnvoyConfigs: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting Cilium etcd secret",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
