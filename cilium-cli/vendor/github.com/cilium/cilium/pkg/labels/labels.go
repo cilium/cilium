@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package labels
 
 import (
+	"bytes"
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
@@ -454,14 +455,22 @@ func (l Labels) SHA256Sum() string {
 // PART OF THE KEY IN THE KEY-VALUE STORE.
 //
 // Non-pointer receiver allows this to be called on a value in a map.
-func (l Label) FormatForKVStore() string {
+func (l Label) FormatForKVStore() []byte {
 	// We don't care if the values already have a '=' since this method is
 	// only used to calculate a SHA256Sum
 	//
 	// We absolutely care that the final character is a semi-colon.
 	// Identity allocation in the kvstore depends on this (see
 	// kvstore.prefixMatchesKey())
-	return fmt.Sprintf(`%s:%s=%s;`, l.Source, l.Key, l.Value)
+	b := make([]byte, 0, len(l.Source)+len(l.Key)+len(l.Value)+3)
+	buf := bytes.NewBuffer(b)
+	buf.WriteString(l.Source)
+	buf.WriteRune(':')
+	buf.WriteString(l.Key)
+	buf.WriteRune('=')
+	buf.WriteString(l.Value)
+	buf.WriteRune(';')
+	return buf.Bytes()
 }
 
 // SortedList returns the labels as a sorted list, separated by semicolon
@@ -475,12 +484,13 @@ func (l Labels) SortedList() []byte {
 	}
 	sort.Strings(keys)
 
-	result := ""
+	b := make([]byte, 0, len(keys)*2)
+	buf := bytes.NewBuffer(b)
 	for _, k := range keys {
-		result += l[k].FormatForKVStore()
+		buf.Write(l[k].FormatForKVStore())
 	}
 
-	return []byte(result)
+	return buf.Bytes()
 }
 
 // ToSlice returns a slice of label with the values of the given

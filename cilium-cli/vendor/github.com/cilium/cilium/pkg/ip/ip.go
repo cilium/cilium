@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2017-2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 package ip
 
@@ -272,6 +272,37 @@ func ipNetToRange(ipNet net.IPNet) netWithRange {
 	}
 
 	return netWithRange{First: &firstIP, Last: &lastIP, Network: &ipNet}
+}
+
+// PrefixCeil converts the given number of IPs to the minimum number of prefixes needed to host those IPs.
+// multiple indicates the number of IPs in a single prefix.
+func PrefixCeil(numIPs int, multiple int) int {
+	if numIPs == 0 {
+		return 0
+	}
+	quotient := numIPs / multiple
+	rem := numIPs % multiple
+	if rem > 0 {
+		return quotient + 1
+	}
+	return quotient
+}
+
+// PrefixToIps converts the given prefix to an array containing all IPs in the prefix / CIDR block.
+func PrefixToIps(prefixCidr string) ([]string, error) {
+	var prefixIps []string
+	_, ipNet, err := net.ParseCIDR(prefixCidr)
+	if err != nil {
+		return prefixIps, err
+	}
+	netWithRange := ipNetToRange(*ipNet)
+	for ip := *netWithRange.First; !ip.Equal(*netWithRange.Last); ip = GetNextIP(ip) {
+		prefixIps = append(prefixIps, ip.String())
+	}
+
+	// Add the last IP
+	prefixIps = append(prefixIps, netWithRange.Last.String())
+	return prefixIps, nil
 }
 
 // GetIPAtIndex get the IP by index in the range of ipNet. The index is start with 0.

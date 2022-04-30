@@ -1,3 +1,4 @@
+//go:build darwin
 // +build darwin
 
 package common
@@ -13,11 +14,7 @@ import (
 )
 
 func DoSysctrlWithContext(ctx context.Context, mib string) ([]string, error) {
-	sysctl, err := exec.LookPath("sysctl")
-	if err != nil {
-		return []string{}, err
-	}
-	cmd := exec.CommandContext(ctx, sysctl, "-n", mib)
+	cmd := exec.CommandContext(ctx, "sysctl", "-n", mib)
 	cmd.Env = getSysctrlEnv(os.Environ())
 	out, err := cmd.Output()
 	if err != nil {

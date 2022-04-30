@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package common
@@ -15,11 +16,7 @@ import (
 )
 
 func DoSysctrl(mib string) ([]string, error) {
-	sysctl, err := exec.LookPath("sysctl")
-	if err != nil {
-		return []string{}, err
-	}
-	cmd := exec.Command(sysctl, "-n", mib)
+	cmd := exec.Command("sysctl", "-n", mib)
 	cmd.Env = getSysctrlEnv(os.Environ())
 	out, err := cmd.Output()
 	if err != nil {
@@ -55,8 +52,7 @@ func NumProcs() (uint64, error) {
 }
 
 func BootTimeWithContext(ctx context.Context) (uint64, error) {
-
-	system, role, err := Virtualization()
+	system, role, err := VirtualizationWithContext(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -100,8 +96,9 @@ func BootTimeWithContext(ctx context.Context) (uint64, error) {
 		if err != nil {
 			return 0, err
 		}
-		t := uint64(time.Now().Unix()) - uint64(b)
-		return t, nil
+		currentTime := float64(time.Now().UnixNano()) / float64(time.Second)
+		t := currentTime - b
+		return uint64(t), nil
 	}
 
 	return 0, fmt.Errorf("could not find btime")
@@ -201,7 +198,6 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 	if PathExists(filepath.Join(filename, "self", "status")) {
 		contents, err := ReadLines(filepath.Join(filename, "self", "status"))
 		if err == nil {
-
 			if StringsContains(contents, "s_context:") ||
 				StringsContains(contents, "VxID:") {
 				system = "linux-vserver"

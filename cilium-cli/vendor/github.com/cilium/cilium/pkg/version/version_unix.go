@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2017-2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 //go:build !windows
-// +build !windows
 
 package version
 
@@ -12,8 +11,9 @@ import (
 	"strings"
 
 	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func parseKernelVersion(ver string) (semver.Version, error) {

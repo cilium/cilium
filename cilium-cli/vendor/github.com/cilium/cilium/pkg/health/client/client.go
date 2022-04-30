@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 package client
 
@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
+	runtime_client "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/strfmt"
+
 	clientapi "github.com/cilium/cilium/api/v1/health/client"
 	"github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/pkg/health/defaults"
-
-	runtime_client "github.com/go-openapi/runtime/client"
-	"github.com/go-openapi/strfmt"
 )
 
 type ConnectivityStatusType int
