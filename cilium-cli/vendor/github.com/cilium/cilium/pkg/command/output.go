@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 package command
 
@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/util/jsonpath"
 )
 
@@ -19,28 +20,41 @@ var (
 	re        = regexp.MustCompile(`^jsonpath\=(.*)`)
 )
 
-// OutputJSON returns true if the JSON output option was specified
-func OutputJSON() bool {
+// OutputOption returns true if an output option was specified.
+func OutputOption() bool {
 	return len(outputOpt) > 0
 }
 
-//AddJSONOutput adds the -o|--output option to any cmd to export to json
-func AddJSONOutput(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&outputOpt, "output", "o", "", "json| jsonpath='{}'")
+// OutputOptionString returns the output option as a string
+func OutputOptionString() string {
+	if outputOpt == "yaml" {
+		return "YAML"
+	}
+
+	if outputOpt == "json" || re.MatchString(outputOpt) {
+		return "JSON"
+	}
+
+	return "unknown"
 }
 
-//ForceJSON sets output mode to JSON (for unit tests)
+// AddOutputOption adds the -o|--output option to any cmd to export to json or yaml.
+func AddOutputOption(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&outputOpt, "output", "o", "", "json| yaml| jsonpath='{}'")
+}
+
+// ForceJSON sets output mode to JSON (for unit tests)
 func ForceJSON() {
 	outputOpt = "json"
 }
 
-//PrintOutput receives an interface and dump the data using the --output flag.
-//ATM only json or jsonpath. In the future yaml
+// PrintOutput receives an interface and dump the data using the --output flag.
+// ATM only json or jsonpath. In the future yaml
 func PrintOutput(data interface{}) error {
 	return PrintOutputWithType(data, outputOpt)
 }
 
-//PrintOutputWithPatch merges data with patch and dump the data using the --output flag.
+// PrintOutputWithPatch merges data with patch and dump the data using the --output flag.
 func PrintOutputWithPatch(data interface{}, patch interface{}) error {
 	mergedInterface, err := mergeInterfaces(data, patch)
 	if err != nil {
@@ -95,18 +109,22 @@ func recursiveMerge(i1, i2 interface{}) interface{} {
 	return i1
 }
 
-//PrintOutputWithType receives an interface and dump the data using the --output flag.
-//ATM only json or jsonpath. In the future yaml
+// PrintOutputWithType receives an interface and dump the data using the --output flag.
+// ATM only json, yaml, or jsonpath.
 func PrintOutputWithType(data interface{}, outputType string) error {
 	if outputType == "json" {
 		return dumpJSON(data, "")
+	}
+
+	if outputType == "yaml" {
+		return dumpYAML(data)
 	}
 
 	if re.MatchString(outputType) {
 		return dumpJSON(data, re.ReplaceAllString(outputType, "$1"))
 	}
 
-	return fmt.Errorf("couldn't found output printer")
+	return fmt.Errorf("couldn't find output printer")
 }
 
 // DumpJSONToString dumps the contents of data into a string. If jsonpath is
@@ -139,14 +157,26 @@ func DumpJSONToString(data interface{}, jsonPath string) (string, error) {
 	return sb.String(), nil
 }
 
-// dumpJSON dump the data variable to the stdout as json.
-// If somethings fail, it'll return an error
-// If jsonPath is passed, it'll run the json query over data var.
+// dumpJSON dumps the data variable to the stdout as json.
+// If something fails, it returns an error
+// If jsonPath is passed, it runs the json query over data var.
 func dumpJSON(data interface{}, jsonPath string) error {
 	jsonStr, err := DumpJSONToString(data, jsonPath)
 	if err != nil {
 		return err
 	}
 	fmt.Println(jsonStr)
+	return nil
+}
+
+// dumpYAML dumps the data variable to the stdout as yaml.
+// If something fails, it returns an error
+func dumpYAML(data interface{}) error {
+	result, err := yaml.Marshal(data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Couldn't marshal to yaml: '%s'\n", err)
+		return err
+	}
+	fmt.Println(string(result))
 	return nil
 }

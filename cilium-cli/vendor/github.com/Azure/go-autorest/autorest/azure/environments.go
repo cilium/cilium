@@ -50,6 +50,8 @@ type ResourceIdentifier struct {
 	Synapse             string `json:"synapse"`
 	ServiceBus          string `json:"serviceBus"`
 	SQLDatabase         string `json:"sqlDatabase"`
+	CosmosDB            string `json:"cosmosDB"`
+	ManagedHSM          string `json:"managedHSM"`
 }
 
 // Environment represents a set of endpoints for each of Azure's Clouds.
@@ -62,6 +64,7 @@ type Environment struct {
 	ActiveDirectoryEndpoint      string             `json:"activeDirectoryEndpoint"`
 	GalleryEndpoint              string             `json:"galleryEndpoint"`
 	KeyVaultEndpoint             string             `json:"keyVaultEndpoint"`
+	ManagedHSMEndpoint           string             `json:"managedHSMEndpoint"`
 	GraphEndpoint                string             `json:"graphEndpoint"`
 	ServiceBusEndpoint           string             `json:"serviceBusEndpoint"`
 	BatchManagementEndpoint      string             `json:"batchManagementEndpoint"`
@@ -73,6 +76,7 @@ type Environment struct {
 	SQLDatabaseDNSSuffix         string             `json:"sqlDatabaseDNSSuffix"`
 	TrafficManagerDNSSuffix      string             `json:"trafficManagerDNSSuffix"`
 	KeyVaultDNSSuffix            string             `json:"keyVaultDNSSuffix"`
+	ManagedHSMDNSSuffix          string             `json:"managedHSMDNSSuffix"`
 	ServiceBusEndpointSuffix     string             `json:"serviceBusEndpointSuffix"`
 	ServiceManagementVMDNSSuffix string             `json:"serviceManagementVMDNSSuffix"`
 	ResourceManagerVMDNSSuffix   string             `json:"resourceManagerVMDNSSuffix"`
@@ -94,6 +98,7 @@ var (
 		ActiveDirectoryEndpoint:      "https://login.microsoftonline.com/",
 		GalleryEndpoint:              "https://gallery.azure.com/",
 		KeyVaultEndpoint:             "https://vault.azure.net/",
+		ManagedHSMEndpoint:           "https://managedhsm.azure.net/",
 		GraphEndpoint:                "https://graph.windows.net/",
 		ServiceBusEndpoint:           "https://servicebus.windows.net/",
 		BatchManagementEndpoint:      "https://batch.core.windows.net/",
@@ -105,6 +110,7 @@ var (
 		SQLDatabaseDNSSuffix:         "database.windows.net",
 		TrafficManagerDNSSuffix:      "trafficmanager.net",
 		KeyVaultDNSSuffix:            "vault.azure.net",
+		ManagedHSMDNSSuffix:          "managedhsm.azure.net",
 		ServiceBusEndpointSuffix:     "servicebus.windows.net",
 		ServiceManagementVMDNSSuffix: "cloudapp.net",
 		ResourceManagerVMDNSSuffix:   "cloudapp.azure.com",
@@ -123,6 +129,8 @@ var (
 			Synapse:             "https://dev.azuresynapse.net",
 			ServiceBus:          "https://servicebus.azure.net/",
 			SQLDatabase:         "https://database.windows.net/",
+			CosmosDB:            "https://cosmos.azure.com",
+			ManagedHSM:          "https://managedhsm.azure.net",
 		},
 	}
 
@@ -136,6 +144,7 @@ var (
 		ActiveDirectoryEndpoint:      "https://login.microsoftonline.us/",
 		GalleryEndpoint:              "https://gallery.usgovcloudapi.net/",
 		KeyVaultEndpoint:             "https://vault.usgovcloudapi.net/",
+		ManagedHSMEndpoint:           NotAvailable,
 		GraphEndpoint:                "https://graph.windows.net/",
 		ServiceBusEndpoint:           "https://servicebus.usgovcloudapi.net/",
 		BatchManagementEndpoint:      "https://batch.core.usgovcloudapi.net/",
@@ -147,6 +156,7 @@ var (
 		SQLDatabaseDNSSuffix:         "database.usgovcloudapi.net",
 		TrafficManagerDNSSuffix:      "usgovtrafficmanager.net",
 		KeyVaultDNSSuffix:            "vault.usgovcloudapi.net",
+		ManagedHSMDNSSuffix:          NotAvailable,
 		ServiceBusEndpointSuffix:     "servicebus.usgovcloudapi.net",
 		ServiceManagementVMDNSSuffix: "usgovcloudapp.net",
 		ResourceManagerVMDNSSuffix:   "cloudapp.usgovcloudapi.net",
@@ -165,6 +175,8 @@ var (
 			Synapse:             NotAvailable,
 			ServiceBus:          "https://servicebus.azure.net/",
 			SQLDatabase:         "https://database.usgovcloudapi.net/",
+			CosmosDB:            "https://cosmos.azure.com",
+			ManagedHSM:          NotAvailable,
 		},
 	}
 
@@ -178,6 +190,7 @@ var (
 		ActiveDirectoryEndpoint:      "https://login.chinacloudapi.cn/",
 		GalleryEndpoint:              "https://gallery.chinacloudapi.cn/",
 		KeyVaultEndpoint:             "https://vault.azure.cn/",
+		ManagedHSMEndpoint:           NotAvailable,
 		GraphEndpoint:                "https://graph.chinacloudapi.cn/",
 		ServiceBusEndpoint:           "https://servicebus.chinacloudapi.cn/",
 		BatchManagementEndpoint:      "https://batch.chinacloudapi.cn/",
@@ -189,6 +202,7 @@ var (
 		SQLDatabaseDNSSuffix:         "database.chinacloudapi.cn",
 		TrafficManagerDNSSuffix:      "trafficmanager.cn",
 		KeyVaultDNSSuffix:            "vault.azure.cn",
+		ManagedHSMDNSSuffix:          NotAvailable,
 		ServiceBusEndpointSuffix:     "servicebus.chinacloudapi.cn",
 		ServiceManagementVMDNSSuffix: "chinacloudapp.cn",
 		ResourceManagerVMDNSSuffix:   "cloudapp.chinacloudapi.cn",
@@ -207,6 +221,8 @@ var (
 			Synapse:             "https://dev.azuresynapse.net",
 			ServiceBus:          "https://servicebus.azure.net/",
 			SQLDatabase:         "https://database.chinacloudapi.cn/",
+			CosmosDB:            "https://cosmos.azure.com",
+			ManagedHSM:          NotAvailable,
 		},
 	}
 
@@ -220,6 +236,7 @@ var (
 		ActiveDirectoryEndpoint:      "https://login.microsoftonline.de/",
 		GalleryEndpoint:              "https://gallery.cloudapi.de/",
 		KeyVaultEndpoint:             "https://vault.microsoftazure.de/",
+		ManagedHSMEndpoint:           NotAvailable,
 		GraphEndpoint:                "https://graph.cloudapi.de/",
 		ServiceBusEndpoint:           "https://servicebus.cloudapi.de/",
 		BatchManagementEndpoint:      "https://batch.cloudapi.de/",
@@ -231,6 +248,7 @@ var (
 		SQLDatabaseDNSSuffix:         "database.cloudapi.de",
 		TrafficManagerDNSSuffix:      "azuretrafficmanager.de",
 		KeyVaultDNSSuffix:            "vault.microsoftazure.de",
+		ManagedHSMDNSSuffix:          NotAvailable,
 		ServiceBusEndpointSuffix:     "servicebus.cloudapi.de",
 		ServiceManagementVMDNSSuffix: "azurecloudapp.de",
 		ResourceManagerVMDNSSuffix:   "cloudapp.microsoftazure.de",
@@ -249,6 +267,8 @@ var (
 			Synapse:             NotAvailable,
 			ServiceBus:          "https://servicebus.azure.net/",
 			SQLDatabase:         "https://database.cloudapi.de/",
+			CosmosDB:            "https://cosmos.azure.com",
+			ManagedHSM:          NotAvailable,
 		},
 	}
 )

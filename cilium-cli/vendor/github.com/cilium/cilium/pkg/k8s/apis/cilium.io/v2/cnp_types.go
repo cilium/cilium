@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020-2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package v2
 
 import (
 	"fmt"
 	"reflect"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/comparator"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -14,9 +17,6 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +genclient

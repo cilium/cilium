@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2017 Authors of Cilium
+// Copyright Authors of Cilium
 
 package loadbalancer
 
@@ -35,6 +35,15 @@ const (
 	SVCTrafficPolicyLocal   = SVCTrafficPolicy("Local")
 )
 
+// SVCNatPolicy defines whether we need NAT46/64 translation for backends
+type SVCNatPolicy string
+
+const (
+	SVCNatPolicyNone  = SVCNatPolicy("NONE")
+	SVCNatPolicyNat46 = SVCNatPolicy("Nat46")
+	SVCNatPolicyNat64 = SVCNatPolicy("Nat64")
+)
+
 // ServiceFlags is the datapath representation of the service flags that can be
 // used (lb{4,6}_service.flags)
 type ServiceFlags uint16
@@ -50,14 +59,18 @@ const (
 	serviceFlagRoutable        = 1 << 6
 	serviceFlagSourceRange     = 1 << 7
 	serviceFlagLocalRedirect   = 1 << 8
+	serviceFlagNat46x64        = 1 << 9
+	serviceFlagL7LoadBalancer  = 1 << 10
 )
 
 type SvcFlagParam struct {
 	SvcType          SVCType
+	SvcNatPolicy     SVCNatPolicy
 	SvcLocal         bool
 	SessionAffinity  bool
 	IsRoutable       bool
 	CheckSourceRange bool
+	L7LoadBalancer   bool
 }
 
 // NewSvcFlag creates service flag
@@ -77,6 +90,13 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 		flags |= serviceFlagLocalRedirect
 	}
 
+	switch p.SvcNatPolicy {
+	case SVCNatPolicyNat46:
+		fallthrough
+	case SVCNatPolicyNat64:
+		flags |= serviceFlagNat46x64
+	}
+
 	if p.SvcLocal {
 		flags |= serviceFlagLocalScope
 	}
@@ -88,6 +108,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.CheckSourceRange {
 		flags |= serviceFlagSourceRange
+	}
+	if p.L7LoadBalancer {
+		flags |= serviceFlagL7LoadBalancer
 	}
 
 	return flags
@@ -121,6 +144,19 @@ func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
 	}
 }
 
+// SVCNatPolicy returns a service NAT policy from the flags
+func (s ServiceFlags) SVCNatPolicy(fe L3n4Addr) SVCNatPolicy {
+	if s&serviceFlagNat46x64 == 0 {
+		return SVCNatPolicyNone
+	}
+
+	if fe.IsIPv6() {
+		return SVCNatPolicyNat64
+	} else {
+		return SVCNatPolicyNat46
+	}
+}
+
 // String returns the string implementation of ServiceFlags.
 func (s ServiceFlags) String() string {
 	var str []string
@@ -137,6 +173,12 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagSourceRange != 0 {
 		str = append(str, "check source-range")
+	}
+	if s&serviceFlagNat46x64 != 0 {
+		str = append(str, "46x64")
+	}
+	if s&serviceFlagL7LoadBalancer != 0 {
+		str = append(str, "l7-load-balancer")
 	}
 
 	return strings.Join(str, ", ")
@@ -162,6 +204,82 @@ const (
 	ScopeInternal
 )
 
+// BackendState tracks backend's ability to load-balance service traffic.
+//
+// Valid transition states for a backend -
+// BackendStateActive -> BackendStateTerminating, BackendStateQuarantined, BackendStateMaintenance
+// BackendStateTerminating -> No valid state transition
+// BackendStateQuarantined -> BackendStateActive, BackendStateTerminating
+// BackendStateMaintenance -> BackendStateActive
+//
+// Sources setting the states -
+// BackendStateActive - Kubernetes events, service API
+// BackendStateTerminating - Kubernetes events
+// BackendStateQuarantined - service API
+// BackendStateMaintenance - service API
+const (
+	// BackendStateActive refers to the backend state when it's available for
+	// load-balancing traffic. It's the default state for a backend.
+	// Backends in this state can be health-checked.
+	BackendStateActive BackendState = iota
+	// BackendStateTerminating refers to the terminating backend state so that
+	// it can be gracefully removed.
+	// Backends in this state won't be health-checked.
+	BackendStateTerminating
+	// BackendStateQuarantined refers to the backend state when it's unreachable,
+	// and will not be selected for load-balancing traffic.
+	// Backends in this state can be health-checked.
+	BackendStateQuarantined
+	// BackendStateMaintenance refers to the backend state where the backend
+	// is put under maintenance, and will neither be selected for load-balancing
+	// traffic nor be health-checked.
+	BackendStateMaintenance
+	// BackendStateInvalid is an invalid state, and is used to report error conditions.
+	// Keep this as the last entry.
+	BackendStateInvalid
+)
+
+// BackendStateFlags is the datapath representation of the backend flags that
+// are used in (lb{4,6}_backend.flags) to store backend state.
+type BackendStateFlags = uint8
+
+const (
+	BackendStateActiveFlag = iota
+	BackendStateTerminatingFlag
+	BackendStateQuarantinedFlag
+	BackendStateMaintenanceFlag
+)
+
+func NewBackendFlags(state BackendState) BackendStateFlags {
+	var flags BackendStateFlags
+
+	switch state {
+	case BackendStateActive:
+		flags = BackendStateActiveFlag
+	case BackendStateTerminating:
+		flags = BackendStateTerminatingFlag
+	case BackendStateQuarantined:
+		flags = BackendStateQuarantinedFlag
+	case BackendStateMaintenance:
+		flags = BackendStateMaintenanceFlag
+	}
+
+	return flags
+}
+
+func GetBackendStateFromFlags(flags uint8) BackendState {
+	switch flags {
+	case BackendStateTerminatingFlag:
+		return BackendStateTerminating
+	case BackendStateQuarantinedFlag:
+		return BackendStateQuarantined
+	case BackendStateMaintenanceFlag:
+		return BackendStateMaintenance
+	default:
+		return BackendStateActive
+	}
+}
+
 var (
 	// AllProtocols is the list of all supported L4 protocols
 	AllProtocols = []L4Type{TCP, UDP}
@@ -182,6 +300,9 @@ type BackendID uint32
 // ID is the ID of L3n4Addr endpoint (either service or backend).
 type ID uint32
 
+// BackendState is the state of a backend for load-balancing service traffic.
+type BackendState uint8
+
 // Backend represents load balancer backend.
 type Backend struct {
 	// ID of the backend
@@ -190,9 +311,10 @@ type Backend struct {
 	// a node.
 	NodeName string
 	L3n4Addr
-	// State indicating whether backend is terminating so that it can be
-	// gracefully removed
-	Terminating bool
+	// State of the backend for load-balancing service traffic
+	State BackendState
+	// RestoredFromDatapath indicates whether the backend was restored from BPF maps
+	RestoredFromDatapath bool
 }
 
 func (b *Backend) String() string {
@@ -205,15 +327,18 @@ type SVC struct {
 	Backends                  []Backend        // List of service backends
 	Type                      SVCType          // Service type
 	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
+	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
 	HealthCheckNodePort       uint16 // Service health check node port
 	Name                      string // Service name
 	Namespace                 string // Service namespace
 	LoadBalancerSourceRanges  []*cidr.CIDR
+	L7LBProxyPort             uint16 // Non-zero for L7 LB services
 }
 
 func (s *SVC) GetModel() *models.Service {
+	var natPolicy string
 	type backendPlacement struct {
 		pos int
 		id  BackendID
@@ -224,6 +349,9 @@ func (s *SVC) GetModel() *models.Service {
 	}
 
 	id := int64(s.Frontend.ID)
+	if s.NatPolicy != SVCNatPolicyNone {
+		natPolicy = string(s.NatPolicy)
+	}
 	spec := &models.ServiceSpec{
 		ID:               id,
 		FrontendAddress:  s.Frontend.GetModel(),
@@ -231,6 +359,7 @@ func (s *SVC) GetModel() *models.Service {
 		Flags: &models.ServiceSpecFlags{
 			Type:                string(s.Type),
 			TrafficPolicy:       string(s.TrafficPolicy),
+			NatPolicy:           natPolicy,
 			HealthCheckNodePort: s.HealthCheckNodePort,
 
 			Name:      s.Name,
@@ -254,6 +383,68 @@ func (s *SVC) GetModel() *models.Service {
 			Realized: spec,
 		},
 	}
+}
+
+func IsValidStateTransition(old, new BackendState) bool {
+	if old == new {
+		return true
+	}
+	if new == BackendStateInvalid {
+		return false
+	}
+
+	switch old {
+	case BackendStateActive:
+	case BackendStateTerminating:
+		return false
+	case BackendStateQuarantined:
+		if new == BackendStateMaintenance {
+			return false
+		}
+	case BackendStateMaintenance:
+		if new != BackendStateActive {
+			return false
+		}
+	default:
+		return false
+	}
+	return true
+}
+
+func GetBackendState(state string) (BackendState, error) {
+	switch strings.ToLower(state) {
+	case "active", "":
+		return BackendStateActive, nil
+	case "terminating":
+		return BackendStateTerminating, nil
+	case "quarantined":
+		return BackendStateQuarantined, nil
+	case "maintenance":
+		return BackendStateMaintenance, nil
+	default:
+		return BackendStateInvalid, fmt.Errorf("invalid backend state %s", state)
+	}
+}
+
+func (state BackendState) String() (string, error) {
+	switch state {
+	case BackendStateActive:
+		return "active", nil
+	case BackendStateTerminating:
+		return "terminating", nil
+	case BackendStateQuarantined:
+		return "quarantined", nil
+	case BackendStateMaintenance:
+		return "maintenance", nil
+	default:
+		return "", fmt.Errorf("invalid backend state %d", state)
+	}
+}
+
+func IsValidBackendState(state string) bool {
+	_, err := GetBackendState(state)
+
+	return err == nil
 }
 
 func NewL4Type(name string) (L4Type, error) {
@@ -358,11 +549,28 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 }
 
 // NewBackend creates the Backend struct instance from given params.
+// The default state for the returned Backend is BackendStateActive.
 func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
 		ID:       BackendID(id),
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
+		State:    BackendStateActive,
+	}
+
+	return &b
+}
+
+// NewBackendWithState creates the Backend struct instance from given params,
+// and sets the restore state for the Backend.
+func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber uint16,
+	state BackendState, restored bool) *Backend {
+	lbport := NewL4Addr(protocol, portNumber)
+	b := Backend{
+		ID:                   id,
+		L3n4Addr:             L3n4Addr{IP: ip, L4Addr: *lbport},
+		State:                state,
+		RestoredFromDatapath: restored,
 	}
 
 	return &b
@@ -379,8 +587,12 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
+	state, err := GetBackendState(base.State)
+	if err != nil {
+		return nil, fmt.Errorf("invalid backend state [%s]", base.State)
+	}
 
-	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
+	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}, State: state}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -419,10 +631,12 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	}
 
 	ip := b.IP.String()
+	stateStr, _ := b.State.String()
 	return &models.BackendAddress{
 		IP:       &ip,
 		Port:     b.Port,
 		NodeName: b.NodeName,
+		State:    stateStr,
 	}
 }
 

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018-2019 Authors of Cilium
+// Copyright Authors of Cilium
 
 package api
 
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -61,7 +62,15 @@ type FQDNSelector struct {
 }
 
 func (s *FQDNSelector) String() string {
-	return fmt.Sprintf("MatchName: %s, MatchPattern: %s", s.MatchName, s.MatchPattern)
+	const m = "MatchName: "
+	const mm = ", MatchPattern: "
+	var str strings.Builder
+	str.Grow(len(m) + len(mm) + len(s.MatchName) + len(s.MatchPattern))
+	str.WriteString(m)
+	str.WriteString(s.MatchName)
+	str.WriteString(mm)
+	str.WriteString(s.MatchPattern)
+	return str.String()
 }
 
 // sanitize for FQDNSelector is a little wonky. While we do more processing
