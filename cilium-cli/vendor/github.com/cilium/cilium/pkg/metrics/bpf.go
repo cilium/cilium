@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 package metrics
 
@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type bpfCollector struct {
@@ -67,7 +67,7 @@ func getMemoryUsage(typ string) (uint64, error) {
 func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
 	mapMem, err := getMemoryUsage("map")
 	if err != nil {
-		log.WithError(err).Error("Error while getting BPF maps memory usage")
+		logrus.WithError(err).Error("Error while getting BPF maps memory usage")
 	} else {
 		ch <- prometheus.MustNewConstMetric(
 			s.bpfMapsMemory,
@@ -78,7 +78,7 @@ func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
 
 	progMem, err := getMemoryUsage("prog")
 	if err != nil {
-		log.WithError(err).Error("Error while getting BPF progs memory usage")
+		logrus.WithError(err).Error("Error while getting BPF progs memory usage")
 	} else {
 		ch <- prometheus.MustNewConstMetric(
 			s.bpfProgMemory,

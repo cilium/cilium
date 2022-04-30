@@ -1,12 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2019 Authors of Cilium
+// Copyright Authors of Cilium
 
 package metrics
 
 import (
+	"github.com/cilium/cilium/api/v1/client/daemon"
+	"github.com/cilium/cilium/api/v1/health/client/connectivity"
+
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
+
+type daemonHealthGetter interface {
+	GetHealthz(params *daemon.GetHealthzParams) (*daemon.GetHealthzOK, error)
+}
+
+type connectivityStatusGetter interface {
+	GetStatus(params *connectivity.GetStatusParams) (*connectivity.GetStatusOK, error)
+}
 
 type CounterVec interface {
 	WithLabelValues(lvls ...string) prometheus.Counter

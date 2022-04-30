@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2019 Authors of Hubble
+// Copyright Authors of Hubble
 
 syntax = "proto3";
 
@@ -406,8 +406,8 @@ message FlowFilter {
     // tcp_flags filters flows based on TCP header flags
     repeated TCPFlags tcp_flags = 23;
 
-    // node_name is a list of patterns to filter on the node name, e.g. (e.g.
-    // "k8s*", "test-cluster/*.domain.com", "cluster-name/").
+    // node_name is a list of patterns to filter on the node name, e.g. "k8s*",
+    // "test-cluster/*.domain.com", "cluster-name/" etc.
     repeated string node_name = 24;
 
     // filter based on IP version (ipv4 or ipv6)

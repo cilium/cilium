@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2016-2020 Authors of Cilium
+// Copyright Authors of Cilium
 
 package defaults
 
@@ -13,6 +13,9 @@ const (
 
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
+
+	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
+	ClusterMeshHealthPort = 80
 
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
@@ -136,6 +139,10 @@ const (
 	// option.IdentityChangeGracePeriod
 	IdentityChangeGracePeriod = 5 * time.Second
 
+	// IdentityRestoreGracePeriod is the default value for
+	// option.IdentityRestoreGracePeriod
+	IdentityRestoreGracePeriod = 10 * time.Minute
+
 	// ExecTimeout is a timeout for executing commands.
 	ExecTimeout = 300 * time.Second
 
@@ -161,6 +168,9 @@ const (
 
 	// EnableL7Proxy is the default value for L7 proxy enablement
 	EnableL7Proxy = true
+
+	// EnvoyConfigTimeout determines how long to wait Envoy to N/ACK resources
+	EnvoyConfigTimeout = 2 * time.Minute
 
 	// EnableHostLegacyRouting is the default value for using the old routing path via stack.
 	EnableHostLegacyRouting = false
@@ -286,10 +296,6 @@ const (
 	// LoopbackIPv4 is the default address for service loopback
 	LoopbackIPv4 = "169.254.42.1"
 
-	// EndpointInterfaceNamePrefix is the default prefix name of the
-	// interface names shared by all endpoints
-	EndpointInterfaceNamePrefix = "lxc+"
-
 	// ForceLocalPolicyEvalAtSource is the default value for
 	// option.ForceLocalPolicyEvalAtSource. It is enabled by default to
 	// provide backwards compatibility, it can be disabled via an option
@@ -302,7 +308,7 @@ const (
 	// AnnotateK8sNode is the default value for option.AnnotateK8sNode. It is
 	// enabled by default to annotate kubernetes node and can be disabled using
 	// the provided option.
-	AnnotateK8sNode = true
+	AnnotateK8sNode = false
 
 	// MonitorBufferPages is the default number of pages to use for the
 	// ring buffer interacting with the kernel
@@ -347,6 +353,14 @@ const (
 
 	// IPAMAPIQPSLimit is the default QPS limit when rate limiting access to external APIs
 	IPAMAPIQPSLimit = 20.0
+
+	// IPAMPodCIDRAllocationThreshold is the default value for
+	// CiliumNode.Spec.IPAM.PodCIDRAllocationThreshold if no value is set
+	IPAMPodCIDRAllocationThreshold = 8
+
+	// IPAMPodCIDRReleaseThreshold is the default value for
+	// CiliumNode.Spec.IPAM.PodCIDRReleaseThreshold if no value is set
+	IPAMPodCIDRReleaseThreshold = 16
 
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
@@ -441,4 +455,11 @@ const (
 
 	// ARPBaseReachableTime resembles the kernel's NEIGH_VAR_BASE_REACHABLE_TIME which defaults to 30 seconds.
 	ARPBaseReachableTime = 30 * time.Second
+
+	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
+	EnableVTEP     = false
+	MaxVTEPDevices = 8
+
+	// Enable BGP control plane features.
+	EnableBGPControlPlane = false
 )

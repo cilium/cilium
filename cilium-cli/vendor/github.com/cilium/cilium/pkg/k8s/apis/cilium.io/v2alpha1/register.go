@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2017-2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package v2alpha1
 
 import (
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 	//
 	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
 	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.24.3"
+	CustomResourceDefinitionSchemaVersion = "1.26.1"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -55,6 +55,62 @@ const (
 
 	// CESName is the full name of Cilium Endpoint Slice
 	CESName = CESPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Cluster Envoy Config (CCEC)
+
+	// CCECSingularName is the singular name of Cilium Clusterwide Envoy Config
+	CCECSingularName = "ciliumclusterwideenvoyconfig"
+
+	// CCECPluralName is the plural name of Cilium Clusterwide Envoy Config
+	CCECPluralName = "ciliumclusterwideenvoyconfigs"
+
+	// CCECKindDefinition is the kind name of Cilium Clusterwide Envoy Config
+	CCECKindDefinition = "CiliumClusterwideEnvoyConfig"
+
+	// CCECName is the full name of Cilium Clusterwide Envoy Config
+	CCECName = CCECPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Envoy Config (CEC)
+
+	// CECSingularName is the singular name of Cilium Envoy Config
+	CECSingularName = "ciliumenvoyconfig"
+
+	// CECPluralName is the plural name of Cilium Envoy Config
+	CECPluralName = "ciliumenvoyconfigs"
+
+	// CECKindDefinition is the kind name of Cilium Envoy Config
+	CECKindDefinition = "CiliumEnvoyConfig"
+
+	// CECName is the full name of Cilium Envoy Config
+	CECName = CECPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium BGP Peering Policy (BGPP)
+
+	// BGPPSingularName is the singular name of Cilium BGP Peering Policy
+	BGPPSingularName = "ciliumbgppeeringpolicy"
+
+	// BGPPPluralName is the plural name of Cilium BGP Peering Policy
+	BGPPPluralName = "ciliumbgppeeringpolicies"
+
+	// BGPPKindDefinition is the kind name of Cilium BGP Peering Policy
+	BGPPKindDefinition = "CiliumBGPPeeringPolicy"
+
+	// BGPPName is the full name of Cilium BGP Peering Policy
+	BGPPName = BGPPPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium BGP Load Balancer IP Pool (BGPPool)
+
+	// BGPPoolSingularName is the singular name of Cilium BGP Load Balancer IP Pool
+	BGPPoolSingularName = "ciliumbgploadbalancerippool"
+
+	// BGPPoolPluralName is the plural name of Cilium BGP Load Balancer IP Pool
+	BGPPoolPluralName = "ciliumbgploadbalancerippools"
+
+	// BGPPoolKindDefinition is the kind name of Cilium BGP Peering Policy
+	BGPPoolKindDefinition = "CiliumBGPLoadBalancerIPPool"
+
+	// BGPPoolName is the full name of Cilium BGP Load Balancer IP Pool
+	BGPPoolName = BGPPoolPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -102,6 +158,14 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumEgressNATPolicyList{},
 		&CiliumEndpointSlice{},
 		&CiliumEndpointSliceList{},
+		&CiliumEnvoyConfig{},
+		&CiliumEnvoyConfigList{},
+		&CiliumClusterwideEnvoyConfig{},
+		&CiliumClusterwideEnvoyConfigList{},
+		&CiliumBGPPeeringPolicy{},
+		&CiliumBGPPeeringPolicyList{},
+		&CiliumBGPLoadBalancerIPPool{},
+		&CiliumBGPLoadBalancerIPPoolList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

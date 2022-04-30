@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package versioncheck provides utility wrappers for go-version, allowing the
 // constraints to be used as global variables.
