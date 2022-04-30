@@ -6,6 +6,17 @@ package sysdump
 import (
 	"runtime"
 	"time"
+
+	// for envoy unmarshalling
+	_ "github.com/cilium/proxy/go/envoy/config/cluster/v3"
+	_ "github.com/cilium/proxy/go/envoy/config/core/v3"
+	_ "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
+	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	_ "github.com/cilium/proxy/go/envoy/config/route/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
+	_ "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 )
 
 const (
