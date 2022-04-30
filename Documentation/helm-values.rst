@@ -1513,6 +1513,14 @@
      - interval between checks of the startup probe
      - int
      - ``2``
+   * - svcSourceRangeCheck
+     - Enable check of service source ranges (currently, only for LoadBalancer).
+     - bool
+     - ``true``
+   * - synchronizeK8sNodes
+     - Synchronize Kubernetes nodes to kvstore and perform CNP GC.
+     - bool
+     - ``true``
    * - terminationGracePeriodSeconds
      - Configure termination grace period for cilium-agent DaemonSet.
      - int
