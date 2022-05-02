@@ -46,23 +46,29 @@ func (s *netPerfPodtoPod) Run(ctx context.Context, t *check.Test) {
 	for _, c := range t.Context().PerfClientPods() {
 		c := c
 		for _, server := range t.Context().PerfServerPod() {
+			var scenarioName string
+			if c.Pod.Spec.HostNetwork {
+				scenarioName = "host-net"
+			} else {
+				scenarioName = "pod-net"
+			}
 			action := t.NewAction(s, "netperf", &c, server)
 			action.CollectFlows = false
 			action.Run(func(a *check.Action) {
 				if crr {
-					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_CRR", a, t.Context().PerfResults, 1, 30)
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_CRR", a, t.Context().PerfResults, 1, 30, scenarioName)
 				} else {
-					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_RR", a, t.Context().PerfResults, samples, duration)
-					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_STREAM", a, t.Context().PerfResults, samples, duration)
-					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "UDP_RR", a, t.Context().PerfResults, samples, duration)
-					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "UDP_STREAM", a, t.Context().PerfResults, samples, duration)
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_RR", a, t.Context().PerfResults, samples, duration, scenarioName)
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "TCP_STREAM", a, t.Context().PerfResults, samples, duration, scenarioName)
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "UDP_RR", a, t.Context().PerfResults, samples, duration, scenarioName)
+					netperf(ctx, server.Pod.Status.PodIP, c.Pod.Name, "UDP_STREAM", a, t.Context().PerfResults, samples, duration, scenarioName)
 				}
 			})
 		}
 	}
 }
 
-func netperf(ctx context.Context, sip string, podname string, test string, a *check.Action, result map[check.PerfTests]check.PerfResult, samples int, duration time.Duration) {
+func netperf(ctx context.Context, sip string, podname string, test string, a *check.Action, result map[check.PerfTests]check.PerfResult, samples int, duration time.Duration, scenarioName string) {
 	// Define test about to be executed and from which pod
 	k := check.PerfTests{
 		Pod:  podname,
@@ -97,6 +103,7 @@ func netperf(ctx context.Context, sip string, podname string, test string, a *ch
 		}
 	}
 	res := check.PerfResult{
+		Scenario: scenarioName,
 		Metric:   metric,
 		Duration: duration,
 		Values:   values,
