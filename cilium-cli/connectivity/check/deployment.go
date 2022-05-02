@@ -42,6 +42,10 @@ const (
 	kindPerfName                = "perf"
 )
 
+// perfDeploymentNameManager provides methods for building deployment names
+// based on the given parameters.
+// Names returned by the methods will be unique depending on how the deployments
+// are expected to be modified for the configured test.
 type perfDeploymentNameManager struct {
 	clientDeploymentName       string
 	clientAcrossDeploymentName string
