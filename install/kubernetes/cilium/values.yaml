@@ -837,6 +837,13 @@ hubble:
     # -- hubble-relay security context
     securityContext: {}
 
+    # -- hubble-relay service configuration.
+    service:
+      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort. 
+      type: ClusterIP
+      # --- The port to use when the service type is set to NodePort.
+      nodePort: 31234
+
     # -- Host to listen to. Specify an empty string to bind to all the interfaces.
     listenHost: ""
 

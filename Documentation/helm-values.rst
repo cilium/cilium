@@ -785,6 +785,18 @@
      - hubble-relay security context
      - object
      - ``{}``
+   * - hubble.relay.service
+     - hubble-relay service configuration.
+     - object
+     - ``{"nodePort":31234,"type":"ClusterIP"}``
+   * - hubble.relay.service.nodePort
+     - - The port to use when the service type is set to NodePort.
+     - int
+     - ``31234``
+   * - hubble.relay.service.type
+     - - The type of service used for Hubble Relay access, either ClusterIP or NodePort.
+     - string
+     - ``"ClusterIP"``
    * - hubble.relay.sortBufferDrainTimeout
      - When the per-request flows sort buffer is not full, a flow is drained every time this timeout is reached (only affects requests in follow-mode) (e.g. "1s").
      - string
