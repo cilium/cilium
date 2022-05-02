@@ -106,6 +106,12 @@ func newCmdSysdump() *cobra.Command {
 	cmd.Flags().BoolVar(&sysdumpOptions.DetectGopsPID,
 		"detect-gops-pid", false,
 		"Whether to automatically detect the gops agent PID.")
+	cmd.Flags().StringVar(&sysdumpOptions.CNIConfigDirectory,
+		"cni-config-directory", sysdump.DefaultCNIConfigDirectory,
+		"Directory where CNI configs are located")
+	cmd.Flags().StringVar(&sysdumpOptions.CNIConfigMapName,
+		"cni-configmap-name", sysdump.DefaultCNIConfigMapName,
+		"The name of the CNI config map")
 
 	return cmd
 }

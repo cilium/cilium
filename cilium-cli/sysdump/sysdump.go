@@ -81,6 +81,10 @@ type Options struct {
 	CiliumBugtoolFlags []string
 	// Whether to automatically detect the gops agent PID
 	DetectGopsPID bool
+	// Directory where CNI configs are located
+	CNIConfigDirectory string
+	// The name of the CNI config map
+	CNIConfigMapName string
 }
 
 // Task defines a task for the sysdump collector to execute.
@@ -605,6 +609,41 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting the CNI configuration files from Cilium pods",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to list Cilium pods: %w", err)
+				}
+				if err := c.SubmitCniConflistSubtask(ctx, FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+					return fmt.Errorf("failed to collect CNI configuration files: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the CNI configmap",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumNamespace, c.Options.CNIConfigMapName, metav1.GetOptions{})
+				if err != nil && errors.IsNotFound(err) {
+					c.logDebug("CNI configmap %s not found: %w", c.Options.CNIConfigMapName, err)
+					return nil
+				}
+				if err != nil {
+					return fmt.Errorf("failed to collect the CNI configuration configmap: %w", err)
+				}
+				if err := c.WriteYAML(cniConfigMapFileName, v); err != nil {
+					return fmt.Errorf("failed to write CNI configuration configmap: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting gops stats from Cilium pods",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
@@ -1036,6 +1075,39 @@ func extractGopsPID(output string) (string, error) {
 	}
 
 	return "", fmt.Errorf("failed to extract pid from output: %q", output)
+}
+
+func (c *Collector) SubmitCniConflistSubtask(ctx context.Context, pods []*corev1.Pod, containerName string) error {
+	for _, p := range pods {
+		p := p
+		if err := c.Pool.Submit(fmt.Sprintf("cniconflist-%s", p.GetName()), func(ctx context.Context) error {
+			outputStr, err := c.Client.ExecInPod(ctx, p.GetNamespace(), p.GetName(), containerName, []string{
+				lsCommand,
+				c.Options.CNIConfigDirectory,
+			})
+			if err != nil {
+				return err
+			}
+			cniConfigFileNames := strings.Split(outputStr.String(), "\n")
+			for _, cniFileName := range cniConfigFileNames {
+				cniConfigPath := path.Join(c.Options.CNIConfigDirectory, cniFileName)
+				cniConfigFileContent, err := c.Client.ExecInPod(ctx, p.GetNamespace(), p.GetName(), containerName, []string{
+					catCommand,
+					cniConfigPath,
+				})
+				if err != nil {
+					return err
+				}
+				if err := c.WriteBytes(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), cniConfigFileContent.Bytes()); err != nil {
+					return fmt.Errorf("failed to write CNI configuration %q for %q in namespace %q: %w", cniFileName, p.GetName(), p.Namespace, err)
+				}
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to submit cniconflist task for %q: %w", p.Name, err)
+		}
+	}
+	return nil
 }
 
 // SubmitGopsSubtasks submits tasks to collect kubernetes logs from pods.

@@ -31,6 +31,8 @@ const (
 	DefaultQuick                             = false
 	DefaultOutputFileName                    = "cilium-sysdump-<ts>" // "<ts>" will be replaced with the timestamp
 	DefaultDetectGopsPID                     = false
+	DefaultCNIConfigDirectory                = "/etc/cni/net.d/"
+	DefaultCNIConfigMapName                  = "cni-configuration"
 )
 
 var (
