@@ -55,13 +55,13 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	// cni (cilium) pods were deleted sooner, wait until test pods are deleted
 	// before moving onto deleting cilium pods.
 	if k.params.Wait {
+		k.Log("⌛ Waiting for %s namespace to be terminated...", k.params.TestNamespace)
 	retryNamespace:
 		// Wait for the test namespace to be terminated. Subsequent connectivity checks would fail
 		// if the test namespace is in Terminating state.
 		_, err := k.client.GetNamespace(ctx, k.params.TestNamespace, metav1.GetOptions{})
 		if err == nil {
 			time.Sleep(defaults.WaitRetryInterval)
-			k.Log("⌛ Waiting for %s namespace to be terminated...", k.params.TestNamespace)
 			goto retryNamespace
 		}
 	}
