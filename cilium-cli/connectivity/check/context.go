@@ -58,6 +58,7 @@ type PerfTests struct {
 
 type PerfResult struct {
 	Metric   string
+	Scenario string
 	Duration time.Duration
 	Samples  int
 	Values   []float64
@@ -317,15 +318,15 @@ func (ct *ConnectivityTest) report() error {
 
 	if ct.params.Perf {
 		// Report Performance results
-		ct.Header("🔥 Performance Test Summary")
-		ct.Logf("%s", strings.Repeat("-", 125))
-		ct.Logf("📋 %-50s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Test", "Num Samples", "Duration", "Avg value")
-		ct.Logf("%s", strings.Repeat("-", 125))
+		ct.Headerf("🔥 Performance Test Summary: ")
+		ct.Logf("%s", strings.Repeat("-", 145))
+		ct.Logf("📋 %-15s | %-50s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Pod", "Test", "Num Samples", "Duration", "Avg value")
+		ct.Logf("%s", strings.Repeat("-", 145))
 		for p, d := range ct.PerfResults {
-			ct.Logf("📋 %-50s | %-15s | %-15d | %-15s | %.2f (%s)", p.Pod, p.Test, d.Samples, d.Duration, d.Avg, d.Metric)
+			ct.Logf("📋 %-15s | %-50s | %-15s | %-15d | %-15s | %.2f (%s)", d.Scenario, p.Pod, p.Test, d.Samples, d.Duration, d.Avg, d.Metric)
 			ct.Debugf("Individual Values from run : %s", d.Values)
 		}
-		ct.Logf("%s", strings.Repeat("-", 125))
+		ct.Logf("%s", strings.Repeat("-", 145))
 	}
 
 	ct.Headerf("✅ All %d tests (%d actions) successful, %d tests skipped, %d scenarios skipped.", nt-nst, na, nst, nss)
