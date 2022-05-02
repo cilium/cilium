@@ -30,6 +30,8 @@ const (
 	PerfClientAcrossDeploymentName = "perf-client-other-node"
 	PerfServerDeploymentName       = "perf-server"
 
+	PerfHostNetNamingSuffix = "-host-net"
+
 	ClientDeploymentName  = "client"
 	Client2DeploymentName = "client2"
 
@@ -39,6 +41,38 @@ const (
 	kindClientName              = "client"
 	kindPerfName                = "perf"
 )
+
+type perfDeploymentNameManager struct {
+	clientDeploymentName       string
+	clientAcrossDeploymentName string
+	serverDeploymentName       string
+}
+
+func (nm *perfDeploymentNameManager) ClientName() string {
+	return nm.clientDeploymentName
+}
+
+func (nm *perfDeploymentNameManager) ClientAcrossName() string {
+	return nm.clientAcrossDeploymentName
+}
+
+func (nm *perfDeploymentNameManager) ServerName() string {
+	return nm.serverDeploymentName
+}
+
+func newPerfDeploymentNameManager(params *Parameters) *perfDeploymentNameManager {
+
+	suffix := ""
+	if params.PerfHostNet {
+		suffix = PerfHostNetNamingSuffix
+	}
+
+	return &perfDeploymentNameManager{
+		clientDeploymentName:       PerfClientDeploymentName + suffix,
+		clientAcrossDeploymentName: PerfClientAcrossDeploymentName + suffix,
+		serverDeploymentName:       PerfServerDeploymentName + suffix,
+	}
+}
 
 type deploymentParameters struct {
 	Name           string
@@ -274,12 +308,14 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			ct.Info("Deploying Perf deployments using host networking")
 		}
 
+		nm := newPerfDeploymentNameManager(&ct.params)
+
 		// Need to capture the IP of the Server Deployment, and pass to the client to execute benchmark
-		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, PerfClientDeploymentName, metav1.GetOptions{})
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, nm.ClientName(), metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying Perf Client deployment...", ct.clients.src.ClusterName())
 			perfClientDeployment := newDeployment(deploymentParameters{
-				Name:  PerfClientDeploymentName,
+				Name:  nm.ClientName(),
 				Kind:  kindPerfName,
 				Port:  80,
 				Image: defaults.ConnectivityPerformanceImage,
@@ -309,11 +345,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
-		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, PerfServerDeploymentName, metav1.GetOptions{})
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, nm.ServerName(), metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying Perf Server deployment...", ct.clients.src.ClusterName())
 			perfServerDeployment := newDeployment(deploymentParameters{
-				Name: PerfServerDeploymentName,
+				Name: nm.ServerName(),
 				Kind: kindPerfName,
 				Labels: map[string]string{
 					"server": "role",
@@ -339,7 +375,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 							{
 								LabelSelector: &metav1.LabelSelector{
 									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{PerfClientDeploymentName}},
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{nm.ClientName()}},
 									},
 								},
 								TopologyKey: "kubernetes.io/hostname",
@@ -357,11 +393,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 		// Deploy second client on a different node
 		if !ct.params.SingleNode {
-			_, err := ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, PerfClientAcrossDeploymentName, metav1.GetOptions{})
+			_, err := ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, nm.ClientAcrossName(), metav1.GetOptions{})
 			if err != nil {
 				ct.Logf("✨ [%s] Deploying Perf Client deployment...", ct.clients.src.ClusterName())
 				perfClientDeployment := newDeployment(deploymentParameters{
-					Name: PerfClientAcrossDeploymentName,
+					Name: nm.ClientAcrossName(),
 					Kind: kindPerfName,
 					Port: 5001,
 					Labels: map[string]string{
@@ -386,7 +422,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
 								{Weight: 100, PodAffinityTerm: corev1.PodAffinityTerm{
 									LabelSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
-										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{PerfClientDeploymentName}}}},
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{nm.ClientName()}}}},
 									TopologyKey: "kubernetes.io/hostname"}}}},
 					},
 					HostNetwork: ct.params.PerfHostNet,
@@ -503,8 +539,9 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 	if !ct.params.Perf {
 		srcList = []string{ClientDeploymentName, Client2DeploymentName, echoSameNodeDeploymentName}
 	} else {
-		srcList = []string{PerfClientDeploymentName}
-		dstList = append(dstList, PerfServerDeploymentName)
+		perfDeploymentNameManager := newPerfDeploymentNameManager(&ct.params)
+		srcList = []string{perfDeploymentNameManager.ClientName()}
+		dstList = append(dstList, perfDeploymentNameManager.ServerName())
 	}
 
 	if (ct.params.MultiCluster != "" || !ct.params.SingleNode) && !ct.params.Perf {
@@ -586,6 +623,11 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		return fmt.Errorf("unable to list perf pods: %w", err)
 	}
 	for _, perfPod := range perfPods.Items {
+		// Filter out existing perf pods in cilium-test based on scenario
+		if ct.params.PerfHostNet != perfPod.Spec.HostNetwork {
+			continue
+		}
+
 		// Individual endpoints will not be created for pods using node's network stack
 		if !ct.params.PerfHostNet {
 			ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
