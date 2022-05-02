@@ -116,7 +116,8 @@ jobs:
             --set ipv4.enabled=false \
             --set tunnel=disabled \
             --set autoDirectNodeRoutes=true \
-            --set ipv6NativeRoutingCIDR=2001:db8:1::/64
+            --set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
+            --set ingressController.enabled=true
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.TIMEOUT }}
           # To make sure that cilium CRD is available (default timeout is 5m)
