@@ -2653,7 +2653,9 @@ type EbsBlockDevice struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RequestSpotInstances.html).
 	KmsKeyId *string
 
-	// The ARN of the Outpost on which the snapshot is stored.
+	// The ARN of the Outpost on which the snapshot is stored. This parameter is only
+	// supported on BlockDeviceMapping objects called by  CreateImage
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html).
 	OutpostArn *string
 
 	// The ID of the snapshot.
@@ -7188,6 +7190,14 @@ type Ipv6Range struct {
 // Describes a key pair.
 type KeyPairInfo struct {
 
+	// If you used Amazon EC2 to create the key pair, this is the date and time when
+	// the key was created, in ISO 8601 date-time format
+	// (https://www.iso.org/iso-8601-date-and-time-format.html), in the UTC time zone.
+	// If you imported an existing key pair to Amazon EC2, this is the date and time
+	// the key was imported, in ISO 8601 date-time format
+	// (https://www.iso.org/iso-8601-date-and-time-format.html), in the UTC time zone.
+	CreateTime *time.Time
+
 	// If you used CreateKeyPair to create the key pair:
 	//
 	// * For RSA key pairs, the key
@@ -7218,6 +7228,9 @@ type KeyPairInfo struct {
 
 	// The type of key pair.
 	KeyType KeyType
+
+	// The public key material.
+	PublicKey *string
 
 	// Any tags applied to the key pair.
 	Tags []Tag
@@ -7292,7 +7305,7 @@ type LaunchSpecification struct {
 	// The ID of the AMI.
 	ImageId *string
 
-	// The instance type.
+	// The instance type. Only one instance type can be specified.
 	InstanceType InstanceType
 
 	// The ID of the kernel.
@@ -10153,11 +10166,7 @@ type PrivateDnsDetails struct {
 	noSmithyDocumentSerde
 }
 
-// Information about the private DNS name for the service endpoint. For more
-// information about these parameters, see VPC Endpoint Service Private DNS Name
-// Verification
-// (https://docs.aws.amazon.com/vpc/latest/userguide/ndpoint-services-dns-validation.html)
-// in the Amazon Virtual Private Cloud User Guide.
+// Information about the private DNS name for the service endpoint.
 type PrivateDnsNameConfiguration struct {
 
 	// The name of the record subdomain the service provider needs to create. The
@@ -10573,7 +10582,8 @@ type RequestIpamResourceTag struct {
 	noSmithyDocumentSerde
 }
 
-// The information to include in the launch template.
+// The information to include in the launch template. You must specify at least one
+// parameter for the launch template data.
 type RequestLaunchTemplateData struct {
 
 	// The block device mapping.
@@ -10763,7 +10773,7 @@ type RequestSpotLaunchSpecification struct {
 	// The ID of the AMI.
 	ImageId *string
 
-	// The instance type.
+	// The instance type. Only one instance type can be specified.
 	InstanceType InstanceType
 
 	// The ID of the kernel.
@@ -12907,10 +12917,10 @@ type SpotInstanceRequest struct {
 	// The maximum price per hour that you are willing to pay for a Spot Instance.
 	SpotPrice *string
 
-	// The state of the Spot Instance request. Spot status information helps track your
-	// Spot Instance requests. For more information, see Spot status
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-bid-status.html) in
-	// the Amazon EC2 User Guide for Linux Instances.
+	// The state of the Spot Instance request. Spot request status information helps
+	// track your Spot Instance requests. For more information, see Spot request status
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-request-status.html)
+	// in the Amazon EC2 User Guide for Linux Instances.
 	State SpotInstanceState
 
 	// The status code and status message describing the Spot Instance request.
@@ -12956,8 +12966,8 @@ type SpotInstanceStateFault struct {
 // Describes the status of a Spot Instance request.
 type SpotInstanceStatus struct {
 
-	// The status code. For a list of status codes, see Spot status codes
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-bid-status.html#spot-instance-bid-status-understand)
+	// The status code. For a list of status codes, see Spot request status codes
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-request-status.html#spot-instance-request-status-understand)
 	// in the Amazon EC2 User Guide for Linux Instances.
 	Code *string
 

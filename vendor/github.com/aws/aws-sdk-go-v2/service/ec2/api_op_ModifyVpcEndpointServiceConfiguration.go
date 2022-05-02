@@ -15,9 +15,6 @@ import (
 // and you can specify whether acceptance is required for requests to connect to
 // your endpoint service through an interface VPC endpoint. If you set or modify
 // the private DNS name, you must prove that you own the private DNS domain name.
-// For more information, see VPC Endpoint Service Private DNS Name Verification
-// (https://docs.aws.amazon.com/vpc/latest/userguide/endpoint-services-dns-validation.html)
-// in the Amazon Virtual Private Cloud User Guide.
 func (c *Client) ModifyVpcEndpointServiceConfiguration(ctx context.Context, params *ModifyVpcEndpointServiceConfigurationInput, optFns ...func(*Options)) (*ModifyVpcEndpointServiceConfigurationOutput, error) {
 	if params == nil {
 		params = &ModifyVpcEndpointServiceConfigurationInput{}

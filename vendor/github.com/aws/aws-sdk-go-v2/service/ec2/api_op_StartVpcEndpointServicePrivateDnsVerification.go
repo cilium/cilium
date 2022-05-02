@@ -14,10 +14,7 @@ import (
 // private DNS name domain for the endpoint service. The service provider must
 // successfully perform the verification before the consumer can use the name to
 // access the service. Before the service provider runs this command, they must add
-// a record to the DNS server. For more information, see Adding a TXT Record to
-// Your Domain's DNS Server
-// (https://docs.aws.amazon.com/vpc/latest/userguide/endpoint-services-dns-validation.html#add-dns-txt-record)
-// in the Amazon VPC User Guide.
+// a record to the DNS server.
 func (c *Client) StartVpcEndpointServicePrivateDnsVerification(ctx context.Context, params *StartVpcEndpointServicePrivateDnsVerificationInput, optFns ...func(*Options)) (*StartVpcEndpointServicePrivateDnsVerificationOutput, error) {
 	if params == nil {
 		params = &StartVpcEndpointServicePrivateDnsVerificationInput{}

@@ -23,9 +23,11 @@ type Disk struct {
 	DeleteAutoSnapshot            bool                          `json:"DeleteAutoSnapshot" xml:"DeleteAutoSnapshot"`
 	StorageClusterId              string                        `json:"StorageClusterId" xml:"StorageClusterId"`
 	AutoSnapshotPolicyId          string                        `json:"AutoSnapshotPolicyId" xml:"AutoSnapshotPolicyId"`
+	ProvisionedIops               int64                         `json:"ProvisionedIops" xml:"ProvisionedIops"`
 	EnableAutomatedSnapshotPolicy bool                          `json:"EnableAutomatedSnapshotPolicy" xml:"EnableAutomatedSnapshotPolicy"`
 	SerialNumber                  string                        `json:"SerialNumber" xml:"SerialNumber"`
 	DiskId                        string                        `json:"DiskId" xml:"DiskId"`
+	Throughput                    int                           `json:"Throughput" xml:"Throughput"`
 	Size                          int                           `json:"Size" xml:"Size"`
 	IOPS                          int                           `json:"IOPS" xml:"IOPS"`
 	MountInstanceNum              int                           `json:"MountInstanceNum" xml:"MountInstanceNum"`
@@ -38,6 +40,7 @@ type Disk struct {
 	ExpiredTime                   string                        `json:"ExpiredTime" xml:"ExpiredTime"`
 	Device                        string                        `json:"Device" xml:"Device"`
 	MultiAttach                   string                        `json:"MultiAttach" xml:"MultiAttach"`
+	BurstingEnabled               bool                          `json:"BurstingEnabled" xml:"BurstingEnabled"`
 	CreationTime                  string                        `json:"CreationTime" xml:"CreationTime"`
 	IOPSRead                      int                           `json:"IOPSRead" xml:"IOPSRead"`
 	SourceSnapshotId              string                        `json:"SourceSnapshotId" xml:"SourceSnapshotId"`

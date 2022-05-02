@@ -324,8 +324,8 @@ type RunInstancesInput struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
 	TagSpecifications []types.TagSpecification
 
-	// The user data to make available to the instance. For more information, see Run
-	// commands on your Linux instance at launch
+	// The user data script to make available to the instance. For more information,
+	// see Run commands on your Linux instance at launch
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) and Run
 	// commands on your Windows instance at launch
 	// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2-windows-user-data.html).

@@ -12,13 +12,8 @@ import (
 )
 
 // Delete an IPAM. Deleting an IPAM removes all monitored data associated with the
-// IPAM including the historical data for CIDRs. You cannot delete an IPAM if there
-// are CIDRs provisioned to pools or if there are allocations in the pools within
-// the IPAM. To deprovision pool CIDRs, see DeprovisionIpamPoolCidr
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeprovisionIpamPoolCidr.html).
-// To release allocations, see ReleaseIpamPoolAllocation
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReleaseIpamPoolAllocation.html).
-// For more information, see Delete an IPAM in the Amazon VPC IPAM User Guide.
+// IPAM including the historical data for CIDRs. For more information, see Delete
+// an IPAM in the Amazon VPC IPAM User Guide.
 func (c *Client) DeleteIpam(ctx context.Context, params *DeleteIpamInput, optFns ...func(*Options)) (*DeleteIpamOutput, error) {
 	if params == nil {
 		params = &DeleteIpamInput{}

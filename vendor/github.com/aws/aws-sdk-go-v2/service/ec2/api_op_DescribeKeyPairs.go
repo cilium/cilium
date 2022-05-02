@@ -66,6 +66,9 @@ type DescribeKeyPairsInput struct {
 	// specify tag:Owner for the filter name and TeamA for the filter value.
 	Filters []types.Filter
 
+	// If true, the public key material is included in the response. Default: false
+	IncludePublicKey *bool
+
 	// The key pair names. Default: Describes all of your key pairs.
 	KeyNames []string
 

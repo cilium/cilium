@@ -88,6 +88,8 @@ type CreateDiskRequest struct {
 	PerformanceLevel          string           `position:"Query" name:"PerformanceLevel"`
 	OwnerAccount              string           `position:"Query" name:"OwnerAccount"`
 	OwnerId                   requests.Integer `position:"Query" name:"OwnerId"`
+	BurstingEnabled           requests.Boolean `position:"Query" name:"BurstingEnabled"`
+	ProvisionedIops           requests.Integer `position:"Query" name:"ProvisionedIops"`
 	InstanceId                string           `position:"Query" name:"InstanceId"`
 	StorageSetId              string           `position:"Query" name:"StorageSetId"`
 	Size                      requests.Integer `position:"Query" name:"Size"`

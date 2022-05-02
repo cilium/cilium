@@ -15,7 +15,12 @@ import (
 // Creates a Spot Instance request. For more information, see Spot Instance
 // requests
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-requests.html) in the
-// Amazon EC2 User Guide for Linux Instances.
+// Amazon EC2 User Guide for Linux Instances. We strongly discourage using the
+// RequestSpotInstances API because it is a legacy API with no planned investment.
+// For options for requesting Spot Instances, see Which is the best Spot request
+// method to use?
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-best-practices.html#which-spot-request-method-to-use)
+// in the Amazon EC2 User Guide for Linux Instances.
 func (c *Client) RequestSpotInstances(ctx context.Context, params *RequestSpotInstancesInput, optFns ...func(*Options)) (*RequestSpotInstancesOutput, error) {
 	if params == nil {
 		params = &RequestSpotInstancesInput{}

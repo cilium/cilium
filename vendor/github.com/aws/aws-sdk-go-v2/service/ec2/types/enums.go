@@ -3055,6 +3055,28 @@ const (
 	InstanceTypeZ1d6xlarge      InstanceType = "z1d.6xlarge"
 	InstanceTypeZ1d12xlarge     InstanceType = "z1d.12xlarge"
 	InstanceTypeZ1dMetal        InstanceType = "z1d.metal"
+	InstanceTypeX2idn16xlarge   InstanceType = "x2idn.16xlarge"
+	InstanceTypeX2idn24xlarge   InstanceType = "x2idn.24xlarge"
+	InstanceTypeX2idn32xlarge   InstanceType = "x2idn.32xlarge"
+	InstanceTypeX2iednXlarge    InstanceType = "x2iedn.xlarge"
+	InstanceTypeX2iedn2xlarge   InstanceType = "x2iedn.2xlarge"
+	InstanceTypeX2iedn4xlarge   InstanceType = "x2iedn.4xlarge"
+	InstanceTypeX2iedn8xlarge   InstanceType = "x2iedn.8xlarge"
+	InstanceTypeX2iedn16xlarge  InstanceType = "x2iedn.16xlarge"
+	InstanceTypeX2iedn24xlarge  InstanceType = "x2iedn.24xlarge"
+	InstanceTypeX2iedn32xlarge  InstanceType = "x2iedn.32xlarge"
+	InstanceTypeC6aLarge        InstanceType = "c6a.large"
+	InstanceTypeC6aXlarge       InstanceType = "c6a.xlarge"
+	InstanceTypeC6a2xlarge      InstanceType = "c6a.2xlarge"
+	InstanceTypeC6a4xlarge      InstanceType = "c6a.4xlarge"
+	InstanceTypeC6a8xlarge      InstanceType = "c6a.8xlarge"
+	InstanceTypeC6a12xlarge     InstanceType = "c6a.12xlarge"
+	InstanceTypeC6a16xlarge     InstanceType = "c6a.16xlarge"
+	InstanceTypeC6a24xlarge     InstanceType = "c6a.24xlarge"
+	InstanceTypeC6a32xlarge     InstanceType = "c6a.32xlarge"
+	InstanceTypeC6a48xlarge     InstanceType = "c6a.48xlarge"
+	InstanceTypeC6aMetal        InstanceType = "c6a.metal"
+	InstanceTypeM6aMetal        InstanceType = "m6a.metal"
 )
 
 // Values returns all known values for InstanceType. Note that this can be expanded
@@ -3547,6 +3569,28 @@ func (InstanceType) Values() []InstanceType {
 		"z1d.6xlarge",
 		"z1d.12xlarge",
 		"z1d.metal",
+		"x2idn.16xlarge",
+		"x2idn.24xlarge",
+		"x2idn.32xlarge",
+		"x2iedn.xlarge",
+		"x2iedn.2xlarge",
+		"x2iedn.4xlarge",
+		"x2iedn.8xlarge",
+		"x2iedn.16xlarge",
+		"x2iedn.24xlarge",
+		"x2iedn.32xlarge",
+		"c6a.large",
+		"c6a.xlarge",
+		"c6a.2xlarge",
+		"c6a.4xlarge",
+		"c6a.8xlarge",
+		"c6a.12xlarge",
+		"c6a.16xlarge",
+		"c6a.24xlarge",
+		"c6a.32xlarge",
+		"c6a.48xlarge",
+		"c6a.metal",
+		"m6a.metal",
 	}
 }
 
@@ -3929,6 +3973,24 @@ func (Ipv6SupportValue) Values() []Ipv6SupportValue {
 	return []Ipv6SupportValue{
 		"enable",
 		"disable",
+	}
+}
+
+type KeyFormat string
+
+// Enum values for KeyFormat
+const (
+	KeyFormatPem KeyFormat = "pem"
+	KeyFormatPpk KeyFormat = "ppk"
+)
+
+// Values returns all known values for KeyFormat. Note that this can be expanded in
+// the future, and so it is only as up to date as the client. The ordering of this
+// slice is not guaranteed to be stable across updates.
+func (KeyFormat) Values() []KeyFormat {
+	return []KeyFormat{
+		"pem",
+		"ppk",
 	}
 }
 
