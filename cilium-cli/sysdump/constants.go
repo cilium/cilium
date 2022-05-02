@@ -46,6 +46,8 @@ const (
 	ciliumNodesFileName                      = "ciliumnodes-<ts>.yaml"
 	ciliumOperatorDeploymentFileName         = "cilium-operator-deployment-<ts>.yaml"
 	clustermeshApiserverDeploymentFileName   = "clustermesh-apiserver-deployment-<ts>.yaml"
+	cniConfigMapFileName                     = "cni-configmap-<ts>.yaml"
+	cniConfigFileName                        = "cniconf-%s-%s-<ts>.txt"
 	eniconfigsFileName                       = "aws-eniconfigs-<ts>.yaml"
 	gopsFileName                             = "gops-%s-%s-<ts>-%s.txt"
 	hubbleDaemonsetFileName                  = "hubble-daemonset-<ts>.yaml"
@@ -74,6 +76,8 @@ const (
 	gopsPID              = "1"
 	rmCommand            = "rm"
 	timeFormat           = "20060102-150405"
+	lsCommand            = "/usr/bin/ls"
+	catCommand           = "/usr/bin/cat"
 )
 
 var (
