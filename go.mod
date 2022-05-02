@@ -3,17 +3,17 @@ module github.com/cilium/cilium
 go 1.17
 
 require (
-	github.com/Azure/azure-sdk-for-go v63.2.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.11.25
+	github.com/Azure/azure-sdk-for-go v63.4.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.27
 	github.com/Azure/go-autorest/autorest/adal v0.9.18
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1555
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1581
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
-	github.com/aws/aws-sdk-go-v2 v1.16.2
-	github.com/aws/aws-sdk-go-v2/config v1.15.3
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.3
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.34.0
+	github.com/aws/aws-sdk-go-v2 v1.16.3
+	github.com/aws/aws-sdk-go-v2/config v1.15.4
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.4
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.37.0
 	github.com/aws/smithy-go v1.11.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
@@ -113,13 +113,13 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.11.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.9 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.3 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.10 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.16.3 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.10 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.16.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect

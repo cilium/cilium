@@ -19,27 +19,13 @@ import (
 // behind a device performing network address translation (NAT). For devices that
 // use Border Gateway Protocol (BGP), you can also provide the device's BGP
 // Autonomous System Number (ASN). You can use an existing ASN assigned to your
-// network. If you don't have an ASN already, you can use a private ASN (in the
-// 64512 - 65534 range). Amazon EC2 supports all 4-byte ASN numbers in the range of
-// 1 - 2147483647, with the exception of the following:
-//
-// * 7224 - reserved in the
-// us-east-1 Region
-//
-// * 9059 - reserved in the eu-west-1 Region
-//
-// * 17943 - reserved
-// in the ap-southeast-1 Region
-//
-// * 10124 - reserved in the ap-northeast-1
-// Region
-//
-// For more information, see Amazon Web Services Site-to-Site VPN
-// (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in the Amazon Web
-// Services Site-to-Site VPN User Guide. To create more than one customer gateway
-// with the same VPN type, IP address, and BGP ASN, specify a unique device name
-// for each customer gateway. Identical requests return information about the
-// existing customer gateway and do not create new customer gateways.
+// network. If you don't have an ASN already, you can use a private ASN. For more
+// information, see Customer gateway options for your Site-to-Site VPN connection
+// (https://docs.aws.amazon.com/vpn/latest/s2svpn/cgw-options.html) in the Amazon
+// Web Services Site-to-Site VPN User Guide. To create more than one customer
+// gateway with the same VPN type, IP address, and BGP ASN, specify a unique device
+// name for each customer gateway. An identical request returns information about
+// the existing customer gateway; it doesn't create a new customer gateway.
 func (c *Client) CreateCustomerGateway(ctx context.Context, params *CreateCustomerGatewayInput, optFns ...func(*Options)) (*CreateCustomerGatewayOutput, error) {
 	if params == nil {
 		params = &CreateCustomerGatewayInput{}

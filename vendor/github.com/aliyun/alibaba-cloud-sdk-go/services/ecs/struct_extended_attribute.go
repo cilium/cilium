@@ -17,10 +17,11 @@ package ecs
 
 // ExtendedAttribute is a nested struct in ecs response
 type ExtendedAttribute struct {
-	HostType         string                                       `json:"HostType" xml:"HostType"`
-	HostId           string                                       `json:"HostId" xml:"HostId"`
-	Device           string                                       `json:"Device" xml:"Device"`
-	DiskId           string                                       `json:"DiskId" xml:"DiskId"`
-	MigrationOptions MigrationOptions                             `json:"MigrationOptions" xml:"MigrationOptions"`
-	InactiveDisks    InactiveDisksInDescribeInstanceHistoryEvents `json:"InactiveDisks" xml:"InactiveDisks"`
+	HostType           string                                       `json:"HostType" xml:"HostType"`
+	HostId             string                                       `json:"HostId" xml:"HostId"`
+	Device             string                                       `json:"Device" xml:"Device"`
+	OnlineRepairPolicy string                                       `json:"OnlineRepairPolicy" xml:"OnlineRepairPolicy"`
+	DiskId             string                                       `json:"DiskId" xml:"DiskId"`
+	MigrationOptions   MigrationOptions                             `json:"MigrationOptions" xml:"MigrationOptions"`
+	InactiveDisks      InactiveDisksInDescribeInstanceHistoryEvents `json:"InactiveDisks" xml:"InactiveDisks"`
 }

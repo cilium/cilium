@@ -71,21 +71,28 @@ func (client *Client) ModifyInstanceAttributeWithCallback(request *ModifyInstanc
 // ModifyInstanceAttributeRequest is the request struct for api ModifyInstanceAttribute
 type ModifyInstanceAttributeRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId             requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Recyclable                  requests.Boolean `position:"Query" name:"Recyclable"`
-	NetworkInterfaceQueueNumber requests.Integer `position:"Query" name:"NetworkInterfaceQueueNumber"`
-	Description                 string           `position:"Query" name:"Description"`
-	DeletionProtection          requests.Boolean `position:"Query" name:"DeletionProtection"`
-	UserData                    string           `position:"Query" name:"UserData"`
-	Password                    string           `position:"Query" name:"Password"`
-	HostName                    string           `position:"Query" name:"HostName"`
-	ResourceOwnerAccount        string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                string           `position:"Query" name:"OwnerAccount"`
-	CreditSpecification         string           `position:"Query" name:"CreditSpecification"`
-	OwnerId                     requests.Integer `position:"Query" name:"OwnerId"`
-	SecurityGroupIds            *[]string        `position:"Query" name:"SecurityGroupIds"  type:"Repeated"`
-	InstanceId                  string           `position:"Query" name:"InstanceId"`
-	InstanceName                string           `position:"Query" name:"InstanceName"`
+	ResourceOwnerId             requests.Integer                               `position:"Query" name:"ResourceOwnerId"`
+	Recyclable                  requests.Boolean                               `position:"Query" name:"Recyclable"`
+	NetworkInterfaceQueueNumber requests.Integer                               `position:"Query" name:"NetworkInterfaceQueueNumber"`
+	Description                 string                                         `position:"Query" name:"Description"`
+	DeletionProtection          requests.Boolean                               `position:"Query" name:"DeletionProtection"`
+	UserData                    string                                         `position:"Query" name:"UserData"`
+	Password                    string                                         `position:"Query" name:"Password"`
+	HostName                    string                                         `position:"Query" name:"HostName"`
+	ResourceOwnerAccount        string                                         `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                string                                         `position:"Query" name:"OwnerAccount"`
+	CreditSpecification         string                                         `position:"Query" name:"CreditSpecification"`
+	OwnerId                     requests.Integer                               `position:"Query" name:"OwnerId"`
+	SecurityGroupIds            *[]string                                      `position:"Query" name:"SecurityGroupIds"  type:"Repeated"`
+	InstanceId                  string                                         `position:"Query" name:"InstanceId"`
+	InstanceName                string                                         `position:"Query" name:"InstanceName"`
+	RemoteConnectionOptions     ModifyInstanceAttributeRemoteConnectionOptions `position:"Query" name:"RemoteConnectionOptions"  type:"Struct"`
+}
+
+// ModifyInstanceAttributeRemoteConnectionOptions is a repeated param struct in ModifyInstanceAttributeRequest
+type ModifyInstanceAttributeRemoteConnectionOptions struct {
+	Password string `name:"Password"`
+	Type     string `name:"Type"`
 }
 
 // ModifyInstanceAttributeResponse is the response struct for api ModifyInstanceAttribute

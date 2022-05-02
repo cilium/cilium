@@ -77,6 +77,7 @@ type CreateAutoProvisioningGroupRequest struct {
 	AutoProvisioningGroupType                      string                                                    `position:"Query" name:"AutoProvisioningGroupType"`
 	LaunchConfigurationSystemDiskPerformanceLevel  string                                                    `position:"Query" name:"LaunchConfiguration.SystemDiskPerformanceLevel"`
 	LaunchConfigurationHostNames                   *[]string                                                 `position:"Query" name:"LaunchConfiguration.HostNames"  type:"Repeated"`
+	LaunchConfigurationSecurityGroupIds            *[]string                                                 `position:"Query" name:"LaunchConfiguration.SecurityGroupIds"  type:"Repeated"`
 	ResourceGroupId                                string                                                    `position:"Query" name:"ResourceGroupId"`
 	LaunchConfigurationImageId                     string                                                    `position:"Query" name:"LaunchConfiguration.ImageId"`
 	LaunchConfigurationResourceGroupId             string                                                    `position:"Query" name:"LaunchConfiguration.ResourceGroupId"`

@@ -76,6 +76,7 @@ type ReInitDiskRequest struct {
 	SecurityEnhancementStrategy string           `position:"Query" name:"SecurityEnhancementStrategy"`
 	KeyPairName                 string           `position:"Query" name:"KeyPairName"`
 	Password                    string           `position:"Query" name:"Password"`
+	LoginAsNonRoot              requests.Boolean `position:"Query" name:"LoginAsNonRoot"`
 	DiskId                      string           `position:"Query" name:"DiskId"`
 	ResourceOwnerAccount        string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount                string           `position:"Query" name:"OwnerAccount"`
