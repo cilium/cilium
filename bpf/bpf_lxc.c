@@ -198,7 +198,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 #if defined(ENABLE_L7_LB)
 	if (proxy_port > 0) {
 		/* tuple addresses have been swapped by CT lookup */
-		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
+		cilium_dbg3(ctx, DBG_L7_LB, tuple.daddr.p4, tuple.saddr.p4,
 			    bpf_ntohs(proxy_port));
 		verdict = proxy_port;
 		goto skip_policy_enforcement;
