@@ -167,7 +167,8 @@ jobs:
              --set prometheus.enabled=true \
              --set operator.prometheus.enabled=true \
              --set hubble.enabled=true \
-             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \
+             --set ingressController.enabled=true
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
           # To make sure that cilium CRD is available (default timeout is 5m)
