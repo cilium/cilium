@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -70,10 +71,11 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 }
 
 var (
-	frontend1 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, lb.ScopeExternal, 0)
-	frontend2 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, lb.ScopeExternal, 0)
-	frontend3 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("f00d::1"), 80, lb.ScopeExternal, 0)
-	backends1 = []lb.Backend{
+	surrogateFE = *lb.NewL3n4AddrID(lb.TCP, net.IPv4zero, 80, lb.ScopeExternal, 0)
+	frontend1   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, lb.ScopeExternal, 0)
+	frontend2   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, lb.ScopeExternal, 0)
+	frontend3   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("f00d::1"), 80, lb.ScopeExternal, 0)
+	backends1   = []lb.Backend{
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
 	}
@@ -1197,4 +1199,81 @@ func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
 	}
 	c.Assert(statesMatched, Equals, len(backends))
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
+}
+
+type mockNodeAddressingFamily struct {
+	ips []net.IP
+}
+
+func (n *mockNodeAddressingFamily) Router() net.IP                    { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) PrimaryExternal() net.IP           { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) AllocationCIDR() *cidr.CIDR        { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) LocalAddresses() ([]net.IP, error) { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) LoadBalancerNodeAddresses() []net.IP {
+	return n.ips
+}
+
+type mockNodeAddressing struct {
+	ip4 datapathTypes.NodeAddressingFamily
+	ip6 datapathTypes.NodeAddressingFamily
+}
+
+func (na *mockNodeAddressing) IPv4() datapathTypes.NodeAddressingFamily {
+	return na.ip4
+}
+func (na *mockNodeAddressing) IPv6() datapathTypes.NodeAddressingFamily {
+	return na.ip6
+}
+
+// Test the service sync on device/addressing change
+func (m *ManagerTestSuite) TestSyncServices(c *C) {
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = true
+	option.Config.NodePortNat46X64 = true
+
+	surrogate := &lb.SVC{
+		Frontend: surrogateFE,
+		Backends: backends1,
+		Type:     lb.SVCTypeNodePort,
+	}
+	_, surrID, err := m.svc.UpsertService(surrogate)
+	c.Assert(err, IsNil)
+	p1 := &lb.SVC{
+		Frontend: frontend1,
+		Backends: backends1,
+		Type:     lb.SVCTypeNodePort,
+	}
+	_, _, err = m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(len(m.svc.svcByID), Equals, 2)
+
+	// With no addresses all frontends (except surrogates) should be removed.
+	nodeAddrs := &mockNodeAddressing{
+		ip4: &mockNodeAddressingFamily{[]net.IP{}},
+		ip6: &mockNodeAddressingFamily{[]net.IP{}},
+	}
+	m.svc.SyncServicesOnDeviceChange(nodeAddrs)
+	c.Assert(len(m.svc.svcByID), Equals, 1)
+	_, ok := m.svc.svcByID[surrID]
+	c.Assert(ok, Equals, true)
+
+	// With a new frontend addresses services should be created.
+	_, _, err = m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(len(m.svc.svcByID), Equals, 2)
+
+	nodeAddrs = &mockNodeAddressing{
+		ip4: &mockNodeAddressingFamily{[]net.IP{frontend1.IP, frontend2.IP}},
+		ip6: &mockNodeAddressingFamily{[]net.IP{frontend3.IP}},
+	}
+	m.svc.SyncServicesOnDeviceChange(nodeAddrs)
+	c.Assert(len(m.svc.svcByID), Equals, 4)
+
+	_, _, found := m.svc.GetServiceNameByAddr(frontend1.L3n4Addr)
+	c.Assert(found, Equals, true)
+	_, _, found = m.svc.GetServiceNameByAddr(frontend2.L3n4Addr)
+	c.Assert(found, Equals, true)
+	_, _, found = m.svc.GetServiceNameByAddr(frontend3.L3n4Addr)
+	c.Assert(found, Equals, true)
+
 }
