@@ -22,7 +22,7 @@ IPFAMILY="${6:-${default_ipfamily}}"
 CILIUM_ROOT="$(realpath $(dirname $(readlink -ne $BASH_SOURCE))/../..)"
 
 usage() {
-  echo "Usage: ${PROG} [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode]"
+  echo "Usage: ${PROG} [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
 }
 
 have_kind() {
@@ -34,14 +34,12 @@ if ! have_kind; then
     echo "  https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
 fi
 
-if [[ "${#}" -gt 5 ]]; then
+if [ ${#} -gt 6 ]; then
   usage
   exit 1
 fi
 
-if [[ "${#}" -gt 5 ]] ||
-   [[ "${CONTROLPLANES}" == "-h" ||
-      "${CONTROLPLANES}" == "--help" ]]; then
+if [[ "${CONTROLPLANES}" == "-h" || "${CONTROLPLANES}" == "--help" ]]; then
   usage
   exit 0
 fi
