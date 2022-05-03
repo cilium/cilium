@@ -75,6 +75,9 @@ func ExpectHubbleRelayReady(vm *helpers.Kubectl, ns string) {
 
 // ExpectAllPodsTerminated is a wrapper around helpers/WaitTerminatingPods.
 // It asserts that the error returned by that function is nil.
+//
+// The function is flaky - if all pods are not in terminating state yet, then
+// the function will prematurely return. Use `kubectl.WaitForDelete(...) instead.
 func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
 	err := vm.WaitTerminatingPods(helpers.HelperTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")

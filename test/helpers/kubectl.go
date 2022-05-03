@@ -4699,3 +4699,13 @@ func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
 		fmt.Sprintf("backend entry for %s was not found in time", ipAddr),
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
+
+// WaitForDelete waits until resources in the given manifest file have been
+// removed.
+func (kub *Kubectl) WaitForDelete(manifestPath string) *CmdRes {
+	cmd := fmt.Sprintf("%s wait -f %s --for=delete", KubectlCmd, manifestPath)
+
+	ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout*2)
+	defer cancel()
+	return kub.ExecContext(ctx, cmd)
+}
