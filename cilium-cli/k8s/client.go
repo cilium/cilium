@@ -16,11 +16,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/api/v1/models"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -37,6 +32,12 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..).
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 )
@@ -157,6 +158,22 @@ func (c *Client) CreateClusterRoleBinding(ctx context.Context, role *rbacv1.Clus
 
 func (c *Client) DeleteClusterRoleBinding(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.RbacV1().ClusterRoleBindings().Delete(ctx, name, opts)
+}
+
+func (c *Client) CreateRole(ctx context.Context, namespace string, role *rbacv1.Role, opts metav1.CreateOptions) (*rbacv1.Role, error) {
+	return c.Clientset.RbacV1().Roles(namespace).Create(ctx, role, opts)
+}
+
+func (c *Client) DeleteRole(ctx context.Context, namespace string, name string, opts metav1.DeleteOptions) error {
+	return c.Clientset.RbacV1().Roles(namespace).Delete(ctx, name, opts)
+}
+
+func (c *Client) CreateRoleBinding(ctx context.Context, namespace string, roleBinding *rbacv1.RoleBinding, opts metav1.CreateOptions) (*rbacv1.RoleBinding, error) {
+	return c.Clientset.RbacV1().RoleBindings(namespace).Create(ctx, roleBinding, opts)
+}
+
+func (c *Client) DeleteRoleBinding(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.Clientset.RbacV1().RoleBindings(namespace).Delete(ctx, name, opts)
 }
 
 func (c *Client) GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error) {
