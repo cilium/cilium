@@ -675,15 +675,6 @@ func initializeFlags() {
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(option.EnableHostFirewall)
 
-	flags.String(option.NativeRoutingCIDR, "",
-		fmt.Sprintf("Allows to explicitly specify the IPv4 CIDR for native routing. "+
-			"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
-			"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
-			"To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag. "+
-			"Deprecated in favor of --%s", option.IPv4NativeRoutingCIDR))
-	option.BindEnv(option.NativeRoutingCIDR)
-	flags.MarkDeprecated(option.NativeRoutingCIDR, "This option will be removed in v1.12")
-
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. "+
 		"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
 		"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+

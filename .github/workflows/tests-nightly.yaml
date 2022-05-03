@@ -49,7 +49,7 @@ jobs:
             --set prometheus.enabled=true \
             --set operator.prometheus.enabled=true \
             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \
-            --set nativeRoutingCIDR=NATIVE_CIDR_PLACEHOLDER \
+            --set ipv4NativeRoutingCIDR=NATIVE_CIDR_PLACEHOLDER \
             | tee -a cilium.yaml
       - name: Request GKE test cluster
         uses: docker://quay.io/isovalent/gke-test-cluster-requester:fe34abda190c31680968ba62634c788428d91706@sha256:5f4345487870e0447afa150d2b12741ac8734c36ae13a46a13b80c7129da9b4b
