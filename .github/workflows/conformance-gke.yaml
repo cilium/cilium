@@ -248,7 +248,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --wait
+          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Install Cilium with tunnel datapath
         run: |
@@ -277,7 +277,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --wait
+          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Create custom IPsec secret
         run: |
@@ -311,7 +311,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --wait
+          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Install Cilium with encryption and tunnel datapath
         run: |
