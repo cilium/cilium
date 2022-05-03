@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/modules"
 	"github.com/cilium/cilium/pkg/node"
@@ -404,6 +405,12 @@ var ciliumChains = []customChain{
 
 // IptablesManager manages the iptables-related configuration for Cilium.
 type IptablesManager struct {
+	// This lock ensures there are no concurrent executions of the InstallRules() and
+	// InstallProxyRules() methods, as otherwise we may end up with errors (as rules may have
+	// been already removed or installed by a different execution of the method) or with an
+	// inconsistent ruleset
+	lock.Mutex
+
 	haveIp6tables        bool
 	haveSocketMatch      bool
 	haveBPFSocketAssign  bool
@@ -833,6 +840,9 @@ func (m *IptablesManager) endpointNoTrackRules(prog iptablesInterface, cmd strin
 // When InstallNoConntrackIptRules is not set, this function will be executed to install NOTRACK rules.
 // The rules installed by this function is very specific, for now, the only user is node-local-dns pods.
 func (m *IptablesManager) InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	m.Lock()
+	defer m.Unlock()
+
 	// Do not install per endpoint NOTRACK rules if we are already skipping
 	// conntrack for all pod traffic.
 	if skipPodTrafficConntrack(ipv6) {
@@ -869,6 +879,9 @@ func (m *IptablesManager) InstallNoTrackRules(IP string, port uint16, ipv6 bool)
 
 // See comments for InstallNoTrackRules.
 func (m *IptablesManager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	m.Lock()
+	defer m.Unlock()
+
 	// Do not install per endpoint NOTRACK rules if we are already skipping
 	// conntrack for all pod traffic.
 	if skipPodTrafficConntrack(ipv6) {
@@ -904,6 +917,9 @@ func (m *IptablesManager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) 
 }
 
 func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
+	m.Lock()
+	defer m.Unlock()
+
 	if m.haveBPFSocketAssign {
 		log.WithField("port", proxyPort).
 			Debug("Skipping proxy rule install due to BPF support")
@@ -1211,6 +1227,9 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
 func (m *IptablesManager) InstallRules(ifName string, firstInitialization, install bool) (err error) {
+	m.Lock()
+	defer m.Unlock()
+
 	quiet := firstInitialization
 
 	// Make sure we have no old "backups"
