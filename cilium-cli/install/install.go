@@ -12,9 +12,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/api/v1/models"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/cli/values"
 	appsv1 "k8s.io/api/apps/v1"
@@ -24,6 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
@@ -122,6 +123,10 @@ type k8sInstallerImplementation interface {
 	DeleteClusterRole(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	CreateClusterRoleBinding(ctx context.Context, role *rbacv1.ClusterRoleBinding, opts metav1.CreateOptions) (*rbacv1.ClusterRoleBinding, error)
 	DeleteClusterRoleBinding(ctx context.Context, name string, opts metav1.DeleteOptions) error
+	CreateRole(ctx context.Context, namespace string, role *rbacv1.Role, opts metav1.CreateOptions) (*rbacv1.Role, error)
+	DeleteRole(ctx context.Context, namespace string, name string, opts metav1.DeleteOptions) error
+	CreateRoleBinding(ctx context.Context, namespace string, roleBinding *rbacv1.RoleBinding, opts metav1.CreateOptions) (*rbacv1.RoleBinding, error)
+	DeleteRoleBinding(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	CreateDaemonSet(ctx context.Context, namespace string, ds *appsv1.DaemonSet, opts metav1.CreateOptions) (*appsv1.DaemonSet, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
 	DeleteDaemonSet(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
@@ -696,6 +701,34 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 				k.Log("Cannot delete %s Namespace: %s", secretsNamespace, err)
 			}
 		})
+
+		for _, roleName := range []string{defaults.AgentSecretsRoleName, defaults.OperatorSecretsRoleName} {
+			r := k.NewRole(roleName)
+			if r == nil {
+				continue
+			}
+
+			_, err = k.client.CreateRole(ctx, secretsNamespace, r, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+
+			k.pushRollbackStep(func(ctx context.Context) {
+				if err := k.client.DeleteRole(ctx, secretsNamespace, r.GetName(), metav1.DeleteOptions{}); err != nil {
+					k.Log("Cannot delete %s Role: %s", r.GetName(), err)
+				}
+			})
+
+			rb, err := k.client.CreateRoleBinding(ctx, secretsNamespace, k.NewRoleBinding(roleName), metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+			k.pushRollbackStep(func(ctx context.Context) {
+				if err := k.client.DeleteRoleBinding(ctx, secretsNamespace, rb.GetName(), metav1.DeleteOptions{}); err != nil {
+					k.Log("Cannot delete %s RoleBinding: %s", rb.GetName(), err)
+				}
+			})
+		}
 	}
 
 	configMap, err := k.generateConfigMap()

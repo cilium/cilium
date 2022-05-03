@@ -9,6 +9,7 @@ const (
 	AgentContainerName      = "cilium-agent"
 	AgentServiceAccountName = "cilium"
 	AgentClusterRoleName    = "cilium"
+	AgentSecretsRoleName    = "cilium-secrets"
 	AgentDaemonSetName      = "cilium"
 	AgentResourceQuota      = "cilium-resource-quota"
 	AgentImage              = "quay.io/cilium/cilium"
@@ -24,6 +25,7 @@ const (
 
 	OperatorServiceAccountName = "cilium-operator"
 	OperatorClusterRoleName    = "cilium-operator"
+	OperatorSecretsRoleName    = "cilium-operator-secrets"
 	OperatorDeploymentName     = "cilium-operator"
 	OperatorResourceQuota      = "cilium-operator-resource-quota"
 	OperatorImage              = "quay.io/cilium/operator-generic"
