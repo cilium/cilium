@@ -519,9 +519,7 @@ data:
   enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}
 {{- end }}
 
-{{- if hasKey .Values "nativeRoutingCIDR" }}
-  ipv4-native-routing-cidr: {{ .Values.nativeRoutingCIDR }}
-{{- else if hasKey .Values "ipv4NativeRoutingCIDR" }}
+{{- if hasKey .Values "ipv4NativeRoutingCIDR" }}
   ipv4-native-routing-cidr: {{ .Values.ipv4NativeRoutingCIDR }}
 {{- end }}
 
