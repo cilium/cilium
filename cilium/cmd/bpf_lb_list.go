@@ -20,11 +20,21 @@ const (
 	serviceAddressTitle = "SERVICE ADDRESS"
 	backendIdTitle      = "BACKEND ID"
 	backendAddressTitle = "BACKEND ADDRESS (REVNAT_ID) (SLOT)"
+	srcRangeTitle       = "SOURCE RANGE (REVNAT_ID)"
 )
 
 var (
-	listRevNAT, listFrontends, listBackends bool
+	listRevNAT, listFrontends, listBackends, listSrcRanges bool
 )
+
+func dumpSrcRanges(serviceList map[string][]string) {
+	if err := lbmap.SourceRange4Map.DumpIfExists(serviceList); err != nil {
+		Fatalf("Unable to dump IPv4 source range table: %s", err)
+	}
+	if err := lbmap.SourceRange6Map.DumpIfExists(serviceList); err != nil {
+		Fatalf("Unable to dump IPv6 source range table: %s", err)
+	}
+}
 
 func dumpRevNat(serviceList map[string][]string) {
 	if err := lbmap.RevNat4Map.DumpIfExists(serviceList); err != nil {
@@ -138,6 +148,10 @@ var bpfLBListCmd = &cobra.Command{
 		case listBackends:
 			firstTitle = idTitle
 			dumpBackends(serviceList)
+		case listSrcRanges:
+			firstTitle = srcRangeTitle
+			secondTitle = ""
+			dumpSrcRanges(serviceList)
 		default:
 			firstTitle = serviceAddressTitle
 			dumpSVC(serviceList)
@@ -159,5 +173,6 @@ func init() {
 	bpfLBListCmd.Flags().BoolVarP(&listRevNAT, "revnat", "", false, "List reverse NAT entries")
 	bpfLBListCmd.Flags().BoolVarP(&listFrontends, "frontends", "", false, "List all service frontend entries")
 	bpfLBListCmd.Flags().BoolVarP(&listBackends, "backends", "", false, "List all service backend entries")
+	bpfLBListCmd.Flags().BoolVarP(&listSrcRanges, "source-ranges", "", false, "List all source range entries")
 	command.AddOutputOption(bpfLBListCmd)
 }
