@@ -275,6 +275,12 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		if err != nil {
 			return err
 		}
+		if option.Config.EnableL7Proxy {
+			log.WithField(logfields.URL, "https://github.com/cilium/cilium/issues/19699").
+				Warningf("Both VTEP redirection (%s) and L7 proxy (--%s) are enabled. This is currently not fully supported: "+
+					"if the endpoint has a L7 policy and send request to VTEP devices , endpoint traffic will not go through VTEP devices.", option.EnableVTEP, option.EnableL7Proxy)
+
+		}
 	}
 
 	return nil
