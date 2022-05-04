@@ -13,7 +13,7 @@ Introduction
 What does Cilium provide in your Kubernetes Cluster?
 ====================================================
 
-The following functionality is provided as your run Cilium in your Kubernetes
+The following functionality is provided as you run Cilium in your Kubernetes
 cluster:
 
 * :term:`CNI` plugin support to provide pod_connectivity_ with

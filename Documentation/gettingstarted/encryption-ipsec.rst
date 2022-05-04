@@ -249,8 +249,8 @@ Troubleshooting
         local 10.60.0.0/24 dev cilium_vxlan proto 50 scope host
         10.60.1.0/24 via 10.60.0.1 dev cilium_host
 
-     In case of IPAM ENI mode, check if routing rules exist for the the IP
-     address of ``cilium_host`` interface..
+     In case of IPAM ENI mode, check if routing rules exist for the IP
+     address of the ``cilium_host`` interface.
 
      .. code-block:: shell-session
 

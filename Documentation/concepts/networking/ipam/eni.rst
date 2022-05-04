@@ -269,7 +269,7 @@ In this process, all ENIs with an interface index greater than
 found are added to ``spec.ipam.available``. Each ENI meeting this criteria is
 also added to ``status.eni.enis``.
 
-If this updated caused the custom resource to change, the custom resource is
+If this update caused the custom resource to change, the custom resource is
 updated using the Kubernetes API methods ``Update()`` and/or ``UpdateStatus()``
 if available.
 
