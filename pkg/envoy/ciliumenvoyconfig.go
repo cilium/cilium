@@ -19,7 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
@@ -44,7 +44,7 @@ type PortAllocator interface {
 }
 
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources type
-func ParseResources(namePrefix string, anySlice []cilium_v2alpha1.XDSResource, validate bool, portAllocator PortAllocator) (Resources, error) {
+func ParseResources(namePrefix string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator) (Resources, error) {
 	resources := Resources{}
 	for _, r := range anySlice {
 		// Skip empty TypeURLs, which are left behind when Unmarshaling resource JSON fails

@@ -54,24 +54,24 @@ import (
 )
 
 const (
-	k8sAPIGroupNodeV1Core                           = "core/v1::Node"
-	k8sAPIGroupNamespaceV1Core                      = "core/v1::Namespace"
-	K8sAPIGroupServiceV1Core                        = "core/v1::Service"
-	K8sAPIGroupEndpointV1Core                       = "core/v1::Endpoint"
-	K8sAPIGroupPodV1Core                            = "core/v1::Pods"
-	K8sAPIGroupSecretV1Core                         = "core/v1::Secrets"
-	k8sAPIGroupNetworkingV1Core                     = "networking.k8s.io/v1::NetworkPolicy"
-	k8sAPIGroupCiliumNetworkPolicyV2                = "cilium/v2::CiliumNetworkPolicy"
-	k8sAPIGroupCiliumClusterwideNetworkPolicyV2     = "cilium/v2::CiliumClusterwideNetworkPolicy"
-	k8sAPIGroupCiliumNodeV2                         = "cilium/v2::CiliumNode"
-	k8sAPIGroupCiliumEndpointV2                     = "cilium/v2::CiliumEndpoint"
-	k8sAPIGroupCiliumLocalRedirectPolicyV2          = "cilium/v2::CiliumLocalRedirectPolicy"
-	k8sAPIGroupCiliumEgressNATPolicyV2              = "cilium/v2::CiliumEgressNATPolicy"
-	k8sAPIGroupCiliumEndpointSliceV2Alpha1          = "cilium/v2alpha1::CiliumEndpointSlice"
-	k8sAPIGroupCiliumClusterwideEnvoyConfigV2Alpha1 = "cilium/v2alpha1::CiliumClusterwideEnvoyConfig"
-	k8sAPIGroupCiliumEnvoyConfigV2Alpha1            = "cilium/v2alpha1::CiliumEnvoyConfig"
-	K8sAPIGroupEndpointSliceV1Beta1Discovery        = "discovery/v1beta1::EndpointSlice"
-	K8sAPIGroupEndpointSliceV1Discovery             = "discovery/v1::EndpointSlice"
+	k8sAPIGroupNodeV1Core                       = "core/v1::Node"
+	k8sAPIGroupNamespaceV1Core                  = "core/v1::Namespace"
+	K8sAPIGroupServiceV1Core                    = "core/v1::Service"
+	K8sAPIGroupEndpointV1Core                   = "core/v1::Endpoint"
+	K8sAPIGroupPodV1Core                        = "core/v1::Pods"
+	K8sAPIGroupSecretV1Core                     = "core/v1::Secrets"
+	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
+	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
+	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
+	k8sAPIGroupCiliumNodeV2                     = "cilium/v2::CiliumNode"
+	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
+	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
+	k8sAPIGroupCiliumEgressNATPolicyV2          = "cilium/v2::CiliumEgressNATPolicy"
+	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
+	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
+	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
+	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
+	K8sAPIGroupEndpointSliceV1Discovery         = "discovery/v1::EndpointSlice"
 
 	metricCNP            = "CiliumNetworkPolicy"
 	metricCCNP           = "CiliumClusterwideNetworkPolicy"
@@ -391,8 +391,8 @@ func (k *K8sWatcher) resourceGroups() []string {
 		synced.CRDResourceName(v2.CEWName):           "SKIP", // Handled in clustermesh-apiserver/
 		synced.CRDResourceName(v2alpha1.CENPName):    k8sAPIGroupCiliumEgressNATPolicyV2,
 		synced.CRDResourceName(v2alpha1.CESName):     k8sAPIGroupCiliumEndpointSliceV2Alpha1,
-		synced.CRDResourceName(v2alpha1.CCECName):    k8sAPIGroupCiliumClusterwideEnvoyConfigV2Alpha1,
-		synced.CRDResourceName(v2alpha1.CECName):     k8sAPIGroupCiliumEnvoyConfigV2Alpha1,
+		synced.CRDResourceName(v2.CCECName):          k8sAPIGroupCiliumClusterwideEnvoyConfigV2,
+		synced.CRDResourceName(v2.CECName):           k8sAPIGroupCiliumEnvoyConfigV2,
 		synced.CRDResourceName(v2alpha1.BGPPName):    "SKIP", // Handled in BGP control plane
 		synced.CRDResourceName(v2alpha1.BGPPoolName): "SKIP", // Handled in BGP control plane
 	}
@@ -510,9 +510,9 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context, resources []string) e
 			k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
 		case k8sAPIGroupCiliumEgressNATPolicyV2:
 			k.ciliumEgressNATPolicyInit(ciliumNPClient)
-		case k8sAPIGroupCiliumClusterwideEnvoyConfigV2Alpha1:
+		case k8sAPIGroupCiliumClusterwideEnvoyConfigV2:
 			k.ciliumClusterwideEnvoyConfigInit(ciliumNPClient)
-		case k8sAPIGroupCiliumEnvoyConfigV2Alpha1:
+		case k8sAPIGroupCiliumEnvoyConfigV2:
 			k.ciliumEnvoyConfigInit(ciliumNPClient)
 		default:
 			log.WithFields(logrus.Fields{

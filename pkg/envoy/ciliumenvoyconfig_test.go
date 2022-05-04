@@ -15,7 +15,7 @@ import (
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	"sigs.k8s.io/yaml"
 
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	. "gopkg.in/check.v1"
 )
@@ -105,7 +105,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigSpec(c *C) {
 	jsonBytes, err := yaml.YAMLToJSON([]byte(xds1))
 	c.Assert(err, IsNil)
 
-	spec := cilium_v2alpha1.CiliumEnvoyConfigSpec{}
+	spec := cilium_v2.CiliumEnvoyConfigSpec{}
 	err = json.Unmarshal(jsonBytes, &spec)
 	c.Assert(err, IsNil)
 
@@ -113,7 +113,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigSpec(c *C) {
 	c.Assert(spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 }
 
-var ciliumEnvoyConfig = `apiVersion: cilium.io/v2alpha1
+var ciliumEnvoyConfig = `apiVersion: cilium.io/v2
 kind: CiliumEnvoyConfig
 metadata:
   name: envoy-prometheus-metrics-listener
@@ -146,7 +146,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	// var buf bytes.Buffer
 	// json.Indent(&buf, jsonBytes, "", "\t")
 	// fmt.Printf("JSON spec:\n%s\n", buf.String())
-	cec := &cilium_v2alpha1.CiliumEnvoyConfig{}
+	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
 	c.Assert(cec.Spec.Resources, Not(IsNil))
@@ -192,7 +192,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
 }
 
-var ciliumEnvoyConfigInvalid = `apiVersion: cilium.io/v2alpha1
+var ciliumEnvoyConfigInvalid = `apiVersion: cilium.io/v2
 kind: CiliumEnvoyConfig
 metadata:
   name: envoy-prometheus-metrics-listener
@@ -224,7 +224,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	// var buf bytes.Buffer
 	// json.Indent(&buf, jsonBytes, "", "\t")
 	// fmt.Printf("JSON spec:\n%s\n", buf.String())
-	cec := &cilium_v2alpha1.CiliumEnvoyConfig{}
+	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
 	c.Assert(cec.Spec.Resources, Not(IsNil))
@@ -276,7 +276,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	c.Assert(err, Not(IsNil))
 }
 
-var ciliumEnvoyConfigNoAddress = `apiVersion: cilium.io/v2alpha1
+var ciliumEnvoyConfigNoAddress = `apiVersion: cilium.io/v2
 kind: CiliumEnvoyConfig
 metadata:
   name: envoy-prometheus-metrics-listener
@@ -305,7 +305,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	// var buf bytes.Buffer
 	// json.Indent(&buf, jsonBytes, "", "\t")
 	// fmt.Printf("JSON spec:\n%s\n", buf.String())
-	cec := &cilium_v2alpha1.CiliumEnvoyConfig{}
+	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
 	c.Assert(cec.Spec.Resources, Not(IsNil))
@@ -355,7 +355,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	c.Assert(hcm.HttpFilters[1].Name, Equals, "envoy.filters.http.router")
 }
 
-var ciliumEnvoyConfigMulti = `apiVersion: cilium.io/v2alpha1
+var ciliumEnvoyConfigMulti = `apiVersion: cilium.io/v2
 kind: CiliumEnvoyConfig
 metadata:
   name: envoy-prometheus-metrics-listener
@@ -419,7 +419,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	// var buf bytes.Buffer
 	// json.Indent(&buf, jsonBytes, "", "\t")
 	// fmt.Printf("JSON spec:\n%s\n", buf.String())
-	cec := &cilium_v2alpha1.CiliumEnvoyConfig{}
+	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
 	c.Assert(cec.Spec.Resources, HasLen, 5)

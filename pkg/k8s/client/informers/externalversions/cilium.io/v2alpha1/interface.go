@@ -15,14 +15,10 @@ type Interface interface {
 	CiliumBGPLoadBalancerIPPools() CiliumBGPLoadBalancerIPPoolInformer
 	// CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
 	CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer
-	// CiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigInformer.
-	CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInformer
 	// CiliumEgressNATPolicies returns a CiliumEgressNATPolicyInformer.
 	CiliumEgressNATPolicies() CiliumEgressNATPolicyInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 	CiliumEndpointSlices() CiliumEndpointSliceInformer
-	// CiliumEnvoyConfigs returns a CiliumEnvoyConfigInformer.
-	CiliumEnvoyConfigs() CiliumEnvoyConfigInformer
 }
 
 type version struct {
@@ -46,11 +42,6 @@ func (v *version) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer {
 	return &ciliumBGPPeeringPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigInformer.
-func (v *version) CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInformer {
-	return &ciliumClusterwideEnvoyConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // CiliumEgressNATPolicies returns a CiliumEgressNATPolicyInformer.
 func (v *version) CiliumEgressNATPolicies() CiliumEgressNATPolicyInformer {
 	return &ciliumEgressNATPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -59,9 +50,4 @@ func (v *version) CiliumEgressNATPolicies() CiliumEgressNATPolicyInformer {
 // CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 func (v *version) CiliumEndpointSlices() CiliumEndpointSliceInformer {
 	return &ciliumEndpointSliceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// CiliumEnvoyConfigs returns a CiliumEnvoyConfigInformer.
-func (v *version) CiliumEnvoyConfigs() CiliumEnvoyConfigInformer {
-	return &ciliumEnvoyConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

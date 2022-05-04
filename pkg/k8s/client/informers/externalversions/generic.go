@@ -41,10 +41,14 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=cilium.io, Version=v2
+	case v2.SchemeGroupVersion.WithResource("ciliumclusterwideenvoyconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumClusterwideEnvoyConfigs().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("ciliumclusterwidenetworkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumClusterwideNetworkPolicies().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("ciliumendpoints"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumEndpoints().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("ciliumenvoyconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumEnvoyConfigs().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("ciliumexternalworkloads"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumExternalWorkloads().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("ciliumidentities"):
@@ -61,14 +65,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumBGPLoadBalancerIPPools().Informer()}, nil
 	case v2alpha1.SchemeGroupVersion.WithResource("ciliumbgppeeringpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumBGPPeeringPolicies().Informer()}, nil
-	case v2alpha1.SchemeGroupVersion.WithResource("ciliumclusterwideenvoyconfigs"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumClusterwideEnvoyConfigs().Informer()}, nil
 	case v2alpha1.SchemeGroupVersion.WithResource("ciliumegressnatpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumEgressNATPolicies().Informer()}, nil
 	case v2alpha1.SchemeGroupVersion.WithResource("ciliumendpointslices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumEndpointSlices().Informer()}, nil
-	case v2alpha1.SchemeGroupVersion.WithResource("ciliumenvoyconfigs"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumEnvoyConfigs().Informer()}, nil
 
 	}
 

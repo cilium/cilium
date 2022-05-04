@@ -32,7 +32,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 )
@@ -55,8 +55,8 @@ func newEnvoyConfigManager(maxRetries int) (*envoyConfigManager, error) {
 
 	// setup store and informer only for endpoints having label cilium.io/ingress
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2alpha1().RESTClient(), v2alpha1.CECPluralName, corev1.NamespaceAll, fields.Everything()),
-		&v2alpha1.CiliumEnvoyConfig{},
+		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(), v2.CECPluralName, corev1.NamespaceAll, fields.Everything()),
+		&v2.CiliumEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{},
 		nil,
@@ -70,12 +70,12 @@ func newEnvoyConfigManager(maxRetries int) (*envoyConfigManager, error) {
 }
 
 // getByKey is a wrapper of Store.GetByKey but with concrete Endpoint object
-func (em *envoyConfigManager) getByKey(key string) (*v2alpha1.CiliumEnvoyConfig, bool, error) {
+func (em *envoyConfigManager) getByKey(key string) (*v2.CiliumEnvoyConfig, bool, error) {
 	objFromCache, exists, err := em.store.GetByKey(key)
 	if objFromCache == nil || !exists || err != nil {
 		return nil, exists, err
 	}
-	envoyConfig, ok := objFromCache.(*v2alpha1.CiliumEnvoyConfig)
+	envoyConfig, ok := objFromCache.(*v2.CiliumEnvoyConfig)
 	if !ok {
 		return nil, exists, fmt.Errorf("got invalid object from cache")
 	}
@@ -159,23 +159,23 @@ func getTransportSockets(ingress *slim_networkingv1.Ingress, secretNamespace str
 	return tls, nil
 }
 
-func getEnvoyConfigForIngress(ingress *slim_networkingv1.Ingress, secretsNamespace string, enforcedHTTPS bool) (*v2alpha1.CiliumEnvoyConfig, error) {
+func getEnvoyConfigForIngress(ingress *slim_networkingv1.Ingress, secretsNamespace string, enforcedHTTPS bool) (*v2.CiliumEnvoyConfig, error) {
 	backendServices := getBackendServices(ingress)
 	resources, err := getResources(ingress, backendServices, secretsNamespace, enforcedHTTPS)
 	if err != nil {
 		return nil, err
 	}
-	return &v2alpha1.CiliumEnvoyConfig{
+	return &v2.CiliumEnvoyConfig{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       v2alpha1.CECKindDefinition,
-			APIVersion: v2alpha1.SchemeGroupVersion.String(),
+			Kind:       v2.CECKindDefinition,
+			APIVersion: v2.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getCECNameForIngress(ingress),
 			Namespace: ingress.GetNamespace(),
 		},
-		Spec: v2alpha1.CiliumEnvoyConfigSpec{
-			Services: []*v2alpha1.ServiceListener{
+		Spec: v2.CiliumEnvoyConfigSpec{
+			Services: []*v2.ServiceListener{
 				{
 					Name:      getServiceNameForIngress(ingress),
 					Namespace: ingress.Namespace,
@@ -188,7 +188,7 @@ func getEnvoyConfigForIngress(ingress *slim_networkingv1.Ingress, secretsNamespa
 	}, nil
 }
 
-func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2alpha1.Service {
+func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2.Service {
 	var sortedServiceNames []string
 	if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
 		sortedServiceNames = append(sortedServiceNames, ingress.Spec.DefaultBackend.Service.Name)
@@ -206,9 +206,9 @@ func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2alpha1.Service 
 	}
 	sort.Strings(sortedServiceNames)
 
-	var backendServices []*v2alpha1.Service
+	var backendServices []*v2.Service
 	for _, name := range sortedServiceNames {
-		backendServices = append(backendServices, &v2alpha1.Service{
+		backendServices = append(backendServices, &v2.Service{
 			Namespace: ingress.Namespace,
 			Name:      name,
 		})
@@ -216,8 +216,8 @@ func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2alpha1.Service 
 	return backendServices
 }
 
-func getResources(ingress *slim_networkingv1.Ingress, backendServices []*v2alpha1.Service, secretsNamespace string, enforcedHTTPS bool) ([]v2alpha1.XDSResource, error) {
-	var resources []v2alpha1.XDSResource
+func getResources(ingress *slim_networkingv1.Ingress, backendServices []*v2.Service, secretsNamespace string, enforcedHTTPS bool) ([]v2.XDSResource, error) {
+	var resources []v2.XDSResource
 	listener, err := getListenerResource(ingress, secretsNamespace, enforcedHTTPS)
 	if err != nil {
 		return nil, err
@@ -246,11 +246,11 @@ func getResources(ingress *slim_networkingv1.Ingress, backendServices []*v2alpha
 	return resources, nil
 }
 
-func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace string, enforcedHTTPS bool) (v2alpha1.XDSResource, error) {
+func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace string, enforcedHTTPS bool) (v2.XDSResource, error) {
 	cecName := getCECNameForIngress(ingress)
 	defaultHttpConnectionManager, err := getConnectionManager(cecName, fmt.Sprintf("%s_route", cecName))
 	if err != nil {
-		return v2alpha1.XDSResource{}, nil
+		return v2.XDSResource{}, nil
 	}
 
 	var filterChains []*envoy_config_listener.FilterChain
@@ -275,14 +275,14 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 		if enforcedHTTPS {
 			insecureHttpConnectionManager, err = getConnectionManager(cecName, fmt.Sprintf("%s_redirect", cecName))
 			if err != nil {
-				return v2alpha1.XDSResource{}, nil
+				return v2.XDSResource{}, nil
 			}
 		}
 
 		transportSockets, err := getTransportSockets(ingress, secretNamespace)
 		if err != nil {
 			log.WithError(err).Error("Failed for construct transport sockets")
-			return v2alpha1.XDSResource{}, err
+			return v2.XDSResource{}, err
 		}
 
 		// TODO(tam) extend to list of tls
@@ -337,9 +337,9 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 
 	listenerBytes, err := proto.Marshal(&listener)
 	if err != nil {
-		return v2alpha1.XDSResource{}, err
+		return v2.XDSResource{}, err
 	}
-	return v2alpha1.XDSResource{
+	return v2.XDSResource{
 		Any: &anypb.Any{
 			TypeUrl: envoy.ListenerTypeURL,
 			Value:   listenerBytes,
@@ -347,7 +347,7 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 	}, nil
 }
 
-func getConnectionManager(name string, routeName string) (v2alpha1.XDSResource, error) {
+func getConnectionManager(name string, routeName string) (v2.XDSResource, error) {
 	var connectionManager envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager
 	connectionManager = envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{
 		StatPrefix: name,
@@ -363,10 +363,10 @@ func getConnectionManager(name string, routeName string) (v2alpha1.XDSResource, 
 
 	connectionManagerBytes, err := proto.Marshal(&connectionManager)
 	if err != nil {
-		return v2alpha1.XDSResource{}, err
+		return v2.XDSResource{}, err
 	}
 
-	return v2alpha1.XDSResource{
+	return v2.XDSResource{
 		Any: &anypb.Any{
 			TypeUrl: envoy.HttpConnectionManagerTypeURL,
 			Value:   connectionManagerBytes,
@@ -374,8 +374,8 @@ func getConnectionManager(name string, routeName string) (v2alpha1.XDSResource, 
 	}, nil
 }
 
-func getClusterResources(backendServices []*v2alpha1.Service) ([]v2alpha1.XDSResource, error) {
-	var resources []v2alpha1.XDSResource
+func getClusterResources(backendServices []*v2.Service) ([]v2.XDSResource, error) {
+	var resources []v2.XDSResource
 	for _, service := range backendServices {
 		cluster := envoy_config_cluster_v3.Cluster{
 			Name:           fmt.Sprintf("%s/%s", service.Namespace, service.Name),
@@ -404,7 +404,7 @@ func getClusterResources(backendServices []*v2alpha1.Service) ([]v2alpha1.XDSRes
 		if err != nil {
 			return nil, err
 		}
-		resources = append(resources, v2alpha1.XDSResource{
+		resources = append(resources, v2.XDSResource{
 			Any: &anypb.Any{
 				TypeUrl: envoy.ClusterTypeURL,
 				Value:   clusterBytes,
@@ -513,7 +513,7 @@ func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.I
 	}
 }
 
-func getRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (v2alpha1.XDSResource, error) {
+func getRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (v2.XDSResource, error) {
 	var virtualhosts []*envoy_config_route_v3.VirtualHost
 	for _, rule := range ingress.Spec.Rules {
 		virtualhosts = append(virtualhosts, getVirtualHost(ingress, rule))
@@ -548,9 +548,9 @@ func getRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (v2alpha1
 	}
 	routeBytes, err := proto.Marshal(&routeConfig)
 	if err != nil {
-		return v2alpha1.XDSResource{}, err
+		return v2.XDSResource{}, err
 	}
-	return v2alpha1.XDSResource{
+	return v2.XDSResource{
 		Any: &anypb.Any{
 			TypeUrl: envoy.RouteTypeURL,
 			Value:   routeBytes,
@@ -558,7 +558,7 @@ func getRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (v2alpha1
 	}, nil
 }
 
-func getRedirectRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (v2alpha1.XDSResource, error) {
+func getRedirectRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (v2.XDSResource, error) {
 	route := &envoy_config_route_v3.Route{
 		Match: &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
@@ -588,10 +588,10 @@ func getRedirectRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (
 
 	routeBytes, err := proto.Marshal(&routeConfig)
 	if err != nil {
-		return v2alpha1.XDSResource{}, err
+		return v2.XDSResource{}, err
 	}
 
-	return v2alpha1.XDSResource{
+	return v2.XDSResource{
 		Any: &anypb.Any{
 			TypeUrl: envoy.RouteTypeURL,
 			Value:   routeBytes,

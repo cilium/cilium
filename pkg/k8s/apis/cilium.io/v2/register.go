@@ -125,6 +125,34 @@ const (
 
 	// CEWName is the full name of Cilium External Workload
 	CEWName = CEWPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Cluster Envoy Config (CCEC)
+
+	// CCECSingularName is the singular name of Cilium Clusterwide Envoy Config
+	CCECSingularName = "ciliumclusterwideenvoyconfig"
+
+	// CCECPluralName is the plural name of Cilium Clusterwide Envoy Config
+	CCECPluralName = "ciliumclusterwideenvoyconfigs"
+
+	// CCECKindDefinition is the kind name of Cilium Clusterwide Envoy Config
+	CCECKindDefinition = "CiliumClusterwideEnvoyConfig"
+
+	// CCECName is the full name of Cilium Clusterwide Envoy Config
+	CCECName = CCECPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Envoy Config (CEC)
+
+	// CECSingularName is the singular name of Cilium Envoy Config
+	CECSingularName = "ciliumenvoyconfig"
+
+	// CECPluralName is the plural name of Cilium Envoy Config
+	CECPluralName = "ciliumenvoyconfigs"
+
+	// CECKindDefinition is the kind name of Cilium Envoy Config
+	CECKindDefinition = "CiliumEnvoyConfig"
+
+	// CECName is the full name of Cilium Envoy Config
+	CECName = CECPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -182,6 +210,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumIdentityList{},
 		&CiliumLocalRedirectPolicy{},
 		&CiliumLocalRedirectPolicyList{},
+		&CiliumEnvoyConfig{},
+		&CiliumEnvoyConfigList{},
+		&CiliumClusterwideEnvoyConfig{},
+		&CiliumClusterwideEnvoyConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

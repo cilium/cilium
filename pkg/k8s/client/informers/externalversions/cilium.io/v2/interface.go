@@ -11,10 +11,14 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// CiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigInformer.
+	CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInformer
 	// CiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicyInformer.
 	CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer
 	// CiliumEndpoints returns a CiliumEndpointInformer.
 	CiliumEndpoints() CiliumEndpointInformer
+	// CiliumEnvoyConfigs returns a CiliumEnvoyConfigInformer.
+	CiliumEnvoyConfigs() CiliumEnvoyConfigInformer
 	// CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.
 	CiliumExternalWorkloads() CiliumExternalWorkloadInformer
 	// CiliumIdentities returns a CiliumIdentityInformer.
@@ -38,6 +42,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
+// CiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigInformer.
+func (v *version) CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInformer {
+	return &ciliumClusterwideEnvoyConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // CiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicyInformer.
 func (v *version) CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer {
 	return &ciliumClusterwideNetworkPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -46,6 +55,11 @@ func (v *version) CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPol
 // CiliumEndpoints returns a CiliumEndpointInformer.
 func (v *version) CiliumEndpoints() CiliumEndpointInformer {
 	return &ciliumEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumEnvoyConfigs returns a CiliumEnvoyConfigInformer.
+func (v *version) CiliumEnvoyConfigs() CiliumEnvoyConfigInformer {
+	return &ciliumEnvoyConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.

@@ -62,10 +62,10 @@ const (
 	CESCRDName = k8sconstv2alpha1.CESKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 
 	// CCECCRDName is the full name of the CCEC CRD.
-	CCECCRDName = k8sconstv2alpha1.CCECKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+	CCECCRDName = k8sconstv2.CCECKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
 	// CECCRDName is the full name of the CEC CRD.
-	CECCRDName = k8sconstv2alpha1.CECKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+	CECCRDName = k8sconstv2.CECKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
 	// BGPPCRDName is the full name of the BGPP CRD.
 	BGPPCRDName = k8sconstv2alpha1.BGPPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
@@ -98,8 +98,8 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv2.CLRPName):          createCLRPCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.CENPName):    createCENPCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.CESName):     createCESCRD,
-		synced.CRDResourceName(k8sconstv2alpha1.CCECName):    createCCECCRD,
-		synced.CRDResourceName(k8sconstv2alpha1.CECName):     createCECCRD,
+		synced.CRDResourceName(k8sconstv2.CCECName):          createCCECCRD,
+		synced.CRDResourceName(k8sconstv2.CECName):           createCECCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.BGPPName):    createBGPPCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.BGPPoolName): createBGPPoolCRD,
 	}
@@ -144,11 +144,11 @@ var (
 	//go:embed crds/v2alpha1/ciliumendpointslices.yaml
 	crdsv2Alpha1Ciliumendpointslices []byte
 
-	//go:embed crds/v2alpha1/ciliumclusterwideenvoyconfigs.yaml
-	crdsv2Alpha1Ciliumclusterwideenvoyconfigs []byte
+	//go:embed crds/v2/ciliumclusterwideenvoyconfigs.yaml
+	crdsv2Ciliumclusterwideenvoyconfigs []byte
 
-	//go:embed crds/v2alpha1/ciliumenvoyconfigs.yaml
-	crdsv2Alpha1Ciliumenvoyconfigs []byte
+	//go:embed crds/v2/ciliumenvoyconfigs.yaml
+	crdsv2Ciliumenvoyconfigs []byte
 
 	//go:embed crds/v2alpha1/ciliumbgppeeringpolicies.yaml
 	crdsv2Alpha1Ciliumbgppeeringpolicies []byte
@@ -189,9 +189,9 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 	case CESCRDName:
 		crdBytes = crdsv2Alpha1Ciliumendpointslices
 	case CCECCRDName:
-		crdBytes = crdsv2Alpha1Ciliumclusterwideenvoyconfigs
+		crdBytes = crdsv2Ciliumclusterwideenvoyconfigs
 	case CECCRDName:
-		crdBytes = crdsv2Alpha1Ciliumenvoyconfigs
+		crdBytes = crdsv2Ciliumenvoyconfigs
 	case BGPPCRDName:
 		crdBytes = crdsv2Alpha1Ciliumbgppeeringpolicies
 	case BGPPoolCRDName:
@@ -328,7 +328,7 @@ func createCCECCRD(clientset apiextensionsclient.Interface) error {
 	return createUpdateCRD(
 		clientset,
 		CCECCRDName,
-		constructV1CRD(k8sconstv2alpha1.CCECName, ciliumCRD),
+		constructV1CRD(k8sconstv2.CCECName, ciliumCRD),
 		newDefaultPoller(),
 	)
 }
@@ -339,7 +339,7 @@ func createCECCRD(clientset apiextensionsclient.Interface) error {
 	return createUpdateCRD(
 		clientset,
 		CECCRDName,
-		constructV1CRD(k8sconstv2alpha1.CECName, ciliumCRD),
+		constructV1CRD(k8sconstv2.CECName, ciliumCRD),
 		newDefaultPoller(),
 	)
 }

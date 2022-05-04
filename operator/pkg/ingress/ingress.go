@@ -414,7 +414,7 @@ func (ic *IngressController) createEnvoyConfig(ingress *slim_networkingv1.Ingres
 		// Update existing CEC
 		newEnvoyConfig := existingEnvoyConfig.DeepCopy()
 		newEnvoyConfig.Spec = desired.Spec
-		_, err = k8s.CiliumClient().CiliumV2alpha1().CiliumEnvoyConfigs(ingress.Namespace).Update(context.Background(), newEnvoyConfig, metav1.UpdateOptions{})
+		_, err = k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(ingress.Namespace).Update(context.Background(), newEnvoyConfig, metav1.UpdateOptions{})
 		if err != nil {
 			scopedLog.WithError(err).Error("Failed to update CiliumEnvoyConfig for ingress")
 			return err
@@ -422,7 +422,7 @@ func (ic *IngressController) createEnvoyConfig(ingress *slim_networkingv1.Ingres
 		scopedLog.Debug("Updated CiliumEnvoyConfig for ingress")
 		return nil
 	}
-	_, err = k8s.CiliumClient().CiliumV2alpha1().CiliumEnvoyConfigs(ingress.Namespace).Create(context.Background(), desired, metav1.CreateOptions{})
+	_, err = k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(ingress.Namespace).Create(context.Background(), desired, metav1.CreateOptions{})
 	if err != nil {
 		scopedLog.WithError(err).Error("Failed to create CiliumEnvoyConfig for ingress")
 		return err
@@ -472,7 +472,7 @@ func (ic *IngressController) deleteCiliumEnvoyConfig(ingress *slim_networkingv1.
 		scopedLog.Debug("CiliumEnvoyConfig already deleted. Continuing...")
 		return nil
 	}
-	err = k8s.CiliumClient().CiliumV2alpha1().CiliumEnvoyConfigs(ingress.Namespace).Delete(context.Background(), resourceName, metav1.DeleteOptions{})
+	err = k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(ingress.Namespace).Delete(context.Background(), resourceName, metav1.DeleteOptions{})
 	if err != nil {
 		scopedLog.Error("Failed to delete CiliumEnvoyConfig for ingress")
 		return err
