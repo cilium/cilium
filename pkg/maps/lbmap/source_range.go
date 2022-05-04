@@ -47,7 +47,10 @@ type SourceRangeKey4 struct {
 
 func (k *SourceRangeKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *SourceRangeKey4) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
-func (k *SourceRangeKey4) String() string            { return fmt.Sprintf("%s", k.Address) }
+func (k *SourceRangeKey4) String() string {
+	kHost := k.ToHost().(*SourceRangeKey4)
+	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
+}
 func (k *SourceRangeKey4) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
@@ -88,7 +91,10 @@ type SourceRangeKey6 struct {
 
 func (k *SourceRangeKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *SourceRangeKey6) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
-func (k *SourceRangeKey6) String() string            { return fmt.Sprintf("%s", k.Address) }
+func (k *SourceRangeKey6) String() string {
+	kHost := k.ToHost().(*SourceRangeKey6)
+	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
+}
 func (k *SourceRangeKey6) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
