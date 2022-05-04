@@ -25,6 +25,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
 {{- if .Values.operator.removeNodeTaints }}
   # To remove node taints
   - nodes
@@ -34,8 +41,6 @@ rules:
   - nodes/status
 {{- end }}
   verbs:
-  - list
-  - watch
   - patch
 {{- end }}
 - apiGroups:
