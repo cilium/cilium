@@ -41,7 +41,6 @@ COPY --from=builder /out/${TARGETOS}/${TARGETARCH} /
 
 WORKDIR /home/cilium
 
-RUN groupadd -f cilium \
-  && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
+RUN echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 
 CMD ["/usr/bin/cilium"]
