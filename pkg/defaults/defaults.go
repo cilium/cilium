@@ -109,6 +109,10 @@ const (
 	// for each FQDN selector in endpoint's restored DNS rules.
 	DNSMaxIPsPerRestoredRule = 1000
 
+	// FFQDNRegexCompileLRUSize defines the maximum size for the FQDN regex
+	// compilation LRU used by the DNS proxy and policy validation.
+	FQDNRegexCompileLRUSize = 1024
+
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
 	// This is used in DaemonConfig.Populate
 	ToFQDNsMinTTL = 3600 // 1 hour in seconds
