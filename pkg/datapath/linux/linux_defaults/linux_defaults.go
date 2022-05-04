@@ -16,6 +16,9 @@ const (
 	// rules
 	RouteTableWireguard = 201
 
+	// RouteTableVtep is the default table ID to use for VTEP routing rules
+	RouteTableVtep = 202
+
 	// RouteTableEgressGatewayInterfacesOffset is the offset for the per-ENI
 	// egress gateway routing tables.
 	// Each ENI interface will have its own table starting with this offset. It
@@ -93,6 +96,9 @@ const (
 	// associated, but from the main routing table instead.
 	// This priority is before the egress priority.
 	RulePriorityNodeport = RulePriorityEgress - 1
+
+	// RulePriorityVtep is the priority of the rule used for routing packets to VTEP device
+	RulePriorityVtep = 112
 
 	// TunnelDeviceName the default name of the tunnel device when using vxlan
 	TunnelDeviceName = "cilium_vxlan"
