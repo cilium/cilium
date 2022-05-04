@@ -4325,6 +4325,24 @@ func (kub *Kubectl) WaitForEgressPolicyEntry(node, ipAddr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
+func (kub *Kubectl) WaitForLBSourceRangeEntry(node, cidr string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNode(node)
+	if err != nil {
+		return err
+	}
+
+	body := func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		cmd := fmt.Sprintf(`cilium bpf lb list --source-ranges | grep -q %s`, cidr)
+		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
+	}
+
+	return WithTimeout(body,
+		fmt.Sprintf("LB Source Range entry for %s was not found in time", cidr),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // RepeatCommandInBackground runs command on repeat in goroutine until quit channel
 // is closed and closes run channel when command is first run
 func (kub *Kubectl) RepeatCommandInBackground(cmd string) (quit, run chan struct{}) {

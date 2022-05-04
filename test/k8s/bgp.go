@@ -160,16 +160,26 @@ var _ = SkipDescribeIf(
 
 				// Patch service to add a LB source range to disallow requests
 				// from the outsideNode
-				kubectl.Patch(helpers.DefaultNamespace, "service", lbSvcName,
-					`{"spec": {"loadBalancerSourceRanges": ["1.1.1.0/24"]}}`)
-				time.Sleep(5 * time.Second)
-				testCurlFailFromOutside(kubectl, ni, url, 1)
-				// Patch again, but this time add outsideNode IP addr
+				cidr1 := "1.1.1.0/24"
 				kubectl.Patch(helpers.DefaultNamespace, "service", lbSvcName,
 					fmt.Sprintf(
-						`{"spec": {"loadBalancerSourceRanges": ["1.1.1.0/24", "%s/32"]}}`,
-						ni.OutsideIP))
-				time.Sleep(5 * time.Second)
+						`{"spec": {"loadBalancerSourceRanges": ["%s"]}}`,
+						cidr1))
+				By("Waiting until the LB has picked up srcRange %s", cidr1)
+				err = kubectl.WaitForLBSourceRangeEntry(ni.K8s1NodeName, cidr1)
+				Expect(err).Should(BeNil(), "Didn't find SrcRange %s", cidr1)
+
+				testCurlFailFromOutside(kubectl, ni, url, 1)
+				// Patch again, but this time add outsideNode IP addr
+				cidr2 := ni.OutsideIP + "/32"
+				kubectl.Patch(helpers.DefaultNamespace, "service", lbSvcName,
+					fmt.Sprintf(
+						`{"spec": {"loadBalancerSourceRanges": ["%s", "%s"]}}`,
+						cidr1, cidr2))
+				By("Waiting until the LB has picked up srcRange %s", cidr2)
+				err = kubectl.WaitForLBSourceRangeEntry(ni.K8s1NodeName, cidr2)
+				Expect(err).Should(BeNil(), "Didn't find srcRange %s", cidr2)
+
 				testCurlFromOutside(kubectl, ni, url, 10, false)
 			})
 		})
