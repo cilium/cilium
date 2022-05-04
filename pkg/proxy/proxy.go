@@ -289,9 +289,8 @@ func (p *Proxy) ackProxyPort(name string, pp *ProxyPort) error {
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
 		scopedLog.Infof("Adding new proxy port rules for %s:%d", name, pp.proxyPort)
-		err := p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.ingress, name)
-		if err != nil {
-			return fmt.Errorf("Cannot install proxy rules for %s: %s", name, err)
+		if err := p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.ingress, name); err != nil {
+			return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
 		}
 		pp.rulesPort = pp.proxyPort
 	}
@@ -440,18 +439,19 @@ func (p *Proxy) SetProxyPort(name string, proxyType ProxyType, port uint16, ingr
 
 // ReinstallRules is called by daemon reconfiguration to re-install proxy ports rules that
 // were removed during the removal of all Cilium rules.
-func (p *Proxy) ReinstallRules() {
+func (p *Proxy) ReinstallRules() error {
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
 	for name, pp := range proxyPorts {
 		if pp.rulesPort > 0 {
 			// This should always succeed if we have managed to start-up properly
-			err := p.datapathUpdater.InstallProxyRules(pp.rulesPort, pp.ingress, name)
-			if err != nil {
-				log.WithError(err).Errorf("Can't install proxy rules for %s", name)
+			if err := p.datapathUpdater.InstallProxyRules(pp.rulesPort, pp.ingress, name); err != nil {
+				return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
 			}
 		}
 	}
+
+	return nil
 }
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
