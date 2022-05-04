@@ -13,12 +13,15 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -40,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -275,12 +279,11 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		if err != nil {
 			return err
 		}
-		if option.Config.EnableL7Proxy {
-			log.WithField(logfields.URL, "https://github.com/cilium/cilium/issues/19699").
-				Warningf("Both VTEP redirection (%s) and L7 proxy (--%s) are enabled. This is currently not fully supported: "+
-					"if the endpoint has a L7 policy and send request to VTEP devices , endpoint traffic will not go through VTEP devices.", option.EnableVTEP, option.EnableL7Proxy)
-
+		err = setupRouteToVtepCidr()
+		if err != nil {
+			return err
 		}
+
 	}
 
 	return nil
@@ -512,6 +515,96 @@ func setupVTEPMapping() error {
 	}
 	return nil
 
+}
+
+func setupRouteToVtepCidr() error {
+	routeCidrs := []*cidr.CIDR{}
+
+	filter := &netlink.Route{
+		Table: linux_defaults.RouteTableVtep,
+	}
+
+	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, filter, netlink.RT_FILTER_TABLE)
+	if err != nil {
+		return fmt.Errorf("failed to list routes: %w", err)
+	}
+	for _, rt := range routes {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: rt.Dst.String(),
+		}).Info("VTEP route")
+		rtCIDR, err := cidr.ParseCIDR(rt.Dst.String())
+		if err != nil {
+			return fmt.Errorf("Invalid VTEP Route CIDR: %w", err)
+		}
+		routeCidrs = append(routeCidrs, rtCIDR)
+	}
+
+	addedVtepRoutes, removedVtepRoutes := cidr.DiffCIDRLists(routeCidrs, option.Config.VtepCIDRs)
+	vtepMTU := mtu.EthernetMTU - mtu.TunnelOverhead
+
+	if option.Config.EnableL7Proxy {
+		for _, prefix := range addedVtepRoutes {
+			ip4 := prefix.IP.To4()
+			if ip4 == nil {
+				return fmt.Errorf("Invalid VTEP CIDR IPv4 address: %v", ip4)
+			}
+			r := route.Route{
+				Device: defaults.HostDevice,
+				Prefix: *prefix.IPNet,
+				Scope:  netlink.SCOPE_LINK,
+				MTU:    vtepMTU,
+				Table:  linux_defaults.RouteTableVtep,
+			}
+			if _, err := route.Upsert(r); err != nil {
+				return fmt.Errorf("Update VTEP CIDR route error: %w", err)
+			}
+			log.WithFields(logrus.Fields{
+				logfields.IPAddr: r.Prefix.String(),
+			}).Info("VTEP route added")
+
+			rule := route.Rule{
+				Priority: linux_defaults.RulePriorityVtep,
+				To:       prefix.IPNet,
+				Table:    linux_defaults.RouteTableVtep,
+			}
+			if err := route.ReplaceRule(rule); err != nil {
+				return fmt.Errorf("Update VTEP CIDR rule error: %w", err)
+			}
+		}
+	} else {
+		removedVtepRoutes = routeCidrs
+	}
+
+	for _, prefix := range removedVtepRoutes {
+		ip4 := prefix.IP.To4()
+		if ip4 == nil {
+			return fmt.Errorf("Invalid VTEP CIDR IPv4 address: %v", ip4)
+		}
+		r := route.Route{
+			Device: defaults.HostDevice,
+			Prefix: *prefix.IPNet,
+			Scope:  netlink.SCOPE_LINK,
+			MTU:    vtepMTU,
+			Table:  linux_defaults.RouteTableVtep,
+		}
+		if err := route.Delete(r); err != nil {
+			return fmt.Errorf("Delete VTEP CIDR route error: %w", err)
+		}
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: r.Prefix.String(),
+		}).Info("VTEP route removed")
+
+		rule := route.Rule{
+			Priority: linux_defaults.RulePriorityVtep,
+			To:       prefix.IPNet,
+			Table:    linux_defaults.RouteTableVtep,
+		}
+		if err := route.DeleteRule(rule); err != nil {
+			return fmt.Errorf("Delete VTEP CIDR rule error: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // Datapath returns a reference to the datapath implementation.
