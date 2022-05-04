@@ -4,9 +4,11 @@
 package iptables
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/mattn/go-shellwords"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -94,87 +96,157 @@ var ciliumChains = []customChain{
 	},
 }
 
+func (c *customChain) exists(prog iptablesInterface) (bool, error) {
+	args := []string{"-t", c.table, "-L", c.name}
+
+	output, err := prog.runProgCombinedOutput(args)
+	if err != nil {
+		if strings.Contains(string(output), "No chain/target/match by that name.") {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("unable to list %s chain: %s (%w)", c.name, string(output), err)
+	}
+
+	return true, nil
+}
+
+func (c *customChain) doAdd(prog iptablesInterface) error {
+	args := []string{"-t", c.table, "-N", c.name}
+
+	output, err := prog.runProgCombinedOutput(args)
+	if err != nil {
+		return fmt.Errorf("unable to add %s chain: %s (%w)", c.name, string(output), err)
+	}
+
+	return nil
+}
+
 func (c *customChain) add() error {
-	var err error
 	if option.Config.EnableIPv4 {
-		err = ip4tables.runProg([]string{"-t", c.table, "-N", c.name}, false)
-	}
-	if err == nil && option.Config.EnableIPv6 && c.ipv6 == true {
-		err = ip6tables.runProg([]string{"-t", c.table, "-N", c.name}, false)
-	}
-	return err
-}
-
-func (c *customChain) doRename(prog iptablesInterface, name string, quiet bool) {
-	args := []string{"-t", c.table, "-E", c.name, name}
-	operation := "rename"
-	combinedOutput, err := prog.runProgCombinedOutput(args, true)
-	if err != nil && !quiet {
-		log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s %s chain %s: %s", operation, prog, c.name, string(combinedOutput))
-	}
-}
-
-func (c *customChain) rename(name string, quiet bool) {
-	if option.Config.EnableIPv4 {
-		c.doRename(ip4tables, name, quiet)
-	}
-	if option.Config.EnableIPv6 && c.ipv6 {
-		c.doRename(ip6tables, name, quiet)
-	}
-}
-
-func (c *customChain) remove(quiet bool) {
-	doProcess := func(c *customChain, prog iptablesInterface, args []string, operation string, quiet bool) {
-		combinedOutput, err := prog.runProgCombinedOutput(args, true)
-		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s %s chain %s: %s", operation, prog.getProg(), c.name, string(combinedOutput))
+		if err := c.doAdd(ip4tables); err != nil {
+			return err
 		}
 	}
-	doRemove := func(c *customChain, prog iptablesInterface, quiet bool) {
-		args := []string{"-t", c.table, "-F", c.name}
-		doProcess(c, prog, args, "flush", quiet)
-		args = []string{"-t", c.table, "-X", c.name}
-		doProcess(c, prog, args, "delete", quiet)
+	if option.Config.EnableIPv6 && c.ipv6 == true {
+		if err := c.doAdd(ip6tables); err != nil {
+			return err
+		}
 	}
+
+	return nil
+}
+
+func (c *customChain) doRename(prog iptablesInterface, newName string) error {
+	if exists, err := c.exists(prog); err != nil {
+		return err
+	} else if !exists {
+		return nil
+	}
+
+	args := []string{"-t", c.table, "-E", c.name, newName}
+
+	output, err := prog.runProgCombinedOutput(args)
+	if err != nil {
+		return fmt.Errorf("unable to rename %s chain to %s: %s (%w)", c.name, newName, string(output), err)
+	}
+
+	return nil
+}
+
+func (c *customChain) rename(name string) error {
 	if option.Config.EnableIPv4 {
-		doRemove(c, ip4tables, quiet)
+		if err := c.doRename(ip4tables, name); err != nil {
+			return err
+		}
 	}
 	if option.Config.EnableIPv6 && c.ipv6 {
-		doRemove(c, ip6tables, quiet)
+		if err := c.doRename(ip6tables, name); err != nil {
+			return nil
+		}
 	}
+
+	return nil
 }
 
-func getFeedRule(name, args string) []string {
-	ruleTail := []string{"-m", "comment", "--comment", feederDescription + " " + name, "-j", name}
-	if args == "" {
-		return ruleTail
+func (c *customChain) doRemove(prog iptablesInterface) error {
+	if exists, err := c.exists(prog); err != nil {
+		return err
+	} else if !exists {
+		return nil
 	}
-	argsList, err := shellwords.Parse(args)
+
+	args := []string{"-t", c.table, "-F", c.name}
+
+	output, err := prog.runProgCombinedOutput(args)
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, args).Fatal("Unable to parse rule into argument slice")
+		return fmt.Errorf("unable to flush %s chain: %s (%w)", c.name, string(output), err)
 	}
-	return append(argsList, ruleTail...)
+
+	args = []string{"-t", c.table, "-X", c.name}
+
+	output, err = prog.runProgCombinedOutput(args)
+	if err != nil {
+		return fmt.Errorf("unable to remove %s chain: %s (%w)", c.name, string(output), err)
+	}
+
+	return nil
 }
 
-func (c *customChain) installFeeder() error {
+func (c *customChain) remove() error {
+	if option.Config.EnableIPv4 {
+		if err := c.doRemove(ip4tables); err != nil {
+			return err
+		}
+	}
+	if option.Config.EnableIPv6 && c.ipv6 {
+		if err := c.doRemove(ip6tables); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *customChain) doInstallFeeder(prog iptablesInterface, feedArgs string) error {
 	installMode := "-A"
 	if option.Config.PrependIptablesChains {
 		installMode = "-I"
 	}
 
+	feedRule := []string{"-m", "comment", "--comment", feederDescription + " " + c.name, "-j", c.name}
+	if feedArgs != "" {
+		argsList, err := shellwords.Parse(feedArgs)
+		if err != nil {
+			return fmt.Errorf("cannot parse '%s' rule into argument slice: %w", feedArgs, err)
+		}
+
+		feedRule = append(argsList, feedRule...)
+	}
+
+	args := append([]string{"-t", c.table, installMode, c.hook}, feedRule...)
+
+	output, err := prog.runProgCombinedOutput(args)
+	if err != nil {
+		return fmt.Errorf("unable to install feeder rule for %s chain: %s (%w)", c.name, string(output), err)
+	}
+
+	return nil
+}
+
+func (c *customChain) installFeeder() error {
 	for _, feedArgs := range c.feederArgs {
 		if option.Config.EnableIPv4 {
-			err := ip4tables.runProg(append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
-			if err != nil {
+			if err := c.doInstallFeeder(ip4tables, feedArgs); err != nil {
 				return err
 			}
 		}
 		if option.Config.EnableIPv6 && c.ipv6 == true {
-			err := ip6tables.runProg(append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
-			if err != nil {
+			if err := c.doInstallFeeder(ip6tables, feedArgs); err != nil {
 				return err
 			}
 		}
 	}
+
 	return nil
 }
