@@ -1019,10 +1019,6 @@ const (
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
 
-	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass
-	// optimization for nodeport reverse NAT handling (DEPRECATED).
-	EnableBPFBypassFIBLookup = "bpf-lb-bypass-fib-lookup"
-
 	// EnableCustomCallsName is the name of the option to enable tail calls
 	// for user-defined custom eBPF programs.
 	EnableCustomCallsName = "enable-custom-calls"
