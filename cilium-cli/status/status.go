@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -99,6 +100,8 @@ type Status struct {
 	// CollectionErrors is the errors that accumulated while collecting the
 	// status
 	CollectionErrors []error
+
+	mutex *sync.Mutex
 }
 
 func newStatus() *Status {
@@ -109,6 +112,7 @@ func newStatus() *Status {
 		PodsCount:    PodsCount{},
 		CiliumStatus: CiliumStatusMap{},
 		Errors:       ErrorCountMapMap{},
+		mutex:        &sync.Mutex{},
 	}
 }
 

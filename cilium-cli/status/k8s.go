@@ -11,12 +11,18 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/workerpool"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
+)
+
+const (
+	// DefaultWorkerCount is the number of the max workers used to gather the status
+	DefaultWorkerCount int = 5
 )
 
 type K8sStatusParameters struct {
@@ -32,6 +38,9 @@ type K8sStatusParameters struct {
 	// WarningFreePods is empty. If WarningFreePods is non-empty, the value
 	// of this flag is meaningless.
 	IgnoreWarnings bool
+
+	// The number of workers to use.
+	WorkerCount int
 }
 
 type K8sStatusCollector struct {
@@ -137,6 +146,10 @@ func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Statu
 	stateCount.Ready = int(d.Status.ReadyReplicas)
 	stateCount.Available = int(d.Status.AvailableReplicas)
 	stateCount.Unavailable = int(d.Status.UnavailableReplicas)
+
+	status.mutex.Lock()
+	defer status.mutex.Unlock()
+
 	status.PodState[name] = stateCount
 
 	notReady := stateCount.Desired - stateCount.Ready
@@ -198,6 +211,10 @@ func (k *K8sStatusCollector) daemonSetStatus(ctx context.Context, status *Status
 	stateCount.Ready = int(daemonSet.Status.NumberReady)
 	stateCount.Available = int(daemonSet.Status.NumberAvailable)
 	stateCount.Unavailable = int(daemonSet.Status.NumberUnavailable)
+
+	status.mutex.Lock()
+	defer status.mutex.Unlock()
+
 	status.PodState[name] = stateCount
 
 	notReady := int(daemonSet.Status.DesiredNumberScheduled) - int(daemonSet.Status.NumberReady)
@@ -311,97 +328,195 @@ retry:
 	return mostRecentStatus, nil
 }
 
+type statusTask struct {
+	name string
+	task func(_ context.Context) error
+}
+
 func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 	status := newStatus()
+	tasks := []statusTask{
+		{
+			name: defaults.AgentDaemonSetName,
+			task: func(_ context.Context) error {
+				err := k.daemonSetStatus(ctx, status, defaults.AgentDaemonSetName)
+				status.mutex.Lock()
+				defer status.mutex.Unlock()
 
-	err := k.daemonSetStatus(ctx, status, defaults.AgentDaemonSetName)
-	if err != nil {
-		status.AddAggregatedError(defaults.AgentDaemonSetName, defaults.AgentDaemonSetName, err)
-		status.CollectionError(err)
+				if err != nil {
+					status.AddAggregatedError(defaults.AgentDaemonSetName, defaults.AgentDaemonSetName, err)
+					status.CollectionError(err)
+				}
+
+				return err
+			},
+		},
+		{
+			name: defaults.OperatorDeploymentName,
+			task: func(_ context.Context) error {
+				disabled, err := k.deploymentStatus(ctx, status, defaults.OperatorDeploymentName)
+				status.mutex.Lock()
+				defer status.mutex.Unlock()
+
+				status.SetDisabled(defaults.OperatorDeploymentName, defaults.OperatorDeploymentName, disabled)
+
+				if err != nil {
+					status.AddAggregatedError(defaults.OperatorDeploymentName, defaults.OperatorDeploymentName, err)
+					status.CollectionError(err)
+				}
+
+				err = k.podStatus(ctx, status, defaults.OperatorDeploymentName, "name=cilium-operator", nil)
+				return err
+			},
+		},
+		{
+			name: defaults.RelayDeploymentName,
+			task: func(_ context.Context) error {
+				disabled, err := k.deploymentStatus(ctx, status, defaults.RelayDeploymentName)
+				status.mutex.Lock()
+				defer status.mutex.Unlock()
+
+				status.SetDisabled(defaults.RelayDeploymentName, defaults.RelayDeploymentName, disabled)
+
+				if err != nil {
+					if _, ok := status.PodState[defaults.RelayDeploymentName]; !ok {
+						status.AddAggregatedWarning(defaults.RelayDeploymentName, defaults.RelayDeploymentName, fmt.Errorf("hubble relay is not deployed"))
+					} else {
+						status.AddAggregatedError(defaults.RelayDeploymentName, defaults.RelayDeploymentName, err)
+						status.CollectionError(err)
+					}
+				}
+
+				// pod status for relay is only validated if the deployment exists
+				if _, ok := status.PodState[defaults.RelayDeploymentName]; ok {
+					err = k.podStatus(ctx, status, defaults.RelayDeploymentName, "k8s-app=hubble-relay", nil)
+					if err != nil {
+						status.mutex.Lock()
+						defer status.mutex.Unlock()
+						status.CollectionError(err)
+					}
+				}
+
+				return nil
+			},
+		},
+		{
+			name: defaults.HubbleUIDeploymentName,
+			task: func(_ context.Context) error {
+				disabled, err := k.deploymentStatus(ctx, status, defaults.HubbleUIDeploymentName)
+				status.mutex.Lock()
+				defer status.mutex.Unlock()
+
+				status.SetDisabled(defaults.HubbleUIDeploymentName, defaults.HubbleUIDeploymentName, disabled)
+
+				if err != nil {
+					if _, ok := status.PodState[defaults.HubbleUIDeploymentName]; !ok {
+						status.AddAggregatedWarning(defaults.HubbleUIDeploymentName, defaults.HubbleUIDeploymentName, fmt.Errorf("hubble ui is not deployed"))
+					} else {
+						status.AddAggregatedError(defaults.HubbleUIDeploymentName, defaults.HubbleUIDeploymentName, err)
+						status.CollectionError(err)
+					}
+				}
+
+				// pod status for UI is only validated if the deployment exists
+				if _, ok := status.PodState[defaults.HubbleUIDeploymentName]; ok {
+					err = k.podStatus(ctx, status, defaults.HubbleUIDeploymentName, "k8s-app=hubble-ui", nil)
+					if err != nil {
+						status.mutex.Lock()
+						defer status.mutex.Unlock()
+						status.CollectionError(err)
+					}
+				}
+
+				return nil
+			},
+		},
+		{
+			name: defaults.ClusterMeshDeploymentName,
+			task: func(_ context.Context) error {
+				disabled, err := k.deploymentStatus(ctx, status, defaults.ClusterMeshDeploymentName)
+				status.mutex.Lock()
+				defer status.mutex.Unlock()
+
+				status.SetDisabled(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, disabled)
+				if err != nil {
+					if _, ok := status.PodState[defaults.ClusterMeshDeploymentName]; !ok {
+						status.AddAggregatedWarning(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, fmt.Errorf("clustermesh is not deployed"))
+					} else {
+						status.AddAggregatedError(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, err)
+						status.CollectionError(err)
+					}
+				}
+
+				// pod status for relay is only validated if the deployment exists
+				if _, ok := status.PodState[defaults.ClusterMeshDeploymentName]; ok {
+					err = k.podStatus(ctx, status, defaults.ClusterMeshDeploymentName, "k8s-app=clustermesh-apiserver", nil)
+					if err != nil {
+						status.mutex.Lock()
+						defer status.mutex.Unlock()
+						status.CollectionError(err)
+					}
+				}
+
+				return nil
+			},
+		},
+		{
+			name: defaults.HubbleUIDeploymentName,
+			task: func(_ context.Context) error {
+				err := k.podCount(ctx, status)
+				if err != nil {
+					status.mutex.Lock()
+					defer status.mutex.Unlock()
+
+					status.CollectionError(err)
+				}
+
+				return nil
+			},
+		},
 	}
 
-	err = k.podStatus(ctx, status, defaults.AgentDaemonSetName, "k8s-app=cilium", func(ctx context.Context, status *Status, name string, pod *corev1.Pod) {
+	err := k.podStatus(ctx, status, defaults.AgentDaemonSetName, "k8s-app=cilium", func(ctx context.Context, status *Status, name string, pod *corev1.Pod) {
 		if pod.Status.Phase == corev1.PodRunning {
-			s, err := k.client.CiliumStatus(ctx, k.params.Namespace, pod.Name)
-			status.parseStatusResponse(defaults.AgentDaemonSetName, pod.Name, s, err)
-			status.CiliumStatus[pod.Name] = s
+			tasks = append(tasks, statusTask{
+				name: pod.Name,
+				task: func(_ context.Context) error {
+					s, err := k.client.CiliumStatus(ctx, k.params.Namespace, pod.Name)
+					status.mutex.Lock()
+					defer status.mutex.Unlock()
+
+					status.parseStatusResponse(defaults.AgentDaemonSetName, pod.Name, s, err)
+					status.CiliumStatus[pod.Name] = s
+
+					return nil
+				},
+			})
 		}
 	})
+
 	if err != nil {
 		status.CollectionError(err)
 	}
 
-	disabled, err := k.deploymentStatus(ctx, status, defaults.OperatorDeploymentName)
-	status.SetDisabled(defaults.OperatorDeploymentName, defaults.OperatorDeploymentName, disabled)
+	wc := k.params.WorkerCount
+	if wc < 1 {
+		wc = DefaultWorkerCount
+	}
+
+	wp := workerpool.New(wc)
+	for _, task := range tasks {
+		if err := wp.Submit(task.name, task.task); err != nil {
+			status.CollectionError(err)
+		}
+	}
+
+	_, err = wp.Drain()
 	if err != nil {
-		status.AddAggregatedError(defaults.OperatorDeploymentName, defaults.OperatorDeploymentName, err)
 		status.CollectionError(err)
 	}
 
-	err = k.podStatus(ctx, status, defaults.OperatorDeploymentName, "name=cilium-operator", nil)
-	if err != nil {
-		status.CollectionError(err)
-	}
-
-	disabled, err = k.deploymentStatus(ctx, status, defaults.RelayDeploymentName)
-	status.SetDisabled(defaults.RelayDeploymentName, defaults.RelayDeploymentName, disabled)
-	if err != nil {
-		if _, ok := status.PodState[defaults.RelayDeploymentName]; !ok {
-			status.AddAggregatedWarning(defaults.RelayDeploymentName, defaults.RelayDeploymentName, fmt.Errorf("hubble relay is not deployed"))
-		} else {
-			status.AddAggregatedError(defaults.RelayDeploymentName, defaults.RelayDeploymentName, err)
-			status.CollectionError(err)
-		}
-	}
-
-	// pod status for relay is only validated if the deployment exists
-	if _, ok := status.PodState[defaults.RelayDeploymentName]; ok {
-		err = k.podStatus(ctx, status, defaults.RelayDeploymentName, "k8s-app=hubble-relay", nil)
-		if err != nil {
-			status.CollectionError(err)
-		}
-	}
-
-	disabled, err = k.deploymentStatus(ctx, status, defaults.HubbleUIDeploymentName)
-	status.SetDisabled(defaults.HubbleUIDeploymentName, defaults.HubbleUIDeploymentName, disabled)
-	if err != nil {
-		if _, ok := status.PodState[defaults.HubbleUIDeploymentName]; !ok {
-			status.AddAggregatedWarning(defaults.HubbleUIDeploymentName, defaults.HubbleUIDeploymentName, fmt.Errorf("hubble ui is not deployed"))
-		} else {
-			status.AddAggregatedError(defaults.HubbleUIDeploymentName, defaults.HubbleUIDeploymentName, err)
-			status.CollectionError(err)
-		}
-	}
-
-	// pod status for UI is only validated if the deployment exists
-	if _, ok := status.PodState[defaults.HubbleUIDeploymentName]; ok {
-		err = k.podStatus(ctx, status, defaults.HubbleUIDeploymentName, "k8s-app=hubble-ui", nil)
-		if err != nil {
-			status.CollectionError(err)
-		}
-	}
-
-	disabled, err = k.deploymentStatus(ctx, status, defaults.ClusterMeshDeploymentName)
-	status.SetDisabled(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, disabled)
-	if err != nil {
-		if _, ok := status.PodState[defaults.ClusterMeshDeploymentName]; !ok {
-			status.AddAggregatedWarning(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, fmt.Errorf("clustermesh is not deployed"))
-		} else {
-			status.AddAggregatedError(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, err)
-			status.CollectionError(err)
-		}
-	}
-
-	// pod status for relay is only validated if the deployment exists
-	if _, ok := status.PodState[defaults.ClusterMeshDeploymentName]; ok {
-		err = k.podStatus(ctx, status, defaults.ClusterMeshDeploymentName, "k8s-app=clustermesh-apiserver", nil)
-		if err != nil {
-			status.CollectionError(err)
-		}
-	}
-
-	err = k.podCount(ctx, status)
-	if err != nil {
+	if err := wp.Close(); err != nil {
 		status.CollectionError(err)
 	}
 
