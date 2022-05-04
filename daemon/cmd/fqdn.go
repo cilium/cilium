@@ -692,7 +692,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 
 	nameMatcher := func(name string) bool { return true }
 	if matchPatternStr != "" {
-		matcher, err := matchpattern.Validate(matchpattern.Sanitize(matchPatternStr))
+		matcher, err := matchpattern.ValidateWithoutCache(matchpattern.Sanitize(matchPatternStr))
 		if err != nil {
 			return nil, err
 		}
@@ -754,7 +754,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, matchPatternStr string) (namesToRegen []string, err error) {
 	var nameMatcher *regexp.Regexp // nil matches all in our implementation
 	if matchPatternStr != "" {
-		nameMatcher, err = matchpattern.Validate(matchPatternStr)
+		nameMatcher, err = matchpattern.ValidateWithoutCache(matchPatternStr)
 		if err != nil {
 			return nil, err
 		}
