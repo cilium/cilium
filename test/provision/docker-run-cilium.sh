@@ -52,7 +52,7 @@ if [ -n "$(${SUDO} docker ps -a -q -f label=app=cilium)" ]; then
 fi
 
 echo "Launching Cilium agent $CILIUM_IMAGE with params $CILIUM_OPTS"
-${SUDO} docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE cilium-agent $CILIUM_OPTS
+${SUDO} docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE /bin/bash -c "groupadd -f cilium && cilium-agent $CILIUM_OPTS"
 
 # Copy Cilium CLI
 ${SUDO} docker cp cilium:/usr/bin/cilium /usr/bin/

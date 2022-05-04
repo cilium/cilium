@@ -81,8 +81,7 @@ ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
-RUN groupadd -f cilium \
-    && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
+RUN echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 COPY --from=cilium-envoy / /
 # When used within the Cilium container, Hubble CLI should target the
 # local unix domain socket instead of Hubble Relay.
