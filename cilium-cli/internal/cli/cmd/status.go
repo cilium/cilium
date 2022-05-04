@@ -40,6 +40,9 @@ func newCmdStatus() *cobra.Command {
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for status to report success (no errors and warnings)")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
 	cmd.Flags().BoolVar(&params.IgnoreWarnings, "ignore-warnings", false, "Ignore warnings when waiting for status to report success")
+	cmd.Flags().IntVar(&params.WorkerCount,
+		"worker-count", status.DefaultWorkerCount,
+		"The number of workers to use")
 
 	return cmd
 }
