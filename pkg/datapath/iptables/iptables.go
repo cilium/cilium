@@ -16,12 +16,18 @@ package iptables
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
+	"github.com/mattn/go-shellwords"
+	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -37,10 +43,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/versioncheck"
-
-	"github.com/blang/semver/v4"
-	"github.com/mattn/go-shellwords"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -801,6 +803,33 @@ func (m *IptablesManager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) 
 }
 
 func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
+	backoff := backoff.Exponential{
+		Min:  20 * time.Second,
+		Max:  3 * time.Minute,
+		Name: "iptables-proxy-rules-installer",
+	}
+
+	maxAttempts := 3
+	attempt := 0
+
+	for {
+		attempt += 1
+		err := m.doInstallProxyRules(proxyPort, ingress, name)
+		if err == nil {
+			log.Info("Iptables proxy rules installed")
+			return nil
+		}
+
+		if attempt == maxAttempts {
+			return fmt.Errorf("failed to install iptables proxy rules: %w", err)
+		}
+
+		log.WithError(err).Warning("Failed to install iptables proxy rules")
+		backoff.Wait(context.TODO())
+	}
+}
+
+func (m *IptablesManager) doInstallProxyRules(proxyPort uint16, ingress bool, name string) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -1112,6 +1141,33 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
 func (m *IptablesManager) InstallRules(ifName string, firstInitialization, install bool) error {
+	backoff := backoff.Exponential{
+		Min:  20 * time.Second,
+		Max:  3 * time.Minute,
+		Name: "iptables-rules-installer",
+	}
+
+	maxAttempts := 3
+	attempt := 0
+
+	for {
+		attempt += 1
+		err := m.doInstallRules(ifName, firstInitialization, install)
+		if err == nil {
+			log.Info("Iptables rules installed")
+			return nil
+		}
+
+		if attempt == maxAttempts {
+			return fmt.Errorf("failed to install iptables rules: %w", err)
+		}
+
+		log.WithError(err).Warning("Failed to install iptables rules")
+		backoff.Wait(context.TODO())
+	}
+}
+
+func (m *IptablesManager) doInstallRules(ifName string, firstInitialization, install bool) error {
 	m.Lock()
 	defer m.Unlock()
 
