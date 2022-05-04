@@ -16,6 +16,7 @@ cilium bpf lb list [flags]
   -h, --help            help for list
   -o, --output string   json| yaml| jsonpath='{}'
       --revnat          List reverse NAT entries
+      --source-ranges   List all source range entries
 ```
 
 ### Options inherited from parent commands

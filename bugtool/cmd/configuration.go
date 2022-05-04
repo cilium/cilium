@@ -374,6 +374,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf lb list --revnat",
 		"cilium bpf lb list --frontends",
 		"cilium bpf lb list --backends",
+		"cilium bpf lb list --source-ranges",
 		"cilium bpf lb maglev list",
 		"cilium bpf egress list",
 		"cilium bpf vtep list",
