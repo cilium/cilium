@@ -32,10 +32,9 @@ endpoint IPs, CIDRs, and MAC addresses.
 
 .. warning::
 
-   This feature is in beta, and is currently incompatible with network policy.
-   The instructions below will specify to disable network policy in order to enable
-   the feature for getting started. This restriction will be lifted when the feature
-   graduates from beta. This work is tracked in :gh-issue:`17694`.
+   This feature is in beta, and currently, it is partially incompatible the L7 policy.
+   When a pod with an egress L7 policy sends a request to VTEP devices, the VTEP redirection
+   is bypassed. The improvement is tracked in :gh-issue:`19699`.
 
 
 Enable VXLAN Tunnel Endpoint (VTEP) integration
