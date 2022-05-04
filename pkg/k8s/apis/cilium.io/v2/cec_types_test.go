@@ -4,12 +4,11 @@
 //go:build !privileged_tests
 // +build !privileged_tests
 
-package v2alpha1
+package v2
 
 import (
 	"encoding/json"
 	"fmt"
-	"testing"
 
 	"sigs.k8s.io/yaml"
 
@@ -17,15 +16,6 @@ import (
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	. "gopkg.in/check.v1"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type CiliumV2Alpha1Suite struct{}
-
-var _ = Suite(&CiliumV2Alpha1Suite{})
 
 var (
 	envoySpec = []byte(`resources:
@@ -57,7 +47,7 @@ var (
 `)
 )
 
-func (s *CiliumV2Alpha1Suite) TestParseEnvoySpec(c *C) {
+func (s *CiliumV2Suite) TestParseEnvoySpec(c *C) {
 	// option.Config.Debug = true
 	// logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -26,9 +26,9 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) 
 	cecStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	cecController := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2alpha1().RESTClient(),
-			cilium_v2alpha1.CECPluralName, v1.NamespaceAll, fields.Everything()),
-		&cilium_v2alpha1.CiliumEnvoyConfig{},
+		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
+			cilium_v2.CECPluralName, v1.NamespaceAll, fields.Everything()),
+		&cilium_v2.CiliumEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -76,14 +76,14 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) 
 		wait.NeverStop,
 		nil,
 		cecController.HasSynced,
-		k8sAPIGroupCiliumEnvoyConfigV2Alpha1,
+		k8sAPIGroupCiliumEnvoyConfigV2,
 	)
 
 	go cecController.Run(wait.NeverStop)
-	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEnvoyConfigV2Alpha1)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEnvoyConfigV2)
 }
 
-func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig) error {
+func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: cec.ObjectMeta.Name,
 		logfields.K8sNamespace:          cec.ObjectMeta.Namespace,
@@ -133,7 +133,7 @@ func getServiceName(resourceName service.Name, name, namespace string, isFronten
 	return service.Name{Name: name, Namespace: namespace}
 }
 
-func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.Name, spec *cilium_v2alpha1.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
+func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.Name, spec *cilium_v2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
 	// Redirect k8s services to an Envoy listener
 	for _, svc := range spec.Services {
 		// Find the listener the service is to be redirected to
@@ -171,7 +171,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.Name, spec *cil
 	return nil
 }
 
-func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2alpha1.CiliumEnvoyConfig, newCEC *cilium_v2alpha1.CiliumEnvoyConfig) error {
+func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig, newCEC *cilium_v2.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: newCEC.ObjectMeta.Name,
 		logfields.K8sNamespace:          newCEC.ObjectMeta.Namespace,
@@ -212,8 +212,8 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2alpha1.CiliumEnvoy
 	return nil
 }
 
-func (k *K8sWatcher) removeK8sServiceRedirects(resourceName service.Name, oldSpec, newSpec *cilium_v2alpha1.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
-	removedServices := []*cilium_v2alpha1.ServiceListener{}
+func (k *K8sWatcher) removeK8sServiceRedirects(resourceName service.Name, oldSpec, newSpec *cilium_v2.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
+	removedServices := []*cilium_v2.ServiceListener{}
 	for _, oldSvc := range oldSpec.Services {
 		found := false
 		for _, newSvc := range newSpec.Services {
@@ -245,7 +245,7 @@ func (k *K8sWatcher) removeK8sServiceRedirects(resourceName service.Name, oldSpe
 			return err
 		}
 	}
-	removedBackendServices := []*cilium_v2alpha1.Service{}
+	removedBackendServices := []*cilium_v2.Service{}
 	for _, oldSvc := range oldSpec.BackendServices {
 		found := false
 		for _, newSvc := range newSpec.BackendServices {
@@ -270,7 +270,7 @@ func (k *K8sWatcher) removeK8sServiceRedirects(resourceName service.Name, oldSpe
 	return nil
 }
 
-func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig) error {
+func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: cec.ObjectMeta.Name,
 		logfields.K8sNamespace:          cec.ObjectMeta.Namespace,
@@ -301,7 +301,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyCon
 	return nil
 }
 
-func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName service.Name, spec *cilium_v2alpha1.CiliumEnvoyConfigSpec) error {
+func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName service.Name, spec *cilium_v2.CiliumEnvoyConfigSpec) error {
 	for _, svc := range spec.Services {
 		// Tell service manager to remove old service redirection
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)

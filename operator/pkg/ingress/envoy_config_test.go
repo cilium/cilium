@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -30,7 +30,7 @@ import (
 func Test_getBackendServices(t *testing.T) {
 	services := getBackendServices(baseIngress.DeepCopy())
 	assert.Len(t, services, 3)
-	assert.Equal(t, services, []*v2alpha1.Service{
+	assert.Equal(t, services, []*v2.Service{
 		{
 			Name:      "another-dummy-backend",
 			Namespace: "dummy-namespace",
@@ -212,7 +212,7 @@ func Test_getEnvoyConfigForIngress(t *testing.T) {
 	assert.Equal(t, "dummy-namespace", cec.Namespace)
 
 	// check services
-	assert.Equal(t, []*v2alpha1.ServiceListener{
+	assert.Equal(t, []*v2.ServiceListener{
 		{
 			Name:      "cilium-ingress-dummy-ingress",
 			Namespace: "dummy-namespace",
@@ -221,11 +221,11 @@ func Test_getEnvoyConfigForIngress(t *testing.T) {
 	}, cec.Spec.Services)
 
 	// check backendServices
-	assert.Contains(t, cec.Spec.BackendServices, &v2alpha1.Service{
+	assert.Contains(t, cec.Spec.BackendServices, &v2.Service{
 		Name:      "dummy-backend",
 		Namespace: "dummy-namespace",
 	})
-	assert.Contains(t, cec.Spec.BackendServices, &v2alpha1.Service{
+	assert.Contains(t, cec.Spec.BackendServices, &v2.Service{
 		Name:      "another-dummy-backend",
 		Namespace: "dummy-namespace",
 	})

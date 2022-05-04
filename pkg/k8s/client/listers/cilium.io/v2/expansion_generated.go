@@ -5,6 +5,10 @@
 
 package v2
 
+// CiliumClusterwideEnvoyConfigListerExpansion allows custom methods to be added to
+// CiliumClusterwideEnvoyConfigLister.
+type CiliumClusterwideEnvoyConfigListerExpansion interface{}
+
 // CiliumClusterwideNetworkPolicyListerExpansion allows custom methods to be added to
 // CiliumClusterwideNetworkPolicyLister.
 type CiliumClusterwideNetworkPolicyListerExpansion interface{}
@@ -16,6 +20,14 @@ type CiliumEndpointListerExpansion interface{}
 // CiliumEndpointNamespaceListerExpansion allows custom methods to be added to
 // CiliumEndpointNamespaceLister.
 type CiliumEndpointNamespaceListerExpansion interface{}
+
+// CiliumEnvoyConfigListerExpansion allows custom methods to be added to
+// CiliumEnvoyConfigLister.
+type CiliumEnvoyConfigListerExpansion interface{}
+
+// CiliumEnvoyConfigNamespaceListerExpansion allows custom methods to be added to
+// CiliumEnvoyConfigNamespaceLister.
+type CiliumEnvoyConfigNamespaceListerExpansion interface{}
 
 // CiliumExternalWorkloadListerExpansion allows custom methods to be added to
 // CiliumExternalWorkloadLister.

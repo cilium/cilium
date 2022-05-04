@@ -13,10 +13,6 @@ type CiliumBGPLoadBalancerIPPoolListerExpansion interface{}
 // CiliumBGPPeeringPolicyLister.
 type CiliumBGPPeeringPolicyListerExpansion interface{}
 
-// CiliumClusterwideEnvoyConfigListerExpansion allows custom methods to be added to
-// CiliumClusterwideEnvoyConfigLister.
-type CiliumClusterwideEnvoyConfigListerExpansion interface{}
-
 // CiliumEgressNATPolicyListerExpansion allows custom methods to be added to
 // CiliumEgressNATPolicyLister.
 type CiliumEgressNATPolicyListerExpansion interface{}
@@ -24,11 +20,3 @@ type CiliumEgressNATPolicyListerExpansion interface{}
 // CiliumEndpointSliceListerExpansion allows custom methods to be added to
 // CiliumEndpointSliceLister.
 type CiliumEndpointSliceListerExpansion interface{}
-
-// CiliumEnvoyConfigListerExpansion allows custom methods to be added to
-// CiliumEnvoyConfigLister.
-type CiliumEnvoyConfigListerExpansion interface{}
-
-// CiliumEnvoyConfigNamespaceListerExpansion allows custom methods to be added to
-// CiliumEnvoyConfigNamespaceLister.
-type CiliumEnvoyConfigNamespaceListerExpansion interface{}

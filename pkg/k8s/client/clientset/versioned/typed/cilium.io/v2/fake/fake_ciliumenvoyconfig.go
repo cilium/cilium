@@ -8,7 +8,7 @@ package fake
 import (
 	"context"
 
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -19,29 +19,29 @@ import (
 
 // FakeCiliumEnvoyConfigs implements CiliumEnvoyConfigInterface
 type FakeCiliumEnvoyConfigs struct {
-	Fake *FakeCiliumV2alpha1
+	Fake *FakeCiliumV2
 	ns   string
 }
 
-var ciliumenvoyconfigsResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumenvoyconfigs"}
+var ciliumenvoyconfigsResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumenvoyconfigs"}
 
-var ciliumenvoyconfigsKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2alpha1", Kind: "CiliumEnvoyConfig"}
+var ciliumenvoyconfigsKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumEnvoyConfig"}
 
 // Get takes name of the ciliumEnvoyConfig, and returns the corresponding ciliumEnvoyConfig object, and an error if there is any.
-func (c *FakeCiliumEnvoyConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumEnvoyConfig, err error) {
+func (c *FakeCiliumEnvoyConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumEnvoyConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(ciliumenvoyconfigsResource, c.ns, name), &v2alpha1.CiliumEnvoyConfig{})
+		Invokes(testing.NewGetAction(ciliumenvoyconfigsResource, c.ns, name), &v2.CiliumEnvoyConfig{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2alpha1.CiliumEnvoyConfig), err
+	return obj.(*v2.CiliumEnvoyConfig), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumEnvoyConfigs that match those selectors.
-func (c *FakeCiliumEnvoyConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumEnvoyConfigList, err error) {
+func (c *FakeCiliumEnvoyConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumEnvoyConfigList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(ciliumenvoyconfigsResource, ciliumenvoyconfigsKind, c.ns, opts), &v2alpha1.CiliumEnvoyConfigList{})
+		Invokes(testing.NewListAction(ciliumenvoyconfigsResource, ciliumenvoyconfigsKind, c.ns, opts), &v2.CiliumEnvoyConfigList{})
 
 	if obj == nil {
 		return nil, err
@@ -51,8 +51,8 @@ func (c *FakeCiliumEnvoyConfigs) List(ctx context.Context, opts v1.ListOptions) 
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v2alpha1.CiliumEnvoyConfigList{ListMeta: obj.(*v2alpha1.CiliumEnvoyConfigList).ListMeta}
-	for _, item := range obj.(*v2alpha1.CiliumEnvoyConfigList).Items {
+	list := &v2.CiliumEnvoyConfigList{ListMeta: obj.(*v2.CiliumEnvoyConfigList).ListMeta}
+	for _, item := range obj.(*v2.CiliumEnvoyConfigList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -68,31 +68,31 @@ func (c *FakeCiliumEnvoyConfigs) Watch(ctx context.Context, opts v1.ListOptions)
 }
 
 // Create takes the representation of a ciliumEnvoyConfig and creates it.  Returns the server's representation of the ciliumEnvoyConfig, and an error, if there is any.
-func (c *FakeCiliumEnvoyConfigs) Create(ctx context.Context, ciliumEnvoyConfig *v2alpha1.CiliumEnvoyConfig, opts v1.CreateOptions) (result *v2alpha1.CiliumEnvoyConfig, err error) {
+func (c *FakeCiliumEnvoyConfigs) Create(ctx context.Context, ciliumEnvoyConfig *v2.CiliumEnvoyConfig, opts v1.CreateOptions) (result *v2.CiliumEnvoyConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(ciliumenvoyconfigsResource, c.ns, ciliumEnvoyConfig), &v2alpha1.CiliumEnvoyConfig{})
+		Invokes(testing.NewCreateAction(ciliumenvoyconfigsResource, c.ns, ciliumEnvoyConfig), &v2.CiliumEnvoyConfig{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2alpha1.CiliumEnvoyConfig), err
+	return obj.(*v2.CiliumEnvoyConfig), err
 }
 
 // Update takes the representation of a ciliumEnvoyConfig and updates it. Returns the server's representation of the ciliumEnvoyConfig, and an error, if there is any.
-func (c *FakeCiliumEnvoyConfigs) Update(ctx context.Context, ciliumEnvoyConfig *v2alpha1.CiliumEnvoyConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumEnvoyConfig, err error) {
+func (c *FakeCiliumEnvoyConfigs) Update(ctx context.Context, ciliumEnvoyConfig *v2.CiliumEnvoyConfig, opts v1.UpdateOptions) (result *v2.CiliumEnvoyConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(ciliumenvoyconfigsResource, c.ns, ciliumEnvoyConfig), &v2alpha1.CiliumEnvoyConfig{})
+		Invokes(testing.NewUpdateAction(ciliumenvoyconfigsResource, c.ns, ciliumEnvoyConfig), &v2.CiliumEnvoyConfig{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2alpha1.CiliumEnvoyConfig), err
+	return obj.(*v2.CiliumEnvoyConfig), err
 }
 
 // Delete takes name of the ciliumEnvoyConfig and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumEnvoyConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(ciliumenvoyconfigsResource, c.ns, name, opts), &v2alpha1.CiliumEnvoyConfig{})
+		Invokes(testing.NewDeleteActionWithOptions(ciliumenvoyconfigsResource, c.ns, name, opts), &v2.CiliumEnvoyConfig{})
 
 	return err
 }
@@ -101,17 +101,17 @@ func (c *FakeCiliumEnvoyConfigs) Delete(ctx context.Context, name string, opts v
 func (c *FakeCiliumEnvoyConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(ciliumenvoyconfigsResource, c.ns, listOpts)
 
-	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumEnvoyConfigList{})
+	_, err := c.Fake.Invokes(action, &v2.CiliumEnvoyConfigList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched ciliumEnvoyConfig.
-func (c *FakeCiliumEnvoyConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumEnvoyConfig, err error) {
+func (c *FakeCiliumEnvoyConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumEnvoyConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(ciliumenvoyconfigsResource, c.ns, name, pt, data, subresources...), &v2alpha1.CiliumEnvoyConfig{})
+		Invokes(testing.NewPatchSubresourceAction(ciliumenvoyconfigsResource, c.ns, name, pt, data, subresources...), &v2.CiliumEnvoyConfig{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2alpha1.CiliumEnvoyConfig), err
+	return obj.(*v2.CiliumEnvoyConfig), err
 }
