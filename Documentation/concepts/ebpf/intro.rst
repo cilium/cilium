@@ -31,7 +31,7 @@ hook see :ref:`bpf_guide`.
   of the packet. The hook is run before the L3 layer of the stack but has
   access to most of the metadata associated with a packet. This is ideal
   for doing local node processing, such as applying L3/L4 endpoint policy
-  and redirecting traffic to endpoints. For networking facing devices the
+  and redirecting traffic to endpoints. For network-facing devices the
   tc ingress hook can be coupled with above XDP hook. When this is done it
   is reasonable to assume that the majority of the traffic at this
   point is legitimate and destined for the host.
@@ -69,7 +69,7 @@ a userspace proxy (Envoy) Cilium creates the following networking objects.
   extended as needed to build in new prefilter criteria/capabilities.
 
 * **Endpoint Policy:** The endpoint policy object implements the Cilium endpoint enforcement.
-  Using a map to lookup a packets associated identity and policy this layer
+  Using a map to lookup a packet's associated identity and policy, this layer
   scales well to lots of endpoints. Depending on the policy this layer may drop the
   packet, forward to a local endpoint, forward to the service object or forward to the
   L7 Policy object for further L7 rules. This is the primary object in the Cilium
@@ -99,8 +99,8 @@ a userspace proxy (Envoy) Cilium creates the following networking objects.
   it is passed to the next layer either by sending it to the Linux stack for
   routing or doing a direct tail call if an overlay is in use.
 
-* **Socket Layer Enforcement:** Socket layer enforcement use two
-  hooks the socket operations hook and the socket send/recv hook to monitor
+* **Socket Layer Enforcement:** Socket layer enforcement uses two
+  hooks (the socket operations hook and the socket send/recv hook) to monitor
   and attach to all TCP sockets associated with Cilium managed endpoints, including
   any L7 proxies. The socket operations hook
   will identify candidate sockets for accelerating. These include all local node connections
@@ -112,7 +112,7 @@ a userspace proxy (Envoy) Cilium creates the following networking objects.
   peer socket. This is allowed because the sockmap send/recv hooks ensures the message
   will not need to be processed by any of the objects above.
 
-* **L7 Policy:** The L7 Policy object redirect proxy traffic to a Cilium userspace
+* **L7 Policy:** The L7 Policy object redirects proxy traffic to a Cilium userspace
   proxy instance. Cilium uses an Envoy instance as its userspace proxy. Envoy will
   then either forward the traffic or generate appropriate reject messages based on the configured L7 policy.
 

@@ -59,6 +59,7 @@ that special label with the endpoint's labels and allocates a proper identity
 to the endpoint.
 
 This may occur during endpoint creation in the following cases:
+
 * Running Cilium with docker via libnetwork
 * With Kubernetes when the Kubernetes API server is not available
 * In etcd mode when the corresponding kvstore is not available
