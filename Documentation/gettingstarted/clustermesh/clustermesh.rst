@@ -43,7 +43,7 @@ Specify the Cluster Name and ID
 ===============================
 
 Each cluster must be assigned a unique human-readable name as well as a numeric
-cluster ID (0-255). It is best to assign both these attributes at installation
+cluster ID (1-255). It is best to assign both these attributes at installation
 time of Cilium:
 
  * ConfigMap options ``cluster-name`` and ``cluster-id``
