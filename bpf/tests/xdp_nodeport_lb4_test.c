@@ -32,7 +32,7 @@ struct {
 	__array(values, int());
 } entry_call_map __section(".maps") = {
 	.values = {
-		[0] = &bpf_xdp_entry,
+		[0] = &cil_xdp_entry,
 	},
 };
 
