@@ -349,10 +349,9 @@ type ProxyRequestContext struct {
 
 // IsTimeout return true if the ProxyRequest timeout
 func (proxyStat *ProxyRequestContext) IsTimeout() bool {
-	netErr, isNetErr := proxyStat.Err.(net.Error)
-	if isNetErr && netErr.Timeout() {
-		return true
-
+	var neterr net.Error
+	if errors.As(proxyStat.Err, &neterr) {
+		return neterr.Timeout()
 	}
 	return false
 }
@@ -536,7 +535,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	addr, _, err := net.SplitHostPort(epIPPort)
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint IP from DNS request")
-		stat.Err = fmt.Errorf("Cannot extract endpoint IP from DNS request: %s", err)
+		stat.Err = fmt.Errorf("Cannot extract endpoint IP from DNS request: %w", err)
 		stat.ProcessingTime.End(false)
 		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, 0, "", request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
@@ -545,7 +544,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	ep, err := p.LookupEndpointByIP(net.ParseIP(addr))
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint ID from DNS request")
-		stat.Err = fmt.Errorf("Cannot extract endpoint ID from DNS request: %s", err)
+		stat.Err = fmt.Errorf("Cannot extract endpoint ID from DNS request: %w", err)
 		stat.ProcessingTime.End(false)
 		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, 0, "", request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
@@ -557,7 +556,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	targetServerIP, targetServerPort, targetServerAddr, err := p.lookupTargetDNSServer(w)
 	if err != nil {
 		log.WithError(err).Error("cannot extract destination IP:port from DNS request")
-		stat.Err = fmt.Errorf("Cannot extract destination IP:port from DNS request: %s", err)
+		stat.Err = fmt.Errorf("Cannot extract destination IP:port from DNS request: %w", err)
 		stat.ProcessingTime.End(false)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, 0, targetServerAddr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
@@ -581,7 +580,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	switch {
 	case err != nil:
 		scopedLog.WithError(err).Error("Rejecting DNS query from endpoint due to error")
-		stat.Err = fmt.Errorf("Rejecting DNS query from endpoint due to error: %s", err)
+		stat.Err = fmt.Errorf("Rejecting DNS query from endpoint due to error: %w", err)
 		stat.ProcessingTime.End(false)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
@@ -608,7 +607,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		client = p.TCPClient
 	default:
 		scopedLog.Error("Cannot parse DNS proxy client network to select forward client")
-		stat.Err = fmt.Errorf("Cannot parse DNS proxy client network to select forward client: %s", err)
+		stat.Err = fmt.Errorf("Cannot parse DNS proxy client network to select forward client: %w", err)
 		stat.ProcessingTime.End(false)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
@@ -627,7 +626,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		} else {
 			scopedLog.WithError(err).Error("Cannot forward proxied DNS lookup")
 			p.sendRefused(scopedLog, w, request)
-			stat.Err = fmt.Errorf("Cannot forward proxied DNS lookup: %s", err)
+			stat.Err = fmt.Errorf("Cannot forward proxied DNS lookup: %w", err)
 		}
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
 		return
@@ -646,7 +645,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	err = w.WriteMsg(response)
 	if err != nil {
 		scopedLog.WithError(err).Error("Cannot forward proxied DNS response")
-		stat.Err = fmt.Errorf("Cannot forward proxied DNS response: %s", err)
+		stat.Err = fmt.Errorf("Cannot forward proxied DNS response: %w", err)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, response, protocol, true, &stat)
 	} else {
 		p.Lock()
@@ -665,7 +664,7 @@ func (p *DNSProxy) sendRefused(scopedLog *logrus.Entry, w dns.ResponseWriter, re
 
 	if err = w.WriteMsg(refused); err != nil {
 		scopedLog.WithError(err).Error("Cannot send REFUSED response")
-		err = fmt.Errorf("cannot send REFUSED response: %s", err)
+		err = fmt.Errorf("cannot send REFUSED response: %w", err)
 	}
 	return err
 }
