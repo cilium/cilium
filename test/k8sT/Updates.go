@@ -34,6 +34,7 @@ var (
 	l7Policy         string
 	migrateSVCClient string
 	migrateSVCServer string
+	stableChartPath  string
 )
 
 var _ = Describe("K8sUpdates", func() {
@@ -94,6 +95,20 @@ var _ = Describe("K8sUpdates", func() {
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
 		ExpectAllPodsTerminated(kubectl)
+
+		// Download the stable helm chart from GitHub
+		versionPath := filepath.Join(kubectl.BasePath(), "../old-charts/%s", helpers.CiliumStableVersion)
+		stableChartPath = filepath.Join(versionPath, fmt.Sprintf("cilium-%s/install/kubernetes/cilium", helpers.CiliumStableHelmChartVersion))
+
+		cmd := kubectl.ExecMiddle(fmt.Sprintf("mkdir -p %s && "+
+			"cd %s &&"+
+			"wget https://github.com/cilium/cilium/archive/refs/heads/%s.zip &&"+
+			"unzip %s.zip",
+			versionPath,
+			versionPath,
+			helpers.CiliumStableVersion,
+			helpers.CiliumStableVersion))
+		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Unable to download helm chart %s from GitHub", helpers.CiliumStableVersion)
 	})
 
 	AfterAll(func() {
@@ -235,7 +250,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		cleanupCiliumState(filepath.Join(kubectl.BasePath(), helpers.HelmTemplate), newHelmChartVersion, "", newImageVersion, "")
 
 		By("Cleaning Cilium state (%s)", oldImageVersion)
-		cleanupCiliumState("cilium/cilium", oldHelmChartVersion, "quay.io/cilium/cilium", oldImageVersion, "")
+		cleanupCiliumState(stableChartPath, oldHelmChartVersion, "quay.io/cilium/cilium-ci", oldImageVersion, "")
 
 		By("Deploying Cilium %s", oldHelmChartVersion)
 
@@ -243,9 +258,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"image.tag":                     oldImageVersion,
 			"operator.image.tag":            oldImageVersion,
 			"hubble.relay.image.tag":        oldImageVersion,
-			"image.repository":              "quay.io/cilium/cilium",
+			"image.repository":              "quay.io/cilium/cilium-ci",
 			"operator.image.repository":     "quay.io/cilium/operator",
-			"hubble.relay.image.repository": "quay.io/cilium/hubble-relay",
+			"hubble.relay.image.repository": "quay.io/cilium/hubble-relay-ci",
 		}
 
 		// Eventually allows multiple return values, and performs the assertion
@@ -254,7 +269,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		EventuallyWithOffset(1, func() (*helpers.CmdRes, error) {
 			return kubectl.RunHelm(
 				"install",
-				"cilium/cilium",
+				stableChartPath,
 				"cilium",
 				oldHelmChartVersion,
 				helpers.CiliumNamespace,
