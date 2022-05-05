@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build privileged_tests
 // +build privileged_tests
 
 package dnsproxy
@@ -981,4 +982,15 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	c.Assert(exists, Equals, false)
 
 	s.restoring = false
+}
+
+func (s *DNSProxyTestSuite) TestProxyRequestContext_IsTimeout(c *C) {
+	p := new(ProxyRequestContext)
+	p.Err = fmt.Errorf("sample err: %w", context.DeadlineExceeded)
+	c.Assert(p.IsTimeout(), Equals, true)
+
+	// Assert that failing to wrap the error properly (by using '%w') causes
+	// IsTimeout() to return the wrong value.
+	p.Err = fmt.Errorf("sample err: %s", context.DeadlineExceeded)
+	c.Assert(p.IsTimeout(), Equals, false)
 }
