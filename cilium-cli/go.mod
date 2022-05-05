@@ -19,7 +19,7 @@ require (
 	github.com/cilium/workerpool v1.1.2
 	github.com/cloudflare/cfssl v1.6.1
 	github.com/go-openapi/strfmt v0.21.2
-	github.com/google/gops v0.3.22
+	github.com/google/gops v0.3.23
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/spf13/cobra v1.4.0
