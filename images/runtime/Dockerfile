@@ -31,7 +31,7 @@ FROM ${UBUNTU_IMAGE} as rootfs
 
 # Change the number to force the generation of a new git-tree SHA. Useful when
 # we want to re-run 'apt-get upgrade' for stale images.
-ENV FORCE_BUILD=4
+ENV FORCE_BUILD=5
 
 # Update ubuntu packages to the most recent versions
 RUN apt-get update && \
