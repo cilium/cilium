@@ -14,6 +14,8 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -126,6 +128,7 @@ type ciliumCleanup struct {
 	routes    map[int]netlink.Route
 	links     map[int]netlink.Link
 	tcFilters map[string][]*netlink.BpfFilter
+	xdpLinks  []netlink.Link
 	netNSs    []string
 	bpfOnly   bool
 }
@@ -161,8 +164,17 @@ func newCiliumCleanup(bpfOnly bool) ciliumCleanup {
 			}
 		}
 	}
+	xdpLinks := []netlink.Link{}
 
-	return ciliumCleanup{routes, ciliumLinks, tcFilters, netNSs, bpfOnly}
+	for _, link := range links {
+		if ok, err := isCiliumXDPAttachedToLink(link); ok && err == nil {
+			xdpLinks = append(xdpLinks, link)
+		} else if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		}
+	}
+
+	return ciliumCleanup{routes, ciliumLinks, tcFilters, xdpLinks, netNSs, bpfOnly}
 }
 
 func (c ciliumCleanup) whatWillBeRemoved() []string {
@@ -172,6 +184,13 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		section := "tc filters\n"
 		for linkName, f := range c.tcFilters {
 			section += fmt.Sprintf("%s %v\n", linkName, f)
+		}
+		toBeRemoved = append(toBeRemoved, section)
+	}
+	if len(c.xdpLinks) > 0 {
+		section := "xdp programs\n"
+		for _, l := range c.xdpLinks {
+			section += fmt.Sprintf("%s: xdp/prog id %v\n", l.Attrs().Name, l.Attrs().Xdp.ProgId)
 		}
 		toBeRemoved = append(toBeRemoved, section)
 	}
@@ -223,13 +242,16 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 	cleanupNamedNetNSs := func() error {
 		return removeNamedNetNSs(c.netNSs)
 	}
-
+	cleanupXDPs := func() error {
+		return removeXDPs(c.xdpLinks)
+	}
 	cleanupTCFilters := func() error {
 		return removeTCFilters(c.tcFilters)
 	}
 
 	funcs := []cleanupFunc{
 		cleanupTCFilters,
+		cleanupXDPs,
 	}
 	if !c.bpfOnly {
 		funcs = append(funcs, cleanupRoutesAndLinks)
@@ -514,4 +536,48 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 	}
 
 	return nil
+}
+
+func removeXDPs(links []netlink.Link) error {
+	for _, link := range links {
+		err := netlink.LinkSetXdpFd(link, -1)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("removed cilium xdp of %s\n", link.Attrs().Name)
+	}
+	return nil
+}
+
+func isCiliumXDPAttachedToLink(link netlink.Link) (bool, error) {
+	linkxdp := link.Attrs().Xdp
+	if linkxdp == nil || !linkxdp.Attached {
+		return false, nil
+	}
+
+	ok, err := isCiliumXDP(linkxdp.ProgId)
+	if ok && err == nil {
+		return true, nil
+	}
+
+	return false, err
+}
+
+func isCiliumXDP(progId uint32) (bool, error) {
+	xdp, err := ebpf.NewProgramFromID(ebpf.ProgramID(progId))
+	if err != nil {
+		return false, err
+	}
+
+	info, err := xdp.Info()
+	if err != nil {
+		return false, err
+	}
+
+	if strings.Contains(info.Name, "cil_xdp_entry") {
+		return true, nil
+	}
+
+	return false, nil
+
 }
