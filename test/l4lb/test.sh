@@ -101,15 +101,14 @@ ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Now steer the traffic to LB_VIP via the secondary device so that XDP_REDIRECT
 # can be tested on the L4LB node
-ip r d "${LB_VIP}/32"
-ip r a "${LB_VIP}/32" via "$SECOND_LB_NODE_IP"
+ip r replace "${LB_VIP}/32" via "$SECOND_LB_NODE_IP"
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
