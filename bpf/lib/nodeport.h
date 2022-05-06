@@ -1277,8 +1277,7 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 	int ret = CTX_ACT_OK;
 
 	if (snat_v4_needed(ctx, &target.addr, &from_endpoint))
-		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target,
-				      from_endpoint);
+		ret = snat_v4_nat(ctx, &target, from_endpoint);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -1646,7 +1645,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 */
 	target.addr = IPV4_DIRECT_ROUTING;
 
-	ret = snat_v4_process(ctx, NAT_DIR_INGRESS, &target, false);
+	ret = snat_v4_rev_nat(ctx, &target, false);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
 		 * expensive in terms of instructions (since we don't have BPF to
@@ -1738,7 +1737,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		use_tunnel = true;
 	}
 #endif
-	ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target, false);
+	ret = snat_v4_nat(ctx, &target, false);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
