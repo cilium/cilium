@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
+	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
 	gops "github.com/google/gops/agent"
@@ -79,7 +79,7 @@ func main() {
 	skel.PluginMain(cmdAdd,
 		nil,
 		cmdDel,
-		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1"),
+		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0"),
 		"Cilium CNI plugin "+version.Version)
 }
 
@@ -212,11 +212,10 @@ func newCNIRoute(r route.Route) *cniTypes.Route {
 
 func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesVer.IPConfig, []*cniTypes.Route, error) {
 	var (
-		routes    []route.Route
-		err       error
-		gw        string
-		ipVersion string
-		ip        addressing.CiliumIP
+		routes []route.Route
+		err    error
+		gw     string
+		ip     addressing.CiliumIP
 	)
 
 	if isIPv6 {
@@ -229,7 +228,6 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 		routes = state.IP6routes
 		ip = state.IP6
 		gw = connector.IPv6Gateway(state.HostAddr)
-		ipVersion = "6"
 	} else {
 		if state.IP4, err = addressing.NewCiliumIPv4(ipAddr); err != nil {
 			return nil, nil, err
@@ -240,7 +238,6 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 		routes = state.IP4routes
 		ip = state.IP4
 		gw = connector.IPv4Gateway(state.HostAddr)
-		ipVersion = "4"
 	}
 
 	rt := []*cniTypes.Route{}
@@ -256,7 +253,6 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 	return &cniTypesVer.IPConfig{
 		Address: *ip.EndpointPrefix(),
 		Gateway: gwIP,
-		Version: ipVersion,
 	}, rt, nil
 }
 

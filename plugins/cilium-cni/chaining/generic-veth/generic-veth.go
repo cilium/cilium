@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
+	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"

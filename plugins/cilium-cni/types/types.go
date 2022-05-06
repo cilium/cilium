@@ -10,7 +10,7 @@ import (
 	"os"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	current "github.com/containernetworking/cni/pkg/types/040"
+	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
 
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
