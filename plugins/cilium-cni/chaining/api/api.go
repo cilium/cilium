@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/containernetworking/cni/pkg/skel"
-	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
+	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/client"
