@@ -24,7 +24,7 @@ func init() {
 	flags.String(operatorOption.AzureUserAssignedIdentityID, "", "ID of the user assigned identity used to auth with the Azure API")
 	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureUserAssignedIdentityID, "AZURE_USER_ASSIGNED_IDENTITY_ID")
 
-	flags.Bool(operatorOption.AzureUsePrimaryAddress, true, "Use Azure IP address from interface's primary IPConfigurations")
+	flags.Bool(operatorOption.AzureUsePrimaryAddress, false, "Use Azure IP address from interface's primary IPConfigurations")
 	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureUsePrimaryAddress, "AZURE_USE_PRIMARY_ADDRESS")
 
 	viper.BindPFlags(flags)
