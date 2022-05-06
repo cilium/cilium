@@ -13,7 +13,7 @@ cilium-operator-azure [flags]
 ```
       --azure-resource-group string               Resource group to use for Azure IPAM
       --azure-subscription-id string              Subscription ID to access Azure API
-      --azure-use-primary-address                 Use Azure IP address from interface's primary IPConfigurations (default true)
+      --azure-use-primary-address                 Use Azure IP address from interface's primary IPConfigurations
       --azure-user-assigned-identity-id string    ID of the user assigned identity used to auth with the Azure API
       --bgp-announce-lb-ip                        Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
