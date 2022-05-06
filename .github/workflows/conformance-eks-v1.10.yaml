@@ -66,6 +66,7 @@ env:
   cilium_cli_version: v0.10.4
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.94.0
+  kubectl_version: v1.23.6
 
 jobs:
   check_changes:
@@ -120,6 +121,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Install pinned kubectl version
+        uses: azure/setup-kubectl@v2.0
+        id: kubectl-install
+        with:
+          version: ${{ env.kubectl_version }}
       - name: Set up job variables
         id: vars
         run: |
