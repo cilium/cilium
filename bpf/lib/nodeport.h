@@ -1621,10 +1621,56 @@ drop_err:
 }
 #endif /* ENABLE_DSR */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
-int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
+int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 {
-	enum nat_dir dir = (enum nat_dir)ctx_load_meta(ctx, CB_NAT);
+	struct ipv4_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+		.src_from_world = true,
+	};
+	int ret;
+
+	/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
+	 * So we need to assume that the direct routing device is going to be
+	 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
+	 * This will change once we have resolved GH#17158.
+	 */
+	target.addr = IPV4_DIRECT_ROUTING;
+
+	ret = snat_v4_process(ctx, NAT_DIR_INGRESS, &target, false);
+	if (IS_ERR(ret)) {
+		/* In case of no mapping, recircle back to main path. SNAT is very
+		 * expensive in terms of instructions (since we don't have BPF to
+		 * BPF calls as we use tail calls) and complexity, hence this is
+		 * done inside a tail call here.
+		 */
+		bpf_skip_nodeport_set(ctx);
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
+		ret = DROP_MISSED_TAIL_CALL;
+		goto drop_err;
+	}
+
+	bpf_mark_snat_done(ctx);
+
+	/* At this point we know that a reverse SNAT mapping exists.
+	 * Otherwise, we would have tail-called back to
+	 * CALL_IPV4_FROM_NETDEV in the code above. The existence of the
+	 * mapping is an indicator that the packet might be a reply from
+	 * a remote backend. So handle the service reverse DNAT (if
+	 * needed)
+	 */
+	ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
+	ret = DROP_MISSED_TAIL_CALL;
+	goto drop_err;
+
+ drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS)
+int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
+{
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
 			.family		= AF_INET,
@@ -1641,89 +1687,62 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	bool l2_hdr_required = true;
 	int ret, ext_err = 0;
 
+#ifdef TUNNEL_MODE
+	struct remote_endpoint_info *info;
+#endif
+
 	/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
 	 * So we need to assume that the direct routing device is going to be
 	 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
 	 * This will change once we have resolved GH#17158.
 	 */
 	target.addr = IPV4_DIRECT_ROUTING;
-#ifdef TUNNEL_MODE
-	if (dir == NAT_DIR_EGRESS) {
-		struct remote_endpoint_info *info;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
-			ret = DROP_INVALID;
+#ifdef TUNNEL_MODE
+	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+	if (info && info->tunnel_endpoint != 0) {
+		/* The dir == NAT_DIR_EGRESS branch is executed for
+		 * N/S LB requests which needs to be fwd-ed to a remote
+		 * node. As the request came from outside, we need to
+		 * set the security id in the tunnel header to WORLD_ID.
+		 * Otherwise, the remote node will assume, that the
+		 * request originated from a cluster node which will
+		 * bypass any netpol which disallows LB requests from
+		 * outside.
+		 */
+		ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
+					  WORLD_ID,
+					  NOT_VTEP_DST,
+					  (enum trace_reason)CT_NEW,
+					  TRACE_PAYLOAD_LEN);
+		if (ret)
+			goto drop_err;
+
+		target.addr = IPV4_GATEWAY;
+		fib_params.l.ifindex = ENCAP_IFINDEX;
+
+		/* fib lookup not necessary when going over tunnel. */
+		if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
 			goto drop_err;
 		}
-
-		info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
-		if (info != NULL && info->tunnel_endpoint != 0) {
-			/* The dir == NAT_DIR_EGRESS branch is executed for
-			 * N/S LB requests which needs to be fwd-ed to a remote
-			 * node. As the request came from outside, we need to
-			 * set the security id in the tunnel header to WORLD_ID.
-			 * Otherwise, the remote node will assume, that the
-			 * request originated from a cluster node which will
-			 * bypass any netpol which disallows LB requests from
-			 * outside.
-			 */
-			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  WORLD_ID,
-						  NOT_VTEP_DST,
-						  (enum trace_reason)CT_NEW,
-						  TRACE_PAYLOAD_LEN);
-			if (ret)
-				goto drop_err;
-
-			target.addr = IPV4_GATEWAY;
-			fib_params.l.ifindex = ENCAP_IFINDEX;
-
-			/* fib lookup not necessary when going over tunnel. */
-			if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
-				ret = DROP_WRITE_ERROR;
-				goto drop_err;
-			}
-			if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
-				ret = DROP_WRITE_ERROR;
-				goto drop_err;
-			}
+		if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
 		}
 	}
 #endif
-	/* Handles SNAT on NAT_DIR_EGRESS and reverse SNAT for reply packets
-	 * from remote backends on NAT_DIR_INGRESS.
-	 */
-	ret = snat_v4_process(ctx, dir, &target, false);
-	if (IS_ERR(ret)) {
-		/* In case of no mapping, recircle back to main path. SNAT is very
-		 * expensive in terms of instructions (since we don't have BPF to
-		 * BPF calls as we use tail calls) and complexity, hence this is
-		 * done inside a tail call here.
-		 */
-		if (dir == NAT_DIR_INGRESS) {
-			bpf_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-			ret = DROP_MISSED_TAIL_CALL;
-			goto drop_err;
-		}
-		if (ret != NAT_PUNT_TO_STACK)
-			goto drop_err;
-	}
+	ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target, false);
+	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
+		goto drop_err;
 
 	bpf_mark_snat_done(ctx);
 
-	if (dir == NAT_DIR_INGRESS) {
-		/* At this point we know that a reverse SNAT mapping exists.
-		 * Otherwise, we would have tail-called back to
-		 * CALL_IPV4_FROM_NETDEV in the code above. The existence of the
-		 * mapping is an indicator that the packet might be a reply from
-		 * a remote backend. So handle the service reverse DNAT (if
-		 * needed)
-		 */
-		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
-		ret = DROP_MISSED_TAIL_CALL;
-		goto drop_err;
-	}
 #ifdef TUNNEL_MODE
 	if (fib_params.l.ifindex == ENCAP_IFINDEX)
 		goto out_send;
@@ -1757,13 +1776,12 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
+
 out_send:
 	cilium_capture_out(ctx);
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
-	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
-				      dir == NAT_DIR_INGRESS ?
-				      METRIC_INGRESS : METRIC_EGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
 
 /* Main node-port entry point for host-external ingressing node-port traffic
@@ -1850,7 +1868,6 @@ skip_service_lookup:
 		if (nodeport_uses_dsr4(&tuple))
 			return CTX_ACT_OK;
 #endif
-		ctx_store_meta(ctx, CB_NAT, NAT_DIR_INGRESS);
 		ctx_store_meta(ctx, CB_SRC_IDENTITY, src_identity);
 		/* For NAT64 we might see an IPv4 reply from the backend to
 		 * the LB entering this path. Thus, transform back to IPv6.
@@ -1862,7 +1879,7 @@ skip_service_lookup:
 				return ret;
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
 		} else {
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT);
+			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS);
 		}
 		return DROP_MISSED_TAIL_CALL;
 	}
@@ -1931,8 +1948,7 @@ redo:
 #endif /* DSR_ENCAP_MODE */
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR);
 		} else {
-			ctx_store_meta(ctx, CB_NAT, NAT_DIR_EGRESS);
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT);
+			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS);
 		}
 		return DROP_MISSED_TAIL_CALL;
 	}
