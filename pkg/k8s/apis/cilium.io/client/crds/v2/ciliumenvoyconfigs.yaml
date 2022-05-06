@@ -62,6 +62,13 @@ spec:
                         the CEC, In CiliumClusterwideEnvoyConfig namespace defaults
                         to "default".
                       type: string
+                    number:
+                      description: Port is the port number, which can be used for
+                        filtering in case of underlying is exposing multiple port
+                        numbers.
+                      items:
+                        type: string
+                      type: array
                   required:
                   - name
                   type: object
