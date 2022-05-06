@@ -305,6 +305,8 @@ type BackendState uint8
 
 // Backend represents load balancer backend.
 type Backend struct {
+	// FEPortName is the frontend port name. This is used to filter backends sending to EDS.
+	FEPortName string
 	// ID of the backend
 	ID BackendID
 	// Node hosting this backend. This is used to determine backends local to

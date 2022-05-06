@@ -736,7 +736,8 @@ func genCartesianProduct(
 					backendState = loadbalancer.BackendStateTerminating
 				}
 				besValues = append(besValues, loadbalancer.Backend{
-					NodeName: backend.NodeName,
+					FEPortName: string(fePortName),
+					NodeName:   backend.NodeName,
 					L3n4Addr: loadbalancer.L3n4Addr{
 						IP:     parsedIP,
 						L4Addr: *backendPort,
