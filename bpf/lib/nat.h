@@ -516,8 +516,8 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 }
 
 static __always_inline __maybe_unused int
-snat_v4_process(struct __ctx_buff *ctx, enum nat_dir dir,
-		const struct ipv4_nat_target *target, bool from_endpoint)
+snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
+	    bool from_endpoint)
 {
 	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state, tmp;
@@ -540,7 +540,7 @@ snat_v4_process(struct __ctx_buff *ctx, enum nat_dir dir,
 	tuple.nexthdr = ip4->protocol;
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
-	tuple.flags = dir;
+	tuple.flags = NAT_DIR_EGRESS;
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
@@ -572,22 +572,95 @@ snat_v4_process(struct __ctx_buff *ctx, enum nat_dir dir,
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v4_can_skip(target, &tuple, dir, from_endpoint, icmp_echoreply))
+	if (snat_v4_can_skip(target, &tuple, NAT_DIR_EGRESS, from_endpoint, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
-	ret = snat_v4_handle_mapping(ctx, &tuple, &state, &tmp, dir, off, target);
+	ret = snat_v4_handle_mapping(ctx, &tuple, &state, &tmp, NAT_DIR_EGRESS, off, target);
 	if (ret > 0)
 		return CTX_ACT_OK;
 	if (ret < 0)
 		return ret;
 
-	return dir == NAT_DIR_EGRESS ?
-	       snat_v4_rewrite_egress(ctx, &tuple, state, off, ipv4_has_l4_header(ip4)) :
-	       snat_v4_rewrite_ingress(ctx, &tuple, state, off);
+	return snat_v4_rewrite_egress(ctx, &tuple, state, off, ipv4_has_l4_header(ip4));
+}
+
+static __always_inline __maybe_unused int
+snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
+		bool from_endpoint)
+{
+	struct icmphdr icmphdr __align_stack_8;
+	struct ipv4_nat_entry *state, tmp;
+	struct ipv4_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	struct {
+		__be16 sport;
+		__be16 dport;
+	} l4hdr;
+	bool icmp_echoreply = false;
+	__u64 off;
+	int ret;
+
+	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip4->protocol;
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+	tuple.flags = NAT_DIR_INGRESS;
+	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
+	switch (tuple.nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
+		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
+			return DROP_INVALID;
+		tuple.dport = l4hdr.dport;
+		tuple.sport = l4hdr.sport;
+		break;
+	case IPPROTO_ICMP:
+		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
+			return DROP_INVALID;
+		if (icmphdr.type != ICMP_ECHO &&
+		    icmphdr.type != ICMP_ECHOREPLY)
+			return DROP_NAT_UNSUPP_PROTO;
+		if (icmphdr.type == ICMP_ECHO) {
+			tuple.dport = 0;
+			tuple.sport = icmphdr.un.echo.id;
+		} else {
+			tuple.dport = icmphdr.un.echo.id;
+			tuple.sport = 0;
+			icmp_echoreply = true;
+		}
+		break;
+	default:
+		return NAT_PUNT_TO_STACK;
+	};
+
+	if (snat_v4_can_skip(target, &tuple, NAT_DIR_INGRESS, from_endpoint, icmp_echoreply))
+		return NAT_PUNT_TO_STACK;
+	ret = snat_v4_handle_mapping(ctx, &tuple, &state, &tmp, NAT_DIR_INGRESS, off, target);
+	if (ret > 0)
+		return CTX_ACT_OK;
+	if (ret < 0)
+		return ret;
+
+	return snat_v4_rewrite_ingress(ctx, &tuple, state, off);
 }
 #else
 static __always_inline __maybe_unused
-int snat_v4_process(struct __ctx_buff *ctx __maybe_unused,
-		    enum nat_dir dir __maybe_unused,
+int snat_v4_nat(struct __ctx_buff *ctx __maybe_unused,
+		const struct ipv4_nat_target *target __maybe_unused,
+		bool from_endpoint __maybe_unused)
+{
+	return CTX_ACT_OK;
+}
+
+static __always_inline __maybe_unused
+int snat_v4_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 		    const struct ipv4_nat_target *target __maybe_unused,
 		    bool from_endpoint __maybe_unused)
 {
