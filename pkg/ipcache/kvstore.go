@@ -217,7 +217,8 @@ func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher 
 // automatically restart as required.
 func (iw *IPIdentityWatcher) Watch(ctx context.Context) {
 
-	var scopedLog *logrus.Entry
+	scopedLog := log
+
 restart:
 	watcher := iw.backend.ListAndWatch(ctx, "endpointIPWatcher", IPIdentitiesPath, 512)
 
@@ -273,7 +274,9 @@ restart:
 				}
 				ip := ipIDPair.PrefixString()
 				if ip == "<nil>" {
-					scopedLog.Debug("Ignoring entry with nil IP")
+					if option.Config.Debug {
+						scopedLog.Debug("Ignoring entry with nil IP")
+					}
 					continue
 				}
 				var k8sMeta *K8sMetadata
