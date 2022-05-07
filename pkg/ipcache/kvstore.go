@@ -276,7 +276,9 @@ restart:
 				}
 				ip := ipIDPair.PrefixString()
 				if ip == "<nil>" {
-					scopedLog.Debug("Ignoring entry with nil IP")
+					if scopedLog != nil {
+						scopedLog.Debug("Ignoring entry with nil IP")
+					}
 					continue
 				}
 				var k8sMeta *K8sMetadata
