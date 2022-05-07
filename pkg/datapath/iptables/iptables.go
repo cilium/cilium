@@ -626,21 +626,18 @@ func (m *IptablesManager) addProxyRules(prog iptablesInterface, proxyPort uint16
 		return err
 	}
 
-	if ingress {
-		if err := m.iptIngressProxyRule(rules, prog, "tcp", proxyPort, name); err != nil {
-			return err
-		}
-		if err := m.iptIngressProxyRule(rules, prog, "udp", proxyPort, name); err != nil {
-			return err
-		}
-	} else {
-		if err := m.iptEgressProxyRule(rules, prog, "tcp", proxyPort, name); err != nil {
-			return err
-		}
-		if err := m.iptEgressProxyRule(rules, prog, "udp", proxyPort, name); err != nil {
-			return err
+	for _, proto := range []string{"tcp", "udp"} {
+		if ingress {
+			if err := m.iptIngressProxyRule(rules, prog, proto, proxyPort, name); err != nil {
+				return err
+			}
+		} else {
+			if err := m.iptEgressProxyRule(rules, prog, proto, proxyPort, name); err != nil {
+				return err
+			}
 		}
 	}
+
 	// Delete all other rules for this same proxy name
 	// These may accumulate if there is a bind failure on a previously used port
 	portMatch := fmt.Sprintf("TPROXY --on-port %d ", proxyPort)
