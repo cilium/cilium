@@ -679,67 +679,65 @@ func (m *IptablesManager) iptProxyRules(proxyPort uint16, ingress bool, name str
 	return nil
 }
 
-func (m *IptablesManager) endpointNoTrackRules(prog iptablesInterface, cmd string, IP string, port *lb.L4Addr, ingress bool) error {
+func (m *IptablesManager) endpointNoTrackRules(prog iptablesInterface, cmd string, IP string, port *lb.L4Addr) error {
 	protocol := strings.ToLower(port.Protocol)
 	p := strconv.FormatUint(uint64(port.Port), 10)
-	if ingress {
-		if err := prog.runProg([]string{
-			"-t", "raw",
-			cmd, ciliumPreRawChain,
-			"-p", protocol,
-			"-d", IP,
-			"--dport", p,
-			"-j", "NOTRACK"}); err != nil {
-			return err
-		}
-		if err := prog.runProg([]string{
-			"-t", "filter",
-			cmd, ciliumInputChain,
-			"-p", protocol,
-			"-d", IP,
-			"--dport",
-			p, "-j",
-			"ACCEPT"}); err != nil {
-			return err
-		}
-		if err := prog.runProg([]string{
-			"-t", "raw",
-			cmd, ciliumOutputRawChain,
-			"-p", protocol,
-			"-d", IP,
-			"--dport", p,
-			"-j", "NOTRACK"}); err != nil {
-			return err
-		}
-		if err := prog.runProg([]string{
-			"-t", "filter",
-			cmd, ciliumOutputChain,
-			"-p", protocol,
-			"-d", IP,
-			"--dport", p,
-			"-j", "ACCEPT"}); err != nil {
-			return err
-		}
-	} else {
-		if err := prog.runProg([]string{
-			"-t", "raw",
-			cmd, ciliumOutputRawChain,
-			"-p", protocol,
-			"-s", IP,
-			"--sport", p,
-			"-j", "NOTRACK"}); err != nil {
-			return err
-		}
-		if err := prog.runProg([]string{
-			"-t", "filter",
-			cmd, ciliumOutputChain,
-			"-p", protocol,
-			"-s", IP,
-			"--sport", p,
-			"-j", "ACCEPT"}); err != nil {
-			return err
-		}
+	if err := prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumPreRawChain,
+		"-p", protocol,
+		"-d", IP,
+		"--dport", p,
+		"-j", "NOTRACK"}); err != nil {
+		return err
 	}
+	if err := prog.runProg([]string{
+		"-t", "filter",
+		cmd, ciliumInputChain,
+		"-p", protocol,
+		"-d", IP,
+		"--dport",
+		p, "-j",
+		"ACCEPT"}); err != nil {
+		return err
+	}
+	if err := prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumOutputRawChain,
+		"-p", protocol,
+		"-d", IP,
+		"--dport", p,
+		"-j", "NOTRACK"}); err != nil {
+		return err
+	}
+	if err := prog.runProg([]string{
+		"-t", "filter",
+		cmd, ciliumOutputChain,
+		"-p", protocol,
+		"-d", IP,
+		"--dport", p,
+		"-j", "ACCEPT"}); err != nil {
+		return err
+	}
+	if err := prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumOutputRawChain,
+		"-p", protocol,
+		"-s", IP,
+		"--sport", p,
+		"-j", "NOTRACK"}); err != nil {
+		return err
+	}
+	if err := prog.runProg([]string{
+		"-t", "filter",
+		cmd, ciliumOutputChain,
+		"-p", protocol,
+		"-s", IP,
+		"--sport", p,
+		"-j", "ACCEPT"}); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -764,10 +762,7 @@ func (m *IptablesManager) InstallNoTrackRules(IP string, port uint16, ipv6 bool)
 	}
 
 	for _, p := range noTrackPorts(port) {
-		if err := m.endpointNoTrackRules(prog, "-A", IP, p, true); err != nil {
-			return err
-		}
-		if err := m.endpointNoTrackRules(prog, "-A", IP, p, false); err != nil {
+		if err := m.endpointNoTrackRules(prog, "-A", IP, p); err != nil {
 			return err
 		}
 	}
@@ -792,10 +787,7 @@ func (m *IptablesManager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) 
 	}
 
 	for _, p := range noTrackPorts(port) {
-		if err := m.endpointNoTrackRules(prog, "-D", IP, p, true); err != nil {
-			return err
-		}
-		if err := m.endpointNoTrackRules(prog, "-D", IP, p, false); err != nil {
+		if err := m.endpointNoTrackRules(prog, "-D", IP, p); err != nil {
 			return err
 		}
 	}
