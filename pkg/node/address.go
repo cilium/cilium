@@ -97,8 +97,8 @@ func InitDefaultPrefix(device string) {
 					ipv6AllocRange.IP[10],
 					ipv6AllocRange.IP[11])
 			}
-			v4range := fmt.Sprintf(defaults.DefaultIPv4Prefix+"/%d",
-				ip.To4()[3], defaults.DefaultIPv4PrefixLen)
+			v4range := fmt.Sprintf(defaults.IPv4Prefix+"/%d",
+				ip.To4()[3], defaults.IPv4PrefixLen)
 			_, ip4net, err := net.ParseCIDR(v4range)
 			if err != nil {
 				log.WithError(err).WithField(logfields.V4Prefix, v4range).Panic("BUG: Invalid default IPv4 prefix")
