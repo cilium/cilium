@@ -4,16 +4,19 @@
 package ipam
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -39,6 +42,23 @@ func DeriveFamily(ip net.IP) Family {
 	return IPv4
 }
 
+// Pool is the type describing ...
+type Pool string
+
+const (
+	PoolDefault     Pool = ipamOption.PoolDefault
+	PoolMultihoming Pool = ipamOption.PoolMultihoming
+)
+
+func PoolOrDefault(pool string) Pool {
+	switch pool {
+	default:
+		return PoolDefault
+	case string(PoolMultihoming):
+		return PoolMultihoming
+	}
+}
+
 // Configuration is the configuration passed into the IPAM subsystem
 type Configuration interface {
 	// IPv4Enabled must return true when IPv4 is enabled
@@ -57,6 +77,9 @@ type Configuration interface {
 	// UnreachableRoutesEnabled returns true when unreachable-routes is
 	// enabled
 	UnreachableRoutesEnabled() bool
+
+	// MultiHomingEnabled returns true when pod multi-homing is enabled
+	MultiHomingEnabled() bool
 
 	// SetIPv4NativeRoutingCIDR is called by the IPAM module to announce
 	// the native IPv4 routing CIDR if it exists
@@ -144,6 +167,21 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		}
 	default:
 		log.Fatalf("Unknown IPAM backend %s", c.IPAMMode())
+	}
+
+	if c.MultiHomingEnabled() {
+		// TODO(tklauser): CIDRs should come from CiliumNode CRD. For now they're hard-coded.
+		if c.IPv6Enabled() {
+			ipam.AdditionalIPv6Allocators = make(map[Pool]Allocator)
+			multiHomingCIDR := cidr.MustParseCIDR(fmt.Sprintf("%s%02x%02x:%02x%02x:0:0/%d",
+				option.Config.IPv6ClusterAllocCIDRBase, 10, 11, 0, 1, 96))
+			ipam.AdditionalIPv6Allocators[PoolMultihoming] = newHostScopeAllocator(multiHomingCIDR.IPNet)
+		}
+		if c.IPv4Enabled() {
+			ipam.AdditionalIPv4Allocators = make(map[Pool]Allocator)
+			multiHomingCIDR := cidr.MustParseCIDR(fmt.Sprintf(defaults.IPv4Prefix+"/%d", 11, defaults.IPv4PrefixLen))
+			ipam.AdditionalIPv4Allocators[PoolMultihoming] = newHostScopeAllocator(multiHomingCIDR.IPNet)
+		}
 	}
 
 	return ipam

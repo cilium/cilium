@@ -89,6 +89,9 @@ type IPAM struct {
 	IPv6Allocator Allocator
 	IPv4Allocator Allocator
 
+	AdditionalIPv6Allocators map[Pool]Allocator
+	AdditionalIPv4Allocators map[Pool]Allocator
+
 	// owner maps an IP to the owner
 	owner map[string]string
 

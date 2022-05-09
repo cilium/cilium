@@ -108,9 +108,9 @@ func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
 	return true
 }
 
-func releaseIP(client *client.Client, ip string) {
+func releaseIP(client *client.Client, ip, pool string) {
 	if ip != "" {
-		if err := client.IPAMReleaseIP(ip); err != nil {
+		if err := client.IPAMReleaseIP(ip, pool); err != nil {
 			log.WithError(err).WithField(logfields.IPAddr, ip).Warn("Unable to release IP")
 		}
 	}
@@ -388,7 +388,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	conf := *configResult.Status
 
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-	ipam, err = c.IPAMAllocate("", podName, true)
+	pool := ipamOption.PoolDefault
+	ipam, err = c.IPAMAllocate("", podName, pool, true)
 	if err != nil {
 		err = fmt.Errorf("unable to allocate IP via local cilium agent: %s", err)
 		return
@@ -402,8 +403,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	// release addresses on failure
 	defer func() {
 		if err != nil && ipam != nil && ipam.Address != nil {
-			releaseIP(c, ipam.Address.IPV4)
-			releaseIP(c, ipam.Address.IPV6)
+			releaseIP(c, ipam.Address.IPV4, pool)
+			releaseIP(c, ipam.Address.IPV6, pool)
 		}
 	}()
 

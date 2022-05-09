@@ -41,3 +41,8 @@ const (
 // prefixes. Every /28 prefix contains 16 IP addresses.
 // See https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html#ec2-prefix-basics for more details
 const ENIPDBlockSizeIPv4 = 16
+
+const (
+	PoolDefault     = "default"
+	PoolMultihoming = "multihoming"
+)

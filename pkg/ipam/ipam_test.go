@@ -37,12 +37,15 @@ func fakeIPv6AllocCIDRIP(fakeAddressing types.NodeAddressing) net.IP {
 	return net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
 }
 
-type testConfiguration struct{}
+type testConfiguration struct {
+	multiHomingEnabled bool
+}
 
 func (t *testConfiguration) IPv4Enabled() bool                        { return true }
 func (t *testConfiguration) IPv6Enabled() bool                        { return true }
 func (t *testConfiguration) HealthCheckingEnabled() bool              { return true }
 func (t *testConfiguration) UnreachableRoutesEnabled() bool           { return false }
+func (t *testConfiguration) MultiHomingEnabled() bool                 { return t.multiHomingEnabled }
 func (t *testConfiguration) IPAMMode() string                         { return ipamOption.IPAMClusterPool }
 func (t *testConfiguration) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {}
 func (t *testConfiguration) GetIPv4NativeRoutingCIDR() *cidr.CIDR     { return nil }
@@ -87,22 +90,29 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	nextIP(ipv4)
 
 	ipam.BlacklistIP(ipv4, "test")
-	err := ipam.AllocateIP(ipv4, "test")
+	err := ipam.AllocateIP(ipv4, "test", PoolDefault)
 	c.Assert(err, Not(IsNil))
-	ipam.ReleaseIP(ipv4)
+	ipam.ReleaseIP(ipv4, PoolDefault)
 
 	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 	nextIP(ipv6)
 
 	ipam.BlacklistIP(ipv6, "test")
-	err = ipam.AllocateIP(ipv6, "test")
+	err = ipam.AllocateIP(ipv6, "test", PoolDefault)
 	c.Assert(err, Not(IsNil))
-	ipam.ReleaseIP(ipv6)
+	ipam.ReleaseIP(ipv6, PoolDefault)
 }
 
 func (s *IPAMSuite) TestDeriveFamily(c *C) {
 	c.Assert(DeriveFamily(net.ParseIP("1.1.1.1")), Equals, IPv4)
 	c.Assert(DeriveFamily(net.ParseIP("f00d::1")), Equals, IPv6)
+}
+
+func (s *IPAMSuite) TestPoolOrDefault(c *C) {
+	c.Assert(PoolOrDefault(string(PoolDefault)), Equals, PoolDefault)
+	c.Assert(PoolOrDefault(string(PoolMultihoming)), Equals, PoolMultihoming)
+	c.Assert(PoolOrDefault(""), Equals, PoolDefault)
+	c.Assert(PoolOrDefault("foobar"), Equals, PoolDefault)
 }
 
 func (s *IPAMSuite) TestOwnerRelease(c *C) {
@@ -111,21 +121,21 @@ func (s *IPAMSuite) TestOwnerRelease(c *C) {
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	nextIP(ipv4)
-	err := ipam.AllocateIP(ipv4, "default/test")
+	err := ipam.AllocateIP(ipv4, "default/test", PoolDefault)
 	c.Assert(err, IsNil)
 
 	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 	nextIP(ipv6)
-	err = ipam.AllocateIP(ipv6, "default/test")
+	err = ipam.AllocateIP(ipv6, "default/test", PoolDefault)
 	c.Assert(err, IsNil)
 
 	// unknown owner, must fail
-	err = ipam.ReleaseIPString("default/test2")
+	err = ipam.ReleaseIPString("default/test2", PoolDefault)
 	c.Assert(err, Not(IsNil))
 	// 1st release by correct owner, must succeed
-	err = ipam.ReleaseIPString("default/test")
+	err = ipam.ReleaseIPString("default/test", PoolDefault)
 	c.Assert(err, IsNil)
 	// 2nd release by owner, must now fail
-	err = ipam.ReleaseIPString("default/test")
+	err = ipam.ReleaseIPString("default/test", PoolDefault)
 	c.Assert(err, Not(IsNil))
 }

@@ -40,11 +40,12 @@ func NewPostIPAMHandler(d *Daemon) ipamapi.PostIpamHandler {
 func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 	family := strings.ToLower(swag.StringValue(params.Family))
 	owner := swag.StringValue(params.Owner)
+	pool := ipam.PoolOrDefault(swag.StringValue(params.Pool))
 	var expirationTimeout time.Duration
 	if swag.BoolValue(params.Expiration) {
 		expirationTimeout = defaults.IPAMExpiration
 	}
-	ipv4Result, ipv6Result, err := h.daemon.ipam.AllocateNextWithExpiration(family, owner, expirationTimeout)
+	ipv4Result, ipv6Result, err := h.daemon.ipam.AllocateNextWithExpiration(family, owner, pool, expirationTimeout)
 	if err != nil {
 		return api.Error(ipamapi.PostIpamFailureCode, err)
 	}
@@ -95,7 +96,8 @@ func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIpamIPHandler {
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAMIP) Handle(params ipamapi.PostIpamIPParams) middleware.Responder {
 	owner := swag.StringValue(params.Owner)
-	if err := h.daemon.ipam.AllocateIPString(params.IP, owner); err != nil {
+	pool := ipam.PoolOrDefault(swag.StringValue(params.Pool))
+	if err := h.daemon.ipam.AllocateIPString(params.IP, owner, ipam.Pool(pool)); err != nil {
 		return api.Error(ipamapi.PostIpamIPFailureCode, err)
 	}
 
@@ -112,15 +114,18 @@ func NewDeleteIPAMIPHandler(d *Daemon) ipamapi.DeleteIpamIPHandler {
 }
 
 func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIpamIPParams) middleware.Responder {
-	// Release of an IP that is in use is not allowed
-	if ep := h.daemon.endpointManager.LookupIPv4(params.IP); ep != nil {
-		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
-	}
-	if ep := h.daemon.endpointManager.LookupIPv6(params.IP); ep != nil {
-		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
+	pool := ipam.PoolOrDefault(swag.StringValue(params.Pool))
+	if pool == ipam.PoolDefault {
+		// Release of an IP that is in use is not allowed
+		if ep := h.daemon.endpointManager.LookupIPv4(params.IP); ep != nil {
+			return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
+		}
+		if ep := h.daemon.endpointManager.LookupIPv6(params.IP); ep != nil {
+			return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
+		}
 	}
 
-	if err := h.daemon.ipam.ReleaseIPString(params.IP); err != nil {
+	if err := h.daemon.ipam.ReleaseIPString(params.IP, pool); err != nil {
 		return api.Error(ipamapi.DeleteIpamIPFailureCode, err)
 	}
 
@@ -204,7 +209,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 	var result *ipam.AllocationResult
 	routerIP = family.Router()
 	if routerIP != nil {
-		result, err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router")
+		result, err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router", ipam.PoolDefault)
 		if err != nil {
 			log.Warn("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
 
@@ -219,7 +224,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 
 	if routerIP == nil {
 		family := ipam.DeriveFamily(family.PrimaryExternal())
-		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router")
+		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault)
 		if err != nil {
 			err = fmt.Errorf("Unable to allocate router IP for family %s: %s", family, err)
 			return
@@ -247,7 +252,7 @@ func (d *Daemon) allocateHealthIPs() error {
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking && option.Config.EnableEndpointHealthChecking {
 		if option.Config.EnableIPv4 {
-			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health")
+			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health", ipam.PoolDefault)
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 			}
@@ -266,10 +271,10 @@ func (d *Daemon) allocateHealthIPs() error {
 		}
 
 		if option.Config.EnableIPv6 {
-			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health")
+			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health", ipam.PoolDefault)
 			if err != nil {
 				if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
-					d.ipam.ReleaseIP(healthIPv4)
+					d.ipam.ReleaseIP(healthIPv4, ipam.PoolDefault)
 					node.SetEndpointHealthIPv4(nil)
 				}
 				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
