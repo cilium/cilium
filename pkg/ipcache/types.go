@@ -34,3 +34,13 @@ func (s prefixInfo) ToLabels() labels.Labels {
 	}
 	return l
 }
+
+func (s prefixInfo) Source() source.Source {
+	src := source.Unspec
+	for _, v := range s {
+		if source.AllowOverwrite(src, v.source) {
+			src = v.source
+		}
+	}
+	return src
+}

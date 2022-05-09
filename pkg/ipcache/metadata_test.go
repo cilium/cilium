@@ -24,14 +24,14 @@ func TestInjectLabels(t *testing.T) {
 	setupTest(t)
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
-	assert.NoError(t, IPIdentityCache.InjectLabels(source.CustomResource))
+	assert.NoError(t, IPIdentityCache.InjectLabels())
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
 	// Insert kube-apiserver IP from outside of the cluster. This should create
 	// a CIDR ID for this IP.
 	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelKubeAPIServer, source.KubeAPIServer, "kube-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
-	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
+	assert.NoError(t, IPIdentityCache.InjectLabels())
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.True(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
 
@@ -40,7 +40,7 @@ func TestInjectLabels(t *testing.T) {
 	// IP now.
 	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelRemoteNode, source.CustomResource, "node-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
-	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
+	assert.NoError(t, IPIdentityCache.InjectLabels())
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
 }
@@ -59,7 +59,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	setupTest(t)
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
-	assert.NoError(t, IPIdentityCache.InjectLabels(source.CustomResource))
+	assert.NoError(t, IPIdentityCache.InjectLabels())
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
 	IPIdentityCache.removeLabelsFromIPs(map[string]labels.Labels{
@@ -77,7 +77,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	// the cluster, and thus will have a CIDR identity when InjectLabels() is
 	// called.
 	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer, source.CustomResource, "kube-uid")
-	assert.NoError(t, IPIdentityCache.InjectLabels(source.Local))
+	assert.NoError(t, IPIdentityCache.InjectLabels())
 	id := IPIdentityCache.IdentityAllocator.LookupIdentityByID(
 		context.TODO(),
 		identity.LocalIdentityFlag, // we assume first local ID

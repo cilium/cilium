@@ -126,7 +126,7 @@ func (m *metadata) get(prefix string) prefixInfo {
 // prefix was previously associated with an identity, it will get deallocated,
 // so a balance is kept, ensuring a one-to-one mapping between prefix and
 // identity.
-func (ipc *IPCache) InjectLabels(src source.Source) error {
+func (ipc *IPCache) InjectLabels() error {
 	if ipc.IdentityAllocator == nil {
 		return ErrLocalIdentityAllocatorUninitialized
 	}
@@ -170,7 +170,7 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 		// cluster.
 		// Also, any new identity should be upserted, regardless.
 		if hasKubeAPIServerLabel || isNew {
-			tmpSrc := src
+			tmpSrc := info.Source()
 			if hasKubeAPIServerLabel {
 				// Overwrite the source because any IP associated with the
 				// kube-apiserver takes the strongest precedence. This is
@@ -585,7 +585,7 @@ func sourceByLabels(d source.Source, lbls labels.Labels) source.Source {
 //      legend:
 //      * W means write
 //      * R means read
-func (ipc *IPCache) TriggerLabelInjection(src source.Source) {
+func (ipc *IPCache) TriggerLabelInjection() {
 	// GH-17829: Would also be nice to have an end-to-end test to validate
 	//           on upgrade that there are no connectivity drops when this
 	//           channel is preventing transient BPF entries.
@@ -596,7 +596,7 @@ func (ipc *IPCache) TriggerLabelInjection(src source.Source) {
 		"ipcache-inject-labels",
 		controller.ControllerParams{
 			DoFunc: func(context.Context) error {
-				if err := ipc.InjectLabels(src); err != nil {
+				if err := ipc.InjectLabels(); err != nil {
 					return fmt.Errorf("failed to inject labels into ipcache: %w", err)
 				}
 				return nil
