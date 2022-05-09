@@ -138,6 +138,12 @@ const (
 	// V6HealthIP is an address used to contact the cilium-health endpoint
 	V6HealthIP = "v6healthIP.IPv6"
 
+	// V4IngressIP is an address used to contact the cilium-Ingress endpoint
+	V4IngressIP = "v4IngressIP.IPv4"
+
+	// V6IngressIP is an address used to contact the cilium-Ingress endpoint
+	V6IngressIP = "v6IngressIP.IPv6"
+
 	// V4CiliumHostIP is an address used for the cilium_host interface.
 	V4CiliumHostIP = "v4CiliumHostIP.IPv4"
 
