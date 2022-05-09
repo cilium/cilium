@@ -193,6 +193,14 @@ type Node struct {
 	// cilium-health endpoint located on the node.
 	IPv6HealthIP net.IP
 
+	// IPv4IngressIP if not nil, this is the IPv4 address of the
+	// Ingress listener on the node.
+	IPv4IngressIP net.IP
+
+	// IPv6IngressIP if not nil, this is the IPv6 address of the
+	// Ingress listener located on the node.
+	IPv6IngressIP net.IP
+
 	// ClusterID is the unique identifier of the cluster
 	ClusterID int
 

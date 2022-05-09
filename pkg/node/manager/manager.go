@@ -400,7 +400,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 	}
 
-	var ipsAdded, healthIPsAdded []string
+	var ipsAdded, healthIPsAdded, ingressIPsAdded []string
 
 	// helper function with the required logic to skip IPCache interactions
 	skipIPCache := func(address nodeTypes.Address) bool {
@@ -473,6 +473,22 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 	}
 
+	for _, address := range []net.IP{n.IPv4IngressIP, n.IPv6IngressIP} {
+		if address == nil {
+			continue
+		}
+		addrStr := address.String()
+		_, err := m.ipcache.Upsert(addrStr, nodeIP, n.EncryptionKey, nil, ipcache.Identity{
+			ID:     identity.ReservedIdentityIngress,
+			Source: n.Source,
+		})
+		if err != nil {
+			dpUpdate = false
+		} else {
+			ingressIPsAdded = append(ingressIPsAdded, addrStr)
+		}
+	}
+
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentity]
 	if oldNodeExists {
@@ -508,6 +524,9 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 
 		// Delete the old health IP addresses if they have changed in this node.
 		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP}, healthIPsAdded)
+
+		// Delete the old ingress IP addresses if they have changed in this node.
+		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4IngressIP, oldNode.IPv6IngressIP}, ingressIPsAdded)
 
 		entry.mutex.Unlock()
 	} else {
@@ -608,7 +627,10 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 		m.ipcache.Delete(address.IP.String(), n.Source)
 	}
 
-	for _, address := range []net.IP{entry.node.IPv4HealthIP, entry.node.IPv6HealthIP} {
+	for _, address := range []net.IP{
+		entry.node.IPv4HealthIP, entry.node.IPv6HealthIP,
+		entry.node.IPv4IngressIP, entry.node.IPv6IngressIP,
+	} {
 		if address != nil {
 			m.ipcache.Delete(address.String(), n.Source)
 		}
