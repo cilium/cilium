@@ -26,6 +26,9 @@ type NodeElement struct {
 	// Address used for probing cluster connectivity
 	HealthEndpointAddress *NodeAddressing `json:"health-endpoint-address,omitempty"`
 
+	// Source address for Ingress listener
+	IngressAddress *NodeAddressing `json:"ingress-address,omitempty"`
+
 	// Name of the node including the cluster association. This is typically
 	// <clustername>/<hostname>.
 	//
@@ -43,6 +46,10 @@ func (m *NodeElement) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateHealthEndpointAddress(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateIngressAddress(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -70,6 +77,24 @@ func (m *NodeElement) validateHealthEndpointAddress(formats strfmt.Registry) err
 		if err := m.HealthEndpointAddress.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health-endpoint-address")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *NodeElement) validateIngressAddress(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.IngressAddress) { // not required
+		return nil
+	}
+
+	if m.IngressAddress != nil {
+		if err := m.IngressAddress.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ingress-address")
 			}
 			return err
 		}
