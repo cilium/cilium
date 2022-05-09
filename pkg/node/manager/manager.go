@@ -53,7 +53,7 @@ type nodeEntry struct {
 type IPCache interface {
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error)
 	Delete(IP string, source source.Source) bool
-	TriggerLabelInjection(source source.Source)
+	TriggerLabelInjection()
 	UpsertMetadata(prefix string, lbls labels.Labels, src source.Source, rid ipcacheTypes.ResourceID)
 }
 
@@ -555,7 +555,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		entry.mutex.Unlock()
 	}
 
-	m.ipcache.TriggerLabelInjection(n.Source)
+	m.ipcache.TriggerLabelInjection()
 }
 
 // upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata

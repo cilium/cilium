@@ -83,7 +83,7 @@ func (i *ipcacheMock) Delete(IP string, source source.Source) bool {
 	return false
 }
 
-func (i *ipcacheMock) TriggerLabelInjection(s source.Source) {
+func (i *ipcacheMock) TriggerLabelInjection() {
 }
 
 func (i *ipcacheMock) UpsertMetadata(string, labels.Labels, source.Source, ipcacheTypes.ResourceID) {
