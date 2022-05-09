@@ -219,6 +219,8 @@ func (n *NodeDiscovery) fillLocalNode() {
 	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.localNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
 	n.localNode.IPv6HealthIP = node.GetEndpointHealthIPv6()
+	n.localNode.IPv4IngressIP = node.GetIngressIPv4()
+	n.localNode.IPv6IngressIP = node.GetIngressIPv6()
 	n.localNode.ClusterID = option.Config.ClusterID
 	n.localNode.EncryptionKey = node.GetIPsecKeyIdentity()
 	n.localNode.WireguardPubKey = node.GetWireguardPubKey()

@@ -56,6 +56,10 @@ type addresses struct {
 	ipv4HealthIP net.IP
 	ipv6HealthIP net.IP
 
+	// Addresses of the Cilium Ingress located on the node
+	ipv4IngressIP net.IP
+	ipv6IngressIP net.IP
+
 	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is preferred)
 	k8sNodeIP net.IP
 
@@ -805,6 +809,34 @@ func GetEndpointHealthIPv6() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
 	return clone(addrs.ipv6HealthIP)
+}
+
+// SetIngressIPv4 sets the local IPv4 source address for Cilium Ingress.
+func SetIngressIPv4(ip net.IP) {
+	addrsMu.RLock()
+	addrs.ipv4IngressIP = clone(ip)
+	addrsMu.RUnlock()
+}
+
+// GetIngressIPv4 returns the local IPv4 source address for Cilium Ingress.
+func GetIngressIPv4() net.IP {
+	addrsMu.RLock()
+	defer addrsMu.RUnlock()
+	return clone(addrs.ipv4IngressIP)
+}
+
+// SetIngressIPv6 sets the local IPv6 source address for Cilium Ingress.
+func SetIngressIPv6(ip net.IP) {
+	addrsMu.RLock()
+	addrs.ipv6IngressIP = clone(ip)
+	addrsMu.RUnlock()
+}
+
+// GetIngressIPv6 returns the local IPv6 source address for Cilium Ingress.
+func GetIngressIPv6() net.IP {
+	addrsMu.RLock()
+	defer addrsMu.RUnlock()
+	return clone(addrs.ipv6IngressIP)
 }
 
 func copyStringToNetIPMap(in map[string]net.IP) map[string]net.IP {
