@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.16
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* metrics: Add go_* metrics (Backport PR #19634, Upstream PR #19153, @chancez)
+
+**CI Changes:**
+* jenkinsfiles: Increase VM boot timeout (Backport PR #19583, Upstream PR #19458, @pchaigno)
+
+**Misc Changes:**
+* build(deps): bump docker/login-action from 1.14.1 to 2 (#19741, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.6.0 to 1.7.0 (#19621, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.7.0 to 2 (#19740, @dependabot[bot])
+* docs: fix version warning URL to point to docs.cilium.io (Backport PR #19583, Upstream PR #19563, @aanm)
+* docs: set the right url for API version check (Backport PR #19680, Upstream PR #19610, @aanm)
+* docs: Update max MTU value for Nodeport XDP on AWS (Backport PR #19680, Upstream PR #19593, @qmonnet)
+* images/cilium: remove cilium group from Dockerfile (Backport PR #19733, Upstream PR #19711, @aanm)
+* LRP minor improvements (Backport PR #19583, Upstream PR #19489, @aditighag)
+* pkg/k8s: use subresource "nodes/status" to update node annotations (Backport PR #19675, Upstream PR #19590, @aanm)
+* Trimmed down Cilium's Cluster Roles to only the necessary rules (Backport PR #19675, Upstream PR #19074, @aanm)
+
+**Other Changes:**
+* install: Update image digests for v1.9.15 (#19474, @joestringer)
+
 ## v1.9.15
 
 Summary of Changes
