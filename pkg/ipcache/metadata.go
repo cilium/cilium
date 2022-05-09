@@ -212,10 +212,6 @@ func (ipc *IPCache) InjectLabels() error {
 				newLbls := id.Labels
 				tmpSrc = source.KubeAPIServer
 				trigger = true
-				// If host identity has changed, update its labels.
-				if id.ID == identity.ReservedIdentityHost {
-					identity.AddReservedIdentityWithLabels(id.ID, newLbls)
-				}
 				idsToPropagate[id.ID] = newLbls.LabelArray()
 			}
 
@@ -304,9 +300,29 @@ func (ipc *IPCache) injectLabels(prefix string, lbls labels.Labels) (*identity.I
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 	defer cancel()
 
+	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
+		// Associate any new labels with the host identity.
+		//
+		// This case is a bit special, because other parts of Cilium
+		// have hardcoded assumptions around the host identity and
+		// that it corresponds to identity.ReservedIdentityHost.
+		// If additional labels are associated with the IPs of the
+		// host, add those extra labels into the host identity here
+		// so that policy will match on the identity correctly.
+		//
+		// We can get away with this because the host identity is only
+		// significant within the current agent's view (ie each agent
+		// will calculate its own host identity labels independently
+		// for itself). For all other identities, we avoid modifying
+		// the labels at runtime and instead opt to allocate new
+		// identities below.
+		identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, lbls)
+		return identity.LookupReservedIdentity(identity.ReservedIdentityHost), false, nil
+	}
+
 	// If no other labels are associated with this IP, we assume that it's
 	// outside of the cluster and hence needs a CIDR identity.
-	if lbls.Equals(labels.LabelKubeAPIServer) {
+	if !(lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode])) {
 		// GH-17962: Handle the following case:
 		//   1) Apply ToCIDR policy (matching IPs of kube-apiserver)
 		//   2) Apply kube-apiserver policy
