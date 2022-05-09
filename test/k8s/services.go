@@ -64,6 +64,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	})
 
 	AfterAll(func() {
+		ExpectAllPodsTerminated(kubectl)
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
