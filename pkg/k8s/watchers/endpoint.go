@@ -113,7 +113,7 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 	// used Kubernetes as the source, then the ipcache entries inserted (first)
 	// by the CN handler wouldn't be overwrite-able by the entries inserted
 	// from this handler.
-	src := source.CustomResource
+	src := source.KubeAPIServer
 
 	// We must perform a diff on the ipcache.identityMetadata map in order to
 	// figure out which IPs are stale and should be removed, before we inject
@@ -133,7 +133,6 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 	k.ipcache.RemoveLabelsExcluded(
 		labels.LabelKubeAPIServer,
 		desiredIPs,
-		src,
 		rid,
 	)
 
