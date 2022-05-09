@@ -206,33 +206,35 @@ func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface
 		// the name CILIUM_ or call a chain with the name CILIUM_:
 		// -A CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
 		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
-		if strings.Contains(rule, match) {
-			// do not remove feeder for chains that are set to be disabled
-			// ie catch the beginning of the rule like -A POSTROUTING to match it against
-			// disabled chains
-			skipFeeder := false
-			for _, disabledChain := range option.Config.DisableIptablesFeederRules {
-				if strings.Contains(rule, " "+strings.ToUpper(disabledChain)+" ") {
-					log.WithField("chain", disabledChain).Info("Skipping the removal of feeder chain")
-					skipFeeder = true
-					break
-				}
-			}
-			if skipFeeder {
-				continue
-			}
+		if !strings.Contains(rule, match) {
+			continue
+		}
 
-			reversedRule, err := reverseRule(rule)
-			if err != nil {
-				log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s rule into slice. Leaving rule behind.", prog)
-				continue
+		// do not remove feeder for chains that are set to be disabled
+		// ie catch the beginning of the rule like -A POSTROUTING to match it against
+		// disabled chains
+		skipFeeder := false
+		for _, disabledChain := range option.Config.DisableIptablesFeederRules {
+			if strings.Contains(rule, " "+strings.ToUpper(disabledChain)+" ") {
+				log.WithField("chain", disabledChain).Info("Skipping the removal of feeder chain")
+				skipFeeder = true
+				break
 			}
+		}
+		if skipFeeder {
+			continue
+		}
 
-			if len(reversedRule) > 0 {
-				deleteRule := append([]string{"-t", table}, reversedRule...)
-				if err := prog.runProg(deleteRule); err != nil {
-					return err
-				}
+		reversedRule, err := reverseRule(rule)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s rule into slice. Leaving rule behind.", prog)
+			continue
+		}
+
+		if len(reversedRule) > 0 {
+			deleteRule := append([]string{"-t", table}, reversedRule...)
+			if err := prog.runProg(deleteRule); err != nil {
+				return err
 			}
 		}
 	}
@@ -573,23 +575,24 @@ func (m *IptablesManager) doCopyProxyRules(prog iptablesInterface, table string,
 	scanner := bufio.NewScanner(strings.NewReader(rules))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		if re.MatchString(rule) && strings.Contains(rule, match) {
+		if !re.MatchString(rule) || !strings.Contains(rule, match) {
+			continue
+		}
 
-			log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering copying %s TPROXY rule from %s to %s", prog, oldChain, newChain)
-			args, err := shellwords.Parse(strings.Replace(rule, oldChain, newChain, 1))
-			if err != nil {
-				log.WithFields(logrus.Fields{
-					"table":          table,
-					"prog":           prog.getProg(),
-					logfields.Object: rule,
-				}).WithError(err).Warn("Unable to parse TPROXY rule, disruption to traffic selected by L7 policy possible")
-				continue
-			}
+		log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering copying %s TPROXY rule from %s to %s", prog, oldChain, newChain)
+		args, err := shellwords.Parse(strings.Replace(rule, oldChain, newChain, 1))
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				"table":          table,
+				"prog":           prog.getProg(),
+				logfields.Object: rule,
+			}).WithError(err).Warn("Unable to parse TPROXY rule, disruption to traffic selected by L7 policy possible")
+			continue
+		}
 
-			copyRule := append([]string{"-t", table}, args...)
-			if err := prog.runProg(copyRule); err != nil {
-				return err
-			}
+		copyRule := append([]string{"-t", table}, args...)
+		if err := prog.runProg(copyRule); err != nil {
+			return err
 		}
 	}
 
@@ -644,18 +647,19 @@ func (m *IptablesManager) addProxyRules(prog iptablesInterface, proxyPort uint16
 	scanner := bufio.NewScanner(strings.NewReader(rules))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		if strings.Contains(rule, "-A CILIUM_PRE_mangle ") && !strings.Contains(rule, "cilium: TPROXY to host "+name) && strings.Contains(rule, portMatch) {
+		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || strings.Contains(rule, "cilium: TPROXY to host "+name) || !strings.Contains(rule, portMatch) {
+			continue
+		}
 
-			args, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
-			if err != nil {
-				log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s TPROXY rule", prog)
-				continue
-			}
+		args, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
+		if err != nil {
+			log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s TPROXY rule", prog)
+			continue
+		}
 
-			deleteRule := append([]string{"-t", "mangle"}, args...)
-			if err := prog.runProg(deleteRule); err != nil {
-				return err
-			}
+		deleteRule := append([]string{"-t", "mangle"}, args...)
+		if err := prog.runProg(deleteRule); err != nil {
+			return err
 		}
 	}
 
