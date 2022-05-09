@@ -6,7 +6,6 @@
 package ingress
 
 import (
-	"context"
 	"syscall"
 	"testing"
 
@@ -19,8 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
@@ -34,14 +31,17 @@ func Test_getBackendServices(t *testing.T) {
 		{
 			Name:      "another-dummy-backend",
 			Namespace: "dummy-namespace",
+			Ports:     []string{"8081"},
 		},
 		{
 			Name:      "default-backend",
 			Namespace: "dummy-namespace",
+			Ports:     []string{"8080"},
 		},
 		{
 			Name:      "dummy-backend",
 			Namespace: "dummy-namespace",
+			Ports:     []string{"8080"},
 		},
 	})
 }
@@ -158,8 +158,8 @@ func Test_getRouteConfigurationResource(t *testing.T) {
 	require.Len(t, routeConfig.VirtualHosts[1].Routes[0].Match.GetHeaders(), 0)
 
 	clusters := []string{routeConfig.VirtualHosts[0].Routes[0].GetRoute().GetCluster(), routeConfig.VirtualHosts[0].Routes[1].GetRoute().GetCluster()}
-	require.Contains(t, clusters, "dummy-namespace/dummy-backend")
-	require.Contains(t, clusters, "dummy-namespace/another-dummy-backend")
+	require.Contains(t, clusters, "dummy-namespace/dummy-backend:8080")
+	require.Contains(t, clusters, "dummy-namespace/another-dummy-backend:8081")
 }
 
 func Test_getRedirectConfigurationResource(t *testing.T) {
@@ -199,9 +199,9 @@ func Test_getClusterResources(t *testing.T) {
 
 	clusterNames := []string{cluster1.Name, cluster2.Name, cluster3.Name}
 
-	require.Contains(t, clusterNames, "dummy-namespace/dummy-backend")
-	require.Contains(t, clusterNames, "dummy-namespace/another-dummy-backend")
-	require.Contains(t, clusterNames, "dummy-namespace/default-backend")
+	require.Contains(t, clusterNames, "dummy-namespace/dummy-backend:8080")
+	require.Contains(t, clusterNames, "dummy-namespace/another-dummy-backend:8081")
+	require.Contains(t, clusterNames, "dummy-namespace/default-backend:8080")
 }
 
 func Test_getEnvoyConfigForIngress(t *testing.T) {
@@ -224,23 +224,17 @@ func Test_getEnvoyConfigForIngress(t *testing.T) {
 	assert.Contains(t, cec.Spec.BackendServices, &v2.Service{
 		Name:      "dummy-backend",
 		Namespace: "dummy-namespace",
+		Ports:     []string{"8080"},
 	})
 	assert.Contains(t, cec.Spec.BackendServices, &v2.Service{
 		Name:      "another-dummy-backend",
 		Namespace: "dummy-namespace",
+		Ports:     []string{"8081"},
 	})
 
 	// check for count only, individual resource is covered in other tests
 	// 1 listener, 1 route configuration, 3 clusters
 	assert.Len(t, cec.Spec.Resources, 5)
-}
-
-func fakeClient() *fake.Clientset {
-	client := fake.NewSimpleClientset()
-	_, _ = client.CoreV1().Secrets("dummy-namespace").Create(context.TODO(), verySecureTLS, metav1.CreateOptions{})
-	_, _ = client.CoreV1().Secrets("dummy-namespace").Create(context.TODO(), anotherVerySecureTLS, metav1.CreateOptions{})
-
-	return client
 }
 
 func Test_getSocketOptions(t *testing.T) {
