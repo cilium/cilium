@@ -1218,6 +1218,7 @@ func (in *NodeSpec) DeepCopyInto(out *NodeSpec) {
 		copy(*out, *in)
 	}
 	out.HealthAddressing = in.HealthAddressing
+	out.IngressAddressing = in.IngressAddressing
 	out.Encryption = in.Encryption
 	in.ENI.DeepCopyInto(&out.ENI)
 	out.Azure = in.Azure

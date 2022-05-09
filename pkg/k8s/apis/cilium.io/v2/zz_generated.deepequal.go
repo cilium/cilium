@@ -1080,6 +1080,10 @@ func (in *NodeSpec) DeepEqual(other *NodeSpec) bool {
 		return false
 	}
 
+	if in.IngressAddressing != other.IngressAddressing {
+		return false
+	}
+
 	if in.Encryption != other.Encryption {
 		return false
 	}

@@ -485,6 +485,16 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
 	}
 
+	nodeResource.Spec.IngressAddressing.IPV4 = ""
+	if ip := n.localNode.IPv4IngressIP; ip != nil {
+		nodeResource.Spec.IngressAddressing.IPV4 = ip.String()
+	}
+
+	nodeResource.Spec.IngressAddressing.IPV6 = ""
+	if ip := n.localNode.IPv6IngressIP; ip != nil {
+		nodeResource.Spec.IngressAddressing.IPV6 = ip.String()
+	}
+
 	if pk := n.localNode.WireguardPubKey; pk != "" {
 		if nodeResource.ObjectMeta.Annotations == nil {
 			nodeResource.ObjectMeta.Annotations = make(map[string]string)

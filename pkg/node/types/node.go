@@ -69,6 +69,9 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 	node.IPv4HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv4)
 	node.IPv6HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv6)
 
+	node.IPv4IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV4)
+	node.IPv6IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV6)
+
 	for _, address := range n.Spec.Addresses {
 		if ip := net.ParseIP(address.IP); ip != nil {
 			node.IPAddresses = append(node.IPAddresses, Address{Type: address.Type, IP: ip})
@@ -81,10 +84,11 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 // ToCiliumNode converts the node to a CiliumNode
 func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 	var (
-		podCIDRs               []string
-		ipAddrs                []ciliumv2.NodeAddress
-		healthIPv4, healthIPv6 string
-		annotations            = map[string]string{}
+		podCIDRs                 []string
+		ipAddrs                  []ciliumv2.NodeAddress
+		healthIPv4, healthIPv6   string
+		ingressIPv4, ingressIPv6 string
+		annotations              = map[string]string{}
 	)
 
 	if n.IPv4AllocCIDR != nil {
@@ -104,6 +108,12 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 	}
 	if n.IPv6HealthIP != nil {
 		healthIPv6 = n.IPv6HealthIP.String()
+	}
+	if n.IPv4IngressIP != nil {
+		ingressIPv4 = n.IPv4IngressIP.String()
+	}
+	if n.IPv6IngressIP != nil {
+		ingressIPv6 = n.IPv6IngressIP.String()
 	}
 
 	for _, address := range n.IPAddresses {
@@ -128,6 +138,10 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 			HealthAddressing: ciliumv2.HealthAddressingSpec{
 				IPv4: healthIPv4,
 				IPv6: healthIPv6,
+			},
+			IngressAddressing: ciliumv2.AddressPair{
+				IPV4: ingressIPv4,
+				IPV6: ingressIPv6,
 			},
 			Encryption: ciliumv2.EncryptionSpec{
 				Key: int(n.EncryptionKey),

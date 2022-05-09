@@ -215,6 +215,15 @@ spec:
                     description: IPv6 is the IPv6 address of the IPv4 health endpoint.
                     type: string
                 type: object
+              ingress:
+                description: IngressAddressing is the addressing information for Ingress
+                  listener.
+                properties:
+                  ipv4:
+                    type: string
+                  ipv6:
+                    type: string
+                type: object
               instance-id:
                 description: InstanceID is the identifier of the node. This is different
                   from the node name which is typically the FQDN of the node. The
