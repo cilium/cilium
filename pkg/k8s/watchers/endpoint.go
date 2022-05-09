@@ -109,13 +109,7 @@ func (k *K8sWatcher) deleteK8sEndpointV1(ep *slim_corev1.Endpoints, swg *lock.St
 // The actual implementation of this logic down to the datapath is handled
 // asynchronously.
 func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]struct{}, rid ipcacheTypes.ResourceID) {
-	// Use CustomResource as the source similar to the way the CiliumNode
-	// (pkg/node/manager.Manager) handler does because the ipcache entry needs
-	// to be overwrite-able by this handler and the CiliumNode handler. If we
-	// used Kubernetes as the source, then the ipcache entries inserted (first)
-	// by the CN handler wouldn't be overwrite-able by the entries inserted
-	// from this handler.
-	src := source.CustomResource
+	src := source.KubeAPIServer
 
 	// We must perform a diff on the ipcache.identityMetadata map in order to
 	// figure out which IPs are stale and should be removed, before we inject
@@ -135,7 +129,6 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 	k.ipcache.RemoveLabelsExcluded(
 		labels.LabelKubeAPIServer,
 		desiredIPs,
-		src,
 		rid,
 	)
 

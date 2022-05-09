@@ -24,8 +24,8 @@ func TestInjectLabels(t *testing.T) {
 	setupTest(t)
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
-	remAdd, err := IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
-	assert.Len(t, remAdd, 0)
+	remaining, err := IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
+	assert.Len(t, remaining, 0)
 	assert.NoError(t, err)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
@@ -33,8 +33,9 @@ func TestInjectLabels(t *testing.T) {
 	// a CIDR ID for this IP.
 	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelKubeAPIServer, source.KubeAPIServer, "kube-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
-	_, err = IPIdentityCache.InjectLabels([]string{"10.0.0.4"})
+	remaining, err = IPIdentityCache.InjectLabels([]string{"10.0.0.4"})
 	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.True(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
 
@@ -43,8 +44,9 @@ func TestInjectLabels(t *testing.T) {
 	// IP now.
 	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelRemoteNode, source.CustomResource, "node-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
-	_, err = IPIdentityCache.InjectLabels([]string{"10.0.0.4"})
+	remaining, err = IPIdentityCache.InjectLabels([]string{"10.0.0.4"})
 	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
 }
@@ -63,13 +65,14 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	setupTest(t)
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
-	_, err := IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
+	remaining, err := IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
 	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
-	IPIdentityCache.removeLabelsFromIPs(map[string]labels.Labels{
-		"1.1.1.1": labels.LabelKubeAPIServer,
-	}, source.Local, "kube-uid")
+	IPIdentityCache.RemoveLabelsExcluded(
+		labels.LabelKubeAPIServer, map[string]struct{}{},
+		"kube-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
 	assert.Equal(t, labels.LabelHost, IPIdentityCache.metadata.m["1.1.1.1"].ToLabels())
 
@@ -82,8 +85,9 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	// the cluster, and thus will have a CIDR identity when InjectLabels() is
 	// called.
 	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer, source.CustomResource, "kube-uid")
-	_, err = IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
+	remaining, err = IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
 	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
 	id := IPIdentityCache.IdentityAllocator.LookupIdentityByID(
 		context.TODO(),
 		identity.LocalIdentityFlag, // we assume first local ID
@@ -95,9 +99,12 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, ids, 1)
 	assert.Equal(t, 2, id.ReferenceCount)
-	IPIdentityCache.removeLabelsFromIPs(map[string]labels.Labels{ // remove kube-apiserver policy
-		"1.1.1.1": labels.LabelKubeAPIServer,
-	}, source.Local, "kube-uid")
+	IPIdentityCache.RemoveLabelsExcluded(
+		labels.LabelKubeAPIServer, map[string]struct{}{},
+		"kube-uid")
+	remaining, err = IPIdentityCache.InjectLabels([]string{"1.1.1.1"})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
 	assert.NotContains(t, IPIdentityCache.metadata.m["1.1.1.1"].ToLabels(), labels.LabelKubeAPIServer)
 	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 }
