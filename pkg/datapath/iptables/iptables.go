@@ -131,6 +131,10 @@ func (ipt *ipt) getVersion() (semver.Version, error) {
 }
 
 func (ipt *ipt) runProgCombinedOutput(args []string) (string, error) {
+	fullCommand := fmt.Sprintf("%s %s", ipt.getProg(), strings.Join(args, " "))
+
+	log.Debugf("Running '%s' command", fullCommand)
+
 	// Add wait argument to deal with concurrent calls that would fail otherwise
 	iptArgs := make([]string, 0, len(ipt.waitArgs)+len(args))
 	iptArgs = append(iptArgs, ipt.waitArgs...)
@@ -140,8 +144,7 @@ func (ipt *ipt) runProgCombinedOutput(args []string) (string, error) {
 	outStr := string(out)
 
 	if err != nil {
-		return outStr, fmt.Errorf("unable to run '%s %s' iptables command: %s (%w)",
-			ipt.getProg(), args, outStr, err)
+		return outStr, fmt.Errorf("unable to run '%s' iptables command: %s (%w)", fullCommand, outStr, err)
 	}
 
 	return outStr, nil
@@ -588,7 +591,6 @@ func (m *IptablesManager) doCopyProxyRules(prog iptablesInterface, table string,
 			continue
 		}
 
-		log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering copying %s TPROXY rule from %s to %s", prog, oldChain, newChain)
 		args, err := shellwords.Parse(strings.Replace(rule, oldChain, newChain, 1))
 		if err != nil {
 			log.WithFields(logrus.Fields{
