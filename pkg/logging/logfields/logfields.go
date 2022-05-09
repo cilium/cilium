@@ -280,6 +280,9 @@ const (
 	// L7LBProxyPort is the port number of the Envoy listener a L7 LB service redirects traffic to for load balancing.
 	L7LBProxyPort = "l7LBProxyPort"
 
+	// L7LBFrontendPorts is the list of frontend ports for load balancing.
+	L7LBFrontendPorts = "l7LBFrontendPorts"
+
 	// BackendState is the state of the backend
 	BackendState = "backendState"
 

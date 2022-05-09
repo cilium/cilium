@@ -153,7 +153,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.Name, spec *cil
 
 		// Tell service manager to redirect the service to the port
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
-		err := k.svcManager.RegisterL7LBService(serviceName, resourceName, proxyPort)
+		err := k.svcManager.RegisterL7LBService(serviceName, resourceName, nil, proxyPort)
 		if err != nil {
 			return err
 		}
@@ -162,7 +162,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.Name, spec *cil
 	for _, svc := range spec.BackendServices {
 		// Tell service manager to sync backends for this service
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, false)
-		err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, resourceName)
+		err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, resourceName, svc.Ports)
 		if err != nil {
 			return err
 		}
