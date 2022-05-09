@@ -43,6 +43,10 @@ const (
 	// with IDNameHost if the kube-apiserver is running on the local host.
 	IDNameKubeAPIServer = "kube-apiserver"
 
+	// IDNameIngress is the label used to identify Ingress proxies. It is part
+	// of the reserved identity 8.
+	IDNameIngress = "ingress"
+
 	// IDNameNone is the label used to identify no endpoint or other L3 entity.
 	// It will never be assigned and this "label" is here for consistency with
 	// other Entities.
@@ -72,6 +76,10 @@ var (
 	// LabelKubeAPIServer is the label used for the kube-apiserver. See comment
 	// on IDNameKubeAPIServer.
 	LabelKubeAPIServer = Labels{IDNameKubeAPIServer: NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved)}
+
+	// LabelIngress is the label used for Ingress proxies. See comment
+	// on IDNameIngress.
+	LabelIngress = Labels{IDNameIngress: NewLabel(IDNameIngress, "", LabelSourceReserved)}
 )
 
 const (
