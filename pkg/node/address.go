@@ -770,7 +770,7 @@ func GetWireguardPubKey() string {
 	return addrs.wireguardPubKey
 }
 
-// SetEndpointHealthIPv4 sets the IPv6 cilium-health endpoint address.
+// SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.
 func SetEndpointHealthIPv4(ip net.IP) {
 	addrsMu.Lock()
 	addrs.ipv4HealthIP = ip
