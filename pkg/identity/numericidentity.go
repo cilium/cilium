@@ -71,7 +71,7 @@ const (
 	// local and remote clusters except for the local node.
 	ReservedIdentityRemoteNode
 
-	// ReservedIdentityRemoteNode is the identity given to remote node(s) which
+	// ReservedIdentityKubeAPIServer is the identity given to remote node(s) which
 	// have backend(s) serving the kube-apiserver running.
 	ReservedIdentityKubeAPIServer
 )
