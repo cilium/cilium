@@ -83,6 +83,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -521,6 +522,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	// Collect old CIDR identities
 	var oldNIDs []identity.NumericIdentity
+	var oldIngressIPs []*net.IPNet
 	if option.Config.RestoreState && !option.Config.DryMode {
 		if err := ipcachemap.IPCache.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 			k := key.(*ipcachemap.Key)
@@ -529,6 +531,14 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			if nid.HasLocalScope() {
 				d.restoredCIDRs = append(d.restoredCIDRs, k.IPNet())
 				oldNIDs = append(oldNIDs, nid)
+			} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
+				oldIngressIPs = append(oldIngressIPs, k.IPNet())
+				ip := k.IPNet().IP
+				if ip.To4() != nil {
+					node.SetIngressIPv4(ip)
+				} else {
+					node.SetIngressIPv6(ip)
+				}
 			}
 		}); err != nil && !os.IsNotExist(err) {
 			log.WithError(err).Debug("Error dumping ipcache")
@@ -630,7 +640,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
-		d.nodeDiscovery.Manager,
+		d.nodeDiscovery,
 		&d,
 		d.policy,
 		d.svc,
@@ -698,6 +708,22 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// Upsert restored CIDRs after the new ipcache has been opened above
 	if len(restoredCIDRidentities) > 0 {
 		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities)
+	}
+	// Upsert restored local Ingress IPs
+	restoredIngressIPs := []string{}
+	for _, ingressIP := range oldIngressIPs {
+		_, err := d.ipcache.Upsert(ingressIP.String(), nil, 0, nil, ipcache.Identity{
+			ID:     identity.ReservedIdentityIngress,
+			Source: source.Restored,
+		})
+		if err == nil {
+			restoredIngressIPs = append(restoredIngressIPs, ingressIP.String())
+		} else {
+			log.WithError(err).Warning("could not restore Ingress IP, a new one will be allocated")
+		}
+	}
+	if len(restoredIngressIPs) > 0 {
+		log.WithField(logfields.Ingress, restoredIngressIPs).Info("Restored ingress IPs")
 	}
 
 	// Read the service IDs of existing services from the BPF map and
