@@ -2455,6 +2455,11 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
+	if RunsOn419OrLaterKernel() {
+		// To enable SA for both cases when KPR is enabled and disabled
+		addIfNotOverwritten(options, "sessionAffinity", "true")
+	}
+
 	// Disable unsupported features that will just generated unnecessary
 	// warnings otherwise.
 	if DoesNotRunOn419OrLaterKernel() {
