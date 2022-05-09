@@ -1075,6 +1075,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			logfields.V6Prefix:       node.GetIPv6AllocRange(),
 			logfields.V4HealthIP:     node.GetEndpointHealthIPv4(),
 			logfields.V6HealthIP:     node.GetEndpointHealthIPv6(),
+			logfields.V4IngressIP:    node.GetIngressIPv4(),
+			logfields.V6IngressIP:    node.GetIngressIPv6(),
 			logfields.V4CiliumHostIP: node.GetInternalIPv4Router(),
 			logfields.V6CiliumHostIP: node.GetIPv6Router(),
 		}).Info("Annotating k8s node")
@@ -1083,6 +1085,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			encryptKeyID,
 			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
 			node.GetEndpointHealthIPv4(), node.GetEndpointHealthIPv6(),
+			node.GetIngressIPv4(), node.GetIngressIPv6(),
 			node.GetInternalIPv4Router(), node.GetIPv6Router())
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")

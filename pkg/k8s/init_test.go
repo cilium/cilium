@@ -72,8 +72,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		0,
 		node.GetIPv4AllocRange(),
 		node.GetIPv6AllocRange(),
-		nil,
-		nil,
+		nil, nil,
+		nil, nil,
 		net.ParseIP("10.254.0.1"),
 		net.ParseIP(""))
 
@@ -139,8 +139,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		0,
 		node.GetIPv4AllocRange(),
 		node.GetIPv6AllocRange(),
-		nil,
-		nil,
+		nil, nil,
+		nil, nil,
 		net.ParseIP("10.254.0.1"),
 		net.ParseIP(""))
 

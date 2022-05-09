@@ -187,6 +187,26 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 		}
 	}
 
+	if newNode.IPv4IngressIP == nil {
+		if ingressIP, ok := k8sNode.Annotations[annotation.V4IngressName]; !ok || ingressIP == "" {
+			scopedLog.Debug("Empty IPv4 Ingress annotation in node")
+		} else if ip := net.ParseIP(ingressIP); ip == nil {
+			scopedLog.WithField(logfields.V4IngressIP, ingressIP).Error("BUG, invalid IPv4 Ingress annotation in node")
+		} else {
+			newNode.IPv4IngressIP = ip
+		}
+	}
+
+	if newNode.IPv6IngressIP == nil {
+		if ingressIP, ok := k8sNode.Annotations[annotation.V6IngressName]; !ok || ingressIP == "" {
+			scopedLog.Debug("Empty IPv6 Ingress annotation in node")
+		} else if ip := net.ParseIP(ingressIP); ip == nil {
+			scopedLog.WithField(logfields.V6IngressIP, ingressIP).Error("BUG, invalid IPv6 Ingress annotation in node")
+		} else {
+			newNode.IPv6IngressIP = ip
+		}
+	}
+
 	newNode.Labels = k8sNode.GetLabels()
 
 	return newNode
