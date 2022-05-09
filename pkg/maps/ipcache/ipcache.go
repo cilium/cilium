@@ -161,20 +161,23 @@ type Map struct {
 	deleteSupport bool
 }
 
+func newIPCacheMap(name string) *bpf.Map {
+	return bpf.NewMap(
+		name,
+		bpf.MapTypeLPMTrie,
+		&Key{},
+		int(unsafe.Sizeof(Key{})),
+		&RemoteEndpointInfo{},
+		int(unsafe.Sizeof(RemoteEndpointInfo{})),
+		MaxEntries,
+		bpf.BPF_F_NO_PREALLOC, 0,
+		bpf.ConvertKeyValue)
+}
+
 // NewMap instantiates a Map.
 func NewMap(name string) *Map {
 	return &Map{
-		Map: *bpf.NewMap(
-			name,
-			bpf.MapTypeLPMTrie,
-			&Key{},
-			int(unsafe.Sizeof(Key{})),
-			&RemoteEndpointInfo{},
-			int(unsafe.Sizeof(RemoteEndpointInfo{})),
-			MaxEntries,
-			bpf.BPF_F_NO_PREALLOC, 0,
-			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric(),
+		Map:           *newIPCacheMap(name).WithCache().WithPressureMetric(),
 		deleteSupport: true,
 	}
 }
@@ -219,9 +222,8 @@ func (m *Map) GetMaxPrefixLengths() (ipv6, ipv4 int) {
 func (m *Map) supportsDelete() bool {
 	m.detectDeleteSupport.Do(func() {
 		// Create a separate map for the probing since this map may not have been created yet.
-		probeMap := NewMap(m.Name() + "_probe")
-		_, err := probeMap.OpenOrCreate()
-		defer probeMap.Unpin()
+		probeMap := newIPCacheMap(m.Name() + "_probe")
+		err := probeMap.CreateUnpinned()
 		if err != nil {
 			log.WithError(err).Warn("Failed to open IPCache map for feature probing, assuming delete and dump unsupported")
 			m.deleteSupport = false
@@ -231,7 +233,13 @@ func (m *Map) supportsDelete() bool {
 
 		// Entry is invalid because IPCache needs a family specified.
 		invalidEntry := &Key{}
-		m.deleteSupport, _ = probeMap.delete(invalidEntry, false)
+		err = probeMap.Delete(invalidEntry)
+		var errno unix.Errno
+		if ok := errors.As(err, &errno); ok && errno == unix.ENOSYS {
+			m.deleteSupport = false
+		} else {
+			m.deleteSupport = true
+		}
 		log.Debugf("Detected IPCache delete operation support: %t", m.deleteSupport)
 
 		// Detect dump support
