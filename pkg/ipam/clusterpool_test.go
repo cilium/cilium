@@ -7,6 +7,7 @@ package ipam
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -35,8 +36,8 @@ func (f *fakeK8sCiliumNodeAPI) RegisterCiliumNodeSubscriber(s subscriber.CiliumN
 
 // UpdateStatus implements nodeUpdater
 func (f *fakeK8sCiliumNodeAPI) UpdateStatus(_ context.Context, ciliumNode *ciliumv2.CiliumNode, _ v1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
-	f.updateNode(ciliumNode)
-	return ciliumNode, nil
+	err := f.updateNode(ciliumNode)
+	return ciliumNode, err
 }
 
 // currentNode returns a the current snapshot of the node
@@ -47,10 +48,14 @@ func (f *fakeK8sCiliumNodeAPI) currentNode() *ciliumv2.CiliumNode {
 	return f.node.DeepCopy()
 }
 
-// updateNode is to be invoked by the test code to simulate writes by the operator
+// updateNode is to be invoked by the test code to simulate updates by the operator
 func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
 	f.mutex.Lock()
 	oldNode := f.node
+	if oldNode == nil {
+		f.mutex.Unlock()
+		return fmt.Errorf("failed to update CiliumNode %q: node not found", newNode.Name)
+	}
 	f.node = newNode
 
 	sub := f.sub
@@ -59,11 +64,7 @@ func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
 
 	var err error
 	if sub != nil {
-		if oldNode == nil {
-			err = sub.OnAddCiliumNode(newNode, nil)
-		} else {
-			err = sub.OnUpdateCiliumNode(oldNode, newNode, nil)
-		}
+		err = sub.OnUpdateCiliumNode(oldNode, newNode, nil)
 	}
 	if onUpsertEvent != nil {
 		onUpsertEvent()
@@ -72,7 +73,7 @@ func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
 	return err
 }
 
-// updateNode is to be invoked by the test code to simulate an unexpected node deletion
+// deleteNode is to be invoked by the test code to simulate an unexpected node deletion
 func (f *fakeK8sCiliumNodeAPI) deleteNode() error {
 	f.mutex.Lock()
 	oldNode := f.node
@@ -646,6 +647,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			fakeK8sEventRegister := &ownerMock{}
 			events := make(chan string, 1)
 			fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPI{
+				node: &ciliumv2.CiliumNode{},
 				onDeleteEvent: func() {
 					events <- "delete"
 				},
@@ -780,6 +782,7 @@ func TestNewCRDWatcher_restoreFinished(t *testing.T) {
 	fakeK8sEventRegister := &ownerMock{}
 	events := make(chan string, 1)
 	fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPI{
+		node: &ciliumv2.CiliumNode{},
 		onDeleteEvent: func() {
 			events <- "delete"
 		},
@@ -807,7 +810,7 @@ func TestNewCRDWatcher_restoreFinished(t *testing.T) {
 		t.Fatalf("received unexpected event %q", e)
 	case <-time.After(10 * time.Millisecond):
 	}
-	Expect(fakeK8sCiliumNodeAPI.currentNode()).To(BeNil())
+	Expect(fakeK8sCiliumNodeAPI.currentNode()).To(Equal(&ciliumv2.CiliumNode{}))
 
 	// Test CiliumNode CRD is updated after restore has finished
 	c.restoreFinished()
