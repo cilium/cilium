@@ -355,6 +355,11 @@ type NodeSpec struct {
 	// +kubebuilder:validation:Optional
 	HealthAddressing HealthAddressingSpec `json:"health,omitempty"`
 
+	// IngressAddressing is the addressing information for Ingress listener.
+	//
+	// +kubebuilder:validation:Optional
+	IngressAddressing AddressPair `json:"ingress,omitempty"`
+
 	// Encryption is the encryption configuration of the node.
 	//
 	// +kubebuilder:validation:Optional
