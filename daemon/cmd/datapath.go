@@ -157,7 +157,7 @@ func endParallelMapMode() {
 	ipcachemap.IPCache.EndParallelMode()
 }
 
-// syncLXCMap adds local host enties to bpf lxcmap, as well as
+// syncEndpointsAndHostIPs adds local host enties to bpf lxcmap, as well as
 // ipcache, if needed, and also notifies the daemon and network policy
 // hosts cache if changes were made.
 func (d *Daemon) syncEndpointsAndHostIPs() error {
