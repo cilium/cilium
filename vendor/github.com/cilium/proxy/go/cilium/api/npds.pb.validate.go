@@ -61,7 +61,32 @@ func (m *NetworkPolicy) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Name
+	if l := len(m.GetEndpointIps()); l < 1 || l > 2 {
+		err := NetworkPolicyValidationError{
+			field:  "EndpointIps",
+			reason: "value must contain between 1 and 2 items, inclusive",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	for idx, item := range m.GetEndpointIps() {
+		_, _ = idx, item
+
+		if utf8.RuneCountInString(item) < 1 {
+			err := NetworkPolicyValidationError{
+				field:  fmt.Sprintf("EndpointIps[%v]", idx),
+				reason: "value length must be at least 1 runes",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
 
 	// no validation rules for EndpointId
 

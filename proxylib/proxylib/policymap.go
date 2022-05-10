@@ -261,7 +261,7 @@ func (p *PolicyInstance) Matches(ingress bool, port, remoteId uint32, l7 interfa
 	return p.Egress.Matches(port, remoteId, l7)
 }
 
-// Network policies keyed by endpoint policy names
+// Network policies keyed by endpoint IPs
 type PolicyMap map[string]*PolicyInstance
 
 func newPolicyMap() PolicyMap {

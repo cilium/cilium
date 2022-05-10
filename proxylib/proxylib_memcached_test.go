@@ -123,7 +123,7 @@ func TestMemcache(t *testing.T) {
 			}
 
 			insertPolicyText(t, mod, "1", []string{fmt.Sprintf(`
-		name: "bm1"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -141,7 +141,7 @@ func TestMemcache(t *testing.T) {
 		>
 		`, tc.policy)})
 
-			buf := CheckOnNewConnection(t, mod, "memcache", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "bm1",
+			buf := CheckOnNewConnection(t, mod, "memcache", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "1.1.1.1",
 				30, proxylib.OK, 1)
 
 			tc.onDataChecks(t)
