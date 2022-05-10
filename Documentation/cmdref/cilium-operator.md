@@ -26,10 +26,10 @@ cilium-operator [flags]
       --cilium-pod-namespace string               Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace
       --cluster-id int                            Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")
-      --cluster-pool-ipv4-cidr strings            IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2' and 'enable-ipv4=true'
-      --cluster-pool-ipv4-mask-size int           Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2' and 'enable-ipv4=true' (default 24)
-      --cluster-pool-ipv6-cidr strings            IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2' and 'enable-ipv6=true'
-      --cluster-pool-ipv6-mask-size int           Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2' and 'enable-ipv6=true' (default 112)
+      --cluster-pool-ipv4-cidr strings            IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv4=true'
+      --cluster-pool-ipv4-mask-size int           Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv4=true' (default 24)
+      --cluster-pool-ipv6-cidr strings            IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv6=true'
+      --cluster-pool-ipv6-mask-size int           Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv6=true' (default 112)
       --cnp-node-status-gc-interval duration      GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
       --cnp-status-update-interval duration       Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                             Configuration file (default "$HOME/ciliumd.yaml")
