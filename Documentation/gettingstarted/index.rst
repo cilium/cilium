@@ -93,6 +93,16 @@ Cluster Mesh
    clustermesh/policy
    external-workloads
 
+
+Service Mesh
+------------
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   servicemesh/ingress
+
 Operations
 ----------
 
