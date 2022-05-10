@@ -1,5 +1,65 @@
 # Changelog
 
+## v1.11.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* datapath: Allow egress GW with XDP (Backport PR #19671, Upstream PR #19587, @brb)
+* hubble/relay: Make the Hubble Peer service available by making it a Kubernetes service to eliminate the need to share a local Unix domain socket between a privileged pod (cilium daemon) and an unprivileged one (hubble-relay). (Backport PR #19752, Upstream PR #18620, @nathanjsweet)
+* k8s: keep KVStore CiliumNode labels synced with Node object (Backport PR #19481, Upstream PR #19375, @jibi)
+* metrics: Add go_* metrics (Backport PR #19585, Upstream PR #19153, @chancez)
+
+**Bugfixes:**
+* Add missing packet trace for some non-NodePort SNAT egress (Backport PR #19752, Upstream PR #19158, @YutaroHayakawa)
+* clustermesh-apiserver: fixed nil pointer dereference (Backport PR #19752, Upstream PR #18957, @abocim)
+* Fatal when IPv6 is enabled but corresponding kernel modules are missing (Backport PR #19481, Upstream PR #18941, @vadorovsky)
+* Fix drop for packets sent via AF_PACKET + mmap ring buffer in pod (Backport PR #19481, Upstream PR #19308, @liuyuan10)
+* Fixed Cilium agent regression causing a crash due to ipcache controller being scheduled too soon. (Backport PR #19573, Upstream PR #19501, @jrajahalme)
+* Improve garbage collection for resources allocated by ToFQDNs policy for services which rotate IP addresses frequently such as Amazon S3 (Backport PR #19585, Upstream PR #19452, @joestringer)
+* operator: Add cilium node garbage collector (Backport PR #19752, Upstream PR #19576, @sayboras)
+* operator: fix identity GC collection (Backport PR #19671, Upstream PR #19649, @aanm)
+* Use identity labels for selector matching for Egress NAT Gateway (Backport PR #19481, Upstream PR #19194, @blzhao-0)
+
+**CI Changes:**
+* jenkinsfiles: add `IMAGE_REGISTRY` env parameter (Backport PR #19519, Upstream PR #19459, @nbusseneau)
+* jenkinsfiles: Increase VM boot timeout (Backport PR #19481, Upstream PR #19458, @pchaigno)
+
+**Misc Changes:**
+* add robots.txt to Cilium documentation (Backport PR #19585, Upstream PR #19578, @aanm)
+* build(deps): bump actions/checkout from 3.0.1 to 3.0.2 (#19538, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.10.0 to 3 (#19729, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.14.1 to 2 (#19731, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.6.0 to 1.7.0 (#19618, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.7.0 to 2 (#19730, @dependabot[bot])
+* build(deps): bump docker/setup-qemu-action from 1.2.0 to 2 (#19732, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.8 to 2.1.9 (#19600, @dependabot[bot])
+* daemon, fqdn: Add flag to control FQDN regex LRU size (Backport PR #19671, Upstream PR #19383, @christarazi)
+* daemon: Initialize k8sCachesSynced channel before calling Initk8sSubsystem() (Backport PR #19573, Upstream PR #19626, @jrajahalme)
+* docs: fix version warning URL to point to docs.cilium.io (Backport PR #19585, Upstream PR #19563, @aanm)
+* docs: improve description for session affinity with KPR (Backport PR #19519, Upstream PR #19478, @julianwiedmann)
+* docs: improve guide to setup Cilium overlay on EKS (Backport PR #19481, Upstream PR #19207, @oliwave)
+* docs: move sitemap-index.xml to static directory (Backport PR #19752, Upstream PR #19681, @aanm)
+* docs: set right path for robots.txt (Backport PR #19671, Upstream PR #19638, @aanm)
+* docs: set the right url for API version check (Backport PR #19671, Upstream PR #19610, @aanm)
+* docs: Update max MTU value for Nodeport XDP on AWS (Backport PR #19671, Upstream PR #19593, @qmonnet)
+* identity: Initialize local identity allocator early (Backport PR #19573, Upstream PR #19556, @jrajahalme)
+* images/cilium: remove cilium group from Dockerfile (Backport PR #19752, Upstream PR #19711, @aanm)
+* LRP minor improvements (Backport PR #19519, Upstream PR #19489, @aditighag)
+* make: check that Go major/minor version matches required version (Backport PR #19585, Upstream PR #19528, @tklauser)
+* pkg/bpf: add map name in error message for OpenParallel (Backport PR #19519, Upstream PR #19491, @aanm)
+* pkg/k8s: use subresource "nodes/status" to update node annotations (Backport PR #19673, Upstream PR #19590, @aanm)
+* pkg/labels: Optimize SortedList() and FormatForKVStore() (Backport PR #19671, Upstream PR #19423, @christarazi)
+* pkg/policy/api: Optimize FQDNSelector String() (Backport PR #19671, Upstream PR #19570, @christarazi)
+* Removes any log swallowing that was occuring on daemon/cmd init (Backport PR #19671, Upstream PR #19188, @ldelossa)
+* test/upgrade: use the unreleased helm chart of stable branches (Backport PR #19752, Upstream PR #19710, @aanm)
+* Trimmed down Cilium's Cluster Roles to only the necessary rules (Backport PR #19673, Upstream PR #19074, @aanm)
+* v1.11: images/runtime: update CNI plugins to 1.1.1 (#19691, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.11.4 (#19476, @joestringer)
+
 ## v1.11.4
 
 Summary of Changes
