@@ -56,7 +56,8 @@ var (
 	lblJoe  = labels.ParseLabel("user=joe")
 	lblPete = labels.ParseLabel("user=pete")
 
-	testEndpointID = uint16(1)
+	testQAEndpointID   = uint16(1)
+	testProdEndpointID = uint16(2)
 
 	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
 		Reason:            "test",
@@ -176,19 +177,32 @@ func (ds *DaemonSuite) getXDSNetworkPolicies(c *C, resourceNames []string) map[s
 }
 
 func prepareEndpointDirs() (cleanup func(), err error) {
-	testEPDir := fmt.Sprintf("%d", testEndpointID)
-	if err = os.Mkdir(testEPDir, 0755); err != nil {
-		return func() {}, err
+	var testDirs []string
+	for testEndpointID := range []uint16{testQAEndpointID, testProdEndpointID} {
+		testEPDir := fmt.Sprintf("%d", testEndpointID)
+		if err = os.Mkdir(testEPDir, 0755); err != nil {
+			for _, dir := range testDirs {
+				os.RemoveAll(dir)
+			}
+			return func() {}, err
+		}
+		testDirs = append(testDirs, testEPDir)
 	}
 	return func() {
-		os.RemoveAll(fmt.Sprintf("%s/ep_config.h", testEPDir))
-		time.Sleep(1 * time.Second)
-		os.RemoveAll(testEPDir)
-		os.RemoveAll(fmt.Sprintf("%s_backup", testEPDir))
+		for _, testEPDir := range testDirs {
+			os.RemoveAll(fmt.Sprintf("%s/ep_config.h", testEPDir))
+			time.Sleep(1 * time.Second)
+			os.RemoveAll(testEPDir)
+			os.RemoveAll(fmt.Sprintf("%s_backup", testEPDir))
+		}
 	}, nil
 }
 
 func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa bool) *endpoint.Endpoint {
+	testEndpointID := testProdEndpointID
+	if qa {
+		testEndpointID = testQAEndpointID
+	}
 	e := endpoint.NewEndpointWithState(ds.d, ds.d, ipcache.NewIPCache(nil), ds.d.l7Proxy, ds.d.identityAllocator, testEndpointID, endpoint.StateWaitingForIdentity)
 	if qa {
 		e.IPv6 = QAIPv6Addr
@@ -333,7 +347,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
 	})
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -376,7 +390,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	})
 
 	expectedNetworkPolicy = &cilium.NetworkPolicy{
-		Name:             ProdIPv4Addr.String(),
+		EndpointIps:      []string{ProdIPv6Addr.String(), ProdIPv4Addr.String()},
 		EndpointId:       uint64(eProdBar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -464,7 +478,7 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -548,7 +562,7 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -636,7 +650,7 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -928,7 +942,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	}, time.Second*1)
 	c.Assert(err, IsNil)
 	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{

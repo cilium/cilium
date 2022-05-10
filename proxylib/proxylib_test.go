@@ -77,18 +77,18 @@ func TestOnNewConnection(t *testing.T) {
 	}
 
 	// Unkhown parser
-	CheckOnNewConnection(t, mod, "invalid-parser-should-not-exist", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "policy-1", 80, proxylib.UNKNOWN_PARSER, 0)
+	CheckOnNewConnection(t, mod, "invalid-parser-should-not-exist", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1", 80, proxylib.UNKNOWN_PARSER, 0)
 
 	// Non-numeric destination port
-	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:XYZ", "policy-1",
+	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:XYZ", "1.1.1.1",
 		80, proxylib.INVALID_ADDRESS, 0)
 
 	// Missing Destination port
-	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2", "policy-1",
+	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2", "1.1.1.1",
 		80, proxylib.INVALID_ADDRESS, 0)
 
 	// Zero Destination port is reserved for wildcarding
-	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:0", "policy-1",
+	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:0", "1.1.1.1",
 		80, proxylib.INVALID_ADDRESS, 0)
 
 	// L7 parser rejecting the connection based on connection metadata
@@ -96,11 +96,11 @@ func TestOnNewConnection(t *testing.T) {
 		80, proxylib.POLICY_DROP, 0)
 
 	// Using test parser
-	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "policy-1",
+	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		80, proxylib.OK, 1)
 
 	// 2nd connection
-	CheckOnNewConnection(t, mod, "test.passer", 12345678901234567890, false, 2, 1, "10.0.0.2:80", "1.1.1.1:34567", "policy-2",
+	CheckOnNewConnection(t, mod, "test.passer", 12345678901234567890, false, 2, 1, "10.0.0.2:80", "1.1.1.1:34567", "2.2.2.2",
 		80, proxylib.OK, 2)
 
 	CheckClose(t, 1, nil, 2)
@@ -154,7 +154,7 @@ func TestOnDataNoPolicy(t *testing.T) {
 	}
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "policy-1",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		30, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -217,7 +217,7 @@ func TestOnDataPanic(t *testing.T) {
 	proxylib.RegisterParserFactory("test.panicparser", panicParserFactory)
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, mod, "test.panicparser", 11, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "policy-1",
+	buf := CheckOnNewConnection(t, mod, "test.panicparser", 11, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		30, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -255,7 +255,7 @@ func TestUnsupportedL7Drops(t *testing.T) {
 	}
 
 	insertPolicyText(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -273,7 +273,7 @@ func TestUnsupportedL7Drops(t *testing.T) {
 		`})
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		256, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -304,7 +304,7 @@ func TestUnsupportedL7DropsGeneric(t *testing.T) {
 	}
 
 	insertPolicyText(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -326,7 +326,7 @@ func TestUnsupportedL7DropsGeneric(t *testing.T) {
 		`})
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		256, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -357,7 +357,7 @@ func TestEnvoyL7DropsGeneric(t *testing.T) {
 	}
 
 	insertPolicyText(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -379,7 +379,7 @@ func TestEnvoyL7DropsGeneric(t *testing.T) {
 		`})
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		256, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -410,7 +410,7 @@ func TestTwoRulesOnSamePortFirstNoL7(t *testing.T) {
 	}
 
 	insertPolicyText(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -444,7 +444,7 @@ func TestTwoRulesOnSamePortFirstNoL7Generic(t *testing.T) {
 	}
 
 	insertPolicyText(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -492,7 +492,7 @@ func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
 	})
 
 	err := insertPolicyTextRaw(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -548,7 +548,7 @@ func TestSimplePolicy(t *testing.T) {
 	}
 
 	insertPolicyText(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -576,7 +576,7 @@ func TestSimplePolicy(t *testing.T) {
 		`})
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		80, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -607,7 +607,7 @@ func TestAllowAllPolicy(t *testing.T) {
 	}
 
 	insertPolicyText(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -621,7 +621,7 @@ func TestAllowAllPolicy(t *testing.T) {
 		`})
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		80, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -652,7 +652,7 @@ func TestAllowEmptyPolicy(t *testing.T) {
 	}
 
 	insertPolicyText(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -663,7 +663,7 @@ func TestAllowEmptyPolicy(t *testing.T) {
 		`})
 
 	// Using headertester parser, policy name matches the policy
-	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		80, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -676,7 +676,7 @@ func TestAllowEmptyPolicy(t *testing.T) {
 	}, proxylib.OK, "")
 
 	// Connection using a different policy name still drops
-	CheckOnNewConnection(t, mod, "test.headerparser", 2, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "FooBar2",
+	CheckOnNewConnection(t, mod, "test.headerparser", 2, true, 1, 2, "1.1.1.1:34567", "10.0.0.2:80", "2.2.2.2",
 		80, proxylib.OK, 2)
 	CheckOnData(t, 2, false, false, &[][]byte{[]byte(line1)}, []ExpFilterOp{
 		{proxylib.DROP, len(line1)},
@@ -704,7 +704,7 @@ func TestAllowAllPolicyL3Egress(t *testing.T) {
 	//logrus.SetLevel(logrus.DebugLevel)
 
 	insertPolicyText(t, mod, "1", []string{`
-		name: "FooBar"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 42
 		egress_per_port_policies: <
 		  port: 80
@@ -719,7 +719,7 @@ func TestAllowAllPolicyL3Egress(t *testing.T) {
 		`})
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, false, 42, 2, "1.1.1.1:34567", "10.0.0.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, false, 42, 2, "1.1.1.1:34567", "10.0.0.2:80", "1.1.1.1",
 		80, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
