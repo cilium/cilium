@@ -447,6 +447,7 @@ healthcheck
 healthz
 herokuapp
 hexData
+hipstershop
 hoc
 hostAliases
 hostConfDirMountPath
@@ -745,6 +746,7 @@ profiler
 prog
 programmability
 prometheus
+proto
 protobuf
 proxying
 proxylib
