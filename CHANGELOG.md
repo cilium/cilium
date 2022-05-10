@@ -1,5 +1,46 @@
 # Changelog
 
+## v1.10.11
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* hubble/relay: Make the Hubble Peer service available by making it a Kubernetes service to eliminate the need to share a local Unix domain socket between a privileged pod (cilium daemon) and an unprivileged one (hubble-relay). (Backport PR #19744, Upstream PR #18620, @nathanjsweet)
+* metrics: Add go_* metrics (Backport PR #19637, Upstream PR #19153, @chancez)
+
+**Bugfixes:**
+* Fixed Cilium agent regression causing a crash due to ipcache controller being scheduled too soon. (Backport PR #19574, Upstream PR #19501, @jrajahalme)
+* Improve garbage collection for resources allocated by ToFQDNs policy for services which rotate IP addresses frequently such as Amazon S3 (Backport PR #19584, Upstream PR #19452, @joestringer)
+* operator: Add cilium node garbage collector (Backport PR #19744, Upstream PR #19576, @sayboras)
+
+**CI Changes:**
+* jenkinsfiles: Increase VM boot timeout (Backport PR #19482, Upstream PR #19458, @pchaigno)
+
+**Misc Changes:**
+* build(deps): bump actions/checkout from 3.0.1 to 3.0.2 (#19537, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.10.0 to 3 (#19726, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.14.1 to 2 (#19721, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.6.0 to 1.7.0 (#19617, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.7.0 to 2 (#19724, @dependabot[bot])
+* build(deps): bump docker/setup-qemu-action from 1.2.0 to 2 (#19723, @dependabot[bot])
+* docs: fix version warning URL to point to docs.cilium.io (Backport PR #19584, Upstream PR #19563, @aanm)
+* docs: improve description for session affinity with KPR (Backport PR #19482, Upstream PR #19478, @julianwiedmann)
+* docs: set the right url for API version check (Backport PR #19672, Upstream PR #19610, @aanm)
+* docs: Update max MTU value for Nodeport XDP on AWS (Backport PR #19672, Upstream PR #19593, @qmonnet)
+* identity: Initialize local identity allocator early (Backport PR #19574, Upstream PR #19556, @jrajahalme)
+* images/cilium: remove cilium group from Dockerfile (Backport PR #19744, Upstream PR #19711, @aanm)
+* LRP minor improvements (Backport PR #19482, Upstream PR #19489, @aditighag)
+* make: check that Go major/minor version matches required version (Backport PR #19584, Upstream PR #19528, @tklauser)
+* pkg/bpf: add map name in error message for OpenParallel (Backport PR #19482, Upstream PR #19491, @aanm)
+* pkg/k8s: use subresource "nodes/status" to update node annotations (Backport PR #19674, Upstream PR #19590, @aanm)
+* test/upgrade: use the unreleased helm chart of stable branches (Backport PR #19744, Upstream PR #19710, @aanm)
+* Trimmed down Cilium's Cluster Roles to only the necessary rules (Backport PR #19674, Upstream PR #19074, @aanm)
+* v1.10: images/runtime: update CNI plugins to 1.1.1 (#19692, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.10.10 (#19475, @joestringer)
+
 ## v1.10.10
 
 Summary of Changes
