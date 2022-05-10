@@ -351,8 +351,8 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 // updateDNSDatapathRules updates the DNS proxy iptables rules. Must be
 // called after iptables has been initailized, and only after
 // successful bootstrapFQDN().
-func (d *Daemon) updateDNSDatapathRules() error {
-	return d.l7Proxy.AckProxyPort(proxy.DNSProxyName)
+func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
+	return d.l7Proxy.AckProxyPort(ctx, proxy.DNSProxyName)
 }
 
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well
