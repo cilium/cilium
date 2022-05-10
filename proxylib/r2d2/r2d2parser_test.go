@@ -64,7 +64,7 @@ func (s *R2d2Suite) TestR2d2OnDataBasicPass(c *C) {
 
 	// allow all rule
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
-		name: "cp1"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -73,7 +73,7 @@ func (s *R2d2Suite) TestR2d2OnDataBasicPass(c *C) {
 		  >
 		>
 		`})
-	conn := s.ins.CheckNewConnectionOK(c, "r2d2", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "r2d2", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "1.1.1.1")
 	msg1 := "READ sssss\r\n"
 	msg2 := "WRITE sssss\r\n"
 	msg3 := "HALT\r\n"
@@ -91,7 +91,7 @@ func (s *R2d2Suite) TestR2d2OnDataMultipleReq(c *C) {
 
 	// allow all rule
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
-		name: "cp1"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -100,7 +100,7 @@ func (s *R2d2Suite) TestR2d2OnDataMultipleReq(c *C) {
 		  >
 		>
 		`})
-	conn := s.ins.CheckNewConnectionOK(c, "r2d2", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
+	conn := s.ins.CheckNewConnectionOK(c, "r2d2", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "1.1.1.1")
 	msg1Part1 := "RE"
 	msg1Part2 := "SET\r\n"
 	data := [][]byte{[]byte(msg1Part1), []byte(msg1Part2)}
@@ -112,7 +112,7 @@ func (s *R2d2Suite) TestR2d2OnDataMultipleReq(c *C) {
 func (s *R2d2Suite) TestR2d2OnDataAllowDenyCmd(c *C) {
 
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
-		name: "cp2"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -129,7 +129,7 @@ func (s *R2d2Suite) TestR2d2OnDataAllowDenyCmd(c *C) {
 		  >
 		>
 		`})
-	conn := s.ins.CheckNewConnectionOK(c, "r2d2", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp2")
+	conn := s.ins.CheckNewConnectionOK(c, "r2d2", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "1.1.1.1")
 	msg1 := "READ xssss\r\n"
 	msg2 := "WRITE xssss\r\n"
 	data := [][]byte{[]byte(msg1 + msg2)}
@@ -142,7 +142,7 @@ func (s *R2d2Suite) TestR2d2OnDataAllowDenyCmd(c *C) {
 func (s *R2d2Suite) TestR2d2OnDataAllowDenyRegex(c *C) {
 
 	s.ins.CheckInsertPolicyText(c, "1", []string{`
-		name: "cp3"
+		endpoint_ips: "1.1.1.1"
 		endpoint_id: 2
 		ingress_per_port_policies: <
 		  port: 80
@@ -159,7 +159,7 @@ func (s *R2d2Suite) TestR2d2OnDataAllowDenyRegex(c *C) {
 		  >
 		>
 		`})
-	conn := s.ins.CheckNewConnectionOK(c, "r2d2", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp3")
+	conn := s.ins.CheckNewConnectionOK(c, "r2d2", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "1.1.1.1")
 	msg1 := "READ ssss\r\n"
 	msg2 := "WRITE yyyyy\r\n"
 	data := [][]byte{[]byte(msg1 + msg2)}
