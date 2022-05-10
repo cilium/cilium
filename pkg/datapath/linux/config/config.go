@@ -591,6 +591,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
 	}
 
+	if option.Config.EnableHighScaleIPcache {
+		cDefinesMap["ENABLE_HIGH_SCALE_IPCACHE"] = "1"
+	}
+
 	if option.Config.EnableCustomCalls {
 		cDefinesMap["ENABLE_CUSTOM_CALLS"] = "1"
 	}

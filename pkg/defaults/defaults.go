@@ -478,6 +478,11 @@ const (
 	// for local traffic
 	EnableIdentityMark = true
 
+	// EnableHighScaleIPcache enables the special ipcache mode for high scale
+	// clusters. The ipcache content will be reduced to the strict minimum and
+	// traffic will be encapsulated to carry security identities.
+	EnableHighScaleIPcache = false
+
 	// K8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
 	// for the support of Leases in Kubernetes when there is an error in discovering
 	// API groups using Discovery API.

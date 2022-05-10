@@ -606,6 +606,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(Vp, option.EnableIdentityMark)
 
+	flags.Bool(option.EnableHighScaleIPcache, defaults.EnableHighScaleIPcache, "Enable the high scale mode for ipcache")
+	option.BindEnv(Vp, option.EnableHighScaleIPcache)
+
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(Vp, option.EnableHostFirewall)
 
@@ -1383,6 +1386,24 @@ func initEnv() {
 
 	if option.Config.EnableIPv6Masquerade && option.Config.EnableBPFMasquerade {
 		log.Fatal("BPF masquerade is not supported for IPv6.")
+	}
+
+	if option.Config.EnableHighScaleIPcache {
+		if option.Config.TunnelingEnabled() {
+			log.Fatal("The high-scale IPcache mode requires native routing.")
+		}
+		if option.Config.EnableIPv4EgressGateway {
+			log.Fatal("The egress gateway is not supported in high scale IPcache mode.")
+		}
+		if option.Config.EnableIPSec {
+			log.Fatal("IPsec is not supported in high scale IPcache mode.")
+		}
+		if option.Config.EnableIPv6 {
+			log.Fatal("The high-scale IPcache mode is not supported with IPv6.")
+		}
+		if !option.Config.EnableWellKnownIdentities {
+			log.Fatal("The high-scale IPcache mode requires well-known identities to be enabled.")
+		}
 	}
 
 	// If there is one device specified, use it to derive better default
