@@ -113,7 +113,7 @@ interface as follows:
 
        .. code-block:: shell-session
 
-          cilium install --encryption ipsec --config encryption-interface=ethX
+          cilium install --encryption ipsec --config encrypt-interface=ethX
 
     .. group-tab:: Helm
 
