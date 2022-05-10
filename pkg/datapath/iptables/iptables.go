@@ -346,12 +346,8 @@ func (m *IptablesManager) removeRules(prefix string) error {
 		if err := m.removeCiliumRules(t, ip4tables, prefix+"CILIUM_"); err != nil {
 			return err
 		}
-	}
 
-	// Set of tables that have had ip6tables rules in any Cilium version
-	if m.haveIp6tables {
-		tables6 := []string{"nat", "mangle", "raw", "filter"}
-		for _, t := range tables6 {
+		if m.haveIp6tables {
 			if err := m.removeCiliumRules(t, ip6tables, prefix+"CILIUM_"); err != nil {
 				return err
 			}
