@@ -8,6 +8,7 @@ package npds
 import (
 	"context"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -41,9 +42,9 @@ const (
 )
 
 var resources = []*cilium.NetworkPolicy{
-	{Name: "resource0"},
-	{Name: "resource1"},
-	{Name: "resource2"},
+	{EndpointIps: []string{"1.1.1.1"}},
+	{EndpointIps: []string{"2.2.2.2"}},
+	{EndpointIps: []string{"3.3.3.3", "face::1"}},
 }
 
 // UpsertNetworkPolicy must only be used for testing!
@@ -61,8 +62,8 @@ func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.N
 			atomic.AddUint64(&cs.nacks, 1)
 		}
 	}
-
-	s.NetworkPolicyMutator.Upsert(envoy.NetworkPolicyTypeURL, p.Name, p, []string{"127.0.0.1"}, wg, callback)
+	resourceName := strconv.FormatUint(p.EndpointId, 10)
+	s.NetworkPolicyMutator.Upsert(envoy.NetworkPolicyTypeURL, resourceName, p, []string{"127.0.0.1"}, wg, callback)
 }
 
 type updater struct{}
