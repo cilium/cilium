@@ -947,7 +947,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	// iptables rules can be updated only after d.init() intializes the iptables above.
-	err = d.updateDNSDatapathRules()
+	err = d.updateDNSDatapathRules(d.ctx)
 	if err != nil {
 		return nil, restoredEndpoints, err
 	}
