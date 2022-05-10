@@ -65,6 +65,10 @@ func (m *BpfMetadata) validate(all bool) error {
 
 	// no validation rules for EgressMarkSourceEndpointId
 
+	// no validation rules for Ipv4SourceAddress
+
+	// no validation rules for Ipv6SourceAddress
+
 	if len(errors) > 0 {
 		return BpfMetadataMultiError(errors)
 	}
