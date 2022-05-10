@@ -19,6 +19,7 @@ var (
 		ConntrackLocal:      &specConntrackLocal,
 		Debug:               &specDebug,
 		DebugLB:             &specDebugLB,
+		XDPTracing:          &specXDPTracing,
 		DebugPolicy:         &specDebugPolicy,
 		DropNotify:          &specDropNotify,
 		TraceNotify:         &specTraceNotify,

@@ -10,6 +10,7 @@ const (
 	Debug               = "Debug"
 	DebugLB             = "DebugLB"
 	DebugPolicy         = "DebugPolicy"
+	XDPTracing          = "XDPTracing"
 	DropNotify          = "DropNotification"
 	TraceNotify         = "TraceNotification"
 	PolicyVerdictNotify = "PolicyVerdictNotification"
@@ -41,6 +42,11 @@ var (
 	specDebugLB = Option{
 		Define:      "LB_DEBUG",
 		Description: "Enable debugging trace statements for load balancer",
+	}
+
+	specXDPTracing = Option{
+		Define:      "XDP_TRACING",
+		Description: "Enable traces / flow events for XDP",
 	}
 
 	specDebugPolicy = Option{

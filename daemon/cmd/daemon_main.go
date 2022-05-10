@@ -1359,6 +1359,7 @@ func initEnv(cmd *cobra.Command) {
 
 	option.Config.Opts.SetBool(option.Debug, debugDatapath)
 	option.Config.Opts.SetBool(option.DebugLB, debugDatapath)
+	option.Config.Opts.SetBool(option.XDPTracing, debugDatapath)
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
