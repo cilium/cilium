@@ -57,7 +57,7 @@ func (f *fakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfigura
 	return nil
 }
 
-func (f *fakeDatapath) InstallProxyRules(uint16, bool, string) error {
+func (f *fakeDatapath) InstallProxyRules(context.Context, uint16, bool, string) error {
 	return nil
 }
 
@@ -65,7 +65,7 @@ func (f *fakeDatapath) SupportsOriginalSourceAddr() bool {
 	return false
 }
 
-func (f *fakeDatapath) InstallRules(ifName string, quiet, install bool) error {
+func (f *fakeDatapath) InstallRules(ctx context.Context, ifName string, quiet, install bool) error {
 	return nil
 }
 
