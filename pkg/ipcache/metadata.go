@@ -64,7 +64,9 @@ func newMetadata() *metadata {
 // with it into the ipcache metadata map. The given labels are not modified nor
 // is its reference saved, as they're copied when inserting into the map.
 func (ipc *IPCache) UpsertMetadata(prefix string, lbls labels.Labels) {
+	ipc.metadata.Lock()
 	ipc.metadata.upsert(prefix, lbls)
+	ipc.metadata.Unlock()
 }
 
 func (m *metadata) upsert(prefix string, lbls labels.Labels) {
