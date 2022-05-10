@@ -102,6 +102,7 @@ Service Mesh
    :glob:
 
    servicemesh/ingress
+   servicemesh/l7-traffic-management
 
 Operations
 ----------

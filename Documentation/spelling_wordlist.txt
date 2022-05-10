@@ -447,7 +447,6 @@ healthcheck
 healthz
 herokuapp
 hexData
-hipstershop
 hoc
 hostAliases
 hostConfDirMountPath
