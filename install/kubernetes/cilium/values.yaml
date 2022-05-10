@@ -346,6 +346,13 @@ nat46x64Gateway:
   # -- Enable RFC8215-prefixed translation
   enabled: false
 
+# -- EnableHighScaleIPcache enables the special ipcache mode for high scale
+# clusters. The ipcache content will be reduced to the strict minimum and
+# traffic will be encapsulated to carry security identities.
+highScaleIPcache:
+  # -- Enable the high scale mode for the ipcache.
+  enabled: false
+
 # -- Configure BGP
 bgp:
   # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside

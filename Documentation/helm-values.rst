@@ -976,6 +976,14 @@
      - TCP port for the agent health API. This is not the port for cilium-health.
      - int
      - ``9879``
+   * - highScaleIPcache
+     - EnableHighScaleIPcache enables the special ipcache mode for high scale clusters. The ipcache content will be reduced to the strict minimum and traffic will be encapsulated to carry security identities.
+     - object
+     - ``{"enabled":false}``
+   * - highScaleIPcache.enabled
+     - Enable the high scale mode for the ipcache.
+     - bool
+     - ``false``
    * - hostFirewall
      - Configure the host firewall.
      - object

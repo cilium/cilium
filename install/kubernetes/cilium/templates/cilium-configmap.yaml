@@ -577,6 +577,10 @@ data:
 {{- end }}
 {{- end }}
 
+{{- if .Values.highScaleIPcache.enabled }}
+  enable-high-scale-ipcache: {{ .Values.highScaleIPcache.enabled | quote }}
+{{- end }}
+
 {{- if hasKey .Values "localRedirectPolicy" }}
   enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}
 {{- end }}
