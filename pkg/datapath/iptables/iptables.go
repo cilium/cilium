@@ -802,7 +802,7 @@ func (m *IptablesManager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) 
 	return nil
 }
 
-func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
+func (m *IptablesManager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingress bool, name string) error {
 	backoff := backoff.Exponential{
 		Min:  20 * time.Second,
 		Max:  3 * time.Minute,
@@ -825,7 +825,7 @@ func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name
 		}
 
 		log.WithError(err).Warning("Failed to install iptables proxy rules")
-		backoff.Wait(context.TODO())
+		backoff.Wait(ctx)
 	}
 }
 
@@ -1140,7 +1140,7 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
-func (m *IptablesManager) InstallRules(ifName string, firstInitialization, install bool) error {
+func (m *IptablesManager) InstallRules(ctx context.Context, ifName string, firstInitialization, install bool) error {
 	backoff := backoff.Exponential{
 		Min:  20 * time.Second,
 		Max:  3 * time.Minute,
@@ -1163,7 +1163,7 @@ func (m *IptablesManager) InstallRules(ifName string, firstInitialization, insta
 		}
 
 		log.WithError(err).Warning("Failed to install iptables rules")
-		backoff.Wait(context.TODO())
+		backoff.Wait(ctx)
 	}
 }
 
