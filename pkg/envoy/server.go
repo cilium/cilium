@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -674,15 +675,30 @@ func (s *XDSServer) deleteSecret(name string, wg *completion.WaitGroup, callback
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
 func getListenerFilter(isIngress bool, mayUseOriginalSourceAddr bool, l7lb bool) *envoy_config_listener.ListenerFilter {
+	conf := &cilium.BpfMetadata{
+		IsIngress:                   isIngress,
+		MayUseOriginalSourceAddress: mayUseOriginalSourceAddr,
+		BpfRoot:                     bpf.GetMapRoot(),
+		EgressMarkSourceEndpointId:  l7lb,
+	}
+	// Set Ingress source addresses if configuring for L7 LB
+	if l7lb {
+		ingressIPv4 := node.GetIngressIPv4()
+		if ingressIPv4 != nil {
+			conf.Ipv4SourceAddress = ingressIPv4.String()
+		}
+		ingressIPv6 := node.GetIngressIPv6()
+		if ingressIPv6 != nil {
+			conf.Ipv6SourceAddress = ingressIPv6.String()
+		}
+		log.Debugf("cilium.bpf_metadata: ipv4_source_address: %s", conf.GetIpv4SourceAddress())
+		log.Debugf("cilium.bpf_metadata: ipv6_source_address: %s", conf.GetIpv6SourceAddress())
+	}
+
 	return &envoy_config_listener.ListenerFilter{
 		Name: "cilium.bpf_metadata",
 		ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
-			TypedConfig: toAny(&cilium.BpfMetadata{
-				IsIngress:                   isIngress,
-				MayUseOriginalSourceAddress: mayUseOriginalSourceAddr,
-				BpfRoot:                     bpf.GetMapRoot(),
-				EgressMarkSourceEndpointId:  l7lb,
-			}),
+			TypedConfig: toAny(conf),
 		},
 	}
 }
