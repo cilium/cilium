@@ -39,7 +39,7 @@ type Resources struct {
 
 type PortAllocator interface {
 	AllocateProxyPort(name string, ingress bool) (uint16, error)
-	AckProxyPort(name string) error
+	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
 
@@ -364,7 +364,7 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 				if err == nil {
 					// Ack the proxy port, if any
 					if port, exists := resources.portAllocations[listenerName]; exists && port != 0 {
-						portAllocator.AckProxyPort(listenerName)
+						portAllocator.AckProxyPort(ctx, listenerName)
 					}
 				}
 			}))
@@ -556,7 +556,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 				if err == nil {
 					// Ack the proxy port, if any, but only if the listener's port was new
 					if port, exists := new.portAllocations[listenerName]; exists && port != 0 {
-						portAllocator.AckProxyPort(listenerName)
+						portAllocator.AckProxyPort(ctx, listenerName)
 					}
 				}
 			}))

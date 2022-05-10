@@ -188,7 +188,7 @@ type envoyConfigManager interface {
 
 	// envoy.PortAllocator
 	AllocateProxyPort(name string, ingress bool) (uint16, error)
-	AckProxyPort(name string) error
+	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
 

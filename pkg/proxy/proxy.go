@@ -41,7 +41,7 @@ const (
 )
 
 type DatapathUpdater interface {
-	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
+	InstallProxyRules(ctx context.Context, proxyPort uint16, ingress bool, name string) error
 	SupportsOriginalSourceAddr() bool
 }
 
@@ -260,21 +260,21 @@ func (pp *ProxyPort) reservePort() {
 
 // AckProxyPort() marks the proxy of the given type as successfully
 // created and creates or updates the datapath rules accordingly.
-func (p *Proxy) AckProxyPort(name string) error {
+func (p *Proxy) AckProxyPort(ctx context.Context, name string) error {
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
 	pp := proxyPorts[name]
 	if pp == nil {
 		return proxyNotFoundError(name)
 	}
-	return p.ackProxyPort(name, pp) // creates datapath rules, increases the reference count
+	return p.ackProxyPort(ctx, name, pp) // creates datapath rules, increases the reference count
 }
 
 // ackProxyPort() increases proxy port reference count and creates or updates the datapath rules.
 // Each call must eventually be paired with a corresponding releaseProxyPort() call
 // to keep the use count up-to-date.
 // Must be called with proxyPortsMutex held!
-func (p *Proxy) ackProxyPort(name string, pp *ProxyPort) error {
+func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) error {
 	scopedLog := log.WithField("proxy port name", name)
 
 	// Datapath rules are added only after we know the proxy configuration
@@ -289,7 +289,7 @@ func (p *Proxy) ackProxyPort(name string, pp *ProxyPort) error {
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
 		scopedLog.Infof("Adding new proxy port rules for %s:%d", name, pp.proxyPort)
-		if err := p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.ingress, name); err != nil {
+		if err := p.datapathUpdater.InstallProxyRules(ctx, pp.proxyPort, pp.ingress, name); err != nil {
 			return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
 		}
 		pp.rulesPort = pp.proxyPort
@@ -439,13 +439,13 @@ func (p *Proxy) SetProxyPort(name string, proxyType ProxyType, port uint16, ingr
 
 // ReinstallRules is called by daemon reconfiguration to re-install proxy ports rules that
 // were removed during the removal of all Cilium rules.
-func (p *Proxy) ReinstallRules() error {
+func (p *Proxy) ReinstallRules(ctx context.Context) error {
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
 	for name, pp := range proxyPorts {
 		if pp.rulesPort > 0 {
 			// This should always succeed if we have managed to start-up properly
-			if err := p.datapathUpdater.InstallProxyRules(pp.rulesPort, pp.ingress, name); err != nil {
+			if err := p.datapathUpdater.InstallProxyRules(ctx, pp.rulesPort, pp.ingress, name); err != nil {
 				return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
 			}
 		}
@@ -465,7 +465,7 @@ func (p *Proxy) ReinstallRules() error {
 // - finalizeFunc to make the changes stick, or
 // - revertFunc to cancel the changes.
 // Called with 'localEndpoint' locked!
-func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEndpoint logger.EndpointUpdater,
+func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint logger.EndpointUpdater,
 	wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 
 	p.mutex.Lock()
@@ -585,7 +585,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEn
 				}
 
 				proxyPortsMutex.Lock()
-				err := p.ackProxyPort(ppName, pp)
+				err := p.ackProxyPort(ctx, ppName, pp)
 				proxyPortsMutex.Unlock()
 				if err != nil {
 					log.WithError(err).Errorf("Datapath proxy redirection cannot be enabled for %s, L7 proxy may be bypassed", ppName)
