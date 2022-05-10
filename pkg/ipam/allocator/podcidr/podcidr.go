@@ -382,7 +382,7 @@ func (n *NodesPodCIDRManager) update(node *v2.CiliumNode) bool {
 		// if allocated is false it means that we were unable to allocate
 		// a CIDR so we need to update the status of the node into k8s.
 		updateStatus = !allocated && updateStatus
-		// ClusterPool v1 never both the spec and the status
+		// ClusterPool v1 never updates both the spec and the status
 		updateSpec = !updateStatus
 	}
 	if cn == nil {
