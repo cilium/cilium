@@ -192,6 +192,26 @@ func reverseRule(rule string) ([]string, error) {
 	return []string{}, nil
 }
 
+func ruleReferencesDisabledChain(rule string) (bool, string) {
+	for _, disabledChain := range option.Config.DisableIptablesFeederRules {
+		if strings.Contains(rule, " "+strings.ToUpper(disabledChain)+" ") {
+			return true, disabledChain
+		}
+	}
+
+	return false, ""
+}
+
+func isDisabledChain(chain string) bool {
+	for _, disabledChain := range option.Config.DisableIptablesFeederRules {
+		if strings.EqualFold(chain, disabledChain) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface, match string) error {
 	rules, err := prog.runProgCombinedOutput([]string{"-t", table, "-S"})
 	if err != nil {
@@ -213,15 +233,8 @@ func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface
 		// do not remove feeder for chains that are set to be disabled
 		// ie catch the beginning of the rule like -A POSTROUTING to match it against
 		// disabled chains
-		skipFeeder := false
-		for _, disabledChain := range option.Config.DisableIptablesFeederRules {
-			if strings.Contains(rule, " "+strings.ToUpper(disabledChain)+" ") {
-				log.WithField("chain", disabledChain).Info("Skipping the removal of feeder chain")
-				skipFeeder = true
-				break
-			}
-		}
-		if skipFeeder {
+		if skip, disabledChain := ruleReferencesDisabledChain(rule); skip {
+			log.WithField("chain", disabledChain).Info("Skipping the removal of feeder chain")
 			continue
 		}
 
@@ -1348,14 +1361,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 	for _, c := range ciliumChains {
 		if err := c.add(); err != nil {
 			// do not return error for chain creation that are linked to disabled feeder rules
-			skipFeeder := false
-			for _, disabledChain := range option.Config.DisableIptablesFeederRules {
-				if strings.EqualFold(c.hook, disabledChain) {
-					skipFeeder = true
-					break
-				}
-			}
-			if skipFeeder {
+			if isDisabledChain(c.hook) {
 				log.WithField("chain", c.name).Warningf("ignoring creation of chain since feeder rules for %s is disabled", c.hook)
 				continue
 			}
@@ -1436,15 +1442,8 @@ func (m *IptablesManager) installRules(ifName string) error {
 
 	for _, c := range ciliumChains {
 		// do not install feeder for chains that are set to be disabled
-		skipFeeder := false
-		for _, disabledChain := range option.Config.DisableIptablesFeederRules {
-			if strings.EqualFold(c.hook, disabledChain) {
-				log.WithField("chain", c.hook).Infof("Skipping the install of feeder rule")
-				skipFeeder = true
-				break
-			}
-		}
-		if skipFeeder {
+		if isDisabledChain(c.hook) {
+			log.WithField("chain", c.hook).Infof("Skipping the install of feeder rule")
 			continue
 		}
 
