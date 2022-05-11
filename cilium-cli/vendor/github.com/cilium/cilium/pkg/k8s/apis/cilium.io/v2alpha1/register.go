@@ -23,7 +23,7 @@ const (
 	//
 	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
 	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.26.1"
+	CustomResourceDefinitionSchemaVersion = "1.25.2"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -55,34 +55,6 @@ const (
 
 	// CESName is the full name of Cilium Endpoint Slice
 	CESName = CESPluralName + "." + CustomResourceDefinitionGroup
-
-	// Cilium Cluster Envoy Config (CCEC)
-
-	// CCECSingularName is the singular name of Cilium Clusterwide Envoy Config
-	CCECSingularName = "ciliumclusterwideenvoyconfig"
-
-	// CCECPluralName is the plural name of Cilium Clusterwide Envoy Config
-	CCECPluralName = "ciliumclusterwideenvoyconfigs"
-
-	// CCECKindDefinition is the kind name of Cilium Clusterwide Envoy Config
-	CCECKindDefinition = "CiliumClusterwideEnvoyConfig"
-
-	// CCECName is the full name of Cilium Clusterwide Envoy Config
-	CCECName = CCECPluralName + "." + CustomResourceDefinitionGroup
-
-	// Cilium Envoy Config (CEC)
-
-	// CECSingularName is the singular name of Cilium Envoy Config
-	CECSingularName = "ciliumenvoyconfig"
-
-	// CECPluralName is the plural name of Cilium Envoy Config
-	CECPluralName = "ciliumenvoyconfigs"
-
-	// CECKindDefinition is the kind name of Cilium Envoy Config
-	CECKindDefinition = "CiliumEnvoyConfig"
-
-	// CECName is the full name of Cilium Envoy Config
-	CECName = CECPluralName + "." + CustomResourceDefinitionGroup
 
 	// Cilium BGP Peering Policy (BGPP)
 
@@ -158,10 +130,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumEgressNATPolicyList{},
 		&CiliumEndpointSlice{},
 		&CiliumEndpointSliceList{},
-		&CiliumEnvoyConfig{},
-		&CiliumEnvoyConfigList{},
-		&CiliumClusterwideEnvoyConfig{},
-		&CiliumClusterwideEnvoyConfigList{},
 		&CiliumBGPPeeringPolicy{},
 		&CiliumBGPPeeringPolicyList{},
 		&CiliumBGPLoadBalancerIPPool{},
