@@ -425,6 +425,31 @@ func (n *Node) getHealthAddresses() *models.NodeAddressing {
 	}
 }
 
+func (n *Node) getIngressAddresses() *models.NodeAddressing {
+	if n.IPv4IngressIP == nil && n.IPv6IngressIP == nil {
+		return nil
+	}
+
+	var v4Str, v6Str string
+	if n.IPv4IngressIP != nil {
+		v4Str = n.IPv4IngressIP.String()
+	}
+	if n.IPv6IngressIP != nil {
+		v6Str = n.IPv6IngressIP.String()
+	}
+
+	return &models.NodeAddressing{
+		IPV4: &models.NodeAddressingElement{
+			Enabled: option.Config.EnableIPv4,
+			IP:      v4Str,
+		},
+		IPV6: &models.NodeAddressingElement{
+			Enabled: option.Config.EnableIPv6,
+			IP:      v6Str,
+		},
+	}
+}
+
 // GetModel returns the API model representation of a node.
 func (n *Node) GetModel() *models.NodeElement {
 	return &models.NodeElement{
@@ -432,6 +457,7 @@ func (n *Node) GetModel() *models.NodeElement {
 		PrimaryAddress:        n.getPrimaryAddress(),
 		SecondaryAddresses:    n.getSecondaryAddresses(),
 		HealthEndpointAddress: n.getHealthAddresses(),
+		IngressAddress:        n.getIngressAddresses(),
 	}
 }
 
