@@ -122,13 +122,13 @@ func (c *customChain) doAdd(prog iptablesInterface) error {
 	return nil
 }
 
-func (c *customChain) add() error {
-	if option.Config.EnableIPv4 {
+func (c *customChain) add(ipv4, ipv6 bool) error {
+	if ipv4 {
 		if err := c.doAdd(ip4tables); err != nil {
 			return err
 		}
 	}
-	if option.Config.EnableIPv6 && c.ipv6 == true {
+	if ipv6 && c.ipv6 {
 		if err := c.doAdd(ip6tables); err != nil {
 			return err
 		}
@@ -154,13 +154,13 @@ func (c *customChain) doRename(prog iptablesInterface, newName string) error {
 	return nil
 }
 
-func (c *customChain) rename(name string) error {
-	if option.Config.EnableIPv4 {
+func (c *customChain) rename(ipv4, ipv6 bool, name string) error {
+	if ipv4 {
 		if err := c.doRename(ip4tables, name); err != nil {
 			return err
 		}
 	}
-	if option.Config.EnableIPv6 && c.ipv6 {
+	if ipv6 && c.ipv6 {
 		if err := c.doRename(ip6tables, name); err != nil {
 			return nil
 		}
@@ -193,13 +193,13 @@ func (c *customChain) doRemove(prog iptablesInterface) error {
 	return nil
 }
 
-func (c *customChain) remove() error {
-	if option.Config.EnableIPv4 {
+func (c *customChain) remove(ipv4, ipv6 bool) error {
+	if ipv4 {
 		if err := c.doRemove(ip4tables); err != nil {
 			return err
 		}
 	}
-	if option.Config.EnableIPv6 && c.ipv6 {
+	if ipv6 && c.ipv6 {
 		if err := c.doRemove(ip6tables); err != nil {
 			return err
 		}
@@ -234,14 +234,14 @@ func (c *customChain) doInstallFeeder(prog iptablesInterface, feedArgs string) e
 	return nil
 }
 
-func (c *customChain) installFeeder() error {
+func (c *customChain) installFeeder(ipv4, ipv6 bool) error {
 	for _, feedArgs := range c.feederArgs {
-		if option.Config.EnableIPv4 {
+		if ipv4 {
 			if err := c.doInstallFeeder(ip4tables, feedArgs); err != nil {
 				return err
 			}
 		}
-		if option.Config.EnableIPv6 && c.ipv6 == true {
+		if ipv6 && c.ipv6 == true {
 			if err := c.doInstallFeeder(ip6tables, feedArgs); err != nil {
 				return err
 			}
