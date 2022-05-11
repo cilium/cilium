@@ -355,7 +355,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "IPAM:\t%s\n", sr.Ipam.Status)
 		if sd.AllAddresses {
 			fmt.Fprintf(w, "Allocated addresses:\n")
-			out := []string{}
+			out := make([]string, 0, len(sr.Ipam.Allocations))
 			for ip, owner := range sr.Ipam.Allocations {
 				out = append(out, fmt.Sprintf("  %s (%s)", ip, owner))
 			}

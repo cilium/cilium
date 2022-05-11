@@ -479,6 +479,15 @@ const (
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
 	ToFQDNsEnableDNSCompression = "tofqdns-enable-dns-compression"
 
+	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
+	// DNS proxy at any given point in time.
+	DNSProxyConcurrencyLimit = "dnsproxy-concurrency-limit"
+
+	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
+	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
+	// been reached.
+	DNSProxyConcurrencyProcessingGracePeriod = "dnsproxy-concurrency-processing-grace-period"
+
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
@@ -838,9 +847,6 @@ const (
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource = "auto-create-cilium-node-resource"
 
-	// NativeRoutingCIDR describes a v4 CIDR in which pod IPs are routable
-	NativeRoutingCIDR = "native-routing-cidr"
-
 	// IPv4NativeRoutingCIDR describes a v4 CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR = "ipv4-native-routing-cidr"
 
@@ -1021,10 +1027,6 @@ const (
 	// store rules and routes under ENI and Azure IPAM modes, if false.
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
-
-	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass
-	// optimization for nodeport reverse NAT handling (DEPRECATED).
-	EnableBPFBypassFIBLookup = "bpf-lb-bypass-fib-lookup"
 
 	// EnableCustomCallsName is the name of the option to enable tail calls
 	// for user-defined custom eBPF programs.
@@ -1677,6 +1679,15 @@ type DaemonConfig struct {
 	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
 	ToFQDNsEnableDNSCompression bool
+
+	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
+	// DNS proxy at any given point in time.
+	DNSProxyConcurrencyLimit int
+
+	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
+	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
+	// been reached.
+	DNSProxyConcurrencyProcessingGracePeriod time.Duration
 
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
@@ -2912,20 +2923,9 @@ func (c *DaemonConfig) Populate() {
 		c.AddressScopeMax = defaults.AddressScopeMax
 	}
 
-	nativeRoutingCIDR := viper.GetString(NativeRoutingCIDR)
 	ipv4NativeRoutingCIDR := viper.GetString(IPv4NativeRoutingCIDR)
 
-	if nativeRoutingCIDR != "" && ipv4NativeRoutingCIDR != "" {
-		log.Fatalf("Cannot specify both %s and %s", NativeRoutingCIDR, IPv4NativeRoutingCIDR)
-	}
-
-	if nativeRoutingCIDR != "" {
-		c.IPv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeRoutingCIDR)
-
-		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
-			log.Fatalf("%s must be an IPv4 CIDR", NativeRoutingCIDR)
-		}
-	} else if ipv4NativeRoutingCIDR != "" {
+	if ipv4NativeRoutingCIDR != "" {
 		c.IPv4NativeRoutingCIDR = cidr.MustParseCIDR(ipv4NativeRoutingCIDR)
 
 		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
@@ -2933,7 +2933,7 @@ func (c *DaemonConfig) Populate() {
 		}
 	}
 
-	if c.EnableIPv4 && nativeRoutingCIDR == "" && ipv4NativeRoutingCIDR == "" && c.EnableAutoDirectRouting {
+	if c.EnableIPv4 && ipv4NativeRoutingCIDR == "" && c.EnableAutoDirectRouting {
 		log.Warnf("If %s is enabled, then you are recommended to also configure %s. If %s is not configured, this may lead to pod to pod traffic being masqueraded, "+
 			"which can cause problems with performance, observability and policy", EnableAutoDirectRoutingName, IPv4NativeRoutingCIDR, IPv4NativeRoutingCIDR)
 	}
@@ -2980,6 +2980,8 @@ func (c *DaemonConfig) Populate() {
 	c.ToFQDNsProxyPort = viper.GetInt(ToFQDNsProxyPort)
 	c.ToFQDNsPreCache = viper.GetString(ToFQDNsPreCache)
 	c.ToFQDNsEnableDNSCompression = viper.GetBool(ToFQDNsEnableDNSCompression)
+	c.DNSProxyConcurrencyLimit = viper.GetInt(DNSProxyConcurrencyLimit)
+	c.DNSProxyConcurrencyProcessingGracePeriod = viper.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
 
 	// Convert IP strings into net.IPNet types
 	subnets, invalid := ip.ParseCIDRs(viper.GetStringSlice(IPv4PodSubnets))

@@ -17,10 +17,8 @@ type CiliumV2alpha1Interface interface {
 	RESTClient() rest.Interface
 	CiliumBGPLoadBalancerIPPoolsGetter
 	CiliumBGPPeeringPoliciesGetter
-	CiliumClusterwideEnvoyConfigsGetter
 	CiliumEgressNATPoliciesGetter
 	CiliumEndpointSlicesGetter
-	CiliumEnvoyConfigsGetter
 }
 
 // CiliumV2alpha1Client is used to interact with features provided by the cilium.io group.
@@ -36,20 +34,12 @@ func (c *CiliumV2alpha1Client) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicy
 	return newCiliumBGPPeeringPolicies(c)
 }
 
-func (c *CiliumV2alpha1Client) CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInterface {
-	return newCiliumClusterwideEnvoyConfigs(c)
-}
-
 func (c *CiliumV2alpha1Client) CiliumEgressNATPolicies() CiliumEgressNATPolicyInterface {
 	return newCiliumEgressNATPolicies(c)
 }
 
 func (c *CiliumV2alpha1Client) CiliumEndpointSlices() CiliumEndpointSliceInterface {
 	return newCiliumEndpointSlices(c)
-}
-
-func (c *CiliumV2alpha1Client) CiliumEnvoyConfigs(namespace string) CiliumEnvoyConfigInterface {
-	return newCiliumEnvoyConfigs(c, namespace)
 }
 
 // NewForConfig creates a new CiliumV2alpha1Client for the given config.
