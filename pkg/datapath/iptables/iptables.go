@@ -237,7 +237,7 @@ func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface
 		// ie catch the beginning of the rule like -A POSTROUTING to match it against
 		// disabled chains
 		if skip, disabledChain := ruleReferencesDisabledChain(rule); skip {
-			log.WithField("chain", disabledChain).Info("Skipping the removal of feeder chain")
+			log.WithField(logfields.Chain, disabledChain).Info("Skipping the removal of feeder chain")
 			continue
 		}
 
@@ -1366,7 +1366,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 		if err := c.add(option.Config.EnableIPv4, option.Config.EnableIPv6); err != nil {
 			// do not return error for chain creation that are linked to disabled feeder rules
 			if isDisabledChain(c.hook) {
-				log.WithField("chain", c.name).Warningf("ignoring creation of chain since feeder rules for %s is disabled", c.hook)
+				log.WithField(logfields.Chain, c.name).Warningf("ignoring creation of chain since feeder rules for %s is disabled", c.hook)
 				continue
 			}
 
@@ -1447,7 +1447,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 	for _, c := range ciliumChains {
 		// do not install feeder for chains that are set to be disabled
 		if isDisabledChain(c.hook) {
-			log.WithField("chain", c.hook).Infof("Skipping the install of feeder rule")
+			log.WithField(logfields.Chain, c.hook).Infof("Skipping the install of feeder rule")
 			continue
 		}
 
