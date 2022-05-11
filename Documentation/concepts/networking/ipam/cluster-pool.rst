@@ -57,3 +57,78 @@ Check the ``Error`` field in the ``Status.Operator`` field:
 .. code-block:: shell-session
 
     kubectl get ciliumnodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.operator.error}{"\n"}{end}'
+
+**********************
+Cluster Pool v2 (Beta)
+**********************
+
+Cluster Pool v2 (Beta) extends the above mechanism to allow additional PodCIDRs
+to be dynamically allocated to each node based on usage. With v2, each Cilium
+agent instance reports the utilization of its PodCIDRs via the ``CiliumNode``
+resource.
+
+If a node is running low on available pod IPs, the operator will assign an
+additional PodCIDR to that node. Likewise, if a node has unused PodCIDRs, it
+will eventually release it, allowing the operator to re-assign the released
+PodCIDR to a different node if needed.
+
+When running v2, the ``CiliumNode`` resource is extended with an additional
+PodCIDR status section:
+
++-------------------------+----------------------------------------------------+
+|Field                    | Description                                        |
++=========================+====================================================+
+|``Spec.IPAM.PodCIDRs``   | List of assigned IPv4 and/or IPv6 PodCIDRs         |
++-------------------------+----------------------------------------------------+
+|``Status.IPAM.PodCIDRs`` | PodCIDR utilization                                |
+|                         | (one of: ``in-use``, ``depleted``, or ``released``)|
++-------------------------+----------------------------------------------------+
+
+The operator assigns a new PodCIDR to a node if all of its PodCIDRs are either
+depleted or released.
+
+Limitations
+===========
+
+Cluster Pool v2 is a preview feature. The following limitations currently apply
+to Cilium running in ``cluster-pool-v2beta`` IPAM mode:
+
+.. warning::
+  - Tunnel mode is not supported. Cluster Pool v2 may only be used in direct
+    routing mode.
+  - Transparent encryption with IPSec is not supported.
+
+The current status of these limitations is tracked in :gh-issue:`18987`.
+
+Configuration
+=============
+
+To enable Cluster Pool v2, pass ``--set ipam.mode=cluster-pool-v2beta`` to your
+Helm options. The CIDR pool used in Cluster Pool v2 mode are configured the same
+way as regular cluster pool (see :ref:`gsg_ipam_crd_cluster_pool`).
+
+In addition, the thresholds for when a PodCIDR should be allocated or released
+can be configured per node via the following ``CiliumNode.Spec.IPAM`` fields:
+
+``Spec.IPAM.PodCIDRAllocationThreshold``
+  Defines the minimum number of free IPs which must be available to this node
+  via its PodCIDR pool.
+
+  If the total number of IP addresses in the PodCIDR pool is less than this
+  value, the PodCIDRs currently in-use by this node will be marked as depleted
+  and Cilium operator will allocate a new PodCIDR to this node.
+
+  This value effectively defines the buffer of IP addresses available
+  immediately without requiring  Cilium operator to get involved.
+
+  If unspecified, defaults to 8.
+
+
+``Spec.IPAM.PodCIDRReleaseThreshold``
+  Defines the maximum number of free IPs which may be available to this node via
+  its PodCIDR pool.
+
+  While the total number of free IP addresses in the PodCIDR pool is larger than
+  this value, Cilium agent will attempt to release currently unused PodCIDR.
+
+  If unspecified, defaults to 16.
