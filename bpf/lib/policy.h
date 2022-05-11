@@ -181,7 +181,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
 			account(ctx, policy);
-			*match_type = POLICY_MATCH_L4_ONLY;
+			*match_type = POLICY_MATCH_L3_L4;
 			if (unlikely(policy->deny))
 				return DROP_POLICY_DENY;
 			return policy->proxy_port;
