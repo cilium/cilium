@@ -1466,7 +1466,7 @@ while [ $cilium_started = false ]; do
 
     # Wait for cilium agent to become available
     for ((i = 0 ; i < 12; i++)); do
-        if cilium status --brief > /dev/null 2>&1; then
+        if ${SUDO} cilium status --brief > /dev/null 2>&1; then
             cilium_started=true
             break
         fi
@@ -1475,7 +1475,7 @@ while [ $cilium_started = false ]; do
     done
 
     echo "Cilium status:"
-    cilium status || true
+    ${SUDO} cilium status || true
 
     if [ "$cilium_started" = true ] ; then
         echo 'Cilium successfully started!'
@@ -1492,7 +1492,7 @@ done
 # Wait for kube-dns service to become available
 kubedns=""
 for ((i = 0 ; i < 24; i++)); do
-    kubedns=$(cilium service list get -o jsonpath='{[?(@.spec.frontend-address.port==53)].spec.frontend-address.ip}')
+    kubedns=$(${SUDO} cilium service list get -o jsonpath='{[?(@.spec.frontend-address.port==53)].spec.frontend-address.ip}')
     if [ -n "$kubedns" ] ; then
         break
     fi
@@ -1500,7 +1500,7 @@ for ((i = 0 ; i < 24; i++)); do
     echo "Waiting for kube-dns service to come available..."
 done
 
-namespace=$(cilium endpoint get -l reserved:host -o jsonpath='{$[0].status.identity.labels}' | tr -d "[]\"" | tr "," "\n" | grep io.kubernetes.pod.namespace | cut -d= -f2)
+namespace=$(${SUDO} cilium endpoint get -l reserved:host -o jsonpath='{$[0].status.identity.labels}' | tr -d "[]\"" | tr "," "\n" | grep io.kubernetes.pod.namespace | cut -d= -f2)
 
 if [ -n "$kubedns" ] ; then
     if grep "nameserver $kubedns" /etc/resolv.conf ; then
