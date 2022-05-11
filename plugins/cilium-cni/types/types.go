@@ -22,15 +22,17 @@ import (
 // NetConf is the Cilium specific CNI network configuration
 type NetConf struct {
 	cniTypes.NetConf
-	MTU          int                    `json:"mtu"`
-	Args         Args                   `json:"args"`
-	ENI          eniTypes.ENISpec       `json:"eni,omitempty"`
-	Azure        azureTypes.AzureSpec   `json:"azure,omitempty"`
-	IPAM         ipamTypes.IPAMSpec     `json:"ipam,omitempty"`
-	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
-	EnableDebug  bool                   `json:"enable-debug"`
-	LogFormat    string                 `json:"log-format"`
-	LogFile      string                 `json:"log-file"`
+	MTU           int                    `json:"mtu"`
+	Args          Args                   `json:"args,omitempty"`
+	ENI           eniTypes.ENISpec       `json:"eni,omitempty"`
+	Azure         azureTypes.AzureSpec   `json:"azure,omitempty"`
+	IPAM          ipamTypes.IPAMSpec     `json:"ipam,omitempty"`
+	AlibabaCloud  alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
+	EnableDebug   bool                   `json:"enable-debug"`
+	LogFormat     string                 `json:"log-format"`
+	RuntimeConfig RuntimeConfig          `json:"runtimeConfig,omitempty"`
+
+	Mac string
 }
 
 // NetConfList is a CNI chaining configuration
@@ -74,15 +76,34 @@ func ReadNetConf(path string) (*NetConf, error) {
 		}
 	}
 
-	return LoadNetConf(b)
+	return LoadNetConf(b, "") // TODO??
 }
 
 // LoadNetConf unmarshals a Cilium network configuration from JSON and returns
 // a NetConf together with the CNI version
-func LoadNetConf(bytes []byte) (*NetConf, error) {
+func LoadNetConf(bytes []byte, envArgs string) (*NetConf, error) {
 	n := &NetConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {
 		return nil, fmt.Errorf("failed to load netconf: %s", err)
+	}
+
+	if envArgs != "" {
+		e := MacEnvArgs{}
+		if err := cniTypes.LoadArgs(envArgs, &e); err != nil {
+			return nil, err
+		}
+
+		if e.MAC != "" {
+			n.Mac = string(e.MAC)
+		}
+	}
+
+	if mac := n.Args.Cni.Mac; mac != "" {
+		n.Mac = mac
+	}
+
+	if mac := n.RuntimeConfig.Mac; mac != "" {
+		n.Mac = mac
 	}
 
 	return parsePrevResult(n)
@@ -92,6 +113,7 @@ func LoadNetConf(bytes []byte) (*NetConf, error) {
 type ArgsSpec struct {
 	cniTypes.CommonArgs
 	IP                         net.IP
+	MAC                        string
 	K8S_POD_NAME               cniTypes.UnmarshallableString
 	K8S_POD_NAMESPACE          cniTypes.UnmarshallableString
 	K8S_POD_INFRA_CONTAINER_ID cniTypes.UnmarshallableString
@@ -99,4 +121,20 @@ type ArgsSpec struct {
 
 // Args contains arbitrary information a scheduler
 // can pass to the cni plugin
-type Args struct{}
+type Args struct {
+	Cni CiliumArgs `json:"cni,omitempty"`
+}
+
+type CiliumArgs struct {
+	Mac string `json:"mac,omitempty"`
+}
+
+type RuntimeConfig struct {
+	Mac string `json:"mac,omitempty"`
+}
+
+// MacEnvArgs represents CNI_ARGS
+type MacEnvArgs struct {
+	cniTypes.CommonArgs
+	MAC cniTypes.UnmarshallableString `json:"mac,omitempty"`
+}

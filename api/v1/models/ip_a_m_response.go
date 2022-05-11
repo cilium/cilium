@@ -33,6 +33,9 @@ type IPAMResponse struct {
 
 	// ipv6
 	IPV6 *IPAMAddressResponse `json:"ipv6,omitempty"`
+
+	// MAC address
+	MAC string `json:"mac,omitempty"`
 }
 
 // Validate validates this IP a m response

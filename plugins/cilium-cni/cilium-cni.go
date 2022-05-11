@@ -289,7 +289,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		netNs    ns.NetNS
 	)
 
-	n, err = types.LoadNetConf(args.StdinData)
+	n, err = types.LoadNetConf(args.StdinData, args.Args)
 	if err != nil {
 		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 		return
@@ -416,6 +416,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		Addressing:   &models.AddressPair{},
 		K8sPodName:   string(cniArgs.K8S_POD_NAME),
 		K8sNamespace: string(cniArgs.K8S_POD_NAMESPACE),
+		Mac:          ipam.MAC,
 	}
 
 	switch conf.DatapathMode {
@@ -559,7 +560,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	// Note about when to return errors: kubelet will retry the deletion
 	// for a long time. Therefore, only return an error for errors which
 	// are guaranteed to be recoverable.
-	n, err := types.LoadNetConf(args.StdinData)
+	n, err := types.LoadNetConf(args.StdinData, args.Args)
 	if err != nil {
 		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 		return err

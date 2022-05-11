@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	customPodIpAddr = "cni.cilium.io/ipAddrs"
+	customPodIpAddr  = "cni.cilium.io/ipAddrs"
+	customPodMacAddr = "cni.cilium.io/macAddrs"
 )
 
 // AllocationResult is the result of an allocation
@@ -46,6 +47,9 @@ type AllocationResult struct {
 	// InterfaceNumber is a field for generically identifying an interface.
 	// This is only useful in ENI mode.
 	InterfaceNumber string
+
+	// MAC is the MAC address of the container interface.
+	MAC net.HardwareAddr
 }
 
 // Allocator is the interface for an IP allocator implementation

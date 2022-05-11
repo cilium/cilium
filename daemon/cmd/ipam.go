@@ -64,6 +64,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 			ExpirationUUID:  ipv4Result.ExpirationUUID,
 			InterfaceNumber: ipv4Result.InterfaceNumber,
 		}
+		resp.MAC = ipv4Result.MAC.String()
 	}
 
 	if ipv6Result != nil {
@@ -76,6 +77,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 			ExpirationUUID:  ipv6Result.ExpirationUUID,
 			InterfaceNumber: ipv6Result.InterfaceNumber,
 		}
+		resp.MAC = ipv6Result.MAC.String()
 	}
 
 	return ipamapi.NewPostIpamCreated().WithPayload(resp)
