@@ -69,10 +69,10 @@ func (h *hostScopeAllocator) AllocateNext(owner string) (*AllocationResult, erro
 			if ip == nil {
 				return nil, fmt.Errorf("customer invalid ip: %s. ", pod.Annotations[customPodIpAddr])
 			}
-			err = h.allocator.Allocate(ip)
-			if err != nil {
-				return nil, fmt.Errorf("customer ip is not avaliable %s: %w", ip.String(), err)
-			}
+			//err = h.allocator.Allocate(ip)
+			//if err != nil {
+			//	return nil, fmt.Errorf("customer ip is not avaliable %s: %w", ip.String(), err)
+			//}
 			return &AllocationResult{IP: ip}, nil
 		}
 	}
