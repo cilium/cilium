@@ -695,9 +695,10 @@ spec:
             topologyKey: kubernetes.io/hostname
       containers:
       - args:
-        - --config-dir=/tmp/cilium/config-map
+        - -c
+        - "groupdel cilium && cilium-agent --config-dir=/tmp/cilium/config-map"
         command:
-        - cilium-agent
+        - bash
         livenessProbe:
           httpGet:
             host: '127.0.0.1'
