@@ -372,7 +372,7 @@ func (m *IptablesManager) removeRules(prefix string) error {
 
 	for _, c := range ciliumChains {
 		c.name = prefix + c.name
-		if err := c.remove(); err != nil {
+		if err := c.remove(true, m.haveIp6tables); err != nil {
 			return err
 		}
 	}
@@ -383,7 +383,7 @@ func (m *IptablesManager) removeRules(prefix string) error {
 // renameChains renames iptables chains installed by Cilium.
 func (m *IptablesManager) renameChains(prefix string) error {
 	for _, c := range ciliumChains {
-		if err := c.rename(prefix + c.name); err != nil {
+		if err := c.rename(true, m.haveIp6tables, prefix+c.name); err != nil {
 			return err
 		}
 	}
@@ -1359,7 +1359,7 @@ func (m *IptablesManager) doInstallRules(ifName string, firstInitialization, ins
 func (m *IptablesManager) installRules(ifName string) error {
 	// Install new rules
 	for _, c := range ciliumChains {
-		if err := c.add(); err != nil {
+		if err := c.add(option.Config.EnableIPv4, option.Config.EnableIPv6); err != nil {
 			// do not return error for chain creation that are linked to disabled feeder rules
 			if isDisabledChain(c.hook) {
 				log.WithField("chain", c.name).Warningf("ignoring creation of chain since feeder rules for %s is disabled", c.hook)
@@ -1447,7 +1447,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 			continue
 		}
 
-		if err := c.installFeeder(); err != nil {
+		if err := c.installFeeder(option.Config.EnableIPv4, option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("cannot install feeder rule: %w", err)
 		}
 	}
