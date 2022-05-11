@@ -1289,6 +1289,10 @@ func (m *IptablesManager) doInstallRules(ifName string, firstInitialization, ins
 		}
 	}
 
+	if err := m.removeRules(oldCiliumPrefix); err != nil {
+		return err
+	}
+
 	// Create ipsets for node IP address only if needed. If they already exist,
 	// we will simply ignore the error.
 	// Note we don't need a backup system as for iptables rules because the
@@ -1314,7 +1318,7 @@ func (m *IptablesManager) doInstallRules(ifName string, firstInitialization, ins
 		}
 	}
 
-	return m.removeRules(oldCiliumPrefix)
+	return nil
 }
 
 // installRules installs iptables rules for Cilium in specific use-cases
