@@ -6,7 +6,7 @@ package portmap
 import (
 	"context"
 
-	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
+	cniTypesVer "github.com/containernetworking/cni/pkg/types/040"
 
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 )
