@@ -186,15 +186,15 @@ func (p *podCIDRPool) dump() (ipToOwner map[string]string, usedIPs, freeIPs, num
 	return
 }
 
-func (p *podCIDRPool) status() types.UsedPodCIDRMap {
+func (p *podCIDRPool) status() types.PodCIDRMap {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	result := types.UsedPodCIDRMap{}
+	result := types.PodCIDRMap{}
 
 	// Mark all released pod CIDRs as released.
 	for cidrStr := range p.released {
-		result[cidrStr] = types.UsedPodCIDR{
+		result[cidrStr] = types.PodCIDRMapEntry{
 			Status: types.PodCIDRStatusReleased,
 		}
 	}
@@ -225,7 +225,7 @@ func (p *podCIDRPool) status() types.UsedPodCIDRMap {
 			if _, released := p.released[cidrStr]; released {
 				continue
 			}
-			result[cidrStr] = types.UsedPodCIDR{
+			result[cidrStr] = types.PodCIDRMapEntry{
 				Status: types.PodCIDRStatusDepleted,
 			}
 		}
@@ -239,7 +239,7 @@ func (p *podCIDRPool) status() types.UsedPodCIDRMap {
 			if _, released := p.released[cidrStr]; released {
 				continue
 			}
-			var status types.UsedPodCIDRStatus
+			var status types.PodCIDRStatus
 			if ipAllocator.Used() > 0 {
 				// If a pod CIDR is used, then mark it as in-use or depleted.
 				if ipAllocator.Free() == 0 {
@@ -265,7 +265,7 @@ func (p *podCIDRPool) status() types.UsedPodCIDRMap {
 				// Otherwise, mark the pod CIDR as in-use.
 				status = types.PodCIDRStatusInUse
 			}
-			result[cidrStr] = types.UsedPodCIDR{
+			result[cidrStr] = types.PodCIDRMapEntry{
 				Status: status,
 			}
 		}
@@ -440,7 +440,7 @@ func (c *crdWatcher) localNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	// initialize pod CIDR pools from existing or new CiliumNode CRD
 	if c.node == nil {
 		var releasedIPv4PodCIDRs, releasedIPv6PodCIDRs []string
-		for podCIDR, s := range newNode.Status.IPAM.UsedPodCIDRs {
+		for podCIDR, s := range newNode.Status.IPAM.PodCIDRs {
 			if s.Status == types.PodCIDRStatusReleased {
 				switch podCIDRFamily(podCIDR) {
 				case IPv4:
@@ -544,15 +544,15 @@ func (c *crdWatcher) updateCiliumNodeStatus(ctx context.Context) error {
 	}
 
 	oldStatus := node.Status.IPAM.DeepCopy()
-	node.Status.IPAM.UsedPodCIDRs = types.UsedPodCIDRMap{}
+	node.Status.IPAM.PodCIDRs = types.PodCIDRMap{}
 	if ipv4Pool != nil {
 		for podCIDR, status := range c.ipv4Pool.status() {
-			node.Status.IPAM.UsedPodCIDRs[podCIDR] = status
+			node.Status.IPAM.PodCIDRs[podCIDR] = status
 		}
 	}
 	if ipv6Pool != nil {
 		for podCIDR, status := range c.ipv6Pool.status() {
-			node.Status.IPAM.UsedPodCIDRs[podCIDR] = status
+			node.Status.IPAM.PodCIDRs[podCIDR] = status
 		}
 	}
 

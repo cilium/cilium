@@ -557,6 +557,20 @@ spec:
                         description: Error is the error message set by cilium-operator.
                         type: string
                     type: object
+                  pod-cidrs:
+                    additionalProperties:
+                      properties:
+                        status:
+                          description: Status describes the status of a pod CIDR
+                          enum:
+                          - released
+                          - depleted
+                          - in-use
+                          type: string
+                      type: object
+                    description: PodCIDRs lists the status of each pod CIDR allocated
+                      to this node.
+                    type: object
                   release-ips:
                     additionalProperties:
                       description: IPReleaseStatus  defines the valid states in IP
@@ -596,20 +610,6 @@ spec:
                       type: object
                     description: Used lists all IPs out of Spec.IPAM.Pool which have
                       been allocated and are in use.
-                    type: object
-                  used-pod-cidrs:
-                    additionalProperties:
-                      properties:
-                        status:
-                          description: Status describes the status of a pod CIDR
-                          enum:
-                          - released
-                          - depleted
-                          - in-use
-                          type: string
-                      type: object
-                    description: UsedPodCIDRs lists the status of each pod CIDR allocated
-                      to this node.
                     type: object
                 type: object
             type: object
