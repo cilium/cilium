@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package ipam
 
@@ -14,6 +14,9 @@ import (
 
 	"github.com/cilium/ipam/service/ipallocator"
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+	"go.uber.org/multierr"
+	"golang.org/x/sys/unix"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -308,6 +311,15 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 			log.WithField(logfields.CIDR, cidrStr).Debug("removing released pod CIDR")
 			delete(p.released, cidrStr)
 		}
+
+		if option.Config.EnableUnreachableRoutes {
+			if err := cleanupUnreachableRoutes(cidrStr); err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.CIDR:  cidrStr,
+					logrus.ErrorKey: err,
+				}).Warning("failed to remove unreachable routes for pod cidr")
+			}
+		}
 	}
 
 	// newIPAllocators is the new slice of IP allocators.
@@ -357,6 +369,56 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 	}
 
 	p.ipAllocators = newIPAllocators
+}
+
+// containsCIDR checks if the outer IPNet contains the inner IPNet
+func containsCIDR(outer, inner *net.IPNet) bool {
+	outerMask, _ := outer.Mask.Size()
+	innerMask, _ := inner.Mask.Size()
+	return outerMask <= innerMask && outer.Contains(inner.IP)
+}
+
+// cleanupUnreachableRoutes remove all unreachable routes for the given pod CIDR.
+// This is only needed if EnableUnreachableRoutes has been set.
+func cleanupUnreachableRoutes(podCIDR string) error {
+	_, removedCIDR, err := net.ParseCIDR(podCIDR)
+	if err != nil {
+		return err
+	}
+
+	var family int
+	switch podCIDRFamily(podCIDR) {
+	case IPv4:
+		family = netlink.FAMILY_V4
+	case IPv6:
+		family = netlink.FAMILY_V6
+	default:
+		return errors.New("unknown pod cidr family")
+	}
+
+	routes, err := netlink.RouteListFiltered(family, &netlink.Route{
+		Table: unix.RT_TABLE_MAIN,
+		Type:  unix.RTN_UNREACHABLE,
+	}, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_TYPE)
+	if err != nil {
+		return fmt.Errorf("failed to fetch unreachable routes: %w", err)
+	}
+
+	var deleteErr error
+	for _, route := range routes {
+		if !containsCIDR(removedCIDR, route.Dst) {
+			continue
+		}
+
+		err = netlink.RouteDel(&route)
+		if err != nil && !errors.Is(err, unix.ESRCH) {
+			// We ignore ESRCH, as it means the entry was already deleted
+			err = fmt.Errorf("failed to delete unreachable route for %s: %w", route.Dst.String(), err)
+			deleteErr = multierr.Append(deleteErr, err)
+		}
+	}
+
+	return deleteErr
 }
 
 func podCIDRFamily(podCIDR string) Family {
