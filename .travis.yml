@@ -11,24 +11,6 @@ jobs:
     - arch: arm64-graviton2
       virt: vm
       group: edge
-    - arch: amd64
-      name: "amd64-race"
-      if: type != pull_request
-      env:
-        - RACE=1
-        - BASE_IMAGE=quay.io/cilium/cilium-runtime:07d9b863089eea0adc70f97f16cbb6c72cf3f14f@sha256:93e56c8f7e7cf1e6103fe8e8b978a5ae057e501a7ac7b78b51abb3905ed6557d
-        - LOCKDEBUG=1
-
-# Disabled due to a compilation issue: https://github.com/cilium/cilium/issues/13252
-#    - arch: arm64-graviton2
-#      name: "arm64-graviton2-race"
-#      if: type != pull_request
-#      env:
-#        - RACE=1
-#        - BASE_IMAGE=quay.io/cilium/cilium-runtime:07d9b863089eea0adc70f97f16cbb6c72cf3f14f@sha256:93e56c8f7e7cf1e6103fe8e8b978a5ae057e501a7ac7b78b51abb3905ed6557d
-#        - LOCKDEBUG=1
-#      virt: vm
-#      group: edge
 
 if: branch = master OR type = pull_request
 
