@@ -610,4 +610,7 @@ const (
 
 	// Number of Services failed while restoration.
 	FailedSVCs = "failedServices"
+
+	// Chain is an Iptables chain
+	Chain = "chain"
 )
