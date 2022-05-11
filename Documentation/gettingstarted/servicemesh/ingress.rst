@@ -17,7 +17,7 @@ routing and for TLS termination.
 .. Note::
 
     The ingress controller creates a service of LoadBalancer type, so
-    your environment will need to support this
+    your environment will need to support this.
 
 This is a step-by-step guide on how to enable the Ingress Controller in
 an existing K8s cluster with Cilium installed.
