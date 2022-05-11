@@ -570,4 +570,7 @@ const (
 
 	// GatewayIP is the gateway IP used in a given egress policy
 	GatewayIP = "gatewayIP"
+
+	// Chain is an Iptables chain
+	Chain = "chain"
 )
