@@ -125,7 +125,8 @@ jobs:
       - name: Run Sanity check
         timeout-minutes: 5
         run: |
-          kubectl apply -n default -f examples/kubernetes/ingress/bookinfo-ingress.yaml
+          kubectl apply -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+          kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
           kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
           lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
