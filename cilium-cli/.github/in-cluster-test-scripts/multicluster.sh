@@ -9,6 +9,7 @@ CONTEXT2=$(kubectl config view | grep "${CLUSTER_NAME_2}" | head -1 | awk '{prin
 
 # Install Cilium in cluster1
 cilium install \
+  --version "${CILIUM_VERSION}" \
   --context "${CONTEXT1}" \
   --cluster-name "${CLUSTER_NAME_1}" \
   --cluster-id 1 \
@@ -17,6 +18,7 @@ cilium install \
 
 # Install Cilium in cluster2
 cilium install \
+  --version "${CILIUM_VERSION}" \
   --context "${CONTEXT2}" \
   --cluster-name "${CLUSTER_NAME_2}" \
   --cluster-id 2 \

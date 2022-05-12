@@ -5,6 +5,7 @@ set -e
 
 # Install Cilium
 cilium install \
+  --version "${CILIUM_VERSION}" \
   --cluster-name "${CLUSTER_NAME}" \
   --wait=false \
   --config monitor-aggregation=none
