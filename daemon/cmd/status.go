@@ -705,7 +705,7 @@ func (d *Daemon) getIdentityRange() *models.IdentityRange {
 	return s
 }
 
-func (d *Daemon) startStatusCollector() {
+func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	probes := []status.Probe{
 		{
 			Name: "check-locks",

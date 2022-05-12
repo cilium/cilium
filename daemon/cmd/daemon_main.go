@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/fx"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/server"
@@ -123,7 +124,8 @@ var (
 			bootstrapStats.earlyInit.Start()
 			initEnv(cmd)
 			bootstrapStats.earlyInit.End(true)
-			runDaemon()
+
+			runApp()
 		},
 	}
 
@@ -136,12 +138,10 @@ var (
 func Execute() {
 	bootstrapStats.overall.Start()
 
-	interruptCh := cleaner.registerSigHandler()
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	<-interruptCh
 }
 
 func init() {
@@ -1614,7 +1614,7 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
-func runDaemon() {
+func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner) (*Daemon, error) {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
@@ -1625,7 +1625,7 @@ func runDaemon() {
 	option.Config.RunMonitorAgent = true
 
 	if err := enableIPForwarding(); err != nil {
-		log.WithError(err).Fatal("Error when enabling sysctl parameters")
+		return nil, fmt.Errorf("enabling IP forwarding via sysctl failed: %w", err)
 	}
 
 	iptablesManager := &iptables.IptablesManager{}
@@ -1635,10 +1635,10 @@ func runDaemon() {
 	if option.Config.EnableWireguard {
 		switch {
 		case option.Config.EnableIPSec:
-			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
+			return nil, fmt.Errorf("Wireguard (--%s) cannot be used with IPSec (--%s)",
 				option.EnableWireguard, option.EnableIPSecName)
 		case option.Config.EnableL7Proxy:
-			log.Fatalf("Wireguard (--%s) is not compatible with L7 proxy (--%s)",
+			return nil, fmt.Errorf("Wireguard (--%s) is not compatible with L7 proxy (--%s)",
 				option.EnableWireguard, option.EnableL7Proxy)
 		}
 
@@ -1646,7 +1646,7 @@ func runDaemon() {
 		privateKeyPath := filepath.Join(option.Config.StateDir, wireguardTypes.PrivKeyFilename)
 		wgAgent, err = wireguard.NewAgent(privateKeyPath)
 		if err != nil {
-			log.WithError(err).Fatal("Failed to initialize wireguard")
+			return nil, fmt.Errorf("failed to initialize wireguard: %w", err)
 		}
 
 		cleaner.cleanupFuncs.Add(func() {
@@ -1660,30 +1660,23 @@ func runDaemon() {
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		if err := k8s.Init(option.Config); err != nil {
-			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
+			return nil, fmt.Errorf("unable to initialize Kubernetes subsystem: %w", err)
 		}
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	ctx, cancel := context.WithCancel(server.ServerCtx)
-	d, restoredEndpoints, err := NewDaemon(ctx, cancel,
+	d, restoredEndpoints, err := NewDaemon(ctx, cleaner,
 		WithDefaultEndpointManager(ctx, endpoint.CheckHealth),
 		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent))
 	if err != nil {
-		select {
-		case <-server.ServerCtx.Done():
-			log.WithError(err).Debug("Error while creating daemon")
-		default:
-			log.WithError(err).Fatal("Error while creating daemon")
-		}
-		return
+		return nil, fmt.Errorf("daemon creation failed: %w", err)
 	}
 
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
 	log.Info("Validating configured node address ranges")
 	if err := node.ValidatePostInit(); err != nil {
-		log.WithError(err).Fatal("postinit failed")
+		return nil, fmt.Errorf("postinit failed: %w", err)
 	}
 
 	bootstrapStats.enableConntrack.Start()
@@ -1715,14 +1708,14 @@ func runDaemon() {
 			d.ctx, d, d, d.ipcache, d.l7Proxy, d.identityAllocator,
 			"Create host endpoint", nodeTypes.GetName(),
 		); err != nil {
-			log.WithError(err).Fatal("Unable to create host endpoint")
+			return nil, fmt.Errorf("unable to create host endpoint: %w", err)
 		}
 	}
 
 	if option.Config.EnableIPMasqAgent {
 		ipmasqAgent, err := ipmasq.NewIPMasqAgent(option.Config.IPMasqAgentConfigPath)
 		if err != nil {
-			log.WithError(err).Fatal("Failed to create ip-masq-agent")
+			return nil, fmt.Errorf("failed to create ipmasq agent: %w", err)
 		}
 		ipmasqAgent.Start()
 	}
@@ -1758,7 +1751,8 @@ func runDaemon() {
 			}
 		}()
 		d.endpointManager.Subscribe(d)
-		defer d.endpointManager.Unsubscribe(d)
+		// Add the endpoint manager unsubscribe as the last step in cleanup
+		defer cleaner.cleanupFuncs.Add(func() { d.endpointManager.Unsubscribe(d) })
 	}
 
 	// Migrating the ENI datapath must happen before the API is served to
@@ -1788,13 +1782,19 @@ func runDaemon() {
 
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
-		d.initHealth()
+		d.initHealth(cleaner)
 	}
 	bootstrapStats.healthCheck.End(true)
 
-	d.startStatusCollector()
+	d.startStatusCollector(cleaner)
 
-	metricsErrs := initMetrics()
+	go func(errs <-chan error) {
+		err := <-errs
+		if err != nil {
+			log.WithError(err).Error("Cannot start metrics server")
+			shutdowner.Shutdown()
+		}
+	}(initMetrics())
 
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
@@ -1809,7 +1809,7 @@ func runDaemon() {
 	srv.SocketPath = option.Config.SocketPath
 	srv.ReadTimeout = apiTimeout
 	srv.WriteTimeout = apiTimeout
-	defer srv.Shutdown()
+	cleaner.cleanupFuncs.Add(func() { srv.Shutdown() })
 
 	srv.ConfigureAPI()
 	bootstrapStats.initAPI.End(true)
@@ -1842,7 +1842,7 @@ func runDaemon() {
 		}
 		log.Info("Initializing BGP Control Plane")
 		if err := d.instantiateBGPControlPlane(d.ctx); err != nil {
-			log.WithError(err).Fatal("Error returned when instantiating BGP control plane")
+			return nil, fmt.Errorf("failed to initialize BGP control plane: %w", err)
 		}
 	}
 
@@ -1852,20 +1852,24 @@ func runDaemon() {
 	if option.Config.WriteCNIConfigurationWhenReady != "" {
 		input, err := os.ReadFile(option.Config.ReadCNIConfiguration)
 		if err != nil {
-			log.WithError(err).Fatal("Unable to read CNI configuration file")
+			return nil, fmt.Errorf("unable to read cni configuration file: %w", err)
 		}
 
 		if err = os.WriteFile(option.Config.WriteCNIConfigurationWhenReady, input, 0644); err != nil {
-			log.WithError(err).Fatalf("Unable to write CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)
+			return nil, fmt.Errorf("unable to write CNI configuration file to %s: %w",
+				option.Config.WriteCNIConfigurationWhenReady,
+				err)
 		} else {
 			log.Infof("Wrote CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)
 		}
 	}
 
-	errs := make(chan error, 1)
-
 	go func() {
-		errs <- srv.Serve()
+		err := srv.Serve()
+		if err != nil {
+			log.WithError(err).Error("Error returned from non-returning Serve() call")
+			shutdowner.Shutdown()
+		}
 	}()
 
 	bootstrapStats.overall.End(true)
@@ -1882,16 +1886,7 @@ func runDaemon() {
 		log.WithError(err).Error("Unable to store Viper's configuration")
 	}
 
-	select {
-	case err := <-metricsErrs:
-		if err != nil {
-			log.WithError(err).Fatal("Cannot start metrics server")
-		}
-	case err := <-errs:
-		if err != nil {
-			log.WithError(err).Fatal("Error returned from non-returning Serve() call")
-		}
-	}
+	return d, nil
 }
 
 func (d *Daemon) instantiateBGPControlPlane(ctx context.Context) error {

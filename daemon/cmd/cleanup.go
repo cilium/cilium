@@ -5,41 +5,46 @@ package cmd
 
 import (
 	"context"
-	"os"
-	"os/signal"
-	"sync"
 
 	gops "github.com/google/gops/agent"
-	"golang.org/x/sys/unix"
+	"go.uber.org/fx"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/pidfile"
 )
 
-var cleaner = &daemonCleanup{
-	cleanUPSig: make(chan struct{}),
-	cleanUPWg:  &sync.WaitGroup{},
-	cleanupFuncs: &cleanupFuncList{
-		funcs: make([]func(), 0),
-	},
-	preCleanupFuncs: &cleanupFuncList{
-		funcs: make([]func(), 0),
-	},
+// cleanerModule exposes the cleaner as a fx module and runs
+// the cleanup functions on stop.
+var cleanerModule = fx.Module(
+	"cleaner",
+	fx.Provide(newCleaner),
+)
+
+func newCleaner(lc fx.Lifecycle) *daemonCleanup {
+	cleaner := NewDaemonCleanup()
+	lc.Append(fx.Hook{
+		OnStop: func(context.Context) error {
+			cleaner.Clean()
+			return nil
+		},
+	})
+	return cleaner
 }
 
 type daemonCleanup struct {
-	lock.Mutex
-	// cleanUPSig channel that is closed when the daemon agent should be
-	// terminated.
-	cleanUPSig chan struct{}
-	// cleanUPWg all cleanup operations will be marked as Done() when completed.
-	cleanUPWg *sync.WaitGroup
-
 	preCleanupFuncs *cleanupFuncList
+	cleanupFuncs    *cleanupFuncList
+}
 
-	cleanupFuncs *cleanupFuncList
-
-	sigHandlerCancel context.CancelFunc
+func NewDaemonCleanup() *daemonCleanup {
+	return &daemonCleanup{
+		cleanupFuncs: &cleanupFuncList{
+			funcs: make([]func(), 0),
+		},
+		preCleanupFuncs: &cleanupFuncList{
+			funcs: make([]func(), 0),
+		},
+	}
 }
 
 type cleanupFuncList struct {
@@ -61,46 +66,11 @@ func (c *cleanupFuncList) Run() {
 	}
 }
 
-func (d *daemonCleanup) registerSigHandler() <-chan struct{} {
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, unix.SIGQUIT, unix.SIGINT, unix.SIGHUP, unix.SIGTERM)
-	interrupt := make(chan struct{})
-	go func() {
-		for s := range sig {
-			log.WithField("signal", s).Info("Exiting due to signal")
-			d.preCleanupFuncs.Run()
-			log.Debug("canceling context in signal handler")
-			d.Lock()
-			if d.sigHandlerCancel != nil {
-				d.sigHandlerCancel()
-			}
-			d.Unlock()
-			pidfile.Clean()
-			d.Clean()
-			d.cleanupFuncs.Run()
-			// nolint
-			break
-		}
-		close(interrupt)
-	}()
-	return interrupt
-}
-
 // Clean cleans up everything created by this package.
 func (d *daemonCleanup) Clean() {
 	gops.Close()
-	close(d.cleanUPSig)
-	d.cleanUPWg.Wait()
-}
+	d.preCleanupFuncs.Run()
+	pidfile.Clean()
+	d.cleanupFuncs.Run()
 
-// SetCancelFunc sets the function which is called when we receive a signal to
-// propagate cancelation down to ongoing operations. If it's already set,
-// it does nothing.
-func (d *daemonCleanup) SetCancelFunc(cfunc context.CancelFunc) {
-	d.Lock()
-	defer d.Unlock()
-	if d.sigHandlerCancel != nil {
-		return
-	}
-	d.sigHandlerCancel = cfunc
 }

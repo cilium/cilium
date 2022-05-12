@@ -10,7 +10,6 @@ import (
 	"time"
 
 	health "github.com/cilium/cilium/cilium-health/launch"
-	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/health/defaults"
@@ -21,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 )
 
-func (d *Daemon) initHealth() {
+func (d *Daemon) initHealth(cleaner *daemonCleanup) {
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	log.Info("Launching Cilium health daemon")
 	if ch, err := health.Launch(); err != nil {
@@ -99,10 +98,8 @@ func (d *Daemon) initHealth() {
 	)
 
 	// Make sure to clean up the endpoint namespace when cilium-agent terminates
-	cleanup.DeferTerminationCleanupFunction(cleaner.cleanUPWg, cleaner.cleanUPSig, func() {
-		health.KillEndpoint()
-		health.CleanupEndpoint()
-	})
+	cleaner.cleanupFuncs.Add(health.KillEndpoint)
+	cleaner.cleanupFuncs.Add(health.CleanupEndpoint)
 }
 
 func (d *Daemon) cleanupHealthEndpoint() {
