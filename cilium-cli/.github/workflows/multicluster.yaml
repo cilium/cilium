@@ -30,6 +30,7 @@ env:
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
+  cilium_version: v1.11.4
   kubectl_version: v1.23.6
 
 jobs:
@@ -149,6 +150,7 @@ jobs:
           helm install .github/cilium-cli-test-job-chart \
             --generate-name \
             --set tag=${{ steps.vars.outputs.sha }} \
+            --set cilium_version=${{ env.cilium_version }} \
             --set job_name=cilium-cli \
             --set test_script_cm=cilium-cli-test-script \
             --set cluster_name_1=${{ env.clusterName1 }} \
