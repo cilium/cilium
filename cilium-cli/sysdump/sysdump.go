@@ -125,7 +125,7 @@ type Collector struct {
 }
 
 // NewCollector returns a new sysdump collector.
-func NewCollector(k KubernetesClient, o Options, startTime time.Time) (*Collector, error) {
+func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion string) (*Collector, error) {
 	c := Collector{
 		Client:    k,
 		Options:   o,
@@ -143,6 +143,7 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time) (*Collecto
 		return nil, err
 	}
 	c.logDebug("Using %v as a temporary directory", c.sysdumpDir)
+	c.logTask("Collecting sysdump with cilium-cli version: %s, args: %s", cliVersion, os.Args[1:])
 
 	// Grab the Kubernetes nodes for the target cluster.
 	c.logTask("Collecting Kubernetes nodes")

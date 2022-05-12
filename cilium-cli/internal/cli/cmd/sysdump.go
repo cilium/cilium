@@ -32,7 +32,7 @@ func newCmdSysdump() *cobra.Command {
 			// Silence klog to avoid displaying "throttling" messages - those are expected.
 			klog.SetOutput(io.Discard)
 			// Collect the sysdump.
-			collector, err := sysdump.NewCollector(k8sClient, sysdumpOptions, time.Now())
+			collector, err := sysdump.NewCollector(k8sClient, sysdumpOptions, time.Now(), Version)
 			if err != nil {
 				return fmt.Errorf("failed to create sysdump collector: %v", err)
 			}
