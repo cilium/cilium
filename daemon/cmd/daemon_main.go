@@ -854,6 +854,9 @@ func initializeFlags() {
 	flags.Duration(option.CTMapEntriesTimeoutSVCTCPName, 21600*time.Second, "Timeout for established service entries in TCP CT table")
 	option.BindEnv(option.CTMapEntriesTimeoutSVCTCPName)
 
+	flags.Duration(option.CTMapEntriesTimeoutSVCTCPGraceName, 60*time.Second, "Timeout for graceful shutdown of service entries in TCP CT table")
+	option.BindEnv(option.CTMapEntriesTimeoutSVCTCPGraceName)
+
 	flags.Duration(option.CTMapEntriesTimeoutSVCAnyName, 60*time.Second, "Timeout for service entries in non-TCP CT table")
 	option.BindEnv(option.CTMapEntriesTimeoutSVCAnyName)
 
