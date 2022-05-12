@@ -48,7 +48,7 @@ func (b *SysdumpSuite) TestSysdumpCollector(c *check.C) {
 	}
 	startTime := time.Unix(946713600, 0)
 	timestamp := startTime.Format(timeFormat)
-	collector, err := NewCollector(&client, options, startTime)
+	collector, err := NewCollector(&client, options, startTime, "cilium-cli-version")
 	c.Assert(err, check.IsNil)
 	c.Assert(path.Base(collector.sysdumpDir), check.Equals, "my-sysdump-"+timestamp)
 	tempFile := collector.AbsoluteTempPath("my-file-<ts>")
@@ -70,7 +70,7 @@ func (b *SysdumpSuite) TestNodeList(c *check.C) {
 			},
 		},
 	}
-	collector, err := NewCollector(&client, options, time.Now())
+	collector, err := NewCollector(&client, options, time.Now(), "cilium-cli-version")
 	c.Assert(err, check.IsNil)
 	c.Assert(collector.NodeList, check.DeepEquals, []string{"node-a", "node-b", "node-c"})
 
@@ -78,7 +78,7 @@ func (b *SysdumpSuite) TestNodeList(c *check.C) {
 		Writer:   io.Discard,
 		NodeList: "node-a,node-c",
 	}
-	collector, err = NewCollector(&client, options, time.Now())
+	collector, err = NewCollector(&client, options, time.Now(), "cilium-cli-version")
 	c.Assert(err, check.IsNil)
 	c.Assert(collector.NodeList, check.DeepEquals, []string{"node-a", "node-c"})
 }
@@ -94,7 +94,7 @@ func (b *SysdumpSuite) TestAddTasks(c *check.C) {
 			},
 		},
 	}
-	collector, err := NewCollector(&client, options, time.Now())
+	collector, err := NewCollector(&client, options, time.Now(), "cilium-cli-version")
 	c.Assert(err, check.IsNil)
 	collector.AddTasks([]Task{{}, {}, {}})
 	c.Assert(len(collector.additionalTasks), check.Equals, 3)
