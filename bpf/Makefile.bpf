@@ -76,6 +76,7 @@ checkpatch:
 		--workdir /workspace \
 		--volume $(CURDIR)/..:/workspace \
 		--user "$(shell id -u):$(shell id -g)" \
+		-e GITHUB_REF=$(GITHUB_REF) -e GITHUB_REPOSITORY=$(GITHUB_REPOSITORY) \
 		$(CHECKPATCH_IMAGE_AND_ENTRY) $(CHECKPATCH_ARGS)
 
 coccicheck:
