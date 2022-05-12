@@ -25,7 +25,7 @@ if [ -n "${sha256}" ]; then
 fi
 
 # shellcheck disable=SC2207
-used_by=($(git grep -l CILIUM_RUNTIME_IMAGE= images/*/Dockerfile) $(git grep -l BASE_IMAGE= .github/workflows/) ".travis.yml")
+used_by=($(git grep -l CILIUM_RUNTIME_IMAGE= images/*/Dockerfile))
 
 for i in "${used_by[@]}" ; do
   sed -E "s#((CILIUM_RUNTIME|BASE)_IMAGE=)${image}:.*\$#\1${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
