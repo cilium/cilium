@@ -172,15 +172,14 @@ static __always_inline bool ct_entry_closing(const struct ct_entry *entry)
 }
 
 static __always_inline bool
-ct_entry_closing_wait_before_rebalance(const struct ct_entry *entry)
+ct_entry_expired_rebalance(const struct ct_entry *entry)
 {
-	__u32 now = bpf_mono_now();
 	__u32 wait_time = bpf_sec_to_mono(CT_SERVICE_CLOSE_REBALANCE);
 
 	/* This doesn't check last_rx_report because we don't see closing
 	 * in RX direction for CT_SERVICE.
 	 */
-	return READ_ONCE(entry->last_tx_report) + wait_time >= now;
+	return READ_ONCE(entry->last_tx_report) + wait_time < bpf_mono_now();
 }
 
 static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
@@ -199,19 +198,10 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 #ifdef HAVE_LARGE_INSN_LIMIT
 		if (dir == CT_SERVICE &&
-		    ct_entry_closing(entry) &&
 		    (seen_flags.value & TCP_FLAG_SYN) &&
-		    !ct_entry_closing_wait_before_rebalance(entry)) {
-			/* There is an existing entry for this service. However,
-			 * the old connection was already closed in the past.
-			 * Since this is a new connection, we want it to pick a
-			 * new backend. Hence don't reopen this entry if it's
-			 * been longer than CT_SERVICE_CLOSE_REBALANCE seconds.
-			 * (CT_SERVICE_CLOSE_REBALANCE is a grace period for any
-			 * in-flight packets related to the old connection).
-			 */
+		    ct_entry_closing(entry) &&
+		    ct_entry_expired_rebalance(entry))
 			goto ct_new;
-		}
 #endif
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
