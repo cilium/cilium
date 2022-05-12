@@ -868,6 +868,21 @@ go.mongodb.org/mongo-driver/x/bsonx/bsoncore
 # go.uber.org/atomic v1.9.0
 ## explicit; go 1.13
 go.uber.org/atomic
+# go.uber.org/dig v1.14.0
+## explicit; go 1.13
+go.uber.org/dig
+go.uber.org/dig/internal/digerror
+go.uber.org/dig/internal/digreflect
+go.uber.org/dig/internal/dot
+go.uber.org/dig/internal/graph
+# go.uber.org/fx v1.17.1
+## explicit; go 1.17
+go.uber.org/fx
+go.uber.org/fx/fxevent
+go.uber.org/fx/internal/fxclock
+go.uber.org/fx/internal/fxlog
+go.uber.org/fx/internal/fxreflect
+go.uber.org/fx/internal/lifecycle
 # go.uber.org/goleak v1.1.12
 ## explicit; go 1.13
 go.uber.org/goleak

@@ -106,7 +106,6 @@ const (
 // monitoring when a LXC starts.
 type Daemon struct {
 	ctx              context.Context
-	cancel           context.CancelFunc
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
 	svc              *service.Service
@@ -363,11 +362,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
-
-	// Pass the cancel to our signal handler directly so that it's canceled
-	// before we run the cleanup functions (see `cleanup.go` for implementation).
-	cleaner.SetCancelFunc(cancel)
+func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	var (
 		err           error
@@ -503,7 +498,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d := Daemon{
 		ctx:               ctx,
-		cancel:            cancel,
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),

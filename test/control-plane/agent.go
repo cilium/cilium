@@ -28,11 +28,15 @@ import (
 
 type agentHandle struct {
 	d       *cmd.Daemon
+	cancel  context.CancelFunc
+	clean   func()
 	tempDir string
 }
 
 func (h *agentHandle) tearDown() {
 	h.d.Close()
+	h.cancel()
+	h.clean()
 	os.RemoveAll(h.tempDir)
 }
 
@@ -73,8 +77,14 @@ func startCiliumAgent(nodeName string, clients fakeClients, modConfig func(*opti
 	fdp := fakeDatapath.NewDatapath()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	handle.cancel = cancel
+
+	cleaner := cmd.NewDaemonCleanup()
+	handle.clean = cleaner.Clean
+
 	var err error
-	handle.d, _, err = cmd.NewDaemon(ctx, cancel,
+	handle.d, _, err = cmd.NewDaemon(ctx,
+		cleaner,
 		cmd.WithCustomEndpointManager(&dummyEpSyncher{}),
 		fdp)
 	if err != nil {

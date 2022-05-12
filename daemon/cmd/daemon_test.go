@@ -41,6 +41,8 @@ func Test(t *testing.T) { TestingT(t) }
 type DaemonSuite struct {
 	d *Daemon
 
+	cancel context.CancelFunc
+
 	// oldPolicyEnabled is the policy enforcement mode that was set before the test,
 	// as returned by policy.GetPolicyEnabled().
 	oldPolicyEnabled string
@@ -132,7 +134,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	d, _, err := NewDaemon(ctx, cancel,
+	ds.cancel = cancel
+	d, _, err := NewDaemon(ctx, NewDaemonCleanup(),
 		WithCustomEndpointManager(&dummyEpSyncher{}),
 		fakedatapath.NewDatapath())
 	c.Assert(err, IsNil)
@@ -157,6 +160,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
+	ds.cancel()
+
 	controller.NewManager().RemoveAllAndWait()
 	ds.d.endpointManager.RemoveAll()
 
@@ -181,7 +186,6 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	identitymanager.RemoveAll()
 
 	ds.d.Close()
-	ds.d.cancel()
 }
 
 type DaemonEtcdSuite struct {
