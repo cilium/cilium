@@ -28,6 +28,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
+  cilium_version: v1.11.4
   kubectl_version: v1.23.6
 
 jobs:
@@ -123,6 +124,7 @@ jobs:
           helm install .github/cilium-cli-test-job-chart \
             --generate-name \
             --set tag=${{ steps.vars.outputs.sha }} \
+            --set cilium_version=${{ env.cilium_version }} \
             --set cluster_name=${{ env.clusterName }}
 
       - name: Wait for job

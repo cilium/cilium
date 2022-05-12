@@ -20,6 +20,8 @@ spec:
           - name: test-script
             mountPath: /root/test
         env:
+          - name: CILIUM_VERSION
+            value: {{ .Values.cilium_version }}
           - name: KUBECONFIG
             value: /root/.kube/config
           - name: CLUSTER_NAME
