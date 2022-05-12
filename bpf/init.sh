@@ -485,12 +485,10 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 	$found && continue
 	for where in ingress egress; do
-		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev.*[.]o"; then
-			echo "Removing bpf_netdev.o from $where of $iface"
-			tc filter del dev "$iface" "$where" || true
-		fi
-		if tc filter show dev "$iface" "$where" | grep -q "bpf_host.o"; then
-			echo "Removing bpf_host.o from $where of $iface"
+		# Filters created Go bpf loader are of format 'cilium-<iface>'.
+		# iproute2 would use the filename and section, e.g. bpf_overlay.o:[from-overlay].
+		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev\|bpf_host\|cilium"; then
+			echo "Removing $where TC filter from interface $iface"
 			tc filter del dev "$iface" "$where" || true
 		fi
 	done
