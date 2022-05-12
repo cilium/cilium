@@ -30,6 +30,7 @@ env:
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
+  cilium_version: v1.11.4
   kubectl_version: v1.23.6
 
 jobs:
@@ -131,6 +132,7 @@ jobs:
           helm install .github/cilium-cli-test-job-chart \
             --generate-name \
             --set tag=${{ steps.vars.outputs.sha }} \
+            --set cilium_version=${{ env.cilium_version }} \
             --set cluster_name=${{ env.clusterName }} \
             --set job_name=cilium-cli-install \
             --set test_script_cm=cilium-cli-test-script-install \
