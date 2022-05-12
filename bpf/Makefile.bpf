@@ -61,13 +61,22 @@ force:
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} $(LLC_FLAGS) -filetype=asm -o $@ $(patsubst %.s,%.ll,$@)
 
+CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:2f0f4f512e795d5668ea4e7ef0ba85abc75eb225@sha256:f307bf0315954e8b8c31edc1864d949bf211b0c6522346359317d757b5a6cea0
+ifneq ($(CHECKPATCH_DEBUG),)
+  # Run script with "bash -x"
+  CHECKPATCH_IMAGE_AND_ENTRY := \
+	--entrypoint /bin/bash $(CHECKPATCH_IMAGE) -x /checkpatch/checkpatch.sh
+else
+  # Use default entrypoint
+  CHECKPATCH_IMAGE_AND_ENTRY := $(CHECKPATCH_IMAGE)
+endif
 checkpatch:
 	@$(ECHO_CHECK) "(checkpatch)"
 	$(QUIET) $(CONTAINER_ENGINE) container run --rm \
 		--workdir /workspace \
 		--volume $(CURDIR)/..:/workspace \
 		--user "$(shell id -u):$(shell id -g)" \
-		cilium/cilium-checkpatch:e6a6843cef50a43c38819badb55a21061967ce64
+		$(CHECKPATCH_IMAGE_AND_ENTRY) $(CHECKPATCH_ARGS)
 
 coccicheck:
 	$(QUIET) $(foreach TARGET,$(shell find $(ROOT_DIR)/contrib/coccinelle/ -name '*.cocci'), \
