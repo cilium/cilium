@@ -3,6 +3,7 @@
 # Declare variables to be passed into your templates.
 
 tag: latest
+cilium_version: ""
 cluster_name: test
 cluster_cidr: 10.4.0.0/14
 test_script_cm: cilium-cli-test-script

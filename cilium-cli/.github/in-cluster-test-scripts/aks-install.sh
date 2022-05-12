@@ -5,6 +5,7 @@ set -e
 
 # Install Cilium
 cilium install \
+  --version "${CILIUM_VERSION}" \
   --disable-check=az-binary \
   --azure-subscription-id "${AZURE_SUBSCRIPTION_ID}" \
   --azure-node-resource-group "${AZURE_NODE_RESOURCE_GROUP}" \

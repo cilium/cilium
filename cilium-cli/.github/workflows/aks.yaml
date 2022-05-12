@@ -29,6 +29,7 @@ env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   location: westeurope
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
+  cilium_version: v1.11.4
   kubectl_version: v1.23.6
 
 jobs:
@@ -178,6 +179,7 @@ jobs:
             --set job_name=cilium-cli-install \
             --set test_script_cm=cilium-cli-test-script-install \
             --set tag=${{ steps.vars.outputs.sha }} \
+            --set cilium_version=${{ env.cilium_version }} \
             --set azure.subscription_id=${{ steps.az.outputs.subscription-id }} \
             --set azure.node_resource_group=${{ steps.az.outputs.node-resource-group }} \
             --set azure.tenant_id=${{ steps.az.outputs.tenant-id }} \

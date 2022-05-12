@@ -5,6 +5,7 @@ set -e
 
 # Install Cilium in cluster
 cilium install \
+  --version "${CILIUM_VERSION}" \
   --cluster-name "${CLUSTER_NAME}" \
   --config monitor-aggregation=none \
   --config tunnel=vxlan \

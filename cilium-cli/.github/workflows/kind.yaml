@@ -15,6 +15,7 @@ env:
   KIND_CONFIG: .github/kind-config.yaml
   TIMEOUT: 2m
   LOG_TIME: 30m
+  cilium_version: v1.11.4
   kubectl_version: v1.23.6
 
 jobs:
@@ -55,6 +56,7 @@ jobs:
       - name: Install Cilium
         run: |
           cilium install \
+            --version=${{ env.cilium_version }} \
             --wait=false \
             --config monitor-aggregation=none
 
@@ -79,7 +81,7 @@ jobs:
 
       - name: Install Cilium with IPsec Encryption
         run: |
-          cilium install --encryption=ipsec --kube-proxy-replacement=probe
+          cilium install --version=${{ env.cilium_version}} --encryption=ipsec --kube-proxy-replacement=probe
 
       - name: Enable Relay
         run: |
