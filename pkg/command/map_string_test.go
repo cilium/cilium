@@ -74,6 +74,30 @@ func TestGetStringMapString(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
+			name: "valid kv format with @",
+			args: args{
+				key:   "FOO_BAR",
+				value: "k1=v1,k2=test@test.com",
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "test@test.com",
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "valid kv format with empty value",
+			args: args{
+				key:   "FOO_BAR",
+				value: "k1=,k2=v2",
+			},
+			want: map[string]string{
+				"k1": "",
+				"k2": "v2",
+			},
+			wantErr: assert.NoError,
+		},
+		{
 			name: "valid kv format with forward slash",
 			args: args{
 				key:   "FOO_BAR",
