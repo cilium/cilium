@@ -33,6 +33,7 @@ cilium-agent [flags]
       --bpf-ct-timeout-regular-tcp-syn duration                 Establishment timeout for entries in TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-any duration                     Timeout for service entries in non-TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-tcp duration                     Timeout for established service entries in TCP CT table (default 6h0m0s)
+      --bpf-ct-timeout-service-tcp-grace duration               Timeout for graceful shutdown of service entries in TCP CT table (default 1m0s)
       --bpf-fragments-map-max int                               Maximum number of entries in fragments tracking map (default 8192)
       --bpf-lb-acceleration string                              BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                 BPF load balancing algorithm ("random", "maglev") (default "random")
