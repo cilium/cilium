@@ -278,6 +278,10 @@ var (
 	// by error, protocol and span time
 	ProxyUpstreamTime = NoOpObserverVec
 
+	// ProxyDatapathUpdateTimeout is a count of all the timeouts encountered while
+	// updating the datapath due to an FQDN IP update
+	ProxyDatapathUpdateTimeout = NoOpCounter
+
 	// L3-L4 statistics
 
 	// DropCount is the total drop requests,
@@ -466,6 +470,7 @@ type Configuration struct {
 	ProxyForwardedEnabled                   bool
 	ProxyDeniedEnabled                      bool
 	ProxyReceivedEnabled                    bool
+	ProxyDatapathUpdateTimeoutEnabled       bool
 	NoOpObserverVecEnabled                  bool
 	DropCountEnabled                        bool
 	DropBytesEnabled                        bool
@@ -816,6 +821,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ProxyUpstreamTime)
 			c.NoOpObserverVecEnabled = true
+
+		case Namespace + "_proxy_datapath_update_timeout_total":
+			ProxyDatapathUpdateTimeout = prometheus.NewCounter(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Name:      "proxy_datapath_update_timeout_total",
+				Help:      "Number of total datapath update timeouts due to FQDN IP updates",
+			})
+
+			collectors = append(collectors, ProxyDatapathUpdateTimeout)
+			c.ProxyDatapathUpdateTimeoutEnabled = true
 
 		case Namespace + "_drop_count_total":
 			DropCount = prometheus.NewCounterVec(prometheus.CounterOpts{
