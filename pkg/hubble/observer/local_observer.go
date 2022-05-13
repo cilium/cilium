@@ -217,6 +217,9 @@ func (s *LocalObserverServer) GetFlows(
 	req *observerpb.GetFlowsRequest,
 	server observerpb.Observer_GetFlowsServer,
 ) (err error) {
+	if err := validateRequest(req); err != nil {
+		return err
+	}
 	// This context is used for goroutines spawned specifically to serve this
 	// request, meaning it must be cancelled once the request is done and this
 	// function returns.
@@ -330,6 +333,10 @@ func (s *LocalObserverServer) GetAgentEvents(
 	req *observerpb.GetAgentEventsRequest,
 	server observerpb.Observer_GetAgentEventsServer,
 ) (err error) {
+	if err := validateRequest(req); err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(server.Context())
 	defer cancel()
 
@@ -391,6 +398,10 @@ func (s *LocalObserverServer) GetDebugEvents(
 	req *observerpb.GetDebugEventsRequest,
 	server observerpb.Observer_GetDebugEventsServer,
 ) (err error) {
+	if err := validateRequest(req); err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(server.Context())
 	defer cancel()
 
@@ -462,6 +473,7 @@ type genericRequest interface {
 	GetFollow() bool
 	GetSince() *timestamppb.Timestamp
 	GetUntil() *timestamppb.Timestamp
+	GetFirst() bool
 }
 
 var (
@@ -577,10 +589,23 @@ func (r *eventsReader) Next(ctx context.Context) (*v1.Event, error) {
 	}
 }
 
+func validateRequest(req genericRequest) error {
+	if req.GetFirst() && req.GetFollow() {
+		return status.Errorf(codes.InvalidArgument, "first cannot be specified with follow")
+	}
+	return nil
+}
+
 // newRingReader creates a new RingReader that starts at the correct ring
 // offset to match the flow request.
 func newRingReader(ring *container.Ring, req genericRequest, whitelist, blacklist filters.FilterFuncs) (*container.RingReader, error) {
 	since := req.GetSince()
+
+	// since takes precedence over Number (--first and --last)
+	if req.GetFirst() && since == nil {
+		// Start from the beginning of the ring.
+		return container.NewRingReader(ring, ring.OldestWrite()), nil
+	}
 
 	if req.GetFollow() && req.GetNumber() == 0 && since == nil {
 		// no need to rewind
