@@ -13,7 +13,7 @@ cilium ip list [flags]
 ```
   -h, --help            help for list
   -n, --numeric         Print numeric identities
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
   -v, --verbose         Print all fields of ipcache
 ```
 

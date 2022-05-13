@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"path"
 	"sort"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -27,8 +28,10 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -180,7 +183,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 				nk.IPAddresses = nil
 
 				// Update the registration, now with the node identity and overridden fields
-				if err := ciliumNodeRegisterStore.UpdateKeySync(context.Background(), nk); err != nil {
+				if err := m.syncKVStoreKey(context.Background(), nk); err != nil {
 					log.WithError(err).Warning("CEW: Unable to update register node in etcd")
 				} else {
 					log.Debugf("CEW: Updated register node in etcd (nid: %d): %v", nid, nk)
@@ -425,4 +428,21 @@ func getEndpointIdentity(mdlIdentity *models.Identity) (identity *ciliumv2.Endpo
 	sort.Strings(identity.Labels)
 	log.Infof("Got Endpoint Identity: %v", *identity)
 	return
+}
+
+// syncKVStoreKey synchronizes a key to the kvstore
+func (m *VMManager) syncKVStoreKey(ctx context.Context, key store.LocalKey) error {
+	jsonValue, err := key.Marshal()
+	if err != nil {
+		return err
+	}
+
+	// Update key in kvstore, overwrite an eventual existing key, attach
+	// lease to expire entry when agent dies and never comes back up.
+	k := path.Join(nodeStore.NodeRegisterStorePrefix, key.GetKeyName())
+	if _, err := kvstore.Client().UpdateIfDifferent(ctx, k, jsonValue, true); err != nil {
+		return err
+	}
+
+	return nil
 }

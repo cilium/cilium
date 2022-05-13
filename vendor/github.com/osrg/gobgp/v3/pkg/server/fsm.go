@@ -493,7 +493,7 @@ func (h *fsmHandler) connectLoop(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	fsm := h.fsm
 
-	retry, addr, port, password, ttl, ttlMin, localAddress, bindInterface := func() (int, string, int, string, uint8, uint8, string, string) {
+	retry, addr, port, password, ttl, ttlMin, localAddress, localPort, bindInterface := func() (int, string, int, string, uint8, uint8, string, int, string) {
 		fsm.lock.RLock()
 		defer fsm.lock.RUnlock()
 
@@ -520,7 +520,7 @@ func (h *fsmHandler) connectLoop(ctx context.Context, wg *sync.WaitGroup) {
 				ttl = fsm.pConf.EbgpMultihop.Config.MultihopTtl
 			}
 		}
-		return tick, addr, port, password, ttl, ttlMin, fsm.pConf.Transport.Config.LocalAddress, fsm.pConf.Transport.Config.BindInterface
+		return tick, addr, port, password, ttl, ttlMin, fsm.pConf.Transport.Config.LocalAddress, int(fsm.pConf.Transport.Config.LocalPort), fsm.pConf.Transport.Config.BindInterface
 	}()
 
 	tick := minConnectRetryInterval
@@ -542,7 +542,7 @@ func (h *fsmHandler) connectLoop(ctx context.Context, wg *sync.WaitGroup) {
 					"Key":   addr})
 		}
 
-		laddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(localAddress, "0"))
+		laddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(localAddress, strconv.Itoa(localPort)))
 		if err != nil {
 			fsm.logger.Warn("failed to resolve local address",
 				log.Fields{

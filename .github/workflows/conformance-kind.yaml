@@ -23,7 +23,7 @@ concurrency:
 env:
   kind_version: v0.11.1
   kind_config: .github/kind-config.yaml
-  cilium_cli_version: v0.11.3
+  cilium_cli_version: v0.11.4
 
 jobs:
   installation-and-connectivity:
@@ -74,7 +74,7 @@ jobs:
           cilium version
 
       - name: Checkout code
-        uses: actions/checkout@dcd71f646680f2efd8db4afa5ad64fdcba30e748
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -114,7 +114,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --wait
+          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Install Cilium with encryption
         run: |

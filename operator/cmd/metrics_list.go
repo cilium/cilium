@@ -45,7 +45,7 @@ var MetricsListCmd = &cobra.Command{
 			}
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(metrics); err != nil {
 				os.Exit(1)
 			}
@@ -74,5 +74,5 @@ func init() {
 	MetricsCmd.AddCommand(MetricsListCmd)
 
 	MetricsListCmd.Flags().StringVarP(&matchPattern, "match-pattern", "p", "", "Show only metrics whose names match matchpattern")
-	command.AddJSONOutput(MetricsListCmd)
+	command.AddOutputOption(MetricsListCmd)
 }

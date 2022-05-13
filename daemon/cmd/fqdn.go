@@ -41,8 +41,10 @@ import (
 )
 
 const (
-	upstream       = "upstreamTime"
-	processingTime = "processingTime"
+	upstream        = "upstreamTime"
+	processingTime  = "processingTime"
+	semaphoreTime   = "semaphoreTime"
+	policyCheckTime = "policyCheckTime"
 
 	metricErrorTimeout = "timeout"
 	metricErrorProxy   = "proxyErr"
@@ -327,7 +329,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	}
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression,
 		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.LookupSecIDByIP, d.lookupIPsBySecID,
-		d.notifyOnDNSMsg)
+		d.notifyOnDNSMsg, option.Config.DNSProxyConcurrencyLimit)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(proxy.DNSProxyName, proxy.ProxyTypeDNS, proxy.DefaultDNSProxy.GetBindPort(), false)
@@ -407,6 +409,10 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			stat.UpstreamTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
 			stat.ProcessingTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
+			stat.SemaphoreAcquireTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
+			stat.PolicyCheckTime.Total().Seconds())
 	}
 
 	switch {
@@ -686,7 +692,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 
 	nameMatcher := func(name string) bool { return true }
 	if matchPatternStr != "" {
-		matcher, err := matchpattern.Validate(matchpattern.Sanitize(matchPatternStr))
+		matcher, err := matchpattern.ValidateWithoutCache(matchpattern.Sanitize(matchPatternStr))
 		if err != nil {
 			return nil, err
 		}
@@ -748,7 +754,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, matchPatternStr string) (namesToRegen []string, err error) {
 	var nameMatcher *regexp.Regexp // nil matches all in our implementation
 	if matchPatternStr != "" {
-		nameMatcher, err = matchpattern.Validate(matchPatternStr)
+		nameMatcher, err = matchpattern.ValidateWithoutCache(matchPatternStr)
 		if err != nil {
 			return nil, err
 		}

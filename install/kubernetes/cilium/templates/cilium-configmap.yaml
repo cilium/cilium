@@ -109,6 +109,10 @@ data:
   cilium-endpoint-gc-interval: "{{ .Values.operator.endpointGCInterval }}"
 {{- end }}
 
+{{- if hasKey .Values.operator "nodeGCInterval" }}
+  nodes-gc-interval: "{{ .Values.operator.nodeGCInterval | default "0s" }}"
+{{- end }}
+
 {{- if hasKey .Values "disableEndpointCRD" }}
   # Disable the usage of CiliumEndpoint CRD
   disable-endpoint-crd: "{{ .Values.disableEndpointCRD }}"
@@ -519,9 +523,7 @@ data:
   enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}
 {{- end }}
 
-{{- if hasKey .Values "nativeRoutingCIDR" }}
-  ipv4-native-routing-cidr: {{ .Values.nativeRoutingCIDR }}
-{{- else if hasKey .Values "ipv4NativeRoutingCIDR" }}
+{{- if hasKey .Values "ipv4NativeRoutingCIDR" }}
   ipv4-native-routing-cidr: {{ .Values.ipv4NativeRoutingCIDR }}
 {{- end }}
 
@@ -545,7 +547,12 @@ data:
   devices: {{ join " " .Values.devices | quote }}
 {{- end }}
 
+{{- if .Values.enableRuntimeDeviceDetection }}
+  enable-runtime-device-detection: "true"
+{{- end }}
+
   kube-proxy-replacement: {{ $kubeProxyReplacement | quote }}
+
 {{- if ne $kubeProxyReplacement "disabled" }}
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}

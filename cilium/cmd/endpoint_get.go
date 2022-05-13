@@ -48,7 +48,7 @@ var endpointGetCmd = &cobra.Command{
 			endpointInst = append(endpointInst, result)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(endpointInst); err != nil {
 				os.Exit(1)
 			}
@@ -74,5 +74,5 @@ var endpointGetCmd = &cobra.Command{
 func init() {
 	endpointCmd.AddCommand(endpointGetCmd)
 	endpointGetCmd.Flags().StringSliceVarP(&lbls, "labels", "l", []string{}, "list of labels")
-	command.AddJSONOutput(endpointGetCmd)
+	command.AddOutputOption(endpointGetCmd)
 }

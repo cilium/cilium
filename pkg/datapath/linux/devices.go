@@ -3,15 +3,17 @@
 
 // This module implements Cilium's network device detection.
 
-package cmd
+package linux
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sort"
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -42,30 +44,44 @@ var (
 type DeviceManager struct {
 	lock.Mutex
 	devices map[string]struct{}
+	filter  deviceFilter
+	handle  *netlink.Handle
+	netns   netns.NsHandle
 }
 
-func NewDeviceManager() *DeviceManager {
+func NewDeviceManager() (*DeviceManager, error) {
+	return NewDeviceManagerAt(netns.None())
+}
+
+func NewDeviceManagerAt(netns netns.NsHandle) (*DeviceManager, error) {
+	handle, err := netlink.NewHandleAt(netns)
+	if err != nil {
+		return nil, err
+	}
 	return &DeviceManager{
 		devices: make(map[string]struct{}),
-	}
+		filter:  deviceFilter(option.Config.GetDevices()),
+		handle:  handle,
+		netns:   netns,
+	}, err
 }
 
 // Detect tries to detect devices to which BPF programs may be loaded.
-// See areDevicesRequired() for features that require the device information.
+// See AreDevicesRequired() for features that require the device information.
 //
 // The devices are detected by looking at all the configured global unicast
 // routes in the system.
-func (dm *DeviceManager) Detect() error {
+func (dm *DeviceManager) Detect() ([]string, error) {
 	dm.Lock()
 	defer dm.Unlock()
 	dm.devices = make(map[string]struct{})
 
-	if err := expandDevices(); err != nil {
-		return err
+	if err := dm.expandDevices(); err != nil {
+		return nil, err
 	}
 
-	if err := expandDirectRoutingDevice(); err != nil {
-		return err
+	if err := dm.expandDirectRoutingDevice(); err != nil {
+		return nil, err
 	}
 
 	l3DevOK := true
@@ -76,7 +92,7 @@ func (dm *DeviceManager) Detect() error {
 		l3DevOK = supportL3Dev()
 	}
 
-	if len(option.Config.Devices) == 0 && areDevicesRequired() {
+	if len(option.Config.GetDevices()) == 0 && dm.AreDevicesRequired() {
 		// Detect the devices from the system routing table by finding the devices
 		// which have global unicast routes.
 		family := netlink.FAMILY_ALL
@@ -86,13 +102,13 @@ func (dm *DeviceManager) Detect() error {
 			family = netlink.FAMILY_V6
 		}
 
-		routes, err := netlink.RouteListFiltered(family, &routeFilter, routeFilterMask)
+		routes, err := dm.handle.RouteListFiltered(family, &routeFilter, routeFilterMask)
 		if err != nil {
-			return fmt.Errorf("cannot retrieve routes for device detection: %w", err)
+			return nil, fmt.Errorf("cannot retrieve routes for device detection: %w", err)
 		}
 		dm.updateDevicesFromRoutes(l3DevOK, routes)
 	} else {
-		for _, dev := range option.Config.Devices {
+		for _, dev := range option.Config.GetDevices() {
 			dm.devices[dev] = struct{}{}
 		}
 	}
@@ -116,7 +132,7 @@ func (dm *DeviceManager) Detect() error {
 			k8sNodeDev = k8sNodeLink.Attrs().Name
 			dm.devices[k8sNodeDev] = struct{}{}
 		} else if k8s.IsEnabled() {
-			return fmt.Errorf("k8s is enabled, but still failed to find node IP: %w", err)
+			return nil, fmt.Errorf("k8s is enabled, but still failed to find node IP: %w", err)
 		}
 
 		if detectDirectRoutingDev {
@@ -129,7 +145,7 @@ func (dm *DeviceManager) Detect() error {
 			} else if k8sNodeDev != "" {
 				option.Config.DirectRoutingDevice = k8sNodeDev
 			} else {
-				return fmt.Errorf("Unable to determine direct routing device. Use --%s to specify it",
+				return nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
 					option.DirectRoutingDevice)
 			}
 			log.WithField(option.DirectRoutingDevice, option.Config.DirectRoutingDevice).
@@ -141,26 +157,19 @@ func (dm *DeviceManager) Detect() error {
 				option.Config.IPv6MCastDevice = k8sNodeDev
 				log.WithField(option.IPv6MCastDevice, option.Config.IPv6MCastDevice).Info("IPv6 multicast device detected")
 			} else {
-				return fmt.Errorf("Unable to determine Multicast device. Use --%s to specify it",
+				return nil, fmt.Errorf("unable to determine Multicast device. Use --%s to specify it",
 					option.IPv6MCastDevice)
 			}
 		}
 	}
 
-	option.Config.Devices = dm.getDevices()
-	log.WithField(logfields.Devices, option.Config.Devices).Info("Detected devices")
-
-	return nil
+	deviceList := dm.getDeviceList()
+	option.Config.SetDevices(deviceList)
+	log.WithField(logfields.Devices, deviceList).Info("Detected devices")
+	return deviceList, nil
 }
 
-// GetDevices returns the current list of devices Cilium should attach programs to.
-func (dm *DeviceManager) GetDevices() []string {
-	dm.Lock()
-	defer dm.Unlock()
-	return dm.getDevices()
-}
-
-func (dm *DeviceManager) getDevices() []string {
+func (dm *DeviceManager) getDeviceList() []string {
 	devs := make([]string, 0, len(dm.devices))
 	for dev := range dm.devices {
 		devs = append(devs, dev)
@@ -199,6 +208,11 @@ func (dm *DeviceManager) isViableDevice(l3DevOK, hasDefaultRoute bool, link netl
 		return false
 	}
 
+	// If user specified devices or wildcards, then skip the device if it doesn't match.
+	if !dm.filter.match(name) {
+		return false
+	}
+
 	switch link.Type() {
 	case "veth":
 		// Skip veth devices that don't have a default route.
@@ -220,7 +234,7 @@ func (dm *DeviceManager) isViableDevice(l3DevOK, hasDefaultRoute bool, link netl
 	}
 
 	if link.Attrs().MasterIndex > 0 {
-		if master, err := netlink.LinkByIndex(link.Attrs().MasterIndex); err == nil {
+		if master, err := dm.handle.LinkByIndex(link.Attrs().MasterIndex); err == nil {
 			switch master.Type() {
 			case "bridge", "openvswitch":
 				log.WithField(logfields.Device, name).Debug("Ignoring device attached to bridge")
@@ -263,7 +277,7 @@ func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.
 
 	changed := false
 	for index, info := range linkInfos {
-		link, err := netlink.LinkByIndex(index)
+		link, err := dm.handle.LinkByIndex(index)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LinkIndex, index).
 				Warn("Failed to get link by index")
@@ -280,28 +294,137 @@ func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.
 		if viable {
 			dm.devices[name] = struct{}{}
 			changed = true
+		} else {
+			log.WithField(logfields.Device, name).Debug("Skipping unviable device")
 		}
 	}
 	return changed
 }
 
+// Listen starts listening to changes to network devices. When devices change the new set
+// of devices is sent on the returned channel.
+func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
+	l3DevOK := supportL3Dev()
+	routeChan := make(chan netlink.RouteUpdate)
+	closeChan := make(chan struct{})
+
+	err := netlink.RouteSubscribeWithOptions(routeChan, closeChan,
+		netlink.RouteSubscribeOptions{
+			// List existing routes to make sure we did not miss changes that happened after Detect().
+			ListExisting: true,
+			Namespace:    &dm.netns,
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	linkChan := make(chan netlink.LinkUpdate)
+
+	err = netlink.LinkSubscribeWithOptions(linkChan, closeChan, netlink.LinkSubscribeOptions{
+		ListExisting: false,
+		Namespace:    &dm.netns,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	devicesChan := make(chan []string, 1)
+
+	// Find links deleted after Detect()
+	if allLinks, err := dm.handle.LinkList(); err == nil {
+		changed := false
+		linksByName := map[string]struct{}{}
+		for _, link := range allLinks {
+			linksByName[link.Attrs().Name] = struct{}{}
+		}
+		dm.Lock()
+		for name := range dm.devices {
+			if _, exists := linksByName[name]; !exists {
+				delete(dm.devices, name)
+				changed = true
+			}
+		}
+		devices := dm.getDeviceList()
+		dm.Unlock()
+
+		if changed {
+			log.WithField(logfields.Devices, devices).Info("Devices changed")
+			devicesChan <- devices
+		}
+	}
+
+	go func() {
+		log.Info("Listening for device changes")
+
+		for {
+			devicesChanged := false
+			var devices []string
+
+			select {
+			case <-ctx.Done():
+				log.Debug("context closed, Listen() stopping")
+				close(closeChan)
+				close(devicesChan)
+				// drain the route and link channels
+				for range routeChan {
+				}
+				for range linkChan {
+				}
+				return
+
+			case update := <-routeChan:
+				if update.Type == unix.RTM_NEWROUTE {
+					dm.Lock()
+					devicesChanged = dm.updateDevicesFromRoutes(l3DevOK, []netlink.Route{update.Route})
+					devices = dm.getDeviceList()
+					dm.Unlock()
+				}
+
+			case update := <-linkChan:
+				if update.Header.Type == unix.RTM_DELLINK {
+					name := update.Attrs().Name
+					dm.Lock()
+					if _, ok := dm.devices[name]; ok {
+						delete(dm.devices, name)
+						devicesChanged = true
+					}
+					devices = dm.getDeviceList()
+					dm.Unlock()
+				}
+			}
+
+			if devicesChanged {
+				log.WithField(logfields.Devices, devices).Info("Devices changed")
+				devicesChan <- devices
+			}
+		}
+	}()
+	return devicesChan, nil
+}
+
+func (dm *DeviceManager) AreDevicesRequired() bool {
+	return option.Config.EnableNodePort ||
+		option.Config.EnableHostFirewall ||
+		option.Config.EnableBandwidthManager
+}
+
 // expandDevices expands all wildcard device names to concrete devices.
 // e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
-func expandDevices() error {
-	expandedDevices, err := expandDeviceWildcards(option.Config.Devices, option.Devices)
+func (dm *DeviceManager) expandDevices() error {
+	expandedDevices, err := dm.expandDeviceWildcards(option.Config.GetDevices(), option.Devices)
 	if err != nil {
 		return err
 	}
-	option.Config.Devices = expandedDevices
+	option.Config.SetDevices(expandedDevices)
 	return nil
 }
 
 // expandDirectRoutingDevice expands all wildcard device names to concrete devices and picks a first one.
-func expandDirectRoutingDevice() error {
+func (dm *DeviceManager) expandDirectRoutingDevice() error {
 	if option.Config.DirectRoutingDevice == "" {
 		return nil
 	}
-	expandedDevices, err := expandDeviceWildcards([]string{option.Config.DirectRoutingDevice}, option.DirectRoutingDevice)
+	expandedDevices, err := dm.expandDeviceWildcards([]string{option.Config.DirectRoutingDevice}, option.DirectRoutingDevice)
 	if err != nil {
 		return err
 	}
@@ -309,10 +432,10 @@ func expandDirectRoutingDevice() error {
 	return nil
 }
 
-func expandDeviceWildcards(devices []string, option string) ([]string, error) {
-	allLinks, err := netlink.LinkList()
+func (dm *DeviceManager) expandDeviceWildcards(devices []string, option string) ([]string, error) {
+	allLinks, err := dm.handle.LinkList()
 	if err != nil {
-		return nil, fmt.Errorf("Device wildcard expansion failed to fetch devices: %w", err)
+		return nil, fmt.Errorf("device wildcard expansion failed to fetch devices: %w", err)
 	}
 	expandedDevicesMap := make(map[string]struct{})
 	for _, iface := range devices {
@@ -331,7 +454,7 @@ func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 	if len(devices) > 0 && len(expandedDevicesMap) == 0 {
 		// User defined devices, but expansion yielded no devices. Fail here to not
 		// surprise with auto-detection.
-		return nil, fmt.Errorf("Device wildcard expansion failed to detect devices. Please verify --%s option.",
+		return nil, fmt.Errorf("device wildcard expansion failed to detect devices. Please verify --%s option.",
 			option)
 	}
 
@@ -343,17 +466,11 @@ func expandDeviceWildcards(devices []string, option string) ([]string, error) {
 	return expandedDevices, nil
 }
 
-func areDevicesRequired() bool {
-	return option.Config.EnableNodePort ||
-		option.Config.EnableHostFirewall ||
-		option.Config.EnableBandwidthManager
-}
-
 func findK8SNodeIPLink() (netlink.Link, error) {
 	nodeIP := node.GetK8sNodeIP()
 
 	if nodeIP == nil {
-		return nil, fmt.Errorf("Failed to find K8s node device as node IP is not known")
+		return nil, fmt.Errorf("failed to find K8s node device as node IP is not known")
 	}
 
 	var family int
@@ -384,6 +501,23 @@ func supportL3Dev() bool {
 	if h := probesManager.GetHelpers("sched_cls"); h != nil {
 		_, found := h["bpf_skb_change_head"]
 		return found
+	}
+	return false
+}
+
+type deviceFilter []string
+
+func (lst deviceFilter) match(dev string) bool {
+	if len(lst) == 0 {
+		return true
+	}
+	for _, entry := range lst {
+		if strings.HasSuffix(entry, "+") {
+			prefix := strings.TrimRight(entry, "+")
+			return strings.HasPrefix(dev, prefix)
+		} else if dev == entry {
+			return true
+		}
 	}
 	return false
 }

@@ -129,6 +129,11 @@ Users (Alphabetically)
       D: Datadog is using Cilium in AWS (self-hosted k8s)
       U: ENI Networking, Service load-balancing, Encryption
       Q: @lbernail, @roboll
+      
+    * N: Deckhouse
+      D: Deckhouse Kubernetes Platform is using Cilium as a one of the supported CNIs.
+      U: Networking, Security, Hubble UI for network visibility
+      L: https://github.com/deckhouse/deckhouse
 
     * N: DigitalOcean
       D: DigitalOcean is using Cilium as the CNI for Digital Ocean's managed Kubernetes Services (DOKS)
@@ -240,6 +245,10 @@ Users (Alphabetically)
       U: Networking, network policy, hubble, packet monitoring and network visibility
       L: https://northflank.com
       Q: @NorthflankWill, @Champgoblem
+
+    * N: Overstock Inc.
+      D: Overstock is using Cilium as the main CNI plugin on bare-metal clusters (self hosted k8s).
+      U: Networking, network policy, hubble, observability
 
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).

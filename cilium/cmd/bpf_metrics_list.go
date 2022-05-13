@@ -67,7 +67,7 @@ func listMetrics(m metricsmap.MetricsMap) {
 		os.Exit(1)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		listJSONMetrics(bpfMetricsList)
 		return
 	}
@@ -101,7 +101,7 @@ func listJSONMetrics(bpfMetricsList []*metricsRow) {
 	}
 
 	if err := command.PrintOutput(metrics); err != nil {
-		fmt.Fprintf(os.Stderr, "error getting output of map in JSON: %s\n", err)
+		fmt.Fprintf(os.Stderr, "error getting output of map in %s: %s\n", command.OutputOptionString(), err)
 		os.Exit(1)
 	}
 }
@@ -147,5 +147,5 @@ func extractRow(key *metricsmap.Key, values *metricsmap.Values) *metricsRow {
 
 func init() {
 	bpfMetricsCmd.AddCommand(bpfMetricsListCmd)
-	command.AddJSONOutput(bpfMetricsListCmd)
+	command.AddOutputOption(bpfMetricsListCmd)
 }

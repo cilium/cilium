@@ -25,12 +25,12 @@ var versionCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
-	command.AddJSONOutput(versionCmd)
+	command.AddOutputOption(versionCmd)
 }
 
 func getVersion(cmd *cobra.Command, args []string) {
 	// -o argument is set
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		data := struct {
 			Client version.CiliumVersion
 			Daemon version.CiliumVersion

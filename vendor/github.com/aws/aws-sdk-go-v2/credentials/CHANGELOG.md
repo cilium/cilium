@@ -1,3 +1,8 @@
+# v1.12.0 (2022-04-25)
+
+* **Feature**: Adds Duration and Policy options that can be used when creating stscreds.WebIdentityRoleProvider credentials provider.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.11.2 (2022-03-30)
 
 * **Dependency Update**: Updated to the latest SDK module versions

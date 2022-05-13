@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/counter"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -479,7 +480,10 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	s.Lock()
 	defer s.Unlock()
+	return s.upsertService(params)
+}
 
+func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	empty := Name{}
 
 	// Set L7 LB for this service if registered.
@@ -1553,4 +1557,81 @@ func segregateBackends(backends []lb.Backend) (activeBackends map[string]lb.Back
 	}
 
 	return activeBackends, nonActiveBackends
+}
+
+// SyncServicesOnDeviceChange finds and adds missing load-balancing entries for
+// new devices.
+func (s *Service) SyncServicesOnDeviceChange(nodeAddressing types.NodeAddressing) {
+	// Collect all frontend addresses
+	frontendAddrs := make(map[string]net.IP)
+
+	if option.Config.EnableIPv4 {
+		for _, ip := range nodeAddressing.IPv4().LoadBalancerNodeAddresses() {
+			frontendAddrs[ip.String()] = ip
+		}
+	}
+	if option.Config.EnableIPv6 {
+		for _, ip := range nodeAddressing.IPv6().LoadBalancerNodeAddresses() {
+			frontendAddrs[ip.String()] = ip
+		}
+	}
+
+	s.Lock()
+	defer s.Unlock()
+
+	existingFEs := make(map[string]bool)
+	removedFEs := make([]*svcInfo, 0)
+
+	// Find all NodePort services by finding the surrogate services, and find
+	// services with a removed frontend.
+	nodePortSvcs := make([]*svcInfo, 0)
+	for _, svc := range s.svcByID {
+		if svc.svcType != lb.SVCTypeNodePort {
+			continue
+		}
+
+		if svc.frontend.IP.IsUnspecified() {
+			nodePortSvcs = append(nodePortSvcs, svc)
+		} else {
+			existingFEs[svc.frontend.IP.String()] = true
+			if _, ok := frontendAddrs[svc.frontend.IP.String()]; !ok {
+				removedFEs = append(removedFEs, svc)
+			}
+		}
+	}
+
+	// Delete the services of the removed frontends
+	for _, svc := range removedFEs {
+		log := log.WithField(logfields.K8sNamespace, svc.svcNamespace).
+			WithField(logfields.K8sSvcName, svc.svcName).
+			WithField(logfields.L3n4Addr, svc.frontend.L3n4Addr)
+
+		if err := s.deleteServiceLocked(svc); err != nil {
+			log.WithError(err).Warn("Could not delete service of removed frontend")
+		} else {
+			log.Debug("Deleted nodeport service of a removed frontend")
+		}
+	}
+
+	// Create services for the new frontends
+	for _, ip := range frontendAddrs {
+		if !existingFEs[ip.String()] {
+			// No services for this frontend, create them.
+			for _, svcInfo := range nodePortSvcs {
+				fe := lb.NewL3n4AddrID(svcInfo.frontend.Protocol, ip, svcInfo.frontend.Port, svcInfo.frontend.Scope, 0)
+				svc := svcInfo.deepCopyToLBSVC()
+				svc.Frontend = *fe
+
+				log := log.WithField(logfields.K8sNamespace, svc.Namespace).
+					WithField(logfields.K8sSvcName, svc.Name).
+					WithField(logfields.L3n4Addr, svc.Frontend.L3n4Addr)
+				_, _, err := s.upsertService(svc)
+				if err != nil {
+					log.WithError(err).Warn("Could not create service for frontend")
+				} else {
+					log.Debug("Created nodeport service for new frontend")
+				}
+			}
+		}
+	}
 }

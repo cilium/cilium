@@ -136,7 +136,7 @@ func newChangeNotification(n types.Node, t peerpb.ChangeNotificationType, withTL
 	var tls *peerpb.TLS
 	if withTLS {
 		tls = &peerpb.TLS{
-			ServerName: tlsServerName(n.Name, n.Cluster),
+			ServerName: TLSServerName(n.Name, n.Cluster),
 		}
 	}
 	return &peerpb.ChangeNotification{
@@ -161,7 +161,7 @@ func nodeAddress(n types.Node) string {
 	return addr.String()
 }
 
-// tlsServerName constructs a server name to be used as the TLS server name.
+// TLSServerName constructs a server name to be used as the TLS server name.
 // The server name is of the following form:
 //
 //     <nodeName>.<clusterName>.<hubble-grpc-svc-name>.<domain>
@@ -175,7 +175,7 @@ func nodeAddress(n types.Node) string {
 // nodeName are replaced by Hyphen (-). When clusterName is not provided, it
 // defaults to the default cluster name. All Dot (.) in clusterName are
 // replaced by Hypen (-).
-func tlsServerName(nodeName, clusterName string) string {
+func TLSServerName(nodeName, clusterName string) string {
 	if nodeName == "" {
 		return ""
 	}

@@ -136,7 +136,7 @@ else
     # Do not run cilium-operator with runtime tests, as it fails to connect to k8s api-server
     rm -f /etc/systemd/system/cilium-operator.service
 
-    services=$(cd /etc/systemd/system; ls -1 cilium*.service cilium*.mount)
+    services=$(cd /etc/systemd/system; ls -1 cilium*.service sys-fs-bpf.mount)
     for service in ${services}; do
         echo "installing service $service"
         systemctl enable $service || echo "service $service failed"

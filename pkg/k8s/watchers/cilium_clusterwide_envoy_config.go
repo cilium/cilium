@@ -8,7 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -25,9 +25,9 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ciliumNPClient *k8s.K8sCil
 	ccecStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	ccecController := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2alpha1().RESTClient(),
-			cilium_v2alpha1.CCECPluralName, v1.NamespaceAll, fields.Everything()),
-		&cilium_v2alpha1.CiliumClusterwideEnvoyConfig{},
+		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
+			cilium_v2.CCECPluralName, v1.NamespaceAll, fields.Everything()),
+		&cilium_v2.CiliumClusterwideEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -75,14 +75,14 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ciliumNPClient *k8s.K8sCil
 		wait.NeverStop,
 		nil,
 		ccecController.HasSynced,
-		k8sAPIGroupCiliumClusterwideEnvoyConfigV2Alpha1,
+		k8sAPIGroupCiliumClusterwideEnvoyConfigV2,
 	)
 
 	go ccecController.Run(wait.NeverStop)
-	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumClusterwideEnvoyConfigV2Alpha1)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumClusterwideEnvoyConfigV2)
 }
 
-func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2alpha1.CiliumClusterwideEnvoyConfig) error {
+func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClusterwideEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumClusterwideEnvoyConfigName: ccec.ObjectMeta.Name,
 		logfields.K8sUID:        ccec.ObjectMeta.UID,
@@ -112,7 +112,7 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2alpha1.Ciliu
 	return err
 }
 
-func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2alpha1.CiliumClusterwideEnvoyConfig, newCCEC *cilium_v2alpha1.CiliumClusterwideEnvoyConfig) error {
+func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.CiliumClusterwideEnvoyConfig, newCCEC *cilium_v2.CiliumClusterwideEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumClusterwideEnvoyConfigName: newCCEC.ObjectMeta.Name,
 		logfields.K8sUID:        newCCEC.ObjectMeta.UID,
@@ -151,7 +151,7 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2alpha1
 	return nil
 }
 
-func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2alpha1.CiliumClusterwideEnvoyConfig) error {
+func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClusterwideEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumClusterwideEnvoyConfigName: ccec.ObjectMeta.Name,
 		logfields.K8sUID:        ccec.ObjectMeta.UID,

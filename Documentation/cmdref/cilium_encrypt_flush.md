@@ -16,7 +16,7 @@ cilium encrypt flush [flags]
 
 ```
   -h, --help            help for flush
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands

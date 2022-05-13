@@ -418,6 +418,12 @@ daemon:
 # program. When not specified, probing will automatically detect devices.
 # devices: ""
 
+# -- Enables experimental support for the detection of new and removed datapath
+# devices. When devices change the eBPF datapath is reloaded and services updated.
+# If "devices" is set then only those devices, or devices matching a wildcard will
+# be considered.
+enableRuntimeDeviceDetection: false
+
 # -- Chains to ignore when installing feeder rules.
 # disableIptablesFeederRules: ""
 
@@ -431,10 +437,11 @@ enableCnpStatusUpdates: false
 # mirroring it into the KVstore for reduced overhead in large clusters.
 enableK8sEventHandover: false
 
-# TODO: Add documentation
-# enableIdentityMark: false
+# -- Enable setting identity mark for local traffic.
+# enableIdentityMark: true
 
-# enableK8sEndpointSlice: false
+# -- Enable Kubernetes EndpointSlice feature in Cilium if the cluster supports it.
+# enableK8sEndpointSlice: true
 
 # -- Enable CiliumEndpointSlice feature.
 enableCiliumEndpointSlice: false
@@ -672,7 +679,15 @@ hubble:
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
   # Hubble is listening on port 4244.
   listenAddress: ":4244"
-
+  peerService:
+    # -- Enable a K8s Service for the Peer service, so that it can be accessed
+    # by a non-local client
+    enabled: true
+    # -- Service Port for the Peer service.
+    servicePort: 4254
+    # -- The cluster domain to use to query the Hubble Peer service. It should
+    # be the local cluster.
+    clusterDomain: cluster.local
   # -- TLS configuration for Hubble
   tls:
     # -- Enable mutual TLS for listenAddress. Setting this value to false is
@@ -1024,14 +1039,14 @@ hubble:
 # -- Method to use for identity allocation (`crd` or `kvstore`).
 identityAllocationMode: "crd"
 
-# TODO: Add documentation
+# -- Time to wait before using new identity on endpoint identity change.
 # identityChangeGracePeriod: "5s"
 
-# TODO: Add documentation
-# identityGCInterval:
+# -- GC interval for security identities.
+# identityGCInterval: "15m0s"
 
-# TODO: Add documentation
-# identityHeartbeatTimeout: ""
+# -- Timeout after which identity expires on lack of heartbeat.
+# identityHeartbeatTimeout: "30m0s"
 
 
 # -- Configure whether to install iptables rules to allow for TPROXY
@@ -1202,20 +1217,6 @@ vtep:
 # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
 # the user must configure the routes to reach pods, either manually or by
 # setting the auto-direct-node-routes flag.
-#
-# Deprecated in favor of ipv4NativeRoutingCIDR, will be removed in 1.12.
-# nativeRoutingCIDR:
-
-# -- Allows to explicitly specify the IPv4 CIDR for native routing.
-# When specified, Cilium assumes networking for this CIDR is preconfigured and
-# hands traffic destined for that range to the Linux network stack without
-# applying any SNAT.
-# Generally speaking, specifying a native routing CIDR implies that Cilium can
-# depend on the underlying networking stack to route packets to their
-# destination. To offer a concrete example, if Cilium is configured to use
-# direct routing and the Kubernetes CIDR is included in the native routing CIDR,
-# the user must configure the routes to reach pods, either manually or by
-# setting the auto-direct-node-routes flag.
 # ipv4NativeRoutingCIDR:
 
 # -- Allows to explicitly specify the IPv6 CIDR for native routing.
@@ -1350,10 +1351,11 @@ sockops:
   # enabled enables installation of socket options acceleration.
   enabled: false
 
-# TODO: Add documentation, default value
-# svcSourceRangeCheck:
+# -- Enable check of service source ranges (currently, only for LoadBalancer).
+svcSourceRangeCheck: true
 
-# synchronizeK8sNodes: true
+# -- Synchronize Kubernetes nodes to kvstore and perform CNP GC.
+synchronizeK8sNodes: true
 
 # -- Configure TLS configuration in the agent.
 tls:
@@ -1590,6 +1592,9 @@ operator:
 
   # -- Interval for endpoint garbage collection.
   endpointGCInterval: "5m0s"
+
+  # -- Interval for cilium node garbage collection.
+  nodeGCInterval: "5m0s"
 
   # -- Interval for identity garbage collection.
   identityGCInterval: "15m0s"

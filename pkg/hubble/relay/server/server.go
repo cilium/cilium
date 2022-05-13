@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -17,7 +18,9 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/peer"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
+	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/observer"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 )
@@ -55,13 +58,20 @@ func New(options ...Option) (*Server, error) {
 		return nil, ErrNoServerTLSConfig
 	}
 
+	var peerClientBuilder peerTypes.ClientBuilder = &peerTypes.LocalClientBuilder{
+		DialTimeout: opts.dialTimeout,
+	}
+	if !strings.HasPrefix(opts.peerTarget, "unix://") {
+		peerClientBuilder = &peerTypes.RemoteClientBuilder{
+			DialTimeout:   opts.dialTimeout,
+			TLSConfig:     opts.clientTLSConfig,
+			TLSServerName: peer.TLSServerName(defaults.PeerServiceName, opts.clusterName),
+		}
+	}
+
 	pm, err := pool.NewPeerManager(
-		pool.WithPeerServiceAddress(opts.hubbleTarget),
-		pool.WithPeerClientBuilder(
-			&peerTypes.LocalClientBuilder{
-				DialTimeout: opts.dialTimeout,
-			},
-		),
+		pool.WithPeerServiceAddress(opts.peerTarget),
+		pool.WithPeerClientBuilder(peerClientBuilder),
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
 			DialTimeout: opts.dialTimeout,
 			Options: []grpc.DialOption{

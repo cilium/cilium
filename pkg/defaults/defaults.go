@@ -5,17 +5,11 @@ package defaults
 
 import (
 	"time"
-
-	"github.com/vishvananda/netlink"
 )
 
 const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
 	AgentHealthPort = 9876
-
-	// AddressScopeMax controls the maximum address scope for addresses to be
-	// considered local ones with HOST_ID in the ipcache
-	AddressScopeMax = int(netlink.SCOPE_LINK) - 1
 
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
@@ -114,6 +108,10 @@ const (
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules.
 	DNSMaxIPsPerRestoredRule = 1000
+
+	// FFQDNRegexCompileLRUSize defines the maximum size for the FQDN regex
+	// compilation LRU used by the DNS proxy and policy validation.
+	FQDNRegexCompileLRUSize = 1024
 
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
 	// This is used in DaemonConfig.Populate

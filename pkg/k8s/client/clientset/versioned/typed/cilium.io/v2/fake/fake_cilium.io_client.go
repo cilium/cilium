@@ -15,12 +15,20 @@ type FakeCiliumV2 struct {
 	*testing.Fake
 }
 
+func (c *FakeCiliumV2) CiliumClusterwideEnvoyConfigs() v2.CiliumClusterwideEnvoyConfigInterface {
+	return &FakeCiliumClusterwideEnvoyConfigs{c}
+}
+
 func (c *FakeCiliumV2) CiliumClusterwideNetworkPolicies() v2.CiliumClusterwideNetworkPolicyInterface {
 	return &FakeCiliumClusterwideNetworkPolicies{c}
 }
 
 func (c *FakeCiliumV2) CiliumEndpoints(namespace string) v2.CiliumEndpointInterface {
 	return &FakeCiliumEndpoints{c, namespace}
+}
+
+func (c *FakeCiliumV2) CiliumEnvoyConfigs(namespace string) v2.CiliumEnvoyConfigInterface {
+	return &FakeCiliumEnvoyConfigs{c, namespace}
 }
 
 func (c *FakeCiliumV2) CiliumExternalWorkloads() v2.CiliumExternalWorkloadInterface {

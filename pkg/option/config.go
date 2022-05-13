@@ -479,6 +479,15 @@ const (
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
 	ToFQDNsEnableDNSCompression = "tofqdns-enable-dns-compression"
 
+	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
+	// DNS proxy at any given point in time.
+	DNSProxyConcurrencyLimit = "dnsproxy-concurrency-limit"
+
+	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
+	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
+	// been reached.
+	DNSProxyConcurrencyProcessingGracePeriod = "dnsproxy-concurrency-processing-grace-period"
+
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
@@ -685,6 +694,10 @@ const (
 	// FQDNProxyResponseMaxDelay is the maximum time the proxy holds back a response
 	FQDNProxyResponseMaxDelay = "tofqdns-proxy-response-max-delay"
 
+	// FQDNRegexCompileLRUSize is the size of the FQDN regex compilation LRU.
+	// Useful for heavy but repeated FQDN MatchName or MatchPattern use.
+	FQDNRegexCompileLRUSize = "fqdn-regex-compile-lru-size"
+
 	// PreAllocateMapsName is the name of the option PreAllocateMaps
 	PreAllocateMapsName = "preallocate-bpf-maps"
 
@@ -833,9 +846,6 @@ const (
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource = "auto-create-cilium-node-resource"
-
-	// NativeRoutingCIDR describes a v4 CIDR in which pod IPs are routable
-	NativeRoutingCIDR = "native-routing-cidr"
 
 	// IPv4NativeRoutingCIDR describes a v4 CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR = "ipv4-native-routing-cidr"
@@ -1018,10 +1028,6 @@ const (
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
 
-	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass
-	// optimization for nodeport reverse NAT handling (DEPRECATED).
-	EnableBPFBypassFIBLookup = "bpf-lb-bypass-fib-lookup"
-
 	// EnableCustomCallsName is the name of the option to enable tail calls
 	// for user-defined custom eBPF programs.
 	EnableCustomCallsName = "enable-custom-calls"
@@ -1079,6 +1085,10 @@ const (
 
 	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
 	IngressSecretsNamespace = "ingress-secrets-namespace"
+
+	// EnableRuntimeDeviceDetection is the name of the option to enable detection
+	// of new and removed datapath devices during the agent runtime.
+	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
 )
 
 // Default string arguments
@@ -1291,20 +1301,26 @@ type IpvlanConfig struct {
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	CreationTime        time.Time
-	BpfDir              string   // BPF template files directory
-	LibDir              string   // Cilium library files directory
-	RunDir              string   // Cilium runtime directory
-	Devices             []string // bpf_host device
-	DirectRoutingDevice string   // Direct routing device (used by BPF NodePort and BPF Host Routing)
-	LBDevInheritIPAddr  string   // Device which IP addr used by bpf_host devices
-	EnableXDPPrefilter  bool     // Enable XDP-based prefiltering
-	DevicePreFilter     string   // Prefilter device
-	ModePreFilter       string   // Prefilter mode
-	XDPMode             string   // XDP mode, values: { xdpdrv | xdpgeneric | none }
-	HostV4Addr          net.IP   // Host v4 address of the snooping device
-	HostV6Addr          net.IP   // Host v6 address of the snooping device
-	EncryptInterface    []string // Set of network facing interface to encrypt over
-	EncryptNode         bool     // Set to true for encrypting node IP traffic
+	BpfDir              string       // BPF template files directory
+	LibDir              string       // Cilium library files directory
+	RunDir              string       // Cilium runtime directory
+	devicesMu           lock.RWMutex // Protects devices
+	devices             []string     // bpf_host device
+	DirectRoutingDevice string       // Direct routing device (used by BPF NodePort and BPF Host Routing)
+	LBDevInheritIPAddr  string       // Device which IP addr used by bpf_host devices
+	EnableXDPPrefilter  bool         // Enable XDP-based prefiltering
+	DevicePreFilter     string       // Prefilter device
+	ModePreFilter       string       // Prefilter mode
+	XDPMode             string       // XDP mode, values: { xdpdrv | xdpgeneric | none }
+	HostV4Addr          net.IP       // Host v4 address of the snooping device
+	HostV6Addr          net.IP       // Host v6 address of the snooping device
+	EncryptInterface    []string     // Set of network facing interface to encrypt over
+	EncryptNode         bool         // Set to true for encrypting node IP traffic
+
+	// If set to true the daemon will detect new and deleted datapath devices
+	// at runtime and reconfigure the datapath to load programs onto the new
+	// devices.
+	EnableRuntimeDeviceDetection bool
 
 	Ipvlan IpvlanConfig // Ipvlan related configuration
 
@@ -1663,12 +1679,25 @@ type DaemonConfig struct {
 	// datapath is updated with the new IP information.
 	FQDNProxyResponseMaxDelay time.Duration
 
+	// FQDNRegexCompileLRUSize is the size of the FQDN regex compilation LRU.
+	// Useful for heavy but repeated FQDN MatchName or MatchPattern use.
+	FQDNRegexCompileLRUSize int
+
 	// Path to a file with DNS cache data to preload on startup
 	ToFQDNsPreCache string
 
 	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
 	ToFQDNsEnableDNSCompression bool
+
+	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
+	// DNS proxy at any given point in time.
+	DNSProxyConcurrencyLimit int
+
+	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
+	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
+	// been reached.
+	DNSProxyConcurrencyProcessingGracePeriod time.Duration
 
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
@@ -2293,6 +2322,24 @@ func (c *DaemonConfig) SetIPv6NativeRoutingCIDR(cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.Unlock()
 }
 
+func (c *DaemonConfig) SetDevices(devices []string) {
+	c.devicesMu.Lock()
+	c.devices = devices
+	c.devicesMu.Unlock()
+}
+
+func (c *DaemonConfig) GetDevices() []string {
+	c.devicesMu.RLock()
+	defer c.devicesMu.RUnlock()
+	return c.devices
+}
+
+func (c *DaemonConfig) AppendDevice(dev string) {
+	c.devicesMu.Lock()
+	c.devices = append(c.devices, dev)
+	c.devicesMu.Unlock()
+}
+
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
 func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
@@ -2879,6 +2926,7 @@ func (c *DaemonConfig) Populate() {
 
 	c.populateLoadBalancerSettings()
 	c.populateDevices()
+	c.EnableRuntimeDeviceDetection = viper.GetBool(EnableRuntimeDeviceDetection)
 	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
 
 	c.VLANBPFBypass = viper.GetIntSlice(VLANBPFBypass)
@@ -2904,20 +2952,9 @@ func (c *DaemonConfig) Populate() {
 		c.AddressScopeMax = defaults.AddressScopeMax
 	}
 
-	nativeRoutingCIDR := viper.GetString(NativeRoutingCIDR)
 	ipv4NativeRoutingCIDR := viper.GetString(IPv4NativeRoutingCIDR)
 
-	if nativeRoutingCIDR != "" && ipv4NativeRoutingCIDR != "" {
-		log.Fatalf("Cannot specify both %s and %s", NativeRoutingCIDR, IPv4NativeRoutingCIDR)
-	}
-
-	if nativeRoutingCIDR != "" {
-		c.IPv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeRoutingCIDR)
-
-		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
-			log.Fatalf("%s must be an IPv4 CIDR", NativeRoutingCIDR)
-		}
-	} else if ipv4NativeRoutingCIDR != "" {
+	if ipv4NativeRoutingCIDR != "" {
 		c.IPv4NativeRoutingCIDR = cidr.MustParseCIDR(ipv4NativeRoutingCIDR)
 
 		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
@@ -2925,7 +2962,7 @@ func (c *DaemonConfig) Populate() {
 		}
 	}
 
-	if c.EnableIPv4 && nativeRoutingCIDR == "" && ipv4NativeRoutingCIDR == "" && c.EnableAutoDirectRouting {
+	if c.EnableIPv4 && ipv4NativeRoutingCIDR == "" && c.EnableAutoDirectRouting {
 		log.Warnf("If %s is enabled, then you are recommended to also configure %s. If %s is not configured, this may lead to pod to pod traffic being masqueraded, "+
 			"which can cause problems with performance, observability and policy", EnableAutoDirectRoutingName, IPv4NativeRoutingCIDR, IPv4NativeRoutingCIDR)
 	}
@@ -2955,6 +2992,7 @@ func (c *DaemonConfig) Populate() {
 	// toFQDNs options
 	c.DNSMaxIPsPerRestoredRule = viper.GetInt(DNSMaxIPsPerRestoredRule)
 	c.DNSPolicyUnloadOnShutdown = viper.GetBool(DNSPolicyUnloadOnShutdown)
+	c.FQDNRegexCompileLRUSize = viper.GetInt(FQDNRegexCompileLRUSize)
 	c.ToFQDNsMaxIPsPerHost = viper.GetInt(ToFQDNsMaxIPsPerHost)
 	if maxZombies := viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
 		c.ToFQDNsMaxDeferredConnectionDeletes = viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
@@ -2971,6 +3009,8 @@ func (c *DaemonConfig) Populate() {
 	c.ToFQDNsProxyPort = viper.GetInt(ToFQDNsProxyPort)
 	c.ToFQDNsPreCache = viper.GetString(ToFQDNsPreCache)
 	c.ToFQDNsEnableDNSCompression = viper.GetBool(ToFQDNsEnableDNSCompression)
+	c.DNSProxyConcurrencyLimit = viper.GetInt(DNSProxyConcurrencyLimit)
+	c.DNSProxyConcurrencyProcessingGracePeriod = viper.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
 
 	// Convert IP strings into net.IPNet types
 	subnets, invalid := ip.ParseCIDRs(viper.GetStringSlice(IPv4PodSubnets))
@@ -3162,19 +3202,19 @@ func (c *DaemonConfig) Populate() {
 }
 
 func (c *DaemonConfig) populateDevices() {
-	c.Devices = viper.GetStringSlice(Devices)
+	c.devices = viper.GetStringSlice(Devices)
 
 	// Make sure that devices are unique
-	if len(c.Devices) <= 1 {
+	if len(c.devices) <= 1 {
 		return
 	}
 	devSet := map[string]struct{}{}
-	for _, dev := range c.Devices {
+	for _, dev := range c.devices {
 		devSet[dev] = struct{}{}
 	}
-	c.Devices = make([]string, 0, len(devSet))
+	c.devices = make([]string, 0, len(devSet))
 	for dev := range devSet {
-		c.Devices = append(c.Devices, dev)
+		c.devices = append(c.devices, dev)
 	}
 }
 
@@ -3768,7 +3808,8 @@ func EndpointStatusValuesMap() (values map[string]struct{}) {
 // MightAutoDetectDevices returns true if the device auto-detection might take
 // place.
 func MightAutoDetectDevices() bool {
-	return (Config.EnableHostFirewall && len(Config.Devices) == 0) ||
+	devices := Config.GetDevices()
+	return (Config.EnableHostFirewall && len(devices) == 0) ||
 		(Config.KubeProxyReplacement != KubeProxyReplacementDisabled &&
-			(len(Config.Devices) == 0 || Config.DirectRoutingDevice == ""))
+			(len(devices) == 0 || Config.DirectRoutingDevice == ""))
 }

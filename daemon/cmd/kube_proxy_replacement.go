@@ -337,16 +337,11 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			option.Config.NodePortMode = option.NodePortModeSNAT
 		}
 
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-			if option.Config.TunnelingEnabled() {
-				return false, fmt.Errorf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
-					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
-			}
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
+			option.Config.TunnelingEnabled() {
 
-			if option.Config.EnableIPv4EgressGateway {
-				return false, fmt.Errorf("Cannot use NodePort acceleration with the egress gateway. Run cilium-agent with either --%s=%s or %s=false",
-					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.EnableIPv4EgressGateway)
-			}
+			return false, fmt.Errorf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
+				option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
@@ -504,7 +499,7 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
+		if err := node.InitNodePortAddrs(option.Config.GetDevices(), option.Config.LBDevInheritIPAddr); err != nil {
 			msg := "failed to initialize NodePort addrs."
 			if isKubeProxyReplacementStrict {
 				return fmt.Errorf(msg+" : %w", err)
@@ -554,7 +549,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 		// All cases below still need to be implemented ...
 		case option.Config.EnableEndpointRoutes:
 			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
-		case !mac.HaveMACAddrs(option.Config.Devices):
+		case !mac.HaveMACAddrs(option.Config.GetDevices()):
 			msg = "BPF host routing is currently not supported with devices without L2 addr."
 		case option.Config.EnableWireguard:
 			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
@@ -586,7 +581,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 		option.Config.NodePortMode == option.NodePortModeSNAT &&
 		probes.NewProbeManager().GetMisc().HaveLargeInsnLimit
 
-	for _, iface := range option.Config.Devices {
+	for _, iface := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
 			return fmt.Errorf("Cannot retrieve %s link: %w", iface, err)
@@ -607,7 +602,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 	if option.Config.EnableIPv4 &&
 		!option.Config.TunnelingEnabled() &&
 		option.Config.NodePortMode != option.NodePortModeSNAT &&
-		len(option.Config.Devices) > 1 {
+		len(option.Config.GetDevices()) > 1 {
 
 		// In the case of the multi-dev NodePort DSR, if a request from an
 		// external client was sent to a device which is not used for direct

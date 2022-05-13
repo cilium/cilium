@@ -287,6 +287,9 @@ func initializeFlags() {
 	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
 	option.BindEnv(option.DirectRoutingDevice)
 
+	flags.Bool(option.EnableRuntimeDeviceDetection, false, "Enable runtime device detection and datapath reconfiguration (experimental)")
+	option.BindEnv(option.EnableRuntimeDeviceDetection)
+
 	flags.String(option.LBDevInheritIPAddr, "", fmt.Sprintf("Device name which IP addr is inherited by devices running LB BPF program (--%s)", option.Devices))
 	option.BindEnv(option.LBDevInheritIPAddr)
 
@@ -675,15 +678,6 @@ func initializeFlags() {
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(option.EnableHostFirewall)
 
-	flags.String(option.NativeRoutingCIDR, "",
-		fmt.Sprintf("Allows to explicitly specify the IPv4 CIDR for native routing. "+
-			"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
-			"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
-			"To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag. "+
-			"Deprecated in favor of --%s", option.IPv4NativeRoutingCIDR))
-	option.BindEnv(option.NativeRoutingCIDR)
-	flags.MarkDeprecated(option.NativeRoutingCIDR, "This option will be removed in v1.12")
-
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. "+
 		"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
 		"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
@@ -933,11 +927,21 @@ func initializeFlags() {
 	flags.DurationVar(&option.Config.FQDNProxyResponseMaxDelay, option.FQDNProxyResponseMaxDelay, 100*time.Millisecond, "The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.")
 	option.BindEnv(option.FQDNProxyResponseMaxDelay)
 
+	flags.Int(option.FQDNRegexCompileLRUSize, defaults.FQDNRegexCompileLRUSize, "Size of the FQDN regex compilation LRU. Useful for heavy but repeated DNS L7 rules with MatchName or MatchPattern")
+	flags.MarkHidden(option.FQDNRegexCompileLRUSize)
+	option.BindEnv(option.FQDNRegexCompileLRUSize)
+
 	flags.String(option.ToFQDNsPreCache, defaults.ToFQDNsPreCache, "DNS cache data at this path is preloaded on agent startup")
 	option.BindEnv(option.ToFQDNsPreCache)
 
 	flags.Bool(option.ToFQDNsEnableDNSCompression, defaults.ToFQDNsEnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
 	option.BindEnv(option.ToFQDNsEnableDNSCompression)
+
+	flags.Int(option.DNSProxyConcurrencyLimit, 0, "Limit concurrency of DNS message processing")
+	option.BindEnv(option.DNSProxyConcurrencyLimit)
+
+	flags.Duration(option.DNSProxyConcurrencyProcessingGracePeriod, 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
+	option.BindEnv(option.DNSProxyConcurrencyProcessingGracePeriod)
 
 	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "size of queues for policy-related events")
 	option.BindEnv(option.PolicyQueueSize)
@@ -1077,10 +1081,6 @@ func initializeFlags() {
 	flags.Bool(option.EgressMultiHomeIPRuleCompat, false,
 		"Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.")
 	option.BindEnv(option.EgressMultiHomeIPRuleCompat)
-
-	flags.Bool(option.EnableBPFBypassFIBLookup, false, "Enable FIB lookup bypass optimization for nodeport reverse NAT handling")
-	option.BindEnv(option.EnableBPFBypassFIBLookup)
-	flags.MarkDeprecated(option.EnableBPFBypassFIBLookup, fmt.Sprintf("This option will be removed in v1.12."))
 
 	flags.Bool(option.InstallNoConntrackIptRules, defaults.InstallNoConntrackIptRules, "Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.")
 	option.BindEnv(option.InstallNoConntrackIptRules)
@@ -1328,14 +1328,14 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.DevicePreFilter != "undefined" {
 		option.Config.EnableXDPPrefilter = true
 		found := false
-		for _, dev := range option.Config.Devices {
+		for _, dev := range option.Config.GetDevices() {
 			if dev == option.Config.DevicePreFilter {
 				found = true
 				break
 			}
 		}
 		if !found {
-			option.Config.Devices = append(option.Config.Devices, option.Config.DevicePreFilter)
+			option.Config.AppendDevice(option.Config.DevicePreFilter)
 		}
 		if err := loader.SetXDPMode(option.Config.ModePreFilter); err != nil {
 			scopedLog.WithError(err).Fatal("Cannot set prefilter XDP mode")
@@ -1406,9 +1406,9 @@ func initEnv(cmd *cobra.Command) {
 			log.WithField(logfields.Tunnel, option.Config.Tunnel).
 				Fatal("tunnel cannot be set in the 'ipvlan' datapath mode")
 		}
-		if len(option.Config.Devices) != 0 {
-			log.WithField(logfields.Devices, option.Config.Devices).
-				Fatal("device cannot be set in the 'ipvlan' datapath mode")
+		if len(option.Config.GetDevices()) != 0 {
+			log.WithField(logfields.Devices, option.Config.GetDevices()).
+				Fatal("devices cannot be set in the 'ipvlan' datapath mode")
 		}
 		if option.Config.EnableIPSec {
 			log.Fatal("Currently ipsec cannot be used in the 'ipvlan' datapath mode.")
@@ -1425,13 +1425,13 @@ func initEnv(cmd *cobra.Command) {
 		// ipvlan it is desired to have a separate one, see PR #6608.
 		iface := option.Config.IpvlanMasterDevice
 		if iface == "undefined" {
-			log.WithField(logfields.IpvlanMasterDevice, option.Config.Devices[0]).
+			log.WithField(logfields.IpvlanMasterDevice, iface).
 				Fatal("ipvlan master device must be specified in the 'ipvlan' datapath mode")
 		}
-		option.Config.Devices = []string{iface}
-		link, err := netlink.LinkByName(option.Config.Devices[0])
+		option.Config.SetDevices([]string{iface})
+		link, err := netlink.LinkByName(iface)
 		if err != nil {
-			log.WithError(err).WithField(logfields.IpvlanMasterDevice, option.Config.Devices[0]).
+			log.WithError(err).WithField(logfields.IpvlanMasterDevice, iface).
 				Fatal("Cannot find device interface")
 		}
 		option.Config.Ipvlan.MasterDeviceIndex = link.Attrs().Index

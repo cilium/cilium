@@ -39,3 +39,18 @@ func (s *CMDHelpersSuite) TestDumpJSON(c *C) {
 		c.Fatalf("Dumpjson jsonpath no error with invalid path '%s'", err)
 	}
 }
+
+func (s *CMDHelpersSuite) TestDumpYAML(c *C) {
+	type sampleData struct {
+		ID   int
+		Name string
+	}
+
+	tt := sampleData{
+		ID:   1,
+		Name: "test",
+	}
+
+	err := dumpYAML(tt)
+	c.Assert(err, IsNil)
+}

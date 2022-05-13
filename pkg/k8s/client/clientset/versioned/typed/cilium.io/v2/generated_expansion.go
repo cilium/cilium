@@ -5,9 +5,13 @@
 
 package v2
 
+type CiliumClusterwideEnvoyConfigExpansion interface{}
+
 type CiliumClusterwideNetworkPolicyExpansion interface{}
 
 type CiliumEndpointExpansion interface{}
+
+type CiliumEnvoyConfigExpansion interface{}
 
 type CiliumExternalWorkloadExpansion interface{}
 

@@ -44517,6 +44517,11 @@ func awsEc2query_serializeOpDocumentCreateKeyPairInput(v *CreateKeyPairInput, va
 		objectKey.Boolean(*v.DryRun)
 	}
 
+	if len(v.KeyFormat) > 0 {
+		objectKey := object.Key("KeyFormat")
+		objectKey.String(string(v.KeyFormat))
+	}
+
 	if v.KeyName != nil {
 		objectKey := object.Key("KeyName")
 		objectKey.String(*v.KeyName)
@@ -49651,6 +49656,11 @@ func awsEc2query_serializeOpDocumentDescribeKeyPairsInput(v *DescribeKeyPairsInp
 		if err := awsEc2query_serializeDocumentFilterList(v.Filters, objectKey); err != nil {
 			return err
 		}
+	}
+
+	if v.IncludePublicKey != nil {
+		objectKey := object.Key("IncludePublicKey")
+		objectKey.Boolean(*v.IncludePublicKey)
 	}
 
 	if v.KeyNames != nil {

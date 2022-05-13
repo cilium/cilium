@@ -79649,6 +79649,23 @@ func awsEc2query_deserializeDocumentKeyPairInfo(v **types.KeyPairInfo, decoder s
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("createTime", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				t, err := smithytime.ParseDateTime(xtv)
+				if err != nil {
+					return err
+				}
+				sv.CreateTime = ptr.Time(t)
+			}
+
 		case strings.EqualFold("keyFingerprint", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -79699,6 +79716,19 @@ func awsEc2query_deserializeDocumentKeyPairInfo(v **types.KeyPairInfo, decoder s
 			{
 				xtv := string(val)
 				sv.KeyType = types.KeyType(xtv)
+			}
+
+		case strings.EqualFold("publicKey", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.PublicKey = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("tagSet", t.Name.Local):

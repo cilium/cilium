@@ -326,6 +326,9 @@ New Options
   for EC2 instances (and existing ENIs). EC2 Instances tags is in the form of k1=v1,k2=v2
   (multiple k/v pairs can also be passed by repeating the CLI flag")
   Use ``instanceTagsFilter`` in Helm chart.
+* ``nodes-gc-interval``: This option was marked as deprecated and has no effect
+  in 1.11. Cilium Node Garbage collector is added back in 1.12 (but for k8s GC instead
+  of kvstore), so this flag is moved out of deprecated list.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -338,6 +341,8 @@ Removed Options
   in version 1.13.
 * The ``host-reachable-services-protos`` option (``.hostServices.protocols`` in
   Helm) was deprecated, and it will be removed in version 1.13.
+* The ``native-routing-cidr`` option deprecated in 1.11 in favor of
+  ``ipv4-native-routing-cidr`` has been removed.
 
 Helm Options
 ~~~~~~~~~~~~

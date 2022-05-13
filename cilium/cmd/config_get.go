@@ -60,7 +60,7 @@ var configGetCmd = &cobra.Command{
 
 func init() {
 	configCmd.AddCommand(configGetCmd)
-	command.AddJSONOutput(configGetCmd)
+	command.AddOutputOption(configGetCmd)
 }
 
 func requireConfigName(cmd *cobra.Command, args []string) {

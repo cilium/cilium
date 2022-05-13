@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -94,6 +95,8 @@ const (
 	// ConfigModifyQueueSize is the size of the event queue for serializing
 	// configuration updates to the daemon
 	ConfigModifyQueueSize = 10
+
+	syncEndpointsAndHostIPsController = "sync-endpoints-and-host-ips"
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -116,7 +119,7 @@ type Daemon struct {
 	monitorAgent *monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
-	deviceManager *DeviceManager
+	deviceManager *linuxdatapath.DeviceManager
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
@@ -187,6 +190,9 @@ type Daemon struct {
 
 	// CIDRs for which identities were restored during bootstrap
 	restoredCIDRs []*net.IPNet
+
+	// Controllers owned by the daemon
+	controllers *controller.Manager
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -234,7 +240,7 @@ func (d *Daemon) init() error {
 		bandwidth.InitBandwidthManager()
 
 		if err := d.createNodeConfigHeaderfile(); err != nil {
-			return err
+			return fmt.Errorf("failed while creating node config header file: %w", err)
 		}
 
 		if option.Config.SockopsEnable {
@@ -249,7 +255,7 @@ func (d *Daemon) init() error {
 		}
 
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-			return err
+			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 	}
 
@@ -367,6 +373,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	if option.Config.ReadCNIConfiguration != "" {
 		netConf, err = cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
 		if err != nil {
+			log.WithError(err).Error("Unable to read CNI configuration")
 			return nil, nil, fmt.Errorf("unable to read CNI configuration: %w", err)
 		}
 
@@ -378,6 +385,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, &apiRateLimitingMetrics{})
 	if err != nil {
+		log.WithError(err).Error("unable to configure API rate limiting")
 		return nil, nil, fmt.Errorf("unable to configure API rate limiting: %w", err)
 	}
 
@@ -393,6 +401,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// created.
 	isKubeProxyReplacementStrict, err := initKubeProxyReplacementOptions()
 	if err != nil {
+		log.WithError(err).Error("unable to initialize Kube proxy replacement options")
 		return nil, nil, fmt.Errorf("unable to initialize Kube proxy replacement options: %w", err)
 	}
 
@@ -434,6 +443,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	if option.Config.DryMode == false {
 		if err := rlimit.RemoveMemlock(); err != nil {
+			log.WithError(err).Error("unable to set memory resource limits")
 			return nil, nil, fmt.Errorf("unable to set memory resource limits: %w", err)
 		}
 	}
@@ -474,6 +484,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
 
+	devMngr, err := linuxdatapath.NewDeviceManager()
+	if err != nil {
+		return nil, nil, err
+	}
+
 	d := Daemon{
 		ctx:               ctx,
 		cancel:            cancel,
@@ -483,10 +498,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		netConf:           netConf,
 		mtuConfig:         mtuConfig,
 		datapath:          dp,
-		deviceManager:     NewDeviceManager(),
+		deviceManager:     devMngr,
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
+		controllers:       controller.NewManager(),
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -498,6 +514,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.rec, err = recorder.NewRecorder(d.ctx, &d)
 	if err != nil {
+		log.WithError(err).Error("error while initializing BPF pcap recorder")
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
 	}
 
@@ -674,6 +691,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	err = d.initMaps()
 	bootstrapStats.mapsInit.EndError(err)
 	if err != nil {
+		log.WithError(err).Error("error while opening/creating BPF maps")
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 	// Upsert restored CIDRs after the new ipcache has been opened above
@@ -812,6 +830,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 
 		if err := k8s.WaitForNodeInformation(d.ctx, d.k8sWatcher); err != nil {
+			log.WithError(err).Error("unable to connect to get node spec from apiserver")
 			return nil, nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
 		}
 
@@ -829,6 +848,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
 		if err := wgAgent.(*wg.Agent).Init(d.ipcache, mtuConfig); err != nil {
+			log.WithError(err).Error("failed to initialize wireguard agent")
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
 	}
@@ -843,8 +863,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	if err := d.deviceManager.Detect(); err != nil {
-		if areDevicesRequired() {
+	if _, err := d.deviceManager.Detect(); err != nil {
+		if d.deviceManager.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
 		}
@@ -852,6 +872,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		disableNodePort()
 	}
 	if err := finishKubeProxyReplacementInit(isKubeProxyReplacementStrict); err != nil {
+		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
 
@@ -888,32 +909,40 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	if option.Config.EnableIPv4EgressGateway {
 		if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
+			log.WithError(err).Error("egress gateway needs kernel 5.2 or newer")
 			return nil, nil, fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 		}
 
 		// datapath code depends on remote node identities to distinguish between cluser-local and
 		// cluster-egress traffic
 		if !option.Config.EnableRemoteNodeIdentity {
+			log.WithError(err).Errorf("egress gateway requires remote node identities (--%s=\"true\").",
+				option.EnableRemoteNodeIdentity)
 			return nil, nil, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\").",
 				option.EnableRemoteNodeIdentity)
 		}
 
 		if option.Config.EnableL7Proxy {
-			return nil, nil, fmt.Errorf("egress gateway requires L7 proxy to be disabled (--%s=\"false\").",
-				option.EnableL7Proxy)
+			log.WithField(logfields.URL, "https://github.com/cilium/cilium/issues/19642").
+				Warningf("both egress gateway and L7 proxy (--%s) are enabled. This is currently not fully supported: "+
+					"if the same endpoint is selected both by an egress gateway and a L7 policy, endpoint traffic will not go through egress gateway.", option.EnableL7Proxy)
 		}
 	}
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
 		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
+			log.WithError(err).Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
 			return nil, nil, fmt.Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
 		}
-		if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
+		if err := node.InitBPFMasqueradeAddrs(option.Config.GetDevices()); err != nil {
+			log.WithError(err).Error("failed to determine BPF masquerade IPv4 addrs")
 			return nil, nil, fmt.Errorf("failed to determine BPF masquerade IPv4 addrs: %w", err)
 		}
 	} else if option.Config.EnableIPMasqAgent {
+		log.WithError(err).Errorf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	} else if option.Config.EnableIPv4EgressGateway {
+		log.WithError(err).Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 		return nil, nil, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	} else if !option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// There is not yet support for option.Config.EnableIPv6Masquerade
@@ -923,14 +952,17 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	if option.Config.EnableIPMasqAgent {
 		if !option.Config.EnableIPv4 {
+			log.WithError(err).Errorf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
 			return nil, nil, fmt.Errorf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
 		}
 		if !probe.HaveFullLPM() {
+			log.WithError(err).Error("BPF ip-masq-agent needs kernel 4.16 or newer")
 			return nil, nil, fmt.Errorf("BPF ip-masq-agent needs kernel 4.16 or newer")
 		}
 	}
-	if option.Config.EnableHostFirewall && len(option.Config.Devices) == 0 {
+	if option.Config.EnableHostFirewall && len(option.Config.GetDevices()) == 0 {
 		msg := "host firewall's external facing device could not be determined. Use --%s to specify."
+		log.WithError(err).Errorf(msg, option.Devices)
 		return nil, nil, fmt.Errorf(msg, option.Devices)
 	}
 
@@ -939,9 +971,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// are set.
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
+
+		// Initialize d.k8sCachesSynced before any k8s watchers are alive, as they may
+		// access it to check the status of k8s initialization
+		cachesSynced := make(chan struct{})
+		d.k8sCachesSynced = cachesSynced
+
 		// Launch the K8s watchers in parallel as we continue to process other
 		// daemon options.
-		d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem(d.ctx)
+		d.k8sWatcher.InitK8sSubsystem(d.ctx, cachesSynced)
 		bootstrapStats.k8sInit.End(true)
 	}
 
@@ -973,9 +1011,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	if option.Config.JoinCluster {
 		if k8s.IsEnabled() {
+			log.WithError(err).Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 			return nil, nil, fmt.Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 		}
 		if option.Config.KVStore == "" {
+			log.WithError(err).Errorf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
 			return nil, nil, fmt.Errorf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
 		}
 		agentLabels := labels.NewLabelsFromModel(option.Config.AgentLabels).K8sStringMap()
@@ -1018,7 +1058,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	bootstrapStats.restore.End(true)
 
-	if err := d.allocateIPs(); err != nil {
+	if err := d.allocateIPs(); err != nil { // will log errors/fatal internally
 		return nil, nil, err
 	}
 
@@ -1087,39 +1127,50 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// iptables rules can be updated only after d.init() intializes the iptables above.
 	err = d.updateDNSDatapathRules()
 	if err != nil {
-		return nil, restoredEndpoints, err
+		log.WithError(err).Error("error encountered while updating DNS datapath rules.")
+		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
 	}
 
 	// We can only attach the monitor agent once cilium_event has been set up.
 	if option.Config.RunMonitorAgent {
 		err = d.monitorAgent.AttachToEventsMap(defaults.MonitorBufferPages)
 		if err != nil {
-			return nil, nil, err
+			log.WithError(err).Error("encountered error configuring run monitor agent")
+			return nil, nil, fmt.Errorf("encountered error configuring run monitor agent: %w", err)
 		}
 
 		if option.Config.EnableMonitor {
 			err = monitoragent.ServeMonitorAPI(d.monitorAgent)
 			if err != nil {
-				return nil, nil, err
+				log.WithError(err).Error("encountered error configuring run monitor agent")
+				return nil, nil, fmt.Errorf("encountered error configuring run monitor agent: %w", err)
 			}
 		}
-	}
-
-	if err := d.syncEndpointsAndHostIPs(); err != nil {
-		return nil, nil, err
 	}
 
 	// Start the controller for periodic sync. The purpose of the
 	// controller is to ensure that endpoints and host IPs entries are
 	// reinserted to the bpf maps if they are ever removed from them.
-	controller.NewManager().UpdateController("sync-endpoints-and-host-ips",
+	syncErrs := make(chan error, 1)
+	d.controllers.UpdateController(
+		syncEndpointsAndHostIPsController,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return d.syncEndpointsAndHostIPs()
+				err := d.syncEndpointsAndHostIPs()
+				select {
+				case syncErrs <- err:
+				default:
+				}
+				return err
 			},
 			RunInterval: time.Minute,
 			Context:     d.ctx,
 		})
+
+	// Wait for the initial sync and check that it succeeded.
+	if err := <-syncErrs; err != nil {
+		return nil, nil, err
+	}
 
 	if err := loader.RestoreTemplates(option.Config.StateDir); err != nil {
 		log.WithError(err).Error("Unable to restore previous BPF templates")
@@ -1130,6 +1181,23 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// we populate the IPCache with the host's IP(s).
 	d.ipcache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
+
+	// Start listening to changed devices if requested.
+	if option.Config.EnableRuntimeDeviceDetection {
+		if d.deviceManager.AreDevicesRequired() {
+			devicesChan, err := d.deviceManager.Listen(ctx)
+			if err != nil {
+				log.WithError(err).Warn("Runtime device detection failed to start")
+			}
+			go func() {
+				for devices := range devicesChan {
+					d.ReloadOnDeviceChange(devices)
+				}
+			}()
+		} else {
+			log.Info("Runtime device detection requested, but no feature requires it. Disabling detection.")
+		}
+	}
 
 	return &d, restoredEndpoints, nil
 }
@@ -1176,6 +1244,45 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 		}
 	}
 	bootstrapStats.clusterMeshInit.End(true)
+}
+
+// ReloadOnDeviceChange regenerates device related information and reloads the datapath.
+// The devices is the new set of devices that replaces the old set.
+func (d *Daemon) ReloadOnDeviceChange(devices []string) {
+	option.Config.SetDevices(devices)
+
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
+		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {
+			log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
+		}
+	}
+
+	if option.Config.EnableNodePort {
+		if err := node.InitNodePortAddrs(devices, option.Config.LBDevInheritIPAddr); err != nil {
+			log.WithError(err).Warn("Failed to initialize NodePort addresses")
+		} else {
+			// Synchronize services and endpoints to reflect new addresses onto lbmap.
+			d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
+			d.controllers.TriggerController(syncEndpointsAndHostIPsController)
+		}
+	}
+
+	// Recreate node_config.h to reflect the mac addresses of the new devices.
+	d.compilationMutex.Lock()
+	err := d.createNodeConfigHeaderfile()
+	d.compilationMutex.Unlock()
+	if err != nil {
+		log.WithError(err).Warn("Failed to re-create node config header")
+		return
+	}
+
+	// Reload the datapath.
+	wg, err := d.TriggerReloadWithoutCompile("devices changed")
+	if err != nil {
+		log.WithError(err).Warn("Failed to reload datapath")
+		return
+	}
+	wg.Wait()
 }
 
 // Close shuts down a daemon

@@ -1,3 +1,23 @@
+# v1.37.0 (2022-04-28)
+
+* **Feature**: This release adds support to query the public key and creation date of EC2 Key Pairs. Additionally, the format (pem or ppk) of a key pair can be specified when creating a new key pair.
+
+# v1.36.1 (2022-04-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.36.0 (2022-04-22)
+
+* **Feature**: Adds support for waiters that automatically poll for a deleted NAT Gateway until it reaches the deleted state.
+
+# v1.35.1 (2022-04-14)
+
+* **Documentation**: Documentation updates for Amazon EC2.
+
+# v1.35.0 (2022-04-12)
+
+* **Feature**: X2idn and X2iedn instances are powered by 3rd generation Intel Xeon Scalable processors with an all-core turbo frequency up to 3.5 GHzAmazon EC2. C6a instances are powered by 3rd generation AMD EPYC processors.
+
 # v1.34.0 (2022-03-30)
 
 * **Feature**: This release simplifies the auto-recovery configuration process enabling customers to set the recovery behavior to disabled or default

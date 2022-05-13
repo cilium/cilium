@@ -401,6 +401,10 @@
      - Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination.
      - bool
      - ``true``
+   * - enableRuntimeDeviceDetection
+     - Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.
+     - bool
+     - ``false``
    * - enableXTSocketFallback
      - Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
      - bool
@@ -689,6 +693,18 @@
      - Labels to add to ServiceMonitor hubble
      - object
      - ``{}``
+   * - hubble.peerService.clusterDomain
+     - The cluster domain to use to query the Hubble Peer service. It should be the local cluster.
+     - string
+     - ``"cluster.local"``
+   * - hubble.peerService.enabled
+     - Enable a K8s Service for the Peer service, so that it can be accessed by a non-local client
+     - bool
+     - ``true``
+   * - hubble.peerService.servicePort
+     - Service Port for the Peer service.
+     - int
+     - ``4254``
    * - hubble.relay.affinity
      - Affinity for hubble-replay
      - object
@@ -1245,6 +1261,10 @@
      - cilium-operator image.
      - object
      - ``{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/operator","suffix":"","tag":"latest","useDigest":false}``
+   * - operator.nodeGCInterval
+     - Interval for cilium node garbage collection.
+     - string
+     - ``"5m0s"``
    * - operator.nodeSelector
      - Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -1513,6 +1533,14 @@
      - interval between checks of the startup probe
      - int
      - ``2``
+   * - svcSourceRangeCheck
+     - Enable check of service source ranges (currently, only for LoadBalancer).
+     - bool
+     - ``true``
+   * - synchronizeK8sNodes
+     - Synchronize Kubernetes nodes to kvstore and perform CNP GC.
+     - bool
+     - ``true``
    * - terminationGracePeriodSeconds
      - Configure termination grace period for cilium-agent DaemonSet.
      - int

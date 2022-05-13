@@ -12,7 +12,7 @@ cilium bpf ct list ( <endpoint identifier> | global ) [flags]
 
 ```
   -h, --help                                help for list
-  -o, --output string                       json| jsonpath='{}'
+  -o, --output string                       json| yaml| jsonpath='{}'
   -d, --time-diff                           print time difference for entries
       --time-diff-clocksource-hz int        manually set clock source Hz (default 250)
       --time-diff-clocksource-mode string   manually set clock source mode (instead of contacting the server)

@@ -95,7 +95,6 @@ MiB
 Minikube
 Monnet
 Mythbusters
-NativeRoutingCIDR
 NeighDiscovery
 Netronome
 NewProto
@@ -356,7 +355,7 @@ enableIPv
 enableIdentityMark
 enableIngressController
 enableK
-enableSecretsSync
+enableRuntimeDeviceDetection
 enableXTSocketFallback
 enablement
 endian
@@ -676,6 +675,7 @@ nfsd
 nftables
 nginx
 nodeEncryption
+nodeGCInterval
 nodePort
 nodeSelector
 nodeX
@@ -702,6 +702,7 @@ parsers
 passthrough
 pc
 pcap
+peerService
 perf
 periodSeconds
 pipelining
@@ -876,6 +877,7 @@ supergalatic
 superset
 suricate
 svc
+svcSourceRangeCheck
 sw
 synchronizeK
 sys

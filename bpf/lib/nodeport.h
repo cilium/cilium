@@ -1047,13 +1047,23 @@ declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
 		    CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT)
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
+	int ret;
+	enum trace_point obs_point;
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	union v6addr addr = { .p1 = 0 };
 	BPF_V6(addr, ROUTER_IP);
+	obs_point = TRACE_TO_OVERLAY;
 #else
 	union v6addr addr = IPV6_DIRECT_ROUTING;
+	obs_point = TRACE_TO_NETWORK;
 #endif
-	return nodeport_nat_ipv6_fwd(ctx, &addr);
+	ret = nodeport_nat_ipv6_fwd(ctx, &addr);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
+	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
+
+	return ret;
 }
 #endif /* ENABLE_IPV6 */
 
@@ -1946,7 +1956,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-#if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE)
+#if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE) && \
+	__ctx_is != __ctx_xdp
 	/* Traffic from clients to egress gateway nodes reaches said gateways
 	 * by a vxlan tunnel. If we are not using TUNNEL_MODE, we need to
 	 * identify reverse traffic from the gateway to clients and also steer
@@ -1955,6 +1966,10 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	 * egress gateway map using a reverse address tuple. A match means that
 	 * the corresponding forward traffic was forwarded to the egress gateway
 	 * via the tunnel.
+	 *
+	 * Currently, we don't support redirect to a tunnel netdev / encap on
+	 * XDP. Thus, the problem mentioned above is present when using the
+	 * egress gw feature with bpf_xdp.
 	 */
 	{
 		struct egress_gw_policy_entry *egress_policy;
@@ -1988,7 +2003,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 		bpf_mark_snat_done(ctx);
 
 		*ifindex = ct_state.ifindex;
-#ifdef TUNNEL_MODE
+#if defined(TUNNEL_MODE) && __ctx_is != __ctx_xdp
 		{
 			struct remote_endpoint_info *info;
 
@@ -2065,7 +2080,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 	return CTX_ACT_OK;
 
-#if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
+#if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)) && \
+	__ctx_is != __ctx_xdp
 encap_redirect:
 	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL,
 				  reason, monitor);
@@ -2126,7 +2142,22 @@ declare_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
 		    CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT)
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
-	return nodeport_nat_ipv4_fwd(ctx);
+	int ret;
+	enum trace_point obs_point;
+
+#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+	obs_point = TRACE_TO_OVERLAY;
+#else
+	obs_point = TRACE_TO_NETWORK;
+#endif
+
+	ret = nodeport_nat_ipv4_fwd(ctx);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
+	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
+
+	return ret;
 }
 #endif /* ENABLE_IPV4 */
 

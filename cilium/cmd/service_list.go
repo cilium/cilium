@@ -28,7 +28,7 @@ var serviceListCmd = &cobra.Command{
 
 func init() {
 	serviceCmd.AddCommand(serviceListCmd)
-	command.AddJSONOutput(serviceListCmd)
+	command.AddOutputOption(serviceListCmd)
 }
 
 func listServices(cmd *cobra.Command, args []string) {
@@ -37,7 +37,7 @@ func listServices(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get services list: %s", err)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(list); err != nil {
 			os.Exit(1)
 		}

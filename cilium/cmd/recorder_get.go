@@ -30,7 +30,7 @@ var recorderGetCmd = &cobra.Command{
 		if err != nil {
 			Fatalf("Cannot get recorder '%v': %s\n", id, err)
 		}
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(rec); err != nil {
 				os.Exit(1)
 			}
@@ -48,5 +48,5 @@ var recorderGetCmd = &cobra.Command{
 
 func init() {
 	recorderCmd.AddCommand(recorderGetCmd)
-	command.AddJSONOutput(recorderGetCmd)
+	command.AddOutputOption(recorderGetCmd)
 }

@@ -10,7 +10,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
@@ -61,7 +63,10 @@ func startKvstoreWatchdog() {
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity garbage collection")
 	}
-	a := allocator.NewAllocatorForGC(backend)
+
+	minID := idpool.ID(identity.MinimalAllocationIdentity)
+	maxID := idpool.ID(identity.MaximumAllocationIdentity)
+	a := allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
 	keysToDelete := map[string]kvstore.Value{}
 	go func() {

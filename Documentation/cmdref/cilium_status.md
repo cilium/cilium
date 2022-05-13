@@ -19,7 +19,7 @@ cilium status [flags]
       --all-redirects      Show all redirects
       --brief              Only print a one-line status message
   -h, --help               help for status
-  -o, --output string      json| jsonpath='{}'
+  -o, --output string      json| yaml| jsonpath='{}'
       --timeout duration   Sets the timeout to use when querying for health (default 30s)
       --verbose            Equivalent to --all-addresses --all-controllers --all-nodes --all-redirects --all-clusters --all-health
 ```

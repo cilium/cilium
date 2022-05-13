@@ -41,8 +41,8 @@ func (s *MaglevTestSuite) TestPermutations(c *C) {
 	}
 	for _, bCount := range []int{0, 1, 2, 5, 111, 222, 333, 1001} {
 		backends := make([]string, bCount)
-		for i := 0; i < bCount; i++ {
-			backends = append(backends, strconv.Itoa(i))
+		for i := 0; i < len(backends); i++ {
+			backends[i] = strconv.Itoa(i)
 		}
 		for _, m := range []uint64{251, 509, 1021} {
 			expectedPerm := getExpectedPermutation(backends, m)

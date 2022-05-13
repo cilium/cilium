@@ -649,7 +649,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"l7Proxy":              "false",
 			}, DeployCiliumOptionsAndDNS)
 
-			privateIface, err := kubectl.GetPrivateIface()
+			privateIface, err := kubectl.GetPrivateIface(helpers.K8s1)
 			Expect(err).Should(BeNil(), "Cannot determine private iface")
 			testWireguard(privateIface)
 		})
@@ -754,7 +754,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		var privateIface string
 		BeforeAll(func() {
 			Eventually(func() (string, error) {
-				iface, err := kubectl.GetPrivateIface()
+				iface, err := kubectl.GetPrivateIface(helpers.K8s1)
 				privateIface = iface
 				return iface, err
 			}, helpers.MidCommandTimeout, time.Second).ShouldNot(BeEmpty(),
@@ -776,7 +776,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and direct routing with bpf_host", func() {
-			privateIface, err := kubectl.GetPrivateIface()
+			privateIface, err := kubectl.GetPrivateIface(helpers.K8s1)
 			Expect(err).Should(BeNil(), "Unable to determine the private interface")
 			defaultIface, err := kubectl.GetDefaultIface(false)
 			Expect(err).Should(BeNil(), "Unable to determine the default interface")

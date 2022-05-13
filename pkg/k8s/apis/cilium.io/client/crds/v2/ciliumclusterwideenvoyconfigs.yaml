@@ -25,7 +25,7 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v2alpha1
+    name: v2
     schema:
       openAPIV3Schema:
         properties:

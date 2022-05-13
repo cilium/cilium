@@ -12,9 +12,8 @@ import (
 
 // Modifies attributes of a specified VPC endpoint. The attributes that you can
 // modify depend on the type of VPC endpoint (interface, gateway, or Gateway Load
-// Balancer). For more information, see VPC Endpoints
-// (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-endpoints.html) in the
-// Amazon Virtual Private Cloud User Guide.
+// Balancer). For more information, see the Amazon Web Services PrivateLink Guide
+// (https://docs.aws.amazon.com/vpc/latest/privatelink/).
 func (c *Client) ModifyVpcEndpoint(ctx context.Context, params *ModifyVpcEndpointInput, optFns ...func(*Options)) (*ModifyVpcEndpointOutput, error) {
 	if params == nil {
 		params = &ModifyVpcEndpointInput{}

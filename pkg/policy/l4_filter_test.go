@@ -14,6 +14,8 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -90,6 +92,7 @@ var (
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	cachedRemoteNodeIdentitySetting = option.Config.EnableRemoteNodeIdentity
 	option.Config.EnableRemoteNodeIdentity = true
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {

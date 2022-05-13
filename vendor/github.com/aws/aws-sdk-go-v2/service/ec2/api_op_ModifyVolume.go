@@ -33,10 +33,10 @@ import (
 // using either method, see Monitor the progress of volume modifications
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-volume-modifications.html).
 // With previous-generation instance types, resizing an EBS volume might require
-// detaching and reattaching the volume or stopping and restarting the instance. If
-// you reach the maximum volume modification rate per volume limit, you must wait
-// at least six hours before applying further modifications to the affected EBS
-// volume.
+// detaching and reattaching the volume or stopping and restarting the instance.
+// After modifying a volume, you must wait at least six hours and ensure that the
+// volume is in the in-use or available state before you can modify the same
+// volume. This is sometimes referred to as a cooldown period.
 func (c *Client) ModifyVolume(ctx context.Context, params *ModifyVolumeInput, optFns ...func(*Options)) (*ModifyVolumeOutput, error) {
 	if params == nil {
 		params = &ModifyVolumeInput{}
