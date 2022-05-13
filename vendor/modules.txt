@@ -219,11 +219,6 @@ github.com/cncf/xds/go/udpa/annotations
 github.com/cncf/xds/go/xds/annotations/v3
 github.com/cncf/xds/go/xds/core/v3
 github.com/cncf/xds/go/xds/type/matcher/v3
-# github.com/containerd/containerd v1.5.7
-## explicit; go 1.16
-github.com/containerd/containerd/errdefs
-github.com/containerd/containerd/log
-github.com/containerd/containerd/platforms
 # github.com/containernetworking/cni v1.1.0
 ## explicit; go 1.14
 github.com/containernetworking/cni/pkg/skel
@@ -260,8 +255,7 @@ github.com/dimchansky/utfbom
 ## explicit
 github.com/docker/distribution/digestset
 github.com/docker/distribution/reference
-github.com/docker/distribution/registry/api/errcode
-# github.com/docker/docker v20.10.14+incompatible
+# github.com/docker/docker v20.10.16+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
