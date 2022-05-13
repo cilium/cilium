@@ -578,6 +578,54 @@ func TestRing_LastWrite(t *testing.T) {
 		})
 	}
 }
+func TestRingOldestWrite(t *testing.T) {
+	r := NewRing(Capacity3)
+
+	oldestWrite := r.OldestWrite()
+	entry, err := r.read(oldestWrite)
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+	if entry.GetLostEvent() == nil {
+		t.Errorf("able to read oldest entry without prior write: %s", entry)
+	}
+
+	r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 0}})
+	r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 1}})
+	r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 2}})
+	r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 3}})
+
+	oldestWrite = r.OldestWrite()
+	entry, err = r.read(oldestWrite)
+	if err != nil {
+		t.Errorf("Should be able to read position %x, got %v", oldestWrite, err)
+	}
+	if entry.Timestamp.Seconds != int64(0) {
+		t.Errorf("Read Event should be %+v, got %+v instead (%s)", &timestamppb.Timestamp{Seconds: 0}, entry.Timestamp, entry)
+	}
+
+	// this will trigger a wrap-around and overwrite entry 0
+	r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 4}})
+
+	// the previous oldest entry should now be overwritten
+	entry, err = r.read(oldestWrite)
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+	if entry.GetLostEvent() == nil {
+		t.Errorf("able to read oldest entry even though it has been overwritten: %s", entry)
+	}
+
+	// new oldest entry should have timestamp 1
+	oldestWrite = r.OldestWrite()
+	entry, err = r.read(oldestWrite)
+	if err != nil {
+		t.Errorf("Should be able to read position %x, got %v", oldestWrite, err)
+	}
+	if entry.Timestamp.Seconds != int64(1) {
+		t.Errorf("Read Event should be %+v, got %+v instead (%s)", &timestamppb.Timestamp{Seconds: 1}, entry.Timestamp, entry)
+	}
+}
 
 func TestRingFunctionalityInParallel(t *testing.T) {
 	r := NewRing(Capacity15)
