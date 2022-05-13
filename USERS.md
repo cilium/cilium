@@ -113,6 +113,12 @@ Users (Alphabetically)
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
 
+    * N: CONNY
+      D: CONNY is legaltech platform to improve access to justice for individuals
+      U: Networking, NetworkPolicy, Services
+      Q: @ant31
+      L: https://conny.de
+
     * N: Crane
       D: Crane uses Cilium as the default CNI
       U: Networking, NetworkPolicy, Services
