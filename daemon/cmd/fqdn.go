@@ -540,6 +540,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		select {
 		case <-updateCtx.Done():
 			log.Error("Timed out waiting for datapath updates of FQDN IP information; returning response")
+			metrics.ProxyDatapathUpdateTimeout.Inc()
 		case <-updateComplete:
 		}
 

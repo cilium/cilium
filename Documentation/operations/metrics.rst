@@ -318,6 +318,7 @@ Name                                     Labels                                 
 ======================================== ================================================== ========================================================
 ``proxy_redirects``                      ``protocol``                                       Number of redirects installed for endpoints
 ``proxy_upstream_reply_seconds``                                                            Seconds waited for upstream server to reply to a request
+``proxy_datapath_update_timeout_total``                                                     Number of total datapath update timeouts due to FQDN IP updates
 ``policy_l7_total``                      ``type``                                           Number of total L7 requests/responses
 ======================================== ================================================== ========================================================
 
