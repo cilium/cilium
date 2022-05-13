@@ -256,6 +256,8 @@ spec:
               - KILL
               # Used since cilium modifies routing tables, etc...
               - NET_ADMIN
+              # Used since cilium monitor uses mmap
+              - IPC_LOCK
               # Used in iptables. Consider removing once we are iptables-free
               - SYS_MODULE
               # We need it for now but might not need it for >= 5.11 specially
