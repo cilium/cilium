@@ -4,8 +4,6 @@
 package cmd
 
 import (
-	gops "github.com/google/gops/agent"
-
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/pidfile"
 )
@@ -47,7 +45,6 @@ func (c *cleanupFuncList) Run() {
 
 // Clean cleans up everything created by this package.
 func (d *daemonCleanup) Clean() {
-	gops.Close()
 	d.preCleanupFuncs.Run()
 	pidfile.Clean()
 	d.cleanupFuncs.Run()

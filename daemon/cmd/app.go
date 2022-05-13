@@ -20,7 +20,9 @@ import (
 // infrastructure modules (logger, configuration, etc.) for embedding and
 // testing purposes.
 func AgentModules() fx.Option {
-	return fx.Options()
+	return fx.Options(
+		GopsModule(),
+	)
 }
 
 var (

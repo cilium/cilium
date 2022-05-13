@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/go-openapi/loads"
-	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -804,9 +803,6 @@ func initializeFlags() {
 	flags.Float64(option.MapEntriesGlobalDynamicSizeRatioName, 0.0, "Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)")
 	option.BindEnv(option.MapEntriesGlobalDynamicSizeRatioName)
 
-	flags.Int(option.GopsPort, defaults.GopsPortAgent, "Port for gops server to listen on")
-	option.BindEnv(option.GopsPort)
-
 	flags.Int(option.ToFQDNsMinTTL, 0, fmt.Sprintf("The minimum time, in seconds, to use DNS data for toFQDNs policies. (default %d )", defaults.ToFQDNsMinTTL))
 	option.BindEnv(option.ToFQDNsMinTTL)
 
@@ -1565,17 +1561,6 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner) error {
 
 // runDaemon runs the old unmodular part of the cilium-agent.
 func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner) {
-	// Open socket for using gops to get stacktraces of the agent.
-	addr := fmt.Sprintf("127.0.0.1:%d", viper.GetInt(option.GopsPort))
-	addrField := logrus.Fields{"address": addr}
-	if err := gops.Listen(gops.Options{
-		Addr:                   addr,
-		ReuseSocketAddrAndPort: true,
-	}); err != nil {
-		log.WithError(err).WithFields(addrField).Fatal("Cannot start gops server")
-	}
-	log.WithFields(addrField).Info("Started gops server")
-
 	bootstrapStats.earlyInit.Start()
 	initEnv()
 	bootstrapStats.earlyInit.End(true)
