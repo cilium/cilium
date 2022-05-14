@@ -219,7 +219,7 @@ spec:
                         description: "Name is the name of a destination Kubernetes
                           service that identifies traffic to be redirected. The service
                           type needs to be ClusterIP. \n Example: When this field
-                          is populated with 'serviceName:myService', all the traffic
+                          is populated with 'serviceName: myService', all the traffic
                           destined to the cluster IP of this service at the (specified)
                           service port(s) will be redirected."
                         type: string
