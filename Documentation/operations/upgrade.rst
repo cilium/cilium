@@ -308,6 +308,14 @@ Annotations:
 
 .. _1.9_upgrade_notes:
 
+1.9.16 Upgrade Notes
+--------------------
+
+* ``operator.unmanagedPodWatcher.restart`` has been introduced to govern
+  whether the cilium-operator will attempt to restart pods that are not
+  managed by Cilium. To retain consistency with earlier releases, this setting
+  is enabled by default.
+
 1.9.1 Upgrade Notes
 -------------------
 
