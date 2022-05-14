@@ -39,6 +39,20 @@ const (
 	IPSecDirOut     IPSecDir = "IPSEC_OUT"
 	IPSecDirBoth    IPSecDir = "IPSEC_BOTH"
 	IPSecDirOutNode IPSecDir = "IPSEC_OUT_NODE"
+
+	// Constants used to decode the IPsec secret in both formats:
+	// 1. [spi] aead-algo aead-key icv-len
+	// 2. [spi] auth-algo auth-key enc-algo enc-key [IP]
+	offsetSPI      = 0
+	offsetAeadAlgo = 1
+	offsetAeadKey  = 2
+	offsetICV      = 3
+	offsetAuthAlgo = 1
+	offsetAuthKey  = 2
+	offsetEncAlgo  = 3
+	offsetEncKey   = 4
+	offsetIP       = 5
+	maxOffset      = offsetIP
 )
 
 type ipSecKey struct {
@@ -510,82 +524,99 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		var oldSpi uint8
-		var authkey []byte
-		offset := 0
+		var aeadKey, authKey []byte
+		offsetBase := 0
 
 		ipSecKey := &ipSecKey{
 			ReqID: 1,
 		}
 
-		// Scanning IPsec keys formatted as follows,
-		//    auth-algo auth-key enc-algo enc-key
+		// Scanning IPsec keys with one of the following formats:
+		// 1. [spi] aead-algo aead-key icv-len
+		// 2. [spi] auth-algo auth-key enc-algo enc-key [IP]
 		s := strings.Split(scanner.Text(), " ")
-		if len(s) < 2 {
-			return 0, 0, fmt.Errorf("missing IPSec keys or invalid format")
+		if len(s) < 3 {
+			// Regardless of the format used, the IPsec secret should have at
+			// least 3 fields separated by white spaces.
+			return 0, 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spiI, err := strconv.Atoi(s[0])
+		spiI, err := strconv.Atoi(s[offsetSPI])
 		if err != nil {
 			// If no version info is provided assume using key format without
 			// versioning and assign SPI.
 			spiI = 1
-			offset = -1
+			offsetBase = -1
 		}
 		if spiI > linux_defaults.IPsecMaxKeyVersion {
-			return 0, 0, fmt.Errorf("encryption Key space exhausted, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[0])
+			return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[offsetSPI])
 		}
 		if spiI == 0 {
-			return 0, 0, fmt.Errorf("zero is not a valid key to disable encryption use `--enable-ipsec=false`, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[0])
+			return 0, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[offsetSPI])
 		}
 		spi = uint8(spiI)
 
-		keyLen, authkey, err = decodeIPSecKey(s[2+offset])
-		if err != nil {
-			return 0, 0, fmt.Errorf("unable to decode authkey string %q", s[1+offset])
-		}
-		authname := s[1+offset]
+		if len(s) > offsetBase+maxOffset+1 {
+			return 0, 0, fmt.Errorf("invalid format: too many fields in the IPsec secret")
+		} else if len(s) == offsetBase+offsetICV+1 {
+			// We're in the first case, with "[spi] aead-algo aead-key icv-len".
+			aeadName := s[offsetBase+offsetAeadAlgo]
+			if !strings.HasPrefix(aeadName, "rfc") {
+				return 0, 0, fmt.Errorf("invalid AEAD algorithm %q", aeadName)
+			}
 
-		if strings.HasPrefix(authname, "rfc") {
-			icvLen, err := strconv.Atoi(s[3+offset])
+			_, aeadKey, err = decodeIPSecKey(s[offsetBase+offsetAeadKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("ICVLen is invalid or missing")
+				return 0, 0, fmt.Errorf("unable to decode AEAD key string %q", s[offsetBase+offsetAeadKey])
+			}
+
+			icvLen, err := strconv.Atoi(s[offsetICV+offsetBase])
+			if err != nil {
+				return 0, 0, fmt.Errorf("ICV length is invalid or missing")
 			}
 
 			if icvLen != 96 && icvLen != 128 && icvLen != 256 {
-				return 0, 0, fmt.Errorf("Unknown ICVLen accepts 96, 128, 256")
+				return 0, 0, fmt.Errorf("only ICV lengths 96, 128, and 256 are accepted")
 			}
 
 			ipSecKey.Aead = &netlink.XfrmStateAlgo{
-				Name:   authname,
-				Key:    authkey,
+				Name:   aeadName,
+				Key:    aeadKey,
 				ICVLen: icvLen,
 			}
 			keyLen = icvLen / 8
 		} else {
-			_, enckey, err := decodeIPSecKey(s[4+offset])
+			// We're in the second case, with "[spi] auth-algo auth-key enc-algo enc-key [IP]".
+			authAlgo := s[offsetBase+offsetAuthAlgo]
+			keyLen, authKey, err = decodeIPSecKey(s[offsetBase+offsetAuthKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("unable to decode enckey string %q", s[3+offset])
+				return 0, 0, fmt.Errorf("unable to decode authentication key string %q", s[offsetBase+offsetAuthKey])
 			}
 
-			encname := s[3+offset]
+			encAlgo := s[offsetBase+offsetEncAlgo]
+			_, encKey, err := decodeIPSecKey(s[offsetBase+offsetEncKey])
+			if err != nil {
+				return 0, 0, fmt.Errorf("unable to decode encryption key string %q", s[offsetBase+offsetEncKey])
+			}
 
 			ipSecKey.Auth = &netlink.XfrmStateAlgo{
-				Name: authname,
-				Key:  authkey,
+				Name: authAlgo,
+				Key:  authKey,
 			}
 			ipSecKey.Crypt = &netlink.XfrmStateAlgo{
-				Name: encname,
-				Key:  enckey,
+				Name: encAlgo,
+				Key:  encKey,
 			}
 		}
 
 		ipSecKey.Spi = spi
 
-		if len(s) == 6+offset {
-			if ipSecKeysGlobal[s[5+offset]] != nil {
-				oldSpi = ipSecKeysGlobal[s[5+offset]].Spi
+		if len(s) == offsetBase+offsetIP+1 {
+			// The IPsec secret has the optional IP address field at the end.
+			if ipSecKeysGlobal[s[offsetBase+offsetIP]] != nil {
+				oldSpi = ipSecKeysGlobal[s[offsetBase+offsetIP]].Spi
 			}
-			ipSecKeysGlobal[s[5+offset]] = ipSecKey
+			ipSecKeysGlobal[s[offsetBase+offsetIP]] = ipSecKey
 		} else {
 			if ipSecKeysGlobal[""] != nil {
 				oldSpi = ipSecKeysGlobal[""].Spi
