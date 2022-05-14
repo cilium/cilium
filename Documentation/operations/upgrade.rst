@@ -361,6 +361,10 @@ Helm Options
   and will be removed in 1.13.
 * ``clustermesh.apiserver.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``,
   and will be removed in 1.13.
+* ``operator.unmanagedPodWatcher.restart`` has been introduced to govern
+  whether the cilium-operator will attempt to restart pods that are not
+  managed by Cilium. To retain consistency with earlier releases, this setting
+  is enabled by default.
 * ``tls.enabled`` has been removed as this attribute is not used at all.
 * Only one CA will be generated with either the helm or CronJob auto method, there will
   be a short disruption while the new CA is propagated to all nodes.
