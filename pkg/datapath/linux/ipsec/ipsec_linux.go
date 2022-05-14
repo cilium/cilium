@@ -545,6 +545,7 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		if err != nil {
 			// If no version info is provided assume using key format without
 			// versioning and assign SPI.
+			log.Warning("IPsec secrets without an SPI as the first argument are deprecated and will be unsupported in v1.13.")
 			spiI = 1
 			offsetBase = -1
 		}
@@ -613,6 +614,7 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 
 		if len(s) == offsetBase+offsetIP+1 {
 			// The IPsec secret has the optional IP address field at the end.
+			log.Warning("IPsec secrets with an IP address as the last argument are deprecated and will be unsupported in v1.13.")
 			if ipSecKeysGlobal[s[offsetBase+offsetIP]] != nil {
 				oldSpi = ipSecKeysGlobal[s[offsetBase+offsetIP]].Spi
 			}
