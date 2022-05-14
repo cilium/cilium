@@ -242,7 +242,7 @@ func (ipam *IPAM) AllocateNextWithExpiration(family, owner string, timeout time.
 					if ipv6Result != nil {
 						ipam.ReleaseIP(ipv6Result.IP)
 					}
-					return
+					return nil, nil, err
 				}
 			}
 		}
