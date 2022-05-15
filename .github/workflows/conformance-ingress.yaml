@@ -127,8 +127,8 @@ jobs:
           kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
           lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          curl --fail -- http://"$lb"
-          curl --fail -- http://"$lb"/details/1
+          curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"
+          curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
 
       - name: Run Ingress conformance test
         timeout-minutes: 30
