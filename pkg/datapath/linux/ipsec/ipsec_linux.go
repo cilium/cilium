@@ -8,6 +8,7 @@ package ipsec
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -135,7 +136,7 @@ var (
 	removeStaleIPv6XFRMOnce sync.Once
 )
 
-func getIPSecKeys(ip net.IP) *ipSecKey {
+func getGlobalIPsecKey(ip net.IP) *ipSecKey {
 	ipSecLock.RLock()
 	defer ipSecLock.RUnlock()
 
@@ -144,6 +145,65 @@ func getIPSecKeys(ip net.IP) *ipSecKey {
 		key = ipSecKeysGlobal[""]
 	}
 	return key
+}
+
+// computeNodeIPsecKey computes per-node-pair IPsec keys from the global,
+// pre-shared key. The per-node-pair keys are computed with a SHA256 hash of
+// the global key, source node IP, destination node IP appended together.
+func computeNodeIPsecKey(globalKey, srcNodeIP, dstNodeIP []byte) []byte {
+	input := append(globalKey, srcNodeIP...)
+	input = append(input, dstNodeIP...)
+	output := sha256.Sum256(input)
+	return output[:len(globalKey)]
+}
+
+// deriveNodeIPsecKey builds a per-node-pair ipSecKey object from the global
+// ipSecKey object.
+func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP) *ipSecKey {
+	nodeKey := &ipSecKey{
+		Spi:   globalKey.Spi,
+		ReqID: globalKey.ReqID,
+	}
+
+	if globalKey.Aead != nil {
+		nodeKey.Aead = &netlink.XfrmStateAlgo{
+			Name:   globalKey.Aead.Name,
+			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP),
+			ICVLen: globalKey.Aead.ICVLen,
+		}
+	} else {
+		nodeKey.Auth = &netlink.XfrmStateAlgo{
+			Name: globalKey.Auth.Name,
+			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP),
+		}
+
+		nodeKey.Crypt = &netlink.XfrmStateAlgo{
+			Name: globalKey.Crypt.Name,
+			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP),
+		}
+	}
+
+	return nodeKey
+}
+
+// We want one IPsec key per node pair. For a pair of nodes A and B with IP
+// addresses a and b, we will therefore install two different keys:
+// Node A               <> Node B
+// XFRM IN:  key(b+a)      XFRM IN:  key(a+b)
+// XFRM OUT: key(a+b)      XFRM OUT: key(b+a)
+// This is done such that, for each pair of nodes A, B, the key used for
+// decryption on A (XFRM IN) is the same key used for encryption on B (XFRM
+// OUT), and vice versa.
+func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, dir netlink.Dir) *ipSecKey {
+	globalKey := getGlobalIPsecKey(localNodeIP)
+	if globalKey == nil {
+		return nil
+	}
+
+	if dir == netlink.XFRM_DIR_OUT {
+		return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP)
+	}
+	return deriveNodeIPsecKey(globalKey, remoteNodeIP, localNodeIP)
 }
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
@@ -330,7 +390,7 @@ func xfrmMarkEqual(mark1, mark2 *netlink.XfrmMark) bool {
 }
 
 func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error) {
-	key := getIPSecKeys(remoteIP)
+	key := getNodeIPsecKey(localIP, remoteIP, netlink.XFRM_DIR_IN)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
@@ -357,7 +417,7 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 }
 
 func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16) (uint8, error) {
-	key := getIPSecKeys(localIP)
+	key := getNodeIPsecKey(localIP, remoteIP, netlink.XFRM_DIR_OUT)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
@@ -374,7 +434,9 @@ func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16) (uint8, error
 
 func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, proxyMark bool, dir netlink.Dir) error {
 	optional := int(0)
-	key := getIPSecKeys(dst.IP)
+	// We can use the global IPsec key here because we are not going to
+	// actually use the secret itself.
+	key := getGlobalIPsecKey(dst.IP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
@@ -529,7 +591,9 @@ func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
 func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID uint16, dir IPSecDir) error {
 	// TODO: Remove old policy pointing to target net
 
-	key := getIPSecKeys(dst.IP)
+	// We can use the global IPsec key here because we are not going to
+	// actually use the secret itself.
+	key := getGlobalIPsecKey(dst.IP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
