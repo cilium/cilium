@@ -257,9 +257,10 @@ jobs:
             kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
 
             # Wait until key rotation starts
+            # We expect twice the amount of keys in use during rotation.
             while true; do
               keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ $keys_in_use == 2 ]]; then
+              if [[ $keys_in_use == 16 ]]; then
                 break
               fi
               echo "Waiting until key rotation starts (seeing $keys_in_use keys)"
@@ -267,11 +268,12 @@ jobs:
             done
 
             # Wait until key rotation completes
+            # We expect 2 keys per remote node.
             # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
             sleep $((4*60))
             while true; do
               keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ $keys_in_use == 1 ]]; then
+              if [[ $keys_in_use == 8 ]]; then
                 break
               fi
               echo "Waiting until key rotation completes (seeing $keys_in_use keys)"
