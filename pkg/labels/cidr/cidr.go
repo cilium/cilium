@@ -6,6 +6,7 @@ package cidr
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
@@ -31,8 +32,23 @@ func maskedIPToLabelString(ip *net.IP, prefix int) string {
 	if ipNoColons[len(ipNoColons)-1] == '-' {
 		postZero = "0"
 	}
-	return fmt.Sprintf("%s:%s%s%s/%d", labels.LabelSourceCIDR, preZero,
-		ipNoColons, postZero, prefix)
+	var str strings.Builder
+	str.Grow(
+		len(labels.LabelSourceCIDR) +
+			len(preZero) +
+			len(ipNoColons) +
+			len(postZero) +
+			2 /*len of prefix*/ +
+			2, /* ':' '/' */
+	)
+	str.WriteString(labels.LabelSourceCIDR)
+	str.WriteRune(':')
+	str.WriteString(preZero)
+	str.WriteString(ipNoColons)
+	str.WriteString(postZero)
+	str.WriteRune('/')
+	str.WriteString(strconv.Itoa(prefix))
+	return str.String()
 }
 
 // ipNetToLabel turns a CIDR into a Label object which can be used to create
