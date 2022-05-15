@@ -110,6 +110,8 @@ jobs:
             --set operator.image.tag=${{ steps.vars.outputs.sha }} \
             --set operator.image.pullPolicy=IfNotPresent \
             --set operator.image.useDigest=false \
+            --set debug.enabled=true \
+            --set debug.verbose=flow \
             --set securityContext.privileged=true \
             --set ingressController.enabled=true
 
