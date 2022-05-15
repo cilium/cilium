@@ -111,7 +111,8 @@ jobs:
             --set operator.image.pullPolicy=IfNotPresent \
             --set operator.image.useDigest=false \
             --set securityContext.privileged=true \
-            --set ingressController.enabled=true
+            --set ingressController.enabled=true \
+            --set debug.enabled=true
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 

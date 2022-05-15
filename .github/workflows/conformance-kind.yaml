@@ -52,6 +52,7 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=debug.enabled=true \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
