@@ -97,7 +97,7 @@ func maskedIPNetToLabelString(cidr *net.IPNet, prefix, bits int) string {
 // The identity reserved:world is always added as it includes any CIDR.
 func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 	ones, bits := cidr.Mask.Size()
-	result := []string{}
+	result := make([]string, 0, ones+1)
 
 	// If ones is zero, then it's the default CIDR prefix /0 which should
 	// just be regarded as reserved:world. In all other cases, we need
@@ -110,7 +110,7 @@ func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 		}
 	}
 
-	result = append(result, fmt.Sprintf("%s:%s", labels.LabelSourceReserved, labels.IDNameWorld))
+	result = append(result, labels.LabelSourceReserved+":"+labels.IDNameWorld)
 
 	return labels.NewLabelsFromModel(result)
 }
