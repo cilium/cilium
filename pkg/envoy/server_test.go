@@ -327,6 +327,34 @@ var L4PolicyMap5 = map[string]*policy.L4Filter{
 	},
 }
 
+// L4PolicyMapSNI is an L4-only policy, with SNI enforcement
+var L4PolicyMapSNI = map[string]*policy.L4Filter{
+	"443/TCP": {
+		Port:     443,
+		Protocol: api.ProtoTCP,
+		L7RulesPerSelector: policy.L7DataMap{
+			wildcardCachedSelector: &policy.PerSelectorPolicy{
+				ServerNames: policy.NewStringSet([]string{
+					"jarno.cilium.rocks",
+					"ab.cd.com",
+				}),
+			},
+		},
+	},
+}
+
+var ExpectedPerPortPoliciesSNI = []*cilium.PortNetworkPolicy{
+	{
+		Port:     443,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			{
+				ServerNames: []string{"ab.cd.com", "jarno.cilium.rocks"},
+			},
+		},
+	},
+}
+
 var ExpectedPerPortPolicies1Wildcard = []*cilium.PortNetworkPolicy{
 	{
 		Port:     8080,
@@ -433,6 +461,10 @@ func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, nil)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
+
+	// L4-only with SNI
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMapSNI, true, nil)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesSNI)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
