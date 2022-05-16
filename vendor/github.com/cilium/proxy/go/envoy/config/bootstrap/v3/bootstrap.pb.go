@@ -186,13 +186,13 @@ type Bootstrap struct {
 	// override). Field names will be prefixed with “udpa.node.” when included in
 	// context parameters.
 	//
-	// For example, if node_context_params is ``["user_agent_name", "metadata"]``,
+	// For example, if node_context_params is “["user_agent_name", "metadata"]“,
 	// the implied context parameters might be::
 	//
-	//   node.user_agent_name: "envoy"
-	//   node.metadata.foo: "{\"bar\": \"baz\"}"
-	//   node.metadata.some: "42"
-	//   node.metadata.thing: "\"thing\""
+	//	node.user_agent_name: "envoy"
+	//	node.metadata.foo: "{\"bar\": \"baz\"}"
+	//	node.metadata.some: "42"
+	//	node.metadata.thing: "\"thing\""
 	//
 	// [#not-implemented-hide:]
 	NodeContextParams []string `protobuf:"bytes,26,rep,name=node_context_params,json=nodeContextParams,proto3" json:"node_context_params,omitempty"`
@@ -220,6 +220,7 @@ type Bootstrap struct {
 	// Duration must be at least 1ms and at most 5 min.
 	StatsFlushInterval *durationpb.Duration `protobuf:"bytes,7,opt,name=stats_flush_interval,json=statsFlushInterval,proto3" json:"stats_flush_interval,omitempty"`
 	// Types that are assignable to StatsFlush:
+	//
 	//	*Bootstrap_StatsFlushOnAdmin
 	StatsFlush isBootstrap_StatsFlush `protobuf_oneof:"stats_flush"`
 	// Optional watchdog configuration.
@@ -235,8 +236,9 @@ type Bootstrap struct {
 	// Configuration for an external tracing provider.
 	//
 	// .. attention::
-	//  This field has been deprecated in favor of :ref:`HttpConnectionManager.Tracing.provider
-	//  <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.provider>`.
+	//
+	//	This field has been deprecated in favor of :ref:`HttpConnectionManager.Tracing.provider
+	//	<envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.provider>`.
 	//
 	// Deprecated: Do not use.
 	Tracing *v32.Tracing `protobuf:"bytes,9,opt,name=tracing,proto3" json:"tracing,omitempty"`
@@ -310,19 +312,20 @@ type Bootstrap struct {
 	// Configuration sources that will participate in
 	// xdstp:// URL authority resolution. The algorithm is as
 	// follows:
-	// 1. The authority field is taken from the xdstp:// URL, call
-	//    this *resource_authority*.
-	// 2. *resource_authority* is compared against the authorities in any peer
-	//    *ConfigSource*. The peer *ConfigSource* is the configuration source
-	//    message which would have been used unconditionally for resolution
-	//    with opaque resource names. If there is a match with an authority, the
-	//    peer *ConfigSource* message is used.
-	// 3. *resource_authority* is compared sequentially with the authorities in
-	//    each configuration source in *config_sources*. The first *ConfigSource*
-	//    to match wins.
-	// 4. As a fallback, if no configuration source matches, then
-	//    *default_config_source* is used.
-	// 5. If *default_config_source* is not specified, resolution fails.
+	//  1. The authority field is taken from the xdstp:// URL, call
+	//     this *resource_authority*.
+	//  2. *resource_authority* is compared against the authorities in any peer
+	//     *ConfigSource*. The peer *ConfigSource* is the configuration source
+	//     message which would have been used unconditionally for resolution
+	//     with opaque resource names. If there is a match with an authority, the
+	//     peer *ConfigSource* message is used.
+	//  3. *resource_authority* is compared sequentially with the authorities in
+	//     each configuration source in *config_sources*. The first *ConfigSource*
+	//     to match wins.
+	//  4. As a fallback, if no configuration source matches, then
+	//     *default_config_source* is used.
+	//  5. If *default_config_source* is not specified, resolution fails.
+	//
 	// [#not-implemented-hide:]
 	ConfigSources []*v3.ConfigSource `protobuf:"bytes,22,rep,name=config_sources,json=configSources,proto3" json:"config_sources,omitempty"`
 	// Default configuration source for xdstp:// URLs if all
@@ -1002,8 +1005,8 @@ func (x *Watchdog) GetMultikillThreshold() *v35.Percent {
 // If using an unsafe action that could get stuck or deadlock, it important to
 // have an out of band system to terminate the process.
 //
-// The interface for the extension is ``Envoy::Server::Configuration::FatalAction``.
-// *FatalAction* extensions live in the ``envoy.extensions.fatal_actions`` API
+// The interface for the extension is “Envoy::Server::Configuration::FatalAction“.
+// *FatalAction* extensions live in the “envoy.extensions.fatal_actions“ API
 // namespace.
 type FatalAction struct {
 	state         protoimpl.MessageState
@@ -1011,7 +1014,7 @@ type FatalAction struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Extension specific configuration for the action. It's expected to conform
-	// to the ``Envoy::Server::Configuration::FatalAction`` interface.
+	// to the “Envoy::Server::Configuration::FatalAction“ interface.
 	Config *v3.TypedExtensionConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
 }
 
@@ -1155,6 +1158,7 @@ type RuntimeLayer struct {
 	// :http:get:`/runtime` output.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are assignable to LayerSpecifier:
+	//
 	//	*RuntimeLayer_StaticLayer
 	//	*RuntimeLayer_DiskLayer_
 	//	*RuntimeLayer_AdminLayer_
@@ -1330,14 +1334,14 @@ func (x *LayeredRuntime) GetLayers() []*RuntimeLayer {
 //
 // .. code-block:: text
 //
-//   foo: bar
-//   foo: eep
+//	foo: bar
+//	foo: eep
 //
 // Then they will eventually be folded into:
 //
 // .. code-block:: text
 //
-//   foo: bar, eep
+//	foo: bar, eep
 //
 // Inline headers provide O(1) search performance, but each inline header imposes
 // an additional memory overhead on all instances of the corresponding type of

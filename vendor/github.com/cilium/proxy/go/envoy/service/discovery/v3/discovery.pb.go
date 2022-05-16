@@ -160,17 +160,17 @@ type DiscoveryResponse struct {
 	// [#not-implemented-hide:]
 	// Canary is used to support two Envoy command line flags:
 	//
-	// * --terminate-on-canary-transition-failure. When set, Envoy is able to
-	//   terminate if it detects that configuration is stuck at canary. Consider
-	//   this example sequence of updates:
+	//   - --terminate-on-canary-transition-failure. When set, Envoy is able to
+	//     terminate if it detects that configuration is stuck at canary. Consider
+	//     this example sequence of updates:
 	//   - Management server applies a canary config successfully.
 	//   - Management server rolls back to a production config.
 	//   - Envoy rejects the new production config.
-	//   Since there is no sensible way to continue receiving configuration
-	//   updates, Envoy will then terminate and apply production config from a
-	//   clean slate.
-	// * --dry-run-canary. When set, a canary response will never be applied, only
-	//   validated via a dry run.
+	//     Since there is no sensible way to continue receiving configuration
+	//     updates, Envoy will then terminate and apply production config from a
+	//     clean slate.
+	//   - --dry-run-canary. When set, a canary response will never be applied, only
+	//     validated via a dry run.
 	Canary bool `protobuf:"varint,3,opt,name=canary,proto3" json:"canary,omitempty"`
 	// Type URL for resources. Identifies the xDS API when muxing over ADS.
 	// Must be consistent with the type_url in the 'resources' repeated Any (if non-empty).

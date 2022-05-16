@@ -42,8 +42,9 @@ type UdpListenerConfig struct {
 	// to the default object to enable QUIC without modifying any additional options.
 	//
 	// .. warning::
-	//   QUIC support is currently alpha and should be used with caution. Please
-	//   see :ref:`here <arch_overview_http3>` for details.
+	//
+	//	QUIC support is currently alpha and should be used with caution. Please
+	//	see :ref:`here <arch_overview_http3>` for details.
 	QuicOptions *QuicProtocolOptions `protobuf:"bytes,7,opt,name=quic_options,json=quicOptions,proto3" json:"quic_options,omitempty"`
 }
 
