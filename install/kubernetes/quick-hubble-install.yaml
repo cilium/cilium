@@ -301,7 +301,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-          image: "quay.io/cilium/hubble-relay:v1.9.16"
+          image: "quay.io/cilium/hubble-relay:v1.9.16@sha256:1f1fc947bb0315c9d2b38c11a4e8c9158d6d800c81aef7cfd025ce05e63b6958"
           imagePullPolicy: IfNotPresent
           command:
             - hubble-relay
