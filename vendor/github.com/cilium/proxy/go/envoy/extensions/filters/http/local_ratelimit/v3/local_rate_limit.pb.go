@@ -43,7 +43,8 @@ type LocalRateLimit struct {
 	// Defaults to 429 (TooManyRequests).
 	//
 	// .. note::
-	//   If this is set to < 400, 429 will be used instead.
+	//
+	//	If this is set to < 400, 429 will be used instead.
 	Status *v3.HttpStatus `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
 	// The token bucket configuration to use for rate limiting requests that are processed by this
 	// filter. Each request processed by the filter consumes a single token. If the token is available,
@@ -51,17 +52,20 @@ type LocalRateLimit struct {
 	// rate limit status.
 	//
 	// .. note::
-	//   It's fine for the token bucket to be unset for the global configuration since the rate limit
-	//   can be applied at a the virtual host or route level. Thus, the token bucket must be set
-	//   for the per route configuration otherwise the config will be rejected.
+	//
+	//	It's fine for the token bucket to be unset for the global configuration since the rate limit
+	//	can be applied at a the virtual host or route level. Thus, the token bucket must be set
+	//	for the per route configuration otherwise the config will be rejected.
 	//
 	// .. note::
-	//   When using per route configuration, the bucket becomes unique to that route.
+	//
+	//	When using per route configuration, the bucket becomes unique to that route.
 	//
 	// .. note::
-	//   In the current implementation the token bucket's :ref:`fill_interval
-	//   <envoy_v3_api_field_type.v3.TokenBucket.fill_interval>` must be >= 50ms to avoid too aggressive
-	//   refills.
+	//
+	//	In the current implementation the token bucket's :ref:`fill_interval
+	//	<envoy_v3_api_field_type.v3.TokenBucket.fill_interval>` must be >= 50ms to avoid too aggressive
+	//	refills.
 	TokenBucket *v3.TokenBucket `protobuf:"bytes,3,opt,name=token_bucket,json=tokenBucket,proto3" json:"token_bucket,omitempty"`
 	// If set, this will enable -- but not necessarily enforce -- the rate limit for the given
 	// fraction of requests.
@@ -88,19 +92,19 @@ type LocalRateLimit struct {
 	//
 	// .. note::
 	//
-	//   In the current implementation the descriptor's token bucket :ref:`fill_interval
-	//   <envoy_v3_api_field_type.v3.TokenBucket.fill_interval>` must be a multiple
-	//   global :ref:`token bucket's<envoy_v3_api_field_extensions.filters.http.local_ratelimit.v3.LocalRateLimit.token_bucket>` fill interval.
+	//	In the current implementation the descriptor's token bucket :ref:`fill_interval
+	//	<envoy_v3_api_field_type.v3.TokenBucket.fill_interval>` must be a multiple
+	//	global :ref:`token bucket's<envoy_v3_api_field_extensions.filters.http.local_ratelimit.v3.LocalRateLimit.token_bucket>` fill interval.
 	//
-	//   The descriptors must match verbatim for rate limiting to apply. There is no partial
-	//   match by a subset of descriptor entries in the current implementation.
+	//	The descriptors must match verbatim for rate limiting to apply. There is no partial
+	//	match by a subset of descriptor entries in the current implementation.
 	Descriptors []*v32.LocalRateLimitDescriptor `protobuf:"bytes,8,rep,name=descriptors,proto3" json:"descriptors,omitempty"`
 	// Specifies the rate limit configurations to be applied with the same
 	// stage number. If not set, the default stage number is 0.
 	//
 	// .. note::
 	//
-	//  The filter supports a range of 0 - 10 inclusively for stage numbers.
+	//	The filter supports a range of 0 - 10 inclusively for stage numbers.
 	Stage uint32 `protobuf:"varint,9,opt,name=stage,proto3" json:"stage,omitempty"`
 	// Specifies the scope of the rate limiter's token bucket.
 	// If set to false, the token bucket is shared across all worker threads,

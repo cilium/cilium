@@ -105,11 +105,10 @@ type RouteConfiguration struct {
 	//
 	// .. warning::
 	//
-	//   Envoy currently holds the content of :ref:`direct response body
-	//   <envoy_v3_api_field_config.route.v3.DirectResponseAction.body>` in memory. Be careful setting
-	//   this to be larger than the default 4KB, since the allocated memory for direct response body
-	//   is not subject to data plane buffering controls.
-	//
+	//	Envoy currently holds the content of :ref:`direct response body
+	//	<envoy_v3_api_field_config.route.v3.DirectResponseAction.body>` in memory. Be careful setting
+	//	this to be larger than the default 4KB, since the allocated memory for direct response body
+	//	is not subject to data plane buffering controls.
 	MaxDirectResponseBodySizeBytes *wrapperspb.UInt32Value `protobuf:"bytes,11,opt,name=max_direct_response_body_size_bytes,json=maxDirectResponseBodySizeBytes,proto3" json:"max_direct_response_body_size_bytes,omitempty"`
 	// [#not-implemented-hide:]
 	// A list of plugins and their configurations which may be used by a
