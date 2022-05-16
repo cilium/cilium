@@ -583,7 +583,7 @@ gke:
 healthChecking: true
 
 # -- TCP port for the agent health API. This is not the port for cilium-health.
-healthPort: 9876
+healthPort: 9879
 
 # -- Configure the host firewall.
 hostFirewall:
