@@ -1075,14 +1075,17 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
   that is, kube-proxy is running in the Kubernetes cluster where Cilium
   partially replaces and optimizes kube-proxy functionality. The ``partial``
   option requires the user to manually specify which components for the eBPF
-  kube-proxy replacement should be used. When ``kubeProxyReplacement`` is set to
-  ``partial`` make sure to also set ``enableHealthCheckNodeport`` to ``false``,
-  so that the Cilium agent does not start the NodePort health check server.
+  kube-proxy replacement should be used.
   Similarly to ``strict`` mode, the Cilium agent will bail out on start-up with
   an error message if the underlying kernel requirements are not met. For
   fine-grained configuration, ``hostServices.enabled``, ``nodePort.enabled``,
   ``externalIPs.enabled`` and ``hostPort.enabled`` can be set to ``true``. By
-  default all four options are set to ``false``. A few example configurations
+  default all four options are set to ``false``.
+  If you are setting ``nodePort.enabled`` to true, make sure to also
+  set ``nodePort.enableHealthCheck`` to ``false``, so that the Cilium agent does not
+  start the NodePort health check server (``kube-proxy`` will also attempt to start
+  this server, and there would otherwise be a clash when cilium attempts to bind its server to the
+  same port). A few example configurations
   for the ``partial`` option are provided below.
 
   The following Helm setup below would be equivalent to ``kubeProxyReplacement=strict``
