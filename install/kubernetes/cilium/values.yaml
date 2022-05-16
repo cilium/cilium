@@ -519,7 +519,7 @@ gke:
 healthChecking: true
 
 # -- TCP port for the agent health API. This is not the port for cilium-health.
-healthPort: 9876
+healthPort: 9879
 
 # -- Enables the enforcement of host policies in the eBPF datapath.
 hostFirewall: false
