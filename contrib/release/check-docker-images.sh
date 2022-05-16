@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Authors of Cilium
 
 cilium_tag="${1}"
 org="cilium"
