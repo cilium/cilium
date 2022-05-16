@@ -136,25 +136,16 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip6->nexthdr;
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
-
-	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
-
-	l4_off = ETH_HLEN + hdrlen;
-
 	/* Determine the destination category for policy fallback.  Service
 	 * translation of the destination address is done before this function,
 	 * so we can do this first. Also, verifier on kernel 4.9 insisted this
 	 * be done before the CT lookup below.
 	 */
 	if (1) {
+		const union v6addr *daddr = (union v6addr *)&ip6->daddr;
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip6_remote_endpoint(&tuple.daddr);
+		info = lookup_ip6_remote_endpoint(daddr);
 		if (info && info->sec_label) {
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
@@ -168,7 +159,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			*dst_id = WORLD_ID;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   tuple.daddr.p4, *dst_id);
+			   daddr->p4, *dst_id);
 	}
 
 #ifdef ENABLE_PER_PACKET_LB
@@ -181,6 +172,16 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port);
 	/* No hairpin/loopback support for IPv6, see lb6_local(). */
 #endif /* ENABLE_PER_PACKET_LB */
+
+	tuple.nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = ETH_HLEN + hdrlen;
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
@@ -616,17 +617,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
-
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-
 	/* Determine the destination category for policy fallback. */
 	if (1) {
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip4_remote_endpoint(tuple.daddr);
+		info = lookup_ip4_remote_endpoint(ip4->daddr);
 		if (info && info->sec_label) {
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
@@ -647,14 +642,20 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		}
 
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   tuple.daddr, *dst_id);
+			   ip4->daddr, *dst_id);
 	}
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb4_ctx_restore_state(ctx, &ct_state_new, tuple.daddr, &proxy_port);
+	lb4_ctx_restore_state(ctx, &ct_state_new, ip4->daddr, &proxy_port);
 	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
+
+	tuple.nexthdr = ip4->protocol;
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
