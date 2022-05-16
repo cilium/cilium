@@ -136,15 +136,17 @@ type ClusterLoadAssignment_Policy struct {
 	//
 	// .. code-block:: json
 	//
-	//  { "drop_overloads": [
-	//      { "category": "throttle", "drop_percentage": 60 }
-	//      { "category": "lb", "drop_percentage": 50 }
-	//  ]}
+	//	{ "drop_overloads": [
+	//	    { "category": "throttle", "drop_percentage": 60 }
+	//	    { "category": "lb", "drop_percentage": 50 }
+	//	]}
 	//
 	// The actual drop percentages applied to the traffic at the clients will be
-	//    "throttle"_drop = 60%
-	//    "lb"_drop = 20%  // 50% of the remaining 'actual' load, which is 40%.
-	//    actual_outgoing_load = 20% // remaining after applying all categories.
+	//
+	//	"throttle"_drop = 60%
+	//	"lb"_drop = 20%  // 50% of the remaining 'actual' load, which is 40%.
+	//	actual_outgoing_load = 20% // remaining after applying all categories.
+	//
 	// [#not-implemented-hide:]
 	DropOverloads []*ClusterLoadAssignment_Policy_DropOverload `protobuf:"bytes,2,rep,name=drop_overloads,json=dropOverloads,proto3" json:"drop_overloads,omitempty"`
 	// Priority levels and localities are considered overprovisioned with this
@@ -157,7 +159,7 @@ type ClusterLoadAssignment_Policy struct {
 	//
 	// .. code-block:: json
 	//
-	//  { "overprovisioning_factor": 100 }
+	//	{ "overprovisioning_factor": 100 }
 	//
 	// Read more at :ref:`priority levels <arch_overview_load_balancing_priority_levels>` and
 	// :ref:`localities <arch_overview_load_balancing_locality_weighted_lb>`.

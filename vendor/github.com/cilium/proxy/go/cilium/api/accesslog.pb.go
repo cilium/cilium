@@ -465,13 +465,12 @@ type LogEntry struct {
 	SourceAddress      string `protobuf:"bytes,7,opt,name=source_address,json=sourceAddress,proto3" json:"source_address,omitempty"`
 	DestinationAddress string `protobuf:"bytes,8,opt,name=destination_address,json=destinationAddress,proto3" json:"destination_address,omitempty"`
 	// Types that are assignable to L7:
+	//
 	//	*LogEntry_Http
 	//	*LogEntry_Kafka
 	//	*LogEntry_GenericL7
 	L7 isLogEntry_L7 `protobuf_oneof:"l7"`
-	//
 	// Deprecated HTTP fields. Use the http field above instead.
-	//
 	//
 	// Deprecated: Do not use.
 	HttpProtocol HttpProtocol `protobuf:"varint,2,opt,name=http_protocol,json=httpProtocol,proto3,enum=cilium.HttpProtocol" json:"http_protocol,omitempty"`

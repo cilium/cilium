@@ -54,16 +54,17 @@ type ClusterConfig struct {
 	// bar.example.com if that also resolved to 1.2.3.4.
 	//
 	// .. note::
-	//   By design, this feature will maximize reuse of connections. This means that instead
-	//   opening a new connection when an existing connection reaches the maximum number of
-	//   concurrent streams, requests will instead be sent to the existing connection.
-	//   TODO(alyssawilk) implement request queueing in connections.
+	//
+	//	By design, this feature will maximize reuse of connections. This means that instead
+	//	opening a new connection when an existing connection reaches the maximum number of
+	//	concurrent streams, requests will instead be sent to the existing connection.
+	//	TODO(alyssawilk) implement request queueing in connections.
 	//
 	// .. note::
-	//   The coalesced connections might be to upstreams that would not be otherwise
-	//   selected by Envoy. See the section `Connection Reuse in RFC 7540
-	//   <https://datatracker.ietf.org/doc/html/rfc7540#section-9.1.1>`_
 	//
+	//	The coalesced connections might be to upstreams that would not be otherwise
+	//	selected by Envoy. See the section `Connection Reuse in RFC 7540
+	//	<https://datatracker.ietf.org/doc/html/rfc7540#section-9.1.1>`_
 	AllowCoalescedConnections bool `protobuf:"varint,3,opt,name=allow_coalesced_connections,json=allowCoalescedConnections,proto3" json:"allow_coalesced_connections,omitempty"`
 }
 

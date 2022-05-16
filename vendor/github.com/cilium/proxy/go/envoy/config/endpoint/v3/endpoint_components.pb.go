@@ -39,19 +39,19 @@ type Endpoint struct {
 	//
 	// .. attention::
 	//
-	//   The form of host address depends on the given cluster type. For STATIC or EDS,
-	//   it is expected to be a direct IP address (or something resolvable by the
-	//   specified :ref:`resolver <envoy_v3_api_field_config.core.v3.SocketAddress.resolver_name>`
-	//   in the Address). For LOGICAL or STRICT DNS, it is expected to be hostname,
-	//   and will be resolved via DNS.
+	//	The form of host address depends on the given cluster type. For STATIC or EDS,
+	//	it is expected to be a direct IP address (or something resolvable by the
+	//	specified :ref:`resolver <envoy_v3_api_field_config.core.v3.SocketAddress.resolver_name>`
+	//	in the Address). For LOGICAL or STRICT DNS, it is expected to be hostname,
+	//	and will be resolved via DNS.
 	Address *v3.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	// The optional health check configuration is used as configuration for the
 	// health checker to contact the health checked host.
 	//
 	// .. attention::
 	//
-	//   This takes into effect only for upstream clusters with
-	//   :ref:`active health checking <arch_overview_health_checking>` enabled.
+	//	This takes into effect only for upstream clusters with
+	//	:ref:`active health checking <arch_overview_health_checking>` enabled.
 	HealthCheckConfig *Endpoint_HealthCheckConfig `protobuf:"bytes,2,opt,name=health_check_config,json=healthCheckConfig,proto3" json:"health_check_config,omitempty"`
 	// The hostname associated with this endpoint. This hostname is not used for routing or address
 	// resolution. If provided, it will be associated with the endpoint, and can be used for features
@@ -123,6 +123,7 @@ type LbEndpoint struct {
 	// Upstream host identifier or a named reference.
 	//
 	// Types that are assignable to HostIdentifier:
+	//
 	//	*LbEndpoint_Endpoint
 	//	*LbEndpoint_EndpointName
 	HostIdentifier isLbEndpoint_HostIdentifier `protobuf_oneof:"host_identifier"`
@@ -318,6 +319,7 @@ type LocalityLbEndpoints struct {
 	// [#not-implemented-hide:]
 	//
 	// Types that are assignable to LbConfig:
+	//
 	//	*LocalityLbEndpoints_LoadBalancerEndpoints
 	//	*LocalityLbEndpoints_LedsClusterLocalityConfig
 	LbConfig isLocalityLbEndpoints_LbConfig `protobuf_oneof:"lb_config"`

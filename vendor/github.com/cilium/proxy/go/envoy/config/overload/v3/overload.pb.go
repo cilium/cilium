@@ -107,6 +107,7 @@ type ResourceMonitor struct {
 	// [#extension-category: envoy.resource_monitors]
 	//
 	// Types that are assignable to ConfigType:
+	//
 	//	*ResourceMonitor_TypedConfig
 	ConfigType isResourceMonitor_ConfigType `protobuf_oneof:"config_type"`
 }
@@ -290,6 +291,7 @@ type Trigger struct {
 	// The name of the resource this is a trigger for.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are assignable to TriggerOneof:
+	//
 	//	*Trigger_Threshold
 	//	*Trigger_Scaled
 	TriggerOneof isTrigger_TriggerOneof `protobuf_oneof:"trigger_oneof"`
@@ -638,6 +640,7 @@ type ScaleTimersOverloadActionConfig_ScaleTimer struct {
 	// The type of timer this minimum applies to.
 	Timer ScaleTimersOverloadActionConfig_TimerType `protobuf:"varint,1,opt,name=timer,proto3,enum=envoy.config.overload.v3.ScaleTimersOverloadActionConfig_TimerType" json:"timer,omitempty"`
 	// Types that are assignable to OverloadAdjust:
+	//
 	//	*ScaleTimersOverloadActionConfig_ScaleTimer_MinTimeout
 	//	*ScaleTimersOverloadActionConfig_ScaleTimer_MinScale
 	OverloadAdjust isScaleTimersOverloadActionConfig_ScaleTimer_OverloadAdjust `protobuf_oneof:"overload_adjust"`

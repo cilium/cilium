@@ -197,9 +197,9 @@ type Listener struct {
 	//
 	// .. attention::
 	//
-	//   Some listener filters, such as :ref:`Proxy Protocol filter
-	//   <config_listener_filters_proxy_protocol>`, should not be used with this option. It will cause
-	//   unexpected behavior when a connection is created.
+	//	Some listener filters, such as :ref:`Proxy Protocol filter
+	//	<config_listener_filters_proxy_protocol>`, should not be used with this option. It will cause
+	//	unexpected behavior when a connection is created.
 	ContinueOnListenerFiltersTimeout bool `protobuf:"varint,17,opt,name=continue_on_listener_filters_timeout,json=continueOnListenerFiltersTimeout,proto3" json:"continue_on_listener_filters_timeout,omitempty"`
 	// Whether the listener should be set as a transparent socket.
 	// When this flag is set to true, connections can be redirected to the listener using an
@@ -257,8 +257,8 @@ type Listener struct {
 	//
 	// .. note::
 	//
-	//  Currently only one ApiListener can be installed; and it can only be done via bootstrap config,
-	//  not LDS.
+	//	Currently only one ApiListener can be installed; and it can only be done via bootstrap config,
+	//	not LDS.
 	//
 	// [#next-major-version: In the v3 API, instead of this messy approach where the socket
 	// listener fields are directly in the top-level Listener message and the API listener types
@@ -289,18 +289,18 @@ type Listener struct {
 	//
 	// .. attention::
 	//
-	//   Although this field defaults to true, it has different behavior on different platforms. See
-	//   the following text for more information.
+	//	Although this field defaults to true, it has different behavior on different platforms. See
+	//	the following text for more information.
 	//
-	// * On Linux, reuse_port is respected for both TCP and UDP listeners. It also works correctly
-	//   with hot restart.
-	// * On macOS, reuse_port for TCP does not do what it does on Linux. Instead of load balancing,
-	//   the last socket wins and receives all connections/packets. For TCP, reuse_port is force
-	//   disabled and the user is warned. For UDP, it is enabled, but only one worker will receive
-	//   packets. For QUIC/H3, SW routing will send packets to other workers. For "raw" UDP, only
-	//   a single worker will currently receive packets.
-	// * On Windows, reuse_port for TCP has undefined behavior. It is force disabled and the user
-	//   is warned similar to macOS. It is left enabled for UDP with undefined behavior currently.
+	//   - On Linux, reuse_port is respected for both TCP and UDP listeners. It also works correctly
+	//     with hot restart.
+	//   - On macOS, reuse_port for TCP does not do what it does on Linux. Instead of load balancing,
+	//     the last socket wins and receives all connections/packets. For TCP, reuse_port is force
+	//     disabled and the user is warned. For UDP, it is enabled, but only one worker will receive
+	//     packets. For QUIC/H3, SW routing will send packets to other workers. For "raw" UDP, only
+	//     a single worker will currently receive packets.
+	//   - On Windows, reuse_port for TCP has undefined behavior. It is force disabled and the user
+	//     is warned similar to macOS. It is left enabled for UDP with undefined behavior currently.
 	EnableReusePort *wrapperspb.BoolValue `protobuf:"bytes,29,opt,name=enable_reuse_port,json=enableReusePort,proto3" json:"enable_reuse_port,omitempty"`
 	// Configuration for :ref:`access logs <arch_overview_access_logs>`
 	// emitted by this listener.
@@ -319,6 +319,7 @@ type Listener struct {
 	// [#not-implemented-hide:]
 	//
 	// Types that are assignable to ListenerSpecifier:
+	//
 	//	*Listener_InternalListener
 	ListenerSpecifier isListener_ListenerSpecifier `protobuf_oneof:"listener_specifier"`
 	// Enable MPTCP (multi-path TCP) on this listener. Clients will be allowed to establish
@@ -586,11 +587,12 @@ type Listener_InternalListener struct {
 	//
 	// There are some limitations are derived from the implementation. The known limitations include
 	//
-	// * :ref:`ConnectionBalanceConfig <envoy_v3_api_msg_config.listener.v3.Listener.ConnectionBalanceConfig>` is not
-	//   allowed because both cluster connection and listener connection must be owned by the same dispatcher.
-	// * :ref:`tcp_backlog_size <envoy_v3_api_field_config.listener.v3.Listener.tcp_backlog_size>`
-	// * :ref:`freebind <envoy_v3_api_field_config.listener.v3.Listener.freebind>`
-	// * :ref:`transparent <envoy_v3_api_field_config.listener.v3.Listener.transparent>`
+	//   - :ref:`ConnectionBalanceConfig <envoy_v3_api_msg_config.listener.v3.Listener.ConnectionBalanceConfig>` is not
+	//     allowed because both cluster connection and listener connection must be owned by the same dispatcher.
+	//   - :ref:`tcp_backlog_size <envoy_v3_api_field_config.listener.v3.Listener.tcp_backlog_size>`
+	//   - :ref:`freebind <envoy_v3_api_field_config.listener.v3.Listener.freebind>`
+	//   - :ref:`transparent <envoy_v3_api_field_config.listener.v3.Listener.transparent>`
+	//
 	// [#not-implemented-hide:]
 	InternalListener *Listener_InternalListenerConfig `protobuf:"bytes,27,opt,name=internal_listener,json=internalListener,proto3,oneof"`
 }
@@ -658,6 +660,7 @@ type Listener_ConnectionBalanceConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to BalanceType:
+	//
 	//	*Listener_ConnectionBalanceConfig_ExactBalance_
 	BalanceType isListener_ConnectionBalanceConfig_BalanceType `protobuf_oneof:"balance_type"`
 }
