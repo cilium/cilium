@@ -364,9 +364,9 @@ ICMP 8/0                 egress          ``worker-sg`` (self) health checks
 
 The following ports should also be available on each node:
 
-======================== ===========================================================
+======================== ==================================================================
 Port Range / Protocol    Description
-======================== ===========================================================
+======================== ==================================================================
 4240/tcp                 cluster health checks (``cilium-health``)
 4244/tcp                 Hubble server
 4245/tcp                 Hubble Relay
@@ -375,13 +375,13 @@ Port Range / Protocol    Description
 6062/tcp                 Hubble Relay pprof server (listening on 127.0.0.1)
 6942/tcp                 operator Prometheus metrics
 9090/tcp                 cilium-agent Prometheus metrics
-9876/tcp                 cilium-agent health status API
+9876/tcp                 cilium-agent health status API (listening on 127.0.0.1 and/or ::1)
 9890/tcp                 cilium-agent gops server (listening on 127.0.0.1)
 9891/tcp                 operator gops server (listening on 127.0.0.1)
 9892/tcp                 clustermesh-apiserver gops server (listening on 127.0.0.1)
 9893/tcp                 Hubble Relay gops server (listening on 127.0.0.1)
 51871/udp                WireGuard encryption tunnel endpoint
-======================== ===========================================================
+======================== ==================================================================
 
 .. _admin_mount_bpffs:
 
