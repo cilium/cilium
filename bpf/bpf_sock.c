@@ -30,7 +30,7 @@ static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
 	return (daddr & bpf_htonl(0x7f000000)) == bpf_htonl(0x7f000000);
 }
 
-static __always_inline __maybe_unused bool is_v6_loopback(union v6addr *daddr)
+static __always_inline __maybe_unused bool is_v6_loopback(const union v6addr *daddr)
 {
 	/* Check for ::1/128, RFC4291. */
 	union v6addr loopback = { .addr[15] = 1, };
@@ -721,7 +721,7 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 }
 
 static __always_inline __maybe_unused bool
-sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
+sock6_skip_xlate(struct lb6_service *svc, const union v6addr *address)
 {
 	if (lb6_to_lb4_service(svc))
 		return true;

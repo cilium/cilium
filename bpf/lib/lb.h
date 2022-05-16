@@ -652,7 +652,7 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 #endif /* LB_SELECTION */
 
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
-				     union v6addr *new_dst, __u8 nexthdr,
+				     const union v6addr *new_dst, __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
 				     const struct lb6_key *key,

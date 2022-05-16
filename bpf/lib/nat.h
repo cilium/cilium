@@ -920,7 +920,7 @@ snat_v6_can_skip(const struct ipv6_nat_target *target,
 }
 
 static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *ctx,
-							     union v6addr *to_saddr,
+							     const union v6addr *to_saddr,
 							     __be16 to_sport)
 {
 	void *data, *data_end;

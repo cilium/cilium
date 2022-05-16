@@ -179,7 +179,7 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
  * then the helper function won't depend the dsr checks.
  */
 static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
-					   union v6addr *addr)
+					   const union v6addr *addr)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -203,7 +203,7 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 }
 
 static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
-						 union v6addr *addr)
+						 const union v6addr *addr)
 {
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -253,7 +253,7 @@ static __always_inline void rss_gen_src6(union v6addr *src,
 
 static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 					 const struct ipv6hdr *ip6,
-					 union v6addr *backend_addr,
+					 const union v6addr *backend_addr,
 					 __be32 l4_hint, int *ohead)
 {
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(*ip6);
@@ -293,7 +293,7 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
-					union v6addr *svc_addr,
+					const union v6addr *svc_addr,
 					__be16 svc_port, int *ohead)
 {
 	struct dsr_opt_v6 opt __align_stack_8 = {};
