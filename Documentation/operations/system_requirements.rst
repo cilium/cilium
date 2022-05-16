@@ -375,7 +375,7 @@ Port Range / Protocol    Description
 6062/tcp                 Hubble Relay pprof server (listening on 127.0.0.1)
 6942/tcp                 operator Prometheus metrics
 9090/tcp                 cilium-agent Prometheus metrics
-9876/tcp                 cilium-agent health status API (listening on 127.0.0.1 and/or ::1)
+9879/tcp                 cilium-agent health status API (listening on 127.0.0.1 and/or ::1)
 9890/tcp                 cilium-agent gops server (listening on 127.0.0.1)
 9891/tcp                 operator gops server (listening on 127.0.0.1)
 9892/tcp                 clustermesh-apiserver gops server (listening on 127.0.0.1)

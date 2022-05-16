@@ -207,7 +207,7 @@ contributors across the globe, there is almost always someone available to help.
 | extraVolumes | list | `[]` | Additional agent volumes. |
 | gke.enabled | bool | `false` | Enable Google Kubernetes Engine integration |
 | healthChecking | bool | `true` | Enable connectivity health checking. |
-| healthPort | int | `9876` | TCP port for the agent health API. This is not the port for cilium-health. |
+| healthPort | int | `9879` | TCP port for the agent health API. This is not the port for cilium-health. |
 | hostAliases | list | `[]` | Host aliases for cilium-agent. |
 | hostFirewall | object | `{"enabled":false}` | Configure the host firewall. |
 | hostFirewall.enabled | bool | `false` | Enables the enforcement of host policies in the eBPF datapath. |
