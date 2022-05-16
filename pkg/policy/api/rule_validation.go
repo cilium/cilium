@@ -361,6 +361,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	if len(pr.Ports) > maxPorts {
 		return fmt.Errorf("too many ports, the max is %d", maxPorts)
 	}
+	hasDNSRules := pr.Rules != nil && len(pr.Rules.DNS) > 0
 	for i := range pr.Ports {
 		var isZero bool
 		var err error
@@ -370,7 +371,6 @@ func (pr *PortRule) sanitize(ingress bool) error {
 		if isZero {
 			haveZeroPort = true
 		}
-		hasDNSRules := pr.Rules != nil && len(pr.Rules.DNS) > 0
 		// DNS L7 rules can be TCP, UDP or ANY, all others are TCP only.
 		switch {
 		case pr.Rules.IsEmpty(), hasDNSRules:
@@ -378,9 +378,18 @@ func (pr *PortRule) sanitize(ingress bool) error {
 		case pr.Ports[i].Protocol != ProtoTCP:
 			return fmt.Errorf("L7 rules can only apply to TCP (not %s) except for DNS rules", pr.Ports[i].Protocol)
 		}
+	}
 
-		if ingress && hasDNSRules {
-			return fmt.Errorf("DNS rules are not allowed on ingress")
+	if ingress && hasDNSRules {
+		return fmt.Errorf("DNS rules are not allowed on ingress")
+	}
+
+	if len(pr.ServerNames) > 0 && !pr.Rules.IsEmpty() && pr.TerminatingTLS == nil {
+		return fmt.Errorf("ServerNames are not allowed with L7 rules without TLS termination")
+	}
+	for _, sn := range pr.ServerNames {
+		if sn == "" {
+			return fmt.Errorf("Empty server name is not allowed")
 		}
 	}
 

@@ -1321,6 +1321,13 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 	if l7Rules.OriginatingTLS != nil {
 		r.UpstreamTlsContext = getCiliumTLSContext(l7Rules.OriginatingTLS)
 	}
+	if len(l7Rules.ServerNames) > 0 {
+		r.ServerNames = make([]string, 0, len(l7Rules.ServerNames))
+		for sni := range l7Rules.ServerNames {
+			r.ServerNames = append(r.ServerNames, sni)
+		}
+		sort.Strings(r.ServerNames)
+	}
 
 	// Assume none of the rules have side-effects so that rule evaluation can
 	// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
@@ -1521,7 +1528,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 					if !cs {
 						canShortCircuit = false
 					}
-					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil {
+					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil && rule.ServerNames == nil {
 						// Got an allow-all rule, which can short-circuit all of
 						// the other rules.
 						allowAll = true
