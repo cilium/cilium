@@ -1205,7 +1205,6 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	struct csum_offset csum_off = {};
 	int ret, l4_off, verdict, hdrlen;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
@@ -1236,7 +1235,6 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		return hdrlen;
 
 	l4_off = ETH_HLEN + hdrlen;
-	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
 			 &ct_state, &monitor);
@@ -1263,7 +1261,10 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	}
 
 	if (unlikely(ct_state.rev_nat_index)) {
+		struct csum_offset csum_off = {};
 		int ret2;
+
+		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 		ret2 = lb6_rev_nat(ctx, l4_off, &csum_off,
 				   ct_state.rev_nat_index, &tuple, 0);
@@ -1493,7 +1494,6 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct csum_offset csum_off = {};
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_ingress_proxy = false;
@@ -1523,8 +1523,6 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	orig_sip = ip4->saddr;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-	if (has_l4_header)
-		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 #ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
@@ -1559,7 +1557,11 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 
 	if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index &&
 		     !ct_state.loopback)) {
+		struct csum_offset csum_off = {};
 		int ret2;
+
+		if (has_l4_header)
+			csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 		ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off, &csum_off,
 				   &ct_state, &tuple,
