@@ -913,8 +913,12 @@ type CertificateValidationContext struct {
 	//   therefore this option must be used together with :ref:`trusted_ca
 	//   <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.trusted_ca>`.
 	MatchTypedSubjectAltNames []*SubjectAltNameMatcher `protobuf:"bytes,15,rep,name=match_typed_subject_alt_names,json=matchTypedSubjectAltNames,proto3" json:"match_typed_subject_alt_names,omitempty"`
-	// This field is deprecated in favor of ref:`match_typed_subject_alt_names
+	// This field is deprecated in favor of
+	// :ref:`match_typed_subject_alt_names
+	// <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_typed_subject_alt_names>`.
+	// Note that if both this field and :ref:`match_typed_subject_alt_names
 	// <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_typed_subject_alt_names>`
+	// are specified, the former (deprecated field) is ignored.
 	//
 	// Deprecated: Do not use.
 	MatchSubjectAltNames []*v31.StringMatcher `protobuf:"bytes,9,rep,name=match_subject_alt_names,json=matchSubjectAltNames,proto3" json:"match_subject_alt_names,omitempty"`
