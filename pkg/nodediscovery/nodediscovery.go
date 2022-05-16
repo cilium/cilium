@@ -200,7 +200,7 @@ func (n *NodeDiscovery) StartDiscovery() {
 	go func() {
 		select {
 		case <-n.Registered:
-		case <-time.NewTimer(defaults.NodeInitTimeout).C:
+		case <-time.After(defaults.NodeInitTimeout):
 			log.Fatalf("Unable to initialize local node due to timeout")
 		}
 	}()
