@@ -364,3 +364,13 @@ Users (Alphabetically)
     * N: Yahoo!
       D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services
       L: https://www.youtube.com/watch?v=-C86fBMcp5Q
+      
+    * N: Melenion Inc
+      D: Melenion is using Cilium as the CNI for its on-premise production clusters
+      U: Service Load Balancing, Hubble
+      Q: @edude03
+      
+    * N: Sproutfi
+      D: Sproutfi uses Cilium as the CNI on its GKE based clusters
+      U: Service Load Balancing, Hubble, Datadog Integration for Prometheus metrics 
+      Q: @edude03
