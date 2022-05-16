@@ -122,6 +122,45 @@ func (t *TLSContext) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&redacted)
 }
 
+type StringSet map[string]struct{}
+
+func (a StringSet) Equal(b StringSet) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if _, exists := b[k]; !exists {
+			return false
+		}
+	}
+	return true
+}
+
+// NewStringSet returns a StringSet initialized from slice of strings.
+// Returns nil for an empty slice
+func NewStringSet(from []string) StringSet {
+	if len(from) == 0 {
+		return nil
+	}
+	set := make(StringSet, len(from))
+	for _, s := range from {
+		set[s] = struct{}{}
+	}
+	return set
+}
+
+// Merge returns StringSet with strings from both a and b.
+// Returns a or b, possibly with modifications.
+func (a StringSet) Merge(b StringSet) StringSet {
+	if len(a) == 0 {
+		return b
+	}
+	for s := range b {
+		a[s] = struct{}{}
+	}
+	return a
+}
+
 type PerSelectorPolicy struct {
 	// TerminatingTLS is the TLS context for the connection terminated by
 	// the L7 proxy.  For egress policy this specifies the server-side TLS
@@ -138,6 +177,11 @@ type PerSelectorPolicy struct {
 	// client-side TLS parameters for the connection from the L7 proxy to
 	// the local POD.
 	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`
+
+	// ServerNames is a list of allowed TLS SNI values. If not empty, then
+	// TLS must be present and one of the provided SNIs must be indicated in the
+	// TLS handshake.
+	ServerNames StringSet `json:"serverNames,omitempty"`
 
 	// Pre-computed HTTP rules, computed after rule merging is complete
 	EnvoyHTTPRules *cilium.HttpNetworkPolicyRules `json:"-"`
@@ -157,6 +201,7 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 	return a == nil && b == nil || a != nil && b != nil &&
 		a.TerminatingTLS.Equal(b.TerminatingTLS) &&
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
+		a.ServerNames.Equal(b.ServerNames) &&
 		a.IsDeny == b.IsDeny &&
 		a.L7Rules.DeepEqual(&b.L7Rules)
 }
@@ -172,7 +217,7 @@ func (a *PerSelectorPolicy) IsRedirect() bool {
 // IsEmpty returns whether the `L7Rules` is nil or has no L7 rules and no TLS config.
 func (a *PerSelectorPolicy) IsEmpty() bool {
 	return a == nil ||
-		(a.L7Rules.IsEmpty() && a.TerminatingTLS == nil && a.OriginatingTLS == nil)
+		(a.L7Rules.IsEmpty() && a.TerminatingTLS == nil && a.OriginatingTLS == nil && len(a.ServerNames) > 0)
 }
 
 // HasL7Rules returns whether the `L7Rules` contains any L7 rules.
@@ -528,11 +573,13 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *Selec
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-func (l7 L7DataMap) addRulesForEndpoints(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, deny bool) {
+
+func (l7 L7DataMap) addRulesForEndpoints(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, deny bool, sni []string) {
 	l7policy := &PerSelectorPolicy{
 		TerminatingTLS: terminatingTLS,
 		OriginatingTLS: originatingTLS,
 		IsDeny:         deny,
+		ServerNames:    NewStringSet(sni),
 	}
 	if rules != nil {
 		l7policy.L7Rules = *rules
@@ -631,9 +678,9 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		if err != nil {
 			return nil, err
 		}
-		// Set parser type to TLS, if any. This will be overridden by L7 below, if rules
-		// exists
-		if terminatingTLS != nil || originatingTLS != nil {
+		// Set parser type to TLS, if TLS. This will be overridden by L7 below, if rules
+		// exists.
+		if terminatingTLS != nil || originatingTLS != nil || len(pr.ServerNames) > 0 {
 			l4.L7Parser = ParserTypeTLS
 		}
 
@@ -656,7 +703,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		}
 
 		if l4.L7Parser != ParserTypeNone {
-			l4.L7RulesPerSelector.addRulesForEndpoints(pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny())
+			l4.L7RulesPerSelector.addRulesForEndpoints(pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny(), pr.ServerNames)
 		}
 	}
 

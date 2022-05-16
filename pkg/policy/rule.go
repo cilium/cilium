@@ -165,6 +165,37 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				return fmt.Errorf("cannot merge conflicting originating TLS contexts for cached selector %s: (%v/%v)", cs.String(), newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
 			}
 
+			// For now we simply merge the set of allowed SNIs from different rules
+			// to/from the *same remote*, port, and protocol. This means that if any
+			// rule requires SNI, then all traffic to that remote/port requires TLS,
+			// even if other merged rules would be fine without TLS. Any SNI from all
+			// applicable rules is allowed.
+			//
+			// Preferably we could allow different rules for each SNI, but for now the
+			// combination of all L7 rules is allowed for all the SNIs. For example, if
+			// SNI and TLS termination are used together so that L7 filtering is
+			// possible, in this example:
+			//
+			// - existing: SNI: public.example.com
+			// - new:      SNI: private.example.com HTTP: path="/public"
+			//
+			// Separately, these rule allow access to all paths at SNI
+			// public.example.com and path private.example.com/public, but currently we
+			// allow all paths also at private.example.com. This may be clamped down if
+			// there is sufficient demand for SNI and TLS termination together.
+			//
+			// Note however that SNI rules are typically used with `toFQDNs`, each of
+			// which defines a separate destination, so that SNIs for different
+			// `toFQDNs` will not be merged together.
+			l7Rules.ServerNames = l7Rules.ServerNames.Merge(newL7Rules.ServerNames)
+
+			// L7 rules can be applied with SNI filtering only if the TLS is also
+			// terminated
+			if len(l7Rules.ServerNames) > 0 && !l7Rules.L7Rules.IsEmpty() && l7Rules.TerminatingTLS == nil {
+				ctx.PolicyTrace("   Merge conflict: cannot use SNI filtering with L7 rules without TLS termination: %v\n", l7Rules.ServerNames)
+				return fmt.Errorf("cannot merge L7 rules for cached selector %s with SNI filtering without TLS termination: %v", cs.String(), l7Rules.ServerNames)
+			}
+
 			// empty L7 rules effectively wildcard L7. When merging with a non-empty
 			// rule, the empty must be expanded to an actual wildcard rule for the
 			// specific L7

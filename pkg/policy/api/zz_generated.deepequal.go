@@ -957,6 +957,23 @@ func (in *PortRule) DeepEqual(other *PortRule) bool {
 		}
 	}
 
+	if ((in.ServerNames != nil) && (other.ServerNames != nil)) || ((in.ServerNames == nil) != (other.ServerNames == nil)) {
+		in, other := &in.ServerNames, &other.ServerNames
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if (in.Rules == nil) != (other.Rules == nil) {
 		return false
 	} else if in.Rules != nil {
