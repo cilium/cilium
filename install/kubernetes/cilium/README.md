@@ -192,7 +192,7 @@ contributors across the globe, there is almost always someone available to help.
 | extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod. |
 | gke.enabled | bool | `false` | Enable Google Kubernetes Engine integration |
 | healthChecking | bool | `true` | Enable connectivity health checking. |
-| healthPort | int | `9876` | TCP port for the agent health API. This is not the port for cilium-health. |
+| healthPort | int | `9879` | TCP port for the agent health API. This is not the port for cilium-health. |
 | hostFirewall | object | `{"enabled":false}` | Configure the host firewall. |
 | hostFirewall.enabled | bool | `false` | Enables the enforcement of host policies in the eBPF datapath. |
 | hostPort.enabled | bool | `false` | Enable hostPort service support. |
