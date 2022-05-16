@@ -1620,17 +1620,16 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
  * tuple->flags does not need to be restored, as it will be reinitialized from
  * the packet.
  */
-static __always_inline void lb4_ctx_restore_state(struct __ctx_buff *ctx,
-						  struct ct_state *state,
-						  const struct ipv4_ct_tuple *tuple  __maybe_unused,
-						 __u16 *proxy_port)
+static __always_inline void
+lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
+		      __u32 daddr __maybe_unused, __u16 *proxy_port)
 {
 	__u32 meta = ctx_load_meta(ctx, CB_CT_STATE);
 #ifndef DISABLE_LOOPBACK_LB
 	if (meta & 1) {
 		state->loopback = 1;
 		state->addr = IPV4_LOOPBACK;
-		state->svc_addr = tuple->daddr; /* backend address after xlate */
+		state->svc_addr = daddr; /* backend address after xlate */
 	}
 #endif
 	state->rev_nat_index = meta >> 16;
