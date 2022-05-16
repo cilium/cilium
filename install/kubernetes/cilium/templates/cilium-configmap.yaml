@@ -139,7 +139,7 @@ data:
   debug-verbose: "{{ .Values.debug.verbose }}"
 {{- end }}
 
-{{- if ne (int .Values.healthPort) 9876 }}
+{{- if ne (int .Values.healthPort) 9879 }}
   # Set the TCP port for the agent health status API. This is not the port used
   # for cilium-health.
   agent-health-port: "{{ .Values.healthPort }}"
