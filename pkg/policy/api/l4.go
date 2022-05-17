@@ -217,9 +217,9 @@ func (rules *L7Rules) Len() int {
 	return len(rules.HTTP) + len(rules.Kafka) + len(rules.DNS) + len(rules.L7)
 }
 
-// IsEmpty returns whether the `L7Rules` is nil or contains nil rules.
+// IsEmpty returns whether the `L7Rules` is nil or contains no rules.
 func (rules *L7Rules) IsEmpty() bool {
-	return rules == nil || (rules.HTTP == nil && rules.Kafka == nil && rules.DNS == nil && rules.L7 == nil)
+	return rules.Len() == 0
 }
 
 // PortRules is a slice of PortRule.
