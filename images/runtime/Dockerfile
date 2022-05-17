@@ -3,13 +3,13 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG TESTER_IMAGE=quay.io/cilium/image-tester:c37f768323abfba87c90cd9c82d37136183457bc@sha256:4c9d640b6379eb4964b8590acc95ca2dfaa71df70f4467fb7d8ac076acf6a8e1
+ARG TESTER_IMAGE=quay.io/cilium/image-tester:98852499bdc497763ace7f8d041ee09676a1d989@sha256:36bc12ded912c3a589df7b8846758968ccb00945bcd5ae6782cd45221652f840
 ARG GOLANG_IMAGE=docker.io/library/golang:1.18.3@sha256:b203dc573d81da7b3176264bfa447bd7c10c9347689be40540381838d75eebef
-ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:626ffe58f6e7566e00254b638eb7e0f3b11d4da9675088f4781a50ae288f3322
+ARG UBUNTU_IMAGE=docker.io/library/ubuntu:22.04@sha256:26c68657ccce2cb0a31b330cb0be2b5e108d467f641c62e13ab40cbec258c68d
 
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:547db7ec9a750b8f888a506709adb41f135b952e@sha256:4d6fa0aede3556c5fb5a9c71bc6b9585475ac9b1064f516d4c45c8fb691c9d9e
-ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:dd29c55c5ecad0ead395cb44c8a5c8ac67918909@sha256:2e566c175428ada5bac115b5ada42fedad6291250c5c963c6743922621659f34
-ARG CILIUM_IPROUTE2_IMAGE=quay.io/cilium/cilium-iproute2:02c29c971c01f0b9a7b916327f0caedd83820c18@sha256:eeb019043163891b91b731bed237d1edfaac036993b75f839b7d8fe6dd82b866
+ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1c5ea12eca222ed7e19c13374ea1fdd38ce5d541@sha256:ffefe7ac912794dd666ae9f6f48af5a789677ca4cd94d78fd00f0b00f9639d02
+ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:078af555e0df55bf73e57c3cb781ff1ba4e1663e@sha256:8a9169464168c5c7334f882f5f3e7334706d6fd2ae3a4a36799642f0210ac768
+ARG CILIUM_IPROUTE2_IMAGE=quay.io/cilium/cilium-iproute2:d7326c47179d64caf3f85c6381e599fa26a9f418@sha256:b9a716d3d86f0de73c028619a3acf29200a3eead53f51f7eb6ec2d6e39844129
 
 FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} as bpftool-dist
@@ -45,7 +45,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     ./iptables-wrapper-installer.sh --no-sanity-check
 
-COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /bin/
+COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local /usr/local
 COPY --from=iproute2-dist /usr/lib/libbpf* /usr/lib
 COPY --from=iproute2-dist /usr/local /usr/local
