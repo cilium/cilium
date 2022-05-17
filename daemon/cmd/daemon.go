@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -795,6 +796,12 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// we populate the IPCache with the host's IP(s).
 	ipcache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
+
+	if option.Config.EnableIPSec {
+		if err := ipsec.StartKeyfileWatcher(ctx, option.Config.IPSecKeyFile, nd); err != nil {
+			log.WithError(err).Error("Unable to start IPSec keyfile watcher")
+		}
+	}
 
 	return &d, restoredEndpoints, nil
 }
