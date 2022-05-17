@@ -172,7 +172,7 @@ jobs:
             --command "~/install-external-workload.sh"
           sleep 5s
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
-            --command "cilium status"
+            --command "sudo cilium status"
 
       - name: Verify cluster DNS on VM
         run: |
