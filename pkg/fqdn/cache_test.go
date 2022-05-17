@@ -270,6 +270,29 @@ func (ds *DNSCacheTestSuite) TestJSONMarshal(c *C) {
 	}
 }
 
+func (ds *DNSCacheTestSuite) TestCountIPs(c *C) {
+	names := map[string]net.IP{
+		"test1.com": net.ParseIP("1.1.1.1"),
+		"test2.com": net.ParseIP("2.2.2.2"),
+		"test3.com": net.ParseIP("3.3.3.3")}
+	sharedIP := net.ParseIP("8.8.8.8")
+	cache := NewDNSCache(0)
+
+	// Insert 3 records all sharing one IP and 1 unique IP.
+	cache.Update(now, "test1.com", []net.IP{sharedIP, names["test1.com"]}, 5)
+	cache.Update(now, "test2.com", []net.IP{sharedIP, names["test2.com"]}, 5)
+	cache.Update(now, "test3.com", []net.IP{sharedIP, names["test3.com"]}, 5)
+
+	fqdns, ips := cache.Count()
+
+	// Dump() returns the deduplicated (or consolidated) list of entries with
+	// length equal to CountFQDNs(), while CountIPs() returns the raw number of
+	// IPs.
+	c.Assert(len(cache.Dump()), Equals, len(names))
+	c.Assert(int(fqdns), Equals, len(names))
+	c.Assert(int(ips), Equals, len(names)*2)
+}
+
 /* Benchmarks
  * These are here to help gauge the relative costs of operations in DNSCache.
  * Note: some are on arrays `size` elements, so the benchmark "op time" is too
