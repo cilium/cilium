@@ -52,6 +52,9 @@ const (
 	// SubsystemKVStore is the subsystem to scope metrics related to the kvstore.
 	SubsystemKVStore = "kvstore"
 
+	// SubsystemFQDN is the subsystem to scope metrics related to the FQDN proxy.
+	SubsystemFQDN = "fqdn"
+
 	// SubsystemNodes is the subsystem to scope metrics related to the node manager.
 	SubsystemNodes = "nodes"
 
@@ -609,7 +612,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":          {},
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":                 {},
 		Namespace + "_" + SubsystemKVStore + "_quorum_errors_total":                  {},
-		Namespace + "_fqdn_gc_deletions_total":                                       {},
+		Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":                      {},
 		Namespace + "_" + SubsystemBPF + "_map_ops_total":                            {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_total":                 {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_folds":                 {},
@@ -1151,10 +1154,11 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, KVStoreQuorumErrors)
 			c.KVStoreQuorumErrorsEnabled = true
 
-		case Namespace + "_fqdn_gc_deletions_total":
+		case Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":
 			FQDNGarbageCollectorCleanedTotal = prometheus.NewCounter(prometheus.CounterOpts{
 				Namespace: Namespace,
-				Name:      "fqdn_gc_deletions_total",
+				Subsystem: SubsystemFQDN,
+				Name:      "gc_deletions_total",
 				Help:      "Number of FQDNs that have been cleaned on FQDN Garbage collector job",
 			})
 
