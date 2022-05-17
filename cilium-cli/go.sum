@@ -275,8 +275,8 @@ github.com/checkpoint-restore/go-criu/v5 v5.0.0/go.mod h1:cfwC0EG7HMUenopBsUf9d8
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
-github.com/cilium/charts v0.0.0-20220504171207-4989b5fd96bd h1:ffkeipQKgiIhmMAlpXxDTW8eYaek38Y1MhlKSIW6OKM=
-github.com/cilium/charts v0.0.0-20220504171207-4989b5fd96bd/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
+github.com/cilium/charts v0.0.0-20220516192220-983679ffdcde h1:Lq8bkkEw2gDvGMB6yBU/sS5h/WS7rfrR85SAO6/kfks=
+github.com/cilium/charts v0.0.0-20220516192220-983679ffdcde/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
 github.com/cilium/cilium v1.12.0-rc2.0.20220511145855-a1f773994542 h1:Dh7+A2r8h5nZ2mBK/LLBzpsJbn0ur2DbvHcmfossa+M=
 github.com/cilium/cilium v1.12.0-rc2.0.20220511145855-a1f773994542/go.mod h1:C53mMY6B/LUSbxJXs2hh2iGkG8Uw043NfDQWONKVmFE=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
