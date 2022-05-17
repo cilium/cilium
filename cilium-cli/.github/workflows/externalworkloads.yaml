@@ -182,7 +182,7 @@ jobs:
       - name: Ping clustermesh-apiserver from VM
         run: |
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
-            --command "ping -c 3 \$(cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
+            --command "ping -c 3 \$(sudo cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
 
       - name: Load cilium test script in configmap
         run: |
