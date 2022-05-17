@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,6 +122,9 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		// Get list of open file descriptors managed by the agent
 		fmt.Sprintf("ls -la /proc/$(pidof %s)/fd", components.CiliumAgentName),
 		"lsmod",
+		// tc
+		"tc -s qdisc", // Show statistics on queuing disciplines
+		"tc qdisc show",
 	}
 
 	if bpffsMountpoint := bpffsMountpoint(); bpffsMountpoint != "" {
@@ -194,6 +198,13 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	commands = append(commands, copyConfigCommands(confDir, k8sPods)...)
 	commands = append(commands, copyCiliumInfoCommands(cmdDir, k8sPods)...)
 
+	tcCommands, err := tcInterfaceCommands()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to generate per interface tc commands: %s\n", err)
+	} else {
+		commands = append(commands, tcCommands...)
+	}
+
 	return k8sCommands(commands, k8sPods)
 }
 
@@ -227,6 +238,23 @@ func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 	var c BugtoolConfiguration
 	err = json.Unmarshal(content, &c)
 	return &c, err
+}
+
+// Listing tc filter/chain/classes requires specific interface names.
+// Commands are generated per-interface.
+func tcInterfaceCommands() ([]string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("could not list network interfaces: %v", err)
+	}
+	commands := []string{}
+	for _, iface := range ifaces {
+		commands = append(commands,
+			fmt.Sprintf("tc filter show dev %s", iface.Name),
+			fmt.Sprintf("tc chain show dev %s", iface.Name),
+			fmt.Sprintf("tc class show dev %s", iface.Name))
+	}
+	return commands, nil
 }
 
 func catCommands() []string {
