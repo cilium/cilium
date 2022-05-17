@@ -177,7 +177,7 @@ jobs:
       - name: Verify cluster DNS on VM
         run: |
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
-            --command "nslookup -norecurse clustermesh-apiserver.kube-system.svc.cluster.local"
+            --command "nslookup -d2 -retry=10 -timeout=5 -norecurse clustermesh-apiserver.kube-system.svc.cluster.local \$(systemd-resolve --status | grep -m 1 \"Current DNS Server:\" | cut -d':' -f2)"
 
       - name: Ping clustermesh-apiserver from VM
         run: |
