@@ -221,7 +221,7 @@ jobs:
         if: ${{ !success() }}
         run: |
           echo "=== Retrieve VM state ==="
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo cilium status"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
 
           echo "=== Install latest stable CLI ==="
