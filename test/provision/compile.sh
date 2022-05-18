@@ -143,11 +143,6 @@ else
         systemctl restart $service || echo "service $service failed to restart"
     done
 
-    echo "running \"sudo adduser ${VMUSER} cilium\" "
-    # Add group explicitly to avoid the case where the group was not added yet
-    getent group cilium >/dev/null || sudo groupadd -r cilium
-    sudo adduser ${VMUSER} cilium
-
     # Download all images needed for runtime tests.
     ./test/provision/container-images.sh test_images test/helpers
 fi

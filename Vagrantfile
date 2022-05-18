@@ -122,9 +122,6 @@ sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-etc
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium.service /lib/systemd/system
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-operator.service /lib/systemd/system
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium /etc/sysconfig
-
-getent group cilium >/dev/null || sudo groupadd -r cilium
-sudo usermod -a -G cilium vagrant
 SCRIPT
 
 $node_ip_base = ENV['IPV4_BASE_ADDR'] || ""

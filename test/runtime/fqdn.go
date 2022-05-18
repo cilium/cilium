@@ -285,7 +285,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		escapedDomain := strings.Replace(domain, `.`, `\\.`, -1)
 		jqfilter := fmt.Sprintf(`jq -c '.[] | select(.identities|length >= %d) | select(.users|length > 0) | .selector | match("^MatchName: (\\w+\\.%s|), MatchPattern: ([\\w*]+\\.%s|)$") | length > 0'`, minNumIDs, escapedDomain, escapedDomain)
 		body := func() bool {
-			res := vm.Exec(fmt.Sprintf(`cilium policy selectors -o json | %s`, jqfilter))
+			res := vm.ExecCilium(fmt.Sprintf(`policy selectors -o json | %s`, jqfilter))
 			return strings.HasPrefix(res.Stdout(), "true")
 		}
 		err := helpers.WithTimeout(
@@ -355,7 +355,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 	It("Validate dns-proxy monitor information", func() {
 
 		ctx, cancel := context.WithCancel(context.Background())
-		monitorCMD := vm.ExecInBackground(ctx, "cilium monitor --type=l7")
+		monitorCMD := vm.ExecInBackground(ctx, "sudo cilium monitor --type=l7")
 		defer cancel()
 
 		policy := `
@@ -795,7 +795,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		})
 
 		BeforeEach(func() {
-			By("Clearing fqdn cache: %s", vm.Exec("cilium fqdn cache clean -f").CombineOutput().String())
+			By("Clearing fqdn cache: %s", vm.ExecCilium("fqdn cache clean -f").CombineOutput().String())
 		})
 
 		AfterAll(func() {
@@ -869,7 +869,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		})
 
 		BeforeEach(func() {
-			By("Clearing fqdn cache: %s", vm.Exec("cilium fqdn cache clean -f").CombineOutput().String())
+			By("Clearing fqdn cache: %s", vm.ExecCilium("fqdn cache clean -f").CombineOutput().String())
 		})
 
 		AfterAll(func() {
@@ -879,7 +879,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 
 		It("Policy addition after DNS lookup", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorCMD := vm.ExecInBackground(ctx, "cilium monitor")
+			monitorCMD := vm.ExecInBackground(ctx, "sudo cilium monitor")
 			defer cancel()
 
 			policy := `
@@ -939,7 +939,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 
 		It("L3-dependent L7/HTTP with toFQDN updates proxy policy", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorCMD := vm.ExecInBackground(ctx, "cilium monitor")
+			monitorCMD := vm.ExecInBackground(ctx, "sudo cilium monitor")
 			defer cancel()
 
 			policy := `

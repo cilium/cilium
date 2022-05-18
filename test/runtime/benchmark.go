@@ -86,8 +86,8 @@ var _ = Describe("BenchmarkNetperfPerformance", func() {
 
 	AfterFailed(func() {
 		vm.ReportFailed(
-			"cilium service list",
-			"cilium policy get")
+			"sudo cilium service list",
+			"sudo cilium policy get")
 	})
 
 	AfterEach(func() {

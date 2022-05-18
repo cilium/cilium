@@ -52,8 +52,8 @@ var endpointChaosTest = func() {
 		// Go back and add the identity labels back into the output
 		getSortedLabels := "(.status.identity.labels | sort)"
 		jqCmd := fmt.Sprintf("jq 'map(%s) | map(%s, %s)'", filterHealthEP, filterFields, getSortedLabels)
-		endpointListCmd := fmt.Sprintf("cilium endpoint list -o json | %s", jqCmd)
-		originalEndpointList := vm.Exec(endpointListCmd)
+		endpointListCmd := fmt.Sprintf("endpoint list -o json | %s", jqCmd)
+		originalEndpointList := vm.ExecCilium(endpointListCmd)
 
 		err := vm.RestartCilium()
 		Expect(err).Should(BeNil(), "restarting Cilium failed")
@@ -63,7 +63,7 @@ var endpointChaosTest = func() {
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 		Expect(originalIps.Stdout()).To(Equal(ips.Stdout()))
 
-		EndpointList := vm.Exec(endpointListCmd)
+		EndpointList := vm.ExecCilium(endpointListCmd)
 		By("original: %s", originalEndpointList.Stdout())
 		By("new: %s", EndpointList.Stdout())
 		Expect(EndpointList.Stdout()).To(Equal(originalEndpointList.Stdout()))

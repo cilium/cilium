@@ -21,7 +21,6 @@ clean:
 ifeq ("$(PKG_BUILD)","")
 
 install:
-	groupadd -f cilium
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 

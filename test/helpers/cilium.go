@@ -123,7 +123,7 @@ func (s *SSHMeta) BpfIPCacheList(localScopeOnly bool) (map[string]uint32, error)
 // SelectedIdentities returns filtered identities from the output of `cilium policy selectors list
 // -o json` as a string
 func (s *SSHMeta) SelectedIdentities(match string) string {
-	res := s.Exec(fmt.Sprintf(`cilium policy selectors list -o json | jq '.[] | select(.selector | test("%s")) | .identities[] | .'`, match))
+	res := s.ExecCilium(fmt.Sprintf(`policy selectors list -o json | jq '.[] | select(.selector | test("%s")) | .identities[] | .'`, match))
 	res.ExpectSuccess("Failed getting identities for %s selectors", match)
 	return res.Stdout()
 }
@@ -211,8 +211,8 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 	// cilium-health endpoint is always running, as is the host endpoint.
 	desiredState := "2"
 	body := func() bool {
-		cmd := `cilium endpoint list -o json | jq '. | length'`
-		res := s.Exec(cmd)
+		cmd := `endpoint list -o json | jq '. | length'`
+		res := s.ExecCilium(cmd)
 		numEndpointsRunning := strings.TrimSpace(res.Stdout())
 		if numEndpointsRunning == desiredState {
 			return true
@@ -224,7 +224,7 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 	err := WithTimeout(body, "Endpoints are not deleted after timeout", &TimeoutConfig{Timeout: HelperTimeout})
 	if err != nil {
 		logger.WithError(err).Warn("Endpoints are not deleted after timeout")
-		s.Exec("cilium endpoint list") // This function is only for debugging.
+		s.ExecCilium("endpoint list") // This function is only for debugging.
 		return false
 	}
 	return true
@@ -286,9 +286,9 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 	desiredState := string(models.EndpointStateReady)
 	body := func() bool {
 		filter := `{range [*]}{@.id}{"="}{@.status.state},{@.status.identity.id}{"\n"}{end}`
-		cmd := fmt.Sprintf(`cilium endpoint list -o jsonpath='%s'`, filter)
+		cmd := fmt.Sprintf(`endpoint list -o jsonpath='%s'`, filter)
 
-		res := s.Exec(cmd)
+		res := s.ExecCilium(cmd)
 		if !res.WasSuccessful() {
 			logger.Infof("Cannot get endpoint list: %s", res.CombineOutput())
 			return false
@@ -322,7 +322,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 	err := WithTimeout(body, "Endpoints are not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
 	if err != nil {
 		logger.WithError(err).Warn("Endpoints are not ready after timeout")
-		s.Exec("cilium endpoint list") // This function is only for debugging into log.
+		s.ExecCilium("endpoint list") // This function is only for debugging into log.
 		return false
 	}
 	return true
@@ -445,7 +445,7 @@ func (s *SSHMeta) BasePath() string {
 // called the command will stop and monitor's output is saved on
 // `monitorLogFileName` file.
 func (s *SSHMeta) MonitorStart(opts ...string) (*CmdRes, func() error) {
-	cmd := "cilium monitor -vv " + strings.Join(opts, " ") + " | ts '[%Y-%m-%d %H:%M:%S]'"
+	cmd := "sudo cilium monitor -vv " + strings.Join(opts, " ") + " | ts '[%Y-%m-%d %H:%M:%S]'"
 	ctx, cancel := context.WithCancel(context.Background())
 	res := s.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 

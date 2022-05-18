@@ -105,7 +105,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			monitorConfig()
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res := vm.ExecInBackground(ctx, "cilium monitor -vv")
+			res := vm.ExecInBackground(ctx, "sudo cilium monitor -vv")
 			defer cancel()
 
 			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -141,7 +141,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
-				res := vm.ExecInBackground(ctx, fmt.Sprintf("cilium monitor --type %s -vv", k))
+				res := vm.ExecInBackground(ctx, fmt.Sprintf("sudo cilium monitor --type %s -vv", k))
 
 				vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 				vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
@@ -154,7 +154,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			}
 
 			By("all types together")
-			command := "cilium monitor -vv"
+			command := "sudo cilium monitor -vv"
 			for k := range eventTypes {
 				command = command + " --type " + k
 			}
@@ -191,7 +191,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			defer cancel()
 
 			res := vm.ExecInBackground(ctx, fmt.Sprintf(
-				"cilium monitor --type debug --from %s -vv", endpoints[helpers.App1]))
+				"sudo cilium monitor --type debug --from %s -vv", endpoints[helpers.App1]))
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 
 			filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.App1])
@@ -215,7 +215,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			res := vm.ExecInBackground(ctx, fmt.Sprintf(
-				"cilium monitor -vv --to %s", endpoints[helpers.Httpd1]))
+				"sudo cilium monitor -vv --to %s", endpoints[helpers.Httpd1]))
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
@@ -238,7 +238,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			res := vm.ExecInBackground(ctx, fmt.Sprintf(
-				"cilium monitor -vv --related-to %s", endpoints[helpers.Httpd1]))
+				"sudo cilium monitor -vv --related-to %s", endpoints[helpers.Httpd1]))
 
 			vm.WaitEndpointsReady()
 			vm.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
@@ -259,7 +259,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			ctx, cancelfn := context.WithCancel(context.Background())
 
 			for i := 1; i <= 3; i++ {
-				monitorRes = append(monitorRes, vm.ExecInBackground(ctx, "cilium monitor"))
+				monitorRes = append(monitorRes, vm.ExecInBackground(ctx, "sudo cilium monitor"))
 			}
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
@@ -316,7 +316,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res := vm.ExecInBackground(ctx, "cilium monitor -vv")
+			res := vm.ExecInBackground(ctx, "sudo cilium monitor -vv")
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.Httpd1, helpers.Ping(helpers.App1))

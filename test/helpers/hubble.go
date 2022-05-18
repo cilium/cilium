@@ -22,7 +22,7 @@ func (s *SSHMeta) HubbleObserve(args ...string) *CmdRes {
 	if len(args) > 0 {
 		argsCoalesced = strings.Join(args, " ")
 	}
-	hubbleCmd := fmt.Sprintf("hubble observe --server=%q --output=json %s",
+	hubbleCmd := fmt.Sprintf("sudo hubble observe --server=%q --output=json %s",
 		hubbleSock, argsCoalesced)
 	return s.Exec(hubbleCmd)
 }
@@ -37,7 +37,7 @@ func (s *SSHMeta) HubbleObserveFollow(ctx context.Context, args ...string) *CmdR
 	if len(args) > 0 {
 		argsCoalesced = strings.Join(args, " ")
 	}
-	hubbleCmd := fmt.Sprintf("hubble observe --server=%q --follow --output=json %s",
+	hubbleCmd := fmt.Sprintf("sudo hubble observe --server=%q --follow --output=json %s",
 		hubbleSock, argsCoalesced)
 	return s.ExecInBackground(ctx, hubbleCmd)
 }

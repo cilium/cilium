@@ -1544,7 +1544,7 @@ var _ = Describe("RuntimePolicies", func() {
 				defer cancel()
 
 				By("Starting cilium monitor in background")
-				monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type policy-verdict")
+				monitorRes := vm.ExecInBackground(ctx, "sudo cilium monitor --type policy-verdict")
 
 				By("Creating an endpoint")
 				endpointID, endpointIP := createEndpoint()
@@ -1575,7 +1575,7 @@ var _ = Describe("RuntimePolicies", func() {
 				monitorRes.ExpectContains(auditVerdict, "No ingress policy log record")
 
 				By("Testing cilium endpoint list output")
-				res = vm.Exec("cilium endpoint list")
+				res = vm.ExecCilium("endpoint list")
 				res.ExpectMatchesRegexp(endpointID+"\\s*Disabled \\(Audit\\)\\s*Disabled \\(Audit\\)", "Endpoint is not in audit mode")
 			})
 
@@ -1588,7 +1588,7 @@ var _ = Describe("RuntimePolicies", func() {
 				defer cancel()
 
 				By("Starting cilium monitor in background")
-				monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type policy-verdict")
+				monitorRes := vm.ExecInBackground(ctx, "sudo cilium monitor --type policy-verdict")
 
 				By("Creating an endpoint")
 				endpointID, _ := createEndpoint("ping", hostIP)
@@ -1615,7 +1615,7 @@ var _ = Describe("RuntimePolicies", func() {
 				monitorRes.ExpectContains(auditVerdict, "No egress policy log record")
 
 				By("Testing cilium endpoint list output")
-				res := vm.Exec("cilium endpoint list")
+				res := vm.ExecCilium("endpoint list")
 				res.ExpectMatchesRegexp(endpointID+"\\s*Disabled \\(Audit\\)\\s*Disabled \\(Audit\\)", "Endpoint is not in audit mode")
 			})
 		})
@@ -1900,7 +1900,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		By("Verifying that trace says that %q can reach %q", httpd2Label, httpd1Label)
 
-		res := vm.Exec(fmt.Sprintf(`cilium policy trace -s %s -d %s/TCP --dport 0/ANY`, httpd2Label, httpd1Label))
+		res := vm.ExecCilium(fmt.Sprintf(`policy trace -s %s -d %s/TCP --dport 0/ANY`, httpd2Label, httpd1Label))
 		Expect(res.Stdout()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
 
 		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -1964,14 +1964,14 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		Expect(err).Should(BeNil(), "Error importing policy: %s", err)
 
 		By("Verifying verbose trace for expected output using security identities")
-		res = vm.Exec(fmt.Sprintf(
-			`cilium policy trace --src-identity %d --dst-identity %d --dport 0/ANY`,
+		res = vm.ExecCilium(fmt.Sprintf(
+			`policy trace --src-identity %d --dst-identity %d --dport 0/ANY`,
 			httpd2SecurityIdentity, httpd1SecurityIdentity))
 		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 
 		By("Verifying verbose trace for expected output using endpoint IDs")
-		res = vm.Exec(fmt.Sprintf(
-			`cilium policy trace --src-endpoint %s --dst-endpoint %s --dport 0/ANY`,
+		res = vm.ExecCilium(fmt.Sprintf(
+			`policy trace --src-endpoint %s --dst-endpoint %s --dport 0/ANY`,
 			httpd2EndpointID, httpd1EndpointID))
 		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 
@@ -2006,7 +2006,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 
 		By("Checking that policy trace returns allowed verdict without any policies imported")
-		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s --dport 0/ANY`, httpd2EndpointID, httpd1EndpointID))
+		res = vm.ExecCilium(fmt.Sprintf(`policy trace --src-endpoint %s --dst-endpoint %s --dport 0/ANY`, httpd2EndpointID, httpd1EndpointID))
 		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 	})
 })
