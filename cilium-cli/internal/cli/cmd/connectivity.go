@@ -130,6 +130,9 @@ func newCmdConnectivityTest() *cobra.Command {
 	cmd.Flags().StringVar(&params.CiliumBaseVersion, "base-version", defaults.Version,
 		"Specify the base Cilium version for configuration purpose in case image tag doesn't indicate the actual Cilium version")
 	cmd.Flags().MarkHidden("base-version")
+	cmd.Flags().StringVar(&params.CurlImage, "curl-image", defaults.ConnectivityCheckAlpineCurlImage, "Image path to use for curl")
+	cmd.Flags().StringVar(&params.PerformanceImage, "performance-image", defaults.ConnectivityPerformanceImage, "Image path to use for performance")
+	cmd.Flags().StringVar(&params.JSONMockImage, "json-mock-image", defaults.ConnectivityCheckJSONMockImage, "Image path to use for json mock")
 
 	return cmd
 }

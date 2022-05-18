@@ -41,6 +41,9 @@ type Parameters struct {
 	PerfHostNet           bool
 	PerfSamples           int
 	CiliumBaseVersion     string
+	CurlImage             string
+	PerformanceImage      string
+	JSONMockImage         string
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
