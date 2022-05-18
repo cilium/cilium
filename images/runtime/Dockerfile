@@ -42,9 +42,8 @@ WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     ./install-runtime-deps.sh
 
-COPY iptables-wrapper /usr/sbin/iptables-wrapper
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
-    ./configure-iptables-wrapper.sh
+    ./iptables-wrapper-installer.sh --no-sanity-check
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /bin/
 COPY --from=bpftool-dist /usr/local /usr/local
