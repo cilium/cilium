@@ -66,7 +66,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_cli_version: v0.11.6
+  cilium_cli_version: v0.11.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.94.0
   kubectl_version: v1.23.6
@@ -162,8 +162,11 @@ jobs:
             --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
             --base-version=v1.12 \
             --relay-version=${SHA}"
+          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.12 \
+            --flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
+          echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
@@ -245,6 +248,7 @@ jobs:
             until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
+      # Checkout source code to install Cilium using local Helm chart.
       - name: Checkout code
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
@@ -267,7 +271,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --flow-validation=disabled
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       # EKS testing with encryption is disabled due to https://github.com/cilium/cilium/issues/16938
       - name: Clean up Cilium
@@ -302,8 +306,8 @@ jobs:
       - name: Run connectivity test
         if: ${{ false }} # see comment above for details
         run: |
-          cilium connectivity test --force-deploy --flow-validation=disabled \
-            --test '!client-egress-l7,!echo-ingress-l7'
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --force-deploy --test '!client-egress-l7,!echo-ingress-l7'
       # workaround for L7 tests issues on EKS with IPsec enabled
       # TODO: remove both test exceptions once:
       # - https://github.com/cilium/cilium/issues/17139 is fixed

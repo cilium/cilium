@@ -65,7 +65,7 @@ env:
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
-  cilium_cli_version: v0.10.4
+  cilium_cli_version: v0.11.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -136,23 +136,36 @@ jobs:
             OWNER=${{ github.sha }}
           fi
 
-          CILIUM_INSTALL_DEFAULTS="--agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
-            --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
-            --version=${SHA} \
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
+            --helm-set=clustermesh.apiserver.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
-            --base-version=v1.11"
-          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --base-version=v1.11.5 \
+            --version="
+          HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
+            --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
+            --base-version=v1.11.5 \
             --relay-version=${SHA}"
+          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.115 \
+            --flow-validation=disabled"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
             --apiserver-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.11 \
-            --flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
-          echo ::set-output name=clustermesh_enable_defaults::${CLUSTERMESH_ENABLE_DEFAULTS}
           echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
+          echo ::set-output name=clustermesh_enable_defaults::${CLUSTERMESH_ENABLE_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
@@ -241,6 +254,13 @@ jobs:
           for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci ; do
             until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
+
+      # Checkout source code to install Cilium using local Helm chart.
+      - name: Checkout code
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
 
       - name: Install Cilium in cluster1
         run: |

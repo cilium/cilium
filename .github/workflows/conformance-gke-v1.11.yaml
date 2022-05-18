@@ -63,7 +63,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   zone: us-west2-a
-  cilium_cli_version: v0.10.4
+  cilium_cli_version: v0.11.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -135,16 +135,29 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
-            --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
-            --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
-            --version=${SHA} \
+            --chart-directory=install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
+            --helm-set=clustermesh.apiserver.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
-            --base-version=v1.11"
-          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --base-version=v1.11.5 \
+            --version="
+          HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
+            --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
+            --base-version=v1.11.5 \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.11 \
+          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.11.5 \
             --flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
@@ -208,6 +221,13 @@ jobs:
             until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
+      # Checkout source code to install Cilium using local Helm chart.
+      - name: Checkout code
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
       - name: Install Cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
@@ -229,7 +249,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --wait
+          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Install Cilium with tunnel datapath
         run: |
@@ -258,7 +278,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --wait
+          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Create custom IPsec secret
         run: |
@@ -292,7 +312,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --wait
+          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Install Cilium with encryption and tunnel datapath
         run: |
