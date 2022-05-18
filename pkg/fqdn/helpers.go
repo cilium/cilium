@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -60,7 +61,7 @@ func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector
 				patternRE *regexp.Regexp
 			)
 
-			if patternRE, err = regexp.Compile(patternREStr); err != nil {
+			if patternRE, err = re.CompileRegex(patternREStr); err != nil {
 				log.WithError(err).Error("Error compiling matchPattern")
 			}
 			lookupIPs := n.cache.LookupByRegexp(patternRE)

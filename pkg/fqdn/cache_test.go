@@ -18,9 +18,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 )
 
 type DNSCacheTestSuite struct{}
+
+func (ds *DNSCacheTestSuite) SetUpSuite(c *C) {
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+}
 
 var _ = Suite(&DNSCacheTestSuite{})
 
