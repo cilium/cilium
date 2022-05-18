@@ -12,6 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -1032,7 +1033,7 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 // never happen.
 func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...net.IP) error {
 	reStr := matchpattern.ToRegexp(name)
-	re, err := regexp.Compile(reStr)
+	re, err := re.CompileRegex(reStr)
 	if err != nil {
 		return err
 	}
