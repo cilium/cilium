@@ -184,9 +184,9 @@ func (k *K8sHubble) generatePeerService() *corev1.Service {
 	)
 	ciliumVer := k.semVerCiliumVersion
 	switch {
-	case versioncheck.MustCompile(">1.11.0")(ciliumVer):
+	case versioncheck.MustCompile(">=1.11.0")(ciliumVer):
 		svcFilename = "templates/hubble/peer-service.yaml"
-	case versioncheck.MustCompile(">1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
 		svcFilename = "templates/hubble-peer-service.yaml"
 	}
 	if svcFilename == "" {
