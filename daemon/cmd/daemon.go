@@ -352,7 +352,6 @@ func removeOldRouterState(restoredIP net.IP) error {
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
-
 	// Pass the cancel to our signal handler directly so that it's canceled
 	// before we run the cleanup functions (see `cleanup.go` for implementation).
 	cleaner.SetCancelFunc(cancel)
