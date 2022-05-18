@@ -370,7 +370,7 @@
      - string
      - ``"false"``
    * - egressGateway
-     - Enables egress gateway (beta) to redirect and SNAT the traffic that leaves the cluster.
+     - Enables egress gateway to redirect and SNAT the traffic that leaves the cluster.
      - object
      - ``{"enabled":false,"installRoutes":false}``
    * - egressGateway.installRoutes

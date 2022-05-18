@@ -1178,8 +1178,8 @@ enableIPv4Masquerade: true
 # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
 enableIPv6Masquerade: true
 
-# -- Enables egress gateway (beta) to redirect and SNAT the traffic that
-# leaves the cluster.
+# -- Enables egress gateway to redirect and SNAT the traffic that leaves the
+# cluster.
 egressGateway:
   enabled: false
   # -- Install egress gateway IP rules and routes in order to properly steer
