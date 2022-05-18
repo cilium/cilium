@@ -201,7 +201,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
 /pkg/envoy/ @cilium/proxy
-/pkg/fqdn/ @cilium/agent
+/pkg/fqdn/ @cilium/agent @cilium/proxy
 /pkg/health/ @cilium/health
 /pkg/hubble/ @cilium/hubble
 /pkg/identity @cilium/policy
