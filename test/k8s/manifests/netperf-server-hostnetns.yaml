@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: netperf-server
+  labels:
+    k8s-app: netperf-server-hostnetns
+spec:
+  selector:
+    matchLabels:
+      name: netperf-server-hostnetns
+  template:
+    metadata:
+      labels:
+        name: netperf-server-hostnetns
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: netperf
+        image: docker.io/tgraf/netperf:v1.0
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          exec:
+            command: ["netperf", "-H", "127.0.0.1", "-l", "1"]
+          # This timeout needs to be higher than the time netperf command takes to
+          # finish its execution
+          timeoutSeconds: 5
+      hostNetwork: true
+      nodeSelector:
+        cilium.io/ci-node: NODE_WITHOUT_CILIUM
+      tolerations:
+      - operator: Exists

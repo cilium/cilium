@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -40,6 +41,7 @@ var _ = SkipDescribeIf(func() bool {
 		assignIPYAML string
 		echoPodYAML  string
 		policyYAML   string
+		netperfYAML  string
 	)
 
 	runEchoServer := func() {
@@ -52,6 +54,19 @@ var _ = SkipDescribeIf(func() bool {
 			helpers.GetFirstNodeWithoutCilium(), originalEchoPodPath, echoPodYAML)).ExpectSuccess()
 		kubectl.ApplyDefault(echoPodYAML).ExpectSuccess("Cannot install echoserver application")
 		Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echoserver-hostnetns",
+			helpers.HelperTimeout)).Should(BeNil())
+	}
+
+	runNetperfServer := func() {
+		// Run netperf server on outside node
+		netperfPath := helpers.ManifestGet(kubectl.BasePath(), "netperf-server-hostnetns.yaml")
+		res := kubectl.ExecMiddle("mktemp")
+		res.ExpectSuccess()
+		netperfYAML = strings.Trim(res.Stdout(), "\n")
+		kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM/%s/' %s > %s",
+			helpers.GetFirstNodeWithoutCilium(), netperfPath, netperfYAML)).ExpectSuccess()
+		kubectl.ApplyDefault(netperfYAML).ExpectSuccess("Cannot install netperf server")
+		Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=netperf-server-hostnetns",
 			helpers.HelperTimeout)).Should(BeNil())
 	}
 
@@ -229,6 +244,29 @@ var _ = SkipDescribeIf(func() bool {
 		Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", policyYAML)
 	}
 
+	testEstablishedConnectivity := func(fromGateway bool) {
+		hostIP := k8s1IP
+		if fromGateway {
+			hostIP = k8s2IP
+		}
+
+		srcPod, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient, hostIP, false, 1)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		res := kubectl.ExecPodCmdBackground(ctx, randomNamespace, srcPod, "",
+			fmt.Sprintf("netperf -l 20 -t TCP_STREAM -H %s", outsideIP))
+
+		// let the connection start
+		time.Sleep(5 * time.Second)
+
+		applyEgressPolicy("egress-gateway-policy.yaml")
+		kubectl.WaitForEgressPolicyEntry(hostIP, outsideIP)
+
+		res.WaitUntilFinish()
+		res.ExpectSuccess("Established connection failed after applying policy")
+	}
+
 	doContext := func(name string, ciliumOpts map[string]string) {
 		Context(name, func() {
 			BeforeAll(func() {
@@ -268,6 +306,30 @@ var _ = SkipDescribeIf(func() bool {
 					testEgressGateway(true)
 					testConnectivity(false, ciliumOpts)
 					testConnectivity(true, ciliumOpts)
+				})
+			})
+
+			Context("egress gw policy for established connection", func() {
+				BeforeAll(func() {
+					runNetperfServer()
+				})
+				AfterEach(func() {
+					kubectl.Delete(policyYAML)
+				})
+				AfterAll(func() {
+					kubectl.Delete(netperfYAML)
+					ExpectAllPodsTerminated(kubectl)
+				})
+
+				AfterFailed(func() {
+					kubectl.CiliumReport("cilium bpf egress list", "cilium bpf nat list")
+				})
+
+				It("established connection from Gateway survives", func() {
+					testEstablishedConnectivity(true)
+				})
+				It("established connection from non-Gateway survives", func() {
+					testEstablishedConnectivity(false)
 				})
 			})
 
