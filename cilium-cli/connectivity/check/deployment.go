@@ -258,7 +258,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Name:   echoSameNodeDeploymentName,
 			Kind:   kindEchoName,
 			Port:   8080,
-			Image:  defaults.ConnectivityCheckJSONMockImage,
+			Image:  ct.params.JSONMockImage,
 			Labels: map[string]string{"other": "echo"},
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{
@@ -322,7 +322,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Name:  nm.ClientName(),
 				Kind:  kindPerfName,
 				Port:  80,
-				Image: defaults.ConnectivityPerformanceImage,
+				Image: ct.params.PerformanceImage,
 				Labels: map[string]string{
 					"client": "role",
 				},
@@ -359,7 +359,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					"server": "role",
 				},
 				Port:    5001,
-				Image:   defaults.ConnectivityPerformanceImage,
+				Image:   ct.params.PerformanceImage,
 				Command: []string{"/bin/bash", "-c", "netserver;sleep 10000000"},
 				Affinity: &corev1.Affinity{
 					NodeAffinity: &corev1.NodeAffinity{
@@ -407,7 +407,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					Labels: map[string]string{
 						"client": "role",
 					},
-					Image:   defaults.ConnectivityPerformanceImage,
+					Image:   ct.params.PerformanceImage,
 					Command: []string{"/bin/bash", "-c", "sleep 10000000"},
 					Affinity: &corev1.Affinity{
 						NodeAffinity: &corev1.NodeAffinity{
@@ -445,7 +445,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Name:    ClientDeploymentName,
 			Kind:    kindClientName,
 			Port:    8080,
-			Image:   defaults.ConnectivityCheckAlpineCurlImage,
+			Image:   ct.params.CurlImage,
 			Command: []string{"/bin/ash", "-c", "sleep 10000000"},
 		})
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
@@ -462,7 +462,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Name:    Client2DeploymentName,
 			Kind:    kindClientName,
 			Port:    8080,
-			Image:   defaults.ConnectivityCheckAlpineCurlImage,
+			Image:   ct.params.CurlImage,
 			Command: []string{"/bin/ash", "-c", "sleep 10000000"},
 			Labels:  map[string]string{"other": "client"},
 			Affinity: &corev1.Affinity{
@@ -510,7 +510,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Name:  echoOtherNodeDeploymentName,
 				Kind:  kindEchoName,
 				Port:  8080,
-				Image: defaults.ConnectivityCheckJSONMockImage,
+				Image: ct.params.JSONMockImage,
 				Affinity: &corev1.Affinity{
 					PodAntiAffinity: &corev1.PodAntiAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
