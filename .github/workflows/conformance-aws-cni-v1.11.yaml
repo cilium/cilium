@@ -63,8 +63,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_base_version: "1.11"
-  cilium_cli_version: v0.10.4
+  cilium_cli_version: v0.11.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.94.0
   kubectl_version: v1.23.6
@@ -137,6 +136,40 @@ jobs:
             OWNER=${{ github.sha }}
           fi
 
+          CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
+            --chart-directory=install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
+            --helm-set=clustermesh.apiserver.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=enableIPv4Masquerade=false \
+            --helm-set=cni.chainingMode=aws-cni \
+            --helm-set=tunnel=disabled \
+            --helm-set=bandwidthManager.enabled=false \
+            --wait=false \
+            --rollback=false \
+            --config monitor-aggregation=none \
+            --base-version=v1.11.5 \
+            --version="
+          HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
+            --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
+            --base-version=v1.11.5  \
+            --relay-version=${SHA}"
+          # L7 policies are not supported in chaining mode.
+          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.11.5 \
+            --flow-validation=disabled \
+            --test '!fqdn,!l7'"
+          echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
+          echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
+          echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
@@ -222,37 +255,20 @@ jobs:
             until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
+      # Checkout source code to install Cilium using local Helm chart.
+      - name: Checkout code
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
       - name: Install Cilium
         run: |
-          curl -LO https://github.com/cilium/cilium/archive/v${{ env.cilium_base_version }}.tar.gz
-          tar xzf v${{ env.cilium_base_version }}.tar.gz
-          cd cilium-${{ env.cilium_base_version }}/install/kubernetes
-          helm install cilium ./cilium \
-            --namespace kube-system \
-            --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
-            --set image.tag=${{ steps.vars.outputs.sha }} \
-            --set image.useDigest=false \
-            --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
-            --set operator.image.suffix="-ci" \
-            --set operator.image.tag=${{ steps.vars.outputs.sha }} \
-            --set operator.image.useDigest=false \
-            --set cni.chainingMode=aws-cni \
-            --set enableIPv4Masquerade=false \
-            --set tunnel=disabled \
-            --set nodeinit.enabled=true \
-            --set bpf.monitorAggregation=none \
-            --set bandwidthManager=false
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Enable Relay
         run: |
-          cd cilium-${{ env.cilium_base_version }}/install/kubernetes
-          helm upgrade cilium ./cilium \
-            --namespace kube-system \
-            --reuse-values \
-            --set hubble.relay.enabled=true \
-            --set hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
-            --set hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
-            --set hubble.relay.image.useDigest=false
+          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -266,21 +282,11 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test \
-            --base-version=v${{ env.cilium_base_version }} \
-            --flow-validation=disabled \
-            --test '!fqdn,!l7' # L7 policies are not supported in chaining mode.
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
-
           echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
           cilium status

@@ -23,7 +23,7 @@ concurrency:
 env:
   kind_version: v0.11.1
   kind_config: .github/kind-config.yaml
-  cilium_cli_version: v0.11.6
+  cilium_cli_version: v0.11.7
 
 jobs:
   installation-and-connectivity:
@@ -62,8 +62,11 @@ jobs:
             --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
             --base-version=v1.12 \
             --relay-version=${SHA}"
+          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.12 \
+            --flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
+          echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
           echo ::set-output name=sha::${SHA}
 
       - name: Install Cilium CLI
@@ -110,7 +113,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --flow-validation=disabled
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Clean up Cilium
         run: |
@@ -134,7 +137,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --force-deploy --flow-validation=disabled
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
 
       - name: Post-test information gathering
         if: ${{ !success() }}

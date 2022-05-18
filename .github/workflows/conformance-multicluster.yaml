@@ -68,7 +68,7 @@ env:
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
-  cilium_cli_version: v0.11.6
+  cilium_cli_version: v0.11.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -161,10 +161,13 @@ jobs:
             --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
             --base-version=v1.12 \
             --relay-version=${SHA}"
+          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.12 \
+            --flow-validation=disabled"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
             --apiserver-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
+          echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
           echo ::set-output name=clustermesh_enable_defaults::${CLUSTERMESH_ENABLE_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
@@ -255,6 +258,7 @@ jobs:
             until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
+      # Checkout source code to install Cilium using local Helm chart.
       - name: Checkout code
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
@@ -313,12 +317,11 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
             --test '!/pod-to-.*-nodeport' \
-            --test '!no-policies/pod-to-service' \
-            --flow-validation=disabled
+            --test '!no-policies/pod-to-service'
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
         # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
         # is fixed.
@@ -338,13 +341,12 @@ jobs:
       - name: Run connectivity test with WireGuard
         if: ${{ false }} # see comment above for details
         run: |
-          cilium connectivity test \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
             --test '!/pod-to-.*-nodeport' \
             --test '!client-egress-l7,!echo-ingress-l7,!to-fqdns,!dns-only' \
-            --test '!no-policies/pod-to-service' \
-            --flow-validation=disabled
+            --test '!no-policies/pod-to-service'
         # TODO: Once WireGuard supports the L7 proxy, the L7 tests can be
         # included here. See cilium/cilium#15462
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
