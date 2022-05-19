@@ -41,7 +41,7 @@ update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
 	@# Update chart versions to point to the current version.
 	$(QUIET)grep -lRZ -e "version:" -e "appVersion:" $(CILIUM_CHARTS)/ | \
-		xargs -L 1 sed -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g';						\
+		xargs -L 1 $(SED) -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g';						\
 		# Fix up the container image tags										\
 		cilium_version="v$(VERSION)";											\
 		branch="$$cilium_version";											\
@@ -64,33 +64,33 @@ update-versions:
 			pull_policy="Always";											\
 			use_digest="false";												\
 		fi;														\
-		sed -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@'$$branch'/$(LOGO_PATH);' $(CHART_FILE);			\
+		$(SED) -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@'$$branch'/$(LOGO_PATH);' $(CHART_FILE);			\
 		# image.tag operator.image.tag preflight.image.tag hubble.relay.image.tag;					\
-		sed -i 's/tag: .*/tag: '$$cilium_version'/g' $(CILIUM_VALUES);							\
+		$(SED) -i 's/tag: .*/tag: '$$cilium_version'/g' $(CILIUM_VALUES);							\
 		# hubble.ui.frontend.image.tag;											\
-		sed -i '/repository.*hubble-ui$$/{!b;n;s/tag.*/tag: '$$hubble_version'/}' $(CILIUM_VALUES);			\
+		$(SED) -i '/repository.*hubble-ui$$/{!b;n;s/tag.*/tag: '$$hubble_version'/}' $(CILIUM_VALUES);			\
 		# hubble.ui.backend.image.tag;											\
-		sed -i '/repository.*hubble-ui-backend.*/{!b;n;s/tag.*/tag: '$$hubble_backend_version'/}' $(CILIUM_VALUES);	\
+		$(SED) -i '/repository.*hubble-ui-backend.*/{!b;n;s/tag.*/tag: '$$hubble_backend_version'/}' $(CILIUM_VALUES);	\
 		# etcd.image.tag												\
-		sed -i '/repository.*etcd-operator.*/{!b;n;s/tag.*/tag: '$(MANAGED_ETCD_VERSION)'/}' $(CILIUM_VALUES)		\
+		$(SED) -i '/repository.*etcd-operator.*/{!b;n;s/tag.*/tag: '$(MANAGED_ETCD_VERSION)'/}' $(CILIUM_VALUES)		\
 		# clustermesh.apiserver.etcd.image.tag										\
-		sed -i '/repository.*etcd$$/{!b;n;s/tag.*/tag: '$(ETCD_VERSION)'/}' $(CILIUM_VALUES)				\
+		$(SED) -i '/repository.*etcd$$/{!b;n;s/tag.*/tag: '$(ETCD_VERSION)'/}' $(CILIUM_VALUES)				\
 		# hubble.ui.proxy.image.tag											\
-		sed -i '/repository.*envoy.*/{!b;n;s/tag.*/tag: '$(HUBBLE_PROXY_VERSION)'/}' $(CILIUM_VALUES)			\
+		$(SED) -i '/repository.*envoy.*/{!b;n;s/tag.*/tag: '$(HUBBLE_PROXY_VERSION)'/}' $(CILIUM_VALUES)			\
 		# nodeinit.image.tag												\
-		sed -i '/repository.*cilium\/startup-script.*/{!b;n;s/tag.*/tag: '$(NODEINIT_VERSION)'/}' $(CILIUM_VALUES)	\
+		$(SED) -i '/repository.*cilium\/startup-script.*/{!b;n;s/tag.*/tag: '$(NODEINIT_VERSION)'/}' $(CILIUM_VALUES)	\
 		# certgen.image.tag												\
-		sed -i '/repository.*certgen.*/{!b;n;s/tag.*/tag: '$(CERTGEN_VERSION)'/}' $(CILIUM_VALUES);			\
-		sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 '$$pull_policy'/' $(CILIUM_VALUES);  					\
-		sed -i 's/useDigest:.*/useDigest: '$$use_digest'/' $(CILIUM_VALUES);  							\
+		$(SED) -i '/repository.*certgen.*/{!b;n;s/tag.*/tag: '$(CERTGEN_VERSION)'/}' $(CILIUM_VALUES);			\
+		$(SED) -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 '$$pull_policy'/' $(CILIUM_VALUES);  					\
+		$(SED) -i 's/useDigest:.*/useDigest: '$$use_digest'/' $(CILIUM_VALUES);  							\
 		# image digests;													\
-		sed -i '/# cilium-digest.*/{!b;n;s/digest.*/digest: "'$(CILIUM_DIGEST)'"/}' $(CILIUM_VALUES); 				\
-		sed -i '/# hubble-relay-digest.*/{!b;n;s/digest.*/digest: "'$(HUBBLE_RELAY_DIGEST)'"/}' $(CILIUM_VALUES);			\
-		sed -i '/# operator-aws-digest.*/{!b;n;s/awsDigest.*/awsDigest: "'$(OPERATOR_AWS_DIGEST)'"/}' $(CILIUM_VALUES);                 \
-		sed -i '/# operator-azure-digest.*/{!b;n;s/azureDigest.*/azureDigest: "'$(OPERATOR_AZURE_DIGEST)'"/}' $(CILIUM_VALUES);         \
-		sed -i '/# operator-alibabacloud-digest.*/{!b;n;s/alibabacloudDigest.*/alibabacloudDigest: "'$(OPERATOR_ALIBABACLOUD_DIGEST)'"/}' $(CILIUM_VALUES);         \
-		sed -i '/# operator-generic-digest.*/{!b;n;s/genericDigest.*/genericDigest: "'$(OPERATOR_GENERIC_DIGEST)'"/}' $(CILIUM_VALUES); \
-		sed -i '/# clustermesh-apiserver-digest.*/{!b;n;s/digest.*/digest: "'$(CLUSTERMESH_APISERVER_DIGEST)'"/}' $(CILIUM_VALUES)
+		$(SED) -i '/# cilium-digest.*/{!b;n;s/digest.*/digest: "'$(CILIUM_DIGEST)'"/}' $(CILIUM_VALUES); 				\
+		$(SED) -i '/# hubble-relay-digest.*/{!b;n;s/digest.*/digest: "'$(HUBBLE_RELAY_DIGEST)'"/}' $(CILIUM_VALUES);			\
+		$(SED) -i '/# operator-aws-digest.*/{!b;n;s/awsDigest.*/awsDigest: "'$(OPERATOR_AWS_DIGEST)'"/}' $(CILIUM_VALUES);                 \
+		$(SED) -i '/# operator-azure-digest.*/{!b;n;s/azureDigest.*/azureDigest: "'$(OPERATOR_AZURE_DIGEST)'"/}' $(CILIUM_VALUES);         \
+		$(SED) -i '/# operator-alibabacloud-digest.*/{!b;n;s/alibabacloudDigest.*/alibabacloudDigest: "'$(OPERATOR_ALIBABACLOUD_DIGEST)'"/}' $(CILIUM_VALUES);         \
+		$(SED) -i '/# operator-generic-digest.*/{!b;n;s/genericDigest.*/genericDigest: "'$(OPERATOR_GENERIC_DIGEST)'"/}' $(CILIUM_VALUES); \
+		$(SED) -i '/# clustermesh-apiserver-digest.*/{!b;n;s/digest.*/digest: "'$(CLUSTERMESH_APISERVER_DIGEST)'"/}' $(CILIUM_VALUES)
 
 CRDS = $(foreach path,$(patsubst %.yaml,%,$(shell find $(ROOT_DIR)/examples/crds/*/ -type f)),$(shell basename $(path)))
 lint:
