@@ -41,7 +41,7 @@ update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
 	@# Update chart versions to point to the current version.
 	$(QUIET)grep -lRZ -e "version:" -e "appVersion:" $(CILIUM_CHARTS)/ | \
-		xargs -0 -L 1 sed -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g';						\
+		xargs -L 1 sed -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g';						\
 		# Fix up the container image tags										\
 		cilium_version="v$(VERSION)";											\
 		branch="$$cilium_version";											\
