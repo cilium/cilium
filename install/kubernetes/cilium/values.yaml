@@ -694,6 +694,8 @@ hubble:
     enabled: true
     # -- Service Port for the Peer service.
     servicePort: 4254
+    # -- Target Port for the Peer service.
+    targetPort: 4244
     # -- The cluster domain to use to query the Hubble Peer service. It should
     # be the local cluster.
     clusterDomain: cluster.local

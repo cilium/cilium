@@ -705,6 +705,10 @@
      - Service Port for the Peer service.
      - int
      - ``4254``
+   * - hubble.peerService.targetPort
+     - Target Port for the Peer service.
+     - int
+     - ``4244``
    * - hubble.relay.affinity
      - Affinity for hubble-replay
      - object
