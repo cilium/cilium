@@ -1248,14 +1248,19 @@ lb4_select_backend_id(struct __ctx_buff *ctx,
 }
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u32
-lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
-		      struct lb4_key *key __maybe_unused,
+lb4_select_backend_id(struct __ctx_buff *ctx,
+		      struct lb4_key *key,
 		      const struct ipv4_ct_tuple *tuple,
 		      const struct lb4_service *svc)
 {
 	__u32 zero = 0, index = svc->rev_nat_index;
 	__u32 *backend_ids;
 	void *maglev_lut;
+
+	if (svc->count == 1) {
+		struct lb4_service *be = lb4_lookup_backend_slot(ctx, key, 1);
+		return be ? be->backend_id : 0;
+	}
 
 	maglev_lut = map_lookup_elem(&LB4_MAGLEV_MAP_OUTER, &index);
 	if (unlikely(!maglev_lut))
