@@ -432,6 +432,8 @@ Making Changes
 #. Run ``git diff --check`` to catch obvious white space violations
 #. Run ``make`` to build your changes. This will also run ``make lint`` and error out
    on any golang linting errors. The rules are configured in ``.golangci.yaml``
+#. Run ``make -C bpf checkpatch`` to validate against your changes
+   coding style and commit messages.
 #. See :ref:`integration_testing` on how to run integration tests.
 #. See :ref:`testsuite` for information how to run the end to end integration
    tests
