@@ -641,6 +641,10 @@
      - Service Port for the Peer service.
      - int
      - ``4254``
+   * - hubble.peerService.targetPort
+     - Target Port for the Peer service.
+     - int
+     - ``4244``
    * - hubble.relay.dialTimeout
      - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
      - string
