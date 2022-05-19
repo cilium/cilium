@@ -109,8 +109,7 @@ func (ipc *IPCache) InjectLabels(src source.Source) error {
 		return ErrLocalIdentityAllocatorUninitialized
 	}
 
-	if ipc.k8sSyncedChecker != nil &&
-		!ipc.k8sSyncedChecker.K8sCacheIsSynced() {
+	if ipc.k8sSyncedChecker == nil || !ipc.k8sSyncedChecker.K8sCacheIsSynced() {
 		return errors.New("k8s cache not fully synced")
 	}
 
