@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   # 
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -140,6 +140,7 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.name }} \
             --chart-directory=install/kubernetes/cilium \
+            --helm-set=debug.enabled=true \
             --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
