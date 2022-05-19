@@ -316,6 +316,12 @@ func (*k8sMetrics) Increment(_ context.Context, code string, method string, host
 	k8smetrics.LastInteraction.Reset()
 }
 
+// WaitForCacheSync blocks until the given resources have been synchronized from k8s.  Note that if
+// the controller for a resource has not been started, the wait for that resource returns
+// immediately. If it is required that the resource exists and is actually synchronized, the caller
+// must ensure the controller for that resource has been started before calling
+// WaitForCacheSync. For most resources this can be done by receiving from controllersStarted
+// channel (<-k.controllersStarted), which is closed after most watchers have been started.
 func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 	k.k8sResourceSynced.WaitForCacheSync(resourceNames...)
 }
