@@ -128,7 +128,7 @@
    * - clustermesh.apiserver.image
      - Clustermesh API server image.
      - object
-     - ``{"digest":"sha256:e13d41db3f5ee93d8b3abcaa10cc4005522bc797be3d69fc96ac5e03b60c7b11","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.10","useDigest":true}``
+     - ``{"digest":"sha256:ea07dd1c842befe9c5941a328497a47d41b2af47379527750e4b0f03af20532b","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.11","useDigest":true}``
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -597,6 +597,10 @@
      - Service Port for the Peer service.
      - int
      - ``4254``
+   * - hubble.peerService.targetPort
+     - Target Port for the Peer service.
+     - int
+     - ``4244``
    * - hubble.relay.dialTimeout
      - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
      - string
@@ -608,7 +612,7 @@
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
-     - ``{"digest":"sha256:a0769e44299bba301dee08d489f4e2d3b3924916bed985346dcf9fcf10861c8a","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.10","useDigest":true}``
+     - ``{"digest":"sha256:8f30fb40bd46be4d1bfb55eb91cff7d0f8958eeb486d6184b5495f6624cf6ff1","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.11","useDigest":true}``
    * - hubble.relay.listenHost
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -788,7 +792,7 @@
    * - image
      - Agent container image.
      - object
-     - ``{"digest":"sha256:83bfc1052543e8b1e31f06fa2b5bbd2bd41cc79f264010241fc1994e35281616","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.10","useDigest":true}``
+     - ``{"digest":"sha256:48e1a261046c2e534e370f960f0920233f9fd5ad4623aebdca0e403264a06202","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.11","useDigest":true}``
    * - imagePullSecrets
      - Configure image pull secrets for pulling container images
      - string
@@ -1024,7 +1028,7 @@
    * - operator.image
      - cilium-operator image.
      - object
-     - ``{"alibabacloudDigest":"sha256:6154fcc069700cca6754cff0ee7bf6990bbf4a2865076b5358cb0c70c0043d52","awsDigest":"sha256:9bc04377606cb57c16f699a5b34dcdd6b6ffc1c4f43f5e6da81015fc16c10edc","azureDigest":"sha256:6973d45f7255c1791c0502339675a42105b8cbeca1a98634362623433674efe1","genericDigest":"sha256:8a317287b6ac8fe0ba4999342c9627dc913e0c1591552164f96d0aadf5d1a740","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.10","useDigest":true}``
+     - ``{"alibabacloudDigest":"sha256:83e18445ef3285317ed712514966cda8213722f548bea5ded61ad3446067b94b","awsDigest":"sha256:aed283cb4932fec07746c09770b7a9ec959aab6d5051dfdd3449c9d7d9be2a33","azureDigest":"sha256:1acea544097ede5f120d190309b46c1ea62da5fa6c61203945073d86a7891203","genericDigest":"sha256:468ce59342298f1cf87ca8512cd9192754e83348b347a4bc7c27158ef9c4a37d","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.11","useDigest":true}``
    * - operator.nodeGCInterval
      - Interval for cilium node garbage collection.
      - string
@@ -1156,7 +1160,7 @@
    * - preflight.image
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"sha256:83bfc1052543e8b1e31f06fa2b5bbd2bd41cc79f264010241fc1994e35281616","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.10","useDigest":true}``
+     - ``{"digest":"sha256:48e1a261046c2e534e370f960f0920233f9fd5ad4623aebdca0e403264a06202","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.11","useDigest":true}``
    * - preflight.nodeSelector
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
