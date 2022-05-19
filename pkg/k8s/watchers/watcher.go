@@ -406,8 +406,7 @@ func (k *K8sWatcher) resourceGroups() []string {
 		if !ok {
 			log.Fatalf("Unknown resource %s. Please update pkg/k8s/watchers to understand this type.", r)
 		}
-		if group == "SKIP" ||
-			group == k8sAPIGroupCiliumEndpointV2 && option.Config.DisableCiliumEndpointCRD {
+		if group == "SKIP" {
 			continue
 		}
 		ciliumGroups = append(ciliumGroups, group)
