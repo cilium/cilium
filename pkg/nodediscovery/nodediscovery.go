@@ -71,7 +71,7 @@ type NodeDiscovery struct {
 	LocalConfig           datapath.LocalNodeConfiguration
 	Registrar             nodestore.NodeRegistrar
 	Registered            chan struct{}
-	LocalStateInitialized chan struct{}
+	localStateInitialized chan struct{}
 	NetConf               *cnitypes.NetConf
 	k8sNodeGetter         k8sNodeGetter
 	localNodeLock         lock.Mutex
@@ -127,7 +127,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 			Source: source.Local,
 		},
 		Registered:            make(chan struct{}),
-		LocalStateInitialized: make(chan struct{}),
+		localStateInitialized: make(chan struct{}),
 		NetConf:               netConf,
 	}
 }
@@ -206,9 +206,16 @@ func (n *NodeDiscovery) StartDiscovery() {
 	}()
 
 	n.Manager.NodeUpdated(n.localNode)
-	close(n.LocalStateInitialized)
+	close(n.localStateInitialized)
 
 	n.updateLocalNode()
+}
+
+// WaitForLocalNodeInit blocks until StartDiscovery() has been called.  This is used to block until
+// Node's local IP addresses have been allocated, see https://github.com/cilium/cilium/pull/14299
+// and https://github.com/cilium/cilium/pull/14670.
+func (n *NodeDiscovery) WaitForLocalNodeInit() {
+	<-n.localStateInitialized
 }
 
 func (n *NodeDiscovery) fillLocalNode() {
