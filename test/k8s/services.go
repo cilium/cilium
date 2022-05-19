@@ -106,7 +106,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		// This is testing bpf_lxc LB (= KPR=disabled) when both client and
 		// server are running on the same node. Thus, skipping when running with
 		// KPR.
-		SkipItIf(helpers.RunsWithKubeProxyReplacement, "Checks service on same node", func() {
+		// See https://github.com/cilium/cilium/issues/19787
+		SkipItIf(func() bool {
+			return helpers.RunsWithKubeProxyReplacement() || helpers.SkipQuarantined()
+		}, "Checks service on same node", func() {
 			serviceNames := []string{appServiceName}
 			if helpers.DualStackSupported() {
 				serviceNames = append(serviceNames, appServiceNameIPv6)
@@ -329,7 +332,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			})
 		})
 
-		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "Tests NodePort inside cluster (kube-proxy)", func() {
+		// See https://github.com/cilium/cilium/issues/19787
+		SkipContextIf(func() bool {
+			return helpers.RunsWithKubeProxyReplacement() || helpers.SkipQuarantined()
+		}, "Tests NodePort inside cluster (kube-proxy)", func() {
 			SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "with IPSec and externalTrafficPolicy=Local", func() {
 				deploymentManager.SetKubectl(kubectl)
 				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
@@ -438,7 +444,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			})
 		})
 
-		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "with L4 policy", func() {
+		// See https://github.com/cilium/cilium/issues/19787
+		SkipContextIf(func() bool {
+			return helpers.RunsWithKubeProxyReplacement() || helpers.SkipQuarantined()
+		}, "with L4 policy", func() {
 			var (
 				demoPolicy string
 			)
@@ -470,7 +479,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			})
 		})
 
-		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "with L7 policy", func() {
+		// See https://github.com/cilium/cilium/issues/19787
+		SkipContextIf(func() bool {
+			return helpers.RunsWithKubeProxyReplacement() || helpers.SkipQuarantined()
+		}, "with L7 policy", func() {
 			var demoPolicyL7 string
 
 			BeforeAll(func() {
