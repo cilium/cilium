@@ -90,8 +90,7 @@ func InjectLabels(src source.Source, updater identityUpdater, triggerer policyTr
 		return ErrLocalIdentityAllocatorUninitialized
 	}
 
-	if IPIdentityCache.k8sSyncedChecker != nil &&
-		!IPIdentityCache.k8sSyncedChecker.K8sCacheIsSynced() {
+	if IPIdentityCache.k8sSyncedChecker == nil || !IPIdentityCache.k8sSyncedChecker.K8sCacheIsSynced() {
 		return errors.New("k8s cache not fully synced")
 	}
 
