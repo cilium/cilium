@@ -84,7 +84,7 @@ var _ = SkipDescribeIf(func() bool {
 		k8s2Name, k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
 		outsideName, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 
-		egressIP = getEgressIP(k8s1IP)
+		egressIP = getEgressIP(k8s2IP)
 
 		deploymentManager.SetKubectl(kubectl)
 
