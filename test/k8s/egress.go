@@ -31,10 +31,11 @@ var _ = SkipDescribeIf(func() bool {
 		ciliumFilename  string
 		randomNamespace string
 
-		egressIP  string
-		k8s1IP    string
-		k8s2IP    string
-		outsideIP string
+		egressIP    string
+		k8s1IP      string
+		k8s2IP      string
+		outsideIP   string
+		gatewayNode string
 
 		assignIPYAML string
 		echoPodYAML  string
@@ -55,13 +56,15 @@ var _ = SkipDescribeIf(func() bool {
 	}
 
 	assignEgressIP := func() {
-		// Assign egress IP address to k8s2
+		// Assign egress IP address to gateway node
 		originalAssignIPYAML := helpers.ManifestGet(kubectl.BasePath(), "egress-ip-deployment.yaml")
 		res := kubectl.ExecMiddle("mktemp")
 		res.ExpectSuccess()
 		assignIPYAML = strings.Trim(res.Stdout(), "\n")
 		kubectl.ExecMiddle(fmt.Sprintf("sed 's/INPUT_EGRESS_IP/%s/' %s > %s",
 			egressIP, originalAssignIPYAML, assignIPYAML)).ExpectSuccess()
+		kubectl.ExecMiddle(fmt.Sprintf("sed 's/INPUT_GATEWAY_NODE/%s/' -i %s",
+			gatewayNode, assignIPYAML)).ExpectSuccess()
 		res = kubectl.ApplyDefault(assignIPYAML)
 		Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", assignIPYAML)
 		Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=egress-ip-assign",
@@ -82,6 +85,7 @@ var _ = SkipDescribeIf(func() bool {
 		_, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 
 		egressIP = getEgressIP(k8s2IP)
+		gatewayNode = helpers.K8s2
 
 		deploymentManager.SetKubectl(kubectl)
 
@@ -219,6 +223,8 @@ var _ = SkipDescribeIf(func() bool {
 			egressIP, originalPolicyYAML, policyYAML)).ExpectSuccess()
 		kubectl.ExecMiddle(fmt.Sprintf("sed 's/INPUT_OUTSIDE_NODE_IP/%s/' -i %s",
 			outsideIP, policyYAML)).ExpectSuccess()
+		kubectl.ExecMiddle(fmt.Sprintf("sed 's/INPUT_GATEWAY_NODE/%s/' -i %s",
+			gatewayNode, policyYAML)).ExpectSuccess()
 		res = kubectl.ApplyDefault(policyYAML)
 		Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", policyYAML)
 	}

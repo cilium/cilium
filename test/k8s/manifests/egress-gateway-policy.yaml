@@ -15,7 +15,7 @@ spec:
   egressGateway:
     nodeSelector:
       matchLabels:
-        cilium.io/ci-node: k8s2
+        cilium.io/ci-node: "INPUT_GATEWAY_NODE"
     egressIP: INPUT_EGRESS_IP
 ---
 apiVersion: cilium.io/v2
@@ -37,7 +37,7 @@ spec:
   egressGateway:
     nodeSelector:
       matchLabels:
-        cilium.io/ci-node: k8s2
+        cilium.io/ci-node: "INPUT_GATEWAY_NODE"
     egressIP: 192.0.2.13 # It's a black hole, https://datatracker.ietf.org/doc/html/rfc5737#section-3
 ---
 # egress-testds is a policy matching all traffic (i.e. destination CIDR
@@ -60,7 +60,7 @@ spec:
   egressGateway:
     nodeSelector:
       matchLabels:
-        cilium.io/ci-node: k8s2
+        cilium.io/ci-node: "INPUT_GATEWAY_NODE"
     egressIP: INPUT_EGRESS_IP
 ---
 apiVersion: cilium.io/v2alpha1

@@ -14,9 +14,9 @@ spec:
       labels:
         name: "egress-ip-assign"
     spec:
-      # Pin it on k8s2 so it becomes the gateway node
+      # Pin it on the gateway node
       nodeSelector:
-        cilium.io/ci-node: k8s2
+        cilium.io/ci-node: "INPUT_GATEWAY_NODE"
       hostNetwork: true
       containers:
       - name: egress-ip
