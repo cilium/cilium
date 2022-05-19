@@ -100,7 +100,7 @@ pipeline {
                         }
                     }
                 }
-                stage ("Select cluster and scale it"){
+                stage ("Create cluster"){
                     options {
                         timeout(time: 20, unit: 'MINUTES')
                     }
@@ -109,11 +109,8 @@ pipeline {
                     }
                     steps {
                         dir("${TESTDIR}/gke") {
-                            retry(3){
-                                sh './release-cluster.sh || true'
-                                sh './select-cluster.sh'
-                            }
                             script {
+                                sh './create-cluster.sh "' + currentBuild.fullProjectName.toLowerCase() + '-' + currentBuild.id + '"'
                                 def name = readFile file: 'cluster-name'
                                 currentBuild.displayName = currentBuild.displayName + " running on " + name
                             }
@@ -123,7 +120,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'Scaling cluster failed\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'cluster creation failed\n' + currentBuild.displayName
                                 }
                             }
                         }
