@@ -345,6 +345,38 @@ func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
 	return synced.SyncCRDs(ctx, synced.AgentCRDResourceNames(), &k.k8sResourceSynced, &k.k8sAPIGroups)
 }
 
+type watcherKind int
+
+const (
+	// skip causes watcher to not be started.
+	skip watcherKind = iota
+
+	// start causes watcher to be started as soon as possible.
+	start
+)
+
+type watcherInfo struct {
+	kind  watcherKind
+	group string
+}
+
+var ciliumResourceToGroupMapping = map[string]watcherInfo{
+	synced.CRDResourceName(v2.CNPName):           {start, k8sAPIGroupCiliumNetworkPolicyV2},
+	synced.CRDResourceName(v2.CCNPName):          {start, k8sAPIGroupCiliumClusterwideNetworkPolicyV2},
+	synced.CRDResourceName(v2.CEPName):           {start, k8sAPIGroupCiliumEndpointV2}, // ipcache
+	synced.CRDResourceName(v2.CNName):            {start, k8sAPIGroupCiliumNodeV2},
+	synced.CRDResourceName(v2.CIDName):           {skip, ""}, // Handled in pkg/k8s/identitybackend/
+	synced.CRDResourceName(v2.CLRPName):          {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
+	synced.CRDResourceName(v2.CEWName):           {skip, ""}, // Handled in clustermesh-apiserver/
+	synced.CRDResourceName(v2.CEGPName):          {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
+	synced.CRDResourceName(v2alpha1.CENPName):    {start, k8sAPIGroupCiliumEgressNATPolicyV2},
+	synced.CRDResourceName(v2alpha1.CESName):     {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
+	synced.CRDResourceName(v2.CCECName):          {start, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
+	synced.CRDResourceName(v2.CECName):           {start, k8sAPIGroupCiliumEnvoyConfigV2},
+	synced.CRDResourceName(v2alpha1.BGPPName):    {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPPoolName): {skip, ""}, // Handled in BGP control plane
+}
+
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
 // which the Cilium agent watches to implement CNI functionality.
 func (k *K8sWatcher) resourceGroups() []string {
@@ -382,34 +414,17 @@ func (k *K8sWatcher) resourceGroups() []string {
 		k8sGroups = append(k8sGroups, K8sAPIGroupEndpointSliceV1Discovery)
 	}
 	k8sGroups = append(k8sGroups, K8sAPIGroupEndpointV1Core)
-
-	resourceToGroupMapping := map[string]string{
-		synced.CRDResourceName(v2.CNPName):           k8sAPIGroupCiliumNetworkPolicyV2,
-		synced.CRDResourceName(v2.CCNPName):          k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
-		synced.CRDResourceName(v2.CEPName):           k8sAPIGroupCiliumEndpointV2, // ipcache
-		synced.CRDResourceName(v2.CNName):            k8sAPIGroupCiliumNodeV2,
-		synced.CRDResourceName(v2.CIDName):           "SKIP", // Handled in pkg/k8s/identitybackend/
-		synced.CRDResourceName(v2.CLRPName):          k8sAPIGroupCiliumLocalRedirectPolicyV2,
-		synced.CRDResourceName(v2.CEWName):           "SKIP", // Handled in clustermesh-apiserver/
-		synced.CRDResourceName(v2.CEGPName):          k8sAPIGroupCiliumEgressGatewayPolicyV2,
-		synced.CRDResourceName(v2alpha1.CENPName):    k8sAPIGroupCiliumEgressNATPolicyV2,
-		synced.CRDResourceName(v2alpha1.CESName):     k8sAPIGroupCiliumEndpointSliceV2Alpha1,
-		synced.CRDResourceName(v2.CCECName):          k8sAPIGroupCiliumClusterwideEnvoyConfigV2,
-		synced.CRDResourceName(v2.CECName):           k8sAPIGroupCiliumEnvoyConfigV2,
-		synced.CRDResourceName(v2alpha1.BGPPName):    "SKIP", // Handled in BGP control plane
-		synced.CRDResourceName(v2alpha1.BGPPoolName): "SKIP", // Handled in BGP control plane
-	}
 	ciliumResources := synced.AgentCRDResourceNames()
 	ciliumGroups := make([]string, 0, len(ciliumResources))
 	for _, r := range ciliumResources {
-		group, ok := resourceToGroupMapping[r]
+		groupInfo, ok := ciliumResourceToGroupMapping[r]
 		if !ok {
 			log.Fatalf("Unknown resource %s. Please update pkg/k8s/watchers to understand this type.", r)
 		}
-		if group == "SKIP" {
+		if groupInfo.kind == skip {
 			continue
 		}
-		ciliumGroups = append(ciliumGroups, group)
+		ciliumGroups = append(ciliumGroups, groupInfo.group)
 	}
 
 	return append(k8sGroups, ciliumGroups...)
