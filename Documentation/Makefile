@@ -115,7 +115,7 @@ run-server: stop-server
 stop-server:
 	-$(QUIET)$(CONTAINER_ENGINE) container rm --force --volumes docs-cilium 2>/dev/null
 
-live-preview: stop-server
+live-preview: stop-server builder-image
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
 	$(QUIET)$(DOCKER_CTR) \
 		--publish $(DOCS_PORT):8000 \
