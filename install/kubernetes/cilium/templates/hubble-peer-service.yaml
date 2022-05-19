@@ -1,4 +1,4 @@
-{{- if and .Values.agent .Values.hubble.enabled .Values.hubble.listenAddress .Values.hubble.peerService.enabled }}
+{{- if and .Values.agent .Values.hubble.enabled .Values.hubble.peerService.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -17,7 +17,7 @@ spec:
     port: {{ .Values.hubble.tls.enabled | ternary 443 80 }}
     {{- end }}
     protocol: TCP
-    targetPort: {{ splitList ":" .Values.hubble.listenAddress | last }}
+    targetPort: {{ .Values.hubble.peerService.targetPort }}
 {{- if semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion }}
   internalTrafficPolicy: Local
 {{- end }}
