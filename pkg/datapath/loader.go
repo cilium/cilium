@@ -55,7 +55,7 @@ type PreFilter interface {
 // Proxy is any type which installs rules related to redirecting traffic to
 // a proxy.
 type Proxy interface {
-	ReinstallRules()
+	ReinstallRules() error
 }
 
 // IptablesManager manages iptables rules.

@@ -60,27 +60,27 @@ func (ipt *mockIptables) getVersion() (semver.Version, error) {
 	return semver.Version{}, nil
 }
 
-func (ipt *mockIptables) runProgCombinedOutput(args []string, quiet bool) (out []byte, err error) {
+func (ipt *mockIptables) runProgCombinedOutput(args []string) (out string, err error) {
 	a := strings.Join(args, " ")
 	i := ipt.index
 	ipt.index++
 
 	if len(ipt.expectations) < ipt.index {
 		ipt.c.Errorf("%d: Unexpected %s %s", i, ipt.prog, a)
-		return nil, fmt.Errorf("Unexpected %s %s", ipt.prog, a)
+		return "", fmt.Errorf("Unexpected %s %s", ipt.prog, a)
 	}
 	if a != ipt.expectations[i].args {
 		ipt.c.Errorf("%d: Unexpected %s (%q != %q)", i, ipt.prog, a, ipt.expectations[i].args)
-		return nil, fmt.Errorf("Unexpected %s %s", ipt.prog, a)
+		return "", fmt.Errorf("Unexpected %s %s", ipt.prog, a)
 	}
-	out = ipt.expectations[i].out
+	out = string(ipt.expectations[i].out)
 	err = ipt.expectations[i].err
 
 	return out, err
 }
 
-func (ipt *mockIptables) runProg(args []string, quiet bool) error {
-	out, err := ipt.runProgCombinedOutput(args, quiet)
+func (ipt *mockIptables) runProg(args []string) error {
+	out, err := ipt.runProgCombinedOutput(args)
 	if len(out) > 0 {
 		ipt.c.Errorf("%d: Unexpected output for %s %s", ipt.index-1, ipt.prog, strings.Join(args, " "))
 	}
@@ -114,6 +114,9 @@ func (s *iptablesTestSuite) TestRenameCustomChain(c *check.C) {
 	mockIp4tables := &mockIptables{c: c, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
+			args: "-t mangle -L CILIUM_PRE_mangle",
+		},
+		{
 			args: "-t mangle -E CILIUM_PRE_mangle OLD_CILIUM_PRE_mangle",
 		},
 	}
@@ -121,13 +124,13 @@ func (s *iptablesTestSuite) TestRenameCustomChain(c *check.C) {
 		table: "mangle",
 		name:  "CILIUM_PRE_mangle",
 	}
-	chain.doRename(mockIp4tables, "OLD_CILIUM_PRE_mangle", false)
+	chain.doRename(mockIp4tables, "OLD_CILIUM_PRE_mangle")
 	err := mockIp4tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 
 	mockIp6tables := &mockIptables{c: c, prog: "ip6tables"}
 	mockIp6tables.expectations = mockIp4tables.expectations
-	chain.doRename(mockIp6tables, "OLD_CILIUM_PRE_mangle", false)
+	chain.doRename(mockIp6tables, "OLD_CILIUM_PRE_mangle")
 	err = mockIp6tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 }
