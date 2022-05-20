@@ -10,8 +10,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-
-	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -107,18 +105,18 @@ func (e ErrMulti) Error() string {
 	return s.String()
 }
 
-// NewAnnotationMap parses a Kubernetes v1.Node object's annotations field into
-// a AnnotationMap and returns the latter.
+// NewAnnotationMap parses a Node's annotations into a AnnotationMap
+// and returns the latter.
 //
 // An error is returned containing one or more parsing errors.
 //
 // This is for convenience so the caller can log all parsing errors at once.
 // The error should still be treated as a normal descrete error and an empty
 // AnnotationMap is returned.
-func NewAnnotationMap(n *v1.Node) (AnnotationMap, error) {
+func NewAnnotationMap(a map[string]string) (AnnotationMap, error) {
 	am := AnnotationMap{}
-	errs := make([]error, 0, len(n.Annotations))
-	for key, value := range n.Annotations {
+	errs := make([]error, 0, len(a))
+	for key, value := range a {
 		asn, attrs, err := parseAnnotation(key, value)
 		if err != nil && !errors.As(err, &ErrNotVRouterAnno{}) {
 			errs = append(errs, err)

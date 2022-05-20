@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -417,12 +416,8 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
 			newcstate := agent.ControlPlaneState{
-				IPv4: net.ParseIP("127.0.0.1"),
-				Node: &v1.Node{
-					Spec: v1.NodeSpec{
-						PodCIDRs: tt.updated,
-					},
-				},
+				PodCIDRs: tt.updated,
+				IPv4:     net.ParseIP("127.0.0.1"),
 			}
 
 			err = exportPodCIDRReconciler(context.Background(), nil, testSC, newc, &newcstate)
