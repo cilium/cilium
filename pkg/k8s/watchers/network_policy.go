@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
 
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
@@ -91,6 +92,11 @@ func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolic
 	opts := policy.AddOptions{
 		Replace: true,
 		Source:  source.Kubernetes,
+		Resource: ipcacheTypes.NewResourceID(
+			ipcacheTypes.ResourceKindNetpol,
+			k8sNP.ObjectMeta.Namespace,
+			k8sNP.ObjectMeta.Name,
+		),
 	}
 	if _, err := k.policyManager.PolicyAdd(rules, &opts); err != nil {
 		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
@@ -133,6 +139,11 @@ func (k *K8sWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 	})
 	if _, err := k.policyManager.PolicyDelete(labels, &policy.DeleteOptions{
 		Source: source.Kubernetes,
+		Resource: ipcacheTypes.NewResourceID(
+			ipcacheTypes.ResourceKindNetpol,
+			k8sNP.ObjectMeta.Namespace,
+			k8sNP.ObjectMeta.Name,
+		),
 	}); err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")

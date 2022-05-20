@@ -10,6 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -104,7 +105,16 @@ func (k *K8sWatcher) updateCIDRGroupRefPolicies(
 		translatedCNP := resolveCIDRGroupRef(cnpCpy, cidrGroupCache)
 		metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
-		err := k.updateCiliumNetworkPolicyV2(cs, cnpCpy, translatedCNP, initialRecvTime)
+		resourceKind := ipcacheTypes.ResourceKindCNP
+		if len(key.Namespace) == 0 {
+			resourceKind = ipcacheTypes.ResourceKindCCNP
+		}
+		resourceID := ipcacheTypes.NewResourceID(
+			resourceKind,
+			cnpCpy.ObjectMeta.Namespace,
+			cnpCpy.ObjectMeta.Name,
+		)
+		err := k.updateCiliumNetworkPolicyV2(cs, cnpCpy, translatedCNP, initialRecvTime, resourceID)
 		if err == nil {
 			cnpCache[key] = cnpCpy
 		}

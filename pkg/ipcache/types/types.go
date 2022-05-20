@@ -38,9 +38,12 @@ type ResourceID string
 type ResourceKind string
 
 var (
+	ResourceKindCNP                  = ResourceKind("cnp")
+	ResourceKindCCNP                 = ResourceKind("ccnp")
 	ResourceKindEndpoint             = ResourceKind("ep")
 	ResourceKindEndpointSlice        = ResourceKind("endpointslices")
 	ResourceKindEndpointSlicev1beta1 = ResourceKind("endpointslices_v1beta1")
+	ResourceKindNetpol               = ResourceKind("netpol")
 	ResourceKindNode                 = ResourceKind("node")
 )
 
