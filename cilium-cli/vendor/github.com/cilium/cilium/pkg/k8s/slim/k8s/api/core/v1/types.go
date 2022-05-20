@@ -69,7 +69,7 @@ type Container struct {
 	// Each container in a pod must have a unique name (DNS_LABEL).
 	// Cannot be updated.
 	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
-	// Docker image name.
+	// Container image name.
 	// More info: https://kubernetes.io/docs/concepts/containers/images
 	// This field is optional to allow higher level config management to default or override
 	// container images in workload controllers like Deployments and StatefulSets.
@@ -135,10 +135,9 @@ const (
 )
 
 // PodConditionType is a valid value for PodCondition.Type
-// +enum
 type PodConditionType string
 
-// These are valid conditions of pod.
+// These are built-in conditions of pod. An application may use a custom condition not listed here.
 const (
 	// ContainersReady indicates whether all containers in the pod are ready.
 	ContainersReady PodConditionType = "ContainersReady"
@@ -581,11 +580,14 @@ type ServiceSpec struct {
 	// +optional
 	SessionAffinity ServiceAffinity `json:"sessionAffinity,omitempty" protobuf:"bytes,7,opt,name=sessionAffinity,casttype=ServiceAffinity"`
 
-	// Only applies to Service Type: LoadBalancer
-	// LoadBalancer will get created with the IP specified in this field.
+	// Only applies to Service Type: LoadBalancer.
 	// This feature depends on whether the underlying cloud-provider supports specifying
 	// the loadBalancerIP when a load balancer is created.
 	// This field will be ignored if the cloud-provider does not support the feature.
+	// Deprecated: This field was under-specified and its meaning varies across implementations,
+	// and it cannot support dual-stack.
+	// As of Kubernetes v1.24, users are encouraged to use implementation-specific annotations when available.
+	// This field may be removed in a future API version.
 	// +optional
 	LoadBalancerIP string `json:"loadBalancerIP,omitempty" protobuf:"bytes,8,opt,name=loadBalancerIP"`
 
@@ -901,7 +903,7 @@ type NodeCondition struct {
 // +enum
 type NodeAddressType string
 
-// These are valid address type of node.
+// These are built-in addresses type of node. A cloud provider may set a type not listed here.
 const (
 	// NodeHostName identifies a name of the node. Although every node can be assumed
 	// to have a NodeAddress of this type, its exact syntax and semantics are not
@@ -1021,53 +1023,18 @@ type NamespaceList struct {
 	Items []Namespace `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// A list of ephemeral containers used with the Pod ephemeralcontainers subresource.
-type EphemeralContainers struct {
-	slim_metav1.TypeMeta `json:",inline"`
-	// +optional
-	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-}
-
 // TypedLocalObjectReference contains enough information to let you locate the
 // typed referenced object inside the same namespace.
 type TypedLocalObjectReference struct {
 	// APIGroup is the group for the resource being referenced.
 	// If APIGroup is not specified, the specified Kind must be in the core API group.
 	// For any other third-party types, APIGroup is required.
-	// +optional
 	APIGroup *string `json:"apiGroup" protobuf:"bytes,1,opt,name=apiGroup"`
 	// Kind is the type of resource being referenced
 	Kind string `json:"kind" protobuf:"bytes,2,opt,name=kind"`
 	// Name is the name of resource being referenced
 	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
 }
-
-// PortStatus represents the error condition of a service port
-
-type PortStatus struct {
-	// Port is the port number of the service port of which status is recorded here
-	Port int32 `json:"port" protobuf:"varint,1,opt,name=port"`
-	// Protocol is the protocol of the service port of which status is recorded here
-	// The supported values are: "TCP", "UDP", "SCTP"
-	Protocol Protocol `json:"protocol" protobuf:"bytes,2,opt,name=protocol,casttype=Protocol"`
-	// Error is to record the problem with the service port
-	// The format of the error shall comply with the following rules:
-	// - built-in error values shall be specified in this file and those shall use
-	//   CamelCase names
-	// - cloud provider specific error values must have names that comply with the
-	//   format foo.example.com/CamelCase.
-	// ---
-	// The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
-	// +optional
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$`
-	// +kubebuilder:validation:MaxLength=316
-	Error *string `json:"error,omitempty" protobuf:"bytes,3,opt,name=error"`
-}
-
-type SecretType string
 
 // Bytes type is used to avoid issue with deepequal
 // deepequal.go:607 Hit an unsupported type []byte for map[string][]byte, from map[string][]byte
@@ -1079,7 +1046,10 @@ type Bytes []byte
 // Secret holds secret data of a certain type. The total bytes of the values in
 // the Data field must be less than MaxSecretSize bytes.
 type Secret struct {
-	slim_metav1.TypeMeta   `json:",inline"`
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
 	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Immutable, if set to true, ensures that data stored in the Secret cannot
@@ -1110,14 +1080,127 @@ type Secret struct {
 	Type SecretType `json:"type,omitempty" protobuf:"bytes,3,opt,name=type,casttype=SecretType"`
 }
 
+const MaxSecretSize = 1 * 1024 * 1024
+
+type SecretType string
+
+const (
+	// SecretTypeOpaque is the default. Arbitrary user-defined data
+	SecretTypeOpaque SecretType = "Opaque"
+
+	// SecretTypeServiceAccountToken contains a token that identifies a service account to the API
+	//
+	// Required fields:
+	// - Secret.Annotations["kubernetes.io/service-account.name"] - the name of the ServiceAccount the token identifies
+	// - Secret.Annotations["kubernetes.io/service-account.uid"] - the UID of the ServiceAccount the token identifies
+	// - Secret.Data["token"] - a token that identifies the service account to the API
+	SecretTypeServiceAccountToken SecretType = "kubernetes.io/service-account-token"
+
+	// ServiceAccountNameKey is the key of the required annotation for SecretTypeServiceAccountToken secrets
+	ServiceAccountNameKey = "kubernetes.io/service-account.name"
+	// ServiceAccountUIDKey is the key of the required annotation for SecretTypeServiceAccountToken secrets
+	ServiceAccountUIDKey = "kubernetes.io/service-account.uid"
+	// ServiceAccountTokenKey is the key of the required data for SecretTypeServiceAccountToken secrets
+	ServiceAccountTokenKey = "token"
+	// ServiceAccountKubeconfigKey is the key of the optional kubeconfig data for SecretTypeServiceAccountToken secrets
+	ServiceAccountKubeconfigKey = "kubernetes.kubeconfig"
+	// ServiceAccountRootCAKey is the key of the optional root certificate authority for SecretTypeServiceAccountToken secrets
+	ServiceAccountRootCAKey = "ca.crt"
+	// ServiceAccountNamespaceKey is the key of the optional namespace to use as the default for namespaced API calls
+	ServiceAccountNamespaceKey = "namespace"
+
+	// SecretTypeDockercfg contains a dockercfg file that follows the same format rules as ~/.dockercfg
+	//
+	// Required fields:
+	// - Secret.Data[".dockercfg"] - a serialized ~/.dockercfg file
+	SecretTypeDockercfg SecretType = "kubernetes.io/dockercfg"
+
+	// DockerConfigKey is the key of the required data for SecretTypeDockercfg secrets
+	DockerConfigKey = ".dockercfg"
+
+	// SecretTypeDockerConfigJson contains a dockercfg file that follows the same format rules as ~/.docker/config.json
+	//
+	// Required fields:
+	// - Secret.Data[".dockerconfigjson"] - a serialized ~/.docker/config.json file
+	SecretTypeDockerConfigJson SecretType = "kubernetes.io/dockerconfigjson"
+
+	// DockerConfigJsonKey is the key of the required data for SecretTypeDockerConfigJson secrets
+	DockerConfigJsonKey = ".dockerconfigjson"
+
+	// SecretTypeBasicAuth contains data needed for basic authentication.
+	//
+	// Required at least one of fields:
+	// - Secret.Data["username"] - username used for authentication
+	// - Secret.Data["password"] - password or token needed for authentication
+	SecretTypeBasicAuth SecretType = "kubernetes.io/basic-auth"
+
+	// BasicAuthUsernameKey is the key of the username for SecretTypeBasicAuth secrets
+	BasicAuthUsernameKey = "username"
+	// BasicAuthPasswordKey is the key of the password or token for SecretTypeBasicAuth secrets
+	BasicAuthPasswordKey = "password"
+
+	// SecretTypeSSHAuth contains data needed for SSH authetication.
+	//
+	// Required field:
+	// - Secret.Data["ssh-privatekey"] - private SSH key needed for authentication
+	SecretTypeSSHAuth SecretType = "kubernetes.io/ssh-auth"
+
+	// SSHAuthPrivateKey is the key of the required SSH private key for SecretTypeSSHAuth secrets
+	SSHAuthPrivateKey = "ssh-privatekey"
+	// SecretTypeTLS contains information about a TLS client or server secret. It
+	// is primarily used with TLS termination of the Ingress resource, but may be
+	// used in other types.
+	//
+	// Required fields:
+	// - Secret.Data["tls.key"] - TLS private key.
+	//   Secret.Data["tls.crt"] - TLS certificate.
+	// TODO: Consider supporting different formats, specifying CA/destinationCA.
+	SecretTypeTLS SecretType = "kubernetes.io/tls"
+
+	// TLSCertKey is the key for tls certificates in a TLS secret.
+	TLSCertKey = "tls.crt"
+	// TLSPrivateKeyKey is the key for the private key field in a TLS secret.
+	TLSPrivateKeyKey = "tls.key"
+	// SecretTypeBootstrapToken is used during the automated bootstrap process (first
+	// implemented by kubeadm). It stores tokens that are used to sign well known
+	// ConfigMaps. They are used for authn.
+	SecretTypeBootstrapToken SecretType = "bootstrap.kubernetes.io/token"
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SecretList is a list of Secret.
 type SecretList struct {
 	slim_metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
 	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Items is a list of secret objects.
 	// More info: https://kubernetes.io/docs/concepts/configuration/secret
 	Items []Secret `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+// PortStatus represents the error condition of a service port
+
+type PortStatus struct {
+	// Port is the port number of the service port of which status is recorded here
+	Port int32 `json:"port" protobuf:"varint,1,opt,name=port"`
+	// Protocol is the protocol of the service port of which status is recorded here
+	// The supported values are: "TCP", "UDP", "SCTP"
+	Protocol Protocol `json:"protocol" protobuf:"bytes,2,opt,name=protocol,casttype=Protocol"`
+	// Error is to record the problem with the service port
+	// The format of the error shall comply with the following rules:
+	// - built-in error values shall be specified in this file and those shall use
+	//   CamelCase names
+	// - cloud provider specific error values must have names that comply with the
+	//   format foo.example.com/CamelCase.
+	// ---
+	// The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+	// +optional
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$`
+	// +kubebuilder:validation:MaxLength=316
+	Error *string `json:"error,omitempty" protobuf:"bytes,3,opt,name=error"`
 }
