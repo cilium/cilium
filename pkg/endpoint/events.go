@@ -19,7 +19,6 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bandwidth"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -170,21 +169,21 @@ func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
 		log.Debug("Updating NOTRACK rules")
 		if e.IPv4.IsSet() {
 			if port > 0 {
-				err = iptables.InstallNoTrackRules(e.IPv4.String(), port, false)
+				err = e.owner.Datapath().InstallNoTrackRules(e.IPv4.String(), port, false)
 				log.Warnf("Error installing iptable NOTRACK rules %s", err)
 			}
 			if e.noTrackPort > 0 {
-				err = iptables.RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false)
+				err = e.owner.Datapath().RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false)
 				log.Warnf("Error removing iptable NOTRACK rules %s", err)
 			}
 		}
 		if e.IPv6.IsSet() {
 			if port > 0 {
-				iptables.InstallNoTrackRules(e.IPv6.String(), port, true)
+				e.owner.Datapath().InstallNoTrackRules(e.IPv6.String(), port, true)
 				log.Warnf("Error installing iptable NOTRACK rules %s", err)
 			}
 			if e.noTrackPort > 0 {
-				err = iptables.RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true)
+				err = e.owner.Datapath().RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true)
 				log.Warnf("Error removing iptable NOTRACK rules %s", err)
 			}
 		}
