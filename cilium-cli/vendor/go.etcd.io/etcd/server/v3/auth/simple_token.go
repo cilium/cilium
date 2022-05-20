@@ -20,6 +20,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -156,6 +157,11 @@ func (t *tokenSimple) invalidateUser(username string) {
 }
 
 func (t *tokenSimple) enable() {
+	t.simpleTokensMu.Lock()
+	defer t.simpleTokensMu.Unlock()
+	if t.simpleTokenKeeper != nil { // already enabled
+		return
+	}
 	if t.simpleTokenTTL <= 0 {
 		t.simpleTokenTTL = simpleTokenTTLDefault
 	}
@@ -207,7 +213,11 @@ func (t *tokenSimple) info(ctx context.Context, token string, revision uint64) (
 
 func (t *tokenSimple) assign(ctx context.Context, username string, rev uint64) (string, error) {
 	// rev isn't used in simple token, it is only used in JWT
-	index := ctx.Value(AuthenticateParamIndex{}).(uint64)
+	var index uint64
+	var ok bool
+	if index, ok = ctx.Value(AuthenticateParamIndex{}).(uint64); !ok {
+		return "", errors.New("failed to assign")
+	}
 	simpleTokenPrefix := ctx.Value(AuthenticateParamSimpleTokenPrefix{}).(string)
 	token := fmt.Sprintf("%s.%d", simpleTokenPrefix, index)
 	t.assignSimpleTokenToUser(username, token)

@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
@@ -57,35 +56,6 @@ func LabelSelectorAsSelector(ps *LabelSelector) (labels.Selector, error) {
 	return selector, nil
 }
 
-// LabelSelectorAsMap converts the LabelSelector api type into a map of strings, ie. the
-// original structure of a label selector. Operators that cannot be converted into plain
-// labels (Exists, DoesNotExist, NotIn, and In with more than one value) will result in
-// an error.
-func LabelSelectorAsMap(ps *LabelSelector) (map[string]string, error) {
-	if ps == nil {
-		return nil, nil
-	}
-	selector := map[string]string{}
-	for k, v := range ps.MatchLabels {
-		selector[k] = v
-	}
-	for _, expr := range ps.MatchExpressions {
-		switch expr.Operator {
-		case LabelSelectorOpIn:
-			if len(expr.Values) != 1 {
-				return selector, fmt.Errorf("operator %q without a single value cannot be converted into the old label selector format", expr.Operator)
-			}
-			// Should we do anything in case this will override a previous key-value pair?
-			selector[expr.Key] = expr.Values[0]
-		case LabelSelectorOpNotIn, LabelSelectorOpExists, LabelSelectorOpDoesNotExist:
-			return selector, fmt.Errorf("operator %q cannot be converted into the old label selector format", expr.Operator)
-		default:
-			return selector, fmt.Errorf("%q is not a valid selector operator", expr.Operator)
-		}
-	}
-	return selector, nil
-}
-
 // FormatLabelSelector convert labelSelector into plain string
 func FormatLabelSelector(labelSelector *LabelSelector) string {
 	selector, err := LabelSelectorAsSelector(labelSelector)
@@ -98,26 +68,6 @@ func FormatLabelSelector(labelSelector *LabelSelector) string {
 		l = "<none>"
 	}
 	return l
-}
-
-// HasAnnotation returns a bool if passed in annotation exists
-func HasAnnotation(obj ObjectMeta, ann string) bool {
-	_, found := obj.Annotations[ann]
-	return found
-}
-
-// HasLabel returns a bool if passed in label exists
-func HasLabel(obj ObjectMeta, label string) bool {
-	_, found := obj.Labels[label]
-	return found
-}
-
-// SingleObject returns a ListOptions for watching a single object.
-func SingleObject(meta ObjectMeta) metav1.ListOptions {
-	return metav1.ListOptions{
-		FieldSelector:   fields.OneTermEqualSelector("metadata.name", meta.Name).String(),
-		ResourceVersion: meta.ResourceVersion,
-	}
 }
 
 // FullOwnerReferences converts slim OwnerReferences to original OwnerReferences

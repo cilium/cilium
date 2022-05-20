@@ -25,7 +25,8 @@ import (
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 	"go.etcd.io/etcd/client/pkg/v3/types"
 	"go.etcd.io/etcd/pkg/v3/netutil"
-	"go.etcd.io/etcd/server/v3/datadir"
+	"go.etcd.io/etcd/server/v3/etcdserver/api/v3discovery"
+	"go.etcd.io/etcd/server/v3/storage/datadir"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
 	bolt "go.etcd.io/bbolt"
@@ -34,12 +35,15 @@ import (
 
 // ServerConfig holds the configuration of etcd as taken from the command line or discovery.
 type ServerConfig struct {
-	Name           string
+	Name string
+
 	DiscoveryURL   string
 	DiscoveryProxy string
-	ClientURLs     types.URLs
-	PeerURLs       types.URLs
-	DataDir        string
+	DiscoveryCfg   v3discovery.DiscoveryConfig
+
+	ClientURLs types.URLs
+	PeerURLs   types.URLs
+	DataDir    string
 	// DedicatedWALDir config will make the etcd to write the WAL to the WALDir
 	// rather than the dataDir/member/wal.
 	DedicatedWALDir string
@@ -80,6 +84,10 @@ type ServerConfig struct {
 	TickMs        uint
 	ElectionTicks int
 
+	// WaitClusterReadyTimeout is the maximum time to wait for the
+	// cluster to be ready on startup before serving client requests.
+	WaitClusterReadyTimeout time.Duration
+
 	// InitialElectionTickAdvance is true, then local member fast-forwards
 	// election ticks to speed up "initial" leader election trigger. This
 	// benefits the case of larger election ticks. For instance, cross
@@ -114,13 +122,15 @@ type ServerConfig struct {
 	AutoCompactionRetention time.Duration
 	AutoCompactionMode      string
 	CompactionBatchLimit    int
+	CompactionSleepInterval time.Duration
 	QuotaBackendBytes       int64
 	MaxTxnOps               uint
 
 	// MaxRequestBytes is the maximum request size to send over raft.
 	MaxRequestBytes uint
 
-	WarningApplyDuration time.Duration
+	WarningApplyDuration        time.Duration
+	WarningUnaryRequestDuration time.Duration
 
 	StrictReconfigCheck bool
 
@@ -147,10 +157,12 @@ type ServerConfig struct {
 
 	ForceNewCluster bool
 
-	// EnableLeaseCheckpoint enables primary lessor to persist lease remainingTTL to prevent indefinite auto-renewal of long lived leases.
+	// EnableLeaseCheckpoint enables leader to send regular checkpoints to other members to prevent reset of remaining TTL on leader change.
 	EnableLeaseCheckpoint bool
 	// LeaseCheckpointInterval time.Duration is the wait duration between lease checkpoints.
 	LeaseCheckpointInterval time.Duration
+	// LeaseCheckpointPersist enables persisting remainingTTL to prevent indefinite auto-renewal of long lived leases. Always enabled in v3.6. Should be used to ensure smooth upgrade from v3.5 clusters with this feature enabled.
+	LeaseCheckpointPersist bool
 
 	EnableGRPCGateway bool
 
@@ -182,6 +194,9 @@ type ServerConfig struct {
 	// ExperimentalBootstrapDefragThresholdMegabytes is the minimum number of megabytes needed to be freed for etcd server to
 	// consider running defrag during bootstrap. Needs to be set to non-zero value to take effect.
 	ExperimentalBootstrapDefragThresholdMegabytes uint `json:"experimental-bootstrap-defrag-threshold-megabytes"`
+
+	// ExperimentalMaxLearners sets a limit to the number of learner members that can exist in the cluster membership.
+	ExperimentalMaxLearners int `json:"experimental-max-learners"`
 
 	// V2Deprecation defines a phase of v2store deprecation process.
 	V2Deprecation V2DeprecationEnum `json:"v2-deprecation"`
@@ -293,7 +308,9 @@ func (c *ServerConfig) WALDir() string {
 
 func (c *ServerConfig) SnapDir() string { return filepath.Join(c.MemberDir(), "snap") }
 
-func (c *ServerConfig) ShouldDiscover() bool { return c.DiscoveryURL != "" }
+func (c *ServerConfig) ShouldDiscover() bool {
+	return c.DiscoveryURL != "" || len(c.DiscoveryCfg.Endpoints) > 0
+}
 
 // ReqTimeout returns timeout for request to finish.
 func (c *ServerConfig) ReqTimeout() time.Duration {

@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var keyValueRegex = regexp.MustCompile(`([\w-:./]+=[\w-:./]+,)*([\w-:./]+=[\w-:./]+)$`)
+var keyValueRegex = regexp.MustCompile(`([\w-:./@]+=[\w-:./@]*,)*([\w-:./@]+=[\w-:./@]*)$`)
 
 // GetStringMapString contains one enhancement to support k1=v2,k2=v2 compared to original
 // implementation of GetStringMapString function

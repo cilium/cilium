@@ -16,10 +16,6 @@
 Package instrumentation provides an instrumentation library structure to be
 passed to both the OpenTelemetry Tracer and Meter components.
 
-This package is currently in a pre-GA phase. Backwards incompatible changes
-may be introduced in subsequent minor version releases as we work to track the
-evolving OpenTelemetry specification and user feedback.
-
 For more information see
 [this](https://github.com/open-telemetry/oteps/blob/main/text/0083-component.md).
 */
@@ -32,4 +28,6 @@ type Library struct {
 	Name string
 	// Version is the version of the instrumentation library.
 	Version string
+	// SchemaURL of the telemetry emitted by the library.
+	SchemaURL string
 }

@@ -18,7 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	defaultLog "log"
 	"net"
 	"net/http"
@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,21 +39,12 @@ import (
 	"go.etcd.io/etcd/server/v3/etcdserver"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/etcdhttp"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/rafthttp"
-	"go.etcd.io/etcd/server/v3/etcdserver/api/v2http"
-	"go.etcd.io/etcd/server/v3/etcdserver/api/v2v3"
-	"go.etcd.io/etcd/server/v3/etcdserver/api/v3client"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/v3rpc"
+	"go.etcd.io/etcd/server/v3/storage"
 	"go.etcd.io/etcd/server/v3/verify"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/soheilhy/cmux"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/otel/exporters/otlp"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpgrpc"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
-	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/semconv"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -186,10 +178,12 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		InitialClusterToken:                      token,
 		DiscoveryURL:                             cfg.Durl,
 		DiscoveryProxy:                           cfg.Dproxy,
+		DiscoveryCfg:                             cfg.DiscoveryCfg,
 		NewCluster:                               cfg.IsNewCluster(),
 		PeerTLSInfo:                              cfg.PeerTLSInfo,
 		TickMs:                                   cfg.TickMs,
 		ElectionTicks:                            cfg.ElectionTicks(),
+		WaitClusterReadyTimeout:                  cfg.ExperimentalWaitClusterReadyTimeout,
 		InitialElectionTickAdvance:               cfg.InitialElectionTickAdvance,
 		AutoCompactionRetention:                  autoCompactionRetention,
 		AutoCompactionMode:                       cfg.AutoCompactionMode,
@@ -216,19 +210,23 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		ExperimentalEnableDistributedTracing:     cfg.ExperimentalEnableDistributedTracing,
 		UnsafeNoFsync:                            cfg.UnsafeNoFsync,
 		EnableLeaseCheckpoint:                    cfg.ExperimentalEnableLeaseCheckpoint,
+		LeaseCheckpointPersist:                   cfg.ExperimentalEnableLeaseCheckpointPersist,
 		CompactionBatchLimit:                     cfg.ExperimentalCompactionBatchLimit,
+		CompactionSleepInterval:                  cfg.ExperimentalCompactionSleepInterval,
 		WatchProgressNotifyInterval:              cfg.ExperimentalWatchProgressNotifyInterval,
 		DowngradeCheckTime:                       cfg.ExperimentalDowngradeCheckTime,
 		WarningApplyDuration:                     cfg.ExperimentalWarningApplyDuration,
+		WarningUnaryRequestDuration:              cfg.ExperimentalWarningUnaryRequestDuration,
 		ExperimentalMemoryMlock:                  cfg.ExperimentalMemoryMlock,
 		ExperimentalTxnModeWriteWithSharedBuffer: cfg.ExperimentalTxnModeWriteWithSharedBuffer,
 		ExperimentalBootstrapDefragThresholdMegabytes: cfg.ExperimentalBootstrapDefragThresholdMegabytes,
-		V2Deprecation: cfg.V2DeprecationEffective(),
+		ExperimentalMaxLearners:                       cfg.ExperimentalMaxLearners,
+		V2Deprecation:                                 cfg.V2DeprecationEffective(),
 	}
 
 	if srvcfg.ExperimentalEnableDistributedTracing {
 		tctx := context.Background()
-		tracingExporter, opts, err := e.setupTracing(tctx)
+		tracingExporter, opts, err := setupTracingExporter(tctx, cfg)
 		if err != nil {
 			return e, err
 		}
@@ -237,6 +235,10 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		}
 		e.tracingExporterShutdown = func() { tracingExporter.Shutdown(tctx) }
 		srvcfg.ExperimentalTracerOptions = opts
+
+		e.cfg.logger.Info(
+			"distributed tracing setup enabled",
+		)
 	}
 
 	print(e.cfg.logger, *cfg, srvcfg, memberInitialized)
@@ -301,7 +303,7 @@ func print(lg *zap.Logger, ec Config, sc config.ServerConfig, memberInitialized 
 
 	quota := ec.QuotaBackendBytes
 	if quota == 0 {
-		quota = etcdserver.DefaultQuotaBytes
+		quota = storage.DefaultQuotaBytes
 	}
 
 	lg.Info(
@@ -322,6 +324,7 @@ func print(lg *zap.Logger, ec Config, sc config.ServerConfig, memberInitialized 
 		zap.Bool("force-new-cluster", sc.ForceNewCluster),
 		zap.String("heartbeat-interval", fmt.Sprintf("%v", time.Duration(sc.TickMs)*time.Millisecond)),
 		zap.String("election-timeout", fmt.Sprintf("%v", time.Duration(sc.ElectionTicks*int(sc.TickMs))*time.Millisecond)),
+		zap.String("wait-cluster-ready-timeout", sc.WaitClusterReadyTimeout.String()),
 		zap.Bool("initial-election-tick-advance", sc.InitialElectionTickAdvance),
 		zap.Uint64("snapshot-count", sc.SnapshotCount),
 		zap.Uint64("snapshot-catchup-entries", sc.SnapshotCatchUpEntries),
@@ -344,7 +347,22 @@ func print(lg *zap.Logger, ec Config, sc config.ServerConfig, memberInitialized 
 		zap.String("auto-compaction-interval", sc.AutoCompactionRetention.String()),
 		zap.String("discovery-url", sc.DiscoveryURL),
 		zap.String("discovery-proxy", sc.DiscoveryProxy),
+
+		zap.String("discovery-token", sc.DiscoveryCfg.Token),
+		zap.String("discovery-endpoints", strings.Join(sc.DiscoveryCfg.Endpoints, ",")),
+		zap.String("discovery-dial-timeout", sc.DiscoveryCfg.DialTimeout.String()),
+		zap.String("discovery-request-timeout", sc.DiscoveryCfg.RequestTimeOut.String()),
+		zap.String("discovery-keepalive-time", sc.DiscoveryCfg.KeepAliveTime.String()),
+		zap.String("discovery-keepalive-timeout", sc.DiscoveryCfg.KeepAliveTimeout.String()),
+		zap.Bool("discovery-insecure-transport", sc.DiscoveryCfg.InsecureTransport),
+		zap.Bool("discovery-insecure-skip-tls-verify", sc.DiscoveryCfg.InsecureSkipVerify),
+		zap.String("discovery-cert", sc.DiscoveryCfg.CertFile),
+		zap.String("discovery-key", sc.DiscoveryCfg.KeyFile),
+		zap.String("discovery-cacert", sc.DiscoveryCfg.TrustedCAFile),
+		zap.String("discovery-user", sc.DiscoveryCfg.User),
+
 		zap.String("downgrade-check-interval", sc.DowngradeCheckTime.String()),
+		zap.Int("max-learners", sc.ExperimentalMaxLearners),
 	)
 }
 
@@ -545,7 +563,7 @@ func (e *Etcd) servePeers() (err error) {
 		srv := &http.Server{
 			Handler:     grpcHandlerFunc(gs, ph),
 			ReadTimeout: 5 * time.Minute,
-			ErrorLog:    defaultLog.New(ioutil.Discard, "", 0), // do not log user error
+			ErrorLog:    defaultLog.New(io.Discard, "", 0), // do not log user error
 		}
 		go srv.Serve(m.Match(cmux.Any()))
 		p.serve = func() error {
@@ -692,25 +710,9 @@ func (e *Etcd) serveClients() (err error) {
 	}
 
 	// Start a client server goroutine for each listen address
-	var h http.Handler
-	if e.Config().EnableV2 {
-		if e.Config().V2DeprecationEffective().IsAtLeast(config.V2_DEPR_1_WRITE_ONLY) {
-			return fmt.Errorf("--enable-v2 and --v2-deprecation=%s are mutually exclusive", e.Config().V2DeprecationEffective())
-		}
-		e.cfg.logger.Warn("Flag `enable-v2` is deprecated and will get removed in etcd 3.6.")
-		if len(e.Config().ExperimentalEnableV2V3) > 0 {
-			e.cfg.logger.Warn("Flag `experimental-enable-v2v3` is deprecated and will get removed in etcd 3.6.")
-			srv := v2v3.NewServer(e.cfg.logger, v3client.New(e.Server), e.cfg.ExperimentalEnableV2V3)
-			h = v2http.NewClientHandler(e.GetLogger(), srv, e.Server.Cfg.ReqTimeout())
-		} else {
-			h = v2http.NewClientHandler(e.GetLogger(), e.Server, e.Server.Cfg.ReqTimeout())
-		}
-	} else {
-		mux := http.NewServeMux()
-		etcdhttp.HandleBasic(e.cfg.logger, mux, e.Server)
-		etcdhttp.HandleMetricsHealthForV3(e.cfg.logger, mux, e.Server)
-		h = mux
-	}
+	mux := http.NewServeMux()
+	etcdhttp.HandleBasic(e.cfg.logger, mux, e.Server)
+	etcdhttp.HandleMetricsHealthForV3(e.cfg.logger, mux, e.Server)
 
 	gopts := []grpc.ServerOption{}
 	if e.cfg.GRPCKeepAliveMinTime > time.Duration(0) {
@@ -730,7 +732,7 @@ func (e *Etcd) serveClients() (err error) {
 	// start client servers in each goroutine
 	for _, sctx := range e.sctxs {
 		go func(s *serveCtx) {
-			e.errHandler(s.serve(e.Server, &e.cfg.ClientTLSInfo, h, e.errHandler, gopts...))
+			e.errHandler(s.serve(e.Server, &e.cfg.ClientTLSInfo, mux, e.errHandler, gopts...))
 		}(sctx)
 	}
 	return nil
@@ -807,53 +809,4 @@ func parseCompactionRetention(mode, retention string) (ret time.Duration, err er
 		}
 	}
 	return ret, nil
-}
-
-func (e *Etcd) setupTracing(ctx context.Context) (exporter tracesdk.SpanExporter, options []otelgrpc.Option, err error) {
-	exporter, err = otlp.NewExporter(ctx,
-		otlpgrpc.NewDriver(
-			otlpgrpc.WithEndpoint(e.cfg.ExperimentalDistributedTracingAddress),
-			otlpgrpc.WithInsecure(),
-		))
-	if err != nil {
-		return nil, nil, err
-	}
-	res := resource.NewWithAttributes(
-		semconv.ServiceNameKey.String(e.cfg.ExperimentalDistributedTracingServiceName),
-	)
-	// As Tracing service Instance ID must be unique, it should
-	// never use the empty default string value, so we only set it
-	// if it's a non empty string.
-	if e.cfg.ExperimentalDistributedTracingServiceInstanceID != "" {
-		resWithIDKey := resource.NewWithAttributes(
-			(semconv.ServiceInstanceIDKey.String(e.cfg.ExperimentalDistributedTracingServiceInstanceID)),
-		)
-		// Merge resources to combine into a new
-		// resource in case of duplicates.
-		res = resource.Merge(res, resWithIDKey)
-	}
-
-	options = append(options,
-		otelgrpc.WithPropagators(
-			propagation.NewCompositeTextMapPropagator(
-				propagation.TraceContext{},
-				propagation.Baggage{},
-			),
-		),
-		otelgrpc.WithTracerProvider(
-			tracesdk.NewTracerProvider(
-				tracesdk.WithBatcher(exporter),
-				tracesdk.WithResource(res),
-			),
-		),
-	)
-
-	e.cfg.logger.Info(
-		"distributed tracing enabled",
-		zap.String("distributed-tracing-address", e.cfg.ExperimentalDistributedTracingAddress),
-		zap.String("distributed-tracing-service-name", e.cfg.ExperimentalDistributedTracingServiceName),
-		zap.String("distributed-tracing-service-instance-id", e.cfg.ExperimentalDistributedTracingServiceInstanceID),
-	)
-
-	return exporter, options, err
 }

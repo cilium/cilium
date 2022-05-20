@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 )
 
 const allowedDNSCharsREGroup = "[-a-zA-Z0-9_]"
@@ -16,15 +17,31 @@ const allowedDNSCharsREGroup = "[-a-zA-Z0-9_]"
 // Validate ensures that pattern is a parseable matchPattern. It returns the
 // regexp generated when validating.
 func Validate(pattern string) (matcher *regexp.Regexp, err error) {
+	if err := prevalidate(pattern); err != nil {
+		return nil, err
+	}
+	return re.CompileRegex(ToRegexp(pattern))
+}
+
+// ValidateWithoutCache is the same as Validate() but doesn't consult the regex
+// LRU.
+func ValidateWithoutCache(pattern string) (matcher *regexp.Regexp, err error) {
+	if err := prevalidate(pattern); err != nil {
+		return nil, err
+	}
+	return regexp.Compile(ToRegexp(pattern))
+}
+
+func prevalidate(pattern string) error {
 	pattern = strings.TrimSpace(pattern)
 	pattern = strings.ToLower(pattern)
 
 	// error check
 	if strings.ContainsAny(pattern, "[]+{},") {
-		return nil, errors.New(`Only alphanumeric ASCII characters, the hyphen "-", underscore "_", "." and "*" are allowed in a matchPattern`)
+		return errors.New(`Only alphanumeric ASCII characters, the hyphen "-", underscore "_", "." and "*" are allowed in a matchPattern`)
 	}
 
-	return regexp.Compile(ToRegexp(pattern))
+	return nil
 }
 
 // Sanitize canonicalized the pattern for use by ToRegexp

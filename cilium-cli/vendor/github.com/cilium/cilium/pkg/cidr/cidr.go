@@ -121,7 +121,11 @@ func Contains(ipNets []*net.IPNet, ipNet *net.IPNet) bool {
 	return false
 }
 
-// RemoveAll removes all cidrs specified in 'toRemove' from 'ipNets'
+// RemoveAll removes all cidrs specified in 'toRemove' from 'ipNets'. ipNets
+// is clobbered (to ensure removed CIDRs can be garbage collected) and
+// must not be used after this function has been called.
+// Example usage:
+//   cidrs = cidr.RemoveAll(cidrs, toRemove)
 func RemoveAll(ipNets, toRemove []*net.IPNet) []*net.IPNet {
 	newIPNets := ipNets[:0]
 	for _, n := range ipNets {

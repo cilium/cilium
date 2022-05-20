@@ -20,7 +20,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"strings"
 
 	"github.com/golang/protobuf/proto" // nolint:staticcheck
 
@@ -30,13 +29,12 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc/internal"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/semconv"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 	"go.opentelemetry.io/otel/trace"
-
-	otelcontrib "go.opentelemetry.io/contrib"
 )
 
 type messageType attribute.KeyValue
@@ -48,20 +46,20 @@ func (m messageType) Event(ctx context.Context, id int, message interface{}) {
 	if p, ok := message.(proto.Message); ok {
 		span.AddEvent("message", trace.WithAttributes(
 			attribute.KeyValue(m),
-			semconv.RPCMessageIDKey.Int(id),
-			semconv.RPCMessageUncompressedSizeKey.Int(proto.Size(p)),
+			RPCMessageIDKey.Int(id),
+			RPCMessageUncompressedSizeKey.Int(proto.Size(p)),
 		))
 	} else {
 		span.AddEvent("message", trace.WithAttributes(
 			attribute.KeyValue(m),
-			semconv.RPCMessageIDKey.Int(id),
+			RPCMessageIDKey.Int(id),
 		))
 	}
 }
 
 var (
-	messageSent     = messageType(semconv.RPCMessageTypeSent)
-	messageReceived = messageType(semconv.RPCMessageTypeReceived)
+	messageSent     = messageType(RPCMessageTypeSent)
+	messageReceived = messageType(RPCMessageTypeReceived)
 )
 
 // UnaryClientInterceptor returns a grpc.UnaryClientInterceptor suitable
@@ -80,7 +78,7 @@ func UnaryClientInterceptor(opts ...Option) grpc.UnaryClientInterceptor {
 
 		tracer := newConfig(opts).TracerProvider.Tracer(
 			instrumentationName,
-			trace.WithInstrumentationVersion(otelcontrib.SemVersion()),
+			trace.WithInstrumentationVersion(SemVersion()),
 		)
 
 		name, attr := spanInfo(method, cc.Target())
@@ -122,8 +120,7 @@ type streamEvent struct {
 }
 
 const (
-	closeEvent streamEventType = iota
-	receiveEndEvent
+	receiveEndEvent streamEventType = iota
 	errorEvent
 )
 
@@ -188,19 +185,12 @@ func (w *clientStream) CloseSend() error {
 
 	if err != nil {
 		w.sendStreamEvent(errorEvent, err)
-	} else {
-		w.sendStreamEvent(closeEvent, nil)
 	}
 
 	return err
 }
 
-const (
-	clientClosedState byte = 1 << iota
-	receiveEndedState
-)
-
-func wrapClientStream(s grpc.ClientStream, desc *grpc.StreamDesc) *clientStream {
+func wrapClientStream(ctx context.Context, s grpc.ClientStream, desc *grpc.StreamDesc) *clientStream {
 	events := make(chan streamEvent)
 	eventsDone := make(chan struct{})
 	finished := make(chan error)
@@ -208,22 +198,19 @@ func wrapClientStream(s grpc.ClientStream, desc *grpc.StreamDesc) *clientStream 
 	go func() {
 		defer close(eventsDone)
 
-		// Both streams have to be closed
-		state := byte(0)
-
-		for event := range events {
-			switch event.Type {
-			case closeEvent:
-				state |= clientClosedState
-			case receiveEndEvent:
-				state |= receiveEndedState
-			case errorEvent:
-				finished <- event.Err
-				return
-			}
-
-			if state == clientClosedState|receiveEndedState {
-				finished <- nil
+		for {
+			select {
+			case event := <-events:
+				switch event.Type {
+				case receiveEndEvent:
+					finished <- nil
+					return
+				case errorEvent:
+					finished <- event.Err
+					return
+				}
+			case <-ctx.Done():
+				finished <- ctx.Err()
 				return
 			}
 		}
@@ -261,7 +248,7 @@ func StreamClientInterceptor(opts ...Option) grpc.StreamClientInterceptor {
 
 		tracer := newConfig(opts).TracerProvider.Tracer(
 			instrumentationName,
-			trace.WithInstrumentationVersion(otelcontrib.SemVersion()),
+			trace.WithInstrumentationVersion(SemVersion()),
 		)
 
 		name, attr := spanInfo(method, cc.Target())
@@ -284,7 +271,7 @@ func StreamClientInterceptor(opts ...Option) grpc.StreamClientInterceptor {
 			span.End()
 			return s, err
 		}
-		stream := wrapClientStream(s, desc)
+		stream := wrapClientStream(ctx, s, desc)
 
 		go func() {
 			err := <-stream.finished
@@ -316,12 +303,12 @@ func UnaryServerInterceptor(opts ...Option) grpc.UnaryServerInterceptor {
 		requestMetadata, _ := metadata.FromIncomingContext(ctx)
 		metadataCopy := requestMetadata.Copy()
 
-		entries, spanCtx := Extract(ctx, &metadataCopy, opts...)
-		ctx = baggage.ContextWithValues(ctx, entries...)
+		bags, spanCtx := Extract(ctx, &metadataCopy, opts...)
+		ctx = baggage.ContextWithBaggage(ctx, bags)
 
 		tracer := newConfig(opts).TracerProvider.Tracer(
 			instrumentationName,
-			trace.WithInstrumentationVersion(otelcontrib.SemVersion()),
+			trace.WithInstrumentationVersion(SemVersion()),
 		)
 
 		name, attr := spanInfo(info.FullMethod, peerFromCtx(ctx))
@@ -405,12 +392,12 @@ func StreamServerInterceptor(opts ...Option) grpc.StreamServerInterceptor {
 		requestMetadata, _ := metadata.FromIncomingContext(ctx)
 		metadataCopy := requestMetadata.Copy()
 
-		entries, spanCtx := Extract(ctx, &metadataCopy, opts...)
-		ctx = baggage.ContextWithValues(ctx, entries...)
+		bags, spanCtx := Extract(ctx, &metadataCopy, opts...)
+		ctx = baggage.ContextWithBaggage(ctx, bags)
 
 		tracer := newConfig(opts).TracerProvider.Tracer(
 			instrumentationName,
-			trace.WithInstrumentationVersion(otelcontrib.SemVersion()),
+			trace.WithInstrumentationVersion(SemVersion()),
 		)
 
 		name, attr := spanInfo(info.FullMethod, peerFromCtx(ctx))
@@ -439,8 +426,8 @@ func StreamServerInterceptor(opts ...Option) grpc.StreamServerInterceptor {
 // spanInfo returns a span name and all appropriate attributes from the gRPC
 // method and peer address.
 func spanInfo(fullMethod, peerAddress string) (string, []attribute.KeyValue) {
-	attrs := []attribute.KeyValue{semconv.RPCSystemGRPC}
-	name, mAttrs := parseFullMethod(fullMethod)
+	attrs := []attribute.KeyValue{RPCSystemGRPC}
+	name, mAttrs := internal.ParseFullMethod(fullMethod)
 	attrs = append(attrs, mAttrs...)
 	attrs = append(attrs, peerAttr(peerAddress)...)
 	return name, attrs
@@ -470,27 +457,6 @@ func peerFromCtx(ctx context.Context) string {
 		return ""
 	}
 	return p.Addr.String()
-}
-
-// parseFullMethod returns a span name following the OpenTelemetry semantic
-// conventions as well as all applicable span attribute.KeyValue attributes based
-// on a gRPC's FullMethod.
-func parseFullMethod(fullMethod string) (string, []attribute.KeyValue) {
-	name := strings.TrimLeft(fullMethod, "/")
-	parts := strings.SplitN(name, "/", 2)
-	if len(parts) != 2 {
-		// Invalid format, does not follow `/package.service/method`.
-		return name, []attribute.KeyValue(nil)
-	}
-
-	var attrs []attribute.KeyValue
-	if service := parts[0]; service != "" {
-		attrs = append(attrs, semconv.RPCServiceKey.String(service))
-	}
-	if method := parts[1]; method != "" {
-		attrs = append(attrs, semconv.RPCMethodKey.String(method))
-	}
-	return name, attrs
 }
 
 // statusCodeAttr returns status code attribute based on given gRPC code
