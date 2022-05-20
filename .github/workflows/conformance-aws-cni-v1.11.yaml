@@ -153,7 +153,7 @@ jobs:
             --helm-set=enableIPv4Masquerade=false \
             --helm-set=cni.chainingMode=aws-cni \
             --helm-set=tunnel=disabled \
-            --helm-set=bandwidthManager.enabled=false \
+            --helm-set=bandwidthManager=false \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
