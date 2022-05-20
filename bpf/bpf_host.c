@@ -1411,7 +1411,7 @@ from_host_to_lxc(struct __ctx_buff *ctx)
  * bpf_lxc program.
  */
 __section_tail(CILIUM_MAP_POLICY, TEMPLATE_HOST_EP_ID)
-handle_lxc_traffic(struct __ctx_buff *ctx)
+int handle_lxc_traffic(struct __ctx_buff *ctx)
 {
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	__u32 lxc_id;
