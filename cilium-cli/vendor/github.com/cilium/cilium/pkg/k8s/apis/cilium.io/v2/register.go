@@ -23,7 +23,7 @@ const (
 	//
 	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
 	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.25.2"
+	CustomResourceDefinitionSchemaVersion = "1.25.3"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -55,6 +55,20 @@ const (
 
 	// CCNPName is the full name of Cilium Cluster wide Network Policy
 	CCNPName = CCNPPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Egress Gateway Policy (CEGP)
+
+	// CEGPSingularName is the singular name of Cilium Egress Gateway Policy
+	CEGPSingularName = "ciliumegressgatewaypolicy"
+
+	// CEGPPluralName is the plural name of Cilium Egress Gateway Policy
+	CEGPPluralName = "ciliumegressgatewaypolicies"
+
+	// CEGPKindDefinition is the kind name of Cilium Egress Gateway Policy
+	CEGPKindDefinition = "CiliumEgressGatewayPolicy"
+
+	// CEGPName is the full name of Cilium Egress Gateway Policy
+	CEGPName = CEGPPluralName + "." + CustomResourceDefinitionGroup
 
 	// Cilium Endpoint (CEP)
 
@@ -200,6 +214,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNetworkPolicyList{},
 		&CiliumClusterwideNetworkPolicy{},
 		&CiliumClusterwideNetworkPolicyList{},
+		&CiliumEgressGatewayPolicy{},
+		&CiliumEgressGatewayPolicyList{},
 		&CiliumEndpoint{},
 		&CiliumEndpointList{},
 		&CiliumNode{},

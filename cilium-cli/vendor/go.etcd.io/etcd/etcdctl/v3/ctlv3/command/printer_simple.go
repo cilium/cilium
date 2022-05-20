@@ -24,6 +24,8 @@ import (
 	v3 "go.etcd.io/etcd/client/v3"
 )
 
+const rootRole = "root"
+
 type simplePrinter struct {
 	isHex     bool
 	valueOnly bool
@@ -174,12 +176,30 @@ func (s *simplePrinter) MoveLeader(leader, target uint64, r v3.MoveLeaderRespons
 	fmt.Printf("Leadership transferred from %s to %s\n", types.ID(leader), types.ID(target))
 }
 
+func (s *simplePrinter) DowngradeValidate(r v3.DowngradeResponse) {
+	fmt.Printf("Downgrade validate success, cluster version %s\n", r.Version)
+}
+func (s *simplePrinter) DowngradeEnable(r v3.DowngradeResponse) {
+	fmt.Printf("Downgrade enable success, cluster version %s\n", r.Version)
+}
+func (s *simplePrinter) DowngradeCancel(r v3.DowngradeResponse) {
+	fmt.Printf("Downgrade cancel success, cluster version %s\n", r.Version)
+}
+
 func (s *simplePrinter) RoleAdd(role string, r v3.AuthRoleAddResponse) {
 	fmt.Printf("Role %s created\n", role)
 }
 
 func (s *simplePrinter) RoleGet(role string, r v3.AuthRoleGetResponse) {
 	fmt.Printf("Role %s\n", role)
+	if rootRole == role && r.Perm == nil {
+		fmt.Println("KV Read:")
+		fmt.Println("\t[, <open ended>")
+		fmt.Println("KV Write:")
+		fmt.Println("\t[, <open ended>")
+		return
+	}
+
 	fmt.Println("KV Read:")
 
 	printRange := func(perm *v3.Permission) {
@@ -190,7 +210,7 @@ func (s *simplePrinter) RoleGet(role string, r v3.AuthRoleGetResponse) {
 		} else {
 			fmt.Printf("\t[%s, <open ended>", sKey)
 		}
-		if v3.GetPrefixRangeEnd(sKey) == sRangeEnd {
+		if v3.GetPrefixRangeEnd(sKey) == sRangeEnd && len(sKey) > 0 {
 			fmt.Printf(" (prefix %s)", sKey)
 		}
 		fmt.Printf("\n")

@@ -295,6 +295,9 @@ const (
 	// CiliumLocalRedirectPolicyName is the name of a CiliumLocalRedirectPolicy
 	CiliumLocalRedirectName = "ciliumLocalRedirectPolicyName"
 
+	// CiliumEgressGatewayPolicyName is the name of a CiliumEgressGatewayPolicy
+	CiliumEgressGatewayPolicyName = "ciliumEgressGatewayPolicyName"
+
 	// CiliumEgressNATPolicyName is the name of a CiliumEgressNATPolicy
 	CiliumEgressNATPolicyName = "ciliumEgressNATPolicyName"
 
@@ -607,4 +610,7 @@ const (
 
 	// Number of Services failed while restoration.
 	FailedSVCs = "failedServices"
+
+	// Chain is an Iptables chain
+	Chain = "chain"
 )

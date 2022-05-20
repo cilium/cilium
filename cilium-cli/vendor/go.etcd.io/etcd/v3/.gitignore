@@ -14,6 +14,7 @@
 *.test
 hack/tls-setup/certs
 .idea
+/contrib/mixin/manifests
 /contrib/raftexample/raftexample
 /contrib/raftexample/raftexample-*
 /vendor
@@ -21,3 +22,5 @@ hack/tls-setup/certs
 *.tmp
 *.bak
 .gobincache/
+/Documentation/dev-guide/api_reference_v3.md
+/Documentation/dev-guide/api_concurrency_reference_v3.md

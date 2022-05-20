@@ -41,7 +41,7 @@ type config struct {
 
 // Option applies an option value for a config.
 type Option interface {
-	Apply(*config)
+	apply(*config)
 }
 
 // newConfig returns a config configured with all the passed Options.
@@ -51,15 +51,17 @@ func newConfig(opts []Option) *config {
 		TracerProvider: otel.GetTracerProvider(),
 	}
 	for _, o := range opts {
-		o.Apply(c)
+		o.apply(c)
 	}
 	return c
 }
 
 type propagatorsOption struct{ p propagation.TextMapPropagator }
 
-func (o propagatorsOption) Apply(c *config) {
-	c.Propagators = o.p
+func (o propagatorsOption) apply(c *config) {
+	if o.p != nil {
+		c.Propagators = o.p
+	}
 }
 
 // WithPropagators returns an Option to use the Propagators when extracting
@@ -70,8 +72,10 @@ func WithPropagators(p propagation.TextMapPropagator) Option {
 
 type tracerProviderOption struct{ tp trace.TracerProvider }
 
-func (o tracerProviderOption) Apply(c *config) {
-	c.TracerProvider = o.tp
+func (o tracerProviderOption) apply(c *config) {
+	if o.tp != nil {
+		c.TracerProvider = o.tp
+	}
 }
 
 // WithTracerProvider returns an Option to use the TracerProvider when
@@ -120,13 +124,11 @@ func Inject(ctx context.Context, metadata *metadata.MD, opts ...Option) {
 // Extract returns the correlation context and span context that
 // another service encoded in the gRPC metadata object with Inject.
 // This function is meant to be used on incoming requests.
-func Extract(ctx context.Context, metadata *metadata.MD, opts ...Option) ([]attribute.KeyValue, trace.SpanContext) {
+func Extract(ctx context.Context, metadata *metadata.MD, opts ...Option) (baggage.Baggage, trace.SpanContext) {
 	c := newConfig(opts)
 	ctx = c.Propagators.Extract(ctx, &metadataSupplier{
 		metadata: metadata,
 	})
 
-	attributeSet := baggage.Set(ctx)
-
-	return (&attributeSet).ToSlice(), trace.SpanContextFromContext(ctx)
+	return baggage.FromContext(ctx), trace.SpanContextFromContext(ctx)
 }

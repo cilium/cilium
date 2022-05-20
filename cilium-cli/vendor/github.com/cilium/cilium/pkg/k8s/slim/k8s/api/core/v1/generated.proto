@@ -13,7 +13,7 @@ import "k8s.io/apimachinery/pkg/runtime/generated.proto";
 import "k8s.io/apimachinery/pkg/runtime/schema/generated.proto";
 
 // Package-wide variables from generator "generated".
-option go_package = "v1";
+option go_package = "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1";
 
 // ClientIPConfig represents the configurations of Client IP based session affinity.
 message ClientIPConfig {
@@ -31,7 +31,7 @@ message Container {
   // Cannot be updated.
   optional string name = 1;
 
-  // Docker image name.
+  // Container image name.
   // More info: https://kubernetes.io/docs/concepts/containers/images
   // This field is optional to allow higher level config management to default or override
   // container images in workload controllers like Deployments and StatefulSets.
@@ -186,12 +186,6 @@ message EndpointsList {
 
   // List of endpoints.
   repeated Endpoints items = 2;
-}
-
-// A list of ephemeral containers used with the Pod ephemeralcontainers subresource.
-message EphemeralContainers {
-  // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 }
 
 // LoadBalancerIngress represents the status of a load-balancer ingress point:
@@ -533,6 +527,9 @@ message PortStatus {
 // Secret holds secret data of a certain type. The total bytes of the values in
 // the Data field must be less than MaxSecretSize bytes.
 message Secret {
+  // Standard object's metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+  // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 
   // Immutable, if set to true, ensures that data stored in the Secret cannot
@@ -565,6 +562,9 @@ message Secret {
 
 // SecretList is a list of Secret.
 message SecretList {
+  // Standard list metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+  // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // Items is a list of secret objects.
@@ -738,11 +738,14 @@ message ServiceSpec {
   // +optional
   optional string sessionAffinity = 7;
 
-  // Only applies to Service Type: LoadBalancer
-  // LoadBalancer will get created with the IP specified in this field.
+  // Only applies to Service Type: LoadBalancer.
   // This feature depends on whether the underlying cloud-provider supports specifying
   // the loadBalancerIP when a load balancer is created.
   // This field will be ignored if the cloud-provider does not support the feature.
+  // Deprecated: This field was under-specified and its meaning varies across implementations,
+  // and it cannot support dual-stack.
+  // As of Kubernetes v1.24, users are encouraged to use implementation-specific annotations when available.
+  // This field may be removed in a future API version.
   // +optional
   optional string loadBalancerIP = 8;
 
@@ -841,7 +844,6 @@ message TypedLocalObjectReference {
   // APIGroup is the group for the resource being referenced.
   // If APIGroup is not specified, the specified Kind must be in the core API group.
   // For any other third-party types, APIGroup is required.
-  // +optional
   optional string apiGroup = 1;
 
   // Kind is the type of resource being referenced
