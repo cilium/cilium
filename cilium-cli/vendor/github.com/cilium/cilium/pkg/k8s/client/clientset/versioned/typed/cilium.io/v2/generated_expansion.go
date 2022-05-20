@@ -9,6 +9,8 @@ type CiliumClusterwideEnvoyConfigExpansion interface{}
 
 type CiliumClusterwideNetworkPolicyExpansion interface{}
 
+type CiliumEgressGatewayPolicyExpansion interface{}
+
 type CiliumEndpointExpansion interface{}
 
 type CiliumEnvoyConfigExpansion interface{}

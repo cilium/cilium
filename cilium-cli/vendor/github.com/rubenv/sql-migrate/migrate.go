@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-gorp/gorp/v3"
 	"github.com/rubenv/sql-migrate/sqlparse"
-	"gopkg.in/gorp.v1"
 )
 
 type MigrationDirection int
@@ -37,6 +37,8 @@ type MigrationSet struct {
 	//
 	// This should be used sparingly as it is removing a safety check.
 	IgnoreUnknown bool
+	// DisableCreateTable disable the creation of the migration table
+	DisableCreateTable bool
 }
 
 var migSet = MigrationSet{}
@@ -104,6 +106,11 @@ func SetSchema(name string) {
 	if name != "" {
 		migSet.SchemaName = name
 	}
+}
+
+// SetDisableCreateTable sets the boolean to disable the creation of the migration table
+func SetDisableCreateTable(disable bool) {
+	migSet.DisableCreateTable = disable
 }
 
 // SetIgnoreUnknown sets the flag that skips database check to see if there is a
@@ -750,6 +757,10 @@ Check https://github.com/go-sql-driver/mysql#parsetime for more info.`)
 
 	if dialect == "oci8" || dialect == "godror" {
 		table.ColMap("Id").SetMaxSize(4000)
+	}
+
+	if migSet.DisableCreateTable {
+		return dbMap, nil
 	}
 
 	err := dbMap.CreateTablesIfNotExists()

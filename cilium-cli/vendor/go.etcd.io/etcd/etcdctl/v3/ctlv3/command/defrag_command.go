@@ -17,6 +17,7 @@ package command
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"go.etcd.io/etcd/etcdutl/v3/etcdutl"
@@ -36,6 +37,7 @@ func NewDefragCommand() *cobra.Command {
 	}
 	cmd.PersistentFlags().BoolVar(&epClusterEndpoints, "cluster", false, "use all endpoints from the cluster member list")
 	cmd.Flags().StringVar(&defragDataDir, "data-dir", "", "Optional. If present, defragments a data directory not in use by etcd.")
+	cmd.MarkFlagDirname("data-dir")
 	return cmd
 }
 
@@ -52,13 +54,15 @@ func defragCommandFunc(cmd *cobra.Command, args []string) {
 	c := mustClientFromCmd(cmd)
 	for _, ep := range endpointsFromCluster(cmd) {
 		ctx, cancel := commandCtx(cmd)
+		start := time.Now()
 		_, err := c.Defragment(ctx, ep)
+		d := time.Now().Sub(start)
 		cancel()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to defragment etcd member[%s] (%v)\n", ep, err)
+			fmt.Fprintf(os.Stderr, "Failed to defragment etcd member[%s]. took %s. (%v)\n", ep, d.String(), err)
 			failures++
 		} else {
-			fmt.Printf("Finished defragmenting etcd member[%s]\n", ep)
+			fmt.Printf("Finished defragmenting etcd member[%s]. took %s\n", ep, d.String())
 		}
 	}
 

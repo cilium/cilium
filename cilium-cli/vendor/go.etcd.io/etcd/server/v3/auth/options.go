@@ -18,10 +18,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
-	jwt "github.com/form3tech-oss/jwt-go"
+	jwt "github.com/golang-jwt/jwt"
 )
 
 const (
@@ -70,14 +70,14 @@ func (opts *jwtOptions) Parse(optMap map[string]string) error {
 	}
 
 	if file := optMap[optPublicKey]; file != "" {
-		opts.PublicKey, err = ioutil.ReadFile(file)
+		opts.PublicKey, err = os.ReadFile(file)
 		if err != nil {
 			return err
 		}
 	}
 
 	if file := optMap[optPrivateKey]; file != "" {
-		opts.PrivateKey, err = ioutil.ReadFile(file)
+		opts.PrivateKey, err = os.ReadFile(file)
 		if err != nil {
 			return err
 		}
@@ -145,7 +145,7 @@ func (opts *jwtOptions) rsaKey() (interface{}, error) {
 	}
 
 	// both keys provided, make sure they match
-	if pub != nil && pub.E != priv.E && pub.N.Cmp(priv.N) != 0 {
+	if pub != nil && !pub.Equal(priv.Public()) {
 		return nil, ErrKeyMismatch
 	}
 
@@ -183,8 +183,7 @@ func (opts *jwtOptions) ecKey() (interface{}, error) {
 	}
 
 	// both keys provided, make sure they match
-	if pub != nil && pub.Curve != priv.Curve &&
-		pub.X.Cmp(priv.X) != 0 && pub.Y.Cmp(priv.Y) != 0 {
+	if pub != nil && !pub.Equal(priv.Public()) {
 		return nil, ErrKeyMismatch
 	}
 

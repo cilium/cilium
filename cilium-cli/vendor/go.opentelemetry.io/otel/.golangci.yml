@@ -7,7 +7,7 @@ linters:
   enable:
     - misspell
     - goimports
-    - golint
+    - revive
     - gofmt
 
 issues:
@@ -16,12 +16,12 @@ issues:
     - path: _test\.go
       text: "context.Context should be the first parameter of a function"
       linters:
-        - golint
+        - revive
     # Yes, they are, but it's okay in a test
     - path: _test\.go
       text: "exported func.*returns unexported type.*which can be annoying to use"
       linters:
-        - golint
+        - revive
 
 linters-settings:
   misspell:
