@@ -1870,6 +1870,13 @@ func runDaemon() {
 	}
 
 	if option.Config.BGPControlPlaneEnabled() {
+		switch option.Config.IPAM {
+		case ipamOption.IPAMClusterPool:
+		case ipamOption.IPAMClusterPoolV2:
+		case ipamOption.IPAMKubernetes:
+		default:
+			log.Fatalf("BGP control plane cannot be utilized with IPAM mode: %v", option.Config.IPAM)
+		}
 		log.Info("Initializing BGP Control Plane")
 		if err := d.instantiateBGPControlPlane(d.ctx); err != nil {
 			log.WithError(err).Fatal("Error returned when instantiating BGP control plane")
