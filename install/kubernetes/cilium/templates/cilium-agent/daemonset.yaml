@@ -252,10 +252,14 @@ spec:
             type: 'spc_t'
           capabilities:
             add:
+              # Use to set socket permission
+              - CHOWN
               # Used to terminate envoy child process
               - KILL
               # Used since cilium modifies routing tables, etc...
               - NET_ADMIN
+              # Used since cilium creates raw sockets, etc...
+              - NET_RAW
               # Used since cilium monitor uses mmap
               - IPC_LOCK
               # Used in iptables. Consider removing once we are iptables-free
@@ -271,7 +275,12 @@ spec:
               # If available, SYS_ADMIN can be removed.
               #- PERFMON
               #- BPF
-          {{- end}}
+              {{- with .Values.securityContext.extraCapabilities }}
+              {{- toYaml . | nindent 14 }}
+              {{- end }}
+            drop:
+              - ALL
+          {{- end }}
         volumeMounts:
         {{- if not .Values.securityContext.privileged }}
         # Unprivileged containers need to mount /proc/sys/net from the host
@@ -384,7 +393,7 @@ spec:
             [ -S /var/run/cilium/monitor1_2.sock ] && break || sleep 10;\
             done; \
           cilium monitor
-        {{- range $type := .Values.monitor.eventTypes -}} 
+        {{- range $type := .Values.monitor.eventTypes -}}
           {{ " " }}--type={{ $type }}
         {{- end }}
         volumeMounts:
@@ -435,10 +444,13 @@ spec:
             # type available on the system.
             type: 'spc_t'
           capabilities:
+            drop:
+              - ALL
             add:
               # Only used for 'mount' cgroup
               - SYS_ADMIN
               # Used for nsenter
+              - SYS_CHROOT
               - SYS_PTRACE
           {{- end}}
       {{- end }}
@@ -541,6 +553,8 @@ spec:
               # If available, SYS_ADMIN can be removed.
               #- PERFMON
               #- BPF
+            drop:
+              - ALL
           {{- end}}
         volumeMounts:
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
