@@ -84,6 +84,14 @@ func (m *fakeDatapath) GetProxyPort(name string) uint16 {
 	return 0
 }
 
+func (m *fakeDatapath) InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	return nil
+}
+
+func (m *fakeDatapath) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	return nil
+}
+
 func (f *fakeDatapath) Loader() datapath.Loader {
 	return f.loader
 }

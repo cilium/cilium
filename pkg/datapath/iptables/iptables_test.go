@@ -103,7 +103,6 @@ var mockManager = &IptablesManager{
 	haveSocketMatch:      true,
 	haveBPFSocketAssign:  false,
 	ipEarlyDemuxDisabled: false,
-	waitArgs:             nil,
 }
 
 func init() {
@@ -122,13 +121,13 @@ func (s *iptablesTestSuite) TestRenameCustomChain(c *check.C) {
 		table: "mangle",
 		name:  "CILIUM_PRE_mangle",
 	}
-	chain.doRename(mockIp4tables, nil, "OLD_CILIUM_PRE_mangle", false)
+	chain.doRename(mockIp4tables, "OLD_CILIUM_PRE_mangle", false)
 	err := mockIp4tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 
 	mockIp6tables := &mockIptables{c: c, prog: "ip6tables"}
 	mockIp6tables.expectations = mockIp4tables.expectations
-	chain.doRename(mockIp6tables, nil, "OLD_CILIUM_PRE_mangle", false)
+	chain.doRename(mockIp6tables, "OLD_CILIUM_PRE_mangle", false)
 	err = mockIp6tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 }
