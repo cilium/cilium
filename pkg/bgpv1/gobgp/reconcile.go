@@ -340,7 +340,7 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 	aset := map[string]*member{}
 
 	// populate the pod cidr advrts that must be present, universe a
-	for _, cidr := range cstate.Node.Spec.PodCIDRs {
+	for _, cidr := range cstate.PodCIDRs {
 		var (
 			m  *member
 			ok bool
