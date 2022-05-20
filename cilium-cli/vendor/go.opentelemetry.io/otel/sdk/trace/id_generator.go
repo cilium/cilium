@@ -26,8 +26,18 @@ import (
 
 // IDGenerator allows custom generators for TraceID and SpanID.
 type IDGenerator interface {
+	// DO NOT CHANGE: any modification will not be backwards compatible and
+	// must never be done outside of a new major release.
+
+	// NewIDs returns a new trace and span ID.
 	NewIDs(ctx context.Context) (trace.TraceID, trace.SpanID)
+	// DO NOT CHANGE: any modification will not be backwards compatible and
+	// must never be done outside of a new major release.
+
+	// NewSpanID returns a ID for a new span in the trace with traceID.
 	NewSpanID(ctx context.Context, traceID trace.TraceID) trace.SpanID
+	// DO NOT CHANGE: any modification will not be backwards compatible and
+	// must never be done outside of a new major release.
 }
 
 type randomIDGenerator struct {

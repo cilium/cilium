@@ -84,7 +84,7 @@ func (meta *ObjectMeta) GetOwnerReferences() []metav1.OwnerReference {
 func (meta *ObjectMeta) SetOwnerReferences(references []metav1.OwnerReference) {
 	meta.OwnerReferences = SlimOwnerReferences(references)
 }
-func (meta *ObjectMeta) GetClusterName() string                         { panic("not implemented") }
-func (meta *ObjectMeta) SetClusterName(_ string)                        { panic("not implemented") }
+func (meta *ObjectMeta) GetZZZ_DeprecatedClusterName() string           { panic("not implemented") }
+func (meta *ObjectMeta) SetZZZ_DeprecatedClusterName(_ string)          { panic("not implemented") }
 func (meta *ObjectMeta) GetManagedFields() []metav1.ManagedFieldsEntry  { panic("not implemented") }
 func (meta *ObjectMeta) SetManagedFields(_ []metav1.ManagedFieldsEntry) { panic("not implemented") }

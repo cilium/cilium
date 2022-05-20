@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -53,7 +53,7 @@ func (h *leaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer r.Body.Close()
-	b, err := ioutil.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "error reading body", http.StatusBadRequest)
 		return
@@ -236,13 +236,13 @@ func TimeToLiveHTTP(ctx context.Context, id lease.LeaseID, keys bool, url string
 		return nil, fmt.Errorf(`lease: %v. data = "%s"`, err, string(b))
 	}
 	if lresp.LeaseTimeToLiveResponse.ID != int64(id) {
-		return nil, fmt.Errorf("lease: renew id mismatch")
+		return nil, fmt.Errorf("lease: TTL id mismatch")
 	}
 	return lresp, nil
 }
 
 func readResponse(resp *http.Response) (b []byte, err error) {
-	b, err = ioutil.ReadAll(resp.Body)
+	b, err = io.ReadAll(resp.Body)
 	httputil.GracefulClose(resp)
 	return
 }

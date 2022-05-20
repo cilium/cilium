@@ -1,11 +1,10 @@
 # etcd
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/etcd-io/etcd?style=flat-square)](https://goreportcard.com/report/github.com/etcd-io/etcd)
-[![Coverage](https://codecov.io/gh/etcd-io/etcd/branch/master/graph/badge.svg)](https://codecov.io/gh/etcd-io/etcd)
+[![Coverage](https://codecov.io/gh/etcd-io/etcd/branch/main/graph/badge.svg)](https://codecov.io/gh/etcd-io/etcd)
 [![Tests](https://github.com/etcd-io/etcd/actions/workflows/tests.yaml/badge.svg)](https://github.com/etcd-io/etcd/actions/workflows/tests.yaml)
 [![asset-transparency](https://github.com/etcd-io/etcd/actions/workflows/asset-transparency.yaml/badge.svg)](https://github.com/etcd-io/etcd/actions/workflows/asset-transparency.yaml)
 [![codeql-analysis](https://github.com/etcd-io/etcd/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/etcd-io/etcd/actions/workflows/codeql-analysis.yml)
-[![self-hosted-linux-arm64-graviton2-tests](https://github.com/etcd-io/etcd/actions/workflows/self-hosted-linux-arm64-graviton2-tests.yml/badge.svg)](https://github.com/etcd-io/etcd/actions/workflows/self-hosted-linux-arm64-graviton2-tests.yml)
 [![Docs](https://img.shields.io/badge/docs-latest-green.svg)](https://etcd.io/docs)
 [![Godoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/etcd-io/etcd)
 [![Releases](https://img.shields.io/github/release/etcd-io/etcd/all.svg?style=flat-square)](https://github.com/etcd-io/etcd/releases)
@@ -41,40 +40,18 @@ etcd contributors and maintainers have monthly (every four weeks) meetings at 11
 
 An initial agenda will be posted to the [shared Google docs][shared-meeting-notes] a day before each meeting, and everyone is welcome to suggest additional topics or other agendas.
 
-[shared-meeting-notes]: https://docs.google.com/document/d/16XEGyPBisZvmmoIHSZzv__LoyOeluC5a4x353CX0SIM/edit
-
-
-Time:
-- [Jan 10th, 2019 11:00 AM video](https://www.youtube.com/watch?v=0Cphtbd1OSc&feature=youtu.be)
-- [Feb 7th, 2019 11:00 AM video](https://youtu.be/U80b--oAlYM)
-- [Mar 7th, 2019 11:00 AM video](https://youtu.be/w9TI5B7D1zg)
-- [Apr 4th, 2019 11:00 AM video](https://youtu.be/oqQR2XH1L_A)
-- [May 2nd, 2019 11:00 AM video](https://youtu.be/wFwQePuDWVw)
-- [May 30th, 2019 11:00 AM video](https://youtu.be/2t1R5NATYG4)
-- [Jul 11th, 2019 11:00 AM video](https://youtu.be/k_FZEipWD6Y)
-- [Jul 25, 2019 11:00 AM video](https://youtu.be/VSUJTACO93I)
-- [Aug 22, 2019 11:00 AM video](https://youtu.be/6IBQ-VxQmuM)
-- [Sep 19, 2019 11:00 AM video](https://youtu.be/SqfxU9DhBOc)
-- Nov 14, 2019 11:00 AM
-- Dec 12, 2019 11:00 AM
-- Jan 09, 2020 11:00 AM
-- Feb 06, 2020 11:00 AM
-- Mar 05, 2020 11:00 AM
-- Apr 02, 2020 11:00 AM
-- Apr 30, 2020 11:00 AM
-- May 28, 2020 11:00 AM
-- Jun 25, 2020 11:00 AM
-- Jul 23, 2020 11:00 AM
-- Aug 20, 2020 11:00 AM
-- Sep 17, 2020 11:00 AM
-- Oct 15, 2020 11:00 AM
-- Nov 12, 2020 11:00 AM
-- Dec 10, 2020 11:00 AM
+Meeting recordings are uploaded to [Etcd YouTube channel].
 
 Join Hangouts Meet: [meet.google.com/umg-nrxn-qvs](https://meet.google.com/umg-nrxn-qvs)
 
 Join by phone: +1 405-792-0633‬ PIN: ‪299 906‬#
 
+[shared-meeting-notes]: https://docs.google.com/document/d/16XEGyPBisZvmmoIHSZzv__LoyOeluC5a4x353CX0SIM/edit
+[Etcd YouTube channel]: https://www.youtube.com/channel/UC7tUWR24I5AR9NMsG-NYBlg
+
+## Maintainers
+
+[MAINTAINERS](MAINTAINERS) strive to shape an inclusive open source project culture where users are heard and contributors feel respected and empowered. MAINTAINERS maintain productive relationships across different companies and disciplines. Read more about [MAINTAINERS role and responsibilities](GOVERNANCE.md#maintainers).
 
 ## Getting started
 
@@ -84,11 +61,11 @@ The easiest way to get etcd is to use one of the pre-built release binaries whic
 
 For more installation guides, please check out [play.etcd.io](http://play.etcd.io) and [operating etcd](https://etcd.io/docs/latest/op-guide).
 
-For those wanting to try the very latest version, [build the latest version of etcd][dl-build] from the `main` branch. This first needs [*Go*](https://golang.org/) installed ([version 1.16+](/go.mod#L3) is required). All development occurs on `main`, including new features and bug fixes. Bug fixes are first targeted at `main` and subsequently ported to release branches, as described in the [branch management][branch-management] guide.
+For those wanting to try the very latest version, [build the latest version of etcd][dl-build] from the `main` branch. This first needs [*Go*](https://golang.org/) installed ([version 1.17+](/go.mod#L3) is required). All development occurs on `main`, including new features and bug fixes. Bug fixes are first targeted at `main` and subsequently ported to release branches, as described in the [branch management][branch-management] guide.
 
 [github-release]: https://github.com/etcd-io/etcd/releases
 [branch-management]: https://etcd.io/docs/latest/branch_management
-[dl-build]: https://etcd.io/docs/latest/dl-build#build-the-latest-version
+[dl-build]: https://etcd.io/docs/latest/install/#build-from-source
 
 ### Running etcd
 
@@ -153,6 +130,12 @@ Follow the steps in [Procfile.learner](./Procfile.learner) to add a learner node
 goreman -f ./Procfile.learner start
 ```
 
+### Install etcd client v3
+
+```bash
+go get go.etcd.io/etcd/client/v3
+```
+
 ### Next steps
 
 Now it's time to dig into the full etcd API and other guides.
@@ -186,7 +169,7 @@ See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the co
 
 ## Reporting bugs
 
-See [reporting bugs](https://etcd.io/docs/latest/reporting-bugs) for details about reporting any issues.
+See [reporting bugs](https://etcd.io/docs/latest/reporting_bugs/) for details about reporting any issues.
 
 ## Reporting a security vulnerability
 
@@ -204,6 +187,7 @@ These emeritus maintainers dedicated a part of their career to etcd and reviewed
 
 * Fanmin Shi
 * Anthony Romano
+* Brandon Philips
 
 ### License
 

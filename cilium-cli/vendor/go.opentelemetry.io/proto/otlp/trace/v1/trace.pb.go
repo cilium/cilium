@@ -50,7 +50,7 @@ const (
 	// Implementations MAY assume SpanKind to be INTERNAL when receiving UNSPECIFIED.
 	Span_SPAN_KIND_UNSPECIFIED Span_SpanKind = 0
 	// Indicates that the span represents an internal operation within an application,
-	// as opposed to an operations happening at the boundaries. Default value.
+	// as opposed to an operation happening at the boundaries. Default value.
 	Span_SPAN_KIND_INTERNAL Span_SpanKind = 1
 	// Indicates that the span covers server-side handling of an RPC or other
 	// remote network request.
@@ -112,7 +112,7 @@ func (x Span_SpanKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Span_SpanKind.Descriptor instead.
 func (Span_SpanKind) EnumDescriptor() ([]byte, []int) {
-	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{2, 0}
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{3, 0}
 }
 
 type Status_DeprecatedStatusCode int32
@@ -203,11 +203,11 @@ func (x Status_DeprecatedStatusCode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Status_DeprecatedStatusCode.Descriptor instead.
 func (Status_DeprecatedStatusCode) EnumDescriptor() ([]byte, []int) {
-	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{3, 0}
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{4, 0}
 }
 
 // For the semantics of status codes see
-// https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/trace/api.md#set-status
+// https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/api.md#set-status
 type Status_StatusCode int32
 
 const (
@@ -258,7 +258,69 @@ func (x Status_StatusCode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Status_StatusCode.Descriptor instead.
 func (Status_StatusCode) EnumDescriptor() ([]byte, []int) {
-	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{3, 1}
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{4, 1}
+}
+
+// TracesData represents the traces data that can be stored in a persistent storage,
+// OR can be embedded by other protocols that transfer OTLP traces data but do
+// not implement the OTLP protocol.
+//
+// The main difference between this message and collector protocol is that
+// in this message there will not be any "control" or "metadata" specific to
+// OTLP protocol.
+//
+// When new fields are added into this message, the OTLP request MUST be updated
+// as well.
+type TracesData struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// An array of ResourceSpans.
+	// For data coming from a single resource this array will typically contain
+	// one element. Intermediary nodes that receive data from multiple origins
+	// typically batch the data before forwarding further and in that case this
+	// array will contain multiple elements.
+	ResourceSpans []*ResourceSpans `protobuf:"bytes,1,rep,name=resource_spans,json=resourceSpans,proto3" json:"resource_spans,omitempty"`
+}
+
+func (x *TracesData) Reset() {
+	*x = TracesData{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TracesData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TracesData) ProtoMessage() {}
+
+func (x *TracesData) ProtoReflect() protoreflect.Message {
+	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[0]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TracesData.ProtoReflect.Descriptor instead.
+func (*TracesData) Descriptor() ([]byte, []int) {
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *TracesData) GetResourceSpans() []*ResourceSpans {
+	if x != nil {
+		return x.ResourceSpans
+	}
+	return nil
 }
 
 // A collection of InstrumentationLibrarySpans from a Resource.
@@ -272,12 +334,16 @@ type ResourceSpans struct {
 	Resource *v1.Resource `protobuf:"bytes,1,opt,name=resource,proto3" json:"resource,omitempty"`
 	// A list of InstrumentationLibrarySpans that originate from a resource.
 	InstrumentationLibrarySpans []*InstrumentationLibrarySpans `protobuf:"bytes,2,rep,name=instrumentation_library_spans,json=instrumentationLibrarySpans,proto3" json:"instrumentation_library_spans,omitempty"`
+	// This schema_url applies to the data in the "resource" field. It does not apply
+	// to the data in the "instrumentation_library_spans" field which have their own
+	// schema_url field.
+	SchemaUrl string `protobuf:"bytes,3,opt,name=schema_url,json=schemaUrl,proto3" json:"schema_url,omitempty"`
 }
 
 func (x *ResourceSpans) Reset() {
 	*x = ResourceSpans{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[0]
+		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -290,7 +356,7 @@ func (x *ResourceSpans) String() string {
 func (*ResourceSpans) ProtoMessage() {}
 
 func (x *ResourceSpans) ProtoReflect() protoreflect.Message {
-	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[0]
+	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -303,7 +369,7 @@ func (x *ResourceSpans) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceSpans.ProtoReflect.Descriptor instead.
 func (*ResourceSpans) Descriptor() ([]byte, []int) {
-	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{0}
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ResourceSpans) GetResource() *v1.Resource {
@@ -320,6 +386,13 @@ func (x *ResourceSpans) GetInstrumentationLibrarySpans() []*InstrumentationLibra
 	return nil
 }
 
+func (x *ResourceSpans) GetSchemaUrl() string {
+	if x != nil {
+		return x.SchemaUrl
+	}
+	return ""
+}
+
 // A collection of Spans produced by an InstrumentationLibrary.
 type InstrumentationLibrarySpans struct {
 	state         protoimpl.MessageState
@@ -332,12 +405,14 @@ type InstrumentationLibrarySpans struct {
 	InstrumentationLibrary *v11.InstrumentationLibrary `protobuf:"bytes,1,opt,name=instrumentation_library,json=instrumentationLibrary,proto3" json:"instrumentation_library,omitempty"`
 	// A list of Spans that originate from an instrumentation library.
 	Spans []*Span `protobuf:"bytes,2,rep,name=spans,proto3" json:"spans,omitempty"`
+	// This schema_url applies to all spans and span events in the "spans" field.
+	SchemaUrl string `protobuf:"bytes,3,opt,name=schema_url,json=schemaUrl,proto3" json:"schema_url,omitempty"`
 }
 
 func (x *InstrumentationLibrarySpans) Reset() {
 	*x = InstrumentationLibrarySpans{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[1]
+		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -350,7 +425,7 @@ func (x *InstrumentationLibrarySpans) String() string {
 func (*InstrumentationLibrarySpans) ProtoMessage() {}
 
 func (x *InstrumentationLibrarySpans) ProtoReflect() protoreflect.Message {
-	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[1]
+	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -363,7 +438,7 @@ func (x *InstrumentationLibrarySpans) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstrumentationLibrarySpans.ProtoReflect.Descriptor instead.
 func (*InstrumentationLibrarySpans) Descriptor() ([]byte, []int) {
-	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{1}
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *InstrumentationLibrarySpans) GetInstrumentationLibrary() *v11.InstrumentationLibrary {
@@ -378,6 +453,13 @@ func (x *InstrumentationLibrarySpans) GetSpans() []*Span {
 		return x.Spans
 	}
 	return nil
+}
+
+func (x *InstrumentationLibrarySpans) GetSchemaUrl() string {
+	if x != nil {
+		return x.SchemaUrl
+	}
+	return ""
 }
 
 // Span represents a single operation within a trace. Spans can be
@@ -427,9 +509,7 @@ type Span struct {
 	// This makes it easier to correlate spans in different traces.
 	//
 	// This field is semantically required to be set to non-empty string.
-	// When null or empty string received - receiver may use string "name"
-	// as a replacement. There might be smarted algorithms implemented by
-	// receiver to fix the empty span name.
+	// Empty value is equivalent to an unknown span name.
 	//
 	// This field is required.
 	Name string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
@@ -451,14 +531,16 @@ type Span struct {
 	//
 	// This field is semantically required and it is expected that end_time >= start_time.
 	EndTimeUnixNano uint64 `protobuf:"fixed64,8,opt,name=end_time_unix_nano,json=endTimeUnixNano,proto3" json:"end_time_unix_nano,omitempty"`
-	// attributes is a collection of key/value pairs. The value can be a string,
-	// an integer, a double or the Boolean values `true` or `false`. Note, global attributes
+	// attributes is a collection of key/value pairs. Note, global attributes
 	// like server name can be set using the resource API. Examples of attributes:
 	//
 	//     "/http/user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"
 	//     "/http/server_latency": 300
 	//     "abc.com/myattribute": true
 	//     "abc.com/score": 10.239
+	//
+	// The OpenTelemetry API specification further restricts the allowed value types:
+	// https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/common/common.md#attributes
 	Attributes []*v11.KeyValue `protobuf:"bytes,9,rep,name=attributes,proto3" json:"attributes,omitempty"`
 	// dropped_attributes_count is the number of attributes that were discarded. Attributes
 	// can be discarded because their keys are too long or because there are too many
@@ -483,7 +565,7 @@ type Span struct {
 func (x *Span) Reset() {
 	*x = Span{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[2]
+		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -496,7 +578,7 @@ func (x *Span) String() string {
 func (*Span) ProtoMessage() {}
 
 func (x *Span) ProtoReflect() protoreflect.Message {
-	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[2]
+	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -509,7 +591,7 @@ func (x *Span) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Span.ProtoReflect.Descriptor instead.
 func (*Span) Descriptor() ([]byte, []int) {
-	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{2}
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Span) GetTraceId() []byte {
@@ -642,7 +724,7 @@ type Status struct {
 func (x *Status) Reset() {
 	*x = Status{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[3]
+		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -655,7 +737,7 @@ func (x *Status) String() string {
 func (*Status) ProtoMessage() {}
 
 func (x *Status) ProtoReflect() protoreflect.Message {
-	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[3]
+	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -668,7 +750,7 @@ func (x *Status) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Status.ProtoReflect.Descriptor instead.
 func (*Status) Descriptor() ([]byte, []int) {
-	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{3}
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{4}
 }
 
 // Deprecated: Do not use.
@@ -715,7 +797,7 @@ type Span_Event struct {
 func (x *Span_Event) Reset() {
 	*x = Span_Event{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[4]
+		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -728,7 +810,7 @@ func (x *Span_Event) String() string {
 func (*Span_Event) ProtoMessage() {}
 
 func (x *Span_Event) ProtoReflect() protoreflect.Message {
-	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[4]
+	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -741,7 +823,7 @@ func (x *Span_Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Span_Event.ProtoReflect.Descriptor instead.
 func (*Span_Event) Descriptor() ([]byte, []int) {
-	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{2, 0}
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{3, 0}
 }
 
 func (x *Span_Event) GetTimeUnixNano() uint64 {
@@ -798,7 +880,7 @@ type Span_Link struct {
 func (x *Span_Link) Reset() {
 	*x = Span_Link{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[5]
+		mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -811,7 +893,7 @@ func (x *Span_Link) String() string {
 func (*Span_Link) ProtoMessage() {}
 
 func (x *Span_Link) ProtoReflect() protoreflect.Message {
-	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[5]
+	mi := &file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -824,7 +906,7 @@ func (x *Span_Link) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Span_Link.ProtoReflect.Descriptor instead.
 func (*Span_Link) Descriptor() ([]byte, []int) {
-	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{2, 1}
+	return file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP(), []int{3, 1}
 }
 
 func (x *Span_Link) GetTraceId() []byte {
@@ -875,33 +957,43 @@ var file_opentelemetry_proto_trace_v1_trace_proto_rawDesc = []byte{
 	0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x2e, 0x6f, 0x70, 0x65, 0x6e, 0x74, 0x65, 0x6c, 0x65, 0x6d, 0x65,
 	0x74, 0x72, 0x79, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72,
 	0x63, 0x65, 0x2f, 0x76, 0x31, 0x2f, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x22, 0xd5, 0x01, 0x0a, 0x0d, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63,
-	0x65, 0x53, 0x70, 0x61, 0x6e, 0x73, 0x12, 0x45, 0x0a, 0x08, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72,
-	0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x29, 0x2e, 0x6f, 0x70, 0x65, 0x6e, 0x74,
-	0x65, 0x6c, 0x65, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x72,
-	0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x73, 0x6f, 0x75,
-	0x72, 0x63, 0x65, 0x52, 0x08, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x12, 0x7d, 0x0a,
-	0x1d, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e,
-	0x5f, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x5f, 0x73, 0x70, 0x61, 0x6e, 0x73, 0x18, 0x02,
-	0x20, 0x03, 0x28, 0x0b, 0x32, 0x39, 0x2e, 0x6f, 0x70, 0x65, 0x6e, 0x74, 0x65, 0x6c, 0x65, 0x6d,
-	0x65, 0x74, 0x72, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x74, 0x72, 0x61, 0x63, 0x65,
-	0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74,
-	0x69, 0x6f, 0x6e, 0x4c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x53, 0x70, 0x61, 0x6e, 0x73, 0x52,
-	0x1b, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e,
-	0x4c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x53, 0x70, 0x61, 0x6e, 0x73, 0x22, 0xc7, 0x01, 0x0a,
-	0x1b, 0x49, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e,
-	0x4c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x53, 0x70, 0x61, 0x6e, 0x73, 0x12, 0x6e, 0x0a, 0x17,
-	0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f,
-	0x6c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x35, 0x2e,
-	0x6f, 0x70, 0x65, 0x6e, 0x74, 0x65, 0x6c, 0x65, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e,
-	0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4c, 0x69, 0x62,
-	0x72, 0x61, 0x72, 0x79, 0x52, 0x16, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74,
-	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x12, 0x38, 0x0a, 0x05,
-	0x73, 0x70, 0x61, 0x6e, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x6f, 0x70,
-	0x65, 0x6e, 0x74, 0x65, 0x6c, 0x65, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x2e, 0x74, 0x72, 0x61, 0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x70, 0x61, 0x6e, 0x52,
-	0x05, 0x73, 0x70, 0x61, 0x6e, 0x73, 0x22, 0x9c, 0x0a, 0x0a, 0x04, 0x53, 0x70, 0x61, 0x6e, 0x12,
+	0x72, 0x6f, 0x74, 0x6f, 0x22, 0x60, 0x0a, 0x0a, 0x54, 0x72, 0x61, 0x63, 0x65, 0x73, 0x44, 0x61,
+	0x74, 0x61, 0x12, 0x52, 0x0a, 0x0e, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x5f, 0x73,
+	0x70, 0x61, 0x6e, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x2b, 0x2e, 0x6f, 0x70, 0x65,
+	0x6e, 0x74, 0x65, 0x6c, 0x65, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x2e, 0x74, 0x72, 0x61, 0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72,
+	0x63, 0x65, 0x53, 0x70, 0x61, 0x6e, 0x73, 0x52, 0x0d, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63,
+	0x65, 0x53, 0x70, 0x61, 0x6e, 0x73, 0x22, 0xf4, 0x01, 0x0a, 0x0d, 0x52, 0x65, 0x73, 0x6f, 0x75,
+	0x72, 0x63, 0x65, 0x53, 0x70, 0x61, 0x6e, 0x73, 0x12, 0x45, 0x0a, 0x08, 0x72, 0x65, 0x73, 0x6f,
+	0x75, 0x72, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x29, 0x2e, 0x6f, 0x70, 0x65,
+	0x6e, 0x74, 0x65, 0x6c, 0x65, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x2e, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x73,
+	0x6f, 0x75, 0x72, 0x63, 0x65, 0x52, 0x08, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x12,
+	0x7d, 0x0a, 0x1d, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x5f, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x5f, 0x73, 0x70, 0x61, 0x6e, 0x73,
+	0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x39, 0x2e, 0x6f, 0x70, 0x65, 0x6e, 0x74, 0x65, 0x6c,
+	0x65, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x74, 0x72, 0x61,
+	0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x53, 0x70, 0x61, 0x6e,
+	0x73, 0x52, 0x1b, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x4c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x53, 0x70, 0x61, 0x6e, 0x73, 0x12, 0x1d,
+	0x0a, 0x0a, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x5f, 0x75, 0x72, 0x6c, 0x18, 0x03, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x09, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x55, 0x72, 0x6c, 0x22, 0xe6, 0x01,
+	0x0a, 0x1b, 0x49, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x4c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x53, 0x70, 0x61, 0x6e, 0x73, 0x12, 0x6e, 0x0a,
+	0x17, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x5f, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x35,
+	0x2e, 0x6f, 0x70, 0x65, 0x6e, 0x74, 0x65, 0x6c, 0x65, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x49,
+	0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4c, 0x69,
+	0x62, 0x72, 0x61, 0x72, 0x79, 0x52, 0x16, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x6d, 0x65, 0x6e,
+	0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x12, 0x38, 0x0a,
+	0x05, 0x73, 0x70, 0x61, 0x6e, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x6f,
+	0x70, 0x65, 0x6e, 0x74, 0x65, 0x6c, 0x65, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x2e, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x2e, 0x74, 0x72, 0x61, 0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x70, 0x61, 0x6e,
+	0x52, 0x05, 0x73, 0x70, 0x61, 0x6e, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x73, 0x63, 0x68, 0x65, 0x6d,
+	0x61, 0x5f, 0x75, 0x72, 0x6c, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x73, 0x63, 0x68,
+	0x65, 0x6d, 0x61, 0x55, 0x72, 0x6c, 0x22, 0x9c, 0x0a, 0x0a, 0x04, 0x53, 0x70, 0x61, 0x6e, 0x12,
 	0x19, 0x0a, 0x08, 0x74, 0x72, 0x61, 0x63, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x0c, 0x52, 0x07, 0x74, 0x72, 0x61, 0x63, 0x65, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x73, 0x70,
 	0x61, 0x6e, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x73, 0x70, 0x61,
@@ -1069,40 +1161,42 @@ func file_opentelemetry_proto_trace_v1_trace_proto_rawDescGZIP() []byte {
 }
 
 var file_opentelemetry_proto_trace_v1_trace_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_opentelemetry_proto_trace_v1_trace_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_opentelemetry_proto_trace_v1_trace_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_opentelemetry_proto_trace_v1_trace_proto_goTypes = []interface{}{
 	(Span_SpanKind)(0),                  // 0: opentelemetry.proto.trace.v1.Span.SpanKind
 	(Status_DeprecatedStatusCode)(0),    // 1: opentelemetry.proto.trace.v1.Status.DeprecatedStatusCode
 	(Status_StatusCode)(0),              // 2: opentelemetry.proto.trace.v1.Status.StatusCode
-	(*ResourceSpans)(nil),               // 3: opentelemetry.proto.trace.v1.ResourceSpans
-	(*InstrumentationLibrarySpans)(nil), // 4: opentelemetry.proto.trace.v1.InstrumentationLibrarySpans
-	(*Span)(nil),                        // 5: opentelemetry.proto.trace.v1.Span
-	(*Status)(nil),                      // 6: opentelemetry.proto.trace.v1.Status
-	(*Span_Event)(nil),                  // 7: opentelemetry.proto.trace.v1.Span.Event
-	(*Span_Link)(nil),                   // 8: opentelemetry.proto.trace.v1.Span.Link
-	(*v1.Resource)(nil),                 // 9: opentelemetry.proto.resource.v1.Resource
-	(*v11.InstrumentationLibrary)(nil),  // 10: opentelemetry.proto.common.v1.InstrumentationLibrary
-	(*v11.KeyValue)(nil),                // 11: opentelemetry.proto.common.v1.KeyValue
+	(*TracesData)(nil),                  // 3: opentelemetry.proto.trace.v1.TracesData
+	(*ResourceSpans)(nil),               // 4: opentelemetry.proto.trace.v1.ResourceSpans
+	(*InstrumentationLibrarySpans)(nil), // 5: opentelemetry.proto.trace.v1.InstrumentationLibrarySpans
+	(*Span)(nil),                        // 6: opentelemetry.proto.trace.v1.Span
+	(*Status)(nil),                      // 7: opentelemetry.proto.trace.v1.Status
+	(*Span_Event)(nil),                  // 8: opentelemetry.proto.trace.v1.Span.Event
+	(*Span_Link)(nil),                   // 9: opentelemetry.proto.trace.v1.Span.Link
+	(*v1.Resource)(nil),                 // 10: opentelemetry.proto.resource.v1.Resource
+	(*v11.InstrumentationLibrary)(nil),  // 11: opentelemetry.proto.common.v1.InstrumentationLibrary
+	(*v11.KeyValue)(nil),                // 12: opentelemetry.proto.common.v1.KeyValue
 }
 var file_opentelemetry_proto_trace_v1_trace_proto_depIdxs = []int32{
-	9,  // 0: opentelemetry.proto.trace.v1.ResourceSpans.resource:type_name -> opentelemetry.proto.resource.v1.Resource
-	4,  // 1: opentelemetry.proto.trace.v1.ResourceSpans.instrumentation_library_spans:type_name -> opentelemetry.proto.trace.v1.InstrumentationLibrarySpans
-	10, // 2: opentelemetry.proto.trace.v1.InstrumentationLibrarySpans.instrumentation_library:type_name -> opentelemetry.proto.common.v1.InstrumentationLibrary
-	5,  // 3: opentelemetry.proto.trace.v1.InstrumentationLibrarySpans.spans:type_name -> opentelemetry.proto.trace.v1.Span
-	0,  // 4: opentelemetry.proto.trace.v1.Span.kind:type_name -> opentelemetry.proto.trace.v1.Span.SpanKind
-	11, // 5: opentelemetry.proto.trace.v1.Span.attributes:type_name -> opentelemetry.proto.common.v1.KeyValue
-	7,  // 6: opentelemetry.proto.trace.v1.Span.events:type_name -> opentelemetry.proto.trace.v1.Span.Event
-	8,  // 7: opentelemetry.proto.trace.v1.Span.links:type_name -> opentelemetry.proto.trace.v1.Span.Link
-	6,  // 8: opentelemetry.proto.trace.v1.Span.status:type_name -> opentelemetry.proto.trace.v1.Status
-	1,  // 9: opentelemetry.proto.trace.v1.Status.deprecated_code:type_name -> opentelemetry.proto.trace.v1.Status.DeprecatedStatusCode
-	2,  // 10: opentelemetry.proto.trace.v1.Status.code:type_name -> opentelemetry.proto.trace.v1.Status.StatusCode
-	11, // 11: opentelemetry.proto.trace.v1.Span.Event.attributes:type_name -> opentelemetry.proto.common.v1.KeyValue
-	11, // 12: opentelemetry.proto.trace.v1.Span.Link.attributes:type_name -> opentelemetry.proto.common.v1.KeyValue
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	4,  // 0: opentelemetry.proto.trace.v1.TracesData.resource_spans:type_name -> opentelemetry.proto.trace.v1.ResourceSpans
+	10, // 1: opentelemetry.proto.trace.v1.ResourceSpans.resource:type_name -> opentelemetry.proto.resource.v1.Resource
+	5,  // 2: opentelemetry.proto.trace.v1.ResourceSpans.instrumentation_library_spans:type_name -> opentelemetry.proto.trace.v1.InstrumentationLibrarySpans
+	11, // 3: opentelemetry.proto.trace.v1.InstrumentationLibrarySpans.instrumentation_library:type_name -> opentelemetry.proto.common.v1.InstrumentationLibrary
+	6,  // 4: opentelemetry.proto.trace.v1.InstrumentationLibrarySpans.spans:type_name -> opentelemetry.proto.trace.v1.Span
+	0,  // 5: opentelemetry.proto.trace.v1.Span.kind:type_name -> opentelemetry.proto.trace.v1.Span.SpanKind
+	12, // 6: opentelemetry.proto.trace.v1.Span.attributes:type_name -> opentelemetry.proto.common.v1.KeyValue
+	8,  // 7: opentelemetry.proto.trace.v1.Span.events:type_name -> opentelemetry.proto.trace.v1.Span.Event
+	9,  // 8: opentelemetry.proto.trace.v1.Span.links:type_name -> opentelemetry.proto.trace.v1.Span.Link
+	7,  // 9: opentelemetry.proto.trace.v1.Span.status:type_name -> opentelemetry.proto.trace.v1.Status
+	1,  // 10: opentelemetry.proto.trace.v1.Status.deprecated_code:type_name -> opentelemetry.proto.trace.v1.Status.DeprecatedStatusCode
+	2,  // 11: opentelemetry.proto.trace.v1.Status.code:type_name -> opentelemetry.proto.trace.v1.Status.StatusCode
+	12, // 12: opentelemetry.proto.trace.v1.Span.Event.attributes:type_name -> opentelemetry.proto.common.v1.KeyValue
+	12, // 13: opentelemetry.proto.trace.v1.Span.Link.attributes:type_name -> opentelemetry.proto.common.v1.KeyValue
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_opentelemetry_proto_trace_v1_trace_proto_init() }
@@ -1112,7 +1206,7 @@ func file_opentelemetry_proto_trace_v1_trace_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResourceSpans); i {
+			switch v := v.(*TracesData); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1124,7 +1218,7 @@ func file_opentelemetry_proto_trace_v1_trace_proto_init() {
 			}
 		}
 		file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InstrumentationLibrarySpans); i {
+			switch v := v.(*ResourceSpans); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1136,7 +1230,7 @@ func file_opentelemetry_proto_trace_v1_trace_proto_init() {
 			}
 		}
 		file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Span); i {
+			switch v := v.(*InstrumentationLibrarySpans); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1148,7 +1242,7 @@ func file_opentelemetry_proto_trace_v1_trace_proto_init() {
 			}
 		}
 		file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Status); i {
+			switch v := v.(*Span); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1160,7 +1254,7 @@ func file_opentelemetry_proto_trace_v1_trace_proto_init() {
 			}
 		}
 		file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Span_Event); i {
+			switch v := v.(*Status); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1172,6 +1266,18 @@ func file_opentelemetry_proto_trace_v1_trace_proto_init() {
 			}
 		}
 		file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Span_Event); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_opentelemetry_proto_trace_v1_trace_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Span_Link); i {
 			case 0:
 				return &v.state
@@ -1190,7 +1296,7 @@ func file_opentelemetry_proto_trace_v1_trace_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_opentelemetry_proto_trace_v1_trace_proto_rawDesc,
 			NumEnums:      3,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
