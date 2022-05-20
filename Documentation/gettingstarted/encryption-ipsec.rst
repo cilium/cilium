@@ -193,7 +193,7 @@ To replace cilium-ipsec-keys secret with a new key:
 .. code-block:: shell-session
 
     KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o yaml | awk '/^\s*keys:/ {print $2}' | base64 -d | awk '{print $1}')
-    if [[ $KEYID -gt 15 ]]; then KEYID=0; fi
+    if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
     data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
     kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
 
@@ -205,10 +205,10 @@ has not yet been updated. In this way encryption will work as new keys are
 rolled out.
 
 The ``KEYID`` environment variable in the above example stores the current key
-ID used by Cilium. The key variable is a uint8 with value between 0-16 and
-should be monotonically increasing every re-key with a rollover from 16 to 0.
-The Cilium agent will default to ``KEYID`` of zero if its not specified in the
-secret.
+ID used by Cilium. The key variable is a uint8 with value between 1 and 15
+included and should be monotonically increasing every re-key with a rollover
+from 15 to 1. The Cilium agent will default to ``KEYID`` of zero if its not
+specified in the secret.
 
 Troubleshooting
 ===============
