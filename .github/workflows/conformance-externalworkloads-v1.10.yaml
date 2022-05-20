@@ -65,7 +65,7 @@ env:
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
-  cilium_cli_version: v0.10.4
+  cilium_cli_version: v0.10.5
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -262,7 +262,7 @@ jobs:
             --command "~/install-external-workload.sh"
           sleep 5s
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
-            --command "cilium status"
+            --command "sudo cilium status"
 
       - name: Verify cluster DNS on VM
         # Limit nslookup to the first (global) DNS server setting
@@ -273,7 +273,7 @@ jobs:
       - name: Ping clustermesh-apiserver from VM
         run: |
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
-            --command "ping -c 3 \$(cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
+            --command "ping -c 3 \$(sudo cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
 
       - name: Run connectivity test
         run: |
@@ -288,7 +288,7 @@ jobs:
           cilium status
           cilium clustermesh status
           cilium clustermesh vm status
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo cilium status"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
           cilium sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
