@@ -24,15 +24,19 @@ specific location instead of `/usr/local/bin`, e.g.
 BINDIR=~/.local/bin make install
 ```
 
-Alternatively, to install the latest binary release on Linux or macOS:
+Alternatively, to install the latest binary release:
 
 ```
-OS
-curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
-sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-rm cilium-linux-amd64.tar.gz{,.sha256sum}
+GOOS=$(go env GOOS)
+GOARCH=$(go env GOARCH)
+curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-${GOOS}-${GOARCH}.tar.gz{,.sha256sum}
+sha256sum --check cilium-${GOOS}-${GOARCH}.tar.gz.sha256sum
+sudo tar -C /usr/local/bin -xzvf cilium-${GOOS}-${GOARCH}.tar.gz
+rm cilium-${GOOS}-${GOARCH}.tar.gz{,.sha256sum}
 ```
+
+See https://github.com/cilium/cilium-cli/releases for supported `GOOS`/`GOARCH`
+binary releases.
 
 ## Capabilities
 
