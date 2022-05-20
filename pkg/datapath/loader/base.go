@@ -463,7 +463,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	// Reinstall proxy rules for any running proxies if needed
 	if p != nil {
-		p.ReinstallRules()
+		if err := p.ReinstallRules(); err != nil {
+			return err
+		}
 	}
 
 	return nil
