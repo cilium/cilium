@@ -109,7 +109,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
 	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.GetDevices(), " "))
-	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.ModePreFilter)
+	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.NodePortAcceleration)
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
 	return fw.Flush()

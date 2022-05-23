@@ -343,6 +343,8 @@ Removed Options
   Helm) was deprecated, and it will be removed in version 1.13.
 * The ``native-routing-cidr`` option deprecated in 1.11 in favor of
   ``ipv4-native-routing-cidr`` has been removed.
+* The ``prefilter-device`` and ``prefilter-mode`` options deprecated in 1.11 in
+  favor of ``enable-xdp-prefilter`` and ``bpf-lb-acceleration`` have been removed.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
