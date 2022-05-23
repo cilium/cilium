@@ -82,10 +82,16 @@ spec:
             - "true"
 {{- else }}
       - args:
-        - -c
-        - "groupdel cilium && cilium-agent --config-dir=/tmp/cilium/config-map {{- range $key, $value := .Values.extraArgs }}{{- if $value }} --{{ $key }}={{ $value }}{{- else }} --{{ $key }}{{- end }}{{- end }}"
+        - --config-dir=/tmp/cilium/config-map
+{{- range $key, $value := .Values.extraArgs }}
+{{- if $value }}
+        - --{{ $key }}={{ $value }}
+{{- else }}
+        - --{{ $key }}
+{{- end }}
+{{- end }}
         command:
-        - bash
+        - cilium-agent
         livenessProbe:
 {{- if or .Values.keepDeprecatedProbes (eq $defaultKeepDeprecatedProbes "true") }}
           exec:
