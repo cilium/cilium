@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -823,17 +822,6 @@ func initializeFlags() {
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
 	option.BindEnv(option.EnableXDPPrefilter)
 
-	flags.String(option.PrefilterDevice, "undefined", "Device facing external network for XDP prefiltering")
-	option.BindEnv(option.PrefilterDevice)
-	flags.MarkDeprecated(option.PrefilterDevice,
-		fmt.Sprintf("This option will be removed in v1.12. Use --%s and --%s instead.",
-			option.EnableXDPPrefilter, option.Devices))
-
-	flags.String(option.PrefilterMode, option.ModePreFilterNative, "Prefilter mode via XDP (\"native\", \"generic\")")
-	option.BindEnv(option.PrefilterMode)
-	flags.MarkDeprecated(option.PrefilterMode,
-		fmt.Sprintf("This option will be removed in v1.12. Use --%s instead.", option.LoadBalancerAcceleration))
-
 	flags.Bool(option.PreAllocateMapsName, defaults.PreAllocateMaps, "Enable BPF map pre-allocation")
 	option.BindEnv(option.PreAllocateMapsName)
 
@@ -1313,33 +1301,6 @@ func initEnv(cmd *cobra.Command) {
 	default:
 		log.Fatalf("Invalid setting for --allow-localhost, must be { %s, %s, %s }",
 			option.AllowLocalhostAuto, option.AllowLocalhostAlways, option.AllowLocalhostPolicy)
-	}
-
-	option.Config.ModePreFilter = strings.ToLower(option.Config.ModePreFilter)
-	if option.Config.ModePreFilter == "generic" {
-		option.Config.ModePreFilter = option.ModePreFilterGeneric
-	}
-	if option.Config.ModePreFilter != option.ModePreFilterNative &&
-		option.Config.ModePreFilter != option.ModePreFilterGeneric {
-		log.Fatalf("Invalid setting for --prefilter-mode, must be { %s, generic }",
-			option.ModePreFilterNative)
-	}
-
-	if option.Config.DevicePreFilter != "undefined" {
-		option.Config.EnableXDPPrefilter = true
-		found := false
-		for _, dev := range option.Config.GetDevices() {
-			if dev == option.Config.DevicePreFilter {
-				found = true
-				break
-			}
-		}
-		if !found {
-			option.Config.AppendDevice(option.Config.DevicePreFilter)
-		}
-		if err := loader.SetXDPMode(option.Config.ModePreFilter); err != nil {
-			scopedLog.WithError(err).Fatal("Cannot set prefilter XDP mode")
-		}
 	}
 
 	scopedLog = log.WithField(logfields.Path, option.Config.SocketPath)
