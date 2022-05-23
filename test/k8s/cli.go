@@ -40,11 +40,13 @@ var _ = Describe("K8sCLI", func() {
 			const (
 				manifestYAML = "test-cli.yaml"
 				fooID        = "foo"
-				fooSHA       = "a83c739e630049e46b9ac6883dc2682b31bf8472b09c8bb81d87092a51d14ddf"
+				fooSHA       = "c97de9490c28e929fd143f1988deba185345aab2a3a171fabcb8a0d03db68240"
 				fooNode      = "k8s1"
 				// These labels are automatically added to all pods in the default namespace.
-				defaultLabels = "k8s:io.cilium.k8s.policy.cluster=default " +
-					"k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default"
+				defaultLabels = "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=default " +
+					"k8s:io.cilium.k8s.policy.cluster=default " +
+					"k8s:io.cilium.k8s.policy.serviceaccount=default " +
+					"k8s:io.kubernetes.pod.namespace=default"
 			)
 
 			var (
