@@ -66,13 +66,8 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		}
 	}
 
-	if healthIP := n.Spec.HealthAddressing.IPv4; healthIP != "" {
-		node.IPv4HealthIP = net.ParseIP(healthIP)
-	}
-
-	if healthIP := n.Spec.HealthAddressing.IPv6; healthIP != "" {
-		node.IPv6HealthIP = net.ParseIP(healthIP)
-	}
+	node.IPv4HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv4)
+	node.IPv6HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv6)
 
 	for _, address := range n.Spec.Addresses {
 		if ip := net.ParseIP(address.IP); ip != nil {
