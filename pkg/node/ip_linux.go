@@ -4,6 +4,7 @@
 package node
 
 import (
+	"net"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -22,6 +23,9 @@ func initExcludedIPs() {
 	if err != nil {
 		return
 	}
+
+	includedIPs := make(map[string]struct{})
+	var toExcludeIPs []net.IP
 	for _, l := range links {
 		// ... also all down devices since they won't be reachable.
 		//
@@ -38,6 +42,13 @@ func initExcludedIPs() {
 				}
 			}
 			if skip {
+				addr, err := netlink.AddrList(l, netlink.FAMILY_ALL)
+				if err != nil {
+					continue
+				}
+				for _, a := range addr {
+					includedIPs[a.IP.String()] = struct{}{}
+				}
 				continue
 			}
 		}
@@ -46,7 +57,14 @@ func initExcludedIPs() {
 			continue
 		}
 		for _, a := range addr {
-			excludedIPs = append(excludedIPs, a.IP)
+			toExcludeIPs = append(toExcludeIPs, a.IP)
+		}
+	}
+
+	for _, value := range toExcludeIPs {
+		_, ok := includedIPs[value.String()]
+		if !ok {
+			excludedIPs = append(excludedIPs, value)
 		}
 	}
 }
