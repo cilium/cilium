@@ -41,6 +41,7 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS="--agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
             --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
+            --base-version=v1.10.12 \
             --version=${SHA} \
             --wait=false \
             --config monitor-aggregation=none"
