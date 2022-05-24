@@ -23,6 +23,23 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
+
+	// Imports for Envoy extensions not used directly from Cilium Agent, but that we want to
+	// be registered for use in Cilium Encoy Config CRDs:
+	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/set_metadata/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/connection_limit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/ext_authz/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/local_ratelimit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/ratelimit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_cluster/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/http/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/tcp/v3"
 )
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
