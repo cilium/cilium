@@ -84,4 +84,11 @@ rules:
   - ciliumegressnatpolicies
   verbs:
   - '*'
+- apiGroups:
+  - cilium.io
+  # To synchronize garbage collection of such resources
+  resources:
+  - ciliumidentities
+  verbs:
+  - update
 {{- end }}
