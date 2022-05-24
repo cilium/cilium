@@ -648,7 +648,7 @@ func (kub *Kubectl) labelNodes() error {
 	if noCiliumNodeNames != "" {
 		// Prevent scheduling any pods on the node, as it will be used as an external client
 		// to send requests to k8s{1,2}
-		cmd := fmt.Sprintf("%s taint --overwrite nodes %s key=value:NoSchedule", KubectlCmd, noCiliumNodeNames)
+		cmd := fmt.Sprintf("%s taint --overwrite nodes %s prevent-scheduling:NoSchedule", KubectlCmd, noCiliumNodeNames)
 		res := kub.ExecMiddle(cmd)
 		if !res.WasSuccessful() {
 			return fmt.Errorf("unable to taint node with '%s': %s", cmd, res.OutputPrettyPrint())
