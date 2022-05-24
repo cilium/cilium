@@ -6,7 +6,7 @@ include ../Makefile.quiet
 
 HELM_VALUES := helm-values.rst
 
-.PHONY: default clean builder-image cilium-build cmdref epub latex html run-server stop-server
+.PHONY: default clean builder-image cilium-build cmdref epub latex html
 
 default: html
 
@@ -100,24 +100,7 @@ html-netlify: copy-api
 
 DOCS_PORT = 9081
 
-run-server: stop-server
-	# Work around Docker issue where this directory is created as root in
-	# the `--volume` parameter below. See also GH-10869.
-	$(QUIET)mkdir -p $(CURDIR)/_build/html/
-	$(QUIET)$(CONTAINER_ENGINE) container run --rm \
-		--detach \
-		--interactive \
-		--tty \
-		--name docs-cilium \
-		--publish $(DOCS_PORT):80 \
-		--volume $(CURDIR)/_build/html/:/usr/local/apache2/htdocs/ \
-			httpd:2.4
-	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
-
-stop-server:
-	-$(QUIET)$(CONTAINER_ENGINE) container rm --force --volumes docs-cilium 2>/dev/null
-
-live-preview: stop-server builder-image
+live-preview: builder-image
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
 	$(QUIET)$(DOCKER_CTR) \
 		--publish $(DOCS_PORT):8000 \
