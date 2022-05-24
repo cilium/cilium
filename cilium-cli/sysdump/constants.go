@@ -55,6 +55,7 @@ const (
 	gopsFileName                             = "gops-%s-%s-<ts>-%s.txt"
 	hubbleDaemonsetFileName                  = "hubble-daemonset-<ts>.yaml"
 	hubbleFlowsFileName                      = "hubble-flows-%s-<ts>.json"
+	hubbleObserveFileName                    = "hubble-observe-%s-<ts>.log"
 	hubbleRelayConfigMapFileName             = "hubble-relay-configmap-<ts>.yaml"
 	hubbleRelayDeploymentFileName            = "hubble-relay-deployment-<ts>.yaml"
 	hubbleUIDeploymentFileName               = "hubble-ui-deployment-<ts>.yaml"
