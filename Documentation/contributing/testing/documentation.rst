@@ -23,11 +23,7 @@ you can build the docs:
 
 .. code-block:: shell-session
 
-    $ make render-docs
-
-This generates documentation files and starts a web server using a Docker container. You can
-view the updated documentation by opening either ``Documentation/_build/html/index.html`` or
-http://localhost:9081 in a browser.
+    $ make test-docs
 
 .. note::
 
