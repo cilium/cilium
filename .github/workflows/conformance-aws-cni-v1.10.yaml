@@ -222,11 +222,16 @@ jobs:
             until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
+      # Checkout source code to install Cilium using local Helm chart.
+      - name: Checkout code
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
       - name: Install Cilium
         run: |
-          curl -LO https://github.com/cilium/cilium/archive/v${{ env.cilium_base_version }}.tar.gz
-          tar xzf v${{ env.cilium_base_version }}.tar.gz
-          cd cilium-${{ env.cilium_base_version }}/install/kubernetes
+          cd install/kubernetes
           helm install cilium ./cilium \
             --namespace kube-system \
             --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
@@ -245,7 +250,7 @@ jobs:
 
       - name: Enable Relay
         run: |
-          cd cilium-${{ env.cilium_base_version }}/install/kubernetes
+          cd install/kubernetes
           helm upgrade cilium ./cilium \
             --namespace kube-system \
             --reuse-values \
