@@ -13,11 +13,13 @@ default: html
 clean:
 	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock
 
+DOCS_BUILDER_IMG ?= cilium/docs-builder
+
 builder-image: Dockerfile requirements.txt
 	# Pre-pull FROM docker images due to Buildkit sometimes failing to pull them.
 	grep "^FROM " $< | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
 	$(QUIET)tar c requirements.txt Dockerfile \
-	  | $(CONTAINER_ENGINE) build --tag cilium/docs-builder -
+	  | $(CONTAINER_ENGINE) build --tag $(DOCS_BUILDER_IMG) -
 
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.
@@ -32,7 +34,7 @@ DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
 		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
 		--user "$(shell id -u):$(shell id -g)"
-DOCKER_RUN := $(DOCKER_CTR) cilium/docs-builder
+DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
 update-cmdref: builder-image cilium-build
 	@$(ECHO_GEN)cmdref
@@ -119,5 +121,5 @@ live-preview: stop-server builder-image
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
 	$(QUIET)$(DOCKER_CTR) \
 		--publish $(DOCS_PORT):8000 \
-			cilium/docs-builder \
+			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 $(SPHINX_OPTS) --ignore *.swp -Q . _preview
