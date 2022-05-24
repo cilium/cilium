@@ -28,6 +28,7 @@
 # @cilium/policy             Policy behaviour
 # @cilium/proxy              L7 proxy, Envoy
 # @cilium/sig-clustermesh    All code related with clustermesh
+# @cilium/sig-servicemesh    All code related with servicemesh
 # @cilium/vendor             Vendoring, dependency management
 # @cilium/wireguard          Wireguard integration
 
@@ -131,6 +132,7 @@ Makefile* @cilium/build
 /Documentation/gettingstarted/kind-configure.rst @cilium/docs-structure
 /Documentation/gettingstarted/kubeproxy-free.rst @cilium/loadbalancer @cilium/docs-structure
 /Documentation/gettingstarted/policy-creation.rst @cilium/policy @cilium/docs-structure
+/Documentation/gettingstarted/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure
 /Documentation/glossary.rst @cilium/docs-structure
 /Documentation/helm-values.rst
 /Documentation/images/re-request-review.png @cilium/contributing @cilium/docs-structure
