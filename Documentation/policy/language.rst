@@ -614,7 +614,7 @@ quickly. In order to limit the number of IP addresses that map a particular
 FQDN, each FQDN has a per-endpoint max capacity of IPs that will be retained
 (default: 50). Once this limit is exceeded, the oldest IP entries are
 automatically expired from the cache. This capacity can be changed using the
-``--tofqdns-max-ip-per-hostname`` option.
+``--tofqdns-endpoint-max-ip-per-hostname`` option.
 
 As with long-lived connections above, live connections are not expired until
 they terminate. It is safe to mix long- and short-lived connections from the
