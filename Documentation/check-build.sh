@@ -30,14 +30,18 @@ has_spelling_errors() {
     test -n "$(ls "${spelldir}")"
 }
 
-cat_warnings() {
+# Filter out some undesirable warnings:
+#   - Spelling (we already have individual warnings for each word)
+filter_warnings() {
     [ -s "${warnings}" ] || return
-    cat "${warnings}"
+    grep -v -E \
+        -e 'Found .* misspelled words' \
+        "${warnings}"
 }
 
 # Returns non-0 if we have relevant build warnings
 has_build_warnings() {
-    [ -s "${warnings}" ] || return 1
+    filter_warnings > /dev/null
 }
 
 describe_spelling_errors() {
@@ -103,7 +107,7 @@ else
   if ! build_with_spellchecker ; then
     if has_build_warnings ; then
         printf "\nPlease fix the following documentation warnings:\n"
-        cat_warnings
+        filter_warnings
     fi
 
     if has_spelling_errors ; then
@@ -131,6 +135,6 @@ sphinx-build -M "${target}" "${script_dir}" "${build_dir}" $@ \
 # and we would have exited because of "set -o errexit".
 if has_build_warnings ; then
     echo "Please fix the documentation warnings below"
-    cat_warnings
+    filter_warnings
     exit 1
 fi
