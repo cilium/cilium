@@ -701,10 +701,6 @@
      - Enable a K8s Service for the Peer service, so that it can be accessed by a non-local client
      - bool
      - ``true``
-   * - hubble.peerService.servicePort
-     - Service Port for the Peer service.
-     - int
-     - ``4254``
    * - hubble.peerService.targetPort
      - Target Port for the Peer service.
      - int

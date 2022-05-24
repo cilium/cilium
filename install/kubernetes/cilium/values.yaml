@@ -693,7 +693,9 @@ hubble:
     # by a non-local client
     enabled: true
     # -- Service Port for the Peer service.
-    servicePort: 4254
+    # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
+    # port 80 if not.
+    # servicePort: 80
     # -- Target Port for the Peer service.
     targetPort: 4244
     # -- The cluster domain to use to query the Hubble Peer service. It should
