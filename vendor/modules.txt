@@ -210,7 +210,7 @@ github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
-# github.com/cilium/workerpool v1.1.2
+# github.com/cilium/workerpool v1.1.3
 ## explicit; go 1.15
 github.com/cilium/workerpool
 # github.com/cncf/xds/go v0.0.0-20211130200136-a8f946100490

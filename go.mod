@@ -22,7 +22,7 @@ require (
 	github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
 	github.com/cilium/lumberjack/v2 v2.2.2
 	github.com/cilium/proxy v0.0.0-20220310090216-617157adcd74
-	github.com/cilium/workerpool v1.1.2
+	github.com/cilium/workerpool v1.1.3
 	github.com/containernetworking/cni v1.1.0
 	github.com/containernetworking/plugins v1.1.1
 	github.com/davecgh/go-spew v1.1.1
