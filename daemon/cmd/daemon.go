@@ -1230,9 +1230,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	if option.Config.EnableIPSec {
-		if err := ipsec.StartKeyfileWatcher(ctx, option.Config.IPSecKeyFile, nd); err != nil {
+		if err := ipsec.StartKeyfileWatcher(ctx, option.Config.IPSecKeyFile, nd, d.Datapath().Node()); err != nil {
 			log.WithError(err).Error("Unable to start IPSec keyfile watcher")
 		}
+
+		ipsec.StartStaleKeysReclaimer(ctx)
 	}
 
 	return &d, restoredEndpoints, nil
