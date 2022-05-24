@@ -1085,14 +1085,18 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 			// https://github.com/cilium/cilium/issues/17036.
 			b, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, []string{
 				"timeout", "--signal", "SIGINT", "--preserve-status", "5", "bash", "-c",
-				fmt.Sprintf("hubble observe --follow --last %d -o jsonpb", c.Options.HubbleFlowsCount),
+				fmt.Sprintf("hubble observe --follow --last %d --debug -o jsonpb", c.Options.HubbleFlowsCount),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
 			}
 			// Dump the resulting file's contents to the temporary directory.
 			if err := c.WriteBytes(fmt.Sprintf(hubbleFlowsFileName, p.Name), b.Bytes()); err != nil {
-				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
+				return fmt.Errorf("failed to write hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
+			}
+			// Dump the stderr from the hubble observe command to the temporary directory.
+			if err := c.WriteBytes(fmt.Sprintf(hubbleObserveFileName, p.Name), e.Bytes()); err != nil {
+				return fmt.Errorf("failed to write hubble stderr for %q in namespace %q: %w", p.Name, p.Namespace, err)
 			}
 			return nil
 		}); err != nil {
