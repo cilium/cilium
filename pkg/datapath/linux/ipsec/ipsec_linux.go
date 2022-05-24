@@ -28,18 +28,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/nodediscovery"
-	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
-
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/fswatcher"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/nodediscovery"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 )
 
 type IPSecDir string
@@ -65,10 +65,14 @@ type ipSecKey struct {
 
 var (
 	ipSecKeysGlobalLock lock.RWMutex
+
 	// ipSecKeysGlobal can be accessed by multiple subsystems concurrently,
 	// so it should be accessed only through the getIPSecKeys and
 	// loadIPSecKeys functions, which will ensure the proper lock is held
 	ipSecKeysGlobal = make(map[string]*ipSecKey)
+
+	// ipSecCurrentKeySPI is the SPI of the IPSec currently in use
+	ipSecCurrentKeySPI uint8
 )
 
 func getIPSecKeys(ip net.IP) *ipSecKey {
@@ -237,6 +241,14 @@ func ipSecXfrmMarkGetSPI(markValue uint32) uint8 {
 	return uint8(markValue >> ipSecXfrmMarkSPIShift)
 }
 
+func getSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
+	if policy.Mark == nil {
+		return 0
+	}
+
+	return ipSecXfrmMarkGetSPI(policy.Mark.Value)
+}
+
 func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) error {
 	// TODO: Remove old policy pointing to target net
 
@@ -263,22 +275,25 @@ func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) 
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipsecDeleteXfrmSpi(spi uint8) {
-	var err error
-	scopedLog := log.WithFields(logrus.Fields{
-		"spi": spi,
-	})
+func ipsecDeleteXfrmStatesNotMatchingSPI(spi uint8) {
+	scopedLog := log.WithField("spi", spi)
 
 	xfrmStateList, err := netlink.XfrmStateList(0)
 	if err != nil {
-		scopedLog.WithError(err).Warning("deleting previous SPI, xfrm state list error")
+		scopedLog.WithError(err).Warning("Failed to list XFRM states")
 		return
 	}
+
 	for _, s := range xfrmStateList {
-		if s.Spi != int(spi) {
-			if err := netlink.XfrmStateDel(&s); err != nil {
-				scopedLog.WithError(err).Warning("deleting old xfrm state failed")
-			}
+		if s.Spi == int(spi) {
+			continue
+		}
+
+		scopedLog := scopedLog.WithField("oldSPI", s.Spi)
+
+		scopedLog.Info("Deleting stale XFRM state")
+		if err := netlink.XfrmStateDel(&s); err != nil {
+			scopedLog.WithError(err).Warning("Deleting stale XFRM state failed")
 		}
 	}
 }
@@ -298,6 +313,34 @@ func ipsecDeleteXfrmState(ip net.IP) {
 			if err := netlink.XfrmStateDel(&s); err != nil {
 				scopedLog.WithError(err).Warning("deleting xfrm state failed")
 			}
+		}
+	}
+}
+
+func ipsecDeleteXfrmPoliciesNotMatchingSPI(spi uint8) {
+	scopedLog := log.WithField("spi", spi)
+
+	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
+	if err != nil {
+		scopedLog.WithError(err).Warning("Failed to list XFRM policies")
+	}
+
+	for _, p := range xfrmPolicyList {
+		policySPI := getSPIFromXfrmPolicy(&p)
+		if policySPI == spi {
+			continue
+		}
+
+		// Only OUT XFRM policies depend on the SPI
+		if p.Dir != netlink.XFRM_DIR_OUT {
+			continue
+		}
+
+		scopedLog := scopedLog.WithField("oldSPI", policySPI)
+
+		scopedLog.Info("Deleting stale XFRM policy")
+		if err := netlink.XfrmPolicyDel(&p); err != nil {
+			scopedLog.WithError(err).Warning("Deleting stale XFRM policy failed")
 		}
 	}
 }
@@ -526,7 +569,6 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
-		var oldSpi uint8
 		var authkey []byte
 		offset := 0
 
@@ -599,34 +641,12 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		ipSecKey.Spi = spi
 
 		if len(s) == 6+offset {
-			if ipSecKeysGlobal[s[5+offset]] != nil {
-				oldSpi = ipSecKeysGlobal[s[5+offset]].Spi
-			}
 			ipSecKeysGlobal[s[5+offset]] = ipSecKey
 		} else {
-			if ipSecKeysGlobal[""] != nil {
-				oldSpi = ipSecKeysGlobal[""].Spi
-			}
 			ipSecKeysGlobal[""] = ipSecKey
 		}
 
-		scopedLog := log.WithFields(logrus.Fields{
-			"oldSPI": oldSpi,
-			"SPI":    spi,
-		})
-
-		// Detect a version change and call cleanup routine to remove old
-		// keys after a timeout period. We also want to ensure on restart
-		// we remove any stale keys for example when a restart changes keys.
-		// In the restart case oldSpi will be '0' and cause the delete logic
-		// to run.
-		if oldSpi != ipSecKey.Spi {
-			go func() {
-				time.Sleep(linux_defaults.IPsecKeyDeleteDelay)
-				scopedLog.Info("New encryption keys reclaiming SPI")
-				ipsecDeleteXfrmSpi(ipSecKey.Spi)
-			}()
-		}
+		ipSecCurrentKeySPI = spi
 	}
 	if err := encrypt.MapUpdateContext(0, spi); err != nil {
 		scopedLog.WithError(err).Warn("cilium_encrypt_state map updated failed:")
@@ -675,7 +695,8 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 			nodediscovery.UpdateLocalNode()
 
 		case err := <-watcher.Errors:
-			log.WithError(err).WithField(logfields.Path, keyfilePath).Warning("Error encountered while watching file with fsnotify")
+			log.WithError(err).WithField(logfields.Path, keyfilePath).
+				Warning("Error encountered while watching file with fsnotify")
 
 		case <-ctx.Done():
 			watcher.Close()
@@ -693,4 +714,62 @@ func StartKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery 
 	go keyfileWatcher(ctx, watcher, keyfilePath, nodediscovery)
 
 	return nil
+}
+
+func doReclaimStaleKeys() {
+	ipSecKeysGlobalLock.Lock()
+	defer ipSecKeysGlobalLock.Unlock()
+
+	xfrmStateList, err := netlink.XfrmStateList(0)
+	if err != nil {
+		log.WithField("spi", ipSecCurrentKeySPI).WithError(err).Warning("Failed to list XFRM states")
+		return
+	}
+
+	// First we need to find when the current key was added by looking at
+	// the AddTime of the IPSec state for the key.
+	//
+	// The creation of the IPSec state is asynchronous to loadIPSecKeys():
+	// - loadIPSecKeys() will only set ipSecCurrentKeySPI to the the SPI of
+	//   the new key
+	// - the actual IPSec state for the new key will be added when we
+	//   receive the k8s nodes from kube-apiserver and the local node from
+	//   our discovery
+	//
+	// Because of this, initialize currentKeyCreatedAt to the current time
+	// as we assume the current key is still being created unless we find
+	// its state.
+	currentKeyCreatedAt := time.Now()
+	for _, s := range xfrmStateList {
+		if s.Spi != int(ipSecCurrentKeySPI) {
+			continue
+		}
+
+		currentKeyCreatedAt = time.Unix(int64(s.Statistics.AddTime), 0)
+		break
+	}
+
+	// If the current key was added less then IPSecKeyDeleteDelay time ago,
+	// don't try to reclaim any stale state or policy
+	if time.Now().Sub(currentKeyCreatedAt) < linux_defaults.IPsecKeyDeleteDelay {
+		return
+	}
+
+	// Otherwise delete all stale states and policies that don't match the
+	// SPI for key currently in use
+	ipsecDeleteXfrmStatesNotMatchingSPI(ipSecCurrentKeySPI)
+	ipsecDeleteXfrmPoliciesNotMatchingSPI(ipSecCurrentKeySPI)
+}
+
+func StartStaleKeysReclaimer(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case <-time.After(1 * time.Minute):
+				doReclaimStaleKeys()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
