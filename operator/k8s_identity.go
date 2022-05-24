@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -47,6 +48,20 @@ func deleteIdentity(ctx context.Context, identity *v2.CiliumIdentity) error {
 		log.WithError(err).Error("Unable to delete identity")
 	} else {
 		log.WithField(logfields.Identity, identity.GetName()).Info("Garbage collected identity")
+	}
+
+	return err
+}
+
+func updateIdentity(ctx context.Context, identity *v2.CiliumIdentity) error {
+	_, err := ciliumK8sClient.CiliumV2().CiliumIdentities().Update(
+		ctx,
+		identity,
+		metav1.UpdateOptions{})
+	if err != nil {
+		log.WithError(err).Error("Updating Identity")
+	} else {
+		log.WithField(logfields.Identity, identity.GetName()).Debug("Updated identity")
 	}
 
 	return err
@@ -96,9 +111,26 @@ func identityGCIteration(ctx context.Context) {
 			continue
 		}
 		if !identityHeartbeat.IsAlive(identity.Name) {
+			ts, ok := identity.Annotations[identitybackend.HeartBeatAnnotation]
+			if !ok {
+				identity = identity.DeepCopy()
+				if identity.Annotations == nil {
+					identity.Annotations = make(map[string]string)
+				}
+				log.WithField(logfields.Identity, identity).Info("Marking identity for later deletion")
+				identity.Annotations[identitybackend.HeartBeatAnnotation] = timeNow.Format(time.RFC3339Nano)
+				err := updateIdentity(ctx, identity)
+				if err != nil {
+					log.WithError(err).
+						WithField(logfields.Identity, identity).
+						Error("Marking identity for later deletion")
+				}
+				continue
+			}
+
 			log.WithFields(logrus.Fields{
 				logfields.Identity: identity,
-			}).Debug("Deleting unused identity")
+			}).Debugf("Deleting unused identity; marked for deletion at %s", ts)
 			if err := deleteIdentity(ctx, identity); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.Identity: identity,

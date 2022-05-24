@@ -123,6 +123,13 @@ rules:
 - apiGroups:
   - cilium.io
   resources:
+  - ciliumidentities
+  verbs:
+  # To synchronize garbage collection of such resources
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
   - ciliumnodes
   verbs:
   - create

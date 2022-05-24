@@ -92,6 +92,13 @@ rules:
   - create
 - apiGroups:
   - cilium.io
+  # To synchronize garbage collection of such resources
+  resources:
+  - ciliumidentities
+  verbs:
+  - update
+- apiGroups:
+  - cilium.io
   resources:
   - ciliumendpoints
   verbs:
