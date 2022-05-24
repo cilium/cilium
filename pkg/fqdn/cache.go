@@ -301,7 +301,7 @@ func (c *DNSCache) cleanupOverLimitEntries() (affectedNames []string, removed ma
 		for i := 0; i < overlimit; i++ {
 			key := sortedEntries[i]
 			delete(entries, key.ip)
-			c.removeReverse(key.ip, key.entry)
+			c.remove(key.ip, key.entry)
 			removed[key.ip] = append(removed[key.ip], key.entry)
 		}
 		affectedNames = append(affectedNames, dnsName)
@@ -503,7 +503,7 @@ func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookups
 	for ip, entry := range entries {
 		if entry == nil || entry.isExpiredBy(now) || entry.LookupTime.Before(expireLookupsBefore) {
 			delete(entries, ip)
-			c.removeReverse(ip, entry)
+			c.remove(ip, entry)
 			removed[ip] = entry
 		}
 	}
@@ -524,11 +524,31 @@ func (c *DNSCache) upsertReverse(ip string, entry *cacheEntry) {
 	entries[entry.Name] = entry
 }
 
-// removeReverse removes the reference between ip and the name stored in entry.
+// remove removes the reference between ip and the name stored in entry from
+// the DNS cache (both in forward and reverse maps). This assumes the write
+// lock is taken.
+func (c *DNSCache) remove(ip string, entry *cacheEntry) {
+	c.removeForward(ip, entry)
+	c.removeReverse(ip, entry)
+}
+
+// removeForward removes the reference between ip and the name stored in entry.
 // When no more references from ip to any name exist, the map entry is deleted
 // outright.
 // It is assumed that entry includes ip.
-// This needs a write lock
+// This needs a write lock.
+func (c *DNSCache) removeForward(ip string, entry *cacheEntry) {
+	entries, exists := c.forward[entry.Name]
+	if entries == nil || !exists {
+		return
+	}
+	delete(entries, ip)
+	if len(entries) == 0 {
+		delete(c.forward, entry.Name)
+	}
+}
+
+// removeReverse is the equivalent of removeForward() but for the reverse map.
 func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
 	entries, exists := c.reverse[ip]
 	if entries == nil || !exists {
