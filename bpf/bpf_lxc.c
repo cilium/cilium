@@ -64,24 +64,80 @@
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
 #endif
 
-#define TAIL_CT_LOOKUP4(ID, NAME, CONDITION, TARGET_ID, TARGET_NAME)	\
-declare_tailcall_if(CONDITION, ID)					\
-int NAME(struct __ctx_buff *ctx)					\
-{									\
-	int ret;							\
-									\
-	invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);		\
-	return ret;							\
+#define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
+declare_tailcall_if(CONDITION, ID)						\
+int NAME(struct __ctx_buff *ctx)						\
+{										\
+	struct ct_buffer4 ct_buffer = {};					\
+	int l4_off, ret = CTX_ACT_OK;						\
+	struct ipv4_ct_tuple *tuple;						\
+	struct ct_state *ct_state;						\
+	void *data, *data_end;							\
+	struct iphdr *ip4;							\
+	__u32 zero = 0;								\
+										\
+	ct_state = (struct ct_state *)&ct_buffer.ct_state;			\
+	tuple = (struct ipv4_ct_tuple *)&ct_buffer.tuple;			\
+										\
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))			\
+		return DROP_INVALID;						\
+										\
+	tuple->nexthdr = ip4->protocol;						\
+	tuple->daddr = ip4->daddr;						\
+	tuple->saddr = ip4->saddr;						\
+										\
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);					\
+										\
+	ct_buffer.ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, l4_off,	\
+				   DIR, ct_state, &ct_buffer.monitor);		\
+	if (ct_buffer.ret < 0)							\
+		return ct_buffer.ret;						\
+										\
+	if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)	\
+		return DROP_INVALID_TC_BUFFER;					\
+										\
+	invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);			\
+	return ret;								\
 }
 
-#define TAIL_CT_LOOKUP6(ID, NAME, CONDITION, TARGET_ID, TARGET_NAME)	\
-declare_tailcall_if(CONDITION, ID)					\
-int NAME(struct __ctx_buff *ctx)					\
-{									\
-	int ret;							\
-									\
-	invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);		\
-	return ret;							\
+#define TAIL_CT_LOOKUP6(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
+declare_tailcall_if(CONDITION, ID)						\
+int NAME(struct __ctx_buff *ctx)						\
+{										\
+	int l4_off, ret = CTX_ACT_OK, hdrlen;					\
+	struct ct_buffer6 ct_buffer = {};					\
+	struct ipv6_ct_tuple *tuple;						\
+	struct ct_state *ct_state;						\
+	void *data, *data_end;							\
+	struct ipv6hdr *ip6;							\
+	__u32 zero = 0;								\
+										\
+	ct_state = (struct ct_state *)&ct_buffer.ct_state;			\
+	tuple = (struct ipv6_ct_tuple *)&ct_buffer.tuple;			\
+										\
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))			\
+		return DROP_INVALID;						\
+										\
+	tuple->nexthdr = ip6->nexthdr;						\
+	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);		\
+	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);		\
+										\
+	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);				\
+	if (hdrlen < 0)								\
+		return hdrlen;							\
+										\
+	l4_off = ETH_HLEN + hdrlen;						\
+										\
+	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off,	\
+				   DIR, ct_state, &ct_buffer.monitor);		\
+	if (ct_buffer.ret < 0)							\
+		return ct_buffer.ret;						\
+										\
+	if (map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)	\
+		return DROP_INVALID_TC_BUFFER;					\
+										\
+	invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);			\
+	return ret;								\
 }
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
@@ -121,6 +177,20 @@ encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
 #endif
 
 #ifdef ENABLE_IPV6
+struct ct_buffer6 {
+	struct ipv6_ct_tuple tuple;
+	struct ct_state ct_state;
+	__u32 monitor;
+	int ret;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct ct_buffer6);
+	__uint(max_entries, 1);
+} CT_TAIL_CALL_BUFFER6 __section_maps_btf;
+
 /* Handle egress IPv6 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
  * In the case of the caller doing the service translation it passes in state via CB,
@@ -130,15 +200,15 @@ encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
  */
 static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id)
 {
-	struct ct_state ct_state_on_stack, *ct_state = &ct_state_on_stack;
-	struct ipv6_ct_tuple tuple_on_stack, *tuple = &tuple_on_stack;
-	struct ct_state ct_state_new = {};
+	struct ct_state *ct_state, ct_state_new = {};
+	struct ipv6_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
 #endif
+	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, verdict = 0, l4_off, hdrlen;
+	int ret, verdict = 0, l4_off, hdrlen, zero = 0;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -193,26 +263,17 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	/* No hairpin/loopback support for IPv6, see lb6_local(). */
 #endif /* ENABLE_PER_PACKET_LB */
 
-	tuple->nexthdr = ip6->nexthdr;
-	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
-	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
+	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+	if (!ct_buffer)
+		return DROP_INVALID_TC_BUFFER;
+	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
+		/* The map value is zeroed so the map update didn't happen somehow. */
+		return DROP_INVALID_TC_BUFFER;
 
-	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
-
-	l4_off = ETH_HLEN + hdrlen;
-
-	/* Pass all outgoing packets through conntrack. This will create an
-	 * entry to allow reverse packets and return set cb[CB_POLICY] to
-	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
-	 * connection.
-	 */
-	ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off, CT_EGRESS,
-			 ct_state, &trace.monitor);
-	if (ret < 0)
-		return ret;
-
+	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;
+	ct_state = (struct ct_state *)&ct_buffer->ct_state;
+	trace.monitor = ct_buffer->monitor;
+	ret = ct_buffer->ret;
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
 
@@ -294,6 +355,12 @@ ct_recreate6:
 	case CT_RELATED:
 	case CT_REPLY:
 		policy_mark_skip(ctx);
+
+		hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
+		if (hdrlen < 0)
+			return hdrlen;
+
+		l4_off = ETH_HLEN + hdrlen;
 
 #ifdef ENABLE_NODEPORT
 # ifdef ENABLE_DSR
@@ -511,7 +578,7 @@ int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 	return ret;
 }
 
-TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_EGRESS, tail_ipv6_ct_egress,
+TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_EGRESS, tail_ipv6_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV6_FROM_LXC_CONT, tail_handle_ipv6_cont)
 
@@ -605,6 +672,20 @@ skip_service_lookup:
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+struct ct_buffer4 {
+	struct ipv4_ct_tuple tuple;
+	struct ct_state ct_state;
+	__u32 monitor;
+	int ret;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct ct_buffer4);
+	__uint(max_entries, 1);
+} CT_TAIL_CALL_BUFFER4 __section_maps_btf;
+
 /* Handle egress IPv6 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
  * In the case of the caller doing the service translation it passes in state via CB,
@@ -612,9 +693,8 @@ skip_service_lookup:
  */
 static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id)
 {
-	struct ct_state ct_state_on_stack, *ct_state = &ct_state_on_stack;
-	struct ipv4_ct_tuple tuple_on_stack, *tuple = &tuple_on_stack;
-	struct ct_state ct_state_new = {};
+	struct ct_state *ct_state, ct_state_new = {};
+	struct ipv4_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
 #endif
@@ -625,10 +705,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__u32 __maybe_unused tunnel_endpoint = 0;
+	__u32 __maybe_unused tunnel_endpoint = 0, zero = 0;
 	__u8 __maybe_unused encrypt_key = 0;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	struct ct_buffer4 *ct_buffer;
 	__u8 audited = 0;
 	bool has_l4_header = false;
 	bool __maybe_unused dst_remote_ep = false;
@@ -675,22 +756,19 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
 
-	tuple->nexthdr = ip4->protocol;
-	tuple->daddr = ip4->daddr;
-	tuple->saddr = ip4->saddr;
-
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	/* Pass all outgoing packets through conntrack. This will create an
-	 * entry to allow reverse packets and return set cb[CB_POLICY] to
-	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
-	 * connection.
-	 */
-	ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, l4_off, CT_EGRESS,
-			 ct_state, &trace.monitor);
-	if (ret < 0)
-		return ret;
+	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
+	if (!ct_buffer)
+		return DROP_INVALID_TC_BUFFER;
+	if (ct_buffer->tuple.saddr == 0)
+		/* The map value is zeroed so the map update didn't happen somehow. */
+		return DROP_INVALID_TC_BUFFER;
 
+	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;
+	ct_state = (struct ct_state *)&ct_buffer->ct_state;
+	trace.monitor = ct_buffer->monitor;
+	ret = ct_buffer->ret;
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
 
@@ -1055,7 +1133,7 @@ int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 	return ret;
 }
 
-TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress,
+TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont)
 
@@ -1230,12 +1308,12 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	    enum ct_status *ct_status, struct ipv6_ct_tuple *tuple_out,
 	    __u16 *proxy_port, bool from_host __maybe_unused)
 {
-	struct ct_state ct_state_on_stack, *ct_state = &ct_state_on_stack;
-	struct ipv6_ct_tuple tuple_on_stack, *tuple = &tuple_on_stack;
-	struct ct_state ct_state_new = {};
+	struct ct_state *ct_state, ct_state_new = {};
+	int ret, verdict, hdrlen, zero = 0;
+	struct ct_buffer6 *ct_buffer;
+	struct ipv6_ct_tuple *tuple;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, l4_off, verdict, hdrlen;
 	bool skip_ingress_proxy = false;
 	enum trace_reason reason;
 	union v6addr orig_sip;
@@ -1247,10 +1325,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		return DROP_INVALID;
 
 	policy_clear_mark(ctx);
-	tuple->nexthdr = ip6->nexthdr;
 
-	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
-	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 
 	/* If packet is coming from the ingress proxy we have to skip
@@ -1258,17 +1333,17 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	 */
 	skip_ingress_proxy = tc_index_skip_ingress_proxy(ctx);
 
-	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
+	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+	if (!ct_buffer)
+		return DROP_INVALID_TC_BUFFER;
+	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
+		/* The map value is zeroed so the map update didn't happen somehow. */
+		return DROP_INVALID_TC_BUFFER;
 
-	l4_off = ETH_HLEN + hdrlen;
-
-	ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off, CT_INGRESS,
-			 ct_state, &monitor);
-	if (ret < 0)
-		return ret;
-
+	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;
+	ct_state = (struct ct_state *)&ct_buffer->ct_state;
+	monitor = ct_buffer->monitor;
+	ret = ct_buffer->ret;
 	*ct_status = (enum ct_status)ret;
 
 	/* Check it this is return traffic to an egress proxy.
@@ -1290,7 +1365,13 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 	if (unlikely(ct_state->rev_nat_index)) {
 		struct csum_offset csum_off = {};
-		int ret2;
+		int ret2, l4_off;
+
+		hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
+		if (hdrlen < 0)
+			return hdrlen;
+
+		l4_off = ETH_HLEN + hdrlen;
 
 		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
@@ -1513,12 +1594,12 @@ out:
 }
 
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
-		tail_ipv6_ct_ingress_policy_only,
+		tail_ipv6_ct_ingress_policy_only, CT_INGRESS,
 		__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 		CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY, tail_ipv6_policy)
 
-TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, 1,
-		CILIUM_CALL_IPV6_TO_ENDPOINT, tail_ipv6_to_endpoint)
+TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
+		1, CILIUM_CALL_IPV6_TO_ENDPOINT, tail_ipv6_to_endpoint)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -1527,38 +1608,32 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	    struct ipv4_ct_tuple *tuple_out, __u16 *proxy_port,
 	    bool from_host __maybe_unused)
 {
-	struct ct_state ct_state_on_stack, *ct_state = &ct_state_on_stack;
-	struct ipv4_ct_tuple tuple_on_stack, *tuple = &tuple_on_stack;
-	struct ct_state ct_state_new = {};
+	struct ct_state *ct_state, ct_state_new = {};
+	struct ipv4_ct_tuple *tuple;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	bool skip_ingress_proxy = false;
 	bool is_untracked_fragment = false;
-	int ret, verdict = 0, l4_off;
-	bool has_l4_header = false;
+	struct ct_buffer4 *ct_buffer;
+	__u32 monitor = 0, zero = 0;
 	enum trace_reason reason;
-	__u32 monitor = 0;
+	int ret, verdict = 0;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
-	has_l4_header = ipv4_has_l4_header(ip4);
 
 	policy_clear_mark(ctx);
-	tuple->nexthdr = ip4->protocol;
 
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever.
 	 */
 	skip_ingress_proxy = tc_index_skip_ingress_proxy(ctx);
 
-	tuple->daddr = ip4->daddr;
-	tuple->saddr = ip4->saddr;
 	orig_sip = ip4->saddr;
 
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 #ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
@@ -1566,11 +1641,17 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	is_untracked_fragment = ipv4_is_fragment(ip4);
 #endif
 
-	ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, l4_off, CT_INGRESS, ct_state,
-			 &monitor);
-	if (ret < 0)
-		return ret;
+	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
+	if (!ct_buffer)
+		return DROP_INVALID_TC_BUFFER;
+	if (ct_buffer->tuple.saddr == 0)
+		/* The map value is zeroed so the map update didn't happen somehow. */
+		return DROP_INVALID_TC_BUFFER;
 
+	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;
+	ct_state = (struct ct_state *)&ct_buffer->ct_state;
+	monitor = ct_buffer->monitor;
+	ret = ct_buffer->ret;
 	*ct_status = (enum ct_status)ret;
 
 	/* Check it this is return traffic to an egress proxy.
@@ -1594,8 +1675,12 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	if (unlikely(ret == CT_REPLY && ct_state->rev_nat_index &&
 		     !ct_state->loopback)) {
 		struct csum_offset csum_off = {};
-		int ret2;
+		bool has_l4_header = false;
+		int ret2, l4_off;
 
+		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+		has_l4_header = ipv4_has_l4_header(ip4);
 		if (has_l4_header)
 			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
@@ -1841,12 +1926,12 @@ out:
 }
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
-		tail_ipv4_ct_ingress_policy_only,
+		tail_ipv4_ct_ingress_policy_only, CT_INGRESS,
 		__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 		CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY, tail_ipv4_policy)
 
-TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, 1,
-		CILIUM_CALL_IPV4_TO_ENDPOINT, tail_ipv4_to_endpoint)
+TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
+		1, CILIUM_CALL_IPV4_TO_ENDPOINT, tail_ipv4_to_endpoint)
 #endif /* ENABLE_IPV4 */
 
 /* Handle policy decisions as the packet makes its way towards the endpoint.
