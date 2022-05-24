@@ -34,6 +34,10 @@ var (
 )
 
 const (
+	// HeartBeatAnnotation is an annotation applied by the operator to indicate
+	// that a CiliumIdentity has been marked for deletion.
+	HeartBeatAnnotation = "io.cilium.heartbeat"
+
 	k8sPrefix               = labels.LabelSourceK8s + ":"
 	k8sNamespaceLabelPrefix = labels.LabelSourceK8s + ":" + k8sConst.PodNamespaceMetaLabels + labels.PathDelimiter
 )
@@ -106,8 +110,43 @@ func (c *crdBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, key a
 func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
 	// For CiliumIdentity-based allocation, the reference counting is
 	// handled via CiliumEndpoint. Any CiliumEndpoint referring to a
-	// CiliumIdentity will keep the CiliumIdentity alive. No action is
-	// needed to acquire the reference here.
+	// CiliumIdentity will keep the CiliumIdentity alive. However,
+	// there is a brief window where a CiliumEndpoint may not exist
+	// for a given CiliumIdentity (according to the operator), in
+	// which case the operator marks the CiliumIdentity for deletion.
+	// This checks to see if the CiliumIdentity has been marked for
+	// deletion and removes the mark so that the CiliumIdentity can
+	// be safely used.
+	//
+	// NOTE: A race against using a CiliumIdentity that might otherwise
+	// be (immediately) deleted is prevented by the operator logic that
+	// validates the ResourceVersion of the CiliumIdentity before deleting
+	// it. If a CiliumIdentity does (eventually) get deleted by the
+	// operator, the agent will then have a chance to recreate it.
+	var (
+		ts string
+		ok bool
+	)
+	// check to see if the cached copy of the identity
+	// has the annotation
+	ci, exists, err := c.getById(ctx, id)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("identity (id:%q,key:%q) does not exist", id, key)
+	}
+	ci = ci.DeepCopy()
+
+	ts, ok = ci.Annotations[HeartBeatAnnotation]
+	if ok {
+		log.WithField(logfields.Identity, ci).Infof("Identity marked for deletion (at %s); attempting to unmark it", ts)
+		delete(ci.Annotations, HeartBeatAnnotation)
+		_, err = c.Client.CiliumV2().CiliumIdentities().Update(ctx, ci, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -145,9 +184,10 @@ func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.
 		if err = c.AllocateID(ctx, id, key); err != nil {
 			return fmt.Errorf("Unable recreate missing CRD identity %q->%q: %s", key, id, err)
 		}
+		return nil
 	}
 
-	return nil
+	return err
 }
 
 func (c *crdBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool, lock kvstore.KVLocker) error {
