@@ -93,7 +93,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
-	ipsecDeleteXfrmSpi(0)
+	cleanIPSecStatesAndPolicies(c)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
 	c.Assert(err, IsNil)
@@ -111,7 +111,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
-	ipsecDeleteXfrmSpi(0)
+	cleanIPSecStatesAndPolicies(c)
 	ipSecKeysGlobal["1.2.3.4"] = nil
 	ipSecKeysGlobal[""] = nil
 }
@@ -140,7 +140,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
-	ipsecDeleteXfrmSpi(0)
+	cleanIPSecStatesAndPolicies(c)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
 	c.Assert(err, IsNil)
@@ -174,7 +174,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(toProxyPolicy, Not(IsNil))
 
-	ipsecDeleteXfrmSpi(0)
+	cleanIPSecStatesAndPolicies(c)
 	ipSecKeysGlobal["1.1.3.4"] = nil
 	ipSecKeysGlobal["1.2.3.4"] = nil
 	ipSecKeysGlobal[""] = nil
@@ -189,5 +189,30 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(c *C) {
 	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
 	c.Assert(err, ErrorMatches, "unable to replace local state: IPSec key missing")
 
-	ipsecDeleteXfrmSpi(0)
+	cleanIPSecStatesAndPolicies(c)
+}
+
+func cleanIPSecStatesAndPolicies(c *C) {
+	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		c.Fatalf("Can't list XFRM states: %v", err)
+	}
+
+	for _, s := range xfrmStateList {
+		if err := netlink.XfrmStateDel(&s); err != nil {
+			c.Fatalf("Can't delete XFRM state: %v", err)
+		}
+
+	}
+
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	if err != nil {
+		c.Fatalf("Can't list XFRM policies: %v", err)
+	}
+
+	for _, p := range xfrmPolicyList {
+		if err := netlink.XfrmPolicyDel(&p); err != nil {
+			c.Fatalf("Can't delete XFRM policy: %v", err)
+		}
+	}
 }
