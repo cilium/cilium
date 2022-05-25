@@ -12,21 +12,20 @@ Creating policies from verdicts
 
 Policy Audit Mode configures Cilium to allow all traffic while logging all
 connections that would otherwise be dropped by policy. Policy Audit Mode may be
-configured for the entire daemon using ``--policy-audit-mode=true``. When
-Policy Audit Mode is enabled, no network policy is enforced so this setting is
-**not recommended for production deployment**. Policy Audit Mode supports
-auditing network policies implemented at networks layers 3 and 4. This guide
-walks through the process of creating policies using Policy Audit Mode.
+configured for the entire daemon using ``--policy-audit-mode=true`` or for
+individual Cilium Endpoints. When Policy Audit Mode is enabled, no network
+policy is enforced so this setting is **not recommended for production
+deployment**. Policy Audit Mode supports auditing network policies implemented
+at networks layers 3 and 4. This guide walks through the process of creating
+policies using Policy Audit Mode.
 
 .. include:: gsg_requirements.rst
 .. include:: gsg_sw_demo.rst
 
-Enable Policy Audit Mode
-========================
+Enable Policy Audit Mode (Entire Daemon)
+========================================
 
-To observe policy audit messages, follow these steps:
-
-#. Enable Policy Audit Mode in the daemon
+To observe policy audit messages for all endpoints managed by this daemonset, modify the Cilium configmap and restart all daemons:
 
    .. tabs::
 
@@ -49,30 +48,40 @@ To observe policy audit messages, follow these steps:
 
          .. parsed-literal::
 
-            helm upgrade cilium |CHART_RELEASE| \\
-               --namespace $CILIUM_NAMESPACE \\
-               --reuse-values \\
-               --set policyAuditMode=true
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace $CILIUM_NAMESPACE \\
+                --reuse-values \\
+                --set policyAuditMode=true
 
-#. Apply a default-deny policy:
 
-   .. literalinclude:: ../../examples/minikube/sw_deny_policy.yaml
+Enable Policy Audit Mode (Specific Endpoint)
+============================================
 
-   CiliumNetworkPolicies match on pod labels using an "endpointSelector" to identify the sources and destinations to which the policy applies.
-   The above policy denies traffic sent to any pods with label (``org=empire``).
-   Due to the Policy Audit Mode enabled above, the traffic will not actually
-   be denied but will instead trigger policy verdict notifications.
+Cilium can enable Policy Audit Mode for a specific endpoint. This may be helpful when enabling
+Policy Audit Mode for the entire daemon is too broad. Enabling per endpoint will ensure other
+endpoints managed by the same daemon are not impacted.
 
-   To apply this policy, run:
+This approach is meant to be temporary.  **Restarting Cilium pod will reset the Policy Audit
+Mode to match the daemon's configuration.**
 
-   .. parsed-literal::
+Policy Audit Mode is enabled for a given endpoint by modifying the endpoint configuration via
+the ``cilium`` tool on the endpoint's Kubernetes node. The steps include:
 
-       $ kubectl create -f \ |SCM_WEB|\/examples/minikube/sw_deny_policy.yaml
-       ciliumnetworkpolicy.cilium.io/empire-default-deny created
+#. Determine the endpoint id on which Policy Audit Mode will be enabled.
+#. Identify the Cilium pod running on the same Kubernetes node corresponding to the endpoint.
+#. Using the Cilium pod above, modify the endpoint config by setting ``PolicyAuditMode=Enabled``.
 
-   With the above policy, we will enable default-deny posture on ingress to
-   pods with the label ``org=empire`` and enable the policy verdict
-   notifications for those pods. The same principle applies on egress as well.
+The following shell commands perform these steps:
+
+.. code-block:: shell-session
+
+   $ export PODNAME=deathstar
+   $ export NODENAME=$(kubectl get pod -o jsonpath="{.items[?(@.metadata.name=='$PODNAME')].spec.nodeName}")
+   $ export ENDPOINT=$(kubectl get cep -o jsonpath="{.items[?(@.metadata.name=='$PODNAME')].status.id}")
+   $ export CILIUM_POD=$(kubectl -n "$CILIUM_NAMESPACE" get pod --all-namespaces --field-selector spec.nodeName="$NODENAME" -lk8s-app=cilium -o jsonpath='{.items[*].metadata.name}')
+   $ kubectl -n "$CILIUM_NAMESPACE" exec "$CILIUM_POD" -c cilium-agent -- cilium endpoint config "$ENDPOINT" PolicyAuditMode=Enabled
+   Endpoint 232 configuration updated successfully
+
 
 .. _observe_policy_verdicts:
 
@@ -84,6 +93,28 @@ First, from the Cilium pod we need to monitor the notifications for policy
 verdicts using ``cilium monitor -t policy-verdict``. We'll be monitoring for
 inbound traffic towards the deathstar to identify that traffic and determine
 whether to extend the network policy to allow that traffic.
+
+Apply a default-deny policy:
+
+.. literalinclude:: ../../examples/minikube/sw_deny_policy.yaml
+
+CiliumNetworkPolicies match on pod labels using an ``endpointSelector`` to identify
+the sources and destinations to which the policy applies. The above policy denies
+traffic sent to any pods with label (``org=empire``). Due to the Policy Audit Mode
+enabled above (either for the entire daemon, or for just the ``deathstar`` endpoint),
+the traffic will not actually be denied but will instead trigger policy verdict
+notifications.
+
+To apply this policy, run:
+
+.. parsed-literal::
+
+    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/sw_deny_policy.yaml
+    ciliumnetworkpolicy.cilium.io/empire-default-deny created
+
+With the above policy, we will enable default-deny posture on ingress to
+pods with the label ``org=empire`` and enable the policy verdict
+notifications for those pods. The same principle applies on egress as well.
 
 From another terminal with kubectl access, send some traffic from the
 tiefighter to the deathstar:
@@ -165,8 +196,8 @@ Executed from the cilium pod:
 Now the policy verdict states that the traffic would be allowed: ``action
 allow``. Success!
 
-Disable Policy Audit Mode
-=========================
+Disable Policy Audit Mode (Entire Daemon)
+=========================================
 
 These steps should be repeated for each connection in the cluster to ensure
 that the network policy allows all of the expected traffic. The final step
@@ -190,10 +221,31 @@ after deploying the policy is to disable Policy Audit Mode again:
 
          .. parsed-literal::
 
-            helm upgrade cilium |CHART_RELEASE| \\
-               --namespace $CILIUM_NAMESPACE \\
-               --reuse-values \\
-               --set policyAuditMode=false
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace $CILIUM_NAMESPACE \\
+                --reuse-values \\
+                --set policyAuditMode=false
+
+
+Disable Policy Audit Mode (Specific Endpoint)
+=============================================
+
+These steps are nearly identical to enabling Policy Audit Mode.
+
+.. code-block:: shell-session
+
+   $ export PODNAME=deathstar
+   $ export NODENAME=$(kubectl get pod -o jsonpath="{.items[?(@.metadata.name=='$PODNAME')].spec.nodeName}")
+   $ export ENDPOINT=$(kubectl get cep -o jsonpath="{.items[?(@.metadata.name=='$PODNAME')].status.id}")
+   $ export CILIUM_POD=$(kubectl -n "$CILIUM_NAMESPACE" get pod --all-namespaces --field-selector spec.nodeName="$NODENAME" -lk8s-app=cilium -o jsonpath='{.items[*].metadata.name}')
+   $ kubectl -n "$CILIUM_NAMESPACE" exec "$CILIUM_POD" -c cilium-agent -- cilium endpoint config "$ENDPOINT" PolicyAuditMode=Disabled
+   Endpoint 232 configuration updated successfully
+
+Alternatively, **restarting the Cilium pod** will set the endpoint Policy Audit Mode to the daemon set configuration.
+
+
+Verify Policy Audit Mode Is Disabled
+====================================
 
 Now if we run the landing requests again, only the *tiefighter* pods with the
 label ``org=empire`` will succeed. The *xwing* pods will be blocked!
