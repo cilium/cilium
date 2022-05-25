@@ -512,7 +512,7 @@ kind-down: ## Destroy a kind cluster for Cilium development.
 
 kind-image: export DOCKER_REGISTRY=localhost:5000
 kind-image: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
-kind-image:
+kind-image: ## Build cilium-dev docker image and import it into kind.
 	@$(ECHO_CHECK) kind is ready...
 	@kind get clusters >/dev/null
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
