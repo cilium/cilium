@@ -53,6 +53,10 @@ const (
 	offsetEncKey   = 4
 	offsetIP       = 5
 	maxOffset      = offsetIP
+
+	// ipSecXfrmMarkSPIShift defines how many bits the SPI is shifted when
+	// encoded in a XfrmMark
+	ipSecXfrmMarkSPIShift = 12
 )
 
 type ipSecKey struct {
@@ -157,13 +161,12 @@ func ipSecReplaceStateOut(remoteIP, localIP net.IP) (uint8, error) {
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
-	spiWide := uint32(key.Spi)
 	state := ipSecNewState()
 	ipSecJoinState(state, key)
 	state.Src = localIP
 	state.Dst = remoteIP
 	state.Mark = &netlink.XfrmMark{
-		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
+		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, key.Spi),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
 	state.OutputMark = &netlink.XfrmMark{
@@ -232,15 +235,24 @@ func IpSecReplacePolicyFwd(src, dst, tmplSrc, tmplDst *net.IPNet) error {
 	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, false, netlink.XFRM_DIR_FWD)
 }
 
+// ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark
+// value with the SPI value encoded in it
+func ipSecXfrmMarkSetSPI(markValue uint32, spi uint8) uint32 {
+	return markValue | (uint32(spi) << ipSecXfrmMarkSPIShift)
+}
+
+// ipSecXfrmMarkGetSPI extracts from a XfrmMark value the encoded SPI
+func ipSecXfrmMarkGetSPI(markValue uint32) uint8 {
+	return uint8(markValue >> ipSecXfrmMarkSPIShift)
+}
+
 func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) error {
 	// TODO: Remove old policy pointing to target net
-	var spiWide uint32
 
 	key := getIPSecKeys(dst.IP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
-	spiWide = uint32(key.Spi)
 
 	policy := ipSecNewPolicy()
 	if dir == IPSecDirOutNode {
@@ -253,7 +265,7 @@ func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) 
 	policy.Dst = &net.IPNet{IP: dst.IP.Mask(dst.Mask), Mask: dst.Mask}
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = &netlink.XfrmMark{
-		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
+		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, key.Spi),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
 	ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, true, 0)
