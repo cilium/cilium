@@ -513,4 +513,10 @@ const (
 
 	// ExpectedENIs are the ENIs which are expected to be available
 	ExpectedENIs = "expectedENIs"
+
+	// IPSec SPI
+	SPI = "spi"
+
+	// IPSec old SPI
+	OldSPI = "oldSPI"
 )
