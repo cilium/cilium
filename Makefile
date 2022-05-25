@@ -570,7 +570,7 @@ update-authors: ## Update AUTHORS file for Cilium repository.
 test-docs: ## Build HTML documentation.
 	$(MAKE) -C Documentation html
 
-render-docs-live-preview: ## Run server with live preview to render documentation.
+render-docs: ## Run server with live preview to render documentation.
 	$(MAKE) -C Documentation live-preview
 
 manpages: ## Generate manpage for Cilium CLI.
