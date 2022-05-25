@@ -758,7 +758,7 @@ func ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
 }
 
 func deleteStaleXfrmStates(reclaimTimestamp time.Time) {
-	scopedLog := log.WithField("spi", ipSecCurrentKeySPI)
+	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
 
 	xfrmStateList, err := netlink.XfrmStateList(0)
 	if err != nil {
@@ -773,7 +773,7 @@ func deleteStaleXfrmStates(reclaimTimestamp time.Time) {
 			continue
 		}
 
-		scopedLog = log.WithField("oldSPI", stateSPI)
+		scopedLog = log.WithField(logfields.OldSPI, stateSPI)
 
 		scopedLog.Info("Deleting stale XFRM state")
 		if err := netlink.XfrmStateDel(&s); err != nil {
@@ -783,7 +783,7 @@ func deleteStaleXfrmStates(reclaimTimestamp time.Time) {
 }
 
 func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
-	scopedLog := log.WithField("spi", ipSecCurrentKeySPI)
+	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
 
 	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
 	if err != nil {
@@ -803,7 +803,7 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 			continue
 		}
 
-		scopedLog = log.WithField("oldSPI", policySPI)
+		scopedLog = log.WithField(logfields.OldSPI, policySPI)
 
 		scopedLog.Info("Deleting stale XFRM policy")
 		if err := netlink.XfrmPolicyDel(&p); err != nil {
