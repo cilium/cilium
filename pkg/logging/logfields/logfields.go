@@ -583,4 +583,10 @@ const (
 
 	// Chain is an Iptables chain
 	Chain = "chain"
+
+	// IPSec SPI
+	SPI = "spi"
+
+	// IPSec old SPI
+	OldSPI = "oldSPI"
 )
