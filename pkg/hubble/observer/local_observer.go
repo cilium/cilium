@@ -51,9 +51,6 @@ type LocalObserverServer struct {
 
 	log logrus.FieldLogger
 
-	// channel to receive events from observer server.
-	eventschan chan *observerpb.GetFlowsResponse
-
 	// payloadParser decodes flowpb.Payload into flowpb.Flow
 	payloadParser *parser.Parser
 
@@ -90,7 +87,6 @@ func NewLocalServer(
 		ring:          container.NewRing(opts.MaxFlows),
 		events:        make(chan *observerTypes.MonitorEvent, opts.MonitorBuffer),
 		stopped:       make(chan struct{}),
-		eventschan:    make(chan *observerpb.GetFlowsResponse, 100), // option here?
 		payloadParser: payloadParser,
 		startTime:     time.Now(),
 		opts:          opts,
