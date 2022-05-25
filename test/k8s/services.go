@@ -108,7 +108,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		// KPR.
 		// See https://github.com/cilium/cilium/issues/19787
 		SkipItIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.SkipQuarantined()
+			return helpers.RunsWithKubeProxyReplacement() ||
+				// The test case is flaky when running on the 4.9 with k8s > 1.19.0
+				(helpers.SkipQuarantined() && helpers.SkipK8sVersions(">1.19.0"))
 		}, "Checks service on same node", func() {
 			serviceNames := []string{appServiceName}
 			if helpers.DualStackSupported() {
@@ -334,7 +336,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 		// See https://github.com/cilium/cilium/issues/19787
 		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.SkipQuarantined()
+			return helpers.RunsWithKubeProxyReplacement() ||
+				// The test case is flaky when running on the 4.9 with k8s > 1.19.0
+				(helpers.SkipQuarantined() && helpers.SkipK8sVersions(">1.19.0"))
 		}, "Tests NodePort inside cluster (kube-proxy)", func() {
 			SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "with IPSec and externalTrafficPolicy=Local", func() {
 				deploymentManager.SetKubectl(kubectl)
@@ -446,7 +450,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 		// See https://github.com/cilium/cilium/issues/19787
 		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.SkipQuarantined()
+			return helpers.RunsWithKubeProxyReplacement() ||
+				// The test case is flaky when running on the 4.9 with k8s > 1.19.0
+				(helpers.SkipQuarantined() && helpers.SkipK8sVersions(">1.19.0"))
 		}, "with L4 policy", func() {
 			var (
 				demoPolicy string
@@ -481,7 +487,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 
 		// See https://github.com/cilium/cilium/issues/19787
 		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.SkipQuarantined()
+			return helpers.RunsWithKubeProxyReplacement() ||
+				// The test case is flaky when running on the 4.9 with k8s > 1.19.0
+				(helpers.SkipQuarantined() && helpers.SkipK8sVersions(">1.19.0"))
 		}, "with L7 policy", func() {
 			var demoPolicyL7 string
 
