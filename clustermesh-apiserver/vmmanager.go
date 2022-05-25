@@ -98,7 +98,7 @@ func (m *VMManager) startCiliumExternalWorkloadWatcher() {
 // UpdateIdentities will be called when identities have changed
 func (m *VMManager) UpdateIdentities(added, deleted identityCache.IdentityCache) {}
 
-// GetSuffix must return the node specific suffix to use
+// GetNodeSuffix must return the node specific suffix to use
 func (m *VMManager) GetNodeSuffix() string {
 	return "vm-allocator"
 }
@@ -192,7 +192,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 		} else if len(n.IPAddresses) > 0 {
 			// Phase 2: non-zero ID registration with addresses
 
-			// Override again, just in case the extenal node is misbehaving
+			// Override again, just in case the external node is misbehaving
 			nk := nodeOverrideFromCEW(n, cew)
 
 			id := m.LookupNodeIdentity(nk)
@@ -202,7 +202,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 
 			// Create cluster resources for the external node
 			nodeIP := nk.GetNodeIP(false)
-			m.UpdateCiliumNodeResource(nk)
+			m.UpdateCiliumNodeResource(nk, cew)
 			m.UpdateCiliumEndpointResource(nk.Name, id, nk.IPAddresses, nodeIP)
 
 			nid := id.ID.Uint32()
@@ -274,8 +274,16 @@ const (
 
 // UpdateCiliumNodeResource updates the CiliumNode resource representing the
 // local node
-func (m *VMManager) UpdateCiliumNodeResource(n *nodeTypes.RegisterNode) {
+func (m *VMManager) UpdateCiliumNodeResource(n *nodeTypes.RegisterNode, cew *ciliumv2.CiliumExternalWorkload) {
 	nr := n.ToCiliumNode()
+	nr.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: ciliumv2.SchemeGroupVersion.String(),
+			Kind:       ciliumv2.CEWKindDefinition,
+			Name:       cew.GetName(),
+			UID:        cew.GetUID(),
+		},
+	}
 
 	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
 		log.Info("Getting CN during an update")
