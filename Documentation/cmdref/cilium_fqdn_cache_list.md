@@ -15,6 +15,7 @@ cilium fqdn cache list [flags]
   -h, --help                  help for list
   -p, --matchpattern string   List cache entries with FQDN that match matchpattern
   -o, --output string         json| yaml| jsonpath='{}'
+  -s, --source string         List cache entries from a specific source (lookup, connection)
 ```
 
 ### Options inherited from parent commands

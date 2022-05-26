@@ -853,12 +853,13 @@ paths:
       summary: Retrieves the list of DNS lookups intercepted from all endpoints.
       description: |
         Retrieves the list of DNS lookups intercepted from endpoints,
-        optionally filtered by endpoint id, DNS name, or CIDR IP range.
+        optionally filtered by DNS name, CIDR IP range or source.
       tags:
       - policy
       parameters:
       - "$ref": "#/parameters/matchpattern"
       - "$ref": "#/parameters/cidr"
+      - "$ref": "#/parameters/source"
       responses:
         '200':
           description: Success
@@ -894,14 +895,15 @@ paths:
     get:
       summary: Retrieves the list of DNS lookups intercepted from an endpoint.
       description: |
-        Retrieves the list of DNS lookups intercepted from endpoints,
-        optionally filtered by endpoint id, DNS name, or CIDR IP range.
+        Retrieves the list of DNS lookups intercepted from the specific endpoint,
+        optionally filtered by endpoint id, DNS name, CIDR IP range or source.
       tags:
       - policy
       parameters:
       - "$ref": "#/parameters/endpoint-id"
       - "$ref": "#/parameters/matchpattern"
       - "$ref": "#/parameters/cidr"
+      - "$ref": "#/parameters/source"
       responses:
         '200':
           description: Success
@@ -1097,6 +1099,12 @@ parameters:
   cidr:
     name: cidr
     description: A CIDR range of IPs
+    required: false
+    in: query
+    type: string
+  source:
+    name: source
+    description: Source from which FQDN entries come from
     required: false
     in: query
     type: string
