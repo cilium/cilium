@@ -152,7 +152,7 @@ func (ds *DaemonSuite) BenchmarkFqdnCache(c *C) {
 	}
 	c.StartTimer()
 
-	extractDNSLookups(endpoints, "0.0.0.0/0", "*")
+	extractDNSLookups(endpoints, "0.0.0.0/0", "*", "")
 }
 
 func (ds *DaemonFQDNSuite) TestFQDNIdentityReferenceCounting(c *C) {

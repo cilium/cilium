@@ -600,7 +600,12 @@ func (h *getFqdnCache) Handle(params GetFqdnCacheParams) middleware.Responder {
 		matchPatternStr = *params.Matchpattern
 	}
 
-	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr)
+	source := ""
+	if params.Source != nil {
+		source = *params.Source
+	}
+
+	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr, source)
 	switch {
 	case err != nil:
 		return api.Error(GetFqdnCacheBadRequestCode, err)
@@ -672,7 +677,12 @@ func (h *getFqdnCacheID) Handle(params GetFqdnCacheIDParams) middleware.Responde
 		matchPatternStr = *params.Matchpattern
 	}
 
-	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr)
+	source := ""
+	if params.Source != nil {
+		source = *params.Source
+	}
+
+	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr, source)
 	switch {
 	case err != nil:
 		return api.Error(GetFqdnCacheBadRequestCode, err)
@@ -699,7 +709,7 @@ func (h *getFqdnNamesHandler) Handle(params GetFqdnNamesParams) middleware.Respo
 // extractDNSLookups returns API models.DNSLookup copies of DNS data in each
 // endpoint's DNSHistory. These are filtered by CIDRStr and matchPatternStr if
 // they are non-empty.
-func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr string) (lookups []*models.DNSLookup, err error) {
+func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr, source string) (lookups []*models.DNSLookup, err error) {
 	cidrMatcher := func(ip net.IP) bool { return true }
 	if CIDRStr != "" {
 		_, cidr, err := net.ParseCIDR(CIDRStr)
@@ -719,6 +729,8 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 	}
 
 	for _, ep := range endpoints {
+		lookupSourceEntries := []*models.DNSLookup{}
+		connectionSourceEntries := []*models.DNSLookup{}
 		for _, lookup := range ep.DNSHistory.Dump() {
 			if !nameMatcher(lookup.Name) {
 				continue
@@ -737,7 +749,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 				continue
 			}
 
-			lookups = append(lookups, &models.DNSLookup{
+			lookupSourceEntries = append(lookupSourceEntries, &models.DNSLookup{
 				Fqdn:           lookup.Name,
 				Ips:            IPStrings,
 				LookupTime:     strfmt.DateTime(lookup.LookupTime),
@@ -754,7 +766,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 					continue
 				}
 
-				lookups = append(lookups, &models.DNSLookup{
+				connectionSourceEntries = append(connectionSourceEntries, &models.DNSLookup{
 					Fqdn:           name,
 					Ips:            []string{delete.IP.String()},
 					LookupTime:     strfmt.DateTime(delete.AliveAt),
@@ -764,6 +776,16 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 					Source:         dnsSourceConnection,
 				})
 			}
+		}
+
+		switch source {
+		case dnsSourceLookup:
+			lookups = append(lookups, lookupSourceEntries...)
+		case dnsSourceConnection:
+			lookups = append(lookups, connectionSourceEntries...)
+		default:
+			lookups = append(lookups, lookupSourceEntries...)
+			lookups = append(lookups, connectionSourceEntries...)
 		}
 	}
 
