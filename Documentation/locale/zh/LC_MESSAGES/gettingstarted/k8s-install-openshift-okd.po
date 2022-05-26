@@ -1,0 +1,283 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:3
+#: 3547940b876f41199cee77a3c4495c2d
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:11
+#: a3c45bfc83654b27874cdf54d4462459
+msgid "Installation on OpenShift OKD"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:14
+#: c7e432131f9746d5afe2820e53995f8e
+msgid "OpenShift Requirements"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:16
+#: c58e3c7a4ab24edc999ada144faa7638
+msgid ""
+"Choose preferred cloud provider. This guide was tested in AWS, Azure, and"
+" GCP from a Linux host."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:19
+#: 81b4b08e2e2f4876a4778f5d7a4e3003
+msgid ""
+"Read `OpenShift documentation "
+"<https://docs.okd.io/latest/welcome/index.html>`_ to find out about "
+"provider-specific prerequisites."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:21
+#: 63c2c412de3c4474b0c321f134673c8f
+msgid ""
+"`Get OpenShift Installer <https://github.com/openshift/okd#getting-"
+"started>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:25
+#: 8c12514eb1af480d9fe6300a40589ba6
+msgid ""
+"It is highly recommended to read the OpenShift documentation, unless you "
+"have installed OpenShift in the past. Here are a few notes that you may "
+"find useful."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:29
+#: b92e43e61648483dba2518a08a99f998
+msgid ""
+"With the AWS provider ``openshift-install`` will not work properly when "
+"MFA credentials are stored in ``~/.aws/credentials``, traditional "
+"credentials are required."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:31
+#: 4a9d46ddba894b7089388393299ed232
+msgid ""
+"With the Azure provider ``openshift-install`` will prompt for credentials"
+" and store them in ``~/.azure/osServicePrincipal.json``, it doesn't "
+"simply pickup ``az login`` credentials. It's recommended to setup a "
+"dedicated service principal and use it."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:35
+#: 318c50c12beb43a9934cfd63fb8954ec
+msgid ""
+"With the GCP provider ``openshift-install`` will only work with a service"
+" account key, which has to be set using ``GOOGLE_CREDENTIALS`` "
+"environment variable (e.g. ``GOOGLE_CREDENTIALS=service-account.json``). "
+"Follow `Openshift Installer documentation "
+"<https://github.com/openshift/installer/blob/master/docs/user/gcp/iam.md>`_"
+" to assign required roles to your service account."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:42
+#: 7188bb789217492782cee2baeb97bb62
+msgid "Create an OpenShift OKD Cluster"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:44
+#: f54aae531f7b4ad1a04cf55a58fe7e8f
+msgid "First, set the cluster name:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:50
+#: 1b9bea871f904bd6bbb1a3b56f3c7f63
+msgid "Now, create configuration files:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:54
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:174
+#: 4b725fe19d2d48e4b48a89a5d223780f 76c3d39a58b442a1a033f0aed4baaa35
+msgid ""
+"The sample output below is showing the AWS provider, but it should work "
+"the same way with other providers."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:68
+#: a01858d57d6d47feabcc31b1daed7ad4
+msgid "And set ``networkType: Cilium``:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:74
+#: 28c00487116c493581fd69dec8f9e519
+msgid "The resulting configuration will look like this:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:112
+#: ff36e6ffe87747288ecee0c573159b8d
+msgid "You may wish to make a few changes, e.g. increase the number of nodes."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:114
+#: 29fc76db9b484d5882302ddf292599f0
+msgid ""
+"If you do change any of the CIDRs, you will need to make sure that Helm "
+"values in ``${CLUSTER_NAME}/manifests/cluster-network-07-cilium-"
+"ciliumconfig.yaml`` reflect those changes. Namely ``clusterNetwork`` "
+"should match ``ipv4NativeRoutingCIDR``, ``clusterPoolIPv4PodCIDRList`` "
+"and ``clusterPoolIPv4MaskSize``. Also make sure that the "
+"``clusterNetwork`` does not conflict with ``machineNetwork`` (which "
+"represents the VPC CIDR in AWS)."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:120
+#: 9184228ab3554687a49ecb029edf048e
+msgid ""
+"Ensure that there are multiple replicas of the ``controlPlane``. A single"
+" ``controlPlane`` will lead to failure to bootstrap the cluster during "
+"installation."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:124
+#: f26872d4de544c948cd24220a2c4e993
+msgid "Next, generate OpenShift manifests:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:130
+#: 0d758793758e4c9799fa1864a4fb323a
+msgid ""
+"Next, obtain Cilium manifest from ``cilium/cilium-olm`` repository and "
+"copy to ``${CLUSTER_NAME}/manifests``:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:144
+#: de889bb9e7584abd99d7f7e2b03a77f4
+msgid ""
+"At this stage manifest directory contains all that is needed to install "
+"Cilium. To get a list of the Cilium manifests, run:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:151
+#: eceae21c3af04073a66b1b21225afd56
+msgid ""
+"You can set any custom Helm values by editing ``${CLUSTER_NAME}/manifests"
+"/cluster-network-07-cilium-ciliumconfig.yaml``."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:153
+#: 50f6a957c7324c81ad708adec10750bd
+msgid ""
+"It is also possible to update Helm values once the cluster is running by "
+"changing the ``CiliumConfig`` object, e.g. with ``kubectl edit "
+"ciliumconfig -n cilium cilium``. You may need to restart the Cilium agent"
+" pods for certain options to take effect."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:160
+#: cfd37aafe7264200a022c4eb7b722efd
+msgid ""
+"If you are not using a real OpenShift pull secret, you will not be able "
+"to install the Cilium OLM operator using RedHat registry. You can fix "
+"this by running:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:170
+#: c370b1ba3ce04208878e12b0b644459f
+msgid "Create the cluster:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:200
+#: fe7b69dbdb854e70bdb896b2af6964a8
+msgid "Accessing the cluster"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:202
+#: 94725fcde3b14b0fb618ad8fd2ee702a
+msgid ""
+"To access the cluster you will need to use ``kubeconfig`` file from the "
+"``${CLUSTER_NAME}/auth`` directory:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:209
+#: 006323bb63bb420d8ea5411c2c538085
+msgid "Prepare cluster for Cilium connectivity test"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:211
+#: b98fe33dc11f40b8bf5d23874e36dfc3
+msgid ""
+"In order for Cilium connectivity test pods to run on OpenShift, a simple "
+"custom ``SecurityContextConstraints`` object is required. It will to "
+"allow ``hostPort``/``hostNetwork`` that some of the connectivity test "
+"pods rely on, it sets only ``allowHostPorts`` and ``allowHostNetwork`` "
+"without any other privileges."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:245
+#: c46b7cc9e24f495cab58cb1d6a60b0cf
+msgid "Deploy the connectivity test"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: d0d100d5742f47fead27ae07a01e73be
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 435020aedef54d9d969410f062debf2b
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 3b2826c41eff48bcbfca8ab2720c33ca
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: a21a328f253245d482ffbfb7551acef6
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 0587f7d8b2014a329863cd5d57748726
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:250
+#: df4e7f347b06412883ecc4493ff93a42
+msgid "Cleanup after connectivity test"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:252
+#: c6ccc87dbb1549b79bd6e67143a2d948
+msgid "Remove the ``SecurityContextConstraints``:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-openshift-okd.rst:259
+#: 53e0f4ada8c548828bb717caf0952c5e
+msgid "Delete the cluster"
+msgstr ""
+

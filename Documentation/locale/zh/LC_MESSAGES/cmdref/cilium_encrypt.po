@@ -1,0 +1,55 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_encrypt.md:3 e649e0c5ec8b41ac812c7c8edeac0cc5
+msgid "cilium encrypt"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:5 51a7bcb5945b43218d741c61b135354a
+msgid "Manage transparent encryption"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:7 58fb3d9f5f49476abec5f0e5f4353d1d
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:13 d6cb3ecbfa48453aa0c3d3a9709dc0f9
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:21 1a326de2903440408fe570892e810ec9
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:23 eec0391dd03c42d485da28f56f70666c
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:24 6ec466744bd243e999aa69a4ddbd3e5c
+msgid ""
+"[cilium encrypt flush](cilium_encrypt_flush.md)\t - Flushes the current "
+"IPsec state"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:25 7f73441eb2514945abcb0a583934767d
+msgid ""
+"[cilium encrypt status](cilium_encrypt_status.md)\t - Display the current"
+" encryption state"
+msgstr ""
+

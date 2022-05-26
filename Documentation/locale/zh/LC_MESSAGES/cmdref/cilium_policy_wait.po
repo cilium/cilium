@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_policy_wait.md:3 89926cf318074befbca1d49191bafdd9
+msgid "cilium policy wait"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_wait.md:5 1637b7d19b10456181f0dc7bbf9d9db0
+msgid "Wait for all endpoints to have updated to a given policy revision"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_wait.md:11 6228f58244be40c48c0c45174bbfeeae
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_wait.md:20 b0c39ee599dc49d7ba3fb6a297b68c33
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_wait.md:28 ac194ac7c1cb4bee9c6949ba8930315f
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_wait.md:30 07467187e040438d84a395f8b311652a
+msgid "[cilium policy](cilium_policy.md)\t - Manage security policies"
+msgstr ""
+

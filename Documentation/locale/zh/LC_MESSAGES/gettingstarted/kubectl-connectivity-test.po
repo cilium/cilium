@@ -1,0 +1,55 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: f07a45362f0b43e1a1e7a477e9c5c6f8
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 85cde8a4a7df4c0e8379cd195a3376c8
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 93f71de0c8314c38a1c9de5d57d8550b
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 4d52656245394d7fad88db36db1f6c08
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 65d1856966ac477e96689ecf52d3e439
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+

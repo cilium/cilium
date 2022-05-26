@@ -1,0 +1,3086 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 00:09+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium.md:3 ../../cmdref/cli_index.rst:8
+msgid "cilium"
+msgstr ""
+
+#: ../../cmdref/cilium.md:5
+msgid "CLI"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion.md:7
+#: ../../cmdref/cilium-bugtool_completion_bash.md:7
+#: ../../cmdref/cilium-bugtool_completion_fish.md:7
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:7
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:7
+#: ../../cmdref/cilium-health.md:7 ../../cmdref/cilium-health_completion.md:7
+#: ../../cmdref/cilium-health_completion_bash.md:7
+#: ../../cmdref/cilium-health_completion_fish.md:7
+#: ../../cmdref/cilium-health_completion_powershell.md:7
+#: ../../cmdref/cilium-health_completion_zsh.md:7
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:7
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:7
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:7
+#: ../../cmdref/cilium-operator-alibabacloud_completion_powershell.md:7
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:7
+#: ../../cmdref/cilium-operator-aws_completion.md:7
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:7
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:7
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:7
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:7
+#: ../../cmdref/cilium-operator-azure_completion.md:7
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:7
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:7
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:7
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:7
+#: ../../cmdref/cilium-operator-generic_completion.md:7
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:7
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:7
+#: ../../cmdref/cilium-operator-generic_completion_powershell.md:7
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:7
+#: ../../cmdref/cilium-operator_completion.md:7
+#: ../../cmdref/cilium-operator_completion_bash.md:7
+#: ../../cmdref/cilium-operator_completion_fish.md:7
+#: ../../cmdref/cilium-operator_completion_powershell.md:7
+#: ../../cmdref/cilium-operator_completion_zsh.md:7 ../../cmdref/cilium.md:7
+#: ../../cmdref/cilium_bpf_egress_list.md:7
+#: ../../cmdref/cilium_bpf_ipcache_list.md:7
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:7
+#: ../../cmdref/cilium_bpf_vtep_list.md:7 ../../cmdref/cilium_cleanup.md:7
+#: ../../cmdref/cilium_encrypt_flush.md:7 ../../cmdref/cilium_monitor.md:7
+#: ../../cmdref/cilium_preflight.md:7
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:7
+#: ../../cmdref/cilium_preflight_migrate-identity.md:7
+#: ../../cmdref/cilium_preflight_validate-cnp.md:7
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium.md:9
+msgid "CLI for interacting with the local Cilium Agent"
+msgstr ""
+
+#: ../../cmdref/cilium-agent.md:11 ../../cmdref/cilium-bugtool.md:27
+#: ../../cmdref/cilium-bugtool_completion.md:13
+#: ../../cmdref/cilium-bugtool_completion_bash.md:35
+#: ../../cmdref/cilium-bugtool_completion_fish.md:26
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:23
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:33
+#: ../../cmdref/cilium-health.md:15 ../../cmdref/cilium-health_completion.md:13
+#: ../../cmdref/cilium-health_completion_bash.md:35
+#: ../../cmdref/cilium-health_completion_fish.md:26
+#: ../../cmdref/cilium-health_completion_powershell.md:23
+#: ../../cmdref/cilium-health_completion_zsh.md:33
+#: ../../cmdref/cilium-health_get.md:11 ../../cmdref/cilium-health_ping.md:11
+#: ../../cmdref/cilium-health_status.md:11
+#: ../../cmdref/cilium-operator-alibabacloud.md:11
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:13
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:35
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:26
+#: ../../cmdref/cilium-operator-alibabacloud_completion_powershell.md:23
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:33
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:7
+#: ../../cmdref/cilium-operator-alibabacloud_metrics_list.md:11
+#: ../../cmdref/cilium-operator-aws.md:11
+#: ../../cmdref/cilium-operator-aws_completion.md:13
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:35
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:26
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:23
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:33
+#: ../../cmdref/cilium-operator-aws_metrics.md:7
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:11
+#: ../../cmdref/cilium-operator-azure.md:11
+#: ../../cmdref/cilium-operator-azure_completion.md:13
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:35
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:26
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:23
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:33
+#: ../../cmdref/cilium-operator-azure_metrics.md:7
+#: ../../cmdref/cilium-operator-azure_metrics_list.md:11
+#: ../../cmdref/cilium-operator-generic.md:11
+#: ../../cmdref/cilium-operator-generic_completion.md:13
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:35
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:26
+#: ../../cmdref/cilium-operator-generic_completion_powershell.md:23
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:33
+#: ../../cmdref/cilium-operator-generic_metrics.md:7
+#: ../../cmdref/cilium-operator-generic_metrics_list.md:11
+#: ../../cmdref/cilium-operator.md:11
+#: ../../cmdref/cilium-operator_completion.md:13
+#: ../../cmdref/cilium-operator_completion_bash.md:35
+#: ../../cmdref/cilium-operator_completion_fish.md:26
+#: ../../cmdref/cilium-operator_completion_powershell.md:23
+#: ../../cmdref/cilium-operator_completion_zsh.md:33
+#: ../../cmdref/cilium-operator_metrics.md:7
+#: ../../cmdref/cilium-operator_metrics_list.md:11 ../../cmdref/cilium.md:11
+#: ../../cmdref/cilium_bpf.md:7 ../../cmdref/cilium_bpf_bandwidth.md:7
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:11 ../../cmdref/cilium_bpf_ct.md:7
+#: ../../cmdref/cilium_bpf_ct_flush.md:11 ../../cmdref/cilium_bpf_ct_list.md:11
+#: ../../cmdref/cilium_bpf_egress.md:7
+#: ../../cmdref/cilium_bpf_egress_list.md:20
+#: ../../cmdref/cilium_bpf_endpoint.md:7
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:11
+#: ../../cmdref/cilium_bpf_endpoint_list.md:11 ../../cmdref/cilium_bpf_fs.md:7
+#: ../../cmdref/cilium_bpf_fs_show.md:17 ../../cmdref/cilium_bpf_ipcache.md:7
+#: ../../cmdref/cilium_bpf_ipcache_get.md:11
+#: ../../cmdref/cilium_bpf_ipcache_list.md:22
+#: ../../cmdref/cilium_bpf_ipmasq.md:7
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:15 ../../cmdref/cilium_bpf_lb.md:7
+#: ../../cmdref/cilium_bpf_lb_list.md:11 ../../cmdref/cilium_bpf_lb_maglev.md:7
+#: ../../cmdref/cilium_bpf_lb_maglev_get.md:11
+#: ../../cmdref/cilium_bpf_lb_maglev_list.md:11
+#: ../../cmdref/cilium_bpf_metrics.md:7
+#: ../../cmdref/cilium_bpf_metrics_list.md:11 ../../cmdref/cilium_bpf_nat.md:7
+#: ../../cmdref/cilium_bpf_nat_flush.md:11
+#: ../../cmdref/cilium_bpf_nat_list.md:11 ../../cmdref/cilium_bpf_policy.md:7
+#: ../../cmdref/cilium_bpf_policy_add.md:11
+#: ../../cmdref/cilium_bpf_policy_delete.md:11
+#: ../../cmdref/cilium_bpf_policy_get.md:11
+#: ../../cmdref/cilium_bpf_recorder.md:7
+#: ../../cmdref/cilium_bpf_recorder_list.md:11 ../../cmdref/cilium_bpf_sha.md:7
+#: ../../cmdref/cilium_bpf_sha_get.md:11 ../../cmdref/cilium_bpf_sha_list.md:11
+#: ../../cmdref/cilium_bpf_tunnel.md:7
+#: ../../cmdref/cilium_bpf_tunnel_list.md:11 ../../cmdref/cilium_bpf_vtep.md:7
+#: ../../cmdref/cilium_bpf_vtep_list.md:16 ../../cmdref/cilium_cleanup.md:19
+#: ../../cmdref/cilium_completion.md:53 ../../cmdref/cilium_config.md:11
+#: ../../cmdref/cilium_config_get.md:11 ../../cmdref/cilium_debuginfo.md:11
+#: ../../cmdref/cilium_encrypt.md:7 ../../cmdref/cilium_encrypt_flush.md:15
+#: ../../cmdref/cilium_encrypt_status.md:11 ../../cmdref/cilium_endpoint.md:7
+#: ../../cmdref/cilium_endpoint_config.md:17
+#: ../../cmdref/cilium_endpoint_disconnect.md:11
+#: ../../cmdref/cilium_endpoint_get.md:17
+#: ../../cmdref/cilium_endpoint_health.md:17
+#: ../../cmdref/cilium_endpoint_labels.md:11
+#: ../../cmdref/cilium_endpoint_list.md:11
+#: ../../cmdref/cilium_endpoint_log.md:17
+#: ../../cmdref/cilium_endpoint_regenerate.md:11 ../../cmdref/cilium_fqdn.md:11
+#: ../../cmdref/cilium_fqdn_cache.md:11
+#: ../../cmdref/cilium_fqdn_cache_clean.md:11
+#: ../../cmdref/cilium_fqdn_cache_list.md:11
+#: ../../cmdref/cilium_fqdn_names.md:11 ../../cmdref/cilium_identity.md:7
+#: ../../cmdref/cilium_identity_get.md:11
+#: ../../cmdref/cilium_identity_list.md:11 ../../cmdref/cilium_ip.md:7
+#: ../../cmdref/cilium_ip_list.md:11 ../../cmdref/cilium_kvstore.md:7
+#: ../../cmdref/cilium_kvstore_delete.md:17
+#: ../../cmdref/cilium_kvstore_get.md:17 ../../cmdref/cilium_kvstore_set.md:17
+#: ../../cmdref/cilium_lrp.md:7 ../../cmdref/cilium_lrp_list.md:11
+#: ../../cmdref/cilium_map.md:7 ../../cmdref/cilium_map_get.md:17
+#: ../../cmdref/cilium_map_list.md:17 ../../cmdref/cilium_metrics.md:7
+#: ../../cmdref/cilium_metrics_list.md:11 ../../cmdref/cilium_monitor.md:20
+#: ../../cmdref/cilium_node.md:7 ../../cmdref/cilium_node_list.md:11
+#: ../../cmdref/cilium_policy.md:7 ../../cmdref/cilium_policy_delete.md:11
+#: ../../cmdref/cilium_policy_get.md:11 ../../cmdref/cilium_policy_import.md:18
+#: ../../cmdref/cilium_policy_selectors.md:11
+#: ../../cmdref/cilium_policy_validate.md:11
+#: ../../cmdref/cilium_policy_wait.md:11 ../../cmdref/cilium_prefilter.md:7
+#: ../../cmdref/cilium_prefilter_delete.md:11
+#: ../../cmdref/cilium_prefilter_list.md:11
+#: ../../cmdref/cilium_prefilter_update.md:11
+#: ../../cmdref/cilium_preflight.md:11
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:21
+#: ../../cmdref/cilium_preflight_migrate-identity.md:22
+#: ../../cmdref/cilium_preflight_validate-cnp.md:18
+#: ../../cmdref/cilium_recorder.md:7 ../../cmdref/cilium_recorder_delete.md:11
+#: ../../cmdref/cilium_recorder_get.md:11
+#: ../../cmdref/cilium_recorder_list.md:11
+#: ../../cmdref/cilium_recorder_update.md:11 ../../cmdref/cilium_service.md:7
+#: ../../cmdref/cilium_service_delete.md:11
+#: ../../cmdref/cilium_service_get.md:11 ../../cmdref/cilium_service_list.md:11
+#: ../../cmdref/cilium_service_update.md:11 ../../cmdref/cilium_status.md:11
+#: ../../cmdref/cilium_version.md:11
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:49
+#: ../../cmdref/cilium-bugtool_completion.md:19
+#: ../../cmdref/cilium-bugtool_completion_bash.md:42
+#: ../../cmdref/cilium-bugtool_completion_fish.md:33
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:30
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:40
+#: ../../cmdref/cilium-health.md:25 ../../cmdref/cilium-health_completion.md:28
+#: ../../cmdref/cilium-health_completion_bash.md:51
+#: ../../cmdref/cilium-health_completion_fish.md:42
+#: ../../cmdref/cilium-health_completion_powershell.md:39
+#: ../../cmdref/cilium-health_completion_zsh.md:49
+#: ../../cmdref/cilium-health_get.md:27 ../../cmdref/cilium-health_ping.md:26
+#: ../../cmdref/cilium-health_status.md:30
+#: ../../cmdref/cilium-operator-alibabacloud.md:80
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:19
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:42
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:33
+#: ../../cmdref/cilium-operator-alibabacloud_completion_powershell.md:30
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:40
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:13
+#: ../../cmdref/cilium-operator-alibabacloud_metrics_list.md:19
+#: ../../cmdref/cilium-operator-aws.md:86
+#: ../../cmdref/cilium-operator-aws_completion.md:19
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:42
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:33
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:30
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:40
+#: ../../cmdref/cilium-operator-aws_metrics.md:13
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:19
+#: ../../cmdref/cilium-operator-azure.md:83
+#: ../../cmdref/cilium-operator-azure_completion.md:19
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:42
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:33
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:30
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:40
+#: ../../cmdref/cilium-operator-azure_metrics.md:13
+#: ../../cmdref/cilium-operator-azure_metrics_list.md:19
+#: ../../cmdref/cilium-operator-generic.md:79
+#: ../../cmdref/cilium-operator-generic_completion.md:19
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:42
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:33
+#: ../../cmdref/cilium-operator-generic_completion_powershell.md:30
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:40
+#: ../../cmdref/cilium-operator-generic_metrics.md:13
+#: ../../cmdref/cilium-operator-generic_metrics_list.md:19
+#: ../../cmdref/cilium-operator.md:91
+#: ../../cmdref/cilium-operator_completion.md:19
+#: ../../cmdref/cilium-operator_completion_bash.md:42
+#: ../../cmdref/cilium-operator_completion_fish.md:33
+#: ../../cmdref/cilium-operator_completion_powershell.md:30
+#: ../../cmdref/cilium-operator_completion_zsh.md:40
+#: ../../cmdref/cilium-operator_metrics.md:13
+#: ../../cmdref/cilium-operator_metrics_list.md:19 ../../cmdref/cilium.md:20
+#: ../../cmdref/cilium_bpf.md:21 ../../cmdref/cilium_bpf_bandwidth.md:21
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:26
+#: ../../cmdref/cilium_bpf_ct.md:21 ../../cmdref/cilium_bpf_ct_flush.md:25
+#: ../../cmdref/cilium_bpf_ct_list.md:29 ../../cmdref/cilium_bpf_egress.md:21
+#: ../../cmdref/cilium_bpf_egress_list.md:35
+#: ../../cmdref/cilium_bpf_endpoint.md:21
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:25
+#: ../../cmdref/cilium_bpf_endpoint_list.md:26 ../../cmdref/cilium_bpf_fs.md:21
+#: ../../cmdref/cilium_bpf_fs_show.md:32 ../../cmdref/cilium_bpf_ipcache.md:21
+#: ../../cmdref/cilium_bpf_ipcache_get.md:25
+#: ../../cmdref/cilium_bpf_ipcache_list.md:37
+#: ../../cmdref/cilium_bpf_ipmasq.md:21
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:30 ../../cmdref/cilium_bpf_lb.md:21
+#: ../../cmdref/cilium_bpf_lb_list.md:29
+#: ../../cmdref/cilium_bpf_lb_maglev.md:21
+#: ../../cmdref/cilium_bpf_lb_maglev_get.md:26
+#: ../../cmdref/cilium_bpf_lb_maglev_list.md:26
+#: ../../cmdref/cilium_bpf_metrics.md:21
+#: ../../cmdref/cilium_bpf_metrics_list.md:26 ../../cmdref/cilium_bpf_nat.md:21
+#: ../../cmdref/cilium_bpf_nat_flush.md:25
+#: ../../cmdref/cilium_bpf_nat_list.md:26 ../../cmdref/cilium_bpf_policy.md:21
+#: ../../cmdref/cilium_bpf_policy_add.md:26
+#: ../../cmdref/cilium_bpf_policy_delete.md:26
+#: ../../cmdref/cilium_bpf_policy_get.md:28
+#: ../../cmdref/cilium_bpf_recorder.md:21
+#: ../../cmdref/cilium_bpf_recorder_list.md:26
+#: ../../cmdref/cilium_bpf_sha.md:21 ../../cmdref/cilium_bpf_sha_get.md:26
+#: ../../cmdref/cilium_bpf_sha_list.md:26 ../../cmdref/cilium_bpf_tunnel.md:21
+#: ../../cmdref/cilium_bpf_tunnel_list.md:26 ../../cmdref/cilium_bpf_vtep.md:21
+#: ../../cmdref/cilium_bpf_vtep_list.md:31 ../../cmdref/cilium_cleanup.md:36
+#: ../../cmdref/cilium_completion.md:67 ../../cmdref/cilium_config.md:30
+#: ../../cmdref/cilium_config_get.md:26 ../../cmdref/cilium_debuginfo.md:29
+#: ../../cmdref/cilium_encrypt.md:21 ../../cmdref/cilium_encrypt_flush.md:30
+#: ../../cmdref/cilium_encrypt_status.md:26 ../../cmdref/cilium_endpoint.md:21
+#: ../../cmdref/cilium_endpoint_config.md:33
+#: ../../cmdref/cilium_endpoint_disconnect.md:25
+#: ../../cmdref/cilium_endpoint_get.md:33
+#: ../../cmdref/cilium_endpoint_health.md:32
+#: ../../cmdref/cilium_endpoint_labels.md:27
+#: ../../cmdref/cilium_endpoint_list.md:27
+#: ../../cmdref/cilium_endpoint_log.md:32
+#: ../../cmdref/cilium_endpoint_regenerate.md:25 ../../cmdref/cilium_fqdn.md:25
+#: ../../cmdref/cilium_fqdn_cache.md:25
+#: ../../cmdref/cilium_fqdn_cache_clean.md:27
+#: ../../cmdref/cilium_fqdn_cache_list.md:28
+#: ../../cmdref/cilium_fqdn_names.md:25 ../../cmdref/cilium_identity.md:21
+#: ../../cmdref/cilium_identity_get.md:27
+#: ../../cmdref/cilium_identity_list.md:27 ../../cmdref/cilium_ip.md:21
+#: ../../cmdref/cilium_ip_list.md:28 ../../cmdref/cilium_kvstore.md:23
+#: ../../cmdref/cilium_kvstore_delete.md:34
+#: ../../cmdref/cilium_kvstore_get.md:35 ../../cmdref/cilium_kvstore_set.md:35
+#: ../../cmdref/cilium_lrp.md:21 ../../cmdref/cilium_lrp_list.md:26
+#: ../../cmdref/cilium_map.md:21 ../../cmdref/cilium_map_get.md:32
+#: ../../cmdref/cilium_map_list.md:33 ../../cmdref/cilium_metrics.md:21
+#: ../../cmdref/cilium_metrics_list.md:27 ../../cmdref/cilium_monitor.md:43
+#: ../../cmdref/cilium_node.md:21 ../../cmdref/cilium_node_list.md:26
+#: ../../cmdref/cilium_policy.md:21 ../../cmdref/cilium_policy_delete.md:27
+#: ../../cmdref/cilium_policy_get.md:26 ../../cmdref/cilium_policy_import.md:34
+#: ../../cmdref/cilium_policy_selectors.md:26
+#: ../../cmdref/cilium_policy_validate.md:27
+#: ../../cmdref/cilium_policy_wait.md:28 ../../cmdref/cilium_prefilter.md:21
+#: ../../cmdref/cilium_prefilter_delete.md:27
+#: ../../cmdref/cilium_prefilter_list.md:26
+#: ../../cmdref/cilium_prefilter_update.md:27
+#: ../../cmdref/cilium_preflight.md:25
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:37
+#: ../../cmdref/cilium_preflight_migrate-identity.md:40
+#: ../../cmdref/cilium_preflight_validate-cnp.md:34
+#: ../../cmdref/cilium_recorder.md:21 ../../cmdref/cilium_recorder_delete.md:25
+#: ../../cmdref/cilium_recorder_get.md:26
+#: ../../cmdref/cilium_recorder_list.md:26
+#: ../../cmdref/cilium_recorder_update.md:28 ../../cmdref/cilium_service.md:21
+#: ../../cmdref/cilium_service_delete.md:26
+#: ../../cmdref/cilium_service_get.md:26 ../../cmdref/cilium_service_list.md:26
+#: ../../cmdref/cilium_service_update.md:36 ../../cmdref/cilium_status.md:35
+#: ../../cmdref/cilium_version.md:26
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium.md:22 ../../cmdref/cilium_bpf_bandwidth.md:23
+#: ../../cmdref/cilium_bpf_ct.md:23 ../../cmdref/cilium_bpf_egress.md:23
+#: ../../cmdref/cilium_bpf_endpoint.md:23 ../../cmdref/cilium_bpf_fs.md:23
+#: ../../cmdref/cilium_bpf_ipcache.md:23 ../../cmdref/cilium_bpf_ipmasq.md:23
+#: ../../cmdref/cilium_bpf_lb.md:23 ../../cmdref/cilium_bpf_metrics.md:23
+#: ../../cmdref/cilium_bpf_nat.md:23 ../../cmdref/cilium_bpf_policy.md:23
+#: ../../cmdref/cilium_bpf_recorder.md:23 ../../cmdref/cilium_bpf_sha.md:23
+#: ../../cmdref/cilium_bpf_tunnel.md:23 ../../cmdref/cilium_bpf_vtep.md:23
+msgid "[cilium bpf](cilium_bpf.md)\t - Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium.md:23
+msgid ""
+"[cilium cleanup](cilium_cleanup.md)\t - Remove system state installed by "
+"Cilium at runtime"
+msgstr ""
+
+#: ../../cmdref/cilium.md:24
+msgid "[cilium completion](cilium_completion.md)\t - Output shell completion code"
+msgstr ""
+
+#: ../../cmdref/cilium.md:25 ../../cmdref/cilium_config_get.md:28
+msgid "[cilium config](cilium_config.md)\t - Cilium configuration options"
+msgstr ""
+
+#: ../../cmdref/cilium.md:26
+msgid ""
+"[cilium debuginfo](cilium_debuginfo.md)\t - Request available debugging "
+"information from agent"
+msgstr ""
+
+#: ../../cmdref/cilium.md:27 ../../cmdref/cilium_encrypt_flush.md:32
+#: ../../cmdref/cilium_encrypt_status.md:28
+msgid "[cilium encrypt](cilium_encrypt.md)\t - Manage transparent encryption"
+msgstr ""
+
+#: ../../cmdref/cilium.md:28 ../../cmdref/cilium_endpoint_config.md:35
+#: ../../cmdref/cilium_endpoint_disconnect.md:27
+#: ../../cmdref/cilium_endpoint_get.md:35
+#: ../../cmdref/cilium_endpoint_health.md:34
+#: ../../cmdref/cilium_endpoint_labels.md:29
+#: ../../cmdref/cilium_endpoint_list.md:29
+#: ../../cmdref/cilium_endpoint_log.md:34
+#: ../../cmdref/cilium_endpoint_regenerate.md:27
+msgid "[cilium endpoint](cilium_endpoint.md)\t - Manage endpoints"
+msgstr ""
+
+#: ../../cmdref/cilium.md:29 ../../cmdref/cilium_fqdn_cache.md:27
+#: ../../cmdref/cilium_fqdn_names.md:27
+msgid "[cilium fqdn](cilium_fqdn.md)\t - Manage fqdn proxy"
+msgstr ""
+
+#: ../../cmdref/cilium.md:30 ../../cmdref/cilium_identity_get.md:29
+#: ../../cmdref/cilium_identity_list.md:29
+msgid "[cilium identity](cilium_identity.md)\t - Manage security identities"
+msgstr ""
+
+#: ../../cmdref/cilium.md:31 ../../cmdref/cilium_ip_list.md:30
+msgid ""
+"[cilium ip](cilium_ip.md)\t - Manage IP addresses and associated "
+"information"
+msgstr ""
+
+#: ../../cmdref/cilium.md:32 ../../cmdref/cilium_kvstore_delete.md:36
+#: ../../cmdref/cilium_kvstore_get.md:37 ../../cmdref/cilium_kvstore_set.md:37
+msgid "[cilium kvstore](cilium_kvstore.md)\t - Direct access to the kvstore"
+msgstr ""
+
+#: ../../cmdref/cilium.md:33 ../../cmdref/cilium_lrp_list.md:28
+msgid "[cilium lrp](cilium_lrp.md)\t - Manage local redirect policies"
+msgstr ""
+
+#: ../../cmdref/cilium.md:34 ../../cmdref/cilium_map_get.md:34
+#: ../../cmdref/cilium_map_list.md:35
+msgid ""
+"[cilium map](cilium_map.md)\t - Access userspace cached content of BPF "
+"maps"
+msgstr ""
+
+#: ../../cmdref/cilium.md:35 ../../cmdref/cilium_metrics_list.md:29
+msgid "[cilium metrics](cilium_metrics.md)\t - Access metric status"
+msgstr ""
+
+#: ../../cmdref/cilium.md:36
+msgid "[cilium monitor](cilium_monitor.md)\t - Display BPF program events"
+msgstr ""
+
+#: ../../cmdref/cilium.md:37 ../../cmdref/cilium_node_list.md:28
+msgid "[cilium node](cilium_node.md)\t - Manage cluster nodes"
+msgstr ""
+
+#: ../../cmdref/cilium.md:38 ../../cmdref/cilium_policy_delete.md:29
+#: ../../cmdref/cilium_policy_get.md:28 ../../cmdref/cilium_policy_import.md:36
+#: ../../cmdref/cilium_policy_selectors.md:28
+#: ../../cmdref/cilium_policy_validate.md:29
+#: ../../cmdref/cilium_policy_wait.md:30
+msgid "[cilium policy](cilium_policy.md)\t - Manage security policies"
+msgstr ""
+
+#: ../../cmdref/cilium.md:39 ../../cmdref/cilium_prefilter_delete.md:29
+#: ../../cmdref/cilium_prefilter_list.md:28
+#: ../../cmdref/cilium_prefilter_update.md:29
+msgid "[cilium prefilter](cilium_prefilter.md)\t - Manage XDP CIDR filters"
+msgstr ""
+
+#: ../../cmdref/cilium.md:40 ../../cmdref/cilium_preflight_fqdn-poller.md:39
+#: ../../cmdref/cilium_preflight_migrate-identity.md:42
+#: ../../cmdref/cilium_preflight_validate-cnp.md:36
+msgid "[cilium preflight](cilium_preflight.md)\t - cilium upgrade helper"
+msgstr ""
+
+#: ../../cmdref/cilium.md:41 ../../cmdref/cilium_recorder_delete.md:27
+#: ../../cmdref/cilium_recorder_get.md:28
+#: ../../cmdref/cilium_recorder_list.md:28
+#: ../../cmdref/cilium_recorder_update.md:30
+msgid ""
+"[cilium recorder](cilium_recorder.md)\t - Introspect or mangle pcap "
+"recorder"
+msgstr ""
+
+#: ../../cmdref/cilium.md:42 ../../cmdref/cilium_service_delete.md:28
+#: ../../cmdref/cilium_service_get.md:28 ../../cmdref/cilium_service_list.md:28
+#: ../../cmdref/cilium_service_update.md:38
+msgid "[cilium service](cilium_service.md)\t - Manage services & loadbalancers"
+msgstr ""
+
+#: ../../cmdref/cilium.md:43
+msgid "[cilium status](cilium_status.md)\t - Display status of daemon"
+msgstr ""
+
+#: ../../cmdref/cilium.md:44
+msgid "[cilium version](cilium_version.md)\t - Print version information"
+msgstr ""
+
+#: ../../cmdref/cilium-agent.md:3
+msgid "cilium-agent"
+msgstr ""
+
+#: ../../cmdref/cilium-agent.md:5
+msgid "Run the cilium agent"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:3
+msgid "cilium-bugtool"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:5
+msgid "Collects agent & system information useful for bug reporting"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:11 ../../cmdref/cilium_bpf_fs_show.md:11
+#: ../../cmdref/cilium_completion.md:11
+#: ../../cmdref/cilium_endpoint_config.md:11
+#: ../../cmdref/cilium_endpoint_get.md:11
+#: ../../cmdref/cilium_endpoint_health.md:11
+#: ../../cmdref/cilium_endpoint_log.md:11
+#: ../../cmdref/cilium_kvstore_delete.md:11
+#: ../../cmdref/cilium_kvstore_get.md:11 ../../cmdref/cilium_kvstore_set.md:11
+#: ../../cmdref/cilium_map_get.md:11 ../../cmdref/cilium_map_list.md:11
+#: ../../cmdref/cilium_policy_import.md:11
+msgid "Examples"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:51
+#: ../../cmdref/cilium-bugtool_completion_bash.md:44
+#: ../../cmdref/cilium-bugtool_completion_fish.md:35
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:32
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:42
+msgid ""
+"[cilium-bugtool completion](cilium-bugtool_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion.md:3
+msgid "cilium-bugtool completion"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion.md:5
+#: ../../cmdref/cilium-health_completion.md:5
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:5
+#: ../../cmdref/cilium-operator-aws_completion.md:5
+#: ../../cmdref/cilium-operator-azure_completion.md:5
+#: ../../cmdref/cilium-operator-generic_completion.md:5
+#: ../../cmdref/cilium-operator_completion.md:5
+msgid "Generate the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion.md:9
+msgid ""
+"Generate the autocompletion script for cilium-bugtool for the specified "
+"shell. See each sub-command's help for details on how to use the "
+"generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion.md:21
+msgid ""
+"[cilium-bugtool](cilium-bugtool.md)\t - Collects agent & system "
+"information useful for bug reporting"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion.md:22
+msgid ""
+"[cilium-bugtool completion bash](cilium-bugtool_completion_bash.md)\t - "
+"Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion.md:23
+msgid ""
+"[cilium-bugtool completion fish](cilium-bugtool_completion_fish.md)\t - "
+"Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion.md:24
+msgid ""
+"[cilium-bugtool completion powershell](cilium-"
+"bugtool_completion_powershell.md)\t - Generate the autocompletion script "
+"for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion.md:25
+msgid ""
+"[cilium-bugtool completion zsh](cilium-bugtool_completion_zsh.md)\t - "
+"Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:3
+msgid "cilium-bugtool completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:5
+#: ../../cmdref/cilium-health_completion_bash.md:5
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:5
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:5
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:5
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:5
+#: ../../cmdref/cilium-operator_completion_bash.md:5
+msgid "Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:9
+#: ../../cmdref/cilium-health_completion_bash.md:9
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:9
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:9
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:9
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:9
+#: ../../cmdref/cilium-operator_completion_bash.md:9
+msgid "Generate the autocompletion script for the bash shell."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:11
+#: ../../cmdref/cilium-health_completion_bash.md:11
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:11
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:11
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:11
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:11
+#: ../../cmdref/cilium-operator_completion_bash.md:11
+msgid ""
+"This script depends on the 'bash-completion' package. If it is not "
+"installed already, you can install it via your OS's package manager."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:14
+#: ../../cmdref/cilium-bugtool_completion_fish.md:11
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:11
+#: ../../cmdref/cilium-health_completion_bash.md:14
+#: ../../cmdref/cilium-health_completion_fish.md:11
+#: ../../cmdref/cilium-health_completion_powershell.md:11
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:14
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:11
+#: ../../cmdref/cilium-operator-alibabacloud_completion_powershell.md:11
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:14
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:11
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:11
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:14
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:11
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:11
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:14
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:11
+#: ../../cmdref/cilium-operator-generic_completion_powershell.md:11
+#: ../../cmdref/cilium-operator_completion_bash.md:14
+#: ../../cmdref/cilium-operator_completion_fish.md:11
+#: ../../cmdref/cilium-operator_completion_powershell.md:11
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:18
+#: ../../cmdref/cilium-bugtool_completion_fish.md:15
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:16
+#: ../../cmdref/cilium-health_completion_bash.md:18
+#: ../../cmdref/cilium-health_completion_fish.md:15
+#: ../../cmdref/cilium-health_completion_zsh.md:16
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:18
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:15
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:16
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:18
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:15
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:16
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:18
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:15
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:16
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:18
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:15
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:16
+#: ../../cmdref/cilium-operator_completion_bash.md:18
+#: ../../cmdref/cilium-operator_completion_fish.md:15
+#: ../../cmdref/cilium-operator_completion_zsh.md:16
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:20
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:18
+#: ../../cmdref/cilium-health_completion_bash.md:20
+#: ../../cmdref/cilium-health_completion_zsh.md:18
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:20
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:18
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:20
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:18
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:20
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:18
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:20
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:18
+#: ../../cmdref/cilium-operator_completion_bash.md:20
+#: ../../cmdref/cilium-operator_completion_zsh.md:18
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:24
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:22
+#: ../../cmdref/cilium-health_completion_bash.md:24
+#: ../../cmdref/cilium-health_completion_zsh.md:22
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:24
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:22
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:24
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:22
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:24
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:22
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:24
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:22
+#: ../../cmdref/cilium-operator_completion_bash.md:24
+#: ../../cmdref/cilium-operator_completion_zsh.md:22
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:28
+#: ../../cmdref/cilium-bugtool_completion_fish.md:19
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:26
+#: ../../cmdref/cilium-health_completion_bash.md:28
+#: ../../cmdref/cilium-health_completion_fish.md:19
+#: ../../cmdref/cilium-health_completion_zsh.md:26
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:28
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:19
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:26
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:28
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:19
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:26
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:28
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:19
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:26
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:28
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:19
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:26
+#: ../../cmdref/cilium-operator_completion_bash.md:28
+#: ../../cmdref/cilium-operator_completion_fish.md:19
+#: ../../cmdref/cilium-operator_completion_zsh.md:26
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:3
+msgid "cilium-bugtool completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:5
+#: ../../cmdref/cilium-health_completion_fish.md:5
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:5
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:5
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:5
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:5
+#: ../../cmdref/cilium-operator_completion_fish.md:5
+msgid "Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:9
+#: ../../cmdref/cilium-health_completion_fish.md:9
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:9
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:9
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:9
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:9
+#: ../../cmdref/cilium-operator_completion_fish.md:9
+msgid "Generate the autocompletion script for the fish shell."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:3
+msgid "cilium-bugtool completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:5
+#: ../../cmdref/cilium-health_completion_powershell.md:5
+#: ../../cmdref/cilium-operator-alibabacloud_completion_powershell.md:5
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:5
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:5
+#: ../../cmdref/cilium-operator-generic_completion_powershell.md:5
+#: ../../cmdref/cilium-operator_completion_powershell.md:5
+msgid "Generate the autocompletion script for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:9
+#: ../../cmdref/cilium-health_completion_powershell.md:9
+#: ../../cmdref/cilium-operator-alibabacloud_completion_powershell.md:9
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:9
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:9
+#: ../../cmdref/cilium-operator-generic_completion_powershell.md:9
+#: ../../cmdref/cilium-operator_completion_powershell.md:9
+msgid "Generate the autocompletion script for powershell."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:15
+#: ../../cmdref/cilium-health_completion_powershell.md:15
+#: ../../cmdref/cilium-operator-alibabacloud_completion_powershell.md:15
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:15
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:15
+#: ../../cmdref/cilium-operator-generic_completion_powershell.md:15
+#: ../../cmdref/cilium-operator_completion_powershell.md:15
+msgid ""
+"To load completions for every new session, add the output of the above "
+"command to your powershell profile."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:3
+msgid "cilium-bugtool completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:5
+#: ../../cmdref/cilium-health_completion_zsh.md:5
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:5
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:5
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:5
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:5
+#: ../../cmdref/cilium-operator_completion_zsh.md:5
+msgid "Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:9
+#: ../../cmdref/cilium-health_completion_zsh.md:9
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:9
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:9
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:9
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:9
+#: ../../cmdref/cilium-operator_completion_zsh.md:9
+msgid "Generate the autocompletion script for the zsh shell."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:11
+#: ../../cmdref/cilium-health_completion_zsh.md:11
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:11
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:11
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:11
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:11
+#: ../../cmdref/cilium-operator_completion_zsh.md:11
+msgid ""
+"If shell completion is not already enabled in your environment you will "
+"need to enable it.  You can execute the following once:"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:3
+msgid "cilium-health"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:5
+msgid "Cilium Health Client"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:9
+msgid "Client for querying the Cilium health status API"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:27
+#: ../../cmdref/cilium-health_completion_bash.md:53
+#: ../../cmdref/cilium-health_completion_fish.md:44
+#: ../../cmdref/cilium-health_completion_powershell.md:41
+#: ../../cmdref/cilium-health_completion_zsh.md:51
+msgid ""
+"[cilium-health completion](cilium-health_completion.md)\t - Generate the "
+"autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:28
+msgid ""
+"[cilium-health get](cilium-health_get.md)\t - Display local cilium agent "
+"status"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:29
+msgid ""
+"[cilium-health ping](cilium-health_ping.md)\t - Check whether the cilium-"
+"health API is up"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:30
+msgid ""
+"[cilium-health status](cilium-health_status.md)\t - Display cilium "
+"connectivity to other nodes"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion.md:3
+msgid "cilium-health completion"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion.md:9
+msgid ""
+"Generate the autocompletion script for cilium-health for the specified "
+"shell. See each sub-command's help for details on how to use the "
+"generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion.md:19
+#: ../../cmdref/cilium-health_completion_bash.md:42
+#: ../../cmdref/cilium-health_completion_fish.md:33
+#: ../../cmdref/cilium-health_completion_powershell.md:30
+#: ../../cmdref/cilium-health_completion_zsh.md:40
+#: ../../cmdref/cilium-health_get.md:18 ../../cmdref/cilium-health_ping.md:17
+#: ../../cmdref/cilium-health_status.md:21 ../../cmdref/cilium_bpf.md:13
+#: ../../cmdref/cilium_bpf_bandwidth.md:13
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:18
+#: ../../cmdref/cilium_bpf_ct.md:13 ../../cmdref/cilium_bpf_ct_flush.md:17
+#: ../../cmdref/cilium_bpf_ct_list.md:21 ../../cmdref/cilium_bpf_egress.md:13
+#: ../../cmdref/cilium_bpf_egress_list.md:27
+#: ../../cmdref/cilium_bpf_endpoint.md:13
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:17
+#: ../../cmdref/cilium_bpf_endpoint_list.md:18 ../../cmdref/cilium_bpf_fs.md:13
+#: ../../cmdref/cilium_bpf_fs_show.md:24 ../../cmdref/cilium_bpf_ipcache.md:13
+#: ../../cmdref/cilium_bpf_ipcache_get.md:17
+#: ../../cmdref/cilium_bpf_ipcache_list.md:29
+#: ../../cmdref/cilium_bpf_ipmasq.md:13
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:22 ../../cmdref/cilium_bpf_lb.md:13
+#: ../../cmdref/cilium_bpf_lb_list.md:21
+#: ../../cmdref/cilium_bpf_lb_maglev.md:13
+#: ../../cmdref/cilium_bpf_lb_maglev_get.md:18
+#: ../../cmdref/cilium_bpf_lb_maglev_list.md:18
+#: ../../cmdref/cilium_bpf_metrics.md:13
+#: ../../cmdref/cilium_bpf_metrics_list.md:18 ../../cmdref/cilium_bpf_nat.md:13
+#: ../../cmdref/cilium_bpf_nat_flush.md:17
+#: ../../cmdref/cilium_bpf_nat_list.md:18 ../../cmdref/cilium_bpf_policy.md:13
+#: ../../cmdref/cilium_bpf_policy_add.md:18
+#: ../../cmdref/cilium_bpf_policy_delete.md:18
+#: ../../cmdref/cilium_bpf_policy_get.md:20
+#: ../../cmdref/cilium_bpf_recorder.md:13
+#: ../../cmdref/cilium_bpf_recorder_list.md:18
+#: ../../cmdref/cilium_bpf_sha.md:13 ../../cmdref/cilium_bpf_sha_get.md:18
+#: ../../cmdref/cilium_bpf_sha_list.md:18 ../../cmdref/cilium_bpf_tunnel.md:13
+#: ../../cmdref/cilium_bpf_tunnel_list.md:18 ../../cmdref/cilium_bpf_vtep.md:13
+#: ../../cmdref/cilium_bpf_vtep_list.md:23 ../../cmdref/cilium_cleanup.md:28
+#: ../../cmdref/cilium_completion.md:59 ../../cmdref/cilium_config.md:22
+#: ../../cmdref/cilium_config_get.md:18 ../../cmdref/cilium_debuginfo.md:21
+#: ../../cmdref/cilium_encrypt.md:13 ../../cmdref/cilium_encrypt_flush.md:22
+#: ../../cmdref/cilium_encrypt_status.md:18 ../../cmdref/cilium_endpoint.md:13
+#: ../../cmdref/cilium_endpoint_config.md:25
+#: ../../cmdref/cilium_endpoint_disconnect.md:17
+#: ../../cmdref/cilium_endpoint_get.md:25
+#: ../../cmdref/cilium_endpoint_health.md:24
+#: ../../cmdref/cilium_endpoint_labels.md:19
+#: ../../cmdref/cilium_endpoint_list.md:19
+#: ../../cmdref/cilium_endpoint_log.md:24
+#: ../../cmdref/cilium_endpoint_regenerate.md:17 ../../cmdref/cilium_fqdn.md:17
+#: ../../cmdref/cilium_fqdn_cache.md:17
+#: ../../cmdref/cilium_fqdn_cache_clean.md:19
+#: ../../cmdref/cilium_fqdn_cache_list.md:20
+#: ../../cmdref/cilium_fqdn_names.md:17 ../../cmdref/cilium_identity.md:13
+#: ../../cmdref/cilium_identity_get.md:19
+#: ../../cmdref/cilium_identity_list.md:19 ../../cmdref/cilium_ip.md:13
+#: ../../cmdref/cilium_ip_list.md:20 ../../cmdref/cilium_kvstore.md:15
+#: ../../cmdref/cilium_kvstore_delete.md:24
+#: ../../cmdref/cilium_kvstore_get.md:25 ../../cmdref/cilium_kvstore_set.md:25
+#: ../../cmdref/cilium_lrp.md:13 ../../cmdref/cilium_lrp_list.md:18
+#: ../../cmdref/cilium_map.md:13 ../../cmdref/cilium_map_get.md:24
+#: ../../cmdref/cilium_map_list.md:25 ../../cmdref/cilium_metrics.md:13
+#: ../../cmdref/cilium_metrics_list.md:19 ../../cmdref/cilium_monitor.md:35
+#: ../../cmdref/cilium_node.md:13 ../../cmdref/cilium_node_list.md:18
+#: ../../cmdref/cilium_policy.md:13 ../../cmdref/cilium_policy_delete.md:19
+#: ../../cmdref/cilium_policy_get.md:18 ../../cmdref/cilium_policy_import.md:26
+#: ../../cmdref/cilium_policy_selectors.md:18
+#: ../../cmdref/cilium_policy_validate.md:19
+#: ../../cmdref/cilium_policy_wait.md:20 ../../cmdref/cilium_prefilter.md:13
+#: ../../cmdref/cilium_prefilter_delete.md:19
+#: ../../cmdref/cilium_prefilter_list.md:18
+#: ../../cmdref/cilium_prefilter_update.md:19
+#: ../../cmdref/cilium_preflight.md:17
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:29
+#: ../../cmdref/cilium_preflight_migrate-identity.md:32
+#: ../../cmdref/cilium_preflight_validate-cnp.md:26
+#: ../../cmdref/cilium_recorder.md:13 ../../cmdref/cilium_recorder_delete.md:17
+#: ../../cmdref/cilium_recorder_get.md:18
+#: ../../cmdref/cilium_recorder_list.md:18
+#: ../../cmdref/cilium_recorder_update.md:20 ../../cmdref/cilium_service.md:13
+#: ../../cmdref/cilium_service_delete.md:18
+#: ../../cmdref/cilium_service_get.md:18 ../../cmdref/cilium_service_list.md:18
+#: ../../cmdref/cilium_service_update.md:28 ../../cmdref/cilium_status.md:27
+#: ../../cmdref/cilium_version.md:18
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion.md:30
+#: ../../cmdref/cilium-health_get.md:29 ../../cmdref/cilium-health_ping.md:28
+#: ../../cmdref/cilium-health_status.md:32
+msgid "[cilium-health](cilium-health.md)\t - Cilium Health Client"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion.md:31
+msgid ""
+"[cilium-health completion bash](cilium-health_completion_bash.md)\t - "
+"Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion.md:32
+msgid ""
+"[cilium-health completion fish](cilium-health_completion_fish.md)\t - "
+"Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion.md:33
+msgid ""
+"[cilium-health completion powershell](cilium-"
+"health_completion_powershell.md)\t - Generate the autocompletion script "
+"for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion.md:34
+msgid ""
+"[cilium-health completion zsh](cilium-health_completion_zsh.md)\t - "
+"Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:3
+msgid "cilium-health completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:3
+msgid "cilium-health completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:3
+msgid "cilium-health completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:3
+msgid "cilium-health completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-health_get.md:3
+msgid "cilium-health get"
+msgstr ""
+
+#: ../../cmdref/cilium-health_get.md:5
+msgid "Display local cilium agent status"
+msgstr ""
+
+#: ../../cmdref/cilium-health_ping.md:3
+msgid "cilium-health ping"
+msgstr ""
+
+#: ../../cmdref/cilium-health_ping.md:5
+msgid "Check whether the cilium-health API is up"
+msgstr ""
+
+#: ../../cmdref/cilium-health_status.md:3
+msgid "cilium-health status"
+msgstr ""
+
+#: ../../cmdref/cilium-health_status.md:5
+msgid "Display cilium connectivity to other nodes"
+msgstr ""
+
+#: ../../cmdref/cilium-operator.md:3
+msgid "cilium-operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator.md:5
+msgid "Run cilium-operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator.md:93
+#: ../../cmdref/cilium-operator_completion_bash.md:44
+#: ../../cmdref/cilium-operator_completion_fish.md:35
+#: ../../cmdref/cilium-operator_completion_powershell.md:32
+#: ../../cmdref/cilium-operator_completion_zsh.md:42
+msgid ""
+"[cilium-operator completion](cilium-operator_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator.md:94
+#: ../../cmdref/cilium-operator_metrics_list.md:21
+msgid ""
+"[cilium-operator metrics](cilium-operator_metrics.md)\t - Access metric "
+"status of the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud.md:3
+msgid "cilium-operator-alibabacloud"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud.md:5
+msgid "Run cilium-operator-alibabacloud"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud.md:82
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:44
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:35
+#: ../../cmdref/cilium-operator-alibabacloud_completion_powershell.md:32
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:42
+msgid ""
+"[cilium-operator-alibabacloud completion](cilium-operator-"
+"alibabacloud_completion.md)\t - Generate the autocompletion script for "
+"the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud.md:83
+#: ../../cmdref/cilium-operator-alibabacloud_metrics_list.md:21
+msgid ""
+"[cilium-operator-alibabacloud metrics](cilium-operator-"
+"alibabacloud_metrics.md)\t - Access metric status of the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:3
+msgid "cilium-operator-alibabacloud completion"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:9
+msgid ""
+"Generate the autocompletion script for cilium-operator-alibabacloud for "
+"the specified shell. See each sub-command's help for details on how to "
+"use the generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:21
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:15
+msgid ""
+"[cilium-operator-alibabacloud](cilium-operator-alibabacloud.md)\t - Run "
+"cilium-operator-alibabacloud"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:22
+msgid ""
+"[cilium-operator-alibabacloud completion bash](cilium-operator-"
+"alibabacloud_completion_bash.md)\t - Generate the autocompletion script "
+"for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:23
+msgid ""
+"[cilium-operator-alibabacloud completion fish](cilium-operator-"
+"alibabacloud_completion_fish.md)\t - Generate the autocompletion script "
+"for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:24
+msgid ""
+"[cilium-operator-alibabacloud completion powershell](cilium-operator-"
+"alibabacloud_completion_powershell.md)\t - Generate the autocompletion "
+"script for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:25
+msgid ""
+"[cilium-operator-alibabacloud completion zsh](cilium-operator-"
+"alibabacloud_completion_zsh.md)\t - Generate the autocompletion script "
+"for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_bash.md:3
+msgid "cilium-operator-alibabacloud completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:3
+msgid "cilium-operator-alibabacloud completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_powershell.md:3
+msgid "cilium-operator-alibabacloud completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:3
+msgid "cilium-operator-alibabacloud completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:3
+msgid "cilium-operator-alibabacloud metrics"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:5
+#: ../../cmdref/cilium-operator-aws_metrics.md:5
+#: ../../cmdref/cilium-operator-azure_metrics.md:5
+#: ../../cmdref/cilium-operator-generic_metrics.md:5
+#: ../../cmdref/cilium-operator_metrics.md:5
+msgid "Access metric status of the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:16
+msgid ""
+"[cilium-operator-alibabacloud metrics list](cilium-operator-"
+"alibabacloud_metrics_list.md)\t - List all metrics for the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics_list.md:3
+msgid "cilium-operator-alibabacloud metrics list"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics_list.md:5
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:5
+#: ../../cmdref/cilium-operator-azure_metrics_list.md:5
+#: ../../cmdref/cilium-operator-generic_metrics_list.md:5
+#: ../../cmdref/cilium-operator_metrics_list.md:5
+msgid "List all metrics for the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws.md:3
+msgid "cilium-operator-aws"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws.md:5
+msgid "Run cilium-operator-aws"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws.md:88
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:44
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:35
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:32
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:42
+msgid ""
+"[cilium-operator-aws completion](cilium-operator-aws_completion.md)\t - "
+"Generate the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws.md:89
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:21
+msgid ""
+"[cilium-operator-aws metrics](cilium-operator-aws_metrics.md)\t - Access "
+"metric status of the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:3
+msgid "cilium-operator-aws completion"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:9
+msgid ""
+"Generate the autocompletion script for cilium-operator-aws for the "
+"specified shell. See each sub-command's help for details on how to use "
+"the generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:21
+#: ../../cmdref/cilium-operator-aws_metrics.md:15
+msgid "[cilium-operator-aws](cilium-operator-aws.md)\t - Run cilium-operator-aws"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:22
+msgid ""
+"[cilium-operator-aws completion bash](cilium-operator-"
+"aws_completion_bash.md)\t - Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:23
+msgid ""
+"[cilium-operator-aws completion fish](cilium-operator-"
+"aws_completion_fish.md)\t - Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:24
+msgid ""
+"[cilium-operator-aws completion powershell](cilium-operator-"
+"aws_completion_powershell.md)\t - Generate the autocompletion script for "
+"powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:25
+msgid ""
+"[cilium-operator-aws completion zsh](cilium-operator-"
+"aws_completion_zsh.md)\t - Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:3
+msgid "cilium-operator-aws completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_fish.md:3
+msgid "cilium-operator-aws completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:3
+msgid "cilium-operator-aws completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:3
+msgid "cilium-operator-aws completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_metrics.md:3
+msgid "cilium-operator-aws metrics"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_metrics.md:16
+msgid ""
+"[cilium-operator-aws metrics list](cilium-operator-aws_metrics_list.md)"
+"\t - List all metrics for the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:3
+msgid "cilium-operator-aws metrics list"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure.md:3
+msgid "cilium-operator-azure"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure.md:5
+msgid "Run cilium-operator-azure"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure.md:85
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:44
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:35
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:32
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:42
+msgid ""
+"[cilium-operator-azure completion](cilium-operator-azure_completion.md)"
+"\t - Generate the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure.md:86
+#: ../../cmdref/cilium-operator-azure_metrics_list.md:21
+msgid ""
+"[cilium-operator-azure metrics](cilium-operator-azure_metrics.md)\t - "
+"Access metric status of the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion.md:3
+msgid "cilium-operator-azure completion"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion.md:9
+msgid ""
+"Generate the autocompletion script for cilium-operator-azure for the "
+"specified shell. See each sub-command's help for details on how to use "
+"the generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion.md:21
+#: ../../cmdref/cilium-operator-azure_metrics.md:15
+msgid ""
+"[cilium-operator-azure](cilium-operator-azure.md)\t - Run cilium-"
+"operator-azure"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion.md:22
+msgid ""
+"[cilium-operator-azure completion bash](cilium-operator-"
+"azure_completion_bash.md)\t - Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion.md:23
+msgid ""
+"[cilium-operator-azure completion fish](cilium-operator-"
+"azure_completion_fish.md)\t - Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion.md:24
+msgid ""
+"[cilium-operator-azure completion powershell](cilium-operator-"
+"azure_completion_powershell.md)\t - Generate the autocompletion script "
+"for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion.md:25
+msgid ""
+"[cilium-operator-azure completion zsh](cilium-operator-"
+"azure_completion_zsh.md)\t - Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:3
+msgid "cilium-operator-azure completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:3
+msgid "cilium-operator-azure completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:3
+msgid "cilium-operator-azure completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:3
+msgid "cilium-operator-azure completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_metrics.md:3
+msgid "cilium-operator-azure metrics"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_metrics.md:16
+msgid ""
+"[cilium-operator-azure metrics list](cilium-operator-"
+"azure_metrics_list.md)\t - List all metrics for the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_metrics_list.md:3
+msgid "cilium-operator-azure metrics list"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic.md:3
+msgid "cilium-operator-generic"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic.md:5
+msgid "Run cilium-operator-generic"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic.md:81
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:44
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:35
+#: ../../cmdref/cilium-operator-generic_completion_powershell.md:32
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:42
+msgid ""
+"[cilium-operator-generic completion](cilium-operator-"
+"generic_completion.md)\t - Generate the autocompletion script for the "
+"specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic.md:82
+#: ../../cmdref/cilium-operator-generic_metrics_list.md:21
+msgid ""
+"[cilium-operator-generic metrics](cilium-operator-generic_metrics.md)\t -"
+" Access metric status of the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:3
+msgid "cilium-operator-generic completion"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:9
+msgid ""
+"Generate the autocompletion script for cilium-operator-generic for the "
+"specified shell. See each sub-command's help for details on how to use "
+"the generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:21
+#: ../../cmdref/cilium-operator-generic_metrics.md:15
+msgid ""
+"[cilium-operator-generic](cilium-operator-generic.md)\t - Run cilium-"
+"operator-generic"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:22
+msgid ""
+"[cilium-operator-generic completion bash](cilium-operator-"
+"generic_completion_bash.md)\t - Generate the autocompletion script for "
+"bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:23
+msgid ""
+"[cilium-operator-generic completion fish](cilium-operator-"
+"generic_completion_fish.md)\t - Generate the autocompletion script for "
+"fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:24
+msgid ""
+"[cilium-operator-generic completion powershell](cilium-operator-"
+"generic_completion_powershell.md)\t - Generate the autocompletion script "
+"for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:25
+msgid ""
+"[cilium-operator-generic completion zsh](cilium-operator-"
+"generic_completion_zsh.md)\t - Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_bash.md:3
+msgid "cilium-operator-generic completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_fish.md:3
+msgid "cilium-operator-generic completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_powershell.md:3
+msgid "cilium-operator-generic completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:3
+msgid "cilium-operator-generic completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_metrics.md:3
+msgid "cilium-operator-generic metrics"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_metrics.md:16
+msgid ""
+"[cilium-operator-generic metrics list](cilium-operator-"
+"generic_metrics_list.md)\t - List all metrics for the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_metrics_list.md:3
+msgid "cilium-operator-generic metrics list"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion.md:3
+msgid "cilium-operator completion"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion.md:9
+msgid ""
+"Generate the autocompletion script for cilium-operator for the specified "
+"shell. See each sub-command's help for details on how to use the "
+"generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion.md:21
+#: ../../cmdref/cilium-operator_metrics.md:15
+msgid "[cilium-operator](cilium-operator.md)\t - Run cilium-operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion.md:22
+msgid ""
+"[cilium-operator completion bash](cilium-operator_completion_bash.md)\t -"
+" Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion.md:23
+msgid ""
+"[cilium-operator completion fish](cilium-operator_completion_fish.md)\t -"
+" Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion.md:24
+msgid ""
+"[cilium-operator completion powershell](cilium-"
+"operator_completion_powershell.md)\t - Generate the autocompletion script"
+" for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion.md:25
+msgid ""
+"[cilium-operator completion zsh](cilium-operator_completion_zsh.md)\t - "
+"Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:3
+msgid "cilium-operator completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:3
+msgid "cilium-operator completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:3
+msgid "cilium-operator completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_zsh.md:3
+msgid "cilium-operator completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_metrics.md:3
+msgid "cilium-operator metrics"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_metrics.md:16
+msgid ""
+"[cilium-operator metrics list](cilium-operator_metrics_list.md)\t - List "
+"all metrics for the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_metrics_list.md:3
+msgid "cilium-operator metrics list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:3
+msgid "cilium bpf"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:5
+msgid "Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:23 ../../cmdref/cilium_cleanup.md:38
+#: ../../cmdref/cilium_completion.md:69 ../../cmdref/cilium_config.md:32
+#: ../../cmdref/cilium_debuginfo.md:31 ../../cmdref/cilium_encrypt.md:23
+#: ../../cmdref/cilium_endpoint.md:23 ../../cmdref/cilium_fqdn.md:27
+#: ../../cmdref/cilium_identity.md:23 ../../cmdref/cilium_ip.md:23
+#: ../../cmdref/cilium_kvstore.md:25 ../../cmdref/cilium_lrp.md:23
+#: ../../cmdref/cilium_map.md:23 ../../cmdref/cilium_metrics.md:23
+#: ../../cmdref/cilium_monitor.md:45 ../../cmdref/cilium_node.md:23
+#: ../../cmdref/cilium_policy.md:23 ../../cmdref/cilium_prefilter.md:23
+#: ../../cmdref/cilium_preflight.md:27 ../../cmdref/cilium_recorder.md:23
+#: ../../cmdref/cilium_service.md:23 ../../cmdref/cilium_status.md:37
+#: ../../cmdref/cilium_version.md:28
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:24 ../../cmdref/cilium_bpf_bandwidth_list.md:28
+msgid ""
+"[cilium bpf bandwidth](cilium_bpf_bandwidth.md)\t - BPF datapath "
+"bandwidth settings"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:25 ../../cmdref/cilium_bpf_ct_flush.md:27
+#: ../../cmdref/cilium_bpf_ct_list.md:31
+msgid "[cilium bpf ct](cilium_bpf_ct.md)\t - Connection tracking tables"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:26 ../../cmdref/cilium_bpf_egress_list.md:37
+msgid ""
+"[cilium bpf egress](cilium_bpf_egress.md)\t - Manage the egress routing "
+"rules"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:27 ../../cmdref/cilium_bpf_endpoint_delete.md:27
+#: ../../cmdref/cilium_bpf_endpoint_list.md:28
+msgid "[cilium bpf endpoint](cilium_bpf_endpoint.md)\t - Local endpoint map"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:28 ../../cmdref/cilium_bpf_fs_show.md:34
+msgid "[cilium bpf fs](cilium_bpf_fs.md)\t - BPF filesystem mount"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:29 ../../cmdref/cilium_bpf_ipcache_get.md:27
+#: ../../cmdref/cilium_bpf_ipcache_list.md:39
+msgid ""
+"[cilium bpf ipcache](cilium_bpf_ipcache.md)\t - Manage the IPCache "
+"mappings for IP/CIDR <-> Identity"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:30 ../../cmdref/cilium_bpf_ipmasq_list.md:32
+msgid "[cilium bpf ipmasq](cilium_bpf_ipmasq.md)\t - ip-masq-agent CIDRs"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:31 ../../cmdref/cilium_bpf_lb_list.md:31
+#: ../../cmdref/cilium_bpf_lb_maglev.md:23
+msgid "[cilium bpf lb](cilium_bpf_lb.md)\t - Load-balancing configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:32 ../../cmdref/cilium_bpf_metrics_list.md:28
+msgid ""
+"[cilium bpf metrics](cilium_bpf_metrics.md)\t - BPF datapath traffic "
+"metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:33 ../../cmdref/cilium_bpf_nat_flush.md:27
+#: ../../cmdref/cilium_bpf_nat_list.md:28
+msgid "[cilium bpf nat](cilium_bpf_nat.md)\t - NAT mapping tables"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:34 ../../cmdref/cilium_bpf_policy_add.md:28
+#: ../../cmdref/cilium_bpf_policy_delete.md:28
+#: ../../cmdref/cilium_bpf_policy_get.md:30
+msgid ""
+"[cilium bpf policy](cilium_bpf_policy.md)\t - Manage policy related BPF "
+"maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:35 ../../cmdref/cilium_bpf_recorder_list.md:28
+msgid "[cilium bpf recorder](cilium_bpf_recorder.md)\t - PCAP recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:36 ../../cmdref/cilium_bpf_sha_get.md:28
+#: ../../cmdref/cilium_bpf_sha_list.md:28
+msgid ""
+"[cilium bpf sha](cilium_bpf_sha.md)\t - Manage compiled BPF template "
+"objects"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:37 ../../cmdref/cilium_bpf_tunnel_list.md:28
+msgid "[cilium bpf tunnel](cilium_bpf_tunnel.md)\t - Tunnel endpoint map"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:38 ../../cmdref/cilium_bpf_vtep_list.md:33
+msgid ""
+"[cilium bpf vtep](cilium_bpf_vtep.md)\t - Manage the VTEP mappings for "
+"IP/CIDR <-> VTEP MAC/IP"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth.md:3
+msgid "cilium bpf bandwidth"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth.md:5
+msgid "BPF datapath bandwidth settings"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth.md:24
+msgid ""
+"[cilium bpf bandwidth list](cilium_bpf_bandwidth_list.md)\t - List BPF "
+"datapath bandwidth settings"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:3
+msgid "cilium bpf bandwidth list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:5
+msgid "List BPF datapath bandwidth settings"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:3
+msgid "cilium bpf ct"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:5
+msgid "Connection tracking tables"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:24
+msgid ""
+"[cilium bpf ct flush](cilium_bpf_ct_flush.md)\t - Flush all connection "
+"tracking entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:25
+msgid ""
+"[cilium bpf ct list](cilium_bpf_ct_list.md)\t - List connection tracking "
+"entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct_flush.md:3
+msgid "cilium bpf ct flush"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct_flush.md:5
+msgid "Flush all connection tracking entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct_list.md:3
+msgid "cilium bpf ct list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct_list.md:5
+msgid "List connection tracking entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress.md:3
+msgid "cilium bpf egress"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress.md:5
+msgid "Manage the egress routing rules"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress.md:24
+msgid ""
+"[cilium bpf egress list](cilium_bpf_egress_list.md)\t - List egress "
+"policy entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:3
+msgid "cilium bpf egress list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:5
+msgid "List egress policy entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:9
+msgid "List egress policy entries."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:11
+msgid ""
+"Note that for Linux kernel versions between 4.11 and 4.15 inclusive, the "
+"native LPM map type used for implementing this feature does not provide "
+"the ability to walk / dump the entries, so on these kernel versions this "
+"tool will never return any entries, even if entries exist in the map."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint.md:3
+msgid "cilium bpf endpoint"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint.md:5
+msgid "Local endpoint map"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint.md:24
+msgid ""
+"[cilium bpf endpoint delete](cilium_bpf_endpoint_delete.md)\t - Delete "
+"local endpoint entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint.md:25
+msgid ""
+"[cilium bpf endpoint list](cilium_bpf_endpoint_list.md)\t - List local "
+"endpoint entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:3
+msgid "cilium bpf endpoint delete"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:5
+msgid "Delete local endpoint entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint_list.md:3
+msgid "cilium bpf endpoint list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint_list.md:5
+msgid "List local endpoint entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs.md:3
+msgid "cilium bpf fs"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs.md:5
+msgid "BPF filesystem mount"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs.md:24
+msgid ""
+"[cilium bpf fs show](cilium_bpf_fs_show.md)\t - Show bpf filesystem mount"
+" details"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs_show.md:3
+msgid "cilium bpf fs show"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs_show.md:5
+msgid "Show bpf filesystem mount details"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:3
+msgid "cilium bpf ipcache"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:5
+msgid "Manage the IPCache mappings for IP/CIDR <-> Identity"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:24
+msgid ""
+"[cilium bpf ipcache get](cilium_bpf_ipcache_get.md)\t - Retrieve identity"
+" for an ip"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:25
+msgid ""
+"[cilium bpf ipcache list](cilium_bpf_ipcache_list.md)\t - List endpoint "
+"IPs (local and remote) and their corresponding security identities"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_get.md:3
+msgid "cilium bpf ipcache get"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_get.md:5
+msgid "Retrieve identity for an ip"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:3
+msgid "cilium bpf ipcache list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:5
+msgid ""
+"List endpoint IPs (local and remote) and their corresponding security "
+"identities"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:9
+msgid ""
+"List endpoint IPs (local and remote) and their corresponding security "
+"identities."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:11
+msgid ""
+"Note that for Linux kernel versions between 4.11 and 4.15 inclusive, the "
+"native LPM map type used for implementing this feature does not provide "
+"the ability to walk / dump the entries, so on these kernel versions this "
+"tool will never return any entries, even if entries exist in the map. You"
+" may instead run:     cilium map get cilium_ipcache"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:3
+msgid "cilium bpf ipmasq"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:5
+msgid "ip-masq-agent CIDRs"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:24
+msgid ""
+"[cilium bpf ipmasq list](cilium_bpf_ipmasq_list.md)\t - List ip-masq-"
+"agent CIDRs"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:3
+msgid "cilium bpf ipmasq list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:5
+msgid "List ip-masq-agent CIDRs"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:9
+msgid ""
+"List ip-masq-agent CIDRs. Packets sent from pods to IPs from these CIDRs "
+"avoid masquerading."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb.md:3
+msgid "cilium bpf lb"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb.md:5
+msgid "Load-balancing configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb.md:24
+msgid ""
+"[cilium bpf lb list](cilium_bpf_lb_list.md)\t - List load-balancing "
+"configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb.md:25 ../../cmdref/cilium_bpf_lb_maglev_get.md:28
+#: ../../cmdref/cilium_bpf_lb_maglev_list.md:28
+msgid "[cilium bpf lb maglev](cilium_bpf_lb_maglev.md)\t - Maglev lookup table"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_list.md:3
+msgid "cilium bpf lb list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_list.md:5
+msgid "List load-balancing configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:3
+msgid "cilium bpf lb maglev"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:5
+msgid "Maglev lookup table"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:24
+msgid ""
+"[cilium bpf lb maglev get](cilium_bpf_lb_maglev_get.md)\t - Get Maglev "
+"lookup table for given service by ID"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:25
+msgid ""
+"[cilium bpf lb maglev list](cilium_bpf_lb_maglev_list.md)\t - List Maglev"
+" lookup tables"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev_get.md:3
+msgid "cilium bpf lb maglev get"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev_get.md:5
+msgid "Get Maglev lookup table for given service by ID"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev_list.md:3
+msgid "cilium bpf lb maglev list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev_list.md:5
+msgid "List Maglev lookup tables"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics.md:3
+msgid "cilium bpf metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics.md:5
+msgid "BPF datapath traffic metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics.md:24
+msgid ""
+"[cilium bpf metrics list](cilium_bpf_metrics_list.md)\t - List BPF "
+"datapath traffic metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics_list.md:3
+msgid "cilium bpf metrics list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics_list.md:5
+msgid "List BPF datapath traffic metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat.md:3
+msgid "cilium bpf nat"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat.md:5
+msgid "NAT mapping tables"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat.md:24
+msgid ""
+"[cilium bpf nat flush](cilium_bpf_nat_flush.md)\t - Flush all NAT mapping"
+" entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat.md:25
+msgid ""
+"[cilium bpf nat list](cilium_bpf_nat_list.md)\t - List all NAT mapping "
+"entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat_flush.md:3
+msgid "cilium bpf nat flush"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat_flush.md:5
+msgid "Flush all NAT mapping entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat_list.md:3
+msgid "cilium bpf nat list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat_list.md:5
+msgid "List all NAT mapping entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:3
+msgid "cilium bpf policy"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:5
+msgid "Manage policy related BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:24
+msgid ""
+"[cilium bpf policy add](cilium_bpf_policy_add.md)\t - Add/update policy "
+"entry"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:25
+msgid ""
+"[cilium bpf policy delete](cilium_bpf_policy_delete.md)\t - Delete a "
+"policy entry"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:26
+msgid ""
+"[cilium bpf policy get](cilium_bpf_policy_get.md)\t - List contents of a "
+"policy BPF map"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy_add.md:3
+msgid "cilium bpf policy add"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy_add.md:5
+msgid "Add/update policy entry"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy_delete.md:3
+msgid "cilium bpf policy delete"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy_delete.md:5
+msgid "Delete a policy entry"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy_get.md:3
+msgid "cilium bpf policy get"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy_get.md:5
+msgid "List contents of a policy BPF map"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder.md:3
+msgid "cilium bpf recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder.md:5
+msgid "PCAP recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder.md:24
+msgid ""
+"[cilium bpf recorder list](cilium_bpf_recorder_list.md)\t - List PCAP "
+"recorder entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder_list.md:3
+msgid "cilium bpf recorder list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder_list.md:5
+msgid "List PCAP recorder entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha.md:3
+msgid "cilium bpf sha"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha.md:5
+msgid "Manage compiled BPF template objects"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha.md:24
+msgid "[cilium bpf sha get](cilium_bpf_sha_get.md)\t - Get datapath SHA header"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha.md:25
+msgid ""
+"[cilium bpf sha list](cilium_bpf_sha_list.md)\t - List BPF template "
+"objects."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha_get.md:3
+msgid "cilium bpf sha get"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha_get.md:5
+msgid "Get datapath SHA header"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha_list.md:3
+msgid "cilium bpf sha list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha_list.md:5
+msgid "List BPF template objects."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel.md:3
+msgid "cilium bpf tunnel"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel.md:5
+msgid "Tunnel endpoint map"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel.md:24
+msgid ""
+"[cilium bpf tunnel list](cilium_bpf_tunnel_list.md)\t - List tunnel "
+"endpoint entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel_list.md:3
+msgid "cilium bpf tunnel list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel_list.md:5
+msgid "List tunnel endpoint entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep.md:3
+msgid "cilium bpf vtep"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep.md:5
+msgid "Manage the VTEP mappings for IP/CIDR <-> VTEP MAC/IP"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep.md:24
+msgid ""
+"[cilium bpf vtep list](cilium_bpf_vtep_list.md)\t - List VTEP CIDR and "
+"their corresponding VTEP MAC/IP"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:3
+msgid "cilium bpf vtep list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:5
+msgid "List VTEP CIDR and their corresponding VTEP MAC/IP"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:9
+msgid "List VTEP CIDR and their corresponding VTEP MAC/IP."
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:3
+msgid "cilium cleanup"
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:5
+msgid "Remove system state installed by Cilium at runtime"
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:9
+msgid ""
+"Clean up CNI configurations, CNI binaries, attached BPF programs, bpffs, "
+"tc filters, routes, links and named network namespaces."
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:12
+msgid ""
+"Running this command might be necessary to get the worker node back into "
+"working condition after uninstalling the Cilium agent."
+msgstr ""
+
+#: ../../cmdref/cilium_completion.md:3
+msgid "cilium completion"
+msgstr ""
+
+#: ../../cmdref/cilium_completion.md:5
+msgid "Output shell completion code"
+msgstr ""
+
+#: ../../cmdref/cilium_config.md:3
+msgid "cilium config"
+msgstr ""
+
+#: ../../cmdref/cilium_config.md:5
+msgid "Cilium configuration options"
+msgstr ""
+
+#: ../../cmdref/cilium_config.md:33
+msgid ""
+"[cilium config get](cilium_config_get.md)\t - Retrieve cilium "
+"configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_config_get.md:3
+msgid "cilium config get"
+msgstr ""
+
+#: ../../cmdref/cilium_config_get.md:5
+msgid "Retrieve cilium configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_debuginfo.md:3
+msgid "cilium debuginfo"
+msgstr ""
+
+#: ../../cmdref/cilium_debuginfo.md:5
+msgid "Request available debugging information from agent"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:3
+msgid "cilium encrypt"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:5
+msgid "Manage transparent encryption"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:24
+msgid ""
+"[cilium encrypt flush](cilium_encrypt_flush.md)\t - Flushes the current "
+"IPsec state"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt.md:25
+msgid ""
+"[cilium encrypt status](cilium_encrypt_status.md)\t - Display the current"
+" encryption state"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:3
+msgid "cilium encrypt flush"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:5
+msgid "Flushes the current IPsec state"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:9
+msgid "Will cause a short connectivity disruption"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_status.md:3
+msgid "cilium encrypt status"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_status.md:5
+msgid "Display the current encryption state"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:3
+msgid "cilium endpoint"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:5
+msgid "Manage endpoints"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:24
+msgid ""
+"[cilium endpoint config](cilium_endpoint_config.md)\t - View & modify "
+"endpoint configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:25
+msgid ""
+"[cilium endpoint disconnect](cilium_endpoint_disconnect.md)\t - "
+"Disconnect an endpoint from the network"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:26
+msgid ""
+"[cilium endpoint get](cilium_endpoint_get.md)\t - Display endpoint "
+"information"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:27
+msgid ""
+"[cilium endpoint health](cilium_endpoint_health.md)\t - View endpoint "
+"health"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:28
+msgid ""
+"[cilium endpoint labels](cilium_endpoint_labels.md)\t - Manage label "
+"configuration of endpoint"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:29
+msgid "[cilium endpoint list](cilium_endpoint_list.md)\t - List all endpoints"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:30
+msgid "[cilium endpoint log](cilium_endpoint_log.md)\t - View endpoint status log"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:31
+msgid ""
+"[cilium endpoint regenerate](cilium_endpoint_regenerate.md)\t - Force "
+"regeneration of endpoint program"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_config.md:3
+msgid "cilium endpoint config"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_config.md:5
+msgid "View & modify endpoint configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_disconnect.md:3
+msgid "cilium endpoint disconnect"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_disconnect.md:5
+msgid "Disconnect an endpoint from the network"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_get.md:3
+msgid "cilium endpoint get"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_get.md:5
+msgid "Display endpoint information"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_health.md:3
+msgid "cilium endpoint health"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_health.md:5
+msgid "View endpoint health"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_labels.md:3
+msgid "cilium endpoint labels"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_labels.md:5
+msgid "Manage label configuration of endpoint"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_list.md:3
+msgid "cilium endpoint list"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_list.md:5
+msgid "List all endpoints"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_log.md:3
+msgid "cilium endpoint log"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_log.md:5
+msgid "View endpoint status log"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_regenerate.md:3
+msgid "cilium endpoint regenerate"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_regenerate.md:5
+msgid "Force regeneration of endpoint program"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn.md:3
+msgid "cilium fqdn"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn.md:5
+msgid "Manage fqdn proxy"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn.md:28 ../../cmdref/cilium_fqdn_cache_clean.md:29
+#: ../../cmdref/cilium_fqdn_cache_list.md:30
+msgid "[cilium fqdn cache](cilium_fqdn_cache.md)\t - Manage fqdn proxy cache"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn.md:29
+msgid ""
+"[cilium fqdn names](cilium_fqdn_names.md)\t - show internal state Cilium "
+"has for DNS names / regexes"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:3
+msgid "cilium fqdn cache"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:5
+msgid "Manage fqdn proxy cache"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:28
+msgid "[cilium fqdn cache clean](cilium_fqdn_cache_clean.md)\t - Clean fqdn cache"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:29
+msgid ""
+"[cilium fqdn cache list](cilium_fqdn_cache_list.md)\t - List fqdn cache "
+"contents"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache_clean.md:3
+msgid "cilium fqdn cache clean"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache_clean.md:5
+msgid "Clean fqdn cache"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache_list.md:3
+msgid "cilium fqdn cache list"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache_list.md:5
+msgid "List fqdn cache contents"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_names.md:3
+msgid "cilium fqdn names"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_names.md:5
+msgid "show internal state Cilium has for DNS names / regexes"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:3
+msgid "cilium identity"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:5
+msgid "Manage security identities"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:24
+msgid ""
+"[cilium identity get](cilium_identity_get.md)\t - Retrieve information "
+"about an identity"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:25
+msgid "[cilium identity list](cilium_identity_list.md)\t - List identities"
+msgstr ""
+
+#: ../../cmdref/cilium_identity_get.md:3
+msgid "cilium identity get"
+msgstr ""
+
+#: ../../cmdref/cilium_identity_get.md:5
+msgid "Retrieve information about an identity"
+msgstr ""
+
+#: ../../cmdref/cilium_identity_list.md:3
+msgid "cilium identity list"
+msgstr ""
+
+#: ../../cmdref/cilium_identity_list.md:5
+msgid "List identities"
+msgstr ""
+
+#: ../../cmdref/cilium_ip.md:3
+msgid "cilium ip"
+msgstr ""
+
+#: ../../cmdref/cilium_ip.md:5
+msgid "Manage IP addresses and associated information"
+msgstr ""
+
+#: ../../cmdref/cilium_ip.md:24
+msgid ""
+"[cilium ip list](cilium_ip_list.md)\t - List IP addresses in the "
+"userspace IPcache"
+msgstr ""
+
+#: ../../cmdref/cilium_ip_list.md:3
+msgid "cilium ip list"
+msgstr ""
+
+#: ../../cmdref/cilium_ip_list.md:5
+msgid "List IP addresses in the userspace IPcache"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore.md:3
+msgid "cilium kvstore"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore.md:5
+msgid "Direct access to the kvstore"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore.md:26
+msgid "[cilium kvstore delete](cilium_kvstore_delete.md)\t - Delete a key"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore.md:27
+msgid "[cilium kvstore get](cilium_kvstore_get.md)\t - Retrieve a key"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore.md:28
+msgid "[cilium kvstore set](cilium_kvstore_set.md)\t - Set a key and value"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_delete.md:3
+msgid "cilium kvstore delete"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_delete.md:5
+msgid "Delete a key"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_get.md:3
+msgid "cilium kvstore get"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_get.md:5
+msgid "Retrieve a key"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_set.md:3
+msgid "cilium kvstore set"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_set.md:5
+msgid "Set a key and value"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp.md:3
+msgid "cilium lrp"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp.md:5
+msgid "Manage local redirect policies"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp.md:24
+msgid "[cilium lrp list](cilium_lrp_list.md)\t - List local redirect policies"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp_list.md:3
+msgid "cilium lrp list"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp_list.md:5
+msgid "List local redirect policies"
+msgstr ""
+
+#: ../../cmdref/cilium_map.md:3
+msgid "cilium map"
+msgstr ""
+
+#: ../../cmdref/cilium_map.md:5
+msgid "Access userspace cached content of BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_map.md:24
+msgid ""
+"[cilium map get](cilium_map_get.md)\t - Display cached content of given "
+"BPF map"
+msgstr ""
+
+#: ../../cmdref/cilium_map.md:25
+msgid "[cilium map list](cilium_map_list.md)\t - List all open BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_map_get.md:3
+msgid "cilium map get"
+msgstr ""
+
+#: ../../cmdref/cilium_map_get.md:5
+msgid "Display cached content of given BPF map"
+msgstr ""
+
+#: ../../cmdref/cilium_map_list.md:3
+msgid "cilium map list"
+msgstr ""
+
+#: ../../cmdref/cilium_map_list.md:5
+msgid "List all open BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics.md:3
+msgid "cilium metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics.md:5
+msgid "Access metric status"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics.md:24
+msgid "[cilium metrics list](cilium_metrics_list.md)\t - List all metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics_list.md:3
+msgid "cilium metrics list"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics_list.md:5
+msgid "List all metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:3
+msgid "cilium monitor"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:5
+msgid "Display BPF program events"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:9
+msgid ""
+"The monitor displays notifications and events emitted by the BPF programs"
+" attached to endpoints and devices. This includes:"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:11
+msgid "Dropped packet notifications"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:12
+msgid "Captured packet traces"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:13
+msgid "Policy verdict notifications"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:14
+msgid "Debugging information"
+msgstr ""
+
+#: ../../cmdref/cilium_node.md:3
+msgid "cilium node"
+msgstr ""
+
+#: ../../cmdref/cilium_node.md:5
+msgid "Manage cluster nodes"
+msgstr ""
+
+#: ../../cmdref/cilium_node.md:24
+msgid "[cilium node list](cilium_node_list.md)\t - List nodes"
+msgstr ""
+
+#: ../../cmdref/cilium_node_list.md:3
+msgid "cilium node list"
+msgstr ""
+
+#: ../../cmdref/cilium_node_list.md:5
+msgid "List nodes"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:3
+msgid "cilium policy"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:5
+msgid "Manage security policies"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:24
+msgid "[cilium policy delete](cilium_policy_delete.md)\t - Delete policy rules"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:25
+msgid ""
+"[cilium policy get](cilium_policy_get.md)\t - Display policy node "
+"information"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:26
+msgid ""
+"[cilium policy import](cilium_policy_import.md)\t - Import security "
+"policy in JSON format"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:27
+msgid ""
+"[cilium policy selectors](cilium_policy_selectors.md)\t - Display cached "
+"information about selectors"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:28
+msgid "[cilium policy validate](cilium_policy_validate.md)\t - Validate a policy"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:29
+msgid ""
+"[cilium policy wait](cilium_policy_wait.md)\t - Wait for all endpoints to"
+" have updated to a given policy revision"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_delete.md:3
+msgid "cilium policy delete"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_delete.md:5
+msgid "Delete policy rules"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_get.md:3
+msgid "cilium policy get"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_get.md:5
+msgid "Display policy node information"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_import.md:3
+msgid "cilium policy import"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_import.md:5
+msgid "Import security policy in JSON format"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_selectors.md:3
+msgid "cilium policy selectors"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_selectors.md:5
+msgid "Display cached information about selectors"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_validate.md:3
+msgid "cilium policy validate"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_validate.md:5
+msgid "Validate a policy"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_wait.md:3
+msgid "cilium policy wait"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_wait.md:5
+msgid "Wait for all endpoints to have updated to a given policy revision"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter.md:3
+msgid "cilium prefilter"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter.md:5
+msgid "Manage XDP CIDR filters"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter.md:24
+msgid ""
+"[cilium prefilter delete](cilium_prefilter_delete.md)\t - Delete CIDR "
+"filters"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter.md:25
+msgid "[cilium prefilter list](cilium_prefilter_list.md)\t - List CIDR filters"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter.md:26
+msgid ""
+"[cilium prefilter update](cilium_prefilter_update.md)\t - Update CIDR "
+"filters"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_delete.md:3
+msgid "cilium prefilter delete"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_delete.md:5
+msgid "Delete CIDR filters"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_list.md:3
+msgid "cilium prefilter list"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_list.md:5
+msgid "List CIDR filters"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_update.md:3
+msgid "cilium prefilter update"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_update.md:5
+msgid "Update CIDR filters"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:3
+msgid "cilium preflight"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:5
+msgid "cilium upgrade helper"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:9
+msgid "CLI to help upgrade cilium"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:28
+msgid ""
+"[cilium preflight fqdn-poller](cilium_preflight_fqdn-poller.md)\t - "
+"Prepare for DNS Polling upgrades to cilium 1.4"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:29
+msgid ""
+"[cilium preflight migrate-identity](cilium_preflight_migrate-identity.md)"
+"\t - Migrate KVStore-backed identities to kubernetes CRD-backed "
+"identities"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:30
+msgid ""
+"[cilium preflight validate-cnp](cilium_preflight_validate-cnp.md)\t - "
+"Validate Cilium Network Policies deployed in the cluster"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:3
+msgid "cilium preflight fqdn-poller"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:5
+msgid "Prepare for DNS Polling upgrades to cilium 1.4"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:9
+msgid ""
+"Prepare for DNS Polling upgrades to cilium 1.4 by creating a placeholder "
+"--tofqdns-pre-cache file that can be used to pre-seed the DNS cached used"
+" in toFQDNs rules. This is useful when upgrading cilium with DNS Polling "
+"policies where an interruption in allowed IPs is undesirable. It may also"
+" be used when switching from DNS Polling based DNS discovery to DNS Proxy"
+" based discovery where an endpoint may not make a DNS request soon enough"
+" to be used by toFQDNs policy rules"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:3
+msgid "cilium preflight migrate-identity"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:5
+msgid "Migrate KVStore-backed identities to kubernetes CRD-backed identities"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:9
+msgid ""
+"migrate-identity allows migrating to CRD-backed identities while \t"
+"minimizing connection interruptions. It will allocate a CRD-backed "
+"identity, \twith the same numeric security identity, for each cilium "
+"security identity \tdefined in the kvstore. When cilium-agents are "
+"restarted with \tidentity-allocation-mode set to CRD the numeric "
+"identities will then be \tequivalent between new instances and not-"
+"upgraded ones. In cases where the \tnumeric identity is already in-use by"
+" a different set of labels, a new \tnumeric identity is created."
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:3
+msgid "cilium preflight validate-cnp"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:5
+msgid "Validate Cilium Network Policies deployed in the cluster"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:9
+msgid ""
+"Before upgrading Cilium it is recommended to run this validation checker "
+"to make sure the policies deployed are valid. The validator will verify "
+"if all policies deployed in the cluster are valid, in case they are not, "
+"an error is printed and the has an exit code 1 is returned."
+msgstr ""
+
+#: ../../cmdref/cilium_recorder.md:3
+msgid "cilium recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder.md:5
+msgid "Introspect or mangle pcap recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder.md:24
+msgid ""
+"[cilium recorder delete](cilium_recorder_delete.md)\t - Delete individual"
+" pcap recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder.md:25
+msgid ""
+"[cilium recorder get](cilium_recorder_get.md)\t - Display individual pcap"
+" recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder.md:26
+msgid ""
+"[cilium recorder list](cilium_recorder_list.md)\t - List current pcap "
+"recorders"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder.md:27
+msgid ""
+"[cilium recorder update](cilium_recorder_update.md)\t - Update individual"
+" pcap recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_delete.md:3
+msgid "cilium recorder delete"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_delete.md:5
+msgid "Delete individual pcap recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_get.md:3
+msgid "cilium recorder get"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_get.md:5
+msgid "Display individual pcap recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_list.md:3
+msgid "cilium recorder list"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_list.md:5
+msgid "List current pcap recorders"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_update.md:3
+msgid "cilium recorder update"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_update.md:5
+msgid "Update individual pcap recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_service.md:3
+msgid "cilium service"
+msgstr ""
+
+#: ../../cmdref/cilium_service.md:5
+msgid "Manage services & loadbalancers"
+msgstr ""
+
+#: ../../cmdref/cilium_service.md:24
+msgid "[cilium service delete](cilium_service_delete.md)\t - Delete a service"
+msgstr ""
+
+#: ../../cmdref/cilium_service.md:25
+msgid ""
+"[cilium service get](cilium_service_get.md)\t - Display service "
+"information"
+msgstr ""
+
+#: ../../cmdref/cilium_service.md:26
+msgid "[cilium service list](cilium_service_list.md)\t - List services"
+msgstr ""
+
+#: ../../cmdref/cilium_service.md:27
+msgid "[cilium service update](cilium_service_update.md)\t - Update a service"
+msgstr ""
+
+#: ../../cmdref/cilium_service_delete.md:3
+msgid "cilium service delete"
+msgstr ""
+
+#: ../../cmdref/cilium_service_delete.md:5
+msgid "Delete a service"
+msgstr ""
+
+#: ../../cmdref/cilium_service_get.md:3
+msgid "cilium service get"
+msgstr ""
+
+#: ../../cmdref/cilium_service_get.md:5
+msgid "Display service information"
+msgstr ""
+
+#: ../../cmdref/cilium_service_list.md:3
+msgid "cilium service list"
+msgstr ""
+
+#: ../../cmdref/cilium_service_list.md:5
+msgid "List services"
+msgstr ""
+
+#: ../../cmdref/cilium_service_update.md:3
+msgid "cilium service update"
+msgstr ""
+
+#: ../../cmdref/cilium_service_update.md:5
+msgid "Update a service"
+msgstr ""
+
+#: ../../cmdref/cilium_status.md:3
+msgid "cilium status"
+msgstr ""
+
+#: ../../cmdref/cilium_status.md:5
+msgid "Display status of daemon"
+msgstr ""
+
+#: ../../cmdref/cilium_version.md:3
+msgid "cilium version"
+msgstr ""
+
+#: ../../cmdref/cilium_version.md:5
+msgid "Print version information"
+msgstr ""
+
+#: ../../cmdref/cli_index.rst:3 ../../cmdref/index.rst:3
+#: ../../cmdref/kvstore.rst:3
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../cmdref/index.rst:8
+msgid "Command Reference"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:10
+msgid "Key-Value Store"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:13 ../../cmdref/kvstore.rst:28
+msgid "Option"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:13 ../../cmdref/kvstore.rst:28
+msgid "Description"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:13
+msgid "Default"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:15
+msgid "--kvstore TYPE"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:15
+msgid "Key Value Store Type: (consul, etcd)"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:18
+msgid "--kvstore-opt OPTS"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:22
+msgid "etcd"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:24
+msgid ""
+"When using etcd, one of the following options need to be provided to "
+"configure the etcd endpoints:"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:28
+msgid "Type"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:30
+msgid "etcd.address"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:30
+msgid "Address"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:30
+msgid "Address of etcd endpoint"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:33
+msgid "etcd.operator"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:33
+msgid "Boolean"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:32
+msgid ""
+"When set to true, Cilium will resolve the domain name of the etcd server "
+"from the associated k8s service deployed."
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:36
+msgid "etcd.config"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:36
+msgid "Path"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:36
+msgid "Path to an etcd configuration file."
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:39
+msgid "Example of the etcd configuration file:"
+msgstr ""
+

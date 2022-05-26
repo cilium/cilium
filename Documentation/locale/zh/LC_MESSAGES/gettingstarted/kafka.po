@@ -1,0 +1,418 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/kafka.rst:3 8c7eec39ee62497395ba9102f960a250
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:11 66fc88a4d3d14163a5e2ab3a9be99409
+msgid "Securing a Kafka cluster"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:13 ac65e96492824fcca7e1fe9a093559be
+msgid ""
+"This document serves as an introduction to using Cilium to enforce Kafka-"
+"aware security policies.  It is a detailed walk-through of getting a "
+"single-node Cilium environment running on your machine. It is designed to"
+" take 15-30 minutes."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:1 9305ead3ad5e40e1a849ce9f43f55b2b
+msgid ""
+"If you haven't read the :ref:`intro` yet, we'd encourage you to do that "
+"first."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:3 8868e3de03264a619c17097683c328a2
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:8 7ef7f56a9588461989cddf32ccf68136
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:10
+#: 323c203d024340eba6d16c3491b1c714
+msgid ""
+"If you have not set up Cilium yet, follow the guide "
+":ref:`k8s_install_standard` for instructions on how to quickly bootstrap "
+"a Kubernetes cluster and install Cilium. If in doubt, pick the minikube "
+"route, you will be good to go in less than 5 minutes."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:21 fb6085888484498f9fff9a5c87e927bf
+msgid "Deploy the Demo Application"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:23 7f417263d3ab4093b106b243da78a741
+msgid ""
+"Now that we have Cilium deployed and ``kube-dns`` operating correctly we "
+"can deploy our demo Kafka application.  Since our first demo of Cilium + "
+"HTTP-aware security policies was Star Wars-themed we decided to do the "
+"same for Kafka.  While the `HTTP-aware Cilium  Star Wars demo "
+"<https://cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you/>`_ "
+"showed how the Galactic Empire used HTTP-aware security policies to "
+"protect the Death Star from the Rebel Alliance, this Kafka demo shows how"
+" the lack of Kafka-aware security policies allowed the Rebels to steal "
+"the Death Star plans in the first place."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:31 c7d29c9fa83442ac9b8d52354e48019a
+msgid ""
+"Kafka is a powerful platform for passing datastreams between different "
+"components of an application. A cluster of \"Kafka brokers\" connect "
+"nodes that \"produce\" data into a data stream, or \"consume\" data from "
+"a datastream.   Kafka refers to each datastream as a \"topic\". Because "
+"scalable and highly-available Kafka clusters are non-trivial to run, the "
+"same cluster of Kafka brokers often handles many different topics at once"
+" (read this `Introduction to Kafka <https://kafka.apache.org/intro>`_ for"
+" more background)."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:38 8dedc73ca44f4f72b2c03b057f9df942
+msgid ""
+"In our simple example, the Empire uses a Kafka cluster to handle two "
+"different topics:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:40 c8226f2336954370a3dd18faa946dee8
+msgid ""
+"*empire-announce* : Used to broadcast announcements to sites spread "
+"across the galaxy"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:41 bf389a7c3e8e43249824b9faa73eddb3
+msgid ""
+"*deathstar-plans* : Used by a small group of sites coordinating on "
+"building the ultimate battlestation."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:43 d65f5e19ad0e4809a3d50855aa158211
+msgid ""
+"To keep the setup small, we will just launch a small number of pods to "
+"represent this setup:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:45 f97ba6e217a04a089587a1c13f1e9255
+msgid ""
+"*kafka-broker* : A single pod running Kafka and Zookeeper representing "
+"the Kafka cluster (label app=kafka)."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:47 00f532f7eb9945db974cd79c180b4606
+msgid ""
+"*empire-hq* : A pod representing the Empire's Headquarters, which is the "
+"only pod that should produce messages to *empire-announce* or *deathstar-"
+"plans* (label app=empire-hq)."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:49 f648b88ac49e40c59d5db2c89c21b427
+msgid ""
+"*empire-backup* : A secure backup facility located in `Scarif "
+"<https://starwars.fandom.com/wiki/Scarif_vault>`_ , which is allowed to "
+"\"consume\" from the secret *deathstar-plans* topic (label app=empire-"
+"backup)."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:51 765d81f4bcb34626864d3dc537d43296
+msgid ""
+"*empire-outpost-8888* : A random outpost in the empire.  It needs to "
+"\"consume\" messages from the *empire-announce* topic (label app=empire-"
+"outpost)."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:53 f1b90e4cac0a4486acc2378438ea5932
+msgid ""
+"*empire-outpost-9999* : Another random outpost in the empire that "
+"\"consumes\" messages from the *empire-announce* topic (label app=empire-"
+"outpost)."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:56 f5c518a16ce54a9c877003cd9b5263c8
+msgid ""
+"All pods other than *kafka-broker* are Kafka clients, which need access "
+"to the *kafka-broker* container on TCP port 9092 in order to send Kafka "
+"protocol messages."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:61 222d269718cd4bbc9453e2763ed7d2f0
+msgid ""
+"The file ``kafka-sw-app.yaml`` contains a Kubernetes Deployment for each "
+"of the pods described above, as well as a Kubernetes Service for both "
+"Kafka and Zookeeper."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:76 3feff02f20674f818fb06d9a8161b52b
+msgid ""
+"Kubernetes will deploy the pods and service  in the background. Running "
+"``kubectl get svc,pods`` will inform you about the progress of the "
+"operation. Each pod will go through several states until it reaches "
+"``Running`` at which point the setup is ready."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:98 e9f515f1443646349571c6679dabe1db
+msgid "Setup Client Terminals"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:100 4c925e09efb847ac90dae022ff831236
+msgid ""
+"First we will open a set of windows to represent the different Kafka "
+"clients discussed above. For consistency, we recommend opening them in "
+"the pattern shown in the image below, but this is optional."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:105 ab7fa6f38860461dad4e6f7c21301835
+msgid ""
+"In each window, use copy-paste to have each terminal provide a shell "
+"inside each pod."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:107 17cc8286c6914c9ab9126f805802d72d
+msgid "empire-hq terminal:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:113 cddbb9ae1706405c8506f7de227a32d7
+msgid "empire-backup terminal:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:119 bf0200ae3815483caf762665410e7816
+msgid "outpost-8888 terminal:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:125 8fec09aaf1c142dbaf29dbe993565d5c
+msgid "outpost-9999 terminal:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:133 80d4adc50bf44082b1fb43445ab65aff
+msgid "Test Basic Kafka Produce & Consume"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:135 93ddcb58b49d43edaa96247c04a648db
+msgid ""
+"First, let's start the consumer clients listening to their respective "
+"Kafka topics.  All of the consumer commands below will hang "
+"intentionally, waiting to print data they consume from the Kafka topic:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:138 efb422556f98439eb5fbfc5eac48b762
+msgid ""
+"In the *empire-backup* window, start listening on the top-secret "
+"*deathstar-plans* topic:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:144 77fc6a002a1344acaead40329c89244e
+msgid "In the *outpost-8888* window, start listening to *empire-announcement*:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:150 4ffa1e7e396945119897dfe93da155ed
+msgid "Do the same in the *outpost-9999* window:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:156 eebf6bce6ca94605849e481df732fe93
+msgid ""
+"Now from the *empire-hq*, first produce a message to the *empire-"
+"announce* topic:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:162 7b7fb17143bc4387a93ef7abd34e3640
+msgid ""
+"This message will be posted to the *empire-announce* topic, and shows up "
+"in both the *outpost-8888* and *outpost-9999* windows who consume that "
+"topic.   It will not show up in *empire-backup*."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:165 5d43d9a7ae784898a47a30282cd66d4f
+msgid ""
+"*empire-hq* can also post a version of the top-secret deathstar plans to "
+"the *deathstar-plans* topic:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:171 2f49538be90144e9a33461cfb7384987
+msgid ""
+"This message shows up in the *empire-backup* window, but not for the "
+"outposts."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:173 a90a3bfe28584f54ae716ebb944eb014
+msgid "Congratulations, Kafka is working as expected :)"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:176 1d58f377724745cf8037447262036783
+msgid "The Danger of a Compromised Kafka Client"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:178 5d744b6709464effbc5e9b02cda996e1
+msgid ""
+"But what if a rebel spy gains access to any of the remote outposts that "
+"act as Kafka clients? Since every client has access to the Kafka broker "
+"on port 9092, it can do some bad stuff. For starters, the outpost "
+"container can actually switch roles from a consumer to a producer, "
+"sending \"malicious\" data to all other consumers on the topic."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:183 e53d9d5b7cd84ecfba6c4c63c396f142
+msgid ""
+"To prove this, kill the existing ``kafka-consume.sh`` command in the "
+"outpost-9999 window by typing control-C and instead run:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:190 f3205aa8d0284bc8b8fad7299dae507a
+msgid ""
+"Uh oh!  Outpost-8888 and all of the other outposts in the empire have now"
+" received this fake announcement."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:192 d5224b6fdb4a4b45afe95cc864134f72
+msgid ""
+"But even more nasty from a security perspective is that the outpost "
+"container can access any topic on the kafka-broker."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:195 a3435132fd7b4f16856bc656c15fc23f
+msgid "In the outpost-9999 container, run:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:202 bd6e25e34adf4cf3b6a1364ba32db6af
+msgid ""
+"We see that any outpost can actually access the secret deathstar plans.  "
+"Now we know how the rebels got access to them!"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:206 26f6f4fbba0f481d9071d36857aa1493
+msgid "Securing Access to Kafka with Cilium"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:208 1383f7f867ee4deb9f3a048240b0f905
+msgid ""
+"Obviously, it would be much more secure to limit each pod's access to the"
+" Kafka broker to be least privilege (i.e., only what is needed for the "
+"app to operate correctly and nothing more)."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:211 27062b42f1ef458991ef1f28de32d108
+msgid ""
+"We can do that with the following Cilium security policy.   As with "
+"Cilium HTTP policies, we can write policies that identify pods by labels,"
+" and then limit the traffic in/out of this pod.  In this case, we'll "
+"create a policy that identifies the exact traffic that should be allowed "
+"to reach the Kafka broker, and deny the rest."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:216 4cf34b8bfea74e3bbe2f4b56df00b7a3
+msgid ""
+"As an example, a policy could limit containers with label *app=empire-"
+"outpost* to only be able to consume topic *empire-announce*, but would "
+"block any attempt by a compromised container (e.g., empire-outpost-9999) "
+"from producing to *empire-announce* or consuming from *deathstar-plans*."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:222 68b07e3dbba9463ba614d27c96a7da50
+msgid ""
+"Here is the *CiliumNetworkPolicy* rule that limits access of pods with "
+"label *app=empire-outpost* to only consume on topic *empire-announce*:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:227 d30b89b564f94f329dc5cdbfd61e16f4
+msgid ""
+"A *CiliumNetworkPolicy* contains a list of rules that define allowed "
+"requests, meaning that requests that do not match any rules are denied as"
+" invalid."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:230 f8e9002c5bd442588ba879a7885e52c0
+msgid ""
+"The above rule applies to inbound (i.e., \"ingress\") connections to "
+"kafka-broker pods (as indicated by \"app: kafka\" in the "
+"\"endpointSelector\" section).  The rule will apply to connections from "
+"pods with label \"app: empire-outpost\" as indicated by the "
+"\"fromEndpoints\" section.   The rule explicitly matches Kafka "
+"connections destined to TCP 9092, and allows consume/produce actions on "
+"various topics of interest. For example we are allowing *consume* from "
+"topic *empire-announce* in this case."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:237 12618a39086c44869373fe3b256ce7fa
+msgid ""
+"The full policy adds two additional rules that permit the legitimate "
+"\"produce\" (topic *empire-announce* and topic *deathstar-plans*) from "
+"*empire-hq* and the legitimate consume  (topic = \"deathstar-plans\") "
+"from *empire-backup*.  The full policy can be reviewed by opening the URL"
+" in the command below in a browser."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:242 908ad5caf9b7409ca6aad8f58a6b233d
+msgid ""
+"Apply this Kafka-aware network security policy using ``kubectl`` in the "
+"main window:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:248 c6f889843b604497b2a99a26a655fea0
+msgid ""
+"If we then again try to produce a message from outpost-9999 to *empire-"
+"annnounce*, it is denied. Type control-c and then run:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:257 d61c026e159a40cdac8779ceb8e644bd
+msgid ""
+"This is because the policy does not allow messages with role = "
+"\"produce\" for topic \"empire-announce\" from containers with label app "
+"= empire-outpost.  Its worth noting that we don't simply drop the message"
+" (which could easily be confused with a network error), but rather we "
+"respond with the Kafka access denied error (similar to how HTTP would "
+"return an error code of 403 unauthorized)."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:262 d587480bd81b49808b73c46dc0244780
+msgid ""
+"Likewise, if the outpost container ever tries to consume from topic "
+"*deathstar-plans*, it is denied, as role = consume is only allowed for "
+"topic *empire-announce*."
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:265 abe76f7a4ac748ec866253e1fd4dc9e3
+msgid "To test, from the outpost-9999 terminal, run:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:272 f8bcf3d68ddc43eb90a696c5b8c6053e
+msgid ""
+"This is blocked as well, thanks to the Cilium network policy. Imagine how"
+" different things would have been if the empire had been using Cilium "
+"from the beginning!"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:276 e046bf652a17473889a8357009d3e716
+msgid "Clean Up"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:278 49a7a7bec4454dfaa6c5e21ce709ff9f
+msgid ""
+"You have now installed Cilium, deployed a demo app, and tested both L7 "
+"Kafka-aware network security policies.  To clean up, run:"
+msgstr ""
+
+#: ../../gettingstarted/kafka.rst:287 354378903a474fdaaed4ba77a1080f23
+msgid "After this, you can re-run the tutorial from Step 1."
+msgstr ""
+

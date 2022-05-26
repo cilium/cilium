@@ -1,0 +1,408 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/ebpf/maps.rst:3 e80420e28a154b5ab53af7d846bed70a
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:10 94cd7806f4bd44828fa9311e0ea2ea18
+msgid "eBPF Maps"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:12 7695a50eb360497d99e6118f492c0caf
+msgid ""
+"All BPF maps are created with upper capacity limits. Insertion beyond the"
+" limit will fail and thus limits the scalability of the datapath. The "
+"following table shows the default values of the maps. Each limit can be "
+"bumped in the source code. Configuration options will be added on request"
+" if demand arises."
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:18 efc305a082764c8ab4a5f6f91b61cbcf
+msgid "Map Name"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:18 ecc797b75a844aeeb663bd1efb73fe39
+msgid "Scope"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:18 f35e5fcd10084df19a4323ef390813a1
+msgid "Default Limit"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:18 c3647d6925c04eaeae672577cacc6830
+msgid "Scale Implications"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:20 e2eec719dc104b68a80d63cfbeda5722
+msgid "Connection Tracking"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:20 d6ab30fdacd548b983c98103b5ee0520
+msgid "node or endpoint"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:20 92017ff7264f44edbd7c840267444e35
+msgid "1M TCP/256k UDP"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:20 0ed85a2dd9484f6893067f95b327b9ab
+msgid "Max 1M concurrent TCP connections, max 256k expected UDP answers"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:21 cb712b28ad6847abacdbc37fd7d3e643
+msgid "NAT"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:21 ../../concepts/ebpf/maps.rst:22
+#: ../../concepts/ebpf/maps.rst:23 ../../concepts/ebpf/maps.rst:24
+#: ../../concepts/ebpf/maps.rst:25 ../../concepts/ebpf/maps.rst:27
+#: ../../concepts/ebpf/maps.rst:28 ../../concepts/ebpf/maps.rst:29
+#: ../../concepts/ebpf/maps.rst:30 ../../concepts/ebpf/maps.rst:31
+#: ../../concepts/ebpf/maps.rst:32 16dfae409e364b80bd5cfa4086a8d201
+#: 17bb9d684ae44b4d8bd5c6e6041dbea3 25d06cf62a3544c3ad24d2356548e9c7
+#: 313ebc876b1c4b56a12b048f6d2da06d 4d2e90bf42db40a7ad66763e0750db97
+#: 53b652c3b1854a39b14a424b89b68e6e b5cdd2e844644e57acb204abb1bf6748
+#: c4078bde8cf74354a82e88da8d0b9434 d094168dc10b49a4b10a24332ac96c84
+#: db2ddb8419a0441dbb9aaa969d6b779b f54cffac07c147fcb5053c785efe9448
+msgid "node"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:21 ../../concepts/ebpf/maps.rst:22
+#: ../../concepts/ebpf/maps.rst:24 ../../concepts/ebpf/maps.rst:27
+#: 10d2dec6beb54a95b2390142197d9500 255b1ff1f0ec4f61957c7063e6af8462
+#: 36e63595a0c44d66bb1d1d20d1cafa1c 71b58e623d704f4ead5cafd7b8863631
+msgid "512k"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:21 80388278b93e4c03aede7732b4912114
+msgid "Max 512k NAT entries"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:22 cca836378f994c4986989303e5d160d0
+msgid "Neighbor Table"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:22 b96234da30ef4e74ad29c7214cd69fe0
+msgid "Max 512k neighbor entries"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:23 2cd46ab5e1ab414dae1f8443518fae43
+msgid "Endpoints"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:23 ../../concepts/ebpf/maps.rst:25
+#: ../../concepts/ebpf/maps.rst:28 ../../concepts/ebpf/maps.rst:30
+#: ../../concepts/ebpf/maps.rst:32 2f43f77c482a4367b50dd9f9002e5bf7
+#: 53e9bea0d75540f4b7b521154eb004ae 6965ff7d6e1a4262bfbfc9405a1ba7b8
+#: b974608a683f4ff3be535aacbaa6fafb e24e54dcc11c4d5c8d360104a6aed7e0
+msgid "64k"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:23 21ad93011d8d48d8af35738238b04903
+msgid "Max 64k local endpoints + host IPs per node"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:24 5201582ce4214b21a3cff2cd8383fc63
+msgid "IP cache"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:24 d1d8f6ffe6bf4944a58d500903900304
+msgid ""
+"Max 256k endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across "
+"all clusters"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:25 b0982a636977427a934854cf2f5a23d7
+msgid "Load Balancer"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:25 323c4ebe9ca642e6bf8fc0d167a288d2
+msgid "Max 64k cumulative backends across all services across all clusters"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:26 0f92ba21b4d244f89faba3a5953633ef
+msgid "Policy"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:26 ../../concepts/ebpf/maps.rst:33
+#: 56f71af81f9049c2adaaff4b8ee0f30b 5aeb46da0429416a841a80ac94836e3a
+msgid "endpoint"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:26 ../../concepts/ebpf/maps.rst:31
+#: ../../concepts/ebpf/maps.rst:33 42323692e675476282fcf5ae249a4269
+#: 9f8063f78c0d496489567bc861f40dec b665fc1bfe954f2bb8479385600986a0
+msgid "16k"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:26 94fb24c8a5f144efaab7b6341ce54007
+msgid "Max 16k allowed identity + port + protocol pairs for specific endpoint"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:27 2a56d792791c4c5894ec6580aa1f3b1f
+msgid "Proxy Map"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:27 ec5c6e96aec840118c3968c310d01f4b
+msgid "Max 512k concurrent redirected TCP connections to proxy"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:28 f2a57b3d2e5745d09faee39f8d06069b
+msgid "Tunnel"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:28 07f998aac3b243deb2792b695114ed42
+msgid "Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:29 ca2c0f4dc7eb4a8d9c6ddf4fba9c043c
+msgid "IPv4 Fragmentation"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:29 78ea0decbadb423fa39b96b7e8d5d403
+msgid "8k"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:29 3e843925f8514d68946afc3397d9d08b
+msgid "Max 8k fragmented datagrams in flight simultaneously on the node"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:30 c3b65ca2b6774597b22861d1654570bf
+msgid "Session Affinity"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:30 c1829c4f03d94367a4b0dec8ed8a5138
+msgid "Max 64k affinities from different clients"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:31 436f423ec44645caba3622c22dda9c70
+msgid "IP Masq"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:31 a4841e0bff46469bb78301ecf26d72e6
+msgid "Max 16k IPv4 cidrs used by BPF-based ip-masq-agent"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:32 768c46266e79483f8bd7805b2eff861f
+msgid "Service Source Ranges"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:32 7460d3b6c28c4cd8bf91713e97ead0ff
+msgid "Max 64k cumulative LB source ranges across all services"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:33 40ff3ecbc2b54d77a08b0725247b2bba
+msgid "Egress Policy"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:33 c52122125e9e451cb4fffb5b406efa47
+msgid "Max 16k endpoints across all destination CIDRs across all clusters"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:36 8f6fa5726ac642018cfef582060ca42d
+msgid ""
+"For some BPF maps, the upper capacity limit can be overridden using "
+"command line options for ``cilium-agent``. A given capacity can be set "
+"using ``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``, ``--bpf-"
+"nat-global-max``, ``--bpf-neigh-global-max``, ``--bpf-policy-map-max``, "
+"``--bpf-fragments-map-max`` and ``--bpf-lb-map-max``."
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:44 f6727756dafb4a4ea84740a62180d310
+msgid ""
+"In case the ``--bpf-ct-global-tcp-max`` and/or ``--bpf-ct-global-any-"
+"max`` are specified, the NAT table size (``--bpf-nat-global-max``) must "
+"not exceed 2/3 of the combined CT table size (TCP + UDP). This will "
+"automatically be set if either ``--bpf-nat-global-max`` is not explicitly"
+" set or if dynamic BPF map sizing is used (see below)."
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:50 1c53f6230f1b4e7784f63591411c8a2f
+#, python-format
+msgid ""
+"Using the ``--bpf-map-dynamic-size-ratio`` flag, the upper capacity "
+"limits of several large BPF maps are determined at agent startup based on"
+" the given ratio of the total system memory. For example, a given ratio "
+"of 0.0025 leads to 0.25% of the total system memory to be used for these "
+"maps."
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:55 b60859cc95f14716bdda10774bd28246
+msgid ""
+"This flag affects the following BPF maps that consume most memory in the "
+"system: ``cilium_ct_{4,6}_global``, ``cilium_ct_{4,6}_any``, "
+"``cilium_nodeport_neigh{4,6}``, ``cilium_snat_v{4,6}_external`` and "
+"``cilium_lb{4,6}_reverse_sk``."
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:60 035c3898c0b2480aaeeb98537df5eed5
+msgid ""
+"``kube-proxy`` sets as the maximum number entries in the linux's "
+"connection tracking table based on the number of cores the machine has. "
+"``kube-proxy`` has a default of ``32768`` maximum entries per core with a"
+" minimum of ``131072`` entries regardless of the number of cores the "
+"machine has."
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:65 6a6a33eced1b4a2fb8fdf563c677a8b4
+msgid ""
+"Cilium has its own connection tracking tables as BPF Maps and the number "
+"of entries of such maps is calculated based on the amount of total memory"
+" in the node with a minimum of ``131072`` entries regardless the amount "
+"of memory the machine has."
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:70 72f1524a9fab42198a14e6d641b71244
+msgid ""
+"The following table presents the value that ``kube-proxy`` and Cilium "
+"sets for their own connection tracking tables when Cilium is configured "
+"with ``--bpf-map-dynamic-size-ratio: 0.0025``."
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:75 f243d4a3ed874431b8ab782349cd2b07
+msgid "vCPU"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:75 b94f628a053242de98efbdbede1c9029
+msgid "Memory (GiB)"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:75 3f2ec02a40464d7b861c7778df0e7264
+msgid "Kube-proxy CT entries"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:75 cc999a3ce1684e7092fffda39e6ec312
+msgid "Cilium CT entries"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:77 d5d943b4ad64400d9f19fbb1f4120724
+msgid "1"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:77 58337dea04c24b78a32b6efbab0fa775
+msgid "3.75"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:77 ../../concepts/ebpf/maps.rst:79
+#: ../../concepts/ebpf/maps.rst:81 2ba6d24ee70842ea92e3db258ec50e94
+#: 2c7e202a759940eca69712ff0913c174 51769b43e96b486dac527163481decf0
+#: 55b87878ffdf4d6e8bc4eacd7c9b5640 78531d51141a4b16aa9c79595e82b57e
+#: ad4846c3ef5b443ab72178947ee32778
+msgid "131072"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:79 73efb3d9f2124f2cb3ec6f5537865f64
+msgid "2"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:79 7578fef4f8354b10b469f5292f6f5ad0
+msgid "7.5"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:81 265c69870ef84c91bc338018d36949bb
+msgid "4"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:81 ade938a4e34a4488aafb736141a208ef
+msgid "15"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:83 43a27416704a4f7cb89b2aabf2fbc437
+msgid "8"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:83 f4db3f6bbe794eefb8dafe913fa2bbe1
+msgid "30"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:83 4acaaaf789ed490899e45b608ea45ef9
+msgid "262144"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:83 17abf32179394f048916e28c9e95b53b
+msgid "284560"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:85 80a4b162b45c4ef8b5cd1f0302da5b94
+msgid "16"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:85 3615234125a643948ecb0ea9d91f2386
+msgid "60"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:85 56cda148e9124da88cf73c7508f6229d
+msgid "524288"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:85 3128be3b7d3145279841d0a2d15a2f27
+msgid "569120"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:87 3123c509d41b42ad9e3ad667476e1a49
+msgid "32"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:87 2c2a84f3e0e34e758204733d49a2d192
+msgid "120"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:87 f0c4c3847b194089ab4415e20f2629d1
+msgid "1048576"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:87 88f9b9b3c247400c868660c20336c471
+msgid "1138240"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:89 b5e59aec467c49f4abadd2040337d453
+msgid "64"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:89 f69399fd76a94f4796217ce44f2e5ab4
+msgid "240"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:89 32df38ce2641451a8a378f3582f7b876
+msgid "2097152"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:89 a4375ad3a0464a819036efd07a25ff16
+msgid "2276480"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:91 574ac4e6fd264d62b6d776cd06079ef5
+msgid "96"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:91 ac4af4d385514560b29296cc04b6fd8b
+msgid "360"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:91 d7adb7066ab54aa0b1db0bc5c1fbeba9
+msgid "3145728"
+msgstr ""
+
+#: ../../concepts/ebpf/maps.rst:91 68506c36ff794a01ad9ad7f07aebe771
+msgid "4552960"
+msgstr ""
+

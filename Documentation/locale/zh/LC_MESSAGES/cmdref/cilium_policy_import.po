@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_policy_import.md:3 bcd6212ce8db4d57839bf199472eaf59
+msgid "cilium policy import"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_import.md:5 e4f37b6f2c864101adc170164d7c6dce
+msgid "Import security policy in JSON format"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_import.md:11 2fdb875cecd945979b7b5301dc254a49
+msgid "Examples"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_import.md:18 c6528e5407c74b0ebdde506e2cf8617a
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_import.md:26 cc91fda464c4481dac93098054294edf
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_import.md:34 11abedf9896549de83c87578ebc64afe
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_import.md:36 f6067474ffdc40e9bcce811445028387
+msgid "[cilium policy](cilium_policy.md)\t - Manage security policies"
+msgstr ""
+

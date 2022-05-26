@@ -1,0 +1,444 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../operations/performance/tuning.rst:3 d83a4a75ca324f1084736ac4f4f95c72
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:11 1fce037b86d34c059aee8249624dbdfb
+msgid "Tuning Guide"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:13 474a92baa75e48ba9c9251839a7ac781
+msgid ""
+"This guide helps you optimize a Cilium installation for optimal "
+"performance."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:16
+#: ../../operations/performance/tuning.rst:175 b58b3bcf0a364c75b158774a71ed5961
+#: cd82c102bf8a49b1aa0aba2ee4be5fce
+msgid "eBPF Host-Routing"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:18 76cf8304f199465e89ec984879f8afd3
+msgid ""
+"Even when network routing is performed by Cilium using eBPF, by default "
+"network packets still traverse some parts of the regular network stack of"
+" the node. This ensures that all packets still traverse through all of "
+"the iptables hooks in case you depend on them. However, they add "
+"significant overhead. For exact numbers from our test environment, see "
+":ref:`benchmark_throughput` and compare the results for \"Cilium\" and "
+"\"Cilium (legacy host-routing)\"."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:25 e7f1825d96664f8ca5a13ee98a4d0970
+msgid ""
+"We introduced `eBPF-based host-routing "
+"<https://cilium.io/blog/2020/11/10/cilium-19#veth>`_ in Cilium 1.9 to "
+"fully bypass iptables and the upper host stack, and to achieve a faster "
+"network namespace switch compared to regular veth device operation. This "
+"option is automatically enabled if your kernel supports it. To validate "
+"whether your installation is running with eBPF host-routing, run ``cilium"
+" status`` in any of the Cilium pods and look for the line reporting the "
+"status for \"Host Routing\" which should state \"BPF\"."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:33
+#: ../../operations/performance/tuning.rst:49
+#: ../../operations/performance/tuning.rst:124
+#: ../../operations/performance/tuning.rst:171
+#: ../../operations/performance/tuning.rst:210 19343afe61254b2d912cb55563daa526
+#: 3225646e33dd42b8bfcbe15ad0714f18 5d5846d0182d45aabf7f58cef868281b
+#: 88ffb602488949f8ada6db5dcaf88119 da0a35dd2e5a43cd95c84c6627f23601
+msgid "**Requirements:**"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:35 7d6f1c1751264a1486173b94505bb185
+msgid "Kernel >= 5.10"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:36
+#: ../../operations/performance/tuning.rst:127 80331053426a4224881b1a71151a0ed6
+#: d4042be13bab466d8f9f24e50a58b390
+msgid "Direct-routing configuration or tunneling"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:37
+#: ../../operations/performance/tuning.rst:53
+#: ../../operations/performance/tuning.rst:128
+#: ../../operations/performance/tuning.rst:215 150dc15375194bf4aa2a6d6c82134333
+#: 22793cb616d7480793594c0f2b8a8f71 45fac4b75874438ab4258d6979643b1c
+#: 66875745752f47b88dde68ca5edb59c4
+msgid "eBPF-based kube-proxy replacement"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:38 ea5daf598405467da4de932327c848ac
+msgid "eBPF-based masquerading"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:41 6d4ee6680a50489a90b6038c2fccf24f
+msgid "Bypass iptables Connection Tracking"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:43 f6600160e85541ea86ab8c344d12d429
+msgid ""
+"For the case when eBPF Host-Routing cannot be used and thus network "
+"packets still need to traverse the regular network stack in the host "
+"namespace, iptables can add a significant cost. This traversal cost can "
+"be minimized by disabling the connection tracking requirement for all Pod"
+" traffic, thus bypassing the iptables connection tracker."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:51
+#: ../../operations/performance/tuning.rst:212 09d75e8c7db74969bbd333b18146f3d8
+#: b176e376a53b44f1bf2db5bc736760c0
+msgid "Kernel >= 4.19.57, >= 5.1.16, >= 5.2"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:52
+#: ../../operations/performance/tuning.rst:214 27dce7d7518142cf9e8e08f61bc5554a
+#: fa535c66128a4d52aa402b24f02121ad
+msgid "Direct-routing configuration"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:54 9c04db260f844f03b65e844ac40816fb
+msgid "eBPF-based masquerading or no masquerading"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:56 ec80639d8a084776b09fd40ab6a706b1
+msgid "To enable the iptables connection-tracking bypass:"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:60
+#: ../../operations/performance/tuning.rst:86 285feb0f29e34c7f887130c22eb5f65e
+#: db53592f3fb94ba3a614f5ccc6c11102
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:66
+#: ../../operations/performance/tuning.rst:92
+#: ../../operations/performance/tuning.rst:134
+#: ../../operations/performance/tuning.rst:181 0a371603df34442b8b42921279a55977
+#: 284c9671513648a48e5492aa9e4601a8 7cdb8a44ea624ba79298fa8d8b766db4
+#: f0eb13de4bd54be7b3e6d5203f56df82
+msgid "Helm"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:76 fc4e94975ff24261bc552ed321cc6951
+msgid "Hubble"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:78 be3c5b025d9b43f19bf8b4b485e6e6ca
+#, python-format
+msgid ""
+"Running with Hubble observability enabled can come at the expense of "
+"performance. The overhead of Hubble is somewhere between 1-15% depending "
+"on your network traffic patterns and Hubble aggregation settings."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:82 23ab949dc1ee48f88f834eaaf9c6a641
+msgid "In order to optimize for maximum performance, Hubble can be disabled:"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:101 394fc9d5ee5b43f88b9d15e2323ac999
+msgid "MTU"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:103 495e17ccb1ff4e13a604ee775c26df82
+msgid ""
+"The maximum transfer unit (MTU) can have a significant impact on the "
+"network throughput of a configuration. Cilium will automatically detect "
+"the MTU of the underlying network devices. Therefore, if your system is "
+"configured to use jumbo frames, Cilium will automatically make use of it."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:108 edec1d8c2c03450f8e54759934d3b83a
+msgid ""
+"To benefit from this, make sure that your system is configured to use "
+"jumbo frames if your network allows for it."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:112
+#: ../../operations/performance/tuning.rst:174 17c2cb824f3e418ea7c511961cfc862a
+#: 5b41ff4456cd475aa20f7010f05334de
+msgid "Bandwidth Manager"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:114 349b45b656a844f3927a459fc4408622
+msgid ""
+"Cilium's Bandwidth Manager is responsible for managing network traffic "
+"more efficiently with the goal of improving overall application latency "
+"and throughput."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:117 76276f58ed24411fbaef899e03c38c85
+msgid ""
+"Aside from natively supporting Kubernetes Pod bandwidth annotations, the "
+"`Bandwidth Manager "
+"<https://cilium.io/blog/2020/11/10/cilium-19#bwmanager>`_, first "
+"introduced in Cilium 1.9, is also setting up Fair Queue (FQ) queueing "
+"disciplines to support TCP stack pacing (e.g. from EDT/BBR) on all "
+"external-facing network devices as well as setting optimal server-grade "
+"sysctl settings for the networking stack."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:126 72e7d1ce3aee404e8d2d562c7d33fb3d
+msgid "Kernel >= 5.1"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:130 7a3cdfb09c094e4ab06d721bfc4aa9e6
+msgid "To enable the Bandwidth Manager:"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:143 c02370ef93b743c992ee0a877d4ae0e6
+msgid ""
+"To validate whether your installation is running with Bandwidth Manager, "
+"run ``cilium status`` in any of the Cilium pods and look for the line "
+"reporting the status for \"BandwidthManager\" which should state \"EDT "
+"with BPF\"."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:148 fdc9015a48ff442b82fb1c13ac5a3a3c
+msgid "BBR congestion control for Pods"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:150 72c503c39f8540378f28cf6ddf4b87a3
+msgid ""
+"The base infrastructure around MQ/FQ setup provided by Cilium's Bandwidth"
+" Manager also allows for use of TCP `BBR congestion control "
+"<https://queue.acm.org/detail.cfm?id=3022184>`_ for Pods. BBR is in "
+"particular suitable when Pods are exposed behind Kubernetes Services "
+"which face external clients from the Internet. BBR achieves higher "
+"bandwidths and lower latencies for Internet traffic, for example, it has "
+"been `shown <https://cloud.google.com/blog/products/networking/tcp-bbr-"
+"congestion-control-comes-to-gcp-your-internet-just-got-faster>`_ that "
+"BBR's throughput can reach as much as 2,700x higher than today's best "
+"loss-based congestion control and queueing delays can be 25x lower."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:159 abc38cde7d3c4ed5b176a054e3716e24
+msgid ""
+"In order for BBR to work reliably for Pods, it requires a 5.18 or higher "
+"kernel. As outlined in our `Linux Plumbers 2021 talk "
+"<https://lpc.events/event/11/contributions/953/>`_, this is needed since "
+"older kernels do not retain timestamps of network packets when switching "
+"from Pod to host network namespace. Due to the latter, the kernel's "
+"pacing infrastructure does not function properly in general (not specific"
+" to Cilium). We helped fixing this issue for recent kernels to retain "
+"timestamps and therefore to get BBR for Pods working."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:167 3f175b41fc5247f58b2e008640744609
+msgid ""
+"BBR also needs eBPF Host-Routing in order to retain the network packet's "
+"socket association all the way until the packet hits the FQ queueing "
+"discipline on the physical device in the host namespace."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:173 ba86873650ea46c7b00318f29ea6f2bf
+msgid "Kernel >= 5.18"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:177 cf697b157c65406eba82cc9478dce6f4
+msgid "To enable the Bandwidth Manager with BBR for Pods:"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:191 e66b7f0142b34c0d876f91114887fd04
+msgid ""
+"To validate whether your installation is running with BBR for Pods, run "
+"``cilium status`` in any of the Cilium pods and look for the line "
+"reporting the status for \"BandwidthManager\" which should then state "
+"``EDT with BPF`` as well as ``[BBR]``."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:197 3878cb9db6df4b5c810083d7a0fb4c9f
+msgid "XDP Acceleration"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:199 b545307e113c47729c9cee6cece5bfc9
+msgid ""
+"Cilium has built-in support for accelerating NodePort, LoadBalancer "
+"services and services with externalIPs for the case where the arriving "
+"request needs to be pushed back out of the node when the backend is "
+"located on a remote node."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:203 4ab2fc3407094e96ab7afe4ce29838ec
+msgid ""
+"In that case, the network packets do not need to be pushed all the way to"
+" the upper networking stack, but with the help of XDP, Cilium is able to "
+"process those requests right out of the network driver layer. This helps "
+"to reduce latency and scale-out of services given a single node's "
+"forwarding capacity is dramatically increased. The kube-proxy replacement"
+" at the XDP layer is `available from Cilium 1.8 "
+"<https://cilium.io/blog/2020/06/22/cilium-18#kubeproxy-removal>`_."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:213 a27816bc6d3040eca2d100225a555a30
+msgid ""
+"Native XDP supported driver, check :ref:`our driver list <XDP "
+"acceleration>`"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:217 9d4160f4034b469ba3f250ff1cef653f
+msgid ""
+"To enable the XDP Acceleration, check out :ref:`our getting started guide"
+" <XDP acceleration>` which also contains instructions for setting it up "
+"on public cloud providers."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:220 dc2363938fea41d0a04cd3bde85c622b
+msgid ""
+"To validate whether your installation is running with XDP Acceleration, "
+"run ``cilium status`` in any of the Cilium pods and look for the line "
+"reporting the status for \"XDP Acceleration\" which should say "
+"\"Native\"."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:225 07f4f19cdcbe486c8964a622414ac239
+msgid "eBPF Map Sizing"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:227 49db1db6e48249a7b54c3092c683c979
+msgid ""
+"All eBPF maps are created with upper capacity limits. Insertion beyond "
+"the limit would fail or constrain the scalability of the datapath. Cilium"
+" is using auto-derived defaults based on the given ratio of the total "
+"system memory."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:232 d4b43f761157413b89b007d141125f30
+msgid ""
+"However, the upper capacity limits used by the Cilium agent can be "
+"overridden for advanced users. Please refer to the "
+":ref:`bpf_map_limitations` guide."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:236 3cd3602cffd141b5a6b52ad65f686e2d
+msgid "Linux Kernel"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:238 8a5a069b5ede4942b28884bc2ac33981
+msgid ""
+"In general, we highly recommend using the most recent LTS stable kernel "
+"(such as >= 5.10) provided by the `kernel community "
+"<https://www.kernel.org/category/releases.html>`_ or by a downstream "
+"distribution of your choice. The newer the kernel, the more likely it is "
+"that various datapath optimizations can be used."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:243 4045b9092a224687b93db1098ae28566
+msgid ""
+"In our Cilium release blogs, we also regularly highlight some of the eBPF"
+" based kernel work we conduct which implicitly helps Cilium's datapath "
+"performance such as `replacing retpolines with direct jumps in the eBPF "
+"JIT <https://cilium.io/blog/2020/02/18/cilium-17#linux-kernel-changes>`_."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:247 7182d205c54b4a87ba198de2773218e0
+msgid ""
+"Moreover, the kernel allows to configure several options which will help "
+"maximize network performance."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:251 b75fd5d4814a47e3aaa4435cac628773
+msgid "CONFIG_PREEMPT_NONE"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:253 dbeb93efe8574f09a81b5f37def5c3e2
+msgid ""
+"Run a kernel version with ``CONFIG_PREEMPT_NONE=y`` set. Some Linux "
+"distributions offer kernel images with this option set or you can re-"
+"compile the Linux kernel. ``CONFIG_PREEMPT_NONE=y`` is the recommended "
+"setting for server workloads."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:259 c787645451214727b10361af320eaec6
+msgid "Further Considerations"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:261 a1308913607d4e9c9cf7873523fd504b
+msgid ""
+"Various additional settings that we recommend help to tune the system for"
+" specific workloads and to reduce jitter:"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:265 e8962db9e1d74c5bb5f8d6468505a2a1
+msgid "tuned network-* profiles"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:267 e758a881ca7a4de3af90bf9aec014780
+msgid ""
+"The `tuned <https://tuned-project.org/>`_ project offers various profiles"
+" to optimize for deterministic performance at the cost of increased power"
+" consumption, that is, ``network-latency`` and ``network-throughput``, "
+"for example. To enable the former, run:"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:277 bd7133a1d6e741b0adf9f4adbf4def2d
+msgid "Set CPU governor to performance"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:279 9a0557f99a734978af3ee429b3009cae
+msgid ""
+"The CPU scaling up and down can impact latency tests and lead to sub-"
+"optimal performance. To achieve maximum consistent performance. Set the "
+"CPU governor to ``performance``:"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:290 cafbce1f0f824f1fb47a2bc87415ae0d
+msgid "Stop ``irqbalance`` and pin the NIC interrupts to specific CPUs"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:292 851a45fb132e4022b600a1e82b4f15ea
+msgid ""
+"In case you are running ``irqbalance``, consider disabling it as it might"
+" migrate the NIC's IRQ handling among CPUs and can therefore cause non-"
+"deterministic performance:"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:300 ce06bfe91f5c4a2a8dfc01ff7700a578
+msgid ""
+"We highly recommend to pin the NIC interrupts to specific CPUs in order "
+"to allow for maximum workload isolation!"
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:303 9d78787e7b09472c93d96fc688c111c6
+msgid ""
+"See `this script "
+"<https://github.com/borkmann/netperf_scripts/blob/master/set_irq_affinity>`_"
+" for details and initial pointers on how to achieve this. Note that "
+"pinning the queues can potentially vary in setup between different "
+"drivers."
+msgstr ""
+
+#: ../../operations/performance/tuning.rst:307 3af9414d0c584978bf766f5d914e4434
+msgid ""
+"We generally also recommend to check various documentation and "
+"performance tuning guides from NIC vendors on this matter such as from "
+"`Mellanox <https://community.mellanox.com/s/article/performance-tuning-"
+"for-mellanox-adapters>`_, `Intel "
+"<https://www.intel.com/content/www/us/en/support/articles/000005811"
+"/network-and-i-o/ethernet-products.html>`_ or others for more "
+"information."
+msgstr ""
+

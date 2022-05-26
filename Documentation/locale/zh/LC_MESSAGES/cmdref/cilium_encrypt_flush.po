@@ -1,0 +1,51 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_encrypt_flush.md:3 f1211579cdd74a08aa7c9554b243511b
+msgid "cilium encrypt flush"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:5 1010df3d1dd344f3aea0807f3c66113d
+msgid "Flushes the current IPsec state"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:7 74bd8ae6e4434247820fe4f6631de732
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:9 1d6821ab48f14bacb097aabe8ca03e9c
+msgid "Will cause a short connectivity disruption"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:15 72845ca71a4745258758486c2469f252
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:22 09f378bafca147dcb112faf9d4cc3093
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:30 747c94a7bd434f90bebe174e1fa0596e
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_encrypt_flush.md:32 85f495dc9913443e8da9fba1bc7301f1
+msgid "[cilium encrypt](cilium_encrypt.md)\t - Manage transparent encryption"
+msgstr ""
+

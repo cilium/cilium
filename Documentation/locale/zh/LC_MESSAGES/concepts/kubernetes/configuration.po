@@ -1,0 +1,531 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/kubernetes/configuration.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 4c995568578f4d5bbfc0a0fb60352b34 ce39129c4e6f4bbfa842563af8a36f0e
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:11
+#: ae628c64260e419da674352b7e6c253d
+msgid "Configuration"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:14
+#: 529fe31814f64c0d84f866b1c3ecaa94
+msgid "ConfigMap Options"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:16
+#: 5ff36de350054e4e98f151f47f8bebe8
+msgid ""
+"In the :term:`ConfigMap` there are several options that can be configured"
+" according to your preferences:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:19
+#: abd2bebc7683438cb6c90c86301b18de
+msgid ""
+"``debug`` - Sets to run Cilium in full debug mode, which enables verbose "
+"logging and configures eBPF programs to emit more visibility events into "
+"the output of ``cilium monitor``."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:23
+#: f75522695a9d42fb85e97056d8f94474
+msgid "``enable-ipv4`` - Enable IPv4 addressing support"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:25
+#: 0c4331a5847241f4aa51a8b065a47dcf
+msgid "``enable-ipv6`` - Enable IPv6 addressing support"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:27
+#: 54986e9a99c848ae9dd1310464f49c02
+msgid ""
+"``clean-cilium-bpf-state`` - Removes all eBPF state from the filesystem "
+"on startup. Endpoints will be restored with the same IP addresses, but "
+"ongoing connections may be briefly disrupted and loadbalancing decisions "
+"will be lost, so active connections via the loadbalancer will break. All "
+"eBPF state will be reconstructed from their original sources (for "
+"example, from kubernetes or the kvstore). This may be used to mitigate "
+"serious issues regarding eBPF maps. This option should be turned off "
+"again after restarting the daemon."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:36
+#: 285c6a55ecf74ce58a499422f141a86a
+msgid ""
+"``clean-cilium-state`` - Removes **all** Cilium state, including "
+"unrecoverable information such as all endpoint state, as well as "
+"recoverable state such as eBPF state pinned to the filesystem, CNI "
+"configuration files, library code, links, routes, and other information. "
+"**This operation is irreversible**. Existing endpoints currently managed "
+"by Cilium may continue to operate as before, but Cilium will no longer "
+"manage them and they may stop working without warning. After using this "
+"operation, endpoints must be deleted and reconnected to allow the new "
+"instance of Cilium to manage them."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:45
+#: 6fa94aea137e4fbe865093a83d16ab45
+msgid ""
+"``monitor-aggregation`` - This option enables coalescing of tracing "
+"events in ``cilium monitor`` to only include periodic updates from active"
+" flows, or any packets that involve an L4 connection state change. Valid "
+"options are ``none``, ``low``, ``medium``, ``maximum``."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:50
+#: fc6e77320ed84da58cccd2f84697cbee
+msgid "``none`` - Generate a tracing event on every receive and send packet."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:51
+#: ce4664d797724c5fac7b149b2098be9d
+msgid "``low`` - Generate a tracing event on every send packet."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:52
+#: 927bddc0bc2045389ec9d5771a6dd3cf
+msgid ""
+"``medium`` - Generate a tracing event on every new connection, any time a"
+" packet contains TCP flags that have not been previously seen for the "
+"packet direction, and on average once per ``monitor-aggregation-"
+"interval`` (assuming that a packet is seen during the interval). Each "
+"direction tracks TCP flags and report interval separately. If Cilium "
+"drops a packet, it will emit one event per packet dropped."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:58
+#: c4da1334d87c45f7b7c9945810b35bfd
+msgid ""
+"``maximum`` - An alias for the most aggressive aggregation level. "
+"Currently this is equivalent to setting ``monitor-aggregation`` to "
+"``medium``."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:61
+#: 8548efe2c708417cb306ebcb935c930c
+msgid ""
+"``monitor-aggregation-interval`` - Defines the interval to report tracing"
+" events. Only applicable for ``monitor-aggregation`` levels ``medium`` or"
+" higher. Assuming new packets are sent at least once per interval, this "
+"ensures that on average one event is sent during the interval."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:66
+#: 1b52ad26b7324381891e6207a7878a23
+msgid ""
+"``preallocate-bpf-maps`` - Pre-allocation of map entries allows per-"
+"packet latency to be reduced, at the expense of up-front memory "
+"allocation for the entries in the maps. Set to ``true`` to optimize for "
+"latency. If this value is modified, then during the next Cilium startup "
+"connectivity may be temporarily disrupted for endpoints with active "
+"connections."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:72
+#: 261b7f0403e04550816cc23e635b503b
+msgid ""
+"Any changes that you perform in the Cilium :term:`ConfigMap` and in "
+"``cilium-etcd-secrets`` ``Secret`` will require you to restart any "
+"existing Cilium pods in order for them to pick the latest configuration."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:78
+#: b260caa32d624a63a3094a11684181ea
+msgid ""
+"When updating keys or values in the ConfigMap, the changes might take up "
+"to 2 minutes to be propagated to all nodes running in the cluster. For "
+"more information see the official Kubernetes docs: `Mounted ConfigMaps "
+"are updated automatically <https://kubernetes.io/docs/tasks/configure-"
+"pod-container/configure-pod-configmap/#mounted-configmaps-are-updated-"
+"automatically>`__"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:83
+#: 034fa6c7b18c4bf7b1cee48dfc96f7e0
+msgid ""
+"The following :term:`ConfigMap` is an example where the etcd cluster is "
+"running in 2 nodes, ``node-1`` and ``node-2`` with TLS, and client to "
+"server authentication enabled."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:126
+#: c3c65ef56209406bbdd2e989d7b62b92
+msgid "CNI"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:128
+#: 2d3f99823e3f478c8048a30b60875d60
+msgid ""
+":term:`CNI` - Container Network Interface is the plugin layer used by "
+"Kubernetes to delegate networking configuration. You can find additional "
+"information on the :term:`CNI` project website."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:132
+#: bec53b028c43448d996c65264e67e03c
+msgid ""
+"Kubernetes `` >= 1.3.5`` requires the ``loopback`` :term:`CNI` plugin to "
+"be installed on all worker nodes. The binary is typically provided by "
+"most Kubernetes distributions. See section :ref:`install_cni` for "
+"instructions on how to install :term:`CNI` in case the ``loopback`` "
+"binary is not already installed on your worker nodes."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:138
+#: 6764e531a3444d109d91f39a2987c5e3
+msgid ""
+"CNI configuration is automatically being taken care of when deploying "
+"Cilium via the provided :term:`DaemonSet`. The script ``cni-install.sh`` "
+"is automatically run via the ``postStart`` mechanism when the ``cilium`` "
+"pod is started."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:142
+#: 9d28fdc64c394ebabff263c76fa84188
+msgid ""
+"In order for the ``cni-install.sh`` script to work properly, the "
+"``kubelet`` task must either be running on the host filesystem of the "
+"worker node, or the ``/etc/cni/net.d`` and ``/opt/cni/bin`` directories "
+"must be mounted into the container where ``kubelet`` is running. This can"
+" be achieved with :term:`Volumes` mounts."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:148
+#: d88df029b6dc4468b34a4048755ff347
+msgid "The CNI auto installation is performed as follows:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:150
+#: f2bc8906d66c40cca5cccf2eb7c9ff46
+msgid ""
+"The ``/etc/cni/net.d`` and ``/opt/cni/bin`` directories are mounted from "
+"the host filesystem into the pod where Cilium is running."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:153
+#: 2de392e48acf41598bc9675dee5cbf96
+msgid ""
+"The file ``/etc/cni/net.d/05-cilium.conf`` is written in case it does not"
+" exist yet."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:156
+#: 3019589ab36f489cba3cb64d392db8ef
+msgid ""
+"The binary ``cilium-cni`` is installed to ``/opt/cni/bin``. Any existing "
+"binary with the name ``cilium-cni`` is overwritten."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:162
+#: 2b23bee7e4434741a32875c9fe6dabe9
+msgid "Manually installing CNI"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:164
+#: 2fa9265537a143f0b35d0c6cda16c51b
+msgid ""
+"This step is typically already included in all Kubernetes distributions "
+"or Kubernetes installers but can be performed manually:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:176
+#: 20acb77c52374f98ba96758281c4a1e9
+msgid "Adjusting CNI configuration"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:178
+#: f32f49eea6e949c993030d60f4e4de36
+msgid ""
+"The CNI configuration file is automatically written and maintained by the"
+" scripts ``cni-install.sh`` and ``cni-uninstall.sh`` which are running as"
+" ``postStart`` and ``preStop`` hooks of the Cilium pod."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:182
+#: 04f39f68670349e39727108774ba5269
+msgid ""
+"If you want to provide your own custom CNI configuration file, set the "
+"``CILIUM_CUSTOM_CNI_CONF`` environment variable to avoid overwriting the "
+"configuration file by adding the following to the ``env:`` section of the"
+" ``cilium`` DaemonSet:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:192
+#: 108cdf2f745d4e969463b6d0d05fa73a
+msgid ""
+"The CNI installation can be configured with environment variables. These "
+"environment variables can be specified in the :term:`DaemonSet` file like"
+" this:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:201
+#: 1b377bcf2cf04978a91aad4000ec34a0
+msgid "The following variables are supported:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:204
+#: 1289fb9aaf0248bf9dd0258aff16a814
+msgid "Option"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:204
+#: 7cea657981754354a10bf24e416d84bb
+msgid "Description"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:204
+#: b8bf872ff2884cfaa443c5dfccf38eea
+msgid "Default"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:206
+#: 5f36cd1ed10e4ab2bed7c3c28308f8ce
+msgid "HOST_PREFIX"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:206
+#: 3ead479407cb4605b1e7a5b69c779549
+msgid "Path prefix of all host mounts"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:206
+#: 82119f9950f44dd696e52e6e5283aa4d
+msgid "/host"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:208
+#: 0e93b7dc564048ca8220c4a00ffdebf1
+msgid "CNI_DIR"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:208
+#: 01da0dc87d124927ac8d40d7b7467e16
+msgid "Path to mounted CNI directory"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:208
+#: 9d2c5cc454654599a32c012900f6e032
+msgid "${HOST_PREFIX}/opt/cni"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:210
+#: 876f689048f04e7ca5f0209a41f1514d
+msgid "CNI_CONF_NAME"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:210
+#: 64275e89982647e78cf3313603bc7742
+msgid "Name of configuration file"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:210
+#: 74091eefb6f84ed498eec56cbdc7f7e2
+msgid "05-cilium.conf"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:213
+#: d8c94b449db546e88e6c7e5e632e0ac1
+msgid ""
+"If you want to further adjust the CNI configuration you may do so by "
+"creating the CNI configuration ``/etc/cni/net.d/05-cilium.conf`` "
+"manually:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:225
+#: cb9e8b5451d64d05a75cd0b351b5eb4a
+msgid ""
+"Cilium will use any existing ``/etc/cni/net.d/05-cilium.conf`` file if it"
+" already exists on a worker node and only creates it if it does not exist"
+" yet."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:229
+#: 5d2ed0b7dc2b42549c1e9e6ab3a660ad
+msgid "CRD Validation"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:231
+#: a930aebe3fe54fa0b990cedafcf48a76
+msgid ""
+"Custom Resource Validation was introduced in Kubernetes since version "
+"``1.8.0``. This is still considered an alpha feature in Kubernetes "
+"``1.8.0`` and beta in Kubernetes ``1.9.0``."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:235
+#: 567e855d69f440a0aaf0626b9a48e272
+msgid ""
+"Since Cilium ``v1.0.0-rc3``, Cilium will create, or update in case it "
+"exists, the Cilium Network Policy (CNP) Resource Definition with the "
+"embedded validation schema. This allows the validation of "
+"CiliumNetworkPolicy to be done on the kube-apiserver when the policy is "
+"imported with an ability to provide direct feedback when importing the "
+"resource."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:241
+#: 4c88474e10da4b799a99018159790fb0
+msgid ""
+"To enable this feature, the flag ``--feature-"
+"gates=CustomResourceValidation=true`` must be set when starting kube-"
+"apiserver. Cilium itself will automatically make use of this feature and "
+"no additional flag is required."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:245
+#: 631ff2e86c2f4201bce4fa882a653023
+msgid ""
+"In case there is an invalid CNP before updating to Cilium ``v1.0.0-rc3``,"
+" which contains the validator, the kube-apiserver validator will prevent "
+"Cilium from updating that invalid CNP with Cilium node status. By "
+"checking Cilium logs for ``unable to update CNP, retrying...``, it is "
+"possible to determine which Cilium Network Policies are considered "
+"invalid after updating to Cilium ``v1.0.0-rc3``."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:253
+#: 9d379dffd5e34b9eabeb9164f982db5d
+msgid ""
+"To verify that the CNP resource definition contains the validation "
+"schema, run the following command:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:256
+#: 0e547b1aecdc4b10a342ed10cfc1ebb0
+msgid "``kubectl get crd ciliumnetworkpolicies.cilium.io -o json``"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:275
+#: f64dd23aef1a4eddb35848978fc07814
+msgid ""
+"In case the user writes a policy that does not conform to the schema, "
+"Kubernetes will return an error, e.g.:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:313
+#: bf34bca08c2c4aa7ae33ac44d77f6835
+msgid "In this case, the policy has a port out of the 0-65535 range."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:318
+#: 5ee044f5351b401a91ae04bb1afaed3e
+msgid "Mounting BPFFS with systemd"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:320
+#: 2f2f34e492a7453eaf8d1d442090eaac
+msgid ""
+"Due to how systemd `mounts "
+"<https://unix.stackexchange.com/questions/283442/systemd-mount-fails-"
+"where-setting-doesnt-match-unit-name>`__ filesystems, the mount point "
+"path must be reflected in the unit filename."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:345
+#: 045b0fe880ad4941a7300f4fc40336b4
+msgid "Container Runtimes"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:350
+#: 0ae9b79742b74fd2903ca8b21baaf8dd
+msgid "CRIO"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:352
+#: ea60e87527ef4bebbf8ac3c9aa1f7d1d
+msgid "If you want to use CRIO, generate the YAML using:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 044a0e7a7ef248028fb5a12d1c9a5d4e
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: de58fff0e6aa47f19a44f0a7ac10f28d
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: f517b3d979e84c74a8f5a26dce16f857
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:358
+#: 6494d53bc1474a1fbadda3edccf8ec93
+msgid ""
+"The helm ``--set containerRuntime.integration=crio`` might not be "
+"required for your setup. For more info see :ref:`crio-known-issues`."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:367
+#: 2c7d82824f684c2b9e0990b9c67ff5f5
+msgid ""
+"Since CRI-O does not automatically detect that a new CNI plugin has been "
+"installed, you will need to restart the CRI-O daemon for it to pick up "
+"the Cilium CNI configuration."
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:371
+#: 42385aefd68748278c322f2da1549e2b
+msgid "First make sure cilium is running:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:379
+#: df2f2aa2a08848fc946cb5b778839858
+msgid "After that you can restart CRI-O:"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:388
+#: b619bfcfd4184b779a481ee87f840c56
+msgid "Common CRIO issues"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:390
+#: 9374bf6f34ee4b2887614ed7ad236bcf
+msgid ""
+"Some CRI-O environments automatically mount the bpf filesystem in the "
+"pods, which is something that Cilium avoids doing when ``--set "
+"containerRuntime.integration=crio`` is set. However, some CRI-O "
+"environments do not mount the bpf filesystem automatically which causes "
+"Cilium to print the following message::"
+msgstr ""
+
+#: ../../concepts/kubernetes/configuration.rst:404
+#: 1002db599b674623b30b16ffc7a57b82
+msgid ""
+"If you see this warning in the Cilium pod logs with your CRI-O "
+"environment, please remove the flag ``--set "
+"containerRuntime.integration=crio`` from your helm setup and redeploy "
+"Cilium."
+msgstr ""
+

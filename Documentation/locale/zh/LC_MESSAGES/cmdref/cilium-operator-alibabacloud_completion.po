@@ -1,0 +1,91 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:3
+#: 8ffbc04eb5df46b89a4c2cbed0b2b488
+msgid "cilium-operator-alibabacloud completion"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:5
+#: fcf8cbd9bd1045a2aca825ec45e0a347
+msgid "Generate the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:7
+#: 01da523bc2f14da291c8477592d01f38
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:9
+#: 53fe84d6cb7e44599f020c617bfdbaa0
+msgid ""
+"Generate the autocompletion script for cilium-operator-alibabacloud for "
+"the specified shell. See each sub-command's help for details on how to "
+"use the generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:13
+#: 2d380c70b70c486db933457ff0ce7879
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:19
+#: ca5bd439a5bc44199bebe91b6310ad98
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:21
+#: 433e7d4449204097a7d417353c45e6ec
+msgid ""
+"[cilium-operator-alibabacloud](cilium-operator-alibabacloud.md)\t - Run "
+"cilium-operator-alibabacloud"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:22
+#: b589485f1b30426ca4c6c716a33f38ad
+msgid ""
+"[cilium-operator-alibabacloud completion bash](cilium-operator-"
+"alibabacloud_completion_bash.md)\t - Generate the autocompletion script "
+"for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:23
+#: 89c3ec940fb245ac9aa25e773f424bb3
+msgid ""
+"[cilium-operator-alibabacloud completion fish](cilium-operator-"
+"alibabacloud_completion_fish.md)\t - Generate the autocompletion script "
+"for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:24
+#: 413258308e7f4c9882d1308aabbd5250
+msgid ""
+"[cilium-operator-alibabacloud completion powershell](cilium-operator-"
+"alibabacloud_completion_powershell.md)\t - Generate the autocompletion "
+"script for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion.md:25
+#: 340eaa974f1a451da641da31a85523f2
+msgid ""
+"[cilium-operator-alibabacloud completion zsh](cilium-operator-"
+"alibabacloud_completion_zsh.md)\t - Generate the autocompletion script "
+"for zsh"
+msgstr ""
+

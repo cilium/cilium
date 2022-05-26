@@ -1,0 +1,66 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:3 86b1dd44abe8484888aef9fb112727f5
+msgid "cilium bpf ipcache list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:5 576cf82cbf174ccebdb804a9d93208a2
+msgid ""
+"List endpoint IPs (local and remote) and their corresponding security "
+"identities"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:7 9ae99d9f8b8b42e99fe7188bc4ee9e5f
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:9 1bf0a28f729a47688dd7e454e7f38ab6
+msgid ""
+"List endpoint IPs (local and remote) and their corresponding security "
+"identities."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:11 58313c6b637f40b3bd67eaa1c8cd870e
+msgid ""
+"Note that for Linux kernel versions between 4.11 and 4.15 inclusive, the "
+"native LPM map type used for implementing this feature does not provide "
+"the ability to walk / dump the entries, so on these kernel versions this "
+"tool will never return any entries, even if entries exist in the map. You"
+" may instead run:     cilium map get cilium_ipcache"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:22 ee2d525e7be94e649efa4c11b7977ed8
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:29 01dba3bb502e4217b2361eeb082fc210
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:37 170063d30404424e9aae69fa5f335410
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache_list.md:39 359485d99f40443382583b69dae0b0d0
+msgid ""
+"[cilium bpf ipcache](cilium_bpf_ipcache.md)\t - Manage the IPCache "
+"mappings for IP/CIDR <-> Identity"
+msgstr ""
+

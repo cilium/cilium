@@ -1,0 +1,75 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/encryption.rst:3 e3b68efcf0494d07a99579b02413c91b
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/encryption.rst:11 d793cc751fbe4f77856c98ed8d80111a
+msgid "Transparent Encryption"
+msgstr ""
+
+#: ../../gettingstarted/encryption.rst:13 5a02c365746b4c26a35ebae0470a28c4
+msgid ""
+"Cilium supports the transparent encryption of Cilium-managed host traffic"
+" and traffic between Cilium-managed endpoints either using IPsec or "
+"WireGuard®:"
+msgstr ""
+
+#: ../../gettingstarted/encryption.rst:25 3bd31a909cc1404fad453e010db1a570
+msgid "Known Issues and Workarounds"
+msgstr ""
+
+#: ../../gettingstarted/encryption.rst:28 5af72b6036f44b3ba7887263f6141a7c
+msgid "Egress traffic to not yet discovered remote endpoints may be unencrypted"
+msgstr ""
+
+#: ../../gettingstarted/encryption.rst:30 0ce2b57431bb441e9e8b7f0cf741bb16
+msgid ""
+"To determine if a packet needs to be encrypted or not, transparent "
+"encryption relies on the same mechanisms as policy enforcement to decide "
+"if the destination of an outgoing packet belongs to a Cilium-managed "
+"endpoint on a remote node. This means that if an endpoint is allowed to "
+"initiate traffic to targets outside of the cluster, it is possible for "
+"that endpoint to send packets to arbitrary IP addresses before Cilium "
+"learns that a particular IP address belongs to a remote Cilium-managed "
+"endpoint or newly joined remote Cilium host in the cluster. In such a "
+"case there is a time window during which Cilium will send out the initial"
+" packets unencrypted, as it has to assume the destination IP address is "
+"outside of the cluster. Once the information about the newly created "
+"endpoint has propagated in the cluster and Cilium knows that the IP "
+"address is an endpoint on a remote node, it will start encrypting packets"
+" using the encryption key of the remote node."
+msgstr ""
+
+#: ../../gettingstarted/encryption.rst:44 00653bfdb242427293e5fab75362f0b6
+msgid ""
+"The workaround for this issue is to ensure that the endpoint is not "
+"allowed to send unencrypted traffic to arbitrary targets outside of the "
+"cluster. This can be achieved by defining an egress policy which either "
+"completely disallows traffic to ``reserved:world`` identities, or only "
+"allows egress traffic to addresses outside of the cluster to a certain "
+"subset of trusted IP addresses using ``toCIDR``, ``toCIDRSet`` and "
+"``toFQDN`` rules. See :ref:`policy_examples` for more details about how "
+"to write network policies that restrict egress traffic to certain "
+"endpoints."
+msgstr ""
+

@@ -1,0 +1,52 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../policy/index.rst:3 c15dc0dc35b541fc9930514d96a3228c
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../policy/index.rst:12 8f91e8f42a0d4f68a06e3524f34ba501
+msgid "Network Policy"
+msgstr ""
+
+#: ../../policy/index.rst:14 59e4ab6e3a154cd6b51e934fe051482b
+msgid ""
+"This chapter documents the policy language used to configure network "
+"policies in Cilium. Security policies can be specified and imported via "
+"the following mechanisms:"
+msgstr ""
+
+#: ../../policy/index.rst:18 6081261f79684ca68ec8742bcadb9596
+msgid ""
+"Using Kubernetes `NetworkPolicy`, `CiliumNetworkPolicy` and "
+"`CiliumClusterwideNetworkPolicy` resources. See the section "
+":ref:`k8s_policy` for more details. In this mode, Kubernetes will "
+"automatically distribute the policies to all agents."
+msgstr ""
+
+#: ../../policy/index.rst:22 30f17a1665274d4da688de8de90e8e59
+msgid ""
+"Directly imported into the agent via CLI or :ref:`api_ref` of the agent. "
+"This method does not automatically distribute policies to all agents. It "
+"is in the responsibility of the user to import the policy in all required"
+" agents."
+msgstr ""
+

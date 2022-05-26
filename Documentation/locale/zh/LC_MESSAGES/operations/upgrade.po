@@ -1,0 +1,1068 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: ../../operations/upgrade-warning.rst:3 ../../operations/upgrade.rst:3
+#: 19cf2d5e153d4095ad5bf79f7c3d5c00 94f9dc1571e64b38adc70643c1de99fc
+#: bb07e6f28a674ba38cbe5f2c8c7e1c9a f5b52f5cb3084144b04ed1e99d2e1ca7
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../operations/upgrade.rst:11 ede2bdb3fe0a471bbd1145d11659692e
+msgid "Upgrade Guide"
+msgstr ""
+
+#: ../../operations/upgrade.rst:15 e357fde5d3a3428fb48e61320628f7bf
+msgid ""
+"This upgrade guide is intended for Cilium running on Kubernetes. If you "
+"have questions, feel free to ping us on the :term:`Slack channel`."
+msgstr ""
+
+#: ../../operations/upgrade-warning.rst:9 1aa2c14a975b4332a3e7875f3c1a7f26
+#: 7bdf992a5da6430caf007b9369cc50d9
+msgid ""
+"Read the full upgrade guide to understand all the necessary steps before "
+"performing them."
+msgstr ""
+
+#: ../../operations/upgrade-warning.rst:12 8eea322a59c942c88ae038caa68df7b3
+#: dbd0c2cb50ce405abaeafdc12c9b7c58
+msgid ""
+"Do not upgrade to \\ |NEXT_RELEASE|.0 before reading the section "
+":ref:`current_release_required_changes` and completing the required "
+"steps. Skipping this step may lead to an non-functional upgrade."
+msgstr ""
+
+#: ../../operations/upgrade.rst:23 5dffcd1b46dc4d4fa288b6a9373954ed
+msgid "Running pre-flight check (Required)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:25 7976a3d674574ddbb5cbb2fc3db3823e
+msgid ""
+"When rolling out an upgrade with Kubernetes, Kubernetes will first "
+"terminate the pod followed by pulling the new image version and then "
+"finally spin up the new image. In order to reduce the downtime of the "
+"agent and to prevent ``ErrImagePull`` errors during upgrade, the pre-"
+"flight check pre-pulls the new image version. If you are running in :ref"
+":`kubeproxy-free` mode you must also pass on the Kubernetes API Server IP"
+" and / or the Kubernetes API Server Port when generating the ``cilium-"
+"preflight.yaml`` file."
+msgstr ""
+
+#: ../../operations/upgrade.rst:35 ../../operations/upgrade.rst:114
+#: ../../operations/upgrade.rst:174 ../../operations/upgrade.rst:248
+#: 6acd49af2ec346f287e44aaa352e6b80 8727c0cbbd8b418fbd9482aa94abb30a
+#: c0c44f049f1a4c308bedf618afc8948a de7edd33765c4675bcfc3e26c77dd9d6
+msgid "kubectl"
+msgstr ""
+
+#: ../../operations/upgrade.rst:47 ../../operations/upgrade.rst:120
+#: ../../operations/upgrade.rst:186 ../../operations/upgrade.rst:254
+#: 39ab6970b84f4e079a67aab117e6bff2 8bb55f470d6a4fa8825614bacfdcb9af
+#: 9ba568eaa6de40eda41e7347e7a3faae c5ad45da871b42fb855685ad7574c010
+msgid "Helm"
+msgstr ""
+
+#: ../../operations/upgrade.rst:57 fd9d31183da84fa2841f467afeedec6c
+msgid "kubectl (kubeproxy-free)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:71 0b87ecaadf7749119a57224062b9c4e9
+msgid "Helm (kubeproxy-free)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:83 d5320447b30040409f71834dc7104e8d
+msgid ""
+"After applying the ``cilium-preflight.yaml``, ensure that the number of "
+"READY pods is the same number of Cilium pods running."
+msgstr ""
+
+#: ../../operations/upgrade.rst:93 3bf5d3a631c54a2cbddec3c3a2927e99
+msgid ""
+"Once the number of READY pods are equal, make sure the Cilium pre-flight "
+"deployment is also marked as READY 1/1. If it shows READY 0/1, consult "
+"the :ref:`cnp_validation` section and resolve issues with the deployment "
+"before continuing with the upgrade."
+msgstr ""
+
+#: ../../operations/upgrade.rst:107 f256b018f29e49298570182a10e0c8a8
+msgid "Clean up pre-flight check"
+msgstr ""
+
+#: ../../operations/upgrade.rst:109 17810c59b4df426c97c5d58bde786f3c
+msgid ""
+"Once the number of READY for the preflight :term:`DaemonSet` is the same "
+"as the number of cilium pods running and the preflight ``Deployment`` is "
+"marked as READY ``1/1`` you can delete the cilium-preflight and proceed "
+"with the upgrade."
+msgstr ""
+
+#: ../../operations/upgrade.rst:129 e23bf5501830415c888610ebf0fe1ba4
+msgid "Upgrading Cilium"
+msgstr ""
+
+#: ../../operations/upgrade.rst:131 805febdd500e4766a35db55d895b5dbb
+msgid ""
+"During normal cluster operations, all Cilium components should run the "
+"same version. Upgrading just one of them (e.g., upgrading the agent "
+"without upgrading the operator) could result in unexpected cluster "
+"behavior. The following steps will describe how to upgrade all of the "
+"components from one stable release to a later stable release."
+msgstr ""
+
+#: ../../operations/upgrade.rst:140 02c6333656d44bccbab91ba1558c3f5b
+msgid "Step 1: Upgrade to latest patch version"
+msgstr ""
+
+#: ../../operations/upgrade.rst:142 ce0bda6e246347e1af1c9d3c61136b94
+msgid ""
+"When upgrading from one minor release to another minor release, for "
+"example 1.x to 1.y, it is recommended to upgrade to the latest patch "
+"release for a Cilium release series first. The latest patch releases for "
+"each supported version of Cilium are `here "
+"<https://github.com/cilium/cilium#stable-releases>`_. Upgrading to the "
+"latest patch release ensures the most seamless experience if a rollback "
+"is required following the minor release upgrade. The upgrade guides for "
+"previous versions can be found for each minor version at the bottom left "
+"corner."
+msgstr ""
+
+#: ../../operations/upgrade.rst:152 9d393741ad6d47a49a40552babb5f349
+msgid "Step 2: Use Helm to Upgrade your Cilium deployment"
+msgstr ""
+
+#: ../../operations/upgrade.rst:154 c7402198b94d4fedb51d1a4fdd7f648a
+msgid ""
+":term:`Helm` can be used to either upgrade Cilium directly or to generate"
+" a new set of YAML files that can be used to upgrade an existing "
+"deployment via ``kubectl``. By default, Helm will generate the new "
+"templates using the default values files packaged with each new release. "
+"You still need to ensure that you are specifying the equivalent options "
+"as used for the initial deployment, either by specifying a them at the "
+"command line or by committing the values to a YAML file."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: e61285a05e6042c49f0dff1949a20e3a
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: cb2171ede2744499a072bbfe139cff7a
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: b0b796eec0e448a39a8b15c479796d1f
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:164 ddfc54f782fa4293bcbfa006860472a7
+msgid ""
+"To minimize datapath disruption during the upgrade, the "
+"``upgradeCompatibility`` option should be set to the initial Cilium "
+"version which was installed in this cluster. Valid options are:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:168 8c536c013c2244b49c780e5d4df69a72
+msgid "``1.7`` if the initial install was Cilium 1.7.x or earlier."
+msgstr ""
+
+#: ../../operations/upgrade.rst:169 11a6f53a968a43da9a86da3cf5ab5315
+msgid "``1.8`` if the initial install was Cilium 1.8.x."
+msgstr ""
+
+#: ../../operations/upgrade.rst:170 0cead8dd2cfa426fa041b2442dc1600d
+msgid "``1.9`` if the initial install was Cilium 1.9.x."
+msgstr ""
+
+#: ../../operations/upgrade.rst:171 c2356ed0c3db40dbbd02fcb474bd7ef2
+msgid "``1.10`` if the initial install was Cilium 1.10.x."
+msgstr ""
+
+#: ../../operations/upgrade.rst:176 0256f44e48a246d1a60236e0d50311d8
+msgid "Generate the required YAML file and deploy it:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:188 643be6927f144e24bfacb23d41d88bd6
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:198 d057c1e98660481fb3565acfb987fdfe
+msgid ""
+"Instead of using ``--set``, you can also save the values relative to your"
+" deployment in a YAML file and use it to regenerate the YAML for the "
+"latest Cilium version. Running any of the previous commands will "
+"overwrite the existing cluster's :term:`ConfigMap` so it is critical to "
+"preserve any existing options, either by setting them at the command line"
+" or storing them in a YAML file, similar to:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:215 8d4250754e964eb58e8a558b5b27e4cd
+msgid "You can then upgrade using this values file by running:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:223 23302e7df21c4555bd7c1bc785ccb13b
+msgid ""
+"When upgrading from one minor release to another minor release using "
+"``helm upgrade``, do *not* use Helm's ``--reuse-values`` flag. The "
+"``--reuse-values`` flag ignores any newly introduced values present in "
+"the new release and thus may cause the Helm template to render "
+"incorrectly. Instead, if you want to reuse the values from your existing "
+"installation, save the old values in a values file, check the file for "
+"any renamed or deprecated values, and then pass it to the ``helm "
+"upgrade`` command as described above. You can retrieve and save the "
+"values from an existing installation with the following command:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:237 a00d60911a214c33b21e8f09a50ab758
+msgid ""
+"The ``--reuse-values`` flag may only be safely used if the Cilium chart "
+"version remains unchanged, for example when ``helm upgrade`` is used to "
+"apply configuration changes without upgrading Cilium."
+msgstr ""
+
+#: ../../operations/upgrade.rst:242 639f5642ec6e42de858e1a8ab6974961
+msgid "Step 3: Rolling Back"
+msgstr ""
+
+#: ../../operations/upgrade.rst:244 5438fa1846044fc587653597f1816cf2
+msgid ""
+"Occasionally, it may be necessary to undo the rollout because a step was "
+"missed or something went wrong during upgrade. To undo the rollout run:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:261 b13ce774aa954d10b339756198def824
+msgid ""
+"This will revert the latest changes to the Cilium ``DaemonSet`` and "
+"return Cilium to the state it was in prior to the upgrade."
+msgstr ""
+
+#: ../../operations/upgrade.rst:266 26acd26631c743b0af898f8cf7ed6dbe
+msgid ""
+"When rolling back after new features of the new minor version have "
+"already been consumed, consult the :ref:`version_notes` to check and "
+"prepare for incompatible feature use before downgrading/rolling back. "
+"This step is only required after new functionality introduced in the new "
+"minor version has already been explicitly used by creating new resources "
+"or by opting into new features via the :term:`ConfigMap`."
+msgstr ""
+
+#: ../../operations/upgrade.rst:277 c52bc5c7124247169b052ffc69bc9764
+msgid "Version Specific Notes"
+msgstr ""
+
+#: ../../operations/upgrade.rst:279 a924c072107e4c4f9006bc10d123436a
+msgid ""
+"This section documents the specific steps required for upgrading from one"
+" version of Cilium to another version of Cilium. There are particular "
+"version transitions which are suggested by the Cilium developers to avoid"
+" known issues during upgrade, then subsequently there are sections for "
+"specific upgrade transitions, ordered by version."
+msgstr ""
+
+#: ../../operations/upgrade.rst:285 e40f24d43c4f4d22af2a77dbcb6a2ba8
+msgid ""
+"The table below lists suggested upgrade transitions, from a specified "
+"current version running in a cluster to a specified target version. If a "
+"specific combination is not listed in the table below, then it may not be"
+" safe. In that case, consider performing incremental upgrades between "
+"versions (e.g. upgrade from ``1.9.x`` to ``1.10.y`` first, and to "
+"``1.11.z`` only afterwards)."
+msgstr ""
+
+#: ../../operations/upgrade.rst:292 81b74091f0fc41d4ad3838a75aaa8e97
+msgid "Current version"
+msgstr ""
+
+#: ../../operations/upgrade.rst:292 f2a588de438b4643813bfd9beec809af
+msgid "Target version"
+msgstr ""
+
+#: ../../operations/upgrade.rst:292 74a450d9da8f4748bc0efd1a80cc23e7
+msgid "L3/L4 impact"
+msgstr ""
+
+#: ../../operations/upgrade.rst:292 21ee61a08a264962a330a73c2e627111
+msgid "L7 impact"
+msgstr ""
+
+#: ../../operations/upgrade.rst:294 782639cb57144ab3a3d1876b5567e7eb
+msgid "``1.10.x``"
+msgstr ""
+
+#: ../../operations/upgrade.rst:294 65395686ae864b1eb4fe4f66f48392fa
+msgid "``1.11.y``"
+msgstr ""
+
+#: ../../operations/upgrade.rst:294 ../../operations/upgrade.rst:296
+#: ../../operations/upgrade.rst:298 27bba91143b6480eaecde6ead9dded01
+#: 32c876be089148088dd2d2693ab66ca0 55e0bb1da81f4dae80eac5061c99f3f3
+msgid "Minimal to None"
+msgstr ""
+
+#: ../../operations/upgrade.rst:294 ../../operations/upgrade.rst:296
+#: ../../operations/upgrade.rst:298 0f3fce86d2e24e59a3949ae54de879cc
+#: 69da0254f56d4622b4822507104b1a47 741b1c9b9df24a99a5b94487674dffa0
+msgid "Clients must reconnect[1]"
+msgstr ""
+
+#: ../../operations/upgrade.rst:296 5766a3d6620c4b82a7c6db20eaf395d6
+msgid "``1.9.x``"
+msgstr ""
+
+#: ../../operations/upgrade.rst:296 3cec026b390d47759650278d4689a027
+msgid "``1.10.y``"
+msgstr ""
+
+#: ../../operations/upgrade.rst:298 8c251d1179ef456cb45cb013f555c4f1
+msgid "``1.8.x``"
+msgstr ""
+
+#: ../../operations/upgrade.rst:298 2f69466795f34441b0049935302790b5
+msgid "``1.9.y``"
+msgstr ""
+
+#: ../../operations/upgrade.rst:301 db0e12abceca40ebbc7123fe3a4746b8
+msgid "Annotations:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:303 9b7e0d9f03414d1dbf52b9f4622d8b15
+msgid ""
+"**Clients must reconnect**: Any traffic flowing via a proxy (for example,"
+" because an L7 policy is in place) will be disrupted during upgrade. "
+"Endpoints communicating via the proxy must reconnect to re-establish "
+"connections."
+msgstr ""
+
+#: ../../operations/upgrade.rst:313 22845741e83d4dc9b2673a131227b62c
+msgid "1.12 Upgrade Notes"
+msgstr ""
+
+#: ../../operations/upgrade.rst:315 6676571b7ac84817b9ad0b69b535a3af
+msgid ""
+"The Cilium agent does not support the legacy ``nat46-range`` option as "
+"well as the per-endpoint ``NAT46`` configuration anymore. Both are "
+"replaced in favor of NAT46/64 handling for services."
+msgstr ""
+
+#: ../../operations/upgrade.rst:320 ../../operations/upgrade.rst:457
+#: 9064add3a4e34390a5d75e7a13110307 c7c1002a93a14b93937b04c9a0e99d0f
+msgid "New Options"
+msgstr ""
+
+#: ../../operations/upgrade.rst:322 4373e72e9f48488cbc3454f1b18ebaa1
+msgid ""
+"``ipv6-native-routing-cidr``: This option specifies the IPv6 CIDR for "
+"native routing. It must be set whenever running in direct routing mode "
+"with IPv6 masquerading enabled."
+msgstr ""
+
+#: ../../operations/upgrade.rst:325 400ed4f2c82545b789e8ba7101c1f7ad
+msgid ""
+"``instance-tags-filter``: This option specifies a list of tags used to "
+"search for EC2 instances (and existing ENIs). EC2 Instances tags is in "
+"the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by "
+"repeating the CLI flag\") Use ``instanceTagsFilter`` in Helm chart."
+msgstr ""
+
+#: ../../operations/upgrade.rst:329 c98293a63bbd4b2ab4d607b2117aaa51
+msgid ""
+"``nodes-gc-interval``: This option was marked as deprecated and has no "
+"effect in 1.11. Cilium Node Garbage collector is added back in 1.12 (but "
+"for k8s GC instead of kvstore), so this flag is moved out of deprecated "
+"list."
+msgstr ""
+
+#: ../../operations/upgrade.rst:334 ../../operations/upgrade.rst:411
+#: d6c9d26a32e24ed286584e0251c9b104 f04d8c03770549e98c50f6a66aacaf6c
+msgid "Removed Options"
+msgstr ""
+
+#: ../../operations/upgrade.rst:336 c5f9ab80b58f48378226e5d89e5288cf
+msgid ""
+"The endpoint config option ``Conntrack`` was removed. The option was used"
+" to disable the stateful connection tracking for the endpoint. However, "
+"many Cilium features depend on the tracking. Therefore the option to "
+"disable the connection tracking was removed. In addition, we deprecated "
+"the ``disable-conntrack`` option and made it non-operational. It will be "
+"removed in version 1.13."
+msgstr ""
+
+#: ../../operations/upgrade.rst:342 0b621de0fbf146ad8605111234434847
+msgid ""
+"The ``host-reachable-services-protos`` option "
+"(``.hostServices.protocols`` in Helm) was deprecated, and it will be "
+"removed in version 1.13."
+msgstr ""
+
+#: ../../operations/upgrade.rst:344 4b723de89c59489d860aa9e6cc14e42b
+msgid ""
+"The ``native-routing-cidr`` option deprecated in 1.11 in favor of ``ipv4"
+"-native-routing-cidr`` has been removed."
+msgstr ""
+
+#: ../../operations/upgrade.rst:348 ../../operations/upgrade.rst:433
+#: 28487e06f1b34752bbd2cfaf05ebdcd7 d9f5e7e2b2ca4e1096623c3536fe2244
+msgid "Deprecated Options"
+msgstr ""
+
+#: ../../operations/upgrade.rst:350 7799ff1d221b4d63af1132382cea13f4
+msgid ""
+"The ``CiliumEgressNATPolicy`` CRD has been deprecated, and will be "
+"removed in version 1.13. It is superseded by the "
+"``CiliumEgressGatewayPolicy`` CRD, which allows for better selection of "
+"the Egress Node, Egress Interface and Masquerade IP."
+msgstr ""
+
+#: ../../operations/upgrade.rst:355 ../../operations/upgrade.rst:476
+#: 2f0f315baf3646278f302485432f2424 6f95d055bef04b53b72dafab9f7f3cb8
+msgid "Helm Options"
+msgstr ""
+
+#: ../../operations/upgrade.rst:357 b8e8fa34345f4b5794335e874c0cc671
+msgid ""
+"``bandwidthManager`` has been deprecated in favor of "
+"``bandwidthManager.enabled``, and will be removed in 1.13."
+msgstr ""
+
+#: ../../operations/upgrade.rst:359 2d47eb140c96438c800ce1f9ea0c684d
+msgid ""
+"``bpf.hostRouting`` has been deprecated in favor of "
+"``bpf.hostLegacyRouting``, and will be removed in 1.13."
+msgstr ""
+
+#: ../../operations/upgrade.rst:361 6a9bd0a8e1154eb3bbeaf75727826b6e
+msgid ""
+"``hubble.tls.ca.cert`` has been deprecated in favor of ``tls.ca.cert``, "
+"and will be removed in 1.13."
+msgstr ""
+
+#: ../../operations/upgrade.rst:363 b96db99a8dda47358d244344670a1801
+msgid ""
+"``hubble.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``, and"
+" will be removed in 1.13."
+msgstr ""
+
+#: ../../operations/upgrade.rst:365 614289cf6110477c96a842479a73f858
+msgid ""
+"``hubble.ui.securityContext.enabled`` has been deprecated in favor of "
+"``hubble.ui.securityContext``, and will be removed in 1.13."
+msgstr ""
+
+#: ../../operations/upgrade.rst:367 745748a4d3bf4abb9f6ae39690b5a08e
+msgid ""
+"``clustermesh.apiserver.tls.ca.cert`` has been deprecated in favor of "
+"``tls.ca.key``, and will be removed in 1.13."
+msgstr ""
+
+#: ../../operations/upgrade.rst:369 85d8fd6205374ab7983c956f3a88b939
+msgid ""
+"``clustermesh.apiserver.tls.ca.key`` has been deprecated in favor of "
+"``tls.ca.key``, and will be removed in 1.13."
+msgstr ""
+
+#: ../../operations/upgrade.rst:371 80dbae5e54c04d548ca63b1488a53982
+msgid ""
+"``operator.unmanagedPodWatcher.restart`` has been introduced to govern "
+"whether the cilium-operator will attempt to restart pods that are not "
+"managed by Cilium. To retain consistency with earlier releases, this "
+"setting is enabled by default."
+msgstr ""
+
+#: ../../operations/upgrade.rst:375 ab113e3039dd4e67a0c5975f2c1ca9d6
+msgid "``tls.enabled`` has been removed as this attribute is not used at all."
+msgstr ""
+
+#: ../../operations/upgrade.rst:376 4feef88c091c4494b41a91207d1e363e
+msgid ""
+"Only one CA will be generated with either the helm or CronJob auto "
+"method, there will be a short disruption while the new CA is propagated "
+"to all nodes."
+msgstr ""
+
+#: ../../operations/upgrade.rst:382 d22f892f37f14927abc0feb26811741a
+msgid "1.11 Upgrade Notes"
+msgstr ""
+
+#: ../../operations/upgrade.rst:384 3cbe73a175fe4c298478f8fd8dc82316
+msgid ""
+"The Cilium agent will now fail instead of falling back to auto-detection "
+"when device wildcard expansion (``--devices=eth+``) yields no devices."
+msgstr ""
+
+#: ../../operations/upgrade.rst:386 6dd5cebaa37840c1a43599af4439f8f6
+msgid ""
+"Device auto-detection now discovers devices through the routing table and"
+" only considers devices that have a global unicast route in some routing "
+"table."
+msgstr ""
+
+#: ../../operations/upgrade.rst:388 35746c3f2a634502bc0b70b1bac96195
+msgid ""
+"The XDP-based prefilter is enabled for all devices specified by "
+"``--devices`` if ``--prefilter-device`` is set."
+msgstr ""
+
+#: ../../operations/upgrade.rst:390 03c0cf10be244127bdf75702e0f1dd85
+msgid ""
+"New flags were added to enable installation where alternative "
+"VXLAN/Geneve and health ports need to be used (``--tunnel-port`` and "
+"``--cluster-health-port``). Default values of these flags haven't "
+"changed, however if ``--tunnel-port`` gets set to non-default values on "
+"upgrade, there will datapath downtime between nodes. If ``--tunnel-port``"
+" needs to change, it's recommended to perform the upgrade first, and "
+"change the port afterwards, in order to separate agent upgrade from "
+"configuration update. Changing ``--cluster-health-port`` will not affect "
+"datapath, however it's recommended to still handle configuration change "
+"separately from agent upgrade. Changing both ports simultaneously "
+"shouldn't cause any issues."
+msgstr ""
+
+#: ../../operations/upgrade.rst:399 0f62c0c8f34248c48eddafdd25d7ae05
+msgid ""
+"When Egress Gateway is enabled, upgrading to 1.11 will cause a brief "
+"interruption of the connectivity between the client pods and the egress "
+"gateway nodes. Once the connectivity is restored, clients will need to "
+"reconnect."
+msgstr ""
+
+#: ../../operations/upgrade.rst:405 c79b8f22e2454044a27dfa70b86e400e
+msgid "Removed Metrics/Labels"
+msgstr ""
+
+#: ../../operations/upgrade.rst:407 1832f11351544b50936b060fa39b7c94
+msgid ""
+"``cilium_operator_identity_gc_entries_total`` is removed. Please use "
+"``cilium_operator_identity_gc_entries`` instead."
+msgstr ""
+
+#: ../../operations/upgrade.rst:408 c75b05af1bbe41a099e05889c3ced08a
+msgid ""
+"``cilium_operator_identity_gc_runs_total`` is removed. Please use "
+"``cilium_operator_identity_gc_runs`` instead."
+msgstr ""
+
+#: ../../operations/upgrade.rst:413 8949132b3a96498eadedb8df85b767b3
+msgid ""
+"``bpf-compile-debug``: This option does not have any effect since 1.10 "
+"and is now removed."
+msgstr ""
+
+#: ../../operations/upgrade.rst:415 c5faa97036544be6b42de4c388b581ed
+msgid ""
+"``k8s-force-json-patch``: This option does not have any effect for "
+"environments running Kubernetes >= 1.13, is deprecated since 1.10, and "
+"now removed."
+msgstr ""
+
+#: ../../operations/upgrade.rst:418 bc6880cf03bb46a48ef1f4760b11cacf
+msgid ""
+"``masquerade``: This option has been deprecated in 1.10 and replaced by "
+"``enable-ipv4-masquerade``."
+msgstr ""
+
+#: ../../operations/upgrade.rst:420 c41c8f52e5fb4835b55737be3ea1fbc9
+msgid ""
+"``skip-crd-creation``: This option does not have any effect since 1.10 "
+"and is now removed."
+msgstr ""
+
+#: ../../operations/upgrade.rst:422 d8fbb4da73b84140ae9da9165e01ce91
+msgid ""
+"``hubble-flow-buffer-size``: This option was deprecated in 1.10 in favor "
+"of ``hubble-event-buffer-capacity``. It is now removed."
+msgstr ""
+
+#: ../../operations/upgrade.rst:424 1b857968f2b645a48ddd44f5cd344e55
+msgid ""
+"The ``Capabilities`` Helm value has been removed. When using ``helm "
+"template`` to generate the Kubernetes manifest for a specific Kubernetes "
+"version, please use the ``--kube-version`` flag (introduced in Helm "
+"3.6.0) instead."
+msgstr ""
+
+#: ../../operations/upgrade.rst:427 de18971abc594b33ab67487023671f39
+msgid ""
+"The deprecated ``hubble-ca-cert`` ConfigMap has been removed. Use "
+"``hubble-ca-secret`` secret instead."
+msgstr ""
+
+#: ../../operations/upgrade.rst:429 ab812a4d57254d18b34404089d4e0c21
+msgid ""
+"The ``azure-cloud-name`` option for ``cilium-operator-azure`` was "
+"deprecated in 1.10 and is now removed."
+msgstr ""
+
+#: ../../operations/upgrade.rst:435 74a1d79dfd4944d19e019f88d43d310f
+msgid ""
+"``native-routing-cidr``: This option has been deprecated in favor of "
+"``ipv4-native-routing-cidr`` and will be removed in 1.12."
+msgstr ""
+
+#: ../../operations/upgrade.rst:437 b7632b682afa4c1a9404c50291274502
+msgid ""
+"``prefilter-device`` and ``prefilter-mode``: These options have been "
+"deprecated in favor of ``enable-xdp-prefilter`` and ``bpf-lb-"
+"acceleration``, and will be removed in 1.12. To select the prefilter "
+"devices use ``devices``."
+msgstr ""
+
+#: ../../operations/upgrade.rst:440 9b56de85af634ecb9ff4968e77fab043
+msgid ""
+"The NodePort related ``bpf-lb-bypass-fib-lookup`` option to enable a FIB "
+"lookup bypass optimization for NodePort's reverse NAT handling has been "
+"deprecated as the Linux kernel's FIB table is now always consulted. Thus,"
+" explicitly setting the option has no effect. It is scheduled for removal"
+" in 1.12."
+msgstr ""
+
+#: ../../operations/upgrade.rst:445 eae861b3c3c54172852ba02ba22202a1
+msgid ""
+"IPVLAN support has been deprecated due to lack of feature support and "
+"lack of community interest. `Recent improvements Virtual Ethernet device "
+"performance <https://cilium.io/blog/2020/11/10/cilium-19#veth>`_ have "
+"granted many of the benefits of IPVLAN to the standard veth mode."
+msgstr ""
+
+#: ../../operations/upgrade.rst:449 a8455760fa2b409ea4c87fc648596c9c
+msgid ""
+"Support for Consul as a kvstore backend has been deprecated due to a lack"
+" of community interest. It is planned for removal in 1.12."
+msgstr ""
+
+#: ../../operations/upgrade.rst:451 dd1f3add05c249818ab90ce561796f26
+msgid ""
+"The in-pod Cilium CLI command ``cilium policy trace`` has been deprecated"
+" in favor of approaches using the `Network Policy Editor "
+"<https://app.networkpolicy.io>`_ or guide for `policy_verdicts`."
+msgstr ""
+
+#: ../../operations/upgrade.rst:454 048f62ae619c4d3e937757ac53c7c929
+msgid "Cilium no longer recognizes label sources from Mesos."
+msgstr ""
+
+#: ../../operations/upgrade.rst:459 2cf4a89ae9b544fb9d0ba8a22bd0a567
+msgid ""
+"``kvstore-max-consecutive-quorum-errors``: This option configures the max"
+" acceptable kvstore consecutive quorum errors before the agent assumes "
+"permanent failure."
+msgstr ""
+
+#: ../../operations/upgrade.rst:464 67bcda2fa6e34c15b5f4f001550d73dc
+msgid "Renamed Options"
+msgstr ""
+
+#: ../../operations/upgrade.rst:466 d1c4dfb96c6445e48f3bbb916a8298ff
+msgid "The following option has been renamed:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:468 9c093197242e408fb35c54b696337fd9
+msgid "``enable-egress-gateway`` to ``enable-ipv4-egress-gateway``."
+msgstr ""
+
+#: ../../operations/upgrade.rst:471 9fc1ef2366794216a049043f17f52e91
+msgid "Deprecated Options in Cilium Operator"
+msgstr ""
+
+#: ../../operations/upgrade.rst:472 b07e7733114e49209bcb775ee7dcc079
+msgid ""
+"``nodes-gc-interval``: This option will be removed in 1.12. Its value "
+"does not have any effect in 1.11."
+msgstr ""
+
+#: ../../operations/upgrade.rst:478 16086cbde21644cfaed2514c192cffdf
+msgid "``hostFirewall`` was renamed to ``hostFirewall.enabled``."
+msgstr ""
+
+#: ../../operations/upgrade.rst:479 481f55289aba4d07871d9477f5d1428c
+msgid ""
+"``ipam.operator.clusterPoolIPv4PodCIDR`` was deprecated in favor of "
+"``ipam.operator.clusterPoolIPv4PodCIDRList``"
+msgstr ""
+
+#: ../../operations/upgrade.rst:480 6169a9042b944197adcd0d615ceca800
+msgid ""
+"``ipam.operator.clusterPoolIPv6PodCIDR`` was deprecated in favor of "
+"``ipam.operator.clusterPoolIPv6PodCIDRList``"
+msgstr ""
+
+#: ../../operations/upgrade.rst:481 ddda9f3161f2456e904eff439819e6f5
+msgid ""
+"``nativeRoutingCIDR``: was deprecated in favor of "
+"``ipv4NativeRoutingCIDR``"
+msgstr ""
+
+#: ../../operations/upgrade.rst:484 9497beab70ad46b1a12624a9b71bf714
+msgid "Advanced"
+msgstr ""
+
+#: ../../operations/upgrade.rst:487 53112e40ac674f84947945c9c90be264
+msgid "Upgrade Impact"
+msgstr ""
+
+#: ../../operations/upgrade.rst:489 a9edea5b2b46404eab72232a33c119c8
+msgid ""
+"Upgrades are designed to have minimal impact on your running deployment. "
+"Networking connectivity, policy enforcement and load balancing will "
+"remain functional in general. The following is a list of operations that "
+"will not be available during the upgrade:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:494 953ee13c18ed4ccab1db0013e4fce224
+msgid ""
+"API aware policy rules are enforced in user space proxies and are "
+"currently running as part of the Cilium pod unless Cilium is configured "
+"to run in Istio mode. Upgrading Cilium will cause the proxy to restart "
+"which will result in a connectivity outage and connection to be reset."
+msgstr ""
+
+#: ../../operations/upgrade.rst:499 6e6c72d4bb964e019da1c32af05020cf
+msgid ""
+"Existing policy will remain effective but implementation of new policy "
+"rules will be postponed to after the upgrade has been completed on a "
+"particular node."
+msgstr ""
+
+#: ../../operations/upgrade.rst:503 8e4814a038ca4f449c7f25b114e0bf26
+msgid ""
+"Monitoring components such as ``cilium monitor`` will experience a brief "
+"outage while the Cilium pod is restarting. Events are queued up and read "
+"after the upgrade. If the number of events exceeds the event buffer size,"
+" events will be lost."
+msgstr ""
+
+#: ../../operations/upgrade.rst:512 f4cc3ce46e82491db9081bb70efef6d7
+msgid "Rebasing a ConfigMap"
+msgstr ""
+
+#: ../../operations/upgrade.rst:514 8ee8d2a044da49df83af2585691c59cd
+msgid ""
+"This section describes the procedure to rebase an existing "
+":term:`ConfigMap` to the template of another version."
+msgstr ""
+
+#: ../../operations/upgrade.rst:518 7b8a2e25cd2c45f59dc17f50ba50252c
+msgid "Export the current ConfigMap"
+msgstr ""
+
+#: ../../operations/upgrade.rst:550 3b31d22203774dd7b0c8aacfec4500f1
+msgid ""
+"In the :term:`ConfigMap` above, we can verify that Cilium is using "
+"``debug`` with ``true``, it has a etcd endpoint running with `TLS "
+"<https://etcd.io/docs/latest/op-guide/security/>`_, and the etcd is set "
+"up to have `client to server authentication <https://etcd.io/docs/latest"
+"/op-guide/security/#example-2-client-to-server-authentication-with-https-"
+"client-certificates>`_."
+msgstr ""
+
+#: ../../operations/upgrade.rst:555 f69db5ea75a34c0890322a6444f1cf34
+msgid "Generate the latest ConfigMap"
+msgstr ""
+
+#: ../../operations/upgrade.rst:567 cf4a412cd300451987473eae10bb87af
+msgid "Add new options"
+msgstr ""
+
+#: ../../operations/upgrade.rst:569 bb469a6bf8694989a9e4ebfb86cc0004
+msgid ""
+"Add the new options manually to your old :term:`ConfigMap`, and make the "
+"necessary changes."
+msgstr ""
+
+#: ../../operations/upgrade.rst:572 f8d476fd6c3d4028bc88840c26504bdb
+msgid ""
+"In this example, the ``debug`` option is meant to be kept with ``true``, "
+"the ``etcd-config`` is kept unchanged, and ``monitor-aggregation`` is a "
+"new option, but after reading the :ref:`version_notes` the value was kept"
+" unchanged from the default value."
+msgstr ""
+
+#: ../../operations/upgrade.rst:577 f811883d84f74a2fa1d6c8aa475099a9
+msgid ""
+"After making the necessary changes, the old :term:`ConfigMap` was "
+"migrated with the new options while keeping the configuration that we "
+"wanted:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:611 6b325170717245bbaa6d41f25b97421d
+msgid "Apply new ConfigMap"
+msgstr ""
+
+#: ../../operations/upgrade.rst:613 2e99e1579f154af9908ebcf9e1dd2c4a
+msgid ""
+"After adding the options, manually save the file with your changes and "
+"install the :term:`ConfigMap` in the ``kube-system`` namespace of your "
+"cluster."
+msgstr ""
+
+#: ../../operations/upgrade.rst:620 93e7c91ebcf845f080427f2a4c7127d7
+msgid ""
+"As the :term:`ConfigMap` is successfully upgraded we can start upgrading "
+"Cilium ``DaemonSet`` and ``RBAC`` which will pick up the latest "
+"configuration from the :term:`ConfigMap`."
+msgstr ""
+
+#: ../../operations/upgrade.rst:628 c930e756a807404f8ab944635e97bc7d
+msgid "Restrictions on unique prefix lengths for CIDR policy rules"
+msgstr ""
+
+#: ../../operations/upgrade.rst:630 692c644233764ba79fc9ec819c7afb8f
+msgid ""
+"The Linux kernel applies limitations on the complexity of eBPF code that "
+"is loaded into the kernel so that the code may be verified as safe to "
+"execute on packets. Over time, Linux releases become more intelligent "
+"about the verification of programs which allows more complex programs to "
+"be loaded. However, the complexity limitations affect some features in "
+"Cilium depending on the kernel version that is used with Cilium."
+msgstr ""
+
+#: ../../operations/upgrade.rst:637 8b4723f7a7094db38eefbaa6f7f6f82b
+msgid ""
+"One such limitation affects Cilium's configuration of CIDR policies. On "
+"Linux kernels 4.10 and earlier, this manifests as a restriction on the "
+"number of unique prefix lengths supported in CIDR policy rules."
+msgstr ""
+
+#: ../../operations/upgrade.rst:641 c4eaf579bf40471aa052341820578266
+msgid ""
+"Unique prefix lengths are counted by looking at the prefix portion of "
+"CIDR rules and considering which prefix lengths are unique. For example, "
+"in the following policy example, the ``toCIDR`` section specifies a "
+"``/32``, and the ``toCIDRSet`` section specifies a ``/8`` with a ``/12`` "
+"removed from it. In addition, three prefix lengths are always counted: "
+"the host prefix length for the protocol (IPv4: ``/32``, IPv6: ``/128``), "
+"the default prefix length (``/0``), and the cluster prefix length "
+"(default IPv4: ``/8``, IPv6: ``/64``). All in all, the following example "
+"counts as seven unique prefix lengths in IPv4:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:650 618de0a11fcf487cad48fa9e445abe8c
+msgid "``/32`` (from ``toCIDR``, also from host prefix)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:651 9b05f00c21e6426b904afb49eb2b229e
+msgid "``/12`` (from ``toCIDRSet``)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:652 e79f1de0536a44669ef09ddc6839189d
+msgid "``/11`` (from ``toCIDRSet``)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:653 3c76390b0b78458ba60f213d70fa3cd1
+msgid "``/10`` (from ``toCIDRSet``)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:654 79267b4167e94a499cc63531b5e2ce50
+msgid "``/9`` (from ``toCIDRSet``)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:655 a779ba0f8ef146bbb1f7bc65b467c079
+msgid "``/8`` (from cluster prefix)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:656 02e23d837f6d444f8a8f6886fe0b7a3a
+msgid "``/0`` (from default prefix)"
+msgstr ""
+
+#: ../../operations/upgrade.rst:661 b0cb3f25d7ae4d84861613e3b6600a1c
+msgid "k8s YAML"
+msgstr ""
+
+#: ../../operations/upgrade.rst:664 d6468fd9f5384a29bcaf12b9deec3200
+msgid "JSON"
+msgstr ""
+
+#: ../../operations/upgrade.rst:673 ../../operations/upgrade.rst:714
+#: 0cfab36493f84dd5b4dda94c3fb90ce7 bd8458e464684ce398a0695429c49593
+msgid "Affected versions"
+msgstr ""
+
+#: ../../operations/upgrade.rst:675 08e0db72e27c4f54b17548bc9c68a72b
+msgid "Any version of Cilium running on Linux 4.10 or earlier"
+msgstr ""
+
+#: ../../operations/upgrade.rst:677 82c6e53829604b17b11397e1bcd5ba7d
+msgid ""
+"When a CIDR policy with too many unique prefix lengths is imported, "
+"Cilium will reject the policy with a message like the following:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:687 727f9b0777774f7288f6bccab1edde87
+msgid ""
+"The supported count of unique prefix lengths may differ between Cilium "
+"minor releases, for example Cilium 1.1 supported 20 unique prefix lengths"
+" on Linux 4.10 or older, while Cilium 1.2 only supported 18 (for IPv4) or"
+" 4 (for IPv6)."
+msgstr ""
+
+#: ../../operations/upgrade.rst:692 ../../operations/upgrade.rst:719
+#: 276eec7b838a4d3bbc0aa5bc323c217a ee3aa2f31b11459bb34389927b88b20a
+msgid "Mitigation"
+msgstr ""
+
+#: ../../operations/upgrade.rst:694 cbcc72c31ecd44c7b421aeddbd50f9d1
+msgid ""
+"Users may construct CIDR policies that use fewer unique prefix lengths. "
+"This can be achieved by composing or decomposing adjacent prefixes."
+msgstr ""
+
+#: ../../operations/upgrade.rst:698 1e2aed9867444348918130ec9f52e57f
+msgid "Solution"
+msgstr ""
+
+#: ../../operations/upgrade.rst:700 a55e18f7b3c94a839d6e056aee911b33
+msgid ""
+"Upgrade the host Linux version to 4.11 or later. This step is beyond the "
+"scope of the Cilium guide."
+msgstr ""
+
+#: ../../operations/upgrade.rst:705 e9dbb7d7c21949c0a09c2815cfd7730e
+msgid ""
+"Migrating from kvstore-backed identities to Kubernetes CRD-backed "
+"identities"
+msgstr ""
+
+#: ../../operations/upgrade.rst:707 92882d17b5924cbeab669e8181c40484
+msgid ""
+"Beginning with cilium 1.6, Kubernetes CRD-backed security identities can "
+"be used for smaller clusters. Along with other changes in 1.6 this allows"
+" kvstore-free operation if desired. It is possible to migrate identities "
+"from an existing kvstore deployment to CRD-backed identities. This "
+"minimizes disruptions to traffic as the update rolls out through the "
+"cluster."
+msgstr ""
+
+#: ../../operations/upgrade.rst:716 a1e8abfe75f14821bfe01bf98dfa085a
+msgid "Cilium 1.6 deployments using kvstore-backend identities"
+msgstr ""
+
+#: ../../operations/upgrade.rst:721 9855e720b65f44ebb7c80f33d05afd0f
+msgid ""
+"When identities change, existing connections can be disrupted while "
+"cilium initializes and synchronizes with the shared identity store. The "
+"disruption occurs when new numeric identities are used for existing pods "
+"on some instances and others are used on others. When converting to CRD-"
+"backed identities, it is possible to pre-allocate CRD identities so that "
+"the numeric identities match those in the kvstore. This allows new and "
+"old cilium instances in the rollout to agree."
+msgstr ""
+
+#: ../../operations/upgrade.rst:729 16bd8c81e96b4ad9984cc12cd7f334dc
+msgid ""
+"The steps below show an example of such a migration. It is safe to re-run"
+" the command if desired. It will identify already allocated identities or"
+" ones that cannot be migrated. Note that identity ``34815`` is migrated, "
+"``17003`` is already migrated, and ``11730`` has a conflict and a new ID "
+"allocated for those labels."
+msgstr ""
+
+#: ../../operations/upgrade.rst:735 a1c662f6942145b79aba257415fa98b7
+msgid ""
+"The steps below assume a stable cluster with no new identities created "
+"during the rollout. Once a cilium using CRD-backed identities is running,"
+" it may begin allocating identities in a way that conflicts with older "
+"ones in the kvstore."
+msgstr ""
+
+#: ../../operations/upgrade.rst:739 a775dc23aeb247fea7bf6809736cc2d2
+msgid "The cilium preflight manifest requires etcd support and can be built with:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:756 c5dbf57e37ba4d07ac4d8767c2fc2663
+msgid "Example migration"
+msgstr ""
+
+#: ../../operations/upgrade.rst:789 be1412acbe934568a00d1828a8664850
+msgid ""
+"It is also possible to use the ``--k8s-kubeconfig-path``  and "
+"``--kvstore-opt`` ``cilium`` CLI options with the preflight command. The "
+"default is to derive the configuration as cilium-agent does."
+msgstr ""
+
+#: ../../operations/upgrade.rst:798 49e79781a56f42da966e788f60464b5a
+msgid "Clearing CRD identities"
+msgstr ""
+
+#: ../../operations/upgrade.rst:800 9f2b43a593d04655960a147223b15333
+msgid ""
+"If a migration has gone wrong, it possible to start with a clean slate. "
+"Ensure that no cilium instances are running with identity-allocation-mode"
+" crd and execute:"
+msgstr ""
+
+#: ../../operations/upgrade.rst:809 971878f332474ebc882f4076a9cd63c3
+msgid "CNP Validation"
+msgstr ""
+
+#: ../../operations/upgrade.rst:811 72056df83c574f24b6dc425d8e02c54a
+msgid ""
+"Running the CNP Validator will make sure the policies deployed in the "
+"cluster are valid. It is important to run this validation before an "
+"upgrade so it will make sure Cilium has a correct behavior after upgrade."
+" Avoiding doing this validation might cause Cilium from updating its "
+"``NodeStatus`` in those invalid Network Policies as well as in the worst "
+"case scenario it might give a false sense of security to the user if a "
+"policy is badly formatted and Cilium is not enforcing that policy due a "
+"bad validation schema. This CNP Validator is automatically executed as "
+"part of the pre-flight check :ref:`pre_flight`."
+msgstr ""
+
+#: ../../operations/upgrade.rst:820 e6e350ca0d3c4ae1bf11849e766c0f29
+msgid ""
+"Start by deployment the ``cilium-pre-flight-check`` and check if the "
+"``Deployment`` shows READY 1/1, if it does not check the pod logs."
+msgstr ""
+
+#: ../../operations/upgrade.rst:837 535f3d34fa124fa5a42dbd27a31e3d8b
+msgid ""
+"In this example, we can see the ``CiliumNetworkPolicy`` in the "
+"``default`` namespace with the name ``cnp-update`` is not valid for the "
+"Cilium version we are trying to upgrade. In order to fix this policy we "
+"need to edit it, we can do this by saving the policy locally and modify "
+"it. For this example it seems the ``.spec.labels`` has set an array of "
+"strings which is not correct as per the official schema."
+msgstr ""
+
+#: ../../operations/upgrade.rst:867 4446b9c077af43e3b05ddea3185717f7
+msgid ""
+"To fix this policy we need to set the ``.spec.labels`` with the right "
+"format and commit these changes into Kubernetes."
+msgstr ""
+
+#: ../../operations/upgrade.rst:895 490dc23395f943e287c4f5d2116e3445
+msgid ""
+"After applying the fixed policy we can delete the pod that was validating"
+" the policies so that Kubernetes creates a new pod immediately to verify "
+"if the fixed policies are now valid."
+msgstr ""
+
+#: ../../operations/upgrade.rst:914 f1e4d3ba2a4c4507b3611108fff30347
+msgid ""
+"Once they are valid you can continue with the upgrade process. "
+":ref:`cleanup_preflight_check`"
+msgstr ""
+

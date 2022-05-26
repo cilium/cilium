@@ -1,0 +1,83 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/microk8s.rst:3 88ed5b5a819d4eb682c87ecd00dcea8e
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:11 026403d0a0734f7b8e2cba19d2a3502e
+msgid "Getting Started Using MicroK8s"
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:13 b444179c34d44fc3aed38de7ef96a025
+msgid ""
+"This guide uses `microk8s <https://microk8s.io/>`_ to demonstrate "
+"deployment and operation of Cilium in a single-node Kubernetes cluster. "
+"To run Cilium inside microk8s, a GNU/Linux distribution with kernel 4.9 "
+"or later is required (per the :ref:`admin_system_reqs`)."
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:19 88b2e76b40c3466f90f85f7c4ccae269
+msgid "Install microk8s"
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:21 607eea25d3cc4119b2a9ca3e21470c39
+msgid ""
+"Install ``microk8s`` >= 1.15 as per microk8s documentation: `MicroK8s "
+"User guide <https://microk8s.io/docs/>`_."
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:24 98c9d80233ba42e0a65e43b410a97ee2
+msgid "Enable the microk8s Cilium service"
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:30 dff539b194694d4b8d58779d36d5b427
+msgid ""
+"Cilium is now configured! The ``cilium`` CLI is provided as "
+"``microk8s.cilium``."
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:33 30302bded9ed4d4fa9eb7c25e6fb4d93
+msgid "Next steps"
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:35 7ec40b73437a4fe89c9f1edebd74bb3b
+msgid ""
+"Now that you have a Kubernetes cluster with Cilium up and running, you "
+"can take a couple of next steps to explore various capabilities:"
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:38 1aea937e7f0a4c849ea2878501a7ee8e
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:39 fb1a12f2dd634ba993d1869980c0e29c
+msgid ":ref:`gs_dns`"
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:40 8db0262785d84b7cacb2bafcb4471c6d
+msgid ":ref:`gs_cassandra`"
+msgstr ""
+
+#: ../../gettingstarted/microk8s.rst:41 5b0057cd05154cb18690522b09199b32
+msgid ":ref:`gs_kafka`"
+msgstr ""
+

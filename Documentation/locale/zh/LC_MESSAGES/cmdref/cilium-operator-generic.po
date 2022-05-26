@@ -1,0 +1,48 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-generic.md:3 37775410aca146d79cfb525fbb1e7cc8
+msgid "cilium-operator-generic"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic.md:5 9d3666aa04e64a66976c0159c5cdf11a
+msgid "Run cilium-operator-generic"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic.md:11 07325f72053042cb93cf07e510bfd1c4
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic.md:79 cdda78f936b7488aa505d3f6dcf811c9
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic.md:81 5e47d1ad8ac94a83a3d0c5a04420a9cf
+msgid ""
+"[cilium-operator-generic completion](cilium-operator-"
+"generic_completion.md)\t - Generate the autocompletion script for the "
+"specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic.md:82 430b7ec93b624e72ad43534e33b6e8b9
+msgid ""
+"[cilium-operator-generic metrics](cilium-operator-generic_metrics.md)\t -"
+" Access metric status of the operator"
+msgstr ""
+

@@ -1,0 +1,63 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/requirements_intro.rst:2
+#: da11b6aedf1b475483ae8cd2b4c14e5e
+msgid "Requirements"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:4
+#: c01a5ff3b4ed4fa189533fac69cfbb85
+msgid "Make sure your Kubernetes environment is meeting the requirements:"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:6
+#: 926ceccfe66846c09a04f1ff9201aab3
+msgid "Kubernetes >= 1.16"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:7
+#: b99516ad9dff4eefb046f1206b277724
+msgid "Linux kernel >= 4.9"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:8
+#: d248bcea307149a69f86b801eab0e226
+msgid "Kubernetes in CNI mode"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:9
+#: 317eccbafa9145a089a2f265e0473481
+msgid "Mounted eBPF filesystem mounted on all worker nodes"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:10
+#: 4d7cb335a6374e1daa96de9d5119c7d8
+msgid ""
+"Recommended: Enable PodCIDR allocation (``--allocate-node-cidrs``) in the"
+" ``kube-controller-manager`` (recommended)"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:12
+#: 95db6e264a5c4f9190123289d5b4bf9e
+msgid ""
+"Refer to the section :ref:`k8s_requirements` for detailed instruction on "
+"how to prepare your Kubernetes environment."
+msgstr ""
+

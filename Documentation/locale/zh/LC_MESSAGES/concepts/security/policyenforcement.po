@@ -1,0 +1,89 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/security/policyenforcement.rst:3
+#: b0a240b5a2ca4d90b69a97e80c6651f9
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/security/policyenforcement.rst:9
+#: 64ff70bf385f48d4bff7494784ce0c1b
+msgid "Policy Enforcement"
+msgstr ""
+
+#: ../../concepts/security/policyenforcement.rst:11
+#: 2f77c017935a42cc8bc17c3f09cb3071
+msgid ""
+"All security policies are described assuming stateful policy enforcement "
+"for session based protocols. This means that the intent of the policy is "
+"to describe allowed direction of connection establishment. If the policy "
+"allows ``A => B`` then reply packets from ``B`` to ``A`` are "
+"automatically allowed as well.  However, ``B`` is not automatically "
+"allowed to initiate connections to ``A``. If that outcome is desired, "
+"then both directions must be explicitly allowed."
+msgstr ""
+
+#: ../../concepts/security/policyenforcement.rst:19
+#: 84afaf869ace4bdbba879c6b287f0d0c
+msgid ""
+"Security policies may be enforced at *ingress* or *egress*. For "
+"*ingress*, this means that each cluster node verifies all incoming "
+"packets and determines whether the packet is allowed to be transmitted to"
+" the intended endpoint. Correspondingly, for *egress* each cluster node "
+"verifies outgoing packets and determines whether the packet is allowed to"
+" be transmitted to its intended destination."
+msgstr ""
+
+#: ../../concepts/security/policyenforcement.rst:26
+#: 91913ff7f90f41289f7f8690dd37f04a
+msgid ""
+"In order to enforce identity based security in a multi host cluster, the "
+"identity of the transmitting endpoint is embedded into every network "
+"packet that is transmitted in between cluster nodes. The receiving "
+"cluster node can then extract the identity and verify whether a "
+"particular identity is allowed to communicate with any of the local "
+"endpoints."
+msgstr ""
+
+#: ../../concepts/security/policyenforcement.rst:33
+#: f6834a1aab4a440bb35cec67e5dadb99
+msgid "Default Security Policy"
+msgstr ""
+
+#: ../../concepts/security/policyenforcement.rst:35
+#: 880249cc0c954d659987c86e4c643cd7
+msgid ""
+"If no policy is loaded, the default behavior is to allow all "
+"communication unless policy enforcement has been explicitly enabled. As "
+"soon as the first policy rule is loaded, policy enforcement is enabled "
+"automatically and any communication must then be white listed or the "
+"relevant packets will be dropped."
+msgstr ""
+
+#: ../../concepts/security/policyenforcement.rst:41
+#: 9da188a4b92f444aa2ab3e2011cfb8f9
+msgid ""
+"Similarly, if an endpoint is not subject to an *L4* policy, communication"
+" from and to all ports is permitted. Associating at least one *L4* policy"
+" to an endpoint will block all connectivity to ports unless explicitly "
+"allowed."
+msgstr ""
+

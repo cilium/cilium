@@ -1,0 +1,42 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/cni-chaining.rst:3 20571c9a3f2046049666609c25b9a955
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining.rst:11 0fb349a14e1047ff99d15500681365dd
+msgid "CNI Chaining"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining.rst:13 6c8322f890704399a8b8f6f1ffbf70f0
+msgid "CNI chaining allows to use Cilium in combination with other CNI plugins."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining.rst:15 6bb50de32cf54696bc8d77c8d65f1932
+msgid ""
+"With Cilium CNI chaining, the base network connectivity and IP address "
+"management is managed by the non-Cilium CNI plugin, but Cilium attaches "
+"eBPF programs to the network devices created by the non-Cilium plugin to "
+"provide L3/L4 network visibility, policy enforcement and other advanced "
+"features."
+msgstr ""
+

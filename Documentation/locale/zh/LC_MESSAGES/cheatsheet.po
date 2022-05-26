@@ -1,0 +1,263 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cheatsheet.rst:3 5534739db3c04374b417414079500d6c
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../cheatsheet.rst:9 7176e97219b547ca8209c42174a4c11c
+msgid "Command Cheatsheet"
+msgstr ""
+
+#: ../../cheatsheet.rst:11 a37799ab558148cc844ea6359873885b
+msgid ""
+"Cilium is controlled via an easy command-line interface. This CLI is a "
+"single application that takes subcommands that you can find in the "
+"command reference guide."
+msgstr ""
+
+#: ../../cheatsheet.rst:46 86c3ee2c0b504145af44caccaa13e830
+msgid ""
+"All commands and subcommands have the option ``-h`` that will provide "
+"information about the options and arguments that the subcommand has. In "
+"case of any error in the command, Cilium CLI will return a non-zero "
+"status."
+msgstr ""
+
+#: ../../cheatsheet.rst:51 753a81f04fff496588aa7787586ed788
+msgid "Command utilities:"
+msgstr ""
+
+#: ../../cheatsheet.rst:54 24b4f2e488b242429dfe85e09b159104
+msgid "JSON Output"
+msgstr ""
+
+#: ../../cheatsheet.rst:56 964fefabafb34751b5c88833190ca389
+msgid ""
+"All the list commands will return a pretty printed list with the "
+"information retrieved from Cilium Daemon. If you need something more "
+"detailed you can use JSON output, to get the JSON output you can use the "
+"global option ``-o json``"
+msgstr ""
+
+#: ../../cheatsheet.rst:64 1fbd97b37aec414f99fd8c0ecb426e7f
+msgid ""
+"Moreover, Cilium also provides a `JSONPath "
+"<https://goessner.net/articles/JsonPath/>`_ support, so detailed "
+"information can be extracted. JSONPath template reference can be found in"
+" `Kubernetes documentation "
+"<https://kubernetes.io/docs/reference/kubectl/jsonpath/>`_"
+msgstr ""
+
+#: ../../cheatsheet.rst:80 5f857252c57441db8ae21479243d274a
+msgid "Shell Tab-completion"
+msgstr ""
+
+#: ../../cheatsheet.rst:82 7401fc6504fb46eeb10982f65ba3897c
+msgid ""
+"If you use bash or zsh, Cilium CLI can provide tab completion for "
+"subcommands. If you want to install tab completion, you should run the "
+"following command in your terminal."
+msgstr ""
+
+#: ../../cheatsheet.rst:90 4733c55c5c584851a679d5c056f593e8
+msgid ""
+"If you want to have Cilium completion always loaded, you can install "
+"using the following:"
+msgstr ""
+
+#: ../../cheatsheet.rst:99 82cf3ace010f40f281982f8581476a27
+msgid "Command examples:"
+msgstr ""
+
+#: ../../cheatsheet.rst:102 ad7de189ae10477187486b5ea77123fd
+msgid "Basics"
+msgstr ""
+
+#: ../../cheatsheet.rst:104 b719fadc7b3e49098cdd3fae0b6069a2
+msgid "Check the status of the agent"
+msgstr ""
+
+#: ../../cheatsheet.rst:120 3a2652a486bd4bda985dd9bc42f34032
+msgid "Get a detailed status of the agent:"
+msgstr ""
+
+#: ../../cheatsheet.rst:145 edb736c384f642fab44073f48f576529
+msgid "Get the current agent configuration"
+msgstr ""
+
+#: ../../cheatsheet.rst:152 e22a8dca6bf043e6a0811cf10f98c451
+msgid "Policy management"
+msgstr ""
+
+#: ../../cheatsheet.rst:155 d861bb950316481d90b19406befe86a3
+msgid "Importing a Cilium Network Policy"
+msgstr ""
+
+#: ../../cheatsheet.rst:162 a3ae859034364e9f9a3c8870187aa5c1
+msgid "Get list of all imported policy rules"
+msgstr ""
+
+#: ../../cheatsheet.rst:168 ff500f00cf1b4da68d95c0065e112f98
+msgid "Remove all policies"
+msgstr ""
+
+#: ../../cheatsheet.rst:176 b32c0b55e6c54d0fb2293dbac78b65cc
+msgid "Monitoring"
+msgstr ""
+
+#: ../../cheatsheet.rst:179 8360aa84389e400b9313ebd35783f3c9
+msgid "Monitor cilium datapath notifications"
+msgstr ""
+
+#: ../../cheatsheet.rst:186 da9537d59ff6409ca24ed1ebc39b36ea
+msgid "Verbose output (including debug if enabled)"
+msgstr ""
+
+#: ../../cheatsheet.rst:192 f52b276f60c945339d96cb4ad80c3682
+msgid "Extra verbose output (including packet dissection)"
+msgstr ""
+
+#: ../../cheatsheet.rst:199 cb5632fab0004d95a39106e66645eefe
+msgid "Filter for only the events related to endpoint"
+msgstr ""
+
+#: ../../cheatsheet.rst:206 f1ab3500a92c4275935e58e274d2d2e0
+msgid "Filter for only events on layer 7"
+msgstr ""
+
+#: ../../cheatsheet.rst:213 21d2facf5d5140009a12142cd1cdef68
+msgid "Show notifications only for dropped packet events"
+msgstr ""
+
+#: ../../cheatsheet.rst:220 a7af79adc7fd4a2c8eb71b3acc18f95b
+msgid "Don't dissect packet payload, display payload in hex information"
+msgstr ""
+
+#: ../../cheatsheet.rst:229 ae30919b415e43aaba41c131176cda48
+msgid "Connectivity"
+msgstr ""
+
+#: ../../cheatsheet.rst:231 b632327f9e2e42518a508d354a425e0e
+msgid "Check cluster Connectivity"
+msgstr ""
+
+#: ../../cheatsheet.rst:237 96562618615147c68dad0355d42eead5
+msgid ""
+"There is also a `blog post <https://cilium.io/blog/2018/2/6/cilium-"
+"troubleshooting-cluster-health-monitor/>`_ related to this tool."
+msgstr ""
+
+#: ../../cheatsheet.rst:242 ../../cheatsheet.rst:355
+#: 2b29ca40caea4c20bc9ec0a6d1d3511c 5b00ee9bd1d84a46b4c1a8c45edddc95
+msgid "Endpoints"
+msgstr ""
+
+#: ../../cheatsheet.rst:244 8b541d0f5e1343b8a3e55bbd91341f63
+msgid "Get list of all local endpoints"
+msgstr ""
+
+#: ../../cheatsheet.rst:250 f0a0baebd65249d1ac1c9090909b9512
+msgid "Get detailed view of endpoint properties and state"
+msgstr ""
+
+#: ../../cheatsheet.rst:256 4c66ae487c514107b662f8654e7bf085
+msgid "Show recent endpoint specific log entries"
+msgstr ""
+
+#: ../../cheatsheet.rst:262 2a4322c6c8e84cf7890e539d8b5b5a27
+msgid "Enable debugging output on the cilium monitor for this endpoint"
+msgstr ""
+
+#: ../../cheatsheet.rst:270 0531b8fd7a564a5ca0f21615517fb844
+msgid "Loadbalancing"
+msgstr ""
+
+#: ../../cheatsheet.rst:272 8838a83b907c4b67b7f6524949ca7af5
+msgid "Get list of loadbalancer services"
+msgstr ""
+
+#: ../../cheatsheet.rst:279 3db84a227856494e893d03ac4c87a1c5
+msgid "Or you can get the loadbalancer information using bpf list"
+msgstr ""
+
+#: ../../cheatsheet.rst:286 4a23b159906a40519b40aaed6dd2b024
+msgid "Add a new loadbalancer"
+msgstr ""
+
+#: ../../cheatsheet.rst:295 263dc855a962433185ae1531ba3aa18b
+msgid "eBPF"
+msgstr ""
+
+#: ../../cheatsheet.rst:297 3009c3af3f28459481770111c1d66427
+msgid "List node tunneling mapping information"
+msgstr ""
+
+#: ../../cheatsheet.rst:303 906da5aa1bcb46c19ebf176d33536eb0
+msgid "Checking logs for verifier issue"
+msgstr ""
+
+#: ../../cheatsheet.rst:309 3020994474154580b05ba999827f9027
+msgid "List connection tracking entries:"
+msgstr ""
+
+#: ../../cheatsheet.rst:315 887b48de3d224189bbe720c20fe90ac0
+msgid "Flush connection tracking entries:"
+msgstr ""
+
+#: ../../cheatsheet.rst:322 e4566b5cd5f34ee39a808647f48c3bef
+msgid "Kubernetes examples:"
+msgstr ""
+
+#: ../../cheatsheet.rst:324 67673a03944b47358569a71d1d3375df
+msgid ""
+"If you running Cilium on top of Kubernetes you may also want a way to "
+"list all cilium endpoints or policies from a single Kubectl commands. "
+"Cilium provides all this information to the user by using `Kubernetes "
+"Resource Definitions <https://kubernetes.io/docs/concepts/extend-"
+"kubernetes/api-extension/custom-resources/>`_:"
+msgstr ""
+
+#: ../../cheatsheet.rst:330 e33c2fe0027947fe8e1d91c3b41e3993
+msgid "Policies"
+msgstr ""
+
+#: ../../cheatsheet.rst:332 09a1534a003d4f2496de1137e809eca4
+msgid ""
+"In Kubernetes you can use two kinds of policies, Kubernetes Network "
+"Policies or Cilium Network Policies. Both can be retrieved from the "
+"``kubectl`` command:"
+msgstr ""
+
+#: ../../cheatsheet.rst:335 d2b0c9de96c24039822fd0f656b904e7
+msgid "Kubernetes Network Policies"
+msgstr ""
+
+#: ../../cheatsheet.rst:341 fda6498aa2cf4889b71e202e8a0fc646
+msgid "Kubernetes Cilium Policies"
+msgstr ""
+
+#: ../../cheatsheet.rst:357 6c99147331e645d1a07cf580e8675147
+msgid ""
+"To retrieve a list of all endpoints managed by cilium, ``Cilium "
+"Endpoint`` resource can be used."
+msgstr ""
+

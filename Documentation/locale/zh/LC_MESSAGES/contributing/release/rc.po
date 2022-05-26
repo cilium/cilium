@@ -1,0 +1,245 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/release/rc.rst:3 f38bdfe7cfb8416fbcb7cac7a55a18f1
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:10 1652f4e15a08442e8912b641efbb1d98
+msgid "Release Candidate Process"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:12 ddae6a61a9bc422090962453818be59c
+msgid "This process applies to all releases candidates:"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:14 dc588c6c9cd447da865ffc8bf278a447
+msgid ""
+"If you intent to release a new feature release, see the "
+":ref:`minor_release_process` section instead."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:17 7a28784b7a434cff998ac9b185e83201
+msgid ""
+"The following commands have been validated when ran in the VM used in the"
+" Cilium development process. See :ref:`dev_env` for detailed instructions"
+" about setting up said VM."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:22 de4da82e2a9c4f19abd689f5c1920eb9
+msgid "GitHub template process"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:24 7d0fcf87d76d4f0697c4205bc151978a
+#, python-format
+msgid ""
+"File a `new release issue "
+"<https://github.com/cilium/cilium/issues/new?assignees=&labels=kind%2Frelease&template=release_template.md&title=vX.Y.Z+release>`_"
+" on GitHub, updating the title to reflect the version that will be "
+"released."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:27 cfe0e35f492445d2850651dd68751e9c
+msgid "Follow the steps in the issue template to prepare the release."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:30 37f285eec42b404886c75c503ca5d5a2
+msgid "Reference steps for the template"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:34 55ef6b4a30984ecd8b726b25988f944b
+msgid ""
+"These instructions will generate a CHANGELOG based on the time when the "
+"``start-release.sh`` script is run, so you should aim to coordinate with "
+"the core maintainers to complete these steps up until merging the PR "
+"before merging additional PRs from contributors."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:39 2e4e59b462034157b84a7022e1437d03
+msgid ""
+"Ensure that the necessary features and fixes have been completed and "
+"merged into the branch for which the release candidate will happen."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:42 d8c236c901ab487680af9bc257f2e64c
+msgid "Update GitHub project and create ``vX.Y.Z-rcW+1`` project if applicable."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:43 66fdbbfef6204c07914a34db46488f70
+msgid ""
+"Update PRs / issues that were added to the ``vX.Y.Z-rcW`` project, but "
+"didn't make it into this release into the ``vX.Y.Z-rcW+1`` project."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:45 3c1882bdb9c241119ae3ed7a05aca438
+msgid ""
+"The `Cilium Release Tool <https://github.com/cilium/release>`__ tool can "
+"help to manage these for you."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:48 150409ce3f0b43c7bfaac492b428af20
+msgid ""
+"Checkout the desired stable branch (can be master branch if stable branch"
+" was not created) and pull it:"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:55 fcb87622330640f48fbebdbd19759c9e
+msgid "Run the release preparation script:"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:63 d63661d01ac44e30992554755172c6a7
+msgid ""
+"Check to see if the ``AUTHORS`` file has any formatting errors (for "
+"instance, indentation mismatches) as well as duplicate contributor names,"
+" and correct them accordingly."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:67 21a03735ff5044779ae2ade144a42100
+msgid ""
+"Set the right version for the ``CustomResourceDefinitionSchemaVersion`` "
+"in the ``pkg/k8s/client`` by following these instructions:"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:70 c0ce1032fd574b659285f5a2345faa64
+msgid ""
+"If you are doing the first RC for a new minor version, the validation "
+"schema version should be ``vX.Y.1`` regardless of the value set in "
+"``CustomResourceDefinitionSchemaVersion``. For example, when setting up "
+"the first RC for Cilium ``1.11``, ``1.11.0-rc1``, the validation schema "
+"should be ``vX.Y+1.1`` where ``X`` and ``Y`` are the major and minor "
+"versions used in the schema version of Cilium ``1.10``."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:77 efab1eecee3b45cdb4fea2d04ff0b309
+msgid "If this is not the first RC run, and there is a branch for ``vX.Y``:"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:79 f369989886c344ae907ac4648b03e1de
+msgid "Run ``./Documentation/check-crd-compat-table.sh vX.Y``"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:81 2363200b75c44ee9a3e4e0854dfb0b3f
+msgid ""
+"If a branch for ``vX.Y`` doesn't exist yet, then manually ensure the CRD "
+"schema version has not been incremented in the case there were no "
+"changes. If there were changes to the CRD, then ensure it is incremented "
+"at most by 1 patch version."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:86 7cd199fe236b4293822bdc3d2a59aa51
+msgid ""
+"If this release will be based on the ``master`` branch rather than a "
+"stable branch, add the AUTHORS modifications to a new commit."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:89 4c44f54c96284eef810298adf3505e47
+msgid ""
+"Add all other modified files using ``git add`` and create a commit with "
+"the title ``Prepare for release vX.Y.Z-rcW+1``."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:92 cefba0507ad64b98afdd90f36469c894
+msgid "Prepare a pull request for the changes:"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:98 2fec30b4bdd64c42b313308470cb839d
+msgid "Ensure that the CI smoke tests and reviews are in for the pull request."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:100 15514b8b107d4007a16fb433554f5125
+msgid "Revert the top commit on the branch and push the branch again to GitHub."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:102 d75ce98de4894a4fb5e5856fc52e1f65
+msgid ""
+"Follow standard procedures to get the aforementioned PR merged into the "
+"desired stable branch. See :ref:`submit_pr` for more information about "
+"this process."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:106 14f83895bb4c4d9a8d4fc7929d587b59
+msgid "Checkout out the stable branch and pull your merged changes:"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:112 00a548acb7884cfdbfda72e95c8709ac
+msgid "Check out the \"Prepare for release\" commit and create release tags:"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:120 ea770158336044b48239d544903054ca
+msgid ""
+"There are two tags that correspond to the same release because GitHub "
+"recommends using ``vx.y.z`` for release version formatting, and "
+"ReadTheDocs, which hosts the Cilium documentation, requires the version "
+"to be in format ``x.y.z`` For more information about how ReadTheDocs does"
+" versioning, you can read their `Versions Documentation "
+"<https://docs.readthedocs.io/en/latest/versions.html>`_."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:126 76b0fe8d29bd4d8285d7d4e2f8f536e7
+msgid ""
+"Approve the release from the `Release Image build UI "
+"<https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build%22>`_."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:128 b4564fe1eef74587a835bcadb1e8e93f
+msgid "Once the release images are pushed, fetch the digests from the workflow."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:130 0d913f1fb34a40569e3b3d474e074576
+msgid ""
+"Prepare Helm changes for the release using the `Cilium Helm Charts "
+"Repository <https://github.com/cilium/charts/>`__ and push the changes "
+"into that repository (not the main cilium repository):"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:138 2807b67ef2494c3590bfd0b706c14276
+msgid ""
+"Wait for the `Cilium Helm Charts Workflow "
+"<https://github.com/cilium/charts/actions>`__ to successfully deploy a "
+"cluster using the new Helm charts."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:141 d1e93eec90bc48af96b3ab7c5524a5a2
+msgid "`Publish a GitHub release <https://github.com/cilium/cilium/releases/>`_:"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:143 f67da488c9924baf8673733e93ade857
+msgid "Following the steps above, the release draft will already be prepared."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:145 74e6d9caa8af4ea99ae42ffa3be688ff
+msgid "Check the ``This is a pre-release`` box."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:146 7940e061ce7d4603af8abb3738d4fc21
+msgid ""
+"Copy the official docker manifests for the release from the previous step"
+" into the end of the Github release announcement."
+msgstr ""
+
+#: ../../contributing/release/rc.rst:148 fb907a64d83d4b9d8a40b653b519f441
+msgid "Preview the description and then publish the release"
+msgstr ""
+
+#: ../../contributing/release/rc.rst:150 42cc7a96f010452fba027e409b4322fe
+msgid "Announce the release in the ``#general`` channel on Slack. Sample text:"
+msgstr ""
+

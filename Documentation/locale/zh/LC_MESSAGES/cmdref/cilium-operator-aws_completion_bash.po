@@ -1,0 +1,88 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:3
+#: eb6ac78ed56844ce9a55753d1cd7a187
+msgid "cilium-operator-aws completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:5
+#: 3ef426b717b143a9807fa96685e9e19a
+msgid "Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:7
+#: 64c309df1ba5406abfd5e6609c406f64
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:9
+#: 1f26276e2a304ee994349235938c3afb
+msgid "Generate the autocompletion script for the bash shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:11
+#: 1b87f906976845948c3856dd44f5cdc9
+msgid ""
+"This script depends on the 'bash-completion' package. If it is not "
+"installed already, you can install it via your OS's package manager."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:14
+#: 01a73f50a5104a52abe2489f9c94fc65
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:18
+#: 9f4fe88f9bb540d9b79b2eba85620776
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:20
+#: 5cf3ab1f5e424d5ab771d8c502dbbcb5
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:24
+#: 041d779b1afb4131b5f41a17daf2dcf2
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:28
+#: 4683e690fb374205a4c5ebd49f56e616
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:35
+#: e42fa5024cd544c69dad41ed68eff95c
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:42
+#: 0f5b530ee0c243c4a5b778c4e7150bc4
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_bash.md:44
+#: 3dbc679b39b04558accb8e58a5b5e383
+msgid ""
+"[cilium-operator-aws completion](cilium-operator-aws_completion.md)\t - "
+"Generate the autocompletion script for the specified shell"
+msgstr ""
+

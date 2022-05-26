@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_policy_delete.md:3 9da386c1842943d5809b99f39449f212
+msgid "cilium policy delete"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_delete.md:5 e7b973858e5a4767a17d5694b9e79830
+msgid "Delete policy rules"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_delete.md:11 d1e3482159ed409a95308f0a6c9ea732
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_delete.md:19 c8bf6fc0c91c4fb5a92aa95b0e3391cf
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_delete.md:27 e9359f2e3d5247de9e1739ea1c48c6ca
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_delete.md:29 d468f1d5567e419f9e73a81bfc206e0c
+msgid "[cilium policy](cilium_policy.md)\t - Manage security policies"
+msgstr ""
+

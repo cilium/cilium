@@ -1,0 +1,145 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium.md:3 0606100e14a94b9d91259cc2a3d84b0d
+msgid "cilium"
+msgstr ""
+
+#: ../../cmdref/cilium.md:5 bbcf89c51db44d16b7cd9449cd59f192
+msgid "CLI"
+msgstr ""
+
+#: ../../cmdref/cilium.md:7 7a8e028fa03d4b90a02fea1d56e6c889
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium.md:9 ec551e6597154880aa414b3d6a0b28a3
+msgid "CLI for interacting with the local Cilium Agent"
+msgstr ""
+
+#: ../../cmdref/cilium.md:11 e9c8f5963336424c986ff818f67ddccf
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium.md:20 3ab3116d3f2643b08d079d75d087584e
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium.md:22 6281c785883e4476a99a59395c345e66
+msgid "[cilium bpf](cilium_bpf.md)\t - Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium.md:23 b5aba5cc0d1b4a82b01178aec41dcbda
+msgid ""
+"[cilium cleanup](cilium_cleanup.md)\t - Remove system state installed by "
+"Cilium at runtime"
+msgstr ""
+
+#: ../../cmdref/cilium.md:24 55cf30d90aa4451fb16ea20c780d3922
+msgid "[cilium completion](cilium_completion.md)\t - Output shell completion code"
+msgstr ""
+
+#: ../../cmdref/cilium.md:25 b32fa83f7d504c93b62a3fb40dfbb245
+msgid "[cilium config](cilium_config.md)\t - Cilium configuration options"
+msgstr ""
+
+#: ../../cmdref/cilium.md:26 3876cf138d8343978b67f0db5a720b7a
+msgid ""
+"[cilium debuginfo](cilium_debuginfo.md)\t - Request available debugging "
+"information from agent"
+msgstr ""
+
+#: ../../cmdref/cilium.md:27 b4f3f57eb63046679c9b25e8c1786acc
+msgid "[cilium encrypt](cilium_encrypt.md)\t - Manage transparent encryption"
+msgstr ""
+
+#: ../../cmdref/cilium.md:28 1c48b23e7cca41e4810fa9526651648c
+msgid "[cilium endpoint](cilium_endpoint.md)\t - Manage endpoints"
+msgstr ""
+
+#: ../../cmdref/cilium.md:29 7a7bfdf51bc24e7984f46bb3a98ab02d
+msgid "[cilium fqdn](cilium_fqdn.md)\t - Manage fqdn proxy"
+msgstr ""
+
+#: ../../cmdref/cilium.md:30 5553970481554707804750a758bdcd15
+msgid "[cilium identity](cilium_identity.md)\t - Manage security identities"
+msgstr ""
+
+#: ../../cmdref/cilium.md:31 f27403b3f70b486b9fe53cdb94af3ad4
+msgid ""
+"[cilium ip](cilium_ip.md)\t - Manage IP addresses and associated "
+"information"
+msgstr ""
+
+#: ../../cmdref/cilium.md:32 0dc7070af6514d2db89ffd4d2d819dc0
+msgid "[cilium kvstore](cilium_kvstore.md)\t - Direct access to the kvstore"
+msgstr ""
+
+#: ../../cmdref/cilium.md:33 ce6680075dfd40e7ab5ae70ec83103ec
+msgid "[cilium lrp](cilium_lrp.md)\t - Manage local redirect policies"
+msgstr ""
+
+#: ../../cmdref/cilium.md:34 9ef85296b4604eb3a05d0a3a078ef724
+msgid ""
+"[cilium map](cilium_map.md)\t - Access userspace cached content of BPF "
+"maps"
+msgstr ""
+
+#: ../../cmdref/cilium.md:35 1a368d381711472bb1f34148896e3b15
+msgid "[cilium metrics](cilium_metrics.md)\t - Access metric status"
+msgstr ""
+
+#: ../../cmdref/cilium.md:36 b3b62e2a22ee4193b66fe271edbd10c5
+msgid "[cilium monitor](cilium_monitor.md)\t - Display BPF program events"
+msgstr ""
+
+#: ../../cmdref/cilium.md:37 86e01b6a0a294fb9a06eb81de25fb3d7
+msgid "[cilium node](cilium_node.md)\t - Manage cluster nodes"
+msgstr ""
+
+#: ../../cmdref/cilium.md:38 b5271b9e7a294711968d4961c33c7095
+msgid "[cilium policy](cilium_policy.md)\t - Manage security policies"
+msgstr ""
+
+#: ../../cmdref/cilium.md:39 1bac00eed7514c73bad73329f2534717
+msgid "[cilium prefilter](cilium_prefilter.md)\t - Manage XDP CIDR filters"
+msgstr ""
+
+#: ../../cmdref/cilium.md:40 6df019e32b554b798a52e702157824fb
+msgid "[cilium preflight](cilium_preflight.md)\t - cilium upgrade helper"
+msgstr ""
+
+#: ../../cmdref/cilium.md:41 23852bdbeb464de4baaaa96f8f310d2e
+msgid ""
+"[cilium recorder](cilium_recorder.md)\t - Introspect or mangle pcap "
+"recorder"
+msgstr ""
+
+#: ../../cmdref/cilium.md:42 e8f6a1754b394404a5e5521b3a385ff6
+msgid "[cilium service](cilium_service.md)\t - Manage services & loadbalancers"
+msgstr ""
+
+#: ../../cmdref/cilium.md:43 3d4be4e2ae7d40a1bc0f37371b7aade3
+msgid "[cilium status](cilium_status.md)\t - Display status of daemon"
+msgstr ""
+
+#: ../../cmdref/cilium.md:44 4347bb9382af4a769b3fdbcd7db23b2a
+msgid "[cilium version](cilium_version.md)\t - Print version information"
+msgstr ""
+

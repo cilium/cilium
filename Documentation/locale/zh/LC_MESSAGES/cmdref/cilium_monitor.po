@@ -1,0 +1,69 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_monitor.md:3 88a651c36687422589b8293d11493140
+msgid "cilium monitor"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:5 10e14f6e58fb4894a77ec312a77d0848
+msgid "Display BPF program events"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:7 94c53d6c10504c61b953b4ad6769cd26
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:9 ec06be59d0a24c16807cc3e7248dec03
+msgid ""
+"The monitor displays notifications and events emitted by the BPF programs"
+" attached to endpoints and devices. This includes:"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:11 94746617b3014715b15b7c9da25fc42e
+msgid "Dropped packet notifications"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:12 b9d2807374dc453f9aee359191c91fda
+msgid "Captured packet traces"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:13 b7e3972896774454bf132dfa7d5360c9
+msgid "Policy verdict notifications"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:14 dc5cc0ddf7394707be37bf1283301e8d
+msgid "Debugging information"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:20 7b770f19bce44eaaafbfaf42817d479c
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:35 d3d585a739c44406b3bcfe0a76d3bee4
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:43 039fefe83bfc4275aa55dcb1fe2ded59
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_monitor.md:45 110d2bc0405b44b385a21c203ce0d92f
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+

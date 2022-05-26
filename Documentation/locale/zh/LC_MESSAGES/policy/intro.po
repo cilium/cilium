@@ -1,0 +1,227 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../policy/intro.rst:3 5c7a9bd687064784b464eb56458e2033
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../policy/intro.rst:12 e17038a8564542dbaa011aef01621324
+msgid "Policy Enforcement Modes"
+msgstr ""
+
+#: ../../policy/intro.rst:14 969c96c394f84a08a4fd3574e26b820a
+msgid ""
+"The configuration of the Cilium agent and the Cilium Network Policy "
+"determines whether an endpoint accepts traffic from a source or not. The "
+"agent can be put into the following three policy enforcement modes:"
+msgstr ""
+
+#: ../../policy/intro.rst:29 f570a7c9243647c7828edf13220d24ff
+msgid "default"
+msgstr ""
+
+#: ../../policy/intro.rst:17 39082216d4b04e4d97b4366377e64884
+msgid ""
+"This is the default behavior for policy enforcement when Cilium is "
+"launched without any specified value for the policy enforcement "
+"configuration. The following rules apply:"
+msgstr ""
+
+#: ../../policy/intro.rst:21 47757e8c3b414329a467b1a33add7e02
+msgid ""
+"If any rule selects an :ref:`endpoint` and the rule has an ingress "
+"section, the endpoint goes into default deny at ingress."
+msgstr ""
+
+#: ../../policy/intro.rst:23 3c45b3b2d7c141f782f03b4a584ef37d
+msgid ""
+"If any rule selects an :ref:`endpoint` and the rule has an egress "
+"section, the endpoint goes into default deny at egress."
+msgstr ""
+
+#: ../../policy/intro.rst:26 c90fc11845d74bdb81bf533efd6e7136
+msgid ""
+"This means that endpoints will start without any restrictions and as soon"
+" as a rule restricts their ability to receive traffic on ingress or to "
+"transmit traffic on egress, then the endpoint goes into whitelisting mode"
+" and all traffic must be explicitly allowed."
+msgstr ""
+
+#: ../../policy/intro.rst:37 17b443754dda4c58bfdf16107b61aff5
+msgid "always"
+msgstr ""
+
+#: ../../policy/intro.rst:32 b136c8ad5eb941f2930e23c656006777
+msgid ""
+"With always mode, policy enforcement is enabled on all endpoints even if "
+"no rules select specific endpoints."
+msgstr ""
+
+#: ../../policy/intro.rst:35 482b5948697d4546aeeec3f70794143a
+msgid ""
+"If you want to configure health entity to check cluster-wide connectivity"
+" when you start cilium-agent with ``enable-policy=always``, you will "
+"likely want to enable communications to and from the health endpoint. See"
+" :ref:`health_endpoint`."
+msgstr ""
+
+#: ../../policy/intro.rst:42 0e46c54ecfa94b51bdafc477f0268b4e
+msgid "never"
+msgstr ""
+
+#: ../../policy/intro.rst:40 0d2a36bfb6214e9a997a5f9594d3e799
+msgid ""
+"With never mode, policy enforcement is disabled on all endpoints, even if"
+" rules do select specific endpoints. In other words, all traffic is "
+"allowed from any source (on ingress) or destination (on egress)."
+msgstr ""
+
+#: ../../policy/intro.rst:44 6ee8b306206744b7b3f2e24c0044b9a6
+msgid ""
+"To configure the policy enforcement mode at runtime for all endpoints "
+"managed by a Cilium agent, use:"
+msgstr ""
+
+#: ../../policy/intro.rst:50 73b029b182a944449cc3f400974918ee
+msgid ""
+"If you want to configure the policy enforcement mode at start-time for a "
+"particular agent, provide the following flag when launching the Cilium "
+"daemon:"
+msgstr ""
+
+#: ../../policy/intro.rst:57 5795719d1990464a8e212971601d4fdf
+msgid ""
+"Similarly, you can enable the policy enforcement mode across a Kubernetes"
+" cluster by including the parameter above in the Cilium DaemonSet."
+msgstr ""
+
+#: ../../policy/intro.rst:68 75295cd13ba042938bcc362919d58ca7
+msgid "Rule Basics"
+msgstr ""
+
+#: ../../policy/intro.rst:70 f32950e02ca049a0b1a9c282f79c2df2
+msgid ""
+"All policy rules are based upon a whitelist model, that is, each rule in "
+"the policy allows traffic that matches the rule. If two rules exist, and "
+"one would match a broader set of traffic, then all traffic matching the "
+"broader rule will be allowed. If there is an intersection between two or "
+"more rules, then traffic matching the union of those rules will be "
+"allowed. Finally, if traffic does not match any of the rules, it will be "
+"dropped pursuant to the `policy_enforcement_modes`."
+msgstr ""
+
+#: ../../policy/intro.rst:78 ab72bc7fb18342eb8f9e648e79d9e6b7
+msgid ""
+"Policy rules share a common base type which specifies which endpoints the"
+" rule applies to and common metadata to identify the rule. Each rule is "
+"split into an ingress section and an egress section. The ingress section "
+"contains the rules which must be applied to traffic entering the "
+"endpoint, and the egress section contains rules applied to traffic coming"
+" from the endpoint matching the endpoint selector. Either ingress, "
+"egress, or both can be provided. If both ingress and egress are omitted, "
+"the rule has no effect."
+msgstr ""
+
+#: ../../policy/intro.rst:137 876f3c6da02c43c498f105f587239f5a
+msgid "endpointSelector / nodeSelector"
+msgstr ""
+
+#: ../../policy/intro.rst:134 5416c7d118574334a738c94fa13aab43
+msgid ""
+"Selects the endpoints or nodes which the policy rules apply to. The "
+"policy rules will be applied to all endpoints which match the labels "
+"specified in the selector. See the `LabelSelector` and "
+":ref:`NodeSelector` sections for additional details."
+msgstr ""
+
+#: ../../policy/intro.rst:141 85243a549a7e4ad7b3b90f22f80ce258
+msgid "ingress"
+msgstr ""
+
+#: ../../policy/intro.rst:140 89018325af894739aaa292e384b33854
+msgid ""
+"List of rules which must apply at ingress of the endpoint, i.e. to all "
+"network packets which are entering the endpoint."
+msgstr ""
+
+#: ../../policy/intro.rst:145 ca8d6a8898634b79ae0ce58e912a5828
+msgid "egress"
+msgstr ""
+
+#: ../../policy/intro.rst:144 2ec67cde52c94b44b72123f78aebdb25
+msgid ""
+"List of rules which must apply at egress of the endpoint, i.e. to all "
+"network packets which are leaving the endpoint."
+msgstr ""
+
+#: ../../policy/intro.rst:152 05effe11529241a39b8b4a9d09a4a770
+msgid "labels"
+msgstr ""
+
+#: ../../policy/intro.rst:148 145f84ca06054365ad51946f4614b00c
+msgid ""
+"Labels are used to identify the rule. Rules can be listed and deleted by "
+"labels. Policy rules which are imported via :ref:`kubernetes<k8s_policy>`"
+" automatically get the label ``io.cilium.k8s.policy.name=NAME`` assigned "
+"where ``NAME`` corresponds to the name specified in the `NetworkPolicy` "
+"or `CiliumNetworkPolicy` resource."
+msgstr ""
+
+#: ../../policy/intro.rst:156 3c64b9b6fe264df0b7554591f2ef93b5
+msgid "description"
+msgstr ""
+
+#: ../../policy/intro.rst:155 42a0f59ca8724c80a20858c47aad4fb4
+msgid ""
+"Description is a string which is not interpreted by Cilium. It can be "
+"used to describe the intent and scope of the rule in a human readable "
+"form."
+msgstr ""
+
+#: ../../policy/intro.rst:163 8a26fcc646074a95846d54d26ba98dd1
+msgid "Endpoint Selector"
+msgstr ""
+
+#: ../../policy/intro.rst:165 1c627d3c5369429fa3aeb30499e4bda4
+msgid ""
+"The Endpoint Selector is based on the `Kubernetes LabelSelector "
+"<https://kubernetes.io/docs/concepts/overview/working-with-objects/labels"
+"/#label-selectors>`_. It is called Endpoint Selector because it only "
+"applies to labels associated with an `endpoints`."
+msgstr ""
+
+#: ../../policy/intro.rst:173 ab9bcdbfe6d2452796fd168dc2fb3281
+msgid "Node Selector"
+msgstr ""
+
+#: ../../policy/intro.rst:175 d4d7e0fb89a442e7890d1c2396079a78
+msgid ""
+"The Node Selector is also based on the `LabelSelector`, although rather "
+"than matching on labels associated with an `endpoints`, it instead "
+"applies to labels associated with a node in the cluster."
+msgstr ""
+
+#: ../../policy/intro.rst:179 5663e32a40644654b932f5ec3b18ce89
+msgid ""
+"Node Selectors can only be used in `CiliumClusterwideNetworkPolicy`. See "
+"`HostPolicies` for details on the scope of node-level policies."
+msgstr ""
+

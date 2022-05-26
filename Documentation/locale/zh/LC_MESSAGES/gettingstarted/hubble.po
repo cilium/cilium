@@ -1,0 +1,165 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/hubble.rst:3 e2ef352bb8d84eb5a8025a349f69e8c7
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:12 92c083abfaf84f64a5ecac8791e64625
+msgid "Service Map & Hubble UI"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:14 0aedc5d5acb045da8272636bb9d092cc
+msgid ""
+"This tutorial guides you through enabling the Hubble UI to access the "
+"graphical service map."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:21 3078fc4e5f914e27aa054bb4e7f1cf9d
+msgid ""
+"This guide assumes that Cilium has been correctly installed in your "
+"Kubernetes cluster and that Hubble has been enabled. Please see "
+":ref:`k8s_quick_install` and :ref:`hubble_setup` for more information. If"
+" unsure, run ``cilium status`` and validate that Cilium and Hubble are up"
+" and running."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:28 0e90be16e2a94da083205a5cad2ca77c
+msgid "Enable the Hubble UI"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:30 28d0f30a583c464788c19bea3e47355a
+msgid ""
+"If you have not done so already, enable the Hubble UI by running the "
+"following command:"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:34 3027305e09b84a90b3148c8d9391570a
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:45 e52d8da05e164f6184910446c44d0953
+msgid "Helm"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:55 318e70ea0b3847198c3fff182456418b
+msgid "Helm (Standalone install)"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:57 41fc0dd3d35849a3bc49b3135c70b0e4
+msgid ""
+"Clusters sometimes come with Cilium, Hubble, and Hubble relay already "
+"installed. When this is the case you can still use Helm to install only "
+"Hubble UI on top of the pre-installed components."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:60 6d4c8795a3cf43a083fc7aa9142c76df
+msgid ""
+"You will need to set ``hubble.ui.standalone.enabled`` to ``true`` and "
+"optionally provide a volume to mount Hubble UI client certificates if TLS"
+" is enabled on Hubble Relay server side."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:63 27ed17affd7a441b9aba3852571ac48e
+msgid ""
+"Below is an example deploying Hubble UI as standalone, with client "
+"certificates mounted from a ``my-hubble-ui-client-certs`` secret:"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:105 55bc938004224dc5aa24fb4a9e57973a
+msgid ""
+"Please note that Hubble UI expects the certificate files to be available "
+"under the following paths:"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:116 7684456515f44d85840c9a03b8dab5c6
+msgid "Keep this in mind when providing the volume containing the certificate."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:120 b3161fb725944defbfa07af3d8e9329a
+msgid "Open the Hubble UI"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:122 8579add7e0e64064ad8c79ef3fd64524
+msgid ""
+"Open the Hubble UI in your browser by running ``cilium hubble ui``. It "
+"will automatically set up a port forward to the hubble-ui service in your"
+" Kubernetes cluster and make it available on a local port on your "
+"machine."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:134 3e2e785b56f74d1dace1dd72fea286da
+msgid ""
+"The above command will block and continue running while the port forward "
+"is active. You can interrupt the command to abort the port forward and "
+"re-run the command to make the UI accessible again."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:138 3b8872550ae44fc38be26f1ed06f6045
+msgid ""
+"If your browser has not automatically opened the UI, open the page "
+"http://localhost:12000 in your browser. You should see a screen with an "
+"invitation to select a namespace, use the namespace selector dropdown on "
+"the left top corner to select a namespace:"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:145 6b52531175994af4a7446ec8314154c9
+msgid ""
+"In this example, we are deploying the Star Wars demo from the "
+":ref:`gs_http` guide. However you can apply the same techniques to "
+"observe application connectivity dependencies in your own namespace, and "
+"clusters for application of any type."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:150 a254086221ba4d7fb6abe14742be38d6
+msgid ""
+"Once the deployment is ready, issue a request from both spaceships to "
+"emulate some traffic."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:160 614fcf0ff2254998b5f12a7f0e37d71a
+msgid ""
+"These requests will then be displayed in the UI as service dependencies "
+"between the different pods:"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:165 3bec66f506474d7d9b005cd8dc09a123
+msgid ""
+"In the bottom of the interface, you may also inspect each recent Hubble "
+"flow event in your current namespace individually."
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:169 85315c7817c4453d8038351da497bb28
+msgid "Inspecting a wide variety of network traffic"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:171 5c96ae972a2c42c7802982349ce28cf6
+msgid ""
+"In order to generate some network traffic, run the connectivity test in a"
+" loop:"
+msgstr ""
+
+#: ../../gettingstarted/hubble.rst:177 51e7826009ee4b238939996e13d10737
+msgid ""
+"To see the traffic in Hubble, open http://localhost:12000/cilium-test in "
+"your browser."
+msgstr ""
+

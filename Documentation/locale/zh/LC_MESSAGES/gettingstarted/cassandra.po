@@ -1,0 +1,431 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/cassandra.rst:3 ba46c89000464b95adfeaa4ca2f910af
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:11 576b6a9a4d664a92880c5827e88fbb29
+msgid "How to Secure a Cassandra Database"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:13 2aab718438f1486590ae1545acb7ee14
+msgid ""
+"This document serves as an introduction to using Cilium to enforce "
+"Cassandra-aware security policies.  It is a detailed walk-through of "
+"getting a single-node Cilium environment running on your machine. It is "
+"designed to take 15-30 minutes."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:18 9cbb526793e8410da9cad0e97bb1483b
+msgid ""
+"**NOTE:** Cassandra-aware policy support is still in beta phase.  It is "
+"not yet ready for production use.   Additionally, the Cassandra-specific "
+"policy language is highly likely to change in a future Cilium version."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:1 33c15f649ffb4a3b8f76fea1ec742e4e
+msgid ""
+"If you haven't read the :ref:`intro` yet, we'd encourage you to do that "
+"first."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:3 e5375cbb61144af199c3b9a8631982f2
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:8 fc3dc0b03cbe4a7b9ef193d4ddfb3093
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:10
+#: 5cbdbc5c2e8745428e7df0064b23f34e
+msgid ""
+"If you have not set up Cilium yet, follow the guide "
+":ref:`k8s_install_standard` for instructions on how to quickly bootstrap "
+"a Kubernetes cluster and install Cilium. If in doubt, pick the minikube "
+"route, you will be good to go in less than 5 minutes."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:25 b528963d2eaa4a8e8378b92065962fd8
+msgid "Deploy the Demo Application"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:27 c7387d92f1014dfdb73843d4e2d5289b
+msgid ""
+"Now that we have Cilium deployed and ``kube-dns`` operating correctly we "
+"can deploy our demo Cassandra application.  Since our first `HTTP-aware "
+"Cilium  Star Wars demo <https://cilium.io/blog/2017/5/4/demo-may-the-"
+"force-be-with-you/>`_ showed how the Galactic Empire used HTTP-aware "
+"security policies to protect the Death Star from the Rebel Alliance, this"
+" Cassandra demo is Star Wars-themed as well."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:33 832e3df459614f36a6890bded874beef
+msgid ""
+"`Apache Cassanadra <http://cassandra.apache.org>`_ is a popular NOSQL "
+"database focused on delivering high-performance transactions (especially "
+"on writes) without sacrificing on availability or scale. Cassandra "
+"operates as a cluster of servers, and Cassandra clients query these "
+"services via a the `native Cassandra protocol "
+"<https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v4.spec>`_"
+" . Cilium understands the Cassandra protocol, and thus is able to provide"
+" deep visibility and control over which clients are able to access "
+"particular tables inside a Cassandra cluster, and which actions (e.g., "
+"\"select\", \"insert\", \"update\", \"delete\") can be performed on "
+"tables."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:41 3addf034037a4d1daa5bced601c9e7c8
+msgid ""
+"With Cassandra, each table belongs to a \"keyspace\", allowing multiple "
+"groups to use a single cluster without conflicting. Cassandra queries "
+"specify the full table name qualified by the keyspace using the syntax "
+"\"<keyspace>.<table>\"."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:44 0f42eca1e24b43c8ad4f281aded60d8a
+msgid ""
+"In our simple example, the Empire uses a Cassandra cluster to store two "
+"different types of information:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:46 2d1ebda80e824027a658023817fb9211
+msgid ""
+"**Employee Attendance Records** : Use to store daily attendance data "
+"(attendance.daily_records)."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:47 efb9bd2bd74b4f859c88a21d48bd0e9a
+msgid ""
+"**Deathstar Scrum Reports** : Daily scrum reports from the teams working "
+"on the Deathstar (deathstar.scrum_reports)."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:49 66add5eaabf840508578adebdb0f4ddf
+msgid ""
+"To keep the setup small, we will just launch a small number of pods to "
+"represent this setup:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:51 5f0fb1a742b14982bbd6eba142e3eab9
+msgid ""
+"**cass-server** : A single pod running the Cassandra service, "
+"representing a Cassandra cluster (label app=cass-server)."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:53 a3eca1a6b4a843c9bf3043428e7478af
+msgid ""
+"**empire-hq** : A pod representing the Empire's Headquarters, which is "
+"the only pod that should be able to read all attendance data, or "
+"read/write the Deathstar scrum notes (label app=empire-hq)."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:55 3482517b88294106b213065423bd7de5
+msgid ""
+"**empire-outpost** : A random outpost in the empire.  It should be able "
+"to insert employee attendance records, but not read records for other "
+"empire facilities.   It also should not have any access to the deathstar "
+"keyspace (label app=empire-outpost)."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:59 501f94d65cc344beabbfe67f771deb0d
+msgid ""
+"All pods other than *cass-server* are Cassandra clients, which need "
+"access to the *cass-server* container on TCP port 9042 in order to send "
+"Cassandra protocol messages."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:64 2d0f7a205def478995c5dba345f4e3b5
+msgid ""
+"The file ``cass-sw-app.yaml`` contains a Kubernetes Deployment for each "
+"of the pods described above, as well as a Kubernetes Service *cassandra-"
+"svc* for the Cassandra cluster."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:75 3d37bfc9f10641bda2e968dfc3893b83
+msgid ""
+"Kubernetes will deploy the pods and service in the background. Running "
+"``kubectl get svc,pods`` will inform you about the progress of the "
+"operation. Each pod will go through several states until it reaches "
+"``Running`` at which point the setup is ready."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:94 7b10c0a1864a4a02b1e2bba9f761db22
+msgid "Step 3: Test Basic Cassandra Access"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:96 c35807b9219b48379df8a3c97b1e2647
+msgid ""
+"First, we'll create the keyspaces and tables mentioned above, and "
+"populate them with some initial data:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:102 b1ea51f4df1742c1901536bd53724b70
+msgid ""
+"Next, create two environment variables that refer to the *empire-hq* and "
+"*empire-outpost* pods:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:110 0a99748098b24e3a918b5efc95b4e8fb
+msgid ""
+"Now we will run the 'cqlsh' Cassandra client in the *empire-outpost* pod,"
+" telling it to access the Cassandra cluster identified by the 'cassandra-"
+"svc' DNS name:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:121 c39a5071a72648059bc3c94b7fb3499f
+msgid ""
+"Next, using the cqlsh prompt, we'll show that the outpost can add records"
+" to the \"daily_records\" table in the \"attendance\" keyspace:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:128 8b4ccb51681e42c691283fdf8c0f1ee0
+msgid ""
+"We have confirmed that outposts are able to report daily attendance "
+"records as intended. We're off to a good start!"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:131 5c4db737d53541ed8cfd8bf670e71c41
+msgid "The Danger of a Compromised Cassandra Client"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:133 bc90cf55655f4f0d89299fea00f05977
+msgid ""
+"But what if a rebel spy gains access to any of the remote outposts that "
+"act as a Cassandra client? Since every client has access to the Cassandra"
+" API on port 9042, it can do some bad stuff. For starters, the outpost "
+"container can not only add entries to the attendance.daily_reports table,"
+" but it could read all entries as well."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:138 329e0bfd83464f8d85e36fda41708032
+msgid "To see this, we can run the following command:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:161 687af298ac6e4355834da1631dfff174
+msgid ""
+"Uh oh!  The rebels now has strategic information about empire troop "
+"strengths at each location in the galaxy."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:163 4fa5f5dd2de149ea96ec2b4feb5b8a70
+msgid ""
+"But even more nasty from a security perspective is that the outpost "
+"container can also access information in any keyspace, including the "
+"deathstar keyspace.  For example, run:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:178 619f9a319cc542a99a59670a5d9c8904
+msgid ""
+"We see that any outpost can actually access the deathstar scrum notes, "
+"which mentions a pretty serious issue with the exhaust port."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:181 7f50c8a86416446c8b1ad8b1ba8a707e
+msgid "Securing Access to Cassandra with Cilium"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:183 fee45a36d5e1492ca1f7bd5854a3fd1a
+msgid ""
+"Obviously, it would be much more secure to limit each pod's access to the"
+" Cassandra server to be least privilege (i.e., only what is needed for "
+"the app to operate correctly and nothing more)."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:186 20f4e313728c4f85a5ab6aaf3d195a71
+msgid ""
+"We can do that with the following Cilium security policy.   As with "
+"Cilium HTTP policies, we can write policies that identify pods by labels,"
+" and then limit the traffic in/out of this pod.  In this case, we'll "
+"create a policy that identifies the tables that each client should be "
+"able to access, the actions that are allowed on those tables, and deny "
+"the rest."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:191 40c70bedbe2740fdb76ee6d2f2573da4
+msgid ""
+"As an example, a policy could limit containers with label *app=empire-"
+"outpost* to only be able to insert entries into the table "
+"\"attendance.daily_reports\", but would block any attempt by a "
+"compromised outpost to read all attendance information or access other "
+"keyspaces."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:197 ba83b7a371cd4945bf1c560cdd40ace6
+msgid ""
+"Here is the *CiliumNetworkPolicy* rule that limits access of pods with "
+"label *app=empire-outpost* to only insert records into "
+"\"attendance.daily_reports\":"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:202 a0f494aad91d4fb29fecd9deee7222a2
+msgid ""
+"A *CiliumNetworkPolicy* contains a list of rules that define allowed "
+"requests, meaning that requests that do not match any rules are denied as"
+" invalid."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:205 45a45833c44342ff9321673157fdeb2b
+msgid ""
+"The rule explicitly matches Cassandra connections destined to TCP 9042 on"
+" cass-server pods, and allows query actions like "
+"select/insert/update/delete only on a specified set of tables. The above "
+"rule applies to inbound (i.e., \"ingress\") connections to cass-server "
+"pods (as indicated by \"app:cass-server\" in the \"endpointSelector\" "
+"section).  The rule applies different rules based on whether the client "
+"pod has labels \"app: empire-outpost\" or \"app: empire-hq\" as indicated"
+" by the \"fromEndpoints\" section."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:211 30dcb7081ce74bf18d419330721ed3ff
+msgid ""
+"The policy limits the *empire-outpost* pod to performing \"select\" "
+"queries on the \"system\" and \"system_schema\" keyspaces (required by "
+"cqlsh on startup) and \"insert\" queries to the "
+"\"attendance.daily_records\" table."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:214 aa4ed7375e6540ba80a438f32aef90f1
+msgid ""
+"The full policy adds another rule that allows all queries from the "
+"*empire-hq* pod."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:216 41fa731fa9464c41ac43c7ab3cd324f3
+msgid ""
+"Apply this Cassandra-aware network security policy using ``kubectl`` in a"
+" new window:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:222 02f05b6037ac4f99b5115bae462110f7
+msgid ""
+"If we then again try to perform the attacks from the *empire-outpost* "
+"pod, we'll see that they are denied:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:229 27e685b40ad843febb0d7f78e9edd7c2
+msgid ""
+"This is because the policy only permits pods with labels app: empire-"
+"outpost to insert into attendance.daily_records, it does not permit "
+"select on that table, or any action on other tables (with the exception "
+"of the system.* and system_schema.* keyspaces).  Its worth noting that we"
+" don't simply drop the message (which could easily be confused with a "
+"network error), but rather we respond with the Cassandra Unauthorized "
+"error message. (similar to how HTTP would return an error code of 403 "
+"unauthorized)."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:235 0e6feea449844d5380dd62b3fe42b06c
+msgid ""
+"Likewise, if the outpost pod ever tries to access a table in another "
+"keyspace, like deathstar, this request will also be denied:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:243 7291de059966452d95e60246834d4505
+msgid "This is blocked as well, thanks to the Cilium network policy."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:245 fcb37ab0d2184a06a3885199034c4d6e
+msgid ""
+"Use another window to confirm that the *empire-hq* pod still has full "
+"access to the cassandra cluster:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:255 9388129135c54da4879fc33dd82e12f5
+msgid ""
+"The power of Cilium's identity-based security allows *empire-hq* to still"
+" have full access to both tables:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:271 98bc4848a35c4d9690286c4971aea9a5
+msgid "Similarly, the deathstar can still access the scrum notes:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:282 a0328e420b904781aac552ff33ec8ba3
+msgid "Cassandra-Aware Visibility (Bonus)"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:284 23ac0bc62af347498d7a60afd0f5782f
+msgid ""
+"As a bonus, you can re-run the above queries with policy enforced and "
+"view how Cilium provides Cassandra-aware visibility, including whether "
+"requests are forwarded or denied.   First, use \"kubectl exec\" to access"
+" the cilium pod."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:293 da5b15bd4d1c4edc905af44fb2c8fd6e
+msgid ""
+"Next, start Cilium monitor, and limit the output to only \"l7\" type "
+"messages using the \"-t\" flag:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:301 db6a036fac9a45fba0f42f5738365c6c
+msgid ""
+"In the other windows, re-run the above queries, and you will see that "
+"Cilium provides full visibility at the level of each Cassandra request, "
+"indicating:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:304 2aec3f5e2ab44e038666452aef69ee3e
+msgid "The Kubernetes label-based identity of both the sending and receiving pod."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:305 e1a3524fa66d4839a3f29908ba4a37a7
+msgid ""
+"The details of the Cassandra request, including the 'query_action' (e.g.,"
+" 'select', 'insert') and 'query_table' (e.g., 'system.local', "
+"'attendance.daily_records')"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:307 e47dba7f3bfb4170a64eaa4f72223994
+msgid ""
+"The 'verdict' indicating whether the request was allowed by policy "
+"('Forwarded' or 'Denied')."
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:309 4002e9b601b148e6bf1abeea3b40dbcf
+msgid ""
+"Example output is below.   All requests are from *empire-outpost* to "
+"*cass-server*.   The first two requests are allowed, a 'select' into "
+"'system.local' and an 'insert' into 'attendance.daily_records'. The "
+"second two requests are denied, a 'select' into "
+"'attendance.daily_records' and a select into 'deathstar.scrum_notes' :"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:321 c6d68dd927e9475e8ef0bb8ade2c2f9e
+msgid "Clean Up"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:323 d19b6734b8474fceaf6073400d1fcbed
+msgid ""
+"You have now installed Cilium, deployed a demo app, and tested L7 "
+"Cassandra-aware network security policies.  To clean up, run:"
+msgstr ""
+
+#: ../../gettingstarted/cassandra.rst:331 04f13afcf6c44e6cbccdb70277e2a7b8
+msgid "After this, you can re-run the tutorial from Step 1."
+msgstr ""
+

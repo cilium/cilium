@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_fs_show.md:3 96a92538a4974205b8a4db4ecb17395e
+msgid "cilium bpf fs show"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs_show.md:5 a87d31cb6f6f4a9b9801dd19b011e31d
+msgid "Show bpf filesystem mount details"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs_show.md:11 7d8e59a698c248418f843a525cf81c82
+msgid "Examples"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs_show.md:17 265abe9d920e4fd19bd7648900d877bf
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs_show.md:24 e14408698ad441baac1e23cbacf9eca8
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs_show.md:32 244d75cab2eb4715887a1ac98721687d
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_fs_show.md:34 d165ed3a2329458a89f2ebb987265cf7
+msgid "[cilium bpf fs](cilium_bpf_fs.md)\t - BPF filesystem mount"
+msgstr ""
+

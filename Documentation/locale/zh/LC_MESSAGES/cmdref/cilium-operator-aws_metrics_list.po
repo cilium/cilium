@@ -1,0 +1,46 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:3
+#: 09b1dd83ec2141099a8306376b1fc738
+msgid "cilium-operator-aws metrics list"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:5
+#: 73b23c4fa2814991a6ba5e391e60ec00
+msgid "List all metrics for the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:11
+#: a13c3caa52aa4d94b6c17e4fb4ec6833
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:19
+#: 0ffe754c419548a78ad185b9a98b4f6f
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_metrics_list.md:21
+#: e4c6b48261d344cf867f966475abc86c
+msgid ""
+"[cilium-operator-aws metrics](cilium-operator-aws_metrics.md)\t - Access "
+"metric status of the operator"
+msgstr ""
+

@@ -1,0 +1,68 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:3
+#: b72432ec8bea4da4a348c56b85a73102
+msgid "cilium-bugtool completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:5
+#: 66db606661f949d8b1432244aca326e6
+msgid "Generate the autocompletion script for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:7
+#: 98f8dbecebe4489f995e4687d1cd806a
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:9
+#: 838a92847df44f388cc203eb0d6a6da1
+msgid "Generate the autocompletion script for powershell."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:11
+#: b5ad47111ef34d10bcc53cb24ace213f
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:15
+#: 2781322a00524b38bf76474c52abfe9a
+msgid ""
+"To load completions for every new session, add the output of the above "
+"command to your powershell profile."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:23
+#: bc011e67dbdc488d98cb1d5e70846bb3
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:30
+#: e308499e0349491b88dd461826c0f81b
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_powershell.md:32
+#: c91eccdc20e14360b207d8647d6799b7
+msgid ""
+"[cilium-bugtool completion](cilium-bugtool_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+

@@ -1,0 +1,1524 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../operations/metrics.rst:3 2cd07dae04e54b6d8a08ba221e4bc619
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../operations/metrics.rst:11 4e332166a778480f88361265d3f530b2
+msgid "Monitoring & Metrics"
+msgstr ""
+
+#: ../../operations/metrics.rst:13 b6a0abccfc414f83bc552d44581cc895
+msgid ""
+"Cilium and Hubble can both be configured to serve `Prometheus "
+"<https://prometheus.io>`_ metrics. Prometheus is a pluggable metrics "
+"collection and storage system and can act as a data source for `Grafana "
+"<https://grafana.com/>`_, a metrics visualization frontend. Unlike some "
+"metrics collectors like statsd, Prometheus requires the collectors to "
+"pull metrics from each source."
+msgstr ""
+
+#: ../../operations/metrics.rst:20 02f1a7fc33ce49128eb9445f289a188e
+msgid "Cilium and Hubble metrics can be enabled independently of each other."
+msgstr ""
+
+#: ../../operations/metrics.rst:23 7041817b05d64b89a5e767c7cb8ea754
+msgid "Cilium Metrics"
+msgstr ""
+
+#: ../../operations/metrics.rst:25 2f52d0d18c5d434cac41fc3b35526abf
+msgid ""
+"Cilium metrics provide insights into the state of Cilium itself, namely "
+"of the ``cilium-agent``, ``cilium-envoy``, and ``cilium-operator`` "
+"processes. To run Cilium with Prometheus metrics enabled, deploy it with "
+"the ``prometheus.enabled=true`` Helm value set."
+msgstr ""
+
+#: ../../operations/metrics.rst:30 58ddd7802f04405e92b9cdd26daa2476
+msgid ""
+"Cilium metrics are exported under the ``cilium_`` Prometheus namespace. "
+"Envoy metrics are exported under the ``envoy_`` Prometheus namespace, of "
+"which the Cilium-defined metrics are exported under the ``envoy_cilium_``"
+" namespace. When running and collecting in Kubernetes they will be tagged"
+" with a pod name and namespace."
+msgstr ""
+
+#: ../../operations/metrics.rst:37 ../../operations/metrics.rst:99
+#: 58b3eca1d2384a229b269cfab8b7ae3f c3778dd62fa94c27b9b2ec81e0f0342b
+msgid "Installation"
+msgstr ""
+
+#: ../../operations/metrics.rst:39 b6cbabad19504476a15f78814564469b
+msgid ""
+"You can enable metrics for ``cilium-agent`` (including Envoy) with the "
+"Helm value ``prometheus.enabled=true``. To enable metrics for ``cilium-"
+"operator``, use ``operator.prometheus.enabled=true``."
+msgstr ""
+
+#: ../../operations/metrics.rst:50 9387e55ec80b4a7b9999d0f634b4b344
+msgid ""
+"The ports can be configured via ``prometheus.port``, "
+"``proxy.prometheus.port``, or ``operator.prometheus.port`` respectively."
+msgstr ""
+
+#: ../../operations/metrics.rst:53 86b6281bfd874be090a840ed375fd034
+msgid ""
+"When metrics are enabled, all Cilium components will have the following "
+"annotations. They can be used to signal Prometheus whether to scrape "
+"metrics:"
+msgstr ""
+
+#: ../../operations/metrics.rst:61 34fec4a791a94e7bbe29346910293855
+msgid ""
+"To collect Envoy metrics the Cilium chart will create a Kubernetes "
+"headless service named ``cilium-agent`` with the "
+"``prometheus.io/scrape:'true'`` annotation set:"
+msgstr ""
+
+#: ../../operations/metrics.rst:69 4291c747389346cea811bb5befe7c2e2
+msgid ""
+"This additional headless service in addition to the other Cilium "
+"components is needed as each component can only have one Prometheus "
+"scrape and port annotation."
+msgstr ""
+
+#: ../../operations/metrics.rst:72 7592d93039454f3aa95389141de51b29
+msgid ""
+"Prometheus will pick up the Cilium and Envoy metrics automatically if the"
+" following option is set in the ``scrape_configs`` section:"
+msgstr ""
+
+#: ../../operations/metrics.rst:92 4ad09a4c81e34e4bbecd872b8efbf685
+msgid "Hubble Metrics"
+msgstr ""
+
+#: ../../operations/metrics.rst:94 7d78fb9e0d98489ebd78e02686866040
+msgid ""
+"While Cilium metrics allow you to monitor the state Cilium itself, Hubble"
+" metrics on the other hand allow you to monitor the network behavior of "
+"your Cilium-managed Kubernetes pods with respect to connectivity and "
+"security."
+msgstr ""
+
+#: ../../operations/metrics.rst:101 df4d963cb464470bb25430a0c12e6dd8
+msgid ""
+"To deploy Cilium with Hubble metrics enabled, you need to enable Hubble "
+"with ``hubble.enabled=true`` and provide a set of Hubble metrics you want"
+" to enable via ``hubble.metrics.enabled``."
+msgstr ""
+
+#: ../../operations/metrics.rst:105 24ecbd6f92c54ad4a6b02d9e06aea9e3
+msgid ""
+"Some of the metrics can also be configured with additional options. See "
+"the :ref:`Hubble exported metrics<hubble_exported_metrics>` section for "
+"the full list of available metrics and their options."
+msgstr ""
+
+#: ../../operations/metrics.rst:115 43e75f7231e541079deb53ffbe6a9d49
+msgid ""
+"The port of the Hubble metrics can be configured with the "
+"``hubble.metrics.port`` Helm value."
+msgstr ""
+
+#: ../../operations/metrics.rst:120 3cc24adc899c4ec5b8c7b5b0c046e4cc
+msgid ""
+"L7 metrics such as HTTP, are only emitted for pods that enable "
+":ref:`Layer 7 Protocol Visibility <proxy_visibility>`."
+msgstr ""
+
+#: ../../operations/metrics.rst:123 4b3b1f8db77c477997c5156e640ef75f
+msgid ""
+"When deployed with a non-empty ``hubble.metrics.enabled`` Helm value, the"
+" Cilium chart will create a Kubernetes headless service named ``hubble-"
+"metrics`` with the ``prometheus.io/scrape:'true'`` annotation set:"
+msgstr ""
+
+#: ../../operations/metrics.rst:132 f86a884163924aaf8ce0d886f0ac94cb
+msgid ""
+"Set the following options in the ``scrape_configs`` section of Prometheus"
+" to have it scrape all Hubble metrics from the endpoints automatically:"
+msgstr ""
+
+#: ../../operations/metrics.rst:154 68e65f77ec87451da3763a4b9ca2f495
+msgid "Example Prometheus & Grafana Deployment"
+msgstr ""
+
+#: ../../operations/metrics.rst:156 36f26fae32ad4040804cccb717f4c01f
+msgid ""
+"If you don't have an existing Prometheus and Grafana stack running, you "
+"can deploy a stack with:"
+msgstr ""
+
+#: ../../operations/metrics.rst:163 2a4e8f36c0934964a42b5cfff1cb7327
+msgid ""
+"It will run Prometheus and Grafana in the ``cilium-monitoring`` "
+"namespace. If you have either enabled Cilium or Hubble metrics, they will"
+" automatically be scraped by Prometheus. You can then expose Grafana to "
+"access it via your browser."
+msgstr ""
+
+#: ../../operations/metrics.rst:171 273aaa0ef00043edaa96dc5a0adf8e11
+msgid "Open your browser and access http://localhost:3000/"
+msgstr ""
+
+#: ../../operations/metrics.rst:174 9ce14d06e52442099c162014c5ba8df5
+msgid "Metrics Reference"
+msgstr ""
+
+#: ../../operations/metrics.rst:177 2f03dceb6f3b49cfa27418158b124908
+msgid "cilium-agent"
+msgstr ""
+
+#: ../../operations/metrics.rst:180 ../../operations/metrics.rst:433
+#: ../../operations/metrics.rst:467 770c336e552e4e8ca155ee9b6ac9540b
+#: acd21156c868405d86a0a90ecb15fb1c bfcbd05ac58048bc80412304467c4d51
+msgid "Configuration"
+msgstr ""
+
+#: ../../operations/metrics.rst:182 397631c5ecc949a68933dcd5568be3c3
+msgid ""
+"To expose any metrics, invoke ``cilium-agent`` with the ``--prometheus-"
+"serve-addr`` option. This option takes a ``IP:Port`` pair but passing an "
+"empty IP (e.g. ``:9090``) will bind the server to all available "
+"interfaces (there is usually only one in a container)."
+msgstr ""
+
+#: ../../operations/metrics.rst:188 ../../operations/metrics.rst:441
+#: ../../operations/metrics.rst:512 604bcf4198c64e39b53b859867ae57c0
+#: b381638889f4491b8c78ee8af81a442e c4b0cf08b7934cb5aa93d92bb6dbb1fe
+msgid "Exported Metrics"
+msgstr ""
+
+#: ../../operations/metrics.rst:191 9ba60da3e8b54cb99c670ab7926d3497
+msgid "Endpoint"
+msgstr ""
+
+#: ../../operations/metrics.rst:194 ../../operations/metrics.rst:206
+#: ../../operations/metrics.rst:215 ../../operations/metrics.rst:226
+#: ../../operations/metrics.rst:236 ../../operations/metrics.rst:250
+#: ../../operations/metrics.rst:263 ../../operations/metrics.rst:272
+#: ../../operations/metrics.rst:290 ../../operations/metrics.rst:302
+#: ../../operations/metrics.rst:317 ../../operations/metrics.rst:328
+#: ../../operations/metrics.rst:337 ../../operations/metrics.rst:346
+#: ../../operations/metrics.rst:356 ../../operations/metrics.rst:365
+#: ../../operations/metrics.rst:376 ../../operations/metrics.rst:386
+#: ../../operations/metrics.rst:397 ../../operations/metrics.rst:407
+#: ../../operations/metrics.rst:418 ../../operations/metrics.rst:451
+#: ../../operations/metrics.rst:520 ../../operations/metrics.rst:544
+#: ../../operations/metrics.rst:558 ../../operations/metrics.rst:576
+#: ../../operations/metrics.rst:598 ../../operations/metrics.rst:614
+#: ../../operations/metrics.rst:628 ../../operations/metrics.rst:642
+#: 1f616c6652ff44e7bc42fdb7498cf3c0 3059058a14054efb9df4a35a61df86de
+#: 3602d2a8aa824802b36c9062ee3cc341 3f576275c4424720bb1b7083be6ded70
+#: 3fdc6b183f964378af9e093cabea001a 44f24e56055b41299c8fcbc5d15573f3
+#: 46c40a85aeaf436bbd0c9520bf5336de 5922b026a3184c75b06cfe49b23c591b
+#: 5bc51a460e09485bb7a77c84a79fa043 5cab58a41989464cbab619ebaf9f4c1b
+#: 629a65c3a673485b9c8b859966dda980 6d3d63fad4224037b82b1f24bdfdfa2e
+#: 7636cc9b3bbf47689bbd6d2db03e4c8b 7bacb42e99da4221910512d7c0e95060
+#: 7d5fc92a7b3d4a138b17b84fd4a8662b 87b864a776b545b8bdde617d9ba193dc
+#: 8bbf48535e6a49248af490e823ce586d 90244ae5129d49a38b5c03150a8bc6fa
+#: 95ab3a802a034371adc29fca40ff46c8 a2d864b4e5a34d1ba895d96c85f28cac
+#: b1aa843faf27476d811263ad30aabfd1 b39b3dd599d843288f4bfa644d4e6a23
+#: badf33b6e32246f99aeecff307a3a57b be9d2e41e4044ea2900666d7a7fe15cd
+#: c855ae0c9aef482f925e51fb99f493ca ceab06b1d2b5428ea954118a04618ddc
+#: d25a3d2d5d3f43048acaa2c34658fb4f e386294826004b27baa336a8782555b1
+#: e68dfc4b7adc4cad81c91a396ef54ce5 f9304ed89fee4d94b1adeb6a983a668b
+msgid "Name"
+msgstr ""
+
+#: ../../operations/metrics.rst:194 ../../operations/metrics.rst:206
+#: ../../operations/metrics.rst:215 ../../operations/metrics.rst:226
+#: ../../operations/metrics.rst:236 ../../operations/metrics.rst:250
+#: ../../operations/metrics.rst:263 ../../operations/metrics.rst:272
+#: ../../operations/metrics.rst:290 ../../operations/metrics.rst:302
+#: ../../operations/metrics.rst:317 ../../operations/metrics.rst:328
+#: ../../operations/metrics.rst:337 ../../operations/metrics.rst:346
+#: ../../operations/metrics.rst:356 ../../operations/metrics.rst:365
+#: ../../operations/metrics.rst:376 ../../operations/metrics.rst:386
+#: ../../operations/metrics.rst:397 ../../operations/metrics.rst:407
+#: ../../operations/metrics.rst:418 ../../operations/metrics.rst:451
+#: ../../operations/metrics.rst:520 ../../operations/metrics.rst:544
+#: ../../operations/metrics.rst:558 ../../operations/metrics.rst:576
+#: ../../operations/metrics.rst:598 ../../operations/metrics.rst:614
+#: ../../operations/metrics.rst:628 ../../operations/metrics.rst:642
+#: 098e258386f045d7ab1414e54d42a7e4 18a1cdfbacd04503b74ccb38f54bf497
+#: 19ef85bda9da42cfbf146d30528e8fd5 21625ab3f3a849d8b4e8f0232a3d46c3
+#: 22d2f273f13a4c5babd9ff3f15bf84c3 25ec3758687d4c2ea9bc31e99ea784b3
+#: 2f83ec03bdb74f22b83407066112c485 421b9ee350154e94b81e0288e10c845e
+#: 4f88f2e90b43414cb971677709f960a0 5660177d1264406c88f7389513a41a11
+#: 6224830a05e54df3a2c22ea897fbd544 700185ea19c74293b2f555867b76f6b7
+#: 7dc7a3ed1f0c4db89877f9fa34faf83e 83f784d04e3445e49711f15b7deed859
+#: 8f75756e69d7445a98191ed34d4fffcc 90ff549b65484abe92d4859b1320c88e
+#: 9aa92341970645ef9fec7c20b6a8b66a aa4244297fe34b348ccd32e57c455aac
+#: b37d9b2ae6084501b4425789326031e7 b8f61e3936ea4b169120d1c6a8228cad
+#: c171c20f56d14b35bbafe42f040c6f12 c4b20540e3744bc883694e8a68e43758
+#: c7187ee1b2944dbfb542968809652b09 d22616c4da484a2ca53b34bcf9682492
+#: f3f91f5af6f94b398c08d4a5f76a75fe f514d7cf69ac42fc8b9b847319a6b74a
+#: f51624ebbd434b62be1257ab7ee32ac7 f5da3e174e734179958243ed0306d885
+#: fa6bccfd378849f1b92d7d3feeaf47a6 fe4910b3248d42cea458b5509c11bd5e
+msgid "Labels"
+msgstr ""
+
+#: ../../operations/metrics.rst:194 ../../operations/metrics.rst:206
+#: ../../operations/metrics.rst:215 ../../operations/metrics.rst:226
+#: ../../operations/metrics.rst:236 ../../operations/metrics.rst:250
+#: ../../operations/metrics.rst:263 ../../operations/metrics.rst:272
+#: ../../operations/metrics.rst:290 ../../operations/metrics.rst:302
+#: ../../operations/metrics.rst:317 ../../operations/metrics.rst:328
+#: ../../operations/metrics.rst:337 ../../operations/metrics.rst:346
+#: ../../operations/metrics.rst:356 ../../operations/metrics.rst:365
+#: ../../operations/metrics.rst:376 ../../operations/metrics.rst:386
+#: ../../operations/metrics.rst:397 ../../operations/metrics.rst:407
+#: ../../operations/metrics.rst:418 ../../operations/metrics.rst:451
+#: ../../operations/metrics.rst:491 ../../operations/metrics.rst:520
+#: ../../operations/metrics.rst:531 ../../operations/metrics.rst:544
+#: ../../operations/metrics.rst:558 ../../operations/metrics.rst:576
+#: ../../operations/metrics.rst:585 ../../operations/metrics.rst:598
+#: ../../operations/metrics.rst:614 ../../operations/metrics.rst:628
+#: ../../operations/metrics.rst:642 06c203c9d82b4e2fbd63965693b94b69
+#: 11df355e217d4026a48b9d4e74eb95fd 1cb8e0a7bce04e479746b238101e8f18
+#: 24d77ed7f847459790d7612eb22f1036 252c9809e9af4c7a8dd3280aca460df6
+#: 26080beddd9249be9a8ea1c8464dde19 29e2330b969c48b9810793e53271d0ba
+#: 2ab819576b3340b2bc54561b6db729d8 3fe347bdf79d4283ba4b6b40ce10b088
+#: 44b3e2a1eab944f7906c63677abb8077 467c702624984d8c80ae18a0e4e38915
+#: 4c46497d38584bc3bc1ee9fc074d4538 4d8fcb32d286445db5389669d333df13
+#: 53a0d828723c44848bd1d81cb506f018 5448180bcdca4ba4b21c3ccabb5b3c06
+#: 5690961fc06a44558549dd18d0ffb139 56c3033f428246ed8a79b5b8e9f952ce
+#: 626be3b25c19473490403cb2c8b8ccab 6bbd75660b024b7498eaec6bf1d05304
+#: 73608b3cd8234fe9966a861a6a947cc9 90f22be7a9f84228885251b8de924c90
+#: 9c35b1452881498eaceea339800d2077 9f826700ef6c4288b0659f0401d09717
+#: aee3aa5d47804cd786e667fba6b33ec9 b0771b51fbcd43bf87c7631fc95b91ef
+#: b2bcdc7003c44c2b9939954e0f9c90de c3b420be6af34588af1c469b6557681f
+#: cd91ddcddb5544f0b256b122c79b43cb d38ea9606f554577b8031fd64126f9d8
+#: e1c220641a814be288bacf6b2f259533 ed56b668ae604bfe916de0139db2d3d9
+#: efb62c65bc2f43c5a8ada39000ae5793 fc5fa7afdee94b4f855e60697a0d0a1d
+msgid "Description"
+msgstr ""
+
+#: ../../operations/metrics.rst:196 2fe3fee5ac8b452fbd38463f83e8b57b
+msgid "``endpoint``"
+msgstr ""
+
+#: ../../operations/metrics.rst:196 de39d9efd56b4347adb0d43cadd63510
+msgid "Number of endpoints managed by this agent"
+msgstr ""
+
+#: ../../operations/metrics.rst:197 f82d756daaaa47bd911e120d84bf4089
+msgid "``endpoint_regenerations_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:197 a127cb1aff3f41acb739b37d63071d55
+msgid "``outcome``"
+msgstr ""
+
+#: ../../operations/metrics.rst:197 863477eb7cd541eda5c1b870e8c33478
+msgid "Count of all endpoint regenerations that have completed"
+msgstr ""
+
+#: ../../operations/metrics.rst:198 7e86e50430f34fb68ac50496bb91fd3e
+msgid "``endpoint_regeneration_time_stats_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:198 ../../operations/metrics.rst:307
+#: 24a78054f11747169518824690d095e7 5a2d7933a3cb4a72bf97091091744957
+msgid "``scope``"
+msgstr ""
+
+#: ../../operations/metrics.rst:198 54224783812140a5a4df80b0ce51efc8
+msgid "Endpoint regeneration time stats"
+msgstr ""
+
+#: ../../operations/metrics.rst:199 ddaa8f8d69d14857b7fbae02cbb2bd3c
+msgid "``endpoint_state``"
+msgstr ""
+
+#: ../../operations/metrics.rst:199 9bee1b7e3b594d569c95280c1f5eabe7
+msgid "``state``"
+msgstr ""
+
+#: ../../operations/metrics.rst:199 2c595f92825441dcbd169fbd13bb9d4d
+msgid "Count of all endpoints"
+msgstr ""
+
+#: ../../operations/metrics.rst:203 ca7e24aa911f4cbea1712a296b33e67b
+msgid "Services"
+msgstr ""
+
+#: ../../operations/metrics.rst:208 f4ff0f88e3a54914b23b0291080f9b30
+msgid "``services_events_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:208 d61d1325ce3e41c7b2a466468edbae8c
+msgid "Number of services events labeled by action type"
+msgstr ""
+
+#: ../../operations/metrics.rst:212 1540fcd88c2a4b8b82082e85170ac487
+msgid "Cluster health"
+msgstr ""
+
+#: ../../operations/metrics.rst:217 0315560cf3e84a498b5898bd45550a1e
+msgid "``unreachable_nodes``"
+msgstr ""
+
+#: ../../operations/metrics.rst:217 d5fb6b5763e04655abd60e2b1485fc28
+msgid "Number of nodes that cannot be reached"
+msgstr ""
+
+#: ../../operations/metrics.rst:218 84fd2b7750a946daa7a2b88e9efcc068
+msgid "``unreachable_health_endpoints``"
+msgstr ""
+
+#: ../../operations/metrics.rst:218 88a821e93a2547cd821140d2c20c60d7
+msgid "Number of health endpoints that cannot be reached"
+msgstr ""
+
+#: ../../operations/metrics.rst:219 d6bbfdd2f2494acb8f68e408b4bf4962
+msgid "``controllers_failing``"
+msgstr ""
+
+#: ../../operations/metrics.rst:219 817f81a4257f4b708b2578fa081a201a
+msgid "Number of failing controllers"
+msgstr ""
+
+#: ../../operations/metrics.rst:223 83ac77b3efca45f8aacaa2ef14bf92a3
+msgid "Node Connectivity"
+msgstr ""
+
+#: ../../operations/metrics.rst:228 45805913ef694f62b88842f442b2d2bc
+msgid "``node_connectivity_status``"
+msgstr ""
+
+#: ../../operations/metrics.rst:228 e9d228cdd81a49d481bd4a719288aeba
+msgid ""
+"``source_cluster``, ``source_node_name``, ``target_cluster``, "
+"``target_node_name``, ``target_node_type``, ``type``"
+msgstr ""
+
+#: ../../operations/metrics.rst:228 75a3e5bd729a40f492d628890587b73b
+msgid ""
+"The last observed status of both ICMP and HTTP connectivity between the "
+"current Cilium agent and other Cilium nodes"
+msgstr ""
+
+#: ../../operations/metrics.rst:229 6ed602f453a944c3a1238ada1118bab0
+msgid "``node_connectivity_latency_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:229 dcb94cb825514c7b899c2643942fd920
+msgid ""
+"``address_type``, ``protocol``, ``source_cluster``, ``source_node_name``,"
+" ``target_cluster``, ``target_node_ip``, ``target_node_name``, "
+"``target_node_type``, ``type``"
+msgstr ""
+
+#: ../../operations/metrics.rst:229 8a4dd80e939740b5b0195064805884b9
+msgid ""
+"The last observed latency between the current Cilium agent and other "
+"Cilium nodes in seconds"
+msgstr ""
+
+#: ../../operations/metrics.rst:233 ae6914500f724c6c9210c691e4721e3c
+msgid "Clustermesh"
+msgstr ""
+
+#: ../../operations/metrics.rst:238 b2a81ba5c73c4e9a9e10a4cf50a3ab92
+msgid "``clustermesh_global_services``"
+msgstr ""
+
+#: ../../operations/metrics.rst:238 ../../operations/metrics.rst:239
+#: 42e9eaa7ff8e40f9b95d011242f2178b 7055fbec667a4641908246cc5e4e0182
+msgid "``source_cluster``, ``source_node_name``"
+msgstr ""
+
+#: ../../operations/metrics.rst:238 c6e409a7432b4bcd84240e14be0e3772
+msgid "The total number of global services in the cluster mesh"
+msgstr ""
+
+#: ../../operations/metrics.rst:239 179e2c9d13a44c3c840b1f4f370bc333
+msgid "``clustermesh_remote_clusters``"
+msgstr ""
+
+#: ../../operations/metrics.rst:239 4565f632bad8484e90f76eb9c260f167
+msgid "The total number of remote clusters meshed with the local cluster"
+msgstr ""
+
+#: ../../operations/metrics.rst:240 0e6426a76fd14f16909da37148075cec
+msgid "``clustermesh_remote_cluster_failures``"
+msgstr ""
+
+#: ../../operations/metrics.rst:240 ../../operations/metrics.rst:241
+#: ../../operations/metrics.rst:242 ../../operations/metrics.rst:243
+#: 2fc05105a96d409895517d50738927ef 3a70be0b2b7c44cdb1d97cf42ecd51fa
+#: 5f27fbbf412f42fab4c941658f3c71a5 823a2da8b2e1403f916629f3a34a87e5
+msgid "``source_cluster``, ``source_node_name``, ``target_cluster``"
+msgstr ""
+
+#: ../../operations/metrics.rst:240 a4965da857dc44f59cae0e7888f7fbba
+msgid "The total number of failures related to the remote cluster"
+msgstr ""
+
+#: ../../operations/metrics.rst:241 84d86b80f9004262ae2a3fb370e5e90b
+msgid "``clustermesh_remote_cluster_nodes``"
+msgstr ""
+
+#: ../../operations/metrics.rst:241 f6b96c29a05e4b9890231f27d27690bd
+msgid "The total number of nodes in the remote cluster"
+msgstr ""
+
+#: ../../operations/metrics.rst:242 ecf7a054628c45e4aa55c0904c648d6e
+msgid "``clustermesh_remote_cluster_last_failure_ts``"
+msgstr ""
+
+#: ../../operations/metrics.rst:242 64a32bdf33f44c948515a1c8eb3cb6ec
+msgid "The timestamp of the last failure of the remote cluster"
+msgstr ""
+
+#: ../../operations/metrics.rst:243 3576a6a8883c436db48bd8b217efdd83
+msgid "``clustermesh_remote_cluster_readiness_status``"
+msgstr ""
+
+#: ../../operations/metrics.rst:243 0ee67977ed874a34b6dcfa855517041b
+msgid "The readiness status of the remote cluster"
+msgstr ""
+
+#: ../../operations/metrics.rst:247 baa2277631104725a55636f7da817691
+msgid "Datapath"
+msgstr ""
+
+#: ../../operations/metrics.rst:252 ea4c6e2b9e0640b19edb4002c1ea7290
+msgid "``datapath_conntrack_dump_resets_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:252 6cd9edaf372d40308592983f557c76e8
+msgid "``area``, ``name``, ``family``"
+msgstr ""
+
+#: ../../operations/metrics.rst:252 980ff81d029e4539b49e80c987726aa2
+msgid ""
+"Number of conntrack dump resets. Happens when a BPF entry gets removed "
+"while dumping the map is in progress."
+msgstr ""
+
+#: ../../operations/metrics.rst:253 7563b9d28efd431bb3e2666aba3b10f3
+msgid "``datapath_conntrack_gc_runs_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:253 ../../operations/metrics.rst:256
+#: ../../operations/metrics.rst:348 ../../operations/metrics.rst:349
+#: 0695f7db1cb74916869618d37ee048df 5dd11dfe073e4754ac0188e2a35af4a7
+#: c8d39b994b124ccaaeab92676593239e d58ca0481daf4f6cac0a9755262b8405
+msgid "``status``"
+msgstr ""
+
+#: ../../operations/metrics.rst:253 6220d632f7d849058dd7be1fb7c33080
+msgid "Number of times that the conntrack garbage collector process was run"
+msgstr ""
+
+#: ../../operations/metrics.rst:254 2cf056c4675543489d1480f5ec6f2e2b
+msgid "``datapath_conntrack_gc_key_fallbacks_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:254 fe94b34436344d5888eceaeb80a6ad05
+msgid ""
+"The number of alive and deleted conntrack entries at the end of a garbage"
+" collector run labeled by datapath family"
+msgstr ""
+
+#: ../../operations/metrics.rst:255 8ef266514bec4d769cdfe133afc1eadb
+msgid "``datapath_conntrack_gc_entries``"
+msgstr ""
+
+#: ../../operations/metrics.rst:255 ../../operations/metrics.rst:379
+#: 3aba1aba39a946568a5f75c9a339e0b0 e625724b23624148a8e799ec3277b9e3
+msgid "``family``"
+msgstr ""
+
+#: ../../operations/metrics.rst:255 d6ef0dfdf00340be9cf87a015e614604
+msgid ""
+"The number of alive and deleted conntrack entries at the end of a garbage"
+" collector run"
+msgstr ""
+
+#: ../../operations/metrics.rst:256 e693627ac5b64ceead523b8114682d9b
+msgid "``datapath_conntrack_gc_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:256 92243f55628a4c46b8606e4437d4b427
+msgid "Duration in seconds of the garbage collector process"
+msgstr ""
+
+#: ../../operations/metrics.rst:260 1ba4acab0e8c47a9a2565fa87508c879
+msgid "IPSec"
+msgstr ""
+
+#: ../../operations/metrics.rst:265 bb08be9ce01143f98847ba7384f66c47
+msgid "``ipsec_xfrm_error``"
+msgstr ""
+
+#: ../../operations/metrics.rst:265 b65956c33eb04deb8e6d41388f140265
+msgid "``error``, ``type``"
+msgstr ""
+
+#: ../../operations/metrics.rst:265 dd6e6619b0ce40d583b2d1f538a6b98f
+msgid "Total number of xfrm errors."
+msgstr ""
+
+#: ../../operations/metrics.rst:269 b2475a08810449b9941ea603eef317b6
+msgid "eBPF"
+msgstr ""
+
+#: ../../operations/metrics.rst:274 94aa037b3fd241668c709e83157f295f
+msgid "``bpf_syscall_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:274 0b09baacb2f943b394021b275e5dc124
+msgid "``operation``, ``outcome``"
+msgstr ""
+
+#: ../../operations/metrics.rst:274 5f50c33368dd48409ed3d16d1c733dec
+msgid "Duration of eBPF system call performed"
+msgstr ""
+
+#: ../../operations/metrics.rst:275 4a740dc1ff4b417a963d27db35d773fd
+msgid "``bpf_map_ops_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:275 668ac4416f5c4a9db741a53922be112f
+msgid "``mapName`` (deprecated), ``map_name``, ``operation``, ``outcome``"
+msgstr ""
+
+#: ../../operations/metrics.rst:275 a71f67302bd647a5b1aba0bec4626a28
+msgid ""
+"Number of eBPF map operations performed. ``mapName`` is deprecated and "
+"will be removed in 1.10. Use ``map_name`` instead."
+msgstr ""
+
+#: ../../operations/metrics.rst:276 ac55c94543714dfaa191b0ed0c780de9
+msgid "``bpf_map_pressure``"
+msgstr ""
+
+#: ../../operations/metrics.rst:276 c009f5e4f29f4d7c8eb71c9d713c9ef8
+msgid "``map_name``"
+msgstr ""
+
+#: ../../operations/metrics.rst:276 7063d96fa53048019f1f365b3fcf4b52
+msgid ""
+"Map pressure defined as fill-up ratio of the map. Policy maps are "
+"exceptionally reported only when ratio is over 0.1."
+msgstr ""
+
+#: ../../operations/metrics.rst:277 d1b47f93a60e4b0fbb544b4136f72d45
+msgid "``bpf_maps_virtual_memory_max_bytes``"
+msgstr ""
+
+#: ../../operations/metrics.rst:277 63ed7a663adf49f5891d7609b828548b
+msgid "Max memory used by eBPF maps installed in the system"
+msgstr ""
+
+#: ../../operations/metrics.rst:278 5c4dfd4c76ab420da11aaf5c252985e8
+msgid "``bpf_progs_virtual_memory_max_bytes``"
+msgstr ""
+
+#: ../../operations/metrics.rst:278 2d39748bddc5431e9d903223fca86b91
+msgid "Max memory used by eBPF programs installed in the system"
+msgstr ""
+
+#: ../../operations/metrics.rst:281 41f80b7d06b543f0a79cddf80c4587fb
+msgid ""
+"Both ``bpf_maps_virtual_memory_max_bytes`` and "
+"``bpf_progs_virtual_memory_max_bytes`` are currently reporting the "
+"system-wide memory usage of eBPF that is directly and not directly "
+"managed by Cilium. This might change in the future and only report the "
+"eBPF memory usage directly managed by Cilium."
+msgstr ""
+
+#: ../../operations/metrics.rst:287 93a3bd41518b494f8244b50d812d5994
+msgid "Drops/Forwards (L3/L4)"
+msgstr ""
+
+#: ../../operations/metrics.rst:292 818cd23853434f599494a343e79b22f7
+msgid "``drop_count_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:292 ../../operations/metrics.rst:293
+#: 6f1cd8277d3947bbbdfaabe0cc68c40a 7a2fceb61b9e4933ac724b435d3d4ef1
+msgid "``reason``, ``direction``"
+msgstr ""
+
+#: ../../operations/metrics.rst:292 3092905fd60f4e86a6dd6f312a82498c
+msgid "Total dropped packets"
+msgstr ""
+
+#: ../../operations/metrics.rst:293 547a6a4410534a8994d68b8284a52f81
+msgid "``drop_bytes_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:293 6d166bcb082b4c5480dcd7f5d08baf7a
+msgid "Total dropped bytes"
+msgstr ""
+
+#: ../../operations/metrics.rst:294 62725bad48684a928f47eec890e36663
+msgid "``forward_count_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:294 ../../operations/metrics.rst:295
+#: 128ede9e9524415c88ea68afe2b53cd0 d9c75b388cd24ea7b366f905857d882a
+msgid "``direction``"
+msgstr ""
+
+#: ../../operations/metrics.rst:294 6ed0ada0f22142f1b5ca2e561a01de77
+msgid "Total forwarded packets"
+msgstr ""
+
+#: ../../operations/metrics.rst:295 d4ef5a9db1c94c15b4daaad9d83e88db
+msgid "``forward_bytes_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:295 07af42eeb62c49ecb9e2f2e057e773d1
+msgid "Total forwarded bytes"
+msgstr ""
+
+#: ../../operations/metrics.rst:299 250eedc8909a4f18a847d42fa643e03c
+msgid "Policy"
+msgstr ""
+
+#: ../../operations/metrics.rst:304 db7d73959b2b4135957b8f19d10933d3
+msgid "``policy``"
+msgstr ""
+
+#: ../../operations/metrics.rst:304 cc16fd04e6e9458c9200d1bdcd8fabfc
+msgid "Number of policies currently loaded"
+msgstr ""
+
+#: ../../operations/metrics.rst:305 6b86eb8827a046e5a090c9eb425a3085
+msgid "``policy_count``"
+msgstr ""
+
+#: ../../operations/metrics.rst:305 5cbf50c3c895418696947707662d33d5
+msgid "Number of policies currently loaded (deprecated, use ``policy``)"
+msgstr ""
+
+#: ../../operations/metrics.rst:306 21aa1cfc66a546168298d782428207f8
+msgid "``policy_regeneration_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:306 16c7e77ab986402392cdfa6ee607a548
+msgid "Total number of policies regenerated successfully"
+msgstr ""
+
+#: ../../operations/metrics.rst:307 7c79db21954b44e5a4e108cc3a78d622
+msgid "``policy_regeneration_time_stats_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:307 cf2fd1c29a5241eab60cfee84fba1669
+msgid "Policy regeneration time stats labeled by the scope"
+msgstr ""
+
+#: ../../operations/metrics.rst:308 8e16d3c78e204964b56355cf5cbadc57
+msgid "``policy_max_revision``"
+msgstr ""
+
+#: ../../operations/metrics.rst:308 4836afdced9542c6abe15e94e4d0dc81
+msgid "Highest policy revision number in the agent"
+msgstr ""
+
+#: ../../operations/metrics.rst:309 49e8e1a1a25d4265bc4af1d2e2610f6c
+msgid "``policy_import_errors_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:309 cc34f8df0d81467faaf9d6d767fd3ee2
+msgid "Number of times a policy import has failed"
+msgstr ""
+
+#: ../../operations/metrics.rst:310 cfcc6ce895374f0fa42225b25856778a
+msgid "``policy_endpoint_enforcement_status``"
+msgstr ""
+
+#: ../../operations/metrics.rst:310 539dfa9295324f4e90a563e9f047c0cb
+msgid "Number of endpoints labeled by policy enforcement status"
+msgstr ""
+
+#: ../../operations/metrics.rst:314 5ce2863f58df4159955aae8b6f2c985b
+msgid "Policy L7 (HTTP/Kafka)"
+msgstr ""
+
+#: ../../operations/metrics.rst:319 a9b4d57d9dab464ba700d6bb336ce40e
+msgid "``proxy_redirects``"
+msgstr ""
+
+#: ../../operations/metrics.rst:319 5b33adb4cc3e41738b7ed20bce4bb6c2
+msgid "``protocol``"
+msgstr ""
+
+#: ../../operations/metrics.rst:319 57f9db2d7baa4c4b84c2227a6f1ee2bb
+msgid "Number of redirects installed for endpoints"
+msgstr ""
+
+#: ../../operations/metrics.rst:320 64533e2bb7a14c1189ef5b0224b0fa76
+msgid "``proxy_upstream_reply_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:320 c379d517ab7141c181a242555bdd8ef5
+msgid "Seconds waited for upstream server to reply to a request"
+msgstr ""
+
+#: ../../operations/metrics.rst:321 1ff5c7d57ba44adc86668a826ca3a257
+msgid "``policy_l7_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:321 ../../operations/metrics.rst:453
+#: 19f616f3260c45a59ad4910f90ed212a 2844135fd11244f48f8e6b2290c2d786
+msgid "``type``"
+msgstr ""
+
+#: ../../operations/metrics.rst:321 c533da5f30ec42b6adcca8e2bacfb5c6
+msgid "Number of total L7 requests/responses"
+msgstr ""
+
+#: ../../operations/metrics.rst:325 ac203e8738ab478a8ce14365f612919d
+msgid "Identity"
+msgstr ""
+
+#: ../../operations/metrics.rst:330 ../../operations/metrics.rst:493
+#: 12affb11cbe84417a4f3ad71cf0a98ea df5fada3608b4971bd8ffe1938d6367e
+msgid "``identity``"
+msgstr ""
+
+#: ../../operations/metrics.rst:330 071f46452aa64b25a0ad53d8990e8d53
+msgid "Number of identities currently allocated"
+msgstr ""
+
+#: ../../operations/metrics.rst:334 e3d0e9444fc94b3f849299b642be6c09
+msgid "Events external to Cilium"
+msgstr ""
+
+#: ../../operations/metrics.rst:339 a69788420a084825b806603882a82151
+msgid "``event_ts``"
+msgstr ""
+
+#: ../../operations/metrics.rst:339 e97db58fd4bf4fe599fdda8b2ef76a0a
+msgid "``source``"
+msgstr ""
+
+#: ../../operations/metrics.rst:339 ec3bb2f746b54d16ae5059432d8e5589
+msgid "Last timestamp when we received an event"
+msgstr ""
+
+#: ../../operations/metrics.rst:343 a7be5043b4a340049e272040f6b5eb94
+msgid "Controllers"
+msgstr ""
+
+#: ../../operations/metrics.rst:348 58ed94ab5ce14497914d2bfbcba6c7ba
+msgid "``controllers_runs_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:348 0f88323e9a3543d7a3e6f48982f7a8e9
+msgid "Number of times that a controller process was run"
+msgstr ""
+
+#: ../../operations/metrics.rst:349 17cc60c22ccb4ef7921d22eae88b4227
+msgid "``controllers_runs_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:349 01a5d77ba3664c7db02d2f0566000d2e
+msgid "Duration in seconds of the controller process"
+msgstr ""
+
+#: ../../operations/metrics.rst:353 f485a2ae55ee462495bb2756a9feb673
+msgid "SubProcess"
+msgstr ""
+
+#: ../../operations/metrics.rst:358 1dc8dfe89d6b4a2d805e630325b5dd2f
+msgid "``subprocess_start_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:358 7002ad6e46714941b3e6c9ebd3ff16d2
+msgid "``subsystem``"
+msgstr ""
+
+#: ../../operations/metrics.rst:358 beca4cae804d4e9b820c602c0ec76822
+msgid "Number of times that Cilium has started a subprocess"
+msgstr ""
+
+#: ../../operations/metrics.rst:362 54b82d50632b4c66a7b9598927c6d3fa
+msgid "Kubernetes"
+msgstr ""
+
+#: ../../operations/metrics.rst:367 6a268f512668435bb91e5614f8862c11
+msgid "``kubernetes_events_received_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:367 316a39aba4be4d9f9a323c769cc480e6
+msgid "``scope``, ``action``, ``validity``, ``equal``"
+msgstr ""
+
+#: ../../operations/metrics.rst:367 a7444c61fa1543799ce2b2529e11f6ec
+msgid "Number of Kubernetes events received"
+msgstr ""
+
+#: ../../operations/metrics.rst:368 75c3c474b7c842ed8d693e9bd6119c92
+msgid "``kubernetes_events_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:368 dc0cbfd9a74c4a2683c147d746b24685
+msgid "``scope``, ``action``, ``outcome``"
+msgstr ""
+
+#: ../../operations/metrics.rst:368 37b0fcc260094befa5baa403c81c976e
+msgid "Number of Kubernetes events processed"
+msgstr ""
+
+#: ../../operations/metrics.rst:369 84b06f56be4e44f8a32e51a11b9db807
+msgid "``k8s_cnp_status_completion_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:369 9df1a951a5b746ba8b4a6d016bb94aad
+msgid "``attempts``, ``outcome``"
+msgstr ""
+
+#: ../../operations/metrics.rst:369 62128f58a676473dbb05537697352811
+msgid "Duration in seconds in how long it took to complete a CNP status update"
+msgstr ""
+
+#: ../../operations/metrics.rst:373 ../../operations/metrics.rst:448
+#: 630204fd1a92404abca063d96b2655a7 6b1bdc2ff0bd424e9aeed04d17a1b426
+msgid "IPAM"
+msgstr ""
+
+#: ../../operations/metrics.rst:378 c64c97d57a0842de9bb05bf8dc355374
+msgid "``ipam_events_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:378 7542922bade542c5871221516966d225
+msgid "Number of IPAM events received labeled by action and datapath family type"
+msgstr ""
+
+#: ../../operations/metrics.rst:379 772a94c781904f93a60f1003549093fe
+msgid "``ip_addresses``"
+msgstr ""
+
+#: ../../operations/metrics.rst:379 3603956fcc7f4069a4fea6aad1bda353
+msgid "Number of allocated IP addresses"
+msgstr ""
+
+#: ../../operations/metrics.rst:383 91e9483ed12c4a38bb9981c62b5c8ced
+msgid "KVstore"
+msgstr ""
+
+#: ../../operations/metrics.rst:388 1f4b3d5702184edba7092f19d9bff019
+msgid "``kvstore_operations_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:388 96ad811c27334912b255c3d9fd4b5337
+msgid "``action``, ``kind``, ``outcome``, ``scope``"
+msgstr ""
+
+#: ../../operations/metrics.rst:388 a5663b5ef25a4165ae9e65db55cab941
+msgid "Duration of kvstore operation"
+msgstr ""
+
+#: ../../operations/metrics.rst:389 5ea8f7a1334248ae96e1072666f89a63
+msgid "``kvstore_events_queue_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:389 5556aa52f67c4aca9ecce04161befc03
+msgid "``action``, ``scope``"
+msgstr ""
+
+#: ../../operations/metrics.rst:389 e4323b9d9d654f26aa9a0bddee5a9388
+msgid ""
+"Duration of seconds of time received event was blocked before it could be"
+" queued"
+msgstr ""
+
+#: ../../operations/metrics.rst:390 7e04fc1e8df64368a19e3f41c990b78c
+msgid "``kvstore_quorum_errors_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:390 e60ed534cece48eb841de2905a422c17
+msgid "``error``"
+msgstr ""
+
+#: ../../operations/metrics.rst:390 41d183aa350546c88674878e00bff510
+msgid "Number of quorum errors"
+msgstr ""
+
+#: ../../operations/metrics.rst:394 6525b55c4b50454d9c50ced0a5668ac4
+msgid "Agent"
+msgstr ""
+
+#: ../../operations/metrics.rst:399 d38bc3806d344e32adb8c6cf226c90af
+msgid "``agent_bootstrap_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:399 bbcfd989e78e42fd8b0995f54c93dd07
+msgid "``scope``, ``outcome``"
+msgstr ""
+
+#: ../../operations/metrics.rst:399 006dce2c3f2a461ba9cb8696e47d8c99
+msgid "Duration of various bootstrap phases"
+msgstr ""
+
+#: ../../operations/metrics.rst:400 1085541ca3af43238a9a1c10f4b0d15f
+msgid "``api_process_time_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:400 217a6fe19fe5403aae1dec33b4ae86a5
+msgid ""
+"Processing time of all the API calls made to the cilium-agent, labeled by"
+" API method, API path and returned HTTP code."
+msgstr ""
+
+#: ../../operations/metrics.rst:404 1f668febc82e47a6b4ed9c585bbf021f
+msgid "FQDN"
+msgstr ""
+
+#: ../../operations/metrics.rst:409 22cf2f0858b946cabf454fc36f0e2c05
+msgid "``qdn_gc_deletions_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:409 12fb1f5af410466abb394f8331ab8093
+msgid "Number of FQDNs that have been cleaned on FQDN garbage collector job"
+msgstr ""
+
+#: ../../operations/metrics.rst:415 682743b284544ba899b482c38cab42c2
+msgid "API Rate Limiting"
+msgstr ""
+
+#: ../../operations/metrics.rst:420 a1860d6058dd44a0a7fb55088e45a99c
+msgid "``cilium_api_limiter_adjustment_factor``"
+msgstr ""
+
+#: ../../operations/metrics.rst:420 ../../operations/metrics.rst:426
+#: 18f5946bdab9487ab5e7fc1cfb6d3de2 a0b483f54f29459985c30e878da8a0bd
+msgid "``api_call``"
+msgstr ""
+
+#: ../../operations/metrics.rst:420 8ed639cb963e433da238165637b05996
+msgid "Most recent adjustment factor for automatic adjustment"
+msgstr ""
+
+#: ../../operations/metrics.rst:421 5deccd3aaffe47d0b7d25e25f17c470c
+msgid "``cilium_api_limiter_processed_requests_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:421 e8a3ab7fb476483bbc8721b0d6acf0fa
+msgid "``api_call``, ``outcome``"
+msgstr ""
+
+#: ../../operations/metrics.rst:421 f3033c75d06448de959f1307edec6224
+msgid "Total number of API requests processed"
+msgstr ""
+
+#: ../../operations/metrics.rst:422 b3907db9356c4580ab8b876353507503
+msgid "``cilium_api_limiter_processing_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:422 ../../operations/metrics.rst:423
+#: ../../operations/metrics.rst:425 078075d4830b4ac9936517acf3d099e2
+#: 73e59e7c4ba34d7f975d702d1d683bbc eb4ba7d5d41b4dec8722600f60042ffc
+msgid "``api_call``, ``value``"
+msgstr ""
+
+#: ../../operations/metrics.rst:422 921369f452ee4e9a99ba357ce878a569
+msgid "Mean and estimated processing duration in seconds"
+msgstr ""
+
+#: ../../operations/metrics.rst:423 b9206f8a66c84dcb84c24e4a3f5c9cce
+msgid "``cilium_api_limiter_rate_limit``"
+msgstr ""
+
+#: ../../operations/metrics.rst:423 3dbe34a0599046b9b0b488a801696ead
+msgid "Current rate limiting configuration (limit and burst)"
+msgstr ""
+
+#: ../../operations/metrics.rst:424 a1635727e4c943f8b4925792f969d867
+msgid "``cilium_api_limiter_requests_in_flight``"
+msgstr ""
+
+#: ../../operations/metrics.rst:424 19141b00dc6349b99a41079e5476df22
+msgid "``api_call``  ``value``"
+msgstr ""
+
+#: ../../operations/metrics.rst:424 a0b7a8bf0ae84b5fb6fdc10183e97570
+msgid "Current and maximum allowed number of requests in flight"
+msgstr ""
+
+#: ../../operations/metrics.rst:425 92c7fd11a02e478eb3afaae9f01f97ba
+msgid "``cilium_api_limiter_wait_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:425 4733fe004b3543159b7b26cf507e8219
+msgid "Mean, min, and max wait duration"
+msgstr ""
+
+#: ../../operations/metrics.rst:426 a3549eed3b4645fdaca6a0a8156ce20c
+msgid "``cilium_api_limiter_wait_history_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:426 0e1dcf803dde4d2b83068166a58ee14c
+msgid "Histogram of wait duration per API call processed"
+msgstr ""
+
+#: ../../operations/metrics.rst:430 65d1be556c73415ea2647835541d25bb
+msgid "cilium-operator"
+msgstr ""
+
+#: ../../operations/metrics.rst:435 265adb11c2694c298dbdab51104fa94f
+msgid ""
+"``cilium-operator`` can be configured to serve metrics by running with "
+"the option ``--enable-metrics``.  By default, the operator will expose "
+"metrics on port 6942, the port can be changed with the option "
+"``--operator-prometheus-serve-addr``."
+msgstr ""
+
+#: ../../operations/metrics.rst:443 a45450e3bc9f4a6b846dddd02bfccb8b
+msgid ""
+"All metrics are exported under the ``cilium_operator_`` Prometheus "
+"namespace."
+msgstr ""
+
+#: ../../operations/metrics.rst:453 65c82955c5c14a4e99e8a77bf918081f
+msgid "``ipam_ips``"
+msgstr ""
+
+#: ../../operations/metrics.rst:453 18926e56ca7d42fc8acbafe2de956107
+msgid "Number of IPs allocated"
+msgstr ""
+
+#: ../../operations/metrics.rst:454 d1a5707c08314f87be0140d6658c2beb
+msgid "``ipam_allocation_ops``"
+msgstr ""
+
+#: ../../operations/metrics.rst:454 767764ce255f42eead8a388a652d1fa7
+msgid "``subnet_id``"
+msgstr ""
+
+#: ../../operations/metrics.rst:454 0c7ef015c6a74be7a693794063105327
+msgid "Number of IP allocation operations."
+msgstr ""
+
+#: ../../operations/metrics.rst:455 1dde2913ecdc4faaa0f36eac18527630
+msgid "``ipam_interface_creation_ops``"
+msgstr ""
+
+#: ../../operations/metrics.rst:455 f8bb14920b1447fbb9c8ca78331755ba
+msgid "``subnet_id``, ``status``"
+msgstr ""
+
+#: ../../operations/metrics.rst:455 47ba288612c547a692edd153514cd2d6
+msgid "Number of interfaces creation operations."
+msgstr ""
+
+#: ../../operations/metrics.rst:456 20abb43bc37f462484a30fc239136eb4
+msgid "``ipam_available``"
+msgstr ""
+
+#: ../../operations/metrics.rst:456 702d6eec4cb64563a523671f971123ff
+msgid "Number of interfaces with addresses available"
+msgstr ""
+
+#: ../../operations/metrics.rst:457 d99702fead2c4af6bdf71340406dc99e
+msgid "``ipam_nodes_at_capacity``"
+msgstr ""
+
+#: ../../operations/metrics.rst:457 5e5278d308774004a827e8c9de119c22
+msgid "Number of nodes unable to allocate more addresses"
+msgstr ""
+
+#: ../../operations/metrics.rst:458 88c8191cbb2242899a0bbf8776e58dde
+msgid "``ipam_resync_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:458 81a1e880be284ced98ad11e5ba1aa9a9
+msgid "Number of synchronization operations with external IPAM API"
+msgstr ""
+
+#: ../../operations/metrics.rst:459 e44bbb81a84042d7b5ccff65567892a3
+msgid "``ipam_api_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:459 7d7e94f10d5e426b8267745b563a7b68
+msgid "``operation``, ``response_code``"
+msgstr ""
+
+#: ../../operations/metrics.rst:459 cc23368ab596492c941799dfb91734f6
+msgid "Duration of interactions with external IPAM API."
+msgstr ""
+
+#: ../../operations/metrics.rst:460 382a6ac5d0724c308c675c7cd1a914db
+msgid "``ipam_api_rate_limit_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:460 8e4ad5614cca4f5383ae0e1cd0be504a
+msgid "``operation``"
+msgstr ""
+
+#: ../../operations/metrics.rst:460 d56a3b84333344669d3ffbff15b856b0
+msgid "Duration of rate limiting while accessing external IPAM API"
+msgstr ""
+
+#: ../../operations/metrics.rst:464 e46b57f9d87a4709a6c30d753d284564
+msgid "Hubble"
+msgstr ""
+
+#: ../../operations/metrics.rst:469 b64e2cca5b6b4225a47d1988010d7978
+msgid ""
+"Hubble metrics are served by a Hubble instance running inside ``cilium-"
+"agent``. The command-line options to configure them are ``--enable-"
+"hubble``, ``--hubble-metrics-server``, and ``--hubble-metrics``. "
+"``--hubble-metrics-server`` takes an ``IP:Port`` pair, but passing an "
+"empty IP (e.g. ``:9091``) will bind the server to all available "
+"interfaces. ``--hubble-metrics`` takes a comma-separated list of metrics."
+msgstr ""
+
+#: ../../operations/metrics.rst:476 c582db85b7ab4f6aa5b6c6d48b979344
+msgid ""
+"Some metrics can take additional semicolon-separated options per metric, "
+"e.g. ``--hubble-metrics=\"dns:query;ignoreAAAA,http:destinationContext"
+"=pod-short\"`` will enable the ``dns`` metric with the ``query`` and "
+"``ignoreAAAA`` options, and the ``http`` metric with the "
+"``destinationContext=pod-short`` option."
+msgstr ""
+
+#: ../../operations/metrics.rst:484 542665c81d8146b7a99136d2c5b60072
+msgid "Context Options"
+msgstr ""
+
+#: ../../operations/metrics.rst:486 e576cd9755994a41a37824d64c73a60b
+msgid ""
+"Most Hubble metrics can be configured to add the source and/or "
+"destination context as a label. The options are called ``sourceContext`` "
+"and ``destinationContext``. The possible values are:"
+msgstr ""
+
+#: ../../operations/metrics.rst:491 ../../operations/metrics.rst:531
+#: ../../operations/metrics.rst:585 5a3dc098eaa84061973b4878baa7cc22
+#: 7b69e60d1a0e4f2bb68e58bb836be70f b4743c19ded74990b4e93df323bcff5d
+msgid "Option Value"
+msgstr ""
+
+#: ../../operations/metrics.rst:493 37d5cc7bf35c43c79c8a80e350fe9456
+msgid "All Cilium security identity labels"
+msgstr ""
+
+#: ../../operations/metrics.rst:494 ae166b4055bf4419af76f19f8f27450e
+msgid "``namespace``"
+msgstr ""
+
+#: ../../operations/metrics.rst:494 759f08ae1d08406b886d7df9a215ac5e
+msgid "Kubernetes namespace name"
+msgstr ""
+
+#: ../../operations/metrics.rst:495 c70ea24853a043cf931ef12baece2ef9
+msgid "``pod``"
+msgstr ""
+
+#: ../../operations/metrics.rst:495 ee07cae728c44d93bf158ba9b38b09f6
+msgid "Kubernetes pod name"
+msgstr ""
+
+#: ../../operations/metrics.rst:496 ce1b6cc2a1e242fbaf5eaa6c25a8b00b
+msgid "``pod-short``"
+msgstr ""
+
+#: ../../operations/metrics.rst:496 fa75c24de550403ebba903cb21188de0
+msgid ""
+"Short version of the Kubernetes pod name. Typically the "
+"deployment/replicaset name."
+msgstr ""
+
+#: ../../operations/metrics.rst:497 ../../operations/metrics.rst:517
+#: 3cd6db1b26b840868d879ea9ce90d229 943c993dc0c34f1fb255cfcdd1936c03
+msgid "``dns``"
+msgstr ""
+
+#: ../../operations/metrics.rst:497 16554b4c66e94ee8a25d5c9e87ddc8de
+msgid "All known DNS names of the source or destination (comma-separated)"
+msgstr ""
+
+#: ../../operations/metrics.rst:498 2c5c483df16341d89face5c73110cd56
+msgid "``ip``"
+msgstr ""
+
+#: ../../operations/metrics.rst:498 61f8db83d4f9424c8569fa3eb5378891
+msgid "The IPv4 or IPv6 address"
+msgstr ""
+
+#: ../../operations/metrics.rst:501 459cdc7aedd347f78f33668b6bbb22d2
+msgid ""
+"When specifying the source and/or destination context, multiple contexts "
+"can be specified by separating them via the ``|`` symbol. When multiple "
+"are specified, then the first non-empty value is added to the metric as a"
+" label. For example, a metric configuration of "
+"``flow:destinationContext=dns|ip`` will first try to use the DNS name of "
+"the target for the label. If no DNS name is known for the target, it will"
+" fall back and use the IP address of the target instead."
+msgstr ""
+
+#: ../../operations/metrics.rst:514 fed3fa86a97541b7863a6fd3568bfd7a
+msgid "Hubble metrics are exported under the ``hubble_`` Prometheus namespace."
+msgstr ""
+
+#: ../../operations/metrics.rst:522 69500405cf7547c7a0c9a817e1fc1705
+msgid "``dns_queries_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:522 ../../operations/metrics.rst:523
+#: 4ee7a303217049439b0c4fdd72979698 cd4ae0686f7a4623a06571ca562026fa
+msgid "``rcode``, ``qtypes``, ``ips_returned``"
+msgstr ""
+
+#: ../../operations/metrics.rst:522 de1598cd75194b98b080f1b00e505c3a
+msgid "Number of DNS queries observed"
+msgstr ""
+
+#: ../../operations/metrics.rst:523 74731b7db7e141129ef46784b7b7b043
+msgid "``dns_responses_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:523 770128c31f47409881b1ea236c164a15
+msgid "Number of DNS responses observed"
+msgstr ""
+
+#: ../../operations/metrics.rst:524 cf73ca6284ce47eda757ad68228b116e
+msgid "``dns_response_types_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:524 2dfa5a3c1e8e4641831a4753afc5b3f5
+msgid "``type``, ``qtypes``"
+msgstr ""
+
+#: ../../operations/metrics.rst:524 68bedaec79184041bce287db1e20a71b
+msgid "Number of DNS response types"
+msgstr ""
+
+#: ../../operations/metrics.rst:528 ../../operations/metrics.rst:550
+#: ../../operations/metrics.rst:564 ../../operations/metrics.rst:582
+#: ../../operations/metrics.rst:606 ../../operations/metrics.rst:620
+#: ../../operations/metrics.rst:634 ../../operations/metrics.rst:648
+#: 33cffcd3300c46409e16de5a20838cba 4dba2989e5e2469b9337a63b7d35351e
+#: 4fad613a44834ecbaa116969774af6bd 9dd2a5789d5b41f287735648c643b441
+#: a18b7ad042cd4634bf96586dde1c684d c3f76c522eae4f66ae2c945bd4f94344
+#: d6b9a2ba3fe44ec8ad0431cfdbb0387a d9ed423834454be998c61f1b3c854e6f
+msgid "Options"
+msgstr ""
+
+#: ../../operations/metrics.rst:531 ../../operations/metrics.rst:585
+#: 87eb37a9f16640f88e881ccd5363b031 8bce650f49f748d7a70c27f36452ce07
+msgid "Option Key"
+msgstr ""
+
+#: ../../operations/metrics.rst:533 77419b46edbf43fbb9c5876fdb74b05d
+msgid "``query``"
+msgstr ""
+
+#: ../../operations/metrics.rst:533 ../../operations/metrics.rst:534
+#: ../../operations/metrics.rst:587 ../../operations/metrics.rst:588
+#: 03f9c3add7244d0c88a326e40760bce8 60dc4c0523d94b23926835320d3e6ee5
+#: a347cf5a33ce4d43adda654069947a80 ea4086d8a4594a9a9c7f8d1b3aae4f11
+msgid "N/A"
+msgstr ""
+
+#: ../../operations/metrics.rst:533 f42316c2b1c6460fb093c12f1a6500b8
+msgid "Include the query as label \"query\""
+msgstr ""
+
+#: ../../operations/metrics.rst:534 abd7f716aa864b47a31c2e643c1dbc21
+msgid "``ignoreAAAA``"
+msgstr ""
+
+#: ../../operations/metrics.rst:534 22e23e9d7fab4949bed15d74be994d4a
+msgid "Ignore any AAAA requests/responses"
+msgstr ""
+
+#: ../../operations/metrics.rst:537 ../../operations/metrics.rst:552
+#: ../../operations/metrics.rst:566 ../../operations/metrics.rst:592
+#: ../../operations/metrics.rst:608 ../../operations/metrics.rst:622
+#: ../../operations/metrics.rst:636 ../../operations/metrics.rst:650
+#: 277dd5e065144f6c86c3acbc779c9d24 546d7df3645f4f328c84cfa560dad06c
+#: 9d4c37f31fe344fd9ada62ae6d3bb9d1 aef1735ab5d845d18788339009a8ed2a
+#: c99077fdd2a24412b95ce2b6898725d3 db7203e488dc4f96b1be842d8da1b16f
+#: e94db1f91a47483ea4cee323efc2f221 f70e3b5eda524bcd9c3155abcc243d31
+msgid "This metric supports :ref:`Context Options<hubble_context_options>`."
+msgstr ""
+
+#: ../../operations/metrics.rst:541 a7e35497a8a04c46bb9f7572f36e7e5a
+msgid "``drop``"
+msgstr ""
+
+#: ../../operations/metrics.rst:546 c83a3c991f08436c9f70861d13ac0ce9
+msgid "``drop_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:546 301003f1c7d946ffa1e3ad301da4a45b
+msgid "``reason``, ``protocol``"
+msgstr ""
+
+#: ../../operations/metrics.rst:546 4d9b51f0ac4541f1921c5e3bfd5d7a4f
+msgid "Number of drops"
+msgstr ""
+
+#: ../../operations/metrics.rst:555 7d4781175c0a4c5bb0b739d0babdc701
+msgid "``flow``"
+msgstr ""
+
+#: ../../operations/metrics.rst:560 139a8d50206b4b43a3a3b55ebf1ac02d
+msgid "``flows_processed_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:560 12567bb4f78e4d1e8a53b7f083d8e444
+msgid "``type``, ``subtype``, ``verdict``"
+msgstr ""
+
+#: ../../operations/metrics.rst:560 34f5076a64e14a38a34f7c8b6edcb4f6
+msgid "Total number of flows processed"
+msgstr ""
+
+#: ../../operations/metrics.rst:569 ae10124dbfb74450ac63500b8fa93671
+msgid "``flows-to-world``"
+msgstr ""
+
+#: ../../operations/metrics.rst:571 1c6ba4ae621f4345b26f3050bee970c4
+msgid ""
+"This metric counts all non-reply flows containing the ``reserved:world`` "
+"label in their destination identity. By default, dropped flows are "
+"counted if and only if the drop reason is ``Policy denied``. Set ``any-"
+"drop`` option to count all dropped flows."
+msgstr ""
+
+#: ../../operations/metrics.rst:578 84eed3cd808043a380cb10eab0e98a72
+msgid "``flows_to_world_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:578 b41c4919fb0941b3ac08219bc72ca50d
+msgid "``protocol``, ``verdict``"
+msgstr ""
+
+#: ../../operations/metrics.rst:578 ce58c841ce15479d9c5eb91cfe6c05f8
+msgid "Total number of flows to ``reserved:world``."
+msgstr ""
+
+#: ../../operations/metrics.rst:587 6a430c5492464315835e700f448e3830
+msgid "``any-drop``"
+msgstr ""
+
+#: ../../operations/metrics.rst:587 3b84af383ec94d01b01f9e258e3b7751
+msgid "Count any dropped flows regardless of the drop reason."
+msgstr ""
+
+#: ../../operations/metrics.rst:588 517d7c17c3b141a483f34c65337a5556
+msgid "``port``"
+msgstr ""
+
+#: ../../operations/metrics.rst:588 9f46f1ba32ee444e80235225388d8eab
+msgid "Include the destination port as label ``port``."
+msgstr ""
+
+#: ../../operations/metrics.rst:595 a82bfd025bc047c4a6c84e6caf72c6c2
+msgid "``http``"
+msgstr ""
+
+#: ../../operations/metrics.rst:600 2c1ff06c5f95412daf78320d3af50d41
+msgid "``http_requests_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:600 2e56e0cbceee46bebbd60c782cee65a3
+msgid "``method``, ``protocol``"
+msgstr ""
+
+#: ../../operations/metrics.rst:600 5a3dcbf79ea24bfda971d0a8dd095214
+msgid "Count of HTTP requests"
+msgstr ""
+
+#: ../../operations/metrics.rst:601 e4dbd54e3d1c49d3bb4813309b67bca3
+msgid "``http_responses_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:601 7fe6421fc43041a195698c59e0524581
+msgid "``method``, ``status``"
+msgstr ""
+
+#: ../../operations/metrics.rst:601 9fb91e327bc146f1a9a4deffa5cb2e45
+msgid "Count of HTTP responses"
+msgstr ""
+
+#: ../../operations/metrics.rst:602 e2ebf53211dc4a8fa06fca7131a38cf5
+msgid "``http_request_duration_seconds``"
+msgstr ""
+
+#: ../../operations/metrics.rst:602 da223c5ae0f2429194eb1aa5d2ed3cea
+msgid "``method``"
+msgstr ""
+
+#: ../../operations/metrics.rst:602 bafecac792904b0d8893d1417f85fb7e
+msgid "Quantiles of HTTP request duration in seconds"
+msgstr ""
+
+#: ../../operations/metrics.rst:611 4f5f109027944fcb848c9334c42c8408
+msgid "``icmp``"
+msgstr ""
+
+#: ../../operations/metrics.rst:616 0fa8b7903ae34c4fbe88505389e5b4b6
+msgid "``icmp_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:616 7c698f78b24e422f8e46685e4dbdc7d2
+msgid "``family``, ``type``"
+msgstr ""
+
+#: ../../operations/metrics.rst:616 746472718e1b4cb1adb1d93dab5059fd
+msgid "Number of ICMP messages"
+msgstr ""
+
+#: ../../operations/metrics.rst:625 e09c64bbd8384b6f95237f3c32da2c4e
+msgid "``port-distribution``"
+msgstr ""
+
+#: ../../operations/metrics.rst:630 a61f9b62d9f74b2e9a669d48bb4ffcbd
+msgid "``port_distribution_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:630 560ca754ed584755821f0cae1f2f4608
+msgid "``protocol``, ``port``"
+msgstr ""
+
+#: ../../operations/metrics.rst:630 e79187f86e224a818c5daaf89af98623
+msgid "Numbers of packets distributed by destination port"
+msgstr ""
+
+#: ../../operations/metrics.rst:639 860b808d903c4a8e92053258d4a17578
+msgid "``tcp``"
+msgstr ""
+
+#: ../../operations/metrics.rst:644 8cd95c9314a4484293767474661719c4
+msgid "``tcp_flags_total``"
+msgstr ""
+
+#: ../../operations/metrics.rst:644 f53f5675be21452ebbce96d3ad60e0cf
+msgid "``flag``, ``family``"
+msgstr ""
+
+#: ../../operations/metrics.rst:644 47126527bd654dcb9e6d90abda23c7fc
+msgid "TCP flag occurrences"
+msgstr ""
+

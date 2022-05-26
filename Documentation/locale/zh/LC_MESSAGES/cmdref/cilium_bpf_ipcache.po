@@ -1,0 +1,55 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_ipcache.md:3 c626381ce41a461795d0d4e2fd6df8a1
+msgid "cilium bpf ipcache"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:5 3994622221924768b30bc82045b91458
+msgid "Manage the IPCache mappings for IP/CIDR <-> Identity"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:7 46b829f27c1341c280bd1fcc4f3e46ba
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:13 584aca326e8a47b3899bc4b1b6e657a6
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:21 8b76eb1690354583b2c1eae4660fd8b0
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:23 e07454a41740480f9dc83ee29c61e639
+msgid "[cilium bpf](cilium_bpf.md)\t - Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:24 9bef80868eb746899f0a9818fbe89997
+msgid ""
+"[cilium bpf ipcache get](cilium_bpf_ipcache_get.md)\t - Retrieve identity"
+" for an ip"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipcache.md:25 c9b6ff65289b430db822b6f7781a45f5
+msgid ""
+"[cilium bpf ipcache list](cilium_bpf_ipcache_list.md)\t - List endpoint "
+"IPs (local and remote) and their corresponding security identities"
+msgstr ""
+

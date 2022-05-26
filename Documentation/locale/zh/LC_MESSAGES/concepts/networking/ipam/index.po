@@ -1,0 +1,37 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/networking/ipam/index.rst:3 ebb187a9b1d94ac6b22ab6cb4d6f4cb1
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/networking/ipam/index.rst:11 4af92e62b8aa460f9b0df5230b3a50ce
+msgid "IP Address Management (IPAM)"
+msgstr ""
+
+#: ../../concepts/networking/ipam/index.rst:13 67dfd4edf7094e40aae92c6905fe3c7e
+msgid ""
+"IP Address Management (IPAM) is responsible for the allocation and "
+"management of IP addresses used by network endpoints (container and "
+"others) managed by Cilium. Various IPAM modes are supported to meet the "
+"needs of different users:"
+msgstr ""
+

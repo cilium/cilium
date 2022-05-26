@@ -1,0 +1,496 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/networking/routing.rst:3 5613fc1b4f36492f811d5ce89e8404db
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:9 9265bff589944712847ded2cb23ab6a7
+msgid "Routing"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:15 bbdf332c2a37435cb49f603dfb41dbcd
+msgid "Encapsulation"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:17 a79f9b13d1084790813428ebaea8ac5e
+msgid ""
+"When no configuration is provided, Cilium automatically runs in this mode"
+" as it is the mode with the fewest requirements on the underlying "
+"networking infrastructure."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:21 4916eb2538d94b6cb8268e3db60b6f56
+msgid ""
+"In this mode, all cluster nodes form a mesh of tunnels using the UDP-"
+"based encapsulation protocols :term:`VXLAN` or :term:`Geneve`. All "
+"traffic between Cilium nodes is encapsulated."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:26
+#: ../../concepts/networking/routing.rst:102 1eb2c91e22954a85b83d85966545d808
+#: 64b97b8561134d269b52d890765e44a8
+msgid "Requirements on the network"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:28 9073c8f08da24454b4572bafe1c26b75
+msgid ""
+"Encapsulation relies on normal node to node connectivity. This means that"
+" if Cilium nodes can already reach each other, all routing requirements "
+"are already met."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:32 9aafc804cd43487f9af0c31fe6a13852
+msgid "The underlying network and firewalls must allow encapsulated packets:"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:35 57a07797f8054f888d0c8ca10d10c0af
+msgid "Encapsulation Mode"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:35 3bfb1d6fcd2e4a83ac9bc9404057f30f
+msgid "Port Range / Protocol"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:37 ff9ed380a8454bb094932761b721554f
+msgid "VXLAN (Default)"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:37 2aefcfdeacbd455dbdd1597a4cac858b
+msgid "8472/UDP"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:38 4131ea34277445748d6234c409601a47
+msgid "Geneve"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:38 230473813e7a4313bf8335e70ff8d24a
+msgid "6081/UDP"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:42
+#: ../../concepts/networking/routing.rst:148 bc66125ac6e146e68f79f5ee9d5380fa
+#: cad935f0345441cd903619058842b757
+msgid "Advantages of the model"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:48 699d758ea8c544958089363bbd13ca29
+msgid "Simplicity"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:45 5bd875cd386d481abb334f1886873f80
+msgid ""
+"The network which connects the cluster nodes does not need to be made "
+"aware of the PodCIDRs. Cluster nodes can spawn multiple routing or link-"
+"layer domains. The topology of the underlying network is irrelevant as "
+"long as cluster nodes can reach each other using IP/UDP."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:53 73fdff9112304c49939d6b524db5d0ea
+msgid "Addressing space"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:51 c6107221e9b04554b01980d790c1aee8
+msgid ""
+"Due to not depending on any underlying networking limitations, the "
+"available addressing space is potentially much larger and allows to run "
+"any number of pods per node if the PodCIDR size is configured "
+"accordingly."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:59 b5379da906dc4665991bb7ff6700c8cf
+msgid "Auto-configuration"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:56 bd0daaab2cb7420db64af56c317e7ec1
+msgid ""
+"When running together with an orchestration system such as Kubernetes, "
+"the list of all nodes in the cluster including their associated "
+"allocation prefix node is made available to each agent automatically. New"
+" nodes joining the cluster will automatically be incorporated into the "
+"mesh."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:66 e1d802f89f5e4b828467134e52d43b73
+msgid "Identity context"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:62 384f4052eb564895a1e9e3df8a58f747
+msgid ""
+"Encapsulation protocols allow for the carrying of metadata along with the"
+" network packet. Cilium makes use of this ability to transfer metadata "
+"such as the source security identity. The identity transfer is an "
+"optimization designed to avoid one identity lookup on the remote node."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:69 06221ac65631411a9225b81b1e2e8d64
+msgid "Disadvantages of the model"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:76 9c7c367c808c4e5689834722d1285a77
+msgid "MTU Overhead"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:72 111656219e754f2f82a3ae540602e76d
+msgid ""
+"Due to adding encapsulation headers, the effective MTU available for "
+"payload is lower than with native-routing (50 bytes per network packet "
+"for VXLAN). This results in a lower maximum throughput rate for a "
+"particular network connection. This can be largely mitigated by enabling "
+"jumbo frames (50 bytes of overhead for each 1500 bytes vs 50 bytes of "
+"overhead for each 9000 bytes)."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:82 25c9af6e70604cfcb1c35b4cb512cc76
+msgid "Native-Routing"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:84 0c904fa110ba49cf8bef80b404c46f33
+msgid ""
+"The native routing datapath is enabled with ``tunnel: disabled`` and "
+"enables the native packet forwarding mode. The native packet forwarding "
+"mode leverages the routing capabilities of the network Cilium runs on "
+"instead of performing encapsulation."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:92 dcdbd64836384d39907997d5263e524f
+msgid ""
+"In native routing mode, Cilium will delegate all packets which are not "
+"addressed to another local endpoint to the routing subsystem of the Linux"
+" kernel. This means that the packet will be routed as if a local process "
+"would have emitted the packet. As a result, the network connecting the "
+"cluster nodes must be capable of routing PodCIDRs."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:98 56abfe3d109b4398ab780e42ab66151e
+msgid ""
+"Cilium automatically enables IP forwarding in the Linux kernel when "
+"native routing is configured."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:104 161cf64a5b7947359c4abd33d45b55f7
+msgid ""
+"In order to run the native routing mode, the network connecting the hosts"
+" on which Cilium is running on must be capable of forwarding IP traffic "
+"using addresses given to pods or other workloads."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:108 0c799a31087d4da1be829e4baddd4f7d
+msgid ""
+"The Linux kernel on the node must be aware on how to forward packets of "
+"pods or other workloads of all nodes running Cilium. This can be achieved"
+" in two ways:"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:112 4c25ac4fc7c54064a1c111f995eb9503
+msgid ""
+"The node itself does not know how to route all pod IPs but a router "
+"exists on the network that knows how to reach all other pods. In this "
+"scenario, the Linux node is configured to contain a default route to "
+"point to such a router. This model is used for cloud provider network "
+"integration. See :ref:`gke_datapath`, :ref:`aws_eni_datapath`, and "
+":ref:`ipam_azure` for more details."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:119 e2d7641dd0734341863ce26df221a01d
+msgid ""
+"Each individual node is made aware of all pod IPs of all other nodes and "
+"routes are inserted into the Linux kernel routing table to represent "
+"this. If all nodes share a single L2 network, then this can be taken care"
+" of by enabling the option ``auto-direct-node-routes: true``. Otherwise, "
+"an additional system component such as a BGP daemon must be run to "
+"distribute the routes.  See the guide :ref:`kube-router` on how to "
+"achieve this using the kube-router project."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:128
+#: ../../concepts/networking/routing.rst:220
+#: ../../concepts/networking/routing.rst:287 102ce31b33f34828b29c5457fcf6611d
+#: 5fe12dae78de4d168d83b645e28ca685 dc7eac8dfa234d6a8fa576ec56c4712d
+msgid "Configuration"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:130 b46b997006044b02ae31721c7aad7dc4
+msgid ""
+"The following configuration options must be set to run the datapath in "
+"native routing mode:"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:133 9708f4c76bc4452cbc02f078680480a9
+msgid "``tunnel: disabled``: Enable native routing mode."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:134 65eb68fcd6e044deb19535daee9013c9
+msgid ""
+"``ipv4-native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native "
+"routing can be performed."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:141 302c0cb25d2842c4b624e75829e3780c
+msgid "AWS ENI"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:143 931d120ff4ba4b39958bfd97dbb65402
+msgid ""
+"The AWS ENI datapath is enabled when Cilium is run with the option "
+"``--ipam=eni``. It is a special purpose datapath that is useful when "
+"running Cilium in an AWS environment."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:150 3eab0ccc7230458196189ca272bb380c
+msgid ""
+"Pods are assigned ENI IPs which are directly routable in the AWS VPC. "
+"This simplifies communication of pod traffic within VPCs and avoids the "
+"need for SNAT."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:154 7f89ad222f2642668008e2d9a1ffad3c
+msgid ""
+"Pod IPs are assigned a security group. The security groups for pods are "
+"configured per node which allows to create node pools and give different "
+"security group assignments to different pods. See section :ref:`ipam_eni`"
+" for more details."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:160 d0946c95809d4f08855dd5793233ff5c
+msgid "Disadvantages of this model"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:162 bd8c4d26b34f4b71b4cd8f47471c93ea
+msgid ""
+"The number of ENI IPs is limited per instance. The limit depends on the "
+"EC2 instance type. This can become a problem when attempting to run a "
+"larger number of pods on very small instance types."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:166 5dbef7eaf56f4d39812f51a075e80b5a
+msgid ""
+"Allocation of ENIs and ENI IPs requires interaction with the EC2 API "
+"which is subject to rate limiting. This is primarily mitigated via the "
+"operator design, see section :ref:`ipam_eni` for more details."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:171 c10a2e3cbff543739d8aeddc2c605394
+msgid "Architecture"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:174 791b44bbb5dd4f45aa28b889cfd183fe
+msgid "Ingress"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:176 7c4fe2ea71474b469b1d510c576832a3
+msgid ""
+"Traffic is received on one of the ENIs attached to the instance which is "
+"represented on the node as interface ``ethN``."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:179 1898ad884e46414ca4c43307d9e5eac9
+msgid ""
+"An IP routing rule ensures that traffic to all local pod IPs is done "
+"using the main routing table::"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:184 add3db8ff62d4a598651b5f75e859521
+msgid ""
+"The main routing table contains an exact match route to steer traffic "
+"into a veth pair which is hooked into the pod::"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:189 e2a275d905254811b3b080ef620de438
+msgid ""
+"All traffic passing ``lxc5a4def8d96c5`` on the way into the pod is "
+"subject to Cilium's eBPF program to enforce network policies, provide "
+"service reverse load-balancing, and visibility."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:194 0cee04fbdca14bcd9748ff5b6e7125a6
+msgid "Egress"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:196 bb17ccd08c8749d6ac48ed894e24950e
+msgid ""
+"The pod's network namespace contains a default route which points to the "
+"node's router IP via the veth pair which is named ``eth0`` inside of the "
+"pod and ``lxcXXXXXX`` in the host namespace. The router IP is allocated "
+"from the ENI space, allowing for sending of ICMP errors from the router "
+"IP for Path MTU purposes."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:202 991e69d91d664e9994cfd3417b5ba515
+msgid ""
+"After passing through the veth pair and before reaching the Linux routing"
+" layer, all traffic is subject to Cilium's eBPF program to enforce "
+"network policies, implement load-balancing and provide networking "
+"features."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:206 ba1a591f66514fa7adbf686e2612839c
+msgid ""
+"An IP routing rule ensures that traffic from individual endpoints are "
+"using a routing table specific to the ENI from which the endpoint IP was "
+"allocated::"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:212 cc53b9dba5cb40439f3333402e165b45
+msgid ""
+"The ENI specific routing table contains a default route which redirects "
+"to the router of the VPC via the ENI interface::"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:222 c6cd22749a1c4739b422ca64b6d8bf70
+msgid "The AWS ENI datapath is enabled by setting the following option:"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:231 0b94d24a2d6d4348b0a1ea91378c7641
+msgid ""
+"``ipam: eni`` Enables the ENI specific IPAM backend and indicates to the "
+"datapath that ENI IPs will be used."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:234 c3fbf670c9bc48eaa495e306fb05c09b
+msgid ""
+"``enable-endpoint-routes: \"true\"`` enables direct routing to the ENI "
+"veth pairs without requiring to route via the ``cilium_host`` interface."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:237 3f89903d576344f39101b0f9cab30af0
+msgid ""
+"``auto-create-cilium-node-resource: \"true\"`` enables the automatic "
+"creation of the ``CiliumNode`` custom resource with all required ENI "
+"parameters. It is possible to disable this and provide the custom "
+"resource manually."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:241 54097246a15247c48f4956c477f78a45
+msgid ""
+"``egress-masquerade-interfaces: eth+`` is the interface selector of all "
+"interfaces which are subject to masquerading. Masquerading can be "
+"disabled entirely with ``enable-ipv4-masquerade: \"false\"``."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:245 99c15b61acb04da8bfc83129de7e8854
+msgid ""
+"See the section :ref:`ipam_eni` for details on how to configure ENI IPAM "
+"specific parameters."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:251 3cbf44d1f57846669e42f3c080212ac9
+msgid "Google Cloud"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:253 28cd7373f2ca4abfbfa594829235976c
+msgid ""
+"When running Cilium on Google Cloud via either Google Kubernetes Engine "
+"(GKE) or self-managed, it is possible to utilize the `Google Cloud's "
+"networking layer <https://cloud.google.com/products/networking>`_ with "
+"Cilium running in a :ref:`native_routing` configuration. This provides "
+"native networking performance while benefiting from many additional "
+"Cilium features such as policy enforcement, load-balancing with DSR, "
+"efficient NodePort/ExternalIP/HostPort implementation, extensive "
+"visibility features, and so on."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:270 1e91446a894e469aab945be2f7d2abb9
+msgid "Addressing"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:266 9129e86eafb347a1b9a6993c4f442d13
+msgid ""
+"Cilium will assign IPs to pods out of the PodCIDR assigned to the "
+"specific Kubernetes node. By using `Alias IP ranges "
+"<https://cloud.google.com/vpc/docs/alias-ip>`_, these IPs are natively "
+"routable on Google Cloud's network without additional encapsulation or "
+"route distribution."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:275 43df8ba6768141d9972e0484a414d627
+msgid "Masquerading"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:273 6fc6b3a88d8047b18cc7d4636f4acc68
+msgid ""
+"All traffic not staying with the ``ipv4-native-routing-cidr`` (defaults "
+"to the Cluster CIDR) will be masqueraded to the node's IP address to "
+"become publicly routable."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:281 7755051b72a14bd9bf2c4895ab668070
+msgid "Load-balancing"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:278 fe3eb178936f4434983c1c7f91b207f9
+msgid ""
+"ClusterIP load-balancing will be performed using eBPF for all version of "
+"GKE. Starting with >= GKE v1.15 or when running a Linux kernel >= 4.19, "
+"all NodePort/ExternalIP/HostPort will be performed using a eBPF "
+"implementation as well."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:284 ce08d39d5151417f9ffff6c22fca739a
+msgid "Policy enforcement & visibility"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:284 513b29622a4d41b5b7dbf1325f73f4f2
+msgid "All NetworkPolicy enforcement and visibility is provided using eBPF."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:289 368384bd2479478594d11d2835e84959
+msgid ""
+"The following configuration options must be set to run the datapath on "
+"GKE:"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:291 282a0b06685341668d469b335d9b7844
+msgid ""
+"``gke.enabled: true``: Enables the Google Kubernetes Engine (GKE) "
+"datapath. Setting this to ``true`` will enable the following options:"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:294 bbac261a08714d8e9cd723f38392f7d5
+msgid "``ipam: kubernetes``: Enable :ref:`k8s_hostscope` IPAM"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:295 c68dcb24dcc443129c3ab8f6aaf993d9
+msgid "``tunnel: disabled``: Enable native routing mode"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:296 c790bc6a511341aabc26e3f595d1477d
+msgid "``enable-endpoint-routes: true``: Enable per-endpoint routing on the node"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:297 cd70d4b784534352a06386d0ab4ceed1
+msgid ""
+"``enable-local-node-route: false``: Disable installation of the local "
+"node route"
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:299 3dd2e07956ca4dc9a9762133600511f0
+msgid ""
+"``ipv4-native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native "
+"routing is supported."
+msgstr ""
+
+#: ../../concepts/networking/routing.rst:302 743cd0675cb74baba7eaa5f67dbaec8f
+msgid ""
+"See the getting started guide :ref:`k8s_install_quick` to install Cilium "
+"on Google Kubernetes Engine (GKE)."
+msgstr ""
+

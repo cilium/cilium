@@ -1,0 +1,109 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/requirements-eks.rst:1 df7bb41302c54c1b89d2a9bc21c45b61
+msgid ""
+"To install Cilium on `Amazon Elastic Kubernetes Service (EKS) "
+"<https://docs.aws.amazon.com/eks/latest/userguide/getting-"
+"started.html>`_, perform the following steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:4 ba0e87a6767f4914af04e7a326152709
+msgid "**Default Configuration:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:7 9afd343d683948d6a4f869650a4f6127
+msgid "Datapath"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:7 ea8bb94903d14f4fa28459e3613eaec8
+msgid "IPAM"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:7 f6468705303743b19907c28460238d50
+msgid "Datastore"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:9 67b87ccf4b144350ba11b58db4818b00
+msgid "Direct Routing (ENI)"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:9 43b99cdecaf04dcfad48f2d5347d48e9
+msgid "AWS ENI"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:9 2c3863231a1143f5bb4ca87dfae2fc5f
+msgid "Kubernetes CRD"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:12
+#: 08816231ceb040a6864d9d674c69819f
+msgid "For more information on AWS ENI mode, see :ref:`ipam_eni`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:16
+#: 7108e63ef9844670abd2d4f17de79e05
+msgid ""
+"If you want to chain Cilium on top of the AWS CNI, refer to the guide "
+":ref:`chaining_aws_cni`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:19
+#: a7871f2f73bd41f6bfcd264af446a979
+msgid "**Requirements:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:21
+#: 667182d0d1674cdc99a9bc5b5370b345
+msgid ""
+"The `EKS Managed Nodegroups <https://eksctl.io/usage/eks-managed-nodes>`_"
+" must be properly tainted to ensure applications pods are properly "
+"managed by Cilium:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:25
+#: 5d73b36548414fe4917195b4127f7e0a
+msgid ""
+"``managedNodeGroups`` should be tainted with ``node.cilium.io/agent-not-"
+"ready=true:NoExecute`` to ensure application pods will only be scheduled "
+"once Cilium is ready to manage them. However, there are other options. "
+"Please make sure to read and understand the documentation page on "
+":ref:`taint effects and unmanaged pods<taint_effects>`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:31
+#: 3fc50a9bff674814836cf8c9bba5873e
+msgid ""
+"Below is an example on how to use `ClusterConfig <https://eksctl.io/usage"
+"/creating-and-managing-clusters/#using-config-files>`_ file to create the"
+" cluster:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:50
+#: 50d9471f76054dc39f0444c6cc09830f
+msgid "**Limitations:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:52
+#: 8b5e26b457144f368f2bc948f934c652
+msgid ""
+"The AWS ENI integration of Cilium is currently only enabled for IPv4. If "
+"you want to use IPv6, use a datapath/IPAM mode other than ENI."
+msgstr ""
+

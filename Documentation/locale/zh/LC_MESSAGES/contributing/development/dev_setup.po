@@ -1,0 +1,1255 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/dev_setup.rst:3
+#: 0d0833a8300b4c6e926625f333c854cb
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:10
+#: 7f5b89b965d646c59cc1fc145bc9cfce
+msgid "Development Setup"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:13
+#: ab04d9b659114b018545f77af61961fb
+msgid "Verifying Your Development Setup"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:15
+#: d9d91469214140d8a48feb77bad5b4d4
+msgid ""
+"Assuming you have Go installed, you can quickly verify many elements of "
+"your development setup by running:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:23
+#: 412ecb97618c49faab6ad91502e2b5a1
+msgid "Requirements"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:25
+#: edb2144184e64b7b95f31f6c8bec6fdd
+msgid ""
+"You need to have the following tools available in order to effectively "
+"contribute to Cilium:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:29
+#: ../../contributing/development/dev_setup.rst:61
+#: 8a18da2e3a4043cd8845b22d92fe8db8 afab77c35f2343a2978fd84850c75583
+msgid "Dependency"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:29
+#: ../../contributing/development/dev_setup.rst:61
+#: 35d421e79eb74b8bbe7cd870b89bc422 9d29b9295cba4ee99089882210e5d5d3
+msgid "Version / Commit ID"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:29
+#: ../../contributing/development/dev_setup.rst:61
+#: 34f99259ddc44c53b1939286e621a616 92435a02e6904901a7eb8b8e8c5395ed
+msgid "Download Command"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:31
+#: e066bde3f0c94a6f8e24f6e47fdced4e
+msgid "git"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:31
+#: ../../contributing/development/dev_setup.rst:51
+#: 1230790245df484ab91eafd5e5a4bdfd b6dbf5a29eb54b65894b2bd0fb2a783a
+msgid "latest"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:31
+#: ../../contributing/development/dev_setup.rst:33
+#: ../../contributing/development/dev_setup.rst:35
+#: ../../contributing/development/dev_setup.rst:37
+#: ../../contributing/development/dev_setup.rst:47
+#: ../../contributing/development/dev_setup.rst:49
+#: ../../contributing/development/dev_setup.rst:51
+#: ../../contributing/development/dev_setup.rst:65
+#: 405660f5e6c1464cbb522f24fb44bc0d 69d3215953c74428b1681abf295f86f2
+#: 6f18294f211b48dd8834dc765266ea36 7a5596983098470fb4745be03f4e199e
+#: 97d6d56cf7db41e3923e47a7ac1a7112 c63ed92c1d394f8dacd9426e8ea06ae6
+#: d5e19315895a4a6abec954dc788072af fa3658b0fa374d908dd51ec94f65ce1e
+msgid "N/A (OS-specific)"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:33
+#: 47b5a207455748958cd8786d8dab46f0
+msgid "clang"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:33
+#: ../../contributing/development/dev_setup.rst:35
+#: 1da3697226164674aa488e23b82d6123 30968c14eefd4376801fbe1c6d4d87c3
+msgid ">= 10.0 (latest recommended)"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:35
+#: e468831726574110b915dc38e4f9c06c
+msgid "llvm"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:37
+#: d2549147fc0944999a36a8ce7967ffa8
+msgid "`go <https://golang.org/dl/>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:37
+#: 4c4f21e323034e08afd60e48b6f5baf6
+msgid "|GO_RELEASE|"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:39
+#: fcac677fab4c4c1e998938117dd781fc
+msgid "`ginkgo <https://github.com/onsi/ginkgo>`__"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:39
+#: d0cdd50909834102bcb1e580a95018f8
+msgid ">= 1.4.0 and < 2.0.0"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:39
+#: 386d925bcc2c4974a24214db7da05a7d
+msgid "``go install github.com/onsi/ginkgo/ginkgo@latest``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:41
+#: 7c4f7bbe33404b28a36d003e12aca068
+msgid "`golangci-lint <https://github.com/golangci/golangci-lint>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:41
+#: ff792079aa544cb1aa54b7c380f8c688
+msgid ">= v1.27"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:41
+#: 7e8246b5c7484c0ebe950460c5946264
+msgid "``go install github.com/golangci/golangci-lint@latest``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:43
+#: 4a83073081ff433a8c3777711d03cb44
+msgid "`cfssl <https://github.com/cloudflare/cfssl>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:43
+#: ../../contributing/development/dev_setup.rst:45
+#: 588c137ac3124aaca70a77849e4f6cfe b7eabd6c23434ac5b8df6ee7eee7001d
+msgid ">= v1.6.0"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:43
+#: 2e1ffb7e076e48aa95ea9951869a3cc3
+msgid "``go install github.com/cloudflare/cfssl/cmd/cfssl@latest``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:45
+#: 1451bd942c8e4961b154d7f43215c70c
+msgid "`cfssljson <https://github.com/cloudflare/cfssl>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:45
+#: bc1056ade31e430f82ba82a20aea1534
+msgid "``go install github.com/cloudflare/cfssl/cmd/cfssljson@latest``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:47
+#: fd78cf5a625c4a30a44f3ace666342b6
+msgid "`Docker <https://docs.docker.com/engine/installation/>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:47
+#: ../../contributing/development/dev_setup.rst:49
+#: 0456f4f635b5460e9fd67c6aefbe8a0d 61f7c27d55bd49d98a8afa388f7e9a44
+msgid "OS-Dependent"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:49
+#: 82d7106609104d6b8f65a267ee94014a
+msgid "`Docker-Compose <https://docs.docker.com/compose/install/>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:51
+#: 7a072c8e72d34974bb4444f52938bf46
+msgid "python3-pip"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:54
+#: 0bb59cd7dceb472c82e34f4f617b6362
+msgid ""
+"For `integration_testing`, you will need to run ``docker`` without "
+"privileges. You can usually achieve this by adding your current user to "
+"the ``docker`` group."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:58
+#: 15fc85aa111843be9522d2a49867ab56
+msgid "Finally, in order to run Cilium locally on VMs, you need:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:63
+#: 914ce2a758e840a1a9acab31da52a202
+msgid "`Vagrant <https://www.vagrantup.com/downloads>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:63
+#: 7489344191394cb6944194588c838ab4
+msgid ">= 2.0"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:63
+#: 6b49809aa5f2492a999419a1e19d901c
+msgid ""
+"`Vagrant Install Instructions "
+"<https://www.vagrantup.com/docs/installation>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:65
+#: 11f90de24a4f4b32ac5a2d66e4500858
+msgid "`VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:65
+#: 3144aefdfdbc4b128ea35c66c73e0830
+msgid ">= 5.2"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:68
+#: fa5c1aebbc8c479c88b7ce66ea24cbb5
+msgid ""
+"You should start with the `gs_guide`, which walks you through the set-up,"
+" such as installing Vagrant, getting the Cilium sources, and going "
+"through some Cilium basics."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:74
+#: c7893403b46b4a0a845145b042945ee3
+msgid "Vagrant Setup"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:76
+#: 42b2cfefb54547dfaa5cbf9529c82dca
+msgid ""
+"While the `gs_guide` uses a Vagrantfile tuned for the basic walk through,"
+" the setup for the Vagrantfile in the root of the Cilium tree depends on "
+"a number of environment variables and network setup that are managed via "
+"``contrib/vagrant/start.sh``."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:82
+#: c31a8a887fb84ef397b41a666ff6636f
+msgid "Option 1 - Using the Provided Vagrantfiles (Recommended)"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:84
+#: b569e86f701f45a5ba8eb12ef2a65137
+msgid "To bring up a Vagrant VM with Cilium plus dependencies installed, run:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:90
+#: 838a694dd65a4c2393fac93d2884c31e
+msgid ""
+"This will create and run a vagrant VM based on the base box "
+"``cilium/ubuntu``. The ``vm_name`` argument is optional and allows you to"
+" add new nodes to an existing cluster. For example, to add a net-next VM "
+"to a one-node cluster:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:98
+#: 239e57ea8f4d4746b621c70c99326585
+msgid ""
+"Cilium Vagrantfiles look for a file ``.devvmrc`` in the root of your "
+"Cilium repository. This file is ignored for Git, so it does not exist by "
+"default. If this file exists and is executable, it will be executed in "
+"the beginning of the VM bootstrap. This allows you to automatically "
+"customize the new VM, e.g., with your personal Git configuration. You may"
+" also want to add any local entries you need in ``/etc/hosts``, etc."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:106
+#: cea479beed7c42679f1527f47b9147a8
+msgid "For example, you could have something like this in your ``.devvmrc``:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:119
+#: ce6da5449ec54743ba2c4efaf7e5a1ff
+msgid ""
+"Remember to make the script executable (``chmod +x .devvmrc``). When "
+"successfully running, the VM bootstrap shows a message like this right "
+"after the shared folders have been set up:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:128
+#: 33e72108c4034bb4a83ee2d0dcd4b598
+msgid "The box is currently available for the following providers:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:130
+#: ac22ba93e53140a48a7983416885e0b8
+msgid "virtualbox"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:133
+#: 19f0f35fabed4d8489f322d813af48db
+msgid "Configuration Options"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:135
+#: d4040c7ade51461b81c8a16e8903c7f8
+msgid ""
+"The following environment variables can be set to customize the VMs "
+"brought up by vagrant:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:138
+#: bdbbf643139d45ef83842b1bf5043e3f
+msgid ""
+"``NWORKERS=n``: Number of child nodes you want to start with the master, "
+"default 0."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:140
+#: 6d61d022af2449ed9471d6b8b44f42ac
+msgid ""
+"``RELOAD=1``: Issue a ``vagrant reload`` instead of ``vagrant up``, "
+"useful to resume halted VMs."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:142
+#: 4cd51c4e0f174a61a558c38251b9f543
+msgid ""
+"``NO_PROVISION=1``: Avoid provisioning Cilium inside the VM. Supports "
+"quick restart without recompiling all of Cilium."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:144
+#: 88919beb2f8644b285ca91a7eadf5e2a
+msgid ""
+"``K8S=1``: Build & install kubernetes on the nodes. ``k8s1`` is the "
+"master node, which contains both master components: etcd, kube-"
+"controller-manager, kube-scheduler, kube-apiserver, and node components: "
+"kubelet, kube-proxy, kubectl and Cilium. When used in combination with "
+"``NWORKERS=1`` a second node is created, where ``k8s2`` will be a "
+"kubernetes node, which contains: kubelet, kube-proxy, kubectl and cilium."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:150
+#: 184f01702d49420c8b517f92d586af6b
+msgid "``NETNEXT=1``: Run with net-next kernel."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:151
+#: 68b7a00022114c1fb9746a79b04ef0f7
+msgid ""
+"``SERVER_BOX`` and ``SERVER_VERSION``: Run with a specified vagrant box. "
+"See: ``vagrant_box_defaults.rb`` for the supported versions. This may be "
+"useful for BPF developers that want to test their changes with ``make -C "
+"bpf && sudo test/bpf/verifier-test.sh``."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:156
+#: 51d2d0a03be54752b1677b8729996899
+msgid "``IPV4=1``: Run Cilium with IPv4 enabled."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:157
+#: 76316d1344004530907369a21cae8049
+msgid ""
+"``RUNTIME=x``: Sets up the container runtime to be used inside a "
+"kubernetes cluster. Valid options are: ``docker``, ``containerd`` and "
+"``crio``. If not set, it defaults to ``docker``."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:160
+#: 4d98593ec157414fa8112fdd67602d4f
+msgid "``VM_SET_PROXY=https://127.0.0.1:80/`` Sets up VM's ``https_proxy``."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:161
+#: 8a3ddee6ce3540cb81b50e622980b15d
+msgid ""
+"``INSTALL=1``: Restarts the installation of Cilium, Kubernetes, etc. Only"
+" useful when the installation was interrupted."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:163
+#: 71d78286416942a0b5900773fd66d13f
+msgid "``MAKECLEAN=1``: Execute ``make clean`` before building cilium in the VM."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:164
+#: 921a663be92a44cfbb7cbfb5d7009889
+msgid ""
+"``NO_BUILD=1``: Does not run the \"build\" provision step in the VM. "
+"Assumes the developer had previously executed ``make build`` before "
+"provisioning the VM."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:167
+#: 450a50919ac949859cdfec32f9539996
+msgid ""
+"``SHARE_PARENT``: Share the parent of your Cilium directory instead. This"
+" requires your Cilium directory to be named ``cilium``, but will also "
+"make all other files and folders in the parent directory available for "
+"the VM. This is useful to share all the cilium repos to the VM, for "
+"example."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:171
+#: 10a26560f42f49b5be9c713f14aaa8d7
+msgid ""
+"``USER_MOUNTS``: Additional mounts for the VM in a comma-separated list "
+"of mount specifications. Each mount specification can be simply a "
+"directory name relative to the home directory, or include a '=' character"
+" separating the destination mount point from the host directory. For "
+"example:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:176
+#: 625592942c0841abb40709a6b0812966
+msgid "``USER_MOUNTS=foo``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:178
+#: eecc8936c7a84d88ba9f7d32190e2758
+msgid "Mounts host directory ``~/foo`` as ``/home/vagrant/foo``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:180
+#: 14128a16cf9c47b097af6e683fd9b9cc
+msgid "``USER_MOUNTS=foo,/tmp/bar=/tmp/bar``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:182
+#: c24d688cfe0a4617b0a7d0792ac53af1
+msgid ""
+"Mounts host directory ``~/foo`` as ``/home/vagrant/foo`` in the VM, and "
+"host directory ``/tmp/bar`` as ``/tmp/bar`` in the VM."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:185
+#: 303fa579dca04d958266b6c60b1a3a2d
+msgid ""
+"``VM_MEMORY``: Memory in megabytes to configure for the VMs (default "
+"4096)."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:186
+#: 72d8bea8d52e426d9b16d35729f46d95
+msgid "``VM_CPUS``: Number of CPUs to configure for the VMs (default 2)."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:188
+#: ae69cd09e8a0465bb38ebe05e95928d6
+msgid ""
+"If you want to start the VM with cilium enabled with ``containerd``, with"
+" kubernetes installed and plus a worker, run:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:195
+#: 7e4b22f945fa4db7a718dc1cf18d76c4
+msgid "If you want to get VM status, run:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:201
+#: 052315641eb14cbfaba4ae6a6ff1dd0f
+msgid ""
+"If you want to connect to the Kubernetes cluster running inside the "
+"developer VM via ``kubectl`` from your host machine, set ``KUBECONFIG`` "
+"environment variable to include new kubeconfig file:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:207
+#: 00bdfbbc57fc49dbb2aa60a36a11a44c
+msgid "and add ``127.0.0.1 k8s1`` to your hosts file."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:209
+#: 0c43f0e61e8c4f65b93d5f76a672716e
+msgid ""
+"If you have any issue with the provided vagrant box ``cilium/ubuntu`` or "
+"need a different box format, you may build the box yourself using the "
+"`packer scripts <https://github.com/cilium/packer-ci-build>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:214
+#: dcfcfd9da4ae44af83c94d53e255b7b2
+msgid "Launch CI VMs"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:216
+#: f9aa4fa4aa8f4bc691e6b27eb3ef092f
+msgid ""
+"The ``test`` directory also contains a ``Vagrantfile`` that can be used "
+"to bring up the CI VM images that will cache a Vagrant box locally (in "
+"``test/.vagrant/`` that prepulls all the docker images needed for the CI "
+"tests. Unfortunately some of the options are different from the main "
+"Vagrantfile, for example:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:222
+#: 1eaa836ff30c4da49a4ba6198944f61c
+msgid ""
+"``K8S_NODES`` determines the total number of k8s nodes, including the "
+"master. - ``NWORKERS`` is not supported."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:224
+#: d9c17e59e27142afba583bf53e966d32
+msgid "``USER_MOUNTS`` is not available."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:226
+#: 0642aedf99d64a2d8c46c587157ecebf
+msgid "To start a local k8s 1.18 cluster with one CI VM locally, run:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:233
+#: 12f537f497e54971a7b804e6e284f60d
+msgid ""
+"This will first destroy any CI VMs you may have running on the current "
+"``K8S_VERSION``, and then create a local Vagrant box if not already "
+"created. This can take some time."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:237
+#: 3f32d6a6961348068bc67e7b68e83127
+msgid ""
+"VM preloading can be turned off by exporting ``VM_PRELOAD=false``. You "
+"can run ``make clean`` in ``test`` to delete the cached vagrant box."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:240
+#: 9632840fad624de78cdb1778bd5870a0
+msgid "To start the CI runtime VM locally, run:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:247
+#: d64679c28d8a4fa1aae24c14762d5a6f
+msgid ""
+"The runtime VM is connected to the same private VirtualBox network as the"
+" local CI k8s nodes."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:250
+#: 8b671ceb7fdb47c68aea563c2dd9300b
+msgid ""
+"The runtime VM uses the same cached box as the k8s nodes, but does not "
+"start K8s, but runs Cilium as a systemd service."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:254
+#: 15b881379ab5433abea0d08f5d990c4a
+msgid "Option 2 - Manual Installation"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:256
+#: 5916157d9d4f4448b3f49ed88d80c1dd
+msgid ""
+"Alternatively you can import the vagrant box ``cilium/ubuntu`` directly "
+"and manually install Cilium:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:282
+#: 7674695e6a024565b6f2ffdb39fbbacc
+msgid "Notes"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:284
+#: 8f95fd63b9c64bcebb6c8ed8c4757bf4
+msgid ""
+"Your Cilium tree is mapped to the VM so that you do not need to keep "
+"manually copying files between your host and the VM. Folders are by "
+"default synced automatically using `VirtualBox Shared Folders "
+"<https://www.virtualbox.org/manual/ch04.html#sharedfolders>`_ with NFS. "
+"Note that your host firewall must have a variety of ports open. The "
+"Vagrantfile will inform you of the configuration of these addresses and "
+"ports to enable NFS."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:293
+#: 622ab5a8878a435ca04cea8394004063
+msgid ""
+"OSX file system is by default case insensitive, which can confuse git.  "
+"At the writing of this Cilium repo has no file names that would be "
+"considered referring to the same file on a case insensitive file system."
+"  Regardless, it may be useful to create a disk image with a case "
+"sensitive file system for holding your git repos."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:302
+#: 3f1cf6a1b314414096d3fa646ffcaea0
+msgid ""
+"VirtualBox for OSX currently (version 5.1.22) always reports host-only "
+"networks' prefix length as 64.  Cilium needs this prefix to be 16, and "
+"the startup script will check for this.  This check always fails when "
+"using VirtualBox on OSX, but it is safe to let the startup script to "
+"reset the prefix length to 16."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:310
+#: c12730749f1c49e9879a53a43c7d4722
+msgid "Make sure your host NFS configuration is setup to use tcp:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:323
+#: 88583c5746ba48169f66b7f7507fa027
+msgid ""
+"If for some reason, running of the provisioning script fails, you should "
+"bring the VM down before trying again:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:330
+#: 70f82aabe55a47b4ab15a5b51486bbab
+msgid "Local Development in Vagrant Box"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:332
+#: 54a4966448ca4f888d779c8881a6e29b
+msgid ""
+"See :ref:`dev_env` for information on how to setup the development "
+"environment."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:334
+#: 5c8be5c91a3d4cdfae8e292902bb9a54
+msgid ""
+"When the development VM is provisioned, it builds and installs Cilium.  "
+"After the initial build and install you can do further building and "
+"testing incrementally inside the VM. ``vagrant ssh`` takes you to the "
+"Cilium source tree directory "
+"(``/home/vagrant/go/src/github.com/cilium/cilium``) by default, and the "
+"following commands assume that you are working within that directory."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:341
+#: d95da2e0b8a04753b9017088215beb32
+msgid "Build Cilium"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:343
+#: 46408b1c35de42fd988ce6396559714c
+msgid ""
+"When you make changes, the tree is automatically kept in sync via NFS. "
+"You can issue a build as follows:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:351
+#: 2d9568f3b1dc4dbf8ec90a6da2d994ac
+msgid "Install to dev environment"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:353
+#: ee35fc4b3d5d402c89172627e3699457
+msgid "After a successful build and test you can re-install Cilium by:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:360
+#: ddf5e7f321cc4a338e8e279b141feba7
+msgid "Restart Cilium service"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:362
+#: 30080d3a51ac4e1182e6b48626b72316
+msgid "To run the newly installed version of Cilium, restart the service:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:368
+#: 4ff04bdd9fd048a5b90cda664042f7bd
+msgid ""
+"You can verify the service and cilium-agent status by the following "
+"commands, respectively:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:377
+#: fd1a4057b377428d8c08807350e5a98a
+msgid "Simple smoke-test with HTTP policies"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:379
+#: 4538c0e7fcdf4974864648602001926f
+msgid ""
+"After Cilium daemon has been restarted, you may want to verify that it "
+"boots up properly and integration with Envoy still works. To do this, run"
+" this bash test script:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:387
+#: 9cc447c8d2c2473d9084812537614836
+msgid ""
+"This test launches three docker containers (one curl client, and two "
+"httpd servers) and tests various simple network policies with them. These"
+" containers should be automatically removed when the test finishes."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:395
+#: 314a1f195b3e41eb9f2542ee9860f6cb
+msgid "Making Changes"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:397
+#: 2d94fedd5e14488cbcfd70a4fd0e22c4
+msgid "Make sure the ``master`` branch of your fork is up-to-date:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:403
+#: 3151915136144e8387bd7455bcd5e0b2
+msgid "Create a PR branch with a descriptive name, branching from ``master``:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:409
+#: 3baad6cc1f67441c86ec37dd62fe040a
+msgid "Make the changes you want."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:410
+#: dba85dd7b8304eaaa298a4c23895e8cb
+msgid "Separate the changes into logical commits."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:412
+#: ab91a5d760854685892614ae9605a256
+msgid ""
+"Describe the changes in the commit messages. Focus on answering the "
+"question why the change is required and document anything that might be "
+"unexpected."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:415
+#: cc03d8ed0c95481c8b9a1b74a3c2e56e
+msgid ""
+"If any description is required to understand your code changes, then "
+"those instructions should be code comments instead of statements in the "
+"commit description."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:421
+#: 8c03b63d3b184905873a2fd1b48c274c
+msgid ""
+"For submitting PRs, all commits need be to signed off (``git commit "
+"-s``). See the section :ref:`dev_coo`."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:423
+#: c87ff078f8e745dab1ac10c4253a41fe
+msgid "Make sure your changes meet the following criteria:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:425
+#: 35dab5cb79484d9496c3b9ce08dff6fa
+msgid "New code is covered by :ref:`integration_testing`."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:426
+#: 43a08a03beb04f90bf60995f9b669e5f
+msgid ""
+"End to end integration / runtime tests have been extended or added. If "
+"not required, mention in the commit message what existing test covers the"
+" new code."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:429
+#: d7ca5bee78794e0a8dee26abc70945b1
+msgid ""
+"Follow-up commits are squashed together nicely. Commits should separate "
+"logical chunks of code and not represent a chronological list of changes."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:432
+#: c63892930565451c9b304816ebf4a973
+msgid "Run ``git diff --check`` to catch obvious white space violations"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:433
+#: efb207efd5844ebda596eb75de6cd611
+msgid ""
+"Run ``make`` to build your changes. This will also run ``make lint`` and "
+"error out on any golang linting errors. The rules are configured in "
+"``.golangci.yaml``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:435
+#: 90cb7ff6b8e543098bad346fcc22a707
+msgid "See :ref:`integration_testing` on how to run integration tests."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:436
+#: 6bfa8ca206a84104942cab1f0916e9dd
+msgid ""
+"See :ref:`testsuite` for information how to run the end to end "
+"integration tests"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:438
+#: 66ce09cc943741709e96cb908d9e5b57
+msgid ""
+"If you are making documentation changes, you can generate documentation "
+"files and serve them locally on ``http://localhost:9081`` by running "
+"``make render-docs``. This make target works both inside and outside the "
+"Vagrant VM, assuming that ``docker`` is running in the environment."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:444
+#: c8d50f13f3b340c5bb5cef290d0eff36
+msgid "Add/update a golang dependency"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:446
+#: 40d97741a96847618e2e929bc1b3db23
+msgid ""
+"Let's assume we want to add ``github.com/containernetworking/cni`` "
+"version ``v0.5.2``:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:455
+#: 8524698cb41f4105aef931aa09d6d7a4
+msgid ""
+"For a first run, it can take a while as it will download all dependencies"
+" to your local cache but the remaining runs will be faster."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:458
+#: c1a2e2ae53f845e49ffc0ae8cf64b173
+msgid ""
+"Updating k8s is a special case which requires updating k8s libraries in a"
+" single change:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:473
+#: 700c981c6aff4b3da7995877f1728d7d
+msgid "Add/update a new Kubernetes version"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:475
+#: dc85b6c7f5c14320a4686020d898a35f
+msgid "Let's assume we want to add a new Kubernetes version ``v1.19.0``:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:477
+#: b114fe834a0f4a6583bd8801135b7a55
+msgid "Follow the above instructions to update the Kubernetes libraries."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:479
+#: b936c8d4490644d78097a45513ea61a7
+msgid ""
+"Follow the next instructions depending on if it is a minor update or a "
+"patch update."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:483
+#: 3e1875cfe54d4da6bc1ae4201a322d76
+msgid "Minor version"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:485
+#: 552f2b5f8f5b4f45bdd9101a697ee612
+msgid ""
+"Check if it is possible to remove the last supported Kubernetes version "
+"from :ref:`k8scompatibility`, :ref:`k8s_requirements`, "
+":ref:`test_matrix`, :ref:`running_k8s_tests`, :ref:`gsg_istio` and add "
+"the new Kubernetes version to that list."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:490
+#: 252d41bce96c4c5eb09b4ddaa5f77043
+msgid ""
+"If the minimal supported version changed, leave a note in the upgrade "
+"guide stating the minimal supported Kubernetes version."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:493
+#: 1ca69c1d959d46f7840b8361bbb42df1
+msgid ""
+"If the minimal supported version changed, search over the code, more "
+"likely under ``pkg/k8s``, if there is code that can be removed which "
+"specifically exists for the compatibility of the previous Kubernetes "
+"minimal version supported."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:498
+#: 3a86995d46134e5bb092f5540083672c
+msgid ""
+"If the minimal supported version changed, update the field "
+"``MinimalVersionConstraint`` in ``pkg/k8s/version/version.go``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:501
+#: c4afd74c3eca44d6b68eebf47b8560b9
+msgid ""
+"Sync all \"``slim``\" types by following the instructions in "
+"``pkg/k8s/slim/README.md``.  The overall goal is to update changed fields"
+" or deprecated fields from the upstream code. New functions / fields / "
+"structs added in upstream that are not used in Cilium, can be removed."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:506
+#: 4fe5b69311c441448c24d5e68f417e34
+msgid ""
+"Open files ``jenkinsfiles/{kubernetes-upstream,ginkgo-"
+"kernel}.Jenkinsfile``, and bump the versions being tested. More important"
+" is to make sure the pipeline used on all PRs are running with the new "
+"Kubernetes version by default. Make sure the files "
+"``contributing/testing/{ci,e2e}.rst`` are up to date with these changes."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:516
+#: 696a0bd0dcb8477b9c7384a8ab503f41
+msgid "#  Update documentation files:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:513
+#: 6c3b66efe37743a899f7770a8dfe6c47
+msgid "Documentation/concepts/kubernetes/compatibility.rst"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:514
+#: 544489791d2e40aaaf740ad2714a31ae
+msgid "Documentation/concepts/kubernetes/requirements.rst"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:515
+#: 46caecc025294f07957582674fa5aaa1
+msgid "Documentation/contributing/testing/e2e.rst"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:516
+#: f0885f70f25b40b9b8ecbfb430a83351
+msgid "Documentation/gettingstarted/istio.rst"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:518
+#: 15db3ae9e64d45aaa9b9aee4430e7c7a
+msgid ""
+"Update the Kubernetes version with the newer version in "
+"``test/Vagrantfile``, ``test/test_suite_test.go`` and ``test/vagrant-"
+"local-start.sh``."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:521
+#: 77418cd506154d53a828b6e84b840d4b
+msgid ""
+"Add the new coredns files specific for the Kubernetes version, for "
+"``1.19`` is ``test/provision/manifest/1.19``. The coredns deployment "
+"files can be found upstream as mentioned in the previous k8s version "
+"coredns files. Perform a diff with the previous versions to check which "
+"changes are required for our CI and which changes were added upstream."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:527
+#: d12a082de65149c7b8d64a8986e83c7a
+msgid ""
+"If necessary, update the ``coredns`` files from "
+"``contrib/vagrant/deployments`` with newer the file versions from "
+"upstream."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:530
+#: aee87f857eb94bf28f287072ee5012f8
+msgid ""
+"Update the constraint in the function ``getK8sSupportedConstraints``, "
+"that exists in the ``test/helpers/utils.go``, with the new Kubernetes "
+"version that Cilium supports. It is possible that a new ``IsCiliumV1*`` "
+"var in that file is required as well."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:535
+#: ec05a001bd3d4801a852f23d8b8167c4
+msgid ""
+"Add the new version in ``test/provision/k8s_install.sh``, if it is an RC "
+"install it using binaries."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:538
+#: 0274134a1cd24426b0fa2c9c771d2716
+msgid ""
+"Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash`` "
+"and the etcd version to the latest version."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:541
+#: dfe48b0657ce4dc09bdf42f1d8833505
+msgid "Run ``./contrib/scripts/check-k8s-code-gen.sh``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:543
+#: a01be19d9a574b07a869eca7b26cf7cb
+msgid "Run ``go mod vendor && go mod tidy``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:545
+#: f2616f97529d4ce9ad066eb5ce49cddd
+msgid "Run ``./contrib/scripts/check-k8s-code-gen.sh`` (again)"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:547
+#: bf5830c5f07c48de9d5f83ce2b6fe7bb
+msgid "Run ``make -C Documentation update-helm-values``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:549
+#: bb787f313f144827b22f890965733538
+msgid ""
+"Compile the code locally to make sure all the library updates didn't "
+"removed any used code."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:552
+#: 5de8d598cf0740c0bd23dfea2fa3b5c1
+msgid ""
+"Provision a new dev VM to check if the provisioning scripts work "
+"correctly with the new k8s version."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:555
+#: 8888f6cb59a34a0a96ad1134ac2ccee4
+msgid ""
+"Run ``git add vendor/ test/provision/manifest/ Documentation/ && git "
+"commit -sam \"Update k8s tests and libraries to v1.23.0-rc.0\"``"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:557
+#: ../../contributing/development/dev_setup.rst:581
+#: 23a506b63d38417e955b616bcf4f8835 fb55bf81bcf94d22ac25cf41652745e0
+msgid "Submit all your changes into a new PR."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:559
+#: fd801a8626ad49edb776aa621b9891e9
+msgid ""
+"Ping the CI team to make changes in Jenkins (adding new pipeline and "
+"dedicated test trigger ``/test-X.XX-4.9`` where ``X.XX`` is the new "
+"Kubernetes version)."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:563
+#: 025a6a917f7041e7a775d0739e50e64c
+msgid ""
+"Run ``/test-upstream`` and the new ``/test-X.XX-4.9`` from the PR once "
+"Jenkins is up-to-date."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:566
+#: 6520d3e353944125a6f120188a799bbf
+msgid ""
+"Once CI is green and PR has been merged, ping the CI team again so that "
+"they: #. Rotate the Jenkins pipelines and triggers due to removed/added "
+"K8s versions."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:569
+#: 1ddf5c759ad14e3d9888cf9f5d189a30
+msgid ""
+"Update the `Cilium CI matrix`_, ``.github/maintainers-little-"
+"helper.yaml``, and GitHub required PR checks accordingly."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:575
+#: 4a8548ba41cc40b4ab99ad3a3620f6d7
+msgid "Patch version"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:577
+#: 088b74291c2b433493cc8f861bd682ab
+msgid "Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash``."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:579
+#: 7aca5257256a4e4d9e767cdfd7698f71
+msgid "Bump the Kubernetes version in ``test/provision/k8s_install.sh``."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:584
+#: 76509d82bf954bc6aac1a8c677037438
+msgid "Optional: Docker and IPv6"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:586
+#: 9a88167dcab4435680414e223ec1c611
+msgid ""
+"Note that these instructions are useful to you if you care about having "
+"IPv6 addresses for your Docker containers."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:589
+#: 12779ff25d344acdbb3bcee40c5c4c21
+msgid "If you'd like IPv6 addresses, you will need to follow these steps:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:591
+#: 340d7c1cec3b40b39fa2b108ca7d44de
+msgid "Edit ``/etc/docker/daemon.json`` and set the ``ipv6`` key to ``true``."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:600
+#: 1e929010b2514cf08aa0b4a17f45ee02
+msgid ""
+"If that doesn't work alone, try assigning a fixed range. Many people have"
+" reported trouble with IPv6 and Docker. `Source here. "
+"<https://github.com/moby/moby/issues/29443#issuecomment-495808871>`_"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:612
+#: 457edbf16c0f4238bb90ca8ae11fad02
+msgid "And then:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:621
+#: 3823f234cd324b239012bd7436c9e79d
+msgid "Restart the docker daemon to pick up the new configuration."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:623
+#: 24ed4b11b1ef4b0590b7c5b7d694cad9
+msgid "The new command for creating a network managed by Cilium:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:630
+#: 6680646537d246c49357461ba6b5b57f
+msgid "Now new containers will have an IPv6 address assigned to them."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:633
+#: 49e24d2938a44bcaa3ed8f22e2082c62
+msgid "Debugging"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:636
+#: 2d15b29480a545eb9c5c184853023a7e
+msgid "Datapath code"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:637
+#: 27b9072f4ca5452f9225f07e43ba4a72
+msgid ""
+"The tool ``cilium monitor`` can also be used to retrieve debugging "
+"information from the eBPF based datapath. To enable all log messages:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:640
+#: 4e9a4f5d02244e06a6500b0c9e1b0e91
+msgid "Start the ``cilium-agent`` with ``--debug-verbose=datapath``, or"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:641
+#: 09cfa2120da24f7da794635025dbd108
+msgid ""
+"Run ``cilium config debug=true debugLB=true`` from an already running "
+"agent."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:643
+#: ee5c325a107a4237b9c8d75e9ef271a8
+msgid ""
+"These options enable logging functions in the datapath: ``cilium_dbg()``,"
+" ``cilium_dbg_lb()`` and ``printk()``."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:648
+#: 6caa3a3a4f2848f0981e03e689f813ad
+msgid ""
+"The ``printk()`` logging function is used by the developer to debug the "
+"datapath outside of the ``cilium monitor``.  In this case, ``bpftool prog"
+" tracelog`` can be used to retrieve debugging information from the eBPF "
+"based datapath. Both ``cilium_dbg()`` and ``printk()`` functions are "
+"available from the ``bpf/lib/dbg.h`` header file."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:653
+#: 973c3f16a8ec411b9235c9692d94f6e6
+msgid ""
+"The image below shows the options that could be used as startup options "
+"by ``cilium-agent`` (see upper blue box) or could be changed at runtime "
+"by running ``cilium config <option(s)>`` for an already running agent "
+"(see lower blue box). Along with each option, there is one or more "
+"logging function associated with it: ``cilium_dbg()`` and ``printk()``, "
+"for ``DEBUG`` and ``cilium_dbg_lb()`` for ``DEBUG_LB``."
+msgstr ""
+
+#: 53a95d7be1bc46f7b71b094908336021
+msgid "Cilium debug datapath options"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:666
+#: fac71a1ca69d446798ef3ac909f9b417
+msgid ""
+"If you need to enable the ``LB_DEBUG`` for an already running agent by "
+"running ``cilium config debugLB=true``, you must pass the option "
+"``debug=true`` along."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:669
+#: faab9d108e3342c190b0d036f6a69d40
+msgid ""
+"Debugging of an individual endpoint can be enabled by running ``cilium "
+"endpoint config ID debug=true``. Running ``cilium monitor -v`` will print"
+" the normal form of monitor output along with debug messages:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:692
+#: 64b31018ad47487e8200cea06b467c3f
+msgid "Passing ``-v -v`` supports deeper detail, for example:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:728
+#: cad4248bf34a4a7f9b869350a571af65
+msgid ""
+"One of the most common issues when developing datapath code is that the "
+"eBPF code cannot be loaded into the kernel. This frequently manifests as "
+"the endpoints appearing in the \"not-ready\" state and never switching "
+"out of it:"
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:740
+#: f9458e332254400bafd6df35f5445d80
+msgid ""
+"Running ``cilium endpoint get`` for one of the endpoints will provide a "
+"description of known state about it, which includes eBPF verification "
+"logs."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:743
+#: 101ecc3e376c4a558278f7d8f2594c61
+msgid ""
+"The files under ``/var/run/cilium/state`` provide context about how the "
+"eBPF datapath is managed and set up. The .h files describe specific "
+"configurations used for eBPF program compilation. The numbered "
+"directories describe endpoint-specific state, including header "
+"configuration files and eBPF binaries."
+msgstr ""
+
+#: ../../contributing/development/dev_setup.rst:748
+#: 06a9086a987143cb81b9b84d0a14ec26
+msgid ""
+"Current eBPF map state for particular programs is held under "
+"``/sys/fs/bpf/``, and the `bpf-map <https://github.com/cilium/bpf-map>`_ "
+"utility can be useful for debugging what is going on inside them, for "
+"example:"
+msgstr ""
+

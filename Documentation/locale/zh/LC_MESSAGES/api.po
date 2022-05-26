@@ -1,0 +1,2007 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../api.rst:3 142a0fd665604ac3a47b1bcb520760d8
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../api.rst:11 ../../api.rst:96 045c055d03ad4bd0b0d8ba42254dad62
+#: 083133b249d74a26b971eebb7a0fdca5
+msgid "API Reference"
+msgstr ""
+
+#: ../../api.rst:15 29b2114587ea4d9a8377b5a5e182f4a5
+msgid "Introduction"
+msgstr ""
+
+#: ../../api.rst:17 0cf77317037a4210bbd4509cd2321e27
+msgid ""
+"The Cilium API is JSON based and provided by the ``cilium-agent``. The "
+"purpose of the API is to provide visibility and control over an "
+"individual agent instance. In general, all API calls affect only the "
+"resources managed by the individual ``cilium-agent`` serving the API. A "
+"few selected API calls such as the security identity resolution provides "
+"cluster wide visibility. Such API calls are marked specifically. Unless "
+"noted otherwise, API calls will only affect local agent resources."
+msgstr ""
+
+#: ../../api.rst:27 fa4a06a821434447a8c7066f8a68fde2
+msgid "How to access the API"
+msgstr ""
+
+#: ../../api.rst:30 ef0ce9ae935845aba125ff2f297e2a16
+msgid "CLI Client"
+msgstr ""
+
+#: ../../api.rst:32 ffd27d3839154a82b4d28def1f389ebe
+msgid ""
+"The easiest way to access the API is via the ``cilium`` CLI client. "
+"``cilium`` will automatically locate the API of the agent running on the "
+"same node and access it. However, using the ``-H`` or ``--host`` flag, "
+"the ``cilium`` client can be pointed to an arbitrary API address."
+msgstr ""
+
+#: ../../api.rst:38 ../../api.rst:60 ceefd3cb591e4d4ca54d3b76c35cdd5b
+#: e1a284dbf3ec411eb1cd3012646edbf2
+msgid "Example"
+msgstr ""
+
+#: ../../api.rst:47 1dd65673ab3e4f569f6d0e9f834410de
+msgid "Golang Package"
+msgstr ""
+
+#: ../../api.rst:49 3a5cabf3064847f6a5219a5a7831d789
+msgid "The following Go packages can be used to access the API:"
+msgstr ""
+
+#: ../../api.rst:52 103bec3661464f128a1f94655645b550
+msgid "Package"
+msgstr ""
+
+#: ../../api.rst:52 850381dc908e450895ec9a6dc1b2e9af
+msgid "Description"
+msgstr ""
+
+#: ../../api.rst:54 6589b975bb6f4d9892748995dd6c73d5
+msgid "`pkg/client`_"
+msgstr ""
+
+#: ../../api.rst:54 51e702e6ca4543eb9ab5fc1adb66d145
+msgid "Main client API abstraction"
+msgstr ""
+
+#: ../../api.rst:56 4b9acab28441442dbab6d7a627e5ec99
+msgid "`api/v1/models`_"
+msgstr ""
+
+#: ../../api.rst:56 b6f7dab6e3c447ab9ac7c972a1f7d48b
+msgid "API resource data type models"
+msgstr ""
+
+#: ../../api.rst:62 c45db335afdd4fbe8df568211255ea01
+msgid "The full example can be found in the `cilium/client-example`_ repository."
+msgstr ""
+
+#: ../../api.rst:89 90c8358bfb6d4599b6f96e187f976a53
+msgid "Compatibility Guarantees"
+msgstr ""
+
+#: ../../api.rst:91 cf7c7ee294c34ec1bf8157a4c5b30191
+msgid ""
+"Cilium API is stable as of version 1.0, backward compatibility will be "
+"upheld for whole lifecycle of Cilium 1.x."
+msgstr ""
+
+#: ../../<openapi>:1 77679c91fe6940879596abbf0652dc13
+msgid "**Get nodes information stored in the cilium-agent**"
+msgstr ""
+
+#: ../../<openapi> 00770ab42eae4e2d827728979980e5c5
+#: 0150c6398eb842a1973b083188d2b76c 071d8b34b0fa47c082cdf1937ba6cff2
+#: 076973cb08a64e49a9a487ae0357fbe4 0acd824d015e4ef68766c50335317b7a
+#: 10664956b15c437ea552d5110dd594db 15a52baa0c544fdfbbe50d14624ca657
+#: 1e81905560a24704a309613fea6646bd 241b786a0e7d4452abaacd76e553d3b4
+#: 24fe538f32224cfbabdf79f8e7190705 252b30c9ff004508b0ccd7363d7421b4
+#: 2d38515403ee4f10b4d41da4cc6a11be 2dc0d0adce0a428fab3b1cc81383f3ab
+#: 2e81030b19204dc196737049fdb11d77 327c777e4a544223ae3ca36797e92db4
+#: 3a7071a6b7424e3ba5572538ec409a1c 3efe4bdbec74424b9b42af628617a5dc
+#: 44a3e22dd3914fabb057c659bdec1113 45efeae0dd554ce6a816b9030895631d
+#: 4626395d6084454f934165e3e91989f8 48e3b6ede2454c85b1084e57a10ba075
+#: 4e05f913d75e47d6ae07ea3499d0f23c 4e9bd67cb4ba46d9bb373d85d7f9ffd2
+#: 5efbe1e9b28a422d9e4746ea934d485f 655a3c8d209644f98a081f209e3c027a
+#: 6a8500a39d5e466c846cf412aeaba5d4 6b2125ab5e9143349ddf65594233410d
+#: 721c4835f862480fbf84afde7e78029b 753a8752bc5b4d8d8b4b6c3f754bc3b0
+#: 7c9ef88ba6da4579bfd6eab63c02e188 7eeec21e1a5b4dcaaef1bfef9addf09e
+#: 8230059b58c14cb284d756eac6b6f128 89f67215d1924379a9d900944c091dd8
+#: 8cd18c57c4af4d479a9d86ecfb98620f 8d45c3bcd7be41b38fd54b96204b80f6
+#: 90151a1ec5874d2ea3ae2f9919c47466 a59f689821e64ee88b6b36f4e6382293
+#: a74ecde6785242858371f129bec31291 b877586dfc55401d8c18d64e4216708e
+#: ccf2c97f42874e3588a62c038dfc2e08 d083babcace847d19c07dfb780b6effc
+#: d820595e897749b4b3f568bfebccbf88 e097ed80ee6a40739b18fe06a74a2bb5
+#: e40fbc95c67e420dad6aa5e5a2e3e95d eedbe251dfa94bf591dbddcc4d3e8e99
+#: f09e3407645246f8ab7243bd32571cfe fc61285e20e7456ca42d7efb02ab9abd
+#: ff0e1e41c3744801bd17080fb68da28f
+msgid "Status Codes"
+msgstr ""
+
+#: ../../<openapi>:1 022543affe7a47308c75670e9565abd6
+#: 039be7b220d5449fac5598d8cdadae99 08afece5f0c5470f981dc7f65c236cc6
+#: 1c07ba8faea5442d8d57b20398a744fb 24e78654a3204b37b11b176e95e314eb
+#: 326d3e85c45848aebd3648caf25fd271 34af72dcf95b451fa25821f4d0157e2e
+#: 3827480509ac4000a8d197032be5cff9 3aa1c51b796149ef895a97edebb3b820
+#: 3b3a8a8b621248b8aca9b395af5e4ed3 4382a5e3ec654c8c928a8b0bc7f8599d
+#: 458318c68ea74e989c74d0ecb93a2ff4 4cb097bc29e345d59b80d6f82a24f7d6
+#: 4fd83a6d79934f288b149af78f6deaa8 5da9085aa42640b79360723ec92edd5a
+#: 8d1b35b3e5fc4947aff7a4c6f1dd6374 8dcfb59ccfd84bb08b9f919f7b7fd123
+#: 8ea759d6afcc4d8c8e49d3f65dad4ccc 9147a5c1d94148ab91f4d6366c17ad76
+#: 985632a393f44ce6b270fede26e42279 9feeae5a7f8d47b795d2386571c1c815
+#: a34e58a8de4d47f8a7ff19372fc82ee7 a3689660566849a4a331ecbf8db61d81
+#: a46bd340d06e4b68b08379265eaced2d a6c9deac34ae4303a55eef16e70ef982
+#: ab5a24d5adb742438c9641b331bd7214 ada96618f85d4a18836ee1214f135fc1
+#: b046414f58994b7b8e4e4b47905dd9c8 ba0bf293fa4649d68484755cac6d6947
+#: c4ded92c8f324ad5a82084ef86fe06db cfe67183c8644c99b3403b6117b9ad52
+#: d47255931a7247cf8450517d8db634b4 dd2350ecee3546db8b3bd0d5bfa23bcd
+#: dea9cdfb3f1d4238bb3bb0ea40f1b785 e3945eb8a5ba4137857309a23cd7bab9
+#: e4a608f748674fb9b89c7deb87700f36 e621a214420544668e2d10318273b3d7
+#: ea1417d29de14be7ac5b57012ce33a3a eb11ffcb7bf94166979ea74b486042d0
+#: ed764aec50fe49abb73e25dacfd53691 f753af4d15ee469ea2a4a0c9d6ed35fa
+#: fcb6295ad94349e697bebc662d7a830f fe30469653e5441f834419f663b3e93c
+msgid "Success"
+msgstr ""
+
+#: ../../<openapi> 4203438b613d4bc7a146fb46ad669e76
+#: b8c2711e8e3d4e59952329f0161db9ff cf10a73d354c42089869052bd70fb262
+msgid "Request Headers"
+msgstr ""
+
+#: ../../<openapi>:1 8222e7a022d94dfea11bd11561f1d7b8
+msgid ""
+"Client UUID should be used when the client wants to request a diff of "
+"nodes added and / or removed since the last time that client has made a "
+"request."
+msgstr ""
+
+#: ../../<openapi>:1 2cb5a455c5f74c8699b31eeb40495fb8
+msgid "**Get health of Cilium daemon**"
+msgstr ""
+
+#: ../../<openapi>:1 3a26b92e471a48b0bdd09f3e3a6c01d8
+msgid ""
+"Returns health and status information of the Cilium daemon and related "
+"components such as the local container runtime, connected datastore, "
+"Kubernetes integration and Hubble."
+msgstr ""
+
+#: ../../<openapi>:1 789b949f69934c6e8c32f18eae5b87bb
+msgid "Brief will return a brief representation of the Cilium status."
+msgstr ""
+
+#: ../../<openapi> 01722a458ee340d3ab91d7608f87d7c8
+#: 01cc5c220f914d599c01ed8c6a0e7273 0546c6f801bd4b2aa2ad788fc2b7dcd2
+#: 097bb67405d94382952eb08d9da71ff1 0ba68b5f4c2e4811b478aef9dab78103
+#: 0e018a04883745d4baa070a9f494a68a 0fc90e7fad29465db6afcfaddb080544
+#: 155ce97b54e54c1cbbe8186e847d1420 18da83d5ae804877a3fe9dcd485ae01a
+#: 24e31271a1c146819726d2c37702b42f 292c506b07c04307b2c4551e420647f9
+#: 375ac050d13d4b49bb621d59c268e5a5 3ca730b8200049128b246ec3f0ee0260
+#: 4f60c1d7b4bf4f739552edf2a020255d 59f60fc583484b10b8940721219c77af
+#: 716b6d61ee894037af73dbd6cf5097b1 78387b8b63b2477c99ebe1d6e4b5353b
+#: 8b9e20e9b7c949aba7cc8f9e20649b0f 9082069ae8c34077a507b8d27646041d
+#: 93e841a327c54cbab53634270e21351f 947ed5c867724d7083296f6dc7925916
+#: 95d2203b7dab4edda2d833712878a2a0 977d94ed7b5f4d5988ea084ca04ffee1
+#: 9926b1d33c7a481689804c4427f46615 9c1047e855fe48399000663cd295cc58
+#: a22d6b751bce45e6b22a4b49bb9af9c3 b57b553842f8496183967badd63453bf
+#: bbfe7186012d45a48168ad83cc482efc bf18390262ef4b96b15753ea73310d4f
+#: e7d9541f51a04041bd830039fb0955e4 e80343d520224e8495a0e238840a4178
+#: e973ec43a2684c8492e40c24c987f1e3 ef8aacb0ca574aa1a01c120750c8df6d
+#: fc2e1902230a4546922295caeaee50f9
+msgid "Response JSON Object"
+msgstr ""
+
+#: ../../<openapi>:1 02de543bd5494883a094567cdde5d9ca
+#: 74cbc3c6111647a182fc40a5044ef6c9
+msgid "Is bandwidth manager enabled"
+msgstr ""
+
+#: ../../<openapi>:1 3e366c5d87144125b2768a8b114f9ebe
+#: a19c426fbaf743ec8553644ff5cc4162
+msgid "Ratio of total system memory to use for dynamic sizing of BPF maps"
+msgstr ""
+
+#: ../../<openapi>:1 19e0be791877478e9e6fd506bec281e0
+#: 8a839264082b43b68ae51003bb03cce8
+msgid "Name of the BPF map"
+msgstr ""
+
+#: ../../<openapi>:1 c292dd4a38c54efe990f9d223a626d9c
+#: df08499e0d504ca2b18dcc43c65208c2
+msgid "Size of the BPF map"
+msgstr ""
+
+#: ../../<openapi>:1 012da6a25fa84ecea181b3197f479e65
+#: 2eda55aff7ba4984a3c98aa8a1292e67 2f90e61b4365467a913b4889725e7dbf
+#: 47f8042f8bc343e2a6ea80960e81525a 661176956e17478786460dad5498bb28
+#: 8892882c97dd42d8a09342323600cea4 8d2d2025361a415a9a2818662f96f467
+#: c6adf3f6ce82445bba65cedf705134cb cb565a8daa6d487fa335cdcdced4cee3
+#: f3025f8521ba4cebbd79f5ab3f37e498
+msgid "Human readable status/error/warning message"
+msgstr ""
+
+#: ../../<openapi>:1 127abcc48e544eee9c1e68eaa5c8bf73
+#: 17512d9d7c0249d0be4a7528752a528c 1bb30d38034946ff862e78d6d01a2250
+#: 2ac9e3c61ed54b0e82f0b5c99ed76269 362e6bfdefd84ba8bd729646567a3389
+#: 5a0c25f569e747458ceab749c7694dc6 5b561fedd165430cac506d0454363853
+#: 648fc0385681465e8d6d68abf57258d7 c8fb04ab764d4b12b7f8cb0aeb86eb0c
+#: d80794f6b47740d894bc71b7501b89c0
+msgid "State the component is in"
+msgstr ""
+
+#: ../../<openapi>:1 104116d25ff84e2ebfe61bcb6a02aecb
+#: e5f13a7036b24d4e9603b3adf924a54a
+msgid ""
+"When supported by the API, this client ID should be used by the client "
+"when making another request to the server. See for example "
+"\"/cluster/nodes\"."
+msgstr ""
+
+#: ../../<openapi>:1 1631337897ef44a5a4973594f40bcbd6
+#: 21f39288f8a74a85b82cfc8f088dd5de
+msgid "Kernel Hz"
+msgstr ""
+
+#: ../../<openapi>:1 689a5922273e43d4aac593674c300be8
+#: e017d47fce5c432b9ad0154c150ba1ff
+msgid "Datapath clock source"
+msgstr ""
+
+#: ../../<openapi>:1 6b1fe484a9ee4bb5a2dd3c3f13822eeb
+#: 904815ad6cdb4b33bc0cdcab44e7e1df
+msgid "Status of cluster  +k8s:deepcopy-gen=true"
+msgstr ""
+
+#: ../../<openapi>:1 32e2f2d2695f4120a8c503f3ef81befb
+#: 950f39744aa74b758ab436186a103981
+msgid "Status of ClusterMesh  +k8s:deepcopy-gen=true"
+msgstr ""
+
+#: ../../<openapi>:1 643f62dd093d42e6876aad0b907b8357
+#: 6b972342bd87440facf85afd39930662
+msgid "Status of CNI chaining  +k8s:deepcopy-gen=true"
+msgstr ""
+
+#: ../../<openapi>:1 54f9168102d74110b271de0f58f1614d
+#: 765125d1a49a4b2f89d728723f6a8ddc 8bf56b23349b4773a58bf39791f948a5
+#: b596f3204e244ad897b816752aac9059 d9e1b795382e436ab8a3aa8c14c18ec2
+msgid "Retry on error"
+msgstr ""
+
+#: ../../<openapi>:1 01a6f6ee038649b19db9da973dfb5ac6
+#: 7ed17fc4632c450d8e76b865487300f9 9ac3772ec11e44b8aa9d58bfc99f60d0
+#: b22d32d0c5c3435da08685c50a85860d dbbf8375a72d47688d2710a107cc2070
+msgid "Base error retry back-off time"
+msgstr ""
+
+#: ../../<openapi>:1 06b54aa9042c41678da4703b262708e3
+#: 53b1cc8ba59543db8871ba3931ec164b 96b1b734231b4f0d8cbe081d444670b3
+#: a199786ef3d042e8b1248224aa33c6fa d78c6d631975438c925343395d16f24c
+msgid "Regular synchronization interval"
+msgstr ""
+
+#: ../../<openapi>:1 6b26c77472314e30947f2685ea2cbfcc
+#: 7474200d27e049639af477638c5cf3e7 b673f863c5634c5dab0739a3d51257fa
+#: bfcf60df772240a19ef63ef197b3e7ea f672d31ce46d4520a60301de1a187881
+msgid "Name of controller"
+msgstr ""
+
+#: ../../<openapi>:1 25adca46014747f2acdafd9547e0ca6b
+#: 7a07880bba9b49cc86321adb10e6598a 8471a3483b1d4b8d95a127e84e41c77e
+#: 961f38eb7a8347f18cceb8b8c6affe4e b5585776adc146068647532091f6a4c9
+msgid "Number of consecutive errors since last success"
+msgstr ""
+
+#: ../../<openapi>:1 44cadd65bc5c458291b7362dfea8ad16
+#: 4b1fd374e6be454c9ee7c511dde164cb 7c7ef9d55913452dbcc3dd3516b38f3e
+#: 91a1cc7359964005bc6f91a63602f6e2 9a0d1279e790450a93ce71868e03ce80
+msgid "Total number of failed runs"
+msgstr ""
+
+#: ../../<openapi>:1 1cd9d088757c4299ad961f42193867d3
+#: 6166833f8dc1423d9ecc39c1921ca3c5 8cc4417d07784e0683da65a01232b6d7
+#: a8cc174f88f94998b82771e32388730f be2fc9f777db4f27bcc61094f0b2c4ac
+msgid "Error message of last failed run"
+msgstr ""
+
+#: ../../<openapi>:1 39d3adbead31448baeb9769594ca8d5e
+#: 6fe8c6777fbe49158ba3d694298120dd 84e8decefd384be6865b7ece2d66b4fc
+#: cb691d1de1e1478ca8ace1e19f546972 da4e43ea857b4240be2f58460cbb2252
+msgid "Timestamp of last error"
+msgstr ""
+
+#: ../../<openapi>:1 03ff551c6e564ab48d48b300cdc42828
+#: 13661285a6594e8f98a6269f16ae333f 4e62b668a63d426aa173a05505a7d1fe
+#: c03a2ddcd0f94eccac085ebe97f3cc6b cd843b34241946bb939f82999e575fb6
+msgid "Timestamp of last success"
+msgstr ""
+
+#: ../../<openapi>:1 3668a5e0c2b94c38b788a13b05cb694c
+#: 47907168d1e14d3ab55585521c1d8a08 496bee7454b6457186cec78d6e2a9d0f
+#: a4d4bea6f08443ed8d994360f781dbee d7537cdcc3b743d784e79592b85bf1e1
+msgid "Total number of successful runs"
+msgstr ""
+
+#: ../../<openapi>:1 319e0abebaca4ff1a07c805767b2e95f
+#: 777a6536fd7245bda20e0fb4ae83929c 7e20218b4d2e46c28c93c2b7a9371ae1
+#: 88ed9ef9b3aa4ac0b736ccc991baf5cd cac9decd701b4122af6a6e0debd1b117
+msgid "UUID of controller"
+msgstr ""
+
+#: ../../<openapi>:1 c1445dac7b744ecb8387bce8e05e6781
+#: c831f93bdf914821bd76395dfa5a09eb
+msgid "Status of transparent encryption  +k8s:deepcopy-gen=true"
+msgstr ""
+
+#: ../../<openapi>:1 a6fc67a7ef1343caaedc6d6a8013b12d
+#: fb587d6c38fd44f289ed42c184e19381
+msgid "Datapath routing mode"
+msgstr ""
+
+#: ../../<openapi>:1 90fd695e4cae46b4957f7ce463028141
+#: dd2847c021ce4fdfb331026838a3d217
+msgid "State of the Hubble metrics"
+msgstr ""
+
+#: ../../<openapi>:1 5cc5b798dc594108b71a21e9362a64c3
+#: 9a8cbf7de0144ed0ba53380586e7c143
+msgid "Current number of flows this Hubble observer stores"
+msgstr ""
+
+#: ../../<openapi>:1 aef61e0375764011b36bf1ab51cb1032
+#: c232e5c1291a46d9990ca509afdf58d2
+msgid "Maximum number of flows this Hubble observer is able to store"
+msgstr ""
+
+#: ../../<openapi>:1 7a1e84edc28740779625a2f3a85e165f
+#: ab1a054db08d41f8b08cf6831b49ccfd
+msgid "Total number of flows this Hubble observer has seen"
+msgstr ""
+
+#: ../../<openapi>:1 c8e667752c9146c78eac0a1afc8d295d
+#: fd9785893c8e49b2aa3116948f28dbe2
+msgid "Uptime of this Hubble observer instance"
+msgstr ""
+
+#: ../../<openapi>:1 53e7a77177d44296bd900d489b2d9b04
+#: a63d265d53344b77ae1e61d7439403d6
+msgid "Status of identity range of the cluster  +k8s:deepcopy-gen=true"
+msgstr ""
+
+#: ../../<openapi>:1 52bc5f39e3ad42f597ec9e1e9d3b9b99
+#: c691a0da20a6488b9d35e54afebcc5a8
+msgid "Status of IP address management  +k8s:deepcopy-gen=true"
+msgstr ""
+
+#: ../../<openapi>:1 8883c0e3ed8840e1aa35256ef7212beb
+#: 9f62082f8c9c4f20b17dd82293ba93ee
+msgid "Is masquerading enabled for IPv4 traffic"
+msgstr ""
+
+#: ../../<openapi>:1 5ed21c47af2f4946acb566204790de5b
+#: b4e1bcf433e94e34a31a7d91b149dc5c
+msgid "Is masquerading enabled for IPv6 traffic"
+msgstr ""
+
+#: ../../<openapi>:1 5db77067f81047e389cfb3efa3d2b002
+#: b94f119935fb4b67bbf0f29f06814058
+msgid "Is BPF ip-masq-agent enabled"
+msgstr ""
+
+#: ../../<openapi>:1 1e3ed5103d934ef49bd0dc9ff086c203
+#: 563a9031b8d94a698f39721843ea8a56
+msgid ""
+"This field is obsolete, please use snat-exclusion-cidr-v4 or snat-"
+"exclusion-cidr-v6."
+msgstr ""
+
+#: ../../<openapi>:1 0a4e7be0765d4a6aa3ee803943e6e621
+#: 35f1ed7c6a4243bf9842224d953093b3
+msgid ""
+"SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent "
+"to an IPv4 address that belongs to this CIDR."
+msgstr ""
+
+#: ../../<openapi>:1 7869c265c8c94166962c5fe07aab7225
+#: c881a597238b4316b4a0d47a196c3d0c
+msgid ""
+"SnatExclusionCIDRv6 exempts SNAT from being performed on any packet sent "
+"to an IPv6 address that belongs to this CIDR. For IPv6 we only do "
+"masquerading in iptables mode."
+msgstr ""
+
+#: ../../<openapi>:1 1a7f66bb0bf14a4d9ba0acc392f18a57
+#: 5cbe8b1d37df491496e9f783d6b2a6b1 c02c386d92f342eba64a20510a361641
+msgid "Status of the node monitor"
+msgstr ""
+
+#: ../../<openapi>:1 5bd3415b2b4540d290d9d98db3da6dc9
+#: ea6d753c2cb44dbb8223266c6a5623d4
+msgid "IP address that the proxy listens on"
+msgstr ""
+
+#: ../../<openapi>:1 092c944861834c1692b7dfc7d3a14295
+#: c69703bbff9641a49fd56f45ec8156e1
+msgid "Port range used for proxying"
+msgstr ""
+
+#: ../../<openapi>:1 26ea50b6a5be4348bc73d6c13d5b29cf
+#: fd80644be5a7461fa2d13159140c025d
+msgid "Name of the proxy redirect"
+msgstr ""
+
+#: ../../<openapi>:1 4979db02bc994d16b8d785b046395988
+#: 902430b1f44e4c03b20dada978f14626
+msgid "Name of the proxy this redirect points to"
+msgstr ""
+
+#: ../../<openapi>:1 3ff039e7a0844d22bccb8952c782d20c
+#: 797c9b5b24b24fcebc242d8118f71101
+msgid "Host port that this redirect points to"
+msgstr ""
+
+#: ../../<openapi>:1 683ab806854440e18d7a6c4b9d6f65ee
+#: da1105f64a614327bc2535d405e87565
+msgid "Total number of listening proxy ports"
+msgstr ""
+
+#: ../../<openapi>:1 a3f02b9301924ea9977ad28ee869d9be
+#: efd3e9d80550494d9db6dca6543eb88b
+msgid "Total number of ports configured to redirect to proxies"
+msgstr ""
+
+#: ../../<openapi>:1 2887a9da536347a3bc6082f1ecb2eace
+#: e75f17b5a5044b80893201a6f815d8fd
+msgid "List of stale information in the status"
+msgstr ""
+
+#: ../../<openapi>:1 a78ae1ec5ef44fdca6e129919b9ca25d
+msgid "**Get configuration of Cilium daemon**"
+msgstr ""
+
+#: ../../<openapi>:1 e9898a8598e741eeaec385279e55598e
+msgid "Returns the configuration of the Cilium daemon."
+msgstr ""
+
+#: ../../<openapi>:1 0b751e8aeebd4f6b8b48d858cf221517
+#: 17200a689843481380222282059b3018 3ea522e56d8f4335860c5199c10f6cb8
+#: 422c730ca4784f44bbd12f3a45366901 4f90a3e2810f4695acc428aec0ce3dd0
+#: 6cc4808b461a487297918dc21736280a 6f223506559e4b27be6de57423cffb4d
+#: 7856afa9110443e495abf1e629e4b3de 864c50323c604b608475391507f61c36
+#: 8680461f82c645c488a4b50689118f08 b2ef5c58be5d4b16ac15aa642dc482da
+#: da51e4f9d4a64e9e9547ae35113801fb f92e5f0cf2094497a3fcd6e6707ba0cc
+msgid "Map of configuration key/value pairs."
+msgstr ""
+
+#: ../../<openapi>:1 3c935dcb6173459ab8a07f497a3ec4c6
+#: 825b03a8b3a84ba59e76d568d094dcb2 d7a142a43d66419db0dc00435b0d5b46
+msgid "The policy-enforcement mode"
+msgstr ""
+
+#: ../../<openapi>:1 84fe775be91e4a9ebde27b42518516f0
+#: 8faac0c5fce24f3e8e114434e5258e31 99b3d9dbf4fe4a7480a3a0ad0a0ca40d
+#: a19b1c70189e44af96ee2fcc0e1783a2 a82cfa9dbb434709a21fd993094ee07a
+#: bb4e05799b0d46ac8a92a34d40f639ad c763e98c5b5946cf906e1be4f75cd8f5
+#: d087414228ff4a8d87f146b010389913 ea5128ff159b41cdac32d3bc8ff67938
+#: f33a0a9a5f6e40eaad25ebf94382a5d6
+msgid "Node address type, one of HostName, ExternalIP or InternalIP"
+msgstr ""
+
+#: ../../<openapi>:1 0c30dc6582964f17b6cd11ac0f1cb739
+#: 214a6ab204fc4a7992b1d21aedc63cda 2880275425db4798a67f33b68185d702
+#: 3a4d9d315d734ef6a1867e0899001cbb 3ed5e8d392244bb282d22e810c84143d
+#: 4feb1de9cf8f445e81611dc829b3579a 7deceeb2a5b642389c43abc68abe78f6
+#: 7f9dc95249004db8af73787e1d002973 be3c5fdd969242cc98885dc09d682c1d
+#: c19311f6975e4007aa0d884040e3f4dc
+msgid "Address pool to be used for local endpoints"
+msgstr ""
+
+#: ../../<openapi>:1 1394b50abd2f47439722b8194e264dd3
+#: 351fef9005024b2a956e5920168dabe0 50f1ffc14a3d4a9aaf69fbf1fffdffe8
+#: 56ec497d69104938887cf7bb8562f470 68fd023df4434ec78dccbf933a60aa63
+#: 9411f1f90dc2447eb8e31285337559c6 a4147f1d749448258fa3c82cdec96144
+#: c9cc627c02e744f5863f80f6a1460c0b d11f352031624d5cbfb9dd909cfb90ce
+#: fa484d1538eb42aca625a10e2c86a7a3
+msgid "True if address family is enabled"
+msgstr ""
+
+#: ../../<openapi>:1 0968b2299ed549f2bcaae496cefc12be
+#: 0a329e01795f41f28f56868ac9bac54f 11d5c9e6cb8946f88f5dd499d6f42f82
+#: 2201e1b27bf94e12b17ab17a92962695 7558b7b8f27d4422b5b87cb489631d59
+#: 8858c09159a34c6593b41221c82a2765 8e93238352b84bfd896e0fc1db61f87f
+#: 9eee045257a5436083d02e93921050bd ba36ebb179494516a9aba30cc2bf1b55
+#: e8240248cf0d48319bc247582b7c47e1
+msgid "IP address of node"
+msgstr ""
+
+#: ../../<openapi>:1 f5773654b50c47e8ab52237c6efc2e2e
+msgid "Config map which contains all the active daemon configurations"
+msgstr ""
+
+#: ../../<openapi>:1 e2bcb6f498e942aaa7cacc02cce45416
+msgid "Datapath mode"
+msgstr ""
+
+#: ../../<openapi>:1 4e2f7aad063041d6afa3a4246aa75bed
+msgid "MTU on workload facing devices"
+msgstr ""
+
+#: ../../<openapi>:1 87048871204547ceb00c6107f90bb03d
+msgid "Configured compatibility mode for --egress-multi-home-ip-rule-compat"
+msgstr ""
+
+#: ../../<openapi>:1 7cc6071a71c04103b3ff1b294ff2a86d
+msgid "Configured IPAM mode"
+msgstr ""
+
+#: ../../<openapi>:1 cf0a16757d8740f8a2866f06ec75010d
+msgid "Workload facing ipvlan master device ifindex."
+msgstr ""
+
+#: ../../<openapi>:1 4244c9e2daaa4cc3bacf97a4c552b1aa
+msgid "Mode in which ipvlan setup operates."
+msgstr ""
+
+#: ../../<openapi>:1 e98e4599b7d44761a9a58c3af55cdaeb
+msgid "Configuration used for the kvstore"
+msgstr ""
+
+#: ../../<openapi>:1 d502b0b30de14a7d8459956edefc10fc
+msgid "Status of masquerading for IPv4 traffic"
+msgstr ""
+
+#: ../../<openapi>:1 7afdb148f4d5483f80fb41280b60bc03
+msgid "Status of masquerading for IPv6 traffic"
+msgstr ""
+
+#: ../../<openapi>:1 4fb5a5cbb58d479b9036cb934396c361
+msgid "MTU for network facing routes"
+msgstr ""
+
+#: ../../<openapi>:1 852da6782ee641d8a92811e21234d164
+msgid "**Modify daemon configuration**"
+msgstr ""
+
+#: ../../<openapi>:1 5648ee98ce674a15a704eaf457be5606
+msgid ""
+"Updates the daemon configuration by applying the provided "
+"ConfigurationMap and regenerates & recompiles all required datapath "
+"components."
+msgstr ""
+
+#: ../../<openapi> 0fb6c8c6975441ccb97119041f8f3552
+#: 18658adbb3324484b8cd4f2950b17ef4 313bd53801cb4e9799dc040c17b005fc
+#: 3710af1f858b45ff879a298003712b9f 3f0b9b52adb9446698cdd14d33e72005
+#: 425f16fdb38d42179a8b61e6f1b9242b 65a775d64e6e44579ece935668591702
+#: 710247d607a047dfb73a0afacfcf10c2 89be5e3774af4ad3a26caec05bc10beb
+#: 8c37d843449645b4bc9dd2c96bb267ec a72bbf43a8fe410c94cf2f025c365044
+#: ba2dcc2d47e9430bb69c8f442d79d6a0 c802c0d005334e619f286f7f2d7f332e
+#: ea1cd66ca3934d57a34f8a10f9a5257a
+msgid "Request JSON Object"
+msgstr ""
+
+#: ../../<openapi>:1 9cd5fc3e2f664e02b9d76434e1b4e5e6
+msgid "Bad configuration parameters"
+msgstr ""
+
+#: ../../<openapi>:1 740c0dace8a4449bb7b22b41a8f1b15a
+msgid "Recompilation failed"
+msgstr ""
+
+#: ../../<openapi>:1 91f8b79a99c9406ebe7b2addd399e97e
+msgid "**Get endpoint by endpoint ID**"
+msgstr ""
+
+#: ../../<openapi>:1 778d820a95824b92a1c379bd5135455a
+msgid "Returns endpoint information"
+msgstr ""
+
+#: ../../<openapi> 02e35d8f03bd4c438eaecff6fab554f3
+#: 10e434c50853482785a7a8ca8c6c8e00 119c1ad171564833954a9d1e82c57e7b
+#: 1f8803a20ccd46008a1cd24f99e4db9e 45753ef36c9741efaef327f28ca1acec
+#: 4b45d686aa0140ef930f548910331639 51b7553cc2f8445283565ae869898d36
+#: 642db61cf6c84af4a06bf581297772a1 6d678b2b188d4ffa8d7b1db1989da24f
+#: 717c4b6a1a00406988e1d742a6ab54f6 79ddde4b704040d5840049706827d572
+#: 9e8d6946588f445fba8dbeb83aff9f43 aca6f799087648cca56a9ed49b43cd89
+#: b5128087a19146dda10acca283fa1c41 c24ec23787624566b5271740be085dee
+#: c4823cfdb6e8445183dcb9af9210f81e ca5b87233d064314986664cc82f0f14e
+#: d910eac199044e0aa63b5ced7ee6af60 e6c77eddd16b4da28b5521e12cae4717
+#: ef391a5dde0f467cb85fbf0c197f6ced fff4b4e012664a8fa3bb3d95ed24bc04
+msgid "Parameters"
+msgstr ""
+
+#: ../../<openapi>:1 1b3a1d12031449d3966706f07dbaa817
+#: 2176078a81f64e23b95856aedca6e496 22c4855509c64d25a702515c5cd59003
+#: 59d89471e70f49cc926c92474eb1ae36 5ef3e69afc7a4f6da24ec167743d3e08
+#: 8bdfb5bac02b4065ab89ec1d418dd0a7 ca4b422a8d404c33a78b416369bb9bbf
+#: d418342f4a874a968a79abb24c0f4da4 dfd2ae16b2c449bc8281ff246d10c8f9
+#: e3bf4787e1fd43328e919817a9f21a8d f2cc78d1c861436da55393bd299a3b29
+msgid ""
+"String describing an endpoint with the format ``[prefix:]id``. If no "
+"prefix is specified, a prefix of ``cilium-local:`` is assumed. Not all "
+"endpoints will be addressable by all endpoint ID prefixes with the "
+"exception of the local Cilium UUID which is assigned to all endpoints.  "
+"Supported endpoint id prefixes:   - cilium-local: Local Cilium endpoint "
+"UUID, e.g. cilium-local:3389595   - cilium-global: Global Cilium endpoint"
+" UUID, e.g. cilium-global:cluster1:nodeX:452343   - container-id: "
+"Container runtime ID, e.g. container-id:22222   - container-name: "
+"Container name, e.g. container-name:foobar   - pod-name: pod name for "
+"this container if K8s is enabled, e.g. pod-name:default:foobar   - "
+"docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444"
+msgstr ""
+
+#: ../../<openapi>:1 1e8dce1e6b054f85b47665da9373cd69
+#: 23107be1e38d4d3c8b9747f36edf831e 3b9c7776d5914a26be030122736403fc
+#: 507a313c5fb74ab0bb8519b854a3701e 569e7525ad8740c0b5a7748178283ed7
+#: 59b5f88931f241e79a5aeeccc4e2cae3 62dd90d5b99e4c658cdf4fcd54d1786c
+#: 62e4a73d495f47c692ce4acd89f45e21 af37797379e9428685d686cb86e7ad2a
+#: eb8ac9d2337c4991b41407ae510c6340 ec26e1d7869449259f0bf3901c7a34d6
+msgid ""
+"String describing an endpoint with the format ``[prefix:]id``. If no "
+"prefix is specified, a prefix of ``cilium-local:`` is assumed. Not all "
+"endpoints will be addressable by all endpoint ID prefixes with the "
+"exception of the local Cilium UUID which is assigned to all endpoints."
+msgstr ""
+
+#: ../../<openapi>:1 0ab5e0823eea4f49bb224518ab45d0da
+#: 37dabab160fe48279433508c5f2501a3 3c6908f006ae435792a6030a36dbc8f5
+#: 47ade80c4f03452985f2d078868b62f8 659f3c9d7b9e46f28faeec7bc1ccbacc
+#: 8b3e670b0c424e06b244beab1677957a 90c0f67f7ed44b3dadbdb5ca18919fe1
+#: abdbd22a4a86446cbfbb02b0180221da b41d821b667742e599495823e78b8a39
+#: dcb6221f1a79417790931783d33ad22c e49e32c9a2234166afe1925f4ef81403
+msgid "Supported endpoint id prefixes:"
+msgstr ""
+
+#: ../../<openapi>:1 0797ca29eda14a88b32622928067feab
+#: 3c70689c151045cc90ca975c788f9c91 63f3cd9d2d0b44e5bb6b3afcd021f93c
+#: 69f390f027884e15aa69229b0b894420 6d63ff70214d4d33916824963a9f654f
+#: a5a8971b29a6456a859d1d0ce19e3936 cdec5adaa0124486acf61ff39cfc4be0
+#: d50066f86c1d4978ae02dc76073bf0e5 d67344112f1241c7b99a159b5f61e56d
+#: eb0b5f3d28a54dbd9a12e15cf2e03bca ef67efc64827477aa7ca49872682bb66
+msgid "cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595"
+msgstr ""
+
+#: ../../<openapi>:1 0d07bb6f5948405ab1a023ae976ccac3
+#: 0e36c7a479554563ba1a55b34d75e3aa 228a5a59d8444585b58178df0597524b
+#: 2a19e023894c43109f8465db480e42ce 9a9e136bb0b5460bb7e2c857e0b7faac
+#: a49e0ddccdcd48cf9c214ca6eec5b6d2 b9c2019ac0d94d56b21608df259e8f09
+#: bffab88397a84181b1c2112d77e70fd3 caca854087c042d5856e8ca755ca9704
+#: e038c69f8dd24f129b872d964a555680 fef5c88d33e8472780657715d69f482f
+msgid ""
+"cilium-global: Global Cilium endpoint UUID, e.g. cilium-"
+"global:cluster1:nodeX:452343"
+msgstr ""
+
+#: ../../<openapi>:1 2a5f3b50217e4474b86e0f86a1ab4dcf
+#: 38fcabd62db44b549336c80672a412ca 537d876f814e402899ca20012a0b903c
+#: 54746255cbce45dead35d0b6a21a4ce7 59bcb5ff4c6e4964a3b602a0ba7b1191
+#: 667824c51f1240c19ef0b7a4c5715fb9 824bbbd84f094d2da05e32bf24b91228
+#: 91bbe173adfa418d924112350d88a118 9c02c8f19e5b45519e262b929b76a6a1
+#: a333803890c44ff6aa19baacd4d42c1b d73fa15c679a484380cf3c6aa4d216ec
+msgid "container-id: Container runtime ID, e.g. container-id:22222"
+msgstr ""
+
+#: ../../<openapi>:1 07072d0042dc4f53955ad905a56a9b11
+#: 1598fddc266a487daa6b2b0fc730cb3e 23fab9efff6c4c698810dccfaa8bd5af
+#: 419c80aea24047d6bc017c842a24fab4 719f5e2b6e7d49688941fd175a20029b
+#: 7768c05e5d9c4fde972205683f082218 86fa37a37e51408c8a6e2ef2705c1819
+#: 95b44afaaca242028b82f3dc98c4218f bcdac05d414e4a1a8a9354ed59c3a716
+#: ddc3a03c82c24cf29990c9288bf04062 e1813a92aa354cfd850123312703bd9c
+msgid "container-name: Container name, e.g. container-name:foobar"
+msgstr ""
+
+#: ../../<openapi>:1 178b76958b414367b098f93cdad4140e
+#: 192174cad3ed4bf9a2117c6b135a85cc 38007a8092fb454b8c94b743b64e188c
+#: 3cf16636c69045b88ebeecaea4135dc6 4c1c532d74db44b48171bdd50c9ac728
+#: 506f9000c73b4645be905a5a9e410b31 6d97884ce7464147852cb3686b98d41a
+#: 78a2d6163a534163b2950cd1c9897a4a 7d6af754a37c41a7afc189495cab209d
+#: 7e6c14deb3d84776a9518743233174b5 f23fe90cac4f413c8a303c9766f8c044
+msgid ""
+"pod-name: pod name for this container if K8s is enabled, e.g. pod-"
+"name:default:foobar"
+msgstr ""
+
+#: ../../<openapi>:1 3474da48799046d08468fb3e17ec9115
+#: 51bd7ca7839342c98b18713c3bb74da9 5e1fd23a944c40f6a22b646766acd20c
+#: 72612d152ae242dfb95c8669c39623c3 b35e50aeb8164fd48ac132e5cadd32a8
+#: b8be4848739c4b94ab843be4807477fd ba937c808d70417fbaa6beb618bbc5cb
+#: d6826f41b5e94f4488b4bb5efb2399d4 e1a9c8c982cd42bb9b862a066b7ef23a
+#: e395fda5fcc34b05bd00c4511a68bda4 f567b615042747f3a34e62af4c5f532d
+msgid "docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444"
+msgstr ""
+
+#: ../../<openapi>:1 ef63c21fbdfd4d578aed1c4f9d609950
+msgid "Invalid endpoint ID format for specified type"
+msgstr ""
+
+#: ../../<openapi>:1 0d8408c33f2846f0bf701d9ef0777e26
+#: 1d1130d7e599452c8fb2dd6eb2fb62cb 51fb5b5fda154a9d98bef4e006c23f51
+#: 843477b4fd6744569874d09ff386fb37 86114bd890854862b4e88200ad888976
+#: 9348bae227bb4e1ebc8067987454bab4 9ec7c297dde942d3ad9c34a45f58564e
+#: fdc6b4c13353453e8c0d52c19e8aaa59
+msgid "Endpoint not found"
+msgstr ""
+
+#: ../../<openapi>:1 0f8a2d17d33b4997903373b5f8adcd5d
+#: 17779fcabaa24dc3888ea01df6089763 1e7581e0b846405786e47c85b2bfc457
+#: 279d8b7795274f6fa3b6c6c752be7886 6f218da8df804406bb1baaad45e5f070
+#: 864ab72d2f774c968cce96cb5b46d92f 91858b781efa416885a7c93db5e128d0
+#: 9a58d987a7954794950a609fcb88575e b6985da95451432499aa9f4d1aaecedb
+#: e057776651f44783815c597a5be73cc3 e1122e48178a42708a28e4174c61be6d
+msgid "Rate-limiting too many requests in the given time frame"
+msgstr ""
+
+#: ../../<openapi>:1 14b4cfa19f7040058fe112c2140f470a
+#: 56ad76ca9b3247928a33260dd7fc5f74 aab0191847a24b6d9a18508dd563bf7b
+msgid "The cilium-agent-local ID of the endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 28c8a02701d743c293fc0bcbd05c8762
+#: 3b10df65ed464dd59550a619d4526783 7f79b0ad603f4fb2aff9552e33410090
+#: edae1a840c814e07a0682fd2e4b869ab f60c38c6e9a9438dbe59ba967bce75c4
+msgid "ID assigned by container runtime"
+msgstr ""
+
+#: ../../<openapi>:1 161c337b0e2f4b8195aedb25aecd166d
+#: 1c4b596ea23f4437aff98c973b7d5bab 803d7b76421a4157869f06683e25d411
+#: f2a4c63e54754ee4b895f8824f8977c8 f4f882841b41449d923a6cdcb702974a
+msgid "Name assigned to container"
+msgstr ""
+
+#: ../../<openapi>:1 015cdf72d4014e9faec7bc2fed8d70f3
+#: 108e2a896d9142398ebbbb8285a94ba7 1bb0a5c29bd543849e2e16d17c4b2323
+#: 57047223e28040178c71108fb9fede8f 584d79f3f1294dfa9959882392cbd554
+msgid "Docker endpoint ID"
+msgstr ""
+
+#: ../../<openapi>:1 8a8d7b23ab134c06b283d2b721d5a68f
+#: 8b9ecbc0f2464a57aef49c64c68143df af175a114db84572bf4013ea801efc7f
+#: c440bcaa751940c9a3358b3d63652cce e4b92e4c4dca4e1290a6bea8b0cc47fd
+msgid "Docker network ID"
+msgstr ""
+
+#: ../../<openapi>:1 02b6eae93a6e4d37a09cfefd9f4ac1f0
+#: 28e6ba642bfd429b8796590645a7431f 8069731f89ac4d32b3a0ab9eed5a9dc1
+msgid "K8s namespace for this endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 50545b6ab2fd4084876011106f51ca07
+#: 70d3ce4201834c5db240e3654de72eb5 bd85f7ab6d2e448d952ad403d5aa2ab6
+msgid "K8s pod name for this endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 58b801c2cfc44d6ca1e9527ccf6c8ede
+#: 5e8847a7e72d442faca3b921659b7f5d fb41f34397d744aebd065b6b9a9e3be4
+msgid ""
+"K8s pod for this endpoint(Deprecated, use K8sPodName and K8sNamespace "
+"instead)"
+msgstr ""
+
+#: ../../<openapi>:1 202990e3b6f64920b55cf7d666140ca5
+#: 230add1743914f6b82535e0d4df84af6 2a2af29f2c15487aaa4b3ed3e71f04b5
+#: 41cfde03ce614f27b8b7e445cd89e39b 5bafaeb993bb475c9f22b72603ed34bc
+#: 5d2c09437f7040e6b16e045fa640d2be 5f0fdcb98f8141c9b0415a65b760c545
+#: 6ea3b2564db745ee9aa0aa0b6b79b452 b7951ef663a64559b91476759be4fecd
+#: f19f2b59302d47e9b5a6238b0dcb26be fbca02cba77a48f7bbaf9f92797bf552
+#: ff64f7c9bf1645c4ac5ed6c3bd3ae3e7
+msgid ""
+"A common set of statuses for endpoint health * ``OK`` = All components "
+"operational * ``Bootstrap`` = This component is being created * "
+"``Pending`` = A change is being processed to be applied * ``Warning`` = "
+"This component is not applying up-to-date policies (but is still applying"
+" the previous version) * ``Failure`` = An error has occurred and no "
+"policy is being applied * ``Disabled`` = This endpoint is disabled and "
+"will not handle traffic"
+msgstr ""
+
+#: ../../<openapi>:1 3020ed847dab463dae0fda66140f65f2
+#: 5e35a3143df74ee387bdc333f86a1341 816315479ade4cc3a3ecd97e357cf599
+#: 9e7b799aef474d388338575363d6cd06
+msgid "Is this endpoint reachable"
+msgstr ""
+
+#: ../../<openapi>:1 0ca1f71e4ae44a89a0fc330f2fb9225d
+#: 1674d035259a4d6797b9c42263ebb9c1 27aed34e68c14a5eb7a12ed61aba214e
+#: 4c9b9239d5c34885bb75119fcd1d180f 9fa273a125b44fb386bef7393229a8cd
+#: b3acfbe6bb594416b5c79fa154e432d2
+msgid "Unique identifier"
+msgstr ""
+
+#: ../../<openapi>:1 50bcc6d61d0d476386059000576d686e
+#: 762adc0e567f493b9d0ccbfbec2ea4d0 8eb3ad4c59864718a7057bf237435d1b
+#: 8eb96d25291443b3aab1a1599eb908c1 9c67e174e6c148688c9f3aed08e05f45
+#: e9bd1ac223ac4786add55b8df569c1bd
+msgid "SHA256 of labels"
+msgstr ""
+
+#: ../../<openapi>:1 4195b7a5cfb44b258f667152dd90f739
+#: 6dbd487f4cf2424cbb48f09e7fb9e3e7 a01d8f5e1c124730a30aef99623df4b3
+#: bea43f84c38f480f91785432874445f8
+msgid "Code indicate type of status change"
+msgstr ""
+
+#: ../../<openapi>:1 3c1db55f4c5249a79fd84ef455b0128f
+#: 6044f518394e4a6da08215961b3f87ae 8536ffa2f277476eb1f8aa549ed70e6f
+#: a1f67920d5594539a8a3f2399447d103
+msgid "Status message"
+msgstr ""
+
+#: ../../<openapi>:1 1377953eadae462ca7e6483b4ecb4bd5
+#: bc0b081eda244fbdbafc75139fbd9340 c0928f23b5ee4e4f8178c3a1cb15cc69
+#: ed5b1217a6d64a4c9d41c8770dbfd857
+msgid "State of endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 0972dc28a4f14447bfa98016aa0429c0
+#: 41d1945b7dda4798aac33dc9b287942b 6a522ce044c64797a24db69a7165c272
+#: a90a2717a4fe453c9b68a7d6a08e9834
+msgid "Timestamp when status change occurred"
+msgstr ""
+
+#: ../../<openapi>:1 188146c130a740db94c65134a0be2182
+#: 6609b2b622e44447abb69b217c10c6e2 9116a4e57af64be0846106c714bcda92
+#: c37dc053d785464fb60138003b09bc2a
+msgid "Optional layer 4 port name"
+msgstr ""
+
+#: ../../<openapi>:1 01d835f916b14b0db5d88b66bb7b58e2
+#: 0538eab8f5c140809ee11622d5af49cf 1043d32e797a4c3ea066b08d70cd50a3
+#: 373629686c064e46abb1293048fb48c2 38fe371eb3454c81bb0b2aa2eb573d55
+#: 3f4effc46b144b1996aab1dc9a9da212 404b20652b6d420aab80a7fbaf7b0e87
+#: 408adccba3d04eae91002709a210b9f3 422e0b73fdf645bc91df5d65ca3c50fb
+#: 49bb53ed3ba94910a5ff2f1490f63a3a 49bc4f8c7f6e476d9203a4a4a7f2fc97
+#: 80ccbb1dfb5b44138ca7b5ed240b681c 86e27824f5954b339919c4307cb9912c
+#: 8b433af94497423d92cc119319b615c7 989b2d896b0f426a8d772fda05b673f0
+#: 9a9963cd3df1407b8a7f7de421fde48c c4045a6047f14d54b4443710ddf26f0d
+#: dd598711994d4866810bc83f41d5c7b3 f3d0889a29ca40178e378039d27ab970
+#: f96d54d2306a4caf89251c0039ae5368
+msgid "Layer 4 port number"
+msgstr ""
+
+#: ../../<openapi>:1 099a8d4cd4504bd09ed37a1cc5c29e5c
+#: 112496b4aa3d428d8729af4ef5baff46 12c08b2d758144cc9fcd2f6801d754b4
+#: 17eafb8bada843dab45492f1c2e97e1c 25f5fac7f659497680d42a425a26cbdf
+#: 28a9428d55f641e8859eeb8d09a102a2 29114476fd5143eea56c8df71f618487
+#: 3a90a808f676495d95e6e5226c1d8ba3 4c3da8e77da64d0b8337bb1c7d382338
+#: 5d506a2c28614ffa897b4a032b66af52 6f5a6bc6d9e5466da00d410abce576fd
+#: 86edd0eff346443894ac4ff4fcb89bd2 93a5e105d85249a8bb59ab39dc7a8407
+#: a9b1a80bc31644db9b71615a63a90457 e3fc9e0e10284cdd8677f2263c5da7a8
+#: e5d67b953bad4b879f6633c91a635644 e74c24db98af4dbaa590d13121bbd4ce
+msgid "Layer 4 protocol"
+msgstr ""
+
+#: ../../<openapi>:1 138a9ff4f5e342a09113b642841b3d5f
+#: 3e60a8d78ea849e0902ea1cc0979f9fe 4b6bab4385084635bf2d2b80bc0228b3
+#: 7db1bbf43a1f49c5b09bb347e878b783 a1891b29e62d4a1db7e1b71bd0c4fba0
+#: fb1e05b67aca411590cc9cfdecc8bd5a
+msgid "IPv4 address"
+msgstr ""
+
+#: ../../<openapi>:1 1d113df94ffa427db5729a75ada2e4c1
+#: 26dcb8473bda4b4985419eac64cdcd4c 353bed3ce8c747009744715061acad31
+#: 83fbac0e2f2442ce9598078aa806bf25 882d244ca43f4014b05db49423ba57c4
+#: 9c0167f55e9847c88e0141cc93e6e99b
+msgid "UUID of IPv4 expiration timer"
+msgstr ""
+
+#: ../../<openapi>:1 09fde6b3f10f4463869a9469a436f4b4
+#: 0e64a0fd4f414af69923bb439f9f3877 147e1a56f19b4826befd71c510d6a37c
+#: 6fd9af41e6684b03b8f1f4402de1ae01 c5204ddb7580469691c8545eda7f8cfb
+#: f9940895ec31400e80e9f28ee2e0f9a4
+msgid "IPv6 address"
+msgstr ""
+
+#: ../../<openapi>:1 0b2178e7f33f46128938ae487f15af98
+#: 1cea79e26a4f4958ac1f1f079422fe41 2909d1dd594f493ba7f3a1f676d80b4d
+#: 70ad97b0ce3749ed8382f514df0868f3 be17c1d7c2eb481289d71f306916923f
+#: ef73155e62bc47f89f126120cab52805
+msgid "UUID of IPv6 expiration timer"
+msgstr ""
+
+#: ../../<openapi>:1 02c25aae35bf4fb1a5feaca78014aff3
+#: 1f51fc1ab1904d7a978c6845fc2030f3 33c9c8128d0647f58394336a7737b132
+#: 36fc100fec0b42daac40a7b0e8030b49 628adaba542445c6ac135c87025a15a5
+#: a00149c4f18f4480bc9f884c00cad995 bacd992064904d84b23eb0dd8c3181ee
+#: c63ff953cd5c492bbc8bdcca67e9cb8c c7af30c0e4b8453986ca0acc588eb6e4
+#: d48709bb6a494f0996d6940014c83896
+msgid "MAC address"
+msgstr ""
+
+#: ../../<openapi>:1 47ff063dfa7347bf9e4638411370b95b
+#: 4fca4131fcbf43c29f91de557813ab41 7479780d31d54fe78aa7f8b37be6d899
+#: 83c929eb74774b1daac872eabe3cc49a a252b657a50f46928c14637c28637132
+msgid "Index of network device"
+msgstr ""
+
+#: ../../<openapi>:1 06f091ad1fd2459bb2bcf9af1bf3db9f
+#: 6926bd79f6ab439a92ffd6b511ba7569 9988fbdc8af04df0aebbe91f5e141726
+#: 9bd9f8a5ef3449798f4fa1153bb3cd48 ec4c0702779d488eb4a50a40ee035204
+msgid "Name of network device"
+msgstr ""
+
+#: ../../<openapi>:1 24aea9abbe034ccdb9897ebb5e1556bf
+#: 878031608f394d35be0c15fc3137fa40 9386dd8fb73648868aca6f56bf572396
+msgid "The policy revision currently enforced in the proxy for this endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 7a15c81f558d462c85acc984f711ad4c
+#: 923c0e47aa4b44f694ae9d6cc3b451a5 d2f6d552ae254cc4a24496e46cf36a3d
+msgid "The port the proxy is listening on"
+msgstr ""
+
+#: ../../<openapi>:1 1620ecdf30ff48a786fd25f7511335f9
+#: be6aa8053b3343a296998a1f7c14970e e9592b47e2974fc9b2b07ca6a8ef84fe
+msgid "Location of where the redirect is installed"
+msgstr ""
+
+#: ../../<openapi>:1 c415b1b96641433a92c8a4963d714345
+#: cc4997bcb7894935b4e2a6de2b4b6993 f3e2c8a752054ec8bbf9d91fd42766bb
+msgid "The port subject to the redirect"
+msgstr ""
+
+#: ../../<openapi>:1 913f5ec6e223480f9489b0473604dc94
+#: f3a3a11a71444b4dbde4d3951daac4f7 fa4d1f537ec34c70bd15557aa4031ade
+msgid "Name of the L7 protocol"
+msgstr ""
+
+#: ../../<openapi>:1 1063ae69a39e4e40961a63d650d25f51
+#: 2b2e428a24fd407ea83c7c0d83d42003 3395a32f80144fea98ad1273a28eccbf
+#: a667b02439e5471bb03cce130c0b696e c44dee366f21490c954d76694eccb8b5
+#: f2bebf186a464711b141cdd95de52259
+msgid "Number of messages denied"
+msgstr ""
+
+#: ../../<openapi>:1 0ea2aa99bb4b4e25a25e000130836220
+#: 3b6caacb91a44d8f8d2b3ad9203b3214 b4434896feb04d23a090e48bf1caa43c
+#: c4c580383bb74ee4ba50ba7f119f14f5 c957aca2b36646bdba87135803215a99
+#: ec26c64c05b741a9ac4786c405594a14
+msgid "Number of errors while parsing messages"
+msgstr ""
+
+#: ../../<openapi>:1 3bc611773d9a46d487603639f8d992f1
+#: 3c6d2910593d48729c62b5945fa3d5e3 655ca4d735364204b1cbf672d0910b34
+#: b7a8d3bdea784377a70e5714193f0af3 b828b0d7496147a29d9ad4ca1da4e797
+#: c5e5e1e7bbee4732a54d0be38b9d16d4
+msgid "Number of messages forwarded"
+msgstr ""
+
+#: ../../<openapi>:1 1fd11d2bf08c47c5a0f13c2c90030f8d
+#: 4bf84edb4cde447b887d101c3cef7d1b 6bdd1479658e4f28b1909731f1e7c71e
+#: d8b4b743b63c41699647bb9f209afb02 eedcf411bbd24f7d9d6efc3847284475
+#: f46485c9e83d483885524377e00e810c
+msgid "Number of messages received"
+msgstr ""
+
+#: ../../<openapi>:1 2258065511cc4f0eac999f25a7938a84
+#: 4b0654ec90ad4fee99a0fbfe67086f41 7ea7e9d5394d428e812310561f9afd20
+#: ab8465fc4b9f42c99c04dc47286bbfe5 cada82dc2cd740f685f71e0257c4df55
+#: fca10554098747c392cbec7ad21a0d6d
+msgid "Build number of calculated policy in use"
+msgstr ""
+
+#: ../../<openapi>:1 000b461632ce4685ab7ef5a03641b30d
+#: 0385efa1cc14453882bf232f812fc239 050a965383574d03bd0aac1d06ddbbf6
+#: 1283ab2ef9574b1599d8b7974438ba7b 132a236208d949edbce7233580feb166
+#: 3145b965968344399dc2b044d2b805fa 34f5a1f40c6a4aca9710c69717037e75
+#: 3d09dd83ef6a4bb5a3917513ce65b15f 4d40e1c8d75748bf8e771300baa4d9e3
+#: 7dec81bce69b4bcf8e2639098f17a18d 7e0c0ed5ac3343caa8e94837ce230526
+#: 8acd6d7c881a40b897c6f8f72d826b09 9b05bbeaab084648bd58c9b6c73e024a
+#: a278c0dff44e462492ec26020eb5425b a679c0503dc44340bb65ad917fbd0849
+#: a938846d7b6f4785a7c9ffb1c0caf3d7 ae3bab45347d460e94a38272474e87b1
+#: b06d05fcba7844feaf903579c31e57a6 b647fd7404c94f87a167d91026131b0f
+#: b8c1661725224780a6313521fdbb4133 c023a772623d4b14a90294e88d2b50a5
+#: da25d5d6d94246409e7d751469a4c8ae de8fc3a4393b4dc4a4d7c3499e146621
+#: ebb8546f7c1349dbad0d7c577280ccf4
+msgid ""
+"A policy rule including the rule labels it derives from  +k8s:deepcopy-"
+"gen=true"
+msgstr ""
+
+#: ../../<openapi>:1 37f91ce0f40c41c7bd4bf3260a4313c0
+#: 4e3bfb81dce1406a9bc69569152b4d3b a5edfc85df4c4c91abd7184ac0916634
+#: bd9477351bd647abb616bf54972d1a9d c98a03c083f64fc3afade61714c48f1a
+#: dc497566703b47c8bb97f1621027bfd6
+msgid "Own identity of endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 083a13b9b6ad48a39e02764999d0d5fd
+#: 4bb5c33415d549ef83b458aaafa24677 83c37c0a5cf646939381052ad25d9896
+#: 902e16a71a3b49eb8eb12bb6a9344b6c 9f77d4f27986446bb14864e3ede30786
+#: c72a1d28c26e469893442068ebe0843b
+msgid "Whether policy enforcement is enabled (ingress, egress, both or none)"
+msgstr ""
+
+#: ../../<openapi>:1 144285815848404a9fe7981ef663af74
+#: 2b8d1a0fcb994404a80b6ee51c71e174 576367dbbf8e4e40a6101e8ca139ebdb
+#: 6d466115390943939a40fcff76b5d6c6 7ac73f7418f84187adbefbdfa732c5a4
+#: c79a49c7783e4c8f8083949b0b6f3968
+msgid "The agent-local policy revision"
+msgstr ""
+
+#: ../../<openapi>:1 5032d7779135425c90697c6e58bf90e2
+#: 68b78bb727014430a3bf4e468669dbd0 78aee9960e774f0898ccec168148be41
+#: 8b28461fad99410e8e517cdeab43da06 df2b56eebc16453aa97ffceb47061907
+msgid "State of endpoint (required)"
+msgstr ""
+
+#: ../../<openapi>:1 a202899e8d0e4724a52b6de29d780f78
+msgid "**Create endpoint**"
+msgstr ""
+
+#: ../../<openapi>:1 e0853ea5b9a54b4988316537430fe36f
+msgid "Creates a new endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 1b0470e181214cf597264c8fa06eb453
+#: bf5059e7f0004cc0acf072527d88b112
+msgid "Disable source IP verification for the endpoint."
+msgstr ""
+
+#: ../../<openapi>:1 9144fd8afeef454a8ece757d538142f8
+#: e25199981def463f8535c6d383929337
+msgid ""
+"Indicates that IPAM is done external to Cilium. This will prevent the IP "
+"from being released and re-allocation of the IP address is skipped on "
+"restore."
+msgstr ""
+
+#: ../../<openapi>:1 97b26b9618e345dba8a418ddbb48f880
+#: e914c60bc4a84823828c02df5639d8e4
+msgid ""
+"Installs a route in the Linux routing table pointing to the device of the"
+" endpoint's interface."
+msgstr ""
+
+#: ../../<openapi>:1 356f3ee1f9b74e74a505f6007e1f11e7
+#: 7791ac5b58004f22a0bfc80295062723
+msgid "Enable ARP passthrough mode"
+msgstr ""
+
+#: ../../<openapi>:1 1215a731bc2448d2815af8ec84e4f91c
+#: 1c5618c0ca654ccf98d9688f20e87df8
+msgid ""
+"Endpoint requires a host-facing egress program to be attached to "
+"implement ingress policy and reverse NAT."
+msgstr ""
+
+#: ../../<openapi>:1 0c1d37e5a2bc4ebf8323734457110167
+#: f771e9e25e284a0fa0249d7fd1b2274a
+msgid ""
+"Endpoint requires BPF routing to be enabled, when disabled, routing is "
+"delegated to Linux routing."
+msgstr ""
+
+#: ../../<openapi>:1 2e568c2d724c4d8eb0d046c7c61c54cb
+#: ff2715cf53324ed3bec2898cb9284723
+msgid "ID of datapath tail call map"
+msgstr ""
+
+#: ../../<openapi>:1 70c71ce944ce41718b64ac1201beea30
+#: a2776b29723e4f87b908549266b3f591
+msgid "Local endpoint ID"
+msgstr ""
+
+#: ../../<openapi>:1 039ed38f1f0449a298a04bb9b414c68b
+#: 79410c61665e45f786f5c3cdd1d8c51a
+msgid "Kubernetes namespace name"
+msgstr ""
+
+#: ../../<openapi>:1 29a591ab65c547f2b3056c103c3d696c
+#: 987f7de1924149998af97c28a9350924
+msgid "Kubernetes pod name"
+msgstr ""
+
+#: ../../<openapi>:1 4a75e061f1d04f5c8d917ee09e1945a5
+#: 7619d759cf9444598f34a50d6cf79599
+msgid "Process ID of the workload belonging to this endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 4c7c654d2ae34490935ab7021a160e64
+#: 679f64d518834ec483328c636a970da5
+msgid "Whether policy enforcement is enabled or not"
+msgstr ""
+
+#: ../../<openapi>:1 b424f4cab48a4533ae2e64ba43f33201
+#: bae98af7177b466fa7c2ec7a39d2cd1a
+msgid "Whether to build an endpoint synchronously"
+msgstr ""
+
+#: ../../<openapi>:1 5ba83a5b0ac1439ab68f64ad1f43b5ae
+#: 647ec25df92a48bab63c562fa262d63e a6f57994ba1c414f9ee8ef7bed7f5098
+msgid "Created"
+msgstr ""
+
+#: ../../<openapi>:1 f87bd743956d43b6b7aba030690b2315
+msgid "Invalid endpoint in request"
+msgstr ""
+
+#: ../../<openapi>:1 814c81c2fbfb454faf2f0ccadccf37c4
+msgid "Endpoint already exists"
+msgstr ""
+
+#: ../../<openapi>:1 3bc339083cbd4eb99dd7d092e5a4d58e
+msgid "Endpoint creation failed"
+msgstr ""
+
+#: ../../<openapi>:1 2bcc0a2f5bee4edca3a3136118602a71
+msgid "**Modify existing endpoint**"
+msgstr ""
+
+#: ../../<openapi>:1 a74d1b3b15c64a90b643742f72997ba1
+msgid "Applies the endpoint change request to an existing endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 7adb4ac051f041af9f715372c09bbca1
+msgid "Invalid modify endpoint request"
+msgstr ""
+
+#: ../../<openapi>:1 c9946d468a1d4e5498dd505793284e19
+msgid "Endpoint does not exist"
+msgstr ""
+
+#: ../../<openapi>:1 159e5a7c5de6401d9933dff4569f7ea7
+msgid "Endpoint update failed"
+msgstr ""
+
+#: ../../<openapi>:1 700c930b7e8f445785f8c237795bd1ae
+msgid "**Delete endpoint**"
+msgstr ""
+
+#: ../../<openapi>:1 cc6376325d8041df9a3e0f19b7d38e83
+msgid ""
+"Deletes the endpoint specified by the ID. Deletion is imminent and "
+"atomic, if the deletion request is valid and the endpoint exists, "
+"deletion will occur even if errors are encountered in the process. If "
+"errors have been encountered, the code 202 will be returned, otherwise "
+"200 on success."
+msgstr ""
+
+#: ../../<openapi>:1 ed2389f42c0145f7b43d8698871ca47b
+msgid ""
+"All resources associated with the endpoint will be freed and the workload"
+" represented by the endpoint will be disconnected.It will no longer be "
+"able to initiate or receive communications of any sort."
+msgstr ""
+
+#: ../../<openapi>:1 bdc0dbc22b2049439bbfc3b4a0ee8add
+msgid "Deleted with a number of errors encountered"
+msgstr ""
+
+#: ../../<openapi>:1 e16c8c695dd3407ebd6e7278bfa9ff0a
+msgid "Invalid endpoint ID format for specified type. Details in error message"
+msgstr ""
+
+#: ../../<openapi>:1 ab4bed0882fb4f72ab77bd720d4c7045
+msgid ""
+"**Retrieves a list of endpoints that have metadata matching the provided "
+"parameters.**"
+msgstr ""
+
+#: ../../<openapi>:1 844e3145ee4844e3837f59470983061b
+msgid ""
+"Retrieves a list of endpoints that have metadata matching the provided "
+"parameters, or all endpoints if no parameters provided."
+msgstr ""
+
+#: ../../<openapi>:1 cfe809a047874da79c4cc83f7bc7c0ee
+msgid "Endpoints with provided parameters not found"
+msgstr ""
+
+#: ../../<openapi>:1 567e9e162bd840048bcb7387a7bb17d6
+msgid "**Retrieve endpoint configuration**"
+msgstr ""
+
+#: ../../<openapi>:1 64ad0d1c1d6e48a39feae06957eb8fe2
+msgid "Retrieves the configuration of the specified endpoint."
+msgstr ""
+
+#: ../../<openapi>:1 45ff8923a11347609bb4491025f42f4d
+msgid "**Modify mutable endpoint configuration**"
+msgstr ""
+
+#: ../../<openapi>:1 33f9c6dc288f4918a40ed29b7973a7d5
+msgid ""
+"Update the configuration of an existing endpoint and regenerates & "
+"recompiles the corresponding programs automatically."
+msgstr ""
+
+#: ../../<openapi>:1 dd0dbd6630704f82b9aa0450eca00212
+msgid "Invalid configuration request"
+msgstr ""
+
+#: ../../<openapi>:1 2394ddbef5af470eb0146ec37c267721
+msgid "Update failed. Details in message."
+msgstr ""
+
+#: ../../<openapi>:1 db1e153b6a34487e825ffa6a08860f5c
+msgid "**Retrieves the list of labels associated with an endpoint.**"
+msgstr ""
+
+#: ../../<openapi>:1 743dded9e1c1422eb2e10133d21bbdf7
+msgid "**Set label configuration of endpoint**"
+msgstr ""
+
+#: ../../<openapi>:1 4eb9fdcd2fa54e4b9b67da0b64ee36b1
+msgid ""
+"Sets labels associated with an endpoint. These can be user provided or "
+"derived from the orchestration system."
+msgstr ""
+
+#: ../../<openapi>:1 1cf303d94d84464b9336be45cbfd097e
+msgid "Error while updating labels"
+msgstr ""
+
+#: ../../<openapi>:1 71a328aa2c064fbc9a831fefc2ead77f
+#: e822ec5b5775454d839fe0eaf6c37576
+msgid "**Retrieves the status logs associated with this endpoint.**"
+msgstr ""
+
+#: ../../<openapi>:1 0c3622c5ba514134813f428ef32e925d
+#: 1f1cb3912e6945949e26e09c12d5d66c 913e61c5c2eb41eea8a347bcc4f85cf0
+msgid "Invalid identity provided"
+msgstr ""
+
+#: ../../<openapi>:1 64ce8da7041a468695c1d744f5eddf61
+msgid ""
+"**Retrieves a list of identities that have metadata matching the provided"
+" parameters.**"
+msgstr ""
+
+#: ../../<openapi>:1 a1ccb86a80f341b3a17f3cf3d9dc303c
+msgid ""
+"Retrieves a list of identities that have metadata matching the provided "
+"parameters, or all identities if no parameters are provided."
+msgstr ""
+
+#: ../../<openapi>:1 d8a94da3bb7741459985eb94a65ba7a6
+msgid "Identities with provided parameters not found"
+msgstr ""
+
+#: ../../<openapi>:1 1a97b922dc3c40d3ae117c3b9ad26269
+#: a10a9124f8cc487a995c4a8061a562c4
+msgid "Identity storage unreachable. Likely a network problem."
+msgstr ""
+
+#: ../../<openapi>:1 1b6959f0d411435fa49dd73f0d81e5b7
+#: 422d9ed3e32342659a7d9feff827a31c
+msgid "Invalid identity format in storage"
+msgstr ""
+
+#: ../../<openapi>:1 4920260310844cd49c8762ffa2fc9d24
+msgid "**Retrieve identity**"
+msgstr ""
+
+#: ../../<openapi>:1 a4a047c428f64c89a2f6dd0a04d8fe00
+msgid "Cluster wide unique identifier of a security identity."
+msgstr ""
+
+#: ../../<openapi>:1 26be267cbac345938550fc9f825f7b3c
+msgid "Identity not found"
+msgstr ""
+
+#: ../../<openapi>:1 7d931109555e4cfab194424a933045fa
+msgid "**Retrieve identities which are being used by local endpoints**"
+msgstr ""
+
+#: ../../<openapi>:1 2328b12f2b4e4ac3a880a7cc79bacdcd
+msgid ""
+"Set of identities which are being used by local endpoints could not be "
+"found."
+msgstr ""
+
+#: ../../<openapi>:1 f10945f4ab43450cabce0c8402ed9cea
+msgid "number of endpoints consuming this identity locally (should always be > 0)"
+msgstr ""
+
+#: ../../<openapi>:1 277667aea5614cb2a730eccc5c16680e
+#: d55228eda4cf49bba18279d1b63beeba
+msgid "**Allocate an IP address**"
+msgstr ""
+
+#: ../../<openapi> 729e7aea13024af8945371e62e19235f
+#: c6b44e61aa5e46bb962e72abb5b83f04 da6bcead9937478598195ff3ad9622af
+#: eea1f5b6b1684c80acf91b2d63ef87bb f2383241522c4ca5b0e4bdf73f082af1
+#: fc59099cc75843a18a76e34a17a2f632
+msgid "Query Parameters"
+msgstr ""
+
+#: ../../<openapi>:1 bebb799a2c0f4f7f88f8b4b2fcca34be
+msgid "Allocation failure"
+msgstr ""
+
+#: ../../<openapi>:1 17c54b0a5dba4a78ad01140ba5f005d3
+#: ec76765e6cfc4a94a71a713397994397
+msgid ""
+"The UUID for the expiration timer. Set when expiration has been enabled "
+"while allocating."
+msgstr ""
+
+#: ../../<openapi>:1 29b1de6351a146c7bd7cc8774e1e0f84
+#: f56d05a3df644939a547b9723c0c5ae5
+msgid "IP of gateway"
+msgstr ""
+
+#: ../../<openapi>:1 aef6de3a25714a9992a94d9a5e5075db
+#: fa98311c08024941b306ccd261904d5a
+msgid ""
+"InterfaceNumber is a field for generically identifying an interface. This"
+" is only useful in ENI mode."
+msgstr ""
+
+#: ../../<openapi>:1 767e188b6368477aaf5bcf7a7e803fa8
+#: ee5f53a31e914b4a8127b9cc92e5fc5e
+msgid "Allocated IP for endpoint"
+msgstr ""
+
+#: ../../<openapi>:1 277c1bbfda584b66bbb10cc3068f675e
+#: 4bee3397d4054974bf1f74494fb69812
+msgid ""
+"MAC of master interface if address is a slave/secondary of a master "
+"interface"
+msgstr ""
+
+#: ../../<openapi>:1 29c4c107986e4949ab84a4a3045f3783
+msgid "IP address"
+msgstr ""
+
+#: ../../<openapi>:1 57284572d2e941598f41f0df4d1bfb20
+#: d1f8d0f1c8634affb6ddd8e50b834212
+msgid "Invalid IP address"
+msgstr ""
+
+#: ../../<openapi>:1 325fc34f9dff457bac1a1f6e6cdfd81d
+msgid "IP already allocated"
+msgstr ""
+
+#: ../../<openapi>:1 b3a0d32591f749d18012a85144e93757
+msgid "IP allocation failure. Details in message."
+msgstr ""
+
+#: ../../<openapi>:1 6fa29ae3d7614ef68fa9eb1f097f5033
+#: baf3e28daa2948048fe31660191b65c4
+msgid "Allocation for address family disabled"
+msgstr ""
+
+#: ../../<openapi>:1 7cfe55a6a8d040b5bb536de8dd59923f
+msgid "**Release an allocated IP address**"
+msgstr ""
+
+#: ../../<openapi>:1 0b2b46feb8424a138ec2285f1ab92cca
+msgid "IP address or owner name"
+msgstr ""
+
+#: ../../<openapi>:1 964fadeaab9d42a18903d7b681f9e8d1
+msgid "IP address not found"
+msgstr ""
+
+#: ../../<openapi>:1 d5469298603140a086b31faeaf5a85f6
+msgid "Address release failure"
+msgstr ""
+
+#: ../../<openapi>:1 b71fbfcbed5146dfbd11fc7f9e33ca43
+msgid "**Retrieve entire policy tree**"
+msgstr ""
+
+#: ../../<openapi>:1 e3517bb89cb04c1e97c97953135b290d
+msgid "Returns the entire policy tree with all children."
+msgstr ""
+
+#: ../../<openapi>:1 169c8406c33c413aa51c1cb115a7cade
+msgid "No policy rules found"
+msgstr ""
+
+#: ../../<openapi>:1 432c11d02bc74ba4887c3a07fb842e5a
+#: 978d71ad33ef40c986a4163e6698fa87 ad07ee4591ef40ef8385ab6b3f130d06
+#: d6a6d824f44841a4b972953ea9b09899
+msgid "Policy definition as JSON."
+msgstr ""
+
+#: ../../<openapi>:1 16cb7d3b9446413b82843e06826e551c
+#: 3448160b5db54ef3940e760946185389 3ffb524973024b5d88d523cc16f3a350
+#: 981154e3b09545ebb8278dbf6b1133f1
+msgid ""
+"Revision number of the policy. Incremented each time the policy is "
+"changed in the agent's repository"
+msgstr ""
+
+#: ../../<openapi>:1 bc03002a16584ab4ab5439db83175aca
+msgid "**Create or update a policy (sub)tree**"
+msgstr ""
+
+#: ../../<openapi>:1 7b1e3321175341808623638ef172c5a1
+msgid "Invalid policy"
+msgstr ""
+
+#: ../../<openapi>:1 1985585060684bc7b06eeaa44e56fdc1
+msgid "Invalid path"
+msgstr ""
+
+#: ../../<openapi>:1 f9fc08aeb77d4481bf80e22bd7589528
+msgid "Policy import failed"
+msgstr ""
+
+#: ../../<openapi>:1 10c653a0df254c4eb1082399ee46a636
+msgid "**Delete a policy (sub)tree**"
+msgstr ""
+
+#: ../../<openapi>:1 f9748c7730df4f06aa362f9770724984
+msgid "Invalid request"
+msgstr ""
+
+#: ../../<openapi>:1 d0763cf55adc4322b9d04977aca0d169
+msgid "Policy not found"
+msgstr ""
+
+#: ../../<openapi>:1 505ee76cd8ae4c5abc27619258e319f0
+msgid "Error while deleting policy"
+msgstr ""
+
+#: ../../<openapi>:1 07926c5cfac14389ab96af022de4af56
+msgid "**Resolve policy for an identity context**"
+msgstr ""
+
+#: ../../<openapi>:1 a27b9121434c4fd9970e24f466a4c609
+msgid "Enable verbose tracing."
+msgstr ""
+
+#: ../../<openapi>:1 cc9d79fe3c56452d99da1d501d2e3e05
+msgid "**See what selectors match which identities**"
+msgstr ""
+
+#: ../../<openapi>:1 851159a90ec340faa1b74cef80be9497
+msgid "string form of selector"
+msgstr ""
+
+#: ../../<openapi>:1 bbb5af3c17cf4998859a57ace5ae56a4
+msgid "number of users of this selector in the cache"
+msgstr ""
+
+#: ../../<openapi>:1 c037828c39cd46d39207dfc205c95b6f
+msgid "**Retrieve list of all local redirect policies**"
+msgstr ""
+
+#: ../../<openapi>:1 19bdd6dfe30541bf898266234992c0da
+#: 2af960fc4f0145b0927912d620ec7ab7 53db43be671b42b18849970003e1fcc8
+#: a7383cca87b442cfb2c6ac5ef40c0f3c b064ec39a6ef4d2f8e363f924fddf40c
+#: b3e325a523a042f78b5e99e3e531ea97 dba1976049854e8abc7e6f1193042cc7
+#: f4676a6ff73445c993008433110b9102
+msgid "Layer 3 address (required)"
+msgstr ""
+
+#: ../../<openapi>:1 3a0338ff191f411dbe1ad560e61f4815
+#: 525f5d0030ca48a7a136b425546149bb 662c0ab94daa4a08a514915b1445066c
+#: 6a4aab7f2ecb479794e2b89d0ef5f221 83b73fce470d41718275cd57581a6283
+#: 92c465853b0c46759b556a6a7721d498 a72501fe3e9141f68418b5929c146c13
+#: e3b2d0c02de94ffb9e9052e8b78af530
+msgid "Optional name of the node on which this backend runs"
+msgstr ""
+
+#: ../../<openapi>:1 09fa4072e98b436ea7b30958ce7856df
+#: 0ee5bc56d99b47e09a14a490a51b0be7 3574619c166644ad9b45a5d70fb29412
+#: 36b35f491cb341e7b1aa17ffc38e523a 446cb78dd8824bf6b19ba44c26ac3a61
+#: 634882be127744a6be79dbfe361d0d92 ac139e0ff02a4d4fb8cb411e87c93a15
+#: da75f680adf944bcb6d8944ee2c6da11
+msgid "State of the backend for load-balancing service traffic"
+msgstr ""
+
+#: ../../<openapi>:1 0588f93bb55640499808505b191d672c
+msgid "Namespace and name of the backend pod"
+msgstr ""
+
+#: ../../<openapi>:1 174d2024c0e345c0bcc35e70e843522d
+#: 1f6be590f9e7475aa4470ca9a06433f9 351c4fd5d51246fb9f66d63e90feda57
+#: 7365e4cacf4643c587dd09b7b143a952 c980794d0d6246a1820f2db6ea661025
+#: dec41624e57b475a92288b9f240a0c24 e0cfd36d70164fbf99a9fa9ed33b9a25
+#: edb9c7b0ac2843efafb78191638d222e
+msgid "Layer 3 address"
+msgstr ""
+
+#: ../../<openapi>:1 0a6fddfe1a944a4a9967f45324d4b2b6
+#: 264181181de1451d8d999b8f2c16db09 3450d449c06d4a908fb699e0c1748d24
+#: 642c1adf0b3f4f34a2ff312c0d81c90e 763087fb8ded402abf2aed799cc3de50
+#: a27b40cbfd9442deb72fb0a05004b9e8 e9b9ac0b6d9040edb0daeb8726c3cf92
+#: f623648f96374c9783989ffd8a71b9b5
+msgid "Load balancing scope for frontend address"
+msgstr ""
+
+#: ../../<openapi>:1 6e7040b228ee4d3ca98896e05ac40319
+msgid "LRP frontend type"
+msgstr ""
+
+#: ../../<openapi>:1 5203fd6aea0d440a8009095584ef0b61
+msgid "LRP config type"
+msgstr ""
+
+#: ../../<openapi>:1 36e8918a743449ad80e78506232bedc8
+msgid "LRP service name"
+msgstr ""
+
+#: ../../<openapi>:1 254003aca55f45479e63e5fc0508e69c
+msgid "LRP service namespace"
+msgstr ""
+
+#: ../../<openapi>:1 943d6f0276724074a1c6b7b024c53262
+msgid "matching k8s service namespace and name"
+msgstr ""
+
+#: ../../<openapi>:1 007ef6de2ba440309b8df17971a89db1
+#: 087991f63c1c464484842f7b8f353c7e 171f42bcb96f48c6ad9ca89328460345
+#: 539e3a70393c4ae6b9fd6459314d8ce0 7b5cac051ae4402fbaf3647f5c413b59
+#: bc51cb48e2944d00b4a3e3e896578193 ce585a6db0094a0ab800d0083eb48b10
+#: fc9fea8553524a59b7095eb947667709
+msgid "Unique identification"
+msgstr ""
+
+#: ../../<openapi>:1 ee205bd2dcff4da88f32e5b45f8aabcc
+msgid "**Retrieve list of all services**"
+msgstr ""
+
+#: ../../<openapi>:1 1ac2bd8eaaec490a9c1965b647f93a93
+#: 784cde013ee04e14ac22d56000934246 a76584676db64f13bc3e7f3596a12bf4
+#: c6c12be874c8499798f3bbf04edaf48a c8babab4d3be4e8d8d8f736796829fe1
+#: cb7faee43b1b41848e8c394ab78ea94c ec535b49c78c409c97ba708cdf77f979
+msgid "Service health check node port"
+msgstr ""
+
+#: ../../<openapi>:1 0126e3e42eb54698b9919f078e9fc2e6
+#: 0e2c7d85923a4146b8a464809ea22a26 1f11be859a544f0888c9d99d4c330ad0
+#: 3eb3d2fa134e47da9313ab4594a09949 4998411aa87c422dae4dbb275213b5db
+#: 89c632399bcd4e1a9b8b43f4f52b8292 c838a6fe675042a2b4271d11b4615600
+msgid "Service name  (e.g. Kubernetes service name)"
+msgstr ""
+
+#: ../../<openapi>:1 0a86c42963fb4b3393f1b11b37e9d005
+#: 26a5ef13c3ff4ae7b2eeccebf229b55f 3c18fd4c793048e3848c03befae11dd5
+#: 4dcadff5c535464aab4ab5431efe1c2a 8b758472e5d34c8d862159e0699dac5d
+#: b931e73626bb420ea07da353b75d26a2 f88888e812b44e65bae04bcf6be3b71c
+msgid "Service namespace  (e.g. Kubernetes namespace)"
+msgstr ""
+
+#: ../../<openapi>:1 229e439f6ecc4c7d85bc0b9fa7a0dddf
+#: 4d07ef65dce943aeb35619b0773ad93f 7ddb72f1520d4cc68de59ebdf1cc34f2
+#: 89df16f6d7464209aa76666bb16890ee 8ae1429271564affb5ed9584972e8423
+#: 99b3987bb19c447da8414ee754fae609 bae6ac0656734c5a81dbde23986fb6e4
+msgid "Service protocol NAT policy"
+msgstr ""
+
+#: ../../<openapi>:1 513c31c9f78d4fef84058e4bd3b5155a
+#: 5299399c93ab4e888bcc441aa9417529 60208f2574a54aa48c1ffbfb70dbd555
+#: 726c0d2e64c34421bb7fe673d8c9cfd7 9ba689d7af944938981afa29354fb2d7
+#: bb5d0442572d43b4b602abccd3d1cd4a f408a9e5ba824e02977a1e95d76368b2
+msgid "Service traffic policy"
+msgstr ""
+
+#: ../../<openapi>:1 46a1b99291714342b159531a3f082b98
+#: 53276748af4246c993c1945193d222ec 890cd6920c79464f9d002c6410a170d7
+#: 93a6537550a74a64963f9f967cab088e bfdb7f8a37154132bd5f215eec9f3951
+#: d51f7da4f32a4e34b5305964ecf70b19 ed99f37c28af4a9587e7b306a9d7b524
+msgid "Service type"
+msgstr ""
+
+#: ../../<openapi>:1 19caf25e06d24ef99ad3e19f5d8237c9
+#: 25ce4065ac1f40efae2750af17d5117c 4946e6f377d94a0fb966d0b8294da458
+#: 8213ec567ec344cb8411d03d60b37896 d9ffff1b7fbc40069e7feb9b67948732
+#: f156477585e2442098f96d796d7148e6 f17ee9cc53fc4539a6b4afef271d4a21
+msgid ""
+"Update all services selecting the backends with their given states (id "
+"and frontend are ignored)"
+msgstr ""
+
+#: ../../<openapi>:1 6d8af986d218408bb45008e5774d2918
+msgid "**Retrieve configuration of a service**"
+msgstr ""
+
+#: ../../<openapi>:1 16bff00e10f443519b4829fbe05cc60d
+#: 5bf242a733b849b58581ef400adb76c1 b45aae41988c4c39b9812888c1ef5c4d
+msgid "ID of service"
+msgstr ""
+
+#: ../../<openapi>:1 7bdd69f68f8341bfb163593e590675fd
+#: 991ea7b3163c48299ff33f97ee39b60e
+msgid "Service not found"
+msgstr ""
+
+#: ../../<openapi>:1 9622cbcc3f9d47ae88b86cb2260ae2d8
+msgid "**Create or update service**"
+msgstr ""
+
+#: ../../<openapi>:1 895b44b9a4464a37a92541e6d537800e
+#: cff50f1840c749779a517fd8db1638d8 ebe3b8673b7c4273ba680cd59a9c6e7f
+msgid "Updated"
+msgstr ""
+
+#: ../../<openapi>:1 0a65aef453f443f28a74db31b282d5a8
+msgid "Invalid frontend in service configuration"
+msgstr ""
+
+#: ../../<openapi>:1 1d39920029a144ffbd0839e0ee00b5a6
+msgid "Invalid backend in service configuration"
+msgstr ""
+
+#: ../../<openapi>:1 7205a2409e8c4cfca6a68608280a3793
+msgid "Error while creating service"
+msgstr ""
+
+#: ../../<openapi>:1 d0f7ab3e1be34892b807e0a4ee1428b3
+msgid "Error while updating backend states"
+msgstr ""
+
+#: ../../<openapi>:1 ec7e76dd722849308b95ea1bae43538c
+msgid "**Delete a service**"
+msgstr ""
+
+#: ../../<openapi>:1 f4089085ae424a4f837f5d6e6bb72ea5
+msgid "Service deletion failed"
+msgstr ""
+
+#: ../../<openapi>:1 325cf9af0362495f8f097422d6e57411
+msgid "**Retrieve list of all recorders**"
+msgstr ""
+
+#: ../../<openapi>:1 0cf0bc8463ca4126836047c971b2ea70
+#: 40be3486d9f64c629892da97bcd93af3 623e671296cb43be9a4af13ea68dfd09
+#: 7372c8612b144b3f957ec6510db8eaa1 c21f2f0f3ef34ab48ef339fd8c3b06da
+msgid "Maximum packet length or zero for full packet length"
+msgstr ""
+
+#: ../../<openapi>:1 01c6e777ee264fbd840ee340f938b106
+#: 1fa747ea7146413cb183b6a1907d0543 31b3e7d160d44e6fb53e578b743ba5b8
+#: a7a4cdb0e36c4257ad41d65b20be03f3 ff79e582b4d84d65b4f49b07cd7b541b
+msgid "Layer 4 destination port, zero (or in future range)"
+msgstr ""
+
+#: ../../<openapi>:1 04d025ea4cd04ca083d0187860cf6324
+#: 0e05c70e27434161a2dd84e505790d0a 211dccd5dd52419d836c61ba050fe4b3
+#: 688583d8798a4e65b41b136c8cfc4369 c35a6012d7054b669db5db7e01152cbf
+msgid "Layer 3 destination CIDR"
+msgstr ""
+
+#: ../../<openapi>:1 0f0232abfa9548c193f01dcb60dc7b8f
+#: 6ebb35dfff3d4d56b511d782c6b6b6c6 71075417842a45f6ad87ebf3723ada5b
+#: 9a4ecbdfd15645279b8f8acf99843929 fd433e4545a54bd7938ebb27d82f9eec
+msgid "Layer 4 source port, zero (or in future range)"
+msgstr ""
+
+#: ../../<openapi>:1 07c0e6299f8e47849f82bb17cc8ddb78
+#: 16b2724d2618481ca2ceb0f44e3a4517 178807e4785e414784ebde3c7320284c
+#: 506edfcdf354419aa2b1bd9b6d28fd22 6d67910fc5b946a99e23d9e8d2d01386
+msgid "Layer 3 source CIDR"
+msgstr ""
+
+#: ../../<openapi>:1 0652564fb62e4d059a42125ecfe7c437
+#: 2afe66e9241e499eb864d695214d5b39 431dd974404945d6a99319ef4db4c9b7
+#: 4a4a1a24cb1d421bb2b3dd34e650b034 baf5bd3837b946efb6dfbd0e738152ae
+msgid "Unique identification (required)"
+msgstr ""
+
+#: ../../<openapi>:1 d1315170638a4d05ba1a97d26504ccc4
+msgid "**Retrieve list of all recorder masks**"
+msgstr ""
+
+#: ../../<openapi>:1 ef09bcc849c84d939f64358b8b879c91
+msgid "Layer 4 destination port mask"
+msgstr ""
+
+#: ../../<openapi>:1 e71148f9f3a04bef97bc444b8dab1584
+msgid "Layer 3 destination IP mask"
+msgstr ""
+
+#: ../../<openapi>:1 9d3ff5118ee7463b935347c166b01a68
+msgid "Priority of this mask"
+msgstr ""
+
+#: ../../<openapi>:1 56d7016d46334a789c2312ee5ea42455
+msgid "Layer 4 protocol mask"
+msgstr ""
+
+#: ../../<openapi>:1 ed89621f8b064647bffbcfc65d369b4f
+msgid "Layer 4 source port mask"
+msgstr ""
+
+#: ../../<openapi>:1 f836a0f9d49c43e392838104f7cf1e00
+msgid "Layer 3 source IP mask"
+msgstr ""
+
+#: ../../<openapi>:1 8a253f8f64ef4915a173eda916802829
+msgid "Number of users of this mask"
+msgstr ""
+
+#: ../../<openapi>:1 0e04873ac8644c68acbc628e72a2d092
+msgid "**Retrieve configuration of a recorder**"
+msgstr ""
+
+#: ../../<openapi>:1 10884c41599f4f49b67baca324d7b0fd
+#: ca9e46994d094781af22c99912b24a5e edb0378fcb45452bac173a80402e0391
+msgid "ID of recorder"
+msgstr ""
+
+#: ../../<openapi>:1 5441a88a80234d3a8c1ec9287a0ec710
+#: 716ec1f7ee734a24962b893dd0e312fd
+msgid "Recorder not found"
+msgstr ""
+
+#: ../../<openapi>:1 22aaaa49d72149aca8ecf4a1da82a95c
+msgid "**Create or update recorder**"
+msgstr ""
+
+#: ../../<openapi>:1 f018035835954b22a509173e44db6dd6
+msgid "Error while creating recorder"
+msgstr ""
+
+#: ../../<openapi>:1 fede3367d1c74dc8807e327dc49eccc5
+msgid "**Delete a recorder**"
+msgstr ""
+
+#: ../../<openapi>:1 b075f027ee7d4fd6a2c11a84761570db
+msgid "Recorder deletion failed"
+msgstr ""
+
+#: ../../<openapi>:1 00305e5bcc94452c84f96835dc94c806
+msgid "**Retrieve list of CIDRs**"
+msgstr ""
+
+#: ../../<openapi>:1 11398dfbf5534558abb61194bbd6b419
+msgid "Prefilter get failed"
+msgstr ""
+
+#: ../../<openapi>:1 759e842b03064afe9e9b764ee578aa79
+msgid "**Update list of CIDRs**"
+msgstr ""
+
+#: ../../<openapi>:1 460a02856c9a45dd8147da0c02775ac3
+#: 9a0c27fe297f44d0aeefd3b3c9d32f99
+msgid "Invalid CIDR prefix"
+msgstr ""
+
+#: ../../<openapi>:1 46034c0407c343a28a153e7594b6f06d
+msgid "Prefilter update failed"
+msgstr ""
+
+#: ../../<openapi>:1 573174f80e554f3aa0cdceace9060f60
+msgid "**Delete list of CIDRs**"
+msgstr ""
+
+#: ../../<openapi>:1 e731597e2aee405fa5c2ffcbd79b5178
+msgid "Deleted"
+msgstr ""
+
+#: ../../<openapi>:1 e095e9279caf4361b8ffc0b6999a6769
+msgid "Prefilter delete failed"
+msgstr ""
+
+#: ../../<openapi>:1 3dfb7aefe90f4fd2b97c0bd9fb68ad93
+msgid "**Retrieve information about the agent and evironment for debugging**"
+msgstr ""
+
+#: ../../<openapi>:1 590fa8777b674265818d50f20686645b
+msgid "DebugInfo get failed"
+msgstr ""
+
+#: ../../<openapi>:1 49ca79ba3e094180a8d0108c119080cc
+msgid "Status of the Wireguard agent  +k8s:deepcopy-gen=true"
+msgstr ""
+
+#: ../../<openapi>:1 2ba9745da2ee49ccbf48f7e6c8cb5202
+msgid "**List all open maps**"
+msgstr ""
+
+#: ../../<openapi>:1 6df8ac9f66654a74a5f740d39aa1d62f
+#: 8bb4b81c85464cbca6a883cb4bb485bb
+msgid "Desired action to be performed"
+msgstr ""
+
+#: ../../<openapi>:1 110ffd1b1153427eb7e6dd5b330c9fa7
+#: fbb3608145e346498574588f58a7e8b9
+msgid "Key of map entry"
+msgstr ""
+
+#: ../../<openapi>:1 27c035c7364a4bbea9e242afa8fcab35
+#: 7284a4c8657a4373b3fb7a967075c5b7
+msgid "Last error seen while performing desired action"
+msgstr ""
+
+#: ../../<openapi>:1 24dc15cb9e5d4bcbbd4ab1366536fc73
+#: 26229258ea9c4eb8b7df3e5ddf98bf23
+msgid "Value of map entry"
+msgstr ""
+
+#: ../../<openapi>:1 a9cfe9f7c9c54f11831077e3829cdf7b
+#: c47d77dd89b14176bd6b6127bf86ff55
+msgid "Path to BPF map"
+msgstr ""
+
+#: ../../<openapi>:1 2a1a259048c4408c845476e86ee904da
+msgid "**Retrieve contents of BPF map**"
+msgstr ""
+
+#: ../../<openapi>:1 1395108618f04b3281a97a3c3282dd74
+msgid "Name of map"
+msgstr ""
+
+#: ../../<openapi>:1 90b89eb671374d9ba2cca382de41d66c
+msgid "Map not found"
+msgstr ""
+
+#: ../../<openapi>:1 ddf16304c2cb4d5180fb5b098f42f763
+msgid "**Retrieve cilium metrics**"
+msgstr ""
+
+#: ../../<openapi>:1 072a184c3cb84bf9942e00c438546010
+msgid "Metrics cannot be retrieved"
+msgstr ""
+
+#: ../../<openapi>:1 7aa9993bb08a494f9433d234d9ffcfd3
+msgid "Labels of the metric"
+msgstr ""
+
+#: ../../<openapi>:1 0d1a373fac8c4b26b1997009e1faf9de
+msgid "Name of the metric"
+msgstr ""
+
+#: ../../<openapi>:1 f0242e53fd3a49e2aba78be370270b18
+msgid "Value of the metric"
+msgstr ""
+
+#: ../../<openapi>:1 52b774576603449895c1b570620df700
+msgid "**Retrieves the list of DNS lookups intercepted from all endpoints.**"
+msgstr ""
+
+#: ../../<openapi>:1 410c415376784ce790ff4ef6f911496a
+#: 956003f457dd4191a1994a35290448bb
+msgid ""
+"Retrieves the list of DNS lookups intercepted from endpoints, optionally "
+"filtered by endpoint id, DNS name, or CIDR IP range."
+msgstr ""
+
+#: ../../<openapi>:1 045305fbf5e9449d98c57966d706f309
+#: 3ed13e7ad7d04c1f8d7b6b9be7b548e1 f44c880dd0b44a79877f877493a1c25e
+msgid "A toFQDNs compatible matchPattern expression"
+msgstr ""
+
+#: ../../<openapi>:1 437ff196c5374826a3fe52ae470f7ab0
+#: 565e374b0bdd4938a01a56083122bcad ea786ca740c44399be2e2fc83bedacd2
+msgid "A CIDR range of IPs"
+msgstr ""
+
+#: ../../<openapi>:1 064528d71b04465d8a0bdb4bcccf2d42
+#: 1159f9c2d7a247f08dd867d608a3975d 7c8c020896fc44a18916c55a1cf9d2af
+#: aae90a3b6dd844b2b858982c3ddd1583 e076a0918a9842789ce2adaaf8513fab
+msgid "Invalid request (error parsing parameters)"
+msgstr ""
+
+#: ../../<openapi>:1 b487a715fe1f48719386ad700b85812c
+#: c624609a102941feacf364f5ff5a018f
+msgid "No DNS data with provided parameters found"
+msgstr ""
+
+#: ../../<openapi>:1 35d695c0fc4e4be5bbc6424bcee34e37
+#: b27d3f5b9dfa4c2d9c73a39df3480e2b
+msgid "The endpoint that made this lookup, or 0 for the agent itself."
+msgstr ""
+
+#: ../../<openapi>:1 6dbc143cb57b48d9b910f49c19b6eacc
+#: ed504b5e1146480aacc85cc0284c7b9d
+msgid "The absolute time when this data will expire in this cache"
+msgstr ""
+
+#: ../../<openapi>:1 7fc150ba974a4144a120c2e5ac714e29
+#: f6f85db465ff4c5bbaf0c3cbac3e3aef
+msgid "DNS name"
+msgstr ""
+
+#: ../../<openapi>:1 6d469e4e333b4391a56492ba883a4eb3
+#: 9fc8811f128b4062ae3df4e08e8c5899
+msgid "The absolute time when this data was received"
+msgstr ""
+
+#: ../../<openapi>:1 2dd3f330142943e581b470d0906d33d3
+#: b6d700dfe4de4cc5a16ca6e09fb16945
+msgid ""
+"The reason this FQDN IP association exists. Either a DNS lookup or an "
+"ongoing connection to an IP that was created by a DNS lookup."
+msgstr ""
+
+#: ../../<openapi>:1 ec9b0d0da1ff4f989cab84bad2220819
+#: f86912f493424048a983edff041d43b5
+msgid "The TTL in the DNS response"
+msgstr ""
+
+#: ../../<openapi>:1 4e40eb1d35c4418f92eb13dbbf840d5f
+msgid "**Deletes matching DNS lookups from the policy-generation cache.**"
+msgstr ""
+
+#: ../../<openapi>:1 e77ddfd1ed45444f9324762491233848
+msgid ""
+"Deletes matching DNS lookups from the cache, optionally restricted by DNS"
+" name. The removed IP data will no longer be used in generated policies."
+msgstr ""
+
+#: ../../<openapi>:1 e82a2fb56b774da9a60642811a6a45e0
+msgid "**Retrieves the list of DNS lookups intercepted from an endpoint.**"
+msgstr ""
+
+#: ../../<openapi>:1 875ffa58813e46b19ff6c25087c543bc
+msgid "**List internal DNS selector representations**"
+msgstr ""
+
+#: ../../<openapi>:1 c851815dd1d14b7b88b6d149b76e2c93
+msgid ""
+"Retrieves the list of DNS-related fields (names to poll, selectors and "
+"their corresponding regexes)."
+msgstr ""
+
+#: ../../<openapi>:1 8ea42b5de72f47b38ac3a216dd2c5b89
+msgid "String representation of regular expression form of FQDNSelector"
+msgstr ""
+
+#: ../../<openapi>:1 fb5be420f37c473d902a3bfdb1d2f543
+msgid "FQDNSelector in string representation"
+msgstr ""
+
+#: ../../<openapi>:1 fddc6d7d14dd48488f84ea97c048f477
+msgid "**Lists information about known IP addresses**"
+msgstr ""
+
+#: ../../<openapi>:1 0ac59b87f3c8448c80845a6570a8820f
+msgid ""
+"Retrieves a list of IPs with known associated information such as their "
+"identities, host addresses, Kubernetes pod names, etc. The list can "
+"optionally filtered by a CIDR IP range."
+msgstr ""
+
+#: ../../<openapi>:1 e6c4651b235f4c84b017a676c94528fa
+msgid "No IP cache entries with provided parameters found"
+msgstr ""
+
+#: ../../<openapi>:1 eca16e8a460b46259453e7cdae7d2f67
+msgid "Key of the entry in the form of a CIDR range (required)"
+msgstr ""
+
+#: ../../<openapi>:1 640bb5c19c87408bae075a332b684d3b
+msgid "The context ID for the encryption session"
+msgstr ""
+
+#: ../../<openapi>:1 862cc00d6b7e4a06b8db7d2a99020eb9
+msgid "IP address of the host"
+msgstr ""
+
+#: ../../<openapi>:1 06c087f3eab5429d80040cb602dc6e59
+msgid "Numerical identity assigned to the IP (required)"
+msgstr ""
+
+#: ../../<openapi>:1 665a1ee6b35041a1a83854770f00e6d1
+msgid "Name assigned to the IP (e.g. Kubernetes pod name)"
+msgstr ""
+
+#: ../../<openapi>:1 776aec0e1666474498c9d4356c31b3f8
+msgid "Namespace of the IP (e.g. Kubernetes namespace)"
+msgstr ""
+
+#: ../../<openapi>:1 e79e126551254d8188cbc37f68607092
+msgid "Source of the IP entry and its metadata"
+msgstr ""
+

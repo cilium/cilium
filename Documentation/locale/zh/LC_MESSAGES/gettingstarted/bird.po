@@ -1,0 +1,244 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/bird.rst:3 db198bc9e94348f0bef3c68f33f8f714
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:10 50bdef3225d740a8bc5b5b1680356d20
+msgid "Using BIRD to run BGP"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:12 8e9522d3bb4249fe92016ad9646b052c
+msgid ""
+"`BIRD is an open-source implementation for routing Internet Protocol "
+"packets on Unix-like operating systems "
+"<https://en.wikipedia.org/wiki/Bird_Internet_routing_daemon>`_. If you "
+"are not familiar with it, you had best have a glance at the `User's "
+"Guide`_ first."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:18 c1aaeebf26654493b9a019fb934386d4
+msgid ""
+"BIRD provides a way to advertise routes using traditional networking "
+"protocols to allow Cilium-managed endpoints to be accessible outside the "
+"cluster. This guide assumes that Cilium is already deployed in the "
+"cluster, and that the remaining piece is how to ensure that the pod CIDR "
+"ranges are externally routable."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:24 226cb4c4cfe4485e870a31d4c3667ffd
+msgid ""
+"`BIRD <https://bird.network.cz>`_ maintains two release families at "
+"present: ``1.x`` and ``2.x``, and the configuration format varies a lot "
+"between them. Unless you have already deployed the ``1.x``, we suggest "
+"using ``2.x`` directly, as the ``2.x`` will live longer. The following "
+"examples will denote ``bird`` as the ``bird2`` software and use "
+"configuration in the format that ``bird2`` understands."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:31 9c5a899d76ec4d70976e70487df3e869
+msgid ""
+"This guide shows how to install and configure bird on CentOS 7.x to make "
+"it collaborate with Cilium. Installation and configuration on other "
+"platforms should be very similar."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:36 d2acd958a5084909a0aa58fde6407b1d
+msgid "Install bird"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:46 f3d1d62625ad458ca52a4e8ad7b73a7e
+msgid "Test the installation:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:70 d0a1da7aadae4e7aaf2b159ae322c716
+msgid "Basic configuration"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:72 60b98ea839214339a413254cce7ddb20
+msgid ""
+"It's hard to discuss bird configurations without considering specific BGP"
+" schemes. However, BGP scheme design is beyond the scope of this guide. "
+"If you are interested in this topic, refer to `BGP in the Data Center "
+"<https://www.oreilly.com/library/view/bgp-in-the/9781491983416/>`_ "
+"(O'Reilly, 2017) for a quick start."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:78 8f0e2acff1db437d862070ba05457bf5
+msgid "In the following, we will restrict our BGP scenario as follows:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:83 9ac2cf8bd2ca4d37841384f624761547
+msgid "physical network: simple 3-tier hierarchical architecture"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:84 0a5735a6387d4509b07a96a1355e8189
+msgid "nodes connect to physical network via layer 2 switches"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:85 e3fa4536b7434723a3f6e902b5394fd6
+msgid "announcing each node's PodCIDR to physical network via ``bird``"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:86 3fb01b4c087e4ccbacdcbfd6699fb970
+msgid "for each node, do not import route announcements from physical network"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:88 8f238a3d684c4d1cbba1e1077b664d35
+msgid "In this design, the BGP connections look like this:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:93 6223167b233b46a8a2741a3a98d51107
+msgid "This scheme is simple in that:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:95 d4aa66d1ea1d4968b73a075082f49a51
+msgid ""
+"core routers learn PodCIDRs from ``bird``, which makes the Pod IP "
+"addresses routable within the entire network."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:97 0703769d49aa417685e2e0fb6a9a9378
+msgid ""
+"``bird`` doesn't learn routes from core routers and other nodes, which "
+"keeps the kernel routing table of each node clean and small, and "
+"suffering no performance issues."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:101 a9a7e6d3d20d4b2ea8dce728fee2cb39
+msgid ""
+"In this scheme, each node just sends pod egress traffic to node's default"
+" gateway (the core routers), and lets the latter do the routing."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:104 d60195b78d4446eca851b97bf2d5242a
+msgid "Below is the a reference configuration for fulfilling the above purposes:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:162 b8614d02233247e7a1559ffb6df9f094
+msgid ""
+"Save the above file as ``/etc/bird.conf``, and replace the placeholders "
+"with your own:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:176 811368f688d645919624b0496a874a18
+msgid "Restart ``bird`` and check the logs:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:189 862e55d950d94abf9a5ec199c987f20c
+msgid "Verify the changes, you should get something like this:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:199 e35eaec1f61f4f73823598934f19e8d5
+msgid ""
+"This indicates that the PodCIDR ``10.5.48.0/24`` on this node has been "
+"successfully imported into BIRD."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:215 33261c53cec84019acc06215cd9fd76c
+msgid ""
+"Here we see that the uplink0 BGP session is established and our PodCIDR "
+"from above has been exported and accepted by the BGP peer."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:219 a9d9d0b07671482a8a2420e2da7cea13
+msgid "Monitoring"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:221 4c17d4b4ec6445c0b20585d82c0e2f23
+msgid ""
+"`bird_exporter <https://github.com/czerwonk/bird_exporter>`_ could "
+"collect bird daemon states, and export Prometheus-style metrics."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:224 16dd78bdb94942099b3be93690fd5017
+msgid ""
+"It also provides a simple Grafana dashboard, but you could also create "
+"your own, e.g. `Trip.com's "
+"<https://ctripcloud.github.io/cilium/network/2020/01/19/trip-first-step-"
+"towards-cloud-native-networking.html>`_ looks like this:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:230 339cf6c40e324257a147982c2ce7d6d0
+msgid "Advanced Configurations"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:232 9a258b4a0ea9410a85f66a4ecddfd927
+msgid ""
+"You may need some advanced configurations to make your BGP scheme "
+"production-ready. This section lists some of these parameters, but we "
+"will not dive into details, that's BIRD `User's Guide`_'s responsibility."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:237 b7a06f792d784c5fbb8596fa2a2f2557
+msgid "BFD"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:239 a21699baea2b489f805bbc5f6e369e32
+msgid ""
+"`Bidirectional Forwarding Detection (BFD) "
+"<https://www.cisco.com/c/en/us/td/docs/ios-"
+"xml/ios/iproute_bgp/configuration/xe-16/irg-xe-16-book/bgp-support-for-"
+"bfd.html>`_ is a detection protocol designed to accelerate path failure "
+"detection."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:243 ../../gettingstarted/bird.rst:284
+#: ../../gettingstarted/bird.rst:319 2abf228786734d2980981e0e65ead868
+#: 8bdb3fbab5584342968097be87f63963 dba419c19932453ba1d64f7cf715f447
+msgid "**This feature also relies on peer side's configuration.**"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:266 36ef8e352fa84f47acf8ef0aa55daf51
+msgid "Verify, you should see something like this:"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:278 fa3028e910b24ca2b18b51b2711493d5
+msgid "ECMP"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:280 503f2bd6c2034bf8b75b52a5228fe8ba
+msgid ""
+"For some special purposes (e.g. L4LB), you may configure a same CIDR on "
+"multiple nodes. In this case, you need to configure `Equal-Cost Multi-"
+"Path (ECMP) routing <https://en.wikipedia.org/wiki/Equal-cost_multi-"
+"path_routing>`_."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:298 8a6421395a834226b503f26389f97a14
+msgid "See the user manual for more detailed information."
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:300 19aa901e379f4199b5f9050fbe7ab935
+msgid ""
+"You need to check the ECMP correctness on physical network (Core router "
+"in the above scenario):"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:317 2779189a4c874314955038fc389f5e04
+msgid "Graceful restart"
+msgstr ""
+
+#: ../../gettingstarted/bird.rst:321 ea6f3455a93a4b3e8c16f7528f060db9
+msgid "Add ``graceful restart`` to each ``bgp`` section:"
+msgstr ""
+

@@ -1,0 +1,255 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/kube-router.rst:3 61e7b5f8125845958d7e3493c0f5098a
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:11 2beffd33000b4bb39cadbe0698641ed8
+msgid "Using kube-router to run BGP"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:13 7d8ee54de4fe46c796e5a3bef25aaa09
+msgid ""
+"This guide explains how to configure Cilium and kube-router to co-operate"
+" to use kube-router for BGP peering and route propagation and Cilium for "
+"policy enforcement and load-balancing."
+msgstr ""
+
+#: ../../beta.rst:3 818af538b76e4ca0bcf34b3a136184f1
+msgid ""
+"This is a beta feature. Please provide feedback and file a GitHub issue "
+"if you experience any problems."
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:20 8a445e0f0b1e4a3b9cb4177d3af38416
+msgid "Deploy kube-router"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:22 2e430ad0271548bd8a98e45434d7d9e0
+msgid "Download the kube-router DaemonSet template:"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:28 c2223f08e48f49f9bd45d45226c27033
+msgid ""
+"Open the file ``generic-kuberouter-only-advertise-routes.yaml`` and edit "
+"the ``args:`` section. The following arguments are **required** to be set"
+" to exactly these values:"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:40 89526843bb984ec9bee2f6c753da2b8e
+msgid ""
+"The following arguments are **optional** and may be set according to your"
+" needs.  For the purpose of keeping this guide simple, the following "
+"values are being used which require the least preparations in your "
+"cluster. Please see the `kube-router user guide "
+"<https://github.com/cloudnativelabs/kube-router/blob/master/docs/user-"
+"guide.md>`_ for more information."
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:55 30d97caf78b64478a13783dd7ec61da2
+msgid ""
+"The following arguments are **optional** and should be set if you want "
+"BGP peering with an external router. This is useful if you want "
+"externally routable Kubernetes Pod and Service IPs. Note the values used "
+"here should be changed to whatever IPs and ASNs are configured on your "
+"external router."
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:66 da2444d351ec45e396ce46c8f22787d9
+msgid ""
+"Apply the DaemonSet file to deploy kube-router and verify it has come up "
+"correctly:"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:80 1440b9cbf0bd431fbbc12a02406bd048
+msgid "Deploy Cilium"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:82 56397a9ce4384e1381135da5e0a14997
+msgid ""
+"In order for routing to be delegated to kube-router, "
+"tunneling/encapsulation must be disabled. This is done by setting the "
+"``tunnel=disabled`` in the ConfigMap ``cilium-config`` or by adjusting "
+"the DaemonSet to run the ``cilium-agent`` with the argument "
+"``--tunnel=disabled``. Moreover, in the same ConfigMap, we must "
+"explicitly set ``ipam: kubernetes`` since kube-router pulls the pod CIDRs"
+" directly from K8s:"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:99 e72e316cdb284548aff316bda6e4797a
+msgid ""
+"You can then install Cilium according to the instructions in section "
+":ref:`ds_deploy`."
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:102 b8a4612d84114853b8de66499bf1151f
+msgid "Ensure that Cilium is up and running:"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:114 219734438ea044b8a1cb1fb83bbcfa70
+msgid "Verify Installation"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:116 6f4677021b914f629f46c118d289e0d1
+msgid "Verify that kube-router has installed routes:"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:127 b2dded3839334d3fbcddf859a6627fcc
+msgid ""
+"In the above example, we see three categories of routes that have been "
+"installed:"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:130 5d10e39b63e24f3e8779dedae3804ec7
+msgid ""
+"*Local PodCIDR:* This route points to all pods running on the host and "
+"makes these pods available to * ``10.2.0.0/24 via 10.2.0.172 dev "
+"cilium_host src 10.2.0.172``"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:133 e249a4ecd5fe423b85ec2d1c01296f49
+msgid ""
+"*BGP route:* This type of route is installed if kube-router determines "
+"that the remote PodCIDR can be reached via a router known to the local "
+"host. It will instruct pod to pod traffic to be forwarded directly to "
+"that router without requiring any encapsulation. * ``10.2.1.0/24 via "
+"172.0.51.175 dev eth0 proto 17``"
+msgstr ""
+
+#: ../../gettingstarted/kube-router.rst:138 c854cc63fc5643f0891aa3859aaba013
+msgid ""
+"*IPIP tunnel route:*  If no direct routing path exists, kube-router will "
+"fall back to using an overlay and establish an IPIP tunnel between the "
+"nodes. * ``10.2.2.0/24 dev tun-172011760 proto 17 src 172.0.50.227`` * "
+"``10.2.3.0/24 dev tun-1720186231 proto 17 src 172.0.50.227``"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: 676639b4aa2043adb7d494dae3aff21b
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: a39fd3532dc44be98e660e068f918ad8
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 9caff4417de94182a5c715f3e9644c5c
+#: b12e4f6329e84b2a90b2738050f5d00e
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 321153f275af4644b9e30af9a6c7737c
+#: cfc4d1da2d4f47cbbcf8d18f5c09fda5
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 478b6d2d92974310a2acb451ee729837
+#: b661717bf8df420480e414d5242ce990
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 63ffd6dc5fd848e1945d3f0d1b1dc565
+#: cfd777879d314df983923a36f1b259c1
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 8367481d18084cddac5fa87415f4aff8
+#: 8bd0be84622047aa90b83f63c6b4e317
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 d17bdf9a439e48ee81fd35220aa5be6c
+#: d9f593e53a0c4a55823a22abcc78e6b5
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 77bc34a5419749b5b4db29378322c0c3
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: 7bc7b7f01cba416698abd97ca2796227
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 17e1462a885f4c1494fd725b17dcee9b
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 5069c7492453402298e831fda2cb100b
+#: fb79250244b04461b9f5db788cc6f2d7
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 0d71cda9239a4b8abdc7466aff718324
+#: 5355ebf6801d452b90bb5633e441514c
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: f4f207cf1921440aaa58217928669894
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: d058df7f222e46d38603a3052c9f886e
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: d9acc0bc689c47ff9ac9f744dda32631
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 90066098163f41fc8c96804bf8efa8d2
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 505f4dfb3e474a1ca3b10075e2f861ed
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+

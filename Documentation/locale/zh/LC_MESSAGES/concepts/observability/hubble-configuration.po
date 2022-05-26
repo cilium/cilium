@@ -1,0 +1,293 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/observability/hubble-configuration.rst:3
+#: 9344b931c487487695c08eb8ddd45826
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:11
+#: 5a3e3615ec3a48e485d0407854789c05
+msgid "Hubble Configuration"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:13
+#: d2e7ba30f1214bbb98eb732ded75b4e0
+msgid ""
+"This page provides guidance to configure Hubble in a way that suits your "
+"environment. Instructions to enable Hubble are provided as part of each "
+"Cilium :ref:`gs_install` guide."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:20
+#: 45cf7c755da34ac5ba794474cb3e5550
+msgid "TLS certificates"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:22
+#: 7d5b704a65b6406eaa5852e416a0b3d2
+msgid ""
+"When Hubble Relay is deployed, Hubble listens on a TCP port on the host "
+"network. This allows Hubble Relay to communicate with all Hubble "
+"instances in the cluster. Connections between Hubble instances and Hubble"
+" Relay are secured using mutual TLS (mTLS) by default."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:27
+#: 6a4d8867c9434ce680ee4212ed36094e
+msgid ""
+"TLS certificates can be provided by manually on the Helm install command "
+"(user provided) or generate automatically via either:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:30
+#: 21204e0494074b7291ad576cb70501cc
+msgid ""
+"`Helm "
+"<https://helm.sh/docs/chart_template_guide/function_list/#gensignedcert>`__"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:31
+#: ad1e5719008740e09381a3aefe57f4c7
+msgid ""
+"cilium's `certgen <https://github.com/cilium/certgen>`__ (using a "
+"Kubernetes ``CronJob``)"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:32
+#: dfea0e728fce408ebcfa0a4b78a95238
+msgid "`cert-manager <https://cert-manager.io/>`__"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:35
+#: 843591a3e9f54c89aeb895cf84c505e1
+msgid "User provided certificates"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:37
+#: 9d188b8ec4de4a9bafc496363f8249da
+msgid ""
+"In order to use custom TLS certificates, ``hubble.tls.auto.enabled`` must"
+" be set to ``false`` and TLS certificates manually provided.  This can be"
+" done by specifying the options below to Helm at install or upgrade time."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:54
+#: f2b2800816ef48e7a6b747bf8d870a36
+msgid ""
+"Options ``hubble.relay.tls.server.cert``, ``hubble.relay.tls.server.key``"
+" ``hubble.ui.tls.client.cert`` and ``hubble.ui.tls.client.key`` only need"
+" to be provided when ``hubble.relay.tls.server.enabled=true`` (default "
+"``false``) which enable TLS for the Hubble Relay server."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:61
+#: a190be67e0824727ae43919411ddaa22
+msgid "Provided files must be **base64 encoded** PEM certificates."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:63
+#: 4c26ca8d65e645bb85bf87effe1cf36b
+msgid ""
+"In addition, the **Common Name (CN)** and **Subject Alternative Name "
+"(SAN)** of the certificate for Hubble server MUST be set to ``*.{cluster-"
+"name}.hubble-grpc.cilium.io`` where ``{cluster-name}`` is the cluster "
+"name defined by ``cluster.name`` (defaults to ``default``)."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:69
+#: 2fd2980923594d2ba1424229c77d1e23
+msgid "Auto generated certificates via Helm"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:71
+#: 5a921341681048c681ea1f7689489d5e
+msgid ""
+"When using Helm, TLS certificates are (re-)generated every time Helm is "
+"used for install or upgrade. As Hubble server and Hubble Relay support "
+"TLS certificates hot reloading, including CA certificates, this does not "
+"disrupt any existing connection. New connections are automatically "
+"established using the new certificates without having to restart Hubble "
+"server or Hubble Relay."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:84
+#: d415673d68374dc585dfccea84766002
+msgid ""
+"The downside of the Helm method is that while certificates are "
+"automatically generated, they are not automatically renewed.  "
+"Consequently, running ``helm upgrade`` is required when certificates are "
+"about to expire (i.e. before the configured "
+"``hubble.tls.auto.certValidityDuration``)."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:90
+#: 56e6969642f74850b22874d21296004e
+msgid "Auto generated certificates via certgen"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:92
+#: 3983b2658699440f978f78c9e7e259a5
+msgid ""
+"Like the Helm method, certgen generates the TLS certificates at "
+"installation time and a Kubernetes ``CronJob`` is scheduled to renew them"
+" (regardless of their expiration date)."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:104
+#: 341858ff41e949cba24b3bf185747706
+msgid "Auto generated certificates via cert-manager"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:106
+#: b4ace9ea64444c80886781f115e29a59
+msgid ""
+"This method relies on `cert-manager <https://cert-manager.io/>`__ to "
+"generate the TLS certificates. cert-manager has becomes the de facto way "
+"to manage TLS on Kubernetes, and it has the following advantages compared"
+" to the previously documented methods:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:111
+#: a10041c57df841c8934b77e87715775b
+msgid ""
+"Support multiple issuers (e.g. a custom CA, `Vault "
+"<https://www.vaultproject.io/>`__, `Let's Encrypt "
+"<https://letsencrypt.org/>`__, `Google's Certificate Authority Service "
+"<https://cloud.google.com/certificate-authority-service>`__, and more) "
+"allowing to choose the issuer fitting your organization's requirements."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:117
+#: e5df23339a2b4c19a76ca608f62ae579
+msgid ""
+"Manages certificates via a `CRD <https://kubernetes.io/docs/concepts"
+"/extend-kubernetes/api-extension/custom-resources/>`__ which is easier to"
+" inspect with Kubernetes tools than PEM file."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:121
+#: 05506c10da8f47f6aae0f6e0ca5bf50a
+msgid "**Installation steps**:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:123
+#: 2ff83d51bf20434ebdde38a13fc44794
+msgid ""
+"First, install `cert-manager <https://cert-"
+"manager.io/docs/installation/>`__ and setup an `issuer <https://cert-"
+"manager.io/docs/configuration/>`_. Please make sure that your issuer is "
+"be able to create certificates under the ``cilium.io`` domain name."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:127
+#: c600667953a045109aa9616ce0b7a48f
+msgid "Install/upgrade Cilium including the following Helm flags:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:138
+#: 2c018fadcdb84ec0b4837bf4cd32f81d
+msgid "**Troubleshooting**:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:140
+#: 0d372365bf47449aabc1958fd9d72bd2
+msgid "While installing Cilium or cert-manager you may get the following error:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:146
+#: 89953703263740c6886f0afdfc7351e6
+msgid ""
+"This happens when cert-manager's webhook (which is used to verify the "
+"``Certificate``'s CRD resources) is not available. There are several ways"
+" to resolve this issue. Pick one of the options below:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:152
+#: e48d326e991644d8be4719e0bbfb926e
+msgid "Install CRDs first"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:154
+#: 2edd1b0d47fa4e4985e0482b5d417b25
+msgid ""
+"Install cert-manager CRDs before Cilium and cert-manager (see `cert-"
+"manager's documentation about installing CRDs with kubectl <https://cert-"
+"manager.io/docs/installation/helm/#option-1-installing-crds-with-"
+"kubectl>`__):"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:160
+#: 409a04ff35404bed965af79799e23989
+msgid "Then install cert-manager, configure an issuer, and install Cilium."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:162
+#: b405a9c42d8d418b99464ee01169640c
+msgid "Upgrade Cilium"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:164
+#: c690750a4b964a5fa6195552dadbe66f
+msgid "Upgrade Cilium from an installation with TLS disabled:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:172
+#: d52b3309f3b84703b73aca877b65f125
+msgid ""
+"Then install cert-manager, configure an issuer, and upgrade Cilium "
+"enabling TLS:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:178
+#: 2c781fcf37d947c7a98409adafbad89d
+msgid "Disable webhook"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:180
+#: f0bff6bd433f4681b96b9b1c0d12b8d1
+msgid ""
+"Disable cert-manager validation (assuming Cilium is installed in the "
+"``kube-system`` namespace):"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:186
+#: 86d5999e09c04fb290c88e583b793248
+msgid "Then install Cilium, cert-manager, and configure an issuer."
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:188
+#: af842b1a0cdb43f6b60aacdcf65151df
+msgid "Host network webhook"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:190
+#: 57fedecb48484814aa718cdd0397ab41
+msgid ""
+"Configure cert-manager to expose its webhook within the host network "
+"namespace:"
+msgstr ""
+
+#: ../../concepts/observability/hubble-configuration.rst:198
+#: 0f529766a8f64a18b9ddcfa04cccc01d
+msgid "Then configure an issuer and install Cilium."
+msgstr ""
+

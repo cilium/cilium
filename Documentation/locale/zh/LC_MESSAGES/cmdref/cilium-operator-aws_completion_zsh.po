@@ -1,0 +1,83 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:3
+#: 3c5bd9f668d54aada65b965de428e3ad
+msgid "cilium-operator-aws completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:5
+#: c6839175fb864fe6a7b4f2e1b56788d7
+msgid "Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:7
+#: 45af4cfeb26444baa953719cb6740a3c
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:9
+#: 6a56324e2ef248df83081b11a98611a8
+msgid "Generate the autocompletion script for the zsh shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:11
+#: 89f3c086f9a545b586c6bdc4671adf5e
+msgid ""
+"If shell completion is not already enabled in your environment you will "
+"need to enable it.  You can execute the following once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:16
+#: a178decd455a4ec78c1a869119b9e805
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:18
+#: a1a7ca6ab2d64412b932e1ca02cebcf6
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:22
+#: 88ea00af1d524cb785fad1222e5638e3
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:26
+#: 553c53d797054caa974ba0f3c582cc0e
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:33
+#: d058f8d98e074f7d9c6294a664f8cca8
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:40
+#: 0ae82b9c8a424e018d747126ef1a963c
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_zsh.md:42
+#: e3e21ae6977744dca48fae4722c2ec74
+msgid ""
+"[cilium-operator-aws completion](cilium-operator-aws_completion.md)\t - "
+"Generate the autocompletion script for the specified shell"
+msgstr ""
+

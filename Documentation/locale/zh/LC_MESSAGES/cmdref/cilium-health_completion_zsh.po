@@ -1,0 +1,88 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-health_completion_zsh.md:3
+#: de69b73637024c7b9998b120db09515f
+msgid "cilium-health completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:5
+#: 73d968356ef248dfb2614e71657525b6
+msgid "Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:7
+#: f3afe4ba4b1640998d9baf5c1b76e104
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:9
+#: e58fc79765044d55aa990d350d096318
+msgid "Generate the autocompletion script for the zsh shell."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:11
+#: 66c964e3521d4a60be646e8fa9943d1f
+msgid ""
+"If shell completion is not already enabled in your environment you will "
+"need to enable it.  You can execute the following once:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:16
+#: 1282aa8ff1a343e0a9dd260b9373f950
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:18
+#: 37ae5bf074f74531bc9028f2bdc663e5
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:22
+#: 52caddd31f544ed6807d8dbd58cb0eb6
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:26
+#: 837e4ccf736347d3b2310593084c7287
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:33
+#: ca8bf64fbafc4043a33fdfcf8817984c
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:40
+#: a979cbcfed674b8c9a904ba9dde3dbd6
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:49
+#: 62ca22a445af4127a6ce760c22fa3c79
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_zsh.md:51
+#: 6edabca87480492985aa0eef1bf4c108
+msgid ""
+"[cilium-health completion](cilium-health_completion.md)\t - Generate the "
+"autocompletion script for the specified shell"
+msgstr ""
+

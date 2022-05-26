@@ -1,0 +1,111 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/host-services.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 03d0246fdc2f4e799bea54e67c89fd76 0b27c76f59ec44d98bec97770cc1ed63
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/host-services.rst:11 08a9efb8af554444a6dd5bcbbe73f681
+msgid "Host-Reachable Services"
+msgstr ""
+
+#: ../../gettingstarted/host-services.rst:13 cd9ffc2a72a944d08d86289ac5de0061
+msgid ""
+"This guide explains how to configure Cilium to enable services to be "
+"reached from the host namespace in addition to pod namespaces."
+msgstr ""
+
+#: ../../gettingstarted/host-services.rst:18 2416ac43b67b4eb68194d47f88fa4584
+msgid ""
+"Host-reachable services for TCP and UDP requires a v4.19.57, v5.1.16, "
+"v5.2.0 or more recent Linux kernel. Note that v5.0.y kernels do not have "
+"the fix required to run host-reachable services with UDP since at this "
+"point in time the v5.0.y stable kernel is end-of-life (EOL) and not "
+"maintained anymore. For only enabling TCP-based host-reachable services a"
+" v4.17.0 or newer kernel is required. The most optimal kernel with the "
+"full feature set is v5.8."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: c188ccd555a9487283b58b8f1d537d95
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 886d080a927b4022882411f200b75bf1
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 07467bbc442744c491647ba9076ef105
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/host-services.rst:27 8751ef91c3134df7a9e0dbae77bb2e07
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/host-services.rst:35 e3c22334ebe3422f9ed0924e1e4f5f27
+msgid ""
+"If you can't run 4.19.57 but have 4.17.0 available you can restrict "
+"protocol support to TCP only:"
+msgstr ""
+
+#: ../../gettingstarted/host-services.rst:45 aba6ef0e99f0475c842b8bba4ceae4c8
+msgid ""
+"Host-reachable services act transparent to Cilium's lower layer datapath "
+"in that upon connect system call (TCP, connected UDP) or sendmsg as well "
+"as recvmsg (UDP) the destination IP is checked for an existing service IP"
+" and one of the service backends is selected as a target, meaning, while "
+"the application is assuming its connection to the service address, the "
+"corresponding kernel's socket is actually connected to the backend "
+"address and therefore no additional lower layer NAT is required."
+msgstr ""
+
+#: ../../gettingstarted/host-services.rst:53 ea9b43db667a4615b8983031cdbb6c57
+msgid "Verify that it has come up correctly:"
+msgstr ""
+
+#: ../../gettingstarted/host-services.rst:62 1e594701808d425dbe059754c259b2dd
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/host-services.rst:64 d5ebd8d4e2984548a596dafc3c0089c6
+msgid ""
+"The kernel eBPF cgroup hooks operate at connect(2), sendmsg(2) and "
+"recvmsg(2) system call layers for connecting the application to one of "
+"the service backends. In the v5.8 Linux kernel, a getpeername(2) hook for"
+" eBPF has been added in order to also reverse translate the connected "
+"sock addresses for application's getpeername(2) calls in Cilium. For "
+"kernels older than v5.8 such reverse translation is not taking place for "
+"this system call. For the vast majority of applications not having this "
+"translation at getpeername(2) does not cause any issues. There is one "
+"known case for libceph where its monitor might return an error since "
+"expected peer address mismatches."
+msgstr ""
+

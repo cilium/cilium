@@ -1,0 +1,139 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/kubernetes/requirements.rst:3
+#: 244befb7988041508bae0700b09c8eeb
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:11
+#: 863e6ed1a9f14bf58dc210c090a507f3
+msgid "Requirements"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:14
+#: da132cf6e8de44acaca0e84ee6903368
+msgid "Kubernetes Version"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:16
+#: e41ab0e63e5840acb0dbc86d4d92ec04
+msgid ""
+"All Kubernetes versions listed are e2e tested and guaranteed to be "
+"compatible with this Cilium version. Older Kubernetes versions not listed"
+" here do not have Cilium support. Newer Kubernetes versions, while not "
+"listed, will depend on the backward compatibility offered by Kubernetes."
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:21
+#: 478987ccdd1a4481bb2201dcc41fad26
+msgid "1.16"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:22
+#: c58786161603479ca17e8aea224e2f02
+msgid "1.17"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:23
+#: f2efc3b89fb3408aa690c6e406936938
+msgid "1.18"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:24
+#: 8535f873e6764e85a2455fd55f7b1354
+msgid "1.19"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:25
+#: 860184d60441430f87b357f7ccaa2a02
+msgid "1.20"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:26
+#: 74b4d1d2526543e688fadaa2832b4c14
+msgid "1.21"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:27
+#: 81c444c5341e462d96bd348d8ff7ad9d
+msgid "1.22"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:28
+#: 82f0fc5f9599417f95e55be04aee6b2d
+msgid "1.23"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:29
+#: 7ee9add040c648dca379b4dbb50b8f0e
+msgid "1.24"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:32
+#: 3f6556d7e960435ea62061b181f267b4
+msgid "System Requirements"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:34
+#: 2c001495d68e4e5a8a87290f264a20a0
+msgid ""
+"Cilium requires a Linux kernel >= 4.9. See :ref:`admin_system_reqs` for "
+"the full details on all systems requirements."
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:38
+#: a520cc85d0d54a5486f1bcffd023065c
+msgid "Enable CNI in Kubernetes"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:40
+#: e668dab4aad04bba845b1fc22ce33013
+msgid ""
+":term:`CNI` - Container Network Interface is the plugin layer used by "
+"Kubernetes to delegate networking configuration. CNI must be enabled in "
+"your Kubernetes cluster in order to install Cilium. This is done by "
+"passing ``--network-plugin=cni`` to kubelet on all nodes. For more "
+"information, see the `Kubernets CNI network-plugins documentation "
+"<https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-"
+"net/network-plugins/>`_."
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:47
+#: 71594e7424584c74acc0fbebb5b220b5
+msgid "Enable automatic node CIDR allocation (Recommended)"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:49
+#: a0688eb2dc594912a30c01e4d276a750
+msgid ""
+"Kubernetes has the capability to automatically allocate and assign a per "
+"node IP allocation CIDR. Cilium automatically uses this feature if "
+"enabled. This is the easiest method to handle IP allocation in a "
+"Kubernetes cluster. To enable this feature, simply add the following flag"
+" when starting ``kube-controller-manager``:"
+msgstr ""
+
+#: ../../concepts/kubernetes/requirements.rst:59
+#: 167913ee28b444feb78d9294b558963e
+msgid "This option is not required but highly recommended."
+msgstr ""
+

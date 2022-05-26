@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_service_delete.md:3 7a6ecb4ced3340528de1da3a1ca0cbb2
+msgid "cilium service delete"
+msgstr ""
+
+#: ../../cmdref/cilium_service_delete.md:5 42a9a43f223346a9a7f4af3d6e19d4b9
+msgid "Delete a service"
+msgstr ""
+
+#: ../../cmdref/cilium_service_delete.md:11 c16ea3dd46254fc8af19170870ce0754
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_service_delete.md:18 e40bfb2277e84d6691a6ea317818fa4c
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_service_delete.md:26 950013f03f7f4505907f9cb649e644fb
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_service_delete.md:28 2fb837685f6349acb4bdbbc9e0fd3f48
+msgid "[cilium service](cilium_service.md)\t - Manage services & loadbalancers"
+msgstr ""
+

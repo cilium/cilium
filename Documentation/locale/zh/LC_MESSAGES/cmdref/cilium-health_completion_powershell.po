@@ -1,0 +1,73 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-health_completion_powershell.md:3
+#: 458ae5d290144ea5aec334ddfd6fb9cc
+msgid "cilium-health completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:5
+#: 680f90baa0d64516ba469b6dc1c58b55
+msgid "Generate the autocompletion script for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:7
+#: d496c9a770e8421b9b13a71fbb2c3bcb
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:9
+#: c936478f8e374478a18470d0a0745858
+msgid "Generate the autocompletion script for powershell."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:11
+#: 906316afc4c343aab955255d2f339b9e
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:15
+#: 0cdc8e162d7b42d18124bde742212b9d
+msgid ""
+"To load completions for every new session, add the output of the above "
+"command to your powershell profile."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:23
+#: dc98397865454eb28b907b2cf17e24ee
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:30
+#: 166d8615fbd94aa7bedec9be7fa01204
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:39
+#: f626761647e34ed586a782c50c21b06e
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_powershell.md:41
+#: 3140412ec2f44537b8b96885374031e3
+msgid ""
+"[cilium-health completion](cilium-health_completion.md)\t - Generate the "
+"autocompletion script for the specified shell"
+msgstr ""
+

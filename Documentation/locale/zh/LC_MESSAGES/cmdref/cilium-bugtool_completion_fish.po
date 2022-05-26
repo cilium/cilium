@@ -1,0 +1,71 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:3
+#: 0449ce82fe734dea84e4e3b7e46487c1
+msgid "cilium-bugtool completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:5
+#: 27225ffc9f914b19b0bb544353206c7a
+msgid "Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:7
+#: ee26b377ada24e12965cd929988927c4
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:9
+#: b63a09241d3047e69187f2e0f554a4b4
+msgid "Generate the autocompletion script for the fish shell."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:11
+#: 4681910101d34edfb4fde432651e433d
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:15
+#: cdb6477b26d94502814fdaaf24065c48
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:19
+#: 2de32fae1e274df0898690f62583e555
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:26
+#: 199739a92b7f4318bfdefb9a92c3232a
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:33
+#: ed1508b907b7460b8c8e2caf778b4016
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_fish.md:35
+#: a629a212bb39472286a3171c9930f647
+msgid ""
+"[cilium-bugtool completion](cilium-bugtool_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+

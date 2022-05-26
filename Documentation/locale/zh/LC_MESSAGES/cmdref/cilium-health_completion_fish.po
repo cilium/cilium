@@ -1,0 +1,76 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-health_completion_fish.md:3
+#: 153244fe10fa4f809f16710bcb6ab1c2
+msgid "cilium-health completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:5
+#: 33e92476b3f24864be1879854c6f4f29
+msgid "Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:7
+#: 12005f913de74e65a8ab3b7d7f776b13
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:9
+#: 6463937211444c98b507b25e3da0c499
+msgid "Generate the autocompletion script for the fish shell."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:11
+#: 6a1edefd700a45959e14e020c09fc030
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:15
+#: 58afbbbef9274487b0e149cb248bfefd
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:19
+#: ead3afcaa01248bcb2e681388e3d8a3d
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:26
+#: 1b0c25ea9cbf4176b7672b8704c6f0cf
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:33
+#: 372e00841de740c990901a566a28fc88
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:42
+#: 1abc3221ac3448f197d2a0f817eefb1f
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_fish.md:44
+#: bbc806f3cb3d4d58b2175bbe239009ed
+msgid ""
+"[cilium-health completion](cilium-health_completion.md)\t - Generate the "
+"autocompletion script for the specified shell"
+msgstr ""
+

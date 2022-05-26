@@ -1,0 +1,308 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/policy-creation.rst:3 462565717d8b41138d444059b0fba91f
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:11 2e173b705a334b90ba055051171ed955
+msgid "Creating policies from verdicts"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:13 965ffa121acc4aafb6774c359a1ffa40
+msgid ""
+"Policy Audit Mode configures Cilium to allow all traffic while logging "
+"all connections that would otherwise be dropped by policy. Policy Audit "
+"Mode may be configured for the entire daemon using ``--policy-audit-"
+"mode=true``. When Policy Audit Mode is enabled, no network policy is "
+"enforced so this setting is **not recommended for production "
+"deployment**. Policy Audit Mode supports auditing network policies "
+"implemented at networks layers 3 and 4. This guide walks through the "
+"process of creating policies using Policy Audit Mode."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:1 edbea5662875420e9c7d6b63f72ade4a
+msgid ""
+"If you haven't read the :ref:`intro` yet, we'd encourage you to do that "
+"first."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:3 22ad597330ed4b4288f9be69dac36d6d
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:8 5aa8bfc0d83c400e9fddb37598aaa449
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:10
+#: 85b8bda4464544109a4c1e012d3b5c11
+msgid ""
+"If you have not set up Cilium yet, follow the guide "
+":ref:`k8s_install_standard` for instructions on how to quickly bootstrap "
+"a Kubernetes cluster and install Cilium. If in doubt, pick the minikube "
+"route, you will be good to go in less than 5 minutes."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:2 8373ef619ed04c9d981a756253b0ded4
+msgid "Deploy the Demo Application"
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:4 8ddb4d7b037046549d0f6c782eb957aa
+msgid ""
+"Now that we have Cilium deployed and ``kube-dns`` operating correctly we "
+"can deploy our demo application."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:6 a4a8528beb9845f08cad169e5c01299d
+msgid ""
+"In our Star Wars-inspired example, there are three microservices "
+"applications: *deathstar*, *tiefighter*, and *xwing*. The *deathstar* "
+"runs an HTTP webservice on port 80, which is exposed as a `Kubernetes "
+"Service <https://kubernetes.io/docs/concepts/services-"
+"networking/service/>`_ to load-balance requests to *deathstar* across two"
+" pod replicas. The *deathstar* service provides landing services to the "
+"empire's spaceships so that they can request a landing port. The "
+"*tiefighter* pod represents a landing-request client service on a typical"
+" empire ship and *xwing* represents a similar service on an alliance "
+"ship. They exist so that we can test different security policies for "
+"access control to *deathstar* landing services."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:8 5a1036322bb44fa49e2afbae665c910c
+msgid "**Application Topology for Cilium and Kubernetes**"
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:13 2569ee43c0714078a51dd854c201e80e
+msgid ""
+"The file ``http-sw-app.yaml`` contains a `Kubernetes Deployment "
+"<https://kubernetes.io/docs/concepts/workloads/controllers/deployment/>`_"
+" for each of the three services. Each deployment is identified using the "
+"Kubernetes labels (``org=empire, class=deathstar``), (``org=empire, "
+"class=tiefighter``), and (``org=alliance, class=xwing``). It also "
+"includes a deathstar-service, which load-balances traffic to all pods "
+"with label (``org=empire, class=deathstar``)."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:27 3e695bd6e2b840c28ee2a438276d89cb
+msgid ""
+"Kubernetes will deploy the pods and service in the background.  Running "
+"``kubectl get pods,svc`` will inform you about the progress of the "
+"operation. Each pod will go through several states until it reaches "
+"``Running`` at which point the pod is ready."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:45 df5e05ee87a444a9b7df1f5ba0b4608f
+msgid ""
+"Each pod will be represented in Cilium as an :ref:`endpoint`. We can "
+"invoke the ``cilium`` tool inside the Cilium pod to list them:"
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:89 77a164f06a774b5e947e2c4cd1399eef
+msgid ""
+"Both ingress and egress policy enforcement is still disabled on all of "
+"these pods because no network policy has been imported yet which select "
+"any of the pods."
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:25 8bc1f30ba1004d96ae4a57b0e16eeb35
+msgid "Enable Policy Audit Mode"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:27 bc09614ebe9748d49eca1563c7079c4a
+msgid "To observe policy audit messages, follow these steps:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:29 77562624f6cd48de853c5104e5845c4e
+msgid "Enable Policy Audit Mode in the daemon"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:33
+#: ../../gettingstarted/policy-creation.rst:177
+#: 123b1582edb54bbd8708db761ab46254 8200371586f8407095d81b132f56277a
+msgid "Configure via kubectl"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:45
+#: ../../gettingstarted/policy-creation.rst:189
+#: 5bff2e5b161c48e38ba0703566711713 658fd52caafe467b971d578bdeec01f1
+msgid "Helm Upgrade"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:47 d72a04c29b3c4f54824da8cc87db16e7
+msgid ""
+"If you installed Cilium via ``helm install``, then you can use ``helm "
+"upgrade`` to enable Policy Audit Mode:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:57 c5c1e8bab3324b7d9e1e8aaa8197557b
+msgid "Apply a default-deny policy:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:61 9d76410501614b718b1c32d187197bec
+msgid ""
+"CiliumNetworkPolicies match on pod labels using an \"endpointSelector\" "
+"to identify the sources and destinations to which the policy applies. The"
+" above policy denies traffic sent to any pods with label "
+"(``org=empire``). Due to the Policy Audit Mode enabled above, the traffic"
+" will not actually be denied but will instead trigger policy verdict "
+"notifications."
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:66 905638ccc897488b8bc71956087c9b86
+msgid "To apply this policy, run:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:73 f93d202958494432afa0c35ee23d8ba4
+msgid ""
+"With the above policy, we will enable default-deny posture on ingress to "
+"pods with the label ``org=empire`` and enable the policy verdict "
+"notifications for those pods. The same principle applies on egress as "
+"well."
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:80 7126a5b461fd430e896a66e58fc98275
+msgid "Observe policy verdicts"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:82 7e75e3f67f464f2c86dc23357afd93b1
+msgid ""
+"In this example, we are tasked with applying security policy for the "
+"deathstar. First, from the Cilium pod we need to monitor the "
+"notifications for policy verdicts using ``cilium monitor -t policy-"
+"verdict``. We'll be monitoring for inbound traffic towards the deathstar "
+"to identify that traffic and determine whether to extend the network "
+"policy to allow that traffic."
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:88 9b88adbf5d5c4f808a13b9ed07164efb
+msgid ""
+"From another terminal with kubectl access, send some traffic from the "
+"tiefighter to the deathstar:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:96 cf9bd002339848d58d25d08b40be89e0
+msgid ""
+"Back in the Cilium pod, the policy verdict logs are printed in the "
+"monitor output:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:105
+#: b9286aa5d4324577a4760faebbdec3a5
+msgid ""
+"In the above example, we can see that endpoint ``232`` has received "
+"traffic (``ingress true``) which doesn't match the policy (``action audit"
+" match none``). The source of this traffic has the identity ``31028``. "
+"Let's gather a bit more information about what these numbers mean:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:132
+#: bfe26bee54214cc78d6fdc7a10e11c11
+msgid "Create the Network Policy"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:134
+#: 12e3277db7b94c5b8d1f0548041898ca
+msgid ""
+"Given the above information, we now know the labels of the target pod, "
+"the labels of the peer that's attempting to connect, the direction of the"
+" traffic and the port. In this case, we can see clearly that it's an "
+"empire craft so once we've determined that we expect this traffic to "
+"arrive at the deathstar, we can form a policy to match the traffic:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:142
+#: 74c30fba6de14acfa14c43537705b895
+msgid "To apply this L3/L4 policy, run:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:149
+#: dcbd4992bba14050a7f8e7693ef5ee2b
+msgid ""
+"Now if we run the landing requests again, we can observe in the monitor "
+"output that the traffic which was previously audited to be dropped by the"
+" policy are now reported as allowed:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:158
+#: 51150cd028344c97a7a13bea4a737b02
+msgid "Executed from the cilium pod:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:165
+#: 5523906d007844cbb746030d8086ae12
+msgid ""
+"Now the policy verdict states that the traffic would be allowed: ``action"
+" allow``. Success!"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:169
+#: 5c77d64a32e44db3aaada1ab72d05dbb
+msgid "Disable Policy Audit Mode"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:171
+#: 9ab65c4ceac74c6bb9be1bfea49f7320
+msgid ""
+"These steps should be repeated for each connection in the cluster to "
+"ensure that the network policy allows all of the expected traffic. The "
+"final step after deploying the policy is to disable Policy Audit Mode "
+"again:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:198
+#: 9c66cd95daff43b9a6d345c21b795da8
+msgid ""
+"Now if we run the landing requests again, only the *tiefighter* pods with"
+" the label ``org=empire`` will succeed. The *xwing* pods will be blocked!"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:206
+#: 3061b1e4b8a9452baaf57210163e69fb
+msgid ""
+"This works as expected. Now the same request run from an *xwing* pod will"
+" fail:"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:212
+#: 3a897982c40e42c7a67068060e33a29c
+msgid ""
+"This request will hang, so press Control-C to kill the curl request, or "
+"wait for it to time out."
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:215
+#: 62571564e8884e1aacaf7bdfc7ec94fd
+msgid ""
+"We hope you enjoyed the tutorial.  Feel free to play more with the setup,"
+" follow the `gs_http` guide, and reach out to us on the `Cilium Slack "
+"channel <https://cilium.herokuapp.com>`_ with any questions!"
+msgstr ""
+
+#: ../../gettingstarted/policy-creation.rst:220
+#: 3f84a989b09146bd86a2391124f42243
+msgid "Clean-up"
+msgstr ""
+

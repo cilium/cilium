@@ -1,0 +1,163 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:3
+#: 2acfe18b82824778a4c1e13728c80953
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:9
+#: 328c0c547667416b9c890c162c470c5d
+msgid "Installation using Rancher"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:12
+#: 2c678a5e78d144e3857e01eb4282200d
+msgid "Pre-Requisites"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:14
+#: d5049223a05e4eafa017c10e37d2e9cc
+msgid "`Rancher Version 2.x <https://rancher.com/docs/rancher/v2.x/en/>`_"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:17
+#: 06b62ceda490404eb4e259650d95d1d4
+msgid "Create a New Cluster"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:19
+#: 556da07d62c045f4b7ff2dda974638e0
+msgid ""
+"In Rancher UI, navigate to the Clusters page. In the top right, click on "
+"the ``Add Cluster`` box to create a new cluster."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:24
+#: a3c19379fca54cc7bcd114dcc06f21ec
+msgid ""
+"On the Add Cluster page select to create a new cluster from ``Existing "
+"Nodes``:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:28
+#: 5832ec99c67c4ba280c2037e5352dc34
+msgid ""
+"On the ``Add Cluster`` page that opens, provide a name for the cluster. "
+"Next to the ``Cluster Options`` section click the box to ``Edit as "
+"YAML``. The configuration for the cluster will open up in an editor in "
+"the window."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:34
+#: 69f64ba5782943b9ae3dd4e5c87804f4
+msgid "Remove all configuration pertaining to the default network plugin:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:38
+#: 834fb74e95a84f79bdc42dc130bf268c
+msgid "Ensure that network plugin type ``none`` is specified:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:42
+#: 340406bb7fd64d8f83fad24ff56c90e7
+msgid ""
+"Make any additional changes to the configuration that are appropriate for"
+" your environment. When you are ready, click ``Create`` and Rancher will "
+"create the cluster in the ``Provisioning`` state."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:48
+#: 299da6a996b64537aa1f6d982a9f2d13
+msgid ""
+"Rancher will also present you with instructions on how to add nodes to "
+"the cluster:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:53
+#: bb4d352411d84f2a81e896fe8ea8ba6d
+msgid ""
+"Next, add nodes to the cluster using the Rancher-provided Docker "
+"commands. Be sure to add the appropriate number of nodes required for "
+"your cluster. After a few minutes, you will see that the Nodes overview "
+"will show an error message in the Rancher UI:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:60
+#: 018d7535fdd845668acd52959796212f
+msgid ""
+"This error is expected. The Kubernetes components are not able to fully "
+"communicate with each other because a CNI plugin has not been installed "
+"yet."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:63
+#: a82d8a0817fa467287069c420a3c806c
+msgid ""
+"In the Rancher UI, navigate to ``Tools`` -> ``Catalogs`` and click the "
+"``Add Catalog`` button:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:68
+#: 903ee809661e4d48b45fbcef23dd5752
+msgid ""
+"In the window that opens, add the official Cilium Helm v3 chart "
+"repository to the Rancher catalog:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:73
+#: 99f82b1225f240959f14fb3a7bc837eb
+msgid "Once added, you should see the Cilium repository in the catalog list:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:77
+#: cdcc56c610af4d8d9574a4d7d393d5d1
+msgid ""
+"Navigate to the Global Apps list and click the button to ``Launch`` an "
+"application:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:81
+#: cf88f258b83d4c309965f280d53d773e
+msgid ""
+"Provide a name for the application and select the System project in your "
+"cluster as the application target:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:86
+#: bd54046069be465fa327b7460dc382be
+msgid "Be sure to configure the application to have cluster-wide scope:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:90
+#: bee5c3a935d14a828885404f68e9dd55
+msgid ""
+"Configure any additional values for the Cilium chart and click ``Next``. "
+"The application should deploy within the target cluster and project."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rancher-existing-nodes.rst:93
+#: 639e0aa1fb424678916d76e5f5639764
+msgid ""
+"After a few minutes, you should see all nodes as active, and proper "
+"deployments of all Cilium objects."
+msgstr ""
+

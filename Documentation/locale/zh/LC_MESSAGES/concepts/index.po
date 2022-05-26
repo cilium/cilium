@@ -1,0 +1,40 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/index.rst:3 11d46a062d254246b7d0fc80ec758c81
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/index.rst:11 919794bc3005449aaba8a57165b98733
+msgid "Concepts"
+msgstr ""
+
+#: ../../concepts/index.rst:13 06818794cbd6459793689914aa1317f6
+msgid ""
+"The concepts chapter provides a deeper overview and deep dives over all "
+"aspects of Cilium and Hubble. If you are looking for a high-level "
+"introduction of Cilium and Hubble, see the section :ref:`intro`."
+msgstr ""
+
+#: ../../concepts/index.rst:17 aa65e49a9777414a9cb2d6e2d3d91dda
+msgid "Choose one of the following topics to start reading:"
+msgstr ""
+

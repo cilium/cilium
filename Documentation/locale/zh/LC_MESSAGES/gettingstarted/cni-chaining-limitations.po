@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:3
+#: bf02cfa6053c4cbea4fe770b7a04c047
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:9
+#: c99098aeef4845198eebb7532bfd6ef3
+msgid ""
+"Some advanced Cilium features may be limited when chaining with other CNI"
+" plugins, such as:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:12
+#: 9081018f45c341ccbe4ad2d056f6e667
+msgid ":ref:`Layer 7 Policy <l7_policy>` (see :gh-issue:`12454`)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:13
+#: e040fed8b1fc43778305395018b9a286
+msgid ":ref:`encryption_ipsec` (see :gh-issue:`15596`)"
+msgstr ""
+

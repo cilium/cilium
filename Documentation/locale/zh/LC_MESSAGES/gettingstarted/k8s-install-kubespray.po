@@ -1,0 +1,354 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:3
+#: df59a271052f4c6e9fee3aaa9d4c250b
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:11
+#: e35a654bbaaf4b6a871fb7cde567f5fd
+msgid "Installation using Kubespray"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:13
+#: 317eb75a2b164434aa0e463cc5c21306
+msgid ""
+"The guide is to use Kubespray for creating an AWS Kubernetes cluster "
+"running Cilium as the CNI. The guide uses:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:16
+#: f50d61fc32094e0683284c0abb9eb8dd
+msgid "Kubespray v2.6.0"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:17
+#: 1942d12f35c240c58ce0bcddd3dd3ad6
+msgid ""
+"Latest `Cilium released version`_ (instructions for using the version are"
+" mentioned below)"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:19
+#: 3a14960b14684923ba01171130e75138
+msgid ""
+"Please consult `Kubespray Prerequisites <https://github.com/kubernetes-"
+"sigs/kubespray#requirements>`__ and Cilium :ref:`admin_system_reqs`."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:24
+#: 52267991cc3748eda3979fc3c55a98b3
+msgid "Installing Kubespray"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:30
+#: 286c574cbdc1405894332dc124542e25
+msgid "Install dependencies from ``requirements.txt``"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:39
+#: 7fea1ddc8e1b4337b3136b3c83fe3643
+msgid "Infrastructure Provisioning"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:41
+#: f379c103ec364c98b2d94616dfd2e5ef
+msgid "We will use Terraform for provisioning AWS infrastructure."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:44
+#: aef10fde54e44d819b4df415886148f3
+msgid "Configure AWS credentials"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:46
+#: 98b5266b1ac44ef3806706a7976ccd92
+msgid "Export the variables for your AWS credentials"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:56
+#: d659d2bc003b44e08f973a82db0bcee6
+msgid "Configure Terraform Variables"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:58
+#: e4ef2c845b55453bba80fe5a9f7ce73a
+msgid ""
+"We will start by specifying the infrastructure needed for the Kubernetes "
+"cluster."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:65
+#: eae54fe9147b43fca126bfbe6647e869
+msgid ""
+"Open the file and change any defaults particularly, the number of master,"
+" etcd, and worker nodes. You can change the master and etcd number to 1 "
+"for deployments that don't need high availability. By default, this "
+"tutorial will create:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:69
+#: 0c5a527719ed439fb65478df2fde3cdd
+msgid "VPC with 2 public and private subnets"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:70
+#: 3623df1d5a65473ea9e32973c4e3ffad
+msgid "Bastion Hosts and NAT Gateways in the Public Subnet"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:71
+#: 157d1304cb084ad6a8627bf7ec2232eb
+msgid "Three of each (masters, etcd, and worker nodes) in the Private Subnet"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:72
+#: 7be2b8fd05a74b52bf80435da99c9d88
+msgid ""
+"AWS ELB in the Public Subnet for accessing the Kubernetes API from the "
+"internet"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:74
+#: e38ab4da7df049a88ab7df7551ab31e6
+msgid "Terraform scripts using ``CoreOS`` as base image."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:76
+#: aab39d013543436ab20f3407d7af18bd
+msgid "Example ``terraform.tfvars`` file:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:111
+#: 746f75abea49427f9b7298bbbd3b1264
+msgid "Apply the configuration"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:113
+#: eec6d91825a3493aba12133d19c92cfb
+msgid "``terraform init`` to initialize the following modules"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:115
+#: 9b5f20fe0bb440128d61840f0ae5fc95
+msgid "``module.aws-vpc``"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:116
+#: 722cdef11bd14d4e8bf26f2d91ee7512
+msgid "``module.aws-elb``"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:117
+#: b603223d703848d0a8b702432d68641b
+msgid "``module.aws-iam``"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:123
+#: 53f951213fd84af8a6de33f6c91d2657
+msgid "Once initialized , execute:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:129
+#: 48e4a5b8420047aa91d5e6f63d871807
+msgid ""
+"This will generate a file, ``aws_kubespray_plan``, depicting an execution"
+" plan of the infrastructure that will be created on AWS. To apply, "
+"execute:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:137
+#: 2830cf42ff5042199dbeb5d38c31d46c
+msgid ""
+"Terraform automatically creates an Ansible Inventory file at "
+"``inventory/hosts``."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:140
+#: 0f00990b44d74a8caf3cce46f1278fea
+msgid "Installing Kubernetes cluster with Cilium as CNI"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:142
+#: 5e18fef45b0a4b6f8f60be611a139be2
+msgid ""
+"Kubespray uses Ansible as its substrate for provisioning and "
+"orchestration. Once the infrastructure is created, you can run the "
+"Ansible playbook to install Kubernetes and all the required dependencies."
+" Execute the below command in the kubespray clone repo, providing the "
+"correct path of the AWS EC2 ssh private key in "
+"``ansible_ssh_private_key_file=<path to EC2 SSH private key file>``"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:144
+#: c5d957f3a40d4de38779f5553bbe9fa5
+msgid ""
+"We recommend using the `latest released Cilium version`_ by passing the "
+"variable when running the ``ansible-playbook`` command. For example, you "
+"could add the following flag to the command below: ``-e "
+"cilium_version=v1.11.0``."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:153
+#: 2ba660455ac44bd599855a6b39f6ba57
+msgid ""
+"If you are interested in configuring your Kubernetes cluster setup, you "
+"should consider copying the sample inventory. Then, you can edit the "
+"variables in the relevant file in the ``group_vars`` directory."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:163
+#: f7e1d39d8410455bae532177bf074dc5
+msgid "Validate Cluster"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:165
+#: c79c59c07503468491bc66d68524e319
+msgid ""
+"To check if cluster is created successfully, ssh into the bastion host "
+"with the user ``core``."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:173
+#: 5e00244a328842e796a1ec1280941e05
+msgid ""
+"Execute the commands below from the bastion host. If ``kubectl`` isn't "
+"installed on the bastion host, you can login to the master node to test "
+"the below commands. You may need to copy the private key to the bastion "
+"host to access the master node."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: dc820834c87b4b8893a6df5bb4a1b0e8
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 984dc2fab2a44b07994ffa10606e0be8
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 a0c2fde805c046ffa66f2be4ed8f6778
+#: ab2053f5fe2a4b018205601657946df2
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 44bf2540fb7e4d118f6627a642a75e65
+#: b2c27a77b1394e87a23051a566f63865
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 75501779bf1341028703e5aa4e576470
+#: 7e6be76ac09e407ebd2bdb2440cf4e27
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 6340791e5db74cb2a939e22b788f3c2f
+#: 6a902ba04773461289e3e9abe7498991
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 a58d7c71fb0549e980daaa2dd517ad30
+#: cd85086ec7e349ceb0ac91cadb9219d6
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 378a98fd411847ada5971d7b7e443094
+#: e3cf630eee48469dabc1ec3c97464e2d
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 6f05f6aebce247a289da362d9325b029
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: fbd4013b90a341398965b62424c5715f
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 7c41bcb4a98247199a79ccd74066d2eb
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 0dc488836191457dbbe546fa03b3fecf
+#: b0133ccb2a4d4d3f9c79409e540e0e7a
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 31b8c0b01f454dacb0d86e341c45f244
+#: 6f5e80b5f2fb4acf85787a470e59d0a1
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: d95bb771a8144e638578a6859c19f874
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 0141820e6c05418484e1ff820c97452d
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 8cd8400526574c338331a106bde99b2b
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: b8411657fe6446079f61e96cae09fcd0
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 3b6f4cc59fe843a9a573681041e6fa62
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubespray.rst:178
+#: f7738589ab6d4d58b5ca8c3cb897cb7a
+msgid "Delete Cluster"
+msgstr ""
+

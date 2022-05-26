@@ -1,0 +1,67 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:3
+#: 78d1f52ab04345d7b40e3df3672188b1
+msgid "cilium preflight migrate-identity"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:5
+#: f886a43c8d854105b8bdddd39924187b
+msgid "Migrate KVStore-backed identities to kubernetes CRD-backed identities"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:7
+#: f240b8bcbb574c18a3f29ca6802a214d
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:9
+#: 6db4b54f7a7b456a9fbd0ff01b4faa8a
+msgid ""
+"migrate-identity allows migrating to CRD-backed identities while \t"
+"minimizing connection interruptions. It will allocate a CRD-backed "
+"identity, \twith the same numeric security identity, for each cilium "
+"security identity \tdefined in the kvstore. When cilium-agents are "
+"restarted with \tidentity-allocation-mode set to CRD the numeric "
+"identities will then be \tequivalent between new instances and not-"
+"upgraded ones. In cases where the \tnumeric identity is already in-use by"
+" a different set of labels, a new \tnumeric identity is created."
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:22
+#: 1d5f055141f84d049244cb55c7fab992
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:32
+#: 94950626219b458bb283cda84fa9b6e1
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:40
+#: f956b18f6de24461b786675084f9daf8
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_migrate-identity.md:42
+#: 5749175299d440e3a9e032f4f258d8f7
+msgid "[cilium preflight](cilium_preflight.md)\t - cilium upgrade helper"
+msgstr ""
+

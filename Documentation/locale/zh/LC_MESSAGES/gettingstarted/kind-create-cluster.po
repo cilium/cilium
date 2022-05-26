@@ -1,0 +1,45 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/kind-create-cluster.rst:1
+#: f3390ee8604649ee903a4e09c06307c2
+msgid ""
+"To create a cluster with the configuration defined above, pass the "
+"``kind-config.yaml`` you created with the ``--config`` flag of kind."
+msgstr ""
+
+#: ../../gettingstarted/kind-create-cluster.rst:8
+#: 4a5ab4d99bbc4f94b02230bb423f0acc
+msgid "After a couple of seconds or minutes, a 4 nodes cluster should be created."
+msgstr ""
+
+#: ../../gettingstarted/kind-create-cluster.rst:10
+#: 3326e7f48a3043b8912ce6ce392636a8
+msgid ""
+"A new ``kubectl`` context (``kind-kind``) should be added to "
+"``KUBECONFIG`` or, if unset, to ``${HOME}/.kube/config``:"
+msgstr ""
+
+#: ../../gettingstarted/kind-create-cluster.rst:18
+#: 35ffacbfcb4a42018e16311475fc8d04
+msgid ""
+"The cluster nodes will remain in state ``NotReady`` until Cilium is "
+"deployed. This behavior is expected."
+msgstr ""
+

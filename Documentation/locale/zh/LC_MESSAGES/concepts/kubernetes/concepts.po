@@ -1,0 +1,112 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/kubernetes/concepts.rst:3 64c2f45a29664a3d809986be3514e6f1
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:9 238281985bd94973ae259c5ac0ca58d4
+msgid "Concepts"
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:14 a44eb9d1b5c34e9a87a160b3b6eaaef8
+msgid "Deployment"
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:16 7beacdcd30054c35aae351d46e0372bc
+msgid ""
+"The configuration of a standard Cilium Kubernetes deployment consists of "
+"several Kubernetes resources:"
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:19 deebd8b3d407438093afc6e511e5c57c
+msgid ""
+"A ``DaemonSet`` resource:  describes the Cilium pod that is deployed to "
+"each Kubernetes node.  This pod runs the cilium-agent and associated "
+"daemons. The configuration of this DaemonSet includes the image tag "
+"indicating the exact version of the Cilium docker container (e.g., "
+"v1.0.0) and command-line options passed to the cilium-agent."
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:25 2e6f0e6dc3e04ba39fdc9772103eabea
+msgid ""
+"A ``ConfigMap`` resource:  describes common configuration values that are"
+" passed to the cilium-agent, such as the kvstore endpoint and "
+"credentials, enabling/disabling debug mode, etc."
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:29 8acd9787b8e848fbbfcb4308f192bbd4
+msgid ""
+"``ServiceAccount``, ``ClusterRole``, and ``ClusterRoleBindings`` "
+"resources: the identity and permissions used by cilium-agent to access "
+"the Kubernetes API server when Kubernetes RBAC is enabled."
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:33 69f02042c5dd4e948a0e3e1d99f34825
+msgid ""
+"A ``Secret`` resource: describes the credentials use access the etcd "
+"kvstore, if required."
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:37 e91df310ef65471e9d700ca2363beb28
+msgid "Networking For Existing Pods"
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:39 cf451da13d4c465db22ba329770aae49
+msgid ""
+"In case pods were already running before the Cilium :term:`DaemonSet` was"
+" deployed, these pods will still be connected using the previous "
+"networking plugin according to the CNI configuration. A typical example "
+"for this is the ``kube-dns`` service which runs in the ``kube-system`` "
+"namespace by default."
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:44 097b178e77ae481c91bece3241de4fe3
+msgid ""
+"A simple way to change networking for such existing pods is to rely on "
+"the fact that Kubernetes automatically restarts pods in a Deployment if "
+"they are deleted, so we can simply delete the original kube-dns pod and "
+"the replacement pod started immediately after will have networking "
+"managed by Cilium.  In a production deployment, this step could be "
+"performed as a rolling update of kube-dns pods to avoid downtime of the "
+"DNS service."
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:56 9e93fa86c8c645bc9bc827744333808d
+msgid ""
+"Running ``kubectl get pods`` will show you that Kubernetes started a new "
+"set of ``kube-dns`` pods while at the same time terminating the old pods:"
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:70 443047799d844671b1dee9f5eaa1c549
+msgid "Default Ingress Allow from Local Host"
+msgstr ""
+
+#: ../../concepts/kubernetes/concepts.rst:72 a8aff0688edf48fca4de615f88705850
+msgid ""
+"Kubernetes has functionality to indicate to users the current health of "
+"their applications via `Liveness Probes and Readiness Probes "
+"<https://kubernetes.io/docs/tasks/configure-pod-container/configure-"
+"liveness-readiness-startup-probes/>`_. In order for ``kubelet`` to run "
+"these health checks for each pod, by default, Cilium will always allow "
+"all ingress traffic from the local host to each pod."
+msgstr ""
+

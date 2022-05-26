@@ -1,0 +1,159 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/rancher-desktop.rst:3 09c1b5d663f643ba926df023b471c084
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop.rst:11 f1b1332b2d484ec7ac9fd478a5559310
+msgid "Getting Started Using Rancher Desktop"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop.rst:13 314acc1b06f54e36b06d66cb6707d474
+msgid ""
+"This guide walks you through installation of Cilium on `Rancher Desktop "
+"<https://rancherdesktop.io>`_, an open-source desktop application for "
+"Mac, Windows and Linux."
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop.rst:17 4c07d0007ecc43cfa1bdf433e2abbeca
+msgid "Configure Rancher Desktop"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:1
+#: 32b0daf76481430d9c6148b148b40ab7
+msgid ""
+"Configuring Rancher Desktop is done using a YAML configuration file. This"
+" step is necessary in order to disable the default CNI and replace it "
+"with Cilium."
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:5
+#: da244c6b43204dac8b700998cb3a50ac
+msgid ""
+"Next you need to start Rancher Desktop with ``containerd`` and create a "
+":download:`override.yaml <rancher-desktop-override.yaml>`:"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:10
+#: 70a48ae21d6e4dd48cda1ffb33ca86a6
+msgid ""
+"After the file is created move it into your Rancher Desktop's "
+"``lima/_config`` directory:"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6
+#: ../../gettingstarted/rancher-desktop-configure.rst:13
+#: 40b2ffc86016497f8ad6d2a9121afbe7 b7e268c390ee4ac396879d8e6db33f4d
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15
+#: ../../gettingstarted/rancher-desktop-configure.rst:19
+#: 3bec8b5078c34bcfac0f8f3b8e350730 fe9d52f33a91493aa1ecfcade39c741b
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:25
+#: a5497d9aa9ab4da699ae43a5b91e637d
+msgid ""
+"Finally, open the Rancher Desktop UI and go to Kubernetes Settings panel "
+"and click \"Reset Kubernetes\"."
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:27
+#: fc14185633f84a4596d5e05494806268
+msgid ""
+"After a few minutes Rancher Desktop will start back up prepared for "
+"installing Cilium."
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop.rst:22 4d618930c3c7453fb1e8a578efb423dd
+msgid "Install Cilium"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 fbbdb026957949e7aac848278335e4df
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 fb4e4068abb74f98b1aead695201dff8
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 9d6aa85ff62f47bc8dab40313639dab4
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop.rst:26 7857357fff544cf894d4df67cf9dc4e4
+msgid "Install Cilium by running:"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop.rst:33 bb23e9fd57eb4fea98722f0b0999deb8
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 d68e7a7ab06444d0867e9de53d99bbcc
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: df10e7815872451ca52da2e0ee880831
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: b593bd9320c14de4a2aa4a70348f99fb
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 4c5414398cbf427ead933cb369c27c80
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 6a46ca2ece964dc8b04979a0a502d3b3
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 beb4d9d714fe4166ab7cabdddc72cc54
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 daa53ed495734e0c9ef039e3f9873e63
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 f55311de894f46548342ae4ca68f90d1
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 e77a17e2f28943b0897e884f7281a785
+msgid ":ref:`clustermesh`"
+msgstr ""
+

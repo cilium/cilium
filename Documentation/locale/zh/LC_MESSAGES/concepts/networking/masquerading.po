@@ -1,0 +1,300 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/networking/masquerading.rst:3
+#: 562e29db0072413280bf1e71a8a051f5
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:10
+#: 8765b15514454fa39225a6b6cf587773
+msgid "Masquerading"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:12
+#: 98451f99a076433f9c42b4bee19af1e9
+msgid ""
+"IPv4 addresses used for pods are typically allocated from RFC1918 private"
+" address blocks and thus, not publicly routable. Cilium will "
+"automatically masquerade the source IP address of all traffic that is "
+"leaving the cluster to the IPv4 address of the node as the node's IP "
+"address is already routable on the network."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:21
+#: bf0ae88b7ca14181b86efa38c269612b
+msgid ""
+"For IPv6 addresses masquerading is performed only when using iptables "
+"implementation mode."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:24
+#: e83c5257fbcc41398faa388395a4d5c1
+msgid ""
+"This behavior can be disabled with the option ``enable-ipv4-masquerade: "
+"false`` for IPv4 and ``enable-ipv6-masquerade: false`` for IPv6 traffic "
+"leaving the host."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:28
+#: 667d6180a0b94895b486d8214789c80a
+msgid "Configuration"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:35
+#: 74236f4c421540c690a859a3b11b4aef
+msgid "Setting the routable CIDR"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:31
+#: 184c658ac3fd4d1189658410dbdeb78d
+msgid ""
+"The default behavior is to exclude any destination within the IP "
+"allocation CIDR of the local node. If the pod IPs are routable across a "
+"wider network, that network can be specified with the option: ``ipv4"
+"-native-routing-cidr: 10.0.0.0/8`` (or ``ipv6-native-routing-cidr: "
+"fd00::/100`` for IPv6 addresses) in which case all destinations within "
+"that CIDR will **not** be masqueraded."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:38
+#: 325bf62cca8f4aab8c5d5b259c6cdb1f
+msgid "Setting the masquerading interface"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:38
+#: 4ba8502f2576415c9cba1f7a51f0e61e
+msgid "See :ref:`masq_modes` for configuring the masquerading interfaces."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:43
+#: 586a8decfa43459abb95bd58243616ad
+msgid "Implementation Modes"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:46
+#: 7fcbe8c77050412786e77b5e1396c184
+msgid "eBPF-based"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:48
+#: e1e676e44481430bbef65c8d21cebc53
+msgid ""
+"The eBPF-based implementation is the most efficient implementation. It "
+"requires Linux kernel 4.19 and can be enabled with the "
+"``bpf.masquerade=true`` helm option."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:52
+#: 4692de2a558c41d39498516601fbc0c3
+msgid ""
+"The current implementation depends on :ref:`the BPF NodePort feature "
+"<kubeproxy-free>`. The dependency will be removed in the future (:gh-"
+"issue:`13732`)."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:55
+#: 8d41b0c1fa1d441596527986d27132b0
+msgid ""
+"Masquerading can take place only on those devices which run the eBPF "
+"masquerading program. This means that a packet sent from a pod to an "
+"outside will be masqueraded (to an output device IPv4 address), if the "
+"output device runs the program. If not specified, the program will be "
+"automatically attached to the devices selected by :ref:`the BPF NodePort "
+"device detection metchanism <Nodeport Devices>`. To manually change this,"
+" use the ``devices`` helm option. Use ``cilium status`` to determine "
+"which devices the program is running on:"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:68
+#: 5aedf25b4288418fb8579b15d09f6059
+msgid ""
+"From the output above, the program is running on the ``eth0`` and "
+"``eth1`` devices."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:71
+#: d5def1d674a14afe9e37d18e7568232e
+msgid ""
+"The eBPF-based masquerading can masquerade packets of the following IPv4 "
+"L4 protocols:"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:73
+#: 58482d8a699843dfb3ae610f964e7e68
+msgid "TCP"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:74
+#: ffcfff398c594b04b91bcceeeb595f27
+msgid "UDP"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:75
+#: f9c67c3340a844ba9f9d407dcff00263
+msgid "ICMP (only Echo request and Echo reply)"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:77
+#: 093235e26bf3425db626ba5a86631ed4
+msgid ""
+"By default, all packets from a pod destined to an IP address outside of "
+"the ``ipv4-native-routing-cidr`` range are masqueraded, except for "
+"packets destined to other cluster nodes. The exclusion CIDR is shown in "
+"the above output of ``cilium status`` (``10.0.0.0/16``)."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:84
+#: c7c0c14ac6804d1890a835eff23ae578
+msgid ""
+"When eBPF-masquerading is enabled, traffic from pods to the External IP "
+"of cluster nodes will also not be masqueraded. The eBPF implementation "
+"differs from the iptables-based masquerading on that aspect. This "
+"limitation is tracked at :gh-issue:`17177`."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:89
+#: 6d9097d77e5f465d9c26ad17f3328ca9
+msgid ""
+"To allow more fine-grained control, Cilium implements `ip-masq-agent "
+"<https://github.com/kubernetes-sigs/ip-masq-agent>`_ in eBPF which can be"
+" enabled with the ``ipMasqAgent.enabled=true`` helm option."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:93
+#: 8787771bfd834c33b2fddf02e55641c2
+msgid ""
+"The eBPF-based ip-masq-agent supports the ``nonMasqueradeCIDRs`` and "
+"``masqLinkLocal`` options set in a configuration file. A packet sent from"
+" a pod to a destination which belongs to any CIDR from the "
+"``nonMasqueradeCIDRs`` is not going to be masqueraded. If the "
+"configuration file is empty, the agent will provision the following non-"
+"masquerade CIDRs:"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:99
+#: 8c98b1bc2c9a48f3ae000326bf16921a
+msgid "``10.0.0.0/8``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:100
+#: c3fd815161644b6d80297f354a8d639a
+msgid "``172.16.0.0/12``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:101
+#: 5d8b0b2e52f34cdeb496aec1a4213c6f
+msgid "``192.168.0.0/16``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:102
+#: 9a40b035d3ae48a1a8cf205b5d4b2b6f
+msgid "``100.64.0.0/10``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:103
+#: e3dbf041a9c94504a1206ac1967c700b
+msgid "``192.0.0.0/24``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:104
+#: 1e2468c1325d4b819797af20fc016ccc
+msgid "``192.0.2.0/24``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:105
+#: 977a3b650f9d4972acdbd89dc546fd10
+msgid "``192.88.99.0/24``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:106
+#: 6ae4b85b7b4346e99537c5a041e1ee5c
+msgid "``198.18.0.0/15``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:107
+#: f1afa11283674c7e9baafc0ad3bbffc3
+msgid "``198.51.100.0/24``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:108
+#: 7348e700baf84006a12c2c77cbe61c80
+msgid "``203.0.113.0/24``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:109
+#: 6e86cfa6dbcb4d7aa3ec9f2581d700f2
+msgid "``240.0.0.0/4``"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:111
+#: dded4d54d4f9413ab5eacbe96200afe1
+msgid ""
+"In addition, if the ``masqLinkLocal`` is not set or set to false, then "
+"``169.254.0.0/16`` is appended to the non-masquerade CIDRs list."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:114
+#: 2cea2480021e4ae4804b4e38ba950831
+msgid ""
+"The agent uses Fsnotify to track updates to the configuration file, so "
+"the original ``resyncInterval`` option is unnecessary."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:117
+#: 8ac99cb7ca274245998b487393ab6a22
+msgid ""
+"The example below shows how to configure the agent via :term:`ConfigMap` "
+"and to verify it:"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:141
+#: 79cdcadd72554e4c8545ef08b575ae69
+msgid "eBPF based masquerading is currently not supported for IPv6 traffic."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:144
+#: 3ed9bde22c1e487688a4d45f8b6b36e8
+msgid "iptables-based"
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:146
+#: db5939d30b75433f93d97e3bd45511ae
+msgid "This is the legacy implementation that will work on all kernel versions."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:148
+#: e278f7da0911402eb1510e14f58cf719
+msgid ""
+"The default behavior will masquerade all traffic leaving on a non-Cilium "
+"network device. This typically leads to the correct behavior. In order to"
+" limit the network interface on which masquerading should be performed, "
+"the option ``egress-masquerade-interfaces: eth0`` can be used."
+msgstr ""
+
+#: ../../concepts/networking/masquerading.rst:155
+#: ae1e6a7029cd4a2ab8af7ef0b89a7f62
+msgid ""
+"It is possible to specify an interface prefix as well, by specifying "
+"``eth+``, all interfaces matching the prefix ``eth`` will be used for "
+"masquerading."
+msgstr ""
+

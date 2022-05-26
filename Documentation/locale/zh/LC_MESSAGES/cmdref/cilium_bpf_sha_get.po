@@ -1,0 +1,45 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_sha_get.md:3 a70a0bd8b534467591fac0b3598b09ab
+msgid "cilium bpf sha get"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha_get.md:5 7907137cd43345c4959c08d071eab60b
+msgid "Get datapath SHA header"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha_get.md:11 eb2e8838e8b0468b83e8ff6bcabe8a07
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha_get.md:18 33c4248312ef4cadb68292ef197c339f
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha_get.md:26 b6f0c4c2f3354acbadbfddc4b1b57af4
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_sha_get.md:28 f48e0cd6b7d34bb6ac42c704f9d968ce
+msgid ""
+"[cilium bpf sha](cilium_bpf_sha.md)\t - Manage compiled BPF template "
+"objects"
+msgstr ""
+

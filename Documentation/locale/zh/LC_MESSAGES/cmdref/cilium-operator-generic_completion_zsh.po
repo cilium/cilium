@@ -1,0 +1,84 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:3
+#: d03c1bd6a0044793a4d5306731a603fe
+msgid "cilium-operator-generic completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:5
+#: 5ee78d819a364f48891dfb5759d13e53
+msgid "Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:7
+#: 8d4e05d20d0d4f9a9606ea2845186a0d
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:9
+#: 4dc0ec2b9840423f9cf28fa88d10f2f2
+msgid "Generate the autocompletion script for the zsh shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:11
+#: a90a3228fd10489ba6025e67692c57e8
+msgid ""
+"If shell completion is not already enabled in your environment you will "
+"need to enable it.  You can execute the following once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:16
+#: 5e618f5c1c7e48c1a501688d3b7e9532
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:18
+#: e25b8912093e462c81cbd8f234fbf1e1
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:22
+#: 8c1962df32144c8e974e43ba8364de7f
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:26
+#: dfe93931fec14f1ca44be65777f450e5
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:33
+#: 7d090bedc19f4f929bb25d00c592dc6d
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:40
+#: 8c4f4c7cd5e241b2a03b36b8af67eefa
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion_zsh.md:42
+#: 215b4062bcb544269267974f2ed01828
+msgid ""
+"[cilium-operator-generic completion](cilium-operator-"
+"generic_completion.md)\t - Generate the autocompletion script for the "
+"specified shell"
+msgstr ""
+

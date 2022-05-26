@@ -1,0 +1,496 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/debugging.rst:3
+#: a8f4de38d0a841d4ba5d5d99a47652de
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:9
+#: 8324a17946df4b5080fb2ddbd2427e2d
+msgid "Debugging"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:13
+#: b1d36011ca204284ac9475d3da125e45
+msgid "toFQDNs and DNS Debugging"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:15
+#: 851ed56875e142d8bb24e04c37c421e7
+msgid ""
+"The interactions of L3 toFQDNs and L7 DNS rules can be difficult to debug"
+" around. Unlike many other policy rules, these are resolved at runtime "
+"with unknown data. Pods may create large numbers of IPs in the cache or "
+"the IPs returned may not be compatible with our datapath implementation. "
+"Sometimes we also just have bugs."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:24
+#: 332946c477ff4489b4ddda338cd4077a
+msgid "Isolating the source of toFQDNs issues"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:26
+#: 43e7a20627af41e982fca4f3d9763b0a
+msgid ""
+"While there is no common culprit when debugging, the DNS Proxy shares the"
+" least code with other system and so is more likely the least audited in "
+"this chain. The cascading caching scheme is also complex in its "
+"behaviour. Determining whether an issue is caused by the DNS components, "
+"in the policy layer or in the datapath is often the first step when "
+"debugging toFQDNs related issues. Generally, working top-down is easiest "
+"as the information needed to verify low-level correctness can be "
+"collected in the initial debug invocations."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:36
+#: 607f0996bd164ca789d493161a659d17
+msgid "REFUSED vs NXDOMAIN responses"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:38
+#: c4fefc199d284b059fc1eb8b9e186bc0
+msgid ""
+"The proxy uses REFUSED DNS responses to indicate a denied request. Some "
+"libc implementations, notably musl which is common in Alpine Linux "
+"images, terminate the whole DNS search in these cases. This often "
+"manifests as a connect error in applications, as the libc lookup returns "
+"no data. To work around this, denied responses can be configured to be "
+"NXDOMAIN by setting ``--tofqdns-dns-reject-response-code=nameError`` on "
+"the command line."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:47
+#: b5fdedeeed5a4e64999316fc162cb9f7
+msgid "Monitor Events"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:49
+#: f8df481ba85d41f2888da8f3392cc86c
+msgid ""
+"The DNS Proxy emits multiple L7 DNS monitor events. One for the request "
+"and one for the response (if allowed). Often the L7 DNS rules are paired "
+"with L3 toFQDNs rules and events relating to those rules are also "
+"relevant."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:55
+#: e61ec1b5d4e94191a5077d4c66e707bd
+msgid "Be sure to run cilium monitor on the same node as the pod being debugged!"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:84
+#: 7c2006b2be484d8998e0d62d7355b749
+msgid ""
+"The above is for a simple ``curl cilium.io`` in a pod. The L7 DNS request"
+" is the first set of message and the subsequent L3 connection is the HTTP"
+" component. AAAA DNS lookups commonly happen but were removed to simplify"
+" the example."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:89
+#: fb3135b048224494a3676c4fa9dd8729
+msgid ""
+"If no L7 DNS requests appear, the proxy redirect is not in place. This "
+"may mean that the policy does not select this endpoint or there is an "
+"issue with the proxy redirection. Whether any redirects exist can be "
+"checked with ``cilium status --all-redirects``. In the past, a bug "
+"occurred with more permissive L3 rules overriding the proxy redirect, "
+"causing the proxy to never see the requests."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:95
+#: 401ca8f1647644a6845959334e4dd84c
+msgid ""
+"If the L7 DNS request is blocked, with an explicit denied message, then "
+"the requests are not allowed by the proxy. This may be due to a typo in "
+"the network policy, or the matchPattern rule not allowing this domain. It"
+" may also be due to a bug in policy propagation to the DNS Proxy."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:99
+#: 4f6cc4283690427294d0f29d37405bc8
+msgid ""
+"If the DNS request is allowed, with an explicit message, and it should "
+"not be, this may be because a more general policy is in place that allows"
+" the request. ``matchPattern: \"*\"`` visibility policies are commonly in"
+" place and would supersede all other, more restrictive, policies. If no "
+"other policies are in place, incorrect allows may indicate a bug when "
+"passing policy information to the proxy. There is no way to dump the "
+"rules in the proxy, but a debug log is printed when a rule is added. Look"
+" for ``DNS Proxy updating matchNames in allowed list during "
+"UpdateRules``. The pkg/proxy/dns.go file contains the DNS proxy "
+"implementation."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:109
+#: 986b323123ea4b2381a70e6cda9a31cd
+msgid ""
+"If L7 DNS behaviour seems correct, see the sections below to further "
+"isolate the issue. This can be verified with ``cilium fqdn cache list``. "
+"The IPs in the response should appear in the cache for the appropriate "
+"endpoint. The lookup time is included in the json output of the command."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:122
+#: 18eed29c089d446f8bfad527516c559e
+msgid "DNS Proxy Errors"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:124
+#: 7ab3c49ebb4d4b50adeaa0e935713635
+msgid ""
+"REFUSED responses are returned when the proxy encounters an error during "
+"processing. This can be confusing to debug as that is also the response "
+"when a DNS request is denied.  An error log is always printed in these "
+"cases. Some are callbacks provided by other packages via daemon in "
+"cilium-agent."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:129
+#: 852625e0e11f4d6faa1af0b8599df34b
+msgid ""
+"``Rejecting DNS query from endpoint due to error``: This is the "
+"\"normal\" policy-reject message. It is a debug log."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:131
+#: dfb8678093a348d589beebfcf966a4c9
+msgid ""
+"``cannot extract endpoint IP from DNS request``: The proxy cannot read "
+"the socket information to read the source endpoint IP. This could mean an"
+" issue with the datapath routing and information passing."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:134
+#: 90fc8a993f744a0ca969dbf845e8ec52
+msgid ""
+"``cannot extract endpoint ID from DNS request``: The proxy cannot use the"
+" source endpoint IP to get the cilium-internal ID for that endpoint. This"
+" is different from the Security Identity. This could mean that cilium is "
+"not managing this endpoint and that something has gone awry. It could "
+"also mean a routing problem where a packet has arrived at the proxy "
+"incorrectly."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:139
+#: 1faac25917134a1f9302eab59699fbb6
+msgid ""
+"``cannot extract destination IP:port from DNS request``: The proxy cannot"
+" read the socket information of the original request to obtain the "
+"intended target IP:Port. This could mean an issue with the datapath "
+"routing and information passing."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:143
+#: 0a2d0358a99143a38abb5f9d7d3f2c9e
+msgid ""
+"``cannot find server ip in ipcache``: The proxy cannot resolve a Security"
+" Identity for the target IP of the DNS request. This should always "
+"succeed, as world catches all IPs not set by more specific entries. This "
+"can mean a broken ipcache BPF table."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:147
+#: c8469a97b5184065a0dec4c98af1baa1
+msgid ""
+"``Rejecting DNS query from endpoint due to error``: While checking if the"
+" DNS request was allowed (based on Endpoint ID, destination IP:Port and "
+"the DNS query) an error occurred. These errors would come from the "
+"internal rule lookup in the proxy, the ``allowed`` field."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:151
+#: a64bf62f81254eeaa9c6c55af27dc4c1
+msgid ""
+"``Timeout waiting for response to forwarded proxied DNS lookup``: The "
+"proxy forwards requests 1:1 and does not cache. It applies a 10s timeout "
+"on responses to those requests, as the client will retry within this "
+"period (usually). Bursts of these errors can happen if the DNS target "
+"server misbehaves and many pods see DNS timeouts. This isn't an actual "
+"problem with cilium or the proxy although it can be caused by policy "
+"blocking the DNS target server if it is in-cluster."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:158
+#: 99ebe1c692ee44b7b51ead185174b438
+msgid ""
+"``Timed out waiting for datapath updates of FQDN IP information; "
+"returning response``: When the proxy updates the DNS caches with response"
+" data, it needs to allow some time for that information to get into the "
+"datapath. Otherwise, pods would attempt to make the outbound connection "
+"(the thing that caused the DNS lookup) before the datapath is ready. Many"
+" stacks retry the SYN in such cases but some return an error and some "
+"apps further crash as a response. This delay is configurable by setting "
+"the ``--tofqdns-proxy-response-max-delay`` command line argument but "
+"defaults to 100ms. It can be exceeded if the system is under load."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:170
+#: da8fd79790564d2bb53ddb5e081a77db
+msgid "Identities and Policy"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:172
+#: 3a8db6255a654fcda92e65070d5ed8dd
+msgid ""
+"Once a DNS response has been passed back through the proxy and is placed "
+"in the DNS cache ``toFQDNs`` rules can begin using the IPs in the cache. "
+"There are multiple layers of cache:"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:176
+#: b25d931344cc47319d009f2b6cd54108
+msgid ""
+"A per-Endpoint ``DNSCache`` stores the lookups for this endpoint. It is "
+"restored on cilium startup with the endpoint. Limits are applied here for"
+" ``--tofqdns-endpoint-max-ip-per-hostname`` and TTLs are tracked. The "
+"``--tofqdns-min-ttl`` is not used here."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:180
+#: 3ea2cdeeb1fa47209fb434006aed5822
+msgid ""
+"A per-Endpoint ``DNSZombieMapping`` list of IPs that have expired from "
+"the per-Endpoint cache but are waiting for the Connection Tracking GC to "
+"mark them in-use or not. This can take up to 12 hours to occur. This list"
+" is size-limited by ``--tofqdns-max-deferred-connection-deletes``."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:184
+#: 5e000ce3ea7c4999a0aaef0fc351edd4
+msgid ""
+"A global ``DNSCache`` where all endpoint and poller DNS data is "
+"collected. It does apply the ``--tofqdns-min-ttl`` value but not the "
+"``--tofqdns-endpoint-max-ip-per-hostname`` value."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:188
+#: d4405ae9c4b542c4b95e0bbd307bafbc
+msgid ""
+"If an IP exists in the FQDN cache (check with ``cilium fqdn cache list``)"
+" then ``toFQDNs`` rules that select a domain name, either explicitly via "
+"``matchName`` or via ``matchPattern``, should cause IPs for that domain "
+"to have allocated Security Identities. These can be listed with:"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:212
+#: 8c8cbcca4c314c929b5a2980825a3f37
+msgid ""
+"Note that CIDR identities are allocated locally on the node and have a "
+"high-bit set so they are often in the 16-million range. Note that this is"
+" the identity in the monitor output for the HTTP connection."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:215
+#: a1fec62bd6c44dde82227d32c4ad4529
+msgid ""
+"In cases where there is no matching identity for an IP in the fqdn cache "
+"it may simply be because no policy selects an associated domain. The "
+"policy system represents each ``toFQDNs:`` rule with a ``FQDNSelector`` "
+"instance. These receive updates from a global ``NameManage`` in the "
+"daemon. They can be listed along with other selectors (roughly "
+"corresponding to any L3 rule):"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:243
+#: 5deedf8b371c4ba2bd5be253aad10650
+msgid ""
+"In this example 16777217 is used by two selectors, one with "
+"``matchPattern: \"*\"`` and another empty one. This is because of the "
+"policy in use:"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:267
+#: 6088918bd2f247d99f85c111f4b248b2
+msgid ""
+"The L7 DNS rule has an implicit L3 allow-all because it defines only L4 "
+"and L7 sections. This is the second selector in the list, and includes "
+"all possible L3 identities known in the system. In contrast, the first "
+"selector, which corresponds to the ``toFQDNS: matchName: \"*\"`` rule "
+"would list all identities for IPs that came from the DNS Proxy. Other "
+"CIDR identities would not be included."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:275
+#: b14b0dda9240436eb0fba78a71889a91
+msgid "Unintended DNS Policy Drops"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:277
+#: d329492bdbf442c1990c66a17fae9b81
+msgid ""
+"``toFQDNSs`` policy enforcement relies on the source POD performing a DNS"
+" query before using an IP address returned in the DNS response. Sometimes"
+" PODs may hold on to a DNS response and start new connections to the same"
+" IP address at a later time. This may trigger policy drops if the DNS "
+"response has expired as requested by the DNS server in the time-to-live "
+"(TTL) value in the response. When DNS is used for service load balancing "
+"the advertised TTL value may be short (e.g., 60 seconds). To allow for "
+"reasonable POD behavior without unintended policy drops Cilium employs a "
+"configurable minimum DNS TTL value via ``--tofqdns-min-ttl`` which "
+"defaults to 3600 seconds. This setting overrides short TTLs and allows "
+"the POD to use the IP address in the DNS response for one hour. Existing "
+"connections also keep the IP address as allowed in the policy. Any new "
+"connections opened by the POD using the same IP address without "
+"performing a new DNS query after the (possibly extended) DNS TTL has "
+"expired can be dropped by Cilium policy enforcement. To allow PODs to use"
+" the DNS response after TTL expiry for new connections a command line "
+"option ``--tofqdns-idle-connection-grace-period`` may be used to keep the"
+" IP-address/name mapping valid in the policy for an extended time after "
+"DNS TTL expiry. This option takes effect only if the POD has opened at "
+"least one connection during the DNS TTL period."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:298
+#: 753b7cc0a2a840d2907c30f826e693a2
+msgid "Datapath Plumbing"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:300
+#: e7c39e82d4f74171b26d38e6c9b501cf
+msgid ""
+"For a policy to be fully realized the datapath for an Endpoint must be "
+"updated. In the case of a new DNS-source IP, the CIDR identity associated"
+" with it must propagate from the selectors to the Endpoint specific "
+"policy. Unless a new policy is being added, this often only involves "
+"updating the Policy Map of the Endpoint with the new CIDR Identity of the"
+" IP. This can be verified:"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:317
+#: d03cb3bbaddc46299f41f03573bf85d0
+msgid ""
+"Note that the labels for identities are resolved here. This can be "
+"skipped, or there may be cases where this doesn't occur:"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:331
+#: aa53c4b543b745409d891720407d9664
+msgid ""
+"L3 ``toFQDNs`` rules are egress only, so we would expect to see an "
+"``Egress`` entry with Security Identity ``16777217``. The L7 rule, used "
+"to redirect to the DNS Proxy is also present with a populated ``PROXY "
+"PORT``. It has a 0 ``IDENTITY`` as it is an L3 wildcard, i.e. the policy "
+"allows any peer on the specified port."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:337
+#: 9f7129aaf7d5467791950013a0009906
+msgid "An identity missing here can be an error in various places:"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:339
+#: 045456de9cef467489aa14aec185e99a
+msgid ""
+"Policy doesn't actually allow this Endpoint to connect. A sanity check is"
+" to use ``cilium endpoint list`` to see if cilium thinks it should have "
+"policy enforcement."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:342
+#: 2030681ef1c944bdb351138e1b608609
+msgid ""
+"Endpoint regeneration is slow and the Policy Map has not been updated "
+"yet. This can occur in cases where we have leaked IPs from the DNS cache "
+"(i.e. they were never deleted correctly) or when there are legitimately "
+"many IPs. It can also simply mean an overloaded node or even a deadlock "
+"within cilium."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:346
+#: 9a0740fe7ceb4c98b65ac8ea82f8b6dc
+msgid ""
+"A more permissive policy has removed the need to include this identity. "
+"This is likely a bug, however, as the IP would still have an identity "
+"allocated and it would be included in the Policy Map.  In the past, a "
+"similar bug occurred with the L7 redirect and that would stop this whole "
+"process at the beginning."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:353
+#: 65163c1672f74ebda2fdebc41a897949
+msgid "Mutexes / Locks and Data Races"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:357
+#: 5e9763b629ee4138bb499831fdb8cbab
+msgid "This section only applies to Golang code."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:359
+#: e7e3c23f83774b7b95df38a82b5a407f
+msgid ""
+"There are a few options available to debug Cilium data races and "
+"deadlocks."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:361
+#: 8343c181bcb34cd3b37dfcc86d465919
+msgid ""
+"To debug data races, Golang allows ``-race`` to be passed to the compiler"
+" to compile Cilium with race detection. Additionally, the flag can be "
+"provided to ``go test`` to detect data races in a testing context."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:369
+#: 4adee9b796f84ab888cf095fcddfa55c
+msgid "Race detection"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:371
+#: 158c9504f0eb4ed391beb2ec8afef859
+msgid "To compile a Cilium binary with race detection, you can do:"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:379
+#: 5f6ad1563551434aaa2e1bbe432929a2
+msgid ""
+"For building the Operator with race detection, you must also provide "
+"``BASE_IMAGE`` which can be the ``cilium/cilium-runtime`` image from the "
+"root Dockerfile found in the Cilium repository."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:383
+#: 99b626ea1d4b449fad82a06ccdb94525
+msgid "To run integration tests with race detection, you can do:"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:391
+#: cae5e5f30947426180889c5445af3b2c
+msgid "Deadlock detection"
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:393
+#: 856d933717fe45d384c59a3c400607e7
+msgid ""
+"Cilium can be compiled with a build tag ``lockdebug`` which will provide "
+"a seamless wrapper over the standard mutex types in Golang, via `sasha-s"
+"/go-deadlock library <https://github.com/sasha-s/go-deadlock>`_. No "
+"action is required, besides building the binary with this tag."
+msgstr ""
+
+#: ../../contributing/development/debugging.rst:398
+#: 690ab53def68407bb2cc3c2b180c043e
+msgid "For example:"
+msgstr ""
+

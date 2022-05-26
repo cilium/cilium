@@ -1,0 +1,84 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:3
+#: ab664022d3dc4ab98a4f8f2480940e53
+msgid "cilium-operator-alibabacloud completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:5
+#: 48ba20325e4e474d89433002d550ded4
+msgid "Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:7
+#: 5997b7a769954a7785f5d20cb370a851
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:9
+#: 9fc76de1a8504a6faf61ab2bd5878289
+msgid "Generate the autocompletion script for the zsh shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:11
+#: 4e21a9f2f5814127b2bb7382bf722a3e
+msgid ""
+"If shell completion is not already enabled in your environment you will "
+"need to enable it.  You can execute the following once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:16
+#: 9ed4714585e743be9e316904b7ee587d
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:18
+#: 3ecbd5c527fe404f92b4ef5ee581ae15
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:22
+#: 687b647b8e68485ca2e778544fd39590
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:26
+#: 745fbcbc5b9c4156a6e82d699207b271
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:33
+#: c527fdb03e6f452899d625d6ca88c2d7
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:40
+#: b51ffef4860f4c41ba3d7b83cfb73c14
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_zsh.md:42
+#: 1a0439164f3e498b838f704a0b81c73c
+msgid ""
+"[cilium-operator-alibabacloud completion](cilium-operator-"
+"alibabacloud_completion.md)\t - Generate the autocompletion script for "
+"the specified shell"
+msgstr ""
+

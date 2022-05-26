@@ -1,0 +1,129 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: ee090f1a48e94f9fa53d8a8bc872f2d3
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 283b63a7c81f48beb06ecab825fe0b67
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 368ce7385ade4f7696946702a5b003e2
+#: bbb2213256dc49a4b41044f18b626142
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 109c0d53052e400cb408e85197ab31a0
+#: 27b116a70e45474fb9d153630d601ce9
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 60f7fc6f118d45e8af348011da9251ba
+#: e646853105ba4bfba0625806de40be0f
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 ba28a095c3c34ac58af5f4fc31bb5526
+#: f890c710837842d2a7dfca6f49cad9fe
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 0c2428f7b5bf40bbb22e1ee842f5ea8c
+#: 121d8921d2e34902aa0fd9c60fd89cdd
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 c81fc28903b148d08bf751fc455ff84a
+#: e596ba85c1b64e5c8b85edb60c3ee658
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 8808c9bcdaeb4bb18f06d5e40f066e47
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: a90479a8587c4f7898d8493109329e0d
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 8774287a2db84426a1bc6e999fee5eff
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 9c872613eb2e4fcd81255bd66000e1cb
+#: efcbacf7ac0e4fbdb32a6f6b75854592
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 e7f0b00475bd46abb834167c39e166ff
+#: ebddc858182a4e6fb8f2fbacb0b611b9
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: d5c4dda010ff41c7953a58e366f0cb2e
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: f26506494d25425cb19fd4435be3c2de
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 0b76e926b427486287272e51e498523e
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 723b144dd47a48198457ea5eecb39a20
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 2604577a7ac846ffbcd21c118f0d96f9
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+

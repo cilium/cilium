@@ -1,0 +1,68 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:3
+#: 1133fc7fa5654fccad113dbe66b26691
+msgid "cilium-operator completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:5
+#: 59442e83421847cc91b06b5cb5b9b00a
+msgid "Generate the autocompletion script for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:7
+#: 7a59e01683774bc083014e09c2aeb093
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:9
+#: ec155c433c554ca2893529cda43465eb
+msgid "Generate the autocompletion script for powershell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:11
+#: 074e52eb400e46cab4e7f6f971d820ce
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:15
+#: e4f44fb080b84df4959e29c8d41d2620
+msgid ""
+"To load completions for every new session, add the output of the above "
+"command to your powershell profile."
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:23
+#: 919f00413a9443fc8c1d4f48ac5b871c
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:30
+#: fd447ac8f6f74b1eb1c56c14e1e68450
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_powershell.md:32
+#: f2f579b2054a43808671546c4a0a2bb1
+msgid ""
+"[cilium-operator completion](cilium-operator_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+

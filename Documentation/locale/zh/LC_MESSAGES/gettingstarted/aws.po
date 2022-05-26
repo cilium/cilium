@@ -1,0 +1,248 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/aws.rst:3 7887253de0da45389be8e13566e07ff9
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:11 97a7719e44564b18b303650b23884657
+msgid "Locking down external access using AWS metadata"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:13 25b15b84773e45f39f21fe1642611c52
+msgid ""
+"This document serves as an introduction to using Cilium to enforce "
+"policies based on AWS instances metadata. It is a detailed walk-through "
+"of getting a single-node Cilium environment running on your machine. It "
+"is designed to take 15-30 minutes with some experience running "
+"Kubernetes."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:20 37b8f51a849b4a9089612dbf8d02a52a
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:22 f7b088d7d4504bcf8cd2046a916a8120
+msgid ""
+"This guide will work with any approach to installing Cilium, including "
+"minikube, as long as the cilium-operator pod in the deployment can reach "
+"the AWS API server However, since the most common use of this mechanism "
+"is for Kubernetes clusters running in AWS, we recommend trying it out "
+"along with the guide: :ref:`k8s_install_quick` ."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:28 6d30c15820714230a7ca273aff4e0228
+msgid "Create AWS secrets"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:30 51bd853b4686415b82fc74078e7f5587
+msgid ""
+"Before installing Cilium, a new Kubernetes Secret with the AWS Tokens "
+"needs to be added to your Kubernetes cluster. This Secret will allow "
+"Cilium to gather information from the AWS API which is needed to "
+"implement ToGroups policies."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:35 aa3806d7702f4e17a40052402cf884bc
+msgid "AWS Access keys and IAM role"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:37 defd8f1a98f34484bb46de15d19730ba
+msgid ""
+"To create a new access token the `following guide can be used "
+"<https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-"
+"quickstart.html#cli-configure-quickstart-config>`_. These keys need to "
+"have certain permissions set:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:54 9a7fdadec0e7410f9ee01de472486352
+msgid ""
+"As soon as you have the access tokens, the following secret needs to be "
+"added, with each empty string replaced by the associated value as a "
+"base64-encoded string:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:72 51bc2905e5374afdbe9aa4b6a5df20c8
+msgid ""
+"The base64 command line utility can be used to generate each value, for "
+"example:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:79 8246f937e57849f1a669635bf499d593
+msgid ""
+"This secret stores the AWS credentials, which will be used to connect the"
+" AWS API."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:86 f11dc71b221443beb89f823084514193
+msgid ""
+"To validate that the credentials are correct, the following pod can be "
+"created for debugging purposes:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:121 b2d7acea1687462f83ee42187cc43846
+msgid ""
+"To list all of the available AWS instances, the following command can be "
+"used:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:127 67f5efaff08d4173959765dab1f273c6
+msgid ""
+"Once the secret has been created and validated, the cilium-operator pod "
+"must be restarted in order to pick up the credentials in the secret. To "
+"do this, identify and delete the existing cilium-operator pod, which will"
+" be recreated automatically:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:142 424999223fb14567a978caf26de09602
+msgid ""
+"It is important for this demo that ``coredns`` is working correctly. To "
+"know the status of ``coredns`` you can run the following command:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:151 da810edb6c1843669df3a1e37d744b61
+msgid "Where at least one pod should be available."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:154 07381934da944e67b068959d5f955507
+msgid "Configure AWS Security Groups"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:156 0e2e60d366fc49d9ae83a9900fc7d29c
+msgid ""
+"Cilium's AWS Metadata filtering capability enables explicit whitelisting "
+"of communication between a subset of pods (identified by Kubernetes "
+"labels) with a set of destination EC2 VMs (identified by membership in an"
+" AWS security group)."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:160 13b0446ad1264bebae028aedc264e45c
+msgid ""
+"In this example, the destination EC2 VMs are a member of a single AWS "
+"security group ('sg-0f2146100a88d03c3') and pods with label class=xwing "
+"should only be able to make connections outside the cluster to the "
+"destination VMs in that security group."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:165 89234a317a204f719e0d7b646a579991
+msgid ""
+"To enable this, the VMs acting as Kubernetes worker nodes must be able to"
+" send traffic to the destination VMs that are being accessed by pods.  "
+"One approach for achieving this is to put all Kubernetes worker VMs in a "
+"single 'k8s-worker' security group, and then ensure that any security "
+"group that is referenced in a Cilium toGroups policy has an allow all "
+"ingress rule (all ports) for connections from the 'k8s-worker' security "
+"group.  Cilium filtering will then ensure that the only pods allowed by "
+"policy can reach the destination VMs."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:174 f73edd97af5f4b1786de4f837f80507f
+msgid "Create a sample policy"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:177 7e3576aa144148cb93370d71c4fe6831
+msgid "Deploy a demo application:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:179 51c2138db07c4ba78287095de18f2f80
+msgid ""
+"In this case we're going to use a demo application that is used in other "
+"guides. These manifests will create three microservices applications: "
+"*deathstar*, *tiefighter*, and *xwing*. In this case, we are only going "
+"to use our *xwing* microservice to secure communications to existing AWS "
+"instances."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:193 72b96efc434c4b089b2ca3f9ca5dc129
+msgid ""
+"Kubernetes will deploy the pods and service in the background. Running "
+"``kubectl get pods,svc`` will inform you about the progress of the "
+"operation.  Each pod will go through several states until it reaches "
+"``Running`` at which point the pod is ready."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:212 0ec03f5964ea43d2a2e61144c564f1f6
+msgid "Policy Language:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:214 fe5b72a92b644706b65c5adec2a1d55c
+msgid ""
+"**ToGroups** rules can be used to define policy in relation to cloud "
+"providers, like AWS."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:239 a9ae8d90b0774fdbb2413ae700a416da
+msgid ""
+"This policy allows traffic from pod *xwing* to any AWS instance that is "
+"in the security group with ID ``sg-0f2146100a88d03c3``."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:243 2b2572465a9241a6b6df3c1e005577a9
+msgid "Validate that derived policy is in place"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:245 68d0074a4ec04541acb5ba03a820ca5b
+msgid ""
+"Every time that a new policy with ToGroups rules is added, an equivalent "
+"policy (also called \"derivative policy\"), will be created. This policy "
+"will contain the set of CIDRs that correspond to the specification in "
+"ToGroups, e.g., the IPs of all instances that are part of a specified "
+"security group. The list of IPs will be updated periodically."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:258 97979c4b38964a0ba256a233640da05b
+msgid "Eventually, the derivative policy will contain IPs in the ToCIDR section:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:321 235c2bcecf724e6ab734279191f8469f
+msgid "The derivative rule should contain the following information:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:323 ca7756a3945d4d5eb39307c9c7254c4c
+msgid ""
+"*metadata.OwnerReferences*: that contains the information about the "
+"ToGroups policy."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:326 d0c290a7fe414d1c83a511bbf125303d
+msgid ""
+"*specs.Egress.ToCIDRSet*:  the list of private and public IPs of the "
+"instances that correspond to the spec of the parent policy."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:329 ef4f62e0cd2d492abd4d24d669b7eb58
+msgid ""
+"*status*: whether or not the policy is enforced yet, and when the policy "
+"was last updated."
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:332 f412451459724f1fb25f6f0a2b8972bf
+msgid ""
+"The Cilium Endpoint status for the *xwing* should have policy enforcement"
+" enabled only for egress connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/aws.rst:341 27b168252e094d4c868e1403fda1ced4
+msgid ""
+"In this example, *xwing* pod can only connect to ``34.254.113.42/32`` and"
+" ``172.31.44.160/32`` and connectivity to other IP will be denied."
+msgstr ""
+

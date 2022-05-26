@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_node_list.md:3 f93505e9e89449a5bf75668303e54a25
+msgid "cilium node list"
+msgstr ""
+
+#: ../../cmdref/cilium_node_list.md:5 8f767a9ddbf0402b887728fdd62135a3
+msgid "List nodes"
+msgstr ""
+
+#: ../../cmdref/cilium_node_list.md:11 144c67d3f70245f698f9bcb6092a74c9
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_node_list.md:18 9a8bd2c2497647bfb34da42a3daab6b5
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_node_list.md:26 fb3999fa078849cda8236897c25c0d07
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_node_list.md:28 0364be56479b4987a1e87d8f04fba6ce
+msgid "[cilium node](cilium_node.md)\t - Manage cluster nodes"
+msgstr ""
+

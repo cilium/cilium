@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_metrics.md:3 7faaa6f2d7164c63a42781c34e481ddb
+msgid "cilium bpf metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics.md:5 6f3a83bcca1b4d69b3ba2f47b8e02761
+msgid "BPF datapath traffic metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics.md:7 498975f058bc4cc3872066bcedc5bce7
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics.md:13 0aef5ff45afb47f1b9542b9c00e327f1
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics.md:21 a685a461492143f59c04142040d5e1bb
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics.md:23 6c735017d1214f1789632c7cf5cb760a
+msgid "[cilium bpf](cilium_bpf.md)\t - Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_metrics.md:24 ff7288e41d914a9686b0c126df99199d
+msgid ""
+"[cilium bpf metrics list](cilium_bpf_metrics_list.md)\t - List BPF "
+"datapath traffic metrics"
+msgstr ""
+

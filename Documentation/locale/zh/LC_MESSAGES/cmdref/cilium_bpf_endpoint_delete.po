@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:3
+#: 6a85b15090b5464c9b883e3627a19700
+msgid "cilium bpf endpoint delete"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:5
+#: 2b460055206e46f69effc45503677fcc
+msgid "Delete local endpoint entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:11
+#: b5be5b0f8bb147178e19be45e3e9b2a0
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:17
+#: d6affc21b6a04c34b6ea455db2da1898
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:25
+#: 91e3633f24174c20b0e3238f2219ce15
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_endpoint_delete.md:27
+#: 16d0068b7a774394a92a08f36b656478
+msgid "[cilium bpf endpoint](cilium_bpf_endpoint.md)\t - Local endpoint map"
+msgstr ""
+

@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_metrics.md:3 a8f48bed483342659206d4002795d675
+msgid "cilium metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics.md:5 a8a557c0a1b44fa7bfa1bc78a674c6fa
+msgid "Access metric status"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics.md:7 142d81ceb72b45c7a004d03493f93b1a
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics.md:13 5d0ff17b2652481796e048104f6fa546
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics.md:21 73e757be0d0e415cbd47d712966189ab
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics.md:23 33fca3cf457843bb9e8dbfd5921de36e
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_metrics.md:24 6b08c1bda4b34dafb160371cb14b3682
+msgid "[cilium metrics list](cilium_metrics_list.md)\t - List all metrics"
+msgstr ""
+

@@ -1,0 +1,41 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/clustermesh/index.rst:3 6ddf1cf68e6f49229795f772e89d205b
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/clustermesh/index.rst:11 a86930409f654f54a6d78e5db0814d9a
+msgid "Multi-Cluster (Cluster Mesh)"
+msgstr ""
+
+#: ../../concepts/clustermesh/index.rst:13 ac69631985e84388a20df8dd10075ec2
+msgid ""
+"Cluster mesh extends the networking datapath across multiple clusters. It"
+" allows endpoints in all connected clusters to communicate while "
+"providing full policy enforcement. Load-balancing is available via "
+"Kubernetes annotations."
+msgstr ""
+
+#: ../../concepts/clustermesh/index.rst:17 71464fc1c3214b3dab15162088613aea
+msgid "See :ref:`gs_clustermesh` for instructions on how to set up cluster mesh."
+msgstr ""
+

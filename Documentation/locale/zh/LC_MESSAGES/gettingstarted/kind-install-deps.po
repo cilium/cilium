@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/kind-install-deps.rst:1
+#: cdc62d8000e34285b45f97ef2cce19e3
+msgid ""
+"Install ``docker`` stable as described in `Install Docker Engine "
+"<https://docs.docker.com/engine/install/>`_"
+msgstr ""
+
+#: ../../gettingstarted/kind-install-deps.rst:4
+#: 15ce95a323954637afa65a24f8eaf962
+msgid ""
+"Install ``kubectl`` version >= v1.14.0 as described in the `Kubernetes "
+"Docs <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_"
+msgstr ""
+
+#: ../../gettingstarted/kind-install-deps.rst:7
+#: 655ae915e46f4575af597b0b0ce27139
+msgid ""
+"Install ``helm`` >= v3.0.3 per Helm documentation: `Installing Helm "
+"<https://helm.sh/docs/intro/install/>`_"
+msgstr ""
+
+#: ../../gettingstarted/kind-install-deps.rst:10
+#: 43cb189a8dc9427181645eb2cc30ab6e
+msgid ""
+"Install ``kind`` >= v0.7.0 per kind documentation: `Installation and "
+"Usage <https://kind.sigs.k8s.io/#installation-and-usage>`_"
+msgstr ""
+

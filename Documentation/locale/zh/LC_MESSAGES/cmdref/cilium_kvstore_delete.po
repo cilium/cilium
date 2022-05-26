@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_kvstore_delete.md:3 abe2a83ea791463aa7e6ae791392b7ae
+msgid "cilium kvstore delete"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_delete.md:5 2a61c3f9430b4d3a87526fd48578cb8c
+msgid "Delete a key"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_delete.md:11 42c34085422d42faa9416690da08422a
+msgid "Examples"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_delete.md:17 1ddcf80f2d044352bafe04fa9a4e5550
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_delete.md:24 dc19ed88c52e4b7493414edac71425d2
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_delete.md:34 01967d50a32642ec9f5a95c2f407faf0
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_delete.md:36 2a80b9eea20549d7a96816a3874995e7
+msgid "[cilium kvstore](cilium_kvstore.md)\t - Direct access to the kvstore"
+msgstr ""
+

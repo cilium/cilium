@@ -1,0 +1,291 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:3
+#: ../../gettingstarted/cni-chaining-limitations.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 36387dd1a59f4e65803f0d83c81b7589 3edffbb6992147d68a93a6a60ce646a5
+#: 9bc67bdf2166440a846baa2a8a631922
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:11
+#: 4407eed008ce403790709e0806be21a3
+msgid "Azure CNI"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:15
+#: b9bba469476f49728205e25d0186e708
+msgid ""
+"This is not the best option to run Cilium on AKS or Azure. Please refer "
+"to :ref:`k8s_install_quick` for the best guide to run Cilium in Azure "
+"Cloud. Follow this guide if you specifically want to run Cilium in "
+"combination with the Azure CNI in a chaining configuration."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:9
+#: 3a370618e47643acac07f4d3fa6720fa
+msgid ""
+"Some advanced Cilium features may be limited when chaining with other CNI"
+" plugins, such as:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:12
+#: 9c30d81ccbb148529d6e0d768e00603b
+msgid ":ref:`Layer 7 Policy <l7_policy>` (see :gh-issue:`12454`)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:13
+#: 3fc63f13e65446f08bf364ee64fda130
+msgid ":ref:`encryption_ipsec` (see :gh-issue:`15596`)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:22
+#: 889d1690a3184152b8e30932ea8965cb
+msgid ""
+"This guide explains how to set up Cilium in combination with Azure CNI in"
+" a chaining configuration. In this hybrid mode, the Azure CNI plugin is "
+"responsible for setting up the virtual network devices as well as address"
+" allocation (IPAM). After the initial networking is setup, the Cilium CNI"
+" plugin is called to attach eBPF programs to the network devices set up "
+"by Azure CNI to enforce network policies, perform load-balancing, and "
+"encryption."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:31
+#: b0348db5f967436ebcf815055404a076
+msgid "Create an AKS + Cilium CNI configuration"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:33
+#: c93d9d6460be4920afa0fb793e43f6e5
+msgid ""
+"Create a ``chaining.yaml`` file based on the following template to "
+"specify the desired CNI chaining configuration. This :term:`ConfigMap` "
+"will be installed as the CNI configuration file on all nodes and defines "
+"the chaining configuration. In the example below, the Azure CNI, portmap,"
+" and Cilium are chained together."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:70
+#: 775be5779ca44f548ece18472bc19cd8
+msgid "Deploy the :term:`ConfigMap`:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:78
+#: 0fb40a57ce3e4860910df95c535dbb74
+msgid "Deploy Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 52ec4b233e294a7b8dcd57bc11695a10
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 8835ec5c2b534a95b68c09fe2c576ee9
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 56e299666da5432e9cad9c9613eb71dd
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:82
+#: fd93a843d91b4b129a215c7dca090258
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-azure-cni.rst:96
+#: bd5bfad767e446edb76063e3cf834b07
+msgid ""
+"This will create both the main cilium daemonset, as well as the cilium-"
+"node-init daemonset, which handles tasks like mounting the eBPF "
+"filesystem and updating the existing Azure CNI plugin to run in "
+"'transparent' mode."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:2
+#: dc58e34e5004439988ebdcb3ea9cb9d7
+msgid "Restart unmanaged Pods"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:4
+#: 18329822c53c4e1abb1763862ff33f00
+msgid ""
+"If you did not create a cluster with the nodes tainted with the taint "
+"``node.cilium.io/agent-not-ready``, then unmanaged pods need to be "
+"restarted manually. Restart all already running pods which are not "
+"running in host-networking mode to ensure that Cilium starts managing "
+"them. This is required to ensure that all pods which have been running "
+"before Cilium was deployed have network connectivity provided by Cilium "
+"and NetworkPolicy applies to them:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:27
+#: 558d0a9e7e9748f8a3c0eab31de7c3fa
+msgid ""
+"This may error out on macOS due to ``-r`` being unsupported by ``xargs``."
+" In this case you can safely run this command without ``-r`` with the "
+"symptom that this will hang if there are no pods to restart. You can stop"
+" this with ``ctrl-c``."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: 7439f54518a74c31b3f0e9d6289757cb
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 1c0ebabfb4db4219aa758f13b6b5f35f
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 01acc698924248dcb31b28762ae32236
+#: d1ad703576544b7c953e3b4833a45f0b
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 62d4d948eb74481f93e0f19768f8d7bf
+#: ec879d04ea0e4838bc98c1ffa3d411f2
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 9f3cd7c179ef4f38a662c5bf780347ea
+#: f9e8af01356b45fab97109a1c676045c
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 341d3a14cdf3450494d83231326742f8
+#: bc056efc037548a4929a11fe2ab9a653
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 7365c0fc23a64c4897b2046aed2c94d2
+#: 902fb3c1e6724d248a0cac4b97735f44
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 096f960634a4444eb4474b00ca018da5
+#: a0d5e9c7056e4cc1b01927bdb1937245
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 2b4b41705212488a9e89b4d701a9d0d0
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: 3fc66d2c91d342668df7365d4b3bb2a7
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: ffb61f44b48240679ffa1e34ab8bec30
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 28f869848cb245c9946ad34c1b2d1140
+#: 47e4fc181f164b3aa6e0cd4a848378f0
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 7bcaf19ee7c249179f8b529c5b851f47
+#: 97c9832b2f4d4d448ff2a9847bff5ab8
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 33313d06abdd416b90424e673ea84188
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: c339ddccd76d4305903405ac35470855
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: e9e8e561407a4dafb27c1861bf496e51
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 05dedccbb2c840d082352ae13a44841d
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 025d1050864943d884aa14e2b6915b4d
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 e401a2f0374044cf8f5db2512de832db
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 9db071fe85dc4d5987b1667a914fd669
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 471703be008c495790e23efeac28236e
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 1d65f5fad60a4f8cb1207fd0cac4867d
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 c41b5e843e7c480481134e64f686a507
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 ce7c9314f42e49608ddd023a32c2df1a
+msgid ":ref:`clustermesh`"
+msgstr ""
+

@@ -1,0 +1,91 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/requirements-rke.rst:1 42e7baa97c9647cf8c9f350472d35241
+msgid ""
+"To install Cilium on `Rancher Kubernetes Engine (RKE) "
+"<https://rancher.com/docs/rke/latest/en/>`_, perform the following steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:6 df8d805a894245eb91566e8093001c27
+msgid ""
+"If you are using RKE2, Cilium has been directly integrated. Please see "
+"`Using Cilium <https://docs.rke2.io/install/network_options/#using-"
+"cilium-or-calico-instead-of-canal>`_ in the RKE2 documentation. You can "
+"use either method."
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:10
+#: ebfdeb8144254829a3f8748bd6ee4cd7
+msgid "**Default Configuration:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:13
+#: f37d81541c324c4eb638bec4e1ea8c3b
+msgid "Datapath"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:13
+#: b60f5e6d69914b09bc57ad17f6de8d69
+msgid "IPAM"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:13
+#: dde5ef1128d648a8992ac1fc550e2dec
+msgid "Datastore"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:15
+#: d284c8aa4d2342faa03abd0b6e256671
+msgid "Encapsulation"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:15
+#: af18648366aa47858437f744db7f0fa9
+msgid "Cluster Pool"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:15
+#: acf3c7f4e1574b8fb0bdbdd0a6c90d1c
+msgid "Kubernetes CRD"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:18
+#: 4870fc0674c94e8a898073b5fe304d58
+msgid "**Requirements:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:20
+#: 27590f81e6d2421fbad05e99453fe602
+msgid ""
+"Follow the `RKE Installation Guide "
+"<https://rancher.com/docs/rke/latest/en/installation/>`_ with the below "
+"change:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:23
+#: 28cb826240754e2188db6b5a84161a71
+msgid "From:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:32
+#: bf6228a3857144e5848e7023ebb46943
+msgid "To:"
+msgstr ""
+

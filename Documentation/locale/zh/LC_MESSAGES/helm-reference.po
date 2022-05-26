@@ -1,0 +1,4743 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../helm-reference.rst:3 dda271e8f98747a58778251439e3ab99
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../helm-reference.rst:11 3c8b1b5935ec46ba8462be29e3741d9d
+msgid "Helm Reference"
+msgstr ""
+
+#: ../../helm-reference.rst:13 1841bb8e6af8402c94965f8b97969dc4
+msgid ""
+"The table below serves as a reference for the values that can be set on "
+"Cilium's Helm chart."
+msgstr ""
+
+#: ../../helm-values.rst:8 2c4ebf65cdd4473783df8f73944270e8
+msgid "Key"
+msgstr ""
+
+#: ../../helm-values.rst:9 374ca64b85734fbbb9011c0ea2bc4eaf
+msgid "Description"
+msgstr ""
+
+#: ../../helm-values.rst:10 86c6d41cfa9f4813bd20bd3c6461f45c
+msgid "Type"
+msgstr ""
+
+#: ../../helm-values.rst:11 3314b556616f4b62a3825929755c6f06
+msgid "Default"
+msgstr ""
+
+#: ../../helm-values.rst:12 2f649a1dd8054db0b9018ed1b562adf4
+msgid "affinity"
+msgstr ""
+
+#: ../../helm-values.rst:13 a8c06d167b1f46389ae5da8414c2f6e8
+msgid "Affinity for cilium-agent."
+msgstr ""
+
+#: ../../helm-values.rst:14 ../../helm-values.rst:38 ../../helm-values.rst:50
+#: ../../helm-values.rst:66 ../../helm-values.rst:110 ../../helm-values.rst:114
+#: ../../helm-values.rst:126 ../../helm-values.rst:154
+#: ../../helm-values.rst:158 ../../helm-values.rst:166
+#: ../../helm-values.rst:170 ../../helm-values.rst:174
+#: ../../helm-values.rst:190 ../../helm-values.rst:202
+#: ../../helm-values.rst:206 ../../helm-values.rst:218
+#: ../../helm-values.rst:222 ../../helm-values.rst:226
+#: ../../helm-values.rst:238 ../../helm-values.rst:250
+#: ../../helm-values.rst:254 ../../helm-values.rst:258
+#: ../../helm-values.rst:274 ../../helm-values.rst:278
+#: ../../helm-values.rst:338 ../../helm-values.rst:346
+#: ../../helm-values.rst:370 ../../helm-values.rst:470
+#: ../../helm-values.rst:490 ../../helm-values.rst:530
+#: ../../helm-values.rst:538 ../../helm-values.rst:542
+#: ../../helm-values.rst:558 ../../helm-values.rst:566
+#: ../../helm-values.rst:570 ../../helm-values.rst:582
+#: ../../helm-values.rst:590 ../../helm-values.rst:602
+#: ../../helm-values.rst:638 ../../helm-values.rst:650
+#: ../../helm-values.rst:670 ../../helm-values.rst:682
+#: ../../helm-values.rst:686 ../../helm-values.rst:694
+#: ../../helm-values.rst:710 ../../helm-values.rst:726
+#: ../../helm-values.rst:738 ../../helm-values.rst:742
+#: ../../helm-values.rst:758 ../../helm-values.rst:770
+#: ../../helm-values.rst:782 ../../helm-values.rst:798
+#: ../../helm-values.rst:802 ../../helm-values.rst:806
+#: ../../helm-values.rst:822 ../../helm-values.rst:830
+#: ../../helm-values.rst:834 ../../helm-values.rst:838
+#: ../../helm-values.rst:858 ../../helm-values.rst:874
+#: ../../helm-values.rst:886 ../../helm-values.rst:894
+#: ../../helm-values.rst:898 ../../helm-values.rst:910
+#: ../../helm-values.rst:914 ../../helm-values.rst:918
+#: ../../helm-values.rst:922 ../../helm-values.rst:926
+#: ../../helm-values.rst:942 ../../helm-values.rst:954
+#: ../../helm-values.rst:958 ../../helm-values.rst:970
+#: ../../helm-values.rst:982 ../../helm-values.rst:986
+#: ../../helm-values.rst:994 ../../helm-values.rst:1002
+#: ../../helm-values.rst:1018 ../../helm-values.rst:1042
+#: ../../helm-values.rst:1086 ../../helm-values.rst:1130
+#: ../../helm-values.rst:1134 ../../helm-values.rst:1146
+#: ../../helm-values.rst:1166 ../../helm-values.rst:1170
+#: ../../helm-values.rst:1186 ../../helm-values.rst:1190
+#: ../../helm-values.rst:1194 ../../helm-values.rst:1198
+#: ../../helm-values.rst:1206 ../../helm-values.rst:1210
+#: ../../helm-values.rst:1218 ../../helm-values.rst:1222
+#: ../../helm-values.rst:1262 ../../helm-values.rst:1270
+#: ../../helm-values.rst:1274 ../../helm-values.rst:1290
+#: ../../helm-values.rst:1298 ../../helm-values.rst:1302
+#: ../../helm-values.rst:1310 ../../helm-values.rst:1322
+#: ../../helm-values.rst:1330 ../../helm-values.rst:1354
+#: ../../helm-values.rst:1358 ../../helm-values.rst:1362
+#: ../../helm-values.rst:1374 ../../helm-values.rst:1386
+#: ../../helm-values.rst:1390 ../../helm-values.rst:1394
+#: ../../helm-values.rst:1410 ../../helm-values.rst:1418
+#: ../../helm-values.rst:1422 ../../helm-values.rst:1438
+#: ../../helm-values.rst:1450 ../../helm-values.rst:1458
+#: ../../helm-values.rst:1466 ../../helm-values.rst:1470
+#: ../../helm-values.rst:1494 ../../helm-values.rst:1498
+#: ../../helm-values.rst:1506 ../../helm-values.rst:1510
+#: ../../helm-values.rst:1514 ../../helm-values.rst:1518
+#: ../../helm-values.rst:1526 ../../helm-values.rst:1550
+#: ../../helm-values.rst:1554 ../../helm-values.rst:1582
+#: 001831ee150c463faa9a8c8b861d8d1d 00ba26ab1ff2460fad814f53dd0d7371
+#: 04624d55737844768ce8aad2fc00bb78 06f50fc375084a88a5653453561aa9e1
+#: 076d73d9d5a0483d831f629c63c0695b 0879b672b7404ffd82fe6ae4d2c1f4a0
+#: 08a463ba9f8d4b90b1c789ab06485b98 0c71bbe5450c4e8cb6c03c4a15fa1ca1
+#: 0cf25eb048a049e2973d4939f281cee5 11dea7afb7874e01960f5204d1a35c75
+#: 1379a8f79c41443c8dc1969b6517f18a 1472fa5c58f54e199bf44978a7c3d03a
+#: 153cee9f55b34b41a57c2e6803495d04 15c8d938966c4b3d9734e1c8a315e050
+#: 17d7a214a6d947faa490ec7bf5a419de 18a7b8c32db14396a78704c3d2448c94
+#: 18ccbc067e914258b1a41aa2ae2cbe73 1aebdf10ef2842bdab318715f04e2ac1
+#: 1ca466fe04934fef9207f1cb9f0cd7ef 23c52c101c174522a83caf11315ea793
+#: 25d8c06c355a4393a5ab76eac30cd828 291ab076fd144ee88b690004541c2784
+#: 2d1cc173a20a47bab7c6ebf25cc36161 2d74ae0499bf4ad7acb0a6624d978190
+#: 2eadbeaace5f41eebad3ac50a9f1b3e4 318d52d28b3c41ea903c1a640cec10d1
+#: 32645a1f7e9946279865165aaf840568 32ad2802db3547a7a159765ccb0b55ed
+#: 3856d685e8c249d1ab0ae542a5010870 3c7490c9665d4ac795e9504249fa772c
+#: 3ef720155c484a0ca6765092bf3b70b3 41de86549ee7433a829a086a1cd85814
+#: 44c132981c1c42d0b7d1018116ffaf43 496a31948319445e99400105b6792d2f
+#: 4a1144aa91d14d6795b19809be80f051 4cbab3406eab42469aaaabec2a5d9d8e
+#: 4e163d4b2515443f96ae511142a7f577 4f2154e8f76d425387e8e269aec13a10
+#: 4fa6c455e96246249366be9d910df55a 52dc6c41ee0049038089de002b44f349
+#: 55d858de438b42f9abf717665da39cf3 5799335162d2487fb36982757c7a2ab1
+#: 595ba6f6206f43139d23561ca022d240 5a7449a2775e43cca3d84f20da712229
+#: 5e612ff695c6425ea068242f2c914c39 5ebb3ad5dd9d45d28f91472bb9692db9
+#: 5f6fa5eb751a46bea1fc67af27d21580 605c0163ce40432ca047c2fa670e7072
+#: 62deee7893764efe9fa5ed398b61bcc0 641edc00a42b4c9987f5292e6d2525fb
+#: 665c2e8fe5894032bfc9e18bff9be5e5 67d6fa63ad0749f99440cd8fb712918e
+#: 68e6e6a637144497a015b2ac136b7b6e 69309bd6ef5041b991d383e2fde1afbc
+#: 6ed4ec0c003845818737651fffdb4151 7670cfd86fc84cf8a8416dca99047c7f
+#: 77c18d7cd5c342bea4049aa08938abe2 7c497ee81f1241fc9d9b402d0e650621
+#: 7cc55fff63a545318f90fbc741a2fc64 7ea4e961d7d44ea2b6dab6e746fd299e
+#: 8212a6f91d5847f99788299316c296cb 82e84267e9a4486b99160a3212084563
+#: 8364e7f909e34f34afec0f48eabc47bb 84fa69dd95f24de88a1f63af5d831546
+#: 872966f479af4580b74f383048a9fdcc 8a184b11bd5f4cd7a1fdbb5e7cb12d76
+#: 93379ef2ed42489a91bd39f47449749d 94199a44a408450cbbacfbe01be53e0b
+#: 9564e48fa3fc41749407579b80bed08c 964c96a025f640ce832600118b227029
+#: 9673b6404ca144dbba076d9bda1077c4 97dac6797e4240c48ca607d8abde6389
+#: 9a3e71c014064513962593435849aeef 9bb17f9154d04e708c3a54571eee819d
+#: 9c2e4c1f2e1f4be697232466b1e2282c 9ccf985da7ed498b8214b27520e5cd1e
+#: 9ce269367e0a45d6a3d8d8059e1f142c 9d0b8f86324b401cbac3cb7c7f5dc589
+#: 9dabb9d1208041bebd425689d06a9dc4 9df7903d2167485985492c8196d9ae95
+#: 9dfc74d210dd47ad851716e3416dbf18 a33475dbfc8f403ba2583517996ff7d3
+#: a47b5c9603484f618e7b244d382359b1 a6d578baff0f40caab672c1778c84b11
+#: a917977a18ab4c63ba598a7d50b611d2 a9f42749cac14f71aa2732a3f19ad98e
+#: aaa303fac1794201845705b9bd3580c8 add5c4d9c39948d79275f4426576a7db
+#: b0ae2a2234f445cca6d831e61629fdf3 b42c45ff11eb4b769282c4da2e06e9d3
+#: b5512bc7fc324d22a556aea0d6eb4819 b5849e49eca94e74905fc56a73d471be
+#: b6d0db4603bd4c9a974c081f140980df ba137141142b4f748d7cb283f035e551
+#: baa2acea599844ecb99cf6c7bb87662f bb0281e67fd2490ab4a35471be297750
+#: bde4820fd58e4883a7d961060c3ce197 c19a57540eb046beab76aa881682c422
+#: c51c50c64bc440d19f270f18cc1beff7 c5935d66fbc44111b5831be8df161e93
+#: c85c5aca3c584ea1a24cd9c8787b8f48 c8ddef3e80b5430282a1add2edb49e5c
+#: cc610b3f2f7e4e42bbf44e21058f8522 cea85cff4b194e1286d711855ea4ad9f
+#: d140415b6cb8476c9d2bc04973216177 d402e81424044678bd41731cc2d8f86d
+#: d942d67426ca4a1aa1ebd54391e2b44d d95b225e771d41729954c95b42938c4a
+#: da0992aa8b7a41558787b6cd04995dbf dc99cc95256e494390d5c96ae5cb0890
+#: dd8ba75b73ea4147b1e46f8d5f480aa9 de6e24fcb5ee408d8c3c4b600f25bfff
+#: e32f04e96dd74b13826a8888b9451cd3 e398a9d8d46c4b61b88cee0fe6851aa4
+#: e3dd495495a941fdb92ec0ed3a37c7ec e704aaf6cbdf4f229cdd3b6c3bc984ab
+#: e84096e47f744fc3bfba660acbe02b2d ebfff46f208440f8af003fed68e088a1
+#: ed9ff974d8364ddb8a8e016ff011a166 ef550462fb9448588da8a335765e03ea
+#: f4524e05012f4bcdb9a3de58f5ff0389 f6572793ffa749d3a056e91486b7bfd6
+#: f83c7cdf6e7748e283f341fdd332328f f96048e70ddf4373ba2c20760f45a630
+#: fbd4f13b2f664dfa8949aa6b15a4f04e fe22d0632bf846778c0fdf094cbb4387
+msgid "object"
+msgstr ""
+
+#: ../../helm-values.rst:15 d2ed329dd152470d9e715b8920e5f418
+msgid ""
+"``{\"podAntiAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":[{\"labelSelector\":{\"matchLabels"
+"\":{\"k8s-"
+"app\":\"cilium\"}},\"topologyKey\":\"kubernetes.io/hostname\"}]}}``"
+msgstr ""
+
+#: ../../helm-values.rst:16 521f85f439044c179ca6232abfa09914
+msgid "agent"
+msgstr ""
+
+#: ../../helm-values.rst:17 4600fe4d93ed4f77aa3864ca4576c14e
+msgid "Install the cilium agent resources."
+msgstr ""
+
+#: ../../helm-values.rst:18 ../../helm-values.rst:22 ../../helm-values.rst:26
+#: ../../helm-values.rst:30 ../../helm-values.rst:34 ../../helm-values.rst:42
+#: ../../helm-values.rst:46 ../../helm-values.rst:54 ../../helm-values.rst:58
+#: ../../helm-values.rst:62 ../../helm-values.rst:70 ../../helm-values.rst:74
+#: ../../helm-values.rst:78 ../../helm-values.rst:102 ../../helm-values.rst:130
+#: ../../helm-values.rst:138 ../../helm-values.rst:142
+#: ../../helm-values.rst:178 ../../helm-values.rst:234
+#: ../../helm-values.rst:290 ../../helm-values.rst:294
+#: ../../helm-values.rst:318 ../../helm-values.rst:322
+#: ../../helm-values.rst:330 ../../helm-values.rst:350
+#: ../../helm-values.rst:362 ../../helm-values.rst:374
+#: ../../helm-values.rst:378 ../../helm-values.rst:382
+#: ../../helm-values.rst:386 ../../helm-values.rst:390
+#: ../../helm-values.rst:394 ../../helm-values.rst:398
+#: ../../helm-values.rst:402 ../../helm-values.rst:406
+#: ../../helm-values.rst:410 ../../helm-values.rst:414
+#: ../../helm-values.rst:446 ../../helm-values.rst:458
+#: ../../helm-values.rst:462 ../../helm-values.rst:466
+#: ../../helm-values.rst:474 ../../helm-values.rst:478
+#: ../../helm-values.rst:486 ../../helm-values.rst:510
+#: ../../helm-values.rst:518 ../../helm-values.rst:534
+#: ../../helm-values.rst:546 ../../helm-values.rst:574
+#: ../../helm-values.rst:586 ../../helm-values.rst:594
+#: ../../helm-values.rst:622 ../../helm-values.rst:626
+#: ../../helm-values.rst:642 ../../helm-values.rst:646
+#: ../../helm-values.rst:654 ../../helm-values.rst:662
+#: ../../helm-values.rst:690 ../../helm-values.rst:702
+#: ../../helm-values.rst:718 ../../helm-values.rst:746
+#: ../../helm-values.rst:778 ../../helm-values.rst:846
+#: ../../helm-values.rst:870 ../../helm-values.rst:902
+#: ../../helm-values.rst:930 ../../helm-values.rst:966
+#: ../../helm-values.rst:974 ../../helm-values.rst:978
+#: ../../helm-values.rst:1010 ../../helm-values.rst:1014
+#: ../../helm-values.rst:1022 ../../helm-values.rst:1030
+#: ../../helm-values.rst:1034 ../../helm-values.rst:1038
+#: ../../helm-values.rst:1074 ../../helm-values.rst:1078
+#: ../../helm-values.rst:1082 ../../helm-values.rst:1090
+#: ../../helm-values.rst:1094 ../../helm-values.rst:1102
+#: ../../helm-values.rst:1110 ../../helm-values.rst:1122
+#: ../../helm-values.rst:1126 ../../helm-values.rst:1138
+#: ../../helm-values.rst:1150 ../../helm-values.rst:1154
+#: ../../helm-values.rst:1158 ../../helm-values.rst:1162
+#: ../../helm-values.rst:1178 ../../helm-values.rst:1226
+#: ../../helm-values.rst:1278 ../../helm-values.rst:1306
+#: ../../helm-values.rst:1314 ../../helm-values.rst:1326
+#: ../../helm-values.rst:1334 ../../helm-values.rst:1338
+#: ../../helm-values.rst:1350 ../../helm-values.rst:1370
+#: ../../helm-values.rst:1378 ../../helm-values.rst:1398
+#: ../../helm-values.rst:1442 ../../helm-values.rst:1462
+#: ../../helm-values.rst:1478 ../../helm-values.rst:1490
+#: ../../helm-values.rst:1502 ../../helm-values.rst:1522
+#: ../../helm-values.rst:1538 ../../helm-values.rst:1542
+#: ../../helm-values.rst:1590 ../../helm-values.rst:1606
+#: 01fecefe4dba433f8467773b52988984 030b91e3a0d24037a4d991e0a163a3a2
+#: 032b4546053d42b7b91eb3589bd615c1 046cf7477d7b428b83645c2d476a6d97
+#: 04a27c26519b460ca7c3200143db35d1 04e88f7cbbd24e2280e2e1c63a4cee41
+#: 0703342842154d2f879076f4985e533a 09a57bf47fc44f7e9aaf49d8119579ed
+#: 168762297a984cdb8a0c7bf9051fb896 16d18bf475a3462d8403d9d5380df848
+#: 17d8be6c2791416689f3d668687f3baa 1977299e195d4c88ae5808478271d563
+#: 1a176e9390734b5a95cdd21fec8bbba2 1aa899bd4fef4795b7af4fae2ea824bf
+#: 1c9bd345e1164b67b8ea712dc49524ff 1f12a79bc95045b3ad9dd50bf3751f5c
+#: 2182ef46a71045aa901a2dc55f1279f1 233a778359f6420bbebf848a5d1dfe48
+#: 245de4c3d6fa48eabe11c16e72e9d416 2534d3967f7f403d885bbf36e57549c2
+#: 2828dda8466d48908f907082313d919d 2c8f8d19a7684f4e80b9dc236921195a
+#: 300d19d42e73410183fd743165e04bab 34b43460c7b24894b55d3fbbb56b2304
+#: 3589d16f05a046c48380283a65b7c473 35916ce2dabc4e47b0d4c959d82deb6f
+#: 367c4a532dc24f388f3d91decfd2272a 373a60d9e4114e77a8e8b209b0a48d58
+#: 393618e27e4845e7b5edfc5e6f6236d2 398abbaab9be40a9bbeae0366ff86679
+#: 3b6f37caa3554289bc7dd127edc760a2 3c289d793a7144db9b03418d89349509
+#: 4458101266f9464a8f1bcd79825f516e 46fe0cc2fe1243fa8775bb351c80f89c
+#: 47112d9966ba42a49b947db3f5ed59d6 47bd67ba7f85407c98338de9eb638822
+#: 49c7a07403e54c8f8ed4e0e2fcc47443 4e1d0c688fd748b8a0208b69aae5856c
+#: 4fc9852c209e4ab08187666e6510be29 501170895bac4ef0b7e63e71308a3f24
+#: 56f0f851834942809e4a1d7f089c35f3 584317d280b84a5b89f030e7d74741ef
+#: 58eb9e1999ca45c9984697b523406c03 5a81283a50a84bf0b0e518f9771f24e5
+#: 5e5786fb5e7b45e080c9d447a83e5b0d 5e8ef51f5c924b669945a07ad542912c
+#: 6464c9c741e444538d4adbdf9b5442b0 65357bf25b8240e89135388fc047b175
+#: 67278b49ec7547c6852c880fe3df05e8 6d354846528543fcac43b25a106e6787
+#: 749e62be36114fb4817a15fb1d7e5614 7697b5fb345f4215bc14e231f7ff6901
+#: 7a1c081806cd4875a117ce3797d4f205 7e6ccb4e573b491e94ed96e9cf5b1d41
+#: 7e721438e9994073aa8e355fa94b92a7 81c039343e694ce8af9e1979252002d2
+#: 860bf492745b42a18a70ce1eae471566 865736017eb446f3bce797536bb3e84e
+#: 86bbc643ac28415594edca0652533191 8881365afc354966958fdb2cb64b2093
+#: 895c5fd2479b4bbab954d3fb9d9eae06 8a32420cbe5a4211b943de0b703a7822
+#: 8e977ab018de473cbd9194e6183bc97d 91a7dc76ca5a4856998593622150a3f7
+#: 939ef1995ca94f05884ca141ed17398b 957de3b86c094850846691f330480928
+#: 97d7b909293d4b2ea74e7313bc07041d 98c2993c3407485cbfcd18a3e15281de
+#: 99d416a6cd4640b2b1c04704de6e4599 9c01200a79434b9f8dafc84c54e18f7c
+#: 9f4810c872c14aee8866c4823c1967c6 a5a4760c515c4c968c296e93a17180c3
+#: a7aeb288650a45c0aa6ccdae9783eca7 a869b19a1dc54adf9c57e97814438a93
+#: a96bc5709622438ea6c508d373c0da26 a9eec790e56f4688b8a7f33d83e5cf1f
+#: ac0a1268609444259976d18dbc718954 ade49c28b9c1481a84e6e5bd27bb9415
+#: ae03fc395c724425b0cd88b285bcb0b2 b0dd30c5c4244d34bdeafc164b48b023
+#: b694a1368dc74ebd9964de7a48b7d1b4 b6c7f1bb57284390971ea036da574ae0
+#: b715a5859c96462aa42797f3931fec0d b916591a3c804f59b995d4f8743d0d76
+#: c0b8c147175946be97a0b7b661fc7024 c363c8e17ed9434c9349d07d14574ff5
+#: c3e00833e6734c06a775b571eb15dffd c4ba4b4e10d14c32b92894acc441d267
+#: c55b390b18384919afb35447c61c4f99 c5b82396245e447a9a1cb19f4558da1a
+#: c6f2f82a9cdf49dbaf660e57c0a512f6 d005d4cbed324a988179f1457b00b393
+#: d1ebeaf32e124d23bc75e0c8a04a8b75 d4853316753645e59da0e9558e7ffbeb
+#: d4ef05894b4b451fba1b23150716ebbf d541e6ef55a94766ba5c055d8fa52e62
+#: d9ab8792a3f842f48cbc4efd51161ffa d9e85ec16f4148beb6354ce33ad2ba09
+#: da92fa93e7dd40649edcba126eb024dd db5e2500ef0641b2a8bff403138538fd
+#: dbd42351a8c84b77b961f54a37afbb7d de44128b9c494a8b9c10f635bff27d2b
+#: dff323ef78e74b398c52afaa397cd321 e29a1280ab394f51a95d3793758afb58
+#: e6abad6bf430489aaaefe09cf8faf9a4 e99e72f85ea34875919d34c518c0eef3
+#: ea273c8f70dd42329432adea02d72bab eba54963470940a09757bf33097dff79
+#: f4d84743778f4e9190e0c7fce860331f f872b8f9a09f469f9546cd7337804898
+#: fbd00e230736442a90d875dabfbff9c0
+msgid "bool"
+msgstr ""
+
+#: ../../helm-values.rst:19 ../../helm-values.rst:131 ../../helm-values.rst:235
+#: ../../helm-values.rst:323 ../../helm-values.rst:331
+#: ../../helm-values.rst:387 ../../helm-values.rst:391
+#: ../../helm-values.rst:395 ../../helm-values.rst:403
+#: ../../helm-values.rst:411 ../../helm-values.rst:463
+#: ../../helm-values.rst:627 ../../helm-values.rst:663
+#: ../../helm-values.rst:703 ../../helm-values.rst:847
+#: ../../helm-values.rst:871 ../../helm-values.rst:975
+#: ../../helm-values.rst:1015 ../../helm-values.rst:1023
+#: ../../helm-values.rst:1031 ../../helm-values.rst:1035
+#: ../../helm-values.rst:1075 ../../helm-values.rst:1103
+#: ../../helm-values.rst:1111 ../../helm-values.rst:1151
+#: ../../helm-values.rst:1155 ../../helm-values.rst:1159
+#: ../../helm-values.rst:1227 ../../helm-values.rst:1315
+#: ../../helm-values.rst:1335 ../../helm-values.rst:1351
+#: ../../helm-values.rst:1443 ../../helm-values.rst:1479
+#: ../../helm-values.rst:1491 ../../helm-values.rst:1539
+#: ../../helm-values.rst:1543 03f2dfcdcdbc4b5aa61945c4b05532b5
+#: 04608f6c7a3d4becacb7810c25c10d12 0ff8af01463f4a3ab9d5e17a6ebd4a20
+#: 1459d868c781403c90bad67904a072be 261f38dc0bb64622a42fd1653b18e416
+#: 2888708bde364b69b0646a354cca7a1b 2ab990d5bf6447ab8c4df9718503fc3b
+#: 2d44a389346d4373b273dda947d0345c 3d83f269704e49659d1c7063c2e403b2
+#: 49fa0fd41aa14dcb86373afca127a4da 4eec15c9627d4083b8e4191f66d2b182
+#: 55edbae8ca0944cda2cd9bfbae11cdf3 6547e277f34e4dcd81f5829789c07505
+#: 6d4fb0bfc29640548639401fb3db4092 76dbc3ea9bda4d79abc7fd6bee9c3bdb
+#: 787a62de23d24e68b773020b80c7b96a 7cb7ee54949c4f31893994ba7f0d885b
+#: 7edf4dd2e3b344e6a694533a44ae1e73 81213c24abaf420aa5b2647702f233c4
+#: 861c1067f27d4a75b516465b2ecdff3a 86bc899d0349441fb186647cbc3068ac
+#: 8c0f6623ac7a45e687365c06d533c2c8 9a7d53f01f7e4d2094dda32008913eed
+#: ad8aac65bb89419d9a7ba79029eb001b bdeccf78930a49ce905b33ce6faec50e
+#: bdf70a0fac4a439d8b75c84238d3ab71 be215b86a5204ed4b6f03db992bde535
+#: c44fafc7d2464c55861a4e55cb08f771 c9759353caa645cd89a811c2d888b198
+#: d93ef5b2a93d49f6a3525a4687ed85b3 e0a3fda1e7eb42519f423e0b93c2364b
+#: e2854980d15443259feb94b28ec4f5fd f26c1321250844698956179ea603a334
+#: f33fd641fe534a53bcfe1a94d8e8a089 fe7cc12bc377477d9b1f878432ff1bb2
+#: fecc6b3730b94371b529fb659cfa50f0
+msgid "``true``"
+msgstr ""
+
+#: ../../helm-values.rst:20 33d434122b0c422fb610ece488d44e76
+msgid "alibabacloud.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:21 a2d4965aa34748509dd786eb21cc85bd
+msgid "Enable AlibabaCloud ENI integration"
+msgstr ""
+
+#: ../../helm-values.rst:23 ../../helm-values.rst:27 ../../helm-values.rst:31
+#: ../../helm-values.rst:35 ../../helm-values.rst:43 ../../helm-values.rst:47
+#: ../../helm-values.rst:55 ../../helm-values.rst:59 ../../helm-values.rst:63
+#: ../../helm-values.rst:71 ../../helm-values.rst:75 ../../helm-values.rst:79
+#: ../../helm-values.rst:103 ../../helm-values.rst:139
+#: ../../helm-values.rst:143 ../../helm-values.rst:179
+#: ../../helm-values.rst:291 ../../helm-values.rst:295
+#: ../../helm-values.rst:319 ../../helm-values.rst:351
+#: ../../helm-values.rst:363 ../../helm-values.rst:375
+#: ../../helm-values.rst:379 ../../helm-values.rst:383
+#: ../../helm-values.rst:399 ../../helm-values.rst:407
+#: ../../helm-values.rst:415 ../../helm-values.rst:447
+#: ../../helm-values.rst:459 ../../helm-values.rst:467
+#: ../../helm-values.rst:475 ../../helm-values.rst:479
+#: ../../helm-values.rst:487 ../../helm-values.rst:511
+#: ../../helm-values.rst:519 ../../helm-values.rst:535
+#: ../../helm-values.rst:547 ../../helm-values.rst:575
+#: ../../helm-values.rst:587 ../../helm-values.rst:595
+#: ../../helm-values.rst:623 ../../helm-values.rst:643
+#: ../../helm-values.rst:647 ../../helm-values.rst:655
+#: ../../helm-values.rst:691 ../../helm-values.rst:719
+#: ../../helm-values.rst:747 ../../helm-values.rst:779
+#: ../../helm-values.rst:903 ../../helm-values.rst:931
+#: ../../helm-values.rst:967 ../../helm-values.rst:979
+#: ../../helm-values.rst:1011 ../../helm-values.rst:1039
+#: ../../helm-values.rst:1079 ../../helm-values.rst:1083
+#: ../../helm-values.rst:1091 ../../helm-values.rst:1095
+#: ../../helm-values.rst:1123 ../../helm-values.rst:1127
+#: ../../helm-values.rst:1139 ../../helm-values.rst:1163
+#: ../../helm-values.rst:1179 ../../helm-values.rst:1279
+#: ../../helm-values.rst:1307 ../../helm-values.rst:1327
+#: ../../helm-values.rst:1339 ../../helm-values.rst:1371
+#: ../../helm-values.rst:1379 ../../helm-values.rst:1399
+#: ../../helm-values.rst:1463 ../../helm-values.rst:1503
+#: ../../helm-values.rst:1523 ../../helm-values.rst:1591
+#: ../../helm-values.rst:1607 037433083a434e83b654f2570b3b0fd0
+#: 0460a14fc77d48c48b2cddaa4d613b02 0ade526aa05441749ad33a6daaf814f3
+#: 160672206137486e927cfe079bccc1e2 1961e9448a6d47309726d73bd1c41b44
+#: 1a1d50fefd484eb883c47142d0c521ea 1c3536705cb54e14a6f56ff3f3f8ff24
+#: 1e59db07389c43d8a28ac06c641eab3b 219cc8c08e4a4359be1d093976d369a2
+#: 25aff0e441174861b4f27dc7987b26bc 25f2cc4cfe264656af133f422699d9ae
+#: 2699f6c69bc744898a6168479feeaf0e 27dcf3c325d0418f9f41146a464309d7
+#: 28eaee2671a940b0bee14b61659b5fc6 2ba685e2dacc4735b2e7e829ded47838
+#: 2c40d9cf0b3347858031dc133937f1d7 2ee81662a8e040748d1bc2bb5a6ee4f1
+#: 2fd9ef72b7dd467996c1ceca577d86de 3311e98bc88447d08e0956d6c19d65a3
+#: 34bc74810b7b482aa3ff782dc9ed095e 363bed80682d46a1ad96f8a8acb16d4d
+#: 3c6713252ef442d2a786748793e8881b 3f237c89706342aba8173adeffc7c4fa
+#: 3fdb69aaaf9b4f448890a269526a2a37 4080ad8a6fb1448d8f06fe0ea8a4c08a
+#: 48254f8388994a26ab8d232ffd18cfa8 4a777ca2975d4bb5ad9a5eda4fd7e64d
+#: 4cb61adf047d4e56807a2bafe9192b4e 4e38ddc0ed084d72816023cfb4ea519b
+#: 50fd02063448444baba612bfa574493b 537a03b789cc41acaec7d277379cc5a1
+#: 5834b821dda04b0f8b755a4df0bc2890 5acda3e31a3942c4bd27973b084cdcd9
+#: 6ccd67d3279a46d1a6d473e209aedbe4 6d89dc9c430d43acabc2b7149d24f7ae
+#: 6f56229792e34d298d39f198dff0e027 7669dda60009479da6b625917a5b6fc9
+#: 768934d6524447a99ac65dc2b7bd4677 78d5e184c7194d41806084ddd79da5aa
+#: 7d01b70d3832474d8f476e66be59e187 7f2c97dce75e4574b4b41102706d000d
+#: 8635cb2b731d42b7804716d4810c93cc 893d331af7ec4635907162530422b6b4
+#: 8e8fffd50dae4b74aa225f5f35feae95 8eafd6e9521b48a8b2ea24f3a661e7f0
+#: 90d3c8ded14849debc265ca215977361 913a4adf2deb4343a1976f7e14b83505
+#: 96868a4ee4b54f2c82b773efd93599f8 97532ed9d7fa4f7c85d6636100ba375b
+#: 97d979853e834ed9b689139a1ea94b08 9bca082a5c8549289e5256978091f54f
+#: 9d9ded1da9f643f0b534d3c76173a4ba 9e44a8ea026746c8aad12bbb8480b166
+#: a401e6b593d7421686008773204cf500 ae7cdb1c00454660bca2d05b8902ef36
+#: afb94791ff77486fb944f20e48d06d36 afff0c37ae4e4151ba12e1963cc3028d
+#: b073c18696904de3909e1ac2d00a857c b5c2199d54df4c398526e6fbbc34fa0d
+#: b7f9ef63c8a14848a92ee7b03048bc6a bd251011148a4651aac05f1c1979e207
+#: bdcd8d7969cc4227b940b4a46b00d50a caee988de94a4b0290b84bc7bd01993f
+#: ce9181cc84364327a6d447ec654fe52c d8ec9b1e3433450bbc252e18d235bd4a
+#: e17a3696df3248a4b3993325f5c13b88 e60db1d75730455f94691c7fdbdcf600
+#: e61843403cb044589b5280999173dd79 e653aad0255049ef9287a5ac19629059
+#: e90b1400634d4ce7b5a99b85cc4058a6 edeb5b8690494fa78aa824d8677a47f0
+#: eff27758fa124d7194d46ce5ccfa7a86 f8bd948ba9e44e6c88992db0d22f49ff
+#: fd291168c4724c63a31eebebf3e932af fe735306e9414076bb8bf0cd0b19ff53
+msgid "``false``"
+msgstr ""
+
+#: ../../helm-values.rst:24 6e2c93f4452a4710b336f858304f957b
+msgid "annotateK8sNode"
+msgstr ""
+
+#: ../../helm-values.rst:25 04cd58f546c943789fea28b2e4d0e51c
+msgid "Annotate k8s node upon initialization with Cilium's metadata."
+msgstr ""
+
+#: ../../helm-values.rst:28 90f58a54a1e74a4d8669df638bbbee86
+msgid "autoDirectNodeRoutes"
+msgstr ""
+
+#: ../../helm-values.rst:29 fba771d25c964e55b2b4f38325a244fe
+msgid ""
+"Enable installation of PodCIDR routes between worker nodes if worker "
+"nodes share a common L2 network segment."
+msgstr ""
+
+#: ../../helm-values.rst:32 b264187335cb46b69f12a20b70e844d3
+msgid "azure.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:33 55a19a41590642438811cf8e69cc8192
+msgid "Enable Azure integration"
+msgstr ""
+
+#: ../../helm-values.rst:36 1bbf08da4d244fd58e02ea4e8e2d994e
+msgid "bandwidthManager"
+msgstr ""
+
+#: ../../helm-values.rst:37 ce400ff34e814ffbb19d2147b53167ab
+msgid ""
+"Enable bandwidth manager to optimize TCP and UDP workloads and allow for "
+"rate-limiting traffic from individual Pods with EDT (Earliest Departure "
+"Time) through the \"kubernetes.io/egress-bandwidth\" Pod annotation."
+msgstr ""
+
+#: ../../helm-values.rst:39 aa2a00ecf6aa43d3b05c785b6484d10b
+msgid "``{\"bbr\":false,\"enabled\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:40 eeca9e618f544fbbb0e1dac09762e463
+msgid "bandwidthManager.bbr"
+msgstr ""
+
+#: ../../helm-values.rst:41 d9b846270f4a49a1a598a91ae96ed5a3
+msgid "Activate BBR TCP congestion control for Pods"
+msgstr ""
+
+#: ../../helm-values.rst:44 5ec9ff416c8c4ebdbaff68dfa880df29
+msgid "bandwidthManager.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:45 1753dac2dec040cd821115ee556ef1ec
+msgid "Enable bandwidth manager infrastructure (also prerequirement for BBR)"
+msgstr ""
+
+#: ../../helm-values.rst:48 5e9a44bb1e73445ea5fc2bbfbb99661a
+msgid "bgp"
+msgstr ""
+
+#: ../../helm-values.rst:49 25bc2ec1076e453fb51e9b763b94ba1e
+msgid "Configure BGP"
+msgstr ""
+
+#: ../../helm-values.rst:51 4c0f73dbaeb949b9a39d2b41920ee2e4
+msgid "``{\"announce\":{\"loadbalancerIP\":false,\"podCIDR\":false},\"enabled\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:52 26870418224e415b83794cbd6907ad48
+msgid "bgp.announce.loadbalancerIP"
+msgstr ""
+
+#: ../../helm-values.rst:53 babf304a817a4fe0a1304a2f3e6e0651
+msgid "Enable allocation and announcement of service LoadBalancer IPs"
+msgstr ""
+
+#: ../../helm-values.rst:56 f574908c4b9d4cbe8b7eb0497f7131f1
+msgid "bgp.announce.podCIDR"
+msgstr ""
+
+#: ../../helm-values.rst:57 3a46aed0c3984d6ca3c2810712791e39
+msgid "Enable announcement of node pod CIDR"
+msgstr ""
+
+#: ../../helm-values.rst:60 f505e9773aa643fd9488999ee548fad7
+msgid "bgp.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:61 8f8b98db930044eab5e23ae1617a141b
+msgid ""
+"Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside "
+"cilium-agent and cilium-operator"
+msgstr ""
+
+#: ../../helm-values.rst:64 b68787ff6afa4f32a5ea3456825d3d9a
+msgid "bgpControlPlane"
+msgstr ""
+
+#: ../../helm-values.rst:65 a55505845ebd4511873ee7a505c77b06
+msgid ""
+"This feature set enables virtual BGP routers to be created via  "
+"CiliumBGPPeeringPolicy CRDs."
+msgstr ""
+
+#: ../../helm-values.rst:67 ../../helm-values.rst:347 ../../helm-values.rst:591
+#: ../../helm-values.rst:639 ../../helm-values.rst:1043
+#: ../../helm-values.rst:1135 ../../helm-values.rst:1527
+#: 13261ba8782e4c07a78c6dc40aa29d0f 21b0ebb931f7453ea347d36897055001
+#: 8d8356caa3cb46e4857ae550dc537257 a8131ddab5eb4c7f814c4fde429db2bc
+#: b636d5f56f7a472eaafd9e9d9d5b89d8 d6422963e3944a458673172cac0605d1
+#: d69d06ac5f1e4e2b84e5a608c2eba034
+msgid "``{\"enabled\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:68 6f07ce48ae794c72b902e2bf60dcc423
+msgid "bgpControlPlane.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:69 b552adf75e7845e88f14dfc0f7e582c0
+msgid "Enables the BGP control plane."
+msgstr ""
+
+#: ../../helm-values.rst:72 32a9d8a5f64c42d3a6a2fcfe4f2910d1
+msgid "bpf.clockProbe"
+msgstr ""
+
+#: ../../helm-values.rst:73 7903715da20e45d6bedcdc25115d4d45
+msgid "Enable BPF clock source probing for more efficient tick retrieval."
+msgstr ""
+
+#: ../../helm-values.rst:76 4b307d38377e4527b2020b05643975ed
+msgid "bpf.lbExternalClusterIP"
+msgstr ""
+
+#: ../../helm-values.rst:77 be22f560af2b4318b7c9142d4237ded5
+msgid "Allow cluster external access to ClusterIP services."
+msgstr ""
+
+#: ../../helm-values.rst:80 9c2f2bb89994422987301120a3b6a12e
+msgid "bpf.lbMapMax"
+msgstr ""
+
+#: ../../helm-values.rst:81 9918562409f7439d91030d06850aa74d
+msgid "Configure the maximum number of service entries in the load balancer maps."
+msgstr ""
+
+#: ../../helm-values.rst:82 ../../helm-values.rst:98 ../../helm-values.rst:122
+#: ../../helm-values.rst:146 ../../helm-values.rst:182
+#: ../../helm-values.rst:198 ../../helm-values.rst:210
+#: ../../helm-values.rst:230 ../../helm-values.rst:550
+#: ../../helm-values.rst:630 ../../helm-values.rst:678
+#: ../../helm-values.rst:706 ../../helm-values.rst:750
+#: ../../helm-values.rst:766 ../../helm-values.rst:794
+#: ../../helm-values.rst:842 ../../helm-values.rst:934
+#: ../../helm-values.rst:962 ../../helm-values.rst:1050
+#: ../../helm-values.rst:1062 ../../helm-values.rst:1114
+#: ../../helm-values.rst:1118 ../../helm-values.rst:1282
+#: ../../helm-values.rst:1318 ../../helm-values.rst:1346
+#: ../../helm-values.rst:1402 ../../helm-values.rst:1426
+#: ../../helm-values.rst:1482 ../../helm-values.rst:1486
+#: ../../helm-values.rst:1530 ../../helm-values.rst:1534
+#: ../../helm-values.rst:1546 ../../helm-values.rst:1562
+#: 02608eb72a1741cf81e22377669776a1 07388aaf62b1487c972a77cad05aee34
+#: 08ff1788b58a4424b6e20fd47ed97402 1225c98a7e9a44149876e93c63c6bade
+#: 146d20f7eb6c4d8998cada8f7539860f 2b69baba67814b57822d98bf1cc75a59
+#: 3d994ef0583b4e22b436d9fd2f31705c 3ec7cb7b997846dc93780b108a93ed24
+#: 4ce772e0995948a791569499a6a94143 52d391b3e6da49f38e0a355b1b98e76e
+#: 5d1a43d0d49f4561b64d1c68d21973df 5f243e89bb0a4dc881bdf1e1ad3fab51
+#: 6abac538c8b045ccbee470d5518df5fd 6b96ad0bf4ac4142bf3c52e9c65ef675
+#: 796cf22a228a46a9b1e76d417be53fae 7d5e0953f9b34bea82c536119cd69893
+#: 82018c3a431743fa966f3ec6234564fb 8457b204fb014c59b1bd170902aa8541
+#: 84d4943bb53f45bfb0b0fe876567f3ca 886cfc064bd945c3a5e64ed9659650fd
+#: 965c6dc9df95468fa1491e6ca94a570d 9be95ff3acb145b498742df82d60f5cd
+#: 9d0fb8588a4f4942969941e3f6c1282b a134fb87d22640709ad2d9af95d60692
+#: c12a921027764446b9ef6aade90a8377 c32891517d8b4889ad7459e25a8f1499
+#: c85491adc6d94a86877365550d4d8da0 ca6dafa1d8c74a85af0efa68b3baf0a9
+#: cb7f5b261b5a43bdba78642af6e4db97 dae50579b5f64c5c9adf7c7a6101848b
+#: f25dfe17f56b4fa493cc674d62a997a0 f380c0f2c8d540a592b355275fcfb2c0
+#: f39470cfd0ba4093977780e378fe0352
+msgid "int"
+msgstr ""
+
+#: ../../helm-values.rst:83 44dd561d1ecd4533b7fc40515b70cb39
+msgid "``65536``"
+msgstr ""
+
+#: ../../helm-values.rst:84 2b9ff1a0366e4231b72ff1018ab6ac2a
+msgid "bpf.monitorAggregation"
+msgstr ""
+
+#: ../../helm-values.rst:85 b1643f09d0af41eda5a7649eeaca9ef4
+msgid ""
+"Configure the level of aggregation for monitor notifications. Valid "
+"options are none, low, medium, maximum."
+msgstr ""
+
+#: ../../helm-values.rst:86 ../../helm-values.rst:90 ../../helm-values.rst:94
+#: ../../helm-values.rst:106 ../../helm-values.rst:134
+#: ../../helm-values.rst:150 ../../helm-values.rst:186
+#: ../../helm-values.rst:194 ../../helm-values.rst:214
+#: ../../helm-values.rst:242 ../../helm-values.rst:246
+#: ../../helm-values.rst:286 ../../helm-values.rst:298
+#: ../../helm-values.rst:302 ../../helm-values.rst:306
+#: ../../helm-values.rst:310 ../../helm-values.rst:314
+#: ../../helm-values.rst:326 ../../helm-values.rst:334
+#: ../../helm-values.rst:342 ../../helm-values.rst:354
+#: ../../helm-values.rst:358 ../../helm-values.rst:366
+#: ../../helm-values.rst:418 ../../helm-values.rst:422
+#: ../../helm-values.rst:426 ../../helm-values.rst:430
+#: ../../helm-values.rst:434 ../../helm-values.rst:438
+#: ../../helm-values.rst:442 ../../helm-values.rst:450
+#: ../../helm-values.rst:454 ../../helm-values.rst:482
+#: ../../helm-values.rst:494 ../../helm-values.rst:498
+#: ../../helm-values.rst:502 ../../helm-values.rst:506
+#: ../../helm-values.rst:514 ../../helm-values.rst:554
+#: ../../helm-values.rst:562 ../../helm-values.rst:658
+#: ../../helm-values.rst:666 ../../helm-values.rst:674
+#: ../../helm-values.rst:698 ../../helm-values.rst:714
+#: ../../helm-values.rst:730 ../../helm-values.rst:734
+#: ../../helm-values.rst:754 ../../helm-values.rst:762
+#: ../../helm-values.rst:774 ../../helm-values.rst:786
+#: ../../helm-values.rst:790 ../../helm-values.rst:826
+#: ../../helm-values.rst:850 ../../helm-values.rst:854
+#: ../../helm-values.rst:862 ../../helm-values.rst:866
+#: ../../helm-values.rst:938 ../../helm-values.rst:946
+#: ../../helm-values.rst:998 ../../helm-values.rst:1006
+#: ../../helm-values.rst:1026 ../../helm-values.rst:1046
+#: ../../helm-values.rst:1054 ../../helm-values.rst:1066
+#: ../../helm-values.rst:1098 ../../helm-values.rst:1106
+#: ../../helm-values.rst:1142 ../../helm-values.rst:1174
+#: ../../helm-values.rst:1202 ../../helm-values.rst:1230
+#: ../../helm-values.rst:1254 ../../helm-values.rst:1258
+#: ../../helm-values.rst:1266 ../../helm-values.rst:1286
+#: ../../helm-values.rst:1294 ../../helm-values.rst:1366
+#: ../../helm-values.rst:1406 ../../helm-values.rst:1414
+#: ../../helm-values.rst:1430 ../../helm-values.rst:1446
+#: ../../helm-values.rst:1454 ../../helm-values.rst:1474
+#: ../../helm-values.rst:1558 ../../helm-values.rst:1566
+#: ../../helm-values.rst:1570 ../../helm-values.rst:1578
+#: ../../helm-values.rst:1586 ../../helm-values.rst:1594
+#: ../../helm-values.rst:1598 ../../helm-values.rst:1602
+#: 0259f1643111435697f7743e7512d3d1 027c1d057001488caa0bb1df8c020a1a
+#: 08be85e84ec94d7e97fb4c4a8d092c8c 0b090a4a0d11409a930669c45a7edef7
+#: 0bde089901f44b9a9e80c326cb380e46 0e974740a25c4eeeaae5f994ff0ac71f
+#: 0ebc556c46fd423aa46c6c623752267a 103eb6ac87c54d77865d16ac1a707f9d
+#: 11e70a819aa74144810c77a4c80cd82c 13d7f7b4ce29420a932541e588c0bbf4
+#: 15882f89096946ae80766faebe20cf01 1652a560bd4441bbaad2d52240851131
+#: 16992475d3644a0d87b5bb696c512131 1b132d885ed94455b38f7348c8f1399c
+#: 20fe24acf5a7400b9fc0ff916cb6d842 24c825cdf2b24a83b9d89e21548bae87
+#: 263c02291d1b4179b8b391b5474bdb1c 26c57801fb214cc890c9b04bbae60742
+#: 28bfadec298449129aa1408d94348115 2c9fa7fcfe6447dfbbeb2606860a1575
+#: 2e1eb2b95674492586b7fc7d3d2c129a 30c700b68fdc4e61b6126717c0a26f2c
+#: 368bf8c4ac114f80ae3fc00718a16829 374e0d109d78432f85e33c42f28f6c71
+#: 386858ea5186403f967bbe29663f14a6 42d6f44763404d27a9c993330d153e93
+#: 468248ad5b794759bc57f2dd53e70d28 477828396b774044975d0f1c1347aa6d
+#: 4aa4cb823a5a4d9699595fe34f76fe99 4acb0c2a6ef642bda37e14617eb3aa10
+#: 4dc19b035d01441f90490cf98022ab52 4eb3a2ce65974f67ad62a68b88925d8d
+#: 513577e2b1304558bf896fa696087f4c 5263a92a44164caa837dc17c80167606
+#: 53af405ec968462089964d2e962943f5 5443708637d6490ea479f56af1a79f75
+#: 5496c2e6e9354f2fa9471e3553a87cfd 59052cf994174909b8c90df479a058bc
+#: 5943459fbdec4796870fca5987b000b4 5c6bdf116fb6454bbb6f47a667b14736
+#: 5e2c92fa56754ae4accb1b10993aa480 5f674f99b5ea4ad89d8fe717e46e31bc
+#: 60439ed2e06a4be48a365f73e4b42f0c 605d5a7b84be412eb1ddf8888bd94aca
+#: 623aaa44e85340fba29b8c0a04cc74da 63af9f2cedc64a05b13199c4fcd6076a
+#: 6887552c56114c6487eac08c93762c31 6922dd42abde47b1b24ec09dfec3773e
+#: 6b4be0df180642ccb3b9bece04c3e81c 6f4a33b3c04a432f88606c3ae8cdf0d2
+#: 7144e53e84d54eaebd2d137007e8c4d3 71e5e0df711a44869ea4b63c87763e5d
+#: 74ee44e3e99c4221b1aad5d6f229f90f 782eb7772d0a4483b77430036c1cbd37
+#: 7852b906dfa046df91b83312a379aef2 81912128f0db409f981b572f107a5736
+#: 83d75a856435468a8485f483cadda82b 85d497632a1a4e75885134406ec52a36
+#: 863d7d2168424078bbba64f0d5068054 87e622b40a8b43c1913421d8d58d3408
+#: 9db74525580e47f685b54812bfead91c a1788188dd21469b8e008984e7a299bb
+#: a24de645f3a842799a46ec3eb707608f a6e290213e354dd8944d8e2b29f812a5
+#: a91830c0008348ad8f0af27644d3ed49 ab801068c4624a4ca914d718c178d7d3
+#: acd77898159e4b2f9169e7771ae21836 b364bab37ace4dc194f3bd0b1b8d3dfb
+#: b48b3edf1ba24728aac559636ee1fc46 c23cf3ce1ae74522ae9931b311e153a5
+#: c5873586cb594785a5e529983d4b7f40 c90a98167a484e7ca2cede3ad10c4e57
+#: ca089ebd66724d189adb4f497dbb529f cd4f6bb1054641688f1d91669aeedf13
+#: d0b9fecacde146d09f6435855bb5605e d2c5509ddcdb4e90aa5997f3ca0fab24
+#: d7522d97d3904677aec7cd904228c36c d8bea9debbce4837b3b96deb1ce14832
+#: db388e4c4fd543bfbacf356353e18810 dbed55ba9e8d4a5ca82fcebb5d31330d
+#: ddd35eee7e04483b8d6bd3a4a8e839c9 e4c1c69eb0bc42aebd0114f59325598d
+#: e519cb9985724431961826af0b2afaae ed4db8ac194a414b9ce2e5d436509dbc
+#: edc563c1d0444318b3e28ffc8853a73c f0193385c9c043f2976c83b928a77c1a
+#: f6cc47d5332a425fa69249a1b22a5062 f8fb382b1e124c9db94d697a2aa25690
+#: f9a99f38cad947f5ac1fddd7be25265a fcc54fb5adfa4231a57931e42d550fcc
+#: fe4e3cd65226446a88170718d25b48d8
+msgid "string"
+msgstr ""
+
+#: ../../helm-values.rst:87 ab823f9bc1194207844043d1022494a3
+msgid "``\"medium\"``"
+msgstr ""
+
+#: ../../helm-values.rst:88 441b18f8db4742b2be357eed3d2e0ea6
+msgid "bpf.monitorFlags"
+msgstr ""
+
+#: ../../helm-values.rst:89 df31a08a339544338dac8f75e992e795
+msgid ""
+"Configure which TCP flags trigger notifications when seen for the first "
+"time in a connection."
+msgstr ""
+
+#: ../../helm-values.rst:91 769e07533fee408299890891d595e215
+msgid "``\"all\"``"
+msgstr ""
+
+#: ../../helm-values.rst:92 13826e4ab6ea4e8e91ceec4620ff518c
+msgid "bpf.monitorInterval"
+msgstr ""
+
+#: ../../helm-values.rst:93 9a0301a0807a4995bcccabcd6245ac4e
+msgid ""
+"Configure the typical time between monitor notifications for active "
+"connections."
+msgstr ""
+
+#: ../../helm-values.rst:95 0fb3b0c979444774a435c282a103d440
+msgid "``\"5s\"``"
+msgstr ""
+
+#: ../../helm-values.rst:96 7c9b443cc0a44dc495f195569dcd8aea
+msgid "bpf.policyMapMax"
+msgstr ""
+
+#: ../../helm-values.rst:97 6440b1ac357d418692389917546e4e83
+msgid ""
+"Configure the maximum number of entries in endpoint policy map (per "
+"endpoint)."
+msgstr ""
+
+#: ../../helm-values.rst:99 eb133b6641bb41639b79dc7a2965ea26
+msgid "``16384``"
+msgstr ""
+
+#: ../../helm-values.rst:100 dc9f1b1f636c4e05873af5e575f25bd8
+msgid "bpf.preallocateMaps"
+msgstr ""
+
+#: ../../helm-values.rst:101 9c4dde369536400eb603f7c52578ceb1
+msgid ""
+"Enables pre-allocation of eBPF map values. This increases memory usage "
+"but can reduce latency."
+msgstr ""
+
+#: ../../helm-values.rst:104 fe2fcc3ceaa744d4b61dce74e74a8269
+msgid "bpf.root"
+msgstr ""
+
+#: ../../helm-values.rst:105 b15e1130a1654553bffd6eacca5be479
+msgid "Configure the mount point for the BPF filesystem"
+msgstr ""
+
+#: ../../helm-values.rst:107 b979759a55d2430fb62972c877dd7ef9
+msgid "``\"/sys/fs/bpf\"``"
+msgstr ""
+
+#: ../../helm-values.rst:108 32d3abdbed43423c8256d5d96e3f9fcc
+msgid "certgen"
+msgstr ""
+
+#: ../../helm-values.rst:109 7119eed680ce4510b7d8d5d1499a2f16
+msgid ""
+"Configure certificate generation for Hubble integration. If "
+"hubble.tls.auto.method=cronJob, these values are used for the Kubernetes "
+"CronJob which will be scheduled regularly to (re)generate any "
+"certificates not provided manually."
+msgstr ""
+
+#: ../../helm-values.rst:111 cab36d9bac7349cc87967abf1ab653ad
+msgid "``{\"image\":{\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/cilium/certgen\",\"tag\":\"v0.1.8\"},\"podLabels\":{},\"tolerations\":[],\"ttlSecondsAfterFinished\":1800}``"
+msgstr ""
+
+#: ../../helm-values.rst:112 37a3e7befe5b47588495fee328c4df72
+msgid "certgen.podLabels"
+msgstr ""
+
+#: ../../helm-values.rst:113 d656b9d30b424911b7b0913c3ba467f4
+msgid "Labels to be added to hubble-certgen pods"
+msgstr ""
+
+#: ../../helm-values.rst:115 ../../helm-values.rst:171
+#: ../../helm-values.rst:175 ../../helm-values.rst:191
+#: ../../helm-values.rst:203 ../../helm-values.rst:207
+#: ../../helm-values.rst:227 ../../helm-values.rst:491
+#: ../../helm-values.rst:539 ../../helm-values.rst:543
+#: ../../helm-values.rst:559 ../../helm-values.rst:567
+#: ../../helm-values.rst:571 ../../helm-values.rst:603
+#: ../../helm-values.rst:683 ../../helm-values.rst:687
+#: ../../helm-values.rst:695 ../../helm-values.rst:739
+#: ../../helm-values.rst:743 ../../helm-values.rst:759
+#: ../../helm-values.rst:771 ../../helm-values.rst:783
+#: ../../helm-values.rst:839 ../../helm-values.rst:887
+#: ../../helm-values.rst:899 ../../helm-values.rst:915
+#: ../../helm-values.rst:923 ../../helm-values.rst:927
+#: ../../helm-values.rst:943 ../../helm-values.rst:959
+#: ../../helm-values.rst:983 ../../helm-values.rst:1087
+#: ../../helm-values.rst:1131 ../../helm-values.rst:1171
+#: ../../helm-values.rst:1191 ../../helm-values.rst:1195
+#: ../../helm-values.rst:1199 ../../helm-values.rst:1271
+#: ../../helm-values.rst:1275 ../../helm-values.rst:1291
+#: ../../helm-values.rst:1303 ../../helm-values.rst:1311
+#: ../../helm-values.rst:1323 ../../helm-values.rst:1331
+#: ../../helm-values.rst:1359 ../../helm-values.rst:1363
+#: ../../helm-values.rst:1391 ../../helm-values.rst:1395
+#: ../../helm-values.rst:1411 ../../helm-values.rst:1419
+#: ../../helm-values.rst:1423 ../../helm-values.rst:1459
+#: ../../helm-values.rst:1467 ../../helm-values.rst:1499
+#: 0504d7a67231467bb8476536d7825fef 0d7e8d72f81240f2bd2284d19564f9e6
+#: 1442a4a5bb7f43e7a3766d0b98ee8a60 1eac9ba8edba443c9421e0f32b0e1d24
+#: 1f3c6476dd7e486d8c2ab6248cd4a405 220786ade2d4463c9e11d867c91481a4
+#: 428049e145f34889b6f6f4696c0e6065 43da6ff9ae3d466ea209bf5652d35f86
+#: 47c4a21ea67a45548d6255198d61f61a 47fdd112604d439ab35f5558aa6e5125
+#: 491d76db145d4908b469646e9447dc11 51073f86728e4b32a55f6bfa991c7098
+#: 55851d0475ab4637821be515f2e03120 55f1f89b6820485184ea7c314e069223
+#: 57e34ca583d94431967cc2e287276f85 5e9a8ffb9b5442cdbcbd13ab9643ca01
+#: 5fe66a032580469fa0fdeb1935b924d2 6023bd3e3d8d40288453c8feb5526188
+#: 64d13500588c4638a02c9de9857ea4db 68ae02291fdc45489e8f6787fc5657b4
+#: 6a9dd229cd0c466a98c431f3fc3ee53f 6c6ab291b88a472790b000a8f1424dab
+#: 72595c044ead4a3cbc60592cd34f7e44 740e92f3b61f4629af65e6018eceb4f6
+#: 7a09bb9ce51b4854987b5f0a823eed11 7c3a9fe1fa7b4825badc592b8e3bd2f4
+#: 8227e6cfbeff43688f40cafe781ab8b1 8ef5d602b8264bfd8e04142f712d578c
+#: 96047bde6b7a42e0a507164cbf2e08e0 9cfab916417d4028924915d3ad987491
+#: 9ffc09c4695b43b38d193fa4db733fe5 a31b6084e6d84e0bb162151fee610f51
+#: aa06f57242914303a92574b076e6430c aac1d88516074144a815f45de8a23000
+#: afa25fdc01c64e939e2967444219bfe6 b0ebb839e518429bb6260c3380583d3d
+#: b18d40dd161947938765fbce77c4977d bfbb215fd478472ab1845165d89efc3f
+#: c8bbda2450b44fac88a0a47185d0544e cb6b2bdcb8f24ed890c79be6ec52593d
+#: d0be30cf421240e9b2110964c8db1e3d d23a504e641e48eb8e13ce6b057df6d7
+#: d4b3f13adbaf4a2b889941bb89836dd7 d9934a900a3641a7ba4f9eee8b448b04
+#: dea21018ea1a4e0cb1b805b8722eb3f9 dffd8fccf2b8445f83dc0da027a262fa
+#: e2c7fc025e2746e9a48d05794997c5e5 e31c18627577469991bfd0d257f38ee1
+#: ef88b8980d24407795e2405fb1c581b4 f0b1b0d13974421e8b22642a10d88e88
+#: f1ba381ebe5e403f95e29b782d4280d5 f409e5a64954418a8f536e8320e95f82
+#: f6707320bf6546a98b4fc843d30452c3 fad3559577ac40059bffc1b81af3be00
+msgid "``{}``"
+msgstr ""
+
+#: ../../helm-values.rst:116 aafb9dd766d54d84994de2e3c0adf67a
+msgid "certgen.tolerations"
+msgstr ""
+
+#: ../../helm-values.rst:117 ../../helm-values.rst:269
+#: ../../helm-values.rst:817 ../../helm-values.rst:989
+#: 4529449993844ee1959897a8cbce2444 5615095a98834f80b095c5bfceacc468
+#: 999125b4d27c493b9c6fa5a60f62d819 db8d78f6c6a74355a3262598601b7d12
+msgid ""
+"Node tolerations for pod assignment on nodes with taints ref: "
+"https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+msgstr ""
+
+#: ../../helm-values.rst:118 ../../helm-values.rst:162
+#: ../../helm-values.rst:262 ../../helm-values.rst:266
+#: ../../helm-values.rst:270 ../../helm-values.rst:282
+#: ../../helm-values.rst:522 ../../helm-values.rst:526
+#: ../../helm-values.rst:578 ../../helm-values.rst:598
+#: ../../helm-values.rst:606 ../../helm-values.rst:610
+#: ../../helm-values.rst:614 ../../helm-values.rst:618
+#: ../../helm-values.rst:634 ../../helm-values.rst:722
+#: ../../helm-values.rst:810 ../../helm-values.rst:814
+#: ../../helm-values.rst:818 ../../helm-values.rst:878
+#: ../../helm-values.rst:882 ../../helm-values.rst:890
+#: ../../helm-values.rst:906 ../../helm-values.rst:950
+#: ../../helm-values.rst:990 ../../helm-values.rst:1058
+#: ../../helm-values.rst:1070 ../../helm-values.rst:1182
+#: ../../helm-values.rst:1214 ../../helm-values.rst:1234
+#: ../../helm-values.rst:1238 ../../helm-values.rst:1242
+#: ../../helm-values.rst:1246 ../../helm-values.rst:1250
+#: ../../helm-values.rst:1342 ../../helm-values.rst:1382
+#: ../../helm-values.rst:1434 ../../helm-values.rst:1574
+#: 004d886af5944d2986cf98ba5a6894e3 05896f245c7b49f8b81305f12ed4b7dd
+#: 0e0cde4b9d3e4e9080847fa6dcedf8fb 22dd12ab23ae4e42809969098d9a720b
+#: 23bd7a1c45b440b48b50c2982122fb53 2860fb525e55409c95ef3325685c5640
+#: 303e5ae368344bff8a5f33debfb7f08d 30d705f63ff140f68d02559d42c5a046
+#: 3afe2ca124024e50a19d24482b19e3af 3bffb4b55092414baaa5277044aad728
+#: 3c6d0b80cc02483bab046a3b6a99e286 3e4d7aed0cdc423b82af75bce93e2264
+#: 3f59b6380ee6449280b47f7b7dd11641 3ffd3b211b7749b381d427715592b835
+#: 48da3e29c2d74c4197a2845fd254b100 49c9871002ba4052b10ae5e32c32d0b0
+#: 4a016feb64fa4d20974df7d6f79f36c4 57530d2bdfd2408fbab187574f24e878
+#: 658be90d8b9c49ed8d42780e11dab4e1 6f0e089749b044749b8bcb6f288890aa
+#: 72f09e132227400bb97a44ed05a075ca 762e9d539cd047ad8a1b1f685aa15c27
+#: 77f08d3528124d4aa69ae576001cf825 81036c3cc8ae47dea2358fb8802534c4
+#: 8167b576510347d5a70d1f1041019eea 8e3578de64404af5965fc860249e2495
+#: 9570470a0a724604871b0f138af262d3 9dbc98924d3a4509984db1369eb0ba58
+#: a00721edc93141fe8b6285a3d86a6e31 a6a9d1a3157f4425bb791d6c54043f80
+#: aae2cf262695436fae890b8524cab8c3 c1d325469afc4d16a9fa840457d59dbd
+#: d319efdf1bf64b588e751aebab652f60 e5a594dc0cf241da94664bdf4d3a4f5d
+#: f430d6a396704dd485347f2e59577a6f f48f710985e046b0862f6d6358f69ead
+#: f59e96e7f62a4424b0db5e35039cc4bc f891d2caddb045498fee285e06cc146e
+msgid "list"
+msgstr ""
+
+#: ../../helm-values.rst:119 ../../helm-values.rst:163
+#: ../../helm-values.rst:263 ../../helm-values.rst:267
+#: ../../helm-values.rst:271 ../../helm-values.rst:283
+#: ../../helm-values.rst:527 ../../helm-values.rst:599
+#: ../../helm-values.rst:607 ../../helm-values.rst:611
+#: ../../helm-values.rst:615 ../../helm-values.rst:619
+#: ../../helm-values.rst:635 ../../helm-values.rst:723
+#: ../../helm-values.rst:811 ../../helm-values.rst:815
+#: ../../helm-values.rst:819 ../../helm-values.rst:879
+#: ../../helm-values.rst:883 ../../helm-values.rst:891
+#: ../../helm-values.rst:907 ../../helm-values.rst:951
+#: ../../helm-values.rst:991 ../../helm-values.rst:1059
+#: ../../helm-values.rst:1071 ../../helm-values.rst:1183
+#: ../../helm-values.rst:1235 ../../helm-values.rst:1239
+#: ../../helm-values.rst:1243 ../../helm-values.rst:1247
+#: ../../helm-values.rst:1251 ../../helm-values.rst:1383
+#: 074bb18661a74dd9a839d7015935f18d 0c3d635625be43739e37952f1290150f
+#: 1485a2a115b445428bf94fa65f1311dc 2f261e98571d4ab9a4aec18b57793214
+#: 300aee90b70640fda8fd23e71aa06afe 404c596dc9f34f8691c4e08814fc4880
+#: 42c42710bb844a59833d06664f6c9bf3 4cd45bffcba04c0aa4666367764cfa66
+#: 4d658c2b07724f9daaef4854ed26e2db 4dbe81a09a3a4d709a1b8326e5c1e7a3
+#: 5201e7d895764c53ab703076ee507883 579c1c19c9d44ef2bc68a484bac8357d
+#: 592c75ad99044be4a4bb632fac2188ba 5d7194a1f6c7434e8c8ff5d6a11fee78
+#: 5f9a19231b4c453fae9d418a26863d0e 65b5391a84a442cc87a671de467d60c3
+#: 72849b04685f42bba23059dd29098ac4 854f091eb7d5471f958ba6981ceda8cb
+#: 8b61aaa1501144ecb037de09756593eb 94de1940d9844f78a8e3010a1ed89329
+#: 96305596bd9c4b77b852448aecf436b4 afdbd87b052540dda6b4a2834e4f4ae2
+#: bb70c00ade6d4916a55b30d7ac588a6b be704d478b0d49a6b682f7611160d4d5
+#: dac99118659a4ac6898603d958f6e045 db83de8a2af648c8a1bb97ae0720309e
+#: dc0f57083d29456cbeb58e08cc8e39a3 e8b4eb378ba740ea95268de2134539c1
+#: ed33bb597cd84c18a749ef25a0b26932 f18466483df64f1e9974b88f0af46a94
+#: f401a325ec43495f9c7033596a464946 f869908774964b108663f36135707a6a
+msgid "``[]``"
+msgstr ""
+
+#: ../../helm-values.rst:120 da02bf6f2e304ba5ba7ccf3dff637fb0
+msgid "certgen.ttlSecondsAfterFinished"
+msgstr ""
+
+#: ../../helm-values.rst:121 2234cc8afc0443ceaf6c6d28e62e06f1
+msgid "Seconds after which the completed job pod will be deleted"
+msgstr ""
+
+#: ../../helm-values.rst:123 2a6a93feaa504a919000ce0f2d08dd08
+msgid "``1800``"
+msgstr ""
+
+#: ../../helm-values.rst:124 d53c2c1d54c24a89aeca05849201f386
+msgid "cgroup"
+msgstr ""
+
+#: ../../helm-values.rst:125 0bc1935263a24b0f89d4a9478576a20b
+msgid "Configure cgroup related configuration"
+msgstr ""
+
+#: ../../helm-values.rst:127 b175750b6e3041e297bf12bc1c9bedca
+msgid "``{\"autoMount\":{\"enabled\":true},\"hostRoot\":\"/run/cilium/cgroupv2\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:128 32750032b132481c80357a8da9e68356
+msgid "cgroup.autoMount.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:129 51d18a48d84f4517819d24bf68399e0f
+msgid ""
+"Enable auto mount of cgroup2 filesystem. When ``autoMount`` is enabled, "
+"cgroup2 filesystem is mounted at ``cgroup.hostRoot`` path on the "
+"underlying host and inside the cilium agent pod. If users disable "
+"``autoMount``\\ , it's expected that users have mounted cgroup2 "
+"filesystem at the specified ``cgroup.hostRoot`` volume, and then the "
+"volume will be mounted inside the cilium agent pod at the same path."
+msgstr ""
+
+#: ../../helm-values.rst:132 352ca18b278643d8a7a4d3283d72005b
+msgid "cgroup.hostRoot"
+msgstr ""
+
+#: ../../helm-values.rst:133 28f9c7a006754ef8ac71a48912e91344
+msgid ""
+"Configure cgroup root where cgroup2 filesystem is mounted on the host "
+"(see also: ``cgroup.autoMount``\\ )"
+msgstr ""
+
+#: ../../helm-values.rst:135 f5641d176b064d6d84650ff9d1c0aa5e
+msgid "``\"/run/cilium/cgroupv2\"``"
+msgstr ""
+
+#: ../../helm-values.rst:136 873b85bc38cf41f4b19a7ed74404a3f5
+msgid "cleanBpfState"
+msgstr ""
+
+#: ../../helm-values.rst:137 66783912c5a6431da8c47f717017df63
+msgid ""
+"Clean all eBPF datapath state from the initContainer of the cilium-agent "
+"DaemonSet. WARNING: Use with care!"
+msgstr ""
+
+#: ../../helm-values.rst:140 e0f23eaa1aea484fb8fed5dc2ced64a4
+msgid "cleanState"
+msgstr ""
+
+#: ../../helm-values.rst:141 e560874cc3224104880d136ea3106161
+msgid ""
+"Clean all local Cilium state from the initContainer of the cilium-agent "
+"DaemonSet. Implies cleanBpfState: true. WARNING: Use with care!"
+msgstr ""
+
+#: ../../helm-values.rst:144 81dfd82b8d1f4b48b4a7ca23478c20f1
+msgid "cluster.id"
+msgstr ""
+
+#: ../../helm-values.rst:145 d58675696fd84ba791a2954c4ea0529a
+msgid ""
+"Unique ID of the cluster. Must be unique across all connected clusters "
+"and in the range of 1 to 255. Only required for Cluster Mesh."
+msgstr ""
+
+#: ../../helm-values.rst:147 ../../helm-values.rst:187
+#: ../../helm-values.rst:555 ../../helm-values.rst:675
+#: ../../helm-values.rst:715 ../../helm-values.rst:755
+#: ../../helm-values.rst:775 ../../helm-values.rst:787
+#: ../../helm-values.rst:791 ../../helm-values.rst:939
+#: ../../helm-values.rst:1007 ../../helm-values.rst:1287
+#: ../../helm-values.rst:1407 ../../helm-values.rst:1455
+#: 0911778df26241e19f9b5da20fbd4ada 2cc734c5f190469b917781ba600f880b
+#: 4fe73e6062e84e098c18bca9a8ecc631 5cfe9a80353a4ad59a0f9ae888010761
+#: 7f4ca77dd4564bfe8910161881eb4827 86e9830cd4784edfaa412776e3102e09
+#: 988aa2e5e0fa477f8db63dd99132fece af9d4ff45569453ca36b8877897f3924
+#: b970aa1b7bfb40f9a8aedcaeb49b95f3 bd6282a9fcea49ba80a61ba7b3569fd2
+#: c8e5b6288fe44924afb1a7f6c66093d6 e33dd7456d14450bb6678c5f7253b112
+#: e75c3ebb0b7d4dfe81a885a6ae0866a7 f0283949da2c418f90c8e9619ab8bec8
+msgid "``nil``"
+msgstr ""
+
+#: ../../helm-values.rst:148 29e00c9214044ea0adf476af7e1e2ade
+msgid "cluster.name"
+msgstr ""
+
+#: ../../helm-values.rst:149 be6b708c0cc140859ecf27f06c359ec1
+msgid "Name of the cluster. Only required for Cluster Mesh."
+msgstr ""
+
+#: ../../helm-values.rst:151 ../../helm-values.rst:1367
+#: 0bf571646e764657ada2d10ba684c6e6 323e08770cc0427c8faa4c63e4d80ce5
+msgid "``\"default\"``"
+msgstr ""
+
+#: ../../helm-values.rst:152 7e64a8583fcd44d4a5115a1648b7f8c7
+msgid "clustermesh.apiserver.affinity"
+msgstr ""
+
+#: ../../helm-values.rst:153 ec5760bbccb5418497f481b8cc1540b4
+msgid "Affinity for clustermesh.apiserver"
+msgstr ""
+
+#: ../../helm-values.rst:155 c134691744a34ca78b28111a73eb5a84
+msgid ""
+"``{\"podAntiAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":[{\"labelSelector\":{\"matchLabels"
+"\":{\"k8s-app\":\"clustermesh-"
+"apiserver\"}},\"topologyKey\":\"kubernetes.io/hostname\"}]}}``"
+msgstr ""
+
+#: ../../helm-values.rst:156 7216972ef7ac473e8f2dbc002ee59b8a
+msgid "clustermesh.apiserver.etcd.image"
+msgstr ""
+
+#: ../../helm-values.rst:157 f6d233fcb62f452f8c3ba4f71564d757
+msgid "Clustermesh API server etcd image."
+msgstr ""
+
+#: ../../helm-values.rst:159 8ebc71ea4de94038911e8b4f688e6e8a
+msgid "``{\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/coreos/etcd\",\"tag\":\"v3.5.2@sha256:70fe70b6cdaea99fa9e99d3a16483954eb084c3b32a2475abea4e709a793636c\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:160 f9e2b2132fdb4274bf44ceaa2939086d
+msgid "clustermesh.apiserver.extraEnv"
+msgstr ""
+
+#: ../../helm-values.rst:161 65c5cd9253864a6cb63dc07ad7c09021
+msgid "Additional clustermesh-apiserver environment variables."
+msgstr ""
+
+#: ../../helm-values.rst:164 4732df47919941e8a98cfe2a28be6c67
+msgid "clustermesh.apiserver.image"
+msgstr ""
+
+#: ../../helm-values.rst:165 559282512fe249a0b4fa70b1a701020a
+msgid "Clustermesh API server image."
+msgstr ""
+
+#: ../../helm-values.rst:167 c987b2c0ea6c4492be6434eb4383007d
+msgid ""
+"``{\"digest\":\"\",\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/cilium"
+"/clustermesh-apiserver\",\"tag\":\"latest\",\"useDigest\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:168 3c5e8c93496e48ad96e7a5480ae83a1e
+msgid "clustermesh.apiserver.nodeSelector"
+msgstr ""
+
+#: ../../helm-values.rst:169 ../../helm-values.rst:737
+#: ../../helm-values.rst:921 2ac912c4d9de46bc9ce2867475f38420
+#: 7892079d0abd491ea54e2ba0509c498b 97759af505a1485c8b732f9daa5b9a81
+msgid ""
+"Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide"
+"/node-selection/"
+msgstr ""
+
+#: ../../helm-values.rst:172 db9a5de863674c2b817f3914c0a50aca
+msgid "clustermesh.apiserver.podAnnotations"
+msgstr ""
+
+#: ../../helm-values.rst:173 f192be0787e8419faf81391674109ada
+msgid "Annotations to be added to clustermesh-apiserver pods"
+msgstr ""
+
+#: ../../helm-values.rst:176 1c25aa3c978d416caeae6f0b6541477a
+msgid "clustermesh.apiserver.podDisruptionBudget.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:177 ../../helm-values.rst:545
+#: ../../helm-values.rst:745 ../../helm-values.rst:929
+#: ../../helm-values.rst:1277 ../../helm-values.rst:1397
+#: 24f11a94cf444056b7593c0e636603ec 56616f6a298742538e538cc2fc5f5851
+#: bb016fc6eaae4687966735744d0bae16 bca5fcab6e9b4cfaae8d24cb38745ae9
+#: dff4e3f4d7fc415e991db6dd36616213 f52924c6c37d4366954e2c33e125c70b
+msgid ""
+"enable PodDisruptionBudget ref: "
+"https://kubernetes.io/docs/concepts/workloads/pods/disruptions/"
+msgstr ""
+
+#: ../../helm-values.rst:180 53b09f4679494dff9102b5216a1baf28
+msgid "clustermesh.apiserver.podDisruptionBudget.maxUnavailable"
+msgstr ""
+
+#: ../../helm-values.rst:181 ../../helm-values.rst:549
+#: ../../helm-values.rst:749 ../../helm-values.rst:933
+#: ../../helm-values.rst:1281 ../../helm-values.rst:1401
+#: 1a2cb6d751a84c9fac4062dae1d53cc9 499d0724618b4cb4b73a35d8cb2cbe54
+#: 4c94aa3acb924c07a99d86d2d6e28d21 752d94fd8abf476798ad19f29643beb8
+#: 89ce2208d12c4cb2b7ba7b07b8cfedc2 df0d4d1b3c954f4992a619a57b65988d
+msgid "Maximum number/percentage of pods that may be made unavailable"
+msgstr ""
+
+#: ../../helm-values.rst:183 ../../helm-values.rst:199
+#: ../../helm-values.rst:551 ../../helm-values.rst:751
+#: ../../helm-values.rst:767 ../../helm-values.rst:795
+#: ../../helm-values.rst:935 ../../helm-values.rst:963
+#: ../../helm-values.rst:1283 ../../helm-values.rst:1403
+#: ../../helm-values.rst:1427 ../../helm-values.rst:1547
+#: 0959c533e76d47b68da284ecc8741b95 0d0983dd8e314e728e10e85661344535
+#: 43f338534d264e2aa9e3bf647bf8bf81 60f391bc750f487490d27ff48b31399d
+#: 67fb0af84683469985123e6c0f736c15 6d5ae93b9e124181802e6cbbd8dd4203
+#: 88b6e6782b164e1e8f5f281b822ee682 958c6d485cf944c2b55430e01edd0c3d
+#: a54825c2e718499e83b6b1ff21998c3b c13414e450ad4eb69f1dae10982ca51b
+#: d2014b7e9c7a4c54831d79b361b4fcec f06dbbcfc0364d41a8ad4d704886059b
+msgid "``1``"
+msgstr ""
+
+#: ../../helm-values.rst:184 975b00a6b67345eba4e606541ca01f6e
+msgid "clustermesh.apiserver.podDisruptionBudget.minAvailable"
+msgstr ""
+
+#: ../../helm-values.rst:185 ../../helm-values.rst:553
+#: ../../helm-values.rst:753 ../../helm-values.rst:937
+#: ../../helm-values.rst:1285 ../../helm-values.rst:1405
+#: 0818d37219944223bf85440ed4569ac0 1d2c0518677d4234b1380a113326d216
+#: 2356ae3466714276aa6f0d9341e216ff 5919cee99c0b479185b84d31d607c076
+#: dc394555f51f401e914f53416a1f871c ffe84235fc1344ab80925a5d8a7039aa
+msgid ""
+"Minimum number/percentage of pods that should remain scheduled. When it's"
+" set, maxUnavailable must be disabled by ``maxUnavailable: null``"
+msgstr ""
+
+#: ../../helm-values.rst:188 1133f523bb564f33bd8667a626bbcef6
+msgid "clustermesh.apiserver.podLabels"
+msgstr ""
+
+#: ../../helm-values.rst:189 60040c5644a749dab520f83a007c2eb4
+msgid "Labels to be added to clustermesh-apiserver pods"
+msgstr ""
+
+#: ../../helm-values.rst:192 e45027e409114d819028ed6bf55f1140
+msgid "clustermesh.apiserver.priorityClassName"
+msgstr ""
+
+#: ../../helm-values.rst:193 b05545f2ef674625ac722e501920c96f
+msgid "The priority class to use for clustermesh-apiserver"
+msgstr ""
+
+#: ../../helm-values.rst:195 ../../helm-values.rst:243
+#: ../../helm-values.rst:247 ../../helm-values.rst:419
+#: ../../helm-values.rst:423 ../../helm-values.rst:427
+#: ../../helm-values.rst:431 ../../helm-values.rst:435
+#: ../../helm-values.rst:483 ../../helm-values.rst:495
+#: ../../helm-values.rst:499 ../../helm-values.rst:503
+#: ../../helm-values.rst:507 ../../helm-values.rst:563
+#: ../../helm-values.rst:731 ../../helm-values.rst:763
+#: ../../helm-values.rst:863 ../../helm-values.rst:867
+#: ../../helm-values.rst:947 ../../helm-values.rst:1099
+#: ../../helm-values.rst:1203 ../../helm-values.rst:1295
+#: ../../helm-values.rst:1415 ../../helm-values.rst:1431
+#: ../../helm-values.rst:1447 ../../helm-values.rst:1559
+#: ../../helm-values.rst:1567 ../../helm-values.rst:1587
+#: ../../helm-values.rst:1595 ../../helm-values.rst:1599
+#: ../../helm-values.rst:1603 03d67858a4b741e0ab3bc9ba1bb244c9
+#: 0859977d5f754bc88f02f27519a85182 0aee82ba51b54c2594fcad8a7725a883
+#: 112d6fcec8ed4c7c8c9b919612075c5f 1763a9f305f944dd94da85e878ac4151
+#: 17e4189a00734ccdb3d7c6fbad8e2955 1abbfa70f6d541a68bd4d4edab278b4b
+#: 1bf117175f3d4c418b3d1e5fcd8c4721 287b002302c445789b4c3a42afd82082
+#: 2f08f7dd2d2547e083c6fbea380a1e2c 3e3cedd14a5d4b849b293f88dd4bb82f
+#: 481dcaef8ac74a00bc4f68789cc69118 5738d2402a624af5aa3fbe30d9f535f5
+#: 5e78693ab7ba4ad1a0dde8c80490fd70 6e5d2d010a2d4c558d42851cef6e19e0
+#: 724b014c636f4d41abec69ef6d4cef5c 81cf47da0ae74bbd9de95a70bcaf17d1
+#: 8c262c146be94e59862ae1b3438dc807 8d9482eaa89d4f1c84d901591c37d4f1
+#: 9df2a9a29a0b49429c8c32089931b1e5 a3a262d657aa42f0b46f0b6496181102
+#: a93835ebe6d84ef1b234f1bd3d0ffe7f c6354047c0544a5d886865a7739cc1c1
+#: cec015ee90d8446088f13e9f05ae9d6f d461f33f0ee84ce9a08c77f5d7cd79d0
+#: dc4ab0bc1e624fafbc99d53ea5f4d361 dc7f08e255e846a3afbcf65ed6653bea
+#: e0311e0441274de29f2cd496d34e5901 e7ea1d5a5c12458b8af7f88709bfd861
+#: ecc4baaba5634884a97e3298b16d5834 ee193bd0e2aa452fbb30332ed40b48ef
+msgid "``\"\"``"
+msgstr ""
+
+#: ../../helm-values.rst:196 05f8c2bff9ec44abb3cc7b3e891e39fc
+msgid "clustermesh.apiserver.replicas"
+msgstr ""
+
+#: ../../helm-values.rst:197 d6c00824f59c4a5397b84c01bce5a3fe
+msgid "Number of replicas run for the clustermesh-apiserver deployment."
+msgstr ""
+
+#: ../../helm-values.rst:200 d0c06db8571540a18951130aa9412dc3
+msgid "clustermesh.apiserver.resources"
+msgstr ""
+
+#: ../../helm-values.rst:201 11bcee8a5bf949fb8e5ddb16b1fc4dee
+msgid "Resource requests and limits for the clustermesh-apiserver"
+msgstr ""
+
+#: ../../helm-values.rst:204 77b563b809c04b02863001d90548cb92
+msgid "clustermesh.apiserver.service.annotations"
+msgstr ""
+
+#: ../../helm-values.rst:205 29c8c2dece0e4b2f89a4205c2b9ae214
+msgid ""
+"Annotations for the clustermesh-apiserver For GKE LoadBalancer, use "
+"annotation cloud.google.com/load-balancer-type: \"Internal\" For EKS "
+"LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-"
+"balancer-internal: 0.0.0.0/0"
+msgstr ""
+
+#: ../../helm-values.rst:208 184d849fec734384b62bd9c9c2b5a2f8
+msgid "clustermesh.apiserver.service.nodePort"
+msgstr ""
+
+#: ../../helm-values.rst:209 862e350035c94190be85094167a65db3
+msgid "Optional port to use as the node port for apiserver access."
+msgstr ""
+
+#: ../../helm-values.rst:211 4d75ab4412044a52b3b748e35e99ef88
+msgid "``32379``"
+msgstr ""
+
+#: ../../helm-values.rst:212 8b6a81b83c45478999b6a5f5bc0045d8
+msgid "clustermesh.apiserver.service.type"
+msgstr ""
+
+#: ../../helm-values.rst:213 4cd50491df75482294f4b546fed8ecb6
+msgid "The type of service used for apiserver access."
+msgstr ""
+
+#: ../../helm-values.rst:215 2eea6b1786c04493958c4c0c95011b2c
+msgid "``\"NodePort\"``"
+msgstr ""
+
+#: ../../helm-values.rst:216 a7731aada3bb4231b1b01c1b735bc907
+msgid "clustermesh.apiserver.tls.admin"
+msgstr ""
+
+#: ../../helm-values.rst:217 2aa1b35a48db48538821755fc6ccf604
+msgid ""
+"base64 encoded PEM values for the clustermesh-apiserver admin certificate"
+" and private key. Used if 'auto' is not enabled."
+msgstr ""
+
+#: ../../helm-values.rst:219 ../../helm-values.rst:239
+#: ../../helm-values.rst:251 ../../helm-values.rst:255
+#: ../../helm-values.rst:803 ../../helm-values.rst:859
+#: ../../helm-values.rst:987 014c3a98caaa4dcab8c5933975d3bd5c
+#: 0f6eae4d386c4813993cdcfe8b925a99 496bf6d7f69c42c39525184bda04640f
+#: 75f810fcf2ab49b2a9afc35cbc252ef9 78280ad2ae5f475ebc6943a0435f816c
+#: 83bdf321ede74400842261812901ae5d bbb0caf300bb4fb3885b01c522725e23
+msgid "``{\"cert\":\"\",\"key\":\"\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:220 77d85504a0ea49f7885d254a78bc6808
+msgid "clustermesh.apiserver.tls.auto"
+msgstr ""
+
+#: ../../helm-values.rst:221 51853aaaa65a4e0a93207cc9e91e24c8
+msgid ""
+"Configure automatic TLS certificates generation. A Kubernetes CronJob is "
+"used the generate any certificates not provided by the user at "
+"installation time."
+msgstr ""
+
+#: ../../helm-values.rst:223 70caace81dc645e8beb8c05755036794
+msgid "``{\"certManagerIssuerRef\":{},\"certValidityDuration\":1095,\"enabled\":true,\"method\":\"helm\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:224 9117858a9fe840e0833256c685dc3927
+msgid "clustermesh.apiserver.tls.auto.certManagerIssuerRef"
+msgstr ""
+
+#: ../../helm-values.rst:225 455e83cd7e3c4fe5ba7d08d72e3f3dba
+msgid ""
+"certmanager issuer used when "
+"clustermesh.apiserver.tls.auto.method=certmanager. If not specified, a CA"
+" issuer will be created."
+msgstr ""
+
+#: ../../helm-values.rst:228 f88698a393e94b6f93bac8343df5eb95
+msgid "clustermesh.apiserver.tls.auto.certValidityDuration"
+msgstr ""
+
+#: ../../helm-values.rst:229 ../../helm-values.rst:841
+#: 35b0a721f7c447528df8f62025a21e81 77087782dcca45f6b74febea609aad10
+msgid "Generated certificates validity duration in days."
+msgstr ""
+
+#: ../../helm-values.rst:231 ../../helm-values.rst:843
+#: ../../helm-values.rst:1563 633c23c8e18445a0b6621d468a322889
+#: c81a15b243e04f11aa70a50d47d51fb8 e6570c70515546c4b905e014bdaa1437
+msgid "``1095``"
+msgstr ""
+
+#: ../../helm-values.rst:232 e8ad8ccdd84a4658b9827db367192051
+msgid "clustermesh.apiserver.tls.auto.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:233 388d5207d7f540dc9fc1c59b8978b856
+msgid ""
+"When set to true, automatically generate a CA and certificates to enable "
+"mTLS between clustermesh-apiserver and external workload instances. If "
+"set to false, the certs to be provided by setting appropriate values "
+"below."
+msgstr ""
+
+#: ../../helm-values.rst:236 e84cc90242d242ad85d24b5932727330
+msgid "clustermesh.apiserver.tls.ca"
+msgstr ""
+
+#: ../../helm-values.rst:237 985ea5aad64e4fa896851383bff06f17
+msgid ""
+"base64 encoded PEM values for the ExternalWorkload CA certificate and "
+"private key."
+msgstr ""
+
+#: ../../helm-values.rst:240 95e737e9cd454d859d50ea0fb30d86d3
+msgid "clustermesh.apiserver.tls.ca.cert"
+msgstr ""
+
+#: ../../helm-values.rst:241 6be9b0b457e04881a5584c4f3d4c70c9
+msgid ""
+"Optional CA cert. If it is provided, it will be used by the 'cronJob' "
+"method to generate all other certificates. Otherwise, an ephemeral CA is "
+"generated."
+msgstr ""
+
+#: ../../helm-values.rst:244 0e0add86078449c48a4a0474e131cfee
+msgid "clustermesh.apiserver.tls.ca.key"
+msgstr ""
+
+#: ../../helm-values.rst:245 1bdfa05f94654d03ad47c83849c29c21
+msgid ""
+"Optional CA private key. If it is provided, it will be used by the "
+"'cronJob' method to generate all other certificates. Otherwise, an "
+"ephemeral CA is generated."
+msgstr ""
+
+#: ../../helm-values.rst:248 0e8d978d3ffd4d749728f07bc5e7fa67
+msgid "clustermesh.apiserver.tls.client"
+msgstr ""
+
+#: ../../helm-values.rst:249 e7b3d3c574b8457baf2daea760b8a9a4
+msgid ""
+"base64 encoded PEM values for the clustermesh-apiserver client "
+"certificate and private key. Used if 'auto' is not enabled."
+msgstr ""
+
+#: ../../helm-values.rst:252 dcadb67798024f99bff089aecfb55130
+msgid "clustermesh.apiserver.tls.remote"
+msgstr ""
+
+#: ../../helm-values.rst:253 a19c7fad6d5a4e04af1ad9bd14700f88
+msgid ""
+"base64 encoded PEM values for the clustermesh-apiserver remote cluster "
+"certificate and private key. Used if 'auto' is not enabled."
+msgstr ""
+
+#: ../../helm-values.rst:256 fa91e67b38e8433fbf91d8c747396109
+msgid "clustermesh.apiserver.tls.server"
+msgstr ""
+
+#: ../../helm-values.rst:257 e6bcf86a56a3417eb561e0886993aa45
+msgid ""
+"base64 encoded PEM values for the clustermesh-apiserver server "
+"certificate and private key. Used if 'auto' is not enabled."
+msgstr ""
+
+#: ../../helm-values.rst:259 ../../helm-values.rst:875
+#: 6142321087194c568bac0f89d4a63a49 ec3befb025c846a09e8de67155afcf64
+msgid "``{\"cert\":\"\",\"extraDnsNames\":[],\"extraIpAddresses\":[],\"key\":\"\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:260 b410ea1b32ed45c785cae3a6dcfc3918
+msgid "clustermesh.apiserver.tls.server.extraDnsNames"
+msgstr ""
+
+#: ../../helm-values.rst:261 ../../helm-values.rst:877
+#: 287b1df5a6054973a085f25d5a11fd8c bb5fb959c8814eac8840ade46d18fbea
+msgid "Extra DNS names added to certificate when it's auto generated"
+msgstr ""
+
+#: ../../helm-values.rst:264 99ade98747f3444998b19b969ff91a3f
+msgid "clustermesh.apiserver.tls.server.extraIpAddresses"
+msgstr ""
+
+#: ../../helm-values.rst:265 ../../helm-values.rst:881
+#: 40598aa93fae4066a281c456854bf4d0 b76701bb0b4a4b80bf5a24497ef08bec
+msgid "Extra IP addresses added to certificate when it's auto generated"
+msgstr ""
+
+#: ../../helm-values.rst:268 b577647e1ec343c4b08f378a92193958
+msgid "clustermesh.apiserver.tolerations"
+msgstr ""
+
+#: ../../helm-values.rst:272 881f566f4115414ab4137e5b8112f6a6
+msgid "clustermesh.apiserver.updateStrategy"
+msgstr ""
+
+#: ../../helm-values.rst:273 7f2cde79fc164294842fb821689b1587
+msgid "clustermesh-apiserver update strategy"
+msgstr ""
+
+#: ../../helm-values.rst:275 ../../helm-values.rst:823
+#: ../../helm-values.rst:995 16b9d8458cc7484f8a1d1ab25a4d538b
+#: 5d837ceceedc48089bbfb8b31a156793 ec9ea57c714a4df38a9c21851ff16b1e
+msgid "``{\"rollingUpdate\":{\"maxUnavailable\":1},\"type\":\"RollingUpdate\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:276 3ca503ac999b4205b71216f6738c6088
+msgid "clustermesh.config"
+msgstr ""
+
+#: ../../helm-values.rst:277 4e63e68021884347b5be6cde884b6e24
+msgid "Clustermesh explicit configuration."
+msgstr ""
+
+#: ../../helm-values.rst:279 d8c3da0842924ed29f0a1a3762e0eba6
+msgid "``{\"clusters\":[],\"domain\":\"mesh.cilium.io\",\"enabled\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:280 34b42adf98d741ff9c4c8107b8e9210a
+msgid "clustermesh.config.clusters"
+msgstr ""
+
+#: ../../helm-values.rst:281 5ecebec1819d4a5398b2d10b237e29f2
+msgid "List of clusters to be peered in the mesh."
+msgstr ""
+
+#: ../../helm-values.rst:284 9b3d35ff5fdc4539b6b482641bbb1c30
+msgid "clustermesh.config.domain"
+msgstr ""
+
+#: ../../helm-values.rst:285 561413d1bea8409eb95678e2b240a4fa
+msgid ""
+"Default dns domain for the Clustermesh API servers This is used in the "
+"case cluster addresses are not provided and IPs are used."
+msgstr ""
+
+#: ../../helm-values.rst:287 ed1c06b4cc9945158ac0a452c3e679de
+msgid "``\"mesh.cilium.io\"``"
+msgstr ""
+
+#: ../../helm-values.rst:288 092ba418405d4b98aa5b2527481fb95d
+msgid "clustermesh.config.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:289 eef36a19f02e4f3d9a167af682a66269
+msgid "Enable the Clustermesh explicit configuration."
+msgstr ""
+
+#: ../../helm-values.rst:292 e58978e4c15943c1af07a12cb5cb6f75
+msgid "clustermesh.useAPIServer"
+msgstr ""
+
+#: ../../helm-values.rst:293 4622eefc64954618bda9d7caa52e7370
+msgid "Deploy clustermesh-apiserver for clustermesh"
+msgstr ""
+
+#: ../../helm-values.rst:296 431bc86aba1e4958a789bb1bb355896c
+msgid "cni.binPath"
+msgstr ""
+
+#: ../../helm-values.rst:297 f4e6a9c865b74586ac3c9a7c729659b5
+msgid "Configure the path to the CNI binary directory on the host."
+msgstr ""
+
+#: ../../helm-values.rst:299 020400f1900d4ac4b9c4e40183b2886d
+msgid "``\"/opt/cni/bin\"``"
+msgstr ""
+
+#: ../../helm-values.rst:300 a620523864224e6d91dba23a1f90c3a0
+msgid "cni.chainingMode"
+msgstr ""
+
+#: ../../helm-values.rst:301 b5ee1fb98e294998aa8d25fe945cd8d5
+msgid ""
+"Configure chaining on top of other CNI plugins. Possible values:  - none"
+"  - aws-cni  - flannel  - generic-veth  - portmap"
+msgstr ""
+
+#: ../../helm-values.rst:303 ../../helm-values.rst:343
+#: 0180a6d4762049faa976be2495f97ac7 430fe7efb4a641a1b5cef1e86d59de9e
+msgid "``\"none\"``"
+msgstr ""
+
+#: ../../helm-values.rst:304 fbd81608865243408a94e8da33531744
+msgid "cni.confFileMountPath"
+msgstr ""
+
+#: ../../helm-values.rst:305 fe1d9000f8a040a6a208f04ec3a13869
+msgid "Configure the path to where to mount the ConfigMap inside the agent pod."
+msgstr ""
+
+#: ../../helm-values.rst:307 0206b5501bf94bcb83d7b22eb05ed149
+msgid "``\"/tmp/cni-configuration\"``"
+msgstr ""
+
+#: ../../helm-values.rst:308 c5b5883005cd4bfbb5837c8a4e3048b5
+msgid "cni.confPath"
+msgstr ""
+
+#: ../../helm-values.rst:309 eb440931eed5491990ce2a565dfae76f
+msgid "Configure the path to the CNI configuration directory on the host."
+msgstr ""
+
+#: ../../helm-values.rst:311 690b603eb888438389b292182526289a
+msgid "``\"/etc/cni/net.d\"``"
+msgstr ""
+
+#: ../../helm-values.rst:312 cef05757d6824ce88732338fd3d3da77
+msgid "cni.configMapKey"
+msgstr ""
+
+#: ../../helm-values.rst:313 64b8ad03120347249b976c8db468bdeb
+msgid ""
+"Configure the key in the CNI ConfigMap to read the contents of the CNI "
+"configuration from."
+msgstr ""
+
+#: ../../helm-values.rst:315 a63563c7a430431c8819b891f3e06ee4
+msgid "``\"cni-config\"``"
+msgstr ""
+
+#: ../../helm-values.rst:316 91654e8eb23a4404935ce148e0d12582
+msgid "cni.customConf"
+msgstr ""
+
+#: ../../helm-values.rst:317 9d31c7f86aba4281bf11e3b71fd8565f
+msgid ""
+"Skip writing of the CNI configuration. This can be used if writing of the"
+" CNI configuration is performed by external automation."
+msgstr ""
+
+#: ../../helm-values.rst:320 f9bbc897358342a28a4c3a990f9e121e
+msgid "cni.exclusive"
+msgstr ""
+
+#: ../../helm-values.rst:321 d39ca4d87935487390cbce4f81819bfc
+msgid ""
+"Make Cilium take ownership over the ``/etc/cni/net.d`` directory on the "
+"node, renaming all non-Cilium CNI configurations to ``*.cilium_bak``. "
+"This ensures no Pods can be scheduled using other CNI plugins during "
+"Cilium agent downtime."
+msgstr ""
+
+#: ../../helm-values.rst:324 4af0667f6a4d4053a03092124c690ecc
+msgid "cni.hostConfDirMountPath"
+msgstr ""
+
+#: ../../helm-values.rst:325 aeb2c90ddeb748a78a9b4f1b256337ea
+msgid ""
+"Configure the path to where the CNI configuration directory is mounted "
+"inside the agent pod."
+msgstr ""
+
+#: ../../helm-values.rst:327 c55e1d5bb43843b88e8596ffe6b1623c
+msgid "``\"/host/etc/cni/net.d\"``"
+msgstr ""
+
+#: ../../helm-values.rst:328 c0c6c7afaee143c188997436176843ed
+msgid "cni.install"
+msgstr ""
+
+#: ../../helm-values.rst:329 4bdf29481753474997aaa7edbd2ffa96
+msgid "Install the CNI configuration and binary files into the filesystem."
+msgstr ""
+
+#: ../../helm-values.rst:332 330847b1c0bd4fde966dadeea9c1add2
+msgid "cni.logFile"
+msgstr ""
+
+#: ../../helm-values.rst:333 5aaa017987ff4e0090299f348a2219a5
+msgid ""
+"Configure the log file for CNI logging with retention policy of 7 days. "
+"Disable CNI file logging by setting this field to empty explicitly."
+msgstr ""
+
+#: ../../helm-values.rst:335 5218be0c85f84d63b2d5200ea8480f51
+msgid "``\"/var/run/cilium/cilium-cni.log\"``"
+msgstr ""
+
+#: ../../helm-values.rst:336 e08062c234f54a1da8c124052d1c262a
+msgid "containerRuntime"
+msgstr ""
+
+#: ../../helm-values.rst:337 c99fa0be48164bc8a8bd9a4352754c18
+msgid "Configure container runtime specific integration."
+msgstr ""
+
+#: ../../helm-values.rst:339 8afcb679f35e4e759781cbc48b4daf78
+msgid "``{\"integration\":\"none\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:340 23afc22d13044558821b09e048943cd9
+msgid "containerRuntime.integration"
+msgstr ""
+
+#: ../../helm-values.rst:341 2221845713f74a33be0980fe523ca930
+msgid ""
+"Enables specific integrations for container runtimes. Supported values: -"
+" containerd - crio - docker - none - auto (automatically detect the "
+"container runtime)"
+msgstr ""
+
+#: ../../helm-values.rst:344 f2a7be08529b4e3083cf66a4e72705df
+msgid "customCalls"
+msgstr ""
+
+#: ../../helm-values.rst:345 aa8333e11ea9400a863043e321efc8a4
+msgid "Tail call hooks for custom eBPF programs."
+msgstr ""
+
+#: ../../helm-values.rst:348 e2bb0662b06140c080044234c8ac1785
+msgid "customCalls.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:349 f2ff8985504a4949811daab564bb8ff3
+msgid "Enable tail call hooks for custom eBPF programs."
+msgstr ""
+
+#: ../../helm-values.rst:352 78c73a7301d54c0e81b0e0004808bebb
+msgid "daemon.runPath"
+msgstr ""
+
+#: ../../helm-values.rst:353 bbf50533d2b54de59648169aba916190
+msgid "Configure where Cilium runtime state should be stored."
+msgstr ""
+
+#: ../../helm-values.rst:355 e19df2e4b4e8412a8f190adff79b0c60
+msgid "``\"/var/run/cilium\"``"
+msgstr ""
+
+#: ../../helm-values.rst:356 39d1eba57d294e748f233f66458a913f
+msgid "datapathMode"
+msgstr ""
+
+#: ../../helm-values.rst:357 594fccadeb9b4488863dad1ac4a4f7e1
+msgid ""
+"Configure which datapath mode should be used for configuring container "
+"connectivity. Valid options are \"veth\" or \"ipvlan\". Deprecated, to be"
+" removed in v1.12."
+msgstr ""
+
+#: ../../helm-values.rst:359 fa8b7403f1694b0691a5890fa9228bbc
+msgid "``\"veth\"``"
+msgstr ""
+
+#: ../../helm-values.rst:360 97ba9c531f424221abf175d14a48b44c
+msgid "debug.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:361 3d01b9ad3e524173905ecf8baf9bf56b
+msgid "Enable debug logging"
+msgstr ""
+
+#: ../../helm-values.rst:364 348fedd28a08409bb207412517ebc30c
+msgid "disableEndpointCRD"
+msgstr ""
+
+#: ../../helm-values.rst:365 2098eff42bd540b8a4702c9a32c10822
+msgid "Disable the usage of CiliumEndpoint CRD."
+msgstr ""
+
+#: ../../helm-values.rst:367 d0dbc5118e9b4b70b8b4a09481b7cb0f
+msgid "``\"false\"``"
+msgstr ""
+
+#: ../../helm-values.rst:368 b0a0896309584ae792cca086ff3e3f63
+msgid "egressGateway"
+msgstr ""
+
+#: ../../helm-values.rst:369 12a84c978bf34bf2a003dbadfbbbd91a
+msgid ""
+"Enables egress gateway (beta) to redirect and SNAT the traffic that "
+"leaves the cluster."
+msgstr ""
+
+#: ../../helm-values.rst:371 4657337cb79349779940666374f5e819
+msgid "``{\"enabled\":false,\"installRoutes\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:372 c0eeda68637143189c2cc36549147ade
+msgid "egressGateway.installRoutes"
+msgstr ""
+
+#: ../../helm-values.rst:373 14075770b02b4a10ad41900da8d42fe4
+msgid ""
+"Install egress gateway IP rules and routes in order to properly steer "
+"egress gateway traffic to the correct ENI interface"
+msgstr ""
+
+#: ../../helm-values.rst:376 0af737257ba54c0aacadda8df04f1973
+msgid "enableCiliumEndpointSlice"
+msgstr ""
+
+#: ../../helm-values.rst:377 fa918c185dff433b82e8fc36c06378d4
+msgid "Enable CiliumEndpointSlice feature."
+msgstr ""
+
+#: ../../helm-values.rst:380 aa8033d4b4eb467ea82b0e444b9901dd
+msgid "enableCnpStatusUpdates"
+msgstr ""
+
+#: ../../helm-values.rst:381 675d2426b6df48dcb254f867ba6f366a
+msgid "Whether to enable CNP status updates."
+msgstr ""
+
+#: ../../helm-values.rst:384 f13939caa6494aa6a1726bb28cc46406
+msgid "enableCriticalPriorityClass"
+msgstr ""
+
+#: ../../helm-values.rst:385 af0296f9393346bdbd741c21273e226d
+msgid ""
+"Explicitly enable or disable priority class. .Capabilities.KubeVersion is"
+" unsettable in ``helm template`` calls, it depends on k8s libraries "
+"version that Helm was compiled against. This option allows to explicitly "
+"disable setting the priority class, which is useful for rendering charts "
+"for gke clusters in advance."
+msgstr ""
+
+#: ../../helm-values.rst:388 6a22a4de70c94cb78a8352ba7de81f9e
+msgid "enableIPv4Masquerade"
+msgstr ""
+
+#: ../../helm-values.rst:389 aa70041c3e9f4382861ff18d12aeacfe
+msgid "Enables masquerading of IPv4 traffic leaving the node from endpoints."
+msgstr ""
+
+#: ../../helm-values.rst:392 0bfc522e73524f27a870b17f13cfeac0
+msgid "enableIPv6Masquerade"
+msgstr ""
+
+#: ../../helm-values.rst:393 e2dfd0acdf7a4ed29cc05e538fc0a50d
+msgid "Enables masquerading of IPv6 traffic leaving the node from endpoints."
+msgstr ""
+
+#: ../../helm-values.rst:396 b72d820ed670437c8c8d75b784ee1738
+msgid "enableK8sEventHandover"
+msgstr ""
+
+#: ../../helm-values.rst:397 8a861420dba14a59ac45ee2a80c3f595
+msgid ""
+"Configures the use of the KVStore to optimize Kubernetes event handling "
+"by mirroring it into the KVstore for reduced overhead in large clusters."
+msgstr ""
+
+#: ../../helm-values.rst:400 1ed56b786da1429bafce989a058480bf
+msgid "enableK8sTerminatingEndpoint"
+msgstr ""
+
+#: ../../helm-values.rst:401 913cd021804140618c24d1d7bfa4628c
+msgid ""
+"Configure whether to enable auto detect of terminating state for "
+"endpoints in order to support graceful termination."
+msgstr ""
+
+#: ../../helm-values.rst:404 3691a02d93774818b020bd0d364be428
+msgid "enableRuntimeDeviceDetection"
+msgstr ""
+
+#: ../../helm-values.rst:405 a7e08ab38b834567930143f94c0e7fcc
+msgid ""
+"Enables experimental support for the detection of new and removed "
+"datapath devices. When devices change the eBPF datapath is reloaded and "
+"services updated. If \"devices\" is set then only those devices, or "
+"devices matching a wildcard will be considered."
+msgstr ""
+
+#: ../../helm-values.rst:408 a50a3e2c9ad3489fb233872e235d543e
+msgid "enableXTSocketFallback"
+msgstr ""
+
+#: ../../helm-values.rst:409 4c984447bd43443b8c034b7a70ccc222
+msgid ""
+"Enables the fallback compatibility solution for when the xt_socket kernel"
+" module is missing and it is needed for the datapath L7 redirection to "
+"work properly. See documentation for details on when this can be "
+"disabled: https://docs.cilium.io/en/stable/operations/system_requirements"
+"/#linux-kernel."
+msgstr ""
+
+#: ../../helm-values.rst:412 6abf691a5aa44fffab4ff257a40be447
+msgid "encryption.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:413 847fa0cbb1a447b6939bccfb9c097382
+msgid "Enable transparent network encryption."
+msgstr ""
+
+#: ../../helm-values.rst:416 15d87ec3bc914f1da79f9da77cf6e355
+msgid "encryption.interface"
+msgstr ""
+
+#: ../../helm-values.rst:417 237fa26441254f2bafd89ca52f1d786b
+msgid ""
+"Deprecated in favor of encryption.ipsec.interface. The interface to use "
+"for encrypted traffic. This option is only effective when encryption.type"
+" is set to ipsec."
+msgstr ""
+
+#: ../../helm-values.rst:420 6ce094ef0a68481da7ab1deec7a8853c
+msgid "encryption.ipsec.interface"
+msgstr ""
+
+#: ../../helm-values.rst:421 78c5da99e3914ba6b259e641bdaf311f
+msgid "The interface to use for encrypted traffic."
+msgstr ""
+
+#: ../../helm-values.rst:424 cb1a5ec36551428ea8046408167718bf
+msgid "encryption.ipsec.keyFile"
+msgstr ""
+
+#: ../../helm-values.rst:425 48443e925e8f4442932622cf06f6e73a
+msgid ""
+"Name of the key file inside the Kubernetes secret configured via "
+"secretName."
+msgstr ""
+
+#: ../../helm-values.rst:428 83633393dc654a7bb7ed3868ae816a81
+msgid "encryption.ipsec.mountPath"
+msgstr ""
+
+#: ../../helm-values.rst:429 c71aa2205f154302a209042c4ed0075b
+msgid "Path to mount the secret inside the Cilium pod."
+msgstr ""
+
+#: ../../helm-values.rst:432 d8584a7211074c8892120664677ebdc4
+msgid "encryption.ipsec.secretName"
+msgstr ""
+
+#: ../../helm-values.rst:433 43c7bb2154314ce9b91826fb79c8e34f
+msgid "Name of the Kubernetes secret containing the encryption keys."
+msgstr ""
+
+#: ../../helm-values.rst:436 09119991e7404f749de8028eddfe8369
+msgid "encryption.keyFile"
+msgstr ""
+
+#: ../../helm-values.rst:437 2660194f9bab48f08d0c1376b987a3e9
+msgid ""
+"Deprecated in favor of encryption.ipsec.keyFile. Name of the key file "
+"inside the Kubernetes secret configured via secretName. This option is "
+"only effective when encryption.type is set to ipsec."
+msgstr ""
+
+#: ../../helm-values.rst:439 024743cf3e7846818e0af5077094ec2b
+msgid "``\"keys\"``"
+msgstr ""
+
+#: ../../helm-values.rst:440 574142ce066a436b91115898527c46b7
+msgid "encryption.mountPath"
+msgstr ""
+
+#: ../../helm-values.rst:441 5104b34ec7ad4dd78a6ee8fc5672d69b
+msgid ""
+"Deprecated in favor of encryption.ipsec.mountPath. Path to mount the "
+"secret inside the Cilium pod. This option is only effective when "
+"encryption.type is set to ipsec."
+msgstr ""
+
+#: ../../helm-values.rst:443 6c2f0e6de28e4e01977541ae561da85e
+msgid "``\"/etc/ipsec\"``"
+msgstr ""
+
+#: ../../helm-values.rst:444 5d22599dac31474ea93930386de0f671
+msgid "encryption.nodeEncryption"
+msgstr ""
+
+#: ../../helm-values.rst:445 66356cd65e6c4b2ea88b517766750413
+msgid ""
+"Enable encryption for pure node to node traffic. This option is only "
+"effective when encryption.type is set to ipsec."
+msgstr ""
+
+#: ../../helm-values.rst:448 bad0510ad2dc4a41b4a028c858f2aa34
+msgid "encryption.secretName"
+msgstr ""
+
+#: ../../helm-values.rst:449 63130ae6a9b8442f84ee2f5daf98a32a
+msgid ""
+"Deprecated in favor of encryption.ipsec.secretName. Name of the "
+"Kubernetes secret containing the encryption keys. This option is only "
+"effective when encryption.type is set to ipsec."
+msgstr ""
+
+#: ../../helm-values.rst:451 c7f6735826494635b1c6df16c77a4db1
+msgid "``\"cilium-ipsec-keys\"``"
+msgstr ""
+
+#: ../../helm-values.rst:452 032966d4fef24c90ba4ab0edc46c6373
+msgid "encryption.type"
+msgstr ""
+
+#: ../../helm-values.rst:453 61932662e0304c9bb128bd1a0eb496df
+msgid "Encryption method. Can be either ipsec or wireguard."
+msgstr ""
+
+#: ../../helm-values.rst:455 0abf588821994be9a62d983dddaaf6d5
+msgid "``\"ipsec\"``"
+msgstr ""
+
+#: ../../helm-values.rst:456 80847758c9e2412b8b0c01af89e04402
+msgid "encryption.wireguard.userspaceFallback"
+msgstr ""
+
+#: ../../helm-values.rst:457 5fca1d7a226c4935bb424b4de26e9041
+msgid "Enables the fallback to the user-space implementation."
+msgstr ""
+
+#: ../../helm-values.rst:460 ef2474f71c6347d78eec81a85ca9b3aa
+msgid "endpointHealthChecking.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:461 463099a16e7c4d238447b126737a3627
+msgid "Enable connectivity health checking between virtual endpoints."
+msgstr ""
+
+#: ../../helm-values.rst:464 18042f10b272491899e9a34b878fde7f
+msgid "endpointRoutes.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:465 f4fab4ab306445a0a971c91470ca1420
+msgid ""
+"Enable use of per endpoint routes instead of routing via the cilium_host "
+"interface."
+msgstr ""
+
+#: ../../helm-values.rst:468 5cadaa77c7224ec08decb5233acbe561
+msgid "endpointStatus"
+msgstr ""
+
+#: ../../helm-values.rst:469 d6ce46a781544ab894a9f3e519987b56
+msgid ""
+"Enable endpoint status. Status can be: policy, health, controllers, logs "
+"and / or state. For 2 or more options use a comma."
+msgstr ""
+
+#: ../../helm-values.rst:471 8a175549aeba41b499c321abf6d4ea45
+msgid "``{\"enabled\":false,\"status\":\"\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:472 7fcf9c9591484cca9a63c3e4156f844d
+msgid "eni.awsEnablePrefixDelegation"
+msgstr ""
+
+#: ../../helm-values.rst:473 a60fdc1c66454946a56bf6482e07e9f5
+msgid "Enable ENI prefix delegation"
+msgstr ""
+
+#: ../../helm-values.rst:476 6a2a231e8b554878ae3862060348e9c3
+msgid "eni.awsReleaseExcessIPs"
+msgstr ""
+
+#: ../../helm-values.rst:477 c8254131c1af432ea8ae30a4cecb2676
+msgid "Release IPs not used from the ENI"
+msgstr ""
+
+#: ../../helm-values.rst:480 014520bf8ae840cf8285f2e13deccda0
+msgid "eni.ec2APIEndpoint"
+msgstr ""
+
+#: ../../helm-values.rst:481 e62ace39d3b3497795abe265a8322a18
+msgid "EC2 API endpoint to use"
+msgstr ""
+
+#: ../../helm-values.rst:484 421731b945294a968bcdde0637d2d9aa
+msgid "eni.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:485 e17090db82634506b98075c3e4964555
+msgid "Enable Elastic Network Interface (ENI) integration."
+msgstr ""
+
+#: ../../helm-values.rst:488 a664874248104cb6aa4a1a6b881d5f95
+msgid "eni.eniTags"
+msgstr ""
+
+#: ../../helm-values.rst:489 d7fa1882d7114079a8cd2fb05be5027e
+msgid "Tags to apply to the newly created ENIs"
+msgstr ""
+
+#: ../../helm-values.rst:492 b68a8d0f4ad3416996c0125039e3281f
+msgid "eni.iamRole"
+msgstr ""
+
+#: ../../helm-values.rst:493 356227e539fa4e6e882257694ebf8a61
+msgid ""
+"If using IAM role for Service Accounts will not try to inject identity "
+"values from cilium-aws kubernetes secret. Adds annotation to service "
+"account if managed by Helm. See https://github.com/aws/amazon-eks-pod-"
+"identity-webhook"
+msgstr ""
+
+#: ../../helm-values.rst:496 2108d8b51bfb4d28b9098914fc46cf32
+msgid "eni.instanceTagsFilter"
+msgstr ""
+
+#: ../../helm-values.rst:497 428ee3fd34b847b1adb69038adede4ef
+msgid ""
+"Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 "
+"Instances are going to be used to create new ENIs"
+msgstr ""
+
+#: ../../helm-values.rst:500 a5905a252dad437fb2194531895978c2
+msgid "eni.subnetIDsFilter"
+msgstr ""
+
+#: ../../helm-values.rst:501 c09142de41a74be1ac0c22046e92692c
+msgid ""
+"Filter via subnet IDs which will dictate which subnets are going to be "
+"used to create new ENIs Important note: This requires that each instance "
+"has an ENI with a matching subnet attached when Cilium is deployed. If "
+"you only want to control subnets for ENIs attached by Cilium, use the CNI"
+" configuration file settings (cni.customConf) instead."
+msgstr ""
+
+#: ../../helm-values.rst:504 b02c9e8b635d491bb003b447ffe957a9
+msgid "eni.subnetTagsFilter"
+msgstr ""
+
+#: ../../helm-values.rst:505 41495cff1f114f5795320738414e22b8
+msgid ""
+"Filter via tags (k=v) which will dictate which subnets are going to be "
+"used to create new ENIs Important note: This requires that each instance "
+"has an ENI with a matching subnet attached when Cilium is deployed. If "
+"you only want to control subnets for ENIs attached by Cilium, use the CNI"
+" configuration file settings (cni.customConf) instead."
+msgstr ""
+
+#: ../../helm-values.rst:508 d3f627e456b6428da2384ed5a4e1b123
+msgid "eni.updateEC2AdapterLimitViaAPI"
+msgstr ""
+
+#: ../../helm-values.rst:509 8a59779c6be04ebeae4d4724a9aba887
+msgid "Update ENI Adapter limits from the EC2 API"
+msgstr ""
+
+#: ../../helm-values.rst:512 bec3af2f7b2e4153899d9400834671c1
+msgid "etcd.clusterDomain"
+msgstr ""
+
+#: ../../helm-values.rst:513 6e8fff5b99c14fcdadfee1e92cca61c2
+msgid "Cluster domain for cilium-etcd-operator."
+msgstr ""
+
+#: ../../helm-values.rst:515 ../../helm-values.rst:699
+#: 35082a08e90d42f5880f53310b226ef3 c621f7ae21c74fe6ad8a13152d8e5527
+msgid "``\"cluster.local\"``"
+msgstr ""
+
+#: ../../helm-values.rst:516 686fe91ea00243959d83a0f667981b17
+msgid "etcd.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:517 465cd19e00c04e148b8b5b84c2c04f7a
+msgid "Enable etcd mode for the agent."
+msgstr ""
+
+#: ../../helm-values.rst:520 df3c32c31a584fceac7adc2128f0f41f
+msgid "etcd.endpoints"
+msgstr ""
+
+#: ../../helm-values.rst:521 43b7910d727c435695e4d7591c9d7be9
+msgid "List of etcd endpoints (not needed when using managed=true)."
+msgstr ""
+
+#: ../../helm-values.rst:523 d2e571f3652046458d09ab7a89811f4f
+msgid "``[\"https://CHANGE-ME:2379\"]``"
+msgstr ""
+
+#: ../../helm-values.rst:524 37bcd3a3de7b46098bb5074e3710811b
+msgid "etcd.extraArgs"
+msgstr ""
+
+#: ../../helm-values.rst:525 a499b3f8f412450fa8438510ba8c6a6f
+msgid "Additional cilium-etcd-operator container arguments."
+msgstr ""
+
+#: ../../helm-values.rst:528 676fdb044ff4406b871366ab793b3c8e
+msgid "etcd.image"
+msgstr ""
+
+#: ../../helm-values.rst:529 c96565ffbe18462db07c9aedcc404d2a
+msgid "cilium-etcd-operator image."
+msgstr ""
+
+#: ../../helm-values.rst:531 7072f4a95e7d458992bb5b33f5410f4b
+msgid ""
+"``{\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/cilium"
+"/cilium-etcd-operator\",\"tag\":\"v2.0.7\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:532 a15891e90b2d4eecbdde546d0383af91
+msgid "etcd.k8sService"
+msgstr ""
+
+#: ../../helm-values.rst:533 fba400cd95664f7f9e00e04f805a3fc0
+msgid ""
+"If etcd is behind a k8s service set this option to true so that Cilium "
+"does the service translation automatically without requiring a DNS to be "
+"running."
+msgstr ""
+
+#: ../../helm-values.rst:536 5ac9e37ece1b4c198f0b250883726fd6
+msgid "etcd.nodeSelector"
+msgstr ""
+
+#: ../../helm-values.rst:537 83bfe4a109124f3897d92c1672e987ba
+msgid ""
+"Node labels for cilium-etcd-operator pod assignment ref: "
+"https://kubernetes.io/docs/user-guide/node-selection/"
+msgstr ""
+
+#: ../../helm-values.rst:540 ecb22215bfc54590982c388b5208ab38
+msgid "etcd.podAnnotations"
+msgstr ""
+
+#: ../../helm-values.rst:541 628f440e171e4712ad1f94e44a8e8c14
+msgid "Annotations to be added to cilium-etcd-operator pods"
+msgstr ""
+
+#: ../../helm-values.rst:544 297d7a38905a4deb93dfc7ebf3c4240c
+msgid "etcd.podDisruptionBudget.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:548 7a2c63c6c95c4d4e96c196479f89c2a4
+msgid "etcd.podDisruptionBudget.maxUnavailable"
+msgstr ""
+
+#: ../../helm-values.rst:552 83e8970903d540ac91f5114b81178b8b
+msgid "etcd.podDisruptionBudget.minAvailable"
+msgstr ""
+
+#: ../../helm-values.rst:556 53c71f3708ce4c6c8268aea09eba7226
+msgid "etcd.podLabels"
+msgstr ""
+
+#: ../../helm-values.rst:557 49c1f360ae284ad98f8745c0b9ec4b35
+msgid "Labels to be added to cilium-etcd-operator pods"
+msgstr ""
+
+#: ../../helm-values.rst:560 e5d49874e72f47e29361d2b2bdcfc3a5
+msgid "etcd.priorityClassName"
+msgstr ""
+
+#: ../../helm-values.rst:561 16d504d903444de0817ef76401bae953
+msgid "The priority class to use for cilium-etcd-operator"
+msgstr ""
+
+#: ../../helm-values.rst:564 58927b2f31a641c6b9fded0606b2211f
+msgid "etcd.resources"
+msgstr ""
+
+#: ../../helm-values.rst:565 1940dc75fc474700af0191edadcb0ef5
+msgid ""
+"cilium-etcd-operator resource limits & requests ref: "
+"https://kubernetes.io/docs/user-guide/compute-resources/"
+msgstr ""
+
+#: ../../helm-values.rst:568 e288bbb99ff64e2aacc8633318a59377
+msgid "etcd.securityContext"
+msgstr ""
+
+#: ../../helm-values.rst:569 15de58f99a7a44b995dec9c873bd3d9e
+msgid "Security context to be added to cilium-etcd-operator pods"
+msgstr ""
+
+#: ../../helm-values.rst:572 a689e160a578457eb60fff580bf9b640
+msgid "etcd.ssl"
+msgstr ""
+
+#: ../../helm-values.rst:573 7f73e183ba214fb591b32a3d31379f2a
+msgid ""
+"Enable use of TLS/SSL for connectivity to etcd. (auto-enabled if "
+"managed=true)"
+msgstr ""
+
+#: ../../helm-values.rst:576 cd7e44f2fe724f71bb4c0d19a76b3dd7
+msgid "etcd.tolerations"
+msgstr ""
+
+#: ../../helm-values.rst:577 e0c5b06f5adb49a0ad5c1fb9b9a6b641
+msgid ""
+"Node tolerations for cilium-etcd-operator scheduling to nodes with taints"
+" ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+msgstr ""
+
+#: ../../helm-values.rst:579 ../../helm-values.rst:1215
+#: ../../helm-values.rst:1343 ../../helm-values.rst:1575
+#: 12ce04d076e743f0b5e1ed4896b7d60b 27b693033fd84492a02eb0ab70c5b5dc
+#: 52ca37bdf06b43d68e61e62d7f045008 751268202b3c4331a8c4338f7b8c3f84
+msgid "``[{\"operator\":\"Exists\"}]``"
+msgstr ""
+
+#: ../../helm-values.rst:580 27809c18c98a420a9af154e98b153521
+msgid "etcd.updateStrategy"
+msgstr ""
+
+#: ../../helm-values.rst:581 91374b2577a64a8da94eaa0af4f94fdc
+msgid "cilium-etcd-operator update strategy"
+msgstr ""
+
+#: ../../helm-values.rst:583 ../../helm-values.rst:1355
+#: 35c25170e0c74817ae147ea9d5af1447 6db422603e194b17880ec96d03a684b6
+msgid "``{\"rollingUpdate\":{\"maxSurge\":1,\"maxUnavailable\":1},\"type\":\"RollingUpdate\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:584 91dc02c00d5c461287fc2f594d2a2375
+msgid "externalIPs.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:585 9687c8e73db1443d91ce8493c5e475e7
+msgid "Enable ExternalIPs service support."
+msgstr ""
+
+#: ../../helm-values.rst:588 5237cf1699e0496a843de3270e370e0b
+msgid "externalWorkloads"
+msgstr ""
+
+#: ../../helm-values.rst:589 d78a1c4cc33d4082a99c8bbc15ed256b
+msgid "Configure external workloads support"
+msgstr ""
+
+#: ../../helm-values.rst:592 cba5ab2e3ebc4a7189000cc6e3c18039
+msgid "externalWorkloads.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:593 c13caf7205ba404ab5a881ac5b2ddd21
+msgid "Enable support for external workloads, such as VMs (false by default)."
+msgstr ""
+
+#: ../../helm-values.rst:596 6baa2204d5ac4fa58f28dd663eb80ca3
+msgid "extraArgs"
+msgstr ""
+
+#: ../../helm-values.rst:597 faee61127adf42f181383feea7da0e63
+msgid "Additional agent container arguments."
+msgstr ""
+
+#: ../../helm-values.rst:600 7169ea1cef8e46c2aa6adb813deaef24
+msgid "extraConfig"
+msgstr ""
+
+#: ../../helm-values.rst:601 53b7df90a96343e2a311af52bb9341ca
+msgid ""
+"extraConfig allows you to specify additional configuration parameters to "
+"be included in the cilium-config configmap."
+msgstr ""
+
+#: ../../helm-values.rst:604 f5a36e4036324e0cabc59f80aec0040a
+msgid "extraEnv"
+msgstr ""
+
+#: ../../helm-values.rst:605 05ad0d02632544eda1d49e41b393b4e5
+msgid "Additional agent container environment variables."
+msgstr ""
+
+#: ../../helm-values.rst:608 a2eaf8cd138647b689eafa610485190d
+msgid "extraHostPathMounts"
+msgstr ""
+
+#: ../../helm-values.rst:609 f4deabff557944fab2ca9365ee671b61
+msgid "Additional agent hostPath mounts."
+msgstr ""
+
+#: ../../helm-values.rst:612 e70842efbd064199aef99f46f67ab5f5
+msgid "extraVolumeMounts"
+msgstr ""
+
+#: ../../helm-values.rst:613 c90f21e842a7464a8b7ecc1c5f62023e
+msgid "Additional agent volumeMounts."
+msgstr ""
+
+#: ../../helm-values.rst:616 06d0103c8ca54b11b44d8e67db0f8ebc
+msgid "extraVolumes"
+msgstr ""
+
+#: ../../helm-values.rst:617 1801806f729d40fb90fcf9474d6ad6c2
+msgid "Additional agent volumes."
+msgstr ""
+
+#: ../../helm-values.rst:620 3e7ccad378a44d16ac2e5659b7d90420
+msgid "gke.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:621 8d6bef68438747e69c2e1d33b0831dd8
+msgid "Enable Google Kubernetes Engine integration"
+msgstr ""
+
+#: ../../helm-values.rst:624 5c3eb948ff724ea49ee3ad860f2d54f0
+msgid "healthChecking"
+msgstr ""
+
+#: ../../helm-values.rst:625 da896eca55d346f2a870cc7608e19cad
+msgid "Enable connectivity health checking."
+msgstr ""
+
+#: ../../helm-values.rst:628 598badd0816248f5bf8b88e95553a5af
+msgid "healthPort"
+msgstr ""
+
+#: ../../helm-values.rst:629 dcabf67a06e942bfba7f177069fbff28
+msgid "TCP port for the agent health API. This is not the port for cilium-health."
+msgstr ""
+
+#: ../../helm-values.rst:631 00eadc9873a44e58a3a9669442fd03ce
+msgid "``9879``"
+msgstr ""
+
+#: ../../helm-values.rst:632 e7181bd3f80c44b697f53cb61473a689
+msgid "hostAliases"
+msgstr ""
+
+#: ../../helm-values.rst:633 b1bc511094d441bda241d18db7e22bbc
+msgid "Host aliases for cilium-agent."
+msgstr ""
+
+#: ../../helm-values.rst:636 e18f7633cda8447c9ef4fcc9ea1ee375
+msgid "hostFirewall"
+msgstr ""
+
+#: ../../helm-values.rst:637 c8954bf47f56414db6e51b45f9cd4c0a
+msgid "Configure the host firewall."
+msgstr ""
+
+#: ../../helm-values.rst:640 3223751798d74659a855b49fd2917bcb
+msgid "hostFirewall.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:641 1985bca3636b4b60a5863b20dbdc76e7
+msgid "Enables the enforcement of host policies in the eBPF datapath."
+msgstr ""
+
+#: ../../helm-values.rst:644 f2ba20daad7b424b839e80e446c59961
+msgid "hostPort.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:645 c8cf85ca0ef749b2875922c6b564dd70
+msgid "Enable hostPort service support."
+msgstr ""
+
+#: ../../helm-values.rst:648 a1ba2aadf4f04ad6b6b728c1cfb99e9c
+msgid "hostServices"
+msgstr ""
+
+#: ../../helm-values.rst:649 9826ee71b0df49049b0dcf1dc8d622ff
+msgid "Configure ClusterIP service handling in the host namespace (the node)."
+msgstr ""
+
+#: ../../helm-values.rst:651 0b665d4621114af6840095aeced0678c
+msgid "``{\"enabled\":false,\"protocols\":\"tcp,udp\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:652 d1bbcc04c4ee4e8787eaf3799baf9b1a
+msgid "hostServices.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:653 d70e1941d8d0482089c11a94e9dbe2cf
+msgid "Enable host reachable services."
+msgstr ""
+
+#: ../../helm-values.rst:656 b21cbbe32abd4323bc24fb7fc21b7f5e
+msgid "hostServices.protocols"
+msgstr ""
+
+#: ../../helm-values.rst:657 4d5caa6a9aec4a97a1c3844e27b84f07
+msgid "Supported list of protocols to apply ClusterIP translation to."
+msgstr ""
+
+#: ../../helm-values.rst:659 b6d53ee612b441bc96fba8be28d05f74
+msgid "``\"tcp,udp\"``"
+msgstr ""
+
+#: ../../helm-values.rst:660 ad8f73ac8c464db78178752d212dad89
+msgid "hubble.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:661 c9cc278455054953b1b2824a839ee9fa
+msgid "Enable Hubble (true by default)."
+msgstr ""
+
+#: ../../helm-values.rst:664 cc2e57a2f7124ff5bbbe8bce9022a143
+msgid "hubble.listenAddress"
+msgstr ""
+
+#: ../../helm-values.rst:665 89b6df9e41274f21be0605cee0404c54
+msgid ""
+"An additional address for Hubble to listen to. Set this field \":4244\" "
+"if you are enabling Hubble Relay, as it assumes that Hubble is listening "
+"on port 4244."
+msgstr ""
+
+#: ../../helm-values.rst:667 fb78b11b26ee42d8ae21872ada083df7
+msgid "``\":4244\"``"
+msgstr ""
+
+#: ../../helm-values.rst:668 90e2cade732842c392350837a7e0f22d
+msgid "hubble.metrics"
+msgstr ""
+
+#: ../../helm-values.rst:669 2c0ad637de9748069f0cd49a30c59d1d
+msgid ""
+"Hubble metrics configuration. See "
+"https://docs.cilium.io/en/stable/operations/metrics/#hubble-metrics for "
+"more comprehensive documentation about Hubble metrics."
+msgstr ""
+
+#: ../../helm-values.rst:671 b72cd862189c4468b059921b85e641ae
+msgid "``{\"enabled\":null,\"port\":9091,\"serviceAnnotations\":{},\"serviceMonitor\":{\"annotations\":{},\"enabled\":false,\"labels\":{}}}``"
+msgstr ""
+
+#: ../../helm-values.rst:672 40c9f575d0e047a5b7dbdca933d02d00
+msgid "hubble.metrics.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:673 024f7c4879e24edca8f75cb41ec2e1b5
+msgid ""
+"Configures the list of metrics to collect. If empty or null, metrics are "
+"disabled. Example:   enabled:   - dns:query;ignoreAAAA   - drop   - tcp"
+"   - flow   - icmp   - http You can specify the list of metrics from the "
+"helm CLI:   --set "
+"metrics.enabled=\"{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}\""
+msgstr ""
+
+#: ../../helm-values.rst:676 cfbe092969c1451fb8ed7cabfcfbbd84
+msgid "hubble.metrics.port"
+msgstr ""
+
+#: ../../helm-values.rst:677 d682e7cea618464ebafdf8252ea6629f
+msgid "Configure the port the hubble metric server listens on."
+msgstr ""
+
+#: ../../helm-values.rst:679 94435b8de77c4b8bae48a1c7346843ce
+msgid "``9091``"
+msgstr ""
+
+#: ../../helm-values.rst:680 557755de8a814ca6a36825eb86c50c38
+msgid "hubble.metrics.serviceAnnotations"
+msgstr ""
+
+#: ../../helm-values.rst:681 e4917a1d08b844b88d0aa588c99206f9
+msgid "Annotations to be added to hubble-metrics service."
+msgstr ""
+
+#: ../../helm-values.rst:684 17748f85b39b4314bb946f24de1651dc
+msgid "hubble.metrics.serviceMonitor.annotations"
+msgstr ""
+
+#: ../../helm-values.rst:685 a77604ecfb0745088568c5062d3d41e6
+msgid "Annotations to add to ServiceMonitor hubble"
+msgstr ""
+
+#: ../../helm-values.rst:688 7364274db7ee49fd807b93590aed6378
+msgid "hubble.metrics.serviceMonitor.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:689 6ae79b88199a445aa1dc9d7374c232f2
+msgid ""
+"Create ServiceMonitor resources for Prometheus Operator. This requires "
+"the prometheus CRDs to be available. ref: https://github.com/prometheus-"
+"operator/prometheus-operator/blob/master/example/prometheus-operator-"
+"crd/monitoring.coreos.com_servicemonitors.yaml)"
+msgstr ""
+
+#: ../../helm-values.rst:692 ed0b282229c54ca5a938b06e591d6e32
+msgid "hubble.metrics.serviceMonitor.labels"
+msgstr ""
+
+#: ../../helm-values.rst:693 e986c59796d5448fba0da3ae02f42067
+msgid "Labels to add to ServiceMonitor hubble"
+msgstr ""
+
+#: ../../helm-values.rst:696 6513195791c94abf883641fc557361a8
+msgid "hubble.peerService.clusterDomain"
+msgstr ""
+
+#: ../../helm-values.rst:697 4fd30b04670f4a5c8442f017313e6809
+msgid ""
+"The cluster domain to use to query the Hubble Peer service. It should be "
+"the local cluster."
+msgstr ""
+
+#: ../../helm-values.rst:700 7911f79d81c040b48ef65ccf917bb1e6
+msgid "hubble.peerService.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:701 ce5a32cc5fa840fcae8b49f7bd97b72f
+msgid ""
+"Enable a K8s Service for the Peer service, so that it can be accessed by "
+"a non-local client"
+msgstr ""
+
+#: ../../helm-values.rst:704 cb2844c165be4d27b12291bf43974e71
+msgid "hubble.peerService.servicePort"
+msgstr ""
+
+#: ../../helm-values.rst:705 bb3040895e994cada158feb5cbe6f278
+msgid "Service Port for the Peer service."
+msgstr ""
+
+#: ../../helm-values.rst:707 a99270dd0d974cd3bb883190a0e46110
+msgid "``4254``"
+msgstr ""
+
+#: ../../helm-values.rst:708 91d625f6061845afbab493dd5a3500fd
+msgid "hubble.relay.affinity"
+msgstr ""
+
+#: ../../helm-values.rst:709 f9fe1f4e279f4be39874d60adb4a0a78
+msgid "Affinity for hubble-replay"
+msgstr ""
+
+#: ../../helm-values.rst:711 ../../helm-values.rst:1375
+#: 419f60679f5c44b492570c3ef90cebb9 f9b70e2cfc0c4db9870e2b6580353596
+msgid ""
+"``{\"podAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":[{\"labelSelector\":{\"matchLabels"
+"\":{\"k8s-"
+"app\":\"cilium\"}},\"topologyKey\":\"kubernetes.io/hostname\"}]}}``"
+msgstr ""
+
+#: ../../helm-values.rst:712 dddaa50cda054498a51a21cacc2542c7
+msgid "hubble.relay.dialTimeout"
+msgstr ""
+
+#: ../../helm-values.rst:713 7ed4ca10f88f4e6fa41291092e7b5d58
+msgid ""
+"Dial timeout to connect to the local hubble instance to receive peer "
+"information (e.g. \"30s\")."
+msgstr ""
+
+#: ../../helm-values.rst:716 05ccbbab17f649b096dcfd5196feced7
+msgid "hubble.relay.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:717 aec27c2c17264f7d928ecaf478af3e32
+msgid "Enable Hubble Relay (requires hubble.enabled=true)"
+msgstr ""
+
+#: ../../helm-values.rst:720 3b9583a5ec81435c995e8545a8f5b922
+msgid "hubble.relay.extraEnv"
+msgstr ""
+
+#: ../../helm-values.rst:721 e194011bc18b4701ac8b8bc45f47e3e6
+msgid "Additional hubble-relay environment variables."
+msgstr ""
+
+#: ../../helm-values.rst:724 4405c94fe96d483e87156e987f2ce108
+msgid "hubble.relay.image"
+msgstr ""
+
+#: ../../helm-values.rst:725 f1ca55e810af4fd9b62da8a14c8b94b8
+msgid "Hubble-relay container image."
+msgstr ""
+
+#: ../../helm-values.rst:727 0daaf2b3c314405e8cf1aa9b16a216de
+msgid ""
+"``{\"digest\":\"\",\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/cilium"
+"/hubble-relay\",\"tag\":\"latest\",\"useDigest\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:728 a96ef3241f7f4939913b957b188759b8
+msgid "hubble.relay.listenHost"
+msgstr ""
+
+#: ../../helm-values.rst:729 9a487e374daa49779e29ea1196baf176
+msgid "Host to listen to. Specify an empty string to bind to all the interfaces."
+msgstr ""
+
+#: ../../helm-values.rst:732 f9828e469a454771be987fd47f051689
+msgid "hubble.relay.listenPort"
+msgstr ""
+
+#: ../../helm-values.rst:733 ae7ec582cca04766b0527c1484bf0f1e
+msgid "Port to listen to."
+msgstr ""
+
+#: ../../helm-values.rst:735 2df15218897642039554b264954c5a7c
+msgid "``\"4245\"``"
+msgstr ""
+
+#: ../../helm-values.rst:736 b2755956fdd24ee7b2d639dc85addfd6
+msgid "hubble.relay.nodeSelector"
+msgstr ""
+
+#: ../../helm-values.rst:740 9fb5edaad74644c5a02336b37844b887
+msgid "hubble.relay.podAnnotations"
+msgstr ""
+
+#: ../../helm-values.rst:741 ee7fe5467c3b42d5a9048a3b33c7e55c
+msgid "Annotations to be added to hubble-relay pods"
+msgstr ""
+
+#: ../../helm-values.rst:744 32006099aa544b8d9e8e92bd5ab164a6
+msgid "hubble.relay.podDisruptionBudget.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:748 d57cc31985014219bbbc19baa18fed85
+msgid "hubble.relay.podDisruptionBudget.maxUnavailable"
+msgstr ""
+
+#: ../../helm-values.rst:752 bd1db7d5cc8841f1a9ab4b18c296bd25
+msgid "hubble.relay.podDisruptionBudget.minAvailable"
+msgstr ""
+
+#: ../../helm-values.rst:756 9f8df72806da469091c8b12b7c376aeb
+msgid "hubble.relay.podLabels"
+msgstr ""
+
+#: ../../helm-values.rst:757 d48739b48abb4ab98dc083aa26015aaf
+msgid "Labels to be added to hubble-relay pods"
+msgstr ""
+
+#: ../../helm-values.rst:760 0940eecc5b6e481fa0307a45e743accf
+msgid "hubble.relay.priorityClassName"
+msgstr ""
+
+#: ../../helm-values.rst:761 733beb30a20c4dc5bf3156c2d7ca613e
+msgid "The priority class to use for hubble-relay"
+msgstr ""
+
+#: ../../helm-values.rst:764 667a2ac4bf754d14b50fc0236ac5e847
+msgid "hubble.relay.replicas"
+msgstr ""
+
+#: ../../helm-values.rst:765 ec5e8d655ecd4c26ab3948e931b5bb5c
+msgid "Number of replicas run for the hubble-relay deployment."
+msgstr ""
+
+#: ../../helm-values.rst:768 1695ca69de3c4609b3948d41fc466f30
+msgid "hubble.relay.resources"
+msgstr ""
+
+#: ../../helm-values.rst:769 86eef2cf7e6447c09c6aa60f7ca7d577
+msgid "Specifies the resources for the hubble-relay pods"
+msgstr ""
+
+#: ../../helm-values.rst:772 e36203a5642a429ba05572a314190a82
+msgid "hubble.relay.retryTimeout"
+msgstr ""
+
+#: ../../helm-values.rst:773 a35fe5d7301e4f7cbb8deb07f74bd6af
+msgid ""
+"Backoff duration to retry connecting to the local hubble instance in case"
+" of failure (e.g. \"30s\")."
+msgstr ""
+
+#: ../../helm-values.rst:776 99bb864c47f94ee79be81f7a8d2954a3
+msgid "hubble.relay.rollOutPods"
+msgstr ""
+
+#: ../../helm-values.rst:777 0f1cbfd5272c42b3a2785dea4c2833fc
+msgid "Roll out Hubble Relay pods automatically when configmap is updated."
+msgstr ""
+
+#: ../../helm-values.rst:780 8b1d76313fca4e669b9cc0d7e5085ef8
+msgid "hubble.relay.securityContext"
+msgstr ""
+
+#: ../../helm-values.rst:781 76e218e9b43f4499bef87f7efa36f9c8
+msgid "hubble-relay security context"
+msgstr ""
+
+#: ../../helm-values.rst:784 d661f5c2817d47159a912061d8fdec68
+msgid "hubble.relay.sortBufferDrainTimeout"
+msgstr ""
+
+#: ../../helm-values.rst:785 ae32572c8bc0454bb468e57bb43dfb1f
+msgid ""
+"When the per-request flows sort buffer is not full, a flow is drained "
+"every time this timeout is reached (only affects requests in follow-mode)"
+" (e.g. \"1s\")."
+msgstr ""
+
+#: ../../helm-values.rst:788 18ac97ae11c245258dac1ce62a5890b9
+msgid "hubble.relay.sortBufferLenMax"
+msgstr ""
+
+#: ../../helm-values.rst:789 1ac3090419c94dd6ab6e4acff68d3cd7
+msgid ""
+"Max number of flows that can be buffered for sorting before being sent to"
+" the client (per request) (e.g. 100)."
+msgstr ""
+
+#: ../../helm-values.rst:792 bb16a1286fa14dbb8bfc284acecbbacd
+msgid "hubble.relay.terminationGracePeriodSeconds"
+msgstr ""
+
+#: ../../helm-values.rst:793 78d98b86f4ac4901ba5295f9092c7887
+msgid "Configure termination grace period for hubble relay Deployment."
+msgstr ""
+
+#: ../../helm-values.rst:796 babd5ce96e2240f6a7586902e347165c
+msgid "hubble.relay.tls"
+msgstr ""
+
+#: ../../helm-values.rst:797 8fd4d2e86c974ab78fa45b2bbadd5b3f
+msgid "TLS configuration for Hubble Relay"
+msgstr ""
+
+#: ../../helm-values.rst:799 5c6d8ca6fe294c6fb9e7b04ad90bd0c5
+msgid "``{\"client\":{\"cert\":\"\",\"key\":\"\"},\"server\":{\"cert\":\"\",\"enabled\":false,\"extraDnsNames\":[],\"extraIpAddresses\":[],\"key\":\"\"}}``"
+msgstr ""
+
+#: ../../helm-values.rst:800 1995fff288214065acd6ee2fc97d4f34
+msgid "hubble.relay.tls.client"
+msgstr ""
+
+#: ../../helm-values.rst:801 a3713fcb309349fc8e140b48b6b21977
+msgid ""
+"base64 encoded PEM values for the hubble-relay client certificate and "
+"private key This keypair is presented to Hubble server instances for mTLS"
+" authentication and is required when hubble.tls.enabled is true. These "
+"values need to be set manually if hubble.tls.auto.enabled is false."
+msgstr ""
+
+#: ../../helm-values.rst:804 a0874f2c1d1d4a2b8fd1769f2da0601c
+msgid "hubble.relay.tls.server"
+msgstr ""
+
+#: ../../helm-values.rst:805 dfdaa4cd7ecd4e508fbe39067393cddd
+msgid ""
+"base64 encoded PEM values for the hubble-relay server certificate and "
+"private key"
+msgstr ""
+
+#: ../../helm-values.rst:807 77c482b955c34f9484a411dd5923fa13
+msgid "``{\"cert\":\"\",\"enabled\":false,\"extraDnsNames\":[],\"extraIpAddresses\":[],\"key\":\"\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:808 3a63c159860541d88e9467c25d941027
+msgid "hubble.relay.tls.server.extraDnsNames"
+msgstr ""
+
+#: ../../helm-values.rst:809 817d0cdaf24540bfa0baacb558c7b207
+msgid "extra DNS names added to certificate when its auto gen"
+msgstr ""
+
+#: ../../helm-values.rst:812 91329905b0ae43bfb58f30c9ef36922e
+msgid "hubble.relay.tls.server.extraIpAddresses"
+msgstr ""
+
+#: ../../helm-values.rst:813 d966ff1c06fc4cac9736095acd929974
+msgid "extra IP addresses added to certificate when its auto gen"
+msgstr ""
+
+#: ../../helm-values.rst:816 79fad81a13db485ead72712eca608103
+msgid "hubble.relay.tolerations"
+msgstr ""
+
+#: ../../helm-values.rst:820 db696bd4e4234972b7fbd4632c07a35f
+msgid "hubble.relay.updateStrategy"
+msgstr ""
+
+#: ../../helm-values.rst:821 8710b0da42a146fca79c40f7ba5fe359
+msgid "hubble-relay update strategy"
+msgstr ""
+
+#: ../../helm-values.rst:824 705b1a24d86c43fcb182210b7b8a7d5d
+msgid "hubble.socketPath"
+msgstr ""
+
+#: ../../helm-values.rst:825 d25f2ccdb4364ebd936aa9fd2b2e44e9
+msgid "Unix domain socket path to listen to when Hubble is enabled."
+msgstr ""
+
+#: ../../helm-values.rst:827 665c0c903ba648509996134968e87707
+msgid "``\"/var/run/cilium/hubble.sock\"``"
+msgstr ""
+
+#: ../../helm-values.rst:828 a5917639e6c3433ba315c3d97cc21b9f
+msgid "hubble.tls"
+msgstr ""
+
+#: ../../helm-values.rst:829 d9df9026105247518773ded2afdc8540
+msgid "TLS configuration for Hubble"
+msgstr ""
+
+#: ../../helm-values.rst:831 9138d399a7274cf1bacfeea1a46fdd9e
+msgid ""
+"``{\"auto\":{\"certManagerIssuerRef\":{},\"certValidityDuration\":1095,\"enabled\":true,\"method\":\"helm\",\"schedule\":\"0"
+" 0 1 */4 "
+"*\"},\"ca\":{\"cert\":\"\",\"key\":\"\"},\"enabled\":true,\"server\":{\"cert\":\"\",\"extraDnsNames\":[],\"extraIpAddresses\":[],\"key\":\"\"}}``"
+msgstr ""
+
+#: ../../helm-values.rst:832 1b8048c801fc463fade07d90dc664035
+msgid "hubble.tls.auto"
+msgstr ""
+
+#: ../../helm-values.rst:833 19a35428afa74c378d715838eba7c08b
+msgid "Configure automatic TLS certificates generation."
+msgstr ""
+
+#: ../../helm-values.rst:835 262c1b60590e48aa8efcf09c190f8e11
+msgid ""
+"``{\"certManagerIssuerRef\":{},\"certValidityDuration\":1095,\"enabled\":true,\"method\":\"helm\",\"schedule\":\"0"
+" 0 1 */4 *\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:836 c116e68b244546bcaf8356ed6db90967
+msgid "hubble.tls.auto.certManagerIssuerRef"
+msgstr ""
+
+#: ../../helm-values.rst:837 1bb2a564c347447498bfe13d60b4599b
+msgid ""
+"certmanager issuer used when hubble.tls.auto.method=certmanager. If not "
+"specified, a CA issuer will be created."
+msgstr ""
+
+#: ../../helm-values.rst:840 e6291c74b79b42628a01aec6d4b5942b
+msgid "hubble.tls.auto.certValidityDuration"
+msgstr ""
+
+#: ../../helm-values.rst:844 4b761bee7ec8492c84e02e36d95b16f1
+msgid "hubble.tls.auto.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:845 d64a1ac6374945c3a6bb79b543837ff3
+msgid ""
+"Auto-generate certificates. When set to true, automatically generate a CA"
+" and certificates to enable mTLS between Hubble server and Hubble Relay "
+"instances. If set to false, the certs for Hubble server need to be "
+"provided by setting appropriate values below."
+msgstr ""
+
+#: ../../helm-values.rst:848 c1ba3ef6262340d1bee38a107d7a7c72
+msgid "hubble.tls.auto.method"
+msgstr ""
+
+#: ../../helm-values.rst:849 e52b646e322f43a9b017109e3fa88a60
+msgid ""
+"Set the method to auto-generate certificates. Supported values: - helm:"
+"         This method uses Helm to generate all certificates. - cronJob:"
+"      This method uses a Kubernetes CronJob the generate any"
+"                 certificates not provided by the user at installation"
+"                 time. - certmanager:  This method use cert-manager to "
+"generate & rotate certificates."
+msgstr ""
+
+#: ../../helm-values.rst:851 b1ff2a963fee4b62abe89bca1d475e0c
+msgid "``\"helm\"``"
+msgstr ""
+
+#: ../../helm-values.rst:852 8350e7054be0434b8b21276f64158cac
+msgid "hubble.tls.auto.schedule"
+msgstr ""
+
+#: ../../helm-values.rst:853 6f26ba72c498450a8a0e0a8a6c5d75e0
+msgid ""
+"Schedule for certificates regeneration (regardless of their expiration "
+"date). Only used if method is \"cronJob\". If nil, then no recurring job "
+"will be created. Instead, only the one-shot job is deployed to generate "
+"the certificates at installation time. Defaults to midnight of the first "
+"day of every fourth month. For syntax, see "
+"https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-"
+"jobs/#schedule"
+msgstr ""
+
+#: ../../helm-values.rst:855 613058c141134916863300ed10a1fd24
+msgid "``\"0 0 1 */4 *\"``"
+msgstr ""
+
+#: ../../helm-values.rst:856 8e575381429143fb8cec3083df47bdc3
+msgid "hubble.tls.ca"
+msgstr ""
+
+#: ../../helm-values.rst:857 c735a88e50904632b6e9a0b11b698d53
+msgid ""
+"Deprecated in favor of tls.ca. To be removed in 1.13. base64 encoded PEM "
+"values for the Hubble CA certificate and private key."
+msgstr ""
+
+#: ../../helm-values.rst:860 f32a3352847c40ba9266a23a1182d64a
+msgid "hubble.tls.ca.cert"
+msgstr ""
+
+#: ../../helm-values.rst:861 7754562ee56c469b8ab5bbedf9b93e15
+msgid "Deprecated in favor of tls.ca.cert. To be removed in 1.13."
+msgstr ""
+
+#: ../../helm-values.rst:864 59bc0256b41248189783b609094243f9
+msgid "hubble.tls.ca.key"
+msgstr ""
+
+#: ../../helm-values.rst:865 294657fe730d447282c36c3aa9438a20
+msgid ""
+"Deprecated in favor of tls.ca.key. To be removed in 1.13. The CA private "
+"key (optional). If it is provided, then it will be used by "
+"hubble.tls.auto.method=cronJob to generate all other certificates. "
+"Otherwise, a ephemeral CA is generated if hubble.tls.auto.enabled=true."
+msgstr ""
+
+#: ../../helm-values.rst:868 44a30ec2da454adf9178b2dbed11cebf
+msgid "hubble.tls.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:869 30e8ac76a9f5415b91c2278bde3d2c86
+msgid ""
+"Enable mutual TLS for listenAddress. Setting this value to false is "
+"highly discouraged as the Hubble API provides access to potentially "
+"sensitive network flow metadata and is exposed on the host network."
+msgstr ""
+
+#: ../../helm-values.rst:872 28a33adc923c4f2f82057f6b59aa1625
+msgid "hubble.tls.server"
+msgstr ""
+
+#: ../../helm-values.rst:873 7ecf0da2eada4dadadda48a0385ea0b1
+msgid ""
+"base64 encoded PEM values for the Hubble server certificate and private "
+"key"
+msgstr ""
+
+#: ../../helm-values.rst:876 87eb4e46935e4a81bf3c0b7d581d8b12
+msgid "hubble.tls.server.extraDnsNames"
+msgstr ""
+
+#: ../../helm-values.rst:880 4d2aac71fb4d4304b1b1394dd7aaae25
+msgid "hubble.tls.server.extraIpAddresses"
+msgstr ""
+
+#: ../../helm-values.rst:884 6c2c7059cb1a40c08ad06a464edd30a8
+msgid "hubble.ui.affinity"
+msgstr ""
+
+#: ../../helm-values.rst:885 8633728b83ad4ddd9a6a487dd7295808
+msgid "Affinity for hubble-ui"
+msgstr ""
+
+#: ../../helm-values.rst:888 9462ec18a6784ec58fe88e95bac55a87
+msgid "hubble.ui.backend.extraEnv"
+msgstr ""
+
+#: ../../helm-values.rst:889 2ee7d2558d744017a292435220d765f1
+msgid "Additional hubble-ui backend environment variables."
+msgstr ""
+
+#: ../../helm-values.rst:892 31b035c917794f8aa6b0121cad000d3a
+msgid "hubble.ui.backend.image"
+msgstr ""
+
+#: ../../helm-values.rst:893 4d2afbfc020c41cdbbef644d99a1d22f
+msgid "Hubble-ui backend image."
+msgstr ""
+
+#: ../../helm-values.rst:895 4c06d0b3ae6547a7b66cb0af806ceb21
+msgid ""
+"``{\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/cilium"
+"/hubble-ui-backend\",\"tag\":\"latest\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:896 366692d66180461e9721f3cbdca98756
+msgid "hubble.ui.backend.resources"
+msgstr ""
+
+#: ../../helm-values.rst:897 49f3d64d7544426b8ccb69597847ac97
+msgid ""
+"Resource requests and limits for the 'backend' container of the 'hubble-"
+"ui' deployment."
+msgstr ""
+
+#: ../../helm-values.rst:900 1675eddda05d4480b2dae43ad216f06a
+msgid "hubble.ui.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:901 136b62134ab846289aade062eb3011c4
+msgid "Whether to enable the Hubble UI."
+msgstr ""
+
+#: ../../helm-values.rst:904 b3d940d990834c1aa16479776c1f9686
+msgid "hubble.ui.frontend.extraEnv"
+msgstr ""
+
+#: ../../helm-values.rst:905 7559f89937244ea585e14bc83b91d237
+msgid "Additional hubble-ui frontend environment variables."
+msgstr ""
+
+#: ../../helm-values.rst:908 56b00b7908364da486dc0ce3b057677f
+msgid "hubble.ui.frontend.image"
+msgstr ""
+
+#: ../../helm-values.rst:909 94a9e319707a4f0f8a17ceca6601ee6b
+msgid "Hubble-ui frontend image."
+msgstr ""
+
+#: ../../helm-values.rst:911 0c48145a4e3c4959aaaeecd3b2194f5b
+msgid ""
+"``{\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/cilium"
+"/hubble-ui\",\"tag\":\"latest\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:912 10201727ea5c4ca696d0da79455cb020
+msgid "hubble.ui.frontend.resources"
+msgstr ""
+
+#: ../../helm-values.rst:913 978f48cde57a4761b991a2e6e57f7df6
+msgid ""
+"Resource requests and limits for the 'frontend' container of the 'hubble-"
+"ui' deployment."
+msgstr ""
+
+#: ../../helm-values.rst:916 a33f7281c9e04c13a40b8a0a7ea87207
+msgid "hubble.ui.ingress"
+msgstr ""
+
+#: ../../helm-values.rst:917 b2539df07f4b4f84b8ebed730ad011ff
+msgid "hubble-ui ingress configuration."
+msgstr ""
+
+#: ../../helm-values.rst:919 dc830df188cb4270b85d5f30ef1eab71
+msgid ""
+"``{\"annotations\":{},\"className\":\"\",\"enabled\":false,\"hosts"
+"\":[\"chart-example.local\"],\"tls\":[]}``"
+msgstr ""
+
+#: ../../helm-values.rst:920 79a835b5721e4dcc80ad000ce49c0ad7
+msgid "hubble.ui.nodeSelector"
+msgstr ""
+
+#: ../../helm-values.rst:924 a3061a5b8fbe49a695060fed5cab66d1
+msgid "hubble.ui.podAnnotations"
+msgstr ""
+
+#: ../../helm-values.rst:925 c304b2d16ef64775b7d590f9d5b75d71
+msgid "Annotations to be added to hubble-ui pods"
+msgstr ""
+
+#: ../../helm-values.rst:928 22496a6bb80b4a0c92e9fc0d2d18b349
+msgid "hubble.ui.podDisruptionBudget.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:932 c15fe6cc6a0b4ced8330e2b844c562f6
+msgid "hubble.ui.podDisruptionBudget.maxUnavailable"
+msgstr ""
+
+#: ../../helm-values.rst:936 a9494980f27c4a89b3fa554962c00c70
+msgid "hubble.ui.podDisruptionBudget.minAvailable"
+msgstr ""
+
+#: ../../helm-values.rst:940 53670cac45ae46fa8d6f1466c56f8269
+msgid "hubble.ui.podLabels"
+msgstr ""
+
+#: ../../helm-values.rst:941 362fa6d8282543c1a14fb2deec964586
+msgid "Labels to be added to hubble-ui pods"
+msgstr ""
+
+#: ../../helm-values.rst:944 78c4ec506a7545c9a76cc5024584a4e9
+msgid "hubble.ui.priorityClassName"
+msgstr ""
+
+#: ../../helm-values.rst:945 a761370f628540119476c53dea402a22
+msgid "The priority class to use for hubble-ui"
+msgstr ""
+
+#: ../../helm-values.rst:948 6e7afcd3b72f488881fbdf6380f21b8a
+msgid "hubble.ui.proxy.extraEnv"
+msgstr ""
+
+#: ../../helm-values.rst:949 6e8fec83cdbf4b65bdc2da319bee8bf1
+msgid "Additional hubble-ui proxy environment variables."
+msgstr ""
+
+#: ../../helm-values.rst:952 e6bffde7732347c89426692a9803984f
+msgid "hubble.ui.proxy.image"
+msgstr ""
+
+#: ../../helm-values.rst:953 2a855121c72e4ea4b43ca9ad4fd18e25
+msgid "Hubble-ui ingress proxy image."
+msgstr ""
+
+#: ../../helm-values.rst:955 55032d391d284b9ea484904b1255f75f
+msgid "``{\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"docker.io/envoyproxy/envoy\",\"tag\":\"v1.20.2@sha256:eb7d88d5186648049f0a80062120bd45e7557bdff3f6a30e1fc92cbb50916868\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:956 a7266d096f104819afeefc8ce9b9a509
+msgid "hubble.ui.proxy.resources"
+msgstr ""
+
+#: ../../helm-values.rst:957 e614032b66d741b8b496101d86b800c7
+msgid ""
+"Resource requests and limits for the 'proxy' container of the 'hubble-ui'"
+" deployment."
+msgstr ""
+
+#: ../../helm-values.rst:960 19a56cd34b3143d4823a08794f0e9d6c
+msgid "hubble.ui.replicas"
+msgstr ""
+
+#: ../../helm-values.rst:961 9914d584321c45389b3cacbebc19fb1d
+msgid "The number of replicas of Hubble UI to deploy."
+msgstr ""
+
+#: ../../helm-values.rst:964 b8138d7956bd4420bacdd5b261ac4230
+msgid "hubble.ui.rollOutPods"
+msgstr ""
+
+#: ../../helm-values.rst:965 231657e24c844bc792d96d9f6902c209
+msgid "Roll out Hubble-ui pods automatically when configmap is updated."
+msgstr ""
+
+#: ../../helm-values.rst:968 ce0306f735c04861bdab8985b5834c6b
+msgid "hubble.ui.securityContext"
+msgstr ""
+
+#: ../../helm-values.rst:969 1b6d263618e44317bc2dfaf3f4849840
+msgid "Security context to be added to Hubble UI pods"
+msgstr ""
+
+#: ../../helm-values.rst:971 72c9b5fbec3c4b53b91b0f072db67b83
+msgid "``{\"enabled\":true,\"fsGroup\":1001,\"runAsGroup\":1001,\"runAsUser\":1001}``"
+msgstr ""
+
+#: ../../helm-values.rst:972 e77bebc87bfb48bd8b0810a6519d5c79
+msgid "hubble.ui.securityContext.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:973 925943889cd14f2fa83c8d5956109200
+msgid ""
+"Deprecated in favor of hubble.ui.securityContext. Whether to set the "
+"security context on the Hubble UI pods."
+msgstr ""
+
+#: ../../helm-values.rst:976 7db8767f76144e5e950c700e5bb747c2
+msgid "hubble.ui.standalone.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:977 305479f6b16e4087b78734dc969d0e5c
+msgid ""
+"When true, it will allow installing the Hubble UI only, without checking "
+"dependencies. It is useful if a cluster already has cilium and Hubble "
+"relay installed and you just want Hubble UI to be deployed. When "
+"installed via helm, installing UI should be done via ``helm upgrade`` and"
+" when installed via the cilium cli, then ``cilium hubble enable --ui``"
+msgstr ""
+
+#: ../../helm-values.rst:980 2a3b39df200942898824af965c5bef7a
+msgid "hubble.ui.standalone.tls.certsVolume"
+msgstr ""
+
+#: ../../helm-values.rst:981 93f762bbbcd4437eaafe8aa5b6aab317
+msgid ""
+"When deploying Hubble UI in standalone, with tls enabled for Hubble "
+"relay, it is required to provide a volume for mounting the client "
+"certificates."
+msgstr ""
+
+#: ../../helm-values.rst:984 dab9c099eb8541b58dfad39e00a74827
+msgid "hubble.ui.tls.client"
+msgstr ""
+
+#: ../../helm-values.rst:985 512e5dfe26a745a993bb78dd7b3c1204
+msgid ""
+"base64 encoded PEM values used to connect to hubble-relay This keypair is"
+" presented to Hubble Relay instances for mTLS authentication and is "
+"required when hubble.relay.tls.server.enabled is true. These values need "
+"to be set manually if hubble.tls.auto.enabled is false."
+msgstr ""
+
+#: ../../helm-values.rst:988 d2d7449733444f94802f9858c072a71a
+msgid "hubble.ui.tolerations"
+msgstr ""
+
+#: ../../helm-values.rst:992 a872d22983e146a59dc897fe11d6f96a
+msgid "hubble.ui.updateStrategy"
+msgstr ""
+
+#: ../../helm-values.rst:993 b1b4ec6c036746a9884a69789afb0e25
+msgid "hubble-ui update strategy."
+msgstr ""
+
+#: ../../helm-values.rst:996 c3039ee9533c4a4f8b1d8ae0c9689517
+msgid "identityAllocationMode"
+msgstr ""
+
+#: ../../helm-values.rst:997 e388b10c0c1f45ef8002cc873b9d7a37
+msgid "Method to use for identity allocation (\\ ``crd`` or ``kvstore``\\ )."
+msgstr ""
+
+#: ../../helm-values.rst:999 6215c02255f0404a9c7f6229f4b54403
+msgid "``\"crd\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1000 851600ef00194dfebb7b1143bce314a7
+msgid "image"
+msgstr ""
+
+#: ../../helm-values.rst:1001 b38b13a742f64200bfc1bdcd99e644fc
+msgid "Agent container image."
+msgstr ""
+
+#: ../../helm-values.rst:1003 ../../helm-values.rst:1387
+#: e3018a8a50f84fcb87b736aba8f85483 fc1a15ecfa9843beb2a3ce7236531fda
+msgid "``{\"digest\":\"\",\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/cilium/cilium\",\"tag\":\"latest\",\"useDigest\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:1004 3b23548234a14f36b52f10912c851894
+msgid "imagePullSecrets"
+msgstr ""
+
+#: ../../helm-values.rst:1005 1e90fcdcf511426c84945689611cb3bd
+msgid "Configure image pull secrets for pulling container images"
+msgstr ""
+
+#: ../../helm-values.rst:1008 38b1a7aba8f445cfbb579c558f2ebdb4
+msgid "ingressController.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1009 f4a33c2baf6d460fb339191db83a92cb
+msgid ""
+"Enable cilium ingress controller This will automatically set enable-"
+"envoy-config as well."
+msgstr ""
+
+#: ../../helm-values.rst:1012 c01f0d869ed944e69d5a8fec5cf2eb87
+msgid "ingressController.enforceHttps"
+msgstr ""
+
+#: ../../helm-values.rst:1013 ac620e5997d042ecb319ce2fdadf228d
+msgid ""
+"Enforce https for host having matching TLS host in Ingress. Incoming "
+"traffic to http listener will return 308 http error code with respective "
+"location in header."
+msgstr ""
+
+#: ../../helm-values.rst:1016 772c125205f54e249144d014a7a57153
+msgid "ingressController.secretsNamespace"
+msgstr ""
+
+#: ../../helm-values.rst:1017 dd3002f0c22a4ce2a871005115084c0e
+msgid ""
+"SecretsNamespace is the namespace in which envoy SDS will retrieve TLS "
+"secrets from."
+msgstr ""
+
+#: ../../helm-values.rst:1019 9c80f5b690424ff7a0cae2e0c657b9cd
+msgid "``{\"create\":true,\"name\":\"cilium-secrets\",\"sync\":true}``"
+msgstr ""
+
+#: ../../helm-values.rst:1020 35f20812866344409501da7620589e1e
+msgid "ingressController.secretsNamespace.create"
+msgstr ""
+
+#: ../../helm-values.rst:1021 f043173423f242b18606ffd8a0ccbb06
+msgid "Create secrets namespace for Ingress."
+msgstr ""
+
+#: ../../helm-values.rst:1024 9ee5a49b7cdf424db645f5e5e0023a4e
+msgid "ingressController.secretsNamespace.name"
+msgstr ""
+
+#: ../../helm-values.rst:1025 6da9a784c7c34d8b995a1e9e3465d670
+msgid "Name of Ingress secret namespace."
+msgstr ""
+
+#: ../../helm-values.rst:1027 69dd1e570e8a4210a77e4726177c82fa
+msgid "``\"cilium-secrets\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1028 758d74b899d74f19a4bd62ea31492f97
+msgid "ingressController.secretsNamespace.sync"
+msgstr ""
+
+#: ../../helm-values.rst:1029 884b8160d95a4c11ad028570de23c32d
+msgid ""
+"Enable secret sync, which will make sure all TLS secrets used by Ingress "
+"are synced to secretsNamespace.name. If disabled, TLS secrets must be "
+"maintained externally."
+msgstr ""
+
+#: ../../helm-values.rst:1032 3231d5c97a9941d8a391626328918bb5
+msgid "installIptablesRules"
+msgstr ""
+
+#: ../../helm-values.rst:1033 681dce7011ae4a48a7a2a9d74bd9a02a
+msgid ""
+"Configure whether to install iptables rules to allow for TPROXY (L7 proxy"
+" injection), iptables-based masquerading and compatibility with kube-"
+"proxy."
+msgstr ""
+
+#: ../../helm-values.rst:1036 e30239824e874408ad7c29e6f2409c55
+msgid "installNoConntrackIptablesRules"
+msgstr ""
+
+#: ../../helm-values.rst:1037 908dda8fdf57454abf3135efe075f9c4
+msgid ""
+"Install Iptables rules to skip netfilter connection tracking on all pod "
+"traffic. This option is only effective when Cilium is running in direct "
+"routing and full KPR mode. Moreover, this option cannot be enabled when "
+"Cilium is running in a managed Kubernetes environment or in a chained CNI"
+" setup."
+msgstr ""
+
+#: ../../helm-values.rst:1040 72281ce11eb24b408429025c15d487e0
+msgid "ipMasqAgent"
+msgstr ""
+
+#: ../../helm-values.rst:1041 4ab8a90105944d09ac3a5cdc8c528da4
+msgid "Configure the eBPF-based ip-masq-agent"
+msgstr ""
+
+#: ../../helm-values.rst:1044 39782ffde6cf4148bf496b6ab8ea52e9
+msgid "ipam.mode"
+msgstr ""
+
+#: ../../helm-values.rst:1045 494e1e2486ea4be8ac832490de546274
+msgid ""
+"Configure IP Address Management mode. ref: "
+"https://docs.cilium.io/en/stable/concepts/networking/ipam/"
+msgstr ""
+
+#: ../../helm-values.rst:1047 fe500a1f6a9448998be02cff40dbfeeb
+msgid "``\"cluster-pool\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1048 e45e3545fb9a421aabf0b62b3db1d791
+msgid "ipam.operator.clusterPoolIPv4MaskSize"
+msgstr ""
+
+#: ../../helm-values.rst:1049 65cb35c2e56542c581c6546c448f6e17
+msgid "IPv4 CIDR mask size to delegate to individual nodes for IPAM."
+msgstr ""
+
+#: ../../helm-values.rst:1051 0d4e7b8f16dd4dcf8d391b9732c517dc
+msgid "``24``"
+msgstr ""
+
+#: ../../helm-values.rst:1052 7e54ab38fe2342a092c21607c357fcbf
+msgid "ipam.operator.clusterPoolIPv4PodCIDR"
+msgstr ""
+
+#: ../../helm-values.rst:1053 40278f50346547638a4e3704d7d7eef6
+msgid ""
+"Deprecated in favor of ipam.operator.clusterPoolIPv4PodCIDRList. IPv4 "
+"CIDR range to delegate to individual nodes for IPAM."
+msgstr ""
+
+#: ../../helm-values.rst:1055 0a065d49090940cab8a5bcdcf5bc38d6
+msgid "``\"10.0.0.0/8\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1056 c5cb1ef82f5f4bfda593503036a4a1df
+msgid "ipam.operator.clusterPoolIPv4PodCIDRList"
+msgstr ""
+
+#: ../../helm-values.rst:1057 9e85a225e65e433c9746516a6d700709
+msgid "IPv4 CIDR list range to delegate to individual nodes for IPAM."
+msgstr ""
+
+#: ../../helm-values.rst:1060 98b9694caff84ec1a5df290a61c57814
+msgid "ipam.operator.clusterPoolIPv6MaskSize"
+msgstr ""
+
+#: ../../helm-values.rst:1061 0b9b4a005a1b42e2aeca62c280aa2611
+msgid "IPv6 CIDR mask size to delegate to individual nodes for IPAM."
+msgstr ""
+
+#: ../../helm-values.rst:1063 2786aac8c5894243acaf97ace3fa0bf2
+msgid "``120``"
+msgstr ""
+
+#: ../../helm-values.rst:1064 84c68dc28cb14a5b87092f8a2dbb7c3d
+msgid "ipam.operator.clusterPoolIPv6PodCIDR"
+msgstr ""
+
+#: ../../helm-values.rst:1065 7172dc6f7d9641a0a4e63048bcafad3c
+msgid ""
+"Deprecated in favor of ipam.operator.clusterPoolIPv6PodCIDRList. IPv6 "
+"CIDR range to delegate to individual nodes for IPAM."
+msgstr ""
+
+#: ../../helm-values.rst:1067 856e0be45a414e4c84fe8f621bf6da65
+msgid "``\"fd00::/104\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1068 9ac37965daea44458ae753bca99db431
+msgid "ipam.operator.clusterPoolIPv6PodCIDRList"
+msgstr ""
+
+#: ../../helm-values.rst:1069 08122e2ec837474ca3773a299562a936
+msgid "IPv6 CIDR list range to delegate to individual nodes for IPAM."
+msgstr ""
+
+#: ../../helm-values.rst:1072 70b815705ccc4ecf92a87441e9bbadd3
+msgid "ipv4.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1073 192d98e611d549929caff11ded71c29d
+msgid "Enable IPv4 support."
+msgstr ""
+
+#: ../../helm-values.rst:1076 8e918ff930664daebe4fe7ad35a3127f
+msgid "ipv6.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1077 a2420a14094d4c0d941842458a30e2db
+msgid "Enable IPv6 support."
+msgstr ""
+
+#: ../../helm-values.rst:1080 9ceaaf003d8d4280aa452f4e43e6205d
+msgid "ipvlan.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1081 363cbd9aba1e4ae39e0ff3235c82cfb6
+msgid "Enable the IPVLAN datapath (deprecated)"
+msgstr ""
+
+#: ../../helm-values.rst:1084 517d093d2d964f98ae33c203be6c0b2e
+msgid "k8s"
+msgstr ""
+
+#: ../../helm-values.rst:1085 5b1f74122c44452a80bdbb4a213037d2
+msgid "Configure Kubernetes specific configuration"
+msgstr ""
+
+#: ../../helm-values.rst:1088 6daf8ee5f4004ea69b78591cab9e8f41
+msgid "keepDeprecatedLabels"
+msgstr ""
+
+#: ../../helm-values.rst:1089 6973bfa60313478f9ad330f97031b9f3
+msgid "Keep the deprecated selector labels when deploying Cilium DaemonSet."
+msgstr ""
+
+#: ../../helm-values.rst:1092 8c82f211777b4389aa39760a3f6dca32
+msgid "keepDeprecatedProbes"
+msgstr ""
+
+#: ../../helm-values.rst:1093 6e0663b2418146549420544abe7fed7b
+msgid "Keep the deprecated probes when deploying Cilium DaemonSet"
+msgstr ""
+
+#: ../../helm-values.rst:1096 b762a8644fac4413a477a66f0177ce3d
+msgid "kubeProxyReplacementHealthzBindAddr"
+msgstr ""
+
+#: ../../helm-values.rst:1097 036c7cd58cd143c6989db1e0a22fd400
+msgid ""
+"healthz server bind address for the kube-proxy replacement. To enable set"
+" the value to '0.0.0.0:10256' for all ipv4 addresses and this "
+"'[::]:10256' for all ipv6 addresses. By default it is disabled."
+msgstr ""
+
+#: ../../helm-values.rst:1100 dda70f3fb24847309c99fc49960e4809
+msgid "l2NeighDiscovery.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1101 29c162d42b31486bae9549cc95d25c62
+msgid "Enable L2 neighbor discovery in the agent"
+msgstr ""
+
+#: ../../helm-values.rst:1104 b0aa6f2380a34b4d839476a58e8d050f
+msgid "l2NeighDiscovery.refreshPeriod"
+msgstr ""
+
+#: ../../helm-values.rst:1105 7c68b88d1dd8406d9fc1dcc8ce115cd3
+msgid "Override the agent's default neighbor resolution refresh period."
+msgstr ""
+
+#: ../../helm-values.rst:1107 1ee9df083452431e9dbece2e92019401
+msgid "``\"30s\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1108 13a0adac89ac4e3f8df368240e6c6292
+msgid "l7Proxy"
+msgstr ""
+
+#: ../../helm-values.rst:1109 3cce159bd2044345b33439c053743e30
+msgid "Enable Layer 7 network policy."
+msgstr ""
+
+#: ../../helm-values.rst:1112 ca9cf096ec02409fbfcf04e72f73329d
+msgid "livenessProbe.failureThreshold"
+msgstr ""
+
+#: ../../helm-values.rst:1113 a000f16cedca4a22b68f258d07088ac8
+msgid "failure threshold of liveness probe"
+msgstr ""
+
+#: ../../helm-values.rst:1115 c53ffd131b374541a90a2e5c5e391462
+msgid "``10``"
+msgstr ""
+
+#: ../../helm-values.rst:1116 01c621d0c081411fa2c732871f02a3f2
+msgid "livenessProbe.periodSeconds"
+msgstr ""
+
+#: ../../helm-values.rst:1117 f510f04c344045a58fcfba8511012fdc
+msgid "interval between checks of the liveness probe"
+msgstr ""
+
+#: ../../helm-values.rst:1119 ../../helm-values.rst:1487
+#: 4ebaa27a09ef41e4aede2138223c7f72 7b35de4b5d2a4d0b886da4cb0ff20de9
+msgid "``30``"
+msgstr ""
+
+#: ../../helm-values.rst:1120 264081aee63346f2aba72b44271335b2
+msgid "localRedirectPolicy"
+msgstr ""
+
+#: ../../helm-values.rst:1121 43cbd9580021475db9fba1c3e1ad9e06
+msgid "Enable Local Redirect Policy."
+msgstr ""
+
+#: ../../helm-values.rst:1124 92ec2201bfd147c299b78f30d03d2b98
+msgid "logSystemLoad"
+msgstr ""
+
+#: ../../helm-values.rst:1125 3673192a02e44abba0cb7864d8504e37
+msgid "Enables periodic logging of system load"
+msgstr ""
+
+#: ../../helm-values.rst:1128 088b80aa2fcd486ca5eec08a892056a0
+msgid "maglev"
+msgstr ""
+
+#: ../../helm-values.rst:1129 3ab772a1fb5f48e8921ce43bc21bbafa
+msgid "Configure maglev consistent hashing"
+msgstr ""
+
+#: ../../helm-values.rst:1132 5b5748e63d5349ff86e037c5dd437346
+msgid "monitor"
+msgstr ""
+
+#: ../../helm-values.rst:1133 5ee5edbc51ef41ddbb10c4b25505cccc
+msgid "cilium-monitor sidecar."
+msgstr ""
+
+#: ../../helm-values.rst:1136 7c654732cce345e588fe38ca3257ec0f
+msgid "monitor.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1137 12e73df6796745c4b05ee81df0634a8c
+msgid "Enable the cilium-monitor sidecar."
+msgstr ""
+
+#: ../../helm-values.rst:1140 07a8a345280c41439626d3ee526949df
+msgid "name"
+msgstr ""
+
+#: ../../helm-values.rst:1141 ee86dff08ce0409b8f9d8e1390109a1b
+msgid "Agent container name."
+msgstr ""
+
+#: ../../helm-values.rst:1143 10125f021a7a49429d756521cfb898f3
+msgid "``\"cilium\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1144 958cc32d9f9243388c94b103a9c98830
+msgid "nodePort"
+msgstr ""
+
+#: ../../helm-values.rst:1145 54ee56f6192b4d61a7beeaf248e3f6b6
+msgid "Configure N-S k8s service loadbalancing"
+msgstr ""
+
+#: ../../helm-values.rst:1147 4a91e362c2674c5d90a37709d90b7362
+msgid "``{\"autoProtectPortRange\":true,\"bindProtection\":true,\"enableHealthCheck\":true,\"enabled\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:1148 b2b3f940060c41528e7cdb3d4102bd4c
+msgid "nodePort.autoProtectPortRange"
+msgstr ""
+
+#: ../../helm-values.rst:1149 844b0c84b54e4e4c8653bc5ffb3a3e65
+msgid ""
+"Append NodePort range to ip_local_reserved_ports if clash with ephemeral "
+"ports is detected."
+msgstr ""
+
+#: ../../helm-values.rst:1152 00e64c1ee2ca4c97ab08a03696a35c4f
+msgid "nodePort.bindProtection"
+msgstr ""
+
+#: ../../helm-values.rst:1153 a88f6e3ee7d64a99944b1a9f2358fb10
+msgid "Set to true to prevent applications binding to service ports."
+msgstr ""
+
+#: ../../helm-values.rst:1156 e9882396b8f34deb94e2941a77c895d9
+msgid "nodePort.enableHealthCheck"
+msgstr ""
+
+#: ../../helm-values.rst:1157 42e00e03a5b14945b7233852216f28b2
+msgid "Enable healthcheck nodePort server for NodePort services"
+msgstr ""
+
+#: ../../helm-values.rst:1160 004bed22cad74e40966d9f744bdde48f
+msgid "nodePort.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1161 2d36e703b05b4ef281644b66ceeac8b1
+msgid "Enable the Cilium NodePort service implementation."
+msgstr ""
+
+#: ../../helm-values.rst:1164 fa55a1cadeea4d59bc4bca804640a742
+msgid "nodeSelector"
+msgstr ""
+
+#: ../../helm-values.rst:1165 774f5b87f797472a8faaa25a9dd358b3
+msgid "Node selector for cilium-agent."
+msgstr ""
+
+#: ../../helm-values.rst:1167 0b09af466b2d440f9fb539323f5f786a
+msgid "``{\"kubernetes.io/os\":\"linux\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:1168 e610dd59f71240779188bb0d37d92fc5
+msgid "nodeinit.affinity"
+msgstr ""
+
+#: ../../helm-values.rst:1169 ec7c3db5e9954780be229fe0f71d4536
+msgid "Affinity for cilium-nodeinit"
+msgstr ""
+
+#: ../../helm-values.rst:1172 07f964d22a764a7b8d6c8b0286768220
+msgid "nodeinit.bootstrapFile"
+msgstr ""
+
+#: ../../helm-values.rst:1173 2d77979ee7e046358460c135e63be648
+msgid ""
+"bootstrapFile is the location of the file where the bootstrap timestamp "
+"is written by the node-init DaemonSet"
+msgstr ""
+
+#: ../../helm-values.rst:1175 ad89c1b3c97e41a7983d621f69e8204f
+msgid "``\"/tmp/cilium-bootstrap.d/cilium-bootstrap-time\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1176 f132c6d14622419abc14aa15ee1bbcde
+msgid "nodeinit.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1177 2a4386dc553246c89f2629620abce996
+msgid "Enable the node initialization DaemonSet"
+msgstr ""
+
+#: ../../helm-values.rst:1180 3fe5689ef998408bb0389d10fdda4826
+msgid "nodeinit.extraEnv"
+msgstr ""
+
+#: ../../helm-values.rst:1181 ad71888d2fb3490b85e0f30aacaa4d60
+msgid "Additional nodeinit environment variables."
+msgstr ""
+
+#: ../../helm-values.rst:1184 8588fe755a02468aa4eebf727809f550
+msgid "nodeinit.image"
+msgstr ""
+
+#: ../../helm-values.rst:1185 57682ecb32e340a3a92ea001bc6b94ff
+msgid "node-init image."
+msgstr ""
+
+#: ../../helm-values.rst:1187 1450fcf94ae34bb68f302369708b6fd2
+msgid ""
+"``{\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/cilium"
+"/startup-script\",\"tag\":\"d69851597ea019af980891a4628fb36b7880ec26\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:1188 66decdf6555e4244b817f9d843a9818b
+msgid "nodeinit.nodeSelector"
+msgstr ""
+
+#: ../../helm-values.rst:1189 50b1f085be5f4e13ab4b01e9d6ebee05
+msgid ""
+"Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs"
+"/user-guide/node-selection/"
+msgstr ""
+
+#: ../../helm-values.rst:1192 04e87fc3489e4eddb4cf9fa2bad6180c
+msgid "nodeinit.podAnnotations"
+msgstr ""
+
+#: ../../helm-values.rst:1193 93801e83b6fc4d3187049671319e3cdf
+msgid "Annotations to be added to node-init pods."
+msgstr ""
+
+#: ../../helm-values.rst:1196 9a931e85b5204404a211b9890b0fe39f
+msgid "nodeinit.podLabels"
+msgstr ""
+
+#: ../../helm-values.rst:1197 96e981e4be6943a1a7871d1fa020e3ac
+msgid "Labels to be added to node-init pods."
+msgstr ""
+
+#: ../../helm-values.rst:1200 2708e45e2eec4a9382e30d9a8d4ccdce
+msgid "nodeinit.priorityClassName"
+msgstr ""
+
+#: ../../helm-values.rst:1201 a37ece058ddb4986bca04b21664df3ec
+msgid "The priority class to use for the nodeinit pod."
+msgstr ""
+
+#: ../../helm-values.rst:1204 18d8c7b7ddf94593b6b4f20071585fa9
+msgid "nodeinit.resources"
+msgstr ""
+
+#: ../../helm-values.rst:1205 d18e41b4e5de4a75910eadd157e50a6c
+msgid ""
+"nodeinit resource limits & requests ref: https://kubernetes.io/docs/user-"
+"guide/compute-resources/"
+msgstr ""
+
+#: ../../helm-values.rst:1207 6521bb75f5d143e59647f412188c5c11
+msgid "``{\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}}``"
+msgstr ""
+
+#: ../../helm-values.rst:1208 0b9c2584a9d84112865e01d61d2298c8
+msgid "nodeinit.securityContext"
+msgstr ""
+
+#: ../../helm-values.rst:1209 e653eb2885d341a697ae878353be0bd1
+msgid "Security context to be added to nodeinit pods."
+msgstr ""
+
+#: ../../helm-values.rst:1211 42f954c3f0134d468fa5af72d5596959
+msgid "``{\"capabilities\":{\"add\":[\"SYS_MODULE\",\"NET_ADMIN\",\"SYS_ADMIN\",\"SYS_CHROOT\",\"SYS_PTRACE\"]},\"privileged\":false,\"seLinuxOptions\":{\"level\":\"s0\",\"type\":\"spc_t\"}}``"
+msgstr ""
+
+#: ../../helm-values.rst:1212 f7635f574d64459fb3dc287f4ef96fc2
+msgid "nodeinit.tolerations"
+msgstr ""
+
+#: ../../helm-values.rst:1213 b12e18a57d5245848298d439c818060f
+msgid ""
+"Node tolerations for nodeinit scheduling to nodes with taints ref: "
+"https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+msgstr ""
+
+#: ../../helm-values.rst:1216 bcc16171e6d048c88342dbaa76cc8b7f
+msgid "nodeinit.updateStrategy"
+msgstr ""
+
+#: ../../helm-values.rst:1217 73ad2c4c3f7347ab8cca34b7b350aa28
+msgid "node-init update strategy"
+msgstr ""
+
+#: ../../helm-values.rst:1219 ../../helm-values.rst:1439
+#: 2ea807e03b3243b49d7d1bf4696764a1 b1f4a1a90b7c4414ac90abf0c8452fcd
+msgid "``{\"type\":\"RollingUpdate\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:1220 a8785dc4460f452a896ec34b84b20c0c
+msgid "operator.affinity"
+msgstr ""
+
+#: ../../helm-values.rst:1221 0dfceb6069d54d60ba3a0700bfab4f6a
+msgid "Affinity for cilium-operator"
+msgstr ""
+
+#: ../../helm-values.rst:1223 4c8a67dceee0443082767395aedc909c
+msgid "``{\"podAntiAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":[{\"labelSelector\":{\"matchLabels\":{\"io.cilium/app\":\"operator\"}},\"topologyKey\":\"kubernetes.io/hostname\"}]}}``"
+msgstr ""
+
+#: ../../helm-values.rst:1224 f953cf74c4cb44eaa0a8f516e4896646
+msgid "operator.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1225 ef32cba7cfae4c3ea48ca9311c28a628
+msgid "Enable the cilium-operator component (required)."
+msgstr ""
+
+#: ../../helm-values.rst:1228 6d4104192fa941f4aba95f205148d6a7
+msgid "operator.endpointGCInterval"
+msgstr ""
+
+#: ../../helm-values.rst:1229 4690179ac816414488f85462e4dcf4e3
+msgid "Interval for endpoint garbage collection."
+msgstr ""
+
+#: ../../helm-values.rst:1231 ../../helm-values.rst:1267
+#: 08b5bb511db94ae892a6cc53b135f52a 5cd8494063aa4cb9aa76952ec4c60b01
+msgid "``\"5m0s\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1232 c4348b0e66994a9c9d5911d8af388f3d
+msgid "operator.extraArgs"
+msgstr ""
+
+#: ../../helm-values.rst:1233 63918192e26948c391853ce4390e15da
+msgid "Additional cilium-operator container arguments."
+msgstr ""
+
+#: ../../helm-values.rst:1236 9226086eba384921bc0f4f1fda1e91ae
+msgid "operator.extraEnv"
+msgstr ""
+
+#: ../../helm-values.rst:1237 80aeaf1b2d824f8ab7634ca6a4c66d7b
+msgid "Additional cilium-operator environment variables."
+msgstr ""
+
+#: ../../helm-values.rst:1240 1e7bb5a246b047c39770c6a8ab750003
+msgid "operator.extraHostPathMounts"
+msgstr ""
+
+#: ../../helm-values.rst:1241 247b7493f3b647f7bca502bd34c72361
+msgid "Additional cilium-operator hostPath mounts."
+msgstr ""
+
+#: ../../helm-values.rst:1244 092679a84cf8400ca8ad8e1d29d67ade
+msgid "operator.extraVolumeMounts"
+msgstr ""
+
+#: ../../helm-values.rst:1245 a7000edadb5e438baaabad367e1e4941
+msgid "Additional cilium-operator volumeMounts."
+msgstr ""
+
+#: ../../helm-values.rst:1248 65c77a768ec34c70af4bd4db0a606dbd
+msgid "operator.extraVolumes"
+msgstr ""
+
+#: ../../helm-values.rst:1249 9a5ab2a717ea41f4a70a42ddf49c33f3
+msgid "Additional cilium-operator volumes."
+msgstr ""
+
+#: ../../helm-values.rst:1252 780d10dbb8814a8baa2389ae8d691d34
+msgid "operator.identityGCInterval"
+msgstr ""
+
+#: ../../helm-values.rst:1253 4b5e35310d644c9cb17df209c650185e
+msgid "Interval for identity garbage collection."
+msgstr ""
+
+#: ../../helm-values.rst:1255 4f47ed2a98f946938d18e0bf2890fd45
+msgid "``\"15m0s\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1256 89eb501afb9f459bbf04cdec4f485591
+msgid "operator.identityHeartbeatTimeout"
+msgstr ""
+
+#: ../../helm-values.rst:1257 9177e69177f24121b3a35f5ad1c9e87e
+msgid "Timeout for identity heartbeats."
+msgstr ""
+
+#: ../../helm-values.rst:1259 562cab298aa849a3af11de24a73b45ad
+msgid "``\"30m0s\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1260 141d8496a7a64f59bed122896bc3375b
+msgid "operator.image"
+msgstr ""
+
+#: ../../helm-values.rst:1261 0bcef08e78674d879bb68346576a0ad1
+msgid "cilium-operator image."
+msgstr ""
+
+#: ../../helm-values.rst:1263 0880b4dc3f024697aa3d123e0c4331f5
+msgid "``{\"alibabacloudDigest\":\"\",\"awsDigest\":\"\",\"azureDigest\":\"\",\"genericDigest\":\"\",\"override\":null,\"pullPolicy\":\"Always\",\"repository\":\"quay.io/cilium/operator\",\"suffix\":\"\",\"tag\":\"latest\",\"useDigest\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:1264 c55c053613a94f7ba6843106385ae862
+msgid "operator.nodeGCInterval"
+msgstr ""
+
+#: ../../helm-values.rst:1265 63dd378f2c64476699a2ccca6041f3a9
+msgid "Interval for cilium node garbage collection."
+msgstr ""
+
+#: ../../helm-values.rst:1268 8a3a01e3ebb54b47949f49480289269a
+msgid "operator.nodeSelector"
+msgstr ""
+
+#: ../../helm-values.rst:1269 a67b4800831a4a988c09c18ef986501d
+msgid ""
+"Node labels for cilium-operator pod assignment ref: "
+"https://kubernetes.io/docs/user-guide/node-selection/"
+msgstr ""
+
+#: ../../helm-values.rst:1272 8e146ace4a6e4b809de2a1a60bb3037f
+msgid "operator.podAnnotations"
+msgstr ""
+
+#: ../../helm-values.rst:1273 52ffa73a1dbd46a397a3d05aca108458
+msgid "Annotations to be added to cilium-operator pods"
+msgstr ""
+
+#: ../../helm-values.rst:1276 a64458d5d6994b1598478795e751e4ab
+msgid "operator.podDisruptionBudget.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1280 a47199fb081344adbd63bb04e4eeba5f
+msgid "operator.podDisruptionBudget.maxUnavailable"
+msgstr ""
+
+#: ../../helm-values.rst:1284 5941e310f4884fe489f9bffe8a863f73
+msgid "operator.podDisruptionBudget.minAvailable"
+msgstr ""
+
+#: ../../helm-values.rst:1288 ab54e1416fa944ed9dc058644b4be6f0
+msgid "operator.podLabels"
+msgstr ""
+
+#: ../../helm-values.rst:1289 070010e3082442a88e6083c51eeae454
+msgid "Labels to be added to cilium-operator pods"
+msgstr ""
+
+#: ../../helm-values.rst:1292 97a10f314c72482fb45ecf130880d44a
+msgid "operator.priorityClassName"
+msgstr ""
+
+#: ../../helm-values.rst:1293 183d52c69f72447a8d326db592b68792
+msgid "The priority class to use for cilium-operator"
+msgstr ""
+
+#: ../../helm-values.rst:1296 200d31e73d524babbf23dc685eb71f84
+msgid "operator.prometheus"
+msgstr ""
+
+#: ../../helm-values.rst:1297 f38ba200b00f427693331ea99b3106fe
+msgid ""
+"Enable prometheus metrics for cilium-operator on the configured port at "
+"/metrics"
+msgstr ""
+
+#: ../../helm-values.rst:1299 0fdae13bd08649079002c1eee3befb08
+msgid "``{\"enabled\":false,\"port\":6942,\"serviceMonitor\":{\"annotations\":{},\"enabled\":false,\"labels\":{}}}``"
+msgstr ""
+
+#: ../../helm-values.rst:1300 18f3fdcd3d654f1b8f189b9571e6d547
+msgid "operator.prometheus.serviceMonitor.annotations"
+msgstr ""
+
+#: ../../helm-values.rst:1301 cb8dbda4b8ff4d848bbe8beec30b8585
+msgid "Annotations to add to ServiceMonitor cilium-operator"
+msgstr ""
+
+#: ../../helm-values.rst:1304 3c7bb6d500974a01ab845c75184f971e
+msgid "operator.prometheus.serviceMonitor.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1305 ../../helm-values.rst:1461
+#: 728cf92b0cf940b6a0ebe91c8a1aee37 ae620058e43943f4b03a19b7f6d29387
+msgid ""
+"Enable service monitors. This requires the prometheus CRDs to be "
+"available (see https://github.com/prometheus-operator/prometheus-"
+"operator/blob/master/example/prometheus-operator-"
+"crd/monitoring.coreos.com_servicemonitors.yaml)"
+msgstr ""
+
+#: ../../helm-values.rst:1308 2d2a91e0a4964c7abf0eb7c8bbd7b9ea
+msgid "operator.prometheus.serviceMonitor.labels"
+msgstr ""
+
+#: ../../helm-values.rst:1309 e610b60287324017ace53b8a301306c7
+msgid "Labels to add to ServiceMonitor cilium-operator"
+msgstr ""
+
+#: ../../helm-values.rst:1312 52a73857404f4fee9bd166667a5b7f55
+msgid "operator.removeNodeTaints"
+msgstr ""
+
+#: ../../helm-values.rst:1313 8c50b3aee1204b6a8bc6d0d33fc6ffd3
+msgid ""
+"Remove Cilium node taint from Kubernetes nodes that have a healthy Cilium"
+" pod running."
+msgstr ""
+
+#: ../../helm-values.rst:1316 36005f2b75b0406d8a6dce024fb9eda9
+msgid "operator.replicas"
+msgstr ""
+
+#: ../../helm-values.rst:1317 c6ac8497067347c3934808e32b8116ff
+msgid "Number of replicas to run for the cilium-operator deployment"
+msgstr ""
+
+#: ../../helm-values.rst:1319 ../../helm-values.rst:1535
+#: 485887727b774480b3cf0c1f2092576d bd48ccfde0614f1598b99e3e7fb9e859
+msgid "``2``"
+msgstr ""
+
+#: ../../helm-values.rst:1320 e2d3abbb97d04c279ee292016bb755f7
+msgid "operator.resources"
+msgstr ""
+
+#: ../../helm-values.rst:1321 c81c0f220e9542f982b88259a7ed1acc
+msgid ""
+"cilium-operator resource limits & requests ref: "
+"https://kubernetes.io/docs/user-guide/compute-resources/"
+msgstr ""
+
+#: ../../helm-values.rst:1324 896c378299684d709ad7d92c56b95ebb
+msgid "operator.rollOutPods"
+msgstr ""
+
+#: ../../helm-values.rst:1325 16fb72057c43412593d675a5f225accd
+msgid "Roll out cilium-operator pods automatically when configmap is updated."
+msgstr ""
+
+#: ../../helm-values.rst:1328 35871c3eff134d85845452ebfc0b7c5a
+msgid "operator.securityContext"
+msgstr ""
+
+#: ../../helm-values.rst:1329 4675cb69ff664abc9390da0e7b9c0cf1
+msgid "Security context to be added to cilium-operator pods"
+msgstr ""
+
+#: ../../helm-values.rst:1332 e318cc38470a4d999d624086f41726e6
+msgid "operator.setNodeNetworkStatus"
+msgstr ""
+
+#: ../../helm-values.rst:1333 2e3917840a604d43b03603e97ece1722
+msgid ""
+"Set Node condition NetworkUnavailable to 'false' with the reason "
+"'CiliumIsUp' for nodes that have a healthy Cilium pod."
+msgstr ""
+
+#: ../../helm-values.rst:1336 997283f6906f42ad8441e8cc1572867d
+msgid "operator.skipCRDCreation"
+msgstr ""
+
+#: ../../helm-values.rst:1337 f2b5fde8c66a4bf5ba61742a7bfccf6e
+msgid "Skip CRDs creation for cilium-operator"
+msgstr ""
+
+#: ../../helm-values.rst:1340 9664b9fbfffd460bb8875fa3c25075b9
+msgid "operator.tolerations"
+msgstr ""
+
+#: ../../helm-values.rst:1341 0285be7ff4604605800bf518414cd9f5
+msgid ""
+"Node tolerations for cilium-operator scheduling to nodes with taints ref:"
+" https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+msgstr ""
+
+#: ../../helm-values.rst:1344 ce98e0e79b4a4ab4b237bd2ec5972d73
+msgid "operator.unmanagedPodWatcher.intervalSeconds"
+msgstr ""
+
+#: ../../helm-values.rst:1345 a5f2e246452b4c1590431f448113f306
+msgid ""
+"Interval, in seconds, to check if there are any pods that are not managed"
+" by Cilium."
+msgstr ""
+
+#: ../../helm-values.rst:1347 0e3cf8009f8b41a295e2d98a5db14538
+msgid "``15``"
+msgstr ""
+
+#: ../../helm-values.rst:1348 aa2023d0c74d442482032f61f23305e4
+msgid "operator.unmanagedPodWatcher.restart"
+msgstr ""
+
+#: ../../helm-values.rst:1349 25f9e08b77ca4c8da78cb2e0d3cd6071
+msgid "Restart any pod that are not managed by Cilium."
+msgstr ""
+
+#: ../../helm-values.rst:1352 f36011038f284e6db1cee57efebf6b41
+msgid "operator.updateStrategy"
+msgstr ""
+
+#: ../../helm-values.rst:1353 e2d05fcb831246fbb04df5168c4c79df
+msgid "cilium-operator update strategy"
+msgstr ""
+
+#: ../../helm-values.rst:1356 7ab8597e0aec4e97babc20fb7a161eb6
+msgid "podAnnotations"
+msgstr ""
+
+#: ../../helm-values.rst:1357 d245e168dbe34b02b863916b691107ed
+msgid "Annotations to be added to agent pods"
+msgstr ""
+
+#: ../../helm-values.rst:1360 41022c4a045d4472baa69192999d2f57
+msgid "podLabels"
+msgstr ""
+
+#: ../../helm-values.rst:1361 bb3b3377972a4d42af97dcc074ce76b3
+msgid "Labels to be added to agent pods"
+msgstr ""
+
+#: ../../helm-values.rst:1364 31595f31f27342e2a62d6b172fd98364
+msgid "policyEnforcementMode"
+msgstr ""
+
+#: ../../helm-values.rst:1365 0a47d932107f47aeb9033dbe39e80c6a
+msgid ""
+"The agent can be put into one of the three policy enforcement modes: "
+"default, always and never. ref: "
+"https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes"
+msgstr ""
+
+#: ../../helm-values.rst:1368 25631f5c2c0d479fbaea62d73248fbe2
+msgid "pprof.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1369 ee3e7dd12e5d47c8940eb311a0950a5b
+msgid "Enable Go pprof debugging"
+msgstr ""
+
+#: ../../helm-values.rst:1372 a0dd711599f3494b98f83c7f50bc96b8
+msgid "preflight.affinity"
+msgstr ""
+
+#: ../../helm-values.rst:1373 642b8b22222c41eaa0ea133f45d58326
+msgid "Affinity for cilium-preflight"
+msgstr ""
+
+#: ../../helm-values.rst:1376 288a89741caa423699d422d8fbae4d1b
+msgid "preflight.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1377 92ac7765a4874858a033a4d42b02fff5
+msgid "Enable Cilium pre-flight resources (required for upgrade)"
+msgstr ""
+
+#: ../../helm-values.rst:1380 4e0a92f06451485eb8f7f21b3ff69d1c
+msgid "preflight.extraEnv"
+msgstr ""
+
+#: ../../helm-values.rst:1381 997f3bb9d45142fa9540d1e6235adfc4
+msgid "Additional preflight environment variables."
+msgstr ""
+
+#: ../../helm-values.rst:1384 cf26db0ecfa64cb8bd63ddf1717b34ef
+msgid "preflight.image"
+msgstr ""
+
+#: ../../helm-values.rst:1385 ccfb395d245f4c57bd39717fb490e69a
+msgid "Cilium pre-flight image."
+msgstr ""
+
+#: ../../helm-values.rst:1388 b6df908f6c4943e696709518cf7b6749
+msgid "preflight.nodeSelector"
+msgstr ""
+
+#: ../../helm-values.rst:1389 c71d3a4d163a40988a05882823ea7b70
+msgid ""
+"Node labels for preflight pod assignment ref: https://kubernetes.io/docs"
+"/user-guide/node-selection/"
+msgstr ""
+
+#: ../../helm-values.rst:1392 7ca3bd927edd4548bccb158e08d3ee82
+msgid "preflight.podAnnotations"
+msgstr ""
+
+#: ../../helm-values.rst:1393 8473ded81ffc40fa9e8e499844de0fd2
+msgid "Annotations to be added to preflight pods"
+msgstr ""
+
+#: ../../helm-values.rst:1396 ff0cc83f208d446d8c3c5db51182c402
+msgid "preflight.podDisruptionBudget.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1400 8eb7e2a7f8e04f5d9e4c550eea9a31ce
+msgid "preflight.podDisruptionBudget.maxUnavailable"
+msgstr ""
+
+#: ../../helm-values.rst:1404 8c639f15c2524372a6e09399fb7fd689
+msgid "preflight.podDisruptionBudget.minAvailable"
+msgstr ""
+
+#: ../../helm-values.rst:1408 07b16bdfdeb5426f89d49bfe29453290
+msgid "preflight.podLabels"
+msgstr ""
+
+#: ../../helm-values.rst:1409 883902091bbe43b88bae8b1705661f40
+msgid "Labels to be added to the preflight pod."
+msgstr ""
+
+#: ../../helm-values.rst:1412 300a2cd06ada45e29397b2860b6f9b81
+msgid "preflight.priorityClassName"
+msgstr ""
+
+#: ../../helm-values.rst:1413 2c2c93dfd33e4a27abd279ec0b57b2d5
+msgid "The priority class to use for the preflight pod."
+msgstr ""
+
+#: ../../helm-values.rst:1416 1dbd11413fef4b028310af401f1c7d73
+msgid "preflight.resources"
+msgstr ""
+
+#: ../../helm-values.rst:1417 66dbc80814e24269b48a7f24ccc87b3f
+msgid ""
+"preflight resource limits & requests ref: https://kubernetes.io/docs"
+"/user-guide/compute-resources/"
+msgstr ""
+
+#: ../../helm-values.rst:1420 8ca05d621fcb48dd89a5ea139fcdd835
+msgid "preflight.securityContext"
+msgstr ""
+
+#: ../../helm-values.rst:1421 9af28d8dda8f483090b5b8d9fedcb4f6
+msgid "Security context to be added to preflight pods"
+msgstr ""
+
+#: ../../helm-values.rst:1424 3f638ff440894843847bd4ad1eb96db7
+msgid "preflight.terminationGracePeriodSeconds"
+msgstr ""
+
+#: ../../helm-values.rst:1425 2b4d26d3dfdc43afa8766ac00e4008c1
+msgid "Configure termination grace period for preflight Deployment and DaemonSet."
+msgstr ""
+
+#: ../../helm-values.rst:1428 68b914f6bff0483099b440c1144a7a32
+msgid "preflight.tofqdnsPreCache"
+msgstr ""
+
+#: ../../helm-values.rst:1429 5ef427d31e5048aa8e2c1a6a078ece94
+msgid "Path to write the ``--tofqdns-pre-cache`` file to."
+msgstr ""
+
+#: ../../helm-values.rst:1432 a11fbc4d7a2f475aaaea2b08508e306f
+msgid "preflight.tolerations"
+msgstr ""
+
+#: ../../helm-values.rst:1433 61bb25ac796e44ddb847783f9522c52a
+msgid ""
+"Node tolerations for preflight scheduling to nodes with taints ref: "
+"https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+msgstr ""
+
+#: ../../helm-values.rst:1435 f72f7e7bb390427a90ca808894dc2351
+msgid ""
+"``[{\"effect\":\"NoSchedule\",\"key\":\"node.kubernetes.io/not-"
+"ready\"},{\"effect\":\"NoSchedule\",\"key\":\"node-"
+"role.kubernetes.io/master\"},{\"effect\":\"NoSchedule\",\"key\":\"node.cloudprovider.kubernetes.io/uninitialized\",\"value\":\"true\"},{\"key\":\"CriticalAddonsOnly\",\"operator\":\"Exists\"}]``"
+msgstr ""
+
+#: ../../helm-values.rst:1436 97c85122a1534358bd879246ee2e6cb4
+msgid "preflight.updateStrategy"
+msgstr ""
+
+#: ../../helm-values.rst:1437 205d3923d7e44d9ca246071a5d0ab8f7
+msgid "preflight update strategy"
+msgstr ""
+
+#: ../../helm-values.rst:1440 8806d8acd8064119bc916c7f1d68a097
+msgid "preflight.validateCNPs"
+msgstr ""
+
+#: ../../helm-values.rst:1441 6031c7fde46a47f4b8c3e21c777952ee
+msgid ""
+"By default we should always validate the installed CNPs before upgrading "
+"Cilium. This will make sure the user will have the policies deployed in "
+"the cluster with the right schema."
+msgstr ""
+
+#: ../../helm-values.rst:1444 06ae6410e3354c2f9a6ad284207baded
+msgid "priorityClassName"
+msgstr ""
+
+#: ../../helm-values.rst:1445 6fb3ca343c294b4984a482cd9394be76
+msgid "The priority class to use for cilium-agent."
+msgstr ""
+
+#: ../../helm-values.rst:1448 76c015ebfddd4340b2dd89bb6d50b1f4
+msgid "prometheus"
+msgstr ""
+
+#: ../../helm-values.rst:1449 3e5d90fa66364571ab517cdf2b21f3ca
+msgid "Configure prometheus metrics on the configured port at /metrics"
+msgstr ""
+
+#: ../../helm-values.rst:1451 ff5af70923ae4fb8b963a7a1387cf381
+msgid "``{\"enabled\":false,\"metrics\":null,\"port\":9090,\"serviceMonitor\":{\"annotations\":{},\"enabled\":false,\"labels\":{}}}``"
+msgstr ""
+
+#: ../../helm-values.rst:1452 f83815b28dee41ad8f26c1c7fc680372
+msgid "prometheus.metrics"
+msgstr ""
+
+#: ../../helm-values.rst:1453 6ada06c83dca42058e28d35c2fcb6d95
+msgid ""
+"Metrics that should be enabled or disabled from the default metric list. "
+"(+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). "
+"ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-"
+"metrics"
+msgstr ""
+
+#: ../../helm-values.rst:1456 e503ff21c20a4002830aa2f74940071a
+msgid "prometheus.serviceMonitor.annotations"
+msgstr ""
+
+#: ../../helm-values.rst:1457 815ed7d2a208403795ad838d65111d65
+msgid "Annotations to add to ServiceMonitor cilium-agent"
+msgstr ""
+
+#: ../../helm-values.rst:1460 6da1b2baa9f440da8e66b91fc0e9e3cf
+msgid "prometheus.serviceMonitor.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1464 3e012d6f69f448cbb66b6ccc0d170c5d
+msgid "prometheus.serviceMonitor.labels"
+msgstr ""
+
+#: ../../helm-values.rst:1465 16b6f4370cd4435a87927440e167e80b
+msgid "Labels to add to ServiceMonitor cilium-agent"
+msgstr ""
+
+#: ../../helm-values.rst:1468 59380c1aa2784462b27e213f3a2a6f6a
+msgid "proxy"
+msgstr ""
+
+#: ../../helm-values.rst:1469 3ba702c5d0fd49bc8208d27943cc202c
+msgid "Configure Istio proxy options."
+msgstr ""
+
+#: ../../helm-values.rst:1471 6fad7a2fde054e4bacd0f7cf1a695d33
+msgid "``{\"prometheus\":{\"enabled\":true,\"port\":\"9095\"},\"sidecarImageRegex\":\"cilium/istio_proxy\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:1472 4c3d65bf687c4201adcb60e0d5f55d4f
+msgid "proxy.sidecarImageRegex"
+msgstr ""
+
+#: ../../helm-values.rst:1473 e968491afd594e5084b74bd319b73d25
+msgid ""
+"Regular expression matching compatible Istio sidecar istio-proxy "
+"container image names"
+msgstr ""
+
+#: ../../helm-values.rst:1475 12f28876f1c2413a8067bfb3e121c958
+msgid "``\"cilium/istio_proxy\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1476 2f04dd558ab747cba995954ba5b79ca9
+msgid "rbac.create"
+msgstr ""
+
+#: ../../helm-values.rst:1477 787df1e777704ddd88c495bab61c4831
+msgid "Enable creation of Resource-Based Access Control configuration."
+msgstr ""
+
+#: ../../helm-values.rst:1480 1c0213649b9a4a32bb6e75f32f0965d3
+msgid "readinessProbe.failureThreshold"
+msgstr ""
+
+#: ../../helm-values.rst:1481 8ddcb73b1c124637a75a164248a05638
+msgid "failure threshold of readiness probe"
+msgstr ""
+
+#: ../../helm-values.rst:1483 fd5bc21295f64806866e9d029162a0c4
+msgid "``3``"
+msgstr ""
+
+#: ../../helm-values.rst:1484 fd795df4dc464235be16da619de5ab6b
+msgid "readinessProbe.periodSeconds"
+msgstr ""
+
+#: ../../helm-values.rst:1485 a84bd013afbb40b680e900c9f99dd5d3
+msgid "interval between checks of the readiness probe"
+msgstr ""
+
+#: ../../helm-values.rst:1488 c474053ae06e4d4b917ff9393d139233
+msgid "remoteNodeIdentity"
+msgstr ""
+
+#: ../../helm-values.rst:1489 9ad901b2cdd747ef8dc3990898539a51
+msgid ""
+"Enable use of the remote node identity. ref: "
+"https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-"
+"identity"
+msgstr ""
+
+#: ../../helm-values.rst:1492 4bac0f2191454047a55d2df046a59e15
+msgid "resourceQuotas"
+msgstr ""
+
+#: ../../helm-values.rst:1493 754a56cc5f5541afadee74341f3618af
+msgid "Enable resource quotas for priority classes used in the cluster."
+msgstr ""
+
+#: ../../helm-values.rst:1495 8c9499e28f344c4186e055f509fc0b9b
+msgid "``{\"cilium\":{\"hard\":{\"pods\":\"10k\"}},\"enabled\":false,\"operator\":{\"hard\":{\"pods\":\"15\"}}}``"
+msgstr ""
+
+#: ../../helm-values.rst:1496 5502cee1fd9d487f865b33a845e64a20
+msgid "resources"
+msgstr ""
+
+#: ../../helm-values.rst:1497 91019cb9914b4cd38fd73205248427dd
+msgid ""
+"Agent resource limits & requests ref: https://kubernetes.io/docs/user-"
+"guide/compute-resources/"
+msgstr ""
+
+#: ../../helm-values.rst:1500 e81d6c36a68f44199bddfcb059698b30
+msgid "rollOutCiliumPods"
+msgstr ""
+
+#: ../../helm-values.rst:1501 452f60af11da45508b52d30908a6bcd5
+msgid "Roll out cilium agent pods automatically when configmap is updated."
+msgstr ""
+
+#: ../../helm-values.rst:1504 4f238512940240079407c36838200116
+msgid "securityContext"
+msgstr ""
+
+#: ../../helm-values.rst:1505 22c6e5e0c8af472aa1e2575856621ae3
+msgid "Security context to be added to agent pods"
+msgstr ""
+
+#: ../../helm-values.rst:1507 f5f8d83fbdc2438f9061af12784ca476
+msgid "``{\"extraCapabilities\":[\"DAC_OVERRIDE\",\"FOWNER\",\"SETGID\",\"SETUID\"],\"privileged\":false}``"
+msgstr ""
+
+#: ../../helm-values.rst:1508 fc7eb36dea9d4b13be92bbd97bc6f333
+msgid "serviceAccounts"
+msgstr ""
+
+#: ../../helm-values.rst:1509 574539b7ce7b42409deb37cfb15ff6de
+msgid "Define serviceAccount names for components."
+msgstr ""
+
+#: ../../helm-values.rst:1511 c87fdfc8d21f4234900cd06a7c12099e
+msgid "Component's fully qualified name."
+msgstr ""
+
+#: ../../helm-values.rst:1512 563c77f4b62c4e2aa9c213014b3e6032
+msgid "serviceAccounts.clustermeshcertgen"
+msgstr ""
+
+#: ../../helm-values.rst:1513 d2a2a8d93d3e4e85bb1cd6ef5e409f2f
+msgid ""
+"Clustermeshcertgen is used if "
+"clustermesh.apiserver.tls.auto.method=cronJob"
+msgstr ""
+
+#: ../../helm-values.rst:1515 db2748bf466d4375a79ca2a9fd623d68
+msgid ""
+"``{\"annotations\":{},\"create\":true,\"name\":\"clustermesh-apiserver-"
+"generate-certs\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:1516 713795ebc6c240f08073a121df2b7e30
+msgid "serviceAccounts.hubblecertgen"
+msgstr ""
+
+#: ../../helm-values.rst:1517 46abbbe593e644e0ab88cc97d7f775df
+msgid "Hubblecertgen is used if hubble.tls.auto.method=cronJob"
+msgstr ""
+
+#: ../../helm-values.rst:1519 01323b82bd704b92987eeb4ea020f3a2
+msgid ""
+"``{\"annotations\":{},\"create\":true,\"name\":\"hubble-generate-"
+"certs\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:1520 2a4eac66df1e4cb7b11f41661d8c13b4
+msgid "sleepAfterInit"
+msgstr ""
+
+#: ../../helm-values.rst:1521 87c4112eb2f04d298740679c197ac29d
+msgid ""
+"Do not run Cilium agent when running with clean mode. Useful to "
+"completely uninstall Cilium as it will stop Cilium from starting and "
+"create artifacts in the node."
+msgstr ""
+
+#: ../../helm-values.rst:1524 5a7b7671912f4277a1886b80d6644b6a
+msgid "sockops"
+msgstr ""
+
+#: ../../helm-values.rst:1525 ad8bc268816e40c597c24e24646d5e9c
+msgid "Configure BPF socket operations configuration"
+msgstr ""
+
+#: ../../helm-values.rst:1528 c9f83ef564104e0896b9be10520e913d
+msgid "startupProbe.failureThreshold"
+msgstr ""
+
+#: ../../helm-values.rst:1529 8cd530566ff04e028f0fa6ec6c2a135d
+msgid ""
+"failure threshold of startup probe. 105 x 2s translates to the old "
+"behaviour of the readiness probe (120s delay + 30 x 3s)"
+msgstr ""
+
+#: ../../helm-values.rst:1531 254250f0e1574520a1c9b32f440df8d6
+msgid "``105``"
+msgstr ""
+
+#: ../../helm-values.rst:1532 70380405aa91453db7d62ae9460b943b
+msgid "startupProbe.periodSeconds"
+msgstr ""
+
+#: ../../helm-values.rst:1533 8185e726c77d4e24a326a741c0fb982a
+msgid "interval between checks of the startup probe"
+msgstr ""
+
+#: ../../helm-values.rst:1536 2bc80e1efcaa4524ab28e6961f477406
+msgid "svcSourceRangeCheck"
+msgstr ""
+
+#: ../../helm-values.rst:1537 17f7670dd8d34d1780d5aab73886de8a
+msgid "Enable check of service source ranges (currently, only for LoadBalancer)."
+msgstr ""
+
+#: ../../helm-values.rst:1540 76739439e49348c396a5a7682dbce10e
+msgid "synchronizeK8sNodes"
+msgstr ""
+
+#: ../../helm-values.rst:1541 c9c0a2f6d5df4bf8add2f7654dd661af
+msgid "Synchronize Kubernetes nodes to kvstore and perform CNP GC."
+msgstr ""
+
+#: ../../helm-values.rst:1544 ae42d28550e349f9be1bf7b0d002c7c6
+msgid "terminationGracePeriodSeconds"
+msgstr ""
+
+#: ../../helm-values.rst:1545 6423ee4e1a7d4fcd988c8f95fb427879
+msgid "Configure termination grace period for cilium-agent DaemonSet."
+msgstr ""
+
+#: ../../helm-values.rst:1548 55344b65b4184e0184772a29ddb5584a
+msgid "tls"
+msgstr ""
+
+#: ../../helm-values.rst:1549 2f56ad93deb8457eb89d48d677a2aa61
+msgid "Configure TLS configuration in the agent."
+msgstr ""
+
+#: ../../helm-values.rst:1551 390f0f65c846466a89a199a5fc437275
+msgid "``{\"ca\":{\"cert\":\"\",\"certValidityDuration\":1095,\"key\":\"\"},\"secretsBackend\":\"local\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:1552 d70c9d6b181e4c12bc6c3980843f8a15
+msgid "tls.ca"
+msgstr ""
+
+#: ../../helm-values.rst:1553 3f4ce886bfcd4c3aa780ff0c2a7a5937
+msgid ""
+"Base64 encoded PEM values for the CA certificate and private key. This "
+"can be used as common CA to generate certificates used by hubble and "
+"clustermesh components"
+msgstr ""
+
+#: ../../helm-values.rst:1555 5a292673fe6a4238b48e7f4655b9e8ab
+msgid "``{\"cert\":\"\",\"certValidityDuration\":1095,\"key\":\"\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:1556 e86e87b5f2e040cc923815b3f3940428
+msgid "tls.ca.cert"
+msgstr ""
+
+#: ../../helm-values.rst:1557 d5ad23c46c51433a980d399921713912
+msgid ""
+"Optional CA cert. If it is provided, it will be used by cilium to "
+"generate all other certificates. Otherwise, an ephemeral CA is generated."
+msgstr ""
+
+#: ../../helm-values.rst:1560 96aa9d7186324fe3823c42d3d256ae3d
+msgid "tls.ca.certValidityDuration"
+msgstr ""
+
+#: ../../helm-values.rst:1561 3d2f2028a02a49b0a2e0d4e5fd504504
+msgid ""
+"Generated certificates validity duration in days. This will be used for "
+"auto generated CA."
+msgstr ""
+
+#: ../../helm-values.rst:1564 b034923816834c9bb5d47bf26da843a3
+msgid "tls.ca.key"
+msgstr ""
+
+#: ../../helm-values.rst:1565 05b6e530b0c14a78898da302d9461a72
+msgid ""
+"Optional CA private key. If it is provided, it will be used by cilium to "
+"generate all other certificates. Otherwise, an ephemeral CA is generated."
+msgstr ""
+
+#: ../../helm-values.rst:1568 7e69092e5ff24f08a34a75e5a07815ab
+msgid "tls.secretsBackend"
+msgstr ""
+
+#: ../../helm-values.rst:1569 8a61c0113e464299b15018a277190fcc
+msgid ""
+"This configures how the Cilium agent loads the secrets used TLS-aware "
+"CiliumNetworkPolicies (namely the secrets referenced by terminatingTLS "
+"and originatingTLS). Possible values:   - local   - k8s"
+msgstr ""
+
+#: ../../helm-values.rst:1571 ece8de60ca584fcb8838f15dbc972c4b
+msgid "``\"local\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1572 080fb4898491444c99f5b93c49cbd8ce
+msgid "tolerations"
+msgstr ""
+
+#: ../../helm-values.rst:1573 6aa563a019274fe7a19d2ec1c4fa9815
+msgid ""
+"Node tolerations for agent scheduling to nodes with taints ref: "
+"https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+msgstr ""
+
+#: ../../helm-values.rst:1576 e7280b662c7d4030915fd68d2bcc90b8
+msgid "tunnel"
+msgstr ""
+
+#: ../../helm-values.rst:1577 f6a11f6f764c41e1be22b0505abb5cc7
+msgid ""
+"Configure the encapsulation configuration for communication between "
+"nodes. Possible values:   - disabled   - vxlan (default)   - geneve"
+msgstr ""
+
+#: ../../helm-values.rst:1579 d81fc0b53d354ad6a810cef808b93f4a
+msgid "``\"vxlan\"``"
+msgstr ""
+
+#: ../../helm-values.rst:1580 9c048755800a4c69b7ea38b4def82f6f
+msgid "updateStrategy"
+msgstr ""
+
+#: ../../helm-values.rst:1581 6e52f056cb1a42ecbb3486023487793b
+msgid "Cilium agent update strategy"
+msgstr ""
+
+#: ../../helm-values.rst:1583 31b773b4f44e491587ae53ced7ccd1ea
+msgid "``{\"rollingUpdate\":{\"maxUnavailable\":2},\"type\":\"RollingUpdate\"}``"
+msgstr ""
+
+#: ../../helm-values.rst:1584 2e7d0c4dd25f4fc0a20e53d0f5dbd013
+msgid "vtep.cidr"
+msgstr ""
+
+#: ../../helm-values.rst:1585 5f127a8112fb46efa7897a4c48d6eaba
+msgid ""
+"A space separated list of VTEP device CIDRs, for example \"1.1.1.0/24 "
+"1.1.2.0/24\""
+msgstr ""
+
+#: ../../helm-values.rst:1588 a414cb857fe048ab9d80feca00625d3d
+msgid "vtep.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1589 daaa28b60a3b4082ae353b18f824ab69
+msgid ""
+"Enables VXLAN Tunnel Endpoint (VTEP) Integration (beta) to allow Cilium-"
+"managed pods to talk to third party VTEP devices over Cilium tunnel."
+msgstr ""
+
+#: ../../helm-values.rst:1592 85bde7f8592a4852ad662482bd8f2d6a
+msgid "vtep.endpoint"
+msgstr ""
+
+#: ../../helm-values.rst:1593 1c825628eb064d53aed78a71b37ce69c
+msgid ""
+"A space separated list of VTEP device endpoint IPs, for example \"1.1.1.1"
+"  1.1.2.1\""
+msgstr ""
+
+#: ../../helm-values.rst:1596 eff4a9231d9c4aefa54c1b2560674b6c
+msgid "vtep.mac"
+msgstr ""
+
+#: ../../helm-values.rst:1597 6128b156272546b3960e223ffe3b90d3
+msgid ""
+"A space separated list of VTEP device MAC addresses (VTEP MAC), for "
+"example \"x:x:x:x:x:x  y:y:y:y:y:y:y\""
+msgstr ""
+
+#: ../../helm-values.rst:1600 24424f7691094c63b8e52b25094b7d39
+msgid "vtep.mask"
+msgstr ""
+
+#: ../../helm-values.rst:1601 b49a302e7e5e4181b30eaa4c9383cb67
+msgid ""
+"VTEP CIDRs Mask that applies to all VTEP CIDRs, for example "
+"\"255.255.255.0\""
+msgstr ""
+
+#: ../../helm-values.rst:1604 f5261af26ae2477795010eb92614a36b
+msgid "wellKnownIdentities.enabled"
+msgstr ""
+
+#: ../../helm-values.rst:1605 07ad7c18eaf84210bf37b2ff5336b2dc
+msgid "Enable the use of well-known identities."
+msgstr ""
+

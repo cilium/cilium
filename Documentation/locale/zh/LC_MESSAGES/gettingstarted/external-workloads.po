@@ -1,0 +1,398 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/external-workloads.rst:3
+#: 321640b26a53414a9b64158d1642fb49
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:13
+#: 0a223e958d524deea6c742e655f49cd1
+msgid "Setting up Support for External Workloads (beta)"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:15
+#: 79babdb953f34b15a4345c006a156387
+msgid ""
+"This is a step-by-step guide on how to add external workloads (such as "
+"VMs) in to your Kubernetes cluster and to enforce security policies to "
+"restrict access."
+msgstr ""
+
+#: ../../beta.rst:3 21d7b12d588442f88eddc8a846f0c273
+msgid ""
+"This is a beta feature. Please provide feedback and file a GitHub issue "
+"if you experience any problems."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:22
+#: 9c4a66f5199d42fc9ae269d13dadb0e0
+msgid "Prerequisites"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:24
+#: 05b358c0d178450baddc5116e7887ee7
+msgid ""
+"Cilium must be configured to use Kubernetes for identity allocation "
+"(``identityAllocationMode`` set to ``crd``). This is the default for new "
+"installations."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:28
+#: 020cac4fc62841c5a0eedbfaf9c56fd3
+msgid ""
+"External workloads must run a recent enough kernel (>= 4.17) for k8s "
+"service access from the external host to work, see :ref:`host-services` "
+"for details."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:32
+#: ffd5c83e04be4aa18ff1c6a1bc458c78
+msgid ""
+"External workloads must have Docker 20.10 or newer installed on the "
+"system (a version which supports ``--cgroupns`` CLI option)."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:35
+#: e7c27f0722b547ba8e66540444efed4a
+msgid ""
+"External workloads must have IP connectivity with the nodes in your "
+"cluster. This requirement is typically met by running your VMs in the "
+"same cloud provider virtual network (e.g., GCP VPC) as your k8s cluster, "
+"or establishing peering or VPN tunnels between the networks of the nodes "
+"of your cluster and your external workloads. Note that this precludes any"
+" VMs running behind NATs."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:42
+#: a0bee719b5b94cb9b1cbe33f4ee68f2b
+msgid ""
+"All external workloads must have a unique IP address assigned them. Node "
+"IPs of such nodes and your clusters must not conflict with each other."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:46
+#: 09c4d35f595549d89617ed8d8d0613e5
+msgid ""
+"The network between the external workloads and your cluster must allow "
+"the node-cluster communication. The exact ports are documented in the "
+":ref:`firewall_requirements` section."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:50
+#: 55793cb0462641cabecb1548c26420f5
+msgid ""
+"This guide assumes your external workload manages domain name resolution "
+"service by a stand-alone ``/etc/resolv.conf``, or via systemd (e.g., "
+"Ubuntu)."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:54
+#: 05f1c5e2e31943eea197de7038c5c645
+msgid ""
+"So far this functionality is only tested with the vxlan tunneling "
+"datapath mode (default for most installations)."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:58
+#: 08117715b3ff403c94591c48dab0c0f9
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:60
+#: c15ddc2c3fc1474d98fd1fb574cc3378
+msgid ""
+"Transparent encryption of traffic to/from external workloads is currently"
+" not supported."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:64
+#: 88e09a93a4974fd2981d41df2c13403e
+msgid "Prepare your cluster"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:67
+#: 6c294c229fea4086bc42652b83e182a3
+msgid "Enable support for external workloads"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:69
+#: c5370c73bf9241439b8a6b1bebf55a5f
+msgid ""
+"Your cluster must be configured with support for external workloads "
+"enabled. This can be done with the cilium CLI tool by issuing ``cilium "
+"clustermesh enable`` after ``cilium install``:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:78
+#: 5360c29b09f94658a27628bfeea12915
+msgid ""
+"Config option ``tunnel=vxlan`` overrides any default that could otherwise"
+" be auto-detected for your k8s cluster. This is currently a requirement "
+"for external workload support."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:84
+#: 48fffd12d5554e75ac4dc9acf48ca106
+msgid ""
+"If this fails indicating that ``--service-type`` needs to be given, add "
+"``--service-type NodePort`` to the second command above, i.e. ``cilium "
+"clustermesh enable --service-type NodePort``. This will allow you to go "
+"through this guide, but be warned that NodePort service type makes your "
+"installation very fragile, it will become non-functional if the node "
+"through which the service is accessed is removed from the cluster or if "
+"it otherwise becomes unreachable."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:93
+#: 3b84077424454a83b5ae7f591173972e
+msgid ""
+"This will add a deployment for ``clustermesh-apiserver`` into your "
+"cluster, as well as the related cluster resources, such as TLS secrets. "
+"``clustermesh-apiserver`` service is exposed to the external workloads. "
+"If your are on GKE, EKS, or AKS, this is done by default using the "
+"internal ``LoadBalancer`` service type. Override the auto-detection with "
+"an explicit ``--service-type LoadBalancer`` to use an external "
+"LoadBalancer service type that uses an IP that is accessible from outside"
+" of the cluster."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:104
+#: 072a18aec8e24eedbaf1d70be5e3239e
+msgid ""
+"Use the ``--help`` option after any of the ``cilium clustermesh`` "
+"commands to see a short synopsis of available command options."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:108
+#: 3cd5a822ac954083a698559f961c7054
+msgid "Tell your cluster about external workloads"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:110
+#: b5d62a96600a477ea2593fd0e85f06ee
+msgid ""
+"To allow an external workload to join your cluster, the cluster must be "
+"informed about each such workload. This is done by creating a "
+"``CiliumExternalWorkload`` (CEW) resource for each external workload. CEW"
+" resource specifies the name and identity labels (including namespace) "
+"for the workload. The name must be the hostname of the external workload,"
+" as returned by the ``hostname`` command run in the external workload. In"
+" this example this is ``runtime``. For now you must also allocate a small"
+" IP CIDR that must be unique to each workload. For example, for a VM "
+"named ``runtime`` that is to join the ``default`` namespace (``vm`` is an"
+" alias for the ``external-workload`` subcommand):"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:126
+#: 455408b0745f44c78b4476ac85666a20
+msgid ""
+"``-n`` is an alias for ``--namespace`` and can be left out when the value"
+" is ``default``. The namespace value will be set as an identity label. "
+"The CEW resource itself is not namespaced."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:130
+#: 31817afff21047f5ab4022e207b56e7d
+msgid "To see the list of existing CEW resources, run:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:136
+#: 3608794a54284ecf92a5758aefbff637
+msgid ""
+"Note that CEW resources are not namespaced, so this command shows the "
+"status of all CEW resources regardless of the namespace label that was "
+"used when creating them. ``--namespace`` option for the status command "
+"controls the namespace of Cilium deployment in your cluster and usually "
+"needs to be left as the default ``kube-system``."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:142
+#: 1c24fe4e0176477096e095126dad9bbd
+msgid ""
+"At this point the ``IP:`` in the status for ``runtime`` is ``N/A`` to "
+"inform that the VM has not yet joined the cluster."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:146
+#: d139280471704e3ab51f1dd3e09ca4c5
+msgid "Install and configure Cilium on external workloads"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:148
+#: 5c59c155f1354a1290da534ee04c825f
+msgid ""
+"Run the external workload install command on your k8s cluster. This "
+"extracts the TLS certificates and other access information from the "
+"cluster installation and writes out an installation script to be used in "
+"the external workloads to install Cilium and connect it to your k8s "
+"cluster:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:158
+#: cff7127b5e5540768f6bb1e60c9d7753
+msgid ""
+"Note that the created script embeds the IP address for the ``clustermesh-"
+"apiserver`` service. If service type ``LoadBalancer`` can not be used, "
+"this IP address will be the one of the first node in your k8s cluster "
+"(for ``NodePort`` service type). If this node is removed from the cluster"
+" the above step for creating the installation script must be repeated and"
+" all the external workloads reinstalled. ``LoadBalancer`` is not affected"
+" by a node removal."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:166
+#: b16feab4ac1b4710be80b1cb587bb745
+msgid ""
+"Log in to the external workload. First make sure the hostname matches the"
+" name used in the CiliumExternalWorkload resource:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:173
+#: 3639927bc3b04e7496dd92a56f8189d3
+msgid ""
+"Next, copy ``install-external-workload.sh`` created above to the external"
+" workload. Then run the installation script:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:180
+#: e0835efc72bf4e8bb9987a591aba7bd2
+msgid ""
+"This command launches the Cilium agent in a docker container named "
+"``cilium`` and copies the ``cilium`` node CLI to your host. This needs "
+"``sudo`` permissions, so you may be asked for a password. Note that this "
+"``cilium`` command is not the same as the ``cilium`` CLI used to manage "
+"Cilium installation on a k8s cluster."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:186
+#: f2e12ca7b42e44bcbfc06176c280f65f
+msgid ""
+"This command waits until the node has been connected to the cluster and "
+"the cluster services are available. Then it re-configures "
+"``/etc/resolv.conf`` with the IP address of the ``kube-dns`` service."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:192
+#: e67a82fbba55433b90b88af17cec7b4f
+msgid ""
+"If your external workload node has multiple IP addresses you may need to "
+"tell Cilium agent which IP to use. To this end add ``HOST_IP=<ip-"
+"address>`` to the beginning of the command line above."
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:198
+#: 0a8c5a1726b94c5b82aa28d1bbceee72
+msgid "Verify basic connectivity"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:200
+#: f7e5e096ccab4625a1e1c3f24063210c
+msgid ""
+"Next you can check the status of the Cilium agent in your external "
+"workload:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:206
+#: 97354f374a164f678814dd541b4bc680
+msgid "You should see something like:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:214
+#: 607749b471304476bc97ba06e9549934
+msgid "Check that cluster DNS works:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:221
+#: 537deeeb304f4720ace18661325d27a5
+msgid "Inspecting status changes in the cluster"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:223
+#: ce19f36b40784920989dc695fccd36fb
+msgid ""
+"The following command in your cluster should show the external workload "
+"IPs and their Cilium security IDs:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:229
+#: 5369d834f8e64c8e913f5d49cf8794cd
+msgid "External workloads should also be visible as Cilium Endpoints:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:236
+#: 84c51583d9384db0a11949c5a18bfb1f
+msgid "Apply Cilium Network Policy to enforce traffic from external workloads"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:238
+#: a112a9e172df4e59b2a5e8f63ef3dc37
+msgid ""
+"From the external workload, ping the backend IP of ``clustermesh-"
+"apiserver`` service to verify connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:244
+#: bae5e5cc44a040f38685e4978453a17f
+msgid ""
+"The ping should keep running also when the following CCNP is applied in "
+"your cluster:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:266
+#: 4617e820c5994d7fa726a5b02a33806d
+msgid ""
+"The ping should stop if you delete these lines from the policy (e.g., "
+"``kubectl edit ccnp test-ccnp``):"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:274
+#: ff311d76d6c640cda73b628d063c55d2
+msgid "The ping should continue if you delete the policy:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:281
+#: e8727057b2df4b5085e0f21cc68a48db
+msgid "Clean-up"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:283
+#: 02a8357483fc4146b7e0aab6874b31f1
+msgid ""
+"You can remove the Cilium installation from your external workload by "
+"running the installation script with the ``uninstall`` argument:"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:292
+#: f5368cea8cd944029bddc20d894d3676
+msgid "Conclusion"
+msgstr ""
+
+#: ../../gettingstarted/external-workloads.rst:294
+#: e169b1220d98450caeed4a5fd6608750
+msgid ""
+"With the above we have enabled policy-based communication between "
+"external workloads and pods in your Kubernetes cluster. We have also "
+"established service load-balancing from external workloads to your "
+"cluster backends, and configured domain name lookup in the external "
+"workload to be served by kube-dns of your cluster."
+msgstr ""
+

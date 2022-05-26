@@ -1,0 +1,259 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/documentation.rst:3
+#: cccac84847a842349e12378570bbf9bb
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:9
+#: 346913ad56a04271863690223c57ad9d
+msgid "Documentation Style"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:13
+#: b773ac4078d84df686c260b2ece9cc19
+msgid ""
+"Here are some guidelines and best practices for contributing to Cilium's "
+"documentation. They have several objectives:"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:16
+#: 6f5b675ce7e343db98e4e4e7af592f58
+msgid ""
+"Ensure that the documentation is rendered in the best possible way (in "
+"particular for code blocks)."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:19
+#: cdd13ed9be0d40d9998f42d61b5df249
+msgid "Make the documentation easy to maintain and extend."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:21
+#: 0342ba80909449ffa283474407477313
+msgid "Help keep a consistent style throughout the documentation."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:23
+#: 01fd1a631f194f93b3109a43f95a3ce7
+msgid ""
+"See also :ref:`the documentation for testing <testing-documentation>` for"
+" instructions on how to preview documentation changes."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:27
+#: f603cde018f3462fbfc15f9383d4e3e5
+msgid "Header"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:29
+#: 964b31b47a0041b583151d9674b6344a
+msgid "Use the following header when adding new files to the Documentation."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:39
+#: 113e7e7874bc4515a59ea952b27dbb46
+msgid ""
+"One exception is |RST| fragments that are supposed to be sourced from "
+"other documentation files. Those do not need this header."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:43
+#: a048bc40e8fb4025a4a08f2f23468330
+msgid "Titles"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:45
+#: 8c67ecf5f6e64bb98721fe33d5accc05
+msgid ""
+"Prefer title case (capital letters on most words of the title) rather "
+"than sentence case for titles. See this link if necessary: "
+"https://titlecaseconverter.com/."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:50
+#: 5b60b403217b48979d6c5f514451b25d
+msgid "Body"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:52
+#: 03689850d71942f8a3c9c5029014bfcc
+msgid ""
+"Wrap the lines for long sentences or paragraphs. There is no fixed "
+"convention on the length of lines, but targeting a width of about 80 "
+"characters should be safe in most circumstances."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:57
+#: 8d33fe177fa3428fabede2505fad648c
+msgid "Code Blocks"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:59
+#: 1b96be821186421f9cec57015b6faf9f
+msgid ""
+"Code snippets and other literal blocks usually fall under one of those "
+"three categories:"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:62
+#: 7c0d8fafd0234204bdde09a3c00a1342
+msgid ""
+"They contain `substitution references`_ (for example: ``|SCM_WEB|``). In "
+"that case, always use the ``.. parsed-literal`` directive, otherwise the "
+"token will not be substituted."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:66
+#: ../../contributing/development/documentation.rst:87
+#: ../../contributing/development/documentation.rst:123
+#: ../../contributing/development/documentation.rst:180
+#: ../../contributing/development/documentation.rst:222
+#: ../../contributing/development/documentation.rst:242
+#: ../../contributing/development/documentation.rst:262
+#: 4b852fd676284f08833539b014f24866 574db0d47b1a448187d8bbe4b7ebef2e
+#: 81d79e5b678e42faae15db1779263006 be08c52af4e84cc3beb114d899329e4f
+#: dc821b18e09c4bedadf83c741c38ad96 f06d043e2c644116bb4f2f9d1c51d478
+#: f4b6e9c1dbeb4608a45bb41fe21feda0
+msgid "Prefer:"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:75
+#: ../../contributing/development/documentation.rst:103
+#: ../../contributing/development/documentation.rst:133
+#: ../../contributing/development/documentation.rst:191
+#: ../../contributing/development/documentation.rst:207
+#: ../../contributing/development/documentation.rst:230
+#: ../../contributing/development/documentation.rst:249
+#: ../../contributing/development/documentation.rst:268
+#: 213b564a00594d84af5d34cec605af88 402359eac7c64cabb078052f238c0d83
+#: 875c740a648e47e9be9d5f84f14fa357 92cc3d343dd64ce493ba9fa72712c9fe
+#: 9abef4fde8394a42af25c4a42098ce32 9cd6a6e11069403db03607640235f29d
+#: d0b4d22411924024885d677fd31d0728 dde4f022ebce4cb2bc2e5fd6e59af96a
+msgid "Avoid:"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:83
+#: 42048e0bfff645ebb614139847a03f74
+msgid ""
+"If the text is not a code snippet, but just some fragment that should be "
+"printed verbatim (for example, the unstructured output of a shell "
+"command), use the marker for `literal blocks`_ (``::``)."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:114
+#: 36bf6dbe27fe42729ed870af386ce8d7
+msgid ""
+"The reason is that because these snippets contain no code, there is no "
+"need to mark them as code or parsed literals. The former would tell "
+"Sphinx to attempt to apply syntax highlight, the second would tell it to "
+"look for |RST| markup to parse in the block."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:119
+#: 272aa2fcf9a648abb8047f3e6f6834c2
+msgid ""
+"If the text contained code or structured output, use the ``.. code-"
+"block`` directive. Do *not* use the ``.. code`` directive, which is "
+"slightly less flexible."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:155
+#: a672d65e5e36485cbc01933ae3393504
+msgid ""
+"The ``.. code-block`` directive should always take a language name as "
+"argument, for example: ``.. code-block:: yaml`` or ``.. code-block:: "
+"shell-session``. The use of ``bash`` is possible but should be limited to"
+" Bash scripts. For any listing of shell commands, and in particular if "
+"the snippet mixes commands and their output, use ``shell-session``, which"
+" will bring the best coloration and may trigger the generation of the "
+"``Copy commands`` button."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:163
+#: cb21d0604f33476eba74342dbe83a602
+msgid ""
+"For snippets containing shell commands, in particular if they also "
+"contain the output for those commands, use prompt symbols to prefix the "
+"commands. Use ``$`` for commands to run as a normal user, and ``#`` for "
+"commands to run with administrator privileges. You may use ``sudo`` as an"
+" alternative way to mark commands to run with privileges."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:173
+#: 9b4a7747e1814e649479feee21a6242f
+msgid "Links"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:175
+#: ad16c6413e344f87a5a9900db782a6df
+msgid ""
+"Avoid using `embedded URIs`_ (```... <...>`__``), which make the document"
+" harder to read when looking at the source code of the documentation. "
+"Prefer to use `block-level hyperlink targets`_ (where the URI is not "
+"written directly in the sentence in the |RST| file, below the paragraph)."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:197
+#: 03faf9960e4942c8af156048ec06d86c
+msgid ""
+"If using embedded URIs, use anonymous hyperlinks (```... <...>`__`` with "
+"two underscores, see the documentation for `embedded URIs`_) instead of "
+"named references (```... <...>`_``, note the single underscore)."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:201
+#: 9519892f1cb34d818027cb0ba73d218c
+msgid "Prefer (but see previous item):"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:217
+#: a7051de1c1a1493d8f8fae89c1c5d483
+msgid "Lists"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:219
+#: 4cbfba2058564b1dbc77246222058c71
+msgid ""
+"Left-align the body of a list item with the text on the first line, after"
+" the item symbol."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:239
+#: 7a6bfc05222e4b168069797b7230fcd7
+msgid ""
+"For enumerated lists, prefer auto-numbering with the ``#.`` marker rather"
+" than manually numbering the sections."
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:257
+#: bfceac99ccf6471da4041f66c6372353
+msgid "Roles"
+msgstr ""
+
+#: ../../contributing/development/documentation.rst:259
+#: 67d39d35ce554170b5fc55c0f5b1abf9
+msgid ""
+"We have a dedicated role for referencing Cilium GitHub issues, to "
+"reference them in a consistent fashion. Use it when relevant."
+msgstr ""
+

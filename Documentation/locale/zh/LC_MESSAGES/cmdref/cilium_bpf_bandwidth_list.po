@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:3 3f968528e76a4dfbb6f315df0c742547
+msgid "cilium bpf bandwidth list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:5 34e311d62cf3406f8fbd2983f3eec1eb
+msgid "List BPF datapath bandwidth settings"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:11
+#: 9a0c0490a45e4eb595b465e151214b09
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:18
+#: b3c4f2d7223346fe8e1ad005c682e46d
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:26
+#: 2336bba949034e6d89b49a2d13b9328b
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_bandwidth_list.md:28
+#: 3df8ad423dc44e34b42a7a154aaff148
+msgid ""
+"[cilium bpf bandwidth](cilium_bpf_bandwidth.md)\t - BPF datapath "
+"bandwidth settings"
+msgstr ""
+

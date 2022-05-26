@@ -1,0 +1,117 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf.md:3 285c369bd46d48bb8e523004ec9ae998
+msgid "cilium bpf"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:5 a4c0368175a042a0b26eda85c3a98b0b
+msgid "Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:7 a75b1c8676524198afa8a8aa96d0d594
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:13 8421bff9eab64f68855944357677d0f8
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:21 06b1d74f54e14140acec62362e65aef5
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:23 f684d3b0c6fe47d1ba3ed62ed9cd2908
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:24 752d75fa27a843db89f1631255465f8a
+msgid ""
+"[cilium bpf bandwidth](cilium_bpf_bandwidth.md)\t - BPF datapath "
+"bandwidth settings"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:25 d0c4e8d8a1654d6098edd1b5758918d4
+msgid "[cilium bpf ct](cilium_bpf_ct.md)\t - Connection tracking tables"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:26 e320e74a81e9440bbccfebcddf3517c2
+msgid ""
+"[cilium bpf egress](cilium_bpf_egress.md)\t - Manage the egress routing "
+"rules"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:27 a80d33ddbf2d4e63ad79bd0f3a7eb4ee
+msgid "[cilium bpf endpoint](cilium_bpf_endpoint.md)\t - Local endpoint map"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:28 2a0dd594a4e4492197e16d27eca8d1dc
+msgid "[cilium bpf fs](cilium_bpf_fs.md)\t - BPF filesystem mount"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:29 380f42fbd0774914a405bd149764e383
+msgid ""
+"[cilium bpf ipcache](cilium_bpf_ipcache.md)\t - Manage the IPCache "
+"mappings for IP/CIDR <-> Identity"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:30 6cb79dc752a54a69b98f155b9ab5c50e
+msgid "[cilium bpf ipmasq](cilium_bpf_ipmasq.md)\t - ip-masq-agent CIDRs"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:31 5c01cd21b0464495a1acf833ea333daa
+msgid "[cilium bpf lb](cilium_bpf_lb.md)\t - Load-balancing configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:32 a73d8d74ed564d9baef8f66fd9ffe752
+msgid ""
+"[cilium bpf metrics](cilium_bpf_metrics.md)\t - BPF datapath traffic "
+"metrics"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:33 5720937e30644e1eb5aeaecf7230be85
+msgid "[cilium bpf nat](cilium_bpf_nat.md)\t - NAT mapping tables"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:34 a3af9cd50ca94c079bd8a5999235ee8f
+msgid ""
+"[cilium bpf policy](cilium_bpf_policy.md)\t - Manage policy related BPF "
+"maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:35 ae2d84d55b0142d88a25d0d4c9000e8d
+msgid "[cilium bpf recorder](cilium_bpf_recorder.md)\t - PCAP recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:36 e5b688eba00240e4893f4583eacb8248
+msgid ""
+"[cilium bpf sha](cilium_bpf_sha.md)\t - Manage compiled BPF template "
+"objects"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:37 ffe17cc7b4b44d0ba43a4a4dd677902b
+msgid "[cilium bpf tunnel](cilium_bpf_tunnel.md)\t - Tunnel endpoint map"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf.md:38 fb8c7198f59d4777a58f4c08b2553087
+msgid ""
+"[cilium bpf vtep](cilium_bpf_vtep.md)\t - Manage the VTEP mappings for "
+"IP/CIDR <-> VTEP MAC/IP"
+msgstr ""
+

@@ -1,0 +1,627 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 00:09+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../configuration/api-rate-limiting.rst:3 ../../configuration/index.rst:3
+#: ../../configuration/vlan-802.1q.rst:3
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:11
+msgid "API Rate Limiting"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:13
+msgid ""
+"The per node Cilium agent is essentially event-driven. For example, the "
+"CNI plugin is invoked when a new workload is scheduled onto the node "
+"which in turn makes an API call to the Cilium agent to allocate an IP "
+"address and create the Cilium endpoint. Another example is loading of "
+"network policy or service definitions where changes of these definitions "
+"will create an event which will notify the Cilium agent that a "
+"modification is required."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:20
+msgid ""
+"Due to being event-driven, the amount of work performed by the Cilium "
+"agent highly depends on the rate of external events it receives. In order"
+" to constrain the resources that the Cilium agent consumes, it can be "
+"helpful to restrict the rate and allowed parallel executions of API "
+"calls."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:26
+msgid "Default Rate Limits"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:28
+msgid "The following API calls are currently subject to rate limiting:"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+#: ../../configuration/api-rate-limiting.rst:52
+msgid "API Call"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+msgid "Limit"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+msgid "Burst"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+msgid "Max Parallel"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+msgid "Min Parallel"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+msgid "Max Wait Duration"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+msgid "Auto Adjust"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+msgid "Estimated Processing Duration"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:54
+msgid "``PUT /endpoint/{id}``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:36
+msgid "0.5/s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:34
+#: ../../configuration/api-rate-limiting.rst:35
+#: ../../configuration/api-rate-limiting.rst:36
+#: ../../configuration/api-rate-limiting.rst:37
+msgid "4"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:36
+msgid "15s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:34
+#: ../../configuration/api-rate-limiting.rst:35
+#: ../../configuration/api-rate-limiting.rst:36
+#: ../../configuration/api-rate-limiting.rst:37
+msgid "True"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+msgid "2s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:34
+#: ../../configuration/api-rate-limiting.rst:55
+msgid "``DELETE /endpoint/{id}``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:34
+#: ../../configuration/api-rate-limiting.rst:35
+msgid "200ms"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:35
+#: ../../configuration/api-rate-limiting.rst:56
+msgid "``GET /endpoint/{id}/*``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:35
+msgid "4/s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:35
+#: ../../configuration/api-rate-limiting.rst:37
+msgid "2"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:35
+msgid "10s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:36
+#: ../../configuration/api-rate-limiting.rst:57
+msgid "``PATCH /endpoint/{id}*``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:36
+msgid "1s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:37
+#: ../../configuration/api-rate-limiting.rst:58
+msgid "``GET /endpoint``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:37
+msgid "1/s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:37
+msgid "300ms"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:41
+#: ../../configuration/index.rst:10
+msgid "Configuration"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:43
+msgid ""
+"The ``api-rate-limit`` option can be used to overwrite individual "
+"settings of the default configuration::"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:49
+msgid "API call to Configuration mapping"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:52
+msgid "Config Name"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:54
+msgid "``endpoint-create``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:55
+msgid "``endpoint-delete``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:56
+msgid "``endpoint-get``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:57
+msgid "``endponit-patch``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:58
+msgid "``endpoint-list``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:62
+msgid "Configuration Parameters"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:65
+msgid "Configuration Key"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:65
+msgid "Example"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:65
+msgid "Default"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:65
+msgid "Description"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:67
+msgid "``rate-limit``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:67
+msgid "``5/m``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:67
+#: ../../configuration/api-rate-limiting.rst:68
+msgid "None"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:67
+msgid "Allowed requests per time unit in the format ``<number>/<duration>``."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:68
+msgid "``rate-burst``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:68
+#: ../../configuration/api-rate-limiting.rst:73
+msgid "``4``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:68
+msgid "Burst of API requests allowed by rate limiter."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:69
+msgid "``min-wait-duration``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:69
+msgid "``10ms``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:69
+#: ../../configuration/api-rate-limiting.rst:70
+#: ../../configuration/api-rate-limiting.rst:71
+#: ../../configuration/api-rate-limiting.rst:73
+#: ../../configuration/api-rate-limiting.rst:74
+#: ../../configuration/api-rate-limiting.rst:75
+msgid "``0``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:69
+msgid "Minimum wait duration each API call has to wait before being processed."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:70
+msgid "``max-wait-duration``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:70
+msgid "``15s``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:70
+msgid "Maximum duration an API call is allowed to wait before it fails."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:71
+msgid "``estimated-processing-duration``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:71
+msgid "``100ms``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:71
+msgid ""
+"Estimated processing duration of an average API call. Used for automatic "
+"adjustment."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:72
+msgid "``auto-adjust``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:72
+#: ../../configuration/api-rate-limiting.rst:77
+msgid "``true``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:72
+#: ../../configuration/api-rate-limiting.rst:77
+msgid "``false``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:72
+msgid ""
+"Enable automatic adjustment of ``rate-limit``, ``rate-burst`` and "
+"``parallel-requests``."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:73
+msgid "``parallel-requests``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:73
+msgid "Number of parallel API calls allowed."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:74
+msgid "``min-parallel-requests``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:74
+msgid "``2``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:74
+msgid "Lower limit of parallel requests when auto-adjusting."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:75
+msgid "``max-parallel-requests``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:75
+msgid "``6``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:75
+msgid "Upper limit of parallel requests when auto-adjusting."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:76
+msgid "``mean-over``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:76
+msgid "``10``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:76
+msgid ""
+"Number of API calls to calculate mean processing duration for auto "
+"adjustment."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:77
+msgid "``log``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:77
+msgid "Log an Info message for each API call processed."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:78
+msgid "``delayed-adjustment-factor``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:78
+msgid "``0.25``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:78
+msgid "``0.5``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:78
+msgid "Factor for slower adjustment of ``rate-burst`` and ``parallel-requests``."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:79
+msgid "``max-adjustment-factor``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:79
+msgid "``10.0``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:79
+msgid "``100.0``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:79
+msgid ""
+"Maximum factor the auto-adjusted values can deviate from the initial base"
+" values configured."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:83
+msgid "Valid duration values"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:85
+msgid ""
+"The ``rate-limit`` option expects a value in the form "
+"``<number>/<duration>`` where ``<duration>`` is a value that can be "
+"parsed with `ParseDuration() "
+"<https://golang.org/pkg/time/#ParseDuration>`_. The supported units are: "
+"``ns``, ``us``, ``ms``, ``s``, ``m``, ``h``."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:90
+msgid "**Examples:**"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:92
+msgid "``rate-limit:10/2m``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:93
+msgid "``rate-limit:3.5/h``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:94
+msgid "``rate-limit:1/100ms``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:97
+msgid "Automatic Adjustment"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:99
+msgid ""
+"Static values are relatively useless as the Cilium agent will run on "
+"different machine types. Deriving rate limits based on number of "
+"available CPU cores or available memory can be misleading as well as the "
+"Cilium agent may be subject to CPU and memory constraints."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:104
+msgid ""
+"For this reason, all API call rate limiting is done with automatic "
+"adjustment of the limits with the goal to stay as close as possible to "
+"the configured estimated processing duration. This processing duration is"
+" specified for each group of API call and is constantly monitored."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:109
+msgid ""
+"On completion of every API call, new limits are calculated. For this "
+"purpose, an adjustment factor is calculated:"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:117
+msgid ""
+"This adjustment factor is then applied to ``rate-limit``, ``rate-burst`` "
+"and ``parallel-requests`` and will steer the mean processing duration to "
+"get closer to the estimated processing duration."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:121
+msgid ""
+"If ``delayed-adjustment-factor`` is specified, then this additional "
+"factor is used to slow the growth of the ``rate-burst`` and ``parallel-"
+"requests`` as both values should typically adjust slower than ``rate-"
+"limit``:"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:131
+msgid "Metrics"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:133
+msgid ""
+"All API calls subject to rate limiting will expose "
+":ref:`metrics_api_rate_limiting`. Example::"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:148
+msgid "Understanding the log output"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:150
+msgid ""
+"The API rate limiter logs under the ``rate`` subsystem. An example "
+"message can be seen below::"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:155
+msgid "The following is an explanation for all the API rate limiting messages:"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:161
+msgid ""
+"The request was admitted into the rate limiter. The associated HTTP "
+"context (caller's request) has not yet timed out. The request will now be"
+" rate-limited according to the configuration of the rate limiter. It will"
+" enter the waiting stage according to the computed waiting duration."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:171
+msgid ""
+"The request has finished waiting its computed duration to achieve rate-"
+"limiting. The underlying HTTP API action will now take place. This means "
+"that this request was not thrown back at the caller with a 429 HTTP "
+"status code."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:176
+msgid ""
+"This is a common message when the requests are being processed within the"
+" configured bounds of the rate limiter."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:183
+msgid ""
+"The API rate limiter has processed this request and the underlying HTTP "
+"API action has finished. This means the request is no longer actively "
+"waiting or in other words, no longer being rate-limited. This does not "
+"mean the underlying HTTP action has succeeded; only that this request has"
+" been dealt with."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:192
+msgid ""
+"The underlying HTTP context (request) was cancelled. In other words, the "
+"caller has given up on the request. This most likely means that the HTTP "
+"request timed out. A 429 HTTP response status code is returned to the "
+"caller, which may or may not receive it anyway."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:201
+msgid ""
+"The request has been denied by the rate limiter because too many parallel"
+" requests are already in flight. The caller will receive a 429 HTTP "
+"status response."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:205
+msgid ""
+"This is a common message when the rate limiter is doing its job of "
+"preventing too many parallel requests at once."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:212
+msgid ""
+"The request has been denied by the rate limiter because the request's "
+"waiting duration would exceed the maximum configured waiting duration. "
+"For example, if the maximum waiting duration was ``5s`` and due to the "
+"backlog of the rate limiter, this request would need to wait ``10s``, "
+"then this request would be thrown out. A 429 HTTP response status code "
+"would be returned to the caller."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:218
+msgid ""
+"This is the most common message when the rate limiter is doing its job of"
+" pacing the incoming requests into Cilium."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:225
+msgid ""
+"The request has been denied by the rate limiter because after the request"
+" has waited its calculated waiting duration, the context associated with "
+"the request has been cancelled. In the most likely scenario, this means "
+"that there was an HTTP timeout while the request was actively being rate-"
+"limited or in other words, actively being delayed by the rate limiter. A "
+"429 HTTP response status code is returned to the caller."
+msgstr ""
+
+#: ../../configuration/index.rst:13
+msgid "Core Agent"
+msgstr ""
+
+#: ../../configuration/vlan-802.1q.rst:11
+msgid "VLAN 802.1q support"
+msgstr ""
+
+#: ../../configuration/vlan-802.1q.rst:13
+msgid ""
+"Cilium enables firewalling on native devices in use and will filter all "
+"unknown traffic. VLAN 802.1q packets will always be passed through their "
+"main device with associated tag (e.g. VLAN device is ``eth0.4000`` and "
+"its main interface is ``eth0``). By default, Cilium will allow all tags "
+"from the native devices (i.e. if ``eth0.4000`` is controlled by Cilium "
+"and has an eBPF program attached, then VLAN tag ``4000`` will be allowed "
+"on device ``eth0``). Additional VLAN tags may be allowed with the cilium-"
+"agent flag ``--vlan-bpf-bypass=4001,4002`` (or Helm variable ``--set bpf"
+".vlan-bpf-bypass=4001,4002``)."
+msgstr ""
+
+#: ../../configuration/vlan-802.1q.rst:19
+msgid ""
+"The list of allowed VLAN tags cannot be too big in order to keep eBPF "
+"program of predictable size. Currently this list should contain no more "
+"than 5 entries. If you need more, then there is only one way for now: you"
+" need to allow all tags with cilium-agent flag ``--vlan-bpf-bypass=0``."
+msgstr ""
+
+#: ../../configuration/vlan-802.1q.rst:25
+msgid ""
+"Currently, the cilium-agent will scan for available VLAN devices and tags"
+" only on startup."
+msgstr ""
+

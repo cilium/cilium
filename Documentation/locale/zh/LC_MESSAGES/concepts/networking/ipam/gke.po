@@ -1,0 +1,92 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/networking/ipam/gke.rst:3 0578aec90d754efab16278adb7d5ca40
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:11 7f7c89c521ce4f9698f04a9e21244021
+msgid "Google Kubernetes Engine"
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:13 5e5bde229ade4a1a9e5684e036045fde
+msgid ""
+"When running Cilium on Google GKE, the native networking layer of Google "
+"Cloud will be utilized for address management and IP forwarding."
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:18 03e35814f1f448c9b5b50f9bd50c90ab
+msgid "Architecture"
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:23 76dd506fb34e4060a125660ecc25be81
+msgid ""
+"Cilium running in a GKE configuration mode utilizes the Kubernetes "
+"hostscope IPAM mode. It will configure the Cilium agent to wait until the"
+" Kubernetes node resource is populated with a ``spec.podCIDR`` or "
+"``spec.podCIDRs`` as required by the enabled address families "
+"(IPv4/IPv6). See :ref:`k8s_hostscope` for additional details of this IPAM"
+" mode."
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:29 e0bdf8f88d66412e9638495a74392292
+msgid "The corresponding datapath is described in section :ref:`gke_datapath`."
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:31 e6cf1f0d68524d1d95f473abc83ddd23
+msgid ""
+"See the getting started guide :ref:`k8s_install_quick` to install Cilium "
+"Google Kubernetes Engine (GKE)."
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:36 00fe80b242d542beb8d48ebbc6de7a3b
+msgid "Configuration"
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:38 f5d63dc792104455b96b6bdd39839c7c
+msgid ""
+"The GKE IPAM mode can be enabled by setting the Helm option "
+"``ipam.mode=kubernetes`` or by setting the ConfigMap option ``ipam: "
+"kubernetes``."
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:44 7d339f40e0d74b6fa5f84c634920faa3
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:47 fdcc7af77b0f4ebdba2d690395c105b3
+msgid "Validate the exposed PodCIDR field"
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:49 c3e1f1c9839a4016bff78d4aed970c55
+msgid "Check if the Kubernetes nodes contain a value in the ``podCIDR`` field:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:58 b18fb622c9714822b88d5fce88d9226f
+msgid "Check the Cilium status"
+msgstr ""
+
+#: ../../concepts/networking/ipam/gke.rst:60 c9b6bf35450d48c88d8a20bb01bc5aa8
+msgid ""
+"Run ``cilium status`` on the node in question and validate that the CIDR "
+"used for IPAM matches the PodCIDR announced in the Kubernetes node:"
+msgstr ""
+

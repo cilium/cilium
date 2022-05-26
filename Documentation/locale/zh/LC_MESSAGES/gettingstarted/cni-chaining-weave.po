@@ -1,0 +1,256 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:3
+#: ../../gettingstarted/cni-chaining-weave.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 8d7e49c23e1a4cf385865d324eac15a0 aed1a53ab4204275a313737775c532f4
+#: d923e184082e4bb6afaf9dde01a14e6c
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-weave.rst:9
+#: b046002aec4548ed952e2c28ac368eac
+msgid "Weave Net"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-weave.rst:11
+#: 4a476754fa784eaab2856ec7765c2edd
+msgid ""
+"This guide instructs how to install Cilium in chaining configuration on "
+"top of `Weave Net <https://github.com/weaveworks/weave>`_."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:9
+#: 2e61b19a12694d65a3b39f33e28950fb
+msgid ""
+"Some advanced Cilium features may be limited when chaining with other CNI"
+" plugins, such as:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:12
+#: cf0d5553eab1446d9bce868343a35311
+msgid ":ref:`Layer 7 Policy <l7_policy>` (see :gh-issue:`12454`)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:13
+#: 0aa073d076ae4545847da9ffb3b19d01
+msgid ":ref:`encryption_ipsec` (see :gh-issue:`15596`)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-weave.rst:17
+#: f8708a1acc824628b92ee01726c14532
+msgid "Create a CNI configuration"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-weave.rst:19
+#: 9395ac85a7004841b2956314e414d62c
+msgid ""
+"Create a ``chaining.yaml`` file based on the following template to "
+"specify the desired CNI chaining configuration:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-weave.rst:52
+#: 41df46bb5f334b5db080f80d09a78eb5
+msgid "Deploy the :term:`ConfigMap`:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-weave.rst:59
+#: 617751e65efc49a2bea1854c0d59f66d
+msgid "Deploy Cilium with the portmap plugin enabled"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 3bec3344ec4e4ba991b0f1578cc5c38a
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: ebf1b010715e4be5a7ab28034a6a67f6
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 9aeb3f636020492385d98da33a3ca7c1
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-weave.rst:63
+#: f5d729a2dd754645a2cf3f533ab45b8a
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-weave.rst:77
+#: 621491854f904b12bdc7ed1cded71db5
+msgid ""
+"The new CNI chaining configuration will *not* apply to any pod that is "
+"already running the cluster. Existing pods will be reachable and Cilium "
+"will load-balance to them but policy enforcement will not apply to them "
+"and load-balancing is not performed for traffic originating from existing"
+" pods."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-weave.rst:82
+#: f94b7a9b0378448780423535b91693e8
+msgid ""
+"You must restart these pods in order to invoke the chaining configuration"
+" on them."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: 71a8b054456e4d20a1b43ab4f4da68bd
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 4512a13cd1894b649626a83d6e70cd99
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 088d32b8c4ca4d15839fca61a01bb2e6
+#: 47064fe44b3b419dad5ece542ce167cd
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 6b31eb56a97e4e1d931326d9aceba183
+#: fb64283ab17148d1b32044b82f169f93
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 05483d7658974e7fb2a9e7dc9cf24076
+#: 4e69034c867544d3aa9c3a3e5b183454
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 06c0981ef5b04ababea3a9b8535f573f
+#: cc1a82fd574d457f82dcc7c43e480a0f
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 4658f415094f492dad1110f4f3641747
+#: e1b2a9778b4f4bc38fd57904b8641649
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 37066265836c4417aaa1c92a695e8a8e
+#: a77722ca005c495d8efac4718ebbf93a
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 8df5055ad54b4c2c9fd9ce9f8d315467
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: b949573dc2b642338ed9b5a05964768f
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 9200cc46b491447882a62b25a253c021
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 946e44784b8048b2b7d04ab140ab52ce
+#: 9e5ee55cb1b144e2afae3de8cd7b118d
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 53bf20075c9d4108a536ff6fbc98646f
+#: 6ab7ffdd9cff4fa7b00f860e07b7db43
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 837b7639468f4a0e96ac186be6968b6f
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 3aec7f90ba5948c6a3eea1caec70cb6f
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 89ebc15416b74b1db57fa5934ecc8434
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 741b7ea7f28c4d86b35a22613bfcade2
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 254159ef48264dafaf1b98bff38263d8
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 f5fbbf2b79c3492097fe5453d722cde9
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 c6dee41d637f4e58ab875fd946727071
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 ce4aa6536f5a4e24b97d6fc49abd59aa
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 577135c2babe4dcaab99dbc31b210f4a
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 65a125117647483ca25ebb55acbeb397
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 dd4ac4921fce4481b032b11351966194
+msgid ":ref:`clustermesh`"
+msgstr ""
+

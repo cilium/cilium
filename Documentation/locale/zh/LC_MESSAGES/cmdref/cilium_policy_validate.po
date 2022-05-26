@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_policy_validate.md:3 c63bf3d1e4b4409693e6cb1f6797aa37
+msgid "cilium policy validate"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_validate.md:5 e626fb3eec1f4711b656cf22636cd412
+msgid "Validate a policy"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_validate.md:11 8f5cca4d5d0a480f93182bc7839495e6
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_validate.md:19 58a7742033f64adcab127f658bf361e1
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_validate.md:27 b2ea68b4ba45459c955fb357cbdb0815
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_validate.md:29 f39fceef0d094966b37e1d8b193457b1
+msgid "[cilium policy](cilium_policy.md)\t - Manage security policies"
+msgstr ""
+

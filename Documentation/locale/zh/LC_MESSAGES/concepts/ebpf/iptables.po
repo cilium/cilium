@@ -1,0 +1,48 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/ebpf/iptables.rst:3 0164249b5bbf4285ad0575ae1653bc49
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/ebpf/iptables.rst:9 fe689e0343214563a21942f56efba815
+msgid "Iptables Usage"
+msgstr ""
+
+#: ../../concepts/ebpf/iptables.rst:11 bb5d22a343a04300884b00a44074c076
+msgid ""
+"Depending on the Linux kernel version being used, the eBPF datapath can "
+"implement a varying feature set fully in eBPF. If certain required "
+"capabilities are not available, the functionality is provided using a "
+"legacy iptables implementation. See :ref:`features_kernel_matrix` for "
+"more details."
+msgstr ""
+
+#: ../../concepts/ebpf/iptables.rst:18 84bd48f5071f4405bcfe644678929e36
+msgid "kube-proxy Interoperability"
+msgstr ""
+
+#: ../../concepts/ebpf/iptables.rst:20 2a9e312df4f84bdb96326979aed0d2a0
+msgid ""
+"The following diagram shows the integration of iptables rules as "
+"installed by kube-proxy and the iptables rules as installed by Cilium."
+msgstr ""
+

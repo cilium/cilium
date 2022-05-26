@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_egress.md:3 f7a7aa8bb5f4483eac8fd57754b95374
+msgid "cilium bpf egress"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress.md:5 6962e055e7d044079f4dc925d08216b9
+msgid "Manage the egress routing rules"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress.md:7 d9284d6d5068412680aaddca4f11154b
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress.md:13 67abd1908f7748478a62ec7992fdf630
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress.md:21 76d40dc2d9a04437976f2736c636eb21
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress.md:23 f2a1cd0fe67a4748bb085df352b0e22a
+msgid "[cilium bpf](cilium_bpf.md)\t - Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress.md:24 31f62e8f01bf41168d5a8e6b0fbf4544
+msgid ""
+"[cilium bpf egress list](cilium_bpf_egress_list.md)\t - List egress "
+"policy entries"
+msgstr ""
+

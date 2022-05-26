@@ -1,0 +1,66 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:3
+#: 176a332c4a6a443b8405d9427dbe0b22
+msgid "cilium preflight fqdn-poller"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:5
+#: f7a6aa5ff714427e816da9114aae3d7f
+msgid "Prepare for DNS Polling upgrades to cilium 1.4"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:7
+#: 43ed057034334df5848e838697c64d82
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:9
+#: 353a8ecff0d04149af37e8a8c755c3f1
+msgid ""
+"Prepare for DNS Polling upgrades to cilium 1.4 by creating a placeholder "
+"--tofqdns-pre-cache file that can be used to pre-seed the DNS cached used"
+" in toFQDNs rules. This is useful when upgrading cilium with DNS Polling "
+"policies where an interruption in allowed IPs is undesirable. It may also"
+" be used when switching from DNS Polling based DNS discovery to DNS Proxy"
+" based discovery where an endpoint may not make a DNS request soon enough"
+" to be used by toFQDNs policy rules"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:21
+#: 24d346fadc47457fa6006479fb1cf46f
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:29
+#: 044a727ba6cf42ebb451dda20603f7a4
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:37
+#: 9a166cb088244d42a1e1d485be9631d4
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_fqdn-poller.md:39
+#: a898b3b3601a47fdb3e691dc2978e644
+msgid "[cilium preflight](cilium_preflight.md)\t - cilium upgrade helper"
+msgstr ""
+

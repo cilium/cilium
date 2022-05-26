@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_map_get.md:3 c435c9a0beae423e9072b9f00a261559
+msgid "cilium map get"
+msgstr ""
+
+#: ../../cmdref/cilium_map_get.md:5 7752e3544d44484c9d6ae5b5dd341099
+msgid "Display cached content of given BPF map"
+msgstr ""
+
+#: ../../cmdref/cilium_map_get.md:11 798e4e958b55469c93ee9c53be155cdc
+msgid "Examples"
+msgstr ""
+
+#: ../../cmdref/cilium_map_get.md:17 72dbc03721d6496d8db94c5613e51b5a
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_map_get.md:24 e6aedfa575d14f2fb0605c195896cb96
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_map_get.md:32 09d41796115c457a9e31b8b29ef7132a
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_map_get.md:34 bc479aff3c0041138614fd87eddb90d9
+msgid ""
+"[cilium map](cilium_map.md)\t - Access userspace cached content of BPF "
+"maps"
+msgstr ""
+

@@ -1,0 +1,571 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/istio.rst:3 8c5cbf07ed5f44d9a2ca8c2326e2b38e
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:11 0c1ab2667f654007876a9f75f195c407
+msgid "Getting Started Using Istio"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:13 0a0f904798d74a339a6510c2ee814ace
+msgid ""
+"This document serves as an introduction to using Cilium Istio integration"
+" to enforce security policies in Kubernetes micro-services managed with "
+"Istio.  It is a detailed walk-through of getting a single-node Cilium + "
+"Istio environment running on your machine."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:18 0bfe17c5bac94c7c80c0cda1ae85ecaa
+msgid ""
+"Cilium's Istio integration allows Cilium to enforce HTTP L7 network "
+"policies for mTLS protected traffic within the Istio sidecar proxies. "
+"Note that Istio can also be deployed without Cilium integration by "
+"running a standard version of ``istioctl``.  In that case Cilium will "
+"enforce HTTP L7 policies outside of the Istio sidecar proxy, but that "
+"will only work if mTLS is not used."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:1 7b5e13b7c60a4d9989f2294406dcf221
+msgid ""
+"If you haven't read the :ref:`intro` yet, we'd encourage you to do that "
+"first."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:3 439300c5eecf4ff19e8a714c4a7130a3
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:8 b3f03dabd07a446ca246b0157772a178
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:10
+#: 8986629aecd145f8b9e9ab9e6965f638
+msgid ""
+"If you have not set up Cilium yet, follow the guide "
+":ref:`k8s_install_standard` for instructions on how to quickly bootstrap "
+"a Kubernetes cluster and install Cilium. If in doubt, pick the minikube "
+"route, you will be good to go in less than 5 minutes."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:29 e644783e1c424689ae96b6de777bce7b
+msgid ""
+"If running on minikube, make sure it is using a VM, as Istio ingress "
+"gateway may not be reachable from your host otherwise. You may also need "
+"to up the memory and CPUs available to the minikube VM from the defaults "
+"and/or the instructions provided here for the other GSGs. 5 GB and 4 CPUs"
+" should be enough for this GSG (``--vm=true --memory=5120 --cpus=4``)."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:38 7b5b2441fa294ce5b8c3461aefadd3fa
+msgid ""
+"If Cilium is deployed with the kube-proxy replacement, you need to set "
+"``bpf-lb-sock-hostns-only: true`` in the deployment yaml directly or via "
+"``hostServices.hostNamespaceOnly`` option with Helm. Without this option,"
+" when Cilium does service resolution via socket load balancing, Istio "
+"sidecar will be bypassed, resulting in loss of Istio features including "
+"encryption and telemetry."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:46 844e39903f92436e9e64aa9f17a5af21
+msgid "Step 2: Install cilium-istioctl"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:50 c5bb63b1a5b04de0a4f93f3524af32be
+msgid "Make sure that Cilium is running in your cluster before proceeding."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:52 f7f3ae49e10445f68e4f1aab00887e13
+msgid ""
+"Download the `cilium enhanced istioctl version 1.10.4 "
+"<https://github.com/cilium/istio/releases/tag/1.10.4>`_:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:55 9624c91ec34440609d8db51eda1a79d0
+msgid "Linux (amd64)"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:61 5b4ad6efba074a0caee2c1a54882cc4e
+msgid "Linux (arm64)"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:67 a135fcee955f4970967c0b3f4bc7113d
+msgid "OSX"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:73 9c4f230d3e38454d8b762a727cf1c4cd
+msgid "OSX (Apple Silicon)"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:81 66ade0b4d4214cf7894c6209043c71a9
+msgid ""
+"Cilium integration, as presented in this Getting Started Guide, has been "
+"tested with Kubernetes releases 1.17, 1.18, 1.19, 1.20, 1.21, 1.22, 1.23 "
+"and 1.24. This Istio release does not work with Kubernetes 1.16 or older."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:85 78528f4a81074558b70fcd71ba0d3b94
+msgid "Deploy the default Istio configuration profile onto Kubernetes:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:91 6331259f2a5c4bf09775438107f54388
+msgid ""
+"Add a namespace label to instruct Istio to automatically inject Envoy "
+"sidecar proxies when you deploy your application later:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:98 6c72c3fd930f454a94baa863f313e357
+msgid "Step 3: Deploy the Bookinfo Application V1"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:100 7fe8420b790a4fa38e235c394a825ab1
+msgid ""
+"Now that we have Cilium and Istio deployed, we can deploy version ``v1`` "
+"of the services of the `Istio Bookinfo sample application "
+"<https://istio.io/docs/examples/bookinfo/>`_."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:104 07da56a7b7f545bcac39271b9aecb2b9
+msgid ""
+"While the upstream `Istio Bookinfo Application example for Kubernetes "
+"<https://istio.io/docs/examples/bookinfo/#if-you-are-running-on-"
+"kubernetes>`_ deploys multiple versions of the Bookinfo application at "
+"the same time, here we first deploy only the version 1."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:109 217e4461fa60405eb5ca32c8af22e2c7
+msgid "The BookInfo application is broken into four separate microservices:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:111 4c050c403a2e48b4830f2440295e2f31
+msgid ""
+"*productpage*. The productpage microservice calls the details and reviews"
+" microservices to populate the page."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:113 6ebdd43ae5cb41369dec3bf7420eb361
+msgid "*details*. The details microservice contains book information."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:114 e51531c1e79b4aeb9277b902a55a7123
+msgid ""
+"*reviews*. The reviews microservice contains book reviews. It also calls "
+"the ratings microservice."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:116 595d82a32c60441d9f724de3bd13554a
+msgid ""
+"*ratings*. The ratings microservice contains book ranking information "
+"that accompanies a book review."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:119 ed7a6abcf00245b8ad0b82869d08e101
+msgid ""
+"In this demo, each specific version of each microservice is deployed into"
+" Kubernetes using separate YAML files which define:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:122 7215688e37e941468f55083ac48cfe21
+msgid "A Kubernetes Service."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:123 bfc5b449b3924155ad2f424935d36209
+msgid ""
+"A Kubernetes Deployment specifying the microservice's pods, specific to "
+"each service version."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:125 2f477bea32e242ce923b0912f7444765
+msgid ""
+"A Cilium Network Policy limiting the traffic to the microservice, "
+"specific to each service version."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:132 dcaae3940c2a4bfa972b4e59a93885a6
+msgid "To deploy the application with manual sidecar injection, run:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:139 ../../gettingstarted/istio.rst:218
+#: ../../gettingstarted/istio.rst:414 215f4328970d47e396d60265dd2fd46f
+#: 24675b9c4949488080e253108ded7fce 62ff0a39757945359d02f6e3020d8483
+msgid ""
+"Check the progress of the deployment (every service should have an "
+"``AVAILABLE`` count of ``1``):"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:152 fed6d6af92b146d09169aef300dcea6a
+msgid ""
+"Notes for Istio debugging: - Set istio proxy to debug or trace mode: "
+"kubectl exec -it $(kubectl get pod -l app=productpage -o "
+"jsonpath='{.items[0].metadata.name}') -c istio-proxy -- curl -XPOST "
+"http://127.0.0.1:15000/logging?level=debug - Check that bpf is mounted: "
+"kubectl exec -it $(kubectl get pod -l app=productpage -o "
+"jsonpath='{.items[0].metadata.name}') -c istio-proxy -- ls -la "
+"/sys/fs/bpf/tc/globals - Upgrade cilium to a local image (after setting "
+"image pull policy to never): export CILIUM_TAG=my-test-tag docker save "
+"cilium/cilium:${CILIUM_TAG} -o cilium-${CILIUM_TAG}.tar scp -i $(minikube"
+" ssh-key) cilium-${CILIUM_TAG}.tar docker@$(minikube ip):. minikube ssh "
+"\"docker image load -i cilium-${CILIUM_TAG}.tar\" kubectl -n kube-system "
+"set image daemonset/cilium cilium-"
+"agent=docker.io/cilium/cilium:${CILIUM_TAG}"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:164 37d958bfb0ab41e19091b11ec5c71fee
+msgid "Create an Istio ingress gateway for the productpage service:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:170 9dc19ae6a42d4cb2b237a5935ff4919b
+msgid "To obtain the URL to the frontend productpage service, run:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:178 3dd1853c3fcf4948a754c51301ca49ef
+msgid ""
+"Open that URL in your web browser and check that the application has been"
+" successfully deployed.  It may take several seconds before all services "
+"become accessible in the Istio service mesh, so you may have have to "
+"reload the page."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:184 27c4fb45dfba4a469ed44fb6a8b86647
+msgid "Step 4: Canary and Deploy the Reviews Service V2"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:186 e30061de360d48808a9cec2bc490d2d2
+msgid ""
+"We will now deploy version ``v2`` of the ``reviews`` service.  In "
+"addition to providing reviews from readers, ``reviews v2`` queries a new "
+"``ratings`` service for book ratings, and displays each rating as 1 to 5 "
+"black stars."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:191 004404bb10f048049f9396838131cee9
+msgid ""
+"As a precaution, we will use Istio's service routing feature to canary "
+"the ``v2`` deployment to prevent breaking the end-to-end application "
+"completely if it is faulty."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:195 959a8cbb5aea49b596b53816963cb13b
+#, python-format
+msgid ""
+"Before deploying ``v2``, to prevent any traffic from being routed to it "
+"for now, we will create this Istio route rules to route 100% of the "
+"``reviews`` traffic to ``v1``:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:205 ../../gettingstarted/istio.rst:270
+#: ../../gettingstarted/istio.rst:294 27245559e5c448e1a2722b130e3ac1f9
+#: 47ae23b59d7241908f70f17252b381fa d6dcd5cf3d614d4ea8cd2527c7d9a741
+msgid "Apply this route rule:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:211 9ec2695b3c174d22a55a75e051852d27
+msgid "Deploy the ``ratings v1`` and ``reviews v2`` services:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:231 e56794d3ab3341e8af5028aa040f8264
+msgid ""
+"Check in your web browser that no stars are appearing in the Book "
+"Reviews, even after refreshing the page several times.  This indicates "
+"that all reviews are retrieved from ``reviews v1`` and none from "
+"``reviews v2``."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:240 1d1a61a5e01b480c8cf1ba492eedf068
+msgid ""
+"The ``ratings-v1`` CiliumNetworkPolicy explicitly whitelists access to "
+"the ``ratings`` API only from ``productpage`` and ``reviews v2``:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:245 7d5a52fe6758480fb2c5d0e7bec8d3be
+msgid ""
+"Check that ``reviews v1`` may not be able to access the ``ratings`` "
+"service, even if it were compromised or suffered from a bug, by running "
+"``curl`` from within the pod:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:251 3634b75faeaa47baa32d691e9ceb78c4
+msgid ""
+"All traffic from ``reviews v1`` to ``ratings`` is blocked, so the "
+"connection attempt fails after the connection timeout."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:261 6f196d3b19044e0bb2fc853821bbe42c
+#, python-format
+msgid ""
+"Update the Istio route rule to send 50% of ``reviews`` traffic to ``v1`` "
+"and 50% to ``v2``:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:276 b0305376b4994bd4a0dc4b758debed0e
+#, python-format
+msgid ""
+"Check in your web browser that stars are appearing in the Book Reviews "
+"roughly 50% of the time.  This may require refreshing the page for a few "
+"seconds to observe.  Queries to ``reviews v2`` result in reviews "
+"containing ratings displayed as black stars:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:285 0f008adb687d44dc9a642ca1e8e374c3
+#, python-format
+msgid ""
+"Finally, update the route rule to send 100% of ``reviews`` traffic to "
+"``v2``:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:300 c7e4a85049e34566bfa2facbd3191510
+msgid ""
+"Refresh the product page in your web browser several times to verify that"
+" stars are now appearing in the Book Reviews on every page refresh.  All "
+"the reviews are now retrieved from ``reviews v2`` and none from ``reviews"
+" v1``."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:306 a133bdb4326b44f8a27da8738471f25f
+msgid "Step 5: Deploy the Product Page Service V2"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:308 6adcdc956ca141b69dd3ccaaf73b18f5
+msgid ""
+"We will now deploy version ``v2`` of the ``productpage`` service, which "
+"brings two changes:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:311 60265af551e844789bd45cb25b48bf3d
+msgid ""
+"It is deployed with a more restrictive CiliumNetworkPolicy, which "
+"restricts access to a subset of the HTTP URLs, at Layer-7."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:313 9ef94fb678db438ab5b586ad53374b46
+msgid "It implements a new authentication audit log into Kafka."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:319 097ead88b73d4f74b9894ebcdc88bfd6
+msgid ""
+"The policy for ``v1`` currently allows read access to the full HTTP REST "
+"API, under the ``/api/v1`` HTTP URI path:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:322 18b5ecdded7b4b79a6feaff43f235245
+msgid "``/api/v1/products``: Returns the list of books and their details."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:323 d6aac74227734c649cfc36530ddb9605
+msgid "``/api/v1/products/<id>``: Returns details about a specific book."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:324 e4dfc850ead547fdb8eec9330c9191aa
+msgid "``/api/v1/products/<id>/reviews``: Returns reviews for a specific book."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:326 d6751e74dc874f609b7b6157a32e4819
+msgid "``/api/v1/products/<id>/ratings``: Returns ratings for a specific book."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:329 4959c96100ba4d0ca6960b403b9444fd
+msgid ""
+"Check that the full REST API is currently accessible in ``v1`` and "
+"returns valid JSON data:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:337 ../../gettingstarted/istio.rst:435
+#: 83f116d3b700416694fdbe6e0b4414f3 fa460e5e446e4dc09030c1e8ee298571
+msgid "The output will be similar to this::"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:347 b85ae0a9ed694f13b9c5397451317c05
+msgid ""
+"We realized that the REST API to get the book reviews and ratings was "
+"meant only for consumption by other internal services, and will be "
+"blocked from external clients using the updated Layer-7 "
+"CiliumNetworkPolicy in ``productpage v2``, i.e. only the "
+"``/api/v1/products`` and ``/api/v1/products/<id>`` HTTP URLs will be "
+"whitelisted:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:356 54c6f3fc440a459c80b87baac5a0286a
+msgid ""
+"Because ``productpage v2`` sends messages into Kafka, we must first "
+"deploy a Kafka broker:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:367 9aa3563021834c6f98d3f46a5d1a9a40
+msgid ""
+"Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a ``READY``"
+" count of ``1/1``:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:376 4186eea6aa104db2810b2c85e5286a55
+msgid ""
+"Create the ``authaudit`` Kafka topic, which will be used by ``productpage"
+" v2``:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:383 a4705a13f81947a9b07599ab1e58939f
+msgid "We are now ready to deploy ``productpage v2``."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:385 64cd6d8b0bb742298b311beb0dfb4a57
+msgid ""
+"Create the ``productpage v2`` service and its updated CiliumNetworkPolicy"
+" and delete ``productpage v1``:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:396 bfbe9ec6d01841b3b7c28623b13bf5f3
+msgid ""
+"``productpage v2`` implements an authorization audit logging.  On every "
+"user login or logout, it produces into Kafka topic ``authaudit`` a JSON-"
+"formatted message which contains the following information:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:400 e9e0d386a58c40ac85a72786b8afd8c1
+msgid "event: ``login`` or ``logout``"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:401 0f29965a677143e898feca3c4b32a319
+msgid "username"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:402 6346d32a2ade447fa7e61953c635747e
+msgid "client IP address"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:403 934da991cf16475f9316ef5b148d3f27
+msgid "timestamp"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:405 2d32b44aa16448c4ad11e507d3c3984a
+msgid ""
+"To observe the Kafka messages sent by ``productpage``, we will run an "
+"additional ``authaudit-logger`` service.  This service fetches and prints"
+" out all messages from the ``authaudit`` Kafka topic.  Start this "
+"service:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:428 6f13962960ad47149a0a053972f9a5c5
+msgid ""
+"Check that the product REST API is still accessible, and that Cilium now "
+"denies at Layer-7 any access to the reviews and ratings REST API:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:446 211b6a27fb814c7b92faa5b90a716311
+msgid ""
+"This demonstrated that requests to the ``/api/v1/products/<id>/reviews`` "
+"and ``/api/v1/products/<id>/ratings`` URIs now result in Cilium returning"
+" ``HTTP 403 Forbidden`` HTTP responses."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:451 a620f535518c47f4a33025cba783940e
+msgid ""
+"Every login and logout on the product page will result in a line in this "
+"service's log. Note that you need to log in/out using the ``sign "
+"in``/``sign out`` element on the bookinfo web page. When you do, you can "
+"observe these kind of audit logs:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:469 35ab6e0a6d5b4fb2b626695306760fdd
+msgid ""
+"As you can see, the user-identifiable information sent by ``productpage``"
+" in every Kafka message is sensitive, so access to this Kafka topic must "
+"be protected using Cilium.  The CiliumNetworkPolicy configured on the "
+"Kafka broker enforces that:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:474 637c525cc8ee46ac98557664ee3bd0c7
+msgid ""
+"only ``productpage v2`` is allowed to produce messages into the "
+"``authaudit`` topic;"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:476 761c0581999c4f4a898be24af3a6c2b2
+msgid "only ``authaudit-logger`` can fetch messages from this topic;"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:477 8d7f4c9238424d24b43f072c0d00f528
+msgid "no service can access any other topic."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:481 7af426ec691845948b18c7d3886f8231
+msgid ""
+"Check that Cilium prevents the ``authaudit-logger`` service from writing "
+"into the ``authaudit`` topic (enter a message followed by ENTER, e.g. "
+"``test message``)"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:487 d2c47508c37a4d578b76edd5ed5cf1df
+msgid "Note that the error message may take a short time to appear."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:491 e8b92728f864473a86acc44617dda54d
+msgid "You can terminate the command with a single ``<CTRL>-d``."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:500 2b67f614ddd045db8a2c96ea24cb18d1
+msgid ""
+"This demonstrated that Cilium sent a response with an authorization error"
+" for any ``Produce`` request from this service."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:503 807c30295a68495ba65b59f4b3411899
+msgid ""
+"Create another topic named ``credit-card-payments``, meant to transmit "
+"highly-sensitive credit card payment requests:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:510 1012dea43cea461faac9843a5bc3aa71
+msgid ""
+"Check that Cilium prevents the ``authaudit-logger`` service from fetching"
+" messages from this topic:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:521 f605fa1b47d54b26a25595d40befd1a2
+msgid ""
+"This demonstrated that Cilium sent a response with an authorization error"
+" for any ``Fetch`` request from this service for any topic other than "
+"``authaudit``."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:527 249a2b4a44d7414c92335dea4ed1c034
+msgid "At present, the above command may also result in an error message."
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:530 131cc5b0634447c18860eb419fc5330b
+msgid "Step 6: Clean Up"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:532 3b7df09842104eb8bba0b7913cf51815
+msgid ""
+"You have now installed Cilium and Istio, deployed a demo app, and tested "
+"both Cilium's L3-L7 network security policies and Istio's service route "
+"rules.  To clean up, run:"
+msgstr ""
+
+#: ../../gettingstarted/istio.rst:540 b3ade426e93d425bbcb1730e03200eec
+msgid "After this, you can re-run the tutorial from Step 0."
+msgstr ""
+

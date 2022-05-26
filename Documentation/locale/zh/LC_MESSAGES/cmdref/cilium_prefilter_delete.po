@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_prefilter_delete.md:3 0900c51f85fa4752a6302c80042ad93b
+msgid "cilium prefilter delete"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_delete.md:5 3312c5ce3fb24a3b96826fc463ad683a
+msgid "Delete CIDR filters"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_delete.md:11 32589050b97d452faf6e88d1ae70b875
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_delete.md:19 a092f548d2b4412ebfa2fef1246b72fe
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_delete.md:27 0d8278b001e247b3bb6057fbb7ffacbe
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_prefilter_delete.md:29 9b51ba95765a4169b4e32c2bfe3dcc6b
+msgid "[cilium prefilter](cilium_prefilter.md)\t - Manage XDP CIDR filters"
+msgstr ""
+

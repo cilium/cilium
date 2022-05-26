@@ -1,0 +1,41 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/index.rst:3 bc6e52132d624ea2bc3ceeb2a6a28a4e
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/development/index.rst:10 af2d9515d1494633b602c4fe930e4274
+msgid "Development Guide"
+msgstr ""
+
+#: ../../contributing/development/index.rst:12 d921bda495a045a2bb2b64bf914bbf32
+msgid "We're happy you're interested in contributing to the Cilium project."
+msgstr ""
+
+#: ../../contributing/development/index.rst:14 0cb2ce86732141b28342f9c746baa0cc
+msgid ""
+"This section of the Cilium documentation  will help you make sure you "
+"have an environment capable of testing changes to the Cilium source code,"
+" and that you understand the workflow of getting these changes reviewed "
+"and merged upstream."
+msgstr ""
+

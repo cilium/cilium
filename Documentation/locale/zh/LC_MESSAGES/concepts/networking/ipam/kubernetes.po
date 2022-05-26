@@ -1,0 +1,229 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/networking/ipam/kubernetes.rst:3
+#: 83bfdd6d85b349729cdf09d21e7987cf
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:11
+#: b745cf4e2d544bfaa1175c629a0aaa98
+msgid "Kubernetes Host Scope"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:13
+#: 81295b39e4404b6caae5553e8a53a51e
+msgid ""
+"The Kubernetes host-scope IPAM mode is enabled with ``ipam: kubernetes`` "
+"and delegates the address allocation to each individual node in the "
+"cluster. IPs are allocated out of the ``PodCIDR`` range associated to "
+"each node by Kubernetes."
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:21
+#: 221b174f64a045b3b3fee0c768134ced
+msgid ""
+"In this mode, the Cilium agent will wait on startup until the ``PodCIDR``"
+" range is made available via the Kubernetes ``v1.Node`` object for all "
+"enabled address families via one of the following methods:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:25
+#: 326c5da9db034ac884864b48d1ac8f67
+msgid "**via v1.Node resource field**"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:28
+#: 8002868685f64ece819435d3faeff759
+msgid "Field"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:28
+#: ../../concepts/networking/ipam/kubernetes.rst:41
+#: 697debc0134d44dd88418f267856db98 f9e545b02fbe481ba3a8b4a6607c7ea6
+msgid "Description"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:30
+#: 053a8a3aa29846cabd5136c400ba5f68
+msgid "``spec.podCIDRs``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:30
+#: a277d0d2df0042bf81a9e592cbe5ea7e
+msgid "IPv4 and/or IPv6 PodCIDR range"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:31
+#: eb72a659cca84b1d9887298fa3377ffa
+msgid "``spec.podCIDR``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:31
+#: cb65396e77f14a6282d45e7964b299f2
+msgid "IPv4 or IPv6 PodCIDR range"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:34
+#: 447fa6bc76a34a6982d244f6645f1891
+msgid ""
+"It is important to run the ``kube-controller-manager`` with the flag "
+"``--allocate-node-cidrs`` flag to indicate to Kubernetes that PodCIDR "
+"ranges should be allocated."
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:38
+#: 41a95ed1cab04135b98d7470b7d4dbd2
+msgid "**via v1.Node annotation**"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:41
+#: 571690d4c2f34b8680607287c320577b
+msgid "Annotation"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:43
+#: 98745139594f4b75b381831167a3dd62
+msgid "``io.cilium.network.ipv4-pod-cidr``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:43
+#: 386338735b1047099c3e11c773880ab2
+msgid "IPv4 PodCIDR range"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:44
+#: 4f4c11571ca74d7c9494eac564a32e62
+msgid "``io.cilium.network.ipv6-pod-cidr``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:44
+#: 5e08917333a144ca92600a89aa6dec03
+msgid "IPv6 PodCIDR range"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:45
+#: 0dd13e89e6b0449bb5e4786f5a425e17
+msgid "``io.cilium.network.ipv4-cilium-host``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:45
+#: 1a334a574e66492192532b1ee6e4cb8e
+msgid "IPv4 address of the cilium host interface"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:46
+#: 7d26f245b13b472aaa1a2fb8069fcd8b
+msgid "``io.cilium.network.ipv6-cilium-host``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:46
+#: 8d7489ab31274860b61c10e28ae7817a
+msgid "IPv6 address of the cilium host interface"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:47
+#: cdd550e10f004a7eb6b085466129a2ae
+msgid "``io.cilium.network.ipv4-health-ip``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:47
+#: 7f8a97a239254e2da52d51dba8950487
+msgid "IPv4 address of the cilium-health endpoint"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:48
+#: 675f9c0f564a484dbef12a1f726701ad
+msgid "``io.cilium.network.ipv6-health-ip``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:48
+#: 6a3ca6b6890440d4b30b414677b51d09
+msgid "IPv6 address of the cilium-health endpoint"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:51
+#: 134bbd0c68b24aeaab97025f087be8da
+msgid ""
+"The annotation-based mechanism is primarily useful in combination with "
+"older Kubernetes versions which do not support ``spec.podCIDRs`` yet but "
+"support for both IPv4 and IPv6 is enabled."
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:59
+#: 6e93f34af9704463ada84c0c7b9b5dee
+msgid "Configuration"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:61
+#: 25180f6bdb244d60a69b566bd2c12473
+msgid "The following ConfigMap options exist to configure Kubernetes hostscope:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:63
+#: e35fa77a44b042298745d8c34fcd0737
+msgid ""
+"``ipam: kubernetes``: Enables Kubernetes IPAM mode. Enabling this option "
+"will automatically enable ``k8s-require-ipv4-pod-cidr`` if ``enable-"
+"ipv4`` is ``true`` and ``k8s-require-ipv6-pod-cidr`` if ``enable-ipv6`` "
+"is ``true``."
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:66
+#: fbb482feaf804fe897e21d4d7e10313f
+msgid ""
+"``k8s-require-ipv4-pod-cidr: true``: instructs the Cilium agent to wait "
+"until an IPv4 PodCIDR is made available via the Kubernetes node resource."
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:68
+#: 4ef2d5850f5a4705a7b5470325874c7d
+msgid ""
+"``k8s-require-ipv6-pod-cidr: true``: instructs the Cilium agent to wait "
+"until an IPv6 PodCIDR is made available via the Kubernetes node resource."
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:71
+#: ffee8ef59b104a6eadcc6bf1ccbbb41c
+msgid "With helm the previous options can be defined as:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:73
+#: 2c883b5aac17402394cf0c49b79de7c5
+msgid "``ipam: kubernetes``: ``--set ipam.mode=kubernetes``."
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:74
+#: 325c50839fdf4d03b584af7b133ef716
+msgid ""
+"``k8s-require-ipv4-pod-cidr: true``: ``--set "
+"k8s.requireIPv4PodCIDR=true``, which only works with ``--set "
+"ipam.mode=kubernetes``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/kubernetes.rst:76
+#: 1650987bd07d40e096e44da1dfe02814
+msgid ""
+"``k8s-require-ipv6-pod-cidr: true``: ``--set "
+"k8s.requireIPv6PodCIDR=true``, which only works with ``--set "
+"ipam.mode=kubernetes``"
+msgstr ""
+

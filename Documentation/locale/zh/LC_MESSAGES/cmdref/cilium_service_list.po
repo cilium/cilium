@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_service_list.md:3 16c91110a05b4219b3f7695d5abbfd4f
+msgid "cilium service list"
+msgstr ""
+
+#: ../../cmdref/cilium_service_list.md:5 4f47aa42f2b74e649e71dc80f96bd37b
+msgid "List services"
+msgstr ""
+
+#: ../../cmdref/cilium_service_list.md:11 011c43b3a52b48d080bb27eb0f009a2d
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_service_list.md:18 79c042be332a4e3684fc5ab928109c36
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_service_list.md:26 3a64ab73d1e8457b999778df151fe0bc
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_service_list.md:28 9dc992308a1c43f887d2d85e8eb5fd87
+msgid "[cilium service](cilium_service.md)\t - Manage services & loadbalancers"
+msgstr ""
+

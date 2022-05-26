@@ -1,0 +1,123 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/requirements-aks.rst:1 d2756ebabf6b463cb0133d9950b43f86
+msgid ""
+"To install Cilium on `Azure Kubernetes Service (AKS) "
+"<https://docs.microsoft.com/en-us/azure/aks/>`_, perform the following "
+"steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:4 8698afb58de1475d85cd970d306cc95f
+msgid "**Default Configuration:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:7 f9d577c50c914542a8f3644162d4d277
+msgid "Datapath"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:7 026bbb2b0e3b401e88729ef532886faa
+msgid "IPAM"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:7 e80dd52231de4a668e9a3e11d67ae6df
+msgid "Datastore"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:9 5bbcecda3b9048d0bf3de8c410ee737f
+msgid "Direct Routing"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:9 79816e176af24134b215e05b05c3b65f
+msgid "Azure IPAM"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:9 d3738012c1bb40bdbfc61adc1954d6af
+msgid "Kubernetes CRD"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:14
+#: 3521464b209747dfa131ce39a9038cb0
+msgid ""
+"If you want to chain Cilium on top of the Azure CNI, refer to the guide "
+":ref:`chaining_azure`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:17
+#: 0447cb93d8fb44129d35b036a10e1fb7
+msgid "**Requirements:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:19
+#: 83efdefe78e14d3b905d9bf9689ef0ef
+msgid ""
+"The AKS cluster must be created with ``--network-plugin azure`` for "
+"compatibility with Cilium. The Azure network plugin will be replaced with"
+" Cilium by the installer."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:23
+#: ff3ca96faa174ff3b81cdce6295d045c
+msgid ""
+"Node pools must be properly tainted to ensure applications pods are "
+"properly managed by Cilium:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:26
+#: bd4176e1d3d64ca5b71b975fa29909ef
+msgid ""
+"User node pools should be tainted with ``node.cilium.io/agent-not-"
+"ready=true:NoExecute`` to ensure application pods will only be "
+"scheduled/executed once Cilium is ready to manage them. However, there "
+"are other options. Please make sure to read and understand the "
+"documentation page on :ref:`taint effects and unmanaged "
+"pods<taint_effects>`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:31
+#: efc2ef08adbc4ec59db0e5d5edd2dfc1
+msgid ""
+"System node pools must be tainted with "
+"``CriticalAddonsOnly=true:NoSchedule``, preventing application pods from "
+"being scheduled on them. This is necessary because it is not possible to "
+"assign custom node taints such as ``node.cilium.io/agent-not-"
+"ready=true:NoExecute`` to system node pools, cf. `Azure/AKS#2578 "
+"<https://github.com/Azure/AKS/issues/2578>`_."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:36
+#: 63e7ea45f44a434c81a43b88a790d9e6
+msgid ""
+"The initial node pool must be replaced with a new system node pool since "
+"it is not possible to assign taints to the initial node pool at this "
+"time, cf. `Azure/AKS#1402 <https://github.com/Azure/AKS/issues/1402>`_."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:40
+#: 78db9da3adb242739d43e3c2eb868987
+msgid "**Limitations:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:42
+#: 5f4486249f574db0a5d34d21346ceb15
+msgid ""
+"All VMs and VM scale sets used in a cluster must belong to the same "
+"resource group."
+msgstr ""
+

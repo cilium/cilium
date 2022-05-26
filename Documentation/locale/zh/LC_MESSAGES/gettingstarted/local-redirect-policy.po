@@ -1,0 +1,611 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: ../../gettingstarted/local-redirect-policy.rst:3
+#: b075497607484555a09c12aedbf68422 c6c2834e83e941c1ab17147e14662e2e
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:11
+#: dd9b86a56c1b4a22bf0e39e4ec1b4bc0
+msgid "Local Redirect Policy (beta)"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:13
+#: 46e2019c7e8041a69180ace411d4d7b5
+msgid ""
+"This document explains how to configure Cilium's Local Redirect Policy, "
+"that enables pod traffic destined to an IP address and port/protocol "
+"tuple or Kubernetes service to be redirected locally to backend pod(s) "
+"within a node, using eBPF. The namespace of backend pod(s) need to match "
+"with that of the policy. The CiliumLocalRedirectPolicy is configured as a"
+" ``CustomResourceDefinition``."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:19
+#: 2fc81093dbcd4b36bae035e2b2c4a6dd
+msgid ""
+"There are two types of Local Redirect Policies supported. When traffic "
+"for a Kubernetes service needs to be redirected, use the `ServiceMatcher`"
+" type. The service needs to be of type ``clusterIP``. When traffic "
+"matching IP address and port/protocol, that doesn't belong to any "
+"Kubernetes service, needs to be redirected, use the `AddressMatcher` "
+"type."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:25
+#: b409cda0d0f840d0937720c6e0448418
+msgid ""
+"The policies can be gated by Kubernetes Role-based access control (RBAC) "
+"framework. See the official `RBAC documentation "
+"<https://kubernetes.io/docs/reference/access-authn-authz/rbac/>`_."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:29
+#: 2207eba857e048bcb63b7fc3d2ae6990
+msgid ""
+"When policies are applied, matched pod traffic is redirected. If desired,"
+" RBAC configurations can be used such that application developers can not"
+" escape the redirection."
+msgstr ""
+
+#: ../../beta.rst:3 07f51b7db3e44c7c9d6d4b0c26ba51f3
+msgid ""
+"This is a beta feature. Please provide feedback and file a GitHub issue "
+"if you experience any problems."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:37
+#: da1be59c952c4a3d99c0a22023ad2381
+msgid "Prerequisites"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:41
+#: 8ccbd0ea7cc648b2b8a1218a0dc3bb5e
+msgid ""
+"Local Redirect Policy feature requires a v4.19.x or more recent Linux "
+"kernel."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 1f0c968f006e440abb82a7829817e86a
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 181b7375d1e4430bab5f73de4bf15a23
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 4eb18b61d9d84db4a4b996ddf0f330e5
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:45
+#: 38f748a0719c4b74a4543b085b42b8c7
+msgid ""
+"The Cilium Local Redirect Policy feature relies on :ref:`kubeproxy-free`,"
+" follow the guide to create a new deployment. The beta feature is "
+"disabled by default. Enable the feature by setting the "
+"``localRedirectPolicy`` value to ``true``."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:54
+#: a71f0e2567a046bd87f740309ebab3c9
+msgid "Verify that Cilium agent pod is running."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:63
+#: e4975394f5914f58b134fa56dd149ee4
+msgid "Validate that the Cilium Local Redirect Policy CRD has been registered."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:73
+#: 5c086c6dbc214fd5864bedaaf081d4e6
+msgid "Create backend and client pods"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:75
+#: fa0c633b4c92475789f1232a605aaf00
+msgid ""
+"Deploy a backend pod where traffic needs to be redirected to based on the"
+" configurations specified in a CiliumLocalRedirectPolicy. The metadata "
+"labels and container port and protocol respectively match with the "
+"labels, port and protocol fields specified in the "
+"CiliumLocalRedirectPolicy custom resources that will be created in the "
+"next step."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:87
+#: 30414b7bc860477baac577fb5115f2df
+msgid "Verify that the pod is running."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:94
+#: d3adeed240d343c9b3658a21a470e966
+msgid ""
+"Deploy a client pod that will generate traffic which will be redirected "
+"based on the configurations specified in the CiliumLocalRedirectPolicy."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:105
+#: ed50531b1f084defbceb4c833ad23de2
+msgid "Create Cilium Local Redirect Policy Custom Resources"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:106
+#: e939dafeb00a40e0b90c5c5f2a4290d8
+msgid ""
+"There are two types of configurations supported in the "
+"CiliumLocalRedirectPolicy in order to match the traffic that needs to be "
+"redirected."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:112
+#: 02001ed956954bebb4f9c4e1e9a11fd8
+msgid "AddressMatcher"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:114
+#: bc40f08ae8bd400ba75a6db33ff3ad28
+msgid ""
+"This type of configuration is specified using an IP address and a Layer 4"
+" port/protocol. When multiple ports are specified for frontend in "
+"``toPorts``, the ports need to be named. The port names will be used to "
+"map frontend ports with backend ports."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:118
+#: 7c640559d88f430592729e963a995633
+msgid ""
+"Verify that the ports specified in ``toPorts`` under ``redirectBackend`` "
+"exist in the backend pod spec."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:121
+#: fb4822c97fe74b548eeaeedd0c95caae
+msgid ""
+"The example shows how to redirect from traffic matching, IP address "
+"``169.254.169.254`` and Layer 4 port ``8080`` with protocol ``TCP``, to a"
+" backend pod deployed with labels ``app=proxy`` and Layer 4 port ``80`` "
+"with protocol ``TCP``. The ``localEndpointSelector`` set to ``app=proxy``"
+" in the policy is used to select the backend pods where traffic is "
+"redirected to."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:127
+#: 7268538a877d4224bbada4ca4747bcdf
+msgid ""
+"Create a custom resource of type CiliumLocalRedirectPolicy with "
+"``addressMatcher`` configuration."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:136
+#: ../../gettingstarted/local-redirect-policy.rst:252
+#: 0c40746fa8a740a9b47c01bf44dd52c6 b15c78253cd349aeae9d7a5c1c0321c2
+msgid "Verify that the custom resource is created."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:144
+#: fbe4da286c4040da8196a4229d9bb266
+msgid ""
+"Verify that Cilium's eBPF kube-proxy replacement created a "
+"``LocalRedirect`` service entry with the backend IP address of that of "
+"the ``lrp-pod`` that was selected by the policy. Make sure that ``cilium "
+"service list`` is run in Cilium pod running on the same node as ``lrp-"
+"pod``."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:161
+#: b2aa0715d5d845d8ad5afd7e0b425b91
+msgid ""
+"Invoke a curl command from the client pod to the IP address and port "
+"configuration specified in the ``lrp-addr`` custom resource above."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:177
+#: ../../gettingstarted/local-redirect-policy.rst:288
+#: 5270d19dd63c475ea48e00ca2729f138 bea2e2b3301b4a90804d12e41c1abbbb
+msgid ""
+"Verify that the traffic was redirected to the ``lrp-pod`` that was "
+"deployed. ``tcpdump`` should be run on the same node that ``lrp-pod`` is "
+"running on."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:196
+#: 7e430407a9074a64a335970271113f33
+msgid "ServiceMatcher"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:198
+#: 5207d4e4b3c647bf95bc4fa8e1c3f6e1
+msgid ""
+"This type of configuration is specified using Kubernetes service name and"
+" namespace for which traffic needs to be redirected. The service must be "
+"of type ``clusterIP``. When ``toPorts`` under ``redirectFrontend`` are "
+"not specified, traffic for all the service ports will be redirected. "
+"However, if traffic destined to only a subset of ports needs to be "
+"redirected, these ports need to be specified in the spec. Additionally, "
+"when multiple service ports are specified in the spec, they must be "
+"named. The port names will be used to map frontend ports with backend "
+"ports. Verify that the ports specified in ``toPorts`` under "
+"``redirectBackend`` exist in the backend pod spec. The "
+"``localEndpointSelector`` set to ``app=proxy`` in the policy is used to "
+"select the backend pods where traffic is redirected to."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:209
+#: a80e527fdf3841ad83a1f5abc747d584
+msgid ""
+"When a policy of this type is applied, the existing service entry created"
+" by Cilium's eBPF kube-proxy replacement will be replaced with a new "
+"service entry of type ``LocalRedirect``. This entry may only have node-"
+"local backend pods."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:213
+#: 61fceb79237743c888379a10d5e228ad
+msgid ""
+"The example shows how to redirect from traffic matching ``my-service``, "
+"to a backend pod deployed with labels ``app=proxy`` and Layer 4 port "
+"``80`` with protocol ``TCP``. The ``localEndpointSelector`` set to "
+"``app=proxy`` in the policy is used to select the backend pods where "
+"traffic is redirected to."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:218
+#: d8b2c80645fd4faca85980c028066920
+msgid "Deploy the Kubernetes service for which traffic needs to be redirected."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:226
+#: 7541ce6fb0cb4dbb80d2e6163c1222ca
+msgid "Verify that the service is created."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:233
+#: ccecc321979f479a9a98bf96ccfc4ba5
+msgid ""
+"Verify that Cilium's eBPF kube-proxy replacement created a ``ClusterIP`` "
+"service entry."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:243
+#: 38c134e3f0ab4474a203567b6edda89c
+msgid ""
+"Create a custom resource of type CiliumLocalRedirectPolicy with "
+"``serviceMatcher`` configuration."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:260
+#: de5279623d7e4267884184ee541d7115
+msgid ""
+"Verify that entry Cilium's eBPF kube-proxy replacement updated the "
+"service entry with type ``LocalRedirect`` and the node-local backend "
+"selected by the policy. Make sure to run ``cilium service list`` in "
+"Cilium pod running on the same node as ``lrp-pod``."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:272
+#: b10e160725f2436599e394aa832b2c98
+msgid ""
+"Invoke a curl command from the client pod to the Cluster IP address and "
+"port of ``my-service`` specified in the ``lrp-svc`` custom resource "
+"above."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:310
+#: 86452f8e579048d388955344c3bf9fae
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:311
+#: f3ee6067651144438d7e964373085f10
+msgid ""
+"When you create a Local Redirect Policy, traffic for all the new "
+"connections that get established after the policy is enforced will be "
+"redirected. But if you have existing active connections to remote pods "
+"that match the configurations specified in the policy, then these might "
+"not get redirected. To ensure all such connections are redirected "
+"locally, restart the client pods after configuring the "
+"CiliumLocalRedirectPolicy."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:318
+#: a4d7f73b00384ca0b85fd678d46746e3
+msgid ""
+"Local Redirect Policy updates are currently not supported. If there are "
+"any changes to be made, delete the existing policy, and re-create a new "
+"one."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:322
+#: e7600da339744f27ba67111bb41bdd3b
+msgid "Use Cases"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:323
+#: 0d64963255bb4fb4a0a5123e619c3346
+msgid "Local Redirect Policy allows Cilium to support the following use cases:"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:326
+#: fbf94e521b654e8c9acecbd7fd55dd72
+msgid "Node-local DNS cache"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:327
+#: a10f9b13c49f4e4fb84582dc2bab752d
+msgid ""
+"`DNS node-cache <https://github.com/kubernetes/dns>`_ listens on a static"
+" IP to intercept traffic from application pods to the cluster's DNS "
+"service VIP by default, which will be bypassed when Cilium is handling "
+"service resolution at or before the veth interface of the application "
+"pod. To enable the DNS node-cache in a Cilium cluster, the following "
+"example steers traffic to a local DNS node-cache which runs as a normal "
+"pod."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:333
+#: 8bddbf5364334c0e9c02657ea05d02a0
+msgid "Deploy DNS node-cache in pod namespace."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:337
+#: 4eb11eb600c4423b99b2907eef4b8244
+msgid "Quick Deployment"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:339
+#: fd92f9eee2554720a91d3f0c9b5b773d
+msgid "Deploy DNS node-cache."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:343
+#: 6d7eada60ef646b49add448d3c15424a
+msgid ""
+"The example yaml is populated with default values for "
+"``__PILLAR_LOCAL_DNS__`` and ``__PILLAR_DNS_DOMAIN__``."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:345
+#: c21cdfea8a3e4f3884426314fe4d3ecc
+msgid ""
+"If you have a different deployment, please follow the official `NodeLocal"
+" DNSCache Configuration <https://kubernetes.io/docs/tasks/administer-"
+"cluster/nodelocaldns/#configuration>`_ to fill in the required template "
+"variables ``__PILLAR__LOCAL__DNS__``, ``__PILLAR__DNS__DOMAIN__``, and "
+"``__PILLAR__DNS__SERVER__`` before applying the yaml."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:358
+#: 102d8227d31b4f16a126a222075ebd73
+msgid "Manual Configuration"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:360
+#: 7833d6ce7b9c482fb1c21e4add0d18bc
+msgid ""
+"Follow the official `NodeLocal DNSCache Configuration "
+"<https://kubernetes.io/docs/tasks/administer-"
+"cluster/nodelocaldns/#configuration>`_ to fill in the required template "
+"variables ``__PILLAR__LOCAL__DNS__``, ``__PILLAR__DNS__DOMAIN__``, and "
+"``__PILLAR__DNS__SERVER__`` before applying the yaml."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:365
+#: 2e7d53b7796d4378a19ce96e2b0215b4
+msgid ""
+"Make sure to use a Node-local DNS image with a release version >= "
+"1.15.16. This is to ensure that we have a knob to disable dummy network "
+"interface creation/deletion in Node-local DNS when we deploy it in non-"
+"host namespace."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:369
+#: 1eb16837bbfc44c3b4a8b99b686b1806
+msgid ""
+"Modify Node-local DNS cache's deployment yaml to pass these additional "
+"arguments to node-cache: ``-skipteardown=true``, "
+"``-setupinterface=false``, and ``-setupiptables=false``."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:372
+#: 88c7d066ad1e4d36b48b141df70bf436
+msgid ""
+"Modify Node-local DNS cache's deployment yaml to put it in non-host "
+"namespace by setting ``hostNetwork: false`` for the daemonset."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:375
+#: becf535a93ad4e7ab3687b6539c5f61e
+msgid "In the Corefile, bind to ``0.0.0.0`` instead of the static IP."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:377
+#: 32e132ccd0034b9986a33e95e8103432
+msgid ""
+"In the Corefile, let CoreDNS serve health-check on its own IP instead of "
+"the static IP by removing the host IP string after health plugin."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:380
+#: bcd3bc0ff3cd4ff6beb8b6cd3fdea845
+msgid ""
+"Modify Node-local DNS cache's deployment yaml to point readiness probe to"
+" its own IP by removing the ``host`` field under ``readinessProbe``."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:383
+#: e0ea9f2464d44989b9a70c8d6c717005
+msgid ""
+"Deploy Local Redirect Policy (LRP) to steer DNS traffic to the node local"
+" dns cache."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:391
+#: cafcb85ca8ca45cb9103a6f427e59a36
+msgid ""
+"The LRP above uses ``kube-dns`` for the cluster DNS service, however if "
+"your cluster DNS service is different, you will need to modify this "
+"example LRP to specify it."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:393
+#: f3127c8189654bb485bf6490ddd90b38
+msgid ""
+"The namespace specified in the LRP above is set to the same namespace as "
+"the cluster's dns service."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:394
+#: ba538bdd242a49e58b8becbe97273940
+msgid ""
+"The LRP above uses the same port names ``dns`` and ``dns-tcp`` as the "
+"example quick deployment yaml, you will need to modify those to match "
+"your deployment if they are different."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:397
+#: 76658217b1134c3fb8884853e0063197
+msgid ""
+"After all ``node-local-dns`` pods are in ready status, DNS traffic will "
+"now go to the local node-cache first. You can verify by checking the DNS "
+"cache's metrics ``coredns_dns_request_count_total`` via curling ``<node-"
+"local-dns pod IP>:9253/metrics``, the metric should increment as new DNS "
+"requests being issued from application pods are now redirected to the "
+"``node-local-dns`` pod."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:402
+#: 664531f88cd34d4c8db9cbbc82e3544e
+msgid ""
+"In the absence of a node-local DNS cache, DNS queries from application "
+"pods will get directed to cluster DNS pods backed by the ``kube-dns`` "
+"service."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:406
+#: 39a90e9ebdb3416aba0c01164b7cebcd
+msgid "kiam redirect on EKS"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:407
+#: c67a3ff09fed401e81205358e1688b03
+msgid ""
+"`kiam <https://github.com/uswitch/kiam>`_ agent runs on each node in an "
+"EKS cluster, and intercepts requests going to the AWS metadata server to "
+"fetch security credentials for pods."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:411
+#: 53b6360184464877ba7610298f1f7e20
+msgid ""
+"In order to only redirect traffic from pods to the kiam agent, and pass "
+"traffic from the kiam agent to the AWS metadata server without any "
+"redirection, we need the socket lookup functionality in the datapath. "
+"This functionality requires v5.1.16, v5.2.0 or more recent Linux kernel. "
+"Make sure the kernel version installed on EKS cluster nodes satisfies "
+"these requirements."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:417
+#: f8aab113a45f427db78ecf5170dc1cc6
+msgid "Deploy `kiam <https://github.com/uswitch/kiam>`_ using helm charts."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:425
+#: af0d52495ce24e55aa0b620d53ddfa30
+msgid ""
+"The above command may provide instructions to prepare kiam in the "
+"cluster. Follow the instructions before continuing."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:428
+#: 983826f9f3494b04bf6e08532c3623e4
+msgid ""
+"kiam must run in the ``hostNetwork`` mode and without the \"--iptables\" "
+"argument. The install instructions above ensure this by default."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:431
+#: bf1349c39eb04533a0dd64a4dff1ce12
+msgid ""
+"Deploy the Local Redirect Policy to redirect pod traffic to the deployed "
+"kiam agent."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:439
+#: ec5f7ec9eace4317a3e62333d34b8b69
+msgid ""
+"The ``addressMatcher`` ip address in the Local Redirect Policy is set to "
+"the ip address of the AWS metadata server and the ``toPorts`` port to the"
+" default HTTP server port. The ``toPorts`` field under "
+"``redirectBackend`` configuration in the policy is set to the port that "
+"the kiam agent listens on. The port is passed as \"--port\" argument in "
+"the ``kiam-agent DaemonSet``."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:445
+#: dd8f216620674cc1a5cbe83d0b12fbd2
+msgid ""
+"The Local Redirect Policy namespace is set to the namespace in which "
+"kiam-agent DaemonSet is deployed."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:448
+#: 030e008de26a4ad5a0d4402abbeb67a9
+msgid ""
+"Once all the kiam agent pods are in ``Running`` state, the metadata "
+"requests from application pods will get redirected to the node-local kiam"
+" agent pods. You can verify this by running a curl command to the AWS "
+"metadata server from one of the application pods, and tcpdump command on "
+"the same EKS cluster node as the pod. Following is an example output, "
+"where ``192.169.98.118`` is the ip address of an application pod, and "
+"``192.168.60.99`` is the ip address of the kiam agent running on the same"
+" node as the application pod."
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:478
+#: ca35b8ae04f3403d9773af2e6f230e20
+msgid "Miscellaneous"
+msgstr ""
+
+#: ../../gettingstarted/local-redirect-policy.rst:479
+#: a8beb518dc594d16bf3e571989b83ca5
+msgid ""
+"When a Local Redirect Policy is applied, cilium BPF datapath translates "
+"frontend (identified by ip/port/protocol tuple) address from the policy "
+"to a node-local backend pod selected by the policy. However, when traffic"
+" originates from the node-local backend pod(s), and is destined to the "
+"policy frontend, we skip translating the frontend address using "
+"``sk_lookup_`` BPF helpers. This is done in order to avoid forming a "
+"loop. As a result, traffic in such cases is forwarded to the original "
+"frontend."
+msgstr ""
+

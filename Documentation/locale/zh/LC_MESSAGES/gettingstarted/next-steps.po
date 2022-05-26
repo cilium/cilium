@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/next-steps.rst:2 2cc248fbb9e941cfa60a99d353a807e5
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 344304c711c640a88ccda509ff7069d7
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 b375b74fe0a248e7967005723291a453
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 ed2415a7752045eaabe01e50b55a2ee5
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 8b5780c7539d4a2f9a461dbea924c313
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 db1ce7fa6edb4215b00cd4fa4841a696
+msgid ":ref:`clustermesh`"
+msgstr ""
+

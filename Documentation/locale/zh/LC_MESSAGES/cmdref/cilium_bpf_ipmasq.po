@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:3 4315ccfc558c4901838d169e23f1fd02
+msgid "cilium bpf ipmasq"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:5 94dd4a88eff8410a8c878f099e8e0429
+msgid "ip-masq-agent CIDRs"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:7 30b55b11b0594f31824cb0fbb77fbacc
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:13 93ed6eae769f472dab35e855cb48b6e7
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:21 5e13b5f184784258abb667f742d8aaf6
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:23 df6f3716f8f741eeb37ce8e909a007f9
+msgid "[cilium bpf](cilium_bpf.md)\t - Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq.md:24 2d6ad5b04d4a4d8a9b6d1d2753362608
+msgid ""
+"[cilium bpf ipmasq list](cilium_bpf_ipmasq_list.md)\t - List ip-masq-"
+"agent CIDRs"
+msgstr ""
+

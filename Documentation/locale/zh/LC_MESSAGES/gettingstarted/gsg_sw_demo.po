@@ -1,0 +1,80 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/gsg_sw_demo.rst:2 75f17c426c904469b1c4cf5bb28429c2
+msgid "Deploy the Demo Application"
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:4 95ea78f1dd1e45939117049ab608142d
+msgid ""
+"Now that we have Cilium deployed and ``kube-dns`` operating correctly we "
+"can deploy our demo application."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:6 86bc33b88c6649c19f02cf9fae7559dd
+msgid ""
+"In our Star Wars-inspired example, there are three microservices "
+"applications: *deathstar*, *tiefighter*, and *xwing*. The *deathstar* "
+"runs an HTTP webservice on port 80, which is exposed as a `Kubernetes "
+"Service <https://kubernetes.io/docs/concepts/services-"
+"networking/service/>`_ to load-balance requests to *deathstar* across two"
+" pod replicas. The *deathstar* service provides landing services to the "
+"empire's spaceships so that they can request a landing port. The "
+"*tiefighter* pod represents a landing-request client service on a typical"
+" empire ship and *xwing* represents a similar service on an alliance "
+"ship. They exist so that we can test different security policies for "
+"access control to *deathstar* landing services."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:8 b5e5b00187824da09082e35709bd9724
+msgid "**Application Topology for Cilium and Kubernetes**"
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:13 bbc4a47c83d64415a3d5c4f703bd4c9d
+msgid ""
+"The file ``http-sw-app.yaml`` contains a `Kubernetes Deployment "
+"<https://kubernetes.io/docs/concepts/workloads/controllers/deployment/>`_"
+" for each of the three services. Each deployment is identified using the "
+"Kubernetes labels (``org=empire, class=deathstar``), (``org=empire, "
+"class=tiefighter``), and (``org=alliance, class=xwing``). It also "
+"includes a deathstar-service, which load-balances traffic to all pods "
+"with label (``org=empire, class=deathstar``)."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:27 18a8b0987047445b8c2dc14d51afddf8
+msgid ""
+"Kubernetes will deploy the pods and service in the background.  Running "
+"``kubectl get pods,svc`` will inform you about the progress of the "
+"operation. Each pod will go through several states until it reaches "
+"``Running`` at which point the pod is ready."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:45 76c944094cba4575936b68be5b3efbd2
+msgid ""
+"Each pod will be represented in Cilium as an :ref:`endpoint`. We can "
+"invoke the ``cilium`` tool inside the Cilium pod to list them:"
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:89 be9338dbbc554cd4abd6a2aaa9eda564
+msgid ""
+"Both ingress and egress policy enforcement is still disabled on all of "
+"these pods because no network policy has been imported yet which select "
+"any of the pods."
+msgstr ""
+

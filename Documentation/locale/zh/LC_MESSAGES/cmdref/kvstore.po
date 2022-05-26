@@ -1,0 +1,111 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/kvstore.rst:3 f2d06ba7f3b24523acbd73afb1b4f4fb
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:10 17545e5420a243ecbe478c544088a70a
+msgid "Key-Value Store"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:13 ../../cmdref/kvstore.rst:28
+#: 162b5117fce5438bb11092f140c48090 44db89536f034484bf749abb8528a6db
+msgid "Option"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:13 ../../cmdref/kvstore.rst:28
+#: 4b4fa44fb73f4edc832ada9440960417 cafae065d7bc41c5be9e331e14ef18b1
+msgid "Description"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:13 394a8d807fb4423b9397ad133befe7c3
+msgid "Default"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:15 5908b72f6e264a6e94dd8e94b0c4b99f
+msgid "--kvstore TYPE"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:15 e0196870dc3d472fb430033b15d7a1c9
+msgid "Key Value Store Type: (consul, etcd)"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:18 78b3a1188d25423aab58913e78b88331
+msgid "--kvstore-opt OPTS"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:22 ac4f054745c848a1b9fb8b663e7bea40
+msgid "etcd"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:24 819f58c5c7064c37ace84893bfeb3e09
+msgid ""
+"When using etcd, one of the following options need to be provided to "
+"configure the etcd endpoints:"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:28 7a6e27df99324ec78adbb58d7ea67439
+msgid "Type"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:30 e7c5fa97262f4d5d8dd72bc9406fbcae
+msgid "etcd.address"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:30 e6215e16f53642d196b84f0c432fafa8
+msgid "Address"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:30 3b2fa9dd752b4a51a075fbc91a55fd53
+msgid "Address of etcd endpoint"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:33 087e12ba8fda47a4b7bb0b1263a3a2d2
+msgid "etcd.operator"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:33 c1a9fd34151c4c10806ab16a6f3cda16
+msgid "Boolean"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:32 92e855b6220d4b7dbabb35ac1b2ac598
+msgid ""
+"When set to true, Cilium will resolve the domain name of the etcd server "
+"from the associated k8s service deployed."
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:36 a8f4642f1a2c4768a3a7ef34a1864af7
+msgid "etcd.config"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:36 90d6d1b5f3744d6e807904759ddd5ad0
+msgid "Path"
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:36 eafa1137bb66421c9258862ab5ca3cbe
+msgid "Path to an etcd configuration file."
+msgstr ""
+
+#: ../../cmdref/kvstore.rst:39 c7ba7aee7c4d40239d10b64714bf0ca4
+msgid "Example of the etcd configuration file:"
+msgstr ""
+

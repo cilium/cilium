@@ -1,0 +1,180 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/egress-gateway.rst:3 2f9d0201a87848179bb9b1f42e8bff84
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:11 70c322f7bf8a4e6a9542cfab1d5eba8f
+msgid "Egress Gateway (beta)"
+msgstr ""
+
+#: ../../beta.rst:3 46e5508136734476a18fec96f86ae7a0
+msgid ""
+"This is a beta feature. Please provide feedback and file a GitHub issue "
+"if you experience any problems."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:17 43ce6f3f249e4abd8b6a950482e9e2c4
+msgid "Egress Gateway requires a 5.2 or more recent kernel."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:19 e1d2cf50c6b743969eba8628e74ea57d
+msgid ""
+"The egress gateway allows users to redirect egress pod traffic through "
+"specific, gateway nodes. Packets are masqueraded to the gateway node IP."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:22 fdb7edbf94b045c197825c690b4a2e80
+msgid ""
+"This document explains how to enable the egress gateway and configure "
+"egress NAT policies to route and SNAT the egress traffic for a specific "
+"workload."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:28 1f7023f0e8f2487898b5f8643389ea58
+msgid ""
+"This guide assumes that Cilium has been correctly installed in your "
+"Kubernetes cluster. Please see :ref:`k8s_quick_install` for more "
+"information. If unsure, run ``cilium status`` and validate that Cilium is"
+" up and running."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:34 1b8d7bf05df349729ba87b0642a7bd6e
+msgid "Enable Egress Gateway"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:36 51a545b69d0849bda1406cd3c94fbf76
+msgid ""
+"The feature is disabled by default. The egress gateway requires BPF "
+"masquerading, which itself requires BPF NodePort to be enabled. An easy "
+"way to enable all requirements is as follows."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:42 4bbfb69788c24e6d914a924d15193303
+msgid "Helm"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:44 799951237ea1446cbb92397ad96cbddf
+msgid ""
+"If you installed Cilium via ``helm install``, you may enable the Egress "
+"gateway feature with the following command:"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:56 f72ce69c18b34e0d95d66a16f0f2d32d
+msgid "ConfigMap"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:58 d89d4de7542b45c18fafdb990f50a9cd
+msgid ""
+"Egress Gateway support can be enabled by setting the following options in"
+" the ``cilium-config`` ConfigMap:"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:68 673b9bf8de544a0e8a49f624bc3b60c3
+msgid "Create an External Service (Optional)"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:70 26f55cd933004b838d03d128b365af3d
+msgid ""
+"This feature will change the default behavior how a packet leaves a "
+"cluster. As a result, from the external service's point of view, it will "
+"see different source IP address from the cluster. If you don't have an "
+"external service to experiment with, nginx is a very simple example that "
+"can demonstrate the functionality, while nginx's access log shows which "
+"IP address the request is coming from."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:76 c26bcd28c0fa4e5fa051a5e6d1d2ebdb
+msgid ""
+"Create an nginx service on a Linux node that is external to the existing "
+"Kubernetes cluster, and use it as the destination of the egress traffic."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:97 918cd2cc69424c9692735cc9f5ce91c6
+msgid "Create Client Pods"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:99 41685ec5dc33431fac106214ba9cdeab
+msgid ""
+"Deploy a client pod that will generate traffic which will be redirected "
+"based on the configurations specified in the CiliumEgressNATPolicy."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:113 74347e48383847e9b650770b8285f2a8
+msgid ""
+"Verify access log from nginx node or other external services that the "
+"request is coming from one of the node in Kubernetes cluster. For "
+"example, in nginx node, the access log will contain something like the "
+"following:"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:123 c8a18dcbd2724b62889be4bd59d8afbe
+msgid ""
+"In the previous example, the client pod is running on the node "
+"``192.168.60.11``, so the result makes sense. This is the default "
+"Kubernetes behavior without egress NAT."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:127 a02576d8eb234a84916c06e707330fa3
+msgid "Configure Egress IPs"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:129 36edd19200ea4f679b468e45ef04e83e
+msgid ""
+"Deploy the following deployment to assign additional egress IP to the "
+"gateway node. The node that runs the pod will have additional IP "
+"addresses configured on the external interface (``enp0s8`` as in the "
+"example), and become the egress gateway. In the following example, "
+"``192.168.60.100`` and ``192.168.60.101`` becomes the egress IP which can"
+" be consumed by Egress NAT Policy. Please make sure these IP addresses "
+"are routable on the interface they are assigned to, otherwise the return "
+"traffic won't be able to route back."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:138 15cff3b4ab9647988807c070f4e033f5
+msgid "Create Egress NAT Policy"
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:140 9be7aeabebec451bad029d596080078b
+msgid ""
+"Apply the following Egress NAT Policy, which basically means: when the "
+"pod is running in the namespace ``default`` and the pod itself has label "
+"``org: empire`` and ``class: mediabot``, if it's trying to talk to IP "
+"CIDR ``192.168.60.13/32``, then use egress IP ``192.168.60.100``. In this"
+" example, it tells Cilium to forward the packet from client pod to the "
+"gateway node with egress IP ``192.168.60.100``, and masquerade with that "
+"IP address."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:148 8e12d5a25ad14646a7f20fca25d35d6d
+msgid "Let's switch back to the client pod and verify it works."
+msgstr ""
+
+#: ../../gettingstarted/egress-gateway.rst:156 0906c19721e041fcb00783a420aadfde
+msgid ""
+"Verify access log from nginx node or service of your chose that the "
+"request is coming from egress IP now instead of one of the nodes in "
+"Kubernetes cluster. In the nginx's case, you will see logs like the "
+"following shows that the request is coming from ``192.168.60.100`` now, "
+"instead of ``192.168.60.11``."
+msgstr ""
+

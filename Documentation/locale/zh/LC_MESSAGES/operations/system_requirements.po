@@ -1,0 +1,1121 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../operations/system_requirements.rst:3 133265034dfe4b79bac0c6a5921f8948
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:11 d7592d17c05d409f995237d2a03c6df7
+msgid "System Requirements"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:13 592d46a01e1d43bd98a03e0a937afe65
+msgid ""
+"Before installing Cilium, please ensure that your system meets the "
+"minimum requirements below. Most modern Linux distributions already do."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:17 8d015cd2e3be40cdadbd6ad7076e8f21
+msgid "Summary"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:19 d1fed50846894c5dbea1d9d5d3896d15
+msgid ""
+"When running Cilium using the container image ``cilium/cilium``, the host"
+" system must meet these requirements:"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:22 a8dedcf71a7f4d4895d6a6763dcc4f0b
+msgid "`Linux kernel`_ >= 4.9.17"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:24 c6b2eda344ac4bc186b320ba53437f09
+msgid ""
+"When running Cilium as a native process on your host (i.e. **not** "
+"running the ``cilium/cilium`` container image) these additional "
+"requirements must be met:"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:27 0d1c17b47ac04fe3adc3d961c3fd1498
+msgid "`clang+LLVM`_ >= 10.0"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:28 cb592fbc4c224678a33fd64ed6ab5d3d
+msgid "iproute2_ with eBPF templating patches [#iproute2_foot]_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:33 8f44c2cd5cad41f19f5fbc7ae05cf652
+msgid ""
+"When running Cilium without Kubernetes these additional requirements must"
+" be met:"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:36 8b7840f3dfdb48738ace2f287767cafd
+msgid ":ref:`req_kvstore` etcd >= 3.1.0"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:39 76308421a76e446387fce3872968b65b
+msgid "Requirement"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:39
+#: ../../operations/system_requirements.rst:57 1b2c949696894a798219256ec6657866
+#: 59b885eb52914d9bb4e2b187d64b1cf0
+msgid "Minimum Version"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:39 e28f692c50974a149d30c6faa0c731a4
+msgid "In cilium container"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:41 d781decb0eed4ea38193417f5a693b39
+msgid "`Linux kernel`_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:41 ebcbaba15777414894cdf1aff2431f18
+msgid ">= 4.9.17"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:41
+#: ../../operations/system_requirements.rst:42 0137571e1e4742ff85df21c9ab8c57c8
+#: e553a5400f4c4f5c90151a07c6a6e772
+msgid "no"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:42 a71d283dd36b452986e422fd5a67aac3
+msgid "Key-Value store (etcd)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:42 28fbe783190e48329d0ef037d8a50bca
+msgid ">= 3.1.0"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:43
+#: ../../operations/system_requirements.rst:272
+#: 1add2a79a4284c92b051b9a515a0577e a159520422704c20b8f33495f7e41491
+msgid "clang+LLVM"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:43 bd0c5b35c1ab4f17895dac34474153c5
+msgid ">= 10.0"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:43
+#: ../../operations/system_requirements.rst:44 63bccc0ec8d44fb2800424bbd728c5a0
+#: f7d177fd06ab46c89ca2a324d7035c86
+msgid "yes"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:44
+#: ../../operations/system_requirements.rst:290
+#: 2ab464f56c4749cfbabaeb03309f9911 49603ab2b6cf432eb833fa202ff0a78a
+msgid "iproute2"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:44 bcac8b65106f4c68ba54e517ccbdf2b9
+msgid ">= 5.9.0 [#iproute2_foot]_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:47 2d0363cdf64b4a0881f76c6116f36d70
+msgid ""
+"Requires support for eBPF templating as documented :ref:`below "
+"<iproute2_requirements>`."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:51 3f50ebcdcd4f41e9851b9545f6cb2f89
+msgid "Linux Distribution Compatibility Matrix"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:53 d6b896afc24b453688478d3c2bc5ce7c
+msgid ""
+"The following table lists Linux distributions that are known to work well"
+" with Cilium."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:57 6f1fb6d6ce7742caa7091253e7f970c8
+msgid "Distribution"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:59 a794bd3110074e85b382445bbb612ab5
+msgid "`Amazon Linux 2`_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:59
+#: ../../operations/system_requirements.rst:60
+#: ../../operations/system_requirements.rst:64
+#: ../../operations/system_requirements.rst:65 33a433a39a414208986b18d756b7e20d
+#: 7230d9c4d989451aa5d5dd0f5f7c5bd9 9d525f4b07804dd388fbadff1c138930
+#: bf66d3c09470461dbf092359c0c573f6
+msgid "all"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:60 1e895b3d26b84802b9094cc9f12b6a67
+msgid "`Container-Optimized OS`_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:61 e533282e1aa947969141f3287c88afd3
+msgid "`CentOS`_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:61 675539d1428e42b0a66df34c0be984f6
+msgid ">= 7.0 [#centos_foot]_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:62 e432f2d7ab044ae79fba92feb3cd0b37
+msgid "Debian_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:62 a699dd9832d04aad936338a46721c0cb
+msgid ">= 9 Stretch"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:63 1791fd8e84d24f278ff1ea966cd0ab1a
+msgid "`Fedora Atomic/Core`_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:63 e73acea6795f4f869025b7171aa5c01e
+msgid ">= 25"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:64 bf567ace2bf54a27a2964208dbc554ff
+msgid "Flatcar_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:65 ff511e620d7d47dba554b86b41afe351
+msgid "LinuxKit_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:66 2a5b7f56d0894ddf855699f684ec3b81
+msgid "`RedHat Enterprise Linux`_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:66 2f07a29753b24ccba3c92c21d5664a79
+msgid ">= 8.0"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:67 334efb88571d40e7965565b60b8fc450
+msgid "Ubuntu_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:67 38f7455acf4c48da887fdf0da1f030db
+msgid ">= 16.04.1 (Azure), >= 16.04.2 (Canonical), >= 16.10"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:68 04ced5afc4a64ff8aa7a2a171dbf282b
+msgid "Opensuse_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:68 ace868ef9a9e4ac9a9980f2f545e25cd
+msgid "Tumbleweed, >=Leap 15.0"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:69 edf256914b5d45f2a2c02b60ab3f8a46
+msgid "RancherOS_"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:69 8810e1c4668d462d92abf1764bbe9e9a
+msgid ">= 1.5.5"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:84 1109a74e5f974c6fbf660d5de8db9caa
+msgid ""
+"CentOS 7 requires a third-party kernel provided by `ElRepo "
+"<http://elrepo.org/tiki/tiki-index.php>`_ whereas CentOS 8 ships with a "
+"supported kernel."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:87 5b2aed224d25483fa58cd3fd51842a91
+msgid ""
+"The above list is based on feedback by users. If you find an unlisted "
+"Linux distribution that works well, please let us know by opening a "
+"GitHub issue or by creating a pull request that updates this guide."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:91 4e4aab6422c54dcf8029f6ecff2583d7
+msgid ""
+"Systemd 245 and above (``systemctl --version``) overrides ``rp_filter`` "
+"setting of Cilium network interfaces. This introduces connectivity issues"
+" (see :gh-issue:`10645` for details). To avoid that, configure "
+"``rp_filter`` in systemd using the following commands:"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:104
+#: e5824b05db6249f0b404c0ded5a02c3b
+msgid "Linux Kernel"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:107
+#: b2ee3e0539554f04b73262b95d34765b
+msgid "Base Requirements"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:109
+#: 66590288b9c3410a897487ae485a59ae
+msgid ""
+"Cilium leverages and builds on the kernel eBPF functionality as well as "
+"various subsystems which integrate with eBPF. Therefore, host systems are"
+" required to run Linux kernel version 4.9.17 or later to run a Cilium "
+"agent. More recent kernels may provide additional eBPF functionality that"
+" Cilium will automatically detect and use on agent start."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:115
+#: ec5e609fcd2c400db9ca987206606a64
+msgid ""
+"In order for the eBPF feature to be enabled properly, the following "
+"kernel configuration options must be enabled. This is typically the case"
+"  with distribution kernels. When an option can be built as a module or "
+"statically linked, either choice is valid."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:135
+#: bd50dcd8f5e640389f3ec8611b1c3427
+msgid ""
+"Users running Linux 4.10 or earlier with Cilium CIDR policies may face "
+":ref:`cidr_limitations`."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:139
+#: e477f91b80924fde80f499cb4732338d
+msgid "Requirements for Iptables-based Masquerading"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:141
+#: 02052d0c7725427295743561e744955d
+msgid ""
+"If you are not using BPF for masquerading (``enable-bpf-"
+"masquerade=false``, the default value), then you will need the following "
+"kernel configuration options."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:151
+#: 59203a0b3b904d9d9f11fc37563f2e7b
+msgid "Requirements for L7 and FQDN Policies"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:153
+#: 911d57303fc84d879efd9d72582d5c9f
+msgid ""
+"L7 proxy redirection currently uses ``TPROXY`` iptables actions as well "
+"as ``socket`` matches. For L7 redirection to work as intended kernel "
+"configuration must include the following modules:"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:164
+#: 189a892949884a7d9b2af6d14a9231f2
+msgid ""
+"When ``xt_socket`` kernel module is missing the forwarding of redirected "
+"L7 traffic does not work in non-tunneled datapath modes. Since some "
+"notable kernels (e.g., COS) are shipping without ``xt_socket`` module, "
+"Cilium implements a fallback compatibility mode to allow L7 policies and "
+"visibility to be used with those kernels. Currently this fallback "
+"disables ``ip_early_demux`` kernel feature in non-tunneled datapath "
+"modes, which may decrease system networking performance. This guarantees "
+"HTTP and Kafka redirection works as intended.  However, if HTTP or Kafka "
+"enforcement policies or visibility annotations are never used, this "
+"behavior can be turned off by adding the following to the helm "
+"configuration command line:"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:185
+#: d6d375728fec4216a3d0b4a80ec80a8f
+msgid "Requirements for IPsec"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:187
+#: 6171780d1a864c939e7b6aa7a7a06850
+msgid ""
+"The :ref:`encryption_ipsec` feature requires a lot of kernel "
+"configuration options, most of which to enable the actual encryption. "
+"Note that the specific options required depend on the algorithm. The list"
+" below corresponds to requirements for GMC-128-AES."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:214
+#: f9f6f82da2b8450eb68cc67a1946490c
+msgid "Requirements for the Bandwidth Manager"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:216
+#: 078ee63a47544348b628541c96de4784
+msgid ""
+"The :ref:`bandwidth-manager` requires the following kernel configuration "
+"option to change the packet scheduling algorithm."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:225
+#: e480d9abb84547f3b388f506a4abca37
+msgid "Required Kernel Versions for Advanced Features"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:227
+#: fb58d4de67f2491c9afeceee2be41211
+msgid ""
+"Cilium requires Linux kernel 4.9.17 or higher; however, development on "
+"additional kernel features continues to progress in the Linux community. "
+"Some of Cilium's features are dependent on newer kernel versions and are "
+"thus enabled by upgrading to more recent kernel versions as detailed "
+"below."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:233
+#: 063e40b9184b4ef2b0691dbaa4cc43f0
+msgid "Cilium Feature"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:233
+#: 331f6344200645fcb3792facea1fb531
+msgid "Minimum Kernel Version"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:235
+#: d28eae62b4214323a109468e2a53a08d
+msgid ":ref:`concepts_fragmentation`"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:235
+#: b5a190066f91434bb34fbab734b29655
+msgid ">= 4.10"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:236
+#: 8f61466f0ac446079a15d4b5c18cfdae
+msgid ":ref:`cidr_limitations`"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:236
+#: f48bffc74e784c409ce938ec92c08942
+msgid ">= 4.11"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:237
+#: 063f99690d8f4eeb9dccc5c9a73d16bf
+msgid ":ref:`encryption_ipsec` in tunneling mode"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:237
+#: 9c794b9947b348ff8563a4a1993cd096
+msgid ">= 4.19"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:238
+#: 252144b060534b4f9cdaf64f52c3882c
+msgid ":ref:`encryption_wg`"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:238
+#: 262ead87171841f488c1606b2d982425
+msgid ">= 5.6"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:239
+#: a1424cba27484908b2bf0e7024df2e4a
+msgid ":ref:`host-services`"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:239
+#: ../../operations/system_requirements.rst:240
+#: ../../operations/system_requirements.rst:242
+#: 40dc4f493e0041b5be31565a9a3b5905 e19d02b2163e41dfb5ca2b898e1bc1d2
+#: ea9f9630d47043ce8e5401f83948d0f4
+msgid ">= 4.19.57, >= 5.1.16,  >= 5.2"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:240
+#: f8c255cce2d04710a71343c2a4fcedbd
+msgid ":ref:`kubeproxy-free`"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:241
+#: afbf5aab4b304ad1aa8e0714aff8a85b
+msgid ":ref:`bandwidth-manager`"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:241
+#: 0238a7fb0985467d8d2a309728a5190c
+msgid ">= 5.1"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:242
+#: 40af3dc1b35d4b29be9c9b0a553ac959
+msgid ":ref:`local-redirect-policy`"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:243
+#: 4c0c97b6196341c7a7c3da9bc981764c
+msgid "Full support for :ref:`session-affinity`"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:243
+#: ../../operations/system_requirements.rst:244
+#: ../../operations/system_requirements.rst:246
+#: 5e2c72d881d4448dab91a27535514a6d 65afacaf01824334af09c7cb89dfbdaf
+#: 89e68d602f074beebeaee899683a3293
+msgid ">= 5.7"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:244
+#: 95a1bde3bf2d4dc4848685578c6e951e
+msgid "BPF-based proxy redirection"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:245
+#: b460047637f84c08b9458e22c26d3c75
+msgid "BPF-based host routing"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:245
+#: 04a78b37452c4eeaa23d930eefe1d431
+msgid ">= 5.10"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:246
+#: a6beb72b35f740b09437ad11f7dba5cc
+msgid "Socket-level LB bypass in pod netns"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:247
+#: c3d06026600f46f09a1207b8f67b84c4
+msgid ":ref:`egress-gateway`"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:247
+#: ../../operations/system_requirements.rst:248
+#: 13e4a95ae6554cfa86693231c612d663 b4859cc4c2f9473888d74328ea3289d3
+msgid ">= 5.2"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:248
+#: d2ad9e954ad74405b507d0f01359f79b
+msgid "VXLAN Tunnel Endpoint (VTEP) Integration"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:254
+#: 22f4de2221464f73861da9409a7be418
+msgid "Key-Value store"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:256
+#: bb1fa2a0ae8644d19244b0cf53502b60
+msgid ""
+"Cilium optionally uses a distributed Key-Value store to manage, "
+"synchronize and distribute security identities across all cluster nodes. "
+"The following Key-Value stores are currently supported:"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:260
+#: 1a84a700919245d1bf8e881d387f6ace
+msgid "etcd >= 3.1.0"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:262
+#: 4936d36e1289414e8e459c025aed5c51
+msgid ""
+"Cilium can be used without a Key-Value store when CRD-based state "
+"management is used with Kubernetes. This is the default for new Cilium "
+"installations. Larger clusters will perform better with a Key-Value store"
+" backed identity management instead, see :ref:`k8s_quick_install` for "
+"more details."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:268
+#: f00ad5945ac84cd783203fdcd242fd57
+msgid ""
+"See :ref:`install_kvstore` for details on how to configure the ``cilium-"
+"agent`` to use a Key-Value store."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:275
+#: 9f1f2b85bda344f48e34d62f63a55dc8
+msgid ""
+"This requirement is only needed if you run ``cilium-agent`` natively. If "
+"you are using the Cilium container image ``cilium/cilium``, clang+LLVM is"
+" included in the container image."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:279
+#: b91f23b0659a4857b4062098248047d4
+msgid ""
+"LLVM is the compiler suite that Cilium uses to generate eBPF bytecode "
+"programs to be loaded into the Linux kernel. The minimum supported "
+"version of LLVM available to ``cilium-agent`` should be >=5.0. The "
+"version of clang installed must be compiled with the eBPF backend "
+"enabled."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:284
+#: 32d1fcf5a405480e90c006e4e3e61d38
+msgid ""
+"See https://releases.llvm.org/ for information on how to download and "
+"install LLVM."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:292
+#: 4c0a1fa6148c410bbf993e827a833848
+msgid ""
+"iproute2 is only needed if you run ``cilium-agent`` directly on the host "
+"machine. iproute2 is included in the ``cilium/cilium`` container image."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:296
+#: ce1fed9caaa948fa9cf7c487a756f1b5
+msgid ""
+"iproute2_ is a low level tool used to configure various networking "
+"related subsystems of the Linux kernel. Cilium uses iproute2 to configure"
+" networking and ``tc``, which is part of iproute2, to load eBPF programs "
+"into the kernel."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:300
+#: 3845389a35fa467c9e0065e4ba990cc2
+msgid ""
+"The version of iproute2 must include the eBPF templating patches. Also, "
+"it depends on Cilium's libbpf fork. See `Cilium iproute2 source`_ for "
+"more details."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:308
+#: a809040a97cb4258a8540e75053b756f
+msgid "Firewall Rules"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:310
+#: 4e69a291929a44a688a112c1ed0ef1af
+msgid ""
+"If you are running Cilium in an environment that requires firewall rules "
+"to enable connectivity, you will have to add the following rules to "
+"ensure Cilium works properly."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:312
+#: 48903883df45402bb2b0e28b9f3274b0
+msgid ""
+"It is recommended but optional that all nodes running Cilium in a given "
+"cluster must be able to ping each other so ``cilium-health`` can report "
+"and monitor connectivity among nodes. This requires ICMP Type 0/8, Code 0"
+" open among all nodes. TCP 4240 should also be open among all nodes for "
+"``cilium-health`` monitoring. Note that it is also an option to only use "
+"one of these two methods to enable health monitoring. If the firewall "
+"does not permit either of these methods, Cilium will still operate fine "
+"but will not be able to provide health information."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:314
+#: c5cc482d89f84a11a841de086eda7329
+msgid ""
+"If you are using VXLAN overlay network mode, Cilium uses Linux's default "
+"VXLAN port 8472 over UDP, unless Linux has been configured otherwise. In "
+"this case, UDP 8472 must be open among all nodes to enable VXLAN overlay "
+"mode. The same applies to Geneve overlay network mode, except the port is"
+" UDP 6081."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:316
+#: 4a049ec2ca434349be628a63482d0e90
+msgid ""
+"If you are running in direct routing mode, your network must allow "
+"routing of pod IPs."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:318
+#: fa1c826cecea4e7c89f8736b72d7ca3d
+msgid ""
+"As an example, if you are running on AWS with VXLAN overlay networking, "
+"here is a minimum set of AWS Security Group (SG) rules. It assumes a "
+"separation between the SG on the master nodes, ``master-sg``, and the "
+"worker nodes, ``worker-sg``. It also assumes ``etcd`` is running on the "
+"master nodes."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:320
+#: 0499c0bac1494e80b9ae933a3fb8e978
+msgid "Master Nodes (``master-sg``) Rules:"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:323
+#: ../../operations/system_requirements.rst:343
+#: ../../operations/system_requirements.rst:368
+#: 15fd0f0be69944cd8a897229f5288cfd 1fc873584b294ef99175a37c172d669b
+#: cf7bed104ca6422ca274fcf0806e6bdc
+msgid "Port Range / Protocol"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:323
+#: ../../operations/system_requirements.rst:343
+#: 232dafb6e14644d4a3750cb53b721862 7cc6d50c1c2144658edfd565aa27a469
+msgid "Ingress/Egress"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:323
+#: ../../operations/system_requirements.rst:343
+#: 6fbd43d0de0746cdad31a7b4c9515899 ca44029eb2164b92a60c4a79f0984f57
+msgid "Source/Destination"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:323
+#: ../../operations/system_requirements.rst:343
+#: ../../operations/system_requirements.rst:368
+#: 7b74e02aa5b74eeebf9b2ce5bcc01504 afc32d0669be4e419756e85b4c750fca
+#: f54ee0ccfb8540cfa526c79dfd843840
+msgid "Description"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:325
+#: ../../operations/system_requirements.rst:357
+#: 5df0faa7c518463fb26149808ccfeeb1 ab0b8c55c12e4e0b824f8fb864220361
+msgid "2379-2380/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:325
+#: ../../operations/system_requirements.rst:326
+#: ../../operations/system_requirements.rst:327
+#: ../../operations/system_requirements.rst:328
+#: ../../operations/system_requirements.rst:329
+#: ../../operations/system_requirements.rst:330
+#: ../../operations/system_requirements.rst:331
+#: ../../operations/system_requirements.rst:345
+#: ../../operations/system_requirements.rst:346
+#: ../../operations/system_requirements.rst:347
+#: ../../operations/system_requirements.rst:348
+#: ../../operations/system_requirements.rst:349
+#: ../../operations/system_requirements.rst:350
+#: 1cd679effd124865a4568b832f149c68 25a45e236278441788334927840911cb
+#: 316a491a32d1414ca58707f8555ed1d9 456106bb2891428f8112ede68de95b4b
+#: 5b6dcc11995c49a8a537976a324328d4 6b277e1c987b4a54867e0f486dca67f2
+#: 7ce1695b26704bfbadb3f6b50ae3cf24 a113407d7c67482cb1a93ab7286ee8a8
+#: a117c910f6ae480393c14ef19c71b6cc b640bb3f02e24d34839e91b0e22a0d7d
+#: d481130b6cc74d52abf53bc471238639 f868c212eb904c98b6319a46ce8aa8f0
+#: ff81127855fe43ca9983d7c3ab4b2247
+msgid "ingress"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:325
+#: ../../operations/system_requirements.rst:327
+#: ../../operations/system_requirements.rst:329
+#: ../../operations/system_requirements.rst:331
+#: ../../operations/system_requirements.rst:333
+#: ../../operations/system_requirements.rst:335
+#: ../../operations/system_requirements.rst:337
+#: 46f1736fcbd143bfaa4a313e28d138ca 8c8276ee86b6457cbdb658a1fd8a2f8f
+#: 96a8880453f54fa09ff7a3d58ba25030 af62022c3fb14fdc91c372c0b0bb8644
+#: c1947bc5efab45fcafee7c028cc2cff1 c4f74efe7b004d2b8d007fdf8dc4287e
+#: e32e8e041b78490986f26f493ef4c825
+msgid "``worker-sg``"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:325
+#: ../../operations/system_requirements.rst:357
+#: 79f812eab7fa44d6a2c88c59b5ab0e38 cb25af89122443629d8f5aeb9bff8801
+msgid "etcd access"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:326
+#: ../../operations/system_requirements.rst:327
+#: ../../operations/system_requirements.rst:332
+#: ../../operations/system_requirements.rst:333
+#: ../../operations/system_requirements.rst:345
+#: ../../operations/system_requirements.rst:346
+#: ../../operations/system_requirements.rst:351
+#: ../../operations/system_requirements.rst:352
+#: 0c7cc2e8c14f4b7aa3f1992573b78886 1676cc6f9266453fa966fb8df582e39c
+#: 992ab2fd4f7c4330b6dc67082f4c3149 99e582473df84f7ba9ef95795058a8fe
+#: a401c12c7c714ddda954b5a0e655351f e2ce128f6bed4d4c8c6de95515644f4e
+#: eed62ec443484405aecc8bc5423c0a7e f03f0ce6f467497bbfa1d8a90346a310
+msgid "8472/udp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:326
+#: ../../operations/system_requirements.rst:328
+#: ../../operations/system_requirements.rst:330
+#: ../../operations/system_requirements.rst:332
+#: ../../operations/system_requirements.rst:334
+#: ../../operations/system_requirements.rst:336
+#: 07914ad95464401ab740336925c634c9 43e3a28ed01142a48b184dd13ab49ed5
+#: 59d5a97942c74eefa4c7b23bc1b79ae4 7babee0073174d789ee45477efc25964
+#: 9e54ee38f00b422c82ccf96be20bd6bb c098c4836b3a4c2598f241176f2b1272
+msgid "``master-sg`` (self)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:326
+#: ../../operations/system_requirements.rst:327
+#: ../../operations/system_requirements.rst:332
+#: ../../operations/system_requirements.rst:333
+#: ../../operations/system_requirements.rst:345
+#: ../../operations/system_requirements.rst:346
+#: ../../operations/system_requirements.rst:351
+#: ../../operations/system_requirements.rst:352
+#: 3e49e947ccb848d9802178c5760608fd 747bdce0c8704f0db19f5cac6a4ebd00
+#: 7b3db17619d842869b9c4e2131a6eece b36b5c05847a4ca3b38cfec4d05f2d6a
+#: b71fb2bfe7784e89995d4a2b58ddc7e4 bd154211c0e3441995b45287dd528e10
+#: c332c4512cae4be8b419a4cf41b7ebb9 e52e90e134f442f8ba0c1b7be41ec598
+msgid "VXLAN overlay"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:328
+#: ../../operations/system_requirements.rst:329
+#: ../../operations/system_requirements.rst:334
+#: ../../operations/system_requirements.rst:335
+#: ../../operations/system_requirements.rst:347
+#: ../../operations/system_requirements.rst:348
+#: ../../operations/system_requirements.rst:353
+#: ../../operations/system_requirements.rst:354
+#: ../../operations/system_requirements.rst:370
+#: 3d5037dfd3464bb496e4697b6bdb1078 3e9a8c57a98b4116a92bd7c05875edb2
+#: 47f6c2d165364ae491dcaa05d96db856 4cb147b60e3041e39ac5a458da889040
+#: 5eabfbd644ce4c6fb9b4d5f8b9592ca6 693f5116a3c14ddea5fd319adb811dd0
+#: 8dd6966f3afc45bbbe9ecab84401ff09 ded44a804bc148c0b0bd2d834544991b
+#: e9d42bd2d9514cafbb090b8bcef69abb
+msgid "4240/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:328
+#: ../../operations/system_requirements.rst:329
+#: ../../operations/system_requirements.rst:330
+#: ../../operations/system_requirements.rst:331
+#: ../../operations/system_requirements.rst:334
+#: ../../operations/system_requirements.rst:335
+#: ../../operations/system_requirements.rst:336
+#: ../../operations/system_requirements.rst:337
+#: ../../operations/system_requirements.rst:347
+#: ../../operations/system_requirements.rst:348
+#: ../../operations/system_requirements.rst:349
+#: ../../operations/system_requirements.rst:350
+#: ../../operations/system_requirements.rst:353
+#: ../../operations/system_requirements.rst:354
+#: ../../operations/system_requirements.rst:355
+#: ../../operations/system_requirements.rst:356
+#: 00e5c024782d44ebaa78503346b12a5c 314e237c0f644bbdb225d87e65ded453
+#: 31865a6bd169447fbb0ebfdd1b86fc39 3595ce0126814b57bb74ce656d57e4a8
+#: 4ca34c2cb92f4fad841c684283df3551 504577d848124ebc8b47e69459281a19
+#: 5c997a2f159c454f8165c342dc683c8b 739643a672264ff3bca5eafaaa630c18
+#: 95c7246af9744731af76a4569e370d5d 97341ab4b8f346dab3c300e3ead20c1a
+#: bd6f964526dd4e31bfa07c121bbd1f48 c3de2d9f8d4b42d7b2a0af8d40e5b147
+#: e466041d75544f57a5fdac5e359f1e81 eda8f1f9c4984d379d796e0136d2cbaa
+#: f306cc388ae645e8acfdf42f0bf4e2de f6548d27ac984383ba63b478359ccc6d
+msgid "health checks"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:330
+#: ../../operations/system_requirements.rst:331
+#: ../../operations/system_requirements.rst:336
+#: ../../operations/system_requirements.rst:337
+#: ../../operations/system_requirements.rst:349
+#: ../../operations/system_requirements.rst:350
+#: ../../operations/system_requirements.rst:355
+#: ../../operations/system_requirements.rst:356
+#: 2aec12daf46646e8afa627bd43a69289 3aee3d38ef8a4e398ec33fde24a50991
+#: 4c2c0dbecd3d49f9b4689c4e164729f7 7c34f84c982f41f9b0977e7422c7e6d5
+#: 9fed25827bc7406c978ee20552414e32 b7d53814ed4845dbbd00185070090de0
+#: c71e4db3fd644e7f90779c4962eb65d9 e98f7fb6a0f84d63b28947e0a62f4771
+msgid "ICMP 8/0"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:332
+#: ../../operations/system_requirements.rst:333
+#: ../../operations/system_requirements.rst:334
+#: ../../operations/system_requirements.rst:335
+#: ../../operations/system_requirements.rst:336
+#: ../../operations/system_requirements.rst:337
+#: ../../operations/system_requirements.rst:351
+#: ../../operations/system_requirements.rst:352
+#: ../../operations/system_requirements.rst:353
+#: ../../operations/system_requirements.rst:354
+#: ../../operations/system_requirements.rst:355
+#: ../../operations/system_requirements.rst:356
+#: ../../operations/system_requirements.rst:357
+#: 16bd064bdbb448339ad2a02af19da478 2253917a724545b7b043a05f928b28da
+#: 2406ba1449c8408fa97294ba3fb0647b 2c96cd9a241d4d16a2f4b9a619bfa995
+#: 3a651e9cc61249e3854c6c5777edacf8 43aa6453c9ac443a86159f38f35f55d9
+#: 51ab2f2efc4a4cd5aade23973656af65 549fb9eeef7941909350b896a64b10e1
+#: 7f6b803acb314bd9af4147c300aa2321 8bbd9511d0e84dc6817881ac517e640e
+#: bc6486c3e8ec4b49b33af549a6b527c7 e59b7091c57a4c63be297b599a2c51ec
+#: e9d4f8bc684542e49e245fdba88f1ec1
+msgid "egress"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:340
+#: 4c8292863c0d4cc3a7d1cd2db6ca8ef7
+msgid "Worker Nodes (``worker-sg``):"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:345
+#: ../../operations/system_requirements.rst:347
+#: ../../operations/system_requirements.rst:349
+#: ../../operations/system_requirements.rst:351
+#: ../../operations/system_requirements.rst:353
+#: ../../operations/system_requirements.rst:355
+#: ../../operations/system_requirements.rst:357
+#: 2d5cdd17375c44299d7fa6128db026b6 44d7c1821cc840efb899d4132d86124d
+#: 499422f5a8234631858c5e1e75a320a6 8356ebf8af81494eae00977075d8ea63
+#: a00647a6fea04decb33deb4d40bbd0aa c1109267addf4e83b670db4fe5110628
+#: ef5a954b8c274ef7a792eb20132ec509
+msgid "``master-sg``"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:346
+#: ../../operations/system_requirements.rst:348
+#: ../../operations/system_requirements.rst:350
+#: ../../operations/system_requirements.rst:352
+#: ../../operations/system_requirements.rst:354
+#: ../../operations/system_requirements.rst:356
+#: 63d6cad470c54f5cb2b01152b04d21b3 7a1241222a1c4962a57b1c18b0cec93f
+#: 96129ecb712a4feeb696bedac8e500f1 a08ad03951424e9b8d414b4853d37aad
+#: ab0f84738b0f4c60b8332a18993cfe97 c36efcae491a446d9829ce27177211f8
+msgid "``worker-sg`` (self)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:360
+#: f8a8778112d1494c8538b4ed5ee4e91f
+msgid ""
+"If you use a shared SG for the masters and workers, you can condense "
+"these rules into ingress/egress to self. If you are using Direct Routing "
+"mode, you can condense all rules into ingress/egress ANY port/protocol "
+"to/from self."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:365
+#: acdd5359c56b43ccadb212a6e9e36bd8
+msgid "The following ports should also be available on each node:"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:370
+#: dc3efbf3aabd4ad0979e322377b303ce
+msgid "cluster health checks (``cilium-health``)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:371
+#: fd5a3b33686d4182849973a12cf392cb
+msgid "4244/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:371
+#: 3a60ac7311b14ba3990ea6dde5da2675
+msgid "Hubble server"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:372
+#: b3ad5e3413114f2b9734d1fdf40eb15e
+msgid "4245/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:372
+#: f9693be7197c4d34b4d935c1ec472a2e
+msgid "Hubble Relay"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:373
+#: 2ffda4aa5c12473e873aeb19946d6549
+msgid "6060/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:373
+#: fba1f9d61caf4caab3156b3fdf975be0
+msgid "cilium-agent pprof server (listening on 127.0.0.1)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:374
+#: cb6f067995dc4bdc94d951126204a3ab
+msgid "6061/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:374
+#: 34811af61fd0402aa50921db44c1ebbc
+msgid "cilium-operator pprof server (listening on 127.0.0.1)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:375
+#: 07ac8836bf594f629ef09a97b7642f39
+msgid "6062/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:375
+#: 8ce2f1e768fb440db3dafb019b36b775
+msgid "Hubble Relay pprof server (listening on 127.0.0.1)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:376
+#: 4cd570ce055449ecabbde210d1dfef88
+msgid "6942/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:376
+#: af6c75d0112d456f833f34c9d91ccfdc
+msgid "operator Prometheus metrics"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:377
+#: af3dd2bb37d648aea45641bfc797e64d
+msgid "9090/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:377
+#: 75e1f74af2de4cca87a9a0506eab0591
+msgid "cilium-agent Prometheus metrics"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:378
+#: 2630882a694f49d3bb4e5426b7b82acc
+msgid "9879/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:378
+#: 2fd530ed4843443a936083d6348fa6a1
+msgid "cilium-agent health status API (listening on 127.0.0.1 and/or ::1)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:379
+#: ed49463b22d84c92996078f2b4875345
+msgid "9890/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:379
+#: 7299876828cb48c4afe47877ff995c53
+msgid "cilium-agent gops server (listening on 127.0.0.1)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:380
+#: e1b5c3b610e749f998f38da4929791ff
+msgid "9891/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:380
+#: 49132e0a247f48cf9932e012e5a3dcd8
+msgid "operator gops server (listening on 127.0.0.1)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:381
+#: 90e43df050d048e0b51072bff2e1faf5
+msgid "9892/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:381
+#: 59eead1407ad485cb629f86e54e9adc2
+msgid "clustermesh-apiserver gops server (listening on 127.0.0.1)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:382
+#: a3fc9ef8ef114b179959373665a66f86
+msgid "9893/tcp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:382
+#: 8ec0fc78fe264c528ac7de3a1dccb017
+msgid "Hubble Relay gops server (listening on 127.0.0.1)"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:383
+#: 19e5cf312fb54ab681a05ab9cc135041
+msgid "51871/udp"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:383
+#: b2c17bef57684c1f83a46d8136c53ea4
+msgid "WireGuard encryption tunnel endpoint"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:389
+#: 3d848a5285c04597ab4ecd6080300648
+msgid "Mounted eBPF filesystem"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:393
+#: b1e59664f3bb45a8b63983ec893bcdee
+msgid ""
+"Some distributions mount the bpf filesystem automatically. Check if the "
+"bpf filesystem is mounted by running the command."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:401
+#: 943b3a54aae94764880e7ed5fe01a878
+msgid ""
+"If the eBPF filesystem is not mounted in the host filesystem, Cilium will"
+" automatically mount the filesystem."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:404
+#: 004e67bf418640d6bd7f85e2fa9d156e
+msgid ""
+"Mounting this BPF filesystem allows the ``cilium-agent`` to persist eBPF "
+"resources across restarts of the agent so that the datapath can continue "
+"to operate while the agent is subsequently restarted or upgraded."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:408
+#: 937b3a00e6534c98b8ef4165074dbbd6
+msgid ""
+"Optionally it is also possible to mount the eBPF filesystem before Cilium"
+" is deployed in the cluster, the following command must be run in the "
+"host mount namespace. The command must only be run once during the boot "
+"process of the machine."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:417
+#: 5934e783ccfa4e1695c2b9adbf284afa
+msgid ""
+"A portable way to achieve this with persistence is to add the following "
+"line to ``/etc/fstab`` and then run ``mount /sys/fs/bpf``. This will "
+"cause the filesystem to be automatically mounted when the node boots."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:425
+#: 45a3d015d73d48aa89f3004b45a19f56
+msgid ""
+"If you are using systemd to manage the kubelet, see the section "
+":ref:`bpffs_systemd`."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:429
+#: d2a621a9fc97453d87a0d7de6ad70423
+msgid "Privileges"
+msgstr ""
+
+#: ../../operations/system_requirements.rst:431
+#: c64cfaf005384a3e835606d234461340
+msgid ""
+"The following privileges are required to run Cilium. When running the "
+"standard Kubernetes :term:`DaemonSet`, the privileges are automatically "
+"granted to Cilium."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:434
+#: fc5606e455cc4c6a9e1e69d4f30e6ccc
+msgid ""
+"Cilium interacts with the Linux kernel to install eBPF program which will"
+" then perform networking tasks and implement security rules. In order to "
+"install eBPF programs system-wide, ``CAP_SYS_ADMIN`` privileges are "
+"required. These privileges must be granted to ``cilium-agent``."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:439
+#: 9c6c9eeba6024ea5893e66a4af9fd2d8
+msgid ""
+"The quickest way to meet the requirement is to run ``cilium-agent`` as "
+"root and/or as privileged container."
+msgstr ""
+
+#: ../../operations/system_requirements.rst:442
+#: a245e13a1b4d4807bcf73104094ad70c
+msgid ""
+"Cilium requires access to the host networking namespace. For this "
+"purpose, the Cilium pod is scheduled to run in the host networking "
+"namespace directly."
+msgstr ""
+

@@ -1,0 +1,44 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/hubble-install.rst:3 feeeb552275d4e04bca488b072eacf09
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/hubble-install.rst:5
+#: ../../gettingstarted/hubble-install.rst:17
+#: ../../gettingstarted/hubble-install.rst:29 62bff1a72ceb46a9bfbcf50b4fb3756c
+#: 95890669417b41f6a1705de8569df94c b25528a1a8d24bebac6c023eb6aaa1cd
+msgid "Download the latest hubble release:"
+msgstr ""
+
+#: ../../gettingstarted/hubble-install.rst:15 d96c44a09355453c90c30cf4e755f979
+msgid "MacOS"
+msgstr ""
+
+#: ../../gettingstarted/hubble-install.rst:27 172fa39b135743b79af2a312c8f7dec0
+msgid "Windows"
+msgstr ""
+
+#: ../../gettingstarted/hubble-install.rst:42 2af888c672264264997d22eb7c42ced6
+msgid ""
+"and move the ``hubble.exe`` CLI to a directory listed in the ``%PATH%`` "
+"environment variable after extracting it from the tarball."
+msgstr ""
+

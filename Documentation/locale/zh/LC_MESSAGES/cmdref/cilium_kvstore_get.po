@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_kvstore_get.md:3 a54919f134e04f0d9f6d461209276b79
+msgid "cilium kvstore get"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_get.md:5 d0b6d63694ae44ec90691e2d3d2429d5
+msgid "Retrieve a key"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_get.md:11 16271053a4ec4651a379572714749f62
+msgid "Examples"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_get.md:17 5ad762836d164596b5554e8f6572de34
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_get.md:25 4c1e0ebd61bb44df9ffcf8fbbd51027b
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_get.md:35 5542cf6b73324e2895e85d71c5330af1
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_kvstore_get.md:37 2fed73cc3bc44b23b77bf43a42dbc323
+msgid "[cilium kvstore](cilium_kvstore.md)\t - Direct access to the kvstore"
+msgstr ""
+

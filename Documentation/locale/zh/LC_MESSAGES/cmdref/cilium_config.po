@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_config.md:3 2aa6f0cc70eb4a73afb1961ee862e819
+msgid "cilium config"
+msgstr ""
+
+#: ../../cmdref/cilium_config.md:5 a7a0d71f2ed549158fd8aa6b0db42535
+msgid "Cilium configuration options"
+msgstr ""
+
+#: ../../cmdref/cilium_config.md:11 67bf7d4196894014850bac45d1fd0560
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_config.md:22 efe326aa978e4f97a81a8a3331160355
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_config.md:30 d36a06bc99f645af8302f5eff1dd6bd0
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_config.md:32 0a1dd347cd5a45f08eb07412008ca498
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_config.md:33 61fcb175f60845188d2e067e2b987f27
+msgid ""
+"[cilium config get](cilium_config_get.md)\t - Retrieve cilium "
+"configuration"
+msgstr ""
+

@@ -1,0 +1,271 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:3
+#: d8f4c3acf4cf445995fa01d3f51ee56a
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: http://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:11
+#: c892314801204b558cf19a33fa3948f8
+msgid "Cluster Scope (Default)"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:13
+#: f58b9b4244e4425899fffee19f95010a
+msgid ""
+"The cluster-scope IPAM mode assigns per-node PodCIDRs to each node and "
+"allocates IPs using a host-scope allocator on each node. It is thus "
+"similar to the :ref:`k8s_hostscope` mode. The difference is that instead "
+"of Kubernetes assigning the per-node PodCIDRs via the Kubernetes "
+"``v1.Node`` resource, the Cilium operator will manage the per-node "
+"PodCIDRs via the ``v2.CiliumNode`` resource. The advantage of this mode "
+"is that it does not depend on Kubernetes being configured to hand out "
+"per-node PodCIDRs."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:23
+#: 28acdfef0fb240e8b9a8f83505c3434f
+msgid "Architecture"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:28
+#: 2dad7847ecb94293a23266c684cdb45e
+msgid ""
+"This is useful if Kubernetes cannot be configured to hand out PodCIDRs or"
+" if more control is needed."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:31
+#: 0a3c0139d4164d7fb6a8ac8ffc94c7b2
+msgid ""
+"In this mode, the Cilium agent will wait on startup until the "
+"``PodCIDRs`` range are made available via the Cilium Node "
+"``v2.CiliumNode`` object for all enabled address families via the "
+"resource field set in the ``v2.CiliumNode``:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:36
+#: ../../concepts/networking/ipam/cluster-pool.rst:79
+#: ac3d689b2f064e65bf32d23f5ce6eed7 d5d065e396f145fe8eb380656482a981
+msgid "Field"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:36
+#: ../../concepts/networking/ipam/cluster-pool.rst:79
+#: 18f06c20c7b54fa8a49d839076e1034d c8b92add13de4769bcaf357d443e4732
+msgid "Description"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:38
+#: ../../concepts/networking/ipam/cluster-pool.rst:81
+#: 12ddebd5a2b1455dbc57c27654bb8119 98ee84b3ff644513ace0030651eef220
+msgid "``Spec.IPAM.PodCIDRs``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:38
+#: d939ab46580f4305b2a5e9431b4fd69b
+msgid "IPv4 and/or IPv6 PodCIDR range"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:43
+#: ../../concepts/networking/ipam/cluster-pool.rst:104
+#: f8738629506b4cc8b7d0332a0f58f154 fa9e8795aa3f498aa06ff5e5a08db0fe
+msgid "Configuration"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:45
+#: 73cc876f20ba409f9cdb3fe1ee3cb9d3
+msgid ""
+"For a practical tutorial on how to enable this mode in Cilium, see "
+":ref:`gsg_ipam_crd_cluster_pool`."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:50
+#: 387bf7ce742647bc9d3e934e6bf1daed
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:53
+#: de5c5a3ed4ed411d8f7b00a13b58bf76
+msgid "Look for allocation errors"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:55
+#: ba4a3ffe26f34df1bc5d4cb8e0a4977e
+msgid "Check the ``Error`` field in the ``Status.Operator`` field:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:63
+#: 5e4be7f9007c4142acb4dd3dcda72ad1
+msgid "Cluster Pool v2 (Beta)"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:65
+#: f46d613fa62f4a548e580c04ce9c1094
+msgid ""
+"Cluster Pool v2 (Beta) extends the above mechanism to allow additional "
+"PodCIDRs to be dynamically allocated to each node based on usage. With "
+"v2, each Cilium agent instance reports the utilization of its PodCIDRs "
+"via the ``CiliumNode`` resource."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:70
+#: ab64b14f36944621b85db4de3f257bc5
+msgid ""
+"If a node is running low on available pod IPs, the operator will assign "
+"an additional PodCIDR to that node. Likewise, if a node has unused "
+"PodCIDRs, it will eventually release it, allowing the operator to re-"
+"assign the released PodCIDR to a different node if needed."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:75
+#: 03a2e4354c6c4f4096f9c4b0aeda0eca
+msgid ""
+"When running v2, the ``CiliumNode`` resource is extended with an "
+"additional PodCIDR status section:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:81
+#: 496cd1922ede4a0e93ebe6a3f7920772
+msgid "List of assigned IPv4 and/or IPv6 PodCIDRs"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:83
+#: 118dea09238c4eb3b12f8215ba615c8d
+msgid "``Status.IPAM.PodCIDRs``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:83
+#: a128710cc2d64886bab223011575d77e
+msgid "PodCIDR utilization (one of: ``in-use``, ``depleted``, or ``released``)"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:87
+#: bdc9ba0772c7483a8000ff11f398148d
+msgid ""
+"The operator assigns a new PodCIDR to a node if all of its PodCIDRs are "
+"either depleted or released."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:91
+#: b2753de21e734a51a6b57f172a4baf36
+msgid "Limitations"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:93
+#: 37dc4631f7d04903a15000e389398e2c
+msgid ""
+"Cluster Pool v2 is a preview feature. The following limitations currently"
+" apply to Cilium running in ``cluster-pool-v2beta`` IPAM mode:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:97
+#: 752f1eae481e45fe9a8dc7aa019bc1ea
+msgid ""
+"Tunnel mode is not supported. Cluster Pool v2 may only be used in direct "
+"routing mode."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:99
+#: 8213d23811d64c75875aee05f53bb9b2
+msgid "Transparent encryption with IPSec is not supported."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:101
+#: 7a2db361f81b4da19be1a23420633029
+msgid "The current status of these limitations is tracked in :gh-issue:`18987`."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:106
+#: 4877c0e6c84e42e085a65528d61616f1
+msgid ""
+"To enable Cluster Pool v2, pass ``--set ipam.mode=cluster-pool-v2beta`` "
+"to your Helm options. The CIDR pool used in Cluster Pool v2 mode are "
+"configured the same way as regular cluster pool (see "
+":ref:`gsg_ipam_crd_cluster_pool`)."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:110
+#: 23af6d55d04948cfa39b1929ae0d0b7b
+msgid ""
+"In addition, the thresholds for when a PodCIDR should be allocated or "
+"released can be configured per node via the following "
+"``CiliumNode.Spec.IPAM`` fields:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:125
+#: ac30ccdea0604e3699a2029e28dd93d2
+msgid "``Spec.IPAM.PodCIDRAllocationThreshold``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:114
+#: d08c3136889c4c0c83383c5c98d687f1
+msgid ""
+"Defines the minimum number of free IPs which must be available to this "
+"node via its PodCIDR pool."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:117
+#: 881b773f3b954c8e8fb0ee1b0e6dbc04
+msgid ""
+"If the total number of IP addresses in the PodCIDR pool is less than this"
+" value, the PodCIDRs currently in-use by this node will be marked as "
+"depleted and Cilium operator will allocate a new PodCIDR to this node."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:121
+#: d3f977f446a04cfd9d9aa419bf043b72
+msgid ""
+"This value effectively defines the buffer of IP addresses available "
+"immediately without requiring  Cilium operator to get involved."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:124
+#: ececfdb62adf48468832c3f3dcb1d469
+msgid "If unspecified, defaults to 8."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:135
+#: 66b269da51874ea4b2f97a8488108be8
+msgid "``Spec.IPAM.PodCIDRReleaseThreshold``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:128
+#: 34d4bf4ebf224223a46a78f1a111f0fc
+msgid ""
+"Defines the maximum number of free IPs which may be available to this "
+"node via its PodCIDR pool."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:131
+#: a98c3af16e7c46dda7c3936cdb2a431e
+msgid ""
+"While the total number of free IP addresses in the PodCIDR pool is larger"
+" than this value, Cilium agent will attempt to release currently unused "
+"PodCIDR."
+msgstr ""
+
+#: ../../concepts/networking/ipam/cluster-pool.rst:134
+#: 77a539d7350043b0bcdd6f47cc73164a
+msgid "If unspecified, defaults to 16."
+msgstr ""
+

@@ -1,0 +1,807 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../operations/performance/benchmark.rst:3
+#: 5e5ee5e3f7ee4f96ac5da1af8b5c247c
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:11
+#: d4a1e947ebf940099b6dd4aafe481d9b
+msgid "CNI Performance Benchmark"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:14
+#: a2340b16ff13415fa43c324716774063
+msgid "Introduction"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:16
+#: 0cf1bf1f69a9423692c309bc456442e9
+msgid ""
+"This chapter contains performance benchmark numbers for a variety of "
+"scenarios. All tests are performed between containers running on two "
+"different bare metal nodes connected back-to-back by a 100Gbit/s network "
+"interface. Upon popular request we have included performance numbers for "
+"Calico for comparison."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:23
+#: af2fdf7143544ca6ae069aaaebffeed4
+msgid ""
+"To achieve these performance results, follow the "
+":ref:`performance_tuning`."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:25
+#: 5c0775198efa4ef19a19dce526f5b59c
+msgid ""
+"For more information on the used system and configuration, see "
+":ref:`test_hardware`. For more details on all tested configurations, see "
+":ref:`test_configurations`."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:29
+#: 986b4035f66845af95a945c4512e476c
+msgid ""
+"The following metrics are collected and reported. Each metric represents "
+"a different traffic pattern that can be required for workloads. See the "
+"specific sections for an explanation on what type of workloads are "
+"represented by each benchmark."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:36
+#: b4831adb08954e658caed77e990fea2a
+msgid "Throughput"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:35
+#: 0f5589f0ef6c4848bd62ab10306ac2d5
+msgid ""
+"Maximum transfer rate via a single TCP connection and the total transfer "
+"rate of 32 accumulated connections."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:40
+#: 043deff47c934ba491f750c637961e48
+msgid "Request/Response Rate"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:39
+#: b4055cf48066492da77d0be6658ff1ee
+msgid ""
+"The number of request/response messages per second that can be "
+"transmitted over a single TCP connection and over 32 parallel TCP "
+"connections."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:45
+#: d6fa317924014fa1a8c67634dd62ac42
+msgid "Connections Rate"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:43
+#: 8a0e57d775e747429e9bd35a24bd0a0c
+msgid ""
+"The number of connections per second that can be established in sequence "
+"with a single request/response payload message transmitted for each new "
+"connection. A single process and 32 parallel processes are tested."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:47
+#: 77dfa02349a6405e842c455d303275b2
+msgid ""
+"For the various benchmarks `netperf "
+"<https://github.com/HewlettPackard/netperf>`_ has been used to generate "
+"the workloads and to collect the metrics. For spawning parallel netperf "
+"sessions, `super_netperf "
+"<https://raw.githubusercontent.com/borkmann/netperf_scripts/master/super_netperf>`_"
+" has been used. Both netperf and super_netperf are also frequently used "
+"and well established tools for benchmarking in the Linux kernel "
+"networking community."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:56
+#: 7470b7672e2544828be76e0a724264fe
+msgid "TCP Throughput (TCP_STREAM)"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:58
+#: e6a86e91874240668f2f3c8fca893d20
+msgid ""
+"Throughput testing (TCP_STREAM) is useful to understand the maximum "
+"throughput that can be achieved with a particular configuration. All or "
+"most configurations can achieve line-rate or close to line-rate if enough"
+" CPU resources are thrown at the load. It is therefore important to "
+"understand the amount of CPU resources required to achieve a certain "
+"throughput as these CPU resources will no longer be available to "
+"workloads running on the machine."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:65
+#: 32131933ee3b4a9e810b3c3876fc13e6
+msgid ""
+"This test represents bulk data transfer workloads, e.g. streaming "
+"services or services performing data upload/download."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:69
+#: 158047e32d6c47d8a13e13bdbed806e2
+msgid "Single-Stream"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:71
+#: 4767166711f14dcd959904d5188fead8
+msgid ""
+"In this test, a single TCP stream is opened between the containers and "
+"maximum throughput is achieved:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:76
+#: 9b27f446622149018f91c4b16df21c1c
+msgid ""
+"We can see that eBPF-based solutions can outperform even the node-to-node"
+" baseline on modern kernels despite performing additional work "
+"(forwarding into the network namespace of the container, policy "
+"enforcement, ...). This is because eBPF is capable of bypassing the "
+"iptables layer of the node which is still traversed for the node to node "
+"baseline."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:82
+#: 9c6781053b584026897a725fa4e70347
+msgid ""
+"The following graph shows the total CPU consumption across the entire "
+"system while running the benchmark, normalized to a 50Gbit throughput:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:89
+#: 7ab6a21f2dba465cbfd3298dd875a1b0
+msgid ""
+"**Kernel wisdom:** TCP flow performance is limited by the receiver, since"
+" sender can use both TSO super-packets. This can be observed in the "
+"increased CPU spending on the server-side above above."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:94
+#: afd7f632be4047b78994d84dccc6abb8
+msgid "Multi-Stream"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:96
+#: 7e1d03ea0c0c45c681dd02a5cd58b2aa
+msgid ""
+"In this test, 32 processes are opening 32 parallel TCP connections. Each "
+"process is attempting to reach maximum throughput and the total is "
+"reported:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:101
+#: 54bda4f0456e4956a2d4c544d65d5015
+msgid ""
+"Given multiple processes are being used, all test configurations can "
+"achieve transfer rates close to the line-rate of the network interface. "
+"The main difference is the CPU resources required to achieve it:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:110
+#: 7472308806db4e1cb491984ec7cb1bd4
+msgid "Request/Response Rate (TCP_RR)"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:112
+#: 5428b127b26c4afd94795e8670ea016c
+msgid ""
+"The request/response rate (TCP_RR) primarily measures the latency and "
+"efficiency to handle round-trip forwarding of an individual network "
+"packet. This benchmark will lead to the most packets per second possible "
+"on the wire and stresses the cost performed by a network packet. This is "
+"the opposite of the throughput test which maximizes the size of each "
+"network packet."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:118
+#: 21cc8d6201d44346b02ddbd1ae693934
+msgid ""
+"A configuration that is doing well in this test (delivering high requests"
+" per second rates) will also deliver better (lower) network latencies."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:121
+#: 0a4d0bf492ae471aacb08df19579bc4f
+msgid ""
+"This test represents services which maintain persistent connections and "
+"exchange request/response type interactions with other services. This is "
+"common for services using REST or gRPC APIs."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:126
+#: ../../operations/performance/benchmark.rst:176
+#: 50457d41c5934f0185c48455ee521285 e1abcc0425c243949b635e85bfb9648a
+msgid "1 Process"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:128
+#: 0f727bbf5789458d979eeb1ca02bf343
+msgid ""
+"In this test, a single TCP connection is opened between the containers "
+"and a single byte is sent back and forth between the containers. For each"
+" round-trip, one request is counted:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:134
+#: fdf2d9801c2949efa9a1cfed9e1652f0
+msgid ""
+"eBPF on modern kernels can achieve almost the same request/response rate "
+"as the baseline while only consuming marginally more CPU resources:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:140
+#: ../../operations/performance/benchmark.rst:196
+#: 503424932b99478fa3e2252d562c6573 9af5a99d68524239b5b7d6dc917016b1
+msgid "32 Processes"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:142
+#: 254f06b8d6374a24b9fbb2437d6a35f6
+msgid ""
+"In this test, 32 processes are opening 32 parallel TCP connections. Each "
+"process is performing single byte round-trips. The total number of "
+"requests per second is reported:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:148
+#: cd8e2e43e57d483798369c4527e0df5b
+#, python-format
+msgid ""
+"Cilium can achieve close to 1M requests/s in this test while consuming "
+"about 30% of the system resources on both the sender and receiver:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:154
+#: dd557a2f63784431b39d4bc8d52ef3d1
+msgid "Connection Rate (TCP_CRR)"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:156
+#: 6265a34b9ae14bc28e20d2c1172065e6
+msgid ""
+"The connection rate (TCP_CRR) test measures the efficiency in handling "
+"new connections. It is similar to the request/response rate test but will"
+" create a new TCP connection for each round-trip. This measures the cost "
+"of establishing a connection, transmitting a byte in both directions, and"
+" closing the connection. This is more expensive than the TCP_RR test and "
+"puts stress on the cost related to handling new connections."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:163
+#: f68b9361e6b24117872aed155c31990a
+msgid ""
+"This test represents a workload that receives or initiates a lot of TCP "
+"connections. An example where this is the case is a publicly exposed "
+"service that receives connections from many clients. Good examples of "
+"this are L4 proxies or services opening many connections to external "
+"endpoints. This benchmark puts the most stress on the system with the "
+"least work offloaded to hardware so we can expect to see the biggest "
+"difference between tested configurations."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:171
+#: 9d71f8908dd4437e96cc57136bb5e6d1
+msgid ""
+"A configuration that does well in this test (delivering high connection "
+"rates) will handle situations with overwhelming connection rates much "
+"better, leaving more CPU resources available to workloads on the system."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:178
+#: 1fa6044a6eac48f0a869029891fd7dc1
+msgid ""
+"In this test, a single process opens as many TCP connections as possible "
+"in sequence:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:183
+#: ../../operations/performance/benchmark.rst:216
+#: c3fbe8d58334492e98d1e159415dffb4 d1feba9068464a019a4894ad19fc0d4e
+msgid ""
+"The following graph shows the total CPU consumption across the entire "
+"system while running the benchmark:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:190
+#: 496830127a694bda891b06391a2cbeef
+msgid ""
+"**Kernel wisdom:** The CPU resources graph makes it obvious that some "
+"additional kernel cost is paid at the sender as soon as network namespace"
+" isolation is performed as all container workload benchmarks show signs "
+"of this cost. We will investigate and optimize this aspect in a future "
+"release."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:198
+#: 0a4b141c9278454490ca2c73e0e83ba5
+msgid ""
+"In this test, 32 processes running in parallel open as many TCP "
+"connections in sequence as possible. This is by far the most stressful "
+"test for the system."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:203
+#: bebe1cc0169c40d98e9fe6828f619e79
+msgid ""
+"This benchmark outlines major differences between the tested "
+"configurations. In particular, it illustrates the overall cost of "
+"iptables which is optimized to perform most of the required work per "
+"connection and then caches the result. This leads to a worst-case "
+"performance scenario when a lot of new connections are expected."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:211
+#: 6fcad0c828484d42b76abbf998110894
+msgid ""
+"We have not been able to measure stable results for the Calico eBPF "
+"datapath.  We are not sure why. The network packet flow was never steady."
+" We have thus not included the result. We invite the Calico team to work "
+"with us to investigate this and then re-test."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:222
+#: 868305115e3b44b1b497abe1429535d4
+msgid "Encryption (WireGuard/IPsec)"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:224
+#: 53a1650698f64814928a3fe0364301c9
+msgid ""
+"Cilium supports encryption via WireGuard® and IPsec. This first section "
+"will look at WireGuard and compare it against using Calico for WireGuard "
+"encryption. If you are interested in IPsec performance and how it "
+"compares to WireGuard, please see :ref:`performance_wireguard_ipsec`."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:230
+#: da03cb4450534641ac0ee1e21fe33392
+msgid "WireGuard Throughput"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:232
+#: 6888e4c7018c48669906440e0ce5198d
+msgid ""
+"Looking at TCP throughput first, the following graph shows results for "
+"both 1500 bytes MTU and 9000 bytes MTU:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:239
+#: ca40aeeac04c44f1adcc5110fc5f68cb
+msgid ""
+"The Cilium eBPF kube-proxy replacement combined with WireGuard is "
+"currently slightly slower than Cilium eBPF + kube-proxy. We have "
+"identified the problem and will be resolving this deficit in one of the "
+"next releases."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:243
+#: b3179f8c17f34dfe8f162e6f7cd3f07c
+msgid ""
+"The following graph shows the total CPU consumption across the entire "
+"system while running the WireGuard encryption benchmark:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:249
+#: 6df17592bbf045aaa6cd77565052ba00
+msgid "WireGuard Request/Response"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:251
+#: 55453d7f37f94e2f996f09f8e48494bc
+msgid ""
+"The next benchmark measures the request/response rate while encrypting "
+"with WireGuard. See :ref:`request_response` for details on what this test"
+" actually entails."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:257
+#: 966475684a964bf5a4e8e08b27f79653
+msgid ""
+"All tested configurations performed more or less the same. The following "
+"graph shows the total CPU consumption across the entire system while "
+"running the WireGuard encryption benchmark:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:266
+#: 80f43f171baf40f58ee59d25d7767484
+msgid "WireGuard vs IPsec"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:268
+#: f2b4e270624548e0bd9ddb290578d161
+msgid ""
+"In this section, we compare Cilium encryption using WireGuard and IPsec. "
+"WireGuard is able to achieve a higher maximum throughput:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:273
+#: a0afffece9684169a390710b564017f9
+msgid ""
+"However, looking at the CPU resources required to achieve 10Gbit/s of "
+"throughput, WireGuard is less efficient at achieving the same throughput:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:280
+#: 107b934ecf674414b92b6d9711358fed
+msgid ""
+"IPsec performing better than WireGuard in in this test is unexpected in "
+"some ways. A possible explanation is that the IPsec encryption is making "
+"use of AES-NI instructions whereas the WireGuard implementation is not. "
+"This would typically lead to IPsec being more efficient when AES-NI "
+"offload is available and WireGuard being more efficient if the "
+"instruction set is not available."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:287
+#: 688c07825b334ff6b91885d912ac834c
+msgid ""
+"Looking at the request/response rate, IPsec is outperforming WireGuard in"
+" our tests. Unlike for the throughput tests, the MTU does not have any "
+"effect as the packet sizes remain small:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:295
+#: 0b9b8a7ef9c34991a8ec1ec1344473a1
+msgid "Test Environment"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:300
+#: b277de1bd34b41ce999a222bcfe0c21a
+msgid "Test Hardware"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:302
+#: 16b7e39c627d472881605a3e3cd84679
+msgid "All tests are performed using regular off-the-shelf hardware."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:305
+#: f9370aa2d4454e2198fe962f49782a72
+msgid "Item"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:305
+#: ../../operations/performance/benchmark.rst:323
+#: 64e2701b0b944ee299e6328a18bd6412 b61900d6fc5745da95ae3c44314d89be
+msgid "Description"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:307
+#: b6a4f5d4701041f8a5f1532806d23453
+msgid "CPU"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:307
+#: b3400c374baa47d0b95248ae9cc64af1
+msgid ""
+"`AMD Ryzen 9 3950x <https://www.amd.com/en/products/cpu/amd-"
+"ryzen-9-3950x>`_, AM4 platform, 3.5GHz, 16 cores / 32 threads"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:308
+#: 461343cd59034f8cb11e368466e0959e
+msgid "Mainboard"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:308
+#: e6ac8cb6739746b0bcf0bf2cd59308a2
+msgid ""
+"`x570 Aorus Master <https://www.gigabyte.com/us/Motherboard/X570-AORUS-"
+"MASTER-rev-11-12/sp#sp>`_, PCIe 4.0 x16 support"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:309
+#: 9718ef8fb5b040928aaef5a54eadd736
+msgid "Memory"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:309
+#: 9569720959f54c8cb92a78165fc2bb36
+msgid ""
+"`HyperX Fury DDR4-3200 <https://www.hyperxgaming.com/us/memory/fury-"
+"ddr4>`_ 128GB, XMP clocked to 3.2GHz"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:310
+#: ba54a3b1e32246ea93a18a0d9d3d0b09
+msgid "Network Card"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:310
+#: 5b1ca9806cef44088508f15942932fb5
+msgid ""
+"`Intel E810-CQDA2 "
+"<https://ark.intel.com/content/www/us/en/ark/products/192558/intel-"
+"ethernet-network-adapter-e810-cqda2.html>`_, dual port, 100Gbit/s per "
+"port, PCIe 4.0 x16"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:311
+#: 391ec70380bd4f54aa901f492560da5f
+msgid "Kernel"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:311
+#: 876007f8ecc74b2d8c4a7ade89c7d92a
+msgid "Linux 5.10 LTS, see also :ref:`performance_tuning`"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:317
+#: 832a0b81cba74c42a69bd464474fa2cf
+msgid "Test Configurations"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:319
+#: bbdfb43738bd42e19aa8991109ee37af
+msgid ""
+"All tests are performed using standardized configuration. Upon popular "
+"request, we have included measurements for Calico for direct comparison."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:323
+#: 23ce35f08c9a4ccb870d3487c1e23f0e
+msgid "Configuration Name"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:325
+#: cc13a9a6e622422bae8d56d3596ff0ab
+msgid "Baseline (Node to Node)"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:325
+#: e83a5e54398844e0b05b4cf3276dd8c0
+msgid "No Kubernetes"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:326
+#: e9dc0e60fc364251afe2d28468f39efa
+msgid "Cilium"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:326
+#: f165145b58fe4bd78e52416ae1aebebb
+msgid "Cilium 1.9.6, eBPF host-routing, kube-proxy replacement, No CT"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:327
+#: 94671c6231a74f5883b5614b9b473946
+msgid "Cilium (legacy host-routing)"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:327
+#: 5c1a2c7a0d534d13aece1ad418145342
+msgid "Cilium 1.9.6, legacy host-routing, kube-proxy replacement, No CT"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:328
+#: c3211508b9e9497f856503e71e853161
+msgid "Calico"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:328
+#: d83261fda26c453cab5ecedb346c9f42
+msgid "Calico 3.17.3, kube-proxy"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:329
+#: fbf331acba33438f8c576524b67d0ba9
+msgid "Calico eBPF"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:329
+#: 73e2e5e80c594e1b87818eeaba9a2645
+msgid "Calico 3.17.3, eBPF datapath, No CT"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:333
+#: 38c384542c154da8a8f75c029e4c144e
+msgid "How to reproduce"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:335
+#: d86900b4549240ecab703714aa7caf3a
+msgid ""
+"To ease reproducibility, this report is paired with a set of scripts that"
+" can be found in `cilium/cilium-perf-networking "
+"<https://github.com/cilium/cilium-perf-networking>`_. All scripts in this"
+" document refer to this repository. Specifically, we use `Terraform "
+"<https://www.terraform.io/>`_ and `Ansible <https://www.ansible.com/>`_ "
+"to setup the environment and execute benchmarks. We use `Packet "
+"<https://www.packet.com/>`_ bare metal servers as our hardware platform, "
+"but the guide is structured so that it can be easily adapted to other "
+"environments."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:344
+#: 1a72d9fa82ab4eb3b35cf7a063df0011
+msgid "Download the Cilium performance evaluation scripts:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:352
+#: 3f778d405d8840999226e6afa787685e
+msgid "Packet Servers"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:354
+#: a940673e8af243d18b1d014203696b3f
+msgid ""
+"To evaluate both :ref:`arch_overlay` and :ref:`native_routing`, we "
+"configure the Packet machines to use a `\"Mixed/Hybrid\" "
+"<https://www.packet.com/developers/docs/network/advanced/layer-2/>`_ "
+"network mode, where the secondary interfaces of the machines share a flat"
+" L2 network. While this can be done on the Packet web UI, we include "
+"appropriate Terraform (version 0.13) files to automate this process."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:370
+#: 3de318d5bd774e98a920a612c38c5e4b
+msgid ""
+"The above will provision two servers named ``knb-0`` and ``knb-1`` of "
+"type ``c3.small.x86`` and configure them to use a \"Mixed/Hybrid\" "
+"network mode under a common VLAN named ``knb``.  The machines will be "
+"provisioned with an ``ubuntu_20_04`` OS.  We also create a ``packet-"
+"hosts.ini`` file to use as an inventory file for Ansible."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:376
+#: 17174f2242e04de4a815f53316075273
+msgid ""
+"Verify that the servers are successfully provisioned by executing an ad-"
+"hoc ``uptime`` command on the servers."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:393
+#: c49637133d3f4cddaa3be1f994eefd24
+msgid ""
+"Next, we use the ``packet-disbond.yaml`` playbook to configure the "
+"network interfaces of the machines. This will destroy the ``bond0`` "
+"interface and configure the first physical interface with the public and "
+"private IPs (``prv_ip``) and the second with the node IP (``node_ip``) "
+"that will be used for our evaluations (see `Packet documentation "
+"<https://www.packet.com/resources/guides/layer-2-configurations/>`_ and "
+"our scripts for more info)."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:408
+#: aaff1ccb370249569abe2d5db878652f
+msgid ""
+"For hardware platforms other than Packet, users need to provide their own"
+" inventory file (``packet-hosts.ini``) and follow the subsequent steps."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:413
+#: ba4a280bd79148e58a945e6c8e6992ad
+msgid "Install Required Software"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:415
+#: 7150ffa2c7204eb2b77a33399b20b198
+msgid "Install netperf (used for raw host-to-host measurements):"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:422
+#: bc02bb1941754ce896a82bed11329126
+msgid "Install ``kubeadm`` and its dependencies:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:428
+#: 77c65616b35a4698b823fa1d5cec484f
+msgid ""
+"We use `kubenetbench <https://github.com/cilium/kubenetbench>`_ to "
+"execute the `netperf <https://github.com/HewlettPackard/netperf>`_ "
+"benchmark in a Kubernetes environment. kubenetbench is a Kubernetes "
+"benchmarking project that is agnostic to the CNI or networking plugin "
+"that the cluster is deployed with. In this report we focus on pod-to-pod "
+"communication between different nodes. To install kubenetbench:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:441
+#: 21a92ecfd28b4b5fb8679e29ef7c2e48
+msgid "Running Benchmarks"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:446
+#: d763ed3ac0bd4505b87553465d05408d
+msgid "Tunneling"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:448
+#: 99093b2a379442f39d0978bbd7d14f68
+msgid "Configure Cilium in tunneling (:ref:`arch_overlay`) mode:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:455
+#: 7d14718f0b2e4bc890d64adae34f1d49
+msgid ""
+"The first command configures Cilium to use tunneling (``-e "
+"mode=tunneling``), which by default uses the VXLAN overlay.  The second "
+"executes our benchmark suite (the ``conf`` variable is used to identify "
+"this benchmark run). Once execution is done, a results directory will be "
+"copied back in a folder named after the ``conf`` variable (in this case, "
+"``vxlan``). This directory includes all the benchmark results as "
+"generated by kubenetbench, including netperf output and system "
+"information."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:466
+#: c22639944300426bb7d37b2e23c39d7f
+msgid "Native Routing"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:468
+#: 889aa1b931f045d28e1fa73d162f2f36
+msgid ""
+"We repeat the same operation as before, but configure Cilium to use "
+":ref:`native_routing` (``-e mode=directrouting``)."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:479
+#: 90c1143ec6094a278cd101b34a500304
+msgid "Encryption"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:481
+#: 3039722d218e4d9fb04233ffb17c099a
+msgid "To use encryption with native routing:"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:489
+#: 92eadf8d0da548cd82511a62a341b554
+msgid "Baseline"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:491
+#: 942a969dc1264f8aae32cd38be3b3037
+msgid ""
+"To have a point of reference for our results, we execute the same "
+"benchmarks between hosts without Kubernetes running. This provides an "
+"effective upper limit to the performance achieved by Cilium."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:500
+#: c0681f105b404dc7b0a39a8dd9af912b
+msgid ""
+"The first command removes Kubernetes and reboots the machines to ensure "
+"that there are no residues in the systems, whereas the second executes "
+"the same set of benchmarks between hosts. An alternative would be to run "
+"the raw benchmark before setting up Cilium, in which case one would only "
+"need the second command."
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:506
+#: 031e183861ac4ababc27ff5d019fecef
+msgid "Cleanup"
+msgstr ""
+
+#: ../../operations/performance/benchmark.rst:508
+#: e9ab5c1ef1cb4b859b118d44266a8ad8
+msgid ""
+"When done with benchmarking, the allocated Packet resources can be "
+"released with:"
+msgstr ""
+

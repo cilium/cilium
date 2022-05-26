@@ -1,0 +1,70 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/hubble.rst:3 d84a29a5dfd14229b5d41e5341e517c3
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/development/hubble.rst:11
+#: 2d11ab932fff4d29afe7164389d3dcfd
+msgid "Hubble"
+msgstr ""
+
+#: ../../contributing/development/hubble.rst:13
+#: 8e10d2e7b98d495488a252ff5b89553b
+msgid "This section is specific to Hubble contributions."
+msgstr ""
+
+#: ../../contributing/development/hubble.rst:16
+#: 0571c610a5154d8c91c430e0b2d265b2
+msgid "Bumping the vendored Cilium dependency"
+msgstr ""
+
+#: ../../contributing/development/hubble.rst:18
+#: 1136c79fbaa140d09c32263238482302
+msgid ""
+"Hubble vendors Cilium using Go modules. You can bump the dependency by "
+"first running:"
+msgstr ""
+
+#: ../../contributing/development/hubble.rst:25
+#: 37581871005444b1ad66043099ba06a0
+msgid ""
+"However, Cilium's ``go.mod`` contains ``replace`` directives, which are "
+"ignored by ``go get`` and ``go mod``. Therefore you must also manually "
+"copy any updated ``replace`` directives from Cilium's ``go.mod`` to "
+"Hubble's ``go.mod``."
+msgstr ""
+
+#: ../../contributing/development/hubble.rst:29
+#: 40bcc28741be4c5bae17df6fbfec8627
+msgid ""
+"Once you have done this you can tidy up, vendor the modules, and verify "
+"them:"
+msgstr ""
+
+#: ../../contributing/development/hubble.rst:37
+#: 2863787ec95240448f9cfd32c25856fc
+msgid ""
+"The bumped dependency should be committed as a single commit containing "
+"all the changes to ``go.mod``, ``go.sum``, and the ``vendor`` directory."
+msgstr ""
+

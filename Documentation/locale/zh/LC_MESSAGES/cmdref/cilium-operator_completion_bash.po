@@ -1,0 +1,88 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator_completion_bash.md:3
+#: f6bc882dce0d4aa983af2d220e376ad6
+msgid "cilium-operator completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:5
+#: ef13390bf7cf4c26bb48f0b9874693f8
+msgid "Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:7
+#: d4a840ddab8a4f84ae9c8fd8a8cfa52e
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:9
+#: 35a48c1854a24bb78d75fd0b413cdcba
+msgid "Generate the autocompletion script for the bash shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:11
+#: a454022dea7040f7b6ab1c0bae2f9243
+msgid ""
+"This script depends on the 'bash-completion' package. If it is not "
+"installed already, you can install it via your OS's package manager."
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:14
+#: 2e7516754a85406485a0cab2ef2f0cbc
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:18
+#: 21ab4de6ef954fcfae4f24cdb586f577
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:20
+#: b57cd633461c45cf9eeb451dba4bb6a0
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:24
+#: 18cbf654a1bc48eea91559370d69abe3
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:28
+#: a5efb2bbd2714115a45470bfaf50b5cd
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:35
+#: 02954a930a7e4f4ca30b81aeab531d56
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:42
+#: f9b9d10dfc8b41c7935c3c6ed6fb7435
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_bash.md:44
+#: 69be372ed1394b5f9d674aff01e40bcc
+msgid ""
+"[cilium-operator completion](cilium-operator_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+

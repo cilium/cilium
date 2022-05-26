@@ -1,0 +1,53 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:3 309a147200d4446d83ae83335a7dc1d3
+msgid "cilium bpf vtep list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:5 ad5244660a884fb79aed4f22cf16636f
+msgid "List VTEP CIDR and their corresponding VTEP MAC/IP"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:7 bd8ffd43bbe84f77a676a762d9cb8027
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:9 d5aac2d1a7c340f5b974f401a7bd79eb
+msgid "List VTEP CIDR and their corresponding VTEP MAC/IP."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:16 d2247d0bfe444dfb82700d9833db8081
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:23 418f0ace3f384c48b0601bcf9ee38377
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:31 f16bba9f8f2c45ceaf526d0fd27ddeaf
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_vtep_list.md:33 37100512493c4190869d43fad02800af
+msgid ""
+"[cilium bpf vtep](cilium_bpf_vtep.md)\t - Manage the VTEP mappings for "
+"IP/CIDR <-> VTEP MAC/IP"
+msgstr ""
+

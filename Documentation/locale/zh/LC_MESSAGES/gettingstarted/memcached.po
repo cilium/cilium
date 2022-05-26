@@ -1,0 +1,422 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/memcached.rst:3 70f981e095f54250847b7479f692b9bb
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:9 0418e172cfa14bdcae0f3cbd45bc96c6
+msgid "Getting Started Securing Memcached"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:11 ea93e03da8b24702af1949a43ffb0caf
+msgid ""
+"This document serves as an introduction to using Cilium to enforce "
+"memcached-aware security policies. It walks through a single-node Cilium "
+"environment running on your machine. It is designed to take 15-30 "
+"minutes."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:16 a5f2d433622f4e8083188905ce6f4536
+msgid ""
+"**NOTE:** memcached-aware policy support is still in beta.  It is not yet"
+" ready for production use. Additionally, the memcached-specific policy "
+"language is highly likely to change in a future Cilium version."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:20 22b99a6a09ea4f1fbf55dea5a92f321f
+msgid ""
+"`Memcached <https://memcached.org/>`_ is a high performance, distributed "
+"memory object caching system. It's simple yet powerful, and used by "
+"dynamic web applications to alleviate database load. Memcached is "
+"designed to work efficiently for a very large number of open connections."
+" Thus, clients are encouraged to cache their connections rather than the "
+"overhead of reopening TCP connections every time they need to store or "
+"retrieve data. Multiple clients can benefit from this distributed cache's"
+" performance benefits."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:23 913b5756412a46dab7167e6acf987d3f
+msgid ""
+"There are two kinds of data sent in the memcache protocol: text lines and"
+" unstructured (binary) data.  We will demonstrate clients using both "
+"types of protocols to communicate with a memcached server."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:1 5c2cd672ae374c3aa6daaa916c02eb2b
+msgid ""
+"If you haven't read the :ref:`intro` yet, we'd encourage you to do that "
+"first."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:3 66884b813697479fb0bd171d3edc854d
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:8 f79717d8d51f4e5dbea856d89006a322
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:10
+#: 064a61e292434cbd82bf5cdb9d03bc6b
+msgid ""
+"If you have not set up Cilium yet, follow the guide "
+":ref:`k8s_install_standard` for instructions on how to quickly bootstrap "
+"a Kubernetes cluster and install Cilium. If in doubt, pick the minikube "
+"route, you will be good to go in less than 5 minutes."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:29 b95a772c3adf4be4bc8d6353ea5c6678
+msgid "Step 2: Deploy the Demo Application"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:31 5d80f90e52a348dab932a98a0225b96c
+msgid ""
+"Now that we have Cilium deployed and ``kube-dns`` operating correctly we "
+"can deploy our demo memcached application.  Since our first `HTTP-aware "
+"Cilium demo <https://cilium.io/blog/2017/5/4/demo-may-the-force-be-with-"
+"you/>`_ was based on Star Wars, we continue with the theme for the "
+"memcached demo as well."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:35 3c1d1b295fe5418cb10f4000a60f9a09
+msgid ""
+"Ever wonder how the Alliance Fleet manages the changing positions of "
+"their ships? The Alliance Fleet uses memcached to store the coordinates "
+"of their ships. The Alliance Fleet leverages the memcached-svc service "
+"implemented as a memcached server. Each ship in the fleet constantly "
+"updates its coordinates and has the ability to get the coordinates of "
+"other ships in the Alliance Fleet."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:37 75dcf56a1b294651bbd10524dd1c1079
+msgid ""
+"In this simple example, the Alliance Fleet uses a memcached server for "
+"their starfighters to store their own supergalatic coordinates and get "
+"those of other starfighters."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:39 a4b7871c9985492fb656e2a83f9f48e5
+msgid ""
+"In order to avoid collisions and protect against compromised "
+"starfighters, memcached commands are limited to gets for any starfighter "
+"coordinates and sets only to a key specific to the starfighter. Thus the "
+"following operations are allowed:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:41 03edfe936b7a44d9a2d65d033e43dde5
+msgid ""
+"**A-wing**: can set coordinates to key \"awing-coord\" and get the key "
+"coordinates."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:42 320482bda90740839da160171eabce04
+msgid ""
+"**X-wing**: can set coordinates to key \"xwing-coord\" and get the key "
+"coordinates."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:43 46ef9b8fb4914ecabd49d72bf9443a90
+msgid "**Alliance-Tracker**: can get any coordinates but not set any."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:45 eb4d3147fbe4433abd2f4e65aff3a309
+msgid ""
+"To keep the setup small, we will launch a small number of pods to "
+"represent a larger environment:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:47 4980ea60bedb47589ddcc6d4da9628db
+msgid ""
+"**memcached-server** : A Kubernetes service represented by a single pod "
+"running a memcached server (label app=memcd-server)."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:48 627cb04ad6c1408480f978d12e695f5f
+msgid ""
+"**a-wing** memcached binary client : A pod representing an A-wing "
+"starfighter, which can update its coordinates and read it via the binary "
+"memcached protocol (label app=a-wing)."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:49 464b7eaea12a42959a9d192af6dfdc8b
+msgid ""
+"**x-wing** memcached text-based client : A pod representing an X-wing "
+"starfighter, which can update its coordinates and read it via the text-"
+"based memcached protocol (label app=x-wing)."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:50 237504e3395346a78d1a0296e4a9d910
+msgid ""
+"**alliance-tracker** memcached binary client : A pod representing the "
+"Alliance Fleet Tracker, able to read the coordinates of all starfighters "
+"(label name=fleet-tracker)."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:53 fbf85bfe64494dd79bb26ba075f8b03e
+msgid ""
+"Memcached clients access the *memcached-server* on TCP port 11211 and "
+"send memcached protocol messages to it."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:58 b9624ef3c8074d4fa31e782529049f4d
+msgid ""
+"The file ``memcd-sw-app.yaml`` contains a Kubernetes Deployment for each "
+"of the pods described above, as well as a Kubernetes Service *memcached-"
+"server* for the Memcached server."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:70 334f8bb524c3435cbaeab81bc15cd07b
+msgid ""
+"Kubernetes will deploy the pods and service in the background. Running "
+"``kubectl get svc,pods`` will inform you about the progress of the "
+"operation. Each pod will go through several states until it reaches "
+"``Running`` at which point the setup is ready."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:88 b69c8d2850bf4919b2c442dfb0471a38
+msgid ""
+"We suggest having a main terminal window to execute *kubectl* commands "
+"and two additional terminal windows dedicated to accessing the **A-Wing**"
+" and **Alliance-Tracker**, which use a python library to communicate to "
+"the memcached server using the binary protocol."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:90 d20d2e5c3f6d499fb7843c09590e0c16
+msgid ""
+"In **all three** terminal windows, set some handy environment variables "
+"for the demo with the following script:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:98 a6eb465f91664b7a9e5e99a394b2ccc4
+msgid ""
+"In the terminal window dedicated for the A-wing pod, exec in, use python "
+"to import the binary memcached library and set the client connection to "
+"the memcached server:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:110 60ff9803af0240e897cf34c22c10c540
+msgid ""
+"In the terminal window dedicated for the Alliance-Tracker, exec in, use "
+"python to import the binary memcached library and set the client "
+"connection to the memcached server:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:125 cb4ef061d4074acfb49c239ef0ae7552
+msgid "Step 3: Test Basic Memcached Access"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:127 a2de4b99479b404ba8876a8aa693e0c2
+msgid ""
+"Let's show that each client is able to access the memcached server. "
+"Execute the following to have the A-wing and X-wing starfighters update "
+"the Alliance Fleet memcached-server with their respective supergalatic "
+"coordinates:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:129 37f544f816a648918cf5776f5245a9ff
+msgid ""
+"A-wing will access the memcached-server using the *binary protocol*. In "
+"your terminal window for A-Wing, set A-wing's coordinates:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:139 d7eea557cf21477abc47889ff1fa6023
+msgid ""
+"In your main terminal window, have X-wing starfighter set their "
+"coordinates using the text-based protocol to the memcached server."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:150 77c618b7f8e842009248b7d26655a773
+msgid ""
+"Check that the Alliance Fleet Tracker is able to get all starfighters' "
+"coordinates in your terminal window for the Alliance-Tracker:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:161 4d2dcdc17abb48d59d8ab2f1100cb328
+msgid "Step 4:  The Danger of a Compromised Memcached Client"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:163 581812318fe2496fafbd55e2050e794d
+msgid ""
+"Imagine if a starfighter ship is captured. Should the starfighter be able"
+" to set the coordinates of other ships, or get the coordinates of all "
+"other ships? Or if the Alliance-Tracker is compromised, can it modify the"
+" coordinates of any starfighter ship? If every client has access to the "
+"Memcached API on port 11211, all have over-privileged access until "
+"further locked down."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:166 2de70741795a4d739d1fe4a04c1d585d
+msgid ""
+"With L4 port access to the memcached server, all starfighters could write"
+" to any key/ship and read all ship coordinates. In your main terminal, "
+"execute:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:175 bd18d16d9f53430795c084c40b9f7e86
+msgid "In your A-Wing terminal window, confirm the over-privileged access:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:186 7413d032fd9d45aba3c5e948ee0ca7e4
+msgid "From A-Wing, set the X-Wing coordinates back to their proper position:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:193 93bf172ab304436ebf642ca1df456909
+msgid ""
+"Thus, the Alliance Fleet Tracking System could be made weak if a single "
+"starfighter ship is compromised."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:196 f1b9d6b11d114bb6b4efa390cc000633
+msgid "Step 5: Securing Access to Memcached with Cilium"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:198 d7ac99f29e7b47f09036db2c3bc7727a
+msgid ""
+"Cilium helps lock down Memcached servers to ensure clients have secure "
+"access to it. Beyond just providing access to port 11211, Cilium can "
+"enforce specific key value access by understanding both the text-based "
+"and the unstructured (binary) memcached protocol."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:201 dfc98cf31a924444a28de4a46541dc8e
+msgid ""
+"We'll create a policy that limits the scope of what a starfighter can "
+"access and write. Thus, only the intended memcached protocol calls to the"
+" memcached-server can be made."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:203 8c1b60905d294875a9b4b7ebb598186f
+msgid ""
+"In this example, we'll only allow A-Wing to get and set the key \"awing-"
+"coord\", only allow X-Wing to get and set key \"xwing-coord\", and allow "
+"Alliance-Tracker to only get coordinates."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:208 2d47584b473e402a8d38e36cb1038a61
+msgid ""
+"Here is the *CiliumNetworkPolicy* rule that limits the access of "
+"starfighters to their own key and allows Alliance Tracker to get any "
+"coordinate:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:212 f553eed3d094472693215b9d84d66c11
+msgid ""
+"A *CiliumNetworkPolicy* contains a list of rules that define allowed "
+"memcached commands, and requests that do not match any rules are denied. "
+"The rules explicitly match connections destined to the Memcached Service "
+"on TCP 11211."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:215 5339c581863f4ed7b9ac2708a0d8bf7e
+msgid ""
+"The rules apply to inbound (i.e., \"ingress\") connections bound for "
+"memcached-server pods (as indicated by ``app:memcached-server`` in the "
+"\"endpointSelector\" section).  The rules apply differently depending on "
+"the client pod: ``app:a-wing``, ``app:x-wing``, or ``name:fleet-tracker``"
+" as indicated by the \"fromEndpoints\" section."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:219 83a280777f3541f898f45f5971c325d4
+msgid ""
+"With the policy in place, A-wings can only get and set the key \"awing-"
+"coord\"; similarly the X-Wing can only get and set \"xwing-coord\". The "
+"Alliance Tracker can only get coordinates - not set."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:221 eba716a67f60435891e16ab22259c83c
+msgid ""
+"Apply this Memcached-aware network security policy using ``kubectl`` in "
+"your main terminal window:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:227 ece20b603927449c9ee5bcc6787632e1
+msgid ""
+"If we then try to perform the attacks from the *X-wing* pod from the main"
+" terminal window, we'll see that they are denied:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:234 b2069c3536154c0ea1c1ec57cca9ca55
+msgid ""
+"From the A-Wing terminal window, we can confirm that if *A-wing* goes "
+"outside of the bounds of its allowed calls. You may need to run the "
+"``client.get`` command twice for the python call:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:249 a0327afc4e40460cabdfa61630622803
+msgid ""
+"Similarly, the Alliance-Tracker cannot set any coordinates, which you can"
+" attempt from the Alliance-Tracker terminal window:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:266 5ee0e178f64a40579fed745087db97f1
+msgid "The policy is working as expected."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:268 438e01e121b14de09c3fe31c3f772c55
+msgid ""
+"With the CiliumNetworkPolicy in place, the allowed Memcached calls are "
+"still allowed from the respective pods."
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:270 db4c1e4fa8704043a041b43b698481da
+msgid "In the main terminal window, execute:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:286 8c59ab2c00b3487f876e8a971d4ae490
+msgid "In the A-Wing terminal window, execute:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:297 6d4b8ebe3d414226bcfa5ec01c6eacbc
+msgid "In the Alliance-Tracker terminal window, execute:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:310 3afdb475b58f4e97aa6527e226569260
+msgid "Step 6: Clean Up"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:312 cac67846eae44699afc27c12c8ec8356
+msgid ""
+"You have now installed Cilium, deployed a demo app, and tested L7 "
+"memcached-aware network security policies.  To clean up, in your main "
+"terminal window, run:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:320 e5ebffc48a4140f88d4528f6d7a61d60
+msgid "For some handy memcached references, see below:"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:322 fc09c023c92345c19f5e6efc48359f69
+msgid "https://memcached.org/"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:323 ca01f7277eab462998c3a4b619e5b8cf
+msgid "https://github.com/memcached/memcached/blob/master/doc/protocol.txt"
+msgstr ""
+
+#: ../../gettingstarted/memcached.rst:324 26766fc068b14058a0f355d1f2c6acec
+msgid "https://python-binary-memcached.readthedocs.io/en/latest/intro/"
+msgstr ""
+

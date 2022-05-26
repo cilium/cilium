@@ -1,0 +1,322 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../kvstore.rst:2 47316c2a18874cc6b5c2a7ec014ddf78
+msgid "Key-Value Store"
+msgstr ""
+
+#: ../../kvstore.rst:4 77664a1d7a7b4919bd37ebc2b1003f18
+msgid ""
+"Cilium uses an external key-value store to exchange information across "
+"multiple Cilium instances:"
+msgstr ""
+
+#: ../../kvstore.rst:8 9a812463bbb945f8aa3fc14a303bdf91
+msgid "Layout"
+msgstr ""
+
+#: ../../kvstore.rst:10 54221cf1254147b7b935ac2d2283d357
+msgid "All data is stored under a common key prefix:"
+msgstr ""
+
+#: ../../kvstore.rst:13 8b508f29831648f8863b4e1d2128243a
+msgid "Prefix"
+msgstr ""
+
+#: ../../kvstore.rst:13 63cba055dc264d32b1e556847c9b52ac
+msgid "Description"
+msgstr ""
+
+#: ../../kvstore.rst:15 8540d18f25d24494aaf98ac143353be0
+msgid "``cilium/``"
+msgstr ""
+
+#: ../../kvstore.rst:15 ec827e8bb2ff4342823bf3790ddcf472
+msgid "All keys share this common prefix."
+msgstr ""
+
+#: ../../kvstore.rst:16 947fb2cde0b74bc58ed187236e862ff6
+msgid "``cilium/state/``"
+msgstr ""
+
+#: ../../kvstore.rst:16 545e6cbe2e66422885375e14e648c5be
+msgid ""
+"State stored by agents, data is automatically recreated on removal or "
+"corruption."
+msgstr ""
+
+#: ../../kvstore.rst:21 bee3754d093e4e8399c918287d0db2a4
+msgid "Cluster Nodes"
+msgstr ""
+
+#: ../../kvstore.rst:23 c7c1f862934c48d7b45b22fb74d911b4
+msgid ""
+"Every agent will register itself as a node in the kvstore and make the "
+"following information available to other agents:"
+msgstr ""
+
+#: ../../kvstore.rst:26 87f7632d0dca4aaebcc2a37da4449ef2
+msgid "Name"
+msgstr ""
+
+#: ../../kvstore.rst:27 b80fef0637514e6e9f123d1effaa84c2
+msgid "IP addresses of the node"
+msgstr ""
+
+#: ../../kvstore.rst:28 60232c4f1f324b679dc2f2421fc27d6f
+msgid "Health checking IP addresses"
+msgstr ""
+
+#: ../../kvstore.rst:29 b1635f99e06e465ea3ca283d1626cdd0
+msgid "Allocation range of endpoints on the node"
+msgstr ""
+
+#: ../../kvstore.rst:32 ../../kvstore.rst:50 ../../kvstore.rst:65
+#: ../../kvstore.rst:82 ../../kvstore.rst:99 ../../kvstore.rst:114
+#: ../../kvstore.rst:138 0a4ef4c31f694f348f9b1c80b3fb77a0
+#: 3b59e5d0a7714ab29197660c43befbc7 926e0d061820429388cd368e82f26f72
+#: ad00c252ff954fe2815f83423dd45eaf b97ea63e210a46bba4d7bddda9a24936
+#: c37980ae961c4027870807d48bd0b922 e4009bc431b84f919fc4c04a3dab03ee
+msgid "Key"
+msgstr ""
+
+#: ../../kvstore.rst:32 ../../kvstore.rst:50 ../../kvstore.rst:65
+#: ../../kvstore.rst:82 ../../kvstore.rst:99 ../../kvstore.rst:114
+#: 647bc42bee2d4237ab32732666707d98 83f59177bbcd4f87a9ebe109a470cbfa
+#: 8c1e9be95f6f4bcdb967e6810100fe12 a91ac9e35b2340178fefe0ebb055c628
+#: ab28e1c92f384496a3b5fca59423ac7f bbd6e96b37824e65a02c6fe704f6efd2
+msgid "Value"
+msgstr ""
+
+#: ../../kvstore.rst:34 ../../kvstore.rst:146 018cf19d75694b0ba4cce760b71d4c88
+#: c205860af76d4fb6930ddd6e3c633d4c
+msgid "``cilium/state/nodes/v1/<cluster>/<node>``"
+msgstr ""
+
+#: ../../kvstore.rst:34 44a1cbfea60a4bc5836378e89a6a4bed
+msgid "node.Node_"
+msgstr ""
+
+#: ../../kvstore.rst:39 8414d69bce064da5bc393dd9b3882bc5
+msgid ""
+"All node keys are attached to a lease owned by the agent of the "
+"respective node."
+msgstr ""
+
+#: ../../kvstore.rst:44 1e3258dd6cf0417cb621d415f6bb8bb2
+msgid "Services"
+msgstr ""
+
+#: ../../kvstore.rst:46 1666ccec791846109f5d813621c9630f
+msgid ""
+"All Kubernetes services are mirrored into the kvstore by the Cilium "
+"operator. This is required to implement multi cluster service discovery."
+msgstr ""
+
+#: ../../kvstore.rst:52 ../../kvstore.rst:147 684314838e074a1badce7d779a05e148
+#: a8fdd90d97d749739de50ef2bf3416bc
+msgid "``cilium/state/services/v1/<cluster>/<namespace>/<service>``"
+msgstr ""
+
+#: ../../kvstore.rst:52 5082a0b565bf44b2b4d0ace70a548213
+msgid "serviceStore.ClusterService_"
+msgstr ""
+
+#: ../../kvstore.rst:58 f2c5d2e81f6745caa0d249aabedde6cb
+msgid "Identities"
+msgstr ""
+
+#: ../../kvstore.rst:60 462665bb83b44e8b9392db6340f1b75d
+msgid ""
+"Any time a new endpoint is started on a Cilium node, it will determine "
+"whether the labels for the endpoint are unique and allocate an identity "
+"for that set of labels. These identities are only meaningful within the "
+"local cluster."
+msgstr ""
+
+#: ../../kvstore.rst:67 ../../kvstore.rst:143 861dede3c80b4cd2a18e4941c7c69c55
+#: ea83ed12d4f1409bb4c2d9eb04eaec15
+msgid "``cilium/state/identities/v1/id/<identity>``"
+msgstr ""
+
+#: ../../kvstore.rst:67 c3ea7b48ce9d4799a4cd027353508fdf
+msgid "labels.LabelArray_"
+msgstr ""
+
+#: ../../kvstore.rst:68 ../../kvstore.rst:144 2f19749132e54d92aa2344c3e51e34f2
+#: 4e6da26c9d3d4833a373961fa05dd262
+msgid "``cilium/state/identities/v1/value/<labels>/<node>``"
+msgstr ""
+
+#: ../../kvstore.rst:68 e856de2433ae4a6ba288a57817753840
+msgid "identity.NumericIdentity_"
+msgstr ""
+
+#: ../../kvstore.rst:75 3d562f2f4f5148e588d66f07e7216820
+msgid "Endpoints"
+msgstr ""
+
+#: ../../kvstore.rst:77 4b033a5bbcdf4a978b1fe4d67de5b82e
+msgid ""
+"All endpoint IPs and corresponding identities are mirrored to the kvstore"
+" by the agent on the node where the endpoint is launched, to allow peer "
+"nodes to configure egress policies to endpoints backed by these IPs."
+msgstr ""
+
+#: ../../kvstore.rst:84 ../../kvstore.rst:145 489548b73a7a4ed59d4c2e9884b9c5a6
+#: a79940cdc0b146b6af0dd83557390f67
+msgid "``cilium/state/ip/v1/<cluster>/<ip>``"
+msgstr ""
+
+#: ../../kvstore.rst:84 fc1b96c563bf4e2dad1d5d649301bd30
+msgid "identity.IPIdentityPair_"
+msgstr ""
+
+#: ../../kvstore.rst:90 a2c05fcc22714a6baea658df4593eda2
+msgid "CiliumNetworkPolicyNodeStatus"
+msgstr ""
+
+#: ../../kvstore.rst:92 85bdcb7384ad4f2c994fc365defe9fe6
+msgid ""
+"If handover to Kubernetes is enabled, then each ``cilium-agent`` will "
+"propagate the  state of whether it has realized a given CNP to the key-"
+"value store instead of directly writing to ``kube-apiserver``. ``cilium-"
+"operator`` will listen for updates to this prefix from the key-value "
+"store, and will be the sole updater of statuses for CNPs in the cluster."
+msgstr ""
+
+#: ../../kvstore.rst:101 ../../kvstore.rst:142 771f773d5744426ebe15da12d63e545c
+#: b50d2bc224b44ee5bbba1d9a99aa2a75
+msgid "``cilium/state/cnpstatuses/v2/<UID>/<namespace>/<name>/<node>``"
+msgstr ""
+
+#: ../../kvstore.rst:101 11a29760d1914677b506fb76d74c858e
+msgid "k8s.CNPNSWithMeta_"
+msgstr ""
+
+#: ../../kvstore.rst:107 d824438ac0904cbf87f102b8468a1dbe
+msgid "Heartbeat"
+msgstr ""
+
+#: ../../kvstore.rst:109 c45e4d4e7c7e4916ab8ef3a7593abf04
+msgid ""
+"The heartbeat key is periodically updated by the operator to contain the "
+"current time and date. It is used by agents to validate that kvstore "
+"updates can be received."
+msgstr ""
+
+#: ../../kvstore.rst:116 ../../kvstore.rst:141 1009f3e33e764d0ba69ef7289c118d83
+#: bb2de24cdfac416fb884a9dc99a9785a
+msgid "``cilium/.heartbeat``"
+msgstr ""
+
+#: ../../kvstore.rst:116 dd41608ebaea44d2864867f50b64ad9a
+msgid "Current time and date"
+msgstr ""
+
+#: ../../kvstore.rst:121 3364c80191da4eb4bbc1f9986b7d0bb4
+msgid "Leases"
+msgstr ""
+
+#: ../../kvstore.rst:123 0f87bc390f9b4e50a5fc5aae61578a7c
+msgid ""
+"With a few exceptions, all keys in the key-value store are owned by a "
+"particular agent running on a node. All such keys have a lease attached. "
+"The lease is renewed automatically. When the lease expires, the key is "
+"removed from the key-value store. This guarantees that keys are removed "
+"from the key-value store in the event that an agent dies on a particular "
+"and never reappears."
+msgstr ""
+
+#: ../../kvstore.rst:129 f361179ec29d48ab8273e08db1098867
+msgid ""
+"The lease lifetime is set to 15 minutes. The exact expiration behavior is"
+" dependent on the kvstore implementation but the expiration typically "
+"occurs after double the lease lifetime."
+msgstr ""
+
+#: ../../kvstore.rst:133 c973c137c7ce4a46abaf32ccc83d3712
+msgid ""
+"In addition to regular entry leases, all locks in the key-value store are"
+" owned by a particular agent running on the node with a separate \"lock "
+"lease\" attached. The lock lease has a default lifetime of 25 seconds."
+msgstr ""
+
+#: ../../kvstore.rst:138 0d0d51596676487faa880fa9123790a7
+msgid "Lease Timeout"
+msgstr ""
+
+#: ../../kvstore.rst:138 0b79f6b4c9ad4be2a21fb4ee19182428
+msgid "Default expiry"
+msgstr ""
+
+#: ../../kvstore.rst:140 4ef26a892e444e1da748f56ae7bcf0b4
+msgid "``cilium/.initlock/<random>/<lease-ID>``"
+msgstr ""
+
+#: ../../kvstore.rst:140 8b880d8a43504d4a92668fb23d1f61ea
+msgid "LockLeaseTTL_"
+msgstr ""
+
+#: ../../kvstore.rst:140 57047af074ac42808dc491a120bde1c1
+msgid "25 seconds"
+msgstr ""
+
+#: ../../kvstore.rst:141 61242eaa58b543b7bbb8a15140339b45
+msgid "KVstoreLeaseTTL"
+msgstr ""
+
+#: ../../kvstore.rst:141 ../../kvstore.rst:142 ../../kvstore.rst:144
+#: ../../kvstore.rst:145 ../../kvstore.rst:146 ../../kvstore.rst:147
+#: 1cede326d35f44e181248a0bc20aa1d8 2c54900380a24ca4ab5744114234db11
+#: 59f68a946e0a469b9baca5377d8569a7 773e2277fb9041e5b070c40716e08cce
+#: 97c75b01ef6d472cb30be7aa695bc94c b0d00f58d5374ee4a52e1d019f00fb69
+msgid "15 minutes"
+msgstr ""
+
+#: ../../kvstore.rst:142 ../../kvstore.rst:144 ../../kvstore.rst:145
+#: ../../kvstore.rst:146 ../../kvstore.rst:147 10437a63c53c411fab2aae6bb0c196b1
+#: 2950dea6db394998920064c9ced134a4 3837b7dc4ca44732956cabe85c205bd3
+#: 72aa78ef9f5445029522b5106fc374b3 7d2b1c725730472abcd113e04f37d4cd
+msgid "KVstoreLeaseTTL_"
+msgstr ""
+
+#: ../../kvstore.rst:143 0f2efbb787d14f5bab97dd69662c7630
+msgid "None"
+msgstr ""
+
+#: ../../kvstore.rst:143 a9d48b9b30f8463dab8ba167397bf0a2
+msgid "Garbage collected by ``cilium-operator``"
+msgstr ""
+
+#: ../../kvstore.rst:154 ed0bb084da49472c849b5945fb2ad3a9
+msgid "Debugging"
+msgstr ""
+
+#: ../../kvstore.rst:156 e6573b0898d44b06bed4d3ec48ddd709
+msgid ""
+"The contents stored in the kvstore can be queued and manipulate using the"
+" ``cilium kvstore`` command. For additional details, see the command "
+"reference."
+msgstr ""
+
+#: ../../kvstore.rst:159 ca8f3410ad3d4acc80b7be81142a6e4c
+msgid "Example:"
+msgstr ""
+

@@ -1,0 +1,53 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:3 aa9f436d28b24610844cdab73095d627
+msgid "cilium bpf ipmasq list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:5 ae5e6e58fd544f66923e89397088e362
+msgid "List ip-masq-agent CIDRs"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:7 fba55cdfde4541199506803cc46a6101
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:9 1527d9b22ac44334877a40154a9d643c
+msgid ""
+"List ip-masq-agent CIDRs. Packets sent from pods to IPs from these CIDRs "
+"avoid masquerading."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:15 5d69e5df675b4013a8badca7fa728347
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:22 16646925bd2c4fa99a5165dfbaca8f40
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:30 10f4ddb75c934289b94c6ba7cb8efa11
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ipmasq_list.md:32 b7e5960936b14c7ebc42d20d1eb325ec
+msgid "[cilium bpf ipmasq](cilium_bpf_ipmasq.md)\t - ip-masq-agent CIDRs"
+msgstr ""
+

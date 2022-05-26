@@ -1,0 +1,258 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/elasticsearch.rst:3 06c3333f04bd47658c24877201a19fdc
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:9 2f0e8461389d4ff188bd75f4fac2f775
+msgid "Getting Started Securing Elasticsearch"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:11 a38b06bc5de24e1890cf772b6b53360d
+msgid ""
+"This document serves as an introduction for using Cilium to enforce "
+"Elasticsearch-aware security policies.  It is a detailed walk-through of "
+"getting a single-node Cilium environment running on your machine. It is "
+"designed to take 15-30 minutes."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:1 e4f46b6fdee54f13942dbcd804409715
+msgid ""
+"If you haven't read the :ref:`intro` yet, we'd encourage you to do that "
+"first."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:3 4dc66667730d4548bca0699e92206183
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:8 dd165b44ea1d4136bda235d274e6915f
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:10
+#: e0f6f0e988a047ff9737a1fc4e217a8a
+msgid ""
+"If you have not set up Cilium yet, follow the guide "
+":ref:`k8s_install_standard` for instructions on how to quickly bootstrap "
+"a Kubernetes cluster and install Cilium. If in doubt, pick the minikube "
+"route, you will be good to go in less than 5 minutes."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:19 60b5bdc833674ca2b346ae9f343bf523
+msgid "Deploy the Demo Application"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:21 fc4342ae16124299bc15118da4716a57
+msgid ""
+"Following the Cilium tradition, we will use a Star Wars-inspired example."
+" The Empire has a large scale Elasticsearch cluster which is used for "
+"storing a variety of data including:"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:23 59817aabb72c4f9690c320f5cf28ef33
+msgid ""
+"``index: troop_logs``: Stormtroopers performance logs collected from "
+"every outpost which are used to identify and eliminate weak performers!"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:24 c1a4c6f4bb1844d3a15ef3e91028f7aa
+msgid ""
+"``index: spaceship_diagnostics``: Spaceships diagnostics data collected "
+"from every spaceship which is used for R&D and improvement of the "
+"spaceships."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:26 8bfcbb16eef544619838ae094f3c614f
+msgid ""
+"Every outpost has an Elasticsearch client service to upload the "
+"Stormtroopers logs. And every spaceship has a service to upload "
+"diagnostics. Similarly, the Empire headquarters has a service to search "
+"and analyze the troop logs and spaceship diagnostics data. Before we look"
+" into the security concerns, let's first create this application scenario"
+" in minikube."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:28 bd0105fed3bb4a20a2ae760d9cdee35a
+msgid "Deploy the app using command below, which will create"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:30 a02f596918884d02823a21f89d996c27
+msgid ""
+"An ``elasticsearch`` service with the selector label "
+"``component:elasticsearch`` and a pod running Elasticsearch."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:31 4ef493ffe79d48a1a8592706aca85024
+msgid ""
+"Three Elasticsearch clients one each for ``empire-hq``, ``outpost`` and "
+"``spaceship``."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:62 58563648e5c0452cb7ba130d4f9a8aa0
+msgid "Security Risks for Elasticsearch Access"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:64 9ecef80797904c1da58de2031d8c5ed6
+msgid ""
+"For Elasticsearch clusters the **least privilege security** challenge is "
+"to give clients access only to particular indices, and to limit the "
+"operations each client is allowed to perform on each index. In this "
+"example, the ``outpost`` Elasticsearch clients only need access to upload"
+" troop logs; and the ``empire-hq`` client only needs search access to "
+"both the indices.  From the security perspective, the outposts are weak "
+"spots and susceptible to be captured by the rebels. Once compromised, the"
+" clients can be used to search and manipulate the critical data in "
+"Elasticsearch. We can simulate this attack, but first let's run the "
+"commands for legitimate behavior for all the client services."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:66 0e43e035161e4375bda5e678b27768c3
+msgid "``outpost`` client uploading troop logs"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:74 0b697b59d487485e9db51ead2e5b03bc
+msgid "``spaceship`` uploading diagnostics"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:82 60fefeef858d4850b397734e974fe544
+msgid "``empire-hq`` running search queries for logs and diagnostics"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:99 b6e0b7658be0493aa052ae41dcb677af
+msgid ""
+"Now imagine an outpost captured by the rebels. In the commands below, the"
+" rebels first search all the indices and then manipulate the diagnostics "
+"data from a compromised outpost."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:115 05cd81748f974a29bbe2b20da0a16d9f
+msgid ""
+"Rebels manipulate spaceship diagnostics data so that the spaceship "
+"defects are not known to the empire-hq! (Hint: Rebels have changed the "
+"``stats`` for the tiefighter spaceship, a change hard to detect but with "
+"adverse impact!)"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:128 52f9a95ee8bd4c619e8e26989879e011
+msgid "Securing Elasticsearch Using Cilium"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:134 12c1f2bc49594b01885e9b16376a0551
+msgid ""
+"Following the least privilege security principle, we want to the allow "
+"the following legitimate actions and nothing more:"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:136 2c1fd0bcfd8541039cf62f70c704cdf0
+msgid "``outpost`` service only has upload access to ``index: troop_logs``"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:137 8ea36fdba69a4ad98c015c642567240a
+msgid ""
+"``spaceship`` service only has upload access to ``index: "
+"spaceship_diagnostics``"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:138 4cc70e9690064abd9328ee28431e1479
+msgid "``empire-hq`` service only has search access for both the indices"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:140 537113c8f2394914bdab7e59e8110331
+msgid ""
+"Fortunately, the Empire DevOps team is using Cilium for their Kubernetes "
+"cluster. Cilium provides L7 visibility and security policies to control "
+"Elasticsearch API access. Cilium follows the **white-list, least "
+"privilege model** for security. That is to say, a *CiliumNetworkPolicy* "
+"contains a list of rules that define **allowed requests** and any request"
+" that does not match the rules is denied."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:142 9e0a5b9d67944b619d789abc36fd2003
+msgid ""
+"In this example, the policy rules are defined for inbound traffic (i.e., "
+"\"ingress\") connections to the *elasticsearch* service. Note that "
+"endpoints selected as backend pods for the service are defined by the "
+"*selector* labels. *Selector* labels use the same concept as Kubernetes "
+"to define a service. In this example, label ``component: elasticsearch`` "
+"defines the pods that are part of the *elasticsearch* service in "
+"Kubernetes."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:144 217dfed97ea8441494e8c36edf73a6f0
+msgid ""
+"In the policy file below, you will see the following rules for "
+"controlling the indices access and actions performed:"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:146 725f61dfcc094799bcafb4b97df98d79
+msgid ""
+"``fromEndpoints`` with labels ``app:spaceship`` only ``HTTP`` ``PUT`` is "
+"allowed on paths matching regex ``^/spaceship_diagnostics/stats/.*$``"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:147 6cbae2b2e474462cbee7acc1cbf67bf0
+msgid ""
+"``fromEndpoints`` with labels ``app:outpost`` only ``HTTP`` ``PUT`` is "
+"allowed on paths matching regex ``^/troop_logs/log/.*$``"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:148 df4b8e47974a4a798153de1f5db1d595
+msgid ""
+"``fromEndpoints`` with labels ``app:empire`` only ``HTTP`` ``GET`` is "
+"allowed on paths matching regex ``^/spaceship_diagnostics/_search/??.*$``"
+" and ``^/troop_logs/search/??.*$``"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:152 a371030058e84c01b16de7ad2484ebb4
+msgid "Apply this Elasticsearch-aware network security policy using ``kubectl``:"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:159 d6e85552acfd4812bdcffaa5a61864fe
+msgid ""
+"Let's test the security policies. Firstly, the search access is blocked "
+"for both outpost and spaceship. So from a compromised outpost, rebels "
+"will not be able to search and obtain knowledge about troops and "
+"spaceship diagnostics. Secondly, the outpost clients don't have access to"
+" create or update the ``index: spaceship_diagnostics``."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:179 f75cb2c5d95743ca9af49645100f76c4
+msgid ""
+"We can re-run any of the below commands to show that the security policy "
+"still allows all legitimate requests (i.e., no 403 errors are returned)."
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:192 84ca2abeacca424589b798a3b9d1b4f0
+msgid "Clean Up"
+msgstr ""
+
+#: ../../gettingstarted/elasticsearch.rst:194 3a73cf82d75a45389a48eaf6f15e4cfa
+msgid ""
+"You have now installed Cilium, deployed a demo app, and finally deployed "
+"& tested Elasticsearch-aware network security policies. To clean up, run:"
+msgstr ""
+

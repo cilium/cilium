@@ -1,0 +1,67 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-health.md:3 2a775cc81afd48c1be34df204a57004a
+msgid "cilium-health"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:5 a0c6d6b8cd2f415485992a9be1ea3702
+msgid "Cilium Health Client"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:7 bc859353d2314017a1e1122e3fe88d40
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:9 75a37a9f533d463f92fdd83b1ce5e8ac
+msgid "Client for querying the Cilium health status API"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:15 0cc302eb20b24391a77fc76fba14fd63
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:25 9a98eaebdd424987ad5872619bff3434
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:27 1b551cef6b584559839ab5ae0cd148b9
+msgid ""
+"[cilium-health completion](cilium-health_completion.md)\t - Generate the "
+"autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:28 88b4bcf5a37c4df79833752c86558dd1
+msgid ""
+"[cilium-health get](cilium-health_get.md)\t - Display local cilium agent "
+"status"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:29 9aa24624b6924ca1be0a8299f2b83760
+msgid ""
+"[cilium-health ping](cilium-health_ping.md)\t - Check whether the cilium-"
+"health API is up"
+msgstr ""
+
+#: ../../cmdref/cilium-health.md:30 87a6f825d35e46e2b8a1f6ca6e180a5f
+msgid ""
+"[cilium-health status](cilium-health_status.md)\t - Display cilium "
+"connectivity to other nodes"
+msgstr ""
+

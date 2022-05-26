@@ -1,0 +1,144 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/vtep.rst:3 0a06fd05590542449c4a6d7d957c8531
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:11 de56c185f5854d3f95a20b561fbb65ee
+msgid "VXLAN Tunnel Endpoint (VTEP) Integration (beta)"
+msgstr ""
+
+#: ../../beta.rst:3 dad78ee32403480cac2b6d461c00ce3b
+msgid ""
+"This is a beta feature. Please provide feedback and file a GitHub issue "
+"if you experience any problems."
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:15 22a165e2925845fa8152f2c55f026d1d
+msgid ""
+"The VTEP integration allows third party VTEP devices to send and receive "
+"traffic to and from Cilium-managed pods directly using VXLAN. This allows"
+" for example external load balancers like BIG-IP to load balance traffic "
+"to Cilium-managed pods using VXLAN."
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:19 fcdfef5828f7466a921c079d1a88ea73
+msgid ""
+"This document explains how to enable VTEP support and configure Cilium "
+"with VTEP endpoint IPs, CIDRs, and MAC addresses."
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:25 4a420ad3e41c4bb3a8235648ccc9ba8a
+msgid ""
+"This guide assumes that Cilium has been correctly installed in your "
+"Kubernetes cluster. Please see :ref:`k8s_quick_install` for more "
+"information. If unsure, run ``cilium status`` and validate that Cilium is"
+" up and running. This guide also assumes VTEP devices has been configured"
+" with VTEP endpoint IP, VTEP CIDRs, VTEP MAC addresses (VTEP MAC). The "
+"VXLAN network identifier (VNI) *must* be configured as VNI ``2``, which "
+"represents traffic from the VTEP as the world identity. See "
+":ref:`reserved_labels` for more details."
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:35 83c875f5965e4dc1a05df3463a6035de
+msgid ""
+"This feature is in beta, and currently, it is partially incompatible the "
+"L7 policy. When a pod with an egress L7 policy sends a request to VTEP "
+"devices, the VTEP redirection is bypassed. The improvement is tracked in "
+":gh-issue:`19699`."
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:41 e31e00d782ad4552b9f35f34df10a268
+msgid "Enable VXLAN Tunnel Endpoint (VTEP) integration"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:43 52f3de56416d4e03869cfa3d12709186
+msgid ""
+"This feature requires a Linux 5.2 kernel or later, and is disabled by "
+"default. When enabling the VTEP integration, you must also specify the "
+"IPs, CIDR ranges and MACs for each VTEP device as part of the "
+"configuration."
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:49 bd140154df1144cba0cde04b2e93a728
+msgid "Helm"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:51 54f52ef2036940a293905b73e13839aa
+msgid ""
+"If you installed Cilium via ``helm install``, you may enable the VTEP "
+"support with the following command:"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:65 f411249eaf424ad6a848cd6b0a9072a8
+msgid "ConfigMap"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:67 c644bcf40a0242d4a5515bd975d77341
+msgid ""
+"VTEP support can be enabled by setting the following options in the "
+"``cilium-config`` ConfigMap:"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:78 e98a065b1cf64286b102972c5399d76a
+msgid "Restart Cilium daemonset:"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:86 127b6c8b71c64ad896b4a05b99345fdc
+msgid "How to test VXLAN Tunnel Endpoint (VTEP) Integration"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:88 a730a953da054a74b3d4b64fcda848fb
+msgid ""
+"Start up a Linux VM with node network connectivity to Cilium node. To "
+"configure the Linux VM, you will need to be ``root`` user or run the "
+"commands below using ``sudo``."
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:130 8b518e3c6cd84bdfb3b3759c5e5fa0e3
+msgid ""
+"If you are managing multiple VTEPs, follow the above process for each "
+"instance. Once the VTEPs are configured, you can configure Cilium to use "
+"the MAC, IP and CIDR ranges that you have configured on the VTEPs. Follow"
+" the instructions to :ref:`enable_vtep`."
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:134 80ae21d5c5b5403091c8698318385418
+msgid "To test the VTEP network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:142 964ee6efbd5347e9b7a765a1e200b494
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:144 3e1f83367dc342dfb2aceb910a980a96
+msgid ""
+"This feature does not work with traffic from the host network namespace "
+"(including pods with ``hostNetwork=true``)."
+msgstr ""
+
+#: ../../gettingstarted/vtep.rst:145 cbd4fdd8040b41ed88e14cfd850d30b1
+msgid ""
+"This feature does not work with ipsec encryption between Cilium managed "
+"pod and VTEPs."
+msgstr ""
+

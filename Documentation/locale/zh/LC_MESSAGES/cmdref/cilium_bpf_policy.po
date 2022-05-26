@@ -1,0 +1,61 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_policy.md:3 3394b8bdefe14795997445196cb2fc01
+msgid "cilium bpf policy"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:5 995423dbde19465e8a45fe1cf1c64496
+msgid "Manage policy related BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:7 6076bc4d53c64206a7d344f4095c5b67
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:13 47ad680b7d7743c49d5dd1fc176808e6
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:21 a6cc6f4aa8524fb584335d341389d8e5
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:23 39e8ab81520644aba6aa6210b9ebf9f3
+msgid "[cilium bpf](cilium_bpf.md)\t - Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:24 41346cb7cc0a4ad5b8149c4dd0fcac21
+msgid ""
+"[cilium bpf policy add](cilium_bpf_policy_add.md)\t - Add/update policy "
+"entry"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:25 994b0ec7e272448ea0073cf086909872
+msgid ""
+"[cilium bpf policy delete](cilium_bpf_policy_delete.md)\t - Delete a "
+"policy entry"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_policy.md:26 664094c8a8c3481b9560b4eb33a0cf43
+msgid ""
+"[cilium bpf policy get](cilium_bpf_policy_get.md)\t - List contents of a "
+"policy BPF map"
+msgstr ""
+

@@ -1,0 +1,199 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/kubernetes/policy.rst:3 883a216904c84593b57ace70898e5599
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:11 3aea0fc4c6f34fc38fe7f6b15ab262e1
+msgid "Network Policy"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:13 cb36cfd40d854fee909cecaea61bb0fe
+msgid ""
+"If you are running Cilium on Kubernetes, you can benefit from Kubernetes "
+"distributing policies for you. In this mode, Kubernetes is responsible "
+"for distributing the policies across all nodes and Cilium will "
+"automatically apply the policies. Three formats are available to "
+"configure network policies natively with Kubernetes:"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:19 668f41ef68e44de09d3c113e1b338470
+msgid ""
+"The standard `NetworkPolicy` resource which at the time of this writing, "
+"supports to specify L3/L4 ingress policies with limited egress support "
+"marked as beta."
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:23 425e1e03dd8d4a759e130e0251b9331e
+msgid ""
+"The extended `CiliumNetworkPolicy` format which is available as a "
+":term:`CustomResourceDefinition` which supports specification of policies"
+" at Layers 3-7 for both ingress and egress."
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:27 0ef72c5a64014ee794b319490cf0e9da
+msgid ""
+"The `CiliumClusterwideNetworkPolicy` format which is a cluster-scoped "
+":term:`CustomResourceDefinition` for specifying cluster-wide policies to "
+"be enforced by Cilium. The specification is same as that of "
+"`CiliumNetworkPolicy` with no specified namespace."
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:32 260c06cac41a4716927cc18849eda2d0
+msgid ""
+"Cilium supports running multiple of these policy types at the same time. "
+"However caution should be applied when using multiple policy types at the"
+" same time, as it can be confusing to understand the complete set of "
+"allowed traffic across multiple policy types.  If close attention is not "
+"applied this may lead to unintended policy allow behavior."
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:42 f3ce5d27826148048cd476ea82c88ce1
+msgid "NetworkPolicy"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:44 355b772563704c2a88704f2787ccb304
+msgid ""
+"For more information, see the official `NetworkPolicy documentation "
+"<https://kubernetes.io/docs/concepts/services-networking/network-"
+"policies/>`_."
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:47 01210145b85f439ca974429ce9e8af33
+msgid "Known missing features for Kubernetes Network Policy:"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:50 fec95359656d4f7f9fb6accd05303a23
+msgid "Feature"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:50 297e5cd91af0492799476731bafb4081
+msgid "Tracking Issue"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:52 69e7c53e0378468c92591c2ab5680bb3
+msgid "``ipBlock`` set with a pod IP"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:52 a6361197c8ed410f86c1d220486b67eb
+msgid ":gh-issue:`9209`"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:54 230f572562444cb5bf06450297c96e84
+msgid "SCTP"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:54 9eceea739e3c44b381012a94b4506515
+msgid ":gh-issue:`5719`"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:60 090272180f1947a797025464a1cf1d3b
+msgid "CiliumNetworkPolicy"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:62 d837f3fb86294bbf992bb197f4910f9c
+msgid ""
+"The `CiliumNetworkPolicy` is very similar to the standard "
+"`NetworkPolicy`. The purpose is provide the functionality which is not "
+"yet supported in `NetworkPolicy`. Ideally all of the functionality will "
+"be merged into the standard resource format and this CRD will no longer "
+"be required."
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:67 00989e11ff864c65a80c668e47b9a542
+msgid "The raw specification of the resource in Go looks like this:"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:95 2a2c3091f5f3440683c4b0ec38a1531b
+msgid "Metadata"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:91 ac65fb56fa304c03b736278f5aef9497
+msgid "Describes the policy. This includes:"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:93 061969b22eee40f3bfde8fcd129e6cb4
+msgid "Name of the policy, unique within a namespace"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:94 26de5b4af43742a48716756fa2bd1fc9
+msgid "Namespace of where the policy has been injected into"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:95 00cd3374715c49ce80c8168758a19a64
+msgid "Set of labels to identify resource in Kubernetes"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:97 1aca8a2809f546d896a91540564683f1
+msgid "Spec"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:98 c3da0133c3d24adeaad0113c2b94bf15
+msgid "Field which contains a :ref:`policy_rule`"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:101 eaf5f149a3fa4ee8a400596cd81a0e66
+msgid "Specs"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:100 cc2f6b63092743cfb5f11df5db408981
+msgid ""
+"Field which contains a list of :ref:`policy_rule`. This field is useful "
+"if multiple rules must be removed or added automatically."
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:104 50674eab06614dc995a0ca5805467903
+msgid "Status"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:104 4fe42c70deb841bd9c0a8d24901a373d
+msgid "Provides visibility into whether the policy has been successfully applied"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:107 1c61c70853844abe9fb8e435422cbc06
+msgid "Examples"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:109 39c7c0cedf79416eb43fbf87cdf5cdd9
+msgid ""
+"See :ref:`policy_examples`, :ref:`l4_policy` and :ref:`l7_policy` for "
+"detailed lists of example policies."
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:116 0f36067dbded4faead4eb4b0c8c9d7d6
+msgid "CiliumClusterwideNetworkPolicy"
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:118 c9eece3b90bb405c88dda38404d09b95
+msgid ""
+"`CiliumClusterwideNetworkPolicy` is similar to `CiliumNetworkPolicy`, "
+"except (1) policies defined by `CiliumClusterwideNetworkPolicy` are non-"
+"namespaced and cluster-scoped, and (2) it enables the use of "
+":ref:`NodeSelector`. Internally the policy is identical to "
+"`CiliumNetworkPolicy` and thus the effects of this policy specification "
+"are also same."
+msgstr ""
+
+#: ../../concepts/kubernetes/policy.rst:124 b39e534de83a4c6e959de9d33e89da18
+msgid "The raw specification of the resource in go looks like this:"
+msgstr ""
+

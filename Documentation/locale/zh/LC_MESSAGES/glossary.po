@@ -1,0 +1,203 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../glossary.rst:3 71be66e91c9f4355992a962a2fa67c29
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../glossary.rst:10 a698e7c0987e4d4cb5d889a55ca59a2f
+msgid "Glossary"
+msgstr ""
+
+#: ../../glossary.rst:12 16ae634c262740ae8ec02a7c5648ab8f
+msgid ""
+"Cilium has some terms with special meanings. These should all be covered "
+"throughout the documentation but for convenience we have also listed some"
+" of them below with short descriptions. If you need more information, "
+"please ask us on `Slack <https://cilium.herokuapp.com>`_. Feel free to "
+"extend this document with words you expected to see here."
+msgstr ""
+
+#: ../../glossary.rst:47 2554733201e94528b33b88aa338586ab
+msgid "CNI"
+msgstr ""
+
+#: ../../glossary.rst:49 60d5f399fa2043d896444db49f95dabf
+msgid "https://github.com/containernetworking/cni"
+msgstr ""
+
+#: ../../glossary.rst:44 9d781601167f4abbb2106582ea8cb081
+msgid "ConfigMap"
+msgstr ""
+
+#: ../../glossary.rst:46 6dbab74939204b36824efa0484acfe22
+msgid ""
+"https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-"
+"configmap/"
+msgstr ""
+
+#: ../../glossary.rst:71 dd14b47c9e8247d1b7d14610826e7b1f
+msgid "CustomResourceDefinition"
+msgstr ""
+
+#: ../../glossary.rst:73 d8592f9f05c848cf92ec79a967bb8fbe
+msgid ""
+"https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension"
+"/custom-resources/#customresourcedefinitions"
+msgstr ""
+
+#: ../../glossary.rst:41 b327fd269f2040739f0d825f0501f818
+msgid "DaemonSet"
+msgstr ""
+
+#: ../../glossary.rst:43 9a5c4ae45af14241b92b1018cd080e6c
+msgid "https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/"
+msgstr ""
+
+#: ../../glossary.rst:20 114ecc572ae94b56a2c85f82c27c1b54
+msgid "Endpoint"
+msgstr ""
+
+#: ../../glossary.rst:22 1005cbbc315b45a89ed7d2d46e805c3f
+msgid ":ref:`endpoint`"
+msgstr ""
+
+#: ../../glossary.rst:62 62b444730d9e4d2eb66326847f3f8b0d
+msgid "Geneve"
+msgstr ""
+
+#: ../../glossary.rst:64 fc4fa39008b84d01bae0ee44b2ea3ef4
+msgid "https://tools.ietf.org/html/draft-ietf-nvo3-geneve-04"
+msgstr ""
+
+#: ../../glossary.rst:74 cec780cdb3844a59a83995ebe7f6bfda
+msgid "HeadlessServices"
+msgstr ""
+
+#: ../../glossary.rst:76 d53c63086db24224a258c4b61ac4d0be
+msgid ""
+"https://kubernetes.io/docs/concepts/services-networking/service"
+"/#headless-services"
+msgstr ""
+
+#: ../../glossary.rst:77 1c45151366c94e279631236afb09e6ac
+msgid "Helm"
+msgstr ""
+
+#: ../../glossary.rst:79 76bd9d261a1b4687ae7f7aa5121bcbf3
+msgid "https://helm.sh/"
+msgstr ""
+
+#: ../../glossary.rst:32 40876f609c314c568097fe7a35224e83
+msgid "iproute2"
+msgstr ""
+
+#: ../../glossary.rst:34 6fb4374f26d84951b1dd7b17cc182ad5
+msgid "https://www.kernel.org/pub/linux/utils/net/iproute2/"
+msgstr ""
+
+#: ../../glossary.rst:38 c74c4397312347bd98d78537b1326a81
+msgid "Linux kernel"
+msgstr ""
+
+#: ../../glossary.rst:40 ece5d02ba6eb405bbf0de6d26b8f4d99
+msgid "https://www.kernel.org/"
+msgstr ""
+
+#: ../../glossary.rst:35 2ff3c7b47a854f0bbf5479f50d9f037c
+msgid "llvm"
+msgstr ""
+
+#: ../../glossary.rst:37 f1ce8f2da3b14cc7a132faac6a4829ca
+msgid "https://releases.llvm.org/"
+msgstr ""
+
+#: ../../glossary.rst:53 ecd9d203b0044ad5b152e7c204499c38
+msgid "NodeSelector"
+msgstr ""
+
+#: ../../glossary.rst:55 9fc921f2ebed49168fe0211b11b3c202
+msgid "https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+msgstr ""
+
+#: ../../glossary.rst:65 54dc860012474aed9f19e1ee9a94942e
+msgid "Pod"
+msgstr ""
+
+#: ../../glossary.rst:67 868cfcf0f81a4812a063954972d77561
+msgid "https://kubernetes.io/docs/concepts/workloads/pods/pod/"
+msgstr ""
+
+#: ../../glossary.rst:23 bce880838e59424690bd0e6ff3c37aaf
+msgid "Policy"
+msgstr ""
+
+#: ../../glossary.rst:25 b66bd51c303e493d88459ed9d9fc72e6
+msgid ""
+"A Cilium policy consists of a list of rules. The security policy can be "
+"specified in The Kubernetes NetworkPolicy format or The Cilium policy "
+"language."
+msgstr ""
+
+#: ../../glossary.rst:50 90cc4be63d724915be36c2f397ca2cbb
+msgid "RBAC"
+msgstr ""
+
+#: ../../glossary.rst:52 54b12700c0d5404ea2bfb5b090608dda
+msgid "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
+msgstr ""
+
+#: ../../glossary.rst:68 490fdc1f4b004797a26b96efac101617
+msgid "Service"
+msgstr ""
+
+#: ../../glossary.rst:70 85d8b593c98d4bcd9cc5287bb7cf8e9a
+msgid "https://kubernetes.io/docs/concepts/services-networking/service/"
+msgstr ""
+
+#: ../../glossary.rst:28 1ba8c2c03e2c485b88c15237821a35e9
+msgid "Slack channel"
+msgstr ""
+
+#: ../../glossary.rst:30 a1bff5bba17a4fb09499e0c8bab3b76b
+msgid ""
+"Public community slack channel for everyone to ask questions "
+"https://cilium.herokuapp.com"
+msgstr ""
+
+#: ../../glossary.rst:56 90acc5ede8ad44c09e4c17ceba45d4c5
+msgid "Volumes"
+msgstr ""
+
+#: ../../glossary.rst:58 73223a487f4745ddbcf42a1aa5f46690
+msgid ""
+"https://kubernetes.io/docs/tasks/configure-pod-container/configure-"
+"volume-storage/"
+msgstr ""
+
+#: ../../glossary.rst:59 bb8c80f4c01443cf956b5c48a2929302
+msgid "VXLAN"
+msgstr ""
+
+#: ../../glossary.rst:61 300c0864a946496b9bb4449f03b36682
+msgid "https://tools.ietf.org/html/rfc7348"
+msgstr ""
+

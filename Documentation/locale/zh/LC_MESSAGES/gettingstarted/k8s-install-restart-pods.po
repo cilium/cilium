@@ -1,0 +1,45 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:2
+#: 1f35934db1fb4b909180f2f04eb46e7a
+msgid "Restart unmanaged Pods"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:4
+#: 9c5a3853acb94178837ae9ddc6a8b0c1
+msgid ""
+"If you did not create a cluster with the nodes tainted with the taint "
+"``node.cilium.io/agent-not-ready``, then unmanaged pods need to be "
+"restarted manually. Restart all already running pods which are not "
+"running in host-networking mode to ensure that Cilium starts managing "
+"them. This is required to ensure that all pods which have been running "
+"before Cilium was deployed have network connectivity provided by Cilium "
+"and NetworkPolicy applies to them:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:27
+#: 90cad19bb61f4682bf40c027e62b9e17
+msgid ""
+"This may error out on macOS due to ``-r`` being unsupported by ``xargs``."
+" In this case you can safely run this command without ``-r`` with the "
+"symptom that this will hang if there are no pods to restart. You can stop"
+" this with ``ctrl-c``."
+msgstr ""
+

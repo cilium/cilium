@@ -1,0 +1,87 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/clustermesh/policy.rst:5
+#: d91526807f2148ce82dafa071a62978f
+msgid "Network Policy"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/policy.rst:7
+#: 66237bde718a4b2a8b7e45f43f6f444e
+msgid ""
+"This tutorial will guide you how to define NetworkPolicies affecting "
+"multiple clusters."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/policy.rst:11
+#: 04d553a452cc440bb15fc84379bc5f62
+msgid "Prerequisites"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/policy.rst:13
+#: 70eed096e1424e9d87efdad19f68c9da
+msgid ""
+"You need to have a functioning Cluster Mesh setup, please follow the "
+"guide :ref:`gs_clustermesh` to set it up."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/policy.rst:17
+#: 2588938359c44491a7aa333762120313
+msgid "Security Policies"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/policy.rst:19
+#: 61c0143d37cf455fa42d7fb82b2a84b4
+msgid ""
+"As addressing and network security are decoupled, network security "
+"enforcement automatically spans across clusters. Note that Kubernetes "
+"security policies are not automatically distributed across clusters, it "
+"is your responsibility to apply ``CiliumNetworkPolicy`` or "
+"``NetworkPolicy`` in all clusters."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/policy.rst:25
+#: f4c3a7e5f83b4c74af9815ea03958ad8
+msgid "Allowing Specific Communication Between Clusters"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/policy.rst:27
+#: 3c43676520084777ba307239f772e36e
+msgid ""
+"The following policy illustrates how to allow particular pods to "
+"communicate between two clusters. The cluster name refers to the name "
+"given via the ``--cluster-name`` agent option or ``cluster-name`` "
+"ConfigMap option."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/policy.rst:50
+#: b72a9848d4324174893a461a6cbcd566
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/policy.rst:52
+#: ca49de24b0d54b3ba1dfcbee8a6f6695
+msgid ""
+"L7 security policies currently only work across multiple clusters if "
+"worker nodes have routes installed allowing to route pod IPs of all "
+"clusters. This is obtained when running in direct routing mode by running"
+" a routing daemon or ``--auto-direct-node-routes`` but won't work "
+"automatically when using tunnel/encapsulation mode."
+msgstr ""
+

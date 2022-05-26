@@ -1,0 +1,88 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:3
+#: e2118e97ff60415c8cccbb483bc677a4
+msgid "cilium-bugtool completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:5
+#: 029e9464d5314e4ea6a7e3b33d2c32eb
+msgid "Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:7
+#: cdf97319bd97418badac877499ed1f5b
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:9
+#: a80c832c147245aa8320b5500bd52ff2
+msgid "Generate the autocompletion script for the bash shell."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:11
+#: 1b78bbcff24540ae84f9db61a4262a23
+msgid ""
+"This script depends on the 'bash-completion' package. If it is not "
+"installed already, you can install it via your OS's package manager."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:14
+#: 7c5b5626ace845e0824664e941cc5d7a
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:18
+#: 547dad4197194afa8a33ae8a56c53ac9
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:20
+#: e39c541a7c294794b8e247f69fbae4f3
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:24
+#: 5a19a9831434428a900ff70c6a4169a3
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:28
+#: ce895e43d1e04f6484cb0e4451ae58df
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:35
+#: 5fe286ba9b2d4f75baa2bfb0e4fa4d87
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:42
+#: c3cedd228e0d48da8777095379a81b2a
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_bash.md:44
+#: eecc9281653147eab31e584833aaca8f
+msgid ""
+"[cilium-bugtool completion](cilium-bugtool_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+

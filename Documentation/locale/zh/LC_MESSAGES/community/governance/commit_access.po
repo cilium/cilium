@@ -1,0 +1,658 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../community/governance/commit_access.rst:3
+#: c8b7ed0bf6994c7b9a797cf8e3a96bf5
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:28
+#: d1cefff2ccaa4016a15ad98434b34583
+msgid "Cilium Committer Grant/Revocation Policy"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:30
+#: 2082a3cbdf614d01849fe431d0cf2c1e
+msgid ""
+"A Cilium committer is a participant in the project with the ability to "
+"commit code directly to the master repository. Commit access grants a "
+"broad ability to affect the progress of the project as presented by its "
+"most important artifact, the code and related resources that produce "
+"working binaries of Cilium. As such it represents a significant level of "
+"trust in an individual's commitment to working with other committers and "
+"the community at large for the benefit of the project. It can not be "
+"granted lightly and, in the worst case, must be revocable if the trust "
+"placed in an individual was inappropriate."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:40
+#: 7627503eb11940138394a35d4a0d5100
+msgid ""
+"This document suggests guidelines for granting and revoking commit "
+"access. It is intended to provide a framework for evaluation of such "
+"decisions without specifying deterministic rules that wouldn't be "
+"sensitive to the nuance of specific situations. In the end the decision "
+"to grant or revoke committer privileges is a judgment call made by the "
+"existing set of committers."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:47
+#: 8fdaaba8991040638d74fd16fc69d01e
+msgid "For the list of current committers, see MAINTAINERS.md_."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:52
+#: 0db26d860dc642939a5b697f32c201d6
+msgid "Expectations for Developers with commit access"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:55
+#: 2609498c43514c9f89deeda7899be9f9
+msgid "Pre-requisites"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:57
+#: 658dd899facf4939a306702c8df40472
+msgid "Be familiar with the :ref:`dev_guide`."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:60
+#: 050a2c9000a34d1fbb16416a0a2cf573
+msgid "Review"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:62
+#: d8c3a84993c54e3a8f82f6674ff5af1f
+msgid ""
+"Code (yours or others') must be reviewed publicly (by you or others) "
+"before you push it to the repository. With one exception (see below), "
+"every change needs at least one review."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:66
+#: 72541f3c7c85483eb796ce6807fd0c15
+msgid ""
+"If one or more people know an area of code particularly well, code that "
+"affects that area should ordinarily get a review from one of them."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:69
+#: 01100b6a9b8e4206978e6025fc8d214e
+msgid ""
+"The riskier, more subtle, or more complicated the change, the more "
+"careful the review required. When a change needs careful review, use good"
+" judgment regarding the quality of reviews. If a change adds 1000 lines "
+"of new code, and a review posted 5 minutes later says just \"Looks "
+"good,\" then this is probably not a quality review."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:75
+#: f8be9f367dc74721b8c13bdf8bcc77da
+msgid ""
+"(The size of a change is correlated with the amount of care needed in "
+"review, but it is not strictly tied to it. A search and replace across "
+"many files may not need much review, but one-line optimization changes "
+"can have widespread implications.)"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:80
+#: 3bff2059b4ec4b769f941a79157eaf4f
+msgid ""
+"Your own small changes to fix a recently broken build (\"make\") or tests"
+" (\"make check\"), that you believe to be visible to a large number of "
+"developers, may be checked in without review. If you are not sure, ask "
+"for review."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:85
+#: 617ece2600c04c598c7f75973c445d34
+msgid ""
+"Regularly review submitted code in areas where you have expertise. "
+"Consider reviewing other code as well."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:89
+#: a6803c28e3314e1fb1a86dcac116c7e6
+msgid "Git conventions"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:91
+#: f691b039219a44bc82ed8bed4aa7b936
+msgid ""
+"If you apply a change (yours or another's) then it is your responsibility"
+" to handle any resulting problems, especially broken builds and other "
+"regressions. If it is someone else's change, then you can ask the "
+"original submitter to address it. Regardless, you need to ensure that the"
+" problem is fixed in a timely way. The definition of \"timely\" depends "
+"on the severity of the problem."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:98
+#: dbd1831e4a9a452981062e9a3c8b2c08
+msgid ""
+"If a bug is present on master and other branches, fix it on master first,"
+" then backport the fix to other branches. Straightforward backports do "
+"not require additional review (beyond that for the fix on master)."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:103
+#: f6e82b1bb7684d8f96e4003cb1c927f1
+msgid ""
+"Feature development should be done only on master. Occasionally it makes "
+"sense to add a feature to the most recent release branch, before the "
+"first actual release of that branch. These should be handled in the same "
+"way as bug fixes, that is, first implemented on master and then "
+"backported."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:109
+#: 494b5055260f4195bef7e7891ac15d4e
+msgid ""
+"Keep the authorship of a commit clear by maintaining a correct list of "
+"\"Signed-off-by:\"s. If a confusing situation comes up, as it "
+"occasionally does, bring it up in the development forums. If you explain "
+"the use of \"Signed-off-by:\" to a new developer, explain not just how "
+"but why, since the intended meaning of \"Signed-off-by:\" is more "
+"important than the syntax."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:116
+#: 9e8346cc685c46dab32fa604b85e70fb
+msgid ""
+"Use Reported-by: and Tested-by: tags in commit messages to indicate the "
+"source of a bug report."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:119
+#: 7ba770dbea9a4368b77d9a2d312d3b7a
+msgid ""
+"Keep the `AUTHORS "
+"<https://github.com/cilium/cilium/blob/master/AUTHORS>`__ file up to "
+"date."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:122
+#: ca22e95f66b040aebeb97422fe496aeb
+msgid "Granting Commit Access"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:124
+#: 019e9d50361349b5b10d7fa19e5bbd60
+msgid ""
+"Granting commit access should be considered when a candidate has "
+"demonstrated the following in their interaction with the project:"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:127
+#: 36e56a6246df4f1c87fa335fae93cb3f
+msgid ""
+"Contribution of significant new features through the patch submission "
+"process where:"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:130
+#: 4bef0f8e0e994cbd9068b028238091d4
+msgid "Submissions are free of obvious critical defects"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:131
+#: fd0e399e43ca45cfad19553a09654e1e
+msgid ""
+"Submissions do not typically require many iterations of improvement to be"
+" accepted"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:134
+#: 5061d367e37c42058dc0aaa4468ff053
+msgid ""
+"Consistent participation in code review of other's patches, including "
+"existing committers, with comments consistent with the overall project "
+"standards"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:138
+#: 0e6d6ea5a83e4e03bd6b1d0539027b8c
+msgid ""
+"Assistance to those in the community who are less knowledgeable through "
+"active participation in project forums."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:141
+#: 964f5ad4b797404991cafe70fb86cf77
+msgid ""
+"Plans for sustained contribution to the project compatible with the "
+"project's direction as viewed by current committers."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:144
+#: c9af219f9beb4e628ea99efcb6396336
+msgid ""
+"Commitment to meet the expectations described in the \"Expectations of "
+"Developer's with commit access\""
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:147
+#: 181ddd1c691f4439ba7ce96bf528c59a
+msgid "The process to grant commit access to a candidate is simple:"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:149
+#: fc7fd04f65f64eaeb8482fbdfb26eed1
+msgid ""
+"An existing committer nominates the candidate by sending a message in the"
+" #committers Slack channel to all existing committers with information "
+"substantiating the contributions of the candidate in the areas described "
+"above."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:154
+#: fef1fa4be1f345a88595f5a8b6545a94
+msgid ""
+"All existing committers discuss the pros and cons of granting commit "
+"access to the candidate in the Slack thread."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:157
+#: d60cd2bc06584c4db406a4f19fb8e6da
+msgid ""
+"When the discussion has converged or a reasonable time has elapsed "
+"without discussion developing (e.g. a few business days) the nominator "
+"calls for a final decision on the candidate with a followup Slack poll."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:162
+#: ../../community/governance/commit_access.rst:260
+#: 386396bf6c974915b2bc72bef5957197 44f74d480915408da15bd204d31ffdae
+msgid ""
+"Each committer may vote yes, no, or abstain by responding to the Slack "
+"poll. A failure to reply is an implicit abstention."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:165
+#: 48847dad2211440a91adf1d3d29604c4
+msgid ""
+"After votes from all existing committers have been collected or a "
+"reasonable time has elapsed for them to be provided (e.g. a couple of "
+"business days) the votes are evaluated. To be granted commit access the "
+"candidate must receive yes votes from a majority of the existing "
+"committers and zero no votes. Since a no vote is effectively a veto of "
+"the candidate it should be accompanied by a reason for the vote."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:172
+#: a7cc189caae048a0bbffbeabe56f43fd
+msgid ""
+"The nominator summarizes the result of the vote in a Slack message to all"
+" existing committers."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:175
+#: 980f752b1eb54383a9f56923cabc6209
+msgid ""
+"If the vote to grant commit access passed, the candidate is contacted "
+"with an invitation to become a committer to the project which asks them "
+"to agree to the committer expectations documented on the project web "
+"site."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:180
+#: 7fbe0c88d7c046659acb9e95619a6617
+msgid ""
+"If the candidate agrees access is granted by setting up commit access to "
+"the repos. The new committer is invited to the #committers Slack channel,"
+" *after* the nomination poll and related discussions have been deleted. "
+"The name of the new committer is also added to the list in the "
+"MAINTAINERS.md_ file."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:187
+#: 8b6544f3f8d14aaeae2b4234bc4b664d
+msgid "Revoking Commit Access"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:189
+#: b6a4356be2eb4f8894eda15f65146d1b
+msgid "There are two situations in which commit access might be revoked."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:191
+#: 6ed5bde4e4c84c8baa037b4e7a352988
+msgid ""
+"The straightforward situation is a committer who is no longer active in "
+"the project and has no plans to become active in the near future. The "
+"process in this case is:"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:195
+#: b569eb9d7f00485eaa8439e9c41fcf1a
+msgid ""
+"Any time after a committer has been inactive for more than 6 months any "
+"other committer to the project may identify that committer as a candidate"
+" for revocation of commit access due to inactivity."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:199
+#: 573af0baa1ba4087b2ba568d259a7bc9
+msgid ""
+"The plans of revocation should be sent in a private Slack message or "
+"email to the candidate."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:202
+#: 708b06ac587d45afbb5ae679c15505f9
+msgid ""
+"If the candidate for removal states plans to continue participating no "
+"action is taken and this process terminates."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:205
+#: e47203e706dd422987d428696b64deea
+msgid ""
+"If the candidate replies they no longer require commit access then commit"
+" access is removed and a notification is sent to the candidate and all "
+"existing committers."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:209
+#: cf1c6cc699f742339f05ae6d767fbb5f
+msgid ""
+"If the candidate can not be reached within 1 week of the first attempting"
+" to contact this process continues."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:212
+#: 1a3083417f6c43adb6d9698b2cc4bf4a
+msgid ""
+"A message proposing removal of commit access is sent to the candidate and"
+" all other committers."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:215
+#: 642e856e08564319bcb7c4aa2cae7c12
+msgid ""
+"If the candidate for removal states plans to continue participating no "
+"action is taken."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:218
+#: fb853fb0bc374c979575e0828f367a75
+msgid ""
+"If the candidate replies they no longer require commit access then their "
+"access is removed."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:221
+#: 14d8b400a6bc4b76ad7e8ed2adec2c33
+msgid ""
+"If the candidate can not be reached within 2 months of the second "
+"attempting to contact them, access is removed."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:224
+#: 9502ae3582a049b2969179ad39d7d151
+msgid ""
+"In any case, where access is removed, this fact is published through a "
+"Slack message to all existing committers (including the candidate for "
+"removal)."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:228
+#: a423307026cb440a80aa001b6c2788a8
+msgid ""
+"The more difficult situation is a committer who is behaving in a manner "
+"that is viewed as detrimental to the future of the project by other "
+"committers. This is a delicate situation with the potential for the "
+"creation of division within the greater community and should be handled "
+"with care. The process in this case is:"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:234
+#: 41193c8b92574e6d938497bbd3a30622
+msgid ""
+"Discuss the behavior of concern with the individual privately and explain"
+" why you believe it is detrimental to the project. Stick to the facts and"
+" keep the Slack messages professional. Avoid personal attacks and the "
+"temptation to hypothesize about unknowable information such as the "
+"other's motivations. Make it clear that you would prefer not to discuss "
+"the behavior more widely but will have to raise it with other "
+"contributors if it does not change. Ideally the behavior is eliminated "
+"and no further action is required. If not,"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:243
+#: 37a84dcd9547452d87993bf493078752
+msgid ""
+"Start a Slack thread with all committers, including the source of the "
+"behavior, describing the behavior and the reason it is detrimental to the"
+" project. The message should have the same tone as the private discussion"
+" and should generally repeat the same points covered in that discussion. "
+"The person whose behavior is being questioned should not be surprised by "
+"anything presented in this discussion. Ideally the wider discussion "
+"provides more perspective to all participants and the issue is resolved. "
+"If not,"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:252
+#: 9883c41c46994c58b34f98e61de31193
+msgid ""
+"Start a Slack thread with all committers except the source of the "
+"detrimental behavior requesting a vote on revocation of commit rights. "
+"Cite the discussion among all committers and describe all the reasons why"
+" it was not resolved satisfactorily. The Slack message should be "
+"carefully written with the knowledge that the reasoning it contains may "
+"be published to the larger community to justify the decision."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:263
+#: 261665c487704af1b9d695289f3b1263
+msgid ""
+"After all votes have been collected or a reasonable time has elapsed for "
+"them to be provided (e.g. a couple of business days) the votes are "
+"evaluated. For the request to revoke commit access for the candidate to "
+"pass it must receive yes votes from two thirds of the existing "
+"committers."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:269
+#: 0898164ffd0042408ea7385daed4ee40
+msgid "anyone that votes no must provide their reasoning, and"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:271
+#: 226bd2721ded4bf9a32d3c5a0006b463
+msgid ""
+"if the proposal passes then counter-arguments for the reasoning in no "
+"votes should also be documented along with the initial reasons the "
+"revocation was proposed. Ideally there should be no new counter-arguments"
+" supplied in a no vote as all concerns should have surfaced in the "
+"discussion before the vote."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:277
+#: a4e94bb7b97f472598d95503d98ebafd
+msgid ""
+"The original person to propose revocation summarizes the result of the "
+"vote in a Slack message to all existing committers excepting the "
+"candidate for removal."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:281
+#: 2fffb73550794bf19ed004afcdfc66b4
+msgid ""
+"If the vote to revoke commit access passes, access is removed and the "
+"candidate for revocation is informed of that fact and the reasons for it "
+"as documented in the Slack message requesting the revocation vote."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:285
+#: 04a85f4589134174abc796a1de0f0b16
+msgid ""
+"Ideally the revoked committer peacefully leaves the community and no "
+"further action is required. However, there is a distinct possibility that"
+" he/she will try to generate support for his/her point of view within the"
+" larger community. In this case the reasoning for removing commit access "
+"as described in the request for a vote will be published to the "
+"community."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:293
+#: 9baa84ac7bb64c898350357b5b7c3afb
+msgid "Changing the Policy"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:295
+#: 12f7f8b8e4384ac2b32004d13c9853e2
+msgid "The process for changing the policy is:"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:297
+#: 4a64094a2d484bd48596d1f57f4049c0
+msgid ""
+"Propose the changes to the policy in a Slack message to all current "
+"committers and request discussion."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:300
+#: 12c2dee5ed2046b489067032e002442d
+msgid ""
+"After an appropriate period of discussion (a few days) update the "
+"proposal based on feedback if required and resend it to all current "
+"committers with a request for a formal vote."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:304
+#: ba92c52518ef418681f5c2b9133262d5
+msgid ""
+"After all votes have been collected or a reasonable time has elapsed for "
+"them to be provided (e.g. a couple of business days) the votes are "
+"evaluated. For the request to modify the policy to pass it must receive "
+"yes votes from two thirds of the existing committers."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:311
+#: 24ba158c4be04e1d8ce852e6ff68e570
+msgid "Voting"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:313
+#: 6681725b7aac41b9b2e69479e3a874c3
+msgid ""
+"In general, we prefer that technical issues and maintainer membership are"
+" amicably worked out between the persons involved. If a dispute cannot be"
+" decided independently, the committers and maintainers can be called in "
+"to decide an issue. If the maintainers themselves cannot decide an issue,"
+" the issue will be resolved by voting. The voting process is a simple "
+"majority in which each committer and each maintainer receives one vote."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:320
+#: bbed83b665ca4bfdb84eae0dc86e9e40
+msgid ""
+"Votes are done in the Slack channel #committers using Slack polls. A "
+"failure to vote is an implicit abstention."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:324
+#: ef982c3c80b24ad5bb604cd843a826b6
+msgid "Company Block Vote Limit"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:326
+#: 2668c6ff832f444b906bd23f1cd22259
+msgid ""
+"In the spirit of ensuring a diverse community, the number of votes a "
+"single company can receive is limited to 6 votes. The company affiliation"
+" of maintainers and committers is documented in the MAINTAINERS.md_ file."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:330
+#: b42f0f0e06784dd1bc50540da53d8ff1
+msgid ""
+"Votes are counted within the company association and then broken down "
+"proportionally. Example: 7 committers from a company vote, 6 votes yes, 1"
+" vote no."
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:334
+#: 0cd9da6890ed4c40b872889e063b922f
+msgid "6 / (7/6) = 5.14 = 5 votes yes"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:335
+#: ab3f0b6cc5f44e3494caf96d4840c96c
+msgid "1 / (7/6) = 0.85 = 1 vote no"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:338
+#: 901845fe1a874a1f98202257744ea4b7
+msgid "Templates"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:341
+#: 719869b20d2e43d997af68b6cdde5567
+msgid "Nomination to Grant Commit Access"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:356
+#: e04c427ce57a477d91fd3419d2bb6506
+msgid "Vote to Grant Commit Access"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:373
+#: 8ccdd433bc964bf2ab61a5ec618a43aa
+msgid "Vote Results for Grant of Commit Access"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:389
+#: 744aa036be824427a83b9ca717e07044
+msgid "Invitation to Accepted Committer"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:406
+#: 96295de0388f456f966ded3bbc5bf226
+msgid "Proposal to Remove Commit Access for Inactivity"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:419
+#: ef2a2b69ff1e429797a6a7f4a9f3fa3d
+msgid "Notification of Commit Removal for Inactivity"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:428
+#: 83d82d0544bd43a0a376d4a36dda6b41
+msgid "Proposal to Revoke Commit Access for Detrimental Behavior"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:449
+#: 5eab150f873c4763be499bfcb3bc1c20
+msgid "Vote to Revoke Commit Access"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:478
+#: e02d77b1c8c942499e7e275bfb1d78e0
+msgid "Vote Results for Revocation of Commit Access"
+msgstr ""
+
+#: ../../community/governance/commit_access.rst:501
+#: c3698e507e3c43f3af086c20ec42e828
+msgid "Notification of Commit Revocation for Detrimental Behavior"
+msgstr ""
+

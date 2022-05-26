@@ -1,0 +1,330 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: ../../gettingstarted/k8s-install-external-etcd.rst:3
+#: 0c18be81516c450db9e28881175af800 9d0391de83f94f5e8ff16a77601c6787
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:12
+#: fd9d5aee0fca4a3aa0d34e953219409f
+msgid "Installation with external etcd"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:14
+#: 248b2d1007774915a497aa15868c4bbc
+msgid ""
+"This guide walks you through the steps required to set up Cilium on "
+"Kubernetes using an external etcd. Use of an external etcd provides "
+"better performance and is suitable for larger environments."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:18
+#: b7a76a042aa843eab6c1bebb75e59e1e
+msgid ""
+"Should you encounter any issues during the installation, please refer to "
+"the :ref:`troubleshooting_k8s` section and / or seek help on "
+":ref:`slack`."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:22
+#: b7441f18dc7e419c9599f7df78f499ce
+msgid "When do I need to use a kvstore?"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:24
+#: 1d5a931c91bc4a2db046a0d2611eda3b
+msgid ""
+"Unlike the section :ref:`k8s_quick_install`, this guide explains how to "
+"configure Cilium to use an external kvstore such as etcd. If you are "
+"unsure whether you need to use a kvstore at all, the following is a list "
+"of reasons when to use a kvstore:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:29
+#: aac6aee368554f648ac1b360f5c1525f
+msgid ""
+"If you are running in an environment where you observe a high overhead in"
+" state propagation caused by Kubernetes events."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:31
+#: a4e01ce06c7d4436849879f632301f2b
+msgid ""
+"If you do not want Cilium to store state in Kubernetes custom resources "
+"(CRDs)."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:33
+#: 43cda289ee004a469efedb0d685b2b6e
+msgid ""
+"If you run a cluster with more pods and more nodes than the ones tested "
+"in the :ref:`scalability_guide`."
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:2
+#: 4e123a3ed6e547fdbcbb0b43c9a777f6
+msgid "Requirements"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:4
+#: 9427c8ef5d60476297d616e14f519a77
+msgid "Make sure your Kubernetes environment is meeting the requirements:"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:6
+#: 22009ed76e6248c59b1a2d24b32a9388
+msgid "Kubernetes >= 1.16"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:7
+#: 024a9334a04d450fae5cd30a8618806b
+msgid "Linux kernel >= 4.9"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:8
+#: 371b95bad50247579096cd2fb39d0c17
+msgid "Kubernetes in CNI mode"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:9
+#: 0989ca1dee26433b87d9c10eba77506f
+msgid "Mounted eBPF filesystem mounted on all worker nodes"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:10
+#: 07fe700d3341481f9c541e67a3d1b657
+msgid ""
+"Recommended: Enable PodCIDR allocation (``--allocate-node-cidrs``) in the"
+" ``kube-controller-manager`` (recommended)"
+msgstr ""
+
+#: ../../gettingstarted/requirements_intro.rst:12
+#: 38f672b69d9943dab758c93e8bb2f5de
+msgid ""
+"Refer to the section :ref:`k8s_requirements` for detailed instruction on "
+"how to prepare your Kubernetes environment."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:40
+#: 3f5a2fbce0804ce3beec10093af0d273
+msgid "You will also need an external etcd version 3.1.0 or higher."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:43
+#: 20c7e6b6337448dcb788d7b522ad65ab
+msgid "Configure Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:45
+#: 3b8f56ece03a49f5b27db265c2c72d42
+msgid ""
+"When using an external kvstore, the address of the external kvstore needs"
+" to be configured in the ConfigMap. Download the base YAML and configure "
+"it with :term:`Helm`:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 61e3d327aa684a6295ffcfdf2f7d7e56
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 8668d0a63fc541659d30682491e6f992
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: d17ae3e06b6549dfafafe416ecee2727
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:51
+#: ac5d12b2a41641da824282adfbd2727f
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:62
+#: 49459e845082409a96de28cabc329e88
+msgid ""
+"If you do not want Cilium to store state in Kubernetes custom resources "
+"(CRDs), consider setting ``identityAllocationMode``::"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:69
+#: 8d546da7acc94ee38bfbf946553cb733
+msgid "Optional: Configure the SSL certificates"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:71
+#: f599795dc4c848c89405cfc4b5d8bdd5
+msgid ""
+"Create a Kubernetes secret with the root certificate authority, and "
+"client-side key and certificate of etcd:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-external-etcd.rst:81
+#: 39c36eee291145f78190e8b6f7e3f25a
+msgid ""
+"Adjust the helm template generation to enable SSL for etcd and use https "
+"instead of http for the etcd endpoint URLs:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: fd4c72aef73145aa8b5e686e738cbb86
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: d7f1c2ad0f1f493da8919e27c3b8e04b
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 0a80c3823af747b3958e2149e1d25d4d
+#: 1f782300c3434ab887bf6e770855730f
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 94382fe948bd437687c0e4fb4357cea8
+#: d7a314d576b04f42a94987a5dd55fc8f
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 a24e31e326b3434d80b72f9be816f30f
+#: e47820daae4b4bc1a3e86ef4501d3391
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 37f9e4a2401a454dbc2ccc838bc78df0
+#: 437b8eb19b3d48c6bfeeda1c7ed6f051
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 6747c2a70ce44eeba01ea98085fe5562
+#: 9b9037b3c6d2442e83f1ee86f9149d2c
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 6927bcda5b7b49c8a16f6bc05d430d95
+#: a3159740e755462bb2b63787781e7b1a
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: f900107326184fbe8592f7ea286c1d9f
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: 68b4a99617db4a2d9eea36e83150f21e
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 54e0ec48d1b349bea74f3bef70d0a6dd
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 0af8d0c6667e4a1f93d55737290c7f9d
+#: 4b92ee5bc0a24935a5353a2c301b6831
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 15f0e6b9fff743ccbf9672d7b82ccac7
+#: adfe704a35724c1d90c826438e038e61
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 80b507be8f2b4a4c8f0ec54a3d3acd1c
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 4a6dde5e4ba6454898ad0506f28321e9
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 32c1391c998249f18497ebd851ada99c
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 6865b99358c94ca988643f7658451f95
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 4226db5c72724a13a4e343c955081bb6
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 f85ad4ab11a147f99cb6c6bd859877f0
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 0823ec7e979b42c3a34de0f3261f660e
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 2d7eedd4c6ce40609124ce7489974bd1
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 7bc924123ca64420ba5d9dc8fbb7b83a
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 e761a60c00de4886b25dfd340dca728d
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 e93a6d02ac3a4d638a60c1a7629ad6c6
+msgid ":ref:`clustermesh`"
+msgstr ""
+

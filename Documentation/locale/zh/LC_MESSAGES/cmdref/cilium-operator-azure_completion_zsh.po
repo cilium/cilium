@@ -1,0 +1,83 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:3
+#: 68823e705b7f431e96790d6dcb30d70c
+msgid "cilium-operator-azure completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:5
+#: e987a6e604324ba18f8000171f8b8e56
+msgid "Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:7
+#: ed4c8265d53e486bb465168007198deb
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:9
+#: e6467308b22b42878b873f0856a35a52
+msgid "Generate the autocompletion script for the zsh shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:11
+#: f7c56418686a4ce58ef19741abc5fbb4
+msgid ""
+"If shell completion is not already enabled in your environment you will "
+"need to enable it.  You can execute the following once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:16
+#: 45b3eb43f3a44d6696a4d73cd325146d
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:18
+#: 32d4bc9b22b149af84946bedb5edc5c5
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:22
+#: 6439f582a4f4412ea6db549774881cef
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:26
+#: 72d90b9420f04980ac18efd159d842f1
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:33
+#: 9e217a54007d4b119327f39ea2fa3846
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:40
+#: cb95e07ddf624ab6aa66c308f7089c13
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_zsh.md:42
+#: 39b78d81368d43908b79f7158f69a234
+msgid ""
+"[cilium-operator-azure completion](cilium-operator-azure_completion.md)"
+"\t - Generate the autocompletion script for the specified shell"
+msgstr ""
+

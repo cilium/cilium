@@ -1,0 +1,158 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/taints.rst:3 d9aae560994c452781a6dc361d048f9b
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:11 9ba20a0572aa4c1c9f4c48274ed8ce38
+msgid "Considerations on node pool taints and unmanaged pods"
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:13 7cc5ad297b57411caf89fd99c1508a46
+msgid ""
+"Depending on the environment or cloud provider being used, a CNI plugin "
+"and/or configuration file may be pre-installed in nodes belonging to a "
+"given cluster where Cilium is being installed or already running. Upon "
+"starting on a given node, and if it is intended as the exclusive CNI "
+"plugin for the cluster, Cilium does its best to take ownership of CNI on "
+"the node. However, a couple situations can prevent this from happening:"
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:20 4471d653188a458b86d784b207ae3678
+msgid ""
+"Cilium can only take ownership of CNI on a node after starting. Pods "
+"starting before Cilium runs on a given node may get IPs from the pre-"
+"configured CNI."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:23 7bbedf2ad837441180da1e27eccc2459
+msgid ""
+"Some cloud providers may revert changes made to the CNI configuration by "
+"Cilium during operations such as node reboots, updates or routine "
+"maintenance."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:26 f8dc1540a8a64ab5b196f71d492e703c
+msgid ""
+"This is notably the case with GKE (non-Dataplane V2), in which node "
+"reboots and upgrades will undo changes made by Cilium and re-instate the "
+"default CNI configuration."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:30 6a6f02400a0748baba417f4c094c8541
+msgid ""
+"To help overcome this situation to the largest possible extent in "
+"environments and cloud providers where Cilium isn't supported as the "
+"single CNI, Cilium can manipulate Kubernetes's `taints "
+"<https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-"
+"toleration/>`_ on a given node to help preventing pods from starting "
+"before Cilium runs on said node. The mechanism works as follows:"
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:36 b7fdbdf32f8e46bbb36e663e02ce6c43
+msgid ""
+"The cluster administrator places a taint with key ``node.cilium.io/agent-"
+"not-ready`` on a given uninitialized node. Depending on the taint's "
+"effect (see below), this prevents pods that don't have a matching "
+"toleration from either being scheduled or altogether running on the node "
+"until the taint is removed."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:42 647519f8f4294f99ba87e7dbb20f046f
+msgid ""
+"Cilium runs on the node, initializes it and, once ready, removes the "
+"``node.cilium.io/agent-not-ready`` taint."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:45 320b0d4284a143e4837183849829380b
+msgid ""
+"From this point on, pods will start being scheduled and running on the "
+"node, having their networking managed by Cilium."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:48 6cff55d4cb564383ad8b8ff9bbbeb73d
+msgid ""
+"The taint's effect should be chosen taking into account the following "
+"considerations:"
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:51 96f4338edf32449bb2383452cd6d3266
+msgid ""
+"If ``NoSchedule`` is used, pods won't be *scheduled* to a node until "
+"Cilium has the chance to remove the taint. However, one practical effect "
+"of this is that if some external process (such as a reboot) resets the "
+"CNI configuration on said node, pods that were already scheduled will be "
+"allowed to start concurrently with Cilium when the node next reboots, and"
+" hence may become unmanaged and have their networking being managed by "
+"another CNI plugin."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:58 e3dc887140bc48809b3beabcff40b018
+msgid ""
+"If ``NoExecute`` is used, pods won't be *executed* (nor *scheduled*) on a"
+" node until Cilium has had the chance to remove the taint. One practical "
+"effect of this is that whenever the taint is added back to the node by "
+"some external process (such as during an upgrade or eventually a routine "
+"operation), pods will be evicted from the node until Cilium has had the "
+"chance to remove the taint."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:65 015f6a974a0b4798a14958a7f4725c05
+msgid ""
+"Another important thing to consider is the concept of node itself, and "
+"the different point of views over a node. For example, the instance/VM "
+"which backs a Kubernetes node can be patched or reset filesystem-wise by "
+"a cloud provider, or altogether replaced with an entirely new instance/VM"
+" that comes back with the same name as the already-existing Kubernetes "
+"``Node`` resource. Even though in said scenarios the node-pool-level "
+"taint will be added back to the ``Node`` resource, pods that were already"
+" scheduled to the node having this name will run on the node at the same "
+"time as Cilium, potentially becoming unmanaged. This is why ``NoExecute``"
+" is recommended, as assuming the taint is added back in this scenario, "
+"already-scheduled pods won't run."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:76 91fd07eee5e24134a67d1a00b18fb2cd
+msgid ""
+"However, on some environments or cloud providers, and as mentioned above,"
+" it may happen that a taint established at the node-pool level is added "
+"back to a node after Cilium has removed it and for reasons other than a "
+"node upgrade/reset. The exact circumstances in which this may happen may "
+"vary, but this may lead to unexpected/undesired pod evictions in the "
+"particular case when ``NoExecute`` is being used as the taint effect. It "
+"is, thus, recommended that in each deployment and depending on the "
+"environment or cloud provider, a careful decision is made regarding the "
+"taint effect (or even regarding whether to use the taint-based approach "
+"at all) based on the information above, on the environment or cloud "
+"provider's documentation, and on the fact that one is essentially "
+"establishing a trade-off between having unmanaged pods in the cluster "
+"(which can lead to dropped traffic and other issues) and having "
+"unexpected/undesired evictions (which can lead to application downtime)."
+msgstr ""
+
+#: ../../gettingstarted/taints.rst:90 0529c5b405254185aa724f7078265c1f
+msgid ""
+"Taking into account all of the above, throughout the Cilium documentation"
+" we recommend ``NoExecute`` to be used as we believe it to be the least "
+"disruptive mode that users can use to deploy Cilium on cloud providers."
+msgstr ""
+

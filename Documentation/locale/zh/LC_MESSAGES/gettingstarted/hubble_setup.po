@@ -1,0 +1,161 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/hubble_setup.rst:3 ce5dfe5af9db41c1b5210b8e4589421f
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:11 a578e26983ef4309824a068d21e68a1e
+msgid "Setting up Hubble Observability"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:13 bef386a52eba4754bff6ae3a72d707cb
+msgid ""
+"Hubble is the observability layer of Cilium and can be used to obtain "
+"cluster-wide visibility into the network and security layer of your "
+"Kubernetes cluster. For more information about Hubble and its components,"
+" see the :ref:`concepts_observability` section."
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:20 d3dd84460a6b4054b61b204a3d37a555
+msgid ""
+"This guide assumes that Cilium has been correctly installed in your "
+"Kubernetes cluster. Please see :ref:`k8s_quick_install` for more "
+"information. If unsure, run ``cilium status`` and validate that Cilium is"
+" up and running."
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:26 1d43ce2db3de41f8b62310736f5824cf
+msgid "Enable Hubble in Cilium"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:30 29a19be1b02f429b8819ce6bde3d06cd
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:32 f35cd28d400e43958ac5bbf5a68daf5c
+msgid ""
+"In order to enable Hubble, run the command ``cilium hubble enable`` as "
+"shown below:"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:57 723670a1dd0e444098c5fd0f54397f5a
+msgid ""
+"Enabling Hubble requires the TCP port 4244 to be open on all nodes "
+"running Cilium. This is required for Relay to operate correctly."
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:60 1466fd3116c84bf59cc1490ad119545c
+msgid "Run ``cilium status`` to validate that Hubble is enabled and running:"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:82 b307128cc18248239934a9e603adea82
+msgid "Helm"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:84 3a31c0bdd7234cddadd151fb91c3e4f8
+msgid ""
+"If you installed Cilium via ``helm install``, you may enable Hubble Relay"
+" and UI with the following command:"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:96 4c3aeb1397394bb1a71b3ae98869701e
+msgid "Install the Hubble Client"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:98 236c7c81063b4bc58b6eae101bec2f93
+msgid ""
+"In order to access the observability data collected by Hubble, install "
+"the Hubble CLI:"
+msgstr ""
+
+#: ../../gettingstarted/hubble-install.rst:3 554ece17393f4bbc84dbb5d2fed51f64
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/hubble-install.rst:5
+#: ../../gettingstarted/hubble-install.rst:17
+#: ../../gettingstarted/hubble-install.rst:29 77aa21ee1b69456384054f976b9ae529
+#: 9b28e0c473784c5ea65ba009d975c77d cc7e0b0e25684e4da991cc046afb67ef
+msgid "Download the latest hubble release:"
+msgstr ""
+
+#: ../../gettingstarted/hubble-install.rst:15 72b5e558381944d18004f1792a6fc61d
+msgid "MacOS"
+msgstr ""
+
+#: ../../gettingstarted/hubble-install.rst:27 7bc174ed2aa34711883641b858e0f906
+msgid "Windows"
+msgstr ""
+
+#: ../../gettingstarted/hubble-install.rst:42 6a8cb0ef3a7c4f29818e79767eb17c3c
+msgid ""
+"and move the ``hubble.exe`` CLI to a directory listed in the ``%PATH%`` "
+"environment variable after extracting it from the tarball."
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:104 93f18f3ba30441cda806099217e8bf85
+msgid "Validate Hubble API Access"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:106 67498835834c44b994e5e9bc27064ffb
+msgid ""
+"In order to access the Hubble API, create a port forward to the Hubble "
+"service from your local machine. This will allow you to connect the "
+"Hubble client to the local port ``4245`` and access the Hubble Relay "
+"service in your Kubernetes cluster. For more information on this method, "
+"see `Use Port Forwarding to Access Application in a Cluster "
+"<https://kubernetes.io/docs/tasks/access-application-cluster/port-"
+"forward-access-application-cluster/>`_."
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:117 80e965abafa142c2acd8d970586d7b27
+msgid ""
+"Now you can validate that you can access the Hubble API via the installed"
+" CLI:"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:127 5cd35323114b46dabe090d91a6f1bf07
+msgid "You can also query the flow API and look for flows:"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:135 d7609d6728fe4bd7844cdd5f8944f68b
+msgid ""
+"If you port forward to a port other than ``4245``, make sure to use the "
+"``--server`` flag or ``HUBBLE_SERVER`` environment variable to set the "
+"Hubble server address (default: ``localhost:4245``). For more "
+"information, check out Hubble CLI's help message by running ``hubble help"
+" status`` or ``hubble help observe`` as well as ``hubble config`` for  "
+"configuring Hubble CLI."
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:143 66b0ed084dbf49548382f0d0c9bef62a
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:145 e539d4faa64c4bec9ef4bb3c5dda077e
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/hubble_setup.rst:146 d7824d566b5144a4915d8ae5744785eb
+msgid ":ref:`hubble_ui`"
+msgstr ""
+

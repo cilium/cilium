@@ -1,0 +1,712 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../configuration/api-rate-limiting.rst:3 ece9e3b0fc5d4e149bec05b440fb03aa
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:11
+#: 2a69dbf5ac6f4a259ea218d91a97f086
+msgid "API Rate Limiting"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:13
+#: df78993985194f928c337828be46bd6e
+msgid ""
+"The per node Cilium agent is essentially event-driven. For example, the "
+"CNI plugin is invoked when a new workload is scheduled onto the node "
+"which in turn makes an API call to the Cilium agent to allocate an IP "
+"address and create the Cilium endpoint. Another example is loading of "
+"network policy or service definitions where changes of these definitions "
+"will create an event which will notify the Cilium agent that a "
+"modification is required."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:20
+#: 0aca9a57f65540f59affac596a547ef8
+msgid ""
+"Due to being event-driven, the amount of work performed by the Cilium "
+"agent highly depends on the rate of external events it receives. In order"
+" to constrain the resources that the Cilium agent consumes, it can be "
+"helpful to restrict the rate and allowed parallel executions of API "
+"calls."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:26
+#: 7b2acccee79a44089c440302f4abde76
+msgid "Default Rate Limits"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:28
+#: 2b681837c4f34fe9bda77c4bbe0f9b51
+msgid "The following API calls are currently subject to rate limiting:"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+#: ../../configuration/api-rate-limiting.rst:52
+#: 30bdcf4b529c45c2b84212214f46fd8b ded1abd53fa9417da7b802549a0e6725
+msgid "API Call"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+#: d4f85b490a69468db67d8e96a2fafc66
+msgid "Limit"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+#: 45f535ae95fe41fa8947d7bfd0ceabba
+msgid "Burst"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+#: 32065a8862f84e51b094e4a9c536a6ed
+msgid "Max Parallel"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+#: b1ecf924cc1e44b4a7ae865b0930564c
+msgid "Min Parallel"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+#: f5e56cc2729349d4adf2ea329c9eda32
+msgid "Max Wait Duration"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+#: c4e9600291a14361b5e243f9c13c06fa
+msgid "Auto Adjust"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:31
+#: b86e04c557224d89a40a6a88f96dfeef
+msgid "Estimated Processing Duration"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:54
+#: 63fa1d01f5664765bba221325f9f7837 707598d7fb074fc1852187fe2ee28911
+msgid "``PUT /endpoint/{id}``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:36
+#: 256e6606798844a9992154239ac65a48 a430eb00fdc246148968ab2379855fd6
+msgid "0.5/s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:34
+#: ../../configuration/api-rate-limiting.rst:35
+#: ../../configuration/api-rate-limiting.rst:36
+#: ../../configuration/api-rate-limiting.rst:37
+#: 1414e0381020425280e6f1452ee96478 4de2565c41ae4f3bb6c76cb1760185cc
+#: 5d39398fea62489bae5322f1b6810607 721daf53c5384befbd709b0ead4865f7
+#: 946f565d66fa4f95a55100ef11acddcc 9c550161d72c4a2e9d149dc5f9ed54fb
+#: b1e89477ecc54004a490b70065298bd1 b2645d324c244757a89bd7aff76588d9
+#: e2938a5333384261b1dbb46d02aac506
+msgid "4"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:36
+#: 5e3596e6e6a247c6b906c1bae803eeb4 646021fc18554406ab12a8caec80ca3f
+msgid "15s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: ../../configuration/api-rate-limiting.rst:34
+#: ../../configuration/api-rate-limiting.rst:35
+#: ../../configuration/api-rate-limiting.rst:36
+#: ../../configuration/api-rate-limiting.rst:37
+#: 2598b891db7545d4a2826d2e0fdb3da0 2784326fb96a4303bf2800d705861ac2
+#: 7376fffbdfbc47368d768fb0ac5381a6 7deef1d486f94df99a5b9273bfdb789d
+#: 88bff03faf91479bab0eade1b9ca1886
+msgid "True"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:33
+#: 9b14f50ca51c45aaaae9edbb60c83d8a
+msgid "2s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:34
+#: ../../configuration/api-rate-limiting.rst:55
+#: 47cf8a3a5e59487b87ace5439fc42067 6dcdebe7b217474c8d0106dd784913d6
+msgid "``DELETE /endpoint/{id}``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:34
+#: ../../configuration/api-rate-limiting.rst:35
+#: 51909cd40a4e407aaeb8f1e95162def7 66f9e1c1591c404582da3605805cfcdf
+msgid "200ms"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:35
+#: ../../configuration/api-rate-limiting.rst:56
+#: 48440a237d7d48269e7c4262c7f755ab bdda1c57f113472aa3512710540b846a
+msgid "``GET /endpoint/{id}/*``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:35
+#: 04009ea11de542d39312a87b155f9557
+msgid "4/s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:35
+#: ../../configuration/api-rate-limiting.rst:37
+#: 3115c791e7a64a259099c655774eb47d 9c262ecb5d62403694b406617240c06c
+#: db75059e98444689826fcd44cae848ce
+msgid "2"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:35
+#: f9d16ee288b3427e89292873f80a64e3
+msgid "10s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:36
+#: ../../configuration/api-rate-limiting.rst:57
+#: 2c546f28ac134652b56a5847ec872bfa 44b3c597a83d4586abc184770bb5a42b
+msgid "``PATCH /endpoint/{id}*``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:36
+#: b99c08fd4d8f4e50b748b6d0f13945d7
+msgid "1s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:37
+#: ../../configuration/api-rate-limiting.rst:58
+#: 94826c71f22f4658a93d967c771dc988 da3327e1aefe4b0dbba5ff4ddc9c0835
+msgid "``GET /endpoint``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:37
+#: 92c80c91b5084f60b9e01bb584ecc1b8
+msgid "1/s"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:37
+#: b5d0aad98472491282d48be3eff23601
+msgid "300ms"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:41
+#: 0435b8e575e84d6db562d7689b1fa3fc
+msgid "Configuration"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:43
+#: 4a65d67abd1148769be11ef392011b0a
+msgid ""
+"The ``api-rate-limit`` option can be used to overwrite individual "
+"settings of the default configuration::"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:49
+#: 3db214c76d0448ae8a3065125b2990ec
+msgid "API call to Configuration mapping"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:52
+#: 62e10f69316f4f58a108ece2e83f8142
+msgid "Config Name"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:54
+#: d1c7d2982c8b42b8b5c275acc186c6f8
+msgid "``endpoint-create``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:55
+#: 21db23bab4bb40c1be1df522bdafad53
+msgid "``endpoint-delete``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:56
+#: 9293c2ca529243b5b3e3d813303d273a
+msgid "``endpoint-get``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:57
+#: 884abdac396c4fa59d9179947388eab2
+msgid "``endponit-patch``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:58
+#: e3b29d37131b4b539991de0ec0ab218d
+msgid "``endpoint-list``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:62
+#: 7df6e750bdc540239ce17463b4f8cbcb
+msgid "Configuration Parameters"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:65
+#: 7e2e1a6d2ce04e1a8195c7c883bec6e9
+msgid "Configuration Key"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:65
+#: a191fbfa7fe5422c872344595cd30397
+msgid "Example"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:65
+#: 9e9a9a113a784b978a68e8929f08e0da
+msgid "Default"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:65
+#: d9d86f8ef1ca4c21ba783333a1735219
+msgid "Description"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:67
+#: 1c65e9c4b3184649a1ec8664db5d982e
+msgid "``rate-limit``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:67
+#: b7e75a9e678343bcbe128af206ca14c0
+msgid "``5/m``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:67
+#: ../../configuration/api-rate-limiting.rst:68
+#: 41e07e66d4d14dad91210381229a61dc c7eb8ff91e4140ac877beeeae5a9cc67
+msgid "None"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:67
+#: 00a73e0ed2674a4691a4b561a0fd917f
+msgid "Allowed requests per time unit in the format ``<number>/<duration>``."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:68
+#: e8d65d8e21f7490d932d570edbdcc0f6
+msgid "``rate-burst``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:68
+#: ../../configuration/api-rate-limiting.rst:73
+#: 118da7b1e0f241aeb9d8ba1d54b91b2d 4d555d30a2c34c3182567c05ed720849
+msgid "``4``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:68
+#: ce6827856443473faebaed267f44c99a
+msgid "Burst of API requests allowed by rate limiter."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:69
+#: 71bbd08ead3a4ef7a12da96162995458
+msgid "``min-wait-duration``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:69
+#: 1ee5360a84a94872a1ce68df3b600f06
+msgid "``10ms``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:69
+#: ../../configuration/api-rate-limiting.rst:70
+#: ../../configuration/api-rate-limiting.rst:71
+#: ../../configuration/api-rate-limiting.rst:73
+#: ../../configuration/api-rate-limiting.rst:74
+#: ../../configuration/api-rate-limiting.rst:75
+#: 1f6d62e82aa24633a2c5d0df0e6038f2 2bec306361d2407e84f73334edbd8fa1
+#: 5f2d0bf1543543fcb11515b56b18a990 8f331e7b75eb4ad1967f98ea952ffd08
+#: aa7fa3dafe9f432393af9fca36a29a7e b3cb8af66f114dd1ae3953768b464762
+msgid "``0``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:69
+#: 66083fb0ce2c4d34ac3c9851391d5e96
+msgid "Minimum wait duration each API call has to wait before being processed."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:70
+#: bd9fdb0e70e34c57ba93a564d1932ec6
+msgid "``max-wait-duration``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:70
+#: ecbb46023b184789ba4395a084bbcef0
+msgid "``15s``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:70
+#: 578000c8c7344f15b0e677a282f8172e
+msgid "Maximum duration an API call is allowed to wait before it fails."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:71
+#: 9fd4465d21694f2e95cfc866f89bca31
+msgid "``estimated-processing-duration``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:71
+#: a56dbf0bbf4e428db22e535384520bfc
+msgid "``100ms``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:71
+#: 225595c31ec14d08822322b3f8fd6503
+msgid ""
+"Estimated processing duration of an average API call. Used for automatic "
+"adjustment."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:72
+#: 0f3f8103c6084909912c08b1522f2634
+msgid "``auto-adjust``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:72
+#: ../../configuration/api-rate-limiting.rst:77
+#: d04ab4ecdd394a34a1d43833e63a92df d4d77a8d2bb74f919037861f3b95b7d4
+msgid "``true``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:72
+#: ../../configuration/api-rate-limiting.rst:77
+#: 24d8bc8f3df543638632c5710b466bf0 7e8776667cca42af905c3a41258e5157
+msgid "``false``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:72
+#: 0008d840e5b14451bd3a05642bb5b07e
+msgid ""
+"Enable automatic adjustment of ``rate-limit``, ``rate-burst`` and "
+"``parallel-requests``."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:73
+#: ff9ccc30cfa74ea48d7f85bc2603cbcf
+msgid "``parallel-requests``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:73
+#: 2c1139039e4d45f7b075b601d7a24621
+msgid "Number of parallel API calls allowed."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:74
+#: b8ef54add6b042158ca19524c36321db
+msgid "``min-parallel-requests``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:74
+#: a8682365ad8c443bb1842551743156b4
+msgid "``2``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:74
+#: a84f7c2e5bd24ae19e321c512792ce06
+msgid "Lower limit of parallel requests when auto-adjusting."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:75
+#: 01424c7b99c847f78eb513c157fa14dc
+msgid "``max-parallel-requests``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:75
+#: 485f81dc37184ac4b61c055f30c6a574
+msgid "``6``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:75
+#: 372ca7089b0649aa8d64b2cdb344891c
+msgid "Upper limit of parallel requests when auto-adjusting."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:76
+#: 1d7ef6e80d7b460e83563ddb31d910d0
+msgid "``mean-over``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:76
+#: 43e3b6b0f7ab429aa7c49c3693157965 6ad45d6e7e8a4b8bb2b9411a36252ccf
+msgid "``10``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:76
+#: 6f3c2592b38141d0a0a09d3ab186e4a6
+msgid ""
+"Number of API calls to calculate mean processing duration for auto "
+"adjustment."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:77
+#: 4474072cbeda4bbb9ef446707c49efcc
+msgid "``log``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:77
+#: 8c107d7c44794e62bda741431af8c0d2
+msgid "Log an Info message for each API call processed."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:78
+#: 82c75063f5c547e1b4dcbca9b6afe81c
+msgid "``delayed-adjustment-factor``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:78
+#: 02310cf2be9747879f5c86e4c6970cd5
+msgid "``0.25``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:78
+#: cbaa53113e1945e8bf20e5ccc57bf014
+msgid "``0.5``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:78
+#: d4d65cc4cfb145ba9fcd3968fa93cb51
+msgid "Factor for slower adjustment of ``rate-burst`` and ``parallel-requests``."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:79
+#: 9a67f52e7cef4b9a9d753cca4da2ad86
+msgid "``max-adjustment-factor``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:79
+#: a12a37cb0b694dbebc1194c9abb34ae8
+msgid "``10.0``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:79
+#: 5bd5205cec924c75a79d217ffd1348e2
+msgid "``100.0``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:79
+#: f46ff98ecd4944199860d46bf057f8dd
+msgid ""
+"Maximum factor the auto-adjusted values can deviate from the initial base"
+" values configured."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:83
+#: 2ab77295a2f84a1caf8171b855b1735a
+msgid "Valid duration values"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:85
+#: 6ce10509e93b4bf4a72268f1fede61e6
+msgid ""
+"The ``rate-limit`` option expects a value in the form "
+"``<number>/<duration>`` where ``<duration>`` is a value that can be "
+"parsed with `ParseDuration() "
+"<https://golang.org/pkg/time/#ParseDuration>`_. The supported units are: "
+"``ns``, ``us``, ``ms``, ``s``, ``m``, ``h``."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:90
+#: 70e132c6601c4e74a3656b013272de98
+msgid "**Examples:**"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:92
+#: bc6476594a0d434db9686f6c6b21ac5e
+msgid "``rate-limit:10/2m``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:93
+#: 817e3cabb17c4f7fa918cc899cc068b4
+msgid "``rate-limit:3.5/h``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:94
+#: 1128fd85374040ccb73d23014a11f701
+msgid "``rate-limit:1/100ms``"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:97
+#: df9cfea953394f3b872dcae63229314b
+msgid "Automatic Adjustment"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:99
+#: 5389adb2768942e9966028e44590afdf
+msgid ""
+"Static values are relatively useless as the Cilium agent will run on "
+"different machine types. Deriving rate limits based on number of "
+"available CPU cores or available memory can be misleading as well as the "
+"Cilium agent may be subject to CPU and memory constraints."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:104
+#: 39e292a079144135bbadec5c9134844e
+msgid ""
+"For this reason, all API call rate limiting is done with automatic "
+"adjustment of the limits with the goal to stay as close as possible to "
+"the configured estimated processing duration. This processing duration is"
+" specified for each group of API call and is constantly monitored."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:109
+#: 823cfd1f568a437e926336f93c9760dd
+msgid ""
+"On completion of every API call, new limits are calculated. For this "
+"purpose, an adjustment factor is calculated:"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:117
+#: 582810ace81a41e6ae6d22edb56a1a47
+msgid ""
+"This adjustment factor is then applied to ``rate-limit``, ``rate-burst`` "
+"and ``parallel-requests`` and will steer the mean processing duration to "
+"get closer to the estimated processing duration."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:121
+#: d8ee7e30a5e74abe801b40af62ef8de0
+msgid ""
+"If ``delayed-adjustment-factor`` is specified, then this additional "
+"factor is used to slow the growth of the ``rate-burst`` and ``parallel-"
+"requests`` as both values should typically adjust slower than ``rate-"
+"limit``:"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:131
+#: 916fe91d793840d68655fa0478a78b49
+msgid "Metrics"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:133
+#: 6a0c4e5934f34aae850a8f20908ba956
+msgid ""
+"All API calls subject to rate limiting will expose "
+":ref:`metrics_api_rate_limiting`. Example::"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:148
+#: 8b34a0185a2b4199a5741f07e95cfeaa
+msgid "Understanding the log output"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:150
+#: fb21fd2711b8456db3ca6c406355d02b
+msgid ""
+"The API rate limiter logs under the ``rate`` subsystem. An example "
+"message can be seen below::"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:155
+#: 53f6c9be16d34b62ada7f307323a0fa8
+msgid "The following is an explanation for all the API rate limiting messages:"
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:161
+#: c3f3ce22c38643cd98bf0ec4a07892df
+msgid ""
+"The request was admitted into the rate limiter. The associated HTTP "
+"context (caller's request) has not yet timed out. The request will now be"
+" rate-limited according to the configuration of the rate limiter. It will"
+" enter the waiting stage according to the computed waiting duration."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:171
+#: d1055e39d71546c18c51ce20e1ce09f9
+msgid ""
+"The request has finished waiting its computed duration to achieve rate-"
+"limiting. The underlying HTTP API action will now take place. This means "
+"that this request was not thrown back at the caller with a 429 HTTP "
+"status code."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:176
+#: f6ec21496f90434fa6bee292f0704445
+msgid ""
+"This is a common message when the requests are being processed within the"
+" configured bounds of the rate limiter."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:183
+#: 4223116126db4c5dbfcc83f4f72968ba
+msgid ""
+"The API rate limiter has processed this request and the underlying HTTP "
+"API action has finished. This means the request is no longer actively "
+"waiting or in other words, no longer being rate-limited. This does not "
+"mean the underlying HTTP action has succeeded; only that this request has"
+" been dealt with."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:192
+#: d62986e614eb45998efac17301f7b39b
+msgid ""
+"The underlying HTTP context (request) was cancelled. In other words, the "
+"caller has given up on the request. This most likely means that the HTTP "
+"request timed out. A 429 HTTP response status code is returned to the "
+"caller, which may or may not receive it anyway."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:201
+#: 9d86bd95a30b40099ef533fe525b9341
+msgid ""
+"The request has been denied by the rate limiter because too many parallel"
+" requests are already in flight. The caller will receive a 429 HTTP "
+"status response."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:205
+#: 771c7103afee42c38f37949c57112b7f
+msgid ""
+"This is a common message when the rate limiter is doing its job of "
+"preventing too many parallel requests at once."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:212
+#: 58276eb28a8a4cd5ac96530d09ccdf77
+msgid ""
+"The request has been denied by the rate limiter because the request's "
+"waiting duration would exceed the maximum configured waiting duration. "
+"For example, if the maximum waiting duration was ``5s`` and due to the "
+"backlog of the rate limiter, this request would need to wait ``10s``, "
+"then this request would be thrown out. A 429 HTTP response status code "
+"would be returned to the caller."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:218
+#: 9e7e7abac39d4effa51d6a8702693994
+msgid ""
+"This is the most common message when the rate limiter is doing its job of"
+" pacing the incoming requests into Cilium."
+msgstr ""
+
+#: ../../configuration/api-rate-limiting.rst:225
+#: b228408a15f047799cabd257c77492af
+msgid ""
+"The request has been denied by the rate limiter because after the request"
+" has waited its calculated waiting duration, the context associated with "
+"the request has been cancelled. In the most likely scenario, this means "
+"that there was an HTTP timeout while the request was actively being rate-"
+"limited or in other words, actively being delayed by the rate limiter. A "
+"429 HTTP response status code is returned to the caller."
+msgstr ""
+

@@ -1,0 +1,87 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_endpoint.md:3 b1ec26279b274fe8992ea534fc7c2bf1
+msgid "cilium endpoint"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:5 eea65f2b8e734dddaffcb79eb8a5b762
+msgid "Manage endpoints"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:7 e15ff375de574d7ca0afbb11c78dabf2
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:13 b8b84a63f0124d2081701ba4b2ebfa6f
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:21 e037917bd56e46f2bf080b2e1d571c2a
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:23 5dae8dae619d44d6b3cb8879550af6f2
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:24 548ab3ee9cac45969e5df9e40616fd06
+msgid ""
+"[cilium endpoint config](cilium_endpoint_config.md)\t - View & modify "
+"endpoint configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:25 9645fa7ca36847faad7bddec3c4e4f20
+msgid ""
+"[cilium endpoint disconnect](cilium_endpoint_disconnect.md)\t - "
+"Disconnect an endpoint from the network"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:26 abf1e04b1fa544e59529376b7bbdcd82
+msgid ""
+"[cilium endpoint get](cilium_endpoint_get.md)\t - Display endpoint "
+"information"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:27 b76186c5b0ea4e05a495540921331b84
+msgid ""
+"[cilium endpoint health](cilium_endpoint_health.md)\t - View endpoint "
+"health"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:28 29b3d998e3514e75a38e2c127deb409c
+msgid ""
+"[cilium endpoint labels](cilium_endpoint_labels.md)\t - Manage label "
+"configuration of endpoint"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:29 75b68d5902544cd88368c7c106db042f
+msgid "[cilium endpoint list](cilium_endpoint_list.md)\t - List all endpoints"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:30 24ded22db39c4a2a80f813741bae0a57
+msgid "[cilium endpoint log](cilium_endpoint_log.md)\t - View endpoint status log"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint.md:31 ad09772e37b14d1dbd0259bb343d8bd7
+msgid ""
+"[cilium endpoint regenerate](cilium_endpoint_regenerate.md)\t - Force "
+"regeneration of endpoint program"
+msgstr ""
+

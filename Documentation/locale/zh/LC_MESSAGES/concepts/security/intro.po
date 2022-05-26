@@ -1,0 +1,59 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/security/intro.rst:3 98c1108ab47046288472d295d53ffcbb
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/security/intro.rst:9 81bf06ee76804cf1868d64de6a47a945
+msgid "Introduction"
+msgstr ""
+
+#: ../../concepts/security/intro.rst:11 0426db0b7d27466f959883e166d0944d
+msgid ""
+"Cilium provides security on multiple levels. Each can be used "
+"individually or combined together."
+msgstr ""
+
+#: ../../concepts/security/intro.rst:14 6180e744e90f48dd9eece1ee22c7462b
+msgid ""
+":ref:`arch_id_security`: Connectivity policies between endpoints (Layer "
+"3), e.g. any endpoint with label ``role=frontend`` can connect to any "
+"endpoint with label ``role=backend``."
+msgstr ""
+
+#: ../../concepts/security/intro.rst:17 5c8e9466ddab4ed684f73eced35b24c3
+msgid ""
+"Restriction of accessible ports (Layer 4) for both incoming and outgoing "
+"connections, e.g. endpoint with label ``role=frontend`` can only make "
+"outgoing connections on port 443 (https) and endpoint ``role=backend`` "
+"can only accept connections on port 443 (https)."
+msgstr ""
+
+#: ../../concepts/security/intro.rst:21 c6f66fc323cb48f6ab880b03d85a3862
+msgid ""
+"Fine grained access control on application protocol level to secure HTTP "
+"and remote procedure call (RPC) protocols, e.g the endpoint with label "
+"``role=frontend`` can only perform the REST API call ``GET "
+"/userdata/[0-9]+``, all other API interactions with ``role=backend`` are "
+"restricted."
+msgstr ""
+

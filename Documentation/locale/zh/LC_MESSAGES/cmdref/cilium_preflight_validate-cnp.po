@@ -1,0 +1,63 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:3
+#: cb27a544b5134976b1d7b7bcbad23190
+msgid "cilium preflight validate-cnp"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:5
+#: 0080ea25266f4e8c9c137491af001fbd
+msgid "Validate Cilium Network Policies deployed in the cluster"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:7
+#: e18e32f9b420484ea248eba7c9ff9c45
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:9
+#: 0372a7ccab2d4a4b978fffbf650e4abc
+msgid ""
+"Before upgrading Cilium it is recommended to run this validation checker "
+"to make sure the policies deployed are valid. The validator will verify "
+"if all policies deployed in the cluster are valid, in case they are not, "
+"an error is printed and the has an exit code 1 is returned."
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:18
+#: 70fb7a8a5a024594952b549f3e935752
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:26
+#: a6ce28f6a8114b56b80c0af3a1f8045e
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:34
+#: a63b796f58914b1fabc0296548be9a0d
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight_validate-cnp.md:36
+#: 285112a767684cc9af97aec723b67746
+msgid "[cilium preflight](cilium_preflight.md)\t - cilium upgrade helper"
+msgstr ""
+

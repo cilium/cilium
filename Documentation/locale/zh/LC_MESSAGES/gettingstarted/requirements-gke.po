@@ -1,0 +1,68 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/requirements-gke.rst:1 d9dfaeded68b4ee38587b56c72977a8f
+msgid ""
+"To install Cilium on `Google Kubernetes Engine (GKE) "
+"<https://cloud.google.com/kubernetes-engine>`_, perform the following "
+"steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:4 88872fec640040e19cfcbbbbfeceacaa
+msgid "**Default Configuration:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:7 71e90c04f94c4f2a9a848ec7575e3d45
+msgid "Datapath"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:7 8044abecd0e84514ae586e2309d56e72
+msgid "IPAM"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:7 e36d50d2b20144f696932dd470fde261
+msgid "Datastore"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:9 42d0a1ac76d54a49a7eb812e2e89d104
+msgid "Direct Routing"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:9 f019a397ab9d44758a2d2302ee284d95
+msgid "Kubernetes PodCIDR"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:9 e6ddf06f28624af7a072650b462b8eb5
+msgid "Kubernetes CRD"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:12
+#: 1b61a72b2a9249b99a58f5872fe592f0
+msgid "**Requirements:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:14
+#: e85b7bf08b5b4e2cbb3904dd6262a8ad
+msgid ""
+"The cluster should be created with the taint ``node.cilium.io/agent-not-"
+"ready=true:NoExecute`` using ``--node-taints`` option. However, there are"
+" other options. Please make sure to read and understand the documentation"
+" page on :ref:`taint effects and unmanaged pods<taint_effects>`."
+msgstr ""
+

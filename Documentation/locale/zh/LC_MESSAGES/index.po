@@ -1,0 +1,132 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:57+0800\n"
+"PO-Revision-Date: 2022-05-26 23:28+0800\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: zh\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+"X-Generator: Poedit 3.0.1\n"
+
+#: ../../index.rst:45 bb389cf96aa047c590641b587be8ec18
+msgid "Getting Started"
+msgstr "入门指南"
+
+#: ../../index.rst:54 0ec76fc34be2461480d6b37108096e0a
+msgid "Operations"
+msgstr "使用"
+
+#: ../../index.rst:67 6721d93527094bccbd81e0dff655ef8f
+msgid "Community"
+msgstr "社区"
+
+#: ../../index.rst:75 913cb338218f4a06ab8c5c8a5ae74770
+msgid "For Developers"
+msgstr "开发者"
+
+#: ../../index.rst:86 616256609bd946928e6f5cada74d3eda
+msgid "Reference"
+msgstr "参考"
+
+#: ../../index.rst:3 f5c26f0159e8456b8ef321c826c8b710
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+"注意：你正在查看未经正式发布的 Cilium 文档。请阅读官方提供的正式版本："
+"https://docs.cilium.io"
+
+#: ../../index.rst:8 107a1769db414741bddb1da50c54bd72
+msgid "Welcome to Cilium's documentation!"
+msgstr "欢迎使用 Cilium 的文档！"
+
+#: ../../index.rst:10 d6e2f6e4ea8f48d29410b278625fa810
+msgid "The documentation is divided into the following sections:"
+msgstr "文档包含以下几个章节："
+
+#: ../../index.rst:12 cf9fd7f73c534837bfd0f5dff354cf60
+msgid ""
+":ref:`gs_guide`: Provides a simple tutorial for running a small Cilium "
+"setup on your laptop.  Intended as an easy way to get your hands dirty "
+"applying Cilium security policies between containers."
+msgstr ""
+":ref:`gs_guide`: 在本地运行并配置一个 Cilium 集群的简单教程。让你快速上手"
+"如何在本地容器间快速应用 Cilium 安全策略。"
+
+#: ../../index.rst:16 a8499501970c42c9bcfffe603ccb7ab5
+msgid ""
+":ref:`concepts`: Describes the components of Cilium, and the different "
+"models for deploying Cilium.  Provides the high-level understanding "
+"required to run a full Cilium deployment and understand its behavior."
+msgstr ""
+"：ref：'concepts’：介绍 Cilium 的各个组件以及如何通过不同的方式部署 "
+"Cilium 。 并对部署一个 Cilium 集群所需要掌握的知识进行介绍。"
+
+#: ../../index.rst:21 85abfd6a8c974d4bb88875e58cb4ce2f
+msgid ""
+":ref:`gs_install` :  Details instructions for installing, configuring, "
+"and troubleshooting Cilium in different deployment modes."
+msgstr ""
+"：ref：'gs_install' ：详细指导了在不同部署模式下安装、配置和常见的 "
+"Cilium 故障。"
+
+#: ../../index.rst:24 1255a46c4e8c48fd80256d3bfb1f23a8
+msgid ""
+":ref:`network_policy` : Detailed walkthrough of the policy language "
+"structure and the supported formats."
+msgstr ":ref:`network_policy` : 策略语法的构成以及格式的详解。"
+
+#: ../../index.rst:27 9f411e09bf36406cbc57668e3f00b6ac
+msgid ""
+":ref:`metrics` : Instructions for configuring metrics collection from "
+"Cilium."
+msgstr "：ref：'metrics' ： 如何配置 Cilium metrics。"
+
+#: ../../index.rst:29 72ae4451d8e8443ea50567bccfb676be
+msgid ""
+":ref:`admin_guide` : Describes how to troubleshoot Cilium in different "
+"deployment modes."
+msgstr ""
+"：ref：'admin_guide' ：介绍如何在不同部署模式下对 Cilium 进行故障排除。"
+
+#: ../../index.rst:32 ab62a7893e08484893dbaa57dcdefa6c
+msgid ""
+":ref:`bpf_guide` : Provides a technical deep dive of eBPF and XDP "
+"technology, primarily focused at developers."
+msgstr ""
+"：ref：'bpf_guide' ： 主要面向开发人员的有关 eBPF 和 XDP 技术的深入探讨。"
+
+#: ../../index.rst:35 15e10e1159c142fbb89804bdb84c0763
+msgid ""
+":ref:`api_ref` : Details the Cilium agent API for interacting with a "
+"local Cilium instance."
+msgstr ""
+"：ref：'api_ref' ：详细说明用于与本地 Cilium 实例交互的 Cilium agent 的 "
+"API。"
+
+#: ../../index.rst:38 5051fe8de11344d395b7d02e27ab0c94
+msgid ""
+":ref:`dev_guide` : Gives background to those looking to develop and "
+"contribute modifications to the Cilium code or documentation."
+msgstr ""
+"：ref：'dev_guide' ： 为那些希望开发和对 Cilium 贡献代码或文档的人提供背"
+"景信息。"
+
+#: ../../index.rst:41 b44db67ea62e4eb790f9fbc1819dd891
+msgid ""
+"A `hands-on tutorial <https://play.instruqt.com/isovalent/invite/"
+"j4maqox5r1h5>`_ in a live environment is also available for users "
+"looking for a way to quickly get started and experiment with Cilium."
+msgstr ""
+"一个线上 `快速上手教程 <https://play.instruqt.com/isovalent/invite/"
+"j4maqox5r1h5>` 可以帮助你快速了解 Cilium。"

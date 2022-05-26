@@ -1,0 +1,71 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/requirements-openshift.rst:1
+#: e91db8332d764dff9c5120cc8a508356
+msgid ""
+"To install Cilium on `OpenShift <https://www.openshift.com/>`_, perform "
+"the following steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:4
+#: 1dcd200898324faaad01b1933c8f8363
+msgid "**Default Configuration:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:7
+#: 2427a40a21bf4b12903bc5bb2e970ccc
+msgid "Datapath"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:7
+#: 4b0f9a86f0d046fa937245c742fb91f9
+msgid "IPAM"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:7
+#: 7e5fbe09e6b745f19d997934588233d4
+msgid "Datastore"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:9
+#: 9695610c46d8497b8b3054778a53d0fb
+msgid "Encapsulation"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:9
+#: d0152c89523e4729ad1b3816e8ed7760
+msgid "Cluster Pool"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:9
+#: 7e3d4533ed1940d58d4558bb6cb9840e
+msgid "Kubernetes CRD"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:12
+#: 5acc6a981fa048a0ad70f87c25985a79
+msgid "**Requirements:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:14
+#: 8ced6363b2e8442ca728a89050d79926
+msgid "OpenShift 4.x"
+msgstr ""
+

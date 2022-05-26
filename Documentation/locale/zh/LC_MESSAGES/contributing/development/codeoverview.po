@@ -1,0 +1,684 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/codeoverview.rst:3
+#: 14afc59b013942b8bddde97d955c4304
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:10
+#: 7dab899e6266492aa761ad83fb56bcbb
+msgid "Code Overview"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:12
+#: 345261d1946c43269ea517c76d61b8c0
+msgid ""
+"This section provides an overview of the Cilium & Hubble source code "
+"directory structure. It is useful to get an initial overview on where to "
+"find what."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:16
+#: c169d1c20dc04f23843c11f06d0e8f8a
+msgid "High-level"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:18
+#: f94200c8f0c2480c9633170d417188a8
+msgid ""
+"Top-level directories `github.com/cilium/cilium "
+"<https://github.com/cilium/cilium>`_:"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:21
+#: 641be8bda9a84147b0666912e15c41ee
+msgid "api"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:21
+#: acad4d3f4c2f4d1e96cb6ac3732599be
+msgid "The Cilium & Hubble API definition."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:24
+#: ../../contributing/development/codeoverview.rst:71
+#: 66315b9739c943d0b64a0e722f83f420 a96c337812564467975b8589e52ab5a9
+msgid "bpf"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:24
+#: ../../contributing/development/codeoverview.rst:71
+#: 4ec25acbb6dc4748898c9ec26d9060d0 7bfd2c6faaaa4538890dc65b1ef50f0e
+msgid "The eBPF datapath code"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:27
+#: e917b9f9f0d64cb38265c73b78b6630f
+msgid "bugtool"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:27
+#: f95d67371a2e414fb59d44924f985376
+msgid "CLI for collecting agent & system information for bug reporting"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:30
+#: ../../contributing/development/codeoverview.rst:74
+#: 1a6c8936a30741098aa44e618fd31243 877ce479d2034073a4be64b058604f99
+msgid "cilium"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:30
+#: ../../contributing/development/codeoverview.rst:74
+#: a389514a8c4b441481018bab217a40bc b746f8229fd34a0eb9efc2972839735c
+msgid "Cilium CLI client"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:33
+#: 06860431cc274600bee2f93e98c77597
+msgid "contrib, tools"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:33
+#: bce98e93e9e34bb1b847d87fbea3f8ee
+msgid "Additional tooling and resources used for development"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:36
+#: ../../contributing/development/codeoverview.rst:80
+#: 392cb785c6154f658951c73dc9c1e4fc 804064cfa8864522a93eebe5fafe7099
+msgid "daemon"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:36
+#: 3d808624694d4a2c9fded6900b1a83c3
+msgid "The cilium-agent running on each node"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:40
+#: 9bcc3f66cb1245c0a770a202d4ca0303
+msgid "examples"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:39
+#: 233a742435ce4d1898ba913326972829
+msgid ""
+"Various example resources and manifests. Typically require to be modified"
+" before usage is possible."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:43
+#: ../../contributing/development/codeoverview.rst:101
+#: bae886d6bb6549278f980975899b0870 bbed7584a9454f339f0e780ef9632ea2
+msgid "hubble-relay"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:43
+#: cabdfc1672074d6eb9a18a9f2312482d
+msgid "Hubble Relay server"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:46
+#: 52016d3afb7e482a92dd170325fd6018
+msgid "install"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:46
+#: dab54958417b40ba9d5c10cde416c5d6
+msgid "Helm deployment manifests for all components"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:49
+#: 4c97a04e09eb4582aaead616ad7c4e05
+msgid "pkg"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:49
+#: e23ca5712a0a456284eb60d19f1f2f5d
+msgid "Common Go packages shared between all components"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:53
+#: de7cccb6738f42cf89ed4f345ad464f7
+msgid "operator"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:52
+#: bbd000c60de042c18d91b60b832cc5f5
+msgid ""
+"Operator responsible for centralized tasks which do not require to be "
+"performed on each node."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:56
+#: 353151c89a2743c49937482419d1cd59
+msgid "plugins"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:56
+#: 5718405a779b48649c63a2b12d6d0126
+msgid "Plugins to integrate with Kubernetes and Docker"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:59
+#: 7f3665f2bce34437ad04a98fcd987cae
+msgid "test"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:59
+#: b5d480a490e541039b606e3bba46e65d
+msgid "End-to-end integration tests run in the :ref:`testsuite`."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:62
+#: 103eb201ed68411282e979057320f234
+msgid "Cilium"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:65
+#: d7585d596c2a4533860b4487d940501b
+msgid "api/v1/openapi.yaml"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:65
+#: 0ca23f4dc44144dd810c6dbb462f95ab
+msgid "API specification of the Cilium API. Used for code generation."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:68
+#: fc2d5543e0f3413b9b72f63fd84245cd
+msgid "api/v1/models/"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:68
+#: ed41e94c830043f293d309904525ceff
+msgid "Go code generated from openapi.yaml representing all API resources"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:77
+#: 59eecd08fe534a22b76828d861b29ea3
+msgid "cilium-health"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:77
+#: fc9cac0e3d9a49df999e6e4b348ad839
+msgid "Cilium cluster connectivity CLI client"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:80
+#: b59cc227b65b45f79cbd084fa8eb4c75
+msgid "cilium-agent specific code"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:83
+#: 0f8c7bbc57e04818bf2f5ece1c25683a
+msgid "plugins/cilium-cni"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:83
+#: b7fd0ad82ff94885ab49f80bffcf2c85
+msgid "The CNI plugin to integrate with Kubernetes"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:86
+#: 0c049075014c4fb88d4e6bc64f698cec
+msgid "plugins/cilium-docker"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:86
+#: 6bb15a3b36a743508498e93052eea931
+msgid "The Docker integration plugin"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:89
+#: 446e9203b2c24582a97bf3ed73b171ba
+msgid "Hubble"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:91
+#: c7e0e3ecc0b0402280b92b6e90ae72b2
+msgid ""
+"The server-side code of Hubble is integrated into the Cilium repository. "
+"The Hubble CLI can be found in the separate repository "
+"`github.com/cilium/hubble <https://github.com/cilium/hubble>`_. The "
+"Hubble UI can be found in the separate repository `github.com/cilium"
+"/hubble-ui <https://github.com/cilium/hubble-ui>`_."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:98
+#: a34f3968b03a49f486b52925928d671f
+msgid "api/v1/external, api/v1/flow, api/v1/observer, api/v1/peer, api/v1/relay"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:98
+#: 81b0955e53564558bf9dd0f60e81a4e4
+msgid "API specifications of the Hubble APIs."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:101
+#: 0432f062f5cf487c9dc5cda280d2b17a
+msgid "Hubble Relay agent"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:104
+#: 3c4101a3afa644f68f07d1b16238e9dd
+msgid "pkg/hubble"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:104
+#: 83e4ea5133544d27b967908908dbd726
+msgid "All Hubble specific code"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:107
+#: f17c1c65121842e891791d52a3ffc494
+msgid "pkg/hubble/container"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:107
+#: 2c7e074880d842be87aad5c8bb6dcb73
+msgid "Ring buffer implementation"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:110
+#: 22c99d51840641239600d14ff6835484
+msgid "pkg/hubble/filters"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:110
+#: 43088ee7c33b4e3fa7dc7956c7fa5218
+msgid "Flow filtering capabilities"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:113
+#: 598e76d2647d4091a0c9da8442096e3f
+msgid "pkg/hubble/metrics"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:113
+#: 3eb2bcb50d964b1cb0611660e6cdb99a
+msgid "Metrics plugins providing Prometheus based on Hubble's visibility"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:117
+#: 70b931732d844acdba9f1c2b5cf89e76
+msgid "pkg/hubble/observe"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:116
+#: dc302744e4d246f5938b3ece284bca8f
+msgid ""
+"Layer running on top of the Cilium datapath monitoring, feeding the "
+"metrics and ring buffer."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:120
+#: e6bed61c52824a3199ef808c98b7f86b
+msgid "pkg/hubble/parser"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:120
+#: c61e5f7b85ba4f59b4d2d02884420dd3
+msgid "Network flow parsers"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:123
+#: 2b5546106fc34c4daf8f32e6f1db5154
+msgid "pkg/hubble/peer"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:123
+#: 076118c91483427882f0e09c8885caaa
+msgid "Peer service implementation"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:126
+#: d5a5c784279b47aa9cd053b22825c8b2
+msgid "pkg/hubble/relay"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:126
+#: aed9e8c95f234513bff4446b65f3f38a
+msgid "Hubble Relay service implementation"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:129
+#: 92c44cd0253a43039c37985241a51fb2
+msgid "pkg/hubble/server"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:129
+#: 29d3adb3c20d45ca83c26e0085aeb247
+msgid "The server providing the API for the Hubble client and UI"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:132
+#: 6ba7a89e7c5c45909b0af5024d9a4b82
+msgid "Important common packages"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:135
+#: d8b72c6a925a4d29b5ffd3b7d94dc6c6
+msgid "pkg/allocator"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:135
+#: 3c8e6c4b74054e14b424886ae8b2228c
+msgid "Security identity allocation"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:138
+#: 4bf67d8078194a81b0a72f6485afc7f4
+msgid "pkg/bpf"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:138
+#: 54cb69ab79524e81a1183e19c308a29a
+msgid "Abstraction layer to interact with the eBPF runtime"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:141
+#: 20ae19abb84643b9bda515d166a0078f
+msgid "pkg/client"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:141
+#: 2ca02d793b8a4d79bfa3c5625a6e5032
+msgid "Go client to access Cilium API"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:144
+#: d06b808db3354a8198daf80890cd6f7a
+msgid "pkg/clustermesh"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:144
+#: d3c8c326d06c48d899c1a7363bb3a4b3
+msgid "Multi-cluster implementation including control plane and global services"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:148
+#: d1709861555a4554a7c3327fd39c3e48
+msgid "pkg/controller"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:147
+#: 36f9b2a1b9d04387b8460980d38481fe
+msgid ""
+"Base controller implementation for any background operation that requires"
+" retries or interval-based invocation."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:151
+#: a95bee4655a2486ba7e36f9524949adb
+msgid "pkg/datapath"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:151
+#: 9976eb7d51334e1684076c8222e4288f
+msgid "Abstraction layer for datapath interaction"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:154
+#: 7fe2081dd67843f3a0fc4cda848746e9
+msgid "pkg/defaults"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:154
+#: 1e9fdc393caa4f419c909de9ca003a80
+msgid "All default values"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:157
+#: 49cc1eb275854ddba2ba8c7690a4280a
+msgid "pkg/elf"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:157
+#: 56f3bb9ccd004193bf7b46f458f19429
+msgid "ELF abstraction library for the eBPF loader"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:160
+#: 650208c3b84c444983898fbe3eec08d1
+msgid "pkg/endpoint"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:160
+#: ada2cc59aa8149e98fa5e673beccc707
+msgid "Abstraction of a Cilium endpoint, representing all workloads."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:163
+#: f1228c7c51d64d188321f8bf6cbbdbcd
+msgid "pkg/endpointmanager"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:163
+#: 6ec14a20ff9c4e54883dd58a7ea9cad8
+msgid "Manager of all endpoints"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:166
+#: 2ddda07e4a084f6f9cad1edfea206ee3
+msgid "pkg/envoy"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:166
+#: 8363e454c8ef4fd280504cc75fe4fa2e
+msgid "Envoy proxy interactions"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:169
+#: d4e6fab698154b63b5428cd8dcac01c6
+msgid "pkg/fqdn"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:169
+#: 2a5a5404b8774356bb60c884978d0e2c
+msgid "FQDN proxy and FQDN policy implementation"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:172
+#: a9607bc6e6b445fa838696e343ec402c
+msgid "pkg/health"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:172
+#: 1a260dfb47bf4d43bab35b5d9eb2025b
+msgid "Network connectivity health checking"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:175
+#: c3878b47506f494086c3f62ffc967eea
+msgid "pkg/identity"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:175
+#: b66a39c810134b3292eb50a5a7af6c61
+msgid "Representation of a security identity for workloads"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:178
+#: cd5549c50cab4dda8c0dc2a828010aaa
+msgid "pkg/ipam"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:178
+#: e134b7ed455a4c3e9cc291b0f26e768d
+msgid "IP address management"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:181
+#: b8ce4a1e5ba2491ca24ab117d71b6929
+msgid "pkg/ipcache"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:181
+#: e59079f3d56b45bb804bcd764415dd90
+msgid "Global cache mapping IPs to endpoints and security identities"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:184
+#: c07ebf31319d41e3bbd8581c97746304
+msgid "pkg/k8s"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:184
+#: 96b52b4383964b998e029dde1c14118b
+msgid "All interactions with Kubernetes"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:187
+#: 98ccae5a93574d5a861f48a9f606723a
+msgid "pkg/kafka"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:187
+#: 3df3a8e3df794700b21ed74ccc78a824
+msgid "Kafka protocol proxy and policy implementation"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:190
+#: 086746acc02544799faee24d9fd46f5a
+msgid "pkg/kvstore"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:190
+#: 40e99a0fcd8d426483afc936cd10072d
+msgid "Key-value store abstraction layer with backends for etcd"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:194
+#: b0b57016afeb4475837293c190ca737b
+msgid "pkg/labels"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:193
+#: 634ac12d6565416db36c034b5790d007
+msgid ""
+"Base metadata type to describe all label/metadata requirements for "
+"workload identity specification and policy matching."
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:197
+#: b11370400050478bb2b2ed6eaa47543c
+msgid "pkg/loadbalancer"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:197
+#: e916bdbd94974c7db4810ccd24af08e7
+msgid "Control plane for load-balancing functionality"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:200
+#: c507178c7d054df09752f66a2be55e01
+msgid "pkg/maps"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:200
+#: 64f2fd262ecd42b3903fb6ed0c2dc9f2
+msgid "eBPF map representations"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:203
+#: 5bda946524724f79abc97a816bef5c21
+msgid "pkg/metrics"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:203
+#: 0096d65f63ac4a2f90696c93a681479d
+msgid "Prometheus metrics implementation"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:206
+#: 9fbd2d2d6d8b492dbf670dc724b5a981
+msgid "pkg/monitor"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:206
+#: 36b80b01c2904e02aee8eb295f52b7b3
+msgid "eBPF datapath monitoring abstraction"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:209
+#: f535612de43f4cac8b217348b2fb4c42
+msgid "pkg/node"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:209
+#: 39f9c5352a954cccb84351b9f591e7d1
+msgid "Representation of a network node"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:212
+#: 88d53840630a4f7eb11b129fa5944eff
+msgid "pkg/option"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:212
+#: 9134d459653f4f28a580a933d32b4ce0
+msgid "All available configuration options"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:215
+#: 8f7618fa71e1499083a3fd760d3db892
+msgid "pkg/policy"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:215
+#: 2ae2ed0158a245a58a2699520355c138
+msgid "Policy enforcement specification & implementation"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:218
+#: 1e7c36e14fa043829532246468641744
+msgid "pkg/proxy"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:218
+#: d480946cb3a14dd4a1d620858e212b70
+msgid "Layer 7 proxy abstraction"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:221
+#: 445aa3f13cba4313b54a4eb1bb2217d6
+msgid "pkg/service"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:221
+#: a0a259383c2f4e6cbe97567c2add5226
+msgid "Representation of a load-balancing service"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:226
+#: 05a468a9a53e4c53a15d074d884cdeb3
+msgid "pkg/trigger"
+msgstr ""
+
+#: ../../contributing/development/codeoverview.rst:224
+#: 157de0525b074eb9a3772f83012d9b08
+msgid ""
+"Implementation of trigger functionality to implement event-driven "
+"functionality"
+msgstr ""
+

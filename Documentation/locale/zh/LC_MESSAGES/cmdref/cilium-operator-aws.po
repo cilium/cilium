@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-aws.md:3 88ca5e2a38434caea610b25772861730
+msgid "cilium-operator-aws"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws.md:5 6ee7e2def89a461896c931d38597215d
+msgid "Run cilium-operator-aws"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws.md:11 a1467cdf16a74ae1ab069ade52f7366e
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws.md:86 482eb3fa0f49495198c570bb82da4331
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws.md:88 54d4f79a85684e7b86e47900007c21be
+msgid ""
+"[cilium-operator-aws completion](cilium-operator-aws_completion.md)\t - "
+"Generate the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws.md:89 bc477d56b54f4479b4da111665222c0d
+msgid ""
+"[cilium-operator-aws metrics](cilium-operator-aws_metrics.md)\t - Access "
+"metric status of the operator"
+msgstr ""
+

@@ -1,0 +1,1037 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/contributing_guide.rst:3
+#: 6f58e914b5ca4118bc5620cdeb29fd57
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:11
+#: 294f04a362ee4ea2ab9d5f83874b661f
+msgid "How To Contribute"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:14
+#: 5992a80e391c4c699cb780ff755cd701
+msgid "Clone and Provision Environment"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:16
+#: d3767677127242bcb3fcd1b409959c44
+msgid "Make sure you have a `GitHub account <https://github.com/join>`_"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:17
+#: 9dca2c38d8414843aae1988599fcf0a3
+msgid "Fork the Cilium repository to your GitHub user or organization."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:18
+#: bb204d072d73492ca44e44c01926922c
+msgid ""
+"Turn off GitHub actions for your fork as described in the `GitHub Docs "
+"<https://docs.github.com/en/repositories/managing-your-repositorys-"
+"settings-and-features/enabling-features-for-your-repository/managing-"
+"github-actions-settings-for-a-repository#managing-github-actions-"
+"permissions-for-your-repository>`_. #. This is recommended to avoid "
+"unnecessary CI notification failures on the fork."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:20
+#: 43358edab9804eeb9fd1db99e06fb12c
+msgid ""
+"Clone your ``${YOUR_GITHUB_USERNAME_OR_ORG}/cilium`` fork into your "
+"``GOPATH``, and setup the base repository as ``upstream`` remote:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:30
+#: 5ee055ad055d491b9d5011968838a8d1
+msgid "Set up your :ref:`dev_env`."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:31
+#: cf7a2635de584757b189286f3eb4e0de
+msgid ""
+"Check the GitHub issues for `good tasks to get started "
+"<https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label"
+"%3Agood-first-issue>`_."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:33
+#: 542f02033610445bb10ce5088114d043
+msgid "Follow the steps in :ref:`making_changes` to start contributing :)"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:38
+#: 3f0ccd742f1a49bdb02da75a238086e8
+msgid "Submitting a pull request"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:40
+#: b0a1cfa644354e4597969825079289d0
+msgid ""
+"Contributions must be submitted in the form of pull requests against the "
+"upstream GitHub repository at https://github.com/cilium/cilium."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:43
+#: e8cc3b5734e644958bff1f5ec255d1a6
+msgid "Fork the Cilium repository."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:44
+#: 76efa444668c4c539a4ace322501a7f1
+msgid "Push your changes to the topic branch in your fork of the repository."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:45
+#: 030ec1faaed341abafe7c3b48ce556b3
+msgid "Submit a pull request on https://github.com/cilium/cilium."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:47
+#: 265ab5896f8e4b3ba4aaaf0ad94e055b
+msgid ""
+"Before hitting the submit button, please make sure that the following "
+"requirements have been met:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:50
+#: 08a9600d64824eb087a1674cfed5f038
+msgid ""
+"Each commit compiles and is functional on its own to allow for bisecting "
+"of commits."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:52
+#: 11db17df5bf14621af055fe04527a1a1
+msgid "All code is covered by unit and/or runtime tests where feasible."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:53
+#: b55960a4bb5844a39d0761ff22453c0b
+msgid ""
+"All changes have been tested and checked for regressions by running the "
+"existing testsuite against your changes. See the :ref:`testsuite` section"
+" for additional details."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:56
+#: 622d45b477dd4ab68db998d7e207e99f
+msgid ""
+"All commits contain a well written commit description including a title, "
+"description and a ``Fixes: #XXX`` line if the commit addresses a "
+"particular GitHub issue. Note that the GitHub issue will be automatically"
+" closed when the commit is merged."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:81
+#: bdfe7a937c9d4920b8015dba307b26fb
+msgid ""
+"Make sure to include a blank line in between commit title and commit "
+"description."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:84
+#: df9f88d684234c18bf31d14c4e3d607c
+msgid ""
+"If any of the commits fixes a particular commit already in the tree, that"
+" commit is referenced in the commit message of the bugfix. This ensures "
+"that whoever performs a backport will pull in all required fixes:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:98
+#: b9faf9ce16c24e1a9670d3d3253b3b7a
+msgid ""
+"The proper format for the ``Fixes:`` tag referring to commits is to use "
+"the first 12 characters of the git SHA followed by the full commit title "
+"as seen above without breaking the line."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:102
+#: 5a77095873bb4f34bbe2ab9664c22f6c
+msgid ""
+"If you change CLI arguments of any binaries in this repo, the CI will "
+"reject your PR if you don't also update the command reference docs. To do"
+" so, make sure to run the ``postcheck`` make target."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:111
+#: 1a15057db8ea4e738577fb316a3d2768
+msgid "All commits are signed off. See the section :ref:`dev_coo`."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:115
+#: 0056d6b7f03f4eae8d091bdd2c31856b
+msgid ""
+"Passing the ``-s`` option to ``git commit`` will add the ``Signed-off-"
+"by:`` line to your commit message automatically."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:118
+#: c041ea100d8849ed9883e36aa40aaf4d
+msgid ""
+"Document any user-facing or breaking changes in "
+"``Documentation/install/upgrade.rst``."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:120
+#: 870209954e73415c86ddcc398d810640
+msgid ""
+"(optional) Pick the appropriate milestone for which this PR is being "
+"targeted, e.g. ``1.6``, ``1.7``. This is in particular important in the "
+"time frame between the feature freeze and final release date."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:124
+#: ba7e74ee56314913bd30652dc4ce8354
+msgid ""
+"If you have permissions to do so, pick the right release-note label. "
+"These labels will be used to generate the release notes which will "
+"primarily be read by users."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:129
+#: ../../contributing/development/contributing_guide.rst:173
+#: ../../contributing/development/contributing_guide.rst:309
+#: ../../contributing/development/contributing_guide.rst:363
+#: ../../contributing/development/contributing_guide.rst:376
+#: ../../contributing/development/contributing_guide.rst:390
+#: ../../contributing/development/contributing_guide.rst:409
+#: 15cc88b555b54b95899583b19255f603 18d56531670c42529a23430aa2fd5ae6
+#: 32820bace6ea492dae890b39555a6cff 724bf4e1f551432c865f117e8dc3188e
+#: 962da7a1c7d04855a1c8e69a52a39806 d3187e7747e14863a02ba5badfa72f98
+#: e520806ffacc42f6a5fb5d03ecc77447
+msgid "Labels"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:129
+#: ../../contributing/development/contributing_guide.rst:173
+#: ../../contributing/development/contributing_guide.rst:309
+#: ../../contributing/development/contributing_guide.rst:363
+#: ../../contributing/development/contributing_guide.rst:376
+#: ../../contributing/development/contributing_guide.rst:390
+#: ../../contributing/development/contributing_guide.rst:409
+#: 142ebd66bc2042c197959ace204b1194 170ab44921dd444d8644b6d8fc39cdd3
+#: 248af140389e44fe8c460263c9cd636a 3a4ff7f8942b4a5a9e960613998e0f29
+#: 661adc6e008343e796d01f1a35dd52ad 79705e64b5254398ae67cdf60bf29e37
+#: ef269518576e4180bd3437868370118d
+msgid "When to set"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:131
+#: ../../contributing/development/contributing_guide.rst:394
+#: ac9746b793c642eeba8286e4d24af8a9 e8df82e0536d465096ac8a0d019e4cc2
+msgid "``release-note/bug``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:131
+#: ../../contributing/development/contributing_guide.rst:394
+#: c6e993f426a645c590aafa2164432060 e509aed559804a4eaf413050733d07ea
+msgid "This is a non-trivial bugfix and is a user-facing bug"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:133
+#: ../../contributing/development/contributing_guide.rst:396
+#: 8a2b85d325ba430dab6121f4eca76766 d7006bd78039436cbb7d1e2e40c69ec2
+msgid "``release-note/major``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:133
+#: ../../contributing/development/contributing_guide.rst:396
+#: 06e39c60387c4881b5ea3aac2a6bdd11 201370afd8a74d68ad261f81176b1502
+msgid "This is a major feature addition, e.g. Add MongoDB support"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:135
+#: ../../contributing/development/contributing_guide.rst:398
+#: 5881ffde9d0c432ca3b45d8ef54d09fb e4511a0c6e174212bc1e7460a610d29e
+msgid "``release-note/minor``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:135
+#: ../../contributing/development/contributing_guide.rst:398
+#: 99c980260b6846f69aeb8f01e70a0302 a86a98ceb5394af0905e95fb2a189267
+msgid ""
+"This is a minor feature addition, e.g. Add support for a Kubernetes "
+"version"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:137
+#: ../../contributing/development/contributing_guide.rst:400
+#: 059606c6de254a74b6d7f3e41d1558b8 b7c4b5e74cc34721929a0be3e8270ccf
+msgid "``release-note/misc``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:137
+#: ../../contributing/development/contributing_guide.rst:400
+#: 1271c59647254df0a5bc077d850ef369 cc40dfa447674fa6a537fd00689f96e7
+msgid ""
+"This is a not user-facing change , e.g. Refactor endpoint package, a bug "
+"fix of a non-released feature"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:139
+#: ../../contributing/development/contributing_guide.rst:402
+#: 0d8159acf84e48e3b48ec704169bfba8 e0c940362f6240089f0650aecf6e5007
+msgid "``release-note/ci``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:139
+#: ../../contributing/development/contributing_guide.rst:402
+#: 9c7319c1d08748128eacfe7b79fbd1d0 bc6b0263b11a4c55a812e8e4e1607a2b
+msgid "This is a CI feature of bug fix."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:142
+#: 3941f7257705484a9475905c1b8687cf
+msgid ""
+"Verify the release note text. If not explicitly changed, the title of the"
+" PR will be used for the release notes. If you want to change this, you "
+"can add a special section to the description of the PR. These release "
+"notes are primarily going to be read by users so it is important that "
+"release notes for bugs, major and minor features do not contain internal "
+"details of Cilium functionality which sometimes are irrelevant for users."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:150
+#: 8f061b2633b8455e8464db8a3305fa54
+msgid "Example of a bad release note ::"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:157
+#: 9237b81e40e843f6943a675080d701f8
+msgid "Example of a good release note ::"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:166
+#: 328c2c83f16c49a781d204311d40db11
+msgid ""
+"If multiple lines are provided, then the first line serves as the high "
+"level bullet point item and any additional line will be added as a sub "
+"item to the first line."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:170
+#: 88cded7170c348ff83bf139dd0353ca0
+msgid "If you have permissions, pick the right labels for your PR:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:175
+#: 1e25fa2f16fb4559bbd9362eee3f878a
+msgid "``kind/bug``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:175
+#: 5797d7b6e7634bda9a1dccc430f058fb
+msgid "This is a bugfix worth mentioning in the release notes"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:177
+#: 147e7cbb6cf84dc49e671b36d509b589
+msgid "``kind/enhancement``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:177
+#: 362413055bbc45bf8e1ef035ee00a5de
+msgid "This enhances existing functionality in Cilium"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:179
+#: 5b40a9b7c3744c5b819bbc53d803cfb3
+msgid "``kind/feature``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:179
+#: 7616c283d699482da3d4801df702c36f
+msgid "This is a feature"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:181
+#: 3c9adbd48ead4461a6642a941cbff038
+msgid "``release-blocker/X.Y``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:181
+#: a5e40c55414648d0a3a8408e55ec4e85
+msgid "This PR should block the next X.Y release"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:183
+#: ../../contributing/development/contributing_guide.rst:378
+#: 46cdf2cdd13940ff83b255d41bfa7618 808996548a45493ca02fdc4d13885ce6
+msgid "``needs-backport/X.Y``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:183
+#: ../../contributing/development/contributing_guide.rst:378
+#: 86cff48a4c784784895c72337d53dc13 d58f29ab9a644894a8e1ccef5e3c3b10
+msgid "PR needs to be backported to these stable releases"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:185
+#: 3c557309a4594464a5df7ff34365afa3
+msgid "``backport/X.Y``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:185
+#: e17d7cbc7d5442deb2f94f4698465461
+msgid "This is backport PR, may only be set as part of :ref:`backport_process`"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:187
+#: ../../contributing/development/contributing_guide.rst:411
+#: 0a948536b8d7493490f2f79889ec1f1f e45930d9e76c45ee9c31d457bbfffb43
+msgid "``upgrade-impact``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:187
+#: ../../contributing/development/contributing_guide.rst:411
+#: 7f4b3d61481c4c5daeda6f5cef015c3d 8b56ed576b3549daa9d7b180becad57f
+msgid "The code changes have a potential upgrade impact"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:189
+#: 8d7aa8145a71448eaa8cbd9010b7cdd6
+msgid "``area/*`` (Optional)"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:189
+#: c181560973a6413eafb52d1ed77da30f
+msgid "Code area this PR covers"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:194
+#: ed506040e2ea4c17a58f9636930abea7
+msgid ""
+"If you do not have permissions to set labels on your pull request. Leave "
+"a comment and a core team member will add the labels for you. Most "
+"reviewers will do this automatically without prior request."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:198
+#: f5f321edf22348ba918bf21b683a82e9
+msgid ""
+"Open a draft pull request. GitHub provides the ability to create a Pull "
+"Request in \"draft\" mode. On the \"New Pull Request\" page, below the "
+"pull request description box there is a button for creating the pull "
+"request. Click the arrow and choose \"Create draft pull request\". If "
+"your PR is still a work in progress, please select this mode. You will "
+"still be able to run the CI against it. Once the PR is ready for review "
+"you can click in \"Ready for review\" button at the bottom of the page\" "
+"and reviewers will start reviewing. When you are actively changing your "
+"PR, set it back to draft PR mode to signal that reviewers do not need to "
+"spend time reviewing the PR right now. When it is ready for review again,"
+" mark it as such."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:213
+#: 22ca4c0806ab4bb3a67ca6f6b353745a
+msgid "Getting a pull request merged"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:215
+#: dad84f67b4604b9abbd4a6d5994aea2f
+msgid ""
+"As you submit the pull request as described in the section "
+":ref:`submit_pr`. One of the reviewers will start a CI run by replying "
+"with a comment ``/test`` as described in :ref:`trigger_phrases`. If you "
+"are a core team member, you may trigger the CI run yourself."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:220
+#: 928ac947f2314aab82c2381a3e90e9f3
+msgid ""
+"Basic static code analyzer by Github Action and Travis CI. Golang linter "
+"suggestions are added in-line on PRs. For other failed jobs, please refer"
+" to build log for required action (e.g. Please run ``go mod tidy && go "
+"mod vendor`` and submit your changes, etc)."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:225
+#: 55078b95f1564c10a2dc71b04173a7f2
+msgid ":ref:`ci_jenkins`: Will run a series of tests:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:227
+#: a7dc55764e9543d0ab0d70d17d40012d
+msgid "Unit tests"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:228
+#: 3cddec4722664c80b61e9d63353c68d9
+msgid "Single node runtime tests"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:229
+#: aad6f2a56303443da6f58144fd437706
+msgid "Multi node Kubernetes tests"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:231
+#: f55484b0b1a34eef8682718d61fa06e7
+msgid ""
+"If a CI test fails which seems unrelated to your PR, it may be a flaky "
+"test. Follow the process described in :ref:`ci_failure_triage`."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:234
+#: bb98f43795b14de592354f72ed405a17
+msgid ""
+"As part of the submission, GitHub will have requested a review from the "
+"respective code owners according to the ``CODEOWNERS`` file in the "
+"repository."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:238
+#: f6e41c97cc014ecd976948acc40270c2
+msgid "Address any feedback received from the reviewers"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:239
+#: 7255472139a048348c483846d6430623
+msgid ""
+"You can push individual commits to address feedback and then rebase your "
+"branch at the end before merging."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:242
+#: d07e1f9a43de4607815128fc9da0360f
+msgid ""
+"Owners of the repository will automatically adjust the labels on the pull"
+" request to track its state and progress towards merging."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:245
+#: 50f871c4ee594fa19251aa4fb04bfe12
+msgid ""
+"Once the PR has been reviewed and the CI tests have passed, the PR will "
+"be merged by one of the repository owners. In case this does not happen, "
+"ping us on Slack."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:249
+#: 495fb155dbba4111bb4b916b328bc9d4
+msgid ""
+"If reviewers have requested changes and those changes have been "
+"addressed, re-request a review for the reviewers that have requested "
+"changes. Otherwise, those reviewers will not be notified and your PR will"
+" not receive any reviews. If the PR is considerably large (e.g. with more"
+" than 200 lines changed and/or more than 6 commits) create new commit for"
+" each review. This will make the review process smoother as GitHub has "
+"limitations that prevents reviewers from only seeing the new changes "
+"added since the last time they have reviewed a PR. Once all reviews are "
+"addressed those commits should be squashed against the commit that "
+"introduced those changes. This can be easily accomplished by the usage of"
+" ``git rebase -i origin/master`` and in that windows, move these new "
+"commits below the commit that introduced the changes and replace the work"
+" ``pick`` with ``fixup``. In the following example, commit ``d2cb02265`` "
+"will be meld into ``9c62e62d8`` and commit ``146829b59`` will be meld "
+"into ``9400fed20``."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:271
+#: 79d15d9e764f4a0e8d59141b207ca0ff
+msgid ""
+"Once this is done you can perform push force into your branch and request"
+" for your PR to be merged."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:276
+#: d2bc0668b5d8429ebc854d2d327494ec
+msgid "Pull requests review process for committers"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:278
+#: 420d3af4d3274ade8d1faaad5b81ea8e
+msgid ""
+"Every committer in the `committers team "
+"<https://github.com/orgs/cilium/teams/committers/members>`_ belongs to "
+"`one or more other teams in the Cilium organization "
+"<https://github.com/orgs/cilium/teams/team/teams>`_ if you would like to "
+"be added or removed from any team, please contact any of the `maintainers"
+" <https://github.com/orgs/cilium/teams/cilium-maintainers/members>`_."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:283
+#: ce6212b8bdc348ba8bc976cb531632c9
+msgid ""
+"Once a PR is open, GitHub will automatically pick which `teams "
+"<https://github.com/orgs/cilium/teams/team/teams>`_ should review the PR "
+"using the ``CODEOWNERS`` file. Each committer can see the PRs they need "
+"to review by filtering by reviews requested. A good filter is provided in"
+" this `link "
+"<https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse"
+"+user-review-requested%3A%40me+sort%3Aupdated-asc>`_ so make sure to "
+"bookmark it."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:289
+#: feb06072244c46bd98bb7767a3caaba2
+msgid ""
+"Belonging to a team does not mean that a committer should know every "
+"single line of code the team is maintaining. For this reason it is "
+"recommended that once you have reviewed a PR, if you feel that another "
+"pair of eyes is needed, you should re-request a review from the "
+"appropriate team. In the example below, the committer belonging to the CI"
+" team is re-requesting a review for other team members to review the PR. "
+"This allows other team members belonging to the CI team to see the PR as "
+"part of the PRs that require review in the `filter "
+"<https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse"
+"+review-requested%3A%40me+sort%3Aupdated-asc>`_"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:302
+#: 28d8bfccb5f54092ad42590cad41ca8b
+msgid ""
+"When all review objectives for all ``CODEOWNERS`` are met, all required "
+"CI tests have passed and a proper release label as been set, you may set "
+"the ``ready-to-merge`` label to indicate that all criteria have been met."
+" Maintainer's little helper might set this label automatically if the "
+"previous requirements were met."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:311
+#: 3c5948b260b64156afbc802c03e63fdb
+msgid "``ready-to-merge``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:311
+#: c468213a11584af784c3c11429956148
+msgid "PR is ready to be merged"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:315
+#: 8c9c7c83cc8841c98bcc5d148e1e5e4f
+msgid "Weekly duties"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:317
+#: 0bacd863534841b3b801d6a4695b8863
+msgid ""
+"Some members of the committers team will have rotational duties that "
+"change every week. The following steps describe how to perform those "
+"duties. Please submit changes to these steps if you have found a better "
+"way to perform each duty."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:322
+#: d31f7be53cee4d8787a7669b1672f865
+msgid ""
+"`People in a Janitor hat this week "
+"<https://github.com/orgs/cilium/teams/tophat/members>`_"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:323
+#: b16844155c484b09983bda1a3cf14f47
+msgid ""
+"`People in a Triage hat this week "
+"<https://github.com/orgs/cilium/teams/tophat/members>`_"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:324
+#: 5e794b404e0b4beabcf340ef5398472b
+msgid ""
+"`People in a Backport hat this week "
+"<https://github.com/orgs/cilium/teams/tophat/members>`_"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:327
+#: acd6a7341f864a90ae5327851b0993f9
+msgid "Pull request review process for Janitors team"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:331
+#: d38c6663926944bc93d591815a41d5d5
+msgid ""
+"These instructions assume that whoever is reviewing is a member of the "
+"Cilium GitHub organization or has the status of a contributor. This is "
+"required to obtain the privileges to modify GitHub labels on the pull "
+"request."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:336
+#: cdcfb904f5404bd6842ebe313f32df0f
+msgid ""
+"Dedicated expectation time for each member of Janitors team: Follow the "
+"next steps 1 to 2 times per day. Works best if done first thing in the "
+"working day."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:339
+#: 0782a027e9eb40c3b80ac1aaf34d248b
+#, python-format
+msgid ""
+"Review all PRs needing a review `from you "
+"<https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse"
+"+team-review-requested%3Acilium%2Ftophat+sort%3Aupdated-asc>`_;"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:341
+#: 5509a65628a948328e3c951971878fda
+msgid ""
+"If this PR was opened by a non-committer (e.g. external contributor) "
+"please assign yourself to that PR and make sure to keep track the PR gets"
+" reviewed and merged. This may extend beyond your assigned week for "
+"Janitor duty."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:345
+#: 7224d66ac9a64a58b140c6fc83155460
+msgid ""
+"If the contributor is a Cilium committer, then they are responsible for "
+"getting the PR in a ready to be merged state by adding the ``ready-to-"
+"merge`` label, once all reviews have been addressed and CI checks are "
+"successful, so that the janitor can merge it (see below)."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:350
+#: 887edbd5df244d6ca7c1a77a5d9646ad
+msgid ""
+"If this PR is a backport PR (e.g. with the label ``kind/backport``) and "
+"no-one else has reviewed the PR, review the changes as a sanity check. If"
+" any individual commits deviate from the original patch, request review "
+"from the original author to validate that the backport was correctly "
+"applied."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:355
+#: 51a9a8698ad1491089538b6d47af3796
+msgid ""
+"Review overall correctness of the PR according to the rules specified in "
+"the section :ref:`submit_pr`."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:358
+#: 7f4eaf07a96d4317a7b4b79acbf8ee34
+msgid ""
+"Set the labels accordingly, a bot called maintainer's little helper might"
+" automatically help you with this."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:365
+#: 38255e2443384543a9e5750146653565
+msgid "``dont-merge/needs-sign-off``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:365
+#: 503fb3bddef44c2486bce5e85a3d8638
+msgid "Some commits are not signed off"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:367
+#: 583c1e2b4d25493e937c05ba599a0a94
+msgid "``needs-rebase``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:367
+#: 4d68c20624394829995a7c4a52273d82
+msgid "PR is outdated and needs to be rebased"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:370
+#: a6fa33504d5c45209c227f8d46f297c8
+msgid ""
+"Validate that bugfixes are marked with ``kind/bug`` and validate whether "
+"the assessment of backport requirements as requested by the submitter "
+"conforms to the :ref:`backport_criteria`."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:381
+#: 035742d3a3124b0ca02ee7a4bd3dd255
+msgid ""
+"If the PR is subject to backport, validate that the PR does not mix "
+"bugfix and refactoring of code as it will heavily complicate the backport"
+" process. Demand for the PR to be split."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:385
+#: 5238ce7cdd1d4dc1bcb9a9b3cd10302a
+msgid ""
+"Validate the ``release-note/*`` label and check the PR title for release "
+"note suitability. Put yourself into the perspective of a future release "
+"notes reader with lack of context and ensure the title is precise but "
+"brief."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:392
+#: 62cb0d01250949639a900646f497c8b9
+msgid "``dont-merge/needs-release-note``"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:392
+#: 13441d50cafe4d21859aff8496db08ec
+msgid "Do NOT merge PR, needs a release note"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:405
+#: eb714c62af114debb1a7015acc36c037
+msgid ""
+"Check for upgrade compatibility impact and if in doubt, set the label "
+"``upgrade-impact`` and discuss in the Slack channel or in the weekly "
+"meeting."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:414
+#: 6952b8394a3847a4890b86b40db19ad9
+msgid ""
+"When all review objectives for all ``CODEOWNERS`` are met, all CI tests "
+"have passed, and all reviewers have approved the requested changes, merge"
+" the PR by clicking in the \"Rebase and merge\" button."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:418
+#: 4f66195e23e94e87a9a24e1057c04d1c
+msgid ""
+"Merge PRs with the ``ready-to-merge`` label set `here "
+"<https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+sort"
+"%3Aupdated-asc+label%3Aready-to-merge+>`_"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:420
+#: dc44d348e8a341b28b2e3d17dca51eca
+msgid ""
+"If the PR is a backport PR, update the labels of cherry-picked PRs with "
+"the command included at the end of the original post. For example:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:427
+#: e7960dbef9ad424e99bed73c9701d0f6
+msgid "Triage issues for Triage team"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:429
+#: 4dbcee18af1842299424392db5cb59c9
+msgid ""
+"Dedicated expectation time for each member of Triage team: 15/30 minutes "
+"per day. Works best if done first thing in the working day."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:432
+#: 0e830752c2594b94ba86807b4e764367
+msgid ""
+"Committers belonging to the `Triage team "
+"<https://github.com/orgs/cilium/teams/triage>`_ should make sure that:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:435
+#: 49add4b4fd1e43db95e1ef4582585b9e
+msgid ""
+"`Issues opened by community users are tracked down "
+"<https://github.com/cilium/cilium/issues?q=is%3Aissue+is%3Aopen+no%3Aassignee+sort"
+"%3Aupdated-desc>`_:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:437
+#: 549698d5065d4953b9689488994d2ba2
+msgid "Add the label ``kind/community-report``;"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:438
+#: 0b45da6dd3e04c81ad6b86fb8e3f0711
+msgid "If feasible, try to reproduce the issue described;"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:439
+#: fa41f639949b40f5b354e95ad5111c7e
+msgid ""
+"Assign a member that is responsible for that code section to that GitHub "
+"issue;"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:441
+#: b965339d029044e8980792ea4dc934cd
+msgid ""
+"If it is a relevant bug to the rest of the committers, bring the issue up"
+" in the weekly meeting. For example:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:444
+#: 4270d449eee140ebb65b6b8e63294ccb
+msgid "The issue may impact an upcoming release; or"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:445
+#: 070437b2882c488e8eac0445a26d228a
+msgid "The resolution is unclear and assistance is needed to make progress; or"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:446
+#: 8458eafe9d184ba2852154e29e056306
+msgid ""
+"The issue needs additional attention from core contributors to confirm "
+"the resolution is the right path."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:449
+#: fd018fa7c07649f4bed4998bf47fa406
+#, python-format
+msgid ""
+"`Issues recently commented are not left out unanswered "
+"<https://github.com/cilium/cilium/issues?q=is%3Aissue+is%3Aopen+sort"
+"%3Aupdated-desc+label%3Akind%2Fcommunity-report>`_:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:451
+#: 1ddca3a70ef24ce9b93c42567fd99919
+msgid ""
+"If there is someone already assigned to that GitHub issue and that "
+"committer hasn't provided an answer to that user for a while, ping that "
+"committer directly on Slack;"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:454
+#: 2494d56cdb284769a91f5ffe4b0bd29d
+msgid "If the issue cannot be solved, bring the issue up in the weekly meeting."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:458
+#: d5c3a1ddcf9c4aa5ae187cd858695aee
+msgid "Backporting PR for Backport team"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:460
+#: 5968f628b124462a8b049fb3262b92a4
+msgid ""
+"Dedicated expectation time for each member of Backport team: 60 minutes "
+"per week depending on releases that need to be performed at the moment."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:463
+#: e90a36b1d7704bcdb72be86642bb71b8
+msgid ""
+"Even if the next release is not imminently planned, it is still important"
+" to perform backports to keep the process smooth and to catch potential "
+"regressions in stable branches as soon as possible. If backports are "
+"delayed, this can also delay releases which is important to avoid "
+"especially if there are security-sensitive bug fixes that require an "
+"immediate release."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:469
+#: b8f0d1cbe3074b9f83755b97b7fe9a10
+msgid ""
+"In addition, when a backport PR is open, the person opening it is "
+"responsible to drive it to completion, even if it stretches after the "
+"assigned week of backporting hat. If this is not feasible (e.g. PTO), you"
+" are responsible to initiate handover of the PR to the next week's "
+"backporters."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:474
+#: 35eb4e22706e456b88ed0f859cebb90d
+msgid ""
+"If you can't backport a PR due technical constraints feel free to contact"
+" the original author of that PR directly so they can backport the PR "
+"themselves."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:477
+#: ba3dea1f722349f5838b3d0d9a8b0a62
+msgid "Follow the :ref:`backport_process` guide to know how to perform this task."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:480
+#: d2b253f2d96e439aa42d5d9db3c86a6c
+msgid "Coordination"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:482
+#: 0f2eefbf92624fcd95510f08426a7a0c
+msgid ""
+"In general, coordinating in the #launchpad Slack channel with the other "
+"hat owner for the week is encouraged. It can reduce your workload and it "
+"will avoid backporting conflicts such as opening a PR with the same "
+"backports. Such discussions will typically revolve around which branches "
+"to tackle and which day of the week."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:488
+#: dbdf30c8827740a58f7ae36eaf536fca
+msgid "An example interaction in #launchpad:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:495
+#: 6efc4508a1a148c78b46c4a05df33638
+msgid ""
+"The other hat owner can then handle v1.9 and v1.10 backports the next "
+"day, for example."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:498
+#: 64261fd841af49eca70b988388f95877
+msgid ""
+"If there are many backports to be done, then splitting up the rounds can "
+"be beneficial. Typically, backporters opt to start a round in the "
+"beginning of the week and then another near the end of the week."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:502
+#: d51ac872dc3144499d25b01c6db0e9e7
+msgid ""
+"By the start / end of the week, if there are other backport PRs that "
+"haven't been merged, then please coordinate with the previous / next "
+"backporter to check what the status is and establish who will work on "
+"getting the backports into the tree (for instance by investigating CI "
+"failures and addressing review feedback). There's leeway to negotiate "
+"depending on who has time available."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:511
+#: d820c5de12414404a0c3c369f7133207
+msgid "Developer's Certificate of Origin"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:513
+#: b17dcdadd90e405d9e52462b2850c0b2
+msgid ""
+"To improve tracking of who did what, we've introduced a \"sign-off\" "
+"procedure."
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:516
+#: f6afcdde42184978944bae90e8df6edc
+msgid ""
+"The sign-off is a simple line at the end of the explanation for the "
+"commit, which certifies that you wrote it or otherwise have the right to "
+"pass it on as open-source work. The rules are pretty simple: if you can "
+"certify the below:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:561
+#: 50912611e9f74da49c788ff38c16d068
+msgid "then you just add a line saying:"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:567
+#: e3fcb82b3d184ae6ab2941fe4dc8a50b
+msgid "Use your real name (sorry, no pseudonyms or anonymous contributions.)"
+msgstr ""
+
+#: ../../contributing/development/contributing_guide.rst:569
+#: bcd91a0ae61a4b298f093152af9f48ec
+msgid ""
+"If you need to add your sign off to a commit you have already made, "
+"please see `this article <https://docs.github.com/en/desktop"
+"/contributing-and-collaborating-using-github-desktop/managing-"
+"commits/amending-a-commit>`_."
+msgstr ""
+

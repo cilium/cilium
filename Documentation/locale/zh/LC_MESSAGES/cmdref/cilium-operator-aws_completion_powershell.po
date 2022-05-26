@@ -1,0 +1,68 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:3
+#: 7dfd86551c564fc8bd808ed8be306d63
+msgid "cilium-operator-aws completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:5
+#: 5b2182c2a0b348df91e6c29da8cfd8e2
+msgid "Generate the autocompletion script for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:7
+#: bcdbb10576a447cdacfb42b1ec2f79d2
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:9
+#: 9737eddb58bf460eb70bdad48f5b62a6
+msgid "Generate the autocompletion script for powershell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:11
+#: fe7df89b756d46f6b8d235f0ab89ad81
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:15
+#: b923adb07b93416a87ee5f9e93dfc904
+msgid ""
+"To load completions for every new session, add the output of the above "
+"command to your powershell profile."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:23
+#: 2fbe29fe61fb41df99f64c1313a397e1
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:30
+#: 1426b8bd87484b43afb8f3640e938337
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion_powershell.md:32
+#: b9347ca937fc4e4d96ace52bbcf7a29e
+msgid ""
+"[cilium-operator-aws completion](cilium-operator-aws_completion.md)\t - "
+"Generate the autocompletion script for the specified shell"
+msgstr ""
+

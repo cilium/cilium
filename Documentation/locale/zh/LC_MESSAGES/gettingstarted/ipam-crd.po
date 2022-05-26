@@ -1,0 +1,89 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/ipam-crd.rst:3 edbb446e71694437b5615904680869a6
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:11 256e2b72904d4b779a007fca42c33dc2
+msgid "CRD-backed IPAM"
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:13 2a326aed36de494c9be44edcb4466226
+msgid ""
+"This is a quick tutorial walking through how to enable CRD-backed IPAM. "
+"The purpose of this tutorial is to show how components are configured and"
+" resources interact with each other to enable users to automate or extend"
+" on their own."
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:17 f3092995ba124a2d9e4290d8ce0bce42
+msgid "For more details, see the section :ref:`concepts_ipam_crd`"
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:20 123cc033273b4a33bae5e7bf3f896ef5
+msgid "Enable CRD IPAM mode"
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:22 9b43711912454a5d80b60b8b6425015f
+msgid "Setup Cilium for Kubernetes using any of the available guides."
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:23 0c4a0e946269419da70ea93d71efdcd9
+msgid ""
+"Run Cilium with the ``--ipam=crd`` option or set ``ipam: crd`` in the "
+"``cilium-config`` ConfigMap."
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:25 216f4a7493d94e2d9111ee15754dd2a4
+msgid ""
+"Restart Cilium. Cilium will automatically register the CRD if not "
+"available already"
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:31 ce8e92c870154254b374abdf3c8c9307
+msgid "Validate that the CRD has been registered:"
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:41 ec07ceb614504570a3e2e124c2fa2e43
+msgid "Create a CiliumNode CR"
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:43 3803e9485a6149958c2ab3227c9972bc
+msgid ""
+"Import the following custom resource to make IPs available in the Cilium "
+"agent."
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:59 4445abff7f0e44cf8ce76052c751bc8e
+msgid "Validate that Cilium has started up correctly"
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:71 659e6cbdae0d46c4845a12a0712a3e6e
+msgid "Validate the ``status.IPAM.used`` section:"
+msgstr ""
+
+#: ../../gettingstarted/ipam-crd.rst:98 b627551df7e44092853c8ff66c1a521c
+msgid ""
+"At the moment only single IP addresses are allowed. CIDR's are not "
+"supported."
+msgstr ""
+

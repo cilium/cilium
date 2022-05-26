@@ -1,0 +1,44 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-advanced.rst:3
+#: 907408b6a9da4d03bb67f3b45e13e747
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-advanced.rst:12
+#: a9e249cd514c4243aa06a18c80fd9761
+msgid "Advanced Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-advanced.rst:16
+#: 0dcfee4dd93f449c878c96afad3e62fb
+msgid ""
+"The following guides cover advanced use cases. They cover detailed "
+"aspects of certain platforms. For the standard installation path, see "
+":ref:`k8s_install_standard`."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-advanced.rst:34
+#: 29b884f73f7d4d4496f08172d24463e0
+msgid "External Installers"
+msgstr ""
+

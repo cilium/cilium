@@ -1,0 +1,200 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/host-firewall.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 6c9f2b9e009744fe96fdc7ce3d746539 e178320ff84e49a98776de41c79d1680
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:11 3978a67df2e14ccabb58a196dde1e321
+msgid "Host Firewall"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:13 28b43d35a6824ed2b728d7c33e102596
+msgid ""
+"This document serves as an introduction to Cilium's host firewall, to "
+"enforce security policies for Kubernetes nodes."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:17 59f947f38c5d4ba8b0ef282ae872530a
+msgid "Enable the Host Firewall in Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 7faf5c3c6b5c42cba412d958c89d4a71
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: f6086a94561844709a38ac205c001d86
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: b177db44111541c39a7a7f699ee66f44
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:21 11d80c41572340e8be352284889b9057
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:30 131a5908846b43c89cc7e704d472fc49
+msgid ""
+"The ``devices`` flag refers to the network devices Cilium is configured "
+"on such as ``eth0``. Omitting this option leads Cilium to auto-detect "
+"what interfaces the host firewall applies to."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:34 31861786f99249e493a7ebac090289f5
+msgid ""
+"At this point, the Cilium-managed nodes are ready to enforce network "
+"policies."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:38 c1ce215e1a964594a3e05a7fecb81f39
+msgid "Attach a Label to the Node"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:40 60cbbae1ddff4b4fa72bd2e2a7341274
+msgid ""
+"In this guide, we will apply host policies only to nodes with the label "
+"``node-access=ssh``. We thus first need to attach that label to a node in"
+" the cluster."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:52 fd249759232841b694f28b6867b4ece6
+msgid "Enable Policy Audit Mode for the Host Endpoint"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:54 eaf80dc348474afe92bf44ff35755128
+msgid ""
+"`HostPolicies` enforce access control over connectivity to and from "
+"nodes. Particular care must be taken to ensure that when host policies "
+"are imported, Cilium does not block access to the nodes or break the "
+"cluster's normal behavior (for example by blocking communication with "
+"``kube-apiserver``)."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:59 23cfe75833df4c6296b8bb22b6688265
+msgid ""
+"To avoid such issues, we can switch the host firewall in audit mode, to "
+"validate the impact of host policies before enforcing them. When Policy "
+"Audit Mode is enabled, no network policy is enforced so this setting is "
+"*not recommended for production deployment*."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:76 d8fb3790ef994c58b9c5be9beb7dce99
+msgid "Apply a Host Network Policy"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:78 b1a0b7b36c4542a68a49675f3bc3afb6
+msgid ""
+"`HostPolicies` match on node labels using a :ref:`NodeSelector` to "
+"identify the nodes to which the policy applies. The following policy "
+"applies to all nodes. It allows communications from outside the cluster "
+"only on port TCP/22. All communications from the cluster to the hosts are"
+" allowed."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:83 db19680b8e974cdda0dc778292d5586f
+msgid ""
+"Host policies don't apply to communications between pods or between pods "
+"and the outside of the cluster, except if those pods are host-networking "
+"pods."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:88 746398b75bff4002b34f9c765021b16e
+msgid "To apply this policy, run:"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:95 4d473f8d1b454a9184b6851c81363c42
+msgid ""
+"The host is represented as a special endpoint, with label "
+"``reserved:host``, in the output of command ``cilium endpoint list``. You"
+" can therefore inspect the status of the policy using that command."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:114 e30de59e98d64c49a5b467f007656c48
+msgid "Adjust the Host Policy to Your Environment"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:116 1ebdf3a2ebc848429d1820afcad7d7f4
+msgid ""
+"As long as the host endpoint is running in audit mode, communications "
+"disallowed by the policy won't be dropped. They will however be reported "
+"by ``cilium monitor`` as ``action audit``. The audit mode thus allows you"
+" to adjust the host policy to your environment, to avoid unexpected "
+"connection breakages."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:129 ec1c527b005f4b7f8a46dc6c5544e467
+msgid ""
+"For details on how to derive the network policies from the output of "
+"``cilium monitor``, please refer to `observe_policy_verdicts` and "
+"`create_network_policy` in the `policy_verdicts` guide."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:133 fdfba70905784cce963bc83f892bb2f8
+msgid ""
+"In particular, `Entities based` rules are convenient for example to allow"
+" communication to entire classes of destinations, such as all remotes "
+"nodes (``remote-node``) or the entire cluster (``cluster``)."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:139 9658c6799fc24f4d9f8962560323a28c
+msgid ""
+"Make sure that none of the communications required to access the cluster "
+"or for the cluster to work properly are denied. They should appear as "
+"``action allow``."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:146 037e775d399e48859116f46cee91931f
+msgid "Disable Policy Audit Mode"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:148 5ae6f8c5a041410ea59847d3be8ce049
+msgid ""
+"Once you are confident all required communication to the host from "
+"outside the cluster are allowed, you can disable policy audit mode to "
+"enforce the host policy."
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:157 f7e0de6523404074814f1b4fb13a5b5e
+msgid "Ingress host policies should now appear as enforced:"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:173 f38e719a0f64445a9cf0a9b992515f08
+msgid ""
+"Communications not explicitly allowed by the host policy will now be "
+"dropped:"
+msgstr ""
+
+#: ../../gettingstarted/host-firewall.rst:182 30a20c7fdaa342149a8e65451348049f
+msgid "Clean Up"
+msgstr ""
+

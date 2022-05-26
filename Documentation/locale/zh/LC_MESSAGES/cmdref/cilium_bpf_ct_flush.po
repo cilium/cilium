@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_ct_flush.md:3 df663fb77a51462ea3703736cfe96735
+msgid "cilium bpf ct flush"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct_flush.md:5 83f13d92179a4a0982be3cd5b6fff71d
+msgid "Flush all connection tracking entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct_flush.md:11 9e5f0be70ab74425b28c316768ddf472
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct_flush.md:17 b046846e9cdc404ab94e4c80fd98a18e
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct_flush.md:25 3d8dc42d8b4d4c5d96f1c8ec19bdf423
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct_flush.md:27 393beb374ff54f47b4d45f76b4cdcbc8
+msgid "[cilium bpf ct](cilium_bpf_ct.md)\t - Connection tracking tables"
+msgstr ""
+

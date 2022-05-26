@@ -1,0 +1,90 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-generic_completion.md:3
+#: 1dabeab1153444e9ac54d8743d8ac9f7
+msgid "cilium-operator-generic completion"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:5
+#: e2065660f6084cdc92bda2858dad6d1d
+msgid "Generate the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:7
+#: 7281fe1f3cbe4cd991cc9c7beeaece54
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:9
+#: f01a5277d5064ed79e438a2170f27759
+msgid ""
+"Generate the autocompletion script for cilium-operator-generic for the "
+"specified shell. See each sub-command's help for details on how to use "
+"the generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:13
+#: 7e1c5468d1164f0e80d127b3ce11fffe
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:19
+#: c1309379f0304503b98bc6957edeb0e0
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:21
+#: d17537c45d8e4196a6efb32cd07872a4
+msgid ""
+"[cilium-operator-generic](cilium-operator-generic.md)\t - Run cilium-"
+"operator-generic"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:22
+#: 519282ecae034e6883a086dbc0d8474c
+msgid ""
+"[cilium-operator-generic completion bash](cilium-operator-"
+"generic_completion_bash.md)\t - Generate the autocompletion script for "
+"bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:23
+#: 7765aaae35bc400ab652d553a5e92ebf
+msgid ""
+"[cilium-operator-generic completion fish](cilium-operator-"
+"generic_completion_fish.md)\t - Generate the autocompletion script for "
+"fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:24
+#: abae1ca6d49740f2b743871d21d1d3c2
+msgid ""
+"[cilium-operator-generic completion powershell](cilium-operator-"
+"generic_completion_powershell.md)\t - Generate the autocompletion script "
+"for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-generic_completion.md:25
+#: 9378d0715ff749b68a516000ed1db3c8
+msgid ""
+"[cilium-operator-generic completion zsh](cilium-operator-"
+"generic_completion_zsh.md)\t - Generate the autocompletion script for zsh"
+msgstr ""
+

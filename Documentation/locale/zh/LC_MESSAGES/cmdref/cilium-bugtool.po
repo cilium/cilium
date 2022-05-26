@@ -1,0 +1,45 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-bugtool.md:3 ba1d50689fd249ffbf33dfe2d4905ab2
+msgid "cilium-bugtool"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:5 386d186fa12c4da3885d9d1a81655d7a
+msgid "Collects agent & system information useful for bug reporting"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:11 f600325f856d4952b7351ba24ee866f8
+msgid "Examples"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:27 b9fe46df80d848c9af031eca21872557
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:49 d7b42bf999bf4aaea14750e8ef3ea9ae
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool.md:51 55ff644fd01c40dcadb51e2d302187b2
+msgid ""
+"[cilium-bugtool completion](cilium-bugtool_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+

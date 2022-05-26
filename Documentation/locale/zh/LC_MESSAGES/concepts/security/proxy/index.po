@@ -1,0 +1,40 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/security/proxy/index.rst:3 82ed874d46c14d4a98372f98f4834737
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/security/proxy/index.rst:9 93ccb92d5ffa49d3a8e9c3b7e319341c
+msgid "Proxy Injection"
+msgstr ""
+
+#: ../../concepts/security/proxy/index.rst:11 5728734bd0c1458d95eb4213d2ac12db
+msgid ""
+"Cilium is capable of transparently injecting a Layer 4 proxy into any "
+"network connection. This is used as the foundation to enforce higher "
+"level network policies (see :ref:`DNS based` and :ref:`l7_policy`)."
+msgstr ""
+
+#: ../../concepts/security/proxy/index.rst:15 7b6a1f4da80f4fd983c483f497326005
+msgid "The following proxies can be injected:"
+msgstr ""
+

@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_nat_list.md:3 d60843be771e4009a908352e62188464
+msgid "cilium bpf nat list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat_list.md:5 3e5cf4fb744e4f0f8ba84235754bca09
+msgid "List all NAT mapping entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat_list.md:11 9cb5a0a3ea1c4f78ba23a52bafa3116d
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat_list.md:18 aa68c5f304394e1d8ad59393597176bb
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat_list.md:26 38fe3b042699480dae1916cc045dd6fd
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_nat_list.md:28 706f6607d7d54baa878c8c32a80d6940
+msgid "[cilium bpf nat](cilium_bpf_nat.md)\t - NAT mapping tables"
+msgstr ""
+

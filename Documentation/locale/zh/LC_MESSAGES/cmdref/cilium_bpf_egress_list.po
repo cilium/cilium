@@ -1,0 +1,61 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_egress_list.md:3 5ad0e75fe9fd4d1287ef1a9edfd7e9ea
+msgid "cilium bpf egress list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:5 0622a63889e84bb5ab8e5b33c0122db0
+msgid "List egress policy entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:7 d71c871f517543038cf5342b1ae85515
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:9 8509459d444c4dc99659bef58fe7ae1a
+msgid "List egress policy entries."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:11 6bcd6cb389a740feaa1848860f34c35b
+msgid ""
+"Note that for Linux kernel versions between 4.11 and 4.15 inclusive, the "
+"native LPM map type used for implementing this feature does not provide "
+"the ability to walk / dump the entries, so on these kernel versions this "
+"tool will never return any entries, even if entries exist in the map."
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:20 f3967817036e4c44af26aa98eb3ce055
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:27 48fb4f7fd5f045279022251aa20f5949
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:35 5aac3ef5a52a4909bb212d02874149aa
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_egress_list.md:37 ab7ad6a1afff4c568f2970b72676e2e4
+msgid ""
+"[cilium bpf egress](cilium_bpf_egress.md)\t - Manage the egress routing "
+"rules"
+msgstr ""
+

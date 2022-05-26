@@ -1,0 +1,130 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 2a60dae0682a45a8ba05b37fe90fd4f2 da85dbce87ca4a7eb128089d3b8d9503
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:12
+#: dca5509d6e1d4301a6afaf5eccc3e0ca
+msgid "Portmap (HostPort)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:14
+#: c27a2700f2244645bdff64c6c262e6da
+msgid ""
+"Starting from Cilium 1.8, the Kubernetes HostPort feature is supported "
+"natively through Cilium's eBPF-based kube-proxy replacement. CNI chaining"
+" is therefore not needed anymore. For more information, see section "
+":ref:`kubeproxyfree_hostport`."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:18
+#: b6c22ff13bd04c108c9d4c3dd0dc14f9
+msgid ""
+"However, for the case where Cilium is deployed as "
+"``kubeProxyReplacement=disabled``, the HostPort feature can then be "
+"enabled via CNI chaining with the portmap plugin which implements "
+"HostPort. This guide documents how to enable the latter for the chaining "
+"case."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:23
+#: 5e041d01cefc468cb27acd87fd13ecbe
+msgid ""
+"For more general information about the Kubernetes HostPort feature, check"
+" out the upstream documentation: `Kubernetes hostPort-CNI plugin "
+"documentation <https://kubernetes.io/docs/concepts/extend-kubernetes"
+"/compute-storage-net/network-plugins/#support-hostport>`_."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:30
+#: 928826e428c24dfcb53eba4c09dcd947
+msgid ""
+"Before using HostPort, read the `Kubernetes Configuration Best Practices "
+"<https://kubernetes.io/docs/concepts/configuration/overview/>`_ to "
+"understand the implications of this feature."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:35
+#: 0123475b587940fdafc09f5478f8d237
+msgid "Deploy Cilium with the portmap plugin enabled"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 5c90952a2d3a41ef8d6723b7c34dc9b9
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: e3bba9045b0548d29fa109ca0943e4fe
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 0eb9a616a2124cd495121e9d91231924
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:39
+#: 9368d5b97b0e440b991fc958e05ac464
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:49
+#: 8aae46c2f40b4f8689e708a67d2f4c97
+msgid ""
+"You can combine the ``cni.chainingMode=portmap`` option with any of the "
+"other installation guides."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:52
+#: f688b2ffe6024125aa3e7446f796b392
+msgid ""
+"As Cilium is deployed as a DaemonSet, it will write a new CNI "
+"configuration ``05-cilium.conflist`` and remove the standard "
+"``05-cilium.conf``. The new configuration now enables HostPort. Any new "
+"pod scheduled is now able to make use of the HostPort functionality."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:58
+#: e25f2a54be744769ad5773a943b46695
+msgid "Restart existing pods"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-portmap.rst:60
+#: a07f89c2679c488d86d2f8dd1175b748
+msgid ""
+"The new CNI chaining configuration will *not* apply to any pod that is "
+"already running the cluster. Existing pods will be reachable and Cilium "
+"will load-balance to them but policy enforcement will not apply to them "
+"and load-balancing is not performed for traffic originating from existing"
+" pods. You must restart these pods in order to invoke the chaining "
+"configuration on them."
+msgstr ""
+

@@ -1,0 +1,420 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: ../../gettingstarted/kind.rst:3 0a4273e6327b43ad84533c51f90589d6
+#: cb832a8217c24d8f8144f9ec25eb3ba5
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:11 cfd435d75fae43a585f31795e6aa4651
+msgid "Getting Started Using Kind"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:13 2b824fe7b77f4835a4445e1262e887e0
+msgid ""
+"This guide uses `kind <https://kind.sigs.k8s.io/>`_ to demonstrate "
+"deployment and operation of Cilium in a multi-node Kubernetes cluster "
+"running locally on Docker."
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:18 9fa1cbd7ed194e4aa01431d2cccdcca0
+msgid "Install Dependencies"
+msgstr ""
+
+#: ../../gettingstarted/kind-install-deps.rst:1
+#: 80c7353a32c94cd2ae8cbc719fe81833
+msgid ""
+"Install ``docker`` stable as described in `Install Docker Engine "
+"<https://docs.docker.com/engine/install/>`_"
+msgstr ""
+
+#: ../../gettingstarted/kind-install-deps.rst:4
+#: ec2d3a3ed8164b68a40f6124c8b49b92
+msgid ""
+"Install ``kubectl`` version >= v1.14.0 as described in the `Kubernetes "
+"Docs <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_"
+msgstr ""
+
+#: ../../gettingstarted/kind-install-deps.rst:7
+#: c8d8a7f4acbf44c892d1f91262321ff5
+msgid ""
+"Install ``helm`` >= v3.0.3 per Helm documentation: `Installing Helm "
+"<https://helm.sh/docs/intro/install/>`_"
+msgstr ""
+
+#: ../../gettingstarted/kind-install-deps.rst:10
+#: e10777a4a378427aa3ff655927409074
+msgid ""
+"Install ``kind`` >= v0.7.0 per kind documentation: `Installation and "
+"Usage <https://kind.sigs.k8s.io/#installation-and-usage>`_"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:23 19c8e57e38824d55b368f3abd069b64a
+msgid "Configure kind"
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:1 bcdd931fb1394972b947998ae65edc23
+msgid ""
+"Configuring kind cluster creation is done using a YAML configuration "
+"file. This step is necessary in order to disable the default CNI and "
+"replace it with Cilium."
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:5 0f6c0edd47294673b07e8970593b5622
+msgid ""
+"Create a :download:`kind-config.yaml <./kind-config.yaml>` file based on "
+"the following template. It will create a cluster with 3 worker nodes and "
+"1 control-plane node."
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:12 be2e73c3064e426bb763bdc7bdc1ca23
+msgid ""
+"By default, the latest version of Kubernetes from when the kind release "
+"was created is used."
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:15 198a592d8f4d4d928e5a726d48651803
+msgid ""
+"To change the version of Kubernetes being run,  ``image`` has to be "
+"defined for each node. See the `Node Configuration "
+"<https://kind.sigs.k8s.io/docs/user/configuration/#nodes>`_ documentation"
+" for more information."
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:21 82bb3d1b75bc41a3b87fcd06e61c069e
+msgid "By default, kind uses the following pod and service subnets::"
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:26 4b3f8516141b46898d0de7a7c6a1fb07
+msgid ""
+"If any of these subnets conflicts with your local network address range, "
+"update the ``networking`` section of the kind configuration file to "
+"specify different subnets that do not conflict or you risk having "
+"connectivity issues when deploying Cilium. For example:"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:28 581b1d661aa946c1984bf6584d75046d
+msgid "Create a cluster"
+msgstr ""
+
+#: ../../gettingstarted/kind-create-cluster.rst:1
+#: 82bc7ec8b0734f42b16a073d8b3a37a4
+msgid ""
+"To create a cluster with the configuration defined above, pass the "
+"``kind-config.yaml`` you created with the ``--config`` flag of kind."
+msgstr ""
+
+#: ../../gettingstarted/kind-create-cluster.rst:8
+#: 70b711920c3e46daa5294723f23add24
+msgid "After a couple of seconds or minutes, a 4 nodes cluster should be created."
+msgstr ""
+
+#: ../../gettingstarted/kind-create-cluster.rst:10
+#: 9ba5071cc4444457a008a883d5b8fd36
+msgid ""
+"A new ``kubectl`` context (``kind-kind``) should be added to "
+"``KUBECONFIG`` or, if unset, to ``${HOME}/.kube/config``:"
+msgstr ""
+
+#: ../../gettingstarted/kind-create-cluster.rst:18
+#: 7d1cbbcd9a4e483eb316c06fd53d226b
+msgid ""
+"The cluster nodes will remain in state ``NotReady`` until Cilium is "
+"deployed. This behavior is expected."
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:35 63663d3f735641f09d21415aad04b318
+msgid "Install Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: f2eecea81e314fed9d488f498954aa87
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 84893456569b49408673c49899705c3e
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 3221540ac84a404496cd53884233f993
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/kind-preload.rst:1 df5b56d8c703416f839552fe5d3e3af1
+msgid "Preload the ``cilium`` image into each worker node in the kind cluster:"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:40 cfc0b6b1e1e542a89ba9836c1e8c0d1e
+msgid "Then, install Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:57 09da988dd3c845bc86e7095463f4cc60
+msgid ""
+"To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), "
+"cgroup v2 needs to be enabled by setting the kernel "
+"``systemd.unified_cgroup_hierarchy=1`` parameter. Also, cgroup v1 "
+"controllers ``net_cls`` and ``net_prio`` have to be disabled, or cgroup "
+"v1 has to be disabled (e.g. by setting the kernel "
+"``cgroup_no_v1=\"all\"`` parameter). This ensures that Kind nodes have "
+"their own cgroup namespace, and Cilium can attach BPF programs at the "
+"right cgroup hierarchy. To verify this, run the following commands on the"
+" host, and check that the output values are different."
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:70 12d58cf1e7e44e1e8ae6a16b56328afe
+msgid ""
+"See the `Pull Request <https://github.com/cilium/cilium/pull/16259>`__ "
+"for more details."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: 196d1590906e43f094aaf5c37b1a8c2b
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 83c267b113724bb7a54329ad627b03bf
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 692e7ea75cb54ca7a1a7da43492bb9d4
+#: 92dfcc603c164e91b35c04cacd389b72
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 53ea30381a0c4adda1fc87e349e8b44f
+#: 8d837bb459824de6a4fbeb024c227f48
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 05d1c9a88e6c48bba846a753ac5add1e
+#: 88912284475443729fa9a2f96c93af66
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 acf21bc9b47b4f3c88462ba22209536c
+#: ef2bb0a01f6d4f089b9dfd60e7a1dc2e
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 b32ed47276964b149a83f4587cd81444
+#: fab6de1cdcb246e6afd8d0cea2e6e19b
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 6d03c523e6504accb60b8e366f570d0a
+#: 9e3aa19d56d04728a58eaddace4c96cf
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 0915ff9703d640fc9cb31ade0a273c98
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: 8b6d3a454b844432bd3a579577ddf2e2
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 05ddfa33b40640a2bacab8657fa30687
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 c242b4d541c1444990806a61b2dce8ef
+#: eb2a5122da1f4ab9b9e448ad3041efa4
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 0f41445420ab44bda08d7229af18f1c7
+#: 43120244465548a4b37e1b30abf0d350
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 3a39df00e6cb4d3cbf9cb36cd247e354
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 01b4135a7a6b4d33853149909a6cf797
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: b979ee9a34aa425eb75c4093b8dab012
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: b5979958795042de9c2ec3f985dd280e
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 7aed2a3d39164048a76dc8da9bdf6959
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 52d281a6ef5042bb853ff3c3322fd769
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 cd7c77445ee44a2ab1bf9a5480474f4c
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 dc1fa5ca78be475ea5132b9fa741a8d0
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 8f0c9dfb2d494382a5427fc1c2be2886
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 f825863688cb46a39c5fa7a18a06ea1a
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 45c78562bf074fa1aefd40679a981857
+msgid ":ref:`clustermesh`"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:77 fde477251bb94f4998655228b60e2d9a
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:80 ebf26114a6554ce6aeecc94a9b1cdaa6
+msgid "Unable to contact k8s api-server"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:82 7aa840d9c1c74c21b459cb91279ad0e5
+msgid "In the :ref:`Cilium agent logs <ts_agent_logs>` you will see::"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:88 0aa7220e4aee4de7aa6f331f490e8076
+msgid ""
+"As Kind is running nodes as containers in Docker, they're sharing your "
+"host machines' kernel. If :ref:`host-services` wasn't disabled, the eBPF "
+"programs attached by Cilium may be out of date and no longer routing api-"
+"server requests to the current ``kind-control-plane`` container."
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:92 893e3960c0044250a101da3db49aea48
+msgid ""
+"Recreating the kind cluster and using the helm command "
+":ref:`kind_install_cilium` will detach the inaccurate eBPF programs."
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:96 c98862eccb434ae98ff979e7a75463d1
+msgid "Crashing Cilium agent pods"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:98 39af90891035403094c13a92e126fff3
+msgid ""
+"Check if Cilium agent pods are crashing with following logs. This may "
+"indicate that you are deploying a kind cluster in an environment where "
+"Cilium is already running (for example, in the Cilium development VM). "
+"This can also happen if you have other overlapping BPF ``cgroup`` type "
+"programs attached to the parent ``cgroup`` hierarchy of the kind "
+"container nodes. In such cases, either tear down Cilium, or manually "
+"detach the overlapping BPF ``cgroup`` programs running in the parent "
+"``cgroup`` hierarchy by following the `bpftool documentation "
+"<https://manpages.ubuntu.com/manpages/focal/man8/bpftool-"
+"cgroup.8.html>`_. For more information, see the `Pull Request "
+"<https://github.com/cilium/cilium/pull/16259>`__."
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:116 13c15b541e4c41e2965215cf16c37b72
+msgid "Cluster Mesh"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:118 6c67d0d77a6f42e18d142473f6d4cea5
+msgid "With Kind we can simulate Cluster Mesh in a sandbox too."
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:121 19b2ba1fb92c4ffab2a35926c5f39c6f
+msgid "Kind Configuration"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:123 1a61607cad034135aabb27124fa41d12
+msgid ""
+"This time we need to create (2) ``config.yaml``, one for each kubernetes "
+"cluster. We will explicitly configure their ``pod-network-cidr`` and "
+"``service-cidr`` to not overlap."
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:126 d9cf5eabf174465ebd6fe42f371c0ebd
+msgid "Example ``kind-cluster1.yaml``:"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:142 4b0c40b842504f36b2f702b3246c6665
+msgid "Example ``kind-cluster2.yaml``:"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:159 c011d540f9ab40c39d939600926c5962
+msgid "Create Kind Clusters"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:161 d75d0985a3e84e80b0c69b416fb20ff1
+msgid "We can now create the respective clusters:"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:169 912bdf6060e44fdfa27775d461c81faf
+msgid "Setting up Cluster Mesh"
+msgstr ""
+
+#: ../../gettingstarted/kind.rst:171 22fccdd89e244d6aae1a3b031dab3d77
+msgid ""
+"We can deploy Cilium, and complete setup by following the Cluster Mesh "
+"guide with :ref:`gs_clustermesh`. For Kind, we'll want to deploy the "
+"``NodePort`` service into the ``kube-system`` namespace."
+msgstr ""
+

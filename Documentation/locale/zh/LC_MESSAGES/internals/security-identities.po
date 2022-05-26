@@ -1,0 +1,103 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../internals/security-identities.rst:3 523484ca969d4875ac3e45e7bbfd24fd
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../internals/security-identities.rst:9 b71d474f98cd4552b2917898b3319736
+msgid "Security Identities"
+msgstr ""
+
+#: ../../internals/security-identities.rst:11 a3b7a66e0f574f18a81d7cbd7ddc406e
+msgid ""
+"Security identities are generated from labels. They are stored as "
+"``uint32``, which means the maximum limit for a security identity is "
+"``2^32 - 1``. The minimum security identity is ``1``."
+msgstr ""
+
+#: ../../internals/security-identities.rst:17 38230681b4a4444493769d0860adc3da
+msgid ""
+"Identity 0 is not a valid value. If it shows up in Hubble output, this "
+"means the identity was not found. In the eBPF datapath, it has a special "
+"role where it denotes \"any identity\", i.e. as a wildcard allow in "
+"policy maps."
+msgstr ""
+
+#: ../../internals/security-identities.rst:21 a66de870b7494d2cb1aa197e70d4b215
+msgid "Security identities span over several ranges, depending on the context:"
+msgstr ""
+
+#: ../../internals/security-identities.rst:23 958731d2709e4d8b99ca896a474f3898
+msgid "Cluster-local"
+msgstr ""
+
+#: ../../internals/security-identities.rst:24 3f071d8a36024e87ad0a08ba9560382f
+msgid "ClusterMesh"
+msgstr ""
+
+#: ../../internals/security-identities.rst:25 401522a7e9ed4c8195717c6385eadac8
+msgid "Identities generated from CIDR-based policies"
+msgstr ""
+
+#: ../../internals/security-identities.rst:27 9042ba67c75b4d1980bb2eff57ccaf9f
+msgid ""
+"Cluster-local identities (1) range from ``1`` to ``2^16 - 1``. The lowest"
+" values, from ``1`` to ``255``, correspond to the reserved identity "
+"range.  See the `internal code documentation "
+"<https://pkg.go.dev/github.com/cilium/cilium/pkg/identity#NumericIdentity>`__"
+" for details."
+msgstr ""
+
+#: ../../internals/security-identities.rst:33 334bb95edfc7471a922e9654978ce768
+msgid ""
+"For ClusterMesh (2), 8 bits are used as the ``cluster-id`` which "
+"identifies the cluster in the ClusterMesh, into the 3rd octet as shown by"
+" ``0x00FF0000``. The 4th octet (uppermost bits) must be set to ``0`` as "
+"well. Neither of these constraints apply CIDR identities however, see "
+"(3)."
+msgstr ""
+
+#: ../../internals/security-identities.rst:38 31a9bb4bdbf94ea289b1dc9e217e39c8
+msgid ""
+"CIDR identities (3) are local to each node. CIDR identities begin from "
+"``1`` and end at ``16777215``, however since they're shifted by ``24``, "
+"this makes their effective range ``1 | (1 << 24)`` to ``16777215 | (1 << "
+"24)`` or from ``16777217`` to ``33554431``. When CIDR policies are "
+"applied, the identity generated is local to each node. In other words, "
+"the identity may not be the same for the same CIDR policy across two "
+"nodes."
+msgstr ""
+
+#: ../../internals/security-identities.rst:45 a3b151e19bde46f09906cf08876cd09e
+msgid ""
+"CIDR identities are never used for traffic between Cilium-managed nodes, "
+"so they do not need to fit inside of a VXLAN or Geneve virtual network "
+"field. Non-CIDR identities are limited to 24 bits so that they will fit "
+"in these fields on the wire, but since CIDR identities will not be "
+"encoded in these packets, they can start with a higher value. Hence, the "
+"minimum value for a CIDR identity is ``2^24 + 1``."
+msgstr ""
+
+#: ../../internals/security-identities.rst:52 ef77807aa38846b8a6921f2ec8f2526b
+msgid "Overall, the following represents the different ranges:"
+msgstr ""
+

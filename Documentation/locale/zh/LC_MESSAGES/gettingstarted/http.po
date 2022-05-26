@@ -1,0 +1,318 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/http.rst:3 e56af863c27b459c8863dfebde88d748
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:11 69f01a6445de40ad8d4b71e69e68892a
+msgid "Identity-Aware and HTTP-Aware Policy Enforcement"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:1 86d82986147442aba9bfd6d45d3b4361
+msgid ""
+"If you haven't read the :ref:`intro` yet, we'd encourage you to do that "
+"first."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:3 8f90178c0bc04fcc8f6b3845a225ceff
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:8 b77c8f3e2c574021ad800c63be377334
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:10
+#: a90004f5fdb940cfa8aa43f3a64488bd
+msgid ""
+"If you have not set up Cilium yet, follow the guide "
+":ref:`k8s_install_standard` for instructions on how to quickly bootstrap "
+"a Kubernetes cluster and install Cilium. If in doubt, pick the minikube "
+"route, you will be good to go in less than 5 minutes."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:2 d88e93ee0bb24bb9b5d2ad620658c1a3
+msgid "Deploy the Demo Application"
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:4 94533e2dc61645969aeb33db6ba8cf9f
+msgid ""
+"Now that we have Cilium deployed and ``kube-dns`` operating correctly we "
+"can deploy our demo application."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:6 f8e84336a37540b398fd9568e065741b
+msgid ""
+"In our Star Wars-inspired example, there are three microservices "
+"applications: *deathstar*, *tiefighter*, and *xwing*. The *deathstar* "
+"runs an HTTP webservice on port 80, which is exposed as a `Kubernetes "
+"Service <https://kubernetes.io/docs/concepts/services-"
+"networking/service/>`_ to load-balance requests to *deathstar* across two"
+" pod replicas. The *deathstar* service provides landing services to the "
+"empire's spaceships so that they can request a landing port. The "
+"*tiefighter* pod represents a landing-request client service on a typical"
+" empire ship and *xwing* represents a similar service on an alliance "
+"ship. They exist so that we can test different security policies for "
+"access control to *deathstar* landing services."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:8 f3ddc613469c43d0974c364fd041f174
+msgid "**Application Topology for Cilium and Kubernetes**"
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:13 c98533f231a34eeead57b8ef5021c652
+msgid ""
+"The file ``http-sw-app.yaml`` contains a `Kubernetes Deployment "
+"<https://kubernetes.io/docs/concepts/workloads/controllers/deployment/>`_"
+" for each of the three services. Each deployment is identified using the "
+"Kubernetes labels (``org=empire, class=deathstar``), (``org=empire, "
+"class=tiefighter``), and (``org=alliance, class=xwing``). It also "
+"includes a deathstar-service, which load-balances traffic to all pods "
+"with label (``org=empire, class=deathstar``)."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:27 e39adf331fe4433880ad2b4d8b806a9c
+msgid ""
+"Kubernetes will deploy the pods and service in the background.  Running "
+"``kubectl get pods,svc`` will inform you about the progress of the "
+"operation. Each pod will go through several states until it reaches "
+"``Running`` at which point the pod is ready."
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:45 35f61e2a288c4abb9fedcc839592d21e
+msgid ""
+"Each pod will be represented in Cilium as an :ref:`endpoint`. We can "
+"invoke the ``cilium`` tool inside the Cilium pod to list them:"
+msgstr ""
+
+#: ../../gettingstarted/gsg_sw_demo.rst:89 037f20772a3f4d14b7e504c460527af9
+msgid ""
+"Both ingress and egress policy enforcement is still disabled on all of "
+"these pods because no network policy has been imported yet which select "
+"any of the pods."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:17 7d9194be45764566aeab641fb606b1ef
+msgid "Check Current Access"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:18 7be678d2efc2405aa2efba046c30d365
+msgid ""
+"From the perspective of the *deathstar* service, only the ships with "
+"label ``org=empire`` are allowed to connect and request landing. Since we"
+" have no rules enforced, both *xwing* and *tiefighter* will be able to "
+"request landing. To test this, use the commands below."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:28 ed163d7bd2ca420da78709b807073631
+msgid "Apply an L3/L4 Policy"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:30 1c8d4473d1a84cf5950e26cbf97eb90d
+msgid ""
+"When using Cilium, endpoint IP addresses are irrelevant when defining "
+"security policies. Instead, you can use the labels assigned to the pods "
+"to define security policies. The policies will be applied to the right "
+"pods based on the labels irrespective of where or when it is running "
+"within the cluster."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:34 55cfa40d7ec04433abc279cc52816258
+msgid ""
+"We'll start with the basic policy restricting deathstar landing requests "
+"to only the ships that have label (``org=empire``). This will not allow "
+"any ships that don't have the ``org=empire`` label to even connect with "
+"the *deathstar* service. This is a simple policy that filters only on IP "
+"protocol (network layer 3) and TCP protocol (network layer 4), so it is "
+"often referred to as an L3/L4 network security policy."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:37 f93b1b7d6e1b4bb6afb5a69ee65cdca0
+msgid ""
+"Note: Cilium performs stateful *connection tracking*, meaning that if "
+"policy allows the frontend to reach backend, it will automatically allow "
+"all required reply packets that are part of backend replying to frontend "
+"within the context of the same TCP/UDP connection."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:42 0a088dfc10bd4d2a9a4f48688d0a063b
+msgid "**L4 Policy with Cilium and Kubernetes**"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:47 4fbd8d6193ec4485aea41d4c78adb079
+msgid "We can achieve that with the following CiliumNetworkPolicy:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:51 c0237d423699426faa79d236f90ff48d
+msgid ""
+"CiliumNetworkPolicies match on pod labels using an \"endpointSelector\" "
+"to identify the sources and destinations to which the policy applies. The"
+" above policy whitelists traffic sent from any pods with label "
+"(``org=empire``) to *deathstar* pods with label (``org=empire, "
+"class=deathstar``) on TCP port 80."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:54 8969041468824039866f24b0ef456f4f
+msgid "To apply this L3/L4 policy, run:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:62 180b221db2bd4094bc6cf093fb0dee2c
+msgid ""
+"Now if we run the landing requests again, only the *tiefighter* pods with"
+" the label ``org=empire`` will succeed. The *xwing* pods will be blocked!"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:69 b0069ef8ec5f48a1938bbc445285dbc5
+msgid ""
+"This works as expected. Now the same request run from an *xwing* pod will"
+" fail:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:75 3ef92e2cedfe448c83a0677355febf00
+msgid ""
+"This request will hang, so press Control-C to kill the curl request, or "
+"wait for it to time out."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:78 e361ae0ca4e94be58e3ff86adc1f5c07
+msgid "Inspecting the Policy"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:80 8348088280dc48e5a725aa571c2d998d
+msgid ""
+"If we run ``cilium endpoint list`` again we will see that the pods with "
+"the label ``org=empire`` and ``class=deathstar`` now have ingress policy "
+"enforcement enabled as per the policy above."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:119 afd5b69319784cf38ca6513d1620a0b1
+msgid "You can also inspect the policy details via ``kubectl``"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:175 c2fa8748d88047a6b62c5852f963b61a
+msgid "Apply and Test HTTP-aware L7 Policy"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:177 1d87db00232643a8b3ee9bb2ce220bdb
+msgid ""
+"In the simple scenario above, it was sufficient to either give "
+"*tiefighter* / *xwing* full access to *deathstar's* API or no access at "
+"all. But to provide the strongest security (i.e., enforce least-privilege"
+" isolation) between microservices, each service that calls *deathstar's* "
+"API should be limited to making only the set of HTTP requests it requires"
+" for legitimate operation."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:184 b7cef07309eb4af9897f5ca8d524f3d9
+msgid ""
+"For example, consider that the *deathstar* service exposes some "
+"maintenance APIs which should not be called by random empire ships. To "
+"see this run:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:200 e51823bf176949e38460ef31ce508049
+msgid ""
+"While this is an illustrative example, unauthorized access such as above "
+"can have adverse security repercussions."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:202 60714a84e9ac455dad3c7219b5361f24
+msgid "**L7 Policy with Cilium and Kubernetes**"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:207 9a17d983fc704b45950b03a56f2dc44b
+msgid ""
+"Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit "
+"what URLs the *tiefighter* is allowed to reach.  Here is an example "
+"policy file that extends our original policy by limiting *tiefighter* to "
+"making only a POST /v1/request-landing API call, but disallowing all "
+"other calls (including PUT /v1/exhaust-port)."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:214 6f9ce010e5974350ab71ae522bde46ac
+msgid ""
+"Update the existing rule to apply L7-aware policy to protect *deathstar* "
+"using:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:222 d8f4ef621e354f7c820d0f32fc2d332c
+msgid ""
+"We can now re-run the same test as above, but we will see a different "
+"outcome:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:230 4bbf20b7ace341288f7069c2fd4fff67
+msgid "and"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:237 dc901e1eb60042378d0e70466a9a4dc9
+msgid ""
+"As this rule builds on the identity-aware rule, traffic from pods without"
+" the label ``org=empire`` will continue to be dropped causing the "
+"connection to time out:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:245 6ef9b4a669f0428ca2ffa7a2b48fbef0
+msgid ""
+"As you can see, with Cilium L7 security policies, we are able to permit "
+"*tiefighter* to access only the required API resources on *deathstar*, "
+"thereby implementing a \"least privilege\" security approach for "
+"communication between microservices. Note that ``path`` matches the exact"
+" url, if for example you want to allow anything under /v1/, you need to "
+"use a regular expression:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:255 7461abb687e14b4d9d89e8eb81fdfb64
+msgid "You can observe the L7 policy via ``kubectl``:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:312 fa429ba0169240f19e51d8a4755bb389
+msgid "and ``cilium`` CLI:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:382 9ec71dca602f4470b6ce7053b1005030
+msgid ""
+"It is also possible to monitor the HTTP requests live by using ``cilium "
+"monitor``:"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:390 1815541fe90248a9a0291b12a29e0444
+msgid ""
+"The above output demonstrates a successful response to a POST request "
+"followed by a PUT request that is denied by the L7 policy."
+msgstr ""
+
+#: ../../gettingstarted/http.rst:392 cea1bb6cdc434536969fde666f7d7af5
+msgid ""
+"We hope you enjoyed the tutorial.  Feel free to play more with the setup,"
+" read the rest of the documentation, and reach out to us on the `Cilium "
+"Slack channel <https://cilium.herokuapp.com>`_ with any questions!"
+msgstr ""
+
+#: ../../gettingstarted/http.rst:397 7c236df589c34191b04a71f77afba2f0
+msgid "Clean-up"
+msgstr ""
+

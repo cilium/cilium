@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_lrp.md:3 a0f5da40d5294f14be4e7c79033de013
+msgid "cilium lrp"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp.md:5 e63d43792a794e6d95d868d71de2f70a
+msgid "Manage local redirect policies"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp.md:7 756125b83508470c9b59475942cb141b
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp.md:13 78d39b7d270744859f12d78fb03d2437
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp.md:21 3d6eaf891613491dae405d7c0bafd1c2
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp.md:23 2694e252d4fc4c0898d2785531a96a71
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_lrp.md:24 baccf03e8f8d406f952d44816138b071
+msgid "[cilium lrp list](cilium_lrp_list.md)\t - List local redirect policies"
+msgstr ""
+

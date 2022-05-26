@@ -1,0 +1,93 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettinghelp.rst:3 eb2c8779d7134875af0416b557fe3e1c
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettinghelp.rst:11 3feddd52c6964f8ead9bd9485f630e52
+msgid "Getting Help"
+msgstr ""
+
+#: ../../gettinghelp.rst:13 3446e4b84d19493d9c62a0ce20dd9f83
+msgid ""
+"Cilium is a project  with a growing community. There are numerous ways to"
+" get help with Cilium if needed:"
+msgstr ""
+
+#: ../../gettinghelp.rst:17 1a3abc409efa4a26905595676915e32c
+msgid "FAQ"
+msgstr ""
+
+#: ../../gettinghelp.rst:19 f653e66550d141fda0fba1cd932d1d39
+#, python-format
+msgid ""
+"**Cilium Frequently Asked Questions (FAQ)**: Cilium uses `GitHub tags "
+"<https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=label%3Akind%2Fquestion%20>`_"
+" to maintain a list of questions asked by users. We suggest checking to "
+"see if your question is already answered."
+msgstr ""
+
+#: ../../gettinghelp.rst:28 257bacbb495f4b97beef7b963ed03f98
+msgid "Slack"
+msgstr ""
+
+#: ../../gettinghelp.rst:30 c41f51aa694c44769d8bcf0b27e1fa96
+msgid ""
+"**Chat**: The best way to get immediate help if you get stuck is to ask "
+"in one of the `Cilium Slack channels <https://cilium.herokuapp.com>`_."
+msgstr ""
+
+#: ../../gettinghelp.rst:34 6aa702a05ef7463298f4915a6a65feaa
+msgid "GitHub"
+msgstr ""
+
+#: ../../gettinghelp.rst:36 5d2497eee8884f259854145dc82ee3f0
+msgid ""
+"**Bug Tracker**: All the issues are addressed in the `GitHub issue "
+"tracker <https://github.com/cilium/cilium/issues>`_.  If you want to "
+"report a bug or a new feature please file the issue according to the "
+"`GitHub template <https://github.com/cilium/cilium/issues/new/choose>`_."
+msgstr ""
+
+#: ../../gettinghelp.rst:41 18c51fec676045f79a775fba94e7f3ee
+msgid ""
+"**Contributing**: If you want to contribute, reading the :ref:`dev_guide`"
+" should help you."
+msgstr ""
+
+#: ../../gettinghelp.rst:45 9065341fe3f94ba28ad4c75c31424cc8
+msgid "Security Bugs"
+msgstr ""
+
+#: ../../gettinghelp.rst:47 cdb0af013b1840198c215ecb0fab1d32
+msgid ""
+"**Security**: We strongly encourage you to report security "
+"vulnerabilities to our private security mailing list: security@cilium.io "
+"- first, before disclosing them in any public forums."
+msgstr ""
+
+#: ../../gettinghelp.rst:51 ac67090a43224892b551a16b9aca8925
+msgid ""
+"This is a private mailing list where only members of the Cilium internal "
+"security team are subscribed to, and is treated as top priority."
+msgstr ""
+

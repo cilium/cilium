@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_endpoint_health.md:3 14c8148404b848abbd9dfa1608bc2c08
+msgid "cilium endpoint health"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_health.md:5 7e4855f0bae749f595309b2dbf21d632
+msgid "View endpoint health"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_health.md:11 dd0be6bd19d8449aa7237ad742cb6466
+msgid "Examples"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_health.md:17 8376fd79e95a49a99b7000395a0dd0ee
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_health.md:24 67f4049392b74a3caae6838ca2802ea2
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_health.md:32 77476ef792e345939ce5158b3e12f33b
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_health.md:34 0449fbfe60c14d35867163ee7ca62f46
+msgid "[cilium endpoint](cilium_endpoint.md)\t - Manage endpoints"
+msgstr ""
+

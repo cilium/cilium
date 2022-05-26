@@ -1,0 +1,70 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_preflight.md:3 ba72afe0dbb04feba39c78e61977d917
+msgid "cilium preflight"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:5 4de81dd634324e128f7c8f7007c207fb
+msgid "cilium upgrade helper"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:7 49a213771adc4491821385faba02e697
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:9 d519e8609a4c41b18e2fda23584773ed
+msgid "CLI to help upgrade cilium"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:11 26ad79782ea4414fab3b466e5f61dce5
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:17 63f9102213614474b1b921c0fc994240
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:25 721771f8b8af4de7a55ec7893d3db876
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:27 f86472f3df534304b81ceed5a055ee87
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:28 6ff43dfea9924cfdab5d4ccb021b4429
+msgid ""
+"[cilium preflight fqdn-poller](cilium_preflight_fqdn-poller.md)\t - "
+"Prepare for DNS Polling upgrades to cilium 1.4"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:29 bcdfa08322414f9cb8c5340226957443
+msgid ""
+"[cilium preflight migrate-identity](cilium_preflight_migrate-identity.md)"
+"\t - Migrate KVStore-backed identities to kubernetes CRD-backed "
+"identities"
+msgstr ""
+
+#: ../../cmdref/cilium_preflight.md:30 8de718bc2099491788e24b26199ad498
+msgid ""
+"[cilium preflight validate-cnp](cilium_preflight_validate-cnp.md)\t - "
+"Validate Cilium Network Policies deployed in the cluster"
+msgstr ""
+

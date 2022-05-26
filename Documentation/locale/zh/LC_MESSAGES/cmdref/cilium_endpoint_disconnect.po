@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_endpoint_disconnect.md:3
+#: df342749247045f2991d612d3cb21f69
+msgid "cilium endpoint disconnect"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_disconnect.md:5
+#: 3b17f4ff2d0c4b9b926ec91203b95856
+msgid "Disconnect an endpoint from the network"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_disconnect.md:11
+#: 197eb23424ac4a1a99af03a1c310febc
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_disconnect.md:17
+#: 8cb5ae8813d14bf0a07fb8205b78a814
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_disconnect.md:25
+#: f30ea55f984f4ae5bf8a58232408e23d
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_disconnect.md:27
+#: 41239d2cd7b44aad80b6bf47c1567513
+msgid "[cilium endpoint](cilium_endpoint.md)\t - Manage endpoints"
+msgstr ""
+

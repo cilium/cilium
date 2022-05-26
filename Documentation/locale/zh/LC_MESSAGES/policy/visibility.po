@@ -1,0 +1,128 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../policy/visibility.rst:3 62fab01f76874ceea74b6141eabe9c38
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../policy/visibility.rst:11 b7ea507e2b92494bab6234d9033f213e
+msgid "Layer 7 Protocol Visibility"
+msgstr ""
+
+#: ../../policy/visibility.rst:13 9d2a27df2af34e6ea24de16a33c1c564
+msgid ""
+"While :ref:`monitor` provides introspection into datapath state, by "
+"default it will only provide visibility into L3/L4 packet events. If "
+":ref:`l7_policy` are configured, one can get visibility into L7 "
+"protocols, but this requires the full policy for each selected endpoint "
+"to be written. To get more visibility into the application without "
+"configuring a full policy, Cilium provides a means of prescribing "
+"visibility via `annotations <https://kubernetes.io/docs/concepts/overview"
+"/working-with-objects/annotations/>`_ when running in tandem with "
+"Kubernetes."
+msgstr ""
+
+#: ../../policy/visibility.rst:21 427ce5d36abc449391d4ce70a086ae75
+msgid ""
+"Visibility information is represented by a comma-separated list of tuples"
+" in the annotation:"
+msgstr ""
+
+#: ../../policy/visibility.rst:24 c9306e19d33840cf91a41f6d5f3fe5a1
+msgid "``<{Traffic Direction}/{L4 Port}/{L4 Protocol}/{L7 Protocol}>``"
+msgstr ""
+
+#: ../../policy/visibility.rst:26 57917e6d433c457fa8cc928b0f4421d7
+msgid "For example:"
+msgstr ""
+
+#: ../../policy/visibility.rst:33 2c7d50b0410d4881817c10ebb24b3226
+msgid ""
+"To do this, you can provide the annotation in your Kubernetes YAMLs, or "
+"via the command line, e.g.:"
+msgstr ""
+
+#: ../../policy/visibility.rst:40 5319e53bf0234a81a258a9564e129980
+msgid ""
+"Cilium will pick up that pods have received these annotations, and will "
+"transparently redirect traffic to the proxy such that the output of "
+"``cilium monitor`` shows traffic being redirected to the proxy, e.g.:"
+msgstr ""
+
+#: ../../policy/visibility.rst:49 d5eb271087ca49ee9529397f77bbb682
+msgid ""
+"You can check the status of the visibility policy by checking the Cilium "
+"endpoint of that pod, for example:"
+msgstr ""
+
+#: ../../policy/visibility.rst:66 fd37e7d2de514a23b610f49df3b488c6
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../policy/visibility.rst:68 d5361bfd70164d3e96f8c7e6c7c02077
+msgid ""
+"If L7 visibility is not appearing in ``cilium monitor`` or Hubble "
+"components, it is worth double-checking that:"
+msgstr ""
+
+#: ../../policy/visibility.rst:71 6097ba5d47c647e9977625dd9c822b86
+msgid ""
+"No enforcement policy is applied in the direction specified in the "
+"annotation"
+msgstr ""
+
+#: ../../policy/visibility.rst:73 3567bb12766542b4b9d76774c5f829f0
+msgid ""
+"The \"Visibility Policy\" column in the CiliumEndpoint shows ``OK``. If "
+"it is blank, then no annotation is configured; if it shows an error then "
+"there is a problem with the visibility annotation."
+msgstr ""
+
+#: ../../policy/visibility.rst:77 1462a14ae75d4732bd9f1eccd55905b5
+msgid ""
+"The following example deliberately misconfigures the annotation to "
+"demonstrate that the CiliumEndpoint for the pod presents an error when "
+"the visibility annotation cannot be implemented:"
+msgstr ""
+
+#: ../../policy/visibility.rst:91 2e67092603334da2a42b13072aba1971
+msgid "Limitations"
+msgstr ""
+
+#: ../../policy/visibility.rst:93 a3a064cb550c48c3ac6269a785005413
+msgid ""
+"Visibility annotations do not apply if rules are imported which select "
+"the pod which is annotated."
+msgstr ""
+
+#: ../../policy/visibility.rst:95 5beae04cf54e4fec95dbdd919ea32f29
+msgid "DNS visibility is available on egress only."
+msgstr ""
+
+#: ../../policy/visibility.rst:96 e8ab39065ba74f58a3428623c4844a84
+msgid ""
+"Proxylib parsers are not supported, including Kafka. To gain visibility "
+"on these protocols, you must create a network policy that allows all of "
+"the traffic at L7, either by following :ref:`l7_policy` (:ref:`Kafka "
+"<kafka_policy>`) or the :ref:`envoy` proxylib extensions guide. This "
+"limitation is tracked by :gh-issue:`14072`."
+msgstr ""
+

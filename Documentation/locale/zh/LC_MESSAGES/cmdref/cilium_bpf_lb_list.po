@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_lb_list.md:3 284b3dab655643488af9c6674f71937c
+msgid "cilium bpf lb list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_list.md:5 08d5fbc4256d4a1c910e70ffd58fb42f
+msgid "List load-balancing configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_list.md:11 c1c52b92dbcf4285911bc4509b6e596e
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_list.md:21 ef7d44f2b3d64b32adbe85189ac108cc
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_list.md:29 cd5c0d49bd3b49dfb596b12a19c920ae
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_list.md:31 d18fa63df0d449a699e76483fea922bc
+msgid "[cilium bpf lb](cilium_bpf_lb.md)\t - Load-balancing configuration"
+msgstr ""
+

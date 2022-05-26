@@ -1,0 +1,353 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/alibabacloud-eni.rst:3
+#: ../../gettingstarted/alibabacloud-eni.rst:37
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 0ea8130df91c47ef801e1b19351bc4dc 7fee18511ac4410887cf2936d14bc1cb
+#: f60e060a74ce42018512a7a08b153900
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:11
+#: ee6f83a73bae4156a4a3743f6497c62d
+msgid "Setting Up Cilium in AlibabaCloud ENI Mode (beta)"
+msgstr ""
+
+#: ../../beta.rst:3 c00f4de8ffb04d6a85ccc756b528b768
+msgid ""
+"This is a beta feature. Please provide feedback and file a GitHub issue "
+"if you experience any problems."
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:17
+#: 9ec165dd7ee644a4a12c4fe61bb04544
+msgid ""
+"The AlibabaCloud ENI integration is still subject to some limitations. "
+"See :ref:`alibabacloud_eni_limitations` for details."
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:21
+#: dd9e155f3c2a4024a0f08988687ce297
+msgid "Create a Cluster on AlibabaCloud"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:23
+#: 4e06b2e4c0cd43d9a487a50e126cc6e0
+msgid ""
+"Setup a Kubernetes on AlibabaCloud. You can use any method you prefer. "
+"The quickest way is to create an ACK (Alibaba Cloud Container Service for"
+" Kubernetes) cluster and to replace the CNI plugin with Cilium. For more "
+"details on how to set up an ACK cluster please follow the `official "
+"documentation <https://www.alibabacloud.com/help/doc-detail/86745.htm>`_."
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:31
+#: 5646cb8c723b4449a827cef563469db5
+msgid "Disable ACK CNI (ACK Only)"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:33
+#: 10dbdd9e9ae641f88455fc83fd7eaf41
+msgid "If you are running an ACK cluster, you should delete the ACK CNI."
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:41
+#: d7896c1a390f4aef8349704b44c1d08a
+msgid ""
+"Cilium will manage ENIs instead of the ACK CNI, so any running DaemonSet "
+"from the list below has to be deleted to prevent conflicts."
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:44
+#: bda7049d26fb47d8b0828ff0183867e8
+msgid "``kube-flannel-ds``"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:45
+#: 55656c85fc0a49c4a799626c71d32a5b
+msgid "``terway``"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:46
+#: f5b16806cd5649d392ba1b51fd549855
+msgid "``terway-eni``"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:47
+#: ed08c5c682ba43a0a9b493595cb87a6d
+msgid "``terway-eniip``"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:51
+#: e69761dc394a41099ad0815bf98af559
+msgid ""
+"If you are using ACK with Flannel (DaemonSet ``kube-flannel-ds``), the "
+"Cloud Controller Manager (CCM) will create route (Pod CIDR) in VPC. If "
+"your cluster is an Managed Kubernetes you cannot disable this behavior. "
+"Please consider creating a new cluster."
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:60
+#: 563375a5dd8e4c2dbcc20d3e0a198474
+msgid "The next step is to remove CRD below created by ``terway*`` CNI"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:81
+#: 704e450801014ea3b9d37e79f9efd781
+msgid "Create AlibabaCloud Secrets"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:83
+#: 0134631b91544d678100e49db29834dc
+msgid ""
+"Before installing Cilium, a new Kubernetes Secret with the AlibabaCloud "
+"Tokens needs to be added to your Kubernetes cluster. This Secret will "
+"allow Cilium to gather information from the AlibabaCloud API which is "
+"needed to implement ToGroups policies."
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:88
+#: 4e537409402d443e90d5e4f3d2ca982a
+msgid "AlibabaCloud Access Keys"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:90
+#: d8e82466a782454b972800a4d819159e
+msgid ""
+"To create a new access token the `following guide can be used "
+"<https://www.alibabacloud.com/help/doc-detail/93691.htm>`_. These keys "
+"need to have certain `RAM Permissions "
+"<https://ram.console.aliyun.com/overview>`_:"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:133
+#: f296e80ebf1f4cdba7d680e08bc6964d
+msgid ""
+"As soon as you have the access tokens, the following secret needs to be "
+"added, with each empty string replaced by the associated value as a "
+"base64-encoded string:"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:150
+#: 860a1c933d8344af859021acabe06c11
+msgid ""
+"The base64 command line utility can be used to generate each value, for "
+"example:"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:157
+#: f57ae583a25d4d9eb1a9cdcd3fc1dc3f
+msgid ""
+"This secret stores the AlibabaCloud credentials, which will be used to "
+"connect to the AlibabaCloud API."
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:166
+#: b66cd4d0a4904d139ed84ef6b845240e
+msgid "Deploy Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 041e72fa939f4446a5c8b9329c6057cc
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: c4ae9c3838c643c19bed26db7ecc6151
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 411f8297a9064f17bf50448671d5c23f
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:170
+#: eca6142a6e1e4138ab78bd5ecc5c2bb6
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:183
+#: 08ffad266a68482f8fbe4637f510f0d5
+msgid ""
+"You must ensure that the security groups associated with the ENIs "
+"(``eth1``, ``eth2``, ...) allow for egress traffic to go outside of the "
+"VPC. By default, the security groups for pod ENIs are derived from the "
+"primary ENI (``eth0``)."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: b003e58c36e248379849b012bda4e0ee
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 19f87d94d1b642fc8816c64f9e1c6c33
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 3116952bd55a466c8a6affc5544fe9b6
+#: 4d2deb402bd9429ea881bc26ceb6bc6c
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 42d74c6ecae541ac85d91b2a9d6c7178
+#: a4582d03281d4a32add0f9f5e922601b
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 aeaa4d66157648c7a34ec5efeac6e0ca
+#: c3f4e2527af04941b607b14376e7b851
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 31b9e7b45535465a966502bd6543131c
+#: 70a5788d8f0447d8a244e0c0b7f1f253
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 bba67ae73f06460c8c0e92beec165cf1
+#: f6ece513bb5b4233a7d00b8708abeb06
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 736be6c9bba74df98a8498fb6e5e3a32
+#: b8db41b8e52b4173a8c459a1ec061a5e
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 5991095b80eb42a6afe966753446b641
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: b0bf622af08b4f17ab4591eb693fab53
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: b9c7a8849fcd4a2cbfd68ebabb9beb53
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 2559bdfb6b014c12b90df4248a9871e6
+#: fb6561d91ba64f2da93a50271ef45c4e
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 8a0248892f274106bdcca4180cf60efb
+#: b6e2917665a54175bf57c08b983ab1c7
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 97bb964164cd4b108b836c344ba9ba27
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 938e762f680143c1ac9c70054215d069
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 9f104dd0f68842d8b79bc52d3dbc2291
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 4187c7ef7cc543bea0fbdaf82457c671
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 9fe63278fb12466ba7a369bbdaa7ec12
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 244668d78856449eb3213490186212ac
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 de331bc0223b4841884c2a15561b7c82
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 8ef6cc459dce4cd0a4d3bada425c6ef4
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 70621fd390ce459c910c9397f0b18ffc
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 507390a6671a4399b32096600e2fb01d
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 d801e57b95a54e1590f091bfeff7c633
+msgid ":ref:`clustermesh`"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:195
+#: dd6e1c4f04fb4bc69d7addb609b04f81
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:197
+#: 627909604a2d4e10a85c8de7bd9bb851
+msgid "The Alibaba ENI integration of Cilium is currently only enabled for IPv4."
+msgstr ""
+
+#: ../../gettingstarted/alibabacloud-eni.rst:198
+#: d2a9a763aeb545e2aa5b5fff98da1f77
+msgid ""
+"Only work with instance support ENI, refer to `Instance families "
+"<https://www.alibabacloud.com/help/doc-detail/25378.htm>`_."
+msgstr ""
+

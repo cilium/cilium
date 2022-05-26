@@ -1,0 +1,367 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:6
+#: 5f6c64571e88450893eb8313bf789874
+msgid "Setting up Cluster Mesh"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:8
+#: 1d88493f779d4bb4a6362d3f95402e8d
+msgid ""
+"This is a step-by-step guide on how to build a mesh of Kubernetes "
+"clusters by connecting them together, enable pod-to-pod connectivity "
+"across all clusters, define global services to load-balance between "
+"clusters and enforce security policies to restrict access."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:14
+#: ccc793084aa44623a2cfe0b9ea6f3730
+msgid "Prerequisites"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:17
+#: a8fa4ac5dc5840a1a5d95a6eba9cc343
+msgid "Cluster Addressing Requirements"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:19
+#: 3ba02b26886941b9a6f9e0b386d1cd23
+msgid ""
+"PodCIDR ranges in all clusters and all nodes must be non-conflicting and "
+"unique IP addresses."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:22
+#: c6db4cf44265447a83aec584e5a6178a
+msgid ""
+"Nodes in all clusters must have IP connectivity between each other. This "
+"requirement is typically met by establishing peering or VPN tunnels "
+"between the networks of the nodes of each cluster."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:26
+#: b2c80f42453445608b6413f31a32df21
+msgid ""
+"The network between clusters must allow the inter-cluster communication. "
+"The exact ports are documented in the :ref:`firewall_requirements` "
+"section."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:30
+#: 2c4047cb7ca7466cafe888255ebf6b0e
+msgid "Install the Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 dd5e09be0bc54538b4d7e5e47bcc83f8
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 e46b178f3dac47edb7d74b68d212e5f6
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 1ea6abb0c13f4f3f8ff23b9df4cb72d1
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 a35199288e39457cb90382020f359ad2
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 e524a3bc3c6d4bd6a3b338010cd6049e
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:35
+#: fce21e3b5698474fa21afb2510cd4f60
+msgid "Prepare the Clusters"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:37
+#: 0a7f987879674b458c8e3037ddec1272
+msgid ""
+"For the rest of this tutorial, we will assume that you intend to connect "
+"two clusters together with the kubectl configuration context stored in "
+"the environment variables ``$CLUSTER1`` and ``$CLUSTER2``. This context "
+"name is the same as you typically pass to ``kubectl --context``."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:43
+#: 425e6827ae894390a7a1b90b9e9d8c71
+msgid "Specify the Cluster Name and ID"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:45
+#: c7b3b1ff873142539add155e4b7ea03c
+msgid ""
+"Each cluster must be assigned a unique human-readable name as well as a "
+"numeric cluster ID (1-255). It is best to assign both these attributes at"
+" installation time of Cilium:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:49
+#: e1fe328a0e604580ad0068d6db1fb115
+msgid "ConfigMap options ``cluster-name`` and ``cluster-id``"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:50
+#: f65cf8bd5c2e42f686b09d615570d73f
+msgid "Helm options ``cluster.name`` and ``cluster.id``"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:51
+#: 9918d066992042da8e7fe55ae38ef708
+msgid "``cilium install`` options ``--cluster-name`` and ``--cluster-id``"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:55
+#: d8588dc257194f9492b94764e3b54038
+msgid ""
+"If you change the cluster ID and/or cluster name in a cluster with "
+"running workloads, you will need to restart all workloads. The cluster ID"
+" is used to generate the security identity and it will need to be re-"
+"created in order to establish access across clusters."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:61
+#: 615a3ecb9ccc4507a2712ed3f4df1c0a
+msgid "Shared Certificate Authority"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:63
+#: ff3a06eaa810447fbbe138086db32a85
+msgid ""
+"If you are planning to run Hubble Relay across clusters, it is best to "
+"share a certificate authority (CA) between the clusters as it will enable"
+" mTLS across clusters to just work."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:67
+#: 67407263cc954a1fbb846804397de832
+msgid ""
+"The easiest way to establish this is to pass ``--inherit-ca`` to the "
+"``install`` command when installing additional clusters:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:74
+#: 6af8d5533da54948a77bbdb8241835d5
+msgid ""
+"If you are not using ``cilium install`` for the installation, simply "
+"propagate the Kubernetes secret containing the CA from one cluster to the"
+" other."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:80
+#: 00128e3547fe43da810cae98c7924b54
+msgid "Enable Cluster Mesh"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:82
+#: 299083fed0ed4740b3013e8b1bd19663
+msgid ""
+"Enable all required components by running ``cilium clustermesh enable`` "
+"in the context of both clusters. This will deploy the ``clustermesh-"
+"apiserver`` into the cluster and generate all required certificates and "
+"import them as Kubernetes secrets. It will also attempt to auto-detect "
+"the best service type for the LoadBalancer to expose the Cluster Mesh "
+"control plane to other clusters."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:94
+#: 6804a32ec2fc4594aa4d9813fea7eadc
+msgid "You should be seeing output similar to the following:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:123
+#: e7c088f861a14565b5bee958b35c96d2
+msgid ""
+"In some cases, the service type cannot be automatically detected and you "
+"need to specify it manually. This can be done with the option "
+"``--service-type``. The possible values are:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:128
+#: 5d2b14eab4074de2813173fc76709fd4
+msgid "LoadBalancer:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:127
+#: b98e30509fa74b879376a256d120b2fb
+msgid ""
+"A Kubernetes service of type LoadBalancer is used to expose the control "
+"plane. This uses a stable LoadBalancer IP and is typically the best "
+"option."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:135
+#: 0eafed7274f34083a00dc211d6a3be5f
+msgid "NodePort:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:131
+#: 552f212c34d647e886addc3e1f9be11e
+msgid ""
+"A Kubernetes service of type NodePort is used to expose the control "
+"plane. This requires stable Node IPs. If a node disappears, the Cluster "
+"Mesh may have to reconnect to a different node. If all nodes have become "
+"unavailable, you may have to re-connect the clusters to extract new node "
+"IPs."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:138
+#: 7215c771e8c64aa2b2e038784feb05a9
+msgid "ClusterIP:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:138
+#: 680bd6d8c22b4a87a4a014760af52410
+msgid ""
+"A Kubernetes service of type ClusterIP is used to expose the control "
+"plane. This requires the ClusterIPs are routable between clusters."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:141
+#: 048a1936b4074d2cbedf636483f9e3ee
+msgid ""
+"Wait for the Cluster Mesh components to come up by invoking ``cilium "
+"clustermesh status --wait``. If you are using a service of type "
+"LoadBalancer then this will also wait for the LoadBalancer to be assigned"
+" an IP."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:160
+#: ca2491b9c0c849579a4591fab7be8ebc
+msgid "Connect Clusters"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:162
+#: 67d2998756bc4f5e875765c03797e8b7
+msgid ""
+"Finally, connect the clusters. This step only needs to be done in one "
+"direction. The connection will automatically be established in both "
+"directions:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:170
+#: 4215c0b45a4446fcbf546c3bc490534a
+msgid "The output should look something like this:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:188
+#: 1fc4adc3d81444cd99a328c44fa03175
+msgid ""
+"It may take a bit for the clusters to be connected. You can run ``cilium "
+"clustermesh status --wait`` to wait for the connection to be successful:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:195
+#: 603d0f88f0c84009aa9d8c77db2424b8
+msgid "The output will look something like this:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:213
+#: 111e4e786b6544aabb8013ef83f4b591
+msgid ""
+"If this step does not complete successfully, proceed to the "
+"troubleshooting section."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:217
+#: 4f6d5df4c4ef4bffa9a496c75cad597a
+msgid "Test Pod Connectivity Between Clusters"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:219
+#: c4e0abc0aafe4cfa8950daa44dcaabe6
+msgid ""
+"Congratulations, you have successfully connected your clusters together. "
+"You can validate the connectivity by running the connectivity test in "
+"multi cluster mode:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:228
+#: 69229049cbd74997a0ce02648e2f7c14
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:230
+#: 632b128e9881488098b55a75bc7efc22
+msgid "Logical next steps to explore from here are:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:232
+#: 25a888aba4664222a3719db74e208145
+msgid ":ref:`gs_clustermesh_services`"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:233
+#: cf166612c04c45f7aa13e97c9b09b7dc
+msgid ":ref:`gs_clustermesh_network_policy`"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:236
+#: e899036d2f69459b85452a00a72af358
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:238
+#: 381b818dfdc3400097d6c7dd65ec9870
+msgid "Use the following list of steps to troubleshoot issues with ClusterMesh:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:240
+#: c3349eb0f9594ef886550cec008d9773
+msgid ""
+"Validate that the ``cilium-xxx`` as well as the ``cilium-operator-xxx`` "
+"pods are healthy and ready."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:248
+#: 7e590397b1134348a31bba11e8bb8e0a
+msgid "Validate the Cluster Mesh is enabled correctly and operational:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:255
+#: c78dd6904f7649bab17e1de711d430d7
+msgid ""
+"If you cannot resolve the issue with the above commands, see the "
+":ref:`troubleshooting_clustermesh` for a more detailed troubleshooting "
+"guide."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:259
+#: bd69c75282ae4c269dbb2c29a9f1b7a1
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/clustermesh.rst:261
+#: 1dda7e1b3fe5484fb66994a6e26cb3db
+msgid ""
+"The number of clusters that can be connected together is currently "
+"limited to 255. This limitation will be lifted in the future when running"
+" in direct routing mode or when running in encapsulation mode with "
+"encryption enabled."
+msgstr ""
+

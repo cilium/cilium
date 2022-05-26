@@ -1,0 +1,93 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-health_completion_bash.md:3
+#: 3f21429cd2844900845719c08cd89847
+msgid "cilium-health completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:5
+#: 7e17ef4c500a45978e6fcfe0b4e08e61
+msgid "Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:7
+#: 9e21a42cfd744d52b877eb91adc39938
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:9
+#: 431489b54bde47f0ad14defa4da64a5d
+msgid "Generate the autocompletion script for the bash shell."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:11
+#: c1f60c441af8468a82e745156b870905
+msgid ""
+"This script depends on the 'bash-completion' package. If it is not "
+"installed already, you can install it via your OS's package manager."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:14
+#: 5485382424d74029856094c495f06932
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:18
+#: 58f8b475989d49d88c2ea24f61003a09
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:20
+#: ede03bd8151a46dd84af01f8ddf7677a
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:24
+#: d037a4ff7b8b4e49b6f544cce4ef83f3
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:28
+#: 728625f35464439ca01f07a890a0240b
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:35
+#: c8cc8a54b5a34eee84cbf5a5b16a9892
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:42
+#: 0d09cc7a209f4dffab0c26672d873772
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:51
+#: 292a4d8f0d374b08887892b7801f1def
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-health_completion_bash.md:53
+#: 613d764ddd354d7699ec492030b003a0
+msgid ""
+"[cilium-health completion](cilium-health_completion.md)\t - Generate the "
+"autocompletion script for the specified shell"
+msgstr ""
+

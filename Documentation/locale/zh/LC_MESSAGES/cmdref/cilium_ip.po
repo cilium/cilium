@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_ip.md:3 a84406db68684c37991e9f38d66b7a49
+msgid "cilium ip"
+msgstr ""
+
+#: ../../cmdref/cilium_ip.md:5 f20ae53e931d426bb7117b60c31f6e1e
+msgid "Manage IP addresses and associated information"
+msgstr ""
+
+#: ../../cmdref/cilium_ip.md:7 d4eaed79b7f54ba28f6b5c2ce206d7bd
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_ip.md:13 d74d1e49267344ff957753526f65b395
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_ip.md:21 90ca68302c6e4917914edcadad4c72ae
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_ip.md:23 dd7784690bb5406f9147f1322c6cb38c
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_ip.md:24 c299fa932953480b9986ae99d55c3322
+msgid ""
+"[cilium ip list](cilium_ip_list.md)\t - List IP addresses in the "
+"userspace IPcache"
+msgstr ""
+

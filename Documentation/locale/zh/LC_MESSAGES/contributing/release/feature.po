@@ -1,0 +1,255 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/release/feature.rst:3 58b29a60adac4fcf8b3266d89e82408b
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:10 ba5557c69ddf408387c77866c971853c
+msgid "Feature Release Process"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:12 d1b96b389a514c22ab2acbdd9b052a2e
+msgid ""
+"This document describes the process for creating a major or minor feature"
+" release of Cilium."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:16 44b59de255f946abbe88a7804d1f7b1e
+msgid "On Freeze date"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:18 5922d2ba791f4bbba58a7c4e252f7107
+msgid "Fork a new release branch from master:"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:26 3d20645bfb3c465fb67cd9f3fe9fd3cf
+msgid ""
+"Protect the branch using the GitHub UI to disallow direct push and "
+"require merging via PRs with proper reviews. `Direct link "
+"<https://github.com/cilium/cilium/settings/branches>`_"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:29 30806ca339584d66862d91fd15f51dbb
+msgid ""
+"Update the contents of the ``CODEOWNERS`` file to reduce code reviews to "
+"essential approvals:"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:32 467c764ccbf34f3d9ecd582bc0ee27db
+msgid "Keep ``* @cilium/tophat`` fallback entry."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:33 c38cb6ece9784ec495329c683d1fce80
+msgid "Keep ``/.github/workflows/`` entry for CI/CD security."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:34 634dd5bbd9534e40b0b599a220b34c08
+msgid ""
+"Keep all ``@cilium/api`` assignments for API stability on the release "
+"branch."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:36 ac0efd12f0804ea7812aadb082339739
+msgid "Remove everything else so that it is handled by the Top Hat."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:38 e57ff72ac0794a968518a2cac323164c
+msgid "Delete the ``stable.txt`` file."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:44 3be6f3ec85fc4618ada4872b9e19306a
+msgid ""
+"Create a new project named \"X.Y.Z\" to automatically track the backports"
+" for that particular release. `Direct Link: "
+"<https://github.com/cilium/cilium/projects/new>`_"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:47 bf78aafe5e3c42119f5c5f7218f77f26
+msgid ""
+"Copy the ``.github/maintainers-little-helper.yaml`` from the previous "
+"release ``vX.Y-1`` change the contents to be relevant for the release "
+"``vX.Y`` and set the ``project:`` to be the generated link created by the"
+" previous step. The link should be something like: "
+"``https://github.com/cilium/cilium/projects/NNN``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:52 b364ac7c122d421895d57d35073bcbec
+msgid ""
+"Set the right version for the ``CustomResourceDefinitionSchemaVersion`` "
+"in the ``pkg/k8s/...`` by following these instructions:"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:55 02b8ab9b5d4b462cad883cdca8271aee
+msgid "Run ``./Documentation/check-crd-compat-table.sh vX.Y``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:57 96fbaa44f71e4ab5b9be8549f15b1119
+msgid ""
+"Commit changes, open a pull request against the new ``v1.2`` branch, and "
+"get the pull request merged"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:67 f35dc3b751ad4584807d4ed3967c7ec1
+msgid "Create the following GitHub labels:"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:69 4ab059b92b7b4ea8b3565769c8cf7269
+msgid "``backport-pending/1.2``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:70 7fb3746685014150b89eed57ce2ca8ac
+msgid "``backport-done/1.2``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:71 a261df31bd1c4ac0a003a581f1a6c891
+msgid "``backport/1.2``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:72 7c19dad4d41c40239fe1e8b12e964745
+msgid "``needs-backport/1.2``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:75 3e45410ad0074ae0bf4b1098b77051ec
+msgid ""
+"Checkout to master and update the ``.github/maintainers-little-"
+"helper.yaml`` to have all the necessary configurations for the backport "
+"of the new ``vX.Y`` branch. Specifically, ensure that:"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:79 957caff87d5a4b789a65615e9e67f2fc
+msgid "The project at the top of the file points to the \"next\" release,"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:80 ff46d08aa77042ab833809ac85641096
+msgid ""
+"A new section is added for the upcoming release that is being prepared, "
+"and"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:81 fa80d4dffd644cc78146747ec018f4e7
+msgid "The section for the oldest release is removed."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:91 a2b48211500442fba1cb8e3464cf50ba
+msgid ""
+"Continue with the next step only after the previous steps are merged into"
+" master."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:94 2554fc758fcf4f3283b3fb0dbd55a8a7
+msgid ""
+"Mark all open PRs with ``needs-backport/x.y`` that have the milestone "
+"``x.y``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:96 964a5d8faed34f02a8ec1b5165e70a1e
+msgid ""
+"Change the VERSION file to contain the next ``rc`` version. For example, "
+"if we are branching v1.2 and still in the RC phase we need to change the "
+"VERSION file to contain the ``v1.2.0-rcX``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:100 33b05be8c3b046d8b1b8c71c403dd7ab
+msgid ""
+"Set the branch as \"Active\" and the \"Privacy Level\" to \"Private\" in "
+"the readthedocs Admin page. (Replace ``v1.2`` with the right branch) "
+"``https://readthedocs.org/dashboard/cilium/version/v1.2/``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:104 b77b5c1cbd3e4e939c128e21fc6b8ade
+msgid ""
+"Since this is the first release being made from a new branch, please "
+"follow the :ref:`generic_release_process` to release ``v1.2.0-rc1``."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:107 04c8b71d21ac4583a3c9d3e3f5388310
+msgid ""
+"Alert in the testing channel that a new jenkins job needs to be created "
+"for this new branch."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:110 eb5e33faaee74d2bb84f7f7466c22aa3
+msgid "Prepare the master branch for the next development cycle:"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:116 145283c6978b4a8eb75cb2fe6a672ff4
+msgid "Update the ``VERSION`` file to contain ``v1.2.90``"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:117 b6833f05369d47248315f1de70ad42cb
+msgid ""
+"Add the ``VERSION`` file using ``git add`` and create & merge a PR titled"
+" ``Prepare for 1.3.0 development``."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:120 40622e59dea149eda77a36ab2836eb21
+msgid "Update the release branch on"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:120 ff7ef57be5c748159bab81433cd99bc4
+msgid ""
+"`Jenkins <https://jenkins.cilium.io/>`_ to be tested on every change and "
+"Nightly."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:122 a8e659cdb2ad47d38d0200eea4bf22b3
+msgid ""
+"(Only 1.0 minor releases) Tag newest 1.0.x Docker image as "
+"``v1.0-stable`` and push it to Docker Hub. This will ensure that Kops "
+"uses latest 1.0 release by default."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:124 e2c3c630e73b4fa5b471ae1e9420d912
+msgid ""
+"Update Grafana dashboards in `Grafana "
+"<https://grafana.com/orgs/cilium/dashboards>`_. Install the dashboards "
+"available in ``./examples/kubernetes/addons/prometheus`` and use them to "
+"upload them to Grafana."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:130 cfa2caef5ef44a028b5ca05c60b4cd2a
+msgid "For the final release"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:132 3da4ae792fe842ba835f8a40127c2700
+msgid ""
+"Follow the :ref:`generic_release_process` to create the final replace and"
+" replace ``X.Y.0-rcX`` with ``X.Y.0``."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:135 ac7bc2e986cd4d06b1a03d9d5cabe61e
+msgid "Announce to Slack with a more thorough release text. Sample text:"
+msgstr ""
+
+#: ../../contributing/release/feature.rst:148 c91fc815660f484c82881a4e5d6228d0
+msgid ""
+"Update ``SECURITY.md`` to represent the security support for the most "
+"recent three release series."
+msgstr ""
+
+#: ../../contributing/release/feature.rst:151 ee3a805053ce4d3b83df107addb09ea1
+msgid ""
+"Set the branch for the oldest release (now EOL) as \"Active\" and "
+"\"Hidden\" in the readthedocs Admin page. (Replace ``v1.2`` with the "
+"right branch) ``https://readthedocs.org/dashboard/cilium/version/v1.2/``"
+msgstr ""
+

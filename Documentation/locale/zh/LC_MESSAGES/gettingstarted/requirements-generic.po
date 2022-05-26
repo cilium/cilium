@@ -1,0 +1,42 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/requirements-generic.rst:1
+#: 7c8ee880f72f4b4bbe30dab4802b4b83
+msgid "**Requirements:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-generic.rst:3
+#: 9459f969b7a2496b96e1be5f0137fff5
+msgid ""
+"Kubernetes must be configured to use CNI (see `Network Plugin "
+"Requirements <https://kubernetes.io/docs/concepts/extend-kubernetes"
+"/compute-storage-net/network-plugins/#network-plugin-requirements>`_)"
+msgstr ""
+
+#: ../../gettingstarted/requirements-generic.rst:4
+#: 1e5404da71924e9ba1ea56a245ce1887
+msgid "Linux kernel >= 4.9.17"
+msgstr ""
+
+#: ../../gettingstarted/requirements-generic.rst:8
+#: cf585351071145fdbff96c0ac7e59f0e
+msgid "See :ref:`admin_system_reqs` for more details on the system requirements."
+msgstr ""
+

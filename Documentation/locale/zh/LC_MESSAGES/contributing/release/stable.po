@@ -1,0 +1,296 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/release/stable.rst:3 d4f1339fe90243b186e9847c76d96ce7
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:10 ba33dda1c4944d0d84979754100466cf
+msgid "Generic Release Process"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:12 daad12e87bc24b769895fca3649a3a02
+msgid ""
+"This process applies to all releases other than feature releases, this "
+"includes:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:14 c8f4cbc74aa04f58aeacb30e31803e6a
+msgid "Stable releases"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:16 c00b241328ca456ca3dc0864541edb64
+msgid ""
+"If you intent to release a new feature release, see the "
+":ref:`minor_release_process` section instead."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:19 5f9514d90ab943fe95ea1e3e42284496
+msgid ""
+"The following commands have been validated when ran in the VM used in the"
+" Cilium development process. See :ref:`dev_env` for detailed instructions"
+" about setting up said VM."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:24 8ca9ce91540f4738a6cbedc0ed03f3c0
+msgid "GitHub template process"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:26 e5d65e113104456eab149fd1dfb65081
+#, python-format
+msgid ""
+"File a `new release issue "
+"<https://github.com/cilium/cilium/issues/new?assignees=&labels=kind%2Frelease&template=release_template.md&title=vX.Y.Z+release>`_"
+" on GitHub, updating the title to reflect the version that will be "
+"released."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:29 5d68cedb3f3c45f0a1d50601772beab1
+msgid "Follow the steps in the issue template to prepare the release."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:32 3a5a5c6dd5bd43068305a5dd0acd7045
+msgid "Reference steps for the template"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:34 be608731c47c4afead05d278212ad3b7
+msgid ""
+"Ensure that the necessary backports have been completed and merged. See "
+":ref:`backport_process`."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:37 51f692f9e9894ec8902157ffe2f91d6d
+msgid "Update GitHub project and create ``vX.Y.Z+1`` project if applicable."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:38 871979dd77764d29aea0df303c382d9a
+msgid ""
+"Update PRs / issues that were added to the ``vX.Y.Z`` project, but didn't"
+" make it into this release into the ``vX.Y.Z+1`` project."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:41 63663318da8745f4832baf2439d59ab1
+msgid ""
+"Create a new project named \"X.Y.Z+1\" to automatically track the "
+"backports for that particular release. `Direct Link: "
+"<https://github.com/cilium/cilium/projects/new>`_"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:44 6abb5f2f8f914d059e83206c58ffbac5
+msgid "Checkout the desired stable branch and pull it:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:50 d8a88b2652004bc79e1b2bd120d5ed7a
+msgid "Run the release preparation script:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:58 db1c2da8da4f4fa299fcac0d25de0440
+msgid ""
+"Check to see if the ``AUTHORS`` file has any formatting errors (for "
+"instance, indentation mismatches) as well as duplicate contributor names,"
+" and correct them accordingly."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:62 50a54f92424d40a991f5f0176bc4f5b6
+msgid ""
+"Set the right version for the ``CustomResourceDefinitionSchemaVersion`` "
+"in the ``pkg/k8s/client`` by following these instructions:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:65 4dee5bf928f94487870c0b105b43c9ef
+msgid "Run ``./Documentation/check-crd-compat-table.sh vX.Y``"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:67 71f15fe45d774d65b38880d92cdb0097
+msgid ""
+"Add all modified files using ``git add`` and create a commit with the "
+"title ``Prepare for release v1.0.3``."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:70 4e52a366f33144a691fccdceaa91a46b
+msgid "Prepare a pull request for the changes:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:76 b6fb2f9fe98b416ea1e7b4856950d52a
+msgid ""
+"Follow standard procedures to get the aforementioned PR merged into the "
+"desired stable branch. See :ref:`submit_pr` for more information about "
+"this process."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:80 02df405329174689a3f03da2d44202bb
+msgid "Checkout out the stable branch and pull your merged changes:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:86 8675577e2612472cb8ca165af2a6f396
+msgid "Create and push release tags to GitHub:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:94 621df1257bf44f5499a098072ebb1788
+msgid ""
+"There are two tags that correspond to the same release because GitHub "
+"recommends using ``vx.y.z`` for release version formatting, and "
+"ReadTheDocs, which hosts the Cilium documentation, requires the version "
+"to be in format ``x.y.z`` For more information about how ReadTheDocs does"
+" versioning, you can read their `Versions Documentation "
+"<https://docs.readthedocs.io/en/latest/versions.html>`_."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:100 85748cf3c7964388bc4e4652d3c654d4
+msgid ""
+"Approve the release from the `Release Image build UI "
+"<https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build%22>`_."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:102 7396fa886b9c472bb7804f868b895384
+msgid ""
+"Once the release images are pushed, pull the image digests and prepare a "
+"PR with the official release image digests:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:108 39cc173aeba34b0fbe982bea567482cb
+msgid ""
+"This will leave a file with the format ``digest-vX.Y.Z.txt`` in the local"
+" directory which can be used to prepare the release in the next step."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:111 f9295f97f43a4df0bc52f6ad57b37a9a
+msgid ""
+"Prepare Helm changes for the release using the `Cilium Helm Charts "
+"Repository <https://github.com/cilium/charts/>`__ and push the changes "
+"into that repository (not the main cilium repository):"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:119 75d214dc41314630b484838609205543
+msgid ""
+"Prepare Helm changes for the dev version of the branch using the `Cilium "
+"Helm Charts Repository <https://github.com/cilium/charts/>`__ for the "
+"vX.Y helm charts, and push the changes into that repository (not the main"
+" cilium repository):"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:122 889cad2957064106b78378e56d9abbc1
+msgid "In the ``cilium/cilium`` repository:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:124 6e3f57c5a85f48269df37203531095e6
+msgid "``git checkout vx.y -b vx.z-dev``"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:125 9922198113574929a72051be6db88ec5
+msgid "Change the ``VERSION`` file to ``x.y-dev``"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:126 b4a07e08687e4816b77307db39c92a44
+msgid "Run ``make -C install/kubernetes``"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:128 89310e60d3db44b1b5fa5a05680a37eb
+msgid "In the ``cilium/charts`` repository:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:135 05e24de2333e4187b590e50c39675d76
+msgid ""
+"After pushing you can revert all the changes made in the local branch "
+"``x.y-dev`` from ``cilium/cilium``."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:138 2e0bdad592cd46a29cceae4d6c5aa77f
+msgid ""
+"Wait for the `Cilium Helm Charts Workflow "
+"<https://github.com/cilium/charts/actions>`__ to successfully deploy a "
+"cluster using the new Helm charts."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:141 c9ae3efa69d84f77b5d7bacd5366416e
+msgid "`Publish a GitHub release <https://github.com/cilium/cilium/releases/>`_:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:143 0f30c49bbb0c468b8f7e4427c46205a8
+msgid ""
+"Following the steps above, the release draft will already be prepared. "
+"Preview the description and then publish the release."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:146 de03edc9eeba49829bb2ee0bb51ea6a2
+msgid ""
+"Copy the official docker manifests for the release from the previous step"
+" into the end of the Github release announcement."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:149 529583651f81457da3be4af0758a452a
+msgid "Announce the release in the ``#general`` channel on Slack. Sample text:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:160 d11781b8944b47dfaa0d2168114c2720
+msgid ""
+"Create a new git branch based on the master branch to update "
+"``README.rst``:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:168 d97bd767ea364fbd97ed028f134d0bcd
+msgid ""
+"Bump the version of Cilium used in the Cilium upgrade tests to use the "
+"new release"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:170 29613e989a7841d4b5b526fc07f53f9d
+msgid ""
+"Please reach out on the ``#development`` channel on Slack for assistance "
+"with this task."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:173 7b77b1f31d284d5188aa8bff03271345
+msgid ""
+"Update the ``stable`` tags for ``cilium``, ``cilium-operator``, ``cilium-"
+"operator-aws``, ``cilium-operator-azure``, ``cilium-operator-generic``, "
+"``cilium-docker-plugin``, ``hubble-relay`` and ``clustermesh-apiserver`` "
+"on DockerHub, for the latest version of Cilium. For example, if the "
+"latest version is ``1.8``, then for all patch releases on the ``1.8`` "
+"line, this step should be performed. Once ``1.9`` is out for example, "
+"then this is no longer required for ``1.8`` or earlier releases."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:185 ea4bb9424729457696604a3de080c8f3
+msgid "Check if all docker images are available before announcing the release:"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:191 a8d61cddbf8841efb6572b64942a5446
+msgid ""
+"Update the following external tools and guides to point to the released "
+"Cilium version. This step is only required on a new minor release like "
+"going from ``1.8`` to ``1.9``."
+msgstr ""
+
+#: ../../contributing/release/stable.rst:195 b5b60396badb497faee2de60fa242a5e
+msgid ""
+"`kubeadm <https://kubernetes.io/docs/setup/production-"
+"environment/tools/kubeadm/create-cluster-kubeadm/>`_"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:196 24d6d1c5cda849a994cf77cff24149b9
+msgid "`kops <https://github.com/kubernetes/kops/>`_"
+msgstr ""
+
+#: ../../contributing/release/stable.rst:197 bd7322f167ce4922826dd854547b1c27
+msgid "`kubespray <https://github.com/kubernetes-sigs/kubespray/>`_"
+msgstr ""
+

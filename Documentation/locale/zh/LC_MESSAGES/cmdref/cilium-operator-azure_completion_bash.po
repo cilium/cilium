@@ -1,0 +1,88 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:3
+#: dbc49a7a081c4dbf938d36d09c4959d1
+msgid "cilium-operator-azure completion bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:5
+#: fa1b855169d5439788569ecfab66b22e
+msgid "Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:7
+#: 93fdcc4b6c234193b3ac114119111379
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:9
+#: e81726610cf84416839ab7ba51583e2a
+msgid "Generate the autocompletion script for the bash shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:11
+#: 82115511a3344135b974ff6dd1b0de3f
+msgid ""
+"This script depends on the 'bash-completion' package. If it is not "
+"installed already, you can install it via your OS's package manager."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:14
+#: 0f0877a7bc18488c9dc67f593a8b3a64
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:18
+#: 3933b3ef4d8244888edbe33e766b7dc1
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:20
+#: a97227f9b35f4778b19c42b04be1bd2d
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:24
+#: 2f9dc230606a40fdadf04f7e1fa05128
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:28
+#: dafaabc794164e2286671ffbd650ecdf
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:35
+#: 4921e69770164792b6f0bbfd6a8e433a
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:42
+#: 15adb4c3877d4333b3f163b23d4476ab
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_bash.md:44
+#: 160a91cd8df94e42b1bd1591734ef010
+msgid ""
+"[cilium-operator-azure completion](cilium-operator-azure_completion.md)"
+"\t - Generate the autocompletion script for the specified shell"
+msgstr ""
+

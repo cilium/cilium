@@ -1,0 +1,138 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/testing/unit.rst:3 a8302065c2fc412390e8101b6a1a86d8
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:10 373d0db6bb4b48c593fec5a8bacdad34
+msgid "Integration Testing"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:12 6fa50877e94941dea2a37e5b1ca38c58
+msgid ""
+"Cilium uses the standard `go test <https://golang.org/pkg/testing/>`__ "
+"framework in combination with `gocheck <http://labix.org/gocheck>`__ for "
+"richer testing functionality."
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:19 965344006ae845679c762e5b5a6c8197
+msgid "Prerequisites"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:21 174da2f91dc44306b097d3f06ca70089
+msgid ""
+"Some tests interact with the kvstore and depend on a local kvstore "
+"instances of etcd. To start the local instances, run:"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:29 bf76ce5de9074edf8d41122c46fd5513
+msgid "Running all tests"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:31 94a9827b74b94f829764679a16919698
+msgid ""
+"To run integration tests over the entire repository, run the following "
+"command in the project root directory:"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:38 fa492209e7f645c7b2bd735dff1fc78d
+msgid "To run just unit tests, run:"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:45 6ec3762ceb584c1889baaba4f6788044
+msgid "Testing individual packages"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:47 b659a1dcdea245b08b511e226b620665
+msgid ""
+"It is possible to test individual packages by invoking ``go test`` "
+"directly. You can then ``cd`` into the package subject to testing and "
+"invoke go test:"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:56 161c456f21dd4cd3803b2a9cd6b28cf1
+msgid ""
+"If you need more verbose output, you can pass in the ``-check.v`` and "
+"``-check.vv`` arguments:"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:64 fab9936140dd44fa8b4ad2dc92b9377b
+msgid ""
+"Integration tests have some prerequisites like "
+":ref:`integration_testing_prerequisites`, you can use the following "
+"command to automatically set up the prerequisites, run the unit tests and"
+" tear down the prerequisites:"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:73 47ae79ea4d95446497d941a3e96fc5ff
+msgid ""
+"Some packages have privileged tests. They are not run by default when you"
+" run the integration tests for the respective package. The privileged "
+"test files have an entry at the top of the test file as shown."
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:81 630ff5bdde3044eca500b135c752a22a
+msgid "There are two ways that you can run the 'privileged' tests."
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:83 2cb705216dd444c2b1e5ad8e5407394e
+msgid ""
+"To run all the 'privileged' tests for cilium follow the instructions "
+"below."
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:89 72e549685c7d4a5eadfe16e4a051a2d2
+msgid ""
+"To run a specific package 'privileged' test, follow the instructions "
+"below. Here for example we are trying to run the tests for 'routing' "
+"package."
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:97 7cf23fc1e0504ee980d932cfc366dc66
+msgid "Running individual tests"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:99 356ba4821dec4815b760961bda87d312
+msgid ""
+"Due to the use of gocheck, the standard ``go test -run`` will not work, "
+"instead, the ``-check.f`` argument has to be specified:"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:107 37cd2fefe59d489283721144bc46d01d
+msgid "Automatically run unit tests on code changes"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:109 721daf23510b4d0f92f7117c2c9ce0bf
+msgid ""
+"The script ``contrib/shell/test.sh`` contains some helpful bash functions"
+" to improve the feedback cycle between writing tests and seeing their "
+"results. If you're writing unit tests in a particular package, the "
+"``watchtest`` function will watch for changes in a directory and run the "
+"unit tests for that package any time the files change. For example, if "
+"writing unit tests in ``pkg/policy``, run this in a terminal next to your"
+" editor:"
+msgstr ""
+
+#: ../../contributing/testing/unit.rst:121 138fcc0170624c34a0272234164ae7fd
+msgid "This shell script depends on the ``inotify-tools`` package on Linux."
+msgstr ""
+

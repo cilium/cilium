@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_debuginfo.md:3 36083d5d01594972bc9050e5ad9e0af7
+msgid "cilium debuginfo"
+msgstr ""
+
+#: ../../cmdref/cilium_debuginfo.md:5 932af187cc49480c9bd761fb035330f6
+msgid "Request available debugging information from agent"
+msgstr ""
+
+#: ../../cmdref/cilium_debuginfo.md:11 f28f72e44709454db05d5c1ce9cf3aed
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_debuginfo.md:21 1bb16c259bd44d2b99c19fc8ecf6ca60
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_debuginfo.md:29 f05995c0151a4a63b58aae46a6562b04
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_debuginfo.md:31 4b79610124704f2faa25086e157dff47
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+

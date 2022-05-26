@@ -1,0 +1,53 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_fqdn_cache.md:3 f8c07cf332254bb185a414919f4ca0aa
+msgid "cilium fqdn cache"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:5 c9c899c37a804155bd0c6d0183ba019b
+msgid "Manage fqdn proxy cache"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:11 d8e1c4749b894be997516323260b0263
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:17 b8ff455443554f6e884bb0e6c6e1e967
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:25 0c955b2ea012445aa92cc282b7ac9fcb
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:27 4c0d06990395468b9d591372ad8b1121
+msgid "[cilium fqdn](cilium_fqdn.md)\t - Manage fqdn proxy"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:28 397a6251dd7043838c78a42a033ccc93
+msgid "[cilium fqdn cache clean](cilium_fqdn_cache_clean.md)\t - Clean fqdn cache"
+msgstr ""
+
+#: ../../cmdref/cilium_fqdn_cache.md:29 6c51c9f8d2c244d6ab1d5c4f64fa22ac
+msgid ""
+"[cilium fqdn cache list](cilium_fqdn_cache_list.md)\t - List fqdn cache "
+"contents"
+msgstr ""
+

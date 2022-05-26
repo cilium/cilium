@@ -1,0 +1,53 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:3
+#: 97a451f82cb74c7e9c5a6611033a1b1d
+msgid "cilium-operator-alibabacloud metrics"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:5
+#: d4602bed82f344c695c5fea5242e1f58
+msgid "Access metric status of the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:7
+#: 9dee79bb54f04439a68c2cf9bbad3131
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:13
+#: 232e06796f31484a96a4a7614ae1459f
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:15
+#: 5ca3a1b3c8e941dcb89635b682c43d5c
+msgid ""
+"[cilium-operator-alibabacloud](cilium-operator-alibabacloud.md)\t - Run "
+"cilium-operator-alibabacloud"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_metrics.md:16
+#: 10fbcc2b144d4269bc4dfe041db4a0ba
+msgid ""
+"[cilium-operator-alibabacloud metrics list](cilium-operator-"
+"alibabacloud_metrics_list.md)\t - List all metrics for the operator"
+msgstr ""
+

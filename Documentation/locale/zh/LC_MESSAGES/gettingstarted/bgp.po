@@ -1,0 +1,150 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/bgp.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 45e88b6947b34af99cbc2f9b2f65bfd1 5d470c06d4694e3da088ed6ad5c350b7
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:11 c388c2c23f514ed1bc8f0affbcf3e719
+msgid "BGP (beta)"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:13 e0cecb166c2b4d6ba3e20f2029151fec
+msgid ""
+"BGP provides a way to advertise routes using traditional networking "
+"protocols to allow Cilium-managed services to be accessible outside the "
+"cluster."
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:16 eb4d9ebf39974b27932e06385a31eb60
+msgid ""
+"This document explains how to configure Cilium's native support for "
+"announcing ``LoadBalancer`` IPs of ``Services`` and a Kubernetes node's "
+"Pod CIDR range via BGP. It leverages `MetalLB's "
+"<https://metallb.universe.tf/>`_ simple and effective implementation of "
+"IP allocation and the minimal BGP protocol support to do this. The "
+"configuration for Cilium is the same as MetalLB's configuration."
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:22 d79ba9f3fe3f4bcabc0ce22ef905405f
+msgid ""
+"Specifically, if a ``Service`` of type ``LoadBalancer`` is created, "
+"Cilium will allocate an IP for it from a specified pool. Once the IP is "
+"allocated, the Agents will announce via BGP depending on the "
+"``Service``'s ``ExternalTrafficPolicy``. See MetalLB's `documentation "
+"<https://metallb.universe.tf/usage/#bgp>`_ on this specific topic."
+msgstr ""
+
+#: ../../beta.rst:3 11d2dad713404073b8c1ec561781f9d9
+msgid ""
+"This is a beta feature. Please provide feedback and file a GitHub issue "
+"if you experience any problems."
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:31 576c39057254409fa81961b3e005bb51
+msgid "Deploy Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 53ed8d7204ad483d8adea602b7738c0c
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 2971a518b573483b934ed31f562638ab
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 27d1603514e34619bdf885c1edc1197f
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:35 98bebeca285242c39a93973ac7be2709
+msgid ""
+"BGP support is enabled by providing the BGP configuration via a ConfigMap"
+" and by setting a few Helm values. Otherwise, BGP is disabled by default."
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:38 b8570561b3814a77b4c27bde877ef197
+msgid "Here's an example ConfigMap:"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:59 037ba5b95c87480397e29c2bc5a9acc9
+msgid "Here are the required Helm values:"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:69 bfc883c303b64a319c77935f7f3db2f9
+msgid ""
+"At least one ``bgp.announce.*`` value is required if ``bgp.enabled=true``"
+" is set."
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:71 103bf335fb8c4eb4995869d27b6dfbfb
+msgid "Verify that Cilium Agent pod is running."
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:80 6db1a502bc344e96a30bb5b6f093e024
+msgid "Create LoadBalancer and backend pods"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:82 186c2f3f98c948f7a35ecd64f62583f4
+msgid ""
+"Apply the following ``LoadBalancer`` ``Service`` and its corresponding "
+"backends:"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:125 1170b1b134d9479e854aa5ba32e82fdb
+msgid "Observe that the Operator allocates an external IP for ``test-lb``:"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:134 f49000d0e6c143da8e8ab00b0f85e56d
+msgid "Verify that the backend is running:"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:142 d10672ee07464a1da9f5cd3604b1705b
+msgid "Validate BGP announcements"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:144 0b091c65559e41a3954e1fdd762011c9
+msgid ""
+"To see whether Cilium is announcing the external IP of the ``Service`` or"
+" the Pod CIDR range of your Kubernetes nodes, check the node's routing "
+"table that's running your BGP router."
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:147 d11cd5cfc88c44108083a7a62b5bc089
+msgid ""
+"Alternatively, you can run ``tcpdump`` inside the Cilium pod (it'll need "
+"to be ``apt install``'d) to see BGP messages like so:"
+msgstr ""
+
+#: ../../gettingstarted/bgp.rst:158 6baa4b4137d444e2b28a65d053b14461
+msgid "Verify that traffic to the external IP is directed to the backends:"
+msgstr ""
+

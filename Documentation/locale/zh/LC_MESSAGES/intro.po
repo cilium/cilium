@@ -1,0 +1,523 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: 2022-05-27 01:19+0800\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: zh\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+"X-Generator: Poedit 3.0.1\n"
+
+#: ../../intro.rst:3 7358520178124aca8311adeeae8b13eb
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+"注意：你正在查看未经正式发布的 Cilium 文档。请阅读官方提供的正式版本："
+"https://docs.cilium.io"
+
+#: ../../intro.rst:11 9f22cc17d99b46dfb055c0de00387c13
+msgid "Introduction to Cilium & Hubble"
+msgstr "介绍 Cilium & Hubble"
+
+#: ../../intro.rst:14 92cbf225b5404e47bb9e6cf467eb16b4
+msgid "What is Cilium?"
+msgstr "什么是 Cilium？"
+
+#: ../../intro.rst:16 35c812d0be05461488647c2c93563b59
+msgid ""
+"Cilium is open source software for transparently securing the network "
+"connectivity between application services deployed using Linux container "
+"management platforms like Docker and Kubernetes."
+msgstr ""
+"Cilium 是开源软件，用于透明地保护使用 Linux 容器管理平台（如 Docker 和 "
+"Kubernetes）部署的应用程序之间的网络连接。"
+
+#: ../../intro.rst:20 58e931ac2ca345969eb7b176604c9e6d
+msgid ""
+"At the foundation of Cilium is a new Linux kernel technology called "
+"eBPF, which enables the dynamic insertion of powerful security "
+"visibility and control logic within Linux itself.  Because eBPF runs "
+"inside the Linux kernel, Cilium security policies can be applied and "
+"updated without any changes to the application code or container "
+"configuration."
+msgstr ""
+"Cilium 的基础是一种名为 eBPF 的新 Linux 内核技术，它支持在 Linux 内动态插"
+"入强大的安全和控制逻辑。 由于 eBPF 在 Linux 内核中运行，因此可以应用和更"
+"新 Cilium 安全策略，而无需对应用程序代码或容器配置进行任何更改。"
+
+#: ../../intro.rst:27 f8566101dde8432899b158b20d6bc99d
+msgid "What is Hubble?"
+msgstr "什么是Hubble？"
+
+#: ../../intro.rst:29 b40fea3519ae4b90b5cae324414e63df
+msgid ""
+"Hubble is a fully distributed networking and security observability "
+"platform. It is built on top of Cilium and eBPF to enable deep "
+"visibility into the communication and behavior of services as well as "
+"the networking infrastructure in a completely transparent manner."
+msgstr ""
+"Hubble 是一个完全分布式的网络流量以及安全策略的可视化平台。 由于它建立在 "
+"Cilium 和 eBPF 之上，所以能够以完全透明的方式获取服务之间的通信行为以及网"
+"络结构。"
+
+#: ../../intro.rst:34 5ad40f23bf28424dacf00f4d48ec3293
+msgid ""
+"By building on top of Cilium, Hubble can leverage eBPF for visibility. "
+"By relying on eBPF, all visibility is programmable and allows for a "
+"dynamic approach that minimizes overhead while providing deep and "
+"detailed visibility as required by users. Hubble has been created and "
+"specifically designed to make best use of these new eBPF powers."
+msgstr ""
+"通过 Cilium，Hubble 可以利用 eBPF 来提高对网络流量以及安全策略的可视化程"
+"度。 通过利用 eBPF 的特性，所有的可视化策略都是可编程的，并且允许采用动态"
+"加载的方式来最大限度地减少加载配置所带来的开销，同时根据用户的要求提供深"
+"入和详细的可视化策略。 Hubble设计的初衷就是为了使开发者能充分利用这些新"
+"的 eBPF 功能。"
+
+#: ../../intro.rst:40 5a7320ad96f449a398c0821ad2da34ac
+msgid "Hubble can answer questions such as:"
+msgstr "Hubble可以回答例如："
+
+#: ../../intro.rst:43 6fabdcdccaad4593aec778fab0cf3986
+msgid "Service dependencies & communication map"
+msgstr "服务间的相互依赖关系以及通信拓扑是什么样的"
+
+#: ../../intro.rst:45 04a9e747a71b456e8ef9d7c28c86ac1e
+msgid ""
+"What services are communicating with each other? How frequently? What "
+"does the service dependency graph look like?"
+msgstr "哪些服务在相互通信？ 有多频繁？ 服务之间的依赖是什么样的？"
+
+#: ../../intro.rst:47 6f16b706b4f8422b9345393a36b1f2ba
+msgid ""
+"What HTTP calls are being made? What Kafka topics does a service consume "
+"from or produce to?"
+msgstr ""
+"正在进行什么样的 HTTP 调用？ 服务从哪些 Kafka 主题消费或生产到哪些主题？"
+
+#: ../../intro.rst:51 496b7556af8245c0b95fa61846391a26
+msgid "Network monitoring & alerting"
+msgstr "网络监控和警报"
+
+#: ../../intro.rst:53 f9c2e74db68640bcb72a235757766bcd
+msgid ""
+"Is any network communication failing? Why is communication failing? Is "
+"it DNS? Is it an application or network problem? Is the communication "
+"broken on layer 4 (TCP) or layer 7 (HTTP)?"
+msgstr ""
+"是否存在任何网络通信失败？ 为什么会失败？ 是因为DNS吗？ 是应用程序的问题"
+"还是网络问题？ 第 4 层 (TCP) 或第 7 层 (HTTP) 上的通信链路是否中断？"
+
+#: ../../intro.rst:56 63c203f0a2b14a01b0ae931af4481370
+msgid ""
+"Which services have experienced a DNS resolution problem in the last 5 "
+"minutes? Which services have experienced an interrupted TCP connection "
+"recently or have seen connections timing out? What is the rate of "
+"unanswered TCP SYN requests?"
+msgstr ""
+"哪些服务在过去 5 分钟内遇到了 DNS 解析问题？ 哪些服务最近遇到了 TCP 连接"
+"中断或连接超时？ 未响应的 TCP SYN 请求的比率是多少？"
+
+#: ../../intro.rst:62 569c884993f84a37a01f5bedd8349e12
+msgid "Application monitoring"
+msgstr "应用监控"
+
+#: ../../intro.rst:64 b604ab587ce74074868cee88b6ccd1d5
+msgid ""
+"What is the rate of 5xx or 4xx HTTP response codes for a particular "
+"service or across all clusters?"
+msgstr "特定服务或所有集群的 5xx 或 4xx HTTP 错误代码的比率是多少？"
+
+#: ../../intro.rst:66 ee6d87aaad9d4733b2e6080d8cbd0aaf
+msgid ""
+"What is the 95th and 99th percentile latency between HTTP requests and "
+"responses in my cluster? Which services are performing the worst? What "
+"is the latency between two services?"
+msgstr ""
+"我的集群中 HTTP 请求和响应之间的第 95 个和第 99 个百分位延迟是多少？ 哪些"
+"服务表现最差？ 两个服务之间的延迟是多少？"
+
+#: ../../intro.rst:71 04cb7321dd294ce6abe8116653efefe6
+msgid "Security observability"
+msgstr "安全可观测性"
+
+#: ../../intro.rst:73 b59b9d08acbb4d8ea2079bb10554ae8e
+msgid ""
+"Which services had connections blocked due to network policy? What "
+"services have been accessed from outside the cluster? Which services "
+"have resolved a particular DNS name?"
+msgstr ""
+"哪些服务的连接由于网络策略被阻止？ 从集群外部访问了哪些服务？ 哪些服务解"
+"析了特定的 DNS 名称？"
+
+#: ../../intro.rst:78 1a65fcf332404356af3fcbad72c5795a
+msgid "Why Cilium & Hubble?"
+msgstr "什么是 Cilium & Hubble？"
+
+#: ../../intro.rst:80 c48b4eeb264b4346ac5270e22b810f18
+msgid ""
+"eBPF is enabling visibility into and control over systems and "
+"applications at a granularity and efficiency that was not possible "
+"before. It does so in a completely transparent way, without requiring "
+"the application to change in any way. eBPF is equally well-equipped to "
+"handle modern containerized workloads as well as more traditional "
+"workloads such as virtual machines and standard Linux processes."
+msgstr ""
+"eBPF 以前所未有的粒度和效率实现了对系统和应用程序的可观测性和控制能力。 "
+"它以完全透明的方式进行，并且不需要应用程序以任何方式进行更改。 eBPF 能够"
+"很好的兼顾容器化设施和更传统模式（如虚拟机和标准 Linux 进程）下的负载。"
+
+#: ../../intro.rst:87 833e8c3f2bee41c08b9bd16a4bf5d871
+msgid ""
+"The development of modern datacenter applications has shifted to a "
+"service-oriented architecture often referred to as *microservices*, "
+"wherein a large application is split into small independent services "
+"that communicate with each other via APIs using lightweight protocols "
+"like HTTP.  Microservices applications tend to be highly dynamic, with "
+"individual containers getting started or destroyed as the application "
+"scales out / in to adapt to load changes and during rolling updates that "
+"are deployed as part of continuous delivery."
+msgstr ""
+"现代数据中心应用程序的开发已经转向面向服务的架构，通常称为*微服务*，其中"
+"大型应用程序被拆分为小型独立服务，这些服务通过 API 使用 HTTP 等轻量级协议"
+"相互通信。 微服务应用程序往往是高度动态的，随着应用程序向外扩展/向内扩展"
+"以适应负载变化，以及在作为持续交付的一部分部署时进行滚动升级期间，单个容"
+"器会被创建或销毁。"
+
+#: ../../intro.rst:95 c35ca49384ed4b59b57756d5cacd6c12
+msgid ""
+"This shift toward highly dynamic microservices presents both a challenge "
+"and an opportunity in terms of securing connectivity between "
+"microservices. Traditional Linux network security approaches (e.g., "
+"iptables) filter on IP address and TCP/UDP ports, but IP addresses "
+"frequently churn in dynamic microservices environments. The highly "
+"volatile life cycle of containers causes these approaches to struggle to "
+"scale side by side with the application as load balancing tables and "
+"access control lists carrying hundreds of thousands of rules that need "
+"to be updated with a continuously growing frequency. Protocol ports (e."
+"g. TCP port 80 for HTTP traffic) can no longer be used to differentiate "
+"between application traffic for security purposes as the port is "
+"utilized for a wide range of messages across services."
+msgstr ""
+"这种向高度动态微服务的转变在确保微服务之间的连接性方面既是挑战也是机遇。 "
+"传统的 Linux 网络安全策略（例如 iptables）过滤 IP 地址和 TCP/UDP 端口，"
+"但 IP 地址在动态微服务环境中频繁变动。 容器的高度不稳定的生命周期导致这些"
+"方法难以与应用程序并行扩展，因为负载平衡表和访问控制列表承载了需要以不断"
+"增长的频率更新的数十万条规则。 出于安全目的，协议端口（例如用于 HTTP 流量"
+"的 TCP 端口 80）不再用于区分应用程序流量，因为该端口主要用于跨服务的各种"
+"消息。"
+
+#: ../../intro.rst:107 efa199c97779424ebdda1027aa3d2c3b
+msgid ""
+"An additional challenge is the ability to provide accurate visibility as "
+"traditional systems are using IP addresses as primary identification "
+"vehicle which may have a drastically reduced lifetime of just a few "
+"seconds in microservices architectures."
+msgstr ""
+"另一个挑战是提供准确可视化能力，因为传统系统使用 IP 地址作为主要识别工"
+"具，这在微服务架构中可能会大幅缩短生命周期，有可能只有几秒钟。"
+
+#: ../../intro.rst:112 5741a398757f4e78a1bd99dad0347e97
+msgid ""
+"By leveraging Linux eBPF, Cilium retains the ability to transparently "
+"insert security visibility + enforcement, but does so in a way that is "
+"based on service / pod / container identity (in contrast to IP address "
+"identification in traditional systems) and can filter on application-"
+"layer (e.g. HTTP).  As a result, Cilium not only makes it simple to "
+"apply security policies in a highly dynamic environment by decoupling "
+"security from addressing, but can also provide stronger security "
+"isolation by operating at the HTTP-layer in addition to providing "
+"traditional Layer 3 and Layer 4 segmentation."
+msgstr ""
+"通过利用 Linux eBPF，Cilium 保留了透明地插入安全策略+ 强制执行能力，同时"
+"基于服务/pod/容器身份（与传统系统中的 IP 地址标识相反）在应用层进行过滤"
+"（例如 HTTP）。 因此，Cilium 不仅通过将安全策略与寻址解耦，使在高度动态的"
+"环境中应用安全策略变得简单，而且除了提供传统的第 3 层和第 4 层分段之外，"
+"还可以通过在 HTTP 层运行来提供更强的安全隔离能力。"
+
+#: ../../intro.rst:121 d8304be7102546989189f7db0bc08322
+msgid ""
+"The use of eBPF enables Cilium to achieve all of this in a way that is "
+"highly scalable even for large-scale environments."
+msgstr ""
+"通过 eBPF 使 Cilium 能够实现高度可扩展的方式，即使在大规模网络环境中也能"
+"实现以上所有能力。"
+
+#: ../../intro.rst:125 5cbda89514ec458e8731d94a610cf6e9
+msgid "Functionality Overview"
+msgstr "功能概述"
+
+#: ../../../README.rst:4 94490aebc0374df79fad04d9b6b6be94
+msgid "Protect and secure APIs transparently"
+msgstr "透明地保护和加固 API"
+
+#: ../../../README.rst:6 61631892a90a45129bd585093795fe16
+msgid ""
+"Ability to secure modern application protocols such as REST/HTTP, gRPC "
+"and Kafka. Traditional firewalls operates at Layer 3 and 4. A protocol "
+"running on a particular port is either completely trusted or blocked "
+"entirely. Cilium provides the ability to filter on individual "
+"application protocol requests such as:"
+msgstr ""
+"能够对例如 REST/HTTP、gRPC 和 Kafka等现代应用程序协议进行保护。 传统防火"
+"墙在第 3 层和第 4 层运行。在特定端口上运行的协议要么完全受信任，要么完全"
+"被阻止。 Cilium 提供了过滤单个应用程序协议请求的能力，例如："
+
+#: ../../../README.rst:12 f09066bdbda2499a97cc2733e61b8448
+msgid ""
+"Allow all HTTP requests with method ``GET`` and path ``/public/.*``. "
+"Deny all other requests."
+msgstr ""
+"允许使用方法 ``GET`` 和路径 ``/public/.*`` 的所有 HTTP 请求。 拒绝所有其"
+"他请求。"
+
+#: ../../../README.rst:14 6ea838d4b2434e45a09dfb37b42168df
+msgid ""
+"Allow ``service1`` to produce on Kafka topic ``topic1`` and ``service2`` "
+"to consume on ``topic1``. Reject all other Kafka messages."
+msgstr ""
+"允许“service1”在 Kafka 主题“topic1”上生成，“service2”在“topic1”上消费。 "
+"拒绝所有其他 Kafka 消息。"
+
+#: ../../../README.rst:16 6fe53d55fb2741c386a2e6259f3d9da4
+msgid ""
+"Require the HTTP header ``X-Token: [0-9]+`` to be present in all REST "
+"calls."
+msgstr "要求 HTTP 标头 ``X-Token: [0-9]+`` 出现在所有 REST 调用中。"
+
+#: ../../../README.rst:18 75b1f0036da24feea2db78d7a556debc
+msgid ""
+"See the section `Layer 7 Policy`_ in our documentation for the latest "
+"list of supported protocols and examples on how to use it."
+msgstr ""
+"有关支持协议的最新列表和有关如何使用它的示例，请参阅我们文档中的“第 7 层"
+"策略”部分。"
+
+#: ../../../README.rst:22 e12a927de2d241439601ba5b5ffeddcb
+msgid "Secure service to service communication based on identities"
+msgstr "基于身份的服务到服务通信保护"
+
+#: ../../../README.rst:24 d4475b292cdb454cb66c6e38d79c54a8
+msgid ""
+"Modern distributed applications rely on technologies such as application "
+"containers to facilitate agility in deployment and scale out on demand. "
+"This results in a large number of application containers to be started "
+"in a short period of time. Typical container firewalls secure workloads "
+"by filtering on source IP addresses and destination ports. This concept "
+"requires the firewalls on all servers to be manipulated whenever a "
+"container is started anywhere in the cluster."
+msgstr ""
+"现代分布式应用程序依赖于容器化等技术来促进部署的敏捷性和按需扩展。 这导致"
+"在短时间内会启动大量应用程序容器。 典型的容器防火墙通过过滤源 IP 地址和目"
+"标端口来保护网络负载。 这个概念的前提是每当容器在集群中的任何地方启动时，"
+"所有服务器上的防火墙都可以被修改。"
+
+#: ../../../README.rst:32 241b188164674ddda55be2b16f4c9f24
+msgid ""
+"In order to avoid this situation which limits scale, Cilium assigns a "
+"security identity to groups of application containers which share "
+"identical security policies. The identity is then associated with all "
+"network packets emitted by the application containers, allowing to "
+"validate the identity at the receiving node. Security identity "
+"management is performed using a key-value store."
+msgstr ""
+"为了避免这种会导致集群规模受限的情况发生，Cilium 将一个安全身份标识分配给"
+"共享相同安全策略的应用程序容器组。 然后这个标识与应用程序容器发出的所有网"
+"络数据包相关联，从而允许在接收节点验证身份并使用键值存储执行安全身份管"
+"理。"
+
+#: ../../../README.rst:39 3788aa20e16c4028aba9033c0f1b2e79
+msgid "Secure access to and from external services"
+msgstr "安全的访问外部服务"
+
+#: ../../../README.rst:41 48e84e3eab0d4743b0aad271f6ba5862
+msgid ""
+"Label based security is the tool of choice for cluster internal access "
+"control. In order to secure access to and from external services, "
+"traditional CIDR based security policies for both ingress and egress are "
+"supported. This allows to limit access to and from application "
+"containers to particular IP ranges."
+msgstr ""
+"基于标签的安全策略是集群内部访问控制的首选。 为了保护对外部服务的访问，传"
+"统的方式是基于 CIDR 的入口和出口添加安全策略。 这种限制实际上限定了应用程"
+"序容器只能接收和访问来自特定 IP 范围的流量。"
+
+#: ../../../README.rst:47 3cbc83dff2f44053a9fb3804cc74165e
+msgid "Simple Networking"
+msgstr "简化网络模型"
+
+#: ../../../README.rst:49 4edcd99b51aa4cc085bdc686d3636c9c
+#, fuzzy
+msgid ""
+"A simple flat Layer 3 network with the ability to span multiple clusters "
+"connects all application containers. IP allocation is kept simple by "
+"using host scope allocators. This means that each host can allocate IPs "
+"without any coordination between hosts."
+msgstr ""
+"通过一个能够跨越多个集群的 3 层网络平面连接所有应用程序容器。 通过以主机"
+"范围的进行IP 分配可以简化IP分配的过程。 这意味着每个主机都可以独立分配 "
+"IP，而无需主机之间的任何协调。"
+
+#: ../../../README.rst:54 3adc4e7af88c4893bd4ea53902511fa6
+msgid "The following multi node networking models are supported:"
+msgstr "支持以下多节点网络模型："
+
+#: ../../../README.rst:56 2224688a7838454eb972a9f3fda83c88
+msgid ""
+"**Overlay:** Encapsulation-based virtual network spanning all hosts. "
+"Currently VXLAN and Geneve are baked in but all encapsulation formats "
+"supported by Linux can be enabled."
+msgstr ""
+"**Overlay:：** 跨越所有主机的基于封装的虚拟网络。 目前 VXLAN 和 Geneve 已"
+"内置，但 Linux 支持的所有封装格式都可以启用。"
+
+#: ../../../README.rst:60 63e59d2afa0e4587b99b1b7088d04537
+msgid ""
+"When to use this mode: This mode has minimal infrastructure and "
+"integration requirements. It works on almost any network infrastructure "
+"as the only requirement is IP connectivity between hosts which is "
+"typically already given."
+msgstr ""
+"何时使用此模式：此模式对基础架构和集成的要求最低。 它几乎适用于任何网络基"
+"础设施，因为唯一的要求是通常已经给出的主机之间的 IP 连接。"
+
+#: ../../../README.rst:65 b28693e4a359418890923f1fcdb39e27
+msgid ""
+"**Native Routing:** Use of the regular routing table of the Linux host. "
+"The network is required to be capable to route the IP addresses of the "
+"application containers."
+msgstr ""
+"**Native Routing：** 使用 Linux 主机的常规路由表。 网络需要能够路由应用程"
+"序容器的 IP 地址。"
+
+#: ../../../README.rst:69 7e866cf5b9f34fffb2cb93bd142ff37b
+msgid ""
+"When to use this mode: This mode is for advanced users and requires some "
+"awareness of the underlying networking infrastructure. This mode works "
+"well with:"
+msgstr ""
+"何时使用此模式：此模式适用于高级用户，需要对底层网络基础设施有所了解。 此"
+"模式适用于："
+
+#: ../../../README.rst:73 85631a8991b74465847a07010670ebfe
+msgid "Native IPv6 networks"
+msgstr "IPv6 网络"
+
+#: ../../../README.rst:74 74fb47136924415997c3571c35196e4d
+msgid "In conjunction with cloud network routers"
+msgstr "和云网络的路由策略结合"
+
+#: ../../../README.rst:75 e8ed94aabd564a4182e99a1d8278fbb8
+msgid "If you are already running routing daemons"
+msgstr "已经在使用路由守护进程"
+
+#: ../../../README.rst:78 1a125884d180401584aab0bde6a08549
+msgid "Load Balancing"
+msgstr "负载均衡"
+
+#: ../../../README.rst:80 eae78b9a39984cf489d5c7d5b5f54471
+msgid ""
+"Cilium implements distributed load balancing for traffic between "
+"application containers and to external services and is able to fully "
+"replace components such as kube-proxy. The load balancing is implemented "
+"in eBPF using efficient hashtables allowing for almost unlimited scale."
+msgstr ""
+"Cilium 为应用程序容器和外部服务之间的流量实现分布式负载平衡，并且能够完全"
+"替换 kube-proxy 等组件。 负载平衡是在 eBPF 中使用高效的哈希表实现的，能够"
+"适应几乎无限大的集群规模。"
+
+#: ../../../README.rst:85 af05320298f448f2833e5d608b7dced6
+msgid ""
+"For north-south type load balancing, Cilium's eBPF implementation is "
+"optimized for maximum performance, can be attached to XDP (eXpress Data "
+"Path), and supports direct server return (DSR) as well as Maglev "
+"consistent hashing if the load balancing operation is not performed on "
+"the source host."
+msgstr ""
+"对于南北向类型的负载均衡，Cilium 的 eBPF 实现针对性能进行了最大程度的优"
+"化，可以附加到 XDP（eXpress 数据路径）上，并且在源主机上支持直接服务器返"
+"回 (DSR) 以及在不执行负载均衡操作的情况下支持 Maglev 一致性哈希。"
+
+#: ../../../README.rst:90 dbde836b25ff4937bcd15f68e34ff69a
+msgid ""
+"For east-west type load balancing, Cilium performs efficient service-to-"
+"backend translation right in the Linux kernel's socket layer (e.g. at "
+"TCP connect time) such that per-packet NAT operations overhead can be "
+"avoided in lower layers."
+msgstr ""
+"对于东西向类型的负载平衡，Cilium 在 Linux 内核的套接字层（例如在 TCP 连接"
+"时）执行高效的服务到后端转换，这样可以避免较低层中的每个数据包的 NAT 操作"
+"的开销。"
+
+#: ../../../README.rst:95 a5f3e55043a743099168af320bb28c71
+msgid "Bandwidth Management"
+msgstr "带宽管理"
+
+#: ../../../README.rst:97 4869b54400c5476398c3e3c9f9a401b3
+msgid ""
+"Cilium implements bandwidth management through efficient EDT-based "
+"(Earliest Departure Time) rate-limiting with eBPF for container traffic "
+"that is egressing a node. This allows to significantly reduce "
+"transmission tail latencies for applications and to avoid locking under "
+"multi-queue NICs compared to traditional approaches such as HTB "
+"(Hierarchy Token Bucket) or TBF (Token Bucket Filter) as used in the "
+"bandwidth CNI plugin, for example."
+msgstr ""
+"Cilium 通过高效的基于 EDT（最早出发时间）的速率限制和 eBPF 来实现用于出口"
+"节点容器的带宽管理。 与带宽 CNI 插件中使用的 HTB（层次令牌桶）或 TBF（令"
+"牌桶过滤器）等传统方法相比，这可以显着减少应用程序的传输尾延迟，并避免在"
+"多队列 NIC 下锁定。"
+
+#: ../../../README.rst:105 afd0f4f174a342ae9b1e9556b089f6d4
+msgid "Monitoring and Troubleshooting"
+msgstr "监控和排障"
+
+#: ../../../README.rst:107 06ea17fa83b44ecbbf51cd74664468cc
+msgid ""
+"The ability to gain visibility and to troubleshoot issues is fundamental "
+"to the operation of any distributed system. While we learned to love "
+"tools like ``tcpdump`` and ``ping`` and while they will always find a "
+"special place in our hearts, we strive to provide better tooling for "
+"troubleshooting. This includes tooling to provide:"
+msgstr ""
+"可观测性和解决问题的能力是任何分布式系统运行的基础。 虽然我们习惯了 "
+"``tcpdump`` 和 ``ping`` 之类的工具，并且它们总能在我们心中找到一个特殊的"
+"位置，但我们努力为故障排除提供更好的工具。 这包括提供以下工具的工具："
+
+#: ../../../README.rst:113 2184eee08b2b47b8a9c689e276d989b7
+msgid ""
+"Event monitoring with metadata: When a packet is dropped, the tool "
+"doesn't just report the source and destination IP of the packet, the "
+"tool provides the full label information of both the sender and receiver "
+"among a lot of other information."
+msgstr ""
+"使用元数据进行事件监控：当数据包被丢弃时，该工具不仅会报告数据包的源 IP "
+"和目标 IP，还会提供发送方和接收方的完整标签信息以及许多其他信息。"
+
+#: ../../../README.rst:118 7c07469b453d430b8acfbabd32d1d705
+msgid ""
+"Metrics export via Prometheus: Key metrics are exported via Prometheus "
+"for integration with your existing dashboards."
+msgstr ""
+"通过 Prometheus 导出指标：通过 Prometheus 导出关键指标，以便与您现有的监"
+"控面板集成。"
+
+#: ../../../README.rst:121 bc479668a5614b1e8490124c32b84861
+msgid ""
+"Hubble_: An observability platform specifically written for Cilium. It "
+"provides service dependency maps, operational monitoring and alerting, "
+"and application and security visibility based on flow logs."
+msgstr ""
+"Hubble_：专为 Cilium 编写的可视化平台。 它提供基于流日志的服务依赖关系"
+"图、操作监控和警报以及应用程序和安全可观测性。"

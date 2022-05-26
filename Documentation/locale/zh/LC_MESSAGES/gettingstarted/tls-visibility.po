@@ -1,0 +1,507 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/tls-visibility.rst:3 42240be4d6b146169576f1bb7d7f4bf8
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:11 0ffc8b8bd9a944db992e325e9d8f7a2b
+msgid "Inspecting TLS Encrypted Connections with Cilium"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:13 f380b9cb55564f7d9f73c1201b3ca041
+msgid ""
+"This document serves as an introduction for how network security teams "
+"can use Cilium to transparently inspect TLS-encrypted connections.  This "
+"TLS-aware inspection allows Cilium API-aware visibility and policy to "
+"function even for connections where client to server communication is "
+"protected by TLS, such as when a client accesses the API service via "
+"HTTPS.  This capability is similar to what is possible to traditional "
+"hardware firewalls, but is implemented entirely in software on the "
+"Kubernetes worker node, and is policy driven, allowing inspection to "
+"target only selected network connectivity."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:20 7876d959524e4b56bdc1d718c70d77b1
+msgid ""
+"This type of visibility is extremely valuable to be able to monitor how "
+"external API services are being used, for example, understanding which S3"
+" buckets are being accessed by an given application."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:1 1e10dbe95e4c49c5a97d303bb9f1f565
+msgid ""
+"If you haven't read the :ref:`intro` yet, we'd encourage you to do that "
+"first."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:3 d3bf0ec0668a4b30abb156eda2226835
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:8 83132fd0cd294157aecd42a259be42b2
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:10
+#: 2f7aa5c8502742719d394f94c6c1db28
+msgid ""
+"If you have not set up Cilium yet, follow the guide "
+":ref:`k8s_install_standard` for instructions on how to quickly bootstrap "
+"a Kubernetes cluster and install Cilium. If in doubt, pick the minikube "
+"route, you will be good to go in less than 5 minutes."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:27 3ad1eb709b0146b4b096ec21fefc18ca
+msgid "Edit the ClusterRole for Cilium to give it access to Kubernetes secrets"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:34 9b88b964d2e940f4a7a9d00138d85399
+msgid "Add the following section at the end of the file:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:48 4762222d402e45a69540ccca98358621
+msgid "Deploy the Demo Application"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:50 8cc3c33d4d70460fb75379aca11610ad
+msgid ""
+"To demonstrate TLS-interception we will use the same ``mediabot`` "
+"application that we used for the DNS-aware policy example. This "
+"application will access the Star Wars API service using HTTPS, which "
+"would normally mean that network-layer mechanisms like Cilium would not "
+"be able to see the HTTP-layer details of the communication, since all "
+"application data is encrypted using TLS before that data is sent on the "
+"network."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:55 14c694fe815d4b6e856ad6cd65f2bc0b
+msgid "In this guide we will learn about:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:57 5ab5dc4f3e2a4abc813a668bbb32d3cd
+msgid ""
+"Creating an internal Certificate Authority (CA) and associated "
+"certificates signed by that CA to enable TLS interception."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:58 9cc80567a0034073963a972badaafbf7
+msgid ""
+"Using Cilium network policy to select the traffic to intercept using DNS-"
+"based policy rules."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:59 6fe8c8af40f24416ac8e5edd7cb11bb5
+msgid ""
+"Inspecting the details of the HTTP request using cilium monitor "
+"(accessing this visibility data via Hubble, and applying Cilium network "
+"policies to filter/modify the HTTP request is also possible, but is "
+"beyond the scope of this simple Getting Started Guide)"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:63 2e142caf3388456983d8f65094d2d978
+msgid "First off, we will create a single pod ``mediabot`` application:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:74 aa4f83cdc2f44e7a82c2f7b3ea5ac51b
+msgid "A Brief Overview of the TLS Certificate Model"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:76 206e2796de73473eada81e898deabf49
+msgid ""
+"TLS is a protocol that \"wraps\" other protocols like HTTP and ensures "
+"that communication between client and server has confidentiality (no one "
+"can read the data except the intended recipient), integrity (recipient "
+"can confirm that the data has not been modified in transit), and "
+"authentication (sender can confirm that it is talking with the intended "
+"destination, not an impostor).  We will provide a highly simplified "
+"overview of TLS in this document, but for full details, please see "
+"`<https://en.wikipedia.org/wiki/Transport_Layer_Security>`_ ."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:83 0df477418fb94f55b89ac69cbb367976
+msgid ""
+"From an authentication perspective, the TLS model relies on a "
+"\"Certificate Authority\" (CA) which is an entity that is trusted to "
+"create proof that a given network service (e.g., www.cilium.io) is who "
+"they say they are.   The goal is to prevents a malicious party in the "
+"network between the client and the server from intercepting the traffic "
+"and pretending to be the destination server."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:88 e72d00b29e4347d7bc0cc754f8516285
+msgid ""
+"In the case of \"friendly interception\" for network security monitoring,"
+" Cilium uses a model similar to traditional firewalls with TLS inspection"
+" capabilities:  the network security team creates their own \"internal "
+"certificate authority\" that can be used to create alternative "
+"certificates for external destinations.  This model requires each client "
+"workload to also trust this new certificate, otherwise the client's TLS "
+"library will reject the connection as invalid.  In this model, the "
+"network firewall uses the certificate signed by the internal CA to act "
+"like the destination service and terminate the TLS connection.  This "
+"allows the firewall to inspect and even modify the application layer "
+"data, and then initiate another TLS connect to the actual destination "
+"service."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:98 8da1920b92cb4eeebd04589d6bbc38c4
+msgid ""
+"The CA model within TLS is based on cryptographic keys and certificates."
+"  Realizing the above model requires four primary steps:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:101 38c7b3f72a2f482789fbe8b1b5d476cf
+msgid ""
+"Create an internal certificate authority by generating a CA private key "
+"and CA certificate."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:103 58f313e174884594a6f2026262595a3e
+msgid ""
+"For any destination where TLS inspection is desired (e.g., "
+"artii.herokuapp.com in the example below), generate a private key and "
+"certificate signing request with a common name that matches the "
+"destination DNS name."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:107 33c9a999fa86493b9f7567344bc130e3
+msgid "Use the CA private key to create a signed certificate."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:109 3de2521de16d4400a8961a367bbed492
+msgid ""
+"Ensure that all clients where TLS inspection is have the CA certificate "
+"installed so that they will trust all certificates signed by that CA."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:112 c3e72507a71a49908757b796d7065293
+msgid ""
+"Given that Cilium will be terminating the initial TLS connection from the"
+" client and creating a new TLS connection to the destination, Cilium must"
+" be told the set of CAs that it should trust when validating the new TLS "
+"connection to the destination service."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:118 83c8d051c52c4ce5bbb60adcde1fe260
+msgid ""
+"In a non-demo environment it is EXTREMELY important that you keep the "
+"above private keys safe, as anyone with access to this private key will "
+"be able to inspect TLS-encrypted traffic (certificates on the other hand "
+"are public information, and are not at all sensitive).  In the guide "
+"below, the CA private key does not need to be provided to Cilium at all "
+"(it is used only to create certificates, which can be done offline) and "
+"private keys for individual destination services are stored as Kubernetes"
+" secrets. These secrets should be stored in a namespace where they can be"
+" accessed by Cilium, but not general purpose workloads."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:127 b9c41ce0cd11458d9d44bda593f199c1
+msgid "Generating and Installing TLS Keys and Certificates"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:129 311903031c134f47a1b0020897e18c07
+msgid ""
+"Now that we have explained the high-level certificate model used by TLS, "
+"we will walk through the concrete steps to generate the appropriate keys "
+"and certificates using the ``openssl`` utility."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:132 9eb40a175394469684c9333a63d1f927
+msgid ""
+"The following image describes the different files containing "
+"cryptographic data that are generated or copied, and what components in "
+"the system need access to those files:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:137 dd60276cae514eae9665fc71b5980dad
+msgid ""
+"You can use openssl on your local system if it is already installed, but "
+"if not a simple shortcut is to use ``kubectl exec`` to execute "
+"``/bin/bash`` within any of the cilium pods, and then run the resulting "
+"``openssl`` commands.  Use ``kubectl cp`` to copy the resulting files out"
+" of the cilium pod when it is time to use them to create Kubernetes "
+"secrets of copy them to the ``mediabot`` pod."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:144 796b1500b1354bc090f532f3448cb6d3
+msgid "Create an Internal Certificate Authority (CA)"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:146 ebab4d481ca94099a9eb4eb3a59a82cb
+msgid "Generate CA private key named 'myCA.key':"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:152 c7388eabfa074871b6a596b3a0051d89
+msgid "Enter any password, just remember it for some of the later steps."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:154 1b98864ddd3749aa84660eeb69a5c921
+msgid "Generate CA certificate from the private key:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:160 d8735fed02a64124b94641f6c7c4fe2a
+msgid ""
+"The values you enter for each prompt do not need to be any specific "
+"value, and do not need to be accurate."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:164 8b0bdc75f86c467580861cf3661fc2f9
+msgid "Create Private Key and Certificate Signing Request for a Given DNS Name"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:166 d9293d96c7d44cf8b5f124086cd53ff6
+msgid ""
+"Generate an internal private key and certificate signing with a common "
+"name that matches the DNS name of the destination service to be "
+"intercepted for inspection (in this example, use "
+"``artii.herokuapp.com``)."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:169 6b780fbc3bb7428bba956080ad62ddb0
+msgid "First create the private key:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:175 4c962871db41477f9a6a784a185a8823
+msgid ""
+"Next, create a certificate signing request, specifying the DNS name of "
+"the destination service for the common name field when prompted.  All "
+"other prompts can be filled with any value."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:182 661521a49c5147e0969e5a404a8f2c87
+msgid ""
+"The only field that must be a specific value is ensuring that ``Common "
+"Name`` is the exact DNS destination ``artii.herokuapp.com`` that will be "
+"provided to the client."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:186 42b82e8621244522863c0fb5d8cc7b05
+msgid ""
+"This example workflow will work for any DNS name as long as the toFQDNs "
+"rule in the policy YAML (below) is also updated to match the DNS name in "
+"the certificate."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:191 0a7a6fe31b2e4939b0cdbe4f609869ae
+msgid "Use CA to Generate a Signed Certificate for the DNS Name"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:193 c47820f94f904e099d9827da4e510583
+msgid ""
+"Use the internal CA private key to create a signed certificate for "
+"artii.herokuapp.com named ``internal-artii.crt``."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:199 2d87bf16436541cb9ec6c527864ca59a
+msgid ""
+"Next we create a Kubernetes secret that includes both the private key and"
+" signed certificates for the destination service:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:206 d85079a6b0e4441db148978fcfbc06d8
+msgid "Add the Internal CA as a Trusted CA Inside the Client Pod"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:208 0acf8df28bd440efadb0d6253c2341fb
+msgid ""
+"Once the CA certificate is inside the client pod, we still must make sure"
+" that the CA file is picked up by the TLS library used by your "
+"application.  Most Linux applications automatically use a set of trusted "
+"CA certificates that are bundled along with the Linux distro. In this "
+"guide, we are using an Ubuntu container as the client, and so will update"
+" it with Ubuntu specific instructions.  Other Linux distros will have "
+"different mechanisms.  Also, individual applications may leverage their "
+"own certificate stores rather than use the OS certificate store.  Java "
+"applications and the aws-cli are two common examples.  Please refer to "
+"the application or application runtime documentation for more details."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:215 c1334be76a4f474696159a7c5c16f873
+msgid ""
+"For Ubuntu, we first copy the additional CA certificate to the client pod"
+" filesystem"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:221 ca5020c1ffcc4f0085076c87e6c2fc75
+msgid ""
+"Then run the Ubuntu-specific utility that adds this certificate to the "
+"global set of trusted certificate authorities in /etc/ssl/certs/ca-"
+"certificates.crt ."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:228 4cb2a3cdccf24d02832b8ff9c4130a45
+msgid "This command will issue a WARNING, but this can be ignored."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:231 fa38c0e2be4244fc867c89158fd37ff0
+msgid "Provide Cilium with List of Trusted CAs"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:233 7b73f3b58cb448ae8873e38294ba7a01
+msgid ""
+"Next, we will provide Cilium with the set of CAs that it should trust "
+"when originating the secondary TLS connections. This list should "
+"correspond to the standard set of global CAs that your organization "
+"trusts.  A logical option for this is the standard CAs that are trusted "
+"by your operating system, since this is the set of CAs that were being "
+"used prior to introducing TLS inspection."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:237 19c6d673dfd245e8bfb77f7aaf060139
+msgid ""
+"To keep things simple, in this example we will simply copy this list out "
+"of the Ubuntu filesystem of the mediabot pod, though it is important to "
+"understand that this list of trusted CAs is not specific to a particular "
+"TLS client or server, and so this step need only be performed once "
+"regardless of how many TLS clients or servers are involved in TLS "
+"inspection."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:245 964d829d58694db98956e488dfb08541
+msgid ""
+"We then will create a Kubernetes secret using this certificate bundle so "
+"that Cilium can read the certificate bundle and use it to validate "
+"outgoing TLS connections."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:255 75106a877d1b4112824508b14034525c
+msgid "Apply DNS and TLS-aware Egress Policy"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:257 d16d6e3509904adf8fc7a85f4d818279
+msgid ""
+"Up to this point, we have created keys and certificates to enable TLS "
+"inspection, but we have not told Cilium which traffic we want to "
+"intercept and inspect.   This is done using the same Cilium Network "
+"Policy constructs that are used for other Cilium Network Policies."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:261 80cb6024548d4d04bde825924d022d71
+msgid ""
+"The following Cilium network policy indicates that Cilium should perform "
+"HTTP-aware inspect of communication between the ``mediabot`` pod to "
+"``artii.herokuapp.com``."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:266 bf815250557044c292b2e0255fa5cf9f
+msgid "Let's take a closer look at the policy:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:268 6a81b07b8177410ab3e25f604b37ebf5
+msgid ""
+"The ``endpointSelector`` means that this policy will only apply to pods "
+"with labels ``class: mediabot, org:empire`` to have the egress access."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:269 6bee237ae62243889f3aaf717efe9e22
+msgid ""
+"The first egress section uses ``toFQDNs: matchName`` specification to "
+"allow TCP port 443 egress to ``artii.herokuapp.com``."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:270 72f5272ab2fe44558b7cf679a5f129df
+msgid ""
+"The ``http`` section below the toFQDNs rule indicates that such "
+"connections should be parsed as HTTP, with a policy of ``{}`` which will "
+"allow all requests."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:272 e2c7337f7e8d4b8383a403c4c0d52665
+msgid ""
+"The ``terminatingTLS`` and ``originatingTLS`` sections indicate that TLS "
+"interception should be used to terminate the initial TLS connection from "
+"mediabot and initiate a new out-bound TLS connection to "
+"``artii.herokuapp.com``."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:274 77a2bb9f7a524c4cba9391fdc380c0df
+msgid ""
+"The second egress section allows ``mediabot`` pods to access ``kube-dns``"
+" service. Note that ``rules: dns`` instructs Cilium to inspect and allow "
+"DNS lookups matching specified patterns. In this case, inspect and allow "
+"all DNS queries."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:278 5eeb90fcdb894fcda9a5c25e0ef95f25
+msgid ""
+"Note that with this policy the ``mediabot`` doesn't have access to any "
+"internal cluster service other than ``kube-dns`` and will have no access "
+"to any other external destinations either. Refer to :ref:`Network Policy`"
+" to learn more about policies for controlling access to internal cluster "
+"services."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:282 cfff4282a35e4f70bebad92d473f9bfd
+msgid "Let's apply the policy:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:290 d775e7524e0c4b2a9deb45314e1bb308
+msgid "Demonstrating TLS Inspection"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:292 fe6c659556ad43938808b703d6aa5070
+msgid ""
+"Recall that the policy we pushed will allow all HTTPS requests from "
+"``mediabot`` to ``artii.herokuapp.com``, but will parse all data at the "
+"HTTP-layer, meaning that cilium monitor will report each HTTP request and"
+" response."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:295 4df68b923a7f42adac99353b9da1359b
+msgid ""
+"To see this, open a new window and run the following command to identity "
+"the name of the cilium pod (e.g, cilium-97s78) that is running on the "
+"same Kubernetes worker node as the ``mediabot`` pod."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:298 31417d100a954a3f9a6f8c247901afe1
+msgid ""
+"Then start running cilium monitor in \"L7 mode\" to monitor for HTTP "
+"requests being reported by Cilium:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:304 51a55d9b400e45278dcdf29b4937fd32
+msgid ""
+"Next in the original window, from the ``mediabot`` pod we can access "
+"``artii.herokuapp.com`` via HTTPS:"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:316 d714143757d54974ab30b67fa784fbc2
+msgid ""
+"Looking back at the cilium monitor window, you will see each individual "
+"HTTP request and response.  For example::"
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:321 12b6e23676b245d895ceeffc3b381eac
+msgid ""
+"Refer to :ref:`l4_policy` and :ref:`l7_policy` to learn more about Cilium"
+" L4 and L7 network policies."
+msgstr ""
+
+#: ../../gettingstarted/tls-visibility.rst:324 90f8535177234470bcc6e9d807d3964f
+msgid "Clean-up"
+msgstr ""
+

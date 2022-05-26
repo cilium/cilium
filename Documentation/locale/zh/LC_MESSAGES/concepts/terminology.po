@@ -1,0 +1,590 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/terminology.rst:3 8743b8dce849483bbad269f60c03b7b8
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/terminology.rst:9 a8e85615ad9b408999ff6709ff3d3c78
+msgid "Terminology"
+msgstr ""
+
+#: ../../concepts/terminology.rst:16 ../../concepts/terminology.rst:254
+#: 784a98712ce64f7da2a1eef9a49b9351 d3c6c40b0a6543fdae5347d100e10438
+msgid "Labels"
+msgstr ""
+
+#: ../../concepts/terminology.rst:18 12dc1f157afe4097ba46a3bedee91799
+msgid ""
+"Labels are a generic, flexible and highly scalable way of addressing a "
+"large set of resources as they allow for arbitrary grouping and creation "
+"of sets. Whenever something needs to be described, addressed or selected,"
+" it is done based on labels:"
+msgstr ""
+
+#: ../../concepts/terminology.rst:23 67583af859964d6a8c8c412ad8084b16
+msgid ""
+"`Endpoints` are assigned labels as derived from the container runtime, "
+"orchestration system, or other sources."
+msgstr ""
+
+#: ../../concepts/terminology.rst:25 34c78cc91ab545868ccab5498ca8f97d
+msgid ""
+"`Network policies` select pairs of `endpoints` which are allowed to "
+"communicate based on labels. The policies themselves are identified by "
+"labels as well."
+msgstr ""
+
+#: ../../concepts/terminology.rst:30 40cf7e6bc2324afcb56b00809f2981b5
+msgid "What is a Label?"
+msgstr ""
+
+#: ../../concepts/terminology.rst:32 6a70390d7b2643038ddf8b35ce04f630
+msgid ""
+"A label is a pair of strings consisting of a ``key`` and ``value``. A "
+"label can be formatted as a single string with the format ``key=value``. "
+"The key portion is mandatory and must be unique. This is typically "
+"achieved by using the reverse domain name notion, e.g. "
+"``io.cilium.mykey=myvalue``. The value portion is optional and can be "
+"omitted, e.g. ``io.cilium.mykey``."
+msgstr ""
+
+#: ../../concepts/terminology.rst:38 8aa225af574f4fcb8cb323eb7afc4c55
+msgid "Key names should typically consist of the character set ``[a-z0-9-.]``."
+msgstr ""
+
+#: ../../concepts/terminology.rst:40 bfa15631c34a4c4b869f2f74c6c6d930
+msgid ""
+"When using labels to select resources, both the key and the value must "
+"match, e.g. when a policy should be applied to all endpoints with the "
+"label ``my.corp.foo`` then the label ``my.corp.foo=bar`` will not match "
+"the selector."
+msgstr ""
+
+#: ../../concepts/terminology.rst:46 2d1bb261767e4d7bac5fae72b96dd469
+msgid "Label Source"
+msgstr ""
+
+#: ../../concepts/terminology.rst:48 736cb9dfcd8f4c30b48e551472413d28
+msgid ""
+"A label can be derived from various sources. For example, an `endpoint`_ "
+"will derive the labels associated to the container by the local container"
+" runtime as well as the labels associated with the pod as provided by "
+"Kubernetes. As these two label namespaces are not aware of each other, "
+"this may result in conflicting label keys."
+msgstr ""
+
+#: ../../concepts/terminology.rst:54 13332709fd994088bb35031259f60beb
+msgid ""
+"To resolve this potential conflict, Cilium prefixes all label keys with "
+"``source:`` to indicate the source of the label when importing labels, "
+"e.g. ``k8s:role=frontend``, ``container:user=joe``, ``k8s:role=backend``."
+" This means that when you run a Docker container using ``docker run [...]"
+" -l foo=bar``, the label ``container:foo=bar`` will appear on the Cilium "
+"endpoint representing the container. Similarly, a Kubernetes pod started "
+"with the label ``foo: bar`` will be represented with a Cilium endpoint "
+"associated with the label ``k8s:foo=bar``. A unique name is allocated for"
+" each potential source. The following label sources are currently "
+"supported:"
+msgstr ""
+
+#: ../../concepts/terminology.rst:64 77b38707b00d486caf6a9bcc19dfbf94
+msgid "``container:`` for labels derived from the local container runtime"
+msgstr ""
+
+#: ../../concepts/terminology.rst:65 9807521911ce47d69eab111b0efed903
+msgid "``k8s:`` for labels derived from Kubernetes"
+msgstr ""
+
+#: ../../concepts/terminology.rst:66 fabc0810a9864fd9a552a9ebe4f99f92
+msgid "``reserved:`` for special reserved labels, see :ref:`reserved_labels`."
+msgstr ""
+
+#: ../../concepts/terminology.rst:67 bfe193f0163c4562addcf366f07eeaae
+msgid "``unspec:`` for labels with unspecified source"
+msgstr ""
+
+#: ../../concepts/terminology.rst:69 658a30a5017c4bb8b00bfff6cb64063e
+msgid ""
+"When using labels to identify other resources, the source can be included"
+" to limit matching of labels to a particular type. If no source is "
+"provided, the label source defaults to ``any:`` which will match all "
+"labels regardless of their source. If a source is provided, the source of"
+" the selecting and matching labels need to match."
+msgstr ""
+
+#: ../../concepts/terminology.rst:79 6eef245d4a65458abebb2b171597fe3a
+msgid "Endpoint"
+msgstr ""
+
+#: ../../concepts/terminology.rst:81 1b738506da88478e9d7b8d9e2d83d709
+msgid ""
+"Cilium makes application containers available on the network by assigning"
+" them IP addresses. Multiple application containers can share the same IP"
+" address; a typical example for this model is a Kubernetes :term:`Pod`. "
+"All application containers which share a common address are grouped "
+"together in what Cilium refers to as an endpoint."
+msgstr ""
+
+#: ../../concepts/terminology.rst:87 8b222696939e441d8e496834edc3bd4d
+msgid ""
+"Allocating individual IP addresses enables the use of the entire Layer 4 "
+"port range by each endpoint. This essentially allows multiple application"
+" containers running on the same cluster node to all bind to well known "
+"ports such as ``80`` without causing any conflicts."
+msgstr ""
+
+#: ../../concepts/terminology.rst:92 505a968235b94c4fbb76c8331b54b3e8
+msgid ""
+"The default behavior of Cilium is to assign both an IPv6 and IPv4 address"
+" to every endpoint. However, this behavior can be configured to only "
+"allocate an IPv6 address with the ``--enable-ipv4=false`` option. If both"
+" an IPv6 and IPv4 address are assigned, either address can be used to "
+"reach the endpoint. The same behavior will apply with regard to policy "
+"rules, load-balancing, etc. See :ref:`address_management` for more "
+"details."
+msgstr ""
+
+#: ../../concepts/terminology.rst:100 d6786d721d0c4ce5a13086968335b540
+msgid "Identification"
+msgstr ""
+
+#: ../../concepts/terminology.rst:102 4d7bb73b5a49487499c5f2982ca73b4f
+msgid ""
+"For identification purposes, Cilium assigns an internal endpoint id to "
+"all endpoints on a cluster node. The endpoint id is unique within the "
+"context of an individual cluster node."
+msgstr ""
+
+#: ../../concepts/terminology.rst:109 bab6101e1a694dada737ab05c51c2355
+msgid "Endpoint Metadata"
+msgstr ""
+
+#: ../../concepts/terminology.rst:111 dce6a3c1e5bd44f797ea5fd649e9063f
+msgid ""
+"An endpoint automatically derives metadata from the application "
+"containers associated with the endpoint. The metadata can then be used to"
+" identify the endpoint for security/policy, load-balancing and routing "
+"purposes."
+msgstr ""
+
+#: ../../concepts/terminology.rst:115 e4ebda6daf8f41058ff0e73c79b309f7
+msgid ""
+"The source of the metadata will depend on the orchestration system and "
+"container runtime in use. The following metadata retrieval mechanisms are"
+" currently supported:"
+msgstr ""
+
+#: ../../concepts/terminology.rst:120 3745101be665498bb48928f8187fbd79
+msgid "System"
+msgstr ""
+
+#: ../../concepts/terminology.rst:120 ../../concepts/terminology.rst:203
+#: 4aebf56832564c30b3a709df072809a7 99b15f7e0dd74de48f9adad12ce73fd6
+msgid "Description"
+msgstr ""
+
+#: ../../concepts/terminology.rst:122 ee53ad3e427f414bb3840cbca2acc074
+msgid "Kubernetes"
+msgstr ""
+
+#: ../../concepts/terminology.rst:122 c041eedf893c4557989fc84661f5eda4
+msgid "Pod labels (via k8s API)"
+msgstr ""
+
+#: ../../concepts/terminology.rst:124 168cf7b5e8444fa1987e880dee2f9506
+msgid "containerd (Docker)"
+msgstr ""
+
+#: ../../concepts/terminology.rst:124 a96afbae77ed4e3b95d9b74569c7bcc7
+msgid "Container labels (via Docker API)"
+msgstr ""
+
+#: ../../concepts/terminology.rst:127 e498be9c394f40a7bd36fba0fe9064dc
+msgid "Metadata is attached to endpoints in the form of `labels`."
+msgstr ""
+
+#: ../../concepts/terminology.rst:129 4b31368d402d440cb111d4343265fca2
+msgid ""
+"The following example launches a container with the label "
+"``app=benchmark`` which is then associated with the endpoint. The label "
+"is prefixed with ``container:`` to indicate that the label was derived "
+"from the container runtime."
+msgstr ""
+
+#: ../../concepts/terminology.rst:144 ed7c86f519664f1d878d5bb68ffc00fb
+msgid ""
+"An endpoint can have metadata associated from multiple sources. A typical"
+" example is a Kubernetes cluster which uses containerd as the container "
+"runtime. Endpoints will derive Kubernetes pod labels (prefixed with the "
+"``k8s:`` source prefix) and containerd labels (prefixed with "
+"``container:`` source prefix)."
+msgstr ""
+
+#: ../../concepts/terminology.rst:152 ../../concepts/terminology.rst:203
+#: 1e609a5637f24e30aec8ef9d71a386c4 e90b5f2b6475457a9b35e9d8cf239b84
+msgid "Identity"
+msgstr ""
+
+#: ../../concepts/terminology.rst:154 a2cc835388db400eae7a68f3eaf93120
+msgid ""
+"All `endpoints` are assigned an identity. The identity is what is used to"
+" enforce basic connectivity between endpoints. In traditional networking "
+"terminology, this would be equivalent to Layer 3 enforcement."
+msgstr ""
+
+#: ../../concepts/terminology.rst:158 78df0c768ca94f16bac5016a288997f9
+msgid ""
+"An identity is identified by `labels` and is given a cluster wide unique "
+"identifier. The endpoint is assigned the identity which matches the "
+"endpoint's `security relevant labels`, i.e. all endpoints which share the"
+" same set of `security relevant labels` will share the same identity. "
+"This concept allows to scale policy enforcement to a massive number of "
+"endpoints as many individual endpoints will typically share the same set "
+"of security `labels` as applications are scaled."
+msgstr ""
+
+#: ../../concepts/terminology.rst:167 77fbf1155503425cbbb9e1b823eef102
+msgid "What is an Identity?"
+msgstr ""
+
+#: ../../concepts/terminology.rst:169 1439b9a9639e4abfbb6a05ad7a10d67f
+msgid ""
+"The identity of an endpoint is derived based on the `labels` associated "
+"with the pod or container which are derived to the `endpoint`_. When a "
+"pod or container is started, Cilium will create an `endpoint`_ based on "
+"the event received by the container runtime to represent the pod or "
+"container on the network. As a next step, Cilium will resolve the "
+"identity of the `endpoint`_ created. Whenever the `labels` of the pod or "
+"container change, the identity is reconfirmed and automatically modified "
+"as required."
+msgstr ""
+
+#: ../../concepts/terminology.rst:180 c3c6eff7e0134f5b84ec2f8222927ca8
+msgid "Security Relevant Labels"
+msgstr ""
+
+#: ../../concepts/terminology.rst:182 fb790d41b1904d2bb6549dc69686459c
+msgid ""
+"Not all `labels` associated with a container or pod are meaningful when "
+"deriving the `identity`. Labels may be used to store metadata such as the"
+" timestamp when a container was launched. Cilium requires to know which "
+"labels are meaningful and are subject to being considered when deriving "
+"the identity. For this purpose, the user is required to specify a list of"
+" string prefixes of meaningful labels. The standard behavior is to "
+"include all labels which start with the prefix ``id.``, e.g.  "
+"``id.service1``, ``id.service2``, ``id.groupA.service44``. The list of "
+"meaningful label prefixes can be specified when starting the agent."
+msgstr ""
+
+#: ../../concepts/terminology.rst:195 91cd76817e134e6a9d54c36106f702f9
+msgid "Special Identities"
+msgstr ""
+
+#: ../../concepts/terminology.rst:197 5abda24863e44c5e830c7eebc9baf724
+msgid ""
+"All endpoints which are managed by Cilium will be assigned an identity. "
+"In order to allow communication to network endpoints which are not "
+"managed by Cilium, special identities exist to represent those. Special "
+"reserved identities are prefixed with the string ``reserved:``."
+msgstr ""
+
+#: ../../concepts/terminology.rst:203 ../../concepts/terminology.rst:254
+#: 662eed3329754f1184bf4755fe324831 d6fa80c5216945b591c81f7b33788046
+msgid "Numeric ID"
+msgstr ""
+
+#: ../../concepts/terminology.rst:205 a27c3f2a67f3428da91e89e0ad3bcec4
+msgid "``reserved:unknown``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:205 0876adeca61841b8b8108707e3749698
+msgid "0"
+msgstr ""
+
+#: ../../concepts/terminology.rst:205 e8a3ee8269794a9d986ec7047793ba64
+msgid "The identity could not be derived."
+msgstr ""
+
+#: ../../concepts/terminology.rst:207 1d99d2844db844d5958fad9f171e2cf7
+msgid "``reserved:host``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:207 e7ee75c9a8694168921d3925e2da82bf
+msgid "1"
+msgstr ""
+
+#: ../../concepts/terminology.rst:207 7f4db5281093414896b040be5f1a8e76
+msgid ""
+"The local host. Any traffic that originates from or is designated to one "
+"of the local host IPs."
+msgstr ""
+
+#: ../../concepts/terminology.rst:210 9363b321a8e84182b722b39c7ae9245a
+msgid "``reserved:world``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:210 006c51bd9c7142f78ad904060a1bf25e
+msgid "2"
+msgstr ""
+
+#: ../../concepts/terminology.rst:210 64661c190bed46e58adb9cf099973cbb
+msgid "Any network endpoint outside of the cluster"
+msgstr ""
+
+#: ../../concepts/terminology.rst:212 3775d9887a9245ed88007d8c24405cd3
+msgid "``reserved:unmanaged``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:212 54cf9127177e4ab88eaddf9fb483917b
+msgid "3"
+msgstr ""
+
+#: ../../concepts/terminology.rst:212 067c732091fe4e7ba23ccd92e4c056c6
+msgid ""
+"An endpoint that is not managed by Cilium, e.g. a Kubernetes pod that was"
+" launched before Cilium was installed."
+msgstr ""
+
+#: ../../concepts/terminology.rst:216 dbecc8fdd1c34944bb26675b4ad75e5d
+msgid "``reserved:health``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:216 7ae3a76bbf354365b9332f4d485653b0
+msgid "4"
+msgstr ""
+
+#: ../../concepts/terminology.rst:216 1b7e2a0b29be4cfebe1e0e04a15e04b6
+msgid "This is health checking traffic generated by Cilium agents."
+msgstr ""
+
+#: ../../concepts/terminology.rst:219 0450043340fb49fab9402ab5a02b019c
+msgid "``reserved:init``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:219 2e2e479d3f1a4129b08864233119fa24
+msgid "5"
+msgstr ""
+
+#: ../../concepts/terminology.rst:219 bde9d3825d424d4ead58eba460a484d0
+msgid ""
+"An endpoint for which the identity has not yet been resolved is assigned "
+"the init identity. This represents the phase of an endpoint in which some"
+" of the metadata required to derive the security identity is still "
+"missing. This is typically the case in the bootstrapping phase."
+msgstr ""
+
+#: ../../concepts/terminology.rst:226 6a02c7f237064ea4bbef240c01bbd46d
+msgid ""
+"The init identity is only allocated if the labels of the endpoint are not"
+" known at creation time. This can be the case for the Docker plugin."
+msgstr ""
+
+#: ../../concepts/terminology.rst:230 dc2726c0e4014df8a1c68e9e99e7411b
+msgid "``reserved:remote-node``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:230 d4515ed350d54a3a9f868d3d1dc77fab
+msgid "6"
+msgstr ""
+
+#: ../../concepts/terminology.rst:230 e89565a563c54968925244a919f9527c
+msgid ""
+"The collection of all remote cluster hosts. Any traffic that originates "
+"from or is designated to one of the IPs of any host in any connected "
+"cluster other than the local node."
+msgstr ""
+
+#: ../../concepts/terminology.rst:238 a4932118a9814e6ea9b46d64e9056781
+msgid ""
+"Cilium used to include both the local and all remote hosts in the "
+"``reserved:host`` identity. This is still the default option unless a "
+"recent default ConfigMap is used. The remote-node identity can be enabled"
+" via the option ``enable-remote-node-identity``."
+msgstr ""
+
+#: ../../concepts/terminology.rst:244 af2cf3a4afe042d284ae06910636451b
+msgid "Well-known Identities"
+msgstr ""
+
+#: ../../concepts/terminology.rst:246 e09f008daf624e1b851586c79cfc2cf1
+msgid ""
+"The following is a list of well-known identities which Cilium is aware of"
+" automatically and will hand out a security identity without requiring to"
+" contact any external dependencies such as the kvstore. The purpose of "
+"this is to allow bootstrapping Cilium and enable network connectivity "
+"with policy enforcement in the cluster for essential services without "
+"depending on any dependencies."
+msgstr ""
+
+#: ../../concepts/terminology.rst:254 b74d8eb2963c46a4922c4ac4397c50c8
+msgid "Deployment"
+msgstr ""
+
+#: ../../concepts/terminology.rst:254 a17006ed18c4485288d27213d2f8dbe0
+msgid "Namespace"
+msgstr ""
+
+#: ../../concepts/terminology.rst:254 4947afb229194ab994b3107d8e196964
+msgid "ServiceAccount"
+msgstr ""
+
+#: ../../concepts/terminology.rst:254 f8b32a0ee591400cb0814c36a80d74d6
+msgid "Cluster Name"
+msgstr ""
+
+#: ../../concepts/terminology.rst:256 ../../concepts/terminology.rst:257
+#: 14afece4e47d4f7fbcccf2ac57e9148e 899ce14e00a14f88821d6e680b276db9
+#: d0799efd9e7c4738873ad3b88a940fdd
+msgid "kube-dns"
+msgstr ""
+
+#: ../../concepts/terminology.rst:256 ../../concepts/terminology.rst:257
+#: ../../concepts/terminology.rst:258 ../../concepts/terminology.rst:259
+#: 523448a00df54ec1825ce40e5133f33f 54afea1d246a48f6a4b9099bd4bc8602
+#: 5ec017a778854ea094cc9cd87c592917 8169e9af5869464ba298ad795cecca9d
+msgid "kube-system"
+msgstr ""
+
+#: ../../concepts/terminology.rst:256 ../../concepts/terminology.rst:257
+#: ../../concepts/terminology.rst:258 ../../concepts/terminology.rst:259
+#: ../../concepts/terminology.rst:260 1112703122eb4e4cb1b49e82761cb908
+#: 1ce12b1160144c339788d4593adecd0f 257489bbb65746e5b4180c713511e01e
+#: 60c0bcd9ecf341d2841c0a2e37d46c98 c5b55f5867414860aa52c2ad5156f57b
+msgid "<cilium-cluster>"
+msgstr ""
+
+#: ../../concepts/terminology.rst:256 284e84641bd44fccbdf9979e1f2851bb
+msgid "102"
+msgstr ""
+
+#: ../../concepts/terminology.rst:256 ../../concepts/terminology.rst:258
+#: 7a8e525447e64f1693c9046edad768c4 824664462ba1493ea87ec104ede61da0
+msgid "``k8s-app=kube-dns``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:257 687f531e13ae41768113e923fbf05746
+msgid "kube-dns (EKS)"
+msgstr ""
+
+#: ../../concepts/terminology.rst:257 69b5e3cfa98149fdbc490bb384247f58
+msgid "103"
+msgstr ""
+
+#: ../../concepts/terminology.rst:257 be5a0f20ee0f472d918778126614642b
+msgid "``k8s-app=kube-dns``, ``eks.amazonaws.com/component=kube-dns``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:258 62783bbfabf64436a7b327ae89dddf12
+msgid "core-dns"
+msgstr ""
+
+#: ../../concepts/terminology.rst:258 ../../concepts/terminology.rst:259
+#: 6987aaaa69ae4765b621863056c9cea2 780575b490b14ece8923654d72d17508
+msgid "coredns"
+msgstr ""
+
+#: ../../concepts/terminology.rst:258 68ad39750a484a61bf03e8eebd0a4938
+msgid "104"
+msgstr ""
+
+#: ../../concepts/terminology.rst:259 c40e720c5b744998947828f25afacd22
+msgid "core-dns (EKS)"
+msgstr ""
+
+#: ../../concepts/terminology.rst:259 63c108f08d344f00939cf80db6c960e4
+msgid "106"
+msgstr ""
+
+#: ../../concepts/terminology.rst:259 9a5cadb7e2a24078a3984ed9418a353b
+msgid "``k8s-app=kube-dns``, ``eks.amazonaws.com/component=coredns``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:260 ae8d5576b2de448cae04f5d3643e01f7
+#: b02ee875dc8e46768426579e6300f8dc
+msgid "cilium-operator"
+msgstr ""
+
+#: ../../concepts/terminology.rst:260 fe0d8469523148ae9e52f80eb2e7ffa2
+msgid "<cilium-namespace>"
+msgstr ""
+
+#: ../../concepts/terminology.rst:260 89f7e589894f4716a0ad00de06331377
+msgid "105"
+msgstr ""
+
+#: ../../concepts/terminology.rst:260 49c66999f0754b74832522e1e06b5be3
+msgid "``name=cilium-operator``, ``io.cilium/app=operator``"
+msgstr ""
+
+#: ../../concepts/terminology.rst:263 4c73b914df67417684236eb71dff1d6a
+msgid ""
+"*Note*: if ``cilium-cluster`` is not defined with the ``cluster-name`` "
+"option, the default value will be set to \"``default``\"."
+msgstr ""
+
+#: ../../concepts/terminology.rst:267 7c6019c25bf64eb486a43ca4b0a76578
+msgid "Identity Management in the Cluster"
+msgstr ""
+
+#: ../../concepts/terminology.rst:269 bb50604f63234d988f323108c19327ea
+msgid ""
+"Identities are valid in the entire cluster which means that if several "
+"pods or containers are started on several cluster nodes, all of them will"
+" resolve and share a single identity if they share the identity relevant "
+"labels. This requires coordination between cluster nodes."
+msgstr ""
+
+#: ../../concepts/terminology.rst:277 f782d199efaa4ae68533f248abef459e
+msgid ""
+"The operation to resolve an endpoint identity is performed with the help "
+"of the distributed key-value store which allows to perform atomic "
+"operations in the form *generate a new unique identifier if the following"
+" value has not been seen before*. This allows each cluster node to create"
+" the identity relevant subset of labels and then query the key-value "
+"store to derive the identity. Depending on whether the set of labels has "
+"been queried before, either a new identity will be created, or the "
+"identity of the initial query will be returned."
+msgstr ""
+
+#: ../../concepts/terminology.rst:286 b9e68cbc79124afca94e6836c66db811
+msgid "Node"
+msgstr ""
+
+#: ../../concepts/terminology.rst:288 5c0c5849121a4ea2859aa964dcfca39a
+msgid ""
+"Cilium refers to a node as an individual member of a cluster. Each node "
+"must be running the ``cilium-agent`` and will operate in a mostly "
+"autonomous manner. Synchronization of state between Cilium agents running"
+" on different nodes is kept to a minimum for simplicity and scale. It "
+"occurs exclusively via the Key-Value store or with packet metadata."
+msgstr ""
+
+#: ../../concepts/terminology.rst:295 2f3fe189f97b41e48de9eb1036ffc7ca
+msgid "Node Address"
+msgstr ""
+
+#: ../../concepts/terminology.rst:297 b0c49a76115e47ceba7af1025c37bb8a
+msgid ""
+"Cilium will automatically detect the node's IPv4 and IPv6 address. The "
+"detected node address is printed out when the ``cilium-agent`` starts:"
+msgstr ""
+

@@ -1,0 +1,206 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/grafana.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 2897795b1efa4c398d59245334bdd5fc c80135d69ba0430eb6a2aa08a7224548
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:11 130a86fa55104ae6bbf91c107588283a
+msgid "Running Prometheus & Grafana"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:14 60fe1b421be34cca8a8eb4941c121c18
+msgid "Install Prometheus & Grafana"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:16 2e611682015f41a4b09f77f3ea21aa35
+msgid ""
+"This is an example deployment that includes Prometheus and Grafana in a "
+"single deployment."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:19 e28a4d44b24b4dc49141559817416fa1
+msgid "The default installation contains:"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:21 ef6e7ae4543646d5a1e388c7c2b9635b
+msgid "**Grafana**: A visualization dashboard with Cilium Dashboard pre-loaded."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:22 12b173898c974b449b4b2e6ad402714b
+msgid "**Prometheus**: a time series database and monitoring system."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:41 4f8d6469167e403891084fc786d23139
+msgid ""
+"This example deployment of Prometheus and Grafana will automatically "
+"scrape the Cilium and Hubble metrics. See the :ref:`metrics` "
+"configuration guide on how to configure a custom Prometheus instance."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:46 78f5e14b8d874227afd2b4905b5f7707
+msgid "Deploy Cilium and Hubble with metrics enabled"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:48 0dbb02bba50a4eb8a07ca4ff911bde49
+msgid ""
+"*Cilium*, *Hubble*, and *Cilium Operator* do not expose metrics by "
+"default. Enabling metrics for these services will open ports ``9090``, "
+"``9091``, and ``6942`` respectively on all nodes of your cluster where "
+"these components are running."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:53 0d72e1dc1dfc4ffbb68dac0cdcef86e2
+msgid ""
+"The metrics for Cilium, Hubble, and Cilium Operator can all be enabled "
+"independently of each other with the following Helm values:"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:56 d4dcae7f57364b7c898f0d7516b65905
+msgid "``prometheus.enabled=true``: Enables metrics for ``cilium-agent``."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:57 22b66f497479446a9fa2f648a9c15d9e
+msgid ""
+"``operator.prometheus.enabled=true``: Enables metrics for ``cilium-"
+"operator``."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:58 12dc8754d7ec49908ae8bbff068c317c
+msgid ""
+"``hubble.metrics.enabled``: Enables the provided list of Hubble metrics. "
+"For Hubble metrics to work, Hubble itself needs to be enabled with "
+"``hubble.enabled=true``. See :ref:`Hubble exported "
+"metrics<hubble_exported_metrics>` for the list of available Hubble "
+"metrics."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:64 7ade6d278eda4ae8881971e30fa6e056
+msgid "Refer to :ref:`metrics` for more details about the individual metrics."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 5c66dd7649be4f73ada68a0a1d87e55c
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 29a2022a1e76451b8af89c91afe4d9a6
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: ba7e4f051bd34cdfae7a753d9b1bce17
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:68 61f79bf1c91748f882a2ab0bfe20baf3
+msgid "Deploy Cilium via Helm as follows to enable all metrics:"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:81 b7042a1244ce4797aa51b4a5b771a67e
+msgid ""
+"You can combine the above Helm options with any of the other installation"
+" guides."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:86 2dc76c7889544f7181075b3cf39d9038
+msgid "How to access Grafana"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:88 ../../gettingstarted/grafana.rst:99
+#: a6c1fb904b2b47dfb6c43d4fdf188523 eb97fe0188f8462fbd770033ae7ee0ad
+msgid "Expose the port on your local machine"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:94 853a565e630a45d6a1d3ad3bcaa17ff8
+msgid "Access it via your browser: http://localhost:3000"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:97 0e88dc8ef2ff40d682f75d0cbf8cdc07
+msgid "How to access Prometheus"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:105 563a4057596a4807aff1f2a38499db7b
+msgid "Access it via your browser: http://localhost:9090"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:108 8cc2147d80d042af882a9ba48d3a4487
+msgid "Examples"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:111 dd924989f3194536bcb0ee904fcc1c1e
+msgid "Generic"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:116 9216a68c07b34f43a25270a64d996711
+msgid "Network"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:121 ba721d6c22214d6aaa94924c5a73bdf3
+msgid "Policy"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:127 2fc55e3ca6b74fadb8585eab8ee0fde2
+msgid "Endpoints"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:132 3392f488b62143daaddfa0b125b7d071
+msgid "Controllers"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:137 e002a3c124374f4687b00acb508abed0
+msgid "Kubernetes"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:142 5707a693a6914a81a791780074c3d437
+msgid "Hubble General Processing"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:147 ee3fec4da79e476b8234080ba69b8ce4
+msgid "Hubble Networking"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:150 6cbac3d13b924ee3b4f0a68818bd9574
+msgid ""
+"The ``port-distribution`` metric is disabled by default. Refer to "
+":ref:`metrics` for more details about the individual metrics."
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:158 ffa2116ea0b947909b84849adf2a87c7
+msgid "Hubble DNS"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:163 862d2521ce9f405f999508d91ef86faf
+msgid "Hubble HTTP"
+msgstr ""
+
+#: ../../gettingstarted/grafana.rst:168 a51874c719d54b7d9c177dc6e689ed53
+msgid "Hubble Network Policy"
+msgstr ""
+

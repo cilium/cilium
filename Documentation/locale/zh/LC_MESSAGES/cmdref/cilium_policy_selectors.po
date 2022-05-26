@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_policy_selectors.md:3 88e8dd3622a8411c87f1c2516cfddd7d
+msgid "cilium policy selectors"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_selectors.md:5 7a0a958d296b4abeb343052c829e6698
+msgid "Display cached information about selectors"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_selectors.md:11 b1b88b58749644608343e5d35109b11f
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_selectors.md:18 b783cc5d789e4cb7992e432aeae9870f
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_selectors.md:26 5090d4b4dee9408c9a4688c42c388dc5
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_policy_selectors.md:28 30a494bec7e6445482736a42e017eb4d
+msgid "[cilium policy](cilium_policy.md)\t - Manage security policies"
+msgstr ""
+

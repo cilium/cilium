@@ -1,0 +1,856 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/testing/ci.rst:3 60fde9747d9a46569aac7081153d55db
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:10 b2a4b13818d044cc8645687d859eb86c
+msgid "CI / Jenkins"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:12 4db76d4976ca41aab5af722f6409833f
+msgid "The main CI infrastructure is maintained at https://jenkins.cilium.io/"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:15 1e0cbf206cc648058351dcbf6afd839b
+msgid "Triggering Pull-Request Builds With Jenkins"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:17 0e18222281084153ab90b0abe15d9e99
+msgid ""
+"To ensure that build resources are used judiciously, builds on Jenkins "
+"are manually triggered via comments on each pull-request that contain "
+"\"trigger-phrases\". Only members of the Cilium GitHub organization are "
+"allowed to trigger these jobs."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:22 f919920471ca44f1bb82654d0966a95a
+msgid ""
+"Depending on the PR target branch, a specific set of jobs is marked as "
+"required, as per the `Cilium CI matrix`_. They will be automatically "
+"featured in PR checks directly on the PR page. The following trigger "
+"phrases may be used to trigger them all at once:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:28 58ceb23c6c834788982e6f084e824fcd
+msgid "PR target branch"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:28 2d61242ccd3c43cfa7256853c432c8b2
+msgid "Trigger required PR jobs"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:30 d617fba8f4f5418a90d2c9afb944aab5
+msgid "master"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:30 d6ca4661348143af8a96725fb51130fd
+msgid "/test"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:32 bb704706dbfd48fab2b8c0086c9d0bb0
+msgid "v1.11"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:32 aee85a8129824a399b1dafc3ea877925
+msgid "/test-backport-1.11"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:34 6e8f3ae2f76a40d69c1708c31ba4bd97
+msgid "v1.10"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:34 c4e6319084ca48cd9e8f5ede5f3620df
+msgid "/test-backport-1.10"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:36 3ca9042f060440b9b85166a2acff16d8
+msgid "v1.9"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:36 1a403ca2f5e540ac991235d8b31bacbd
+msgid "/test-backport-1.9"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:39 70d7cd8678e7466bac0e74179e125c4a
+msgid ""
+"For ``master`` PRs: on top of ``/test``, one may use ``/test-missed-k8s``"
+" to trigger all non-required K8s versions on Kernel 4.9 as per the "
+"`Cilium CI matrix`_."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:43 7a26db8225ed42768946460376c07b53
+msgid ""
+"For a full list of Jenkins PR jobs, see `Jenkins (PR tab) "
+"<https://jenkins.cilium.io/view/PR/>`_. Trigger phrases are configured "
+"within each job's build triggers advanced options."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:47 3944aa55812e4003a01edcf710d16d05
+msgid ""
+"There are some feature flags based on Pull Requests labels, the list of "
+"labels are the following:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:50 15e1baf9cdf342f085b59e7f9d9d61cf
+msgid "``area/containerd``: Enable containerd runtime on all Kubernetes test."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:51 d6c0e3cbc42142589997ffdc91462899
+msgid ""
+"``ci/net-next``: Run tests on net-next kernel. This causes the  ``/test``"
+" target to only run on the net-next kernel. It is purely for testing on a"
+" different kernel, to merge a PR it must pass the CI without this flag."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:56 80346feeac4240b2bb17572e54fbd25c
+msgid "Retrigger specific jobs"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:58 a93f5a7e7a51412eb56ca26dab0daab8
+msgid ""
+"For all PRs: one may manually retrigger a specific job (e.g. in case of a"
+" flake) with the individual trigger featured directly in the PR check's "
+"name (e.g. for ``K8s-1.20-kernel-4.9 (test-1.20-4.9)``, use "
+"``/test-1.20-4.9``)."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:62 9cbab12bb3834af5944238208ea1246d
+msgid "This works for all displayed Jenkins tests."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:65 6b4ead52a77c40d6b442f694ede6e4e1
+msgid "Testing with race condition detection enabled"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:67 185b47ea7dc44de788c6f7391c02c1ad
+msgid ""
+"Optional non-required Jenkins are available for running the test suite "
+"with race condition detection enabled, and may be triggered using the "
+"trigger phrase ``/test-race``."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:71 4696823c566d4c7787501c5a075848f6
+msgid ""
+"For a full list of Jenkins PR jobs with race detection enabled, see "
+"`Jenkins (Race Detection tab) "
+"<https://jenkins.cilium.io/view/Race%20Detection/>`_. Trigger phrases are"
+" configured within each job's build triggers advanced options."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:77 f6c6b274c92246f695eb76ddd1b4c30a
+msgid "Using Jenkins for testing"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:79 62aa1fb16d8b4843b9e00b6fd0e67807
+msgid ""
+"Typically when running Jenkins tests via one of the above trigger phases,"
+" it will run all of the tests in that particular category. However, there"
+" may be cases where you just want to run a single test quickly on Jenkins"
+" and observe the test result. To do so, you need to update the relevant "
+"test to have a custom name, and to update the Jenkins file to focus that "
+"test. Below is an example patch that shows how this can be achieved."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:122 fe5292beb0f64b548f07f47a786cb9e0
+msgid "Jobs Overview"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:125 537a628dff1d418e8c6f6e4f2fae4080
+msgid "Cilium-PR-Ginkgo-Tests-Validated"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:127 8073f704bdcc468b89e723bce8731a8d
+msgid ""
+"Runs validated Ginkgo tests which are confirmed to be stable and have "
+"been verified. These tests must always pass."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:130 b0ac20818a7543949d5a503c07c943a8
+msgid "The configuration for this job is contained within ``ginkgo.Jenkinsfile``."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:132 1b375259957544e2b493b2bc0de877d1
+msgid "The job runs the following steps in parallel:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:134 05f28258be644d379ded5305a86a487d
+msgid "Runs the single-node e2e tests using the Docker runtime."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:135 a7c4df4272484b1f8d672c248168c798
+msgid ""
+"Runs the multi-node Kubernetes e2e tests against the latest default "
+"version of Kubernetes specified above."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:138 2a2f2db4fd3d42868634ab734557e7a1
+msgid ""
+"This job can be used to run tests on custom branches. To do so, log into "
+"Jenkins and go to https://jenkins.cilium.io/job/cilium-ginkgo/configure ."
+" Then add your branch name to ``GitHub Organization -> cilium -> Filter "
+"by name (with wildcards) -> Include`` field and save changes. After you "
+"don't need to run tests on your branch, please remove the branch from "
+"this field."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:144 02bcc0b6a6904b9ea01270b1e4138c75
+msgid ""
+"It is also possible to run specific tests from this suite via ``test-"
+"only``. The comment can contain 3 arguments: ``--focus`` which specifies "
+"which tests should be run, ``--kernel_version`` for supported kernel "
+"version (net-next, 49, 419 are possible values right now), "
+"``--k8s_version`` for k8s version. If you want to run only one ``It`` "
+"block, you need to prepend it with a test suite and create a regex, e.g "
+"``/test-only --focus=\"K8sDatapathConfig.*Check connectivity with "
+"automatic direct nodes routes\" --k8s_version=1.18 --kernel_version=net-"
+"next`` will run specified test in 1.18 Kubernetes cluster running on net-"
+"next nodes. Kubernetes version defaults to 1.21, kernel version defaults "
+"to 4.19."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:155 c75d3c122d1b4486bbb95fb303c17653
+msgid "``/test-only --focus=\"K8s\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:155 941ed6e8752747dd97ebdbea2331a63b
+msgid "Runs all kubernetes tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:157 0545192cb0694fd3bd07c2e04cd55f72
+msgid "``/test-only --focus=\"K8sConformance\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:157 3da3041d91734c75871202834414a9ad
+msgid "Runs all k8s conformance tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:159 9de6722e924544b48f7c1fc2a440d4db
+msgid "``/test-only --focus=\"K8sChaos\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:159 2cee06fa3d5c4aaab0ec15e7931961cb
+msgid "Runs all k8s chaos tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:161 d3e8b73d1c9c45ba887761748856cf37
+msgid "``/test-only --focus=\"K8sDatapathConfig\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:161 b4ce411fc2fd45ca892694f457643476
+msgid "Runs all k8s datapath configuration tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:163 ce7eef9ebd274388aa523bb185c65f13
+msgid "``/test-only --focus=\"K8sDemos\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:163 cbe4cfdbc82d4d03994d4eb44a867f46
+msgid "Runs all k8s demo tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:165 6043652c2a594ae18c5e492931141da7
+msgid "``/test-only --focus=\"K8sKubeProxyFreeMatrix\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:165 2fa93ed96d4b457ab989dc00c1ab2ec3
+msgid "Runs all k8s kube-proxy free matrix tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:167 7f0335a8cdb443f386e09e6c146b89e9
+msgid "``/test-only --focus=\"K8sFQDNTest\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:167 bf66c06aed8a4044959e04d916503df7
+msgid "Runs all k8s fqdn tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:169 7ae8a7fc9df84c789ab6781911109fa4
+msgid "``/test-only --focus=\"K8sHealthTest\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:169 a7a83f59ddf74544a151d6b0739387d8
+msgid "Runs all k8s health tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:171 8c64cb08716b431b8839c97ab0f66c09
+msgid "``/test-only --focus=\"K8sHubbleTest\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:171 470f3d69ef2f4b0fb86e7534d3099b78
+msgid "Runs all k8s Hubble tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:173 c4659d99975e4981987b2a7c31e4b571
+msgid "``/test-only --focus=\"K8sIdentity\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:173 474d44fa1ced41a5963245ecb5078a8c
+msgid "Runs all k8s identity tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:175 61371faf2ae24ea9864970013ea3f79b
+msgid "``/test-only --focus=\"K8sIstioTest\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:175 d347e97749894b5bbebd0ced30cb90e1
+msgid "Runs all k8s Istio tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:177 9ad52256bc404da9977173e6d89acd78
+msgid "``/test-only --focus=\"K8sKafkaPolicyTest\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:177 0b7a20681cdf492db793b48ef120a22a
+msgid "Runs all k8s Kafka tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:179 484b00a257d64f4fbc958c45feb79e85
+msgid "``/test-only --focus=\"K8sPolicyTest\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:179 e9e5dd6461b74b9998af9f14e785193b
+msgid "Runs all k8s policy tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:181 512a74f61c524484b381f7c8c607d519
+msgid "``/test-only --focus=\"K8sServicesTest\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:181 6bbb8f1892b045caaf6797dac831f9d0
+msgid "Runs all k8s services tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:183 e033309145444e9a8799195f7fe41f77
+msgid "``/test-only --focus=\"K8sUpdates\"``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:183 0d52e54afd964beaaefec7f276b17958
+msgid "Runs k8s update tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:187 8709e6d5ab684362bd782b4c0fa99b85
+msgid "Running Runtime test suite is still done via ``/test-focus`` command."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:190 719ab48a1ee144e5b5ad3fdd9ede7be0
+msgid "``/test-focus Runtime``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:190 6bed293e7347469bb13e98c1c5dd1a84
+msgid "Runs all runtime tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:195 5dd9e74f6f2c4109868dd03d6d8f4972
+msgid "It is not possible to run specific tests within the runtime test suite."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:199 f2855498a4c74308ba96a4be519e2df3
+msgid "Cilium-PR-Ginkgo-Tests-Kernel"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:201 53ff6cc578f047f4b80b38faf4a3ba85
+msgid ""
+"Runs the Kubernetes e2e tests with a 4.19 kernel. The configuration for "
+"this job is contained within ``ginkgo-kernel.Jenkinsfile``."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:206 2a7a6865bd3c40488fef48d939fccf7a
+msgid "Cilium-PR-Ginkgo-Tests-k8s"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:208 55e70eccb44a478aae28ea1d3d2d7443
+msgid ""
+"Runs the Kubernetes e2e tests against all Kubernetes versions that are "
+"not currently not tested as part of each pull-request, but which Cilium "
+"still supports, as well as the most-recently-released versions of "
+"Kubernetes that might not be declared stable by Kubernetes upstream. "
+"Check the contents of ``ginkgo-kubernetes-all.Jenkinsfile`` in the branch"
+" of Cilium for which you are running tests to see which Kubernetes "
+"versions will be tested against."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:216 cc0cc44e5d754d14b2b5f5f70fe74489
+msgid "Ginkgo-CI-Tests-Pipeline"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:218 ../../contributing/testing/ci.rst:311
+#: 3cc6103bece345a8aa3d3f8dcef0485e 547a01805526474f968ee20ae17b3eec
+msgid "`Ginkgo-CI-Tests-Pipeline`_"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:223 9bb84bc45d084522b3decaae126af4f9
+msgid "Packer-CI-Build"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:225 0603da3f217746538b154a888ecedb55
+msgid ""
+"As part of Cilium development, we use a custom base box with a bunch of "
+"pre-installed libraries and tools that we need to enhance our daily "
+"workflow. That base box is built with `Packer <https://www.packer.io/>`_ "
+"and it is hosted in the `packer-ci-build`_ GitHub repository."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:230 3bd51ddadb7b46039ea6f88e7c03a299
+msgid ""
+"New versions of this box can be created via `Jenkins Packer Build`_, "
+"where new builds of the image will be pushed to  `Vagrant Cloud "
+"<https://app.vagrantup.com/cilium>`_ . The version of the image "
+"corresponds to the `BUILD_ID "
+"<https://wiki.jenkins.io/display/JENKINS/Building+a+software+project"
+"#Buildingasoftwareproject-below>`_ environment variable in the Jenkins "
+"job. That version ID will be used in Cilium `Vagrantfiles "
+"<https://github.com/cilium/cilium/blob/master/test/Vagrantfile#L10>`_."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:238 c6016910bfe840b39490945986395921
+msgid ""
+"Changes to this image are made via contributions to the packer-ci-build "
+"repository. Authorized GitHub users can trigger builds with a GitHub "
+"comment on the PR containing the trigger phrase ``/build``. In case that "
+"a new box needs to be rebased with a different branch than master, "
+"authorized developers can run the build with custom parameters. To use a "
+"different Cilium branch in the `job`_ go to *Build with parameters* and a"
+" base branch can be set as the user needs."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:245 b2f687cd4c4c4add863da32611cea15a
+msgid ""
+"This box will need to be updated when a new developer needs a new "
+"dependency that is not installed in the current version of the box, or if"
+" a dependency that is cached within the box becomes stale."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:249 48ae7a6cc41149ee977ea85768fb801f
+msgid ""
+"Make sure that you update vagrant box versions in "
+"`vagrant_box_defaults.rb "
+"<https://github.com/cilium/cilium/blob/master/vagrant_box_defaults.rb>`__"
+" after new box is built and tested."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:253 402edcf7588c434f814894a8c7248694
+msgid ""
+"Once you change the image versions locally, create a branch named ``pr"
+"/update-packer-ci-build`` and open a PR ``github.com/cilium/cilium``. It "
+"is important that you use that branch name so the VM images are cached "
+"into packet.net before the branch is merged."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:258 f7ec988a7140433697753e77d7e00d43
+msgid ""
+"Once this PR is merged, ask `Cilium's CI team "
+"<https://github.com/orgs/cilium/teams/vagrant>`_ to ensure:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:261 80a9176aac6a4e62a5f07ad864262bbb
+msgid "The autoscaler provisioning code is up to date."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:263 c87a471aedc7459b98da30cfc083e928
+msgid "That all Jenkins nodes are scaled down and then back up."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:271 1e5ec9732dfe498299962a5696a8af7c
+msgid "Testing matrix"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:273 26d66568fb594e4db9195013ad1d56ea
+msgid ""
+"Up to date CI testing information regarding k8s - kernel version pairs "
+"can always be found in the `Cilium CI matrix`_."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:281 36446243d4794cc58eda97eee168ac92
+msgid "CI Failure Triage"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:283 1ef3339283404768863206df25fd5d02
+msgid ""
+"This section describes the process to triage CI failures. We define 3 "
+"categories:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:286 de0dcc2952f74ae3ace5ccd0de53d1c9
+msgid "Keyword"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:286 ../../contributing/testing/ci.rst:307
+#: 5b84f95ff2fc45098f27c173ad314ae1 7d6d2c27f6614b2d8e4524119fabdd4e
+msgid "Description"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:288 3bd1cf8b1db5414491755e7ed8dabbbe
+msgid "Flake"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:288 12f75916255c457c878cc49ed53bddfc
+msgid ""
+"Failure due to a temporary situation such as loss of connectivity to "
+"external services or bug in system component, e.g. quay.io is down, VM "
+"race conditions, kube-dns bug, ..."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:292 ad3aed7698a2414fb4b65cba16181936
+msgid "CI-Bug"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:292 c5edfe5fdd624f8eb027d1016a9207e2
+msgid ""
+"Bug in the test itself that renders the test unreliable, e.g. timing "
+"issue when importing and missing to block until policy is being enforced "
+"before connectivity is verified."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:296 165119d3ea8c485a9a2a9128d133e54d
+msgid "Regression"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:296 8a380f1cb1c848a58591b00d8ff34d8f
+msgid ""
+"Failure is due to a regression, all failures in the CI that are not "
+"caused by bugs in the test are considered regressions."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:301 66cf8067b48145f7b49398852d801681
+msgid "Pipelines subject to triage"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:303 ab530233449940818175677430d533c8
+msgid ""
+"Build/test failures for the following Jenkins pipelines must be reported "
+"as GitHub issues using the process below:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:307 27e5ace30860480580fd5f87682e5a35
+msgid "Pipeline"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:309 c480669ff17346b8a97ec8b2228fa011
+msgid "`Ginkgo-Tests-Validated-master`_"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:309 9a754b23d9c44cd7aeddfdcd005f12fb
+msgid "Runs whenever a PR is merged into master"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:311 ef61517fe72546bda28def8d6b8668e8
+msgid "Runs every two hours on the master branch"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:313 426dde545a4440e4b7fb77f063289c25
+msgid "`Vagrant-Master-Boxes-Packer-Build`_"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:313 d6a0cfe9b84f4cd7917732a71b0e7b58
+msgid "Runs on merge into `packer-ci-build`_ repository."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:315 0cdecbda644d49f2a2faa5668bd0bf19
+msgid ":jenkins-branch:`Release-branch <>`"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:315 a16dfe44f4f8452cb29fddc7a31b7f5f
+msgid "Runs various Ginkgo tests on merge into branch \"\\ |SCM_BRANCH|\""
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:324 9b966b0099b84fe2b7173653ad759740
+msgid "Triage process"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:326 10d85b64efa14a1491726458d0a5e429
+msgid ""
+"Discover untriaged Jenkins failures via the jenkins-failures.sh script. "
+"It defaults to checking the previous 24 hours but this can be modified by"
+" setting the SINCE environment variable (it is a unix timestamp). The "
+"script checks the various test pipelines that need triage."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:337 33f56d69d8ec4df8b7a4da23b57e47ff
+msgid ""
+"You can quickly assign SINCE with statements like ``SINCE=`date -d "
+"-3days```"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:339 8433bafb542a4dd6996bcd2063ee18bc
+msgid ""
+"Investigate the failure you are interested in and determine if it is a "
+"CI-Bug, Flake, or a Regression as defined in the table above."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:342 ad7d95a7e767480c99b3845c642703fb
+#, python-format
+msgid ""
+"Search `GitHub issues "
+"<https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+>`_ "
+"to see if bug is already filed. Make sure to also include closed issues "
+"in your search as a CI issue can be considered solved and then re-"
+"appears. Good search terms are:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:347 b90a323300ce48e29d165d44adec9528
+msgid "The test name, e.g. ::"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:352 fe10c793bb5a492793c9ae555375f1d1
+msgid "The line on which the test failed, e.g. ::"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:357 d16da6c5e85b48caab8e8fd9c44c2d15
+msgid "The error message, e.g. ::"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:362 2e053d7a1b5142c2a61dab56f62a890a
+msgid "If a corresponding GitHub issue exists, update it with:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:364 24979ff00b3f4587b79851c57ed0eeea
+msgid ""
+"A link to the failing Jenkins build (note that the build information is "
+"eventually deleted)."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:366 78cb3b8f598746ad8fc8a052c38d3b27
+msgid ""
+"Attach the zipfile downloaded from Jenkins with logs from the failing "
+"tests. A zipfile for all tests is also available."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:368 35a2ee731c494d6a8aa276255cc0611e
+msgid ""
+"Check how much time has passed since the last reported occurrence of this"
+" failure and move this issue to the correct column in the `CI flakes "
+"project`_ board."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:372 48f3c9f894a547309c1fcf36c6ebe08a
+msgid ""
+"If no existing GitHub issue was found, file a `new GitHub issue "
+"<https://github.com/cilium/cilium/issues/new>`_:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:374 ../../contributing/testing/ci.rst:386
+#: aa30ab9e0283496b963a6a6f2975d7ce b86fd10351b54f92af66e973a18892a7
+msgid "Attach zipfile downloaded from Jenkins with logs from failing test"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:375 bfb21a2d9bd1480384c53b9075392070
+msgid "If the failure is a new regression or a real bug:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:377 0e33cb12d05949108b03e9fd98ee10a2
+msgid "Title: ``<Short bug description>``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:378 34c3f9a1db364f019488ed848b665a08
+msgid "Labels ``kind/bug`` and ``needs/triage``."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:380 a8fcaca601704c83b3814143ae9d5d8c
+msgid "If failure is a new CI-Bug, Flake or if you are unsure:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:382 4ee388a3f0f64fd2b3a50e90b0366282
+msgid ""
+"Title ``CI: <testname>: <cause>``, e.g. ``CI: K8sValidatedPolicyTest "
+"Namespaces: cannot curl service``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:383 09e6a2960c5f4f4986dc71d30b284f34
+msgid "Labels ``kind/bug/CI`` and ``needs/triage``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:384 e0218567ba374da295c9af90fae481ed
+msgid ""
+"Include a link to the failing Jenkins build (note that the build "
+"information is eventually deleted)."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:387 eda4d111204f4bccaa23d911583f5454
+msgid ""
+"Include the test name and whole Stacktrace section to help others find "
+"this issue."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:388 cf9646f4f62f476983bae2fc0c9c0060
+msgid "Add issue to `CI flakes project`_."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:392 9b471b0d085b43738607c07eee11ee4f
+msgid ""
+"Be extra careful when you see a new flake on a PR, and want to open an "
+"issue. It's much more difficult to debug these without context around the"
+" PR and the changes it introduced. When creating an issue for a PR flake,"
+" include a description of the code change, the PR, or the diff. If it "
+"isn't related to the PR, then it should already happen in master, and a "
+"new issue isn't needed."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:399 fd1e31c161094aa8bb4c42852107206a
+msgid ""
+"Edit the description of the Jenkins build to mark it as triaged. This "
+"will exclude it from future jenkins-failures.sh output."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:402 5736a87e391c4396b31c707b43dbc835
+msgid "Login -> Click on build -> Edit Build Information"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:403 bb79394a33c347ac906b8995382164d8
+msgid ""
+"Add the failure type and GH issue number. Use the table describing the "
+"failure categories, at the beginning of this section, to help categorize "
+"them."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:409 445979fa113d4004ba59ab7fa1c10c15
+msgid ""
+"This step can only be performed with an account on Jenkins. If you are "
+"interested in CI failure reviews and do not have an account yet, ping us "
+"on Slack."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:413 f414eaf6a8d946d2804771b993faf89c
+msgid "**Examples:**"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:415 0f9c1edfaf45478288c418490731d594
+msgid "``Flake, quay.io is down``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:416 dd1fc98f0c5a4248bb7eb449c1dc41ba
+msgid "``Flake, DNS not ready, #3333``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:417 28a6ac85789447819789fab445dc1604
+msgid "``CI-Bug, K8sValidatedPolicyTest: Namespaces, pod not ready, #9939``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:418 83f756d4a3bf4889a2acca30e7b2e267
+msgid "``Regression, k8s host policy, #1111``"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:423 7739ac29bdc94ae980f41b32a9b90026
+msgid "Bisect process"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:425 5264528fac04478a8ccb32912af98285
+msgid ""
+"If you are unable to triage the issue, you may try to use bisect job to "
+"find when things went awry in Jenkins."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:427 b72e6e210847450aa13f2d99b9d57d59
+msgid "Log in to Jenkins"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:429 e0c5c02828554a1d94526d9ce9c8fabd
+msgid "Go to https://jenkins.cilium.io/job/bisect-cilium/configure ."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:431 31c6ba76b3684b04951bf22ff6bcc25a
+msgid ""
+"Under ``Git Bisect`` build step fill in ``Good start revision`` and ``Bad"
+" end revision``."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:433 109580c73c1d48f4bacc584f93e34f02
+msgid "Write description of what you are looking for under ``Search Identifier``."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:435 06ecd97ce4b54dec9bd7f09311b90ccd
+msgid ""
+"Adjust ``Retry number`` and ``Min Successful Runs`` to account for "
+"current CI flakiness."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:437 1a885e11e8b641d0850674471be49640
+msgid "Save the configuration."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:439 ea02192b8e7c40baae2a5438fab56704
+msgid "Click \"Build Now\" in https://jenkins.cilium.io/job/bisect-cilium/ ."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:441 d5bec729e3244b99a6e4514bbe044a77
+msgid ""
+"This may take over a day depending on how many underlying builds will be "
+"created. The result will be in ``bisect-cilium`` console output, actual "
+"builds will be happening in https://jenkins.cilium.io/job/cilium-"
+"revision/ job."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:444 b7aebefa9e1e46c1bbaabc6e23799f70
+msgid "Infrastructure details"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:447 ca06860fa41c47349fe29a39e023cc6c
+msgid "Logging into VM running tests"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:449 35073e70e04b483c8b89eba8500f6550
+msgid ""
+"If you have access to credentials for Jenkins, log into the Jenkins slave"
+" running the test workload"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:450 f624cec708bd462e911db104ba974fc6
+msgid "Identify the vagrant box running the specific test"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:463 07d76503e6494821be4c256cc7e63820
+msgid "Log into the specific VM"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:471 b3ebe52dd5304e9297fb8140143919d4
+msgid "Jenkinsfiles Extensions"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:473 403a59a786f048a094ed8880f307ac19
+msgid ""
+"Cilium uses a custom `Jenkins helper library <https://github.com/cilium"
+"/Jenkins-library>`_ to gather metadata from PRs and simplify our "
+"Jenkinsfiles. The exported methods are:"
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:477 848f577f4b914420ba4beceb5c358304
+msgid "**ispr()**: return true if the current build is a PR."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:478 61e6f35d1fc54e84a4bc9eab1f45fbe9
+msgid ""
+"**setIfPr(string, string)**: return the first argument in case of a PR, "
+"if not a PR return the second one."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:480 e4beb0e35c4c45d88078610082b352d3
+msgid ""
+"**BuildIfLabel(String label, String Job)**: trigger a new Job if the PR "
+"has that specific Label."
+msgstr ""
+
+#: ../../contributing/testing/ci.rst:482 86ba0cdc0514411c9e2d3192f6e2c743
+msgid ""
+"**Status(String status, String context)**: set pull request check status "
+"on the given context, example ``Status(\"SUCCESS\", \"$JOB_BASE_NAME\")``"
+msgstr ""
+

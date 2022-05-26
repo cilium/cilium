@@ -1,0 +1,909 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/testing/e2e.rst:3 88f4bed997b947c4b53e3023a62652ec
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:10 736f2c8120924ecd9ce0d1661da9bdd2
+msgid "End-To-End Testing Framework"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:13 6174a984c5074c88b8f507f1b60baf8e
+msgid "Introduction"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:15 20711360f9554d21a2a666cb4b4eb8ee
+msgid ""
+"Cilium uses `Ginkgo`_ as a testing framework for writing end-to-end tests"
+" which test Cilium all the way from the API level (e.g. importing "
+"policies, CLI) to the datapath (i.e, whether policy that is imported is "
+"enforced accordingly in the datapath).  The tests in the ``test`` "
+"directory are built on top of Ginkgo. Ginkgo provides a rich framework "
+"for developing tests alongside the benefits of Golang (compilation-time "
+"checks, types, etc.). To get accustomed to the basics of Ginkgo, we "
+"recommend reading the `Ginkgo Getting-Started Guide "
+"<https://onsi.github.io/ginkgo/#getting-started-writing-your-first-"
+"test>`_ , as well as running `example tests <https://github.com/onsi"
+"/composition-ginkgo-example>`_ to get a feel for the Ginkgo workflow."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:28 7bef40146fa34f55975c74baf30bd392
+msgid ""
+"These test scripts will invoke ``vagrant`` to create virtual machine(s) "
+"to run the tests. The tests make heavy use of the Ginkgo `focus`_ concept"
+" to determine which VMs are necessary to run particular tests. All test "
+"names *must* begin with one of the following prefixes:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:33 b4b075febaa749c985017e0b38704616
+msgid ""
+"``Runtime``: Test cilium in a runtime environment running on a single "
+"node."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:34 7fe375e2e5ee4ab8a09be9c2dc9f6d0c
+msgid ""
+"``K8s``: Create a small multi-node kubernetes environment for testing "
+"features beyond a single host, and for testing kubernetes-specific "
+"features."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:36 e44d81d273d84aca842d1c44e9a45a52
+msgid ""
+"``Nightly``: sets up a multinode Kubernetes cluster to run scale, "
+"performance, and chaos testing for Cilium."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:42 612783d22f724aecafdfd291871060b9
+msgid "Running End-To-End Tests"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:45 385e04ed038a4e62b3a23b89e82f02fc
+msgid "Running All Ginkgo Tests"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:47 47a24a6cc2054a0eb6d9c74314738f0a
+msgid ""
+"Running all of the Ginkgo tests may take an hour or longer. To run all "
+"the ginkgo tests, invoke the make command as follows from the root of the"
+" cilium repository:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:55 f84adf724a1c44dab6e288ae5b2feae3
+msgid ""
+"The first time that this is invoked, the testsuite will pull the `testing"
+" VMs <https://app.vagrantup.com/cilium/boxes/ginkgo>`_ and provision "
+"Cilium into them. This may take several minutes, depending on your "
+"internet connection speed. Subsequent runs of the test will reuse the "
+"image."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:61 a434f9b62df14029838234ae3843d50d
+msgid "Running Runtime Tests"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:63 65c0f61c49b545b9b8672c45a7459f38
+msgid ""
+"To run all of the runtime tests, execute the following command from the "
+"``test`` directory:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:69 941f71e9f6c247989a7c1c8804326f09
+msgid ""
+"Ginkgo searches for all tests in all subdirectories that are \"named\" "
+"beginning with the string \"Runtime\" and contain any characters after "
+"it. For instance, here is an example showing what tests will be ran using"
+" Ginkgo's dryRun option:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:106 0771586020a145a9bdfdac9343db2f7a
+msgid ""
+"The output has been truncated. For more information about this "
+"functionality, consult the aforementioned Ginkgo documentation."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:112 28fe9cbb72ae47098eb1d7e069a98e44
+msgid "Running Kubernetes Tests"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:114 b839422bd15349f895e701e0ccff85bf
+msgid ""
+"To run all of the Kubernetes tests, run the following command from the "
+"``test`` directory:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:120 390161efe63f4c189ef1de688c2d9790
+msgid ""
+"To run a specific test from the Kubernetes tests suite, run the following"
+" command from the ``test`` directory:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:127 4b490b8bfbcf4379ae29f103c749c48d
+msgid ""
+"Similar to the Runtime test suite, Ginkgo searches for all tests in all "
+"subdirectories that are \"named\" beginning with the string \"K8s\" and "
+"contain any characters after it."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:131 7051c41cbaf84846ad38608cc5512dec
+msgid "The Kubernetes tests support the following Kubernetes versions:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:133 1367539b8a2446dfbe57680eb94604a4
+msgid "1.16"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:134 3b2e3480c7e04f5cb76dcd0c745f571a
+msgid "1.17"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:135
+#: ../../contributing/testing/e2e.rst:649 06ece6afaa184ebb976ee60dd05d8211
+#: 14ca6856e27941c99f512b8674c2fcb9
+msgid "1.18"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:136 e149d6e1797144d0a3b94f14cf860e7f
+msgid "1.19"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:137 8f1ca9eecf3a4ffcb85cabfe4a3aa123
+msgid "1.20"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:138 63af4eb0c77c4d72a49369fb1e413347
+msgid "1.21"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:139 09f451466bd64ab19ce98353263dc44f
+msgid "1.22"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:140 f65b601fc5d64b34bc2ba67e4a678e21
+msgid "1.23"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:141 0691d23b59904b32aabe7c007145d104
+msgid "1.24"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:143 a9065609c71c4de4876e0cfbe9bd36da
+msgid ""
+"By default, the Vagrant VMs are provisioned with Kubernetes 1.23. To run "
+"with any other supported version of Kubernetes, run the test suite with "
+"the following format:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:152 c63a26e2ec7348f78129ef64c962ca4e
+msgid ""
+"When provisioning VMs with the net-next kernel (``NETNEXT=1``) on "
+"VirtualBox which version does not match a version of the VM image "
+"VirtualBox Guest Additions, Vagrant will install a new version of the "
+"Additions with ``mount.vboxsf``. The latter is not compatible with "
+"``vboxsf.ko`` shipped within the VM image, and thus syncing of shared "
+"folders will not work."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:159 4a7201083684440d87d67a73c0b1e076
+msgid ""
+"To avoid this, one can prevent Vagrant from installing the Additions by "
+"putting the following into ``$HOME/.vagrant.d/Vagrantfile``:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:175 8ff2763d60c241dba5ad4ff1ff07f24b
+msgid "Running Nightly Tests"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:177 eb2a3cfd7dc44870bd9e343c754f7c8e
+msgid ""
+"To run all of the Nightly tests, run the following command from the "
+"``test`` directory:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:183 e080bcfb3ef24f78b2430538df905e0d
+msgid ""
+"Similar to the other test suites, Ginkgo searches for all tests in all "
+"subdirectories that are \"named\" beginning with the string \"Nightly\" "
+"and contain any characters after it. The default version of running "
+"Nightly test are 1.8, but can be changed using the environment variable "
+"``K8S_VERSION``."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:189 a80d5d4c638e4a0da48cd361cf73249c
+msgid "Available CLI Options"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:191 c37938b5550e4496b658a1c8c7746f33
+msgid ""
+"For more advanced workflows, check the list of available custom options "
+"for the Cilium framework in the ``test/`` directory and interact with "
+"ginkgo directly:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:242 826c29f6bccb44ad9e8cbcd584e54160
+msgid ""
+"For more information about other built-in options to Ginkgo, consult the "
+"`Ginkgo documentation`_."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:248 68aa7d2cbf314d128160e91fd09afd0c
+msgid "Running Specific Tests Within a Test Suite"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:250 1eb3047ec2174179891c800786308a33
+msgid "If you want to run one specified test, there are a few options:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:252 90fa486daccf40828cd953eca1bd9cea
+msgid ""
+"By modifying code: add the prefix \"FIt\" on the test you want to run; "
+"this marks the test as focused. Ginkgo will skip other tests and will "
+"only run the \"focused\" test. For more information, consult the `Focused"
+" Specs`_ documentation from Ginkgo."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:268 5aca83f77c544f228e2f8898ae5b8087
+msgid ""
+"From the command line: specify a more granular focus if you want to focus"
+" on, say, Runtime L7 tests:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:275 cd3b1d80beba4ab98c51aa59fadc0510
+msgid ""
+"This will focus on tests that contain \"Runtime\", followed by any number"
+" of any characters, followed by \"L7\". ``--focus`` is a regular "
+"expression and quotes are required if it contains spaces and to escape "
+"shell expansion of ``*``."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:283 4af309a197584d2a9f72eee64a2892fb
+msgid "Compiling the tests without running them"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:285 65a636ed9845445facfbe4f3fc67574b
+msgid ""
+"To validate that the Go code you've written for testing is correct "
+"without needing to run the full test, you can build the test directory:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:293 660bf683d1d94ea9b79f0e7e0a0b5bce
+msgid "Updating Cilium images for Kubernetes tests"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:295 d21caa8f515c428588ce7e10b47f7b71
+msgid ""
+"Sometimes when running the CI suite for a feature under development, it's"
+" common to re-run the CI suite on the CI VMs running on a local "
+"development machine after applying some changes to Cilium. For this the "
+"new Cilium images have to be built, and then used by the CI suite. To do "
+"so, one can run the following commands on the ``k8s1`` VM:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:315 32a88f5f94d1415d8299dc855a46bdd6
+msgid "The commands were adapted from the ``test/provision/compile.sh`` script."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:318 8a6eceace35547c5847994bd00c03e66
+msgid "Test Reports"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:320 fbb96ec206314e53989c94a124dd4f1b
+msgid ""
+"The Cilium Ginkgo framework formulates JUnit reports for each test. The "
+"following files currently are generated depending upon the test suite "
+"that is ran:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:323 1b63468876a248a6875f3f738aa60453
+msgid "runtime.xml"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:324 462d626950e648659add1a44d0d30014
+msgid "K8s.xml"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:327 768d92c94470427fb2666bc0a7ea0b7c
+msgid "Best Practices for Writing Tests"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:329 c509f04473c2498ea867e664e75c617d
+msgid ""
+"Provide informative output to console during a test using the `By "
+"construct <https://onsi.github.io/ginkgo/#documenting-complex-its-by>`_. "
+"This helps with debugging and gives those who did not write the test a "
+"good idea of what is going on. The lower the barrier of entry is for "
+"understanding tests, the better our tests will be!"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:330 7797ff9a3cef4e81bd8e661588ff2902
+msgid ""
+"Leave the testing environment in the same state that it was in when the "
+"test started by deleting resources, resetting configuration, etc."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:331 6c93e1a659a044a79a650c5c23b29503
+msgid ""
+"Gather logs in the case that a test fails. If a test fails while running "
+"on Jenkins, a postmortem needs to be done to analyze why. So, dumping "
+"logs to a location where Jenkins can pick them up is of the highest "
+"imperative. Use the following code in an ``AfterFailed`` method:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:341 e860873b5d8d4fd6858a6f6b63bae393
+msgid "Ginkgo Extensions"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:343 ee61a483d9064103ba7caad2aa325c0f
+msgid ""
+"In Cilium, some Ginkgo features are extended to cover some uses cases "
+"that are useful for testing Cilium."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:347 ff87a52d1b43485e9ba6fd9910fcfb57
+msgid "BeforeAll"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:349 c3d2af53c9f94742b71bbc135f6657ce
+msgid ""
+"This function will run before all `BeforeEach`_ within a `Describe or "
+"Context`_. This method is an equivalent to ``SetUp`` or initialize "
+"functions in common unit test frameworks."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:357 442b167488294274bea780bcd0812868
+msgid "AfterAll"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:359 c10df7bdbe3548fabc8ea6679d297ff3
+msgid ""
+"This method will run after all `AfterEach`_ functions defined in a "
+"`Describe or Context`_. This method is used for tearing down objects "
+"created which are used by all ``Its`` within the given ``Context`` or "
+"``Describe``. It is ran after all Its have ran, this method is a "
+"equivalent to ``tearDown`` or ``finalize`` methods in common unit test "
+"frameworks."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:365 468fcde5f1ba45d785623cb1fa486cd8
+msgid ""
+"A good use case for using ``AfterAll`` method is to remove containers or "
+"pods that are needed for multiple ``Its`` in the given ``Context`` or "
+"``Describe``."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:371 d54b313730a34acebb21bf424c891693
+msgid "JustAfterEach"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:373 7c754c817ed34ca6b04f35096fb044ca
+msgid ""
+"This method will run just after each test and before ``AfterFailed`` and "
+"``AfterEach``. The main reason of this method is to perform some "
+"assertions for a group of tests.  A good example of using a global "
+"``JustAfterEach`` function is for deadlock detection, which checks the "
+"Cilium logs for deadlocks that may have occurred in the duration of the "
+"tests."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:380 5d703311f02744139ea4dd95e1e44fe9
+msgid "AfterFailed"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:382 06ec84d92df942d6bccd9efeb16ebe9c
+msgid ""
+"This method will run before all ``AfterEach`` and after "
+"``JustAfterEach``. This function is only called when the test failed.This"
+" construct is used to gather logs, the status of Cilium, etc, which "
+"provide data for analysis when tests fail."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:388 7c74d0c8f15047abba160694df9a44d6
+msgid "Example Test Layout"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:390 515571ecf5684a3099bfcfa7557b84fd
+msgid ""
+"Here is an example layout of how a test may be written with the "
+"aforementioned constructs:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:393 ba9ed45e576c47b7843a042ddd6e31ce
+msgid "Test description diagram::"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:415 65f72f093f4d4b9fbcb7fc152844fbdd
+msgid "Test execution flow::"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:440 649c20a804ac477d99f836b8a3cdfbcd
+msgid "Debugging:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:442 6ffa80286d664f35ae55c303608caaee
+msgid ""
+"You can retrieve all run commands and their output in the report "
+"directory (``./test/test_results``). Each test creates a new folder, "
+"which contains a file called log where all information is saved, in case "
+"of a failing test an exhaustive data will be added."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:463 8d68be43bb5c470299a93d5420db29b5
+msgid "Running with delve"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:465 6b0159ce23e94d45b8e5291d08b6ab21
+msgid ""
+"`Delve <https://github.com/derekparker/delve>`_ is a debugging tool for "
+"Go applications. If you want to run your test with delve,  you should add"
+" a new breakpoint using `runtime.BreakPoint() "
+"<https://golang.org/pkg/runtime/#Breakpoint>`_ in the code, and run "
+"ginkgo using ``dlv``."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:471 bcd9b94a8b1f4f188d0befebb1e0fa03
+msgid "Example how to run ginkgo using ``dlv``:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:478 fc6a654f688b4cf19719cbaf91789bf2
+msgid "Running End-To-End Tests In Other Environments via kubeconfig"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:480 0327acd9afdc4e61bfe1ce759c02d99e
+msgid ""
+"The end-to-end tests can be run with an arbitrary kubeconfig file. "
+"Normally the CI will use the kubernetes created via vagrant but this can "
+"be overridden with ``--cilium.kubeconfig``. When used, ginkgo will not "
+"start a VM nor compile cilium. It will also skip some setup tasks like "
+"labeling nodes for testing."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:485 995af7a5cc1a4d5e8ba2d9d0d0e7a975
+msgid "This mode expects:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:487 77183239b42f4911bfc226afa60de5e5
+msgid "The current directory is ``cilium/test``"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:489 d6f5fa44c6594187b98f79ce316d20d6
+msgid ""
+"A test focus with ``--focus``. ``--focus=\"K8s\"`` selects all kubernetes"
+" tests."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:491 79d25906a2404aac946a95b7b1a997af
+msgid ""
+"Cilium images as full URLs specified with the ``--cilium.image`` and "
+"``--cilium.operator-image`` options."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:494 b35ce1802efa454d964de7015aea8cc3
+msgid "A working kubeconfig with the ``--cilium.kubeconfig`` option"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:496 d2b7e5aecd2a4e42a2f1e102bd36b5a2
+msgid ""
+"A populated K8S_VERSION environment variable set to the version of the "
+"cluster"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:498 9caf5d77aba14d978c5b12c504ffdc61
+msgid ""
+"If appropriate, set the ``CNI_INTEGRATION`` environment variable set to "
+"one of ``gke``, ``eks``, ``eks-chaining``, ``microk8s`` or ``minikube``. "
+"This selects matching configuration overrides for cilium. Leaving this "
+"unset for non-matching integrations is also correct."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:503 ea4f039446204e3b8bf4f908cd770cfe
+msgid ""
+"For k8s environments that invoke an authentication agent, such as EKS and"
+" ``aws-iam-authenticator``, set ``--cilium.passCLIEnvironment=true``"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:506 802b1ceb05f549ae922e91f94ee00c3f
+msgid "An example invocation is"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:513 8956a02c5b2b48179fad047ca38f6350
+msgid "Running in GKE"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:515 f6840c4ea67b48ba8afaedf00a7818a1
+msgid ""
+"1- Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing "
+"cluster."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:518 6823a8be78584fa1a274fc5b07e2e68f
+msgid ""
+"You do not need to deploy Cilium in this step, as the End-To-End Testing "
+"Framework handles the deployment of Cilium."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:521 970c18e9b0334ed78c37f8f7de91bd16
+msgid ""
+"The tests require machines larger than ``n1-standard-4``. This can be set"
+" with ``--machine-type n1-standard-4`` on cluster creation."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:525 71a7a4a3632e4283987cac1043c9c6b7
+msgid ""
+"2- Invoke the tests from ``cilium/test`` with options set as explained in"
+" `Running End-To-End Tests In Other Environments via kubeconfig`_"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:528 057816623ea44be381d53a217439d9ff
+msgid ""
+"The tests require the ``NATIVE_CIDR`` environment variable to be set to "
+"the value of the cluster IPv4 CIDR returned by the ``gcloud container "
+"clusters describe`` command."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:540 0fad54e844d446d2ac65e0e76c2693b4
+msgid ""
+"The kubernetes version defaults to 1.23 but can be configured with "
+"versions between 1.16 and 1.23. Version should match the server version "
+"reported by ``kubectl version``."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:545 97a651c27e3549c7a56e1e7a894b502a
+msgid "AWS EKS (experimental)"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:547 23da3674c47d4a238ded0c18bbab7f4a
+msgid ""
+"Not all tests can succeed on EKS. Many do, however and may be useful. "
+":gh-issue:`9678#issuecomment-749350425` contains a list of tests that are"
+" still failing."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:551 8859099605a04c169ecdc134b91ae7ac
+msgid ""
+"Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing "
+"cluster."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:554 a1c2c7f5f91649309a0f5cd53d777638
+msgid ""
+"Source the testing integration script from "
+"``cilium/contrib/testing/integrations.sh``."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:556 9146e54cd3af4cc88640f4dca5da9246
+msgid ""
+"Invoke the ``gks`` function by passing which ``cilium`` docker image to "
+"run and the test focus. The command also accepts additional ginkgo "
+"arguments."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:565 8543f93954044262977e7b9050a92197
+msgid "Adding new Managed Kubernetes providers"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:567 8f176a8e8dbe439490100cfc49d8f288
+msgid ""
+"All Managed Kubernetes test support relies on using a pre-configured "
+"kubeconfig file.  This isn't always adequate, however, and adding "
+"defaults specific to each provider is possible. The `commit adding GKE "
+"<https://github.com/cilium/cilium/commit/c2d8445fd725c515a635c8c3ad3be901a08084eb>`_"
+" support is a good reference."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:572 f277b066751a46d1ad4a6e3d9681b9ff
+msgid ""
+"Add a map of helm settings to act as an override for this provider in "
+"`test/helpers/kubectl.go "
+"<https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L80-L102>`_."
+" These should be the helm settings used when generating cilium specs for "
+"this provider."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:577 47df1cd9b614401d95522d39cec48843
+msgid ""
+"Add a unique `CI Integration constant "
+"<https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L66-L67>`_."
+" This value is passed in when invoking ginkgo via the ``CNI_INTEGRATON`` "
+"environment variable."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:581 c9fa2fdc8d7541ab970727153808d60a
+msgid ""
+"Update the `helm overrides "
+"<https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L138-L147>`_"
+" mapping with the constant and the helm settings."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:584 427a0100cbca4429a8f7876d43e9fd3b
+msgid ""
+"For cases where a test should be skipped use the ``SkipIfIntegration``. "
+"To skip whole contexts, use ``SkipContextIf``. More complex logic can be "
+"expressed with functions like ``IsIntegration``. These functions are all "
+"part of the `test/helpers "
+"<https://github.com/cilium/cilium/tree/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers>`_"
+" package."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:591 ef7a8dc063244afa8917660c7d21c239
+msgid "Running End-To-End Tests In Other Environments via SSH"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:593 331c1432496149f1b5e6ee30472b03c8
+msgid ""
+"If you want to run tests in an arbitrary environment with SSH access, you"
+" can use ``--cilium.SSHConfig`` to provide the SSH configuration of the "
+"endpoint on which tests will be run. The tests presume the following on "
+"the remote instance:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:598 f36e6ed47c304164aaab81d56c374f4b
+msgid ""
+"Cilium source code is located in the directory "
+"``/home/vagrant/go/src/github.com/cilium/cilium/``."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:599 0c3b8be2e88144be83ce9930552c5d8d
+msgid "Cilium is installed and running."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:601 d89c2097f39a4c36bc5fa8a1e0c47224
+msgid ""
+"The ssh connection needs to be defined as a ``ssh-config`` file and need "
+"to have the following targets:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:604 da1e462e68b34c618a4d5836102fa86b
+msgid "runtime: To run runtime tests"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:605 bd9723f2f496451cb5d32c0d8bce6da1
+msgid ""
+"k8s{1..2}-${K8S_VERSION}: to run Kubernetes tests. These instances must "
+"have Kubernetes installed and running as a prerequisite for running "
+"tests."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:608 ffc254c0f7844df3b9c3fc73e9276f64
+msgid "An example ``ssh-config`` can be the following:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:623 8cd82dcbe6eb4be3a7efd20a94afe7eb
+msgid "To run this you can use the following command:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:631 7140a35820e047e2aa2f83b4c3388ab1
+msgid "VMs for Testing"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:633 211dc0209d944843a6732514ff45ec0f
+msgid ""
+"The VMs used for testing are defined in ``test/Vagrantfile``. There are a"
+" variety of configuration options that can be passed as environment "
+"variables:"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:637 27e3769b5cf0489dba4ae5e0751c02e2
+msgid "ENV variable"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:637 f4ea25bc93664acb994d0c7a20dc5400
+msgid "Default Value"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:637 782de10677a147f8972626e8fd00641a
+msgid "Options"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:637 13f3124f255f4e4db53ffead1db28208
+msgid "Description"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:639 e606ec0aa5ef4a6ba4c0b49d3b99a504
+msgid "K8S\\_NODES"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:639
+#: ../../contributing/testing/e2e.rst:655 867d7a2011c24337a9048f9141532d68
+#: 9bfc0dc86e574aa2af3b6fa7c70e5cea
+msgid "2"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:639
+#: ../../contributing/testing/e2e.rst:655 3678b0e653fd4a4abf60cb559c63394c
+#: c78838b9b3874b08981bee3dc6e440e2
+msgid "0..100"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:639 185383949b6746339049a087e80e1740
+msgid "Number of Kubernetes nodes in the cluster"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:641 6b4134f3c2fd4be2824a6b23a4596aa7
+msgid "NO_CILIUM_ON_NODE[S]"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:641 56b1286cc0d84cd994bde18428bd383e
+msgid "none"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:641
+#: ../../contributing/testing/e2e.rst:653 1bd5759fb1cc4250855ebe395561b27c
+#: b6d03d8929ca4756be7d2c335da818f9
+msgid "\\*"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:641 aa127836c6f74735b7f0b288e200a31b
+msgid "Comma-separated list of K8s nodes that should not run Cilium"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:643 b2ebc3f7746d4a5188dd3421762b0af6
+msgid "NFS"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:643
+#: ../../contributing/testing/e2e.rst:645 4164fbff88d349a58c3649c1f4373a86
+#: 909e97662bd3491b9cd02f9e5ddd1dfc
+msgid "0"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:643
+#: ../../contributing/testing/e2e.rst:651 3c0b7b26627e452888f8a58688d0155d
+#: 3e9770bf46af4b58b0f2721beca7342b
+msgid "1"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:643 c290be0fb17f4f7bb453505f45e120b1
+msgid "If Cilium folder needs to be shared using NFS"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:645 b0febabd79fe45e597f9b5d2f3daf56a
+msgid "IPv6"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:645
+#: ../../contributing/testing/e2e.rst:651 1b54b2f419fe4bf88838fe1097532ffc
+#: a64eb75ac6354777afac35bd82de4693
+msgid "0-1"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:645 0e251e7c02444aa6aa1af05303a3b894
+msgid "If 1 the Kubernetes cluster will use IPv6"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:647 1f76d5060e6d43cf81bcf04cb32b0d8e
+msgid "CONTAINER\\_RUNTIME"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:647 1a091fa83d5443139f7de7f1c723955f
+msgid "docker"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:647 e33eb63e41d64ad1a028424fc423f575
+msgid "containerd"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:647 a84bb3caae3b4a8b9587ebf3249cee0d
+msgid "To set the default container runtime in the Kubernetes cluster"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:649 19f7c25b9f354fdab8f3fcddeb5d6b09
+msgid "K8S\\_VERSION"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:649 950dbf2070b8449cb78f4e8488490337
+msgid "1.\\*\\*"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:649 9c930f5925f84946bf788172810740d2
+msgid "Kubernetes version to install"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:651 896f4396d143452d98eb3e03198579d1
+msgid "KUBEPROXY"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:651 e38a5b75f9b84027acc4f68d476f7d95
+msgid "If 0 the Kubernetes' kube-proxy won't be installed"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:653 01c767a382854239a55711f5e61b5adb
+msgid "SERVER\\_BOX"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:653 d952478f222542cead4a77555a8bcecb
+msgid "cilium/ubuntu-dev"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:653 f9f41108107244c0b818c099fa4419ba
+msgid "Vagrantcloud base image"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:655 9801ce1c9c104666811cc8170f3431ea
+msgid "VM\\_CPUS"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:655 914f6271828d4bffb36e6e5ba53860c3
+msgid "Number of CPUs that need to have the VM"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:657 6e3810b4174445b3aef15f412197af7f
+msgid "VM\\_MEMORY"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:657 6925225302e84cacb7ff94ff79e5acab
+msgid "4096"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:657 92c4e0947ee9460a88afc26d4dfa78d8
+msgid "\\d+"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:657 681289aaa8e04a09b282fa3cdb4158d9
+msgid "RAM size in Megabytes"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:661 647186824a934339b5b5be6baf3109b5
+msgid "VM images"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:663 20a0ccfeaa4d46eda975c7a65740cdc4
+msgid ""
+"The test suite relies on Vagrant to automatically download the required "
+"VM image, if it is not already available on the system. VM images weight "
+"several gigabytes so this may take some time, but faster tools such as "
+"`aria2`_ can speed up the process by opening multiple connections. The "
+"script `test/packet/scripts/add_vagrant_box.sh`_ can be useful to "
+"manually download selected images with aria2 prior to launching the test "
+"suite, or to periodically update images in a ``cron`` job::"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:695 895a79948faf4190bacd7008825307f1
+msgid "Known Issues and Workarounds"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:698 84c850888aa9448fb641ab7d5d9ad501
+msgid "VirtualBox hostonlyifs and DHCP related errors"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:700 c9acb8b4a8844596b0eb2aa05d8283ac
+msgid ""
+"If you see the following error, take a look at this `GitHub issue "
+"<https://github.com/hashicorp/vagrant/issues/3083#issuecomment-41156076>`_"
+" for workarounds."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:714 17a2a4dc5d33454ba3486e96d96a48ef
+msgid "Also, consider upgrading VirtualBox and Vagrant to the latest versions."
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:717 bde99bd4b18c4783afe997aeaa8f9515
+msgid "Further Assistance"
+msgstr ""
+
+#: ../../contributing/testing/e2e.rst:719 f4104f3afe934933a4b795037fe8d9cc
+msgid ""
+"Have a question about how the tests work or want to chat more about "
+"improving the testing infrastructure for Cilium? Hop on over to the "
+"`testing <https://cilium.slack.com/messages/C7PE7V806>`_ channel on "
+"Slack."
+msgstr ""
+

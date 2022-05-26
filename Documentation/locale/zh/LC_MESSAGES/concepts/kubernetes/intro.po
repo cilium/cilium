@@ -1,0 +1,158 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/kubernetes/intro.rst:3 a831ee2e06d24eab986c3b6855683e92
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:11 7fece9ec50d148fcb51a40a277924c7d
+msgid "Introduction"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:14 12b0223eab874890b2f0dca95b370dce
+msgid "What does Cilium provide in your Kubernetes Cluster?"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:16 10508f2617a9427d9f3eac40e9cb58ae
+msgid ""
+"The following functionality is provided as your run Cilium in your "
+"Kubernetes cluster:"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:19 0b025c797fcd4ec08ebd0b2f481b31e8
+msgid ""
+":term:`CNI` plugin support to provide pod_connectivity_ with `multi host "
+"networking`."
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:21 210e2ba696bf4a3798231b5f6265ac95
+msgid ""
+"Identity based implementation of the `NetworkPolicy` resource to isolate "
+":term:`pod<Pod>` to pod connectivity on Layer 3 and 4."
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:23 486070cf8ef942f6909382596a70bf62
+msgid ""
+"An extension to NetworkPolicy in the form of a "
+":term:`CustomResourceDefinition` which extends policy control to add:"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:26 4dc65b0ab0b84011bd4d10cd0d637eec
+msgid ""
+"Layer 7 policy enforcement on ingress and egress for the following "
+"application protocols:"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:29 2829a243d1314edc867621a630416638
+msgid "HTTP"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:30 85fb13cb7e6d4b68a7aa149a44c61b79
+msgid "Kafka"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:31 3020e7e67aaf4b288c5caf71380426d5
+msgid "Egress support for CIDRs to secure access to external services"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:32 4f5700a4ca53473688dcb85efdaa0133
+msgid ""
+"Enforcement to external headless services to automatically restrict to "
+"the set of Kubernetes endpoints configured for a service."
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:34 a07f897ef56946e68a11634d1ad8d0cf
+msgid ""
+"ClusterIP implementation to provide distributed load-balancing for pod to"
+" pod traffic."
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:36 a408d30d604d4dd99d6aa26cd9a38b86
+msgid "Fully compatible with existing kube-proxy model"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:41 a71b6f59f1d04d8a8c3583dc1e509832
+msgid "Pod-to-Pod Connectivity"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:43 7dceaf39402340869c68aa7dbb0740bf
+msgid ""
+"In Kubernetes, containers are deployed within units referred to as "
+":term:`Pods<Pod>`, which include one or more containers reachable via a "
+"single IP address.  With Cilium, each Pod gets an IP address from the "
+"node prefix of the Linux node running the Pod. See "
+":ref:`address_management` for additional details. In the absence of any "
+"network security policies, all Pods can reach each other."
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:49 f811ca7e31504e1797dc9f720e69dd7f
+msgid ""
+"Pod IP addresses are typically local to the Kubernetes cluster. If pods "
+"need to reach services outside the cluster as a client, the network "
+"traffic is automatically masqueraded as it leaves the node."
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:54 6c80cef6e8c245ceb85caf20be8fefd6
+msgid "Service Load-balancing"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:56 ab9760fdd4674989b6186e58bd758c5a
+msgid ""
+"Kubernetes has developed the Services abstraction which provides the user"
+" the ability to load balance network traffic to different pods. This "
+"abstraction allows the pods reaching out to other pods by a single IP "
+"address, a virtual IP address, without knowing all the pods that are "
+"running that particular service."
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:61 2c0a733c657649cb9258e0eeb4918125
+msgid ""
+"Without Cilium, kube-proxy is installed on every node, watches for "
+"endpoints and services addition and removal on the kube-master which "
+"allows it to apply the necessary enforcement on iptables. Thus, the "
+"received and sent traffic from and to the pods are properly routed to the"
+" node and port serving for that service. For more information you can "
+"check out the kubernetes user guide for `Services "
+"<https://kubernetes.io/docs/concepts/services-networking/service/>`_."
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:68 ce1570f354f24d7ca1200a8f3f178d1b
+msgid ""
+"When implementing ClusterIP, Cilium acts on the same principles as kube-"
+"proxy, it watches for services addition or removal, but instead of doing "
+"the enforcement on the iptables, it updates eBPF map entries on each "
+"node. For more information, see the `Pull Request "
+"<https://github.com/cilium/cilium/pull/109>`__."
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:75 709f89ff530b4859b367e8251e73aecd
+msgid "Further Reading"
+msgstr ""
+
+#: ../../concepts/kubernetes/intro.rst:77 23d25399e5ef41fc9ea1378c62d826e3
+msgid ""
+"The Kubernetes documentation contains more background on the `Kubernetes "
+"Networking Model <https://kubernetes.io/docs/concepts/cluster-"
+"administration/networking/>`_ and `Kubernetes Network Plugins "
+"<https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-"
+"net/network-plugins/>`_ ."
+msgstr ""
+

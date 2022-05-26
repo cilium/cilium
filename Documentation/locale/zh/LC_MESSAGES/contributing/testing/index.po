@@ -1,0 +1,49 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/testing/index.rst:3 9bed7b8d2b9e451788e7e9d8f69fe48d
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/testing/index.rst:10 5da9788f6a0f4d9abac4e6de7ff6bd7b
+msgid "Testing"
+msgstr ""
+
+#: ../../contributing/testing/index.rst:12 24e880680afb4a6f9fe9e24fa97f3473
+msgid ""
+"There are multiple ways to test Cilium functionality, including unit-"
+"testing and integration testing. In order to improve developer "
+"throughput, we provide ways to run both the unit and integration tests in"
+" your own workspace as opposed to being fully reliant on the Cilium CI "
+"infrastructure. We encourage all PRs to add unit tests and if necessary, "
+"integration tests. Consult the following pages to see how to run the "
+"variety of tests that have been written for Cilium, and information about"
+" Cilium's CI infrastructure."
+msgstr ""
+
+#: ../../contributing/testing/index.rst:31 bff3a9f44a0149df9f1d5b546acf80a2
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+

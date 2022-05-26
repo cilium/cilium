@@ -1,0 +1,175 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k3s.rst:3 9d7688b985644be0b93dc381ec9e76e7
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:11 f5786a365e944df3a75fcf36ea86ed78
+msgid "Getting Started Using K3s"
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:13 541073b635274b73bc8e440b2c9af68a
+msgid ""
+"This guide walks you through installation of Cilium on `K3s "
+"<https://k3s.io/>`_, a highly available, certified Kubernetes "
+"distribution designed for production workloads in unattended, resource-"
+"constrained, remote locations or inside IoT appliances."
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:18 e945ca30d7574812a4ea18af77123df3
+msgid "Cilium is presently supported on amd64 and arm64 architectures."
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:21 1ba3f322ac3a4f678be0cfcc5dc868c0
+msgid "Install a Master Node"
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:23 eb52369d707d4c3a980c4a341d2b90ea
+msgid ""
+"The first step is to install a K3s master node making sure to disable "
+"support for the default CNI plugin and the built-in network policy "
+"enforcer:"
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:31 b94c1edff918408dad9713b4028e93d4
+msgid "Install Agent Nodes (Optional)"
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:33 f5df09ee30c0403abcd596d53022df15
+msgid ""
+"K3s can run in standalone mode or as a cluster making it a great choice "
+"for local testing with multi-node data paths. Agent nodes are joined to "
+"the master node using a node-token which can be found on the master node "
+"at ``/var/lib/rancher/k3s/server/node-token``."
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:38 c4a0515260934f30ad075d126cd0022f
+msgid ""
+"Install K3s on agent nodes and join them to the master node making sure "
+"to replace the variables with values from your environment:"
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:45 52e46091196f4846a429d7df6a531bdf
+msgid ""
+"Should you encounter any issues during the installation, please refer to "
+"the :ref:`troubleshooting_k8s` section and / or seek help on the "
+":term:`Slack channel`."
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:48 7dde13e1a92e49ac871bd5c15aa2c0db
+msgid ""
+"Please consult the Kubernetes :ref:`k8s_requirements` for information on"
+"  how you need to configure your Kubernetes cluster to operate with "
+"Cilium."
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:52 21f696bbb58e4154880904bf36c0ec24
+msgid "Configure Cluster Access"
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:54 afa3ddc43e36446999dd3bf16bde8170
+msgid ""
+"For the Cilium CLI to access the cluster in successive steps you will "
+"need to use the ``kubeconfig`` file stored at "
+"``/etc/rancher/k3s/k3s.yaml`` by setting the ``KUBECONFIG`` environment "
+"variable:"
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:63 bbca1efa4e5c4620818cc389346ee30c
+msgid "Install Cilium"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 87265bfc5f74457b9eab31497cdc5e31
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 7d048e6e7fe74b24950591d37844fb45
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 34d48e596527488db12deea9fb5ca3f8
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 b959a9ac230943a5b8ebc906c9117ad0
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 4e32fb8ff68e4ed89800326e85b2840b
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:67 3d9caa9291464a6aa860dd8655940527
+msgid "Install Cilium by running:"
+msgstr ""
+
+#: ../../gettingstarted/k3s.rst:74 ea422bbd43794e22a65fab7bdbb8d00d
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 bff4bb16a7ae4a86aa574d1835966921
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 7a9dab3932374fb1b2e4cce4bb8ad49a
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: 7187ae58f2bc44d381dea797a9bd0db9
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 462e1212041e488da9ecb45462445c00
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 306b01ab0d844fd98dbd49ae85453872
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 adbdc7a60d444d2d8e262ce8f288e5a2
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 cd3b9015823743e6845aef04203b7c7a
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 221cc6b69d7a4d24b7d3541bc419000c
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 2d26ac2d063a4b70989455178120944b
+msgid ":ref:`clustermesh`"
+msgstr ""
+

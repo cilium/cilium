@@ -1,0 +1,294 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/bandwidth-manager.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 1bd8f140f6714c18b55ea22eaa6c49f4 375825b581e34a718a16b6f468b14647
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:11
+#: 1b7a9a6806ee49228add0fa804fe60f3
+msgid "Bandwidth Manager"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:13
+#: 7c11faaa831f4be58d16c96273964333
+msgid ""
+"This guide explains how to configure Cilium's bandwidth manager to "
+"optimize TCP and UDP workloads and efficiently rate limit individual Pods"
+" if needed through the help of EDT (Earliest Departure Time) and eBPF. "
+"Cilium's bandwidth manager is also prerequisite for enabling BBR "
+"congestion control for Pods as outlined :ref:`below<BBR Pods>`."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:19
+#: 97d5493b84b045999db86d7d4e1f8eda
+msgid ""
+"The bandwidth manager does not rely on CNI chaining and is natively "
+"integrated into Cilium instead. Hence, it does not make use of the "
+"`bandwidth CNI <https://kubernetes.io/docs/concepts/extend-kubernetes"
+"/compute-storage-net/network-plugins/#support-traffic-shaping>`_ plugin. "
+"Due to scalability concerns in particular for multi-queue network "
+"interfaces, it is not recommended to use the bandwidth CNI plugin which "
+"is based on TBF (Token Bucket Filter) instead of EDT."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:26
+#: aa7e8cd63ee34abba1c2edf4c9bdbddb
+msgid ""
+"Cilium's bandwidth manager supports the ``kubernetes.io/egress-"
+"bandwidth`` Pod annotation which is enforced on egress at the native host"
+" networking devices. The bandwidth enforcement is supported for direct "
+"routing as well as tunneling mode in Cilium."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:31
+#: d013d74bc7fa4de38fc38c25534a5624
+msgid ""
+"The ``kubernetes.io/ingress-bandwidth`` annotation is not supported and "
+"also not recommended to use. Limiting bandwidth happens natively at the "
+"egress point of networking devices in order to reduce or pace bandwidth "
+"usage on the wire. Enforcing at ingress would add yet another layer of "
+"buffer queueing right in the critical fast-path of a node via ``ifb`` "
+"device where ingress traffic first needs to be redirected to the "
+"``ifb``'s egress point in order to perform shaping before traffic can go "
+"up the stack. At this point traffic has already occupied the bandwidth "
+"usage on the wire, and the node has already spent resources on processing"
+" the packet. ``kubernetes.io/ingress-bandwidth`` annotation is ignored by"
+" Cilium's bandwidth manager."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:44
+#: b74cc975b3474e4f9549c828c77067e4
+msgid "Bandwidth Manager requires a v5.1.x or more recent Linux kernel."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: b095d58e7e3344af951de415893355ec
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: cb4efc828c70482c8ed898ad86242ce7
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: dc47546083f54f01a2a76d1a29404a0a
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:48
+#: 9652357585c041f88e272f148934839c
+msgid ""
+"Cilium's bandwidth manager is disabled by default on new installations. "
+"To install Cilium with the bandwidth manager enabled, run"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:57
+#: 5a845a925ce2449cbcaae360fdbdb369
+msgid "To enable the bandwidth manager on an existing installation, run"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:67
+#: 7879e1ccea0e4b439506920994ea2dd4
+msgid ""
+"The native host networking devices are auto detected as native devices "
+"which have the default route on the host or have Kubernetes "
+"``InternalIP`` or ``ExternalIP`` assigned. ``InternalIP`` is preferred "
+"over ``ExternalIP`` if both exist. To change and manually specify the "
+"devices, set their names in the ``devices`` helm option (e.g. "
+"``devices='{eth0,eth1,eth2}'``). Each listed device has to be named the "
+"same on all Cilium-managed nodes."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:74
+#: 1840ca5b7a804a9ebe77c3ab215f0536
+msgid "Verify that the Cilium Pods have come up correctly:"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:83
+#: ddce81dccd414c6dbf4e93faa51fe968
+msgid ""
+"In order to verify whether the bandwidth manager feature has been enabled"
+" in Cilium, the ``cilium status`` CLI command provides visibility through"
+" the ``BandwidthManager`` info line. It also dumps a list of devices on "
+"which the egress bandwidth limitation is enforced:"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:93
+#: 9546de10c731418ab15c25a457faddd2
+msgid ""
+"To verify that egress bandwidth limits are indeed being enforced, one can"
+" deploy two ``netperf`` Pods in different nodes — one acting as a server "
+"and one acting as the client:"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:141
+#: 01bbbe42b19a423299a888a0c3f67fdd
+msgid ""
+"Once up and running, the ``netperf-client`` Pod can be used to test "
+"egress bandwidth enforcement on the ``netperf-server`` Pod. As the test "
+"streaming direction is from the ``netperf-server`` Pod towards the "
+"client, we need to check ``TCP_MAERTS``:"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:158
+#: fa15b988a7414f4795b99ca8c1ef291c
+msgid ""
+"As can be seen, egress traffic of the ``netperf-server`` Pod has been "
+"limited to 10Mbit per second."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:160
+#: a7d3a5a9ea0f4e0ca42377aa8c962638
+msgid ""
+"In order to introspect current endpoint bandwidth settings from BPF side,"
+" the following command can be run (replace ``cilium-xxxxx`` with the name"
+" of the Cilium Pod that is co-located with the ``netperf-server`` Pod):"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:170
+#: 047fd9a40cb74b57868a21b0cc781776
+msgid ""
+"Each Pod is represented in Cilium as an :ref:`endpoint` which has an "
+"identity. The above identity can then be correlated with the ``cilium "
+"endpoint list`` command."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:176
+#: 809e04afe10b4c49820c7adc302339ee
+msgid "BBR for Pods"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:178
+#: f156040b3dc74e71a412d11fb6222cfb
+msgid ""
+"The base infrastructure around MQ/FQ setup provided by Cilium's bandwidth"
+" manager also allows for use of TCP `BBR congestion control "
+"<https://queue.acm.org/detail.cfm?id=3022184>`_ for Pods."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:182
+#: f7587f932d3e4989a40085b75074d6c7
+msgid ""
+"BBR is in particular suitable when Pods are exposed behind Kubernetes "
+"Services which face external clients from the Internet. BBR achieves "
+"higher bandwidths and lower latencies for Internet traffic, for example, "
+"it has been `shown <https://cloud.google.com/blog/products/networking"
+"/tcp-bbr-congestion-control-comes-to-gcp-your-internet-just-got-faster>`_"
+" that BBR's throughput can reach as much as 2,700x higher than today's "
+"best loss-based congestion control and queueing delays can be 25x lower."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:190
+#: 0e2aba5819ad409cb694a25db36a4fad
+msgid "BBR for Pods requires a v5.18.x or more recent Linux kernel."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:192
+#: 24e11293dab24a76add794f85d12d8c0
+msgid ""
+"To enable the bandwidth manager with BBR congestion control, deploy with "
+"the following:"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:203
+#: e420ba63c7264eb7a87980194cd03927
+msgid ""
+"In order for BBR to work reliably for Pods, it requires a 5.18 or higher "
+"kernel. As outlined in our `Linux Plumbers 2021 talk "
+"<https://lpc.events/event/11/contributions/953/>`_, this is needed since "
+"older kernels do not retain timestamps of network packets when switching "
+"from Pod to host network namespace. Due to the latter, the kernel's "
+"pacing infrastructure does not function properly in general (not specific"
+" to Cilium)."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:209
+#: 0c1dbc20bdb842049150e3ecf0435c85
+msgid ""
+"We helped with fixing this issue for recent kernels to retain timestamps "
+"and therefore to get BBR for Pods working. Prior to that kernel, BBR was "
+"only working for sockets which are in the initial network namespace "
+"(hostns). BBR also needs eBPF Host-Routing in order to retain the network"
+" packet's socket association all the way until the packet hits the FQ "
+"queueing discipline on the physical device in the host namespace. "
+"(Without eBPF Host-Routing the packet's socket association would "
+"otherwise be orphaned inside the host stacks forwarding/routing layer.)"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:217
+#: 1398c28ed8fd4fa7b168ac0b2f04288a
+msgid ""
+"In order to verify whether the bandwidth manager with BBR has been "
+"enabled in Cilium, the ``cilium status`` CLI command provides visibility "
+"again through the ``BandwidthManager`` info line:"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:226
+#: b574af609282472f9363436f94b35a4f
+msgid ""
+"Once this setting is enabled, it will use BBR as a default for all newly "
+"spawned Pods. Ideally, BBR is selected upon initial Cilium installation "
+"when the cluster is created such that all nodes and Pods in the cluster "
+"homogeneously use BBR as otherwise there could be `potential unfairness "
+"issues <https://blog.apnic.net/2020/01/10/when-to-use-and-not-use-bbr/>`_"
+" for other connections still using CUBIC. Also note that due to the "
+"nature of BBR's probing you might observe a higher rate of TCP "
+"retransmissions compared to CUBIC."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:233
+#: 1a7a6164e4444c02a93b4b30c5f1a5d6
+msgid ""
+"We recommend to use BBR in particular for clusters where Pods are exposed"
+" as Services which serve external clients connecting from the Internet."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:237
+#: 0fa810cfcdc34893b4191aeabf9ac016
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:239
+#: 5cc6be40c39444a9a016b55acca7d7f2
+msgid ""
+"Bandwidth enforcement currently does not work in combination with L7 "
+"Cilium Network Policies. In case they select the Pod at egress, then the "
+"bandwidth enforcement will be disabled for those Pods."
+msgstr ""
+
+#: ../../gettingstarted/bandwidth-manager.rst:242
+#: 3b7dda2e8d5c4db98e9b9a87414a396a
+msgid ""
+"Bandwidth enforcement doesn't work with nested network namespace "
+"environments like Kind. This is because they typically don't have access "
+"to the global sysctl under ``/proc/sys/net/core`` and the bandwidth "
+"enforcement depends on them."
+msgstr ""
+

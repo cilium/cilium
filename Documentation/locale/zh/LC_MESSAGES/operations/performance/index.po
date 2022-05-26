@@ -1,0 +1,37 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../operations/performance/index.rst:3 b4589123d11645728da7fe85485c3ce3
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../operations/performance/index.rst:10 d4b7db08cf424a6c9768af927e441a4f
+msgid "Performance & Scalability"
+msgstr ""
+
+#: ../../operations/performance/index.rst:12 4782b703eafc4211a322fdaa1c4235a1
+msgid ""
+"Welcome to the performance and scalability guides. This section contains "
+"best-practices to tune various performance and scalability aspects. It "
+"also contains official benchmarks as measured by the development team in "
+"a standardized and repeatable bare metal environment."
+msgstr ""
+

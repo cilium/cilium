@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-health_status.md:3 4ebc10753aaa499686388bcdb2463816
+msgid "cilium-health status"
+msgstr ""
+
+#: ../../cmdref/cilium-health_status.md:5 42af9747c8b543e7af7da3b337d05f1b
+msgid "Display cilium connectivity to other nodes"
+msgstr ""
+
+#: ../../cmdref/cilium-health_status.md:11 b1b1380d4ce4409bbba8760cee965b44
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-health_status.md:21 57eb8de1011d457cb4a104659e552d80
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium-health_status.md:30 536f6211804a4b9e930a117970e03833
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-health_status.md:32 497e0bd1fdf24ac5b7ef86860397a067
+msgid "[cilium-health](cilium-health.md)\t - Cilium Health Client"
+msgstr ""
+

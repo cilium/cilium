@@ -1,0 +1,82 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/release/organization.rst:3
+#: dc9d320fb8604a0ba32450574c7651a5
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/release/organization.rst:8
+#: c044465718ad41ff8e702eb059baed64
+msgid "Organization"
+msgstr ""
+
+#: ../../contributing/release/organization.rst:11
+#: 118b988a3b1a4056903d69dee2163cd1
+msgid "Release tracking"
+msgstr ""
+
+#: ../../contributing/release/organization.rst:13
+#: bf846e959d1c4fe89669a31a6b53a56d
+msgid ""
+"Feature work for upcoming releases is tracked through GitHub Projects. "
+"You can view the projects related to the \\ |NEXT_RELEASE| release here:"
+msgstr ""
+
+#: ../../contributing/release/organization.rst:16
+#: f9e8830a3993478fb1e21e88e32998fc
+msgid ":github-project:`GitHub release projects<>`"
+msgstr ""
+
+#: ../../contributing/release/organization.rst:19
+#: d81580fa20104afba848b529422426d3
+msgid "Release Cadence"
+msgstr ""
+
+#: ../../contributing/release/organization.rst:21
+#: c706544e97a643a18d44391624b958e3
+msgid ""
+"New versions of Cilium are released based on completion of feature work "
+"that has been scheduled for that release. Minor releases are typically "
+"designated by by incrementing the ``Y`` in the version format ``X.Y.Z``."
+msgstr ""
+
+#: ../../contributing/release/organization.rst:25
+#: 4f961d75034f4b39a54914a1b1992e32
+msgid ""
+"Three stable branches are maintained at a time: One for the most recent "
+"minor release, and two for the prior two minor releases. For each minor "
+"release that is currently maintained, the stable branch ``vX.Y`` on "
+"github contains the code for the next stable release. New patch releases "
+"for an existing stable version ``X.Y.Z`` are published incrementing the "
+"``Z`` in the version format."
+msgstr ""
+
+#: ../../contributing/release/organization.rst:31
+#: 09fa7342bb9941a484a653622fd44c55
+msgid ""
+"New patch releases for stable branches are made periodically to provide "
+"security and bug fixes, based upon community demand and bugfix severity. "
+"Potential fixes for an upcoming release are first merged into the "
+"``master`` branch, then backported to the relevant stable branches using "
+"the following criteria."
+msgstr ""
+

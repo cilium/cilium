@@ -1,0 +1,80 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/ebpf/lifeofapacket.rst:3 1aee38a2e2c9460f865bcc73af179738
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/ebpf/lifeofapacket.rst:9 1bfb3b72aa074ec5af6ac1b684b4264f
+msgid "Life of a Packet"
+msgstr ""
+
+#: ../../concepts/ebpf/lifeofapacket.rst:12 790b10bb2c984c39a78f3b26875093c4
+msgid "Endpoint to Endpoint"
+msgstr ""
+
+#: ../../concepts/ebpf/lifeofapacket.rst:14 91c2f25320f1488c9505c1e2656a838b
+msgid ""
+"First we show the local endpoint to endpoint flow with optional L7 Policy"
+" on egress and ingress. Followed by the same endpoint to endpoint flow "
+"with socket layer enforcement enabled. With socket layer enforcement "
+"enabled for TCP traffic the handshake initiating the connection will "
+"traverse the endpoint policy object until TCP state is ESTABLISHED. Then "
+"after the connection is ESTABLISHED only the L7 Policy object is still "
+"required."
+msgstr ""
+
+#: ../../concepts/ebpf/lifeofapacket.rst:25 fd4b1a5934414bbe9e70406a54f8a9a3
+msgid "Egress from Endpoint"
+msgstr ""
+
+#: ../../concepts/ebpf/lifeofapacket.rst:27 20f571b9cf284d47bf8ba6e1914794c1
+msgid ""
+"Next we show local endpoint to egress with optional overlay network. In "
+"the optional overlay network traffic is forwarded out the Linux network "
+"interface corresponding to the overlay. In the default case the overlay "
+"interface is named cilium_vxlan. Similar to above, when socket layer "
+"enforcement is enabled and a L7 proxy is in use we can avoid running the "
+"endpoint policy block between the endpoint and the L7 Policy for TCP "
+"traffic. An optional L3 encryption block will encrypt the packet if "
+"enabled."
+msgstr ""
+
+#: ../../concepts/ebpf/lifeofapacket.rst:38 d983c4e4839445bdb1d1ca4296396c90
+msgid "Ingress to Endpoint"
+msgstr ""
+
+#: ../../concepts/ebpf/lifeofapacket.rst:40 641c5aebd3c440ad9562cfcda5cfccf6
+msgid ""
+"Finally we show ingress to local endpoint also with optional overlay "
+"network. Similar to above socket layer enforcement can be used to avoid a"
+" set of policy traversals between the proxy and the endpoint socket. If "
+"the packet is encrypted upon receive it is first decrypted and then "
+"handled through the normal flow."
+msgstr ""
+
+#: ../../concepts/ebpf/lifeofapacket.rst:48 befe917889ac437eb1142604d5556efa
+msgid ""
+"This completes the datapath overview. More BPF specifics can be found in "
+"the :ref:`bpf_guide`. Additional details on how to extend the L7 Policy "
+"exist in the :ref:`envoy` section."
+msgstr ""
+

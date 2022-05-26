@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_tunnel_list.md:3 8412aa5e2f994513af9d92f060b7554f
+msgid "cilium bpf tunnel list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel_list.md:5 1bd88ebfea5a4f03bcbce3d057bfd2c4
+msgid "List tunnel endpoint entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel_list.md:11 9e885ef59d284deb915ecda5f08d1a9b
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel_list.md:18 6ee1dbbff1284ce3a6a7fc092959aad8
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel_list.md:26 e86566f2bc0544ccb7b7fe1d06c004a0
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_tunnel_list.md:28 15bde5c4048f4fbd8eca95383a95fbad
+msgid "[cilium bpf tunnel](cilium_bpf_tunnel.md)\t - Tunnel endpoint map"
+msgstr ""
+

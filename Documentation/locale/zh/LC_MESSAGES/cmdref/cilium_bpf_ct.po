@@ -1,0 +1,55 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_ct.md:3 7ae281cf738348e2adf70f663db95311
+msgid "cilium bpf ct"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:5 4310ceaa8a00418080aceaf3056cc951
+msgid "Connection tracking tables"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:7 de0cc0fada824408aa01f0528df43142
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:13 df761ceb6d9147389785fb47d5d01662
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:21 7520f477773a426f823bfbeb6d35a597
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:23 a8ae7430c88340789297ccfe71299876
+msgid "[cilium bpf](cilium_bpf.md)\t - Direct access to local BPF maps"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:24 7ff526f4dadd45b1930adb81f22d9a73
+msgid ""
+"[cilium bpf ct flush](cilium_bpf_ct_flush.md)\t - Flush all connection "
+"tracking entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_ct.md:25 89f954b2f11e435e908b68a2f318913a
+msgid ""
+"[cilium bpf ct list](cilium_bpf_ct_list.md)\t - List connection tracking "
+"entries"
+msgstr ""
+

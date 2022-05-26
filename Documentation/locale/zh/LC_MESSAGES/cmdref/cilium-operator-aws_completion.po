@@ -1,0 +1,86 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-aws_completion.md:3
+#: a8c92844174f4bc8a99f8a5b6623f563
+msgid "cilium-operator-aws completion"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:5
+#: d50081ee697844418384ff528499c3c0
+msgid "Generate the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:7
+#: 9f6d0c4b498d40dcb5814f612872fe15
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:9
+#: 39ee5fd8cb1c4436a1eb8187c58e88c8
+msgid ""
+"Generate the autocompletion script for cilium-operator-aws for the "
+"specified shell. See each sub-command's help for details on how to use "
+"the generated script."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:13
+#: 67a8f8b1d0d8401d8aba78ccb1b73f8c
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:19
+#: c1266fa44f1f42afb6eae547809a7327
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:21
+#: 150e91b26ffa4544ba659e53ce0dfbd8
+msgid "[cilium-operator-aws](cilium-operator-aws.md)\t - Run cilium-operator-aws"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:22
+#: 0812ea8597c24a7da9936d249eddcc91
+msgid ""
+"[cilium-operator-aws completion bash](cilium-operator-"
+"aws_completion_bash.md)\t - Generate the autocompletion script for bash"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:23
+#: cc3079bdc2a640f885010e9d19df7109
+msgid ""
+"[cilium-operator-aws completion fish](cilium-operator-"
+"aws_completion_fish.md)\t - Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:24
+#: 282fc780b175480ca0507d059736fd83
+msgid ""
+"[cilium-operator-aws completion powershell](cilium-operator-"
+"aws_completion_powershell.md)\t - Generate the autocompletion script for "
+"powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-aws_completion.md:25
+#: cd53d375fd824e6da4badb50bcebfb8e
+msgid ""
+"[cilium-operator-aws completion zsh](cilium-operator-"
+"aws_completion_zsh.md)\t - Generate the autocompletion script for zsh"
+msgstr ""
+

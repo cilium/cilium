@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_endpoint_config.md:3 71c7e910ab554ac3b2fd28df101f21bd
+msgid "cilium endpoint config"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_config.md:5 ed26ab42b6e24a9d8a2488c216276a58
+msgid "View & modify endpoint configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_config.md:11 fb8854783c6a4f6688c9a0748680f90f
+msgid "Examples"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_config.md:17 abd371efd92648e5968568767ea47e41
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_config.md:25 f1a639837fa54211b084708fe1580747
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_config.md:33 f6db1feb0bc149c9aff194b04a520e3b
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_endpoint_config.md:35 eb078b3e59ea45ec9b4a97f17dde05f4
+msgid "[cilium endpoint](cilium_endpoint.md)\t - Manage endpoints"
+msgstr ""
+

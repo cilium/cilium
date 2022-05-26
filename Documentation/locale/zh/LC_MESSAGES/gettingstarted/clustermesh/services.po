@@ -1,0 +1,144 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/clustermesh/services.rst:5
+#: ca91de3b79e149988926c01e94ea5cd5
+msgid "Load-balancing & Service Discovery"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:7
+#: e0ec756e28d642428885a52d8bf531c4
+msgid ""
+"This tutorial will guide you to perform load-balancing and service "
+"discovery across multiple Kubernetes clusters when using Cilium."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:11
+#: a88713250b1b4ea1bfc1dbae98f2f58b
+msgid "Prerequisites"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:13
+#: f5baaedf9d8f40d3ae8ae496b396bab3
+msgid ""
+"You need to have a functioning Cluster Mesh setup, please follow the "
+"guide :ref:`gs_clustermesh` to set it up."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:17
+#: e7bb3dc393e44bd49a65391db314a0ac
+msgid "Load-balancing with Global Services"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:19
+#: 55f2f90f04e749bdba84e4ec1174e017
+msgid ""
+"Establishing load-balancing between clusters is achieved by defining a "
+"Kubernetes service with identical name and namespace in each cluster and "
+"adding the annotation ``io.cilium/global-service: \"true\"`` to declare "
+"it global. Cilium will automatically perform load-balancing to pods in "
+"both clusters."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:28
+#: d2bde71413414cd387a8105e9fd715a4
+msgid "Disabling Global Service Sharing"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:30
+#: 75d0b697fbf54d77aaabcb773749529e
+msgid ""
+"By default, a Global Service will load-balance across backends in "
+"multiple clusters. This implicitly configures ``io.cilium/shared-service:"
+" \"true\"``. To prevent service backends from being shared to other "
+"clusters, this option should be disabled."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:34
+#: af8fb6b06dac4b348b5ec1ba394d3aed
+msgid "Below example will expose remote endpoint without sharing local endpoints."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:54
+#: b4b422a7d1e84263b264689d1fdd19c6
+msgid "Deploying a Simple Example Service"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:56
+#: 0062ea5600474c27abe397b1399bc72f
+msgid "In cluster 1, deploy:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:63
+#: 01c6f0e8e97e41dbbc73a9829573940d
+msgid "In cluster 2, deploy:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:70
+#: ../../gettingstarted/clustermesh/services.rst:106
+#: 4e144b20a5c545229d4ef3a489046d84 cfbfabd39a7742b2bcc83a399c7acf3e
+msgid "From either cluster, access the global service:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:76
+#: f431a1f768524dc094020a9439336221
+msgid "You will see replies from pods in both clusters."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:78
+#: 52a1733cf2644610b26499287e325b56
+msgid ""
+"In cluster 1, add ``io.cilium/shared-service=\"false\"`` to existing "
+"global service"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:84
+#: cb238321c8844e7b83cc6fab6ede4009
+msgid "From cluster 1, access the global service one more time:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:90
+#: 9128e0152c4840ce96a21370179e78c7
+msgid "You will still see replies from pods in both clusters."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:92
+#: ec13588528ee45ddaec27b922ead2a24
+msgid "From cluster 2, access the global service again:"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:98
+#: 6816cd1ca6d7427fbe78ffa6ba53b60f
+msgid ""
+"You will see replies from pods only from cluster 2, as the global service"
+" in cluster 1 is no longer shared."
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:100
+#: f99e179b287c47c59afbb1705ab80f54
+msgid ""
+"In cluster 1, remove ``io.cilium/shared-service`` annotation of existing "
+"global service"
+msgstr ""
+
+#: ../../gettingstarted/clustermesh/services.rst:112
+#: 1f623ce406d344dfb682b7670d72e15a
+msgid "You will see replies from pods in both clusters again."
+msgstr ""
+

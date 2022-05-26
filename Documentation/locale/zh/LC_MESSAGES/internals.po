@@ -1,0 +1,650 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 00:09+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../internals/cilium_operator.rst:3 ../../internals/hubble.rst:3
+#: ../../internals/index.rst:3 ../../internals/security-identities.rst:3
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:10
+msgid "Cilium Operator"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:12
+msgid ""
+"This document provides a technical overview of the Cilium Operator and "
+"describes the cluster-wide operations it is responsible for."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:16
+msgid "Highly Available Cilium Operator"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:18
+msgid ""
+"The Cilium Operator uses Kubernetes leader election library in "
+"conjunction with lease locks to provide HA functionality. The capability "
+"is supported on Kubernetes versions 1.14 and above. It is Cilium's "
+"default behavior since the 1.9 release."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:22
+msgid ""
+"The number of replicas for the HA deployment can be configured using Helm"
+" option ``operator.replicas``."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:37
+msgid ""
+"The operator is an integral part of Cilium installations in Kubernetes "
+"environments and is tasked to perform the following operations:"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:41
+msgid "CRD Registration"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:43
+msgid ""
+"The default behavior of the Cilium Operator is to register the CRDs used "
+"by Cilium. The following custom resources are registered by the Cilium "
+"Operator:"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:46
+msgid ":ref:`CiliumNetworkPolicy`"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:47
+msgid ":ref:`CiliumClusterwideNetworkPolicy`"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:48
+msgid ":ref:`CiliumEndpoint <CiliumEndpoint>`"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:49
+msgid "CiliumNode"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:50
+msgid "CiliumExternalWorkload"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:51
+msgid "CiliumIdentity"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:52
+msgid "CiliumLocalRedirectPolicy"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:55
+msgid "IPAM"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:57
+msgid ""
+"Cilium Operator is responsible for IP address management when running in "
+"the following modes:"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:60
+msgid ":ref:`ipam_azure`"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:61
+msgid ":ref:`ipam_eni`"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:62
+msgid ":ref:`ipam_crd_cluster_pool`"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:64
+msgid ""
+"When running in IPAM mode :ref:`k8s_hostscope`, the allocation CIDRs used"
+" by ``cilium-agent`` is derived from the fields ``podCIDR`` and "
+"``podCIDRs`` populated by Kubernetes in the Kubernetes ``Node`` resource."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:68
+msgid ""
+"For :ref:`concepts_ipam_crd` IPAM allocation mode, it is the job of "
+"Cloud-specific operator to populate the required information about CIDRs "
+"in the ``CiliumNode`` resource."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:72
+msgid ""
+"Cilium currently has native support for the following Cloud providers in "
+"CRD IPAM mode:"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:75
+msgid "Azure - ``cilium-operator-azure``"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:76
+msgid "AWS - ``cilium-operator-aws``"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:78
+msgid "For more information on IPAM visit :ref:`address_management`."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:81
+msgid "KVStore operations"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:83
+msgid ""
+"These operations are performed only when KVStore is enabled for the "
+"Cilium Operator. In addition, KVStore operations are only required when "
+"``cilium-operator`` is running with any of the below options:"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:87
+msgid "``--synchronize-k8s-services``"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:88
+msgid "``--synchronize-k8s-nodes``"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:89
+msgid "``--identity-allocation-mode=kvstore``"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:92
+msgid "K8s Services synchronization"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:94
+msgid ""
+"Cilium Operator performs the job of synchronizing Kubernetes services to "
+"external KVStore configured for the Cilium Operator if running with "
+"``--synchronize-k8s-services`` flag."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:98
+msgid ""
+"The Cilium Operator performs this operation only for shared services "
+"(services that have ``io.cilium/shared-service`` annotation set to true)."
+" This is meaningful when running Cilium to setup a ClusterMesh."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:103
+msgid "K8s Nodes synchronization"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:105
+msgid ""
+"Similar to K8s services, Cilium Operator also synchronizes Kubernetes "
+"nodes information to the shared KVStore."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:108
+msgid ""
+"When a ``Node`` object is deleted it is not possible to reliably cleanup "
+"the corresponding ``CiliumNode`` object from the Agent itself. The Cilium"
+" Operator holds the responsibility to garbage collect orphaned "
+"``CiliumNodes``."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:113
+msgid "CNP/CCNP node status garbage collection"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:115
+msgid ""
+"For the same reasons that the Agent cannot reliably delete "
+"``CiliumNode``, the Agent also cannot remove the status corresponding to "
+"a node in a CiliumNetworkPolicy (CNP) or CiliumClusterwideNetworkPolicy "
+"(CCNP) object. This operation of node status garbage collection from "
+"CNP/CCNP objects is also performed by the Cilium Operator instead of the "
+"Agent."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:121
+msgid ""
+"This behavior can be disabled passing ``--set "
+"enableCnpStatusUpdates=false`` to ``helm install`` when installing or "
+"updating Cilium:"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:131
+msgid "Heartbeat update"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:133
+msgid ""
+"The Cilium Operator periodically updates the Cilium's heartbeat path key "
+"with the current time. The default key for this heartbeat is "
+"``cilium/.heartbeat`` in the KVStore. It is used by Cilium Agents to "
+"validate that KVStore updates can be received."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:139
+msgid "Policy status update"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:141
+msgid ""
+"Cilium Operator performs the operation of CNP/CCNP node status updates "
+"when ``k8s-events-handover`` is enabled. This optimizes Kubernetes events"
+" handling in large clusters. For the node status updates to be handled by"
+" the Cilium Operator, all the K8s events are mirrored to the KVStore, "
+"which is then used to perform operations via the Cilium Operator. This "
+"operation is performed for both ``CiliumNetworkPolicy`` and "
+"``CiliumClusterwideNetworkPolicy`` objects."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:149
+msgid ""
+"For each CNP/CCNP object in the cluster, the Cilium Operator start a "
+"status handler. This handler periodically updates the node statuses for "
+"the CNP/CCNP objects with the status of the policy for the corresponding "
+"node."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:154
+msgid "Identity garbage collection"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:156
+msgid ""
+"Each workload in Kubernetes is assigned a security identity that is used "
+"for policy decision making. This identity is based on common workload "
+"markers like labels. Cilium supports two identity allocation mechanisms:"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:160
+msgid "CRD Identity allocation"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:161
+msgid "KVStore Identity allocation"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:163
+msgid ""
+"Both the mechanisms of identity allocation require the Cilium Operator to"
+" perform the garbage collection of stale identities. This garbage "
+"collection is necessary because a 16-bit unsigned integer represents the "
+"security identity, and thus we can only have a maximum of 65536 "
+"identities in the cluster."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:170
+msgid "CRD Identity garbage collection"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:172
+msgid ""
+"CRD identity allocation uses Kubernetes custom resource "
+"``CiliumIdentity`` to represent a security identity. This is the default "
+"behavior of Cilium and works out of the box in any K8s environment "
+"without any external dependency."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:177
+msgid ""
+"The Cilium Operator maintains a local cache for CiliumIdentities with the"
+" last time they were seen active. A controller runs in the background "
+"periodically which scans this local cache and deletes identities that "
+"have not had their heartbeat life sign updated since ``identity-"
+"heartbeat-timeout``."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:183
+msgid ""
+"One thing to note here is that an Identity is always assumed to be live "
+"if it has an endpoint associated with it."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:187
+msgid "KVStore Identity garbage collection"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:189
+msgid ""
+"While the CRD allocation mode for identities is more common, it is "
+"limited in terms of scale. When running in a very large environment, a "
+"saner choice is to use the KVStore allocation mode. This mode stores the "
+"identities in an external store like etcd."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:194
+msgid ""
+"For more information on Cilium's scalability visit "
+":ref:`scalability_guide`."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:196
+msgid ""
+"The garbage collection mechanism involves scanning the KVStore of all the"
+" identities. For each identity, the Cilium Operator search in the KVStore"
+" if there are any active users of that identity. The entry is deleted "
+"from the KVStore if there are no active users."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:202
+msgid "CiliumEndpoint garbage collection"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:204
+msgid ""
+"CiliumEndpoint object is created by the ``cilium-agent`` for each ``Pod``"
+" in the cluster. The Cilium Operator manages a controller to handle the "
+"garbage collection of orphaned ``CiliumEndpoint`` objects. An orphaned "
+"``CiliumEndpoint`` object means that the owner of the endpoint object is "
+"not active anymore in the cluster. CiliumEndpoints are also considered "
+"orphaned if the owner is an existing Pod in ``PodFailed`` or "
+"``PodSucceeded`` state. This controller is run periodically if the "
+"``endpoint-gc-interval`` option is specified and only once during startup"
+" if the option is unspecified."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:215
+msgid "Derivative network policy creation"
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:217
+msgid ""
+"When using Cloud-provider-specific constructs like ``toGroups`` in the "
+"network policy spec, the Cilium Operator performs the job of converting "
+"these constructs to derivative CNP/CCNP objects without these fields."
+msgstr ""
+
+#: ../../internals/cilium_operator.rst:221
+msgid ""
+"For more information, see how Cilium network policies incorporate the use"
+" of ``toGroups`` to :ref:`lock down external access using AWS security "
+"groups<aws_metadata_with_policy>`."
+msgstr ""
+
+#: ../../internals/hubble.rst:11
+msgid "Hubble internals"
+msgstr ""
+
+#: ../../internals/hubble.rst:13
+msgid ""
+"This documentation section is targeted at developers who are interested "
+"in contributing to Hubble. For this purpose, it describes Hubble "
+"internals."
+msgstr ""
+
+#: ../../internals/hubble.rst:17
+msgid ""
+"This documentation covers the Hubble server (sometimes referred as "
+"\"Hubble embedded\") and Hubble Relay components but does not cover the "
+"Hubble UI and CLI."
+msgstr ""
+
+#: ../../internals/hubble.rst:21
+msgid ""
+"Hubble builds on top of Cilium and eBPF to enable deep visibility into "
+"the communication and behavior of services as well as the networking "
+"infrastructure in a completely transparent manner. One of the design "
+"goals of Hubble is to achieve all of this at large scale."
+msgstr ""
+
+#: ../../internals/hubble.rst:26
+msgid ""
+"Hubble's server component is embedded into the Cilium agent in order to "
+"achieve high performance with low-overhead. The gRPC services offered by "
+"Hubble server may be consumed locally via a Unix domain socket or, more "
+"typically, through Hubble Relay. Hubble Relay is a standalone component "
+"which is aware of all Hubble instances and offers full cluster visibility"
+" by connecting to their respective gRPC APIs. This capability is usually "
+"referred to as multi-node. Hubble Relay's main goal is to offer a rich "
+"API that can be safely exposed and consumed by the Hubble UI and CLI."
+msgstr ""
+
+#: ../../internals/hubble.rst:35
+msgid ""
+"This guide does not cover Hubble in standalone mode, which is deprecated "
+"with the release of Cilium v1.8."
+msgstr ""
+
+#: ../../internals/hubble.rst:39
+msgid "Hubble Architecture"
+msgstr ""
+
+#: ../../internals/hubble.rst:41
+msgid ""
+"Hubble exposes gRPC services from the Cilium process that allows clients "
+"to receive flows and other type of data."
+msgstr ""
+
+#: ../../internals/hubble.rst:45
+msgid "Hubble server"
+msgstr ""
+
+#: ../../internals/hubble.rst:47
+msgid ""
+"The Hubble server component implements two gRPC services. The **Observer "
+"service** which may optionally be exposed via a TCP socket in addition to"
+" a local Unix domain socket and the  **Peer service**, which is served on"
+" both as well as a Kubernetes Service."
+msgstr ""
+
+#: ../../internals/hubble.rst:53
+msgid "The Observer service"
+msgstr ""
+
+#: ../../internals/hubble.rst:55
+msgid ""
+"The Observer service is the principal service. It provides three RPC "
+"endpoints: ``GetFlows``, ``GetNodes`` and ``ServerStatus``.  While "
+"``ServerStatus`` and ``GetNodes`` endpoints are pretty straightforward "
+"(they provides metrics and other information related to the running "
+"instance(s)), ``GetFlows`` is far more sophisticated and the more "
+"important one."
+msgstr ""
+
+#: ../../internals/hubble.rst:61
+msgid ""
+"Using ``GetFlows``, callers get a stream of payloads. Request parameters "
+"allow callers to specify filters in the form of blacklists and whitelists"
+" to allow for fine-grained filtering of data."
+msgstr ""
+
+#: ../../internals/hubble.rst:65
+msgid ""
+"In order to answer ``GetFlows`` requests, Hubble stores monitoring events"
+" from Cilium's event monitor into a user-space ring buffer structure. "
+"Monitoring events are obtained by registering a new listener on Cilium "
+"monitor. The ring buffer is capable of storing a configurable amount of "
+"events in memory. Events are continuously consumed, overriding older ones"
+" once the ring buffer is full."
+msgstr ""
+
+#: ../../internals/hubble.rst:74
+msgid ""
+"For efficiency, the internal buffer length is a bit mask of ones + 1. The"
+" most significant bit of this bit mask is the same position of the most "
+"significant bit position of 'n'. In other terms, the internal buffer size"
+" is always a power of 2 with 1 slot reserved for the writer. In effect, "
+"from a user perspective, the ring buffer capacity is one less than a "
+"power of 2. As the ring buffer is a hot code path, it has been designed "
+"to not employ any locking mechanisms and uses atomic operations instead. "
+"While this approach has performance benefits, it also has the downsides "
+"of being a complex component."
+msgstr ""
+
+#: ../../internals/hubble.rst:83
+msgid ""
+"Due to its complex nature, the ring buffer is typically accessed via a "
+"ring reader that abstracts the complexity of this data structure for "
+"reading. The ring reader allows reading one event at the time with "
+"'previous' and 'next' methods but also implements a follow mode where "
+"events are continuously read as they are written to the ring buffer."
+msgstr ""
+
+#: ../../internals/hubble.rst:90
+msgid "The Peer service"
+msgstr ""
+
+#: ../../internals/hubble.rst:92
+msgid ""
+"The Peer service sends information about Hubble peers in the cluster in a"
+" stream. When the ``Notify`` method is called, it reports information "
+"about all the peers in the cluster and subsequently sends information "
+"about peers that are updated, added or removed from the cluster. Thus, it"
+" allows the caller to keep track of all Hubble instances and query their "
+"respective gRPC services."
+msgstr ""
+
+#: ../../internals/hubble.rst:98
+msgid ""
+"This service is typically only exposed on a local Unix domain socket and "
+"a Kubernetes Service and is primarily used by Hubble Relay in order to "
+"have a cluster-wide view of all Hubble instances."
+msgstr ""
+
+#: ../../internals/hubble.rst:102
+msgid ""
+"The Peer service obtains peer change notifications by subscribing to "
+"Cilium's node manager. To this end, it internally defines a handler that "
+"implements Cilium's datapath node handler interface."
+msgstr ""
+
+#: ../../internals/hubble.rst:109
+msgid "Hubble Relay"
+msgstr ""
+
+#: ../../internals/hubble.rst:111
+msgid ""
+"Hubble Relay is the Hubble component that brings multi-node support. It "
+"leverages the Peer service to obtain information about Hubble instances "
+"and consume their gRPC API in order to provide a more rich API that "
+"covers events from across the entire cluster (or even multiple clusters "
+"in a ClusterMesh scenario)."
+msgstr ""
+
+#: ../../internals/hubble.rst:117
+msgid ""
+"Hubble Relay was first introduced as a technology preview with the "
+"release of Cilium v1.8. It is declared stable with the release of Cilium "
+"v1.9."
+msgstr ""
+
+#: ../../internals/hubble.rst:120
+msgid ""
+"Hubble Relay implements the Observer service for multi-node. To that end,"
+" it maintains a persistent connection with every Hubble peer in a cluster"
+" with a peer manager. This component provides callers with the list of "
+"peers. Callers may report when a peer is unreachable, in which case the "
+"peer manager will attempt to reconnect."
+msgstr ""
+
+#: ../../internals/hubble.rst:126
+msgid ""
+"As Hubble Relay connects to every node in a cluster, the Hubble server "
+"instances must make their API available (by default on port 4244). By "
+"default, Hubble server endpoints are secured using mutual TLS (mTLS) when"
+" exposed on a TCP port in order to limit access to Hubble Relay only."
+msgstr ""
+
+#: ../../internals/index.rst:10
+msgid "Internals"
+msgstr ""
+
+#: ../../internals/security-identities.rst:9
+msgid "Security Identities"
+msgstr ""
+
+#: ../../internals/security-identities.rst:11
+msgid ""
+"Security identities are generated from labels. They are stored as "
+"``uint32``, which means the maximum limit for a security identity is "
+"``2^32 - 1``. The minimum security identity is ``1``."
+msgstr ""
+
+#: ../../internals/security-identities.rst:17
+msgid ""
+"Identity 0 is not a valid value. If it shows up in Hubble output, this "
+"means the identity was not found. In the eBPF datapath, it has a special "
+"role where it denotes \"any identity\", i.e. as a wildcard allow in "
+"policy maps."
+msgstr ""
+
+#: ../../internals/security-identities.rst:21
+msgid "Security identities span over several ranges, depending on the context:"
+msgstr ""
+
+#: ../../internals/security-identities.rst:23
+msgid "Cluster-local"
+msgstr ""
+
+#: ../../internals/security-identities.rst:24
+msgid "ClusterMesh"
+msgstr ""
+
+#: ../../internals/security-identities.rst:25
+msgid "Identities generated from CIDR-based policies"
+msgstr ""
+
+#: ../../internals/security-identities.rst:27
+msgid ""
+"Cluster-local identities (1) range from ``1`` to ``2^16 - 1``. The lowest"
+" values, from ``1`` to ``255``, correspond to the reserved identity "
+"range.  See the `internal code documentation "
+"<https://pkg.go.dev/github.com/cilium/cilium/pkg/identity#NumericIdentity>`__"
+" for details."
+msgstr ""
+
+#: ../../internals/security-identities.rst:33
+msgid ""
+"For ClusterMesh (2), 8 bits are used as the ``cluster-id`` which "
+"identifies the cluster in the ClusterMesh, into the 3rd octet as shown by"
+" ``0x00FF0000``. The 4th octet (uppermost bits) must be set to ``0`` as "
+"well. Neither of these constraints apply CIDR identities however, see "
+"(3)."
+msgstr ""
+
+#: ../../internals/security-identities.rst:38
+msgid ""
+"CIDR identities (3) are local to each node. CIDR identities begin from "
+"``1`` and end at ``16777215``, however since they're shifted by ``24``, "
+"this makes their effective range ``1 | (1 << 24)`` to ``16777215 | (1 << "
+"24)`` or from ``16777217`` to ``33554431``. When CIDR policies are "
+"applied, the identity generated is local to each node. In other words, "
+"the identity may not be the same for the same CIDR policy across two "
+"nodes."
+msgstr ""
+
+#: ../../internals/security-identities.rst:45
+msgid ""
+"CIDR identities are never used for traffic between Cilium-managed nodes, "
+"so they do not need to fit inside of a VXLAN or Geneve virtual network "
+"field. Non-CIDR identities are limited to 24 bits so that they will fit "
+"in these fields on the wire, but since CIDR identities will not be "
+"encoded in these packets, they can start with a higher value. Hence, the "
+"minimum value for a CIDR identity is ``2^24 + 1``."
+msgstr ""
+
+#: ../../internals/security-identities.rst:52
+msgid "Overall, the following represents the different ranges:"
+msgstr ""
+

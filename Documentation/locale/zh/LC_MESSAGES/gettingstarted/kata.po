@@ -1,0 +1,267 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: ../../gettingstarted/kata.rst:3 3eb74d4051af4a949cf756dcaae0be64
+#: d9248991f9ed478b919346539f27725e
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:11 5c2b3f75dfd94063a6cc59731eadeeb6
+msgid "Kata Containers with Cilium"
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:13 fc6a55a602764ceda0a43a7fce1cdd6b
+msgid ""
+"`Kata Containers <https://katacontainers.io/>`_ is an open source project"
+" that provides a secure container runtime with lightweight virtual "
+"machines that feel and perform like containers, but provide stronger "
+"workload isolation using hardware virtualization technology as a second "
+"layer of defense.  Kata Containers implements OCI runtime spec, just like"
+" ``runc`` that is used by Docker. Cilium can be used along with Kata "
+"Containers, using both enables higher degree of security. Kata Containers"
+" enhances security in the compute layer, while Cilium provides policy and"
+" observability in the networking layer."
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:22 da638b97395a473e9481c472e9f6ebc9
+msgid ""
+"This guide shows how to install Cilium along with Kata Containers. It "
+"assumes that you have already followed the official `Kata Containers "
+"installation user guide <https://github.com/kata-"
+"containers/documentation/tree/master/install>`_ to get the Kata "
+"Containers runtime up and running on your platform of choice but that you"
+" haven't yet setup Kubernetes."
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:29 a0aea9a928064ef6acc02d48d78acc56
+msgid ""
+"This guide has been validated by following the Kata Containers guide for "
+"Google Compute Engine (GCE) and using Ubuntu 18.04 LTS with the packaged "
+"version of Kata Containers, CRI-containerd and Kubernetes 1.18.3."
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:34 2dbe99d84d234a488d565fc392fcda79
+msgid "Setup Kubernetes with CRI"
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:36 cbb32f503c5740a3908c27a8296c103a
+msgid ""
+"Kata Containers runtime is an OCI compatible runtime and cannot directly "
+"interact with the CRI API level. For this reason, it relies on a CRI "
+"implementation to translate CRI into OCI. At the time of writing this "
+"guide, there are two supported ways called CRI-O and CRI-containerd. It "
+"is up to you to choose the one that you want, but you have to pick one."
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:42 d5ec6849a69143529d5856ccb14eefb5
+msgid ""
+"Refer to the section :ref:`k8s_requirements` for detailed instruction on "
+"how to prepare your Kubernetes environment and make sure to use "
+"Kubernetes >= 1.12. Then, follow the `official guide to run Kata "
+"Containers with Kubernetes <https://github.com/kata-"
+"containers/documentation/blob/master/how-to/run-kata-with-k8s.md>`_."
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:48 6424e49dcc53404184f1b51eab82a834
+msgid ""
+"Minimum version of kubernetes 1.12 is required to use the RuntimeClass "
+"Feature for Kata Container runtime described below."
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:51 b7ee004ebd5647638ea7e72615f3acad
+msgid "With your Kubernetes cluster ready, you can now proceed to deploy Cilium."
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:54 4887864059e7433798151f614bcbe50c
+msgid "Deploy Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: f163b2a029f646959215a10d27a9765b
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: ff9fd6fddb1d4db2b5b59db82dcf8e57
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 70a1704ffc2a4247a4d52d276f3f892b
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:58 5da5e6604d7f49848abd46fb5cdaf317
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:62 b3743f48dfa24588a08d29c0bb6e62c6
+msgid "Using CRI-O"
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:70 3bd3cf11f0f14ec7a88f406d59c6c07a
+msgid "Using CRI-containerd"
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:80 c065370b9b1e4a2f982566ad1c1efc8e
+msgid ""
+"Kata containers do not work with :ref:`host-services`, or with :ref"
+":`kube-proxy replacement <kubeproxy-free>` in strict mode. These features"
+" should be disabled with ``--set hostServices.enabled=false`` (default) "
+"and ``--set kubeProxyReplacement=disabled`` (or ``partial``)."
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:85 6e58b0a2e26c4badb8f007e6d7e43161
+msgid ""
+"Both features rely on socket-based load-balancing, which is not possible "
+"given that Kata containers are virtual machines running with their own "
+"kernel. For kube-proxy replacement, this limitation is tracked with :gh-"
+"issue:`15437`."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: ae968aec1a8e46dc95c940a0bf5acae9
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 5626d200113b4e89a6c4aea5480478a3
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 0994a955ef114366a8743b1c6fa75a34
+#: ed24c30545434321b5e5df2d47ff2bf8
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 248104d0e13245e8bfb7662b852ca241
+#: 734de42da3d0475b8220fca74a82da66
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 00ec958a5e904cf2a3b08b0cc336d360
+#: 9b9dd1aa1c33428eb46bc73504ffbcac
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 4192fe72419c4b5a8d3ea953672081ca
+#: 56c3bedd3a84448aaddbd6f35b38f4c9
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 06e1561f385d4c39b4a5484afca78120
+#: 0ccf1c741a824b9e800ab6fe1e7bf342
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 a10d69f4c7304433a16ac27168b6d413
+#: deaeac5338db472fb1f67bd785c0f33d
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: b9d127ca6e53413db3c933c9604ec8fc
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: e058274100594594b567a93bd86422b1
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 0db75df1a5b14a0d9cedf18f44f3a165
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 14b883711ce540f79d0beef4368b4663
+#: db8604c8451144a6986f79b44ea142fc
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 411215d394cb4fd4ab89b71d184734df
+#: f97a6b62ef654529990fbdf51c7949c0
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: cce4b32338d447ea986195c59b3869f9
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 2ec3842faba84234841c72b4a8619e21
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: e8e85f9bbed0428ebdb745c39da45adc
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 9c907aa2d6544338a2879d2796b3210c
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 46369ca1fd434da2923260b588700777
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:93 6fdb8fcc73ab4503a07de0653466212f
+msgid "Run Kata Containers with Cilium CNI"
+msgstr ""
+
+#: ../../gettingstarted/kata.rst:95 5b9c81613b364296872fe3f57cad0358
+msgid ""
+"Now that your Kubernetes cluster is configured with the Kata Containers "
+"runtime and Cilium as the CNI, you can run a sample workload by following"
+" `these instructions <https://github.com/kata-"
+"containers/packaging/tree/master/kata-deploy#run-a-sample-workload>`_."
+msgstr ""
+

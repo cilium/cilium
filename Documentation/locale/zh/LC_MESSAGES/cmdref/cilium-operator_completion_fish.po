@@ -1,0 +1,71 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator_completion_fish.md:3
+#: 04c73cf6858f440db251070050e72fd9
+msgid "cilium-operator completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:5
+#: a85c8be921184e5dad51c35e63751074
+msgid "Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:7
+#: 0b3a60d5601c4e1e8669301ca9befe46
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:9
+#: 24a7b4c3dd804819ad870aa63a249b1a
+msgid "Generate the autocompletion script for the fish shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:11
+#: b0f177f618b842099e45e6483f96e028
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:15
+#: cec8cc4aba5e446489545fd8081185f2
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:19
+#: 4fc90ff202474d87859ce35af7ad7a5e
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:26
+#: f803428ec5cd431c94c51499c0eb7a73
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:33
+#: 74fdd7d0cd0f448da37b5f125fd5c0a5
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator_completion_fish.md:35
+#: a4d0ee0159a441f0acf000de0784ca20
+msgid ""
+"[cilium-operator completion](cilium-operator_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+

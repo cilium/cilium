@@ -1,0 +1,300 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/grpc.rst:3 f5ffea73f0a84cdb8ccf24592be9136d
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:9 4055299b576b4209bf882eff97f0ac43
+msgid "How to secure gRPC"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:11 85cc21ef653d4a9fb10c43c698ff40ef
+msgid ""
+"This document serves as an introduction to using Cilium to enforce gRPC-"
+"aware security policies.  It is a detailed walk-through of getting a "
+"single-node Cilium environment running on your machine. It is designed to"
+" take 15-30 minutes."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:1 7c081d3e6fda4e67b7dbaeb667bfa9c1
+msgid ""
+"If you haven't read the :ref:`intro` yet, we'd encourage you to do that "
+"first."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:3 a0de4abb3e7143c59105ce6909985c5a
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:8 fc707806c61646edbf9065e430a19339
+msgid "Setup Cilium"
+msgstr ""
+
+#: ../../gettingstarted/gsg_requirements.rst:10
+#: 915129252e534a0285e53be70d8ad0b7
+msgid ""
+"If you have not set up Cilium yet, follow the guide "
+":ref:`k8s_install_standard` for instructions on how to quickly bootstrap "
+"a Kubernetes cluster and install Cilium. If in doubt, pick the minikube "
+"route, you will be good to go in less than 5 minutes."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:18 3ea6cb9026b04739916b89f36e470c9d
+msgid ""
+"It is important for this demo that ``kube-dns`` is working correctly. To "
+"know the status of ``kube-dns`` you can run the following command:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:27 d17fbb67968840179008f0814b3e1ef4
+msgid "Where at least one pod should be available."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:30 863c5ad93f5a4005a68ddc7ed0ef29d1
+msgid "Deploy the Demo Application"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:32 7d5800bac13c49d8868840036c7986f0
+msgid ""
+"Now that we have Cilium deployed and ``kube-dns`` operating correctly we "
+"can deploy our demo gRPC application.  Since our first demo of Cilium + "
+"HTTP-aware security policies was Star Wars-themed, we decided to do the "
+"same for gRPC. While the `HTTP-aware Cilium  Star Wars demo "
+"<https://cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you/>`_ "
+"showed how the Galactic Empire used HTTP-aware security policies to "
+"protect the Death Star from the Rebel Alliance, this gRPC demo shows how "
+"the lack of gRPC-aware security policies allowed Leia, Chewbacca, Lando, "
+"C-3PO, and R2-D2 to escape from Cloud City, which had been overtaken by "
+"empire forces."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:40 c918b8645e4246a9a92f30e779183a5c
+msgid ""
+"`gRPC <https://grpc.io/>`_ is a high-performance RPC framework built on "
+"top of the `protobuf <https://developers.google.com/protocol-buffers/>`_ "
+"serialization/deserialization library popularized by Google.  There are "
+"gRPC bindings for many programming languages, and the efficiency of the "
+"protobuf parsing as well as advantages from leveraging HTTP 2 as a "
+"transport make it a popular RPC framework for those building new "
+"microservices from scratch."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:46 22ea6003a6f3419c9e40adf58514a965
+msgid ""
+"For those unfamiliar with the details of the movie, Leia and the other "
+"rebels are fleeing storm troopers and trying to reach the space port "
+"platform where the Millennium Falcon is parked, so they can fly out of "
+"Cloud City. However, the door to the platform is closed, and the access "
+"code has been changed. However, R2-D2 is able to access the Cloud City "
+"computer system via a public terminal, and disable this security, opening"
+" the door and letting the Rebels reach the Millennium Falcon just in time"
+" to escape."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:55 a6c80d65687f4cd79817aa8bf7e93aed
+msgid ""
+"In our example, Cloud City's internal computer system is built as a set "
+"of gRPC-based microservices (who knew that gRPC was actually invented a "
+"long time ago, in a galaxy far, far away?)."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:59 4a3d5d0a57374444a6191b48b4489ae9
+msgid ""
+"With gRPC, each service is defined using a language independent protocol "
+"buffer definition. Here is the definition for the system used to manage "
+"doors within Cloud City:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:86 029a2588206f4615b494b098d4039c16
+msgid ""
+"To keep the setup small, we will just launch two pods to represent this "
+"setup:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:88 fa073e6bc980452d9da6871d2580851d
+msgid ""
+"**cc-door-mgr**: A single pod running the gRPC door manager service with "
+"label ``app=cc-door-mgr``."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:89 03654cfa9acc4da4b5f65dc8e97b8c7f
+msgid ""
+"**terminal-87**: One of the public network access terminals scattered "
+"across Cloud City. R2-D2 plugs into terminal-87 as the rebels are "
+"desperately trying to escape. This terminal uses the gRPC client code to "
+"communicate with the door management services with label ``app=public-"
+"terminal``."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:94 719b0c4f3d304f01976affd9e06bd5b5
+msgid ""
+"The file ``cc-door-app.yaml`` contains a Kubernetes Deployment for the "
+"door manager service, a Kubernetes Pod representing ``terminal-87``, and "
+"a Kubernetes Service for the door manager services. To deploy this "
+"example app, run:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:105 5bdc1d72864049d2aac7ab783728bb90
+msgid ""
+"Kubernetes will deploy the pods and service in the background. Running "
+"``kubectl get svc,pods`` will inform you about the progress of the "
+"operation. Each pod will go through several states until it reaches "
+"``Running`` at which point the setup is ready."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:122 6b652a381b7e40c2a5bdc6cf5d687b1a
+msgid "Test Access Between gRPC Client and Server"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:124 fde91892b43c47de87f6e6e8c07a9bc8
+msgid ""
+"First, let's confirm that the public terminal can properly act as a "
+"client to the door service.  We can test this by running a Python gRPC "
+"client for the door service that exists in the *terminal-87* container."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:128 fce1d367dbe049e0a9c68c9feb259155
+msgid ""
+"We'll invoke the 'cc_door_client' with the name of the gRPC method to "
+"call, and any parameters (in this case, the door-id):"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:139 0780e943e51c4be1906e56b9659aef46
+msgid ""
+"Exposing this information to public terminals seems quite useful, as it "
+"helps travelers new to Cloud City identify and locate different doors. "
+"But recall that the door service also exposes several other methods, "
+"including ``SetAccessCode``. If access to the door manager service is "
+"protected only using traditional IP and port-based firewalling, the TCP "
+"port of the service (50051 in this example) will be wide open to allow "
+"legitimate calls like ``GetName`` and ``GetLocation``, which also leave "
+"more sensitive calls like ``SetAccessCode`` exposed as well. It is this "
+"mismatch between the course granularity of traditional firewalls and the "
+"fine-grained nature of gRPC calls that R2-D2 exploited to override the "
+"security and help the rebels escape."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:149 c0b8dcdd9d114e1e90915135da405efe
+msgid "To see this, run:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:158 ab9d572f793242ffb30606925ee989cf
+msgid "Securing Access to a gRPC Service with Cilium"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:160 ee8153b71fe746a788683b589e6566de
+msgid ""
+"Once the legitimate owners of Cloud City recover the city from the "
+"empire, how can they use Cilium to plug this key security hole and block "
+"requests to ``SetAccessCode`` and ``GetStatus`` while still allowing "
+"``GetName``, ``GetLocation``, and ``RequestMaintenance``?"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:166 af82f69286ef47b2851ca361aa1441f3
+msgid ""
+"Since gRPC build on top of HTTP, this can be achieved easily by "
+"understanding how a gRPC call is mapped to an HTTP URL, and then applying"
+" a Cilium HTTP-aware filter to allow public terminals to only invoke a "
+"subset of all the total gRPC methods available on the door service."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:171 bde73c63438f4c7493ce30079787fbe0
+msgid ""
+"Each gRPC method is mapped to an HTTP POST call to a URL of the form "
+"``/cloudcity.DoorManager/<method-name>``."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:174 2d40b21b4a8641168f1684142ab38eb2
+msgid ""
+"As a result, the following *CiliumNetworkPolicy* rule limits access of "
+"pods with label ``app=public-terminal`` to only invoke ``GetName``, "
+"``GetLocation``, and ``RequestMaintenance`` on the door service, "
+"identified by label ``app=cc-door-mgr``:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:182 b5d5131d4daa4269b892b5cf7c57ef78
+msgid ""
+"A *CiliumNetworkPolicy* contains a list of rules that define allowed "
+"requests, meaning that requests that do not match any rules (e.g., "
+"``SetAccessCode``) are denied as invalid."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:185 fe5afcebd97d4b1e8c51725e0e6f5e4f
+msgid ""
+"The above rule applies to inbound (i.e., \"ingress\") connections to "
+"``cc-door-mgr pods`` (as indicated by ``app: cc-door-mgr`` in the "
+"\"endpointSelector\" section). The rule will apply to connections from "
+"pods with label ``app: public-terminal`` as indicated by the "
+"\"fromEndpoints\" section. The rule explicitly matches gRPC connections "
+"destined to TCP 50051, and white-lists specifically the permitted URLs."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:192 edc242932cc643888b7d439cb4c9b0fb
+msgid ""
+"Apply this gRPC-aware network security policy using ``kubectl`` in the "
+"main window:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:198 75294d17b8224656a353f59d4d1f86e3
+msgid ""
+"After this security policy is in place, access to the innocuous calls "
+"like ``GetLocation`` still works as intended:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:207 94c1970e6c2b417996729d819f0f8aad
+msgid "However, if we then again try to invoke ``SetAccessCode``, it is denied:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:225 0c257140c0e14d12b0a883f506c2d118
+msgid ""
+"This is now blocked, thanks to the Cilium network policy. And notice that"
+" unlike a traditional firewall which would just drop packets in a way "
+"indistinguishable from a network failure, because Cilium operates at the "
+"API-layer, it can explicitly reply with an custom HTTP 403 Unauthorized "
+"error, indicating that the request was intentionally denied for security "
+"reasons."
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:231 0de6230baf5d4d678aa29b115e8ac3c8
+msgid ""
+"Thank goodness that the empire IT staff hadn't had time to deploy Cilium "
+"on Cloud City's internal network prior to the escape attempt, or things "
+"might have turned out quite differently for Leia and the other Rebels!"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:236 9212f48867e048038afaa18d6b369d40
+msgid "Clean-Up"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:238 6a2fe46d129749a6a1366f2f7822f38c
+msgid ""
+"You have now installed Cilium, deployed a demo app, and tested L7 gRPC-"
+"aware network security policies. To clean-up, run:"
+msgstr ""
+
+#: ../../gettingstarted/grpc.rst:246 4848216ecef94956aac589ba54e1a78f
+msgid "After this, you can re-run the tutorial from Step 1."
+msgstr ""
+

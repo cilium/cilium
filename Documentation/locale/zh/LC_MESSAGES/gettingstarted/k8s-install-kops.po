@@ -1,0 +1,380 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-kops.rst:3 e2c487fc28b2456e9892b9825f5c7170
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:12
+#: 784050233ea446fcaf0442550d309a11
+msgid "Installation using Kops"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:14
+#: 839e72533042419c89d94f293b0153a9
+msgid ""
+"As of kops 1.9 release, Cilium can be plugged into kops-deployed clusters"
+" as the CNI plugin. This guide provides steps to create a Kubernetes "
+"cluster on AWS using kops and Cilium as the CNI plugin. Note, the kops "
+"deployment will automate several deployment features in AWS by default, "
+"including AutoScaling, Volumes, VPCs, etc."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:20
+#: ac00ed695c40426e810984c1577528f1
+msgid ""
+"Kops offers several out-of-the-box configurations of Cilium including "
+":ref:`kubeproxy-free`, :ref:`ipam_eni`, and dedicated etcd cluster for "
+"Cilium. This guide will just go through a basic setup."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:25
+#: 184fda8f1eaf4d0c8893aa9f2d17e363
+msgid "Prerequisites"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:27
+#: 30c027e584384ee5b807d83d23a29ab6
+msgid "`aws cli <https://aws.amazon.com/cli/>`_"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:28
+#: e6b3918505544654ba30a4a59b97b444
+msgid "`kubectl <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:29
+#: 1283f721c6824a7b86a8f831ec625d04
+msgid ""
+"aws account with permissions: * AmazonEC2FullAccess * "
+"AmazonRoute53FullAccess * AmazonS3FullAccess * IAMFullAccess * "
+"AmazonVPCFullAccess"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:38
+#: a324597db64a47acbc783de4842a5690
+msgid "Installing kops"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6
+#: ../../gettingstarted/k8s-install-kops.rst:41
+#: 89876fd641cb42e6935a3a2b3020baeb 8adccd59c15b4c799f72ae0ff3c7dfa6
+#: be7ed0101c4741cd8c8926ae9527ee4f
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:49
+#: 94814995e941409cb5b8ff57af496b7a
+msgid "MacOS"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:57
+#: c6d24602142c4e5ca1913fc9043166d0
+msgid "Setting up IAM Group and User"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:59
+#: 409204c5fed248dc8b436d4627499894
+msgid ""
+"Assuming you have all the prerequisites, run the following commands to "
+"create the kops user and group:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:76
+#: 80b94d0db9c94232a7a59c78ab35af5a
+msgid ""
+"kops requires the creation of a dedicated S3 bucket in order to store the"
+" state and representation of the cluster. You will need to change the "
+"bucket name and provide your unique bucket name (for example a reverse of"
+" FQDN added with short description of the cluster). Also make sure to use"
+" the region where you will be deploying the cluster."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:87
+#: ac24f96a51084ae98c3ead1e83d2834b
+msgid ""
+"The above steps are sufficient for getting a working cluster installed. "
+"Please consult `kops aws documentation "
+"<https://kops.sigs.k8s.io/getting_started/install/>`_ for more detailed "
+"setup instructions."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:94
+#: 9fdbabc8989a4227ad1013fa70f38a47
+msgid "Cilium Prerequisites"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:96
+#: 0e1c0e57aeb7417394dabf6467b1fb5d
+msgid ""
+"Ensure the :ref:`admin_system_reqs` are met, particularly the Linux "
+"kernel and key-value store versions."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:99
+#: 840689c8ba17407dabcb14517a6ccdc0
+msgid ""
+"The default AMI satisfies the minimum kernel version required by Cilium, "
+"which is what we will use in this guide."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:104
+#: 389e47f38b0b4831b2d3ebaa220cd9cf
+msgid "Creating a Cluster"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:106
+#: 7a9304b6f5f14b4aa1aac168f166ffa5
+msgid ""
+"Note that you will need to specify the ``--master-zones`` and ``--zones``"
+" for creating the master and worker nodes. The number of master zones "
+"should be * odd (1, 3, ...) for HA. For simplicity, you can just use 1 "
+"region."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:109
+#: a1b8204cffd949e2b1803584b666c5ef
+msgid ""
+"To keep things simple when following this guide, we will use a gossip-"
+"based cluster. This means you do not have to create a hosted zone "
+"upfront.  cluster ``NAME`` variable must end with ``k8s.local`` to use "
+"the gossip  protocol. If creating multiple clusters using the same kops "
+"user, then make the cluster name unique by adding a prefix such as ``com-"
+"company-emailid-``."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:122
+#: 4794b384e5d741ca83f71ba64f0a8bbd
+msgid "You may be prompted to create a ssh public-private key pair."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:129
+#: e8651e280a2842d7a55c4324c1a01fee
+msgid "(Please see :ref:`appendix_kops`)"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: 426d992b5c644c189db7a5c19860de17
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 328eb8dfaf2547a3be6f4f826ac5f636
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 96a41094b07a4dd9867f6c9c6facd38a
+#: fe31ff89201c4efeb7f7baca498ee6e8
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 1ed5cc68616f4f608c5f8ed19ea859a8
+#: 49d46542e048468aa144ea26859017df
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 1b2ca1999f15418f8b4dd84ef06694ec
+#: 47e94ce57e1242b89961d35b99c2e582
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 96df262bb787476c9a994a975aaab90b
+#: a617812b777443d6b87dff551aa93c75
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 e5afd8a044c74d0d994d473b39f5241b
+#: f50a0188d97d4f2a9b64016775c8e4b6
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 3f04d7dcc04b4036b65fc5d9fa15476a
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: fbf1f4ece50542c5baa2563fab808af5
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: d993a180cac848e7859b51fc4a8dcf5a
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 b52e00c0d4f844dfa101b7fa2fb0e48d
+#: f82025166c75434dbeaf27aa59bc2dd5
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 8ca139a134904dd18a74396c8f1027aa
+#: db3f37701631462495b02c3ff2321cbd
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 53239430b0284fefb9688146a9018c21
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 7dbb5f7f41df4ab0aad7b5158c0eb11d
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 62ac62cf9432421f9545427457671ad0
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 81e943d89ecb42edb8055d78ace05263
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 1c890361309b4ecdb133c7823bdba7a4
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:137
+#: 7af72b03efc1485985aa194e6d110346
+msgid "Deleting a Cluster"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:139
+#: a054ca56505145c9944fd78be96fc7ba
+msgid ""
+"To undo the dependencies and other deployment features in AWS from the "
+"kops cluster creation, use kops to destroy a cluster *immediately* with "
+"the parameter ``--yes``:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:149
+#: 087b4a1feae848548f855ae685bab47c
+msgid "Further reading on using Cilium with Kops"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:150
+#: ac03550a7b2c436a88dd290686043021
+msgid ""
+"See the `kops networking documentation "
+"<https://kops.sigs.k8s.io/networking/cilium/>`_ for more information on "
+"the configuration options kops offers."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:152
+#: 614cc2b335fa4c23ad760c8c0090a4f5
+msgid ""
+"See the `kops cluster spec documentation "
+"<https://pkg.go.dev/k8s.io/kops/pkg/apis/kops?tab=doc#CiliumNetworkingSpec>`_"
+" for a comprehensive list of all the options"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:156
+#: e5bad0408e084d77badb189b9b9a1a7d
+msgid "Appendix: Details of kops flags used in cluster creation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:158
+#: 34aacd67178b4c7ba117ea41a4a5e212
+msgid ""
+"The following section explains all the flags used in create cluster "
+"command."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:160
+#: 29b059eb9507455c81e309b19ea3d6c9
+msgid ""
+"``--state=${KOPS_STATE_STORE}`` : KOPS uses an S3 bucket to store the "
+"state of your cluster and representation of your cluster"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:161
+#: 5021313903944b3ba49c57dc6d932499
+msgid "``--node-count 3`` : No. of worker nodes in the kubernetes cluster."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:162
+#: 2734a38b47d54c819de61dc942e7394d
+msgid ""
+"``--topology private`` : Cluster will be created with private topology, "
+"what that means is all masters/nodes will be launched in a private subnet"
+" in the VPC"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:163
+#: f3908d69afcb47ebbcdaf7e9b5851dd9
+msgid ""
+"``--master-zones eu-west-1a,eu-west-1b,eu-west-1c`` : The 3 zones ensure "
+"the HA of master nodes, each belonging in a different Availability zones."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:164
+#: 979a41edb0cc4b7bb11e140cdd8e4b7d
+msgid ""
+"``--zones eu-west-1a,eu-west-1b,eu-west-1c`` : Zones where the worker "
+"nodes will be deployed"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:165
+#: 3594275bc0334bd0951054d884673427
+msgid ""
+"``--networking cilium`` : Networking CNI plugin to be used - cilium. You "
+"can also use ``cilium-etcd``, which will use a dedicated etcd cluster as "
+"key/value store instead of CRDs."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:166
+#: 31d084efe5644596878f2744361d28c9
+msgid ""
+"``--cloud-labels \"Team=Dev,Owner=Admin\"`` :  Labels for your cluster "
+"that will be applied to your instances"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kops.rst:167
+#: 67d5409b355e4050835863a2bbb76a9e
+msgid ""
+"``${NAME}`` : Name of the cluster. Make sure the name ends with k8s.local"
+" for a gossip based cluster"
+msgstr ""
+

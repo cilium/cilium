@@ -1,0 +1,55 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:3 fb0867b7cc0642eb8d6eca7970d5e4c1
+msgid "cilium bpf lb maglev"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:5 67404d40d2a942a9905d7383a1133115
+msgid "Maglev lookup table"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:7 9919471f73b9436d9b5ff2ae1f9510e8
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:13 d0bbdcc74a574d04aa2edee51e54b7fa
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:21 4ef5eaa9c6f9425d8df0acbea7c89170
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:23 e3d4310eea444d3d96d26b1078c3f27c
+msgid "[cilium bpf lb](cilium_bpf_lb.md)\t - Load-balancing configuration"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:24 8b96db2470554ee38067f1980f08b5ff
+msgid ""
+"[cilium bpf lb maglev get](cilium_bpf_lb_maglev_get.md)\t - Get Maglev "
+"lookup table for given service by ID"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_lb_maglev.md:25 c37038080f9e4e808332a7003523734e
+msgid ""
+"[cilium bpf lb maglev list](cilium_bpf_lb_maglev_list.md)\t - List Maglev"
+" lookup tables"
+msgstr ""
+

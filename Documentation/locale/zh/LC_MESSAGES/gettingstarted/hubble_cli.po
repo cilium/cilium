@@ -1,0 +1,98 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/hubble_cli.rst:3 a22e666ba17c4e7b80c69398f86b4a31
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:11 79f1373c0cfb4b37a305d7b7d4a90cdd
+msgid "Inspecting Network Flows with the CLI"
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:13 70cb49628f9e47d3824b1b3b9a83c5c4
+msgid ""
+"This guide walks you through using the Hubble CLI to inspect network "
+"flows and gain visibility into what is happening on the network level."
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:16 6614bec08a7f44b8943e5efe65e18223
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:22 48001be564fb4f88a932809b562613aa
+msgid ""
+"This guide assumes that Cilium has been correctly installed in your "
+"Kubernetes cluster and that Hubble has been enabled. Please see "
+":ref:`k8s_quick_install` and :ref:`hubble_setup` for more information. If"
+" unsure, run ``cilium status`` and validate that Cilium and Hubble are up"
+" and running."
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:30 83f4a739d3a94eacaaa4b219fd4365ee
+msgid ""
+"This guide uses examples based on the Demo App. If you would like to run "
+"them, deploy the Demo App first. Please refer to :ref:`gs_http` for more "
+"details."
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:34 d2fb1a50072b44dead7d2e164744cb1d
+msgid "Inspecting the cluster's network traffic with Hubble Relay"
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:36 f988752f9a1242ec83af2110ea934e0e
+msgid ""
+"Let's issue some requests to emulate some traffic again. This first "
+"request is allowed by the policy."
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:44 a6bb2d07ae0d4a49b8ad236df8e5ab48
+msgid "This next request is accessing an HTTP endpoint which is denied by policy."
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:51 8b3edf74fa5f46bc9b5427e303bed7ef
+msgid ""
+"Finally, this last request will hang because the ``xwing`` pod does not "
+"have the ``org=empire`` label required by policy. Press Control-C to kill"
+" the curl request, or wait for it to time out."
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:60 99bb0c195fda4728bc457b021bbbb82a
+msgid ""
+"Let's now inspect this traffic using the CLI. The command below filters "
+"all traffic on the application layer (L7, HTTP) to the ``deathstar`` pod:"
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:72 032f4efb6b6c4e37982172eb0416703e
+msgid ""
+"The following command shows all traffic to the ``deathstar`` pod that has"
+" been dropped:"
+msgstr ""
+
+#: ../../gettingstarted/hubble_cli.rst:83 44f54376adea4c34a440d13f929062f6
+msgid ""
+"Feel free to further inspect the traffic. To get help for the ``observe``"
+" command, use ``hubble help observe``."
+msgstr ""
+

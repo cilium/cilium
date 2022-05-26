@@ -1,0 +1,80 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../policy/troubleshooting.rst:3 15d6db2c4ece4dd7a9e9df884f82e6c0
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../policy/troubleshooting.rst:11 90570d7b83f343ab97cf4198645faadc
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../policy/troubleshooting.rst:14 dbfc6deab06d438a94a5688bdfb0bad7
+msgid "Policy Rule to Endpoint Mapping"
+msgstr ""
+
+#: ../../policy/troubleshooting.rst:16 dfa4f85b15a940088189b15a19db54e1
+msgid ""
+"To determine which policy rules are currently in effect for an endpoint "
+"the data from ``cilium endpoint list`` and ``cilium endpoint get`` can be"
+" paired with the data from ``cilium policy get``. ``cilium endpoint get``"
+" will list the labels of each rule that applies to an endpoint. The list "
+"of labels can be passed to ``cilium policy get`` to show that exact "
+"source policy.  Note that rules that have no labels cannot be fetched "
+"alone (a no label ``cilium policy get`` returns the complete policy on "
+"the node). Rules with the same labels will be returned together."
+msgstr ""
+
+#: ../../policy/troubleshooting.rst:25 734427113f374c028ced08271f1d5394
+msgid ""
+"In the above example, for one of the ``deathstar`` pods the endpoint id "
+"is 568. We can print all policies applied to it with:"
+msgstr ""
+
+#: ../../policy/troubleshooting.rst:100 45070782b1004354910726a8517ee9c9
+msgid "Troubleshooting ``toFQDNs`` rules"
+msgstr ""
+
+#: ../../policy/troubleshooting.rst:102 8e248bb373ba4ebbabc4759ced359f0a
+msgid ""
+"The effect of ``toFQDNs`` may change long after a policy is applied, as "
+"DNS data changes. This can make it difficult to debug unexpectedly "
+"blocked connections, or transient failures. Cilium provides CLI tools to "
+"introspect the state of applying FQDN policy in multiple layers of the "
+"daemon:"
+msgstr ""
+
+#: ../../policy/troubleshooting.rst:107 8c39b568d4084790a2822ed8fa39aaeb
+msgid "``cilium policy get`` should show the FQDN policy that was imported:"
+msgstr ""
+
+#: ../../policy/troubleshooting.rst:180 bcb05adaac0e45af9d3a217c4359003f
+msgid ""
+"After making a DNS request, the FQDN to IP mapping should be available "
+"via ``cilium fqdn cache list``:"
+msgstr ""
+
+#: ../../policy/troubleshooting.rst:190 d224ba39212b4e8a8ff77c5dcc76a57a
+msgid ""
+"If the traffic is allowed, then these IPs should have corresponding local"
+" identities via ``cilium identity list | grep <IP>``:"
+msgstr ""
+

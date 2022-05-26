@@ -1,0 +1,799 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/security/proxy/envoy.rst:3 637146b8cb054af39145696d4c6475b7
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:11 6009535c6f4142bc9f237c93f51ad254
+msgid "Envoy"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:15 d52617ac196e47d8883244cda1555345
+msgid "Go Extensions"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:17 252ef02a7b9940f1973b54124ca7ffb4
+msgid "This feature is currently in beta phase."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:19 14296e8c9f5547a58eb299bab670f9f0
+msgid ""
+"This is a guide for developers who are interested in writing a Go "
+"extension to the Envoy proxy as part of Cilium."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:24 7a4b6147f7eb45ac98b1e68a8d21050d
+msgid ""
+"As depicted above, this framework allows a developer to write a small "
+"amount of Go code (green box) focused on parsing a new API protocol, and "
+"this Go code is able to take full advantage of Cilium features including "
+"high-performance redirection to/from Envoy, rich L7-aware policy language"
+" and access logging, and visibility into encrypted traffic via kTLS "
+"(coming soon!). In sum, you as the developer need only worry about the "
+"logic of parsing the protocol, and Cilium + Envoy + eBPF do the heavy-"
+"lifting."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:32 e6517dd261c243bdaf10bf7cc250f12d
+msgid ""
+"This guide uses simple examples based on a hypothetical \"r2d2\" protocol"
+" (see `proxylib/r2d2/r2d2parser.go "
+"<https://github.com/cilium/cilium/blob/master/proxylib/r2d2/r2d2parser.go>`_)"
+" that might be used to talk to a simple protocol droid a long time ago in"
+" a galaxy far, far away. But it also points to other real protocols like "
+"Memcached and Cassandra that already exist in the cilium/proxylib "
+"directory."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:39 07bb59f1b9674a88b0092627bd5e37d4
+msgid "Step 1: Decide on a Basic Policy Model"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:41 5c3fb55bb95a4e2f91abd933c0e39e1d
+msgid ""
+"To get started, take some time to think about what it means to provide "
+"protocol-aware security in the context of your chosen protocol.   Most "
+"protocols follow a common pattern of a client who performs an "
+"''operation'' on a ''resource''.   For example:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:45 371bef73dd5e4fd59d467e85b603a4fc
+msgid ""
+"A standard RESTful HTTP request has a GET/POST/PUT/DELETE methods "
+"(operation) and URLs (resource)."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:46 560e23d69fdf4229b724f05f3c8992aa
+msgid ""
+"A database protocol like MySQL has SELECT/INSERT/UPDATE/DELETE actions "
+"(operation) on a combined database + table name (resource)."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:47 551f07872cea4052bdd18b454e96933d
+msgid ""
+"A queueing protocol like Kafka has produce/consume (operation) on a "
+"particular queue (resource)."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:49 26406f41839e4cadbca151279972b339
+msgid ""
+"A common policy model is to allow the user to whitelist certain "
+"operations on one or more resources. In some cases, the resources need to"
+" support regexes to avoid explicit matching on variable content like ids "
+"(e.g., /users/<uuid> would match /users/.*)"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:53 b38b8fb8f27347d1ac9d695a76bbb21c
+msgid ""
+"In our examples, the ''r2d2'' example, we'll use a basic set of "
+"operations (READ/WRITE/HALT/RESET). The READ and WRITE commands also "
+"support a 'filename' resource, while HALT and RESET have no resource."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:57 4958089f414642dea4a351efc6cdfcec
+msgid "Step 2: Understand Protocol, Encoding, Framing and Types"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:59 5093f9dbed1c46e394b7a323e6b21d3f
+msgid ""
+"Next, get your head wrapped around how a protocol looks terms of the raw "
+"data, as this is what you'll be parsing."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:61 64c46f41c45e46ea8db40940c8a10a48
+msgid ""
+"Try looking for official definitions of the protocol or API.   Official "
+"docs will not only help you quickly learn how the protocol works, but "
+"will also help you by documenting tricky corner cases that wouldn't be "
+"obvious just from regular use of the protocol.   For example, here are "
+"example specs for `Redis Protocol <https://redis.io/topics/protocol>`_ , "
+"`Cassandra Protocol "
+"<https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v4.spec>`_,"
+" and `AWS SQS "
+"<https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/Welcome.html>`_"
+" ."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:67 3e5cf7e7f70a44fc88476df10ab2e027
+msgid "These specs help you understand protocol aspects like:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:69 f1955f62d6fd4ad3b7d461fda956fc77
+msgid ""
+"**encoding / framing** : how to recognize the beginning/end of individual"
+" requests/replies within a TCP stream. This typically involves reading a "
+"header that encodes the overall request length, though some simple "
+"protocols use a delimiter like ''\\r\\n\\'' to separate messages."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:73 23426e1563934b7eb3d22831cb3e5a16
+msgid ""
+"**request/reply fields** : for most protocols, you will need to parse out"
+" fields at various offsets into the request data in order to extract "
+"security-relevant values for visibility + filtering.  In some cases, "
+"access control requires filtering requests from clients to servers, but "
+"in some cases, parsing replies will also be required if reply data is "
+"required to understand future requests (e.g., prepared-statements in "
+"database protocols)."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:78 90c18834ca564e5aa310aa8682875c44
+msgid ""
+"**message flow** : specs often describe various dependencies between "
+"different requests.  Basic protocols tend to follow a simple serial "
+"request/reply model, but more advanced protocols will support pipelining "
+"(i.e., sending multiple requests before any replies have been received)."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:82 91e3d45899af49799d2fe98c133b8b23
+msgid ""
+"**protocol errors** : when a Cilium proxy denies a request based on "
+"policy, it should return a protocol-specific error to the client (e.g., "
+"in HTTP, a proxy should return a ''403 Access Denied'' error).  Looking "
+"at the protocol spec will typically indicate how you should return an "
+"equivalent ''Access Denied'' error."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:86 40db04e57dba46118c3059c5feec2acd
+msgid ""
+"Sometimes, the protocol spec does not give you a full sense of the set of"
+" commands that can be sent over the protocol.  In that case, looking at "
+"higher-level user documentation can fill in some of these knowledge gaps."
+"  Here are examples for `Redis Commands <https://redis.io/commands>`_ and"
+" `Cassandra CQL Commands "
+"<https://docs.datastax.com/en/archived/cql/3.1/cql/cql_reference/cqlCommandsTOC.html>`_"
+" ."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:90 a72ea87c224946a28aefde59984e8752
+msgid ""
+"Another great trick is to use `Wireshark <https://www.wireshark.org>`_  "
+"to capture raw packet data between a client and server.   For many "
+"protocols, the `Wireshark Sample Captures "
+"<https://wiki.wireshark.org/SampleCaptures>`_ has already saved captures "
+"for us.  Otherwise, you can easily use tcpdump to capture a file.  For "
+"example, for MySQL traffic on port 3306, you could run the following in a"
+" container running the MySQL client or server: “tcpdump -s 0 port 3306 -w"
+" mysql.pcap”.  `More Info <https://linuxexplore.com/2012/06/07/use-"
+"tcpdump-to-capture-in-a-pcap-file-wireshark-dump/>`_"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:96 1ca26f9a81474679bc8f73e4d0efbffd
+msgid ""
+"In our example r2d2 protocol, we'll keep the spec as simple as possible."
+"  It is a text-only based protocol, with each request being a line "
+"terminated by ''\\r\\n''.  A request starts with a case-insensitive "
+"string command (\"READ\",\"WRITE\",\"HALT\",\"RESET\").   If the command "
+"is \"READ\" or \"WRITE\", the command must be followed by a space, and a "
+"non-empty filename that contains only non whitespace ASCII characters."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:102 68ece52cbae44abf9c0e4f20247532e8
+msgid "Step 3: Search for Existing Parser Code / Libraries"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:104 f685c58536d84f2587b31ab853753ed5
+msgid ""
+"Look for open source Go library/code that can help. Is there existing "
+"open source Go code that parse your protocol that you can leverage, "
+"either directly as library or a motivating example?  For example, the "
+"`tidwall/recon library <https://github.com/tidwall/redcon>`_ parses Redis"
+" in Go, and `Vitess <https://github.com/vitessio/vitess>`_ parses MySQL "
+"in Go.   `Wireshark dissectors "
+"<https://github.com/boundary/wireshark/tree/master/epan/dissectors>`_ "
+"also has a wealth of protocol parsers written in C that can serve as "
+"useful guidance.    Note:  finding client-only protocol parsing code is "
+"typically less helpful than finding a proxy implementation, or a full "
+"parser library.   This is because the set of requests a client parsers is"
+" typically the inverse set of the requests a Cilium proxy needs to parse,"
+" since the proxy mimics the server rather than the client.   Still, "
+"viewing a Go client can give you a general idea of how to parse the "
+"general serialization format of the protocol."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:118 536f92d6cf6848649434b10877c5210e
+msgid "Step 4: Follow the Cilium Developer Guide"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:120 57c70e08ea65456dbeb74134d897308e
+msgid ""
+"It is easiest to start Cilium development by following the "
+":ref:`dev_guide`"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:122 bda5e7d03fab492ebb9992ef8414e27d
+msgid "After cloning Cilium:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:130 d334603d450c49c09652ed30458f212b
+msgid ""
+"While this dev VM is running, you can open additional terminals to the "
+"Cilium dev VM by running ''vagrant ssh'' from within the cilium source "
+"directory."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:135 e8ae020fec544c4fa17acf68a31b3a52
+msgid "Step 5: Create New Proxy Skeleton"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:137 b28d442dbdc94d5882bc1cb5496997b6
+msgid ""
+"From inside the proxylib directory, copy the rd2d directory and rename "
+"the files. Replace ''newproto'' with your protocol:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:148 174c61579df24882ac2b5e20f2390817
+msgid ""
+"Within both newproto.go and newproto_test.go update references to r2d2 "
+"with your protocol name.   Search for both ''r2d2'' and ''R2D2''."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:151 4e346b2b8abe4dd89767114c07a04eff
+msgid "Also, edit proxylib.go and add the following import line:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:159 eff53597cd41474aafbba424a3478ced
+msgid "Step 6: Update OnData Method"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:161 5ebb0fa9404c41ad88996d1833fc8220
+msgid ""
+"Implementing a parser requires you as the developer to implement three "
+"primary functions, shown as blue in the diagram below.   We will cover "
+"OnData() in this section, and the other functions in section `Step 9:  "
+"Add Policy Loading and Matching`_."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:167 97406ecfbe3e46c196d4efefb1709843
+msgid ""
+"The beating heart of your parsing is implementing the onData function.  "
+"You can think of any proxy as have two data streams, one in the request "
+"direction (i.e., client to server) and one in the reply direction (i.e., "
+"server to client).   OnData is called when there is data to process, and "
+"the value of the boolean 'reply' parameter indicates the direction of the"
+" stream for a given call to OnData.   The data passed to OnData is a "
+"slice of byte slices (i.e., an array of byte arrays)."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:173 afaa14d5fe954c349337b73330dee366
+msgid ""
+"The return values of the OnData function tell the Go framework tell how "
+"data in the stream should be processed, with four primary outcomes:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:176 dc4293b98e094107a341e3f7e2dbbfda
+msgid ""
+"**PASS x** :  The next x bytes in the data stream passed to OnData "
+"represent a request/reply that should be passed on to the server/client."
+"   The common case here is that this is a request that should be allowed "
+"by policy, or that no policy is applied.  Note: x bytes may be less than "
+"the total amount of data passed to OnData, in which case the remaining "
+"bytes will still be in the data stream when onData is invoked next.  x "
+"bytes may also be more than the data that has been passed to OnData. For "
+"example, in the case of a protocol where the parser filters only on "
+"values in a protocol header, it is often possible to make a filtering "
+"decision, and then pass (or drop) the size of the full request/reply "
+"without having the entire request passed to Go."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:185 74cb7b8026fd4b649e79fa4854efbaee
+msgid ""
+"**MORE x** :  The buffers passed to OnData to do not represent all of the"
+" data required to frame and filter the request/reply.  Instead, the "
+"parser needs to see at least x additional bytes beyond the current data "
+"to make a decision. In some cases, the full request must be read to "
+"understand framing and filtering, but in others a decision can be made "
+"simply by reading a protocol header.   When parsing data, be defensive, "
+"and recognize that it is technically possible that data arrives one byte "
+"at a time. Two common scenarios exist here:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:192 b5e30235e98b4c5b85b5bc5e20891311
+msgid ""
+"**Text-based Protocols** : For text-based protocols that use a delimiter "
+"like \"\\r\\n\", it is common to simply check if the delimiter exists, "
+"and return MORE 1 if it does not, as technically one more character could"
+" result in the delimiter being present. See the sample r2d2 parser as a "
+"basic example of this."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:197 6a4b324c6d8a4ef4b5318d61018cc02d
+msgid ""
+"**Binary-based protocols** : Many binary protocols have a fixed header "
+"length, which containers a field that then indicates the remaining length"
+" of the request.  In the binary case, first check to make sure a full "
+"header is received.  Typically the header will indicate both the full "
+"request length (i.e., framing), as well as the request type, which "
+"indicates how much of the full request must be read in order to perform "
+"filtering (in many cases, this is less than the full request).  A binary "
+"parser will typically return MORE if the data passed to OnData is less "
+"than the header length.   After reading a full header, the simple "
+"approach is for the parser to return MORE to wait for the full request to"
+" be received and parsed  (see the existing CassandraParser as an "
+"example). However, as an optimization, the parser can attempt to only "
+"request the minimum number of bytes required beyond the header to make a "
+"policy decision, and then PASS or DROP the remaining bytes without "
+"requiring them to be passed to the Go parser."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:209 f0179484ee814dc6aff54e039cd1d7bf
+msgid ""
+"**DROP x** :  Remove the first x bytes from the data stream passed to "
+"OnData, as they represent a request/reply that should not be forwarded to"
+" the client or server based on policy.  Don't worry about making onData "
+"return a drop right away, as we'll return to DROP in a later step below."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:213 f7d0857b043b496c8e31c771fe5939b6
+msgid ""
+"**ERROR y** : The connection contains data that does not match the "
+"protocol spec, and prevents you from further parsing the data stream.   "
+"The framework will terminate the connection.   An example would be a "
+"request length that falls outside the min/max specified by the protocol "
+"spec, or values for a field that fall outside the values indicated by the"
+" spec (e.g., wrong versions, unknown commands).  If you are still able to"
+" properly frame the requests, you can also choose to simply drop the "
+"request and return a protocol error (e.g., similar to an ''HTTP 400 Bad "
+"Request'' error.   But in all cases, you should write your parser "
+"defensively, such that you never forward a request that you do not "
+"understand, as such a request could become an avenue for subverting the "
+"intended security visibility and filtering policies.  See "
+"proxylib/types.h for the set of valid error codes."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:222 355169bb24554eecbe947a61fc48b076
+msgid ""
+"See proxylib/proxylib/parserfactory.go for the official OnData interface "
+"definition."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:224 5cb4af023c00433ba9e7098342d4ec9d
+msgid ""
+"Keep it simple, and work iteratively.  Start out just getting the framing"
+" right.  Can you write a parser that just prints out the length and "
+"contents of a request, and then PASS each request with no policy "
+"enforcement?"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:227 fffd5afc0e0643158cd3c07f1fda0d89
+msgid ""
+"One simple trick is to comment out the r2d2 parsing logic in OnData, but "
+"leave it in the file as a reference, as your protocol will likely require"
+" similar code as we add more functionality below."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:231 4a3b1aa7055a4df185eb70ec345bd868
+msgid "Step 7: Use Unit Testing To Drive Development"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:233 dc4fccd5c5b94239a4dd9165f136f373
+msgid ""
+"Use unit tests to drive your development.    Its tempting to want to "
+"first test your parser by firing up a client and server and developing on"
+" the fly.   But in our experience you’ll iterate faster by using the "
+"great unit test framework created along with the Go proxy framework.   "
+"This framework lets you pass in an example set of requests as byte arrays"
+" to a CheckOnDataOK method, which are passed to the parser's OnData "
+"method. CheckOnDataOK takes a set of expected return values, and compares"
+" them to the actual return values from OnData processing the byte arrays."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:240 4b1c1c09847f468eab2d9d650d993b48
+msgid ""
+"Take some time to look at the unit tests for the r2d2 parser, and then "
+"for more complex parsers like Cassandra and Memcached.   For simple text-"
+"based protocols, you can simply write ASCII strings to represent protocol"
+" messages, and convert them to []byte arrays and pass them to "
+"CheckOnDataOK.   For binary protocols, one can either create byte arrays "
+"directly, or use a mechanism to convert a hex string to byte[] array "
+"using a helper function like hexData in cassandra/cassandraparser_test.go"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:246 f1c1f4de549b4b59b806485f2b7bde94
+msgid ""
+"A great way to get the exact data to pass in is to copy the data from the"
+" Wireshark captures mentioned above in Step #2.   You can see the full "
+"application layer data streams in Wireshark by right-clicking on a packet"
+" and selecting “Follow As… TCP Stream”.  If the protocol is text-based, "
+"you can copy the data as ASCII (see r2d2/r2d2parser_test.go as an example"
+" of this).   For binary data, it can be easier to instead select “raw” in"
+" the drop-down, and use a basic utility to convert from ascii strings to "
+"binary raw data (see cassandra/cassandraparser_test.go for an example of "
+"this)."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:253 d3e9ca75bb944422933db56d7e4bab62
+msgid "To run the unit tests, go to proxylib/newproto and run:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:259 5f73d7bd2ec7485a93640bfca150f47a
+msgid ""
+"This will build the latest version of your parser and unit test files and"
+" run the unit tests."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:262 be68f2c41a6f45a3bdc6327487e9d6d5
+msgid "Step 8: Add More Advanced Parsing"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:264 bf00f7a2c79d41c39de11ff16e577329
+msgid ""
+"Thinking back to step #1, what are the critical fields to parse out of "
+"the request in order to understand the “operation” and “resource” of each"
+" request.  Can you print those out for each request?"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:267 373658154bf5431ab68fe623ff846de6
+msgid ""
+"Use the unit test framework to pass in increasingly complex requests, and"
+" confirm that the parser prints out the right values, and that the unit "
+"tests are properly slicing the datastream into requests and parsing out "
+"the required fields."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:270 e37fe829e7754b90aca5e5c24ab7f93d
+msgid ""
+"A couple scenarios to make sure your parser handles properly via unit "
+"tests:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:272 af7cc2316bc04865a3bff6ae490399cd
+msgid "data chunks that are less than a full request (return MORE)"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:273 ed78e960c5034db3a2ea3ffa7598b41a
+msgid ""
+"requests that are spread across multiple data chunks. (return MORE ,then "
+"PASS)"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:274 870a4f633b6c47a1b15a9ba7c4fe42a1
+msgid ""
+"multiple requests that are bundled into a single data chunk (return PASS,"
+" then another PASS)"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:275 b1f2c942672248f6a9ac40829d56579b
+msgid "rejection of malformed requests (return ERROR)."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:277 be2f10eed4354cca8a412f0db9536667
+msgid ""
+"For certain advanced cases, it is required for a parser to store state "
+"across requests. In this case, data can be stored using data structures "
+"that are included as part of the main parser struct.  See CassandraParser"
+" in cassandra/cassandraparser.go as an example of how the parser uses a "
+"string to store the current 'keyspace' in use, and uses Go maps to keep "
+"state required for handling prepared queries."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:284 9d75acfd55d4460c9b2b7971fb02206a
+msgid "Step 9:  Add Policy Loading and Matching"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:286 5600be4b3937487682fa3a255642d247
+msgid ""
+"Once you have the parsing of most protocol messages ironed out, its time "
+"to start enforcing policy."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:288 bc727127133047f0837564dfe20180fd
+msgid ""
+"First, create a Go object that will represent a single rule in the policy"
+" language. For example, this is the rule for the r2d2 protocol, which "
+"performs exact match on the command string, and a regex on the filename:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:299 0a02ab39221f4a67b98ef99b6cdd8065
+msgid "There are two key methods to update:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:301 e21556e845684f95aa890166b91a13ec
+msgid ""
+"Matches :   This function implements the basic logic of comparing data "
+"from a single request against a single policy rule, and return true if "
+"that rule matches (i.e., allows) that request."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:304 e502be0896034672a27a7872487c93d3
+msgid ""
+"<NewProto>RuleParser : Reads key value pairs from policy, validates those"
+" entries, and stores them as a <NewProto>Rule object."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:307 1745c2ba126b4c8c88858ff5523eb8a1
+msgid ""
+"See r2d2/r2d2parser.go for examples of both functions for the r2d2 "
+"protocol."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:309 abd083ee7caa47d09025d3bc0dc33591
+msgid ""
+"You'll also need to update OnData to call p.connection.Matches(), and if "
+"this function return false, return DROP for a request.  Note: despite the"
+" similar names between the Matches() function you create in your "
+"newprotoparser.go and p.connection.Matches(), do not confuse the two.  "
+"Your OnData function should always call p.connection.Matches() rather "
+"than invoking your own Matches() directly, as p.connection.Matches() "
+"calls the parser's Matches() function only on the subset of L7 rules that"
+" apply for the given Cilium source identity for this particular "
+"connection."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:317 b55f28c19155478d8e638739ee62cf02
+msgid ""
+"Once you add the logic to call Matches() and return DROP in OnData, you "
+"will need to update unit tests to have policies that allow the traffic "
+"you expect to be passed.   The following is an example of how "
+"r2d2/r2d2parser_test.go adds an allow-all policy for a given test:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:334 c7d6c38fead34317a6a80947f8c5a50d
+msgid ""
+"The following is an example of a policy that would allow READ commands "
+"with a file regex of \".*\":"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:363 cfc60f5e1a9747b5895eb066d761025a
+msgid "Step 10: Inject Error Response"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:365 2f462bdef73d472ca0b5fceac4d4021b
+msgid ""
+"Simply dropping the request from the request data stream prevents the "
+"request from reaching the server, but it would leave the client hanging, "
+"waiting for a response that would never come since the server did not see"
+" the request."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:368 e60f645c92554eb88d82c563a86aa616
+msgid ""
+"Instead, the proxy should return an application-layer reply indicating "
+"that access was denied, similar to how an HTTP proxy would return a ''403"
+" Access Denied'' error.  Look back at the protocol spec discussed in Step"
+" 2 to understand what an access denied message looks like for this "
+"protocol, and use the p.connection.Inject() method to send this error "
+"reply back to the client.   See r2d2/r2d2parser.go for an example."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:377 69ab1d5b426d4fbe8c2b051690734572
+msgid ""
+"Note:  p.connection.Inject() will inject the data it is passed into the "
+"reply datastream.  In order for the client to parse this data correctly, "
+"it must be injected at a proper framing boundary (i.e., in between other "
+"reply messages that may be in the reply data stream).  If the client is "
+"following a basic serial request/reply model per connection, this is "
+"essentially guaranteed as at the time of a request that is denied, there "
+"are no other replies potentially in the reply datastream.   But if the "
+"protocol supports pipelining (i.e., multiple requests in flight) replies "
+"must be properly framed and PASSed on a per request basis, and the timing"
+" of the call to p.connection.Inject() must be controlled such that the "
+"client will properly match the Error response with the correct request."
+"   See the Memcached parser as an example of how to accomplish this."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:387 e46d4852d9bd44029c469de645a663ed
+msgid "Step 11: Add Access Logging"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:389 f18dde98602c4e06aba8285ebc97c586
+msgid ""
+"Cilium also has the notion of an ''Access Log'', which records each "
+"request handled by the proxy and indicates whether the request was "
+"allowed or denied."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:392 a49d65fbc47a49d0b4edba05b58f5642
+msgid ""
+"A call to ''p.connection.Log()'' implements access logging. See the "
+"OnData function in r2d2/r2d2parser.go as an example:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:409 441a2f4992aa437eb33490135dcf292c
+msgid "Step 12: Manual Testing"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:411 fa0473c4aec547d897f292f5a11eb50e
+msgid ""
+"Find the standard docker container for running the protocol server.  "
+"Often the same image also has a CLI client that you can use as a client."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:413 fab1d84766a841ee8694f5b6eb25febe
+msgid ""
+"Start both a server and client container running in the cilium dev VM, "
+"and attach them to the already created “cilium-net”.  For example, with "
+"Cassandra, we run:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:422 41c260e6cff74aeab1920f2c5aa4087c
+msgid ""
+"Note that we run both containers with labels that will make it easy to "
+"refer to these containers in a cilium network policy.   Note that we have"
+" the client container run the sleep command, as we will use 'docker exec'"
+" to access the client CLI."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:426 26ab5dcee1d5412a8c6dc4212fe23be0
+msgid ""
+"Use ''cilium endpoint list'' to identify the IP address of the protocol "
+"server."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:437 340990b26fb6464d9aba3ad5a37ab82d
+msgid ""
+"One can then invoke the client CLI using that server IP address "
+"(10.11.51.247 in the above example):"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:443 39bcd43c01bc49829a5db8a8c189ac87
+msgid ""
+"Note that in the above example, ingress policy is not enforced for the "
+"Cassandra server endpoint, so no data will flow through the Cassandra "
+"parser.  A simple ''allow all'' L7 Cassandra policy can be used to send "
+"all data to the Cassandra server through the Go Cassandra parser.  This "
+"policy has a single empty rule, which matches all requests.  An allow all"
+" policy looks like:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:463 9f7ed0fa692a462d8489f12bbeced094
+msgid ""
+"A policy can be imported into cilium using ''cilium policy import'', "
+"after which another call to ''cilium endpoint list'' confirms that "
+"ingress policy is now in place on the server.  If the above policy was "
+"saved to a file cass-allow-all.json, one would run:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:478 b867a1508dbd4f108cce06b0fdff7dc3
+msgid ""
+"Note that policy is now showing as ''Enabled'' for the Cassandra server "
+"on ingress."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:480 600577801c2541a0b1cda71115c59aa3
+msgid "To remove this or any other policy, run:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:486 90d64f1bc6bb4a6eaf7968597ef437df
+msgid ""
+"To install a new policy, first delete, and then run ''cilium policy "
+"import'' again.  For example, the following policy would allow select "
+"statements on a specific set of tables to this Cassandra server, but deny"
+" all other queries."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:507 1f046897c61c439c848e61c3e5933d81
+msgid ""
+"When performing manual testing, remember that each time you change your "
+"Go proxy code, you must re-run ``make`` and ``sudo make install`` and "
+"then restart the cilium-agent process.  If the only changes you have made"
+" since last compiling cilium are in your cilium/proxylib directory, you "
+"can safely just run ``make`` and ``sudo make install``  in that "
+"directory, which saves time. For example:"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:521 051ced9e7da046aab6feeeaa86799f7b
+msgid ""
+"If you rebase or other files change, you need to run both commands from "
+"the top level directory."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:523 fa370ff6647f44afb4543e4583e12e36
+msgid ""
+"Cilium agent default to running as a service in the development VM.  "
+"However, the default options do not include the ''--debug-verbose=flow'' "
+"flag, which is critical to getting visibility in troubleshooting Go proxy"
+" frameworks. So it is easiest to stop the cilium service and run the "
+"cilium-agent directly as a command in a terminal window, and adding the "
+"''--debug-verbose=flow'' flag."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:536 0006ad3468284728809be3466d8ad6bf
+msgid "Step 13: Add Runtime Tests"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:538 9fb78e59a07748c0a97ebefd17a72604
+msgid ""
+"Before submitting this change to the Cilium community, it is recommended "
+"that you add runtime tests that will run as part of Cilium's continuous "
+"integration testing.   Usually these runtime test can be based on the "
+"same container images and test commands you used for manual testing."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:542 8b8d41bcf19a4500ba50435f1778e1dc
+msgid ""
+"The best approach for adding runtime tests is typically to start out by "
+"copying-and-pasting an existing L7 protocol runtime test and then "
+"updating it to run the container images and CLI commands specific to the "
+"new protocol. See cilium/test/runtime/cassandra.go as an example that "
+"matches the use of Cassandra described above in the manual testing "
+"section.   Note that the json policy files used by the runtime tests are "
+"stored in cilium/test/runtime/manifests, and the Cassandra example "
+"policies in those directories are easy to use as a based for similar "
+"policies you may create for your new protocol."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:550 5f65df63986b432eae3d7fdc0f98a162
+msgid "Step 14: Review Spec for Corner Cases"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:552 20a4b919f6214442b9876cef45741cd7
+msgid ""
+"Many protocols have advanced features or corner cases that will not "
+"manifest themselves as part of basic testing. Once you have written a "
+"first rev of the parser, it is a good idea to go back and review the "
+"protocol's spec or list of commands to see what if any aspects may fall "
+"outside the scope of your initial parser. For example, corner cases like "
+"the handling of empty or nil lists may not show up in your testing, but "
+"may cause your parser to fail.   Add more unit tests to cover these "
+"corner cases. It is OK for the first rev of your parser not to handle all"
+" types of requests, or to have a simplified policy structure in terms of "
+"which fields can be matched.   However, it is important to know what "
+"aspects of the protocol you are not parsing, and ensure that it does not "
+"lead to any security concerns. For example, failing to parse prepared "
+"statements in a database protocol and instead just passing PREPARE and "
+"EXECUTE commands through would lead to gaping security whole that would "
+"render your other filtering meaningless in the face of a sophisticated "
+"attacker."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:565 620a13d3e67f4cf69262b486f5433bd0
+msgid "Step 15: Write Docs or Getting Started Guide (optional)"
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:567 b7a0fe4821a24ab7be9fa3c494634df4
+msgid ""
+"At a minimum, the policy examples included as part of the runtime tests "
+"serve as basic documentation of the policy and its expected behavior.  "
+"But we also encourage adding more user friendly examples and "
+"documentation, for example, Getting Started Guides.  "
+"cilium/Documentation/gettingstarted/cassandra.rst is a good example to "
+"follow.   Also be sure to update Documentation/gettingstarted/index.rst "
+"with a link to this new getting started guide."
+msgstr ""
+
+#: ../../concepts/security/proxy/envoy.rst:574 44443abcd9bb442f99bbd228cdf7ec3c
+msgid ""
+"With that, you are ready to post this change for feedback from the Cilium"
+" community.  Congrats!"
+msgstr ""
+

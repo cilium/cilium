@@ -1,0 +1,75 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/requirements-k3s.rst:1 fb1e0614e5de486c992c33f7c1422c97
+msgid ""
+"To install Cilium on `k3s <https://rancher.com/docs/k3s/latest/en/quick-"
+"start/>`_, perform the following steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:4 face907ca8544bf3aa18bef749bb097d
+msgid "**Default Configuration:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:7 cc5a3bb8bc904f94b527cd14428d5a45
+msgid "Datapath"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:7 14f53ff3d26c4615bbda23b817f5c94c
+msgid "IPAM"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:7 7cea819b670f498d929a8a503e3207ec
+msgid "Datastore"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:9 9cc61e511a364bb7b54cb2fe70a453b3
+msgid "Encapsulation"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:9 7ab9083bfc3841999df32bf57e05cf73
+msgid "Cluster Pool"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:9 3bb86f009aeb4864bdd84c4ec2c13846
+msgid "Kubernetes CRD"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:12
+#: 77e5e7b825c8443d8a8832624bd501e0
+msgid "**Requirements:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:14
+#: b323e0ef586d4ca8bcd466f87ac43b90
+msgid ""
+"Install your k3s cluster as you normally would but making sure to disable"
+" support for the default CNI plugin and the built-in network policy "
+"enforcer so you can install Cilium on top:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:22
+#: b9e135fa27b1434db67547e8849e0b5d
+msgid ""
+"For the Cilium CLI to access the cluster in successive steps you will "
+"need to use the ``kubeconfig`` file stored at "
+"``/etc/rancher/k3s/k3s.yaml`` by setting the ``KUBECONFIG`` environment "
+"variable:"
+msgstr ""
+

@@ -1,0 +1,68 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:3
+#: 55228ce9ca614a63aa12019b3c776f6d
+msgid "cilium-operator-azure completion powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:5
+#: af648cdcd8194f9dbb0b6e0b03e7c29a
+msgid "Generate the autocompletion script for powershell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:7
+#: e4204ebe1675460ebfee141d8cced852
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:9
+#: 2897dcc17ce14fdf878a4a6d57bb4dfd
+msgid "Generate the autocompletion script for powershell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:11
+#: 91a45655314c40cc90f1be3864d8cc2a
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:15
+#: 03ffdbce17d741958d0971f709285792
+msgid ""
+"To load completions for every new session, add the output of the above "
+"command to your powershell profile."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:23
+#: f32a210fdf8c4bf68ef571fd1bfc2b61
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:30
+#: eeac2d12f2be48bf9b122c66afdf0f31
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_powershell.md:32
+#: 2dd285262e0e4a168a4f59cc13ca4f8a
+msgid ""
+"[cilium-operator-azure completion](cilium-operator-azure_completion.md)"
+"\t - Generate the autocompletion script for the specified shell"
+msgstr ""
+

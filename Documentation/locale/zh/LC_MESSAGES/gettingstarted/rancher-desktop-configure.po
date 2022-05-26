@@ -1,0 +1,65 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:1
+#: e6d2f83852ef42cd8c1fa1a8fda9a3bd
+msgid ""
+"Configuring Rancher Desktop is done using a YAML configuration file. This"
+" step is necessary in order to disable the default CNI and replace it "
+"with Cilium."
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:5
+#: 5136c569b4564412be2ca5e1f9cf75bc
+msgid ""
+"Next you need to start Rancher Desktop with ``containerd`` and create a "
+":download:`override.yaml <rancher-desktop-override.yaml>`:"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:10
+#: a683b08cb10c44779fbe70f530e347f3
+msgid ""
+"After the file is created move it into your Rancher Desktop's "
+"``lima/_config`` directory:"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:13
+#: 586a47928bbc406782c52e9ac4fe2404
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:19
+#: ebc552b35e2b4751857a938c3069d9fc
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:25
+#: 09a0d215964b445b9ff12d152d351abd
+msgid ""
+"Finally, open the Rancher Desktop UI and go to Kubernetes Settings panel "
+"and click \"Reset Kubernetes\"."
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:27
+#: 39f60ff0ae4c40fdb489ac78571fa9d7
+msgid ""
+"After a few minutes Rancher Desktop will start back up prepared for "
+"installing Cilium."
+msgstr ""
+

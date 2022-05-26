@@ -1,0 +1,53 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-azure_metrics.md:3
+#: 24f01e55b0df4cb488d6f9b735890318
+msgid "cilium-operator-azure metrics"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_metrics.md:5
+#: 6710314137b24c3aabbdaf89396952cf
+msgid "Access metric status of the operator"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_metrics.md:7
+#: 4967582bee5f43a6b865a0b82ee92ea4
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_metrics.md:13
+#: 3ed0475f9e594026afbc8fb142874c30
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_metrics.md:15
+#: 13fedc490dce44e49714278c79261b79
+msgid ""
+"[cilium-operator-azure](cilium-operator-azure.md)\t - Run cilium-"
+"operator-azure"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_metrics.md:16
+#: 1564a5648e3a4db9bd082fdc65fe5391
+msgid ""
+"[cilium-operator-azure metrics list](cilium-operator-"
+"azure_metrics_list.md)\t - List all metrics for the operator"
+msgstr ""
+

@@ -1,0 +1,45 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_recorder_get.md:3 f864ce2dbe724e6e8875a2b09ed441e3
+msgid "cilium recorder get"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_get.md:5 c004c38bed64457b96fbb1f63dbff23f
+msgid "Display individual pcap recorder"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_get.md:11 a85003e95de8477abe4337400a392abd
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_get.md:18 bff95ade6dae451e8ec5e758287290bc
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_get.md:26 fe49f736a6434d71aa664f19539779c3
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_recorder_get.md:28 2a9c5a3ebbe2484ea1298718235a67b8
+msgid ""
+"[cilium recorder](cilium_recorder.md)\t - Introspect or mangle pcap "
+"recorder"
+msgstr ""
+

@@ -1,0 +1,59 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/kubernetes/ciliumendpoint.rst:3
+#: 72951d2f94e04947b4048f73d1270557
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/kubernetes/ciliumendpoint.rst:11
+#: 5eb81d5214f9426db9d66a7723f7d3cf
+msgid "Endpoint CRD"
+msgstr ""
+
+#: ../../concepts/kubernetes/ciliumendpoint.rst:13
+#: ba4753b13e9a4e8192e037b67d5d81ff
+msgid ""
+"When managing pods in Kubernetes, Cilium will create a Custom Resource "
+"Definition (CRD) of Kind ``CiliumEndpoint``. One ``CiliumEndpoint`` is "
+"created for each pod managed by Cilium, with the same name and in the "
+"same namespace. The ``CiliumEndpoint`` objects contain the same "
+"information as the json output of ``cilium endpoint get`` under the "
+"``.status`` field, but can be fetched for all pods in the cluster.  "
+"Adding the ``-o json`` will export more information about each endpoint. "
+"This includes the endpoint's labels, security identity and the policy in "
+"effect on it."
+msgstr ""
+
+#: ../../concepts/kubernetes/ciliumendpoint.rst:22
+#: 76f6765cbb114dc686c37f6e0d203e5a
+msgid "For example:"
+msgstr ""
+
+#: ../../concepts/kubernetes/ciliumendpoint.rst:35
+#: c8813a3580d5423284f5c554bb467643
+msgid ""
+"Each cilium-agent pod will create a CiliumEndpoint to represent its own "
+"inter-agent health-check endpoint. These are not pods in Kubernetes and "
+"are in the ``kube-system`` namespace. They are named as ``cilium-health"
+"-<node-name>``"
+msgstr ""
+

@@ -1,0 +1,159 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/ciliumendpointslice.rst:3
+#: ca93484d8809400e99fa5c7fa8be827c
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:11
+#: 93de4209511c46e2ad2bec379a5223bb
+msgid "CiliumEndpointSlice (beta)"
+msgstr ""
+
+#: ../../beta.rst:3 57346f539b134600877f772035bd240f
+msgid ""
+"This is a beta feature. Please provide feedback and file a GitHub issue "
+"if you experience any problems."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:15
+#: 32ca28cb45754fde909b7c1abb545240
+msgid ""
+"This document describes CiliumEndpointSlice (CES), which enables batching"
+" of CiliumEndpoint (CEP) objects in the cluster to achieve better "
+"scalability. The concept of CiliumEndpointSlice is described in:"
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:25
+#: e639d06bb03d4fc6b06c009053208384
+msgid ""
+"When enabled, Cilium operator watches CEP objects and group/batch slim "
+"versions of them into CES objects. Cilium agent watches CES objects to "
+"learn about remote endpoints in this mode. API-server stress due to "
+"remote endpoint info propagation should be reduced in this case, allowing"
+" for better scalability, at the cost of potentially longer delay before "
+"identity of new endpoint is recognized throughout the cluster."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:33
+#: 357916f6e2df4e56a6db2bf6d5557a0e
+msgid "Deploy Cilium with CES"
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:34
+#: ba5d85ce107846f695f8e4e210f0ae4b
+msgid ""
+"The CES feature relies on use of CEP. This feature is disabled by default"
+" in current beta status. You can enable the feature by setting the "
+"``enableCiliumEndpointSlice`` value to ``true``."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:43
+#: 2f9fbe3954234fb59f7e0ccfb09e9e0b
+msgid "Verify that Cilium agent and operator pods are running."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:55
+#: 35afd304559f4fb59a17d827a60413b9
+msgid "Validate that the CiliumEndpointSlice CRD has been registered."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:65
+#: 37af6dd551724dadaaf85745e75877af
+msgid "Known Issues and Workarounds"
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:68
+#: 489fe87d9b4643609238d4b84244563b
+msgid "Potential Upgrade Impact"
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:69
+#: 465687f7832e444c978d951e38290eef
+msgid ""
+"When performing an upgrade from a non-CES mode to CES mode, the operator "
+"will need to process all existing CEPs in the cluster and create CESs for"
+" them. Depending on the load of the cluster, this could take some time."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:73
+#: 520a826d691d4b55a6346163dce6fe61
+msgid ""
+"During this period, new endpoints might experience longer delay before "
+"their identities will propagate to remote nodes. If a newly created pod "
+"is affected by this delay, then it may temporarily fail to establish "
+"connectivity to remote pods in the cluster."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:78
+#: bc0414d1b6584338b225861049b68ce4
+msgid ""
+"A mitigation strategy is to upgrade the operator from non-CES to CES "
+"before upgrading agents on each node. This will let it start creating "
+"CESs right away, while the agents are still watching CEP resources."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:83
+#: 63b9cb9af2584b98bcea1622a204f083
+msgid "Potential Racing Condition when Identity of An Existing Endpoint Changes"
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:84
+#: f59a41ddde744550ae6d45c0a15330d0
+msgid ""
+"When there's an identity change for any existing resources, e.g., a pod, "
+"a deployment or a statefulset, although unlikely, the endpoints that "
+"undergo this change might experience connection disruption."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:88
+#: a3bce233282d412ea9cd5081cd29e4f7
+msgid ""
+"Root cause for this potential disruption is that when identity of CEPs "
+"change, the operator will try to re-group/re-batch them into a different "
+"set of CESs. This breaks the atomic operation of an UPGRADE into that of "
+"an DELETE and an ADD. If the agent gets the DELETE (from old CES) first, "
+"it will remove the corresponding CEP's information from the ipcache, "
+"resulting in traffic to/from said CEP with an UNKNOWN identity."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:95
+#: 284a65c564c84bc48b15fed3ea7bed84
+msgid ""
+"In current implementation, Cilium adds a delay (default: 1s) before "
+"sending out the DELETE event. This should greatly reduce the probability "
+"of connection disruption in most cases."
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:100
+#: 301b4ea3b72645b9aa3cf9f447ce352e
+msgid "Egress Gateway Won't Work with CES"
+msgstr ""
+
+#: ../../gettingstarted/ciliumendpointslice.rst:101
+#: da0381abd2b945f681bb9c75b8523047
+msgid ""
+"This is a temporary issue until :gh-issue:`17669` is fixed. If you are "
+"running Egress Gateway feature, enabling CES would break all egress "
+"masquerading until the fix is in place."
+msgstr ""
+

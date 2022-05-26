@@ -1,0 +1,162 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../policy/lifecycle.rst:3 07d00b18838243b3a00ad7553bd033fe
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../policy/lifecycle.rst:11 2382c337654d4aaca37c2ca39765f68f
+msgid "Endpoint Lifecycle"
+msgstr ""
+
+#: ../../policy/lifecycle.rst:13 8239c7af10524327bea3ff1e7c5935b9
+msgid "This section specifies the lifecycle of Cilium endpoints."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:15 abf9d927a48c4f2eaaaf4d7a55916819
+msgid "Every endpoint in Cilium is in one of the following states:"
+msgstr ""
+
+#: ../../policy/lifecycle.rst:17 9ec1b8b687d44182a2cc2d7243c24cde
+msgid ""
+"``restoring``: The endpoint was started before Cilium started, and Cilium"
+" is restoring its networking configuration."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:19 30e7c8852f094cdb8093958a70aa0a9a
+msgid ""
+"``waiting-for-identity``: Cilium is allocating a unique identity for the "
+"endpoint."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:21 651337507ca241879c2adb5853cf72a4
+msgid ""
+"``waiting-to-regenerate``: The endpoint received an identity and is "
+"waiting for its networking configuration to be (re)generated."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:23 b3a2dd5562e143b793512daccbcd52bd
+msgid ""
+"``regenerating``: The endpoint's networking configuration is being "
+"(re)generated. This includes programming eBPF for that endpoint."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:25 cc9003503fcc4aa1893b6571f7c137c4
+msgid ""
+"``ready``: The endpoint's networking configuration has been successfully "
+"(re)generated."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:27 48f87737931848438b6f6166ff10a85d
+msgid "``disconnecting``: The endpoint is being deleted."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:28 76a73002bcae45d49e484c9620024334
+msgid "``disconnected``: The endpoint has been deleted."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:34 7dfedf7e7d2b4daaae8448a1e02984df
+msgid ""
+"The state of an endpoint can be queried using the ``cilium endpoint "
+"list`` and ``cilium endpoint get`` CLI commands."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:37 3735a118a10b47b3abc800600d88e5c9
+msgid ""
+"While an endpoint is running, it transitions between the ``waiting-for-"
+"identity``, ``waiting-to-regenerate``, ``regenerating``, and ``ready`` "
+"states.  A transition into the ``waiting-for-identity`` state indicates "
+"that the endpoint changed its identity.  A transition into the ``waiting-"
+"to-regenerate`` or ``regenerating`` state indicates that the policy to be"
+" enforced on the endpoint has changed because of a change in identity, "
+"policy, or configuration."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:45 62ec3131f9ff4157831a095a4d61f2f5
+msgid ""
+"An endpoint transitions into the ``disconnecting`` state when it is being"
+" deleted, regardless of its current state."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:51 d4d06df5d1944844a89ff2fec5d710ca
+msgid "Init Identity"
+msgstr ""
+
+#: ../../policy/lifecycle.rst:53 0698c89ea4e04b9c8d20a8e8db660643
+msgid ""
+"In some situations, Cilium can't determine the labels of an endpoint "
+"immediately when the endpoint is created, and therefore can't allocate an"
+" identity for the endpoint at that point.  Until the endpoint's labels "
+"are known, Cilium temporarily associates a special single label "
+"``reserved:init`` to the endpoint. When the endpoint's labels become "
+"known, Cilium then replaces that special label with the endpoint's labels"
+" and allocates a proper identity to the endpoint."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:61 28ed86ce6bef4c7c931c04c813e7cadb
+msgid ""
+"This may occur during endpoint creation in the following cases: * Running"
+" Cilium with docker via libnetwork * With Kubernetes when the Kubernetes "
+"API server is not available * In etcd mode when the corresponding kvstore"
+" is not available"
+msgstr ""
+
+#: ../../policy/lifecycle.rst:66 1aa278d3bda64ba5850c1ab40f8b4dbe
+msgid ""
+"To allow traffic to/from endpoints while they are initializing, you can "
+"create policy rules that select the ``reserved:init`` label, and/or rules"
+" that allow traffic to/from the special ``init`` entity."
+msgstr ""
+
+#: ../../policy/lifecycle.rst:70 968fe4463bc445788636c177649ee0a1
+msgid ""
+"For instance, writing a rule that allows all initializing endpoints to "
+"receive connections from the host and to perform DNS queries may be done "
+"as follows:"
+msgstr ""
+
+#: ../../policy/lifecycle.rst:77 ../../policy/lifecycle.rst:94
+#: 489a34f7f7184b00a72fe386a7d96245 85cd31ff239b4be0a17a53c48a87da7f
+msgid "k8s YAML"
+msgstr ""
+
+#: ../../policy/lifecycle.rst:80 ../../policy/lifecycle.rst:97
+#: 3422fa68a0c94d9b92520c2e330220cb dcbeb926427f4791a7dea5db3ba91156
+msgid "JSON"
+msgstr ""
+
+#: ../../policy/lifecycle.rst:88 52c619858a874508b0cacf68d07ac3da
+msgid ""
+"Likewise, writing a rule that allows an endpoint to receive DNS queries "
+"from initializing endpoints may be done as follows:"
+msgstr ""
+
+#: ../../policy/lifecycle.rst:105 521b50f880af4430be5004d8b574d5d8
+msgid ""
+"If any ingress (resp. egress) policy rules selects the ``reserved:init`` "
+"label, all ingress (resp. egress) traffic to (resp. from) initializing "
+"endpoints that is not explicitly allowed by those rules will be dropped."
+"  Otherwise, if the policy enforcement mode is ``never`` or ``default``, "
+"all ingress (resp. egress) traffic is allowed to (resp. from) "
+"initializing endpoints.  Otherwise, all ingress (resp. egress) traffic is"
+" dropped."
+msgstr ""
+

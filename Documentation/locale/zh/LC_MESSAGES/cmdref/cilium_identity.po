@@ -1,0 +1,53 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_identity.md:3 924030120eef4ca98ce5f55a1335dd74
+msgid "cilium identity"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:5 4e5822a0466a452b9eb2ffca0e11b41a
+msgid "Manage security identities"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:7 58508fe586ce4a608447458fe42fea3d
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:13 0efdaa52f5204da496e60af458c4923f
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:21 97fa8176819e4c1080149b99959e9f9d
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:23 2deb3e5c4e2748b99ab96afd24404f44
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:24 998c702b52d644149fa865f4344b3411
+msgid ""
+"[cilium identity get](cilium_identity_get.md)\t - Retrieve information "
+"about an identity"
+msgstr ""
+
+#: ../../cmdref/cilium_identity.md:25 dc75a5516fb24107b5b3db70a4783378
+msgid "[cilium identity list](cilium_identity_list.md)\t - List identities"
+msgstr ""
+

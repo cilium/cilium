@@ -1,0 +1,237 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-rke.rst:3 bb4dd3c090b54565832605a411f083ad
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:11 ca39e371dcb64e9a9ab90d3375203192
+msgid "Installation using Rancher Kubernetes Engine"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:13 f7e742787aca4162944219d5dc744e75
+msgid ""
+"This guide walks you through installation of Cilium on `Rancher "
+"Kubernetes Engine <https://rancher.com/products/rke/>`_, a CNCF-certified"
+" Kubernetes distribution that runs entirely within Docker containers. RKE"
+" solves the common frustration of installation complexity with Kubernetes"
+" by removing most host dependencies and presenting a stable path for "
+"deployment, upgrades, and rollbacks."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:20 4efaf3a35af74c9f8f865842ffae4f3b
+msgid "Install a Cluster Using RKE"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:22 7d6bfe73677d4ff18dc7d763dbe3b0f8
+msgid ""
+"The first step is to install a cluster based on the `RKE Installation "
+"Guide <https://rancher.com/docs/rke/latest/en/installation/>`_. When "
+"creating the cluster, make sure to `change the default network plugin "
+"<https://rancher.com/docs/rke/latest/en/config-options/add-ons/network-"
+"plugins/custom-network-plugin-example/>`_ in the config.yaml file."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:26 d01e77e4f776411f8d08622c21faef13
+msgid "Change:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:35 2eb720d3debd4394871ee5c93bc59b79
+msgid "To:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:43 2a906439efa1458f946ffc6b30737586
+msgid "Deploy Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:47 ff3c1684096e4abb88882fc295d8e7ae
+msgid "Helm v3"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:49 73992eb2f0ac4ebca33ad248173488a4
+msgid "Install Cilium via ``helm install``:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:58
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 243f767399f942839135fd26fc353eea d00bc02e50914b9ab053fd04cfba2255
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 21b61c2994d6446e80b0b6463291d5a0
+#: 2f9645b233974f189bb12ced0a4b625c 74a9c3f937bc4936a72194dd49bedaa6
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 2a1b2e0c3d7a49da8413690aad74926e
+#: c76c3d903346491ba723951407c76757 e474a84365d442eaa27eaa0db59e616d
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 1574118d0e134cf186a86b5f1146c7ba
+#: c76b151a5df94fdfaab00c703646a25f c8e786f45f564927ac8472da079f2dd2
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 0a682a9332ee46b8900644ddb4c862d6
+#: 425addda826047a6943b2717ab2bc7c3 7b3f2a756b5945f8892ba03e4e070a06
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 919b5cc1a00043c6a0670b6d5be053af
+#: d36ca437a6f14bfa88c91b1e1b4e956c f7f0e886be0747188772587957480ecc
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-rke.rst:62 2bc5a833acff40f9894aef3f26641aab
+msgid "Install Cilium by running:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:2
+#: 3d90d92c4d684ef8b7257664469a2269
+msgid "Restart unmanaged Pods"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:4
+#: aaeea3bc5a084da991a56ad8fdc48808
+msgid ""
+"If you did not create a cluster with the nodes tainted with the taint "
+"``node.cilium.io/agent-not-ready``, then unmanaged pods need to be "
+"restarted manually. Restart all already running pods which are not "
+"running in host-networking mode to ensure that Cilium starts managing "
+"them. This is required to ensure that all pods which have been running "
+"before Cilium was deployed have network connectivity provided by Cilium "
+"and NetworkPolicy applies to them:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:27
+#: f4f13188afc54bf2a752c81ba48a43f1
+msgid ""
+"This may error out on macOS due to ``-r`` being unsupported by ``xargs``."
+" In this case you can safely run this command without ``-r`` with the "
+"symptom that this will hang if there are no pods to restart. You can stop"
+" this with ``ctrl-c``."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: 57957b940ef34039b576b1b34c2ebf61
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 4f5bc58aa28c44d693e8cc2cd3b230b4
+#: 608efec2886e49999c9de3c34c22020c
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: acb3e2d776494f3c9e87d97375dff759
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: 6e8503e87a904d4692d565c14ac892fe
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 33ff2125a24b42ee952a5c82c3b06e71
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 5f9fe71ee4eb4db6aabf4771f92308c4
+#: fbcb266bc6394462bb6ca0080fcfed61
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 1abf14c4f4f2466aa92cc86d1a257069
+#: f15b2abba77541a2b38904d7cade0423
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 3ccd352257624b219f54df0320ce95ff
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 7c2ad2b6a76945059848abad9b890057
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 1fa4a4438c3c40389a50e8cf4b121d77
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 273664ac2ff740e4b22c82ac422538d0
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 6d9e869f56ff468e8867ecd8b3880a1f
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 112cc6dbdd5b4a9cb7c8edc76a37bfd3
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 16a5c8f309764bc6b140ea3efe02606f
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 ac02137bcdbf4e5a9df6ba1c0042e6d8
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 fb4a99549949421c8705c24178b8e9ea
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 5e80fa3466e14cd997407890f9c76635
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 9ff5ce7b3e474d35960fffcb7b119804
+msgid ":ref:`clustermesh`"
+msgstr ""
+

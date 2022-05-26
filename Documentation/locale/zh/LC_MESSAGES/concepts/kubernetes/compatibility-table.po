@@ -1,0 +1,370 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/kubernetes/compatibility-table.rst:2
+#: 97eb2ee3445c4cd1ac70042165f99a7d
+msgid "Cilium Version"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:2
+#: 6b50343640404d2aa0efc995399f9693
+msgid "CNP and CCNP Schema Version"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:5
+#: ed1694640d0449fca1470aa9fa53d793
+msgid "v1.9.0-rc0"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:5
+#: f631a6044d484e88b0ee5f0973188ed9
+msgid "1.22.1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:7
+#: 5cd72f63f1974a6988d7d615e63f1cf3
+msgid "v1.9.0-rc1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:7
+#: ../../concepts/kubernetes/compatibility-table.rst:9
+#: 5270a0ca246d4630b3fdb49e20b8ab24 d0dcbe6607224796972fb9e80efc9b1f
+msgid "1.22.2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:9
+#: dfc3ea56a5024c1b8d7e0e2ad4cc42df
+msgid "v1.9.0-rc2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:11
+#: fb3c9026010a4d81bfe36b9b9ae3f379
+msgid "v1.9.0-rc3"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:11
+#: ../../concepts/kubernetes/compatibility-table.rst:13
+#: ../../concepts/kubernetes/compatibility-table.rst:15
+#: ../../concepts/kubernetes/compatibility-table.rst:17
+#: ../../concepts/kubernetes/compatibility-table.rst:19
+#: ../../concepts/kubernetes/compatibility-table.rst:21
+#: ../../concepts/kubernetes/compatibility-table.rst:23
+#: 0e2c75c15cc54d078817739b5a709fab 38fd20a99d7c471fb24dc1d849f60a6b
+#: 9096bad08554486fb16360fa273faa9f b22841997b734634aa0ac819801fb55c
+#: b7a3f291504e4adeabbf2f0c9b4cdee6 bcdd98caf75f4d6c99531efad8399fb0
+#: be9b3804af894e3598eafa2f5346b595
+msgid "1.22.3"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:13
+#: 8b8455cc1f504d6da903875b1133ac85
+msgid "v1.9.0"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:15
+#: e3522508252a45ea901aec7c3b4abd9d
+msgid "v1.9.1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:17
+#: 2797bdab697c4d5c8395ad916903e849
+msgid "v1.9.2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:19
+#: 22f1c2310ec94864b7bbe20c5ba292d0
+msgid "v1.9.3"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:21
+#: 1a44fa4f4a6148aa841ae9967b62e7b1
+msgid "v1.9.4"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:23
+#: 0bf9c3425d874c8aa9a468d803bf6f0e
+msgid "v1.9.5"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:25
+#: f079454e0af849c08b200b55a122acca
+msgid "v1.9.6"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:25
+#: 69f7e75583334b75a5b0dc9760b85f47
+msgid "1.22.4"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:27
+#: 72d3ceb0355c47bea5d3f60c97dfddcd
+msgid "v1.9.7"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:27
+#: ../../concepts/kubernetes/compatibility-table.rst:29
+#: 64bdc19fd664417b8568f58fdac38d8d 99d923e9b736428787f84c282d8a5790
+msgid "1.22.5"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:29
+#: c6b1e311a7f841e0b561d8ec6ef351a3
+msgid "v1.9.8"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:31
+#: e1968fd88df64ce3b68874a3ab41da15
+msgid "v1.9.9"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:31
+#: ../../concepts/kubernetes/compatibility-table.rst:33
+#: ../../concepts/kubernetes/compatibility-table.rst:35
+#: ../../concepts/kubernetes/compatibility-table.rst:37
+#: ../../concepts/kubernetes/compatibility-table.rst:39
+#: ../../concepts/kubernetes/compatibility-table.rst:41
+#: 4a7f0a6f95a14487b01b403f0b809d6a 66b89dd5f6ce4b03bbbf1b16aba27a85
+#: 753ef10b72ca4f8fac9e2a372766f267 83a8ce0ab0314fd3bd2872400c957e19
+#: d9f497f1025e4028a8049c208e11f3c6 f9f6a497c3d048d9958045ae62b40477
+msgid "1.22.6"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:33
+#: 70946443de2a40e98e5f89b7dfb5e324
+msgid "v1.9.10"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:35
+#: bac7cb8a0a60434ea91a21813404b5b1
+msgid "v1.9.11"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:37
+#: b7aa3615c8434155a146678c07c901ca
+msgid "v1.9.12"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:39
+#: 91ce1035831e47b0b955f78b04c25df2
+msgid "v1.9.13"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:41
+#: 71b7dabcc4e041c8a826802f18ada161
+msgid "v1.9"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:43
+#: 0210b389cd8949368be814f38a1bd596
+msgid "v1.10.0-rc0"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:43
+#: e76070c8d3504cdf96698e9941959053
+msgid "1.23.1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:45
+#: 682951385411475e8fc4b4e9c21edf3e
+msgid "v1.10.0-rc1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:45
+#: ../../concepts/kubernetes/compatibility-table.rst:47
+#: ../../concepts/kubernetes/compatibility-table.rst:49
+#: ../../concepts/kubernetes/compatibility-table.rst:51
+#: 2d81ac9322614c62a0174494e4de6355 49f8614b50e84433b98ae538d1dd7c5c
+#: 566f5a8663e1411cb8832ff8e9228ae6 f0a8b7d67f15430da079a720c6246ec9
+msgid "1.23.2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:47
+#: 306e187fe1f6463493d65f03c954eaef
+msgid "v1.10.0-rc2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:49
+#: b3876ee387724b4eb0d4eea51b1d544b
+msgid "v1.10.0"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:51
+#: 36f2db87f717401684a7c2ded5edcc85
+msgid "v1.10.1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:53
+#: 16fe765b910c40ebb651a47918fba1ad
+msgid "v1.10.2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:53
+#: ../../concepts/kubernetes/compatibility-table.rst:55
+#: ../../concepts/kubernetes/compatibility-table.rst:57
+#: ../../concepts/kubernetes/compatibility-table.rst:59
+#: 1c2ac9af97ed46e88302820fbec266fd 2dfb7d34859944e085bb15750e7c2911
+#: 61bc8802dcfe45f19e6d64b2ed7a60b8 8b0e00a6f829495e81e5a1a95b6f04bb
+msgid "1.23.3"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:55
+#: 61b79d044bea45a0bdefd228f3149ec3
+msgid "v1.10.3"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:57
+#: e21925eb0c3340a1a194d985a05b6044
+msgid "v1.10.4"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:59
+#: 8c2c7adaf4184d0aad2196fb687ae0ae
+msgid "v1.10.5"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:61
+#: c8c23e74b1784b4fa147a980e8d95b61
+msgid "v1.10.6"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:61
+#: ../../concepts/kubernetes/compatibility-table.rst:63
+#: ../../concepts/kubernetes/compatibility-table.rst:65
+#: ../../concepts/kubernetes/compatibility-table.rst:67
+#: ../../concepts/kubernetes/compatibility-table.rst:69
+#: 0a9e6e21ef244e74a08df91681ca8813 490a3d0ccc9340aebf48062d2f6fdf63
+#: 782fbc78ffa641e788730d8e0acaaf59 f3271c8531bf40b183dde7209287bcfb
+#: f5ad45dfc0dd418695d5ac4b4298bea7
+msgid "1.23.4"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:63
+#: da500bb86d0a45b68778894fc6e44e19
+msgid "v1.10.7"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:65
+#: ae31019a95e748eea3ec57a8a928c817
+msgid "v1.10.8"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:67
+#: da7bed0533814c7283fc200424d280c6
+msgid "v1.10.9"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:69
+#: 9437910005bd4dd8957aa6a1b68df1d3
+msgid "v1.10"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:71
+#: ce56091f4ebd4f50bb721de8ed0e579d
+msgid "v1.11.0-rc0"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:71
+#: 9fefee0e1ee04951879e29a80f99e959
+msgid "1.24.1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:73
+#: ca3e86c841134f329eb02ce5e2f54050
+msgid "v1.11.0-rc1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:73
+#: ../../concepts/kubernetes/compatibility-table.rst:75
+#: ../../concepts/kubernetes/compatibility-table.rst:77
+#: ../../concepts/kubernetes/compatibility-table.rst:79
+#: 0d160b94091b4c1289ab6edf41d873ee 12fce16f341e41b8b7f0dff83a33c45f
+#: 31d1341d8c8949b68aae1f85db057953 afccbee92fec47e29cf443bd9d7930f7
+msgid "1.24.2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:75
+#: 20fd1ddafb3048e5804f6b634380e4c9
+msgid "v1.11.0-rc2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:77
+#: c04ae37c2c4d44e5a7fc56e74f0d99f2
+msgid "v1.11.0-rc3"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:79
+#: 938186dfac964190b67d06b733cd8171
+msgid "v1.11.0"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:81
+#: 7db6f6ef13294534bcdbe1d9e074e80a
+msgid "v1.11.1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:81
+#: ../../concepts/kubernetes/compatibility-table.rst:83
+#: ../../concepts/kubernetes/compatibility-table.rst:85
+#: 44fb1f2b957342b4965269510060db48 c9b70baf1aae4abaa1eed1c8f16be83c
+#: dbd7fa78800845708a3c49b5d642e930
+msgid "1.24.3"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:83
+#: 735fb5902a824a39a4ac4c6204113f93
+msgid "v1.11.2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:85
+#: 5046d04c2777405c8d748a1a3eea01de
+msgid "v1.11"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:87
+#: 42bad7821bb44269b423765e3b45e1d0
+msgid "v1.12.0-rc0"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:87
+#: ../../concepts/kubernetes/compatibility-table.rst:89
+#: 6a819ef286434ed7a5bbf3a0a946fbd9 ddaaf6b9d8664f5180a84a1c9bfab147
+msgid "1.25.1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:89
+#: daf9b8ec8a5049f78cd3f6ddfa8c1a2a
+msgid "v1.12.0-rc1"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:91
+#: f969067ba4ca421fb289298755b3470c
+msgid "v1.12.0-rc2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:91
+#: ../../concepts/kubernetes/compatibility-table.rst:93
+#: 818e61a9fb3e42958cf2db515889541c 87fb80cfa28649918d61bb6f4c41803a
+msgid "1.25.2"
+msgstr ""
+
+#: ../../concepts/kubernetes/compatibility-table.rst:93
+#: ac80054ff1364d40a927bfbe1fc1cbc4
+msgid "latest / master"
+msgstr ""
+

@@ -1,0 +1,1520 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../policy/language.rst:3 977e27d5ea7843a6aaf2af9767cc87de
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../policy/language.rst:10 32ba4446abb54ca2a59abe00558213b5
+msgid "Layer 3 Examples"
+msgstr ""
+
+#: ../../policy/language.rst:12 2f625ddea679471c87cd0a3a5dc89ea5
+msgid ""
+"The layer 3 policy establishes the base connectivity rules regarding "
+"which endpoints can talk to each other. Layer 3 policies can be specified"
+" using the following methods:"
+msgstr ""
+
+#: ../../policy/language.rst:15 08d020cecd0e4b8686f741dabf34600e
+msgid ""
+"`Labels based`: This is used to describe the relationship if both "
+"endpoints are managed by Cilium and are thus assigned labels. The big "
+"advantage of this method is that IP addresses are not encoded into the "
+"policies and the policy is completely decoupled from the addressing."
+msgstr ""
+
+#: ../../policy/language.rst:20 b214c8bedd194da8b6971c47a6887a06
+msgid ""
+"`Services based`: This is an intermediate form between Labels and CIDR "
+"and makes use of the services concept in the orchestration system. A good"
+" example of this is the Kubernetes concept of Service endpoints which are"
+" automatically maintained to contain all backend IP addresses of a "
+"service. This allows to avoid hardcoding IP addresses into the policy "
+"even if the destination endpoint is not controlled by Cilium."
+msgstr ""
+
+#: ../../policy/language.rst:27 03031b7d658c4bc68e67a1ef15692a3c
+msgid ""
+"`Entities based`: Entities are used to describe remote peers which can be"
+" categorized without knowing their IP addresses. This includes "
+"connectivity to the local host serving the endpoints or all connectivity "
+"to outside of the cluster."
+msgstr ""
+
+#: ../../policy/language.rst:32 c95c61562cb34feeb991a5fe6efffee9
+msgid ""
+"`CIDR based`: This is used to describe the relationship to or from "
+"external services if the remote peer is not an endpoint. This requires to"
+" hardcode either IP addresses or subnets into the policies. This "
+"construct should be used as a last resort as it requires stable IP or "
+"subnet assignments."
+msgstr ""
+
+#: ../../policy/language.rst:37 99b325e874cb4467bd6f2ca5ec8f7ef0
+msgid ""
+"`DNS based`: Selects remote, non-cluster, peers using DNS names converted"
+" to IPs via DNS lookups. It shares all limitations of the `CIDR based` "
+"rules above. DNS information is acquired by routing DNS traffic via a "
+"proxy, or polling for listed DNS targets. DNS TTLs are respected."
+msgstr ""
+
+#: ../../policy/language.rst:45 50abc40dd0264f659432f9ef5d93883b
+msgid "Labels Based"
+msgstr ""
+
+#: ../../policy/language.rst:47 ea2aee7c865a4ce8bbcbb4acfb004c08
+msgid ""
+"Label-based L3 policy is used to establish policy between endpoints "
+"inside the cluster managed by Cilium. Label-based L3 policies are defined"
+" by using an `EndpointSelector` inside a rule to choose what kind of "
+"traffic that can be received (on ingress), or sent (on egress). An empty "
+"`EndpointSelector` allows all traffic. The examples below demonstrate "
+"this in further detail."
+msgstr ""
+
+#: ../../policy/language.rst:53 6eb2237b22e342e0bc94618ab0d068c6
+msgid ""
+"**Kubernetes:** See section :ref:`k8s_namespaces` for details on how the "
+"`EndpointSelector` applies in a Kubernetes environment with regard to "
+"namespaces."
+msgstr ""
+
+#: ../../policy/language.rst:58 ../../policy/language.rst:456
+#: 43531921543a444596178ce1eba1b2b7 db7c7002ad2a403bb6a1678261f73a87
+msgid "Ingress"
+msgstr ""
+
+#: ../../policy/language.rst:60 d3639cfb9a89444d83737a064e3ec1a1
+msgid ""
+"An endpoint is allowed to receive traffic from another endpoint if at "
+"least one ingress rule exists which selects the destination endpoint with"
+" the `EndpointSelector` in the ``endpointSelector`` field. To restrict "
+"traffic upon ingress to the selected endpoint, the rule selects the "
+"source endpoint with the `EndpointSelector` in the ``fromEndpoints`` "
+"field."
+msgstr ""
+
+#: ../../policy/language.rst:67 403a53e050c842a5b6c254240387eadf
+msgid "Simple Ingress Allow"
+msgstr ""
+
+#: ../../policy/language.rst:69 5ebb44afe0ff41ada9ee3fb195ae6a72
+msgid ""
+"The following example illustrates how to use a simple ingress rule to "
+"allow communication from endpoints with the label ``role=frontend`` to "
+"endpoints with the label ``role=backend``."
+msgstr ""
+
+#: ../../policy/language.rst:76 ../../policy/language.rst:97
+#: ../../policy/language.rst:131 ../../policy/language.rst:154
+#: ../../policy/language.rst:184 ../../policy/language.rst:220
+#: ../../policy/language.rst:240 ../../policy/language.rst:275
+#: ../../policy/language.rst:293 ../../policy/language.rst:372
+#: ../../policy/language.rst:394 ../../policy/language.rst:414
+#: ../../policy/language.rst:493 ../../policy/language.rst:567
+#: ../../policy/language.rst:674 ../../policy/language.rst:698
+#: ../../policy/language.rst:723 ../../policy/language.rst:829
+#: ../../policy/language.rst:852 ../../policy/language.rst:936
+#: ../../policy/language.rst:953 ../../policy/language.rst:1016
+#: ../../policy/language.rst:1072 ../../policy/language.rst:1165
+#: ../../policy/language.rst:1244 0802bdbfd05a419381a37ebf6a5bdc1e
+#: 0fa37b83666a4084bd28fe9663452f7a 1eef0f1df0cd47449cb042f56b2f7f3c
+#: 21061cc4a27b41fd8e161b9fb7595135 2d8f0bb1190f4354a0ad22b20fbb5d85
+#: 2ea6831f3faa44b8aa8858b3f6d33a3a 47e891e6241d4bf4aa3d9d7b0a073b4b
+#: 4f647c4faf7d49ee87005d956003306f 580253b0245444a0960f858bf8ac746e
+#: 5a9253fdc9b043b3a13a919a5269440e 740a6617473b4297a930dc69d4533534
+#: 751f4fefe43b40389ce5d106d90f4fa7 755edc1414fa404394c60de833ac7585
+#: 7a9287ff5e574128801d4f944484b9be 8d83cf5132fb4a30b71f9af040a71f4f
+#: 8e19760bde12422198baa1f8ecc632a8 8e31c06507864f7cb5dd790be0b12630
+#: 9a7e8bd8a6014a57a9a77006b853c363 9df4c9196e484c7ca6e2b81fc0f60c0f
+#: b954615099c64fd5823c20d194e04eb9 bf7a480e40cc44f09358a01963ff1c7c
+#: d63c3c8ece0c44b7a7bf6337a180bf61 d76d19638c9144c5bef379811c68b23b
+#: fcf4b29f04f74874a01c66488900ce1b fe17ac30284a4a23a453f4e1a6a730a2
+msgid "k8s YAML"
+msgstr ""
+
+#: ../../policy/language.rst:79 ../../policy/language.rst:100
+#: ../../policy/language.rst:134 ../../policy/language.rst:157
+#: ../../policy/language.rst:187 ../../policy/language.rst:223
+#: ../../policy/language.rst:243 ../../policy/language.rst:278
+#: ../../policy/language.rst:296 ../../policy/language.rst:375
+#: ../../policy/language.rst:397 ../../policy/language.rst:417
+#: ../../policy/language.rst:496 ../../policy/language.rst:570
+#: ../../policy/language.rst:677 ../../policy/language.rst:701
+#: ../../policy/language.rst:726 ../../policy/language.rst:832
+#: ../../policy/language.rst:855 ../../policy/language.rst:939
+#: ../../policy/language.rst:956 ../../policy/language.rst:1019
+#: ../../policy/language.rst:1075 1ffde3ac53fe4b7580182411bb103690
+#: 39e628fc73d9485290c0ef5768f709df 3ce724c8298f459f96262895762a10b2
+#: 59d370c4633a488e9c8d96f5307d9ddf 5d251edf757b45ee824c0b2acbfe78c7
+#: 6b55d7f3dc7e40d7ba503575ec95a1f8 7b017fa6a9be49729cfd822aefcccdfa
+#: 865478eeb4c34a87b77cacb1812bfc35 8ace5f3c385746958873e4ae8ed586fa
+#: 942031d8aff143c98d7e0885997c139a 9897499c3e834df583250f020af7b90a
+#: 9cacb59b1cf745bcb1f25fae3ce88b13 aa1036cb09e74c8ea20b61d708780491
+#: aa121861bfbe4e048c59c60dd212232c b701218efa5a4015b6fcaa37fe4d3d05
+#: b9c799c535894385990b2b3b30832537 be8859127a90498f846eeeeeba6cb47d
+#: c4183b5652864e61996f0c94321dc3e0 cf9c25bc561c4d75bbf24c137e3ccae7
+#: d0b556a041cc4f5cb1c4376e98e6a7a5 dfc585e76f724420941d054e0bf2a99d
+#: f1f9c72a5c0141faa8025e72b2dab53f fca9cf5c00264d1b9860c055e54f846c
+msgid "JSON"
+msgstr ""
+
+#: ../../policy/language.rst:89 6adc4e48a23245ff86a55b94bc1df32a
+msgid "Ingress Allow All Endpoints"
+msgstr ""
+
+#: ../../policy/language.rst:91 0eb66a81e1a245c697ff8cbad605244f
+msgid ""
+"An empty `EndpointSelector` will select all endpoints, thus writing a "
+"rule that will allow all ingress traffic to an endpoint may be done as "
+"follows:"
+msgstr ""
+
+#: ../../policy/language.rst:108 61145adc055a4f3b9d9ca713b8b1845e
+msgid ""
+"Note that while the above examples allow all ingress traffic to an "
+"endpoint, this does not mean that all endpoints are allowed to send "
+"traffic to this endpoint per their policies. In other words, policy must "
+"be configured on both sides (sender and receiver)."
+msgstr ""
+
+#: ../../policy/language.rst:113 ../../policy/language.rst:469
+#: 0e88498377b5410fa7f2c1c0ab9f350f 2a9bfbef05b842c6a92e1f5f3bf5c50f
+msgid "Egress"
+msgstr ""
+
+#: ../../policy/language.rst:115 a84340cf2c6e445692507ebe3c991c5b
+msgid ""
+"An endpoint is allowed to send traffic to another endpoint if at least "
+"one egress rule exists which selects the destination endpoint with the "
+"`EndpointSelector` in the ``endpointSelector`` field. To restrict traffic"
+" upon egress to the selected endpoint, the rule selects the destination "
+"endpoint with the `EndpointSelector` in the ``toEndpoints`` field."
+msgstr ""
+
+#: ../../policy/language.rst:122 97861c9df7944a86b9930a55b0d502e7
+msgid "Simple Egress Allow"
+msgstr ""
+
+#: ../../policy/language.rst:124 6ac8adb16c0849269b7a8d666bc89531
+msgid ""
+"The following example illustrates how to use a simple egress rule to "
+"allow communication to endpoints with the label ``role=backend`` from "
+"endpoints with the label ``role=frontend``."
+msgstr ""
+
+#: ../../policy/language.rst:144 a0505ec8822f458c9c81400ef8c233c4
+msgid "Egress Allow All Endpoints"
+msgstr ""
+
+#: ../../policy/language.rst:146 800931d532dc4f33ae6ae454ab91e3c2
+msgid ""
+"An empty `EndpointSelector` will select all egress endpoints from an "
+"endpoint based on the `CiliumNetworkPolicy` namespace (``default`` by "
+"default). The following rule allows all egress traffic from endpoints "
+"with the label ``role=frontend`` to all other endpoints in the same "
+"namespace:"
+msgstr ""
+
+#: ../../policy/language.rst:166 41581268cc2946f3a3438b9e1c404ae4
+msgid ""
+"Note that while the above examples allow all egress traffic from an "
+"endpoint, the receivers of the egress traffic may have ingress rules that"
+" deny the traffic. In other words, policy must be configured on both "
+"sides (sender and receiver)."
+msgstr ""
+
+#: ../../policy/language.rst:171 cd64c7f586534d43b0c4d954ae187a0f
+msgid "Ingress/Egress Default Deny"
+msgstr ""
+
+#: ../../policy/language.rst:173 edef14c0cab14f7c8b05320a4e581cb7
+msgid ""
+"An endpoint can be put into the default deny mode at ingress or egress if"
+" a rule selects the endpoint and contains the respective rule section "
+"ingress or egress."
+msgstr ""
+
+#: ../../policy/language.rst:177 bcb3ee955fd94bb68a866f4020a705d2
+msgid ""
+"Any rule selecting the endpoint will have this effect, this example "
+"illustrates how to put an endpoint into default deny mode without "
+"whitelisting other peers at the same time."
+msgstr ""
+
+#: ../../policy/language.rst:196 538b9063c3d642d3be589fa254fd293f
+msgid "Additional Label Requirements"
+msgstr ""
+
+#: ../../policy/language.rst:198 db82c48e7daf4e86bf7513a29292ec6c
+msgid ""
+"It is often required to apply the principle of *separation of concern* "
+"when defining policies. For this reason, an additional construct exists "
+"which allows to establish base requirements for any connectivity to "
+"happen."
+msgstr ""
+
+#: ../../policy/language.rst:202 d218ec101e45445f96f0c9501b347b7c
+msgid ""
+"For this purpose, the ``fromRequires`` field can be used to establish "
+"label requirements which serve as a foundation for any ``fromEndpoints`` "
+"relationship.  ``fromRequires`` is a list of additional constraints which"
+" must be met in order for the selected endpoints to be reachable. These "
+"additional constraints do not grant access privileges by themselves, so "
+"to allow traffic there must also be rules which match ``fromEndpoints``. "
+"The same applies for egress policies, with ``toRequires`` and "
+"``toEndpoints``."
+msgstr ""
+
+#: ../../policy/language.rst:210 c3a62f8eada34f2ca23f5aa727697ccc
+msgid ""
+"The purpose of this rule is to allow establishing base requirements such "
+"as, any endpoint in ``env=prod`` can only be accessed if the source "
+"endpoint also carries the label ``env=prod``."
+msgstr ""
+
+#: ../../policy/language.rst:214 fdd95252c1f7415fa46488408ab3d439
+msgid ""
+"This example shows how to require every endpoint with the label "
+"``env=prod`` to be only accessible if the source endpoint also has the "
+"label ``env=prod``."
+msgstr ""
+
+#: ../../policy/language.rst:231 4f1398b7131e48e692d1d128b0b465b1
+msgid ""
+"This ``fromRequires`` rule doesn't allow anything on its own and needs to"
+" be combined with other rules to allow traffic. For example, when "
+"combined with the example policy below, the endpoint with label "
+"``env=prod`` will become accessible from endpoints that have both labels "
+"``env=prod`` and ``role=frontend``."
+msgstr ""
+
+#: ../../policy/language.rst:254 55ba32c307004d0db2a3c1295aa13d0f
+msgid "Services based"
+msgstr ""
+
+#: ../../policy/language.rst:256 bbbc4c4a172b4fbaa53898a39d3a101c
+msgid ""
+"Services running in your cluster can be whitelisted in Egress rules. "
+"Currently Kubernetes `Services without a Selector "
+"<https://kubernetes.io/docs/concepts/services-networking/service"
+"/#services-without-selectors>`_ are supported when defined by their name "
+"and namespace or label selector. Future versions of Cilium will support "
+"specifying non-Kubernetes services and Kubernetes services which are "
+"backed by pods."
+msgstr ""
+
+#: ../../policy/language.rst:263 c0137bbe4ff34e44ac535b7030eb2a9a
+msgid ""
+"This example shows how to allow all endpoints with the label ``id=app2`` "
+"to talk to all endpoints of kubernetes service ``myservice`` in "
+"kubernetes namespace ``default``."
+msgstr ""
+
+#: ../../policy/language.rst:269 9ba23587c1de4e2c8f9028fbfbfefee3
+msgid ""
+"These rules will only take effect on Kubernetes services without a "
+"selector."
+msgstr ""
+
+#: ../../policy/language.rst:286 d3b49614d3124e498b3201dc591f812a
+msgid ""
+"This example shows how to allow all endpoints with the label ``id=app2`` "
+"to talk to all endpoints of all kubernetes headless services which have "
+"``head:none`` set as the label."
+msgstr ""
+
+#: ../../policy/language.rst:308 ca7d6acb4c574fa491481802b90e2224
+msgid "Entities Based"
+msgstr ""
+
+#: ../../policy/language.rst:310 bddf9c73f8c54dce8d61bde34ec5f306
+msgid ""
+"``fromEntities`` is used to describe the entities that can access the "
+"selected endpoints. ``toEntities`` is used to describe the entities that "
+"can be accessed by the selected endpoints."
+msgstr ""
+
+#: ../../policy/language.rst:314 53a83df453c74cd1a7efe7c467e3d8ad
+msgid "The following entities are defined:"
+msgstr ""
+
+#: ../../policy/language.rst:317 ee94ab78b9be423ab461b8409a8369f5
+msgid "host"
+msgstr ""
+
+#: ../../policy/language.rst:317 ede966bb84c6481b89a281b22d8cb011
+msgid ""
+"The host entity includes the local host. This also includes all "
+"containers running in host networking mode on the local host."
+msgstr ""
+
+#: ../../policy/language.rst:321 e4beaaa2138f4d0e9705393a70f958bd
+msgid "remote-node"
+msgstr ""
+
+#: ../../policy/language.rst:320 3ff8ad0b313140c7b247ae1d003f8a12
+msgid ""
+"Any node in any of the connected clusters other than the local host. This"
+" also includes all containers running in host-networking mode on remote "
+"nodes. (Requires the option ``enable-remote-node-identity`` to be "
+"enabled)"
+msgstr ""
+
+#: ../../policy/language.rst:325 58456672986f4faaa186b0e43043946a
+msgid "kube-apiserver"
+msgstr ""
+
+#: ../../policy/language.rst:324 dd5ae6f0852d4ed4afe9681722b5eeb8
+msgid ""
+"The kube-apiserver entity represents the kube-apiserver in a Kubernetes "
+"cluster. This entity represents both deployments of the kube-apiserver: "
+"within the cluster and outside of the cluster."
+msgstr ""
+
+#: ../../policy/language.rst:330 c77a6921935b41ba8fc56bccdd5eced8
+msgid "cluster"
+msgstr ""
+
+#: ../../policy/language.rst:328 67c0676fa0dc48cb90d7b188edabad9c
+msgid ""
+"Cluster is the logical group of all network endpoints inside of the local"
+" cluster. This includes all Cilium-managed endpoints of the local "
+"cluster, unmanaged endpoints in the local cluster, as well as the host, "
+"remote-node, and init identities."
+msgstr ""
+
+#: ../../policy/language.rst:335 0a94227de4634f91b0cc647253db7835
+msgid "init"
+msgstr ""
+
+#: ../../policy/language.rst:333 1b7e1b0cab2f4da599eb353fa8f1c0a7
+msgid ""
+"The init entity contains all endpoints in bootstrap phase for which the "
+"security identity has not been resolved yet. This is typically only "
+"observed in non-Kubernetes environments. See section "
+":ref:`endpoint_lifecycle` for details."
+msgstr ""
+
+#: ../../policy/language.rst:339 df942e3552814020bc1c38e6c690cb00
+msgid "health"
+msgstr ""
+
+#: ../../policy/language.rst:338 d2a430572cc54a0dabcbcb6b8695b4e8
+msgid ""
+"The health entity represents the health endpoints, used to check cluster "
+"connectivity health. Each node managed by Cilium hosts a health endpoint."
+" See `cluster_connectivity_health` for details on health checks."
+msgstr ""
+
+#: ../../policy/language.rst:343 85d44749b1064b5ab95ab1cbab054489
+msgid "unmanaged"
+msgstr ""
+
+#: ../../policy/language.rst:342 483455a9b15e4aa8b9eb773742871ed3
+msgid ""
+"The unmanaged entity represents endpoints not managed by Cilium. "
+"Unmanaged endpoints are considered part of the cluster and are included "
+"in the cluster entity."
+msgstr ""
+
+#: ../../policy/language.rst:348 f0725d13648541e6a5bf955510f06418
+msgid "world"
+msgstr ""
+
+#: ../../policy/language.rst:346 777a9ade34ad45b1ba71f9b98b62dc6f
+msgid ""
+"The world entity corresponds to all endpoints outside of the cluster. "
+"Allowing to world is identical to allowing to CIDR 0.0.0.0/0. An "
+"alternative to allowing from and to world is to define fine grained DNS "
+"or CIDR based policies."
+msgstr ""
+
+#: ../../policy/language.rst:352 743068a27d9d46f188d60ef56b82198c
+msgid "all"
+msgstr ""
+
+#: ../../policy/language.rst:351 ec119cee89f84cfc9d5e313d8e8bd416
+msgid ""
+"The all entity represents the combination of all known clusters as well "
+"world and whitelists all communication."
+msgstr ""
+
+#: ../../policy/language.rst:354 96fd27b556cf4b07a6150b1676f6bf31
+msgid ""
+"Allowing users to define custom entities is on the roadmap but has not "
+"been implemented yet (see :gh-issue:`3553`)."
+msgstr ""
+
+#: ../../policy/language.rst:359 3bdfaf9e71b746b081f447a4af904170
+msgid "Access to/from local host"
+msgstr ""
+
+#: ../../policy/language.rst:361 f97d580200d54175902490a269082bb9
+msgid ""
+"Allow all endpoints with the label ``env=dev`` to access the host that is"
+" serving the particular endpoint."
+msgstr ""
+
+#: ../../policy/language.rst:364 b5d4400fee4c4fdb8fd02fa53bd31b9a
+msgid ""
+"Kubernetes will automatically allow all communication from the local host"
+" of all local endpoints. You can run the agent with the option ``--allow-"
+"localhost=policy`` to disable this behavior which will give you control "
+"over this via policy."
+msgstr ""
+
+#: ../../policy/language.rst:386 5fb9c8d1bce04ae6ab4c71efa900a13f
+msgid "Access to/from all nodes in the cluster"
+msgstr ""
+
+#: ../../policy/language.rst:388 5cd38ceec93f4c5ba05dc746167ce0e2
+msgid ""
+"Allow all endpoints with the label ``env=dev`` to receive traffic from "
+"any host in the cluster that Cilium is running on."
+msgstr ""
+
+#: ../../policy/language.rst:406 188ee7595c0f4c4f9395836b6ec742c7
+msgid "Access to/from outside cluster"
+msgstr ""
+
+#: ../../policy/language.rst:408 2742c19838844eb9bda440efa4f4656f
+msgid ""
+"This example shows how to enable access from outside of the cluster to "
+"all endpoints that have the label ``role=public``."
+msgstr ""
+
+#: ../../policy/language.rst:429 107fbf59f9b34e3680de06a04eb93588
+msgid "IP/CIDR based"
+msgstr ""
+
+#: ../../policy/language.rst:431 798c4db6477149f3b4b9d973e4472f94
+msgid ""
+"CIDR policies are used to define policies to and from endpoints which are"
+" not managed by Cilium and thus do not have labels associated with them. "
+"These are typically external services, VMs or metal machines running in "
+"particular subnets. CIDR policy can also be used to limit access to "
+"external services, for example to limit external access to a particular "
+"IP range. CIDR policies can be applied at ingress or egress."
+msgstr ""
+
+#: ../../policy/language.rst:438 64c72ddd34734f30ac7ac164d2919cc8
+msgid ""
+"CIDR rules apply if Cilium cannot map the source or destination to an "
+"identity derived from endpoint labels, ie the `reserved_labels`. For "
+"example, CIDR rules will apply to traffic where one side of the "
+"connection is:"
+msgstr ""
+
+#: ../../policy/language.rst:442 1d2ea437dfb245e588a47fd5b4926da5
+msgid "A network endpoint outside the cluster"
+msgstr ""
+
+#: ../../policy/language.rst:443 658b2a9fac1a4b49aab52624d7bddef4
+msgid "The host network namespace where the pod is running."
+msgstr ""
+
+#: ../../policy/language.rst:444 e8c75ad9b6be4eccb8aefc02bcd38d48
+msgid ""
+"Within the cluster prefix but the IP's networking is not provided by "
+"Cilium."
+msgstr ""
+
+#: ../../policy/language.rst:446 5d8d095973304c6b849dbb378716366e
+msgid ""
+"Conversely, CIDR rules do not apply to traffic where both sides of the "
+"connection are either managed by Cilium or use an IP belonging to a node "
+"in the cluster (including host networking pods). This traffic may be "
+"allowed using labels, services or entities -based policies as described "
+"above."
+msgstr ""
+
+#: ../../policy/language.rst:453 a646904558a54d8993172e463f136369
+msgid ""
+"When running Cilium on Linux 4.10 or earlier, there are "
+":ref:`cidr_limitations`."
+msgstr ""
+
+#: ../../policy/language.rst:460 3b858a780a1a4f41850b82656f52ebd4
+msgid "fromCIDR"
+msgstr ""
+
+#: ../../policy/language.rst:459 dcceca06faa84f07a3d02cab361c0ef6
+msgid ""
+"List of source prefixes/CIDRs that are allowed to talk to all endpoints "
+"selected by the ``endpointSelector``."
+msgstr ""
+
+#: ../../policy/language.rst:466 895259d0da904a50aa0282a9b94f6222
+msgid "fromCIDRSet"
+msgstr ""
+
+#: ../../policy/language.rst:463 5250f40972f54dd085862c808d6eaf2b
+msgid ""
+"List of source prefixes/CIDRs that are allowed to talk to all endpoints "
+"selected by the ``endpointSelector``, along with an optional list of "
+"prefixes/CIDRs per source prefix/CIDR that are subnets of the source "
+"prefix/CIDR from which communication is not allowed."
+msgstr ""
+
+#: ../../policy/language.rst:475 078ff4bbf14444c19800d54351acd10c
+msgid "toCIDR"
+msgstr ""
+
+#: ../../policy/language.rst:472 95007a572a1947ef8d827cf4f01dea75
+msgid ""
+"List of destination prefixes/CIDRs that endpoints selected by "
+"``endpointSelector`` are allowed to talk to. Note that endpoints which "
+"are selected by a ``fromEndpoints`` are automatically allowed to reply "
+"back to the respective destination endpoints."
+msgstr ""
+
+#: ../../policy/language.rst:481 444812de1e9b4f0baf27a4eba86ac59d
+msgid "toCIDRSet"
+msgstr ""
+
+#: ../../policy/language.rst:478 63f44a58a334405db445865ada8cd4a3
+msgid ""
+"List of destination prefixes/CIDRs that are allowed to talk to all "
+"endpoints selected by the ``endpointSelector``, along with an optional "
+"list of prefixes/CIDRs per source prefix/CIDR that are subnets of the "
+"destination prefix/CIDR to which communication is not allowed."
+msgstr ""
+
+#: ../../policy/language.rst:484 2acf080b0ff04eb48f5994d51c9a04fc
+msgid "Allow to external CIDR block"
+msgstr ""
+
+#: ../../policy/language.rst:486 77dee921db0a40f699766f299d37dc93
+msgid ""
+"This example shows how to allow all endpoints with the label "
+"``app=myService`` to talk to the external IP ``20.1.1.1``, as well as the"
+" CIDR prefix ``10.0.0.0/8``, but not CIDR prefix ``10.96.0.0/12``"
+msgstr ""
+
+#: ../../policy/language.rst:507 b9a5cc4d35b74b3d800a62c2dbc1e066
+msgid "DNS based"
+msgstr ""
+
+#: ../../policy/language.rst:509 45055cd5c41f47ab82f0af172009df7d
+msgid ""
+"DNS policies are used to define Layer 3 policies to endpoints that are "
+"not managed by Cilium, but have DNS queryable domain names. The IP "
+"addresses provided in DNS responses are allowed by Cilium in a similar "
+"manner to IPs in `CIDR based`_ policies. They are an alternative when the"
+" remote IPs may change or are not know a priori, or when DNS is more "
+"convenient. To enforce policy on DNS requests themselves, see `Layer 7 "
+"Examples`_."
+msgstr ""
+
+#: ../../policy/language.rst:516 7b508d30aacb4f00b2bbb9c735315e90
+msgid ""
+"IP information is captured from DNS responses per-Endpoint via a `DNS "
+"Proxy`_. An L3 `CIDR based`_ rule is generated for every ``toFQDNs`` rule"
+" and applies to the same endpoints. The IP information is selected for "
+"insertion by ``matchName`` or ``matchPattern`` rules, and is collected "
+"from all DNS responses seen by Cilium on the node. Multiple selectors may"
+" be included in a single egress rule. See :ref:`DNS Obtaining Data` for "
+"information on collecting this IP data."
+msgstr ""
+
+#: ../../policy/language.rst:524 e2a5c0eb31ff442ab5921478ca6c6e6e
+msgid ""
+"``toFQDNs`` egress rules cannot contain any other L3 rules, such as "
+"``toEndpoints`` (under `Labels Based`_) and ``toCIDRs`` (under `CIDR "
+"Based`_). They may contain L4/L7 rules, such as ``toPorts`` (see `Layer 4"
+" Examples`_) with, optionally, ``HTTP`` and ``Kafka`` sections (see "
+"`Layer 7 Examples`_)."
+msgstr ""
+
+#: ../../policy/language.rst:529 1732e00719eb4527a3536d18be2e4806
+msgid ""
+"DNS based rules are intended for external connections and behave "
+"similarly to `CIDR based`_ rules. See `Services based`_ and `Labels "
+"based`_ for cluster-internal traffic."
+msgstr ""
+
+#: ../../policy/language.rst:533 70bdb58a21f5499ebfda501c4842f2c6
+msgid "IPs to be allowed are selected via:"
+msgstr ""
+
+#: ../../policy/language.rst:538 54c717a39fb848e8b554c0dfcb099523
+msgid "``toFQDNs.matchName``"
+msgstr ""
+
+#: ../../policy/language.rst:536 3ca82d5886714d1b80e78e3b62b3d814
+msgid ""
+"Inserts IPs of domains that match ``matchName`` exactly. Multiple "
+"distinct names may be included in separate ``matchName`` entries and IPs "
+"for domains that match any ``matchName`` will be inserted."
+msgstr ""
+
+#: ../../policy/language.rst:552 ae0487d2cb524455be7b5b846647d5d8
+msgid "``toFQDNs.matchPattern``"
+msgstr ""
+
+#: ../../policy/language.rst:541 0ebbb72279e04ee1875363b4edb3c954
+msgid ""
+"Inserts IPs of domains that match the pattern in ``matchPattern``, "
+"accounting for wildcards. Patterns are composed of literal characters "
+"that are allowed in domain names: a-z, 0-9, ``.`` and ``-``."
+msgstr ""
+
+#: ../../policy/language.rst:545 ../../policy/language.rst:991
+#: 3f3ec8fcfae448c49c594b46399f0a84 c4ff54b88f364c2abe07e3da8d3653a8
+msgid "``*`` is allowed as a wildcard with a number of convenience behaviors:"
+msgstr ""
+
+#: ../../policy/language.rst:547 ../../policy/language.rst:993
+#: d2f5c4095b784a4e84c9c010763e08fc d930ce7bad164154937f2a107a9be12b
+msgid ""
+"``*`` within a domain allows 0 or more valid DNS characters, except for "
+"the ``.`` separator. ``*.cilium.io`` will match ``sub.cilium.io`` but not"
+" ``cilium.io``. ``part*ial.com`` will match ``partial.com`` and ``part-"
+"extra-ial.com``."
+msgstr ""
+
+#: ../../policy/language.rst:551 e6b76e7357f147d08f367b9c9f434759
+msgid ""
+"``*`` alone matches all names, and inserts all cached DNS IPs into this "
+"rule."
+msgstr ""
+
+#: ../../policy/language.rst:554 8e6349decf254d2ab8800f0e0d09d547
+msgid ""
+"The example below allows all DNS traffic on port 53 to the DNS service "
+"and intercepts it via the `DNS Proxy`_. If using a non-standard DNS port "
+"for a DNS application behind a Kubernetes service, the port must match "
+"the backend port. When the application makes a request for my-remote-"
+"service.com, Cilium learns the IP address and will allow traffic due to "
+"the match on the name under the ``toFQDNs.matchName`` rule."
+msgstr ""
+
+#: ../../policy/language.rst:562 1ea498c364b144078a3584d86865aa06
+msgid "Example"
+msgstr ""
+
+#: ../../policy/language.rst:582 61ea695cd8ef4010b5bd3952c66c2960
+msgid "Managing Long-Lived Connections & Minimum DNS Cache Times"
+msgstr ""
+
+#: ../../policy/language.rst:583 52d394c2a134469fb63f9cdacb48857f
+msgid ""
+"Often, an application may keep a connection open for longer than the DNS "
+"TTL. Without further DNS queries the remote IP used in the long-lived "
+"connection may expire out of the DNS cache. When this occurs, existing "
+"connections established before the TTL expires will continue to be "
+"allowed until they terminate. Unused IPs will no longer be allowed, "
+"however, even when from the same DNS lookup as an in-use IP. This "
+"tracking is per-endpoint per-IP and DNS entries in this state will be "
+"have ``source: connection`` with a single IP listed within the ``cilium "
+"fqdn cache list`` output."
+msgstr ""
+
+#: ../../policy/language.rst:592 098d8634fb4b4decb5db98ecff567168
+msgid ""
+"A minimum TTL is used to ensure a lower time bound to DNS data "
+"expiration, and IPs allowed by a ``toFQDNs`` rule will be allowed at "
+"least this long It can be configured with the ``--tofqdns-min-ttl`` CLI "
+"option. The value is in integer seconds and must be 1 or more, the "
+"default is 1 hour."
+msgstr ""
+
+#: ../../policy/language.rst:597 27539d7a04284e14ae78eb89a030f438
+msgid ""
+"Some care needs to be taken when setting ``--tofqdns-min-ttl`` with DNS "
+"data that returns many distinct IPs over time. A long TTL will keep each "
+"IP cached long after the related connections have terminated. Large "
+"numbers of IPs each have corresponding Security Identities and too many "
+"may slow down Cilium policy regeneration."
+msgstr ""
+
+#: ../../policy/language.rst:604 5661ba256f8a4e869323e58e3efc6f56
+msgid "Managing Short-Lived Connections & Maximum IPs per FQDN/endpoint"
+msgstr ""
+
+#: ../../policy/language.rst:606 a6539709527a402d8d502716e5f556af
+msgid ""
+"The minimum TTL for DNS entries in the cache is deliberately long with 1 "
+"hour as the default. This is done to accommodate long-lived persistent "
+"connections. On the other end of the spectrum are workloads that perform "
+"short-lived connections in repetition to FQDNs that are backed by a large"
+" number of IP addresses (e.g. AWS S3)."
+msgstr ""
+
+#: ../../policy/language.rst:612 c5e15109332c430391589409fab977ef
+msgid ""
+"Many short-lived connections can grow the number of IPs mapping to an "
+"FQDN quickly. In order to limit the number of IP addresses that map a "
+"particular FQDN, each FQDN has a per-endpoint max capacity of IPs that "
+"will be retained (default: 50). Once this limit is exceeded, the oldest "
+"IP entries are automatically expired from the cache. This capacity can be"
+" changed using the ``--tofqdns-max-ip-per-hostname`` option."
+msgstr ""
+
+#: ../../policy/language.rst:619 069d9a9bc2f84d02a52711addb1bb59a
+msgid ""
+"As with long-lived connections above, live connections are not expired "
+"until they terminate. It is safe to mix long- and short-lived connections"
+" from the same Pod. IPs above the limit described above will only be "
+"removed if unused by a connection."
+msgstr ""
+
+#: ../../policy/language.rst:629 afc0166a16664dc08761031b09b7c498
+msgid "Layer 4 Examples"
+msgstr ""
+
+#: ../../policy/language.rst:632 53105f4d6d6e418fb4d4e89598296c68
+msgid "Limit ingress/egress ports"
+msgstr ""
+
+#: ../../policy/language.rst:634 4c5759d6139b46fcaa0c4349f79b3dde
+msgid ""
+"Layer 4 policy can be specified in addition to layer 3 policies or "
+"independently. It restricts the ability of an endpoint to emit and/or "
+"receive packets on a particular port using a particular protocol. If no "
+"layer 4 policy is specified for an endpoint, the endpoint is allowed to "
+"send and receive on all layer 4 ports and protocols including ICMP. If "
+"any layer 4 policy is specified, then ICMP will be blocked unless it's "
+"related to a connection that is otherwise allowed by the policy. Layer 4 "
+"policies apply to ports after service port mapping has been applied."
+msgstr ""
+
+#: ../../policy/language.rst:643 d899584e5fb043609c9864de9dc9d6c9
+msgid ""
+"Layer 4 policy can be specified at both ingress and egress using the "
+"``toPorts`` field. The ``toPorts`` field takes a ``PortProtocol`` "
+"structure which is defined as follows:"
+msgstr ""
+
+#: ../../policy/language.rst:666 91b42f52c8d84e0b803e68dcb474d63f
+msgid "Example (L4)"
+msgstr ""
+
+#: ../../policy/language.rst:668 510d3b3343e646e9bde63bec82d33262
+msgid ""
+"The following rule limits all endpoints with the label ``app=myService`` "
+"to only be able to emit packets using TCP on port 80, to any layer 3 "
+"destination:"
+msgstr ""
+
+#: ../../policy/language.rst:686 55a7478912d94c37a60cc80eda6cf730
+msgid "Labels-dependent Layer 4 rule"
+msgstr ""
+
+#: ../../policy/language.rst:688 be46d3a501ce42b5a762f98491c1bc25
+msgid ""
+"This example enables all endpoints with the label ``role=frontend`` to "
+"communicate with all endpoints with the label ``role=backend``, but they "
+"must communicate using TCP on port 80. Endpoints with other labels will "
+"not be able to communicate with the endpoints with the label "
+"``role=backend``, and endpoints with the label ``role=frontend`` will not"
+" be able to communicate with ``role=backend`` on ports other than 80."
+msgstr ""
+
+#: ../../policy/language.rst:710 182a9b44a58c46e7aea7da2a742fb036
+msgid "CIDR-dependent Layer 4 Rule"
+msgstr ""
+
+#: ../../policy/language.rst:712 232dda42e7e547e09e007483f3dc6f7a
+msgid ""
+"This example enables all endpoints with the label ``role=crawler`` to "
+"communicate with all remote destinations inside the CIDR "
+"``192.0.2.0/24``, but they must communicate using TCP on port 80. The "
+"policy does not allow Endpoints without the label ``role=crawler`` to "
+"communicate with destinations in the CIDR ``192.0.2.0/24``. Furthermore, "
+"endpoints with the label ``role=crawler`` will not be able to communicate"
+" with destinations in the CIDR ``192.0.2.0/24`` on ports other than port "
+"80."
+msgstr ""
+
+#: ../../policy/language.rst:739 421b80abb2674ac9b0ee382cb17e8bd2
+msgid "Layer 7 Examples"
+msgstr ""
+
+#: ../../policy/language.rst:741 72aa1709c20c45a7b8f9890ddb6fc264
+msgid ""
+"Layer 7 policy rules are embedded into `l4_policy` rules and can be "
+"specified for ingress and egress. ``L7Rules`` structure is a base type "
+"containing an enumeration of protocol specific fields."
+msgstr ""
+
+#: ../../policy/language.rst:767 2cef83492aa746d89b58c1f7baaa202e
+msgid ""
+"The structure is implemented as a union, i.e. only one member field can "
+"be used per port. If multiple ``toPorts`` rules with identical "
+"``PortProtocol`` select an overlapping list of endpoints, then the layer "
+"7 rules are combined together if they are of the same type. If the type "
+"differs, the policy is rejected."
+msgstr ""
+
+#: ../../policy/language.rst:772 2e0d9a3ca3964d3bb1f36b5f0d52a820
+msgid ""
+"Each member consists of a list of application protocol rules. A layer 7 "
+"request is permitted if at least one of the rules matches. If no rules "
+"are specified, then all traffic is permitted."
+msgstr ""
+
+#: ../../policy/language.rst:776 a96583e0296a41508987dc10b57a5754
+msgid ""
+"If a layer 4 rule is specified in the policy, and a similar layer 4 rule "
+"with layer 7 rules is also specified, then the layer 7 portions of the "
+"latter rule will have no effect."
+msgstr ""
+
+#: ../../policy/language.rst:780 3d9fd0f2e2254c32bc712d2aed9b753d
+msgid ""
+"Unlike layer 3 and layer 4 policies, violation of layer 7 rules does not "
+"result in packet drops. Instead, if possible, an application protocol "
+"specific access denied message is crafted and returned, e.g. an *HTTP 403"
+" access denied* is sent back for HTTP requests which violate the policy, "
+"or a *DNS REFUSED* response for DNS requests."
+msgstr ""
+
+#: ../../policy/language.rst:786 31a2569665694b4892ad0a2f7e8198bd
+msgid ""
+"There is currently a max limit of 40 ports with layer 7 policies per "
+"endpoint. This might change in the future when support for ranges is "
+"added."
+msgstr ""
+
+#: ../../policy/language.rst:790 8d33c5a89a5548e2ac4f1c4abd5f71e4
+msgid ""
+"Layer 7 rules are not currently supported in `HostPolicies`, i.e., "
+"policies that use :ref:`NodeSelector`."
+msgstr ""
+
+#: ../../policy/language.rst:794 53a097bf3f04433c83d919e06aa80318
+msgid "HTTP"
+msgstr ""
+
+#: ../../policy/language.rst:796 ../../policy/language.rst:878
+#: 4294c6f2536040f4b8793cd0b0d3c282 65057eab444943cfb63cd7aa5fca7299
+msgid "The following fields can be matched on:"
+msgstr ""
+
+#: ../../policy/language.rst:802 7b3055c6f47e4feab73daae1a29a0df3
+msgid "Path"
+msgstr ""
+
+#: ../../policy/language.rst:799 56dfa994a85744e095afc6e9a45dc0c7
+msgid ""
+"Path is an extended POSIX regex matched against the path of a request. "
+"Currently it can contain characters disallowed from the conventional "
+"\"path\" part of a URL as defined by RFC 3986. Paths must begin with a "
+"``/``. If omitted or empty, all paths are all allowed."
+msgstr ""
+
+#: ../../policy/language.rst:807 a7f3b893c4c247c1a29952036953d9ab
+msgid "Method"
+msgstr ""
+
+#: ../../policy/language.rst:805 79d664326ea446b39e352bf8ed221c79
+msgid ""
+"Method is an extended POSIX regex matched against the method of a "
+"request, e.g. ``GET``, ``POST``, ``PUT``, ``PATCH``, ``DELETE``, ...  If "
+"omitted or empty, all methods are allowed."
+msgstr ""
+
+#: ../../policy/language.rst:812 354613f4a3e24e29bac3dc8225f52314
+msgid "Host"
+msgstr ""
+
+#: ../../policy/language.rst:810 61858dc7d7f44e2a917f6278b45306f9
+msgid ""
+"Host is an extended POSIX regex matched against the host header of a "
+"request, e.g. ``foo.com``. If omitted or empty, the value of the host "
+"header is ignored."
+msgstr ""
+
+#: ../../policy/language.rst:816 e5d44005864843a295c670e9e9789f79
+msgid "Headers"
+msgstr ""
+
+#: ../../policy/language.rst:815 5dd750cc425d406e95a50c84cd7f8582
+msgid ""
+"Headers is a list of HTTP headers which must be present in the request. "
+"If omitted or empty, requests are allowed regardless of headers present."
+msgstr ""
+
+#: ../../policy/language.rst:819 8edf300143414ac68cf325f413e1acd4
+msgid "Allow GET /public"
+msgstr ""
+
+#: ../../policy/language.rst:821 c36366cf37444bd9a1d9164bbf393fb3
+msgid ""
+"The following example allows ``GET`` requests to the URL ``/public`` to "
+"be allowed to endpoints with the labels ``env:prod``, but requests to any"
+" other URL, or using another method, will be rejected. Requests on ports "
+"other than port 80 will be dropped."
+msgstr ""
+
+#: ../../policy/language.rst:841 3db7107c5776454b862d521ca304ac9a
+msgid "All GET /path1 and PUT /path2 when header set"
+msgstr ""
+
+#: ../../policy/language.rst:843 2575f4c425c840e38ad9096768f749e4
+msgid ""
+"The following example limits all endpoints which carry the labels "
+"``app=myService`` to only be able to receive packets on port 80 using "
+"TCP. While communicating on this port, the only API endpoints allowed "
+"will be ``GET /path1``, and ``PUT /path2`` with the HTTP header ``X-My-"
+"Header`` set to ``true``:"
+msgstr ""
+
+#: ../../policy/language.rst:866 24802afc89cb4920b636adece863bfd5
+msgid "Kafka (beta)"
+msgstr ""
+
+#: ../../beta.rst:3 27bfaaf7e8be480e92bfc7f8c4ee6ca7
+#: 908e87388cce491695c90c27ca049499
+msgid ""
+"This is a beta feature. Please provide feedback and file a GitHub issue "
+"if you experience any problems."
+msgstr ""
+
+#: ../../policy/language.rst:870 e964d4c725794e089ece3a605d705690
+msgid ""
+"PortRuleKafka is a list of Kafka protocol constraints. All fields are "
+"optional, if all fields are empty or missing, the rule will match all "
+"Kafka messages. There are two ways to specify the Kafka rules. We can "
+"choose to specify a high-level \"produce\" or \"consume\" role to a topic"
+" or choose to specify more low-level Kafka protocol specific apiKeys. "
+"Writing rules based on Kafka roles is easier and covers most common use "
+"cases, however if more granularity is needed then users can alternatively"
+" write rules using specific apiKeys."
+msgstr ""
+
+#: ../../policy/language.rst:893 536316ee983a4af983221fbddfead320
+msgid "Role"
+msgstr ""
+
+#: ../../policy/language.rst:881 3ba47744847641a08de5986eb2bddc20
+msgid ""
+"Role is a case-insensitive string which describes a group of API keys "
+"necessary to perform certain higher-level Kafka operations such as "
+"\"produce\" or \"consume\". A Role automatically expands into all APIKeys"
+" required to perform the specified higher-level operation. The following "
+"roles are supported:"
+msgstr ""
+
+#: ../../policy/language.rst:887 abcf998ccb1e4b209b7dc46477542a96
+msgid "\"produce\": Allow producing to the topics specified in the rule."
+msgstr ""
+
+#: ../../policy/language.rst:888 7fd115c3868a4f9eb3d3852c7d12b355
+msgid "\"consume\": Allow consuming from the topics specified in the rule."
+msgstr ""
+
+#: ../../policy/language.rst:890 7e51d836296740c39c134af2d94d03e6
+msgid ""
+"This field is incompatible with the APIKey field, i.e APIKey and Role "
+"cannot both be specified in the same rule. If omitted or empty, and if "
+"APIKey is not specified, then all keys are allowed."
+msgstr ""
+
+#: ../../policy/language.rst:899 7ee4de8b22474d0abfad8ecd0f9ef6bb
+msgid "APIKey"
+msgstr ""
+
+#: ../../policy/language.rst:896 f34a74438da0439194b8d6c708a5c427
+msgid ""
+"APIKey is a case-insensitive string matched against the key of a request,"
+" for example \"produce\", \"fetch\", \"createtopic\", \"deletetopic\". "
+"For a more extensive list, see the `Kafka protocol reference "
+"<https://kafka.apache.org/protocol#protocol_api_keys>`_. This field is "
+"incompatible with the Role field."
+msgstr ""
+
+#: ../../policy/language.rst:904 920a8bf8c9d24babba8b8fe5a515f0cc
+msgid "APIVersion"
+msgstr ""
+
+#: ../../policy/language.rst:902 4017565e86d1490fb2f5d7edf2f7dcca
+msgid ""
+"APIVersion is the version matched against the api version of the Kafka "
+"message. If set, it must be a string representing a positive integer. If "
+"omitted or empty, all versions are allowed."
+msgstr ""
+
+#: ../../policy/language.rst:917 d38733f837a645c182f6647d7fb1f841
+msgid "ClientID"
+msgstr ""
+
+#: ../../policy/language.rst:907 36d6e501f054460688449282e91bdf9e
+msgid "ClientID is the client identifier as provided in the request."
+msgstr ""
+
+#: ../../policy/language.rst:909 964d3c130d6e41f19a69af3c665582b7
+msgid ""
+"From Kafka protocol documentation: This is a user supplied identifier for"
+" the client application. The user can use any identifier they like and it"
+" will be used when logging errors, monitoring aggregates, etc. For "
+"example, one might want to monitor not just the requests per second "
+"overall, but the number coming from each client application (each of "
+"which could reside on multiple servers). This id acts as a logical "
+"grouping across all requests from a particular client."
+msgstr ""
+
+#: ../../policy/language.rst:917 b6185c29e49b447c90188edb8c147eaa
+msgid "If omitted or empty, all client identifiers are allowed."
+msgstr ""
+
+#: ../../policy/language.rst:928 e5dd101baec441ac8bf590efd1af691f
+msgid "Topic"
+msgstr ""
+
+#: ../../policy/language.rst:920 0ee1a05fb64a48b488645398fd9cd547
+msgid ""
+"Topic is the topic name contained in the message. If a Kafka request "
+"contains multiple topics, then all topics in the message must be allowed "
+"by the policy or the message will be rejected."
+msgstr ""
+
+#: ../../policy/language.rst:924 b9b9398a021d4a41bdb26bceefd22b11
+msgid ""
+"This constraint is ignored if the matched request message type does not "
+"contain any topic. The maximum length of the Topic is 249 characters, "
+"which must be either ``a-z``, ``A-Z``, ``0-9``, ``-``, ``.`` or ``_``."
+msgstr ""
+
+#: ../../policy/language.rst:928 d00a7072d8514c09ab7dd186de70f9ab
+msgid "If omitted or empty, all topics are allowed."
+msgstr ""
+
+#: ../../policy/language.rst:931 e13b322d96644e4da4ca59ee6d439cf8
+msgid "Allow producing to topic empire-announce using Role"
+msgstr ""
+
+#: ../../policy/language.rst:948 0b46dacb470248f0bf5001139f27190c
+msgid "Allow producing to topic empire-announce using apiKeys"
+msgstr ""
+
+#: ../../policy/language.rst:968 5cb8937c7500472682649d2ead3978c2
+msgid "DNS Policy and IP Discovery"
+msgstr ""
+
+#: ../../policy/language.rst:970 dd85926a99974c04a0c74da04f4d5a37
+msgid ""
+"Policy may be applied to DNS traffic, allowing or disallowing specific "
+"DNS query names or patterns of names (other DNS fields, such as query "
+"type, are not considered). This policy is effected via a DNS proxy, which"
+" is also used to collect IPs used to populate L3 `DNS based`_ ``toFQDNs``"
+" rules."
+msgstr ""
+
+#: ../../policy/language.rst:975 12c30fe897c34948a13136e4fa531ad4
+msgid ""
+"While Layer 7 DNS policy can be applied without any other Layer 3 rules, "
+"the presence of a Layer 7 rule (with its Layer 3 and 4 components) will "
+"block other traffic."
+msgstr ""
+
+#: ../../policy/language.rst:979 ed3ecd157b794132af60ec9809119015
+msgid "DNS policy may be applied via:"
+msgstr ""
+
+#: ../../policy/language.rst:984 07334784c87042f68f879bfdf495dd6d
+msgid "``matchName``"
+msgstr ""
+
+#: ../../policy/language.rst:982 e8fc000e72db46f29b28f90052fa82b9
+msgid ""
+"Allows queries for domains that match ``matchName`` exactly. Multiple "
+"distinct names may be included in separate ``matchName`` entries and "
+"queries for domains that match any ``matchName`` will be allowed."
+msgstr ""
+
+#: ../../policy/language.rst:998 121aa157ce9040ebbad1c9c11cef9b04
+msgid "``matchPattern``"
+msgstr ""
+
+#: ../../policy/language.rst:987 9b2fb24d2bff4501b891935a53655762
+msgid ""
+"Allows queries for domains that match the pattern in ``matchPattern``, "
+"accounting for wildcards. Patterns are composed of literal characters "
+"that that are allowed in domain names: a-z, 0-9, ``.`` and ``-``."
+msgstr ""
+
+#: ../../policy/language.rst:997 f876815cd8b74ec79b6a9dea8691b6f0
+msgid ""
+"``*`` alone matches all names, and inserts all IPs in DNS responses into "
+"the cilium-agent DNS cache."
+msgstr ""
+
+#: ../../policy/language.rst:1000 3112ca1fe7984968a01e8a45098ee02c
+msgid ""
+"In this example, L7 DNS policy allows queries for ``cilium.io``, any "
+"subdomains of ``cilium.io``, and any subdomains of ``api.cilium.io``. No "
+"other DNS queries will be allowed."
+msgstr ""
+
+#: ../../policy/language.rst:1004 749cfd48191b4793b3a2bc148644d4ba
+msgid ""
+"The separate L3 ``toFQDNs`` egress rule allows connections to any IPs "
+"returned in DNS queries for ``cilium.io``, ``sub.cilium.io``, "
+"``service1.api.cilium.io`` and any matches of "
+"``special*service.api.cilium.io``, such as ``special-"
+"region1-service.api.cilium.io`` but not "
+"``region1-service.api.cilium.io``. DNS queries to "
+"``anothersub.cilium.io`` are allowed but connections to the returned IPs "
+"are not, as there is no L3 ``toFQDNs`` rule selecting them. L4 and L7 "
+"policy may also be applied (see `DNS based`_), restricting connections to"
+" TCP port 80 in this case."
+msgstr ""
+
+#: ../../policy/language.rst:1028 27657eba85554a87b055167a078a5fec
+msgid ""
+"When applying DNS policy in kubernetes, queries for "
+"service.namespace.svc.cluster.local. must be explicitly allowed with "
+"``matchPattern: *.*.svc.cluster.local.``."
+msgstr ""
+
+#: ../../policy/language.rst:1032 ca325dbbb8c249b6a55b30f4bb7b9c8b
+msgid ""
+"Similarly, queries that rely on the DNS search list to complete the FQDN "
+"must be allowed in their entirety. e.g. A query for ``servicename`` that "
+"succeeds with ``servicename.namespace.svc.cluster.local.`` must have the "
+"latter allowed with ``matchName`` or ``matchPattern``. See `Alpine/musl "
+"deployments and DNS Refused`_."
+msgstr ""
+
+#: ../../policy/language.rst:1041 f8a928941e154335a0871c4d2519b2ae
+msgid "Obtaining DNS Data for use by ``toFQDNs``"
+msgstr ""
+
+#: ../../policy/language.rst:1042 67e3ab2340bb46f1a5c3575e9154cd8b
+msgid ""
+"IPs are obtained via intercepting DNS requests with a proxy or DNS "
+"polling, and matching names are inserted irrespective of how the data is "
+"obtained. These IPs can be selected with ``toFQDN`` rules. DNS responses "
+"are cached within Cilium agent respecting TTL."
+msgstr ""
+
+#: ../../policy/language.rst:1050 d0d5a24bc77946399c00e73ce72c5e03
+msgid "DNS Proxy"
+msgstr ""
+
+#: ../../policy/language.rst:1051 5426808b728f426293204eee8940e125
+msgid ""
+"A DNS Proxy intercepts egress DNS traffic and records IPs seen in the "
+"responses. This interception is, itself, a separate policy rule governing"
+" the DNS requests, and must be specified separately. For details on how "
+"to enforce policy on DNS requests and configuring the DNS proxy, see "
+"`Layer 7 Examples`_."
+msgstr ""
+
+#: ../../policy/language.rst:1057 24692db096274d76937505c2209f176c
+msgid ""
+"Only IPs in intercepted DNS responses to an application will be allowed "
+"in the Cilium policy rules. For a given domain name, IPs from responses "
+"to all pods managed by a Cilium instance are allowed by policy "
+"(respecting TTLs). This ensures that allowed IPs are consistent with "
+"those returned to applications. The DNS Proxy is the only method to allow"
+" IPs from responses allowed by wildcard L7 DNS ``matchPattern`` rules for"
+" use in ``toFQDNs`` rules."
+msgstr ""
+
+#: ../../policy/language.rst:1065 523befaa3942431ca1ddb67024cdf3ad
+msgid ""
+"The following example obtains DNS data by interception without blocking "
+"any DNS requests. It allows L3 connections to ``cilium.io``, "
+"``sub.cilium.io`` and any subdomains of ``sub.cilium.io``."
+msgstr ""
+
+#: ../../policy/language.rst:1084 576dc104d1f14e849bc6779bf605bdc7
+msgid "Alpine/musl deployments and DNS Refused"
+msgstr ""
+
+#: ../../policy/language.rst:1086 170ae549e61c4cb1a1a079cfbc5a3c05
+msgid ""
+"Some common container images treat the DNS ``Refused`` response when the "
+"`DNS Proxy`_ rejects a query as a more general failure. This stops "
+"traversal of the search list defined in ``/etc/resolv.conf``. It is "
+"common for pods to search by appending ``.svc.cluster.local.`` to DNS "
+"queries. When this occurs, a lookup for ``cilium.io`` may first be "
+"attempted as ``cilium.io.namespace.svc.cluster.local.`` and rejected by "
+"the proxy. Instead of continuing and eventually attempting ``cilium.io.``"
+" alone, the Pod treats the DNS lookup is treated as failed."
+msgstr ""
+
+#: ../../policy/language.rst:1095 672039f8998f40fc80ee583496deb544
+msgid ""
+"This can be mitigated with the ``--tofqdns-dns-reject-response-code`` "
+"option. The default is ``refused`` but ``nameError`` can be selected, "
+"causing the proxy to return a NXDomain response to refused queries."
+msgstr ""
+
+#: ../../policy/language.rst:1099 d8bb0a8e60df4d13824fa4f8e2fe6360
+msgid ""
+"A more pod-specific solution is to configure ``ndots`` appropriately for "
+"each Pod, via ``dnsConfig``, so that the search list is not used for DNS "
+"lookups that do not need it. See the `Kubernetes documentation "
+"<https://kubernetes.io/docs/concepts/services-networking/dns-pod-"
+"service/#pod-s-dns-config>`_ for instructions."
+msgstr ""
+
+#: ../../policy/language.rst:1108 d5b9e49dc9514ec298974bed9b413f36
+msgid "Deny Policies"
+msgstr ""
+
+#: ../../policy/language.rst:1112 1ae0a4a4140c4d23a008220fa4efb9f4
+msgid ""
+"Deny policies, available and enabled by default since Cilium 1.9, allows "
+"to explicitly restrict certain traffic to and from a Pod."
+msgstr ""
+
+#: ../../policy/language.rst:1115 4cd5ec8907a24e428d3802abc253810c
+msgid ""
+"Deny policies take precedence over allow policies, regardless of whether "
+"they are a Cilium Network Policy, a Clusterwide Cilium Network Policy or "
+"even a Kubernetes Network Policy."
+msgstr ""
+
+#: ../../policy/language.rst:1119 4c68185488174e5ca0dc6cbb5f049574
+msgid ""
+"Similarly to \"allow\" policies, Pods will enter default-deny mode as "
+"soon a single policy selects it."
+msgstr ""
+
+#: ../../policy/language.rst:1122 322ff56fd0f043b5a1c50fedfd8adff5
+msgid ""
+"If multiple allow and deny policies are applied to the same pod, the "
+"following table represents the expected enforcement for that Pod:"
+msgstr ""
+
+#: ../../policy/language.rst:1126 c254352a89ee412eb7dd9a798814ac54
+msgid "**Set of Ingress Policies Deployed to Server Pod**"
+msgstr ""
+
+#: ../../policy/language.rst:1131 90bd79c4a5a74f61ad20536f1b2cdbcc
+msgid "**Allow Policies**"
+msgstr ""
+
+#: ../../policy/language.rst:1128 6ef5297e6aa24fc4b79c4203fee45045
+msgid "Layer 7 (HTTP)"
+msgstr ""
+
+#: ../../policy/language.rst:1128 ../../policy/language.rst:1130
+#: ../../policy/language.rst:1132 ../../policy/language.rst:1134
+#: ../../policy/language.rst:1136 ../../policy/language.rst:1138
+#: 1e32821366684ac882ea1b94260344c8 41ecde74e88045a4a1f1c1db4a05a531
+#: 42bb49a44c5f46f28a0bff411f1cdd84 43ef9d3dfe044f41a023fd0d4b136aa2
+#: 43f74f5f5dca44478e0d3b2b0db8ce74 527cfeeae9354df39a7b389cc1c9ccb3
+#: 551cbf64e30b4959a3871ef786039f53 561634b4b4e54bbcb30f5757cb50391c
+#: 58346e9bb3b94ef78ff2777501792d6a 7f23a9ce739a4d2093852828c4b63284
+#: 881d360418d14ffbae0e4754654b1aae 9322e1bc88b744b49e1117af127b2c59
+#: 93cf40c6524e473392e121ab20add63d 9ce24659dc1d447a8254191d6e3ef757
+#: ab71fec1edbd40fa9ac722e9c7d87155 c3861a0fd7e743fc821ad95ea3211c85
+#: d645e53b4a764b87821101083a36a408 d79073b3f6354aa5b131efb03f82fe69
+#: e3d9d1c4a3e6447ea555f6faa1eb031f ee7fab33aff6415ea6f929654da76c5a
+#: eefb95885af0420ba31a678cc047f0ff
+msgid "✓"
+msgstr ""
+
+#: ../../policy/language.rst:1130 ../../policy/language.rst:1136
+#: aa0db32e219a4a9383ab87c8f208a229 b6a1138c33c7443799a5a847536ab152
+msgid "Layer 4 (80/TCP)"
+msgstr ""
+
+#: ../../policy/language.rst:1132 574689acb81f4773af52a0eae8cc352a
+msgid "Layer 4 (81/TCP)"
+msgstr ""
+
+#: ../../policy/language.rst:1134 ../../policy/language.rst:1138
+#: a1ca99b3b28f45549442ba71be706e7e ce8bb6d15dad4e56bacee7e91326478f
+msgid "Layer 3 (Pod: Client)"
+msgstr ""
+
+#: ../../policy/language.rst:1137 39973776773a41e49c4feec70e866d83
+msgid "**Deny Policies**"
+msgstr ""
+
+#: ../../policy/language.rst:1140 53c76a56f9bd487c98e599a8d9c71957
+msgid "**Result for Traffic Connections (Allowed / Denied)**"
+msgstr ""
+
+#: ../../policy/language.rst:1144 f1565eeb4bec4b289e90d082ea7baafc
+msgid "**Client → Server**"
+msgstr ""
+
+#: ../../policy/language.rst:1142 dc747275a87f4e42beeee08cf138a031
+msgid "curl server:81"
+msgstr ""
+
+#: ../../policy/language.rst:1142 ../../policy/language.rst:1144
+#: ../../policy/language.rst:1146 12005628da934145a7239816b68f84dd
+#: 367294890c8348c2bc9e8dd55a3eb0a9 3ee5caecf7944c1980c1de5d4489facd
+#: 5eaf5b4f336b47ddb3f25191e514ca4e a8c6084759dd48fa891782981832f7c2
+msgid "Allowed"
+msgstr ""
+
+#: ../../policy/language.rst:1142 ../../policy/language.rst:1144
+#: ../../policy/language.rst:1146 043a269062b2417a8ffcdc46fede1968
+#: 38e27deeb939459a9bb53a90fdcb05be 41ad95179c774e9ab67f71715d0a5f33
+#: 42dd5cb6b5c94fa5a0dd7f4cba88c861 4dac11bb52b14562832c90dadd641a0b
+#: 8131bed76dd24dc8b1cc3923617c3903 a0aee96d02de4b2795a5ec5a6cf465c7
+#: b75fa4b57c7247ccb7434af1e854c62b c76ecff024504158a7c77d4c16a357b0
+#: d6427cabaa2f4374890e61c75dfe04a0
+msgid "Denied"
+msgstr ""
+
+#: ../../policy/language.rst:1144 47c5c16b63764c70b3a919497a548bf6
+msgid "curl server:80"
+msgstr ""
+
+#: ../../policy/language.rst:1146 ccd2324f3586475592dfeb98ef82c1ce
+msgid "ping server"
+msgstr ""
+
+#: ../../policy/language.rst:1149 ab36ad59e2a145869a69c21cbae36c3d
+msgid ""
+"If we pick the second column in the above table, the bottom section shows"
+" the forwarding behaviour for a policy that selects curl or ping traffic "
+"between the client and server:"
+msgstr ""
+
+#: ../../policy/language.rst:1153 8124dd2df2a54e90bed643e84ac4831e
+msgid ""
+"Curl to port 81 is allowed because there is an allow policy on port 81, "
+"and no deny policy on that port;"
+msgstr ""
+
+#: ../../policy/language.rst:1155 adb93615b9d942d7b0ed41462d070b0b
+msgid "Curl to port 80 is denied because there is a deny policy on that port;"
+msgstr ""
+
+#: ../../policy/language.rst:1156 1ed95a89fe9b4cd088431f265ec2ae7e
+msgid ""
+"Ping to the server is allowed because there is a Layer 3 allow policy and"
+" no deny."
+msgstr ""
+
+#: ../../policy/language.rst:1158 99b3813af5b44e7fb6a4dd1d65ec8c96
+msgid ""
+"The following policy will deny ingress from \"world\" on all namespaces "
+"on all Pods managed by Cilium. Existing inter-cluster policies will still"
+" be allowed as this policy is allowing traffic from everywhere except "
+"from \"world\"."
+msgstr ""
+
+#: ../../policy/language.rst:1173 617d17ff022f44979f52ba6e0d4cf829
+msgid ""
+"Deny policies do not support: policy enforcement at L7, i.e., "
+"specifically denying an URL and ``toFQDNs``, i.e., specifically denying "
+"traffic to a specific domain name."
+msgstr ""
+
+#: ../../policy/language.rst:1178 50229cc83e7b4754b15e89ea1faadea1
+msgid "Limitations and known issues"
+msgstr ""
+
+#: ../../policy/language.rst:1180 67eefd23b97647f7985a2615623f826d
+msgid ""
+"The current known limitation is a deny policy with ``toEntities`` "
+"\"world\" for which a ``toFQDNs`` can cause traffic to be allowed if such"
+" traffic is considered external to the cluster."
+msgstr ""
+
+#: ../../policy/language.rst:1215 367190cf321a4c4692df5fad3d390df1
+msgid "Host Policies"
+msgstr ""
+
+#: ../../policy/language.rst:1217 3ae6c511e455410ab0d604b3f576cc1f
+msgid ""
+"Host policies take the form of a `CiliumClusterwideNetworkPolicy` with a "
+":ref:`NodeSelector` instead of an `EndpointSelector`. Host policies can "
+"have layer 3 and layer 4 rules on both ingress and egress. They cannot "
+"have layer 7 rules."
+msgstr ""
+
+#: ../../policy/language.rst:1222 9914e7f71270430e95e14491631aeb89
+msgid ""
+"Host policies apply to all the nodes selected by their "
+":ref:`NodeSelector`. In each selected node, they apply only to the host "
+"namespace, including host-networking pods. They therefore don't apply to "
+"communications between non-host-networking pods and locations outside of "
+"the cluster."
+msgstr ""
+
+#: ../../policy/language.rst:1227 c4d85baa0bac456e98b53ebd754823b9
+msgid ""
+"Installation of Host Policies requires the addition of the following "
+"``helm`` flags when installing Cilium:"
+msgstr ""
+
+#: ../../policy/language.rst:1230 817e5f3cf9a249d0a0ed8d2bba61d581
+msgid ""
+"``--set devices='{interface}'`` where ``interface`` refers to the network"
+" device Cilium is configured on such as ``eth0``. Omitting this option "
+"leads Cilium to auto-detect what interface the host firewall applies to."
+msgstr ""
+
+#: ../../policy/language.rst:1233 1b557c0ba04546299b0aae53b6957765
+msgid "``--set hostFirewall.enabled=true``"
+msgstr ""
+
+#: ../../policy/language.rst:1235 dfc2885d624e42ec951a181bca181ce2
+msgid ""
+"The following policy will allow ingress traffic for any node with the "
+"label ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), "
+"2379 (etcd) and 4240 (health checks), as well as UDP port 8472 (VXLAN)."
+msgstr ""
+
+#: ../../policy/language.rst:1239 d82884331f0f483e86107a2f5a4d7aea
+msgid "Replace the ``port:`` value with ports used in your environment."
+msgstr ""
+
+#: ../../policy/language.rst:1253 32cf2328624a4b42a83770217be92de1
+msgid "Troubleshooting Host Policies"
+msgstr ""
+
+#: ../../policy/language.rst:1255 04d3cd47b9c84249aadec711b831d4bb
+msgid ""
+"If you're having troubles with Host Policies please ensure the ``helm`` "
+"options listed above were applied during installation. To verify that "
+"your policy has been applied, you can run ``kubectl get "
+"CiliumClusterwideNetworkPolicy -o yaml`` to validate the policy was "
+"accepted."
+msgstr ""
+
+#: ../../policy/language.rst:1260 6fb28abe13ba441ca007b767d2fd24af
+msgid ""
+"If policies don't seem to be applied to your nodes, verify the "
+"``nodeSelector`` is labeled correctly in your environment. In the example"
+" configuration, you can run ``kubectl get nodes -o wide|grep type"
+"=ingress-worker`` to verify labels match the policy."
+msgstr ""
+
+#: ../../policy/language.rst:1265 f083162892534942942cb8a86aa7c48d
+msgid ""
+"You can verify the policy was applied by running ``kubectl exec -n "
+"$CILIUM_NAMESPACE cilium-xxxx -- cilium policy get`` for the Cilium agent"
+" pod. Verify that the host is selected by the policy using ``cilium "
+"endpoint list`` and look for the endpoint with ``reserved:host`` as the "
+"label and ensure that policy is enabled in the selected direction. Ensure"
+" the traffic is arriving on the device visible on the ``NodePort`` field "
+"of the ``cilium status list`` output. Use ``cilium monitor`` with "
+"``--related-to`` and the endpoint ID of the ``reserved:host`` endpoint to"
+" view traffic."
+msgstr ""
+

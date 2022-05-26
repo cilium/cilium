@@ -1,0 +1,804 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/networking/ipam/eni.rst:3 15647d06fa724b70badafa08d47ec90f
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:11 79ceab2482eb49e1b7a060db105a7f3e
+msgid "AWS ENI"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:13 2767776e99d148eba08f84775cde54dc
+msgid ""
+"The AWS ENI allocator is specific to Cilium deployments running in the "
+"AWS cloud and performs IP allocation based on IPs of `AWS Elastic Network"
+" Interfaces (ENI) <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide"
+"/using-eni.html>`__ by communicating with the AWS EC2 API."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:18 3b405935275546668399389cfb0d13b3
+msgid ""
+"The architecture ensures that only a single operator communicates with "
+"the EC2 service API to avoid rate-limiting issues in large clusters. A "
+"pre-allocation watermark is used to maintain a number of IP addresses to "
+"be available for use on nodes at all time without needing to contact the "
+"EC2 API when a new pod is scheduled in the cluster."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:26 9dde38407b9f4bee9c9278201cb9143a
+msgid "Architecture"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:31 a6cb54abdf55409986b9fbbeb7bb085d
+msgid ""
+"The AWS ENI allocator builds on top of the CRD-backed allocator. Each "
+"node creates a ``ciliumnodes.cilium.io`` custom resource matching the "
+"node name when Cilium starts up for the first time on that node. It "
+"contacts the EC2 metadata API to retrieve the instance ID, instance type,"
+" and VPC information, then it populates the custom resource with this "
+"information. ENI allocation parameters are provided as agent "
+"configuration option and are passed into the custom resource as well."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:39 abb3546320bb4e7cb3b48f783b57f171
+msgid ""
+"The Cilium operator listens for new ``ciliumnodes.cilium.io`` custom "
+"resources and starts managing the IPAM aspect automatically. It scans the"
+" EC2 instances for existing ENIs with associated IPs and makes them "
+"available via the ``spec.ipam.available`` field. It will then constantly "
+"monitor the used IP addresses in the ``status.ipam.used`` field and "
+"automatically create ENIs and allocate more IPs as needed to meet the IP "
+"pre-allocation watermark. This ensures that there are always IPs "
+"available."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:47 4beeafccbfb34e62a0a1888d79995545
+msgid ""
+"The selection of subnets to use for allocation as well as attachment of "
+"security groups to new ENIs can be controlled separately for each node. "
+"This makes it possible to hand out pod IPs with differing security groups"
+" on individual nodes."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:52 2f3f3d69c3a945a292fe3839da276b61
+msgid ""
+"The corresponding datapath is described in section "
+":ref:`aws_eni_datapath`."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:56 f7283c7cca7a4f6f902c1d8ac8581495
+msgid "Configuration"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:58 b5962a7a54104802aaae7dc0e2fe998f
+msgid ""
+"The Cilium agent and operator must be run with the option ``--ipam=eni`` "
+"or the option ``ipam: eni``  must be set in the ConfigMap. This will "
+"enable ENI allocation in both the node agent and operator."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:62 a6893846dcff4ce8ace2627d977f8b04
+msgid ""
+"In most scenarios, it makes sense to automatically create the "
+"``ciliumnodes.cilium.io`` custom resource when the agent starts up on a "
+"node for the first time. To enable this, specify the option ``--auto-"
+"create-cilium-node-resource`` or  set ``auto-create-cilium-node-resource:"
+" \"true\"`` in the ConfigMap."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:68 26577830de984521b2a5c1a6a4dac212
+msgid ""
+"If IPs are limited, run the Operator with option ``--aws-release-excess-"
+"ips=true``. When enabled, operator checks the number of IPs regularly and"
+" attempts to release excess free IPs from ENI."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:72 cad7826c69b74c5b8c6bf7b59211f198
+msgid ""
+"It is generally a good idea to enable metrics in the Operator as well "
+"with the option ``--enable-metrics``. See the section "
+":ref:`install_metrics` for additional information how to install and run "
+"Prometheus including the Grafana dashboard."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:78 26835138decf4075bcc01a7c69148af9
+msgid "Custom ENI Configuration"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:80 06cf967e08b64eae9da7ea4d3984df63
+msgid ""
+"Custom ENI configuration can be defined with a custom CNI configuration "
+"``ConfigMap``:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:84 a4c0a93dd9e4402ba46d29c3de3e5ca9
+msgid "Create a CNI configuration"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:86 eddd3ea064ad4116b4252c823d71463e
+msgid ""
+"Create a ``cni-config.yaml`` file based on the template below. Fill in "
+"the ``subnet-tags`` field, assuming that the subnets in AWS have the tags"
+" applied to them:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:115 62b8a450e89741c991fad03faeefef8f
+msgid ""
+"Additional parameters may be configured in the ``eni`` or ``ipam`` "
+"section of the CNI configuration file. See the list of ENI allocation "
+"parameters below for a reference of the supported options."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:119 63e53795fedd46bfa58b7061e63ca831
+msgid "Deploy the ``ConfigMap``:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:126 79b17ac5bc6a44bcbe22ba824622bfeb
+msgid "Configure Cilium with subnet-tags-filter"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:128 368344f189b34ea98d69e8630e952b92
+msgid ""
+"Using the instructions above to deploy Cilium and CNI config, specify the"
+" following additional arguments to Helm:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:137 96db22bcafa046f5b1705d83d12de290
+msgid "ENI Allocation Parameters"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:139 91bb50fd77ba44f3ae7efb804fa5beb8
+msgid ""
+"The following parameters are available to control the ENI creation and IP"
+" allocation:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:145 770c87b6a01d41b4a377e20c7202db5f
+msgid "``InstanceType``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:143 882782b5d17b47c18f1daba74bf51c5b
+msgid "The AWS EC2 instance type"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:145
+#: ../../concepts/networking/ipam/eni.rst:151
+#: ../../concepts/networking/ipam/eni.rst:157 53da0c3ce45e44e7b9d62082f58cd987
+#: a2f58abc57374e9295ae7cf216d7f696 d2c28854c35a4d15bbe4d4a37533d234
+msgid ""
+"*This field is automatically populated when using ``--auto-create-cilium-"
+"node-resource``*"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:151 093e5feb272f44e6a2b2a0226e21c32b
+msgid "``spec.eni.vpc-id``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:148 aeaa259b9419488da6d4b0fe424dee06
+msgid ""
+"The VPC identifier used to create ENIs and select AWS subnets for IP "
+"allocation."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:157 6ceb954a83974b87b856423306009cb6
+msgid "``spec.eni.availability-zone``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:154 668fa3fb28f0478586038987e5fd0f65
+msgid ""
+"The availability zone used to create ENIs and select AWS subnets for IP "
+"allocation."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:165 543a914cea1245e79e79559d6e1bacea
+msgid "``spec.ipam.min-allocate``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:160 e0c1babeec46484f8bc70f599261f769
+msgid ""
+"The minimum number of IPs that must be allocated when the node is first "
+"bootstrapped. It defines the minimum base socket of addresses that must "
+"be available. After reaching this watermark, the PreAllocate and "
+"MaxAboveWatermark logic takes over to continue allocating IPs."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:165 2c6253a1a4134e609f7aa3a1797f757d
+msgid "If unspecified, no minimum number of IPs is required."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:173 7c3fe164a677420eb04d0fe3986ab1df
+msgid "``spec.ipam.max-allocate``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:168 c3dfa844ab1640bcac88be6d45468774
+msgid ""
+"The maximum number of IPs that can be allocated to the node. When the "
+"current amount of allocated IPs will approach this value, the considered "
+"value for PreAllocate will decrease down to 0 in order to not attempt to "
+"allocate more addresses than defined."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:173 d6bed0bbbc164a80a4fff46bc1163904
+msgid "If unspecified, no maximum number of IPs will be enforced."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:180 b43ab795f3e34640a1a66864b4788fe7
+msgid "``spec.ipam.pre-allocate``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:176 c695b0bd34624db6a2da66c793be8092
+msgid ""
+"The number of IP addresses that must be available for allocation at all "
+"times.  It defines the buffer of addresses available immediately without "
+"requiring for the operator to get involved."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:180 2c5b6b3fb1eb47c5b5426477c4255e2f
+msgid "If unspecified, this value defaults to 8."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:189 6e5cbbe80cde4d2390bdc78b5d103ef7
+msgid "``spec.ipam.max-above-watermark``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:183 624396a071314c92a00315481b614996
+msgid ""
+"The maximum number of addresses to allocate beyond the addresses needed "
+"to reach the PreAllocate watermark.  Going above the watermark can help "
+"reduce the number of API calls to allocate IPs, e.g. when a new ENI is "
+"allocated, as many secondary IPs as possible are allocated. Limiting the "
+"amount can help reduce waste of IPs."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:189 ebc1b82cda7a4685899e883dc899ccaf
+msgid "If let unspecified, the value defaults to 0."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:198 25a07408b7344d868929ed341a7e1e1a
+msgid "``spec.eni.first-interface-index``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:192 97dd5a5b15cf40eb8ffacf857cdf247d
+msgid ""
+"The index of the first ENI to use for IP allocation, e.g. if the node has"
+" ``eth0``, ``eth1``, ``eth2`` and FirstInterfaceIndex is set to 1, then "
+"only ``eth1`` and ``eth2`` will be used for IP allocation, ``eth0`` will "
+"be ignored for PodIP allocation."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:197 793f026a9443473e975a51b31455b096
+msgid ""
+"If unspecified, this value defaults to 0 which means that ``eth0`` will "
+"be used for pod IPs."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:205 6714e8896c4749f3a63bb06823df6755
+msgid "``spec.eni.security-group-tags``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:201 d7518a0c186d47959d961978efc84f83
+msgid ""
+"The list tags which will be used to filter the security groups to attach "
+"to any ENI that is created and attached to the instance."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:204 9e64cc91e59e48e4a708a5c7da830c70
+msgid ""
+"If unspecified, the security group ids passed in ``spec.eni.security-"
+"groups`` field will be used."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:211 8a199a7f8eb44fa99b3a03f5282fa254
+msgid "``spec.eni.security-groups``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:208 d5f6039f47734e40b031a15384466354
+msgid ""
+"The list of security group ids to attach to any ENI that is created and "
+"attached to the instance."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:211 676b261f3a564026b8f4e708ca0eff68
+msgid "If unspecified, the security group ids of ``eth0`` will be used."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:220 c44dfb35722c4c67ba16061b6c7eef8d
+msgid "``spec.eni.subnet-ids``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:214 cabab3206b6e45de875e5c9b1e0a8f53
+msgid ""
+"The subnet IDs used to select the AWS subnets for IP allocation. This is "
+"an additional requirement on top of requiring to match the availability "
+"zone and VPC of the instance. This parameter is mutually exclusive and "
+"has priority over ``spec.eni.subnet-tags``."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:219 1c8b0d07526e4e5094653bbe348193b6
+msgid ""
+"If unspecified, it will let the operator pick any available subnet in the"
+" AZ with the most IP addresses available."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:227 8138d66d36f945cc9e59d54056e2c13e
+msgid "``spec.eni.subnet-tags``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:223 6c772f814b094ec2878bb3fee12427a4
+msgid ""
+"The tags used to select the AWS subnets for IP allocation. This is an "
+"additional requirement on top of requiring to match the availability zone"
+" and VPC of the instance."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:227 a71e5c5571554518bd9f21da7a6d6f4b
+msgid "If unspecified, no tags are required."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:235 0b8e317eb6bc415fa298236e95ad2261
+msgid "``spec.eni.exclude-interface-tags``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:230 2f85ecea1e594c88ae01e58bdbd1f557
+msgid ""
+"The tags used to exclude interfaces from IP allocation. Any ENI attached "
+"to a node which matches this set of tags will be ignored by Cilium and "
+"may be used for other purposes. This parameter can be used in combination"
+" with ``subnet-tags`` or ``first-interface-index`` to exclude additional "
+"interfaces."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:235 87050fc63e034c77ae97bc0a5e39732e
+msgid "If unspecified, no tags are used to exclude interfaces."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:240 d67859227b7d4294afb30a82eee9dae0
+msgid "``spec.eni.delete-on-termination``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:238 441b8d9980534813b26e3ef5e4783ad7
+msgid "Remove the ENI when the instance is terminated"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:240 65003187fa444ee9b68d47373a84b54e
+msgid "If unspecified, this option is enabled."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:244 edb9148f326c4768a35eda00dc023299
+msgid "Operational Details"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:247 52aba361588140b0adad9f8304a3743d
+msgid "Cache of ENIs, Subnets, and VPCs"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:249 3200bc139c1d47649573ac286fc6bda9
+msgid ""
+"The operator maintains a list of all EC2 ENIs, VPCs and subnets "
+"associated with the AWS account in a cache. For this purpose, the "
+"operator performs the following three EC2 API operations:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:253
+#: ../../concepts/networking/ipam/eni.rst:444 073c6803b3714cf48bd1cc346db11014
+#: d9bd9bff9af64d679544cf56001ff9f6
+msgid "``DescribeNetworkInterfaces``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:254
+#: ../../concepts/networking/ipam/eni.rst:445 85e653213a03493aa84ec84630d95674
+#: d4a8ff2ad0724151941a38ea964e9656
+msgid "``DescribeSubnets``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:255
+#: ../../concepts/networking/ipam/eni.rst:446 8739e70e4dd44f0d877c02e2ef034e4f
+#: ef542a032bee44ae8271c9c799a21f17
+msgid "``DescribeVpcs``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:257 11df2a139dac489887b9ce2defb41a17
+msgid ""
+"The cache is updated once per minute or after an IP allocation or ENI "
+"creation has been performed. When triggered based on an allocation or "
+"creation, the operation is performed at most once per second."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:262 731e02f928a44a0e867b148bca5ba10f
+msgid "Publication of available ENI IPs"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:264 74f81a3e92754b9dbbcfb961b787095a
+msgid ""
+"Following the update of the cache, all CiliumNode custom resources "
+"representing nodes are updated to publish eventual new IPs that have "
+"become available."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:267 1658906efe5e4c39abe2746e9a29839d
+msgid ""
+"In this process, all ENIs with an interface index greater than ``spec.eni"
+".first-interface-index`` are scanned for all available IPs.  All IPs "
+"found are added to ``spec.ipam.available``. Each ENI meeting this "
+"criteria is also added to ``status.eni.enis``."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:272 df036380b0f24a8598eee6d16dd0953c
+msgid ""
+"If this updated caused the custom resource to change, the custom resource"
+" is updated using the Kubernetes API methods ``Update()`` and/or "
+"``UpdateStatus()`` if available."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:277 f135bb73bad34815b2240ee565087b6f
+msgid "Determination of ENI IP deficits or excess"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:279 7e41c64fff1442d287e10ad48858bfa1
+msgid ""
+"The operator constantly monitors all nodes and detects deficits in "
+"available ENI IP addresses. The check to recognize a deficit is performed"
+" on two occasions:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:283 8c1a8ccbae1d408c9a53cd78b3772396
+msgid "When a ``CiliumNode`` custom resource is updated"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:284 3e55b3603ecd446989d09858b6df0a51
+msgid "All nodes are scanned in a regular interval (once per minute)"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:286 5a47e83bc84144f3a23f97875669785a
+msgid ""
+"If ``--aws-release-excess-ips`` is enabled, the check to recognize IP "
+"excess is performed at the interval based scan."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:289 51fdfdb02b194829835f01ad8f311b3f
+msgid ""
+"When determining whether a node has a deficit in IP addresses, the "
+"following calculation is performed:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:296 2365bba5bd4b4d018cb3df5aa33f9d1f
+msgid "For excess IP calculation:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:302 bc6bfa746b1e4df18af5cd3860654bfa
+msgid ""
+"Upon detection of a deficit, the node is added to the list of nodes which"
+" require IP address allocation. When a deficit is detected using the "
+"interval based scan, the allocation order of nodes is determined based on"
+" the severity of the deficit, i.e. the node with the biggest deficit will"
+" be at the front of the allocation queue. Nodes that need to release IPs "
+"are behind nodes that need allocation."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:309 9ead28208c444b8db851fd4ff2713832
+msgid "The allocation queue is handled on demand but at most once per second."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:312 fe07fc3a5c754c1c9f3eee3bfb0e09bf
+msgid "IP Allocation"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:314 6aa170fefe5c4e64b911a31ca4077021
+msgid ""
+"When performing IP allocation for a node with an address deficit, the "
+"operator first looks at the ENIs which are already attached to the "
+"instance represented by the CiliumNode resource. All ENIs with an "
+"interface index greater than ``spec.eni.first-interface-index`` are "
+"considered for use."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:321 564c7db89d7c400bb8d34325c68ce821
+msgid ""
+"In order to not use ``eth0`` for IP allocation, set ``spec.eni.first-"
+"interface-index`` to ``1`` to skip the first interface in line."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:325 b59bc4bdac5d4c39ac8eb33bb350e614
+msgid ""
+"The operator will then pick the first already allocated ENI which meets "
+"the following criteria:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:328 2248fc4d85af4aba97895f0110b5619c
+msgid ""
+"The ENI has addresses associated which are not yet used or the number of "
+"addresses associated with the ENI is lesser than the instance type "
+"specific limit."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:332 799428be7d3b485c9240d66003f372e5
+msgid "The subnet associated with the ENI has IPs available for allocation"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:334 e2ef07807447486c953d6e220277df37
+msgid ""
+"The following formula is used to determine how many IPs are allocated on "
+"the ENI:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:343 6b01e0ae568c4e19a90bbc08dec08cda
+msgid ""
+"In scenarios where the pre-allocated number is lower than the number of "
+"pending pods on the node, the operator will pro-actively allocate more "
+"than the pre-allocated number of IPs to avoid having to wait for the next"
+" allocation cycles."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:347 6124e8a204904b4aa0b30ee20ac0415e
+msgid ""
+"This means that the number of IPs allocated in a single allocation cycle "
+"can be less than what is required to fulfill ``spec.ipam.pre-allocate``."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:350 cedaad21d3b647d394c489cb99289327
+msgid ""
+"In order to allocate the IPs, the method ``AssignPrivateIpAddresses`` of "
+"the EC2 service API is called. When no more ENIs are available meeting "
+"the above criteria, a new ENI is created."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:355 53d0f4e8ba26469aaa71ebc2a100da74
+msgid "IP Release"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:357 c8a362b9e56b47f78fb4c3744e9e0337
+msgid ""
+"When performing IP release for a node with IP excess, the operator scans "
+"ENIs attached to the node with an interface index greater than ``spec.eni"
+".first-interface-index`` and selects an ENI with the most free IPs "
+"available for release. The following formula is used to determine how "
+"many IPs are available for release on the ENI:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:367 2298fbc97b114211b961c173641857e1
+msgid ""
+"Operator releases IPs from the selected ENI, if there is still excess "
+"free IP not released, operator will attempt to release in next release "
+"cycle."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:370 bb788a638457429e8e5d6b6a442d3d1b
+msgid ""
+"In order to release the IPs, the method ``UnassignPrivateIpAddresses`` of"
+" the EC2 service API is called. There is no limit on ENIs per subnet so "
+"ENIs are remained on the node."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:376 a0d6812c479e452babb3f2158375ef84
+msgid "ENI Creation"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:378 7167fb9d99864925805fc937d7e2d25c
+msgid ""
+"As long as an instance type is capable allocating additional ENIs, ENIs "
+"are allocated automatically based on demand."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:381 cd35fa8fb5ef44b4aa6c6ef6db9229f0
+msgid ""
+"When allocating an ENI, the first operation performed is to identify the "
+"best subnet. This is done by searching through all subnets and finding a "
+"subnet that matches the following criteria:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:385 9969bfb44e264dbca016ff5ecb0946c1
+msgid "The VPC ID of the subnet matches ``spec.eni.vpc-id``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:386 5a86ca9349f346929ba584a5a4c7dd0f
+msgid "The Availability Zone of the subnet matches ``spec.eni.availability-zone``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:388 1825e3918f214fe3ae8a3f3619a1a48c
+msgid "The subnet contains all tags as specified by ``spec.eni.subnet-tags``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:391 4fbbd367ce5641a2b45fe84ecc0edd91
+msgid ""
+"If multiple subnets match, the subnet with the most available addresses "
+"is selected."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:393 d2e90d8a485442e6bb648b4de3449c2e
+msgid ""
+"After selecting the ENI, the interface index is determined. For this "
+"purpose, all existing ENIs are scanned and the first unused index greater"
+" than ``spec.eni.first-interface-index`` is selected."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:397 b9911d6827b8423caee8d3f869317a97
+msgid ""
+"After determining the subnet and interface index, the ENI is created and "
+"attached to the EC2 instance using the methods ``CreateNetworkInterface``"
+" and ``AttachNetworkInterface`` of the EC2 API."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:401 634a18f4e04b42a887f589d9b44cf79a
+msgid ""
+"The security group ids attached to the ENI are computed in the following "
+"order:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:403 14151b66e2854b53bb74689e4fedc970
+msgid ""
+"The field ``spec.eni.security-groups`` is consulted first. If this is set"
+" then these will be the security group ids attached to the newly created "
+"ENI."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:405 92472e18a0614a9484f71d8c39cb9ce1
+msgid ""
+"The filed ``spec.eni.security-group-tags`` is consulted. If this is set "
+"then the operator will list all security groups in the account and will "
+"attach to the ENI the ones that match the list of tags passed."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:408 64a491eaa0d8499b9c496f291d4dcb31
+msgid ""
+"Finally if none of the above fields are set then the newly created ENI "
+"will inherit the security group ids of ``eth0`` of the machine."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:411 066fe6dc15da4f71bd45dbad4e7a5781
+msgid "The description will be in the following format:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:417 0dd8bd00bea84ef7b7638a861b4d10d5
+msgid ""
+"If the ENI tagging feature is enabled then the ENI will be tagged with "
+"the provided information."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:420 6d096dd9af4a40c194eeb2e8efd9fef4
+msgid "ENI Deletion Policy"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:422 010826af10534e8aa058fe3be6ba4d7a
+msgid ""
+"ENIs can be marked for deletion when the EC2 instance to which the ENI is"
+" attached to is terminated. In order to enable this, the option "
+"``spec.eni.delete-on-termination`` can be enabled. If enabled, the ENI is"
+" modified after creation using ``ModifyNetworkInterfaceAttribute`` to "
+"specify this deletion policy."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:429 e62ad909839240ca9189b8a18307d2ad
+msgid "Node Termination"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:431 15b37553fa4a4d31b98bee2124f147f5
+msgid ""
+"When a node or instance terminates, the Kubernetes apiserver will send a "
+"node deletion event. This event will be picked up by the operator and the"
+" operator will delete the corresponding ``ciliumnodes.cilium.io`` custom "
+"resource."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:439 b869be5e07544bb3aa272d62dd64ead1
+msgid "Required Privileges"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:441 e8a81a1fd94f430481d30fb08ea940a9
+msgid ""
+"The following EC2 privileges are required by the Cilium operator in order"
+" to perform ENI creation and IP allocation:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:447 ce51a0f7cd71438ab4927c0c56bf25ad
+msgid "``DescribeSecurityGroups``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:448 da25b3feefd3497793c4e29fe3731658
+msgid "``CreateNetworkInterface``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:449 a179b7526b364b379f6132abe6caa24c
+msgid "``AttachNetworkInterface``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:450 173e3fdc36674536842c487e87a00947
+msgid "``ModifyNetworkInterfaceAttribute``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:451 b2a1e201a47e43dfb3d3b6f623451875
+msgid "``AssignPrivateIpAddresses``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:452 c252ab7c48e74ca181759c2da59006bf
+msgid "``CreateTags``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:454 747ebdcd4d924a97876eb61c7b0b3a38
+msgid "If release excess IP enabled:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:456 7f3d2e2172fa4cd49801277757803952
+msgid "``UnassignPrivateIpAddresses``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:460 973fa4cda5b44542b161122ff2d69a0f
+msgid "EC2 instance types ENI limits"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:462 dad6f75843964e41ad8b41fb93e4c7e2
+msgid ""
+"Currently the EC2 Instance ENI limits (adapters per instance + IPv4/IPv6 "
+"IPs per adapter) are hardcoded in the Cilium codebase for easy out-of-the"
+" box deployment and usage."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:465 7e6fad022a4541339365a7d60269b304
+msgid ""
+"The limits can be modified via the ``--aws-instance-limit-mapping`` CLI "
+"flag on the cilium-operator. This allows the user to supply a custom "
+"limit."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:468 efce1cdd38c94837a1a7e4f2fae6dd7c
+msgid ""
+"Additionally the limits can be updated via the EC2 API by passing the "
+"``--update-ec2-adapter-limit-via-api`` CLI flag. This will require an "
+"additional EC2 IAM permission:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:472 2b9ac3ddf119415fb9a23062856919cc
+msgid "``DescribeInstanceTypes``"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:476 1a714a2bb4e54be994851acdc4517388
+msgid "Metrics"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:478 5227a38281f34d4c8632af11d0c48850
+msgid "The IPAM metrics are documented in the section :ref:`ipam_metrics`."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:482 47a74f44f1b145d48bef15e550298ae7
+msgid "Node Configuration"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:484 6f446766034846aaa54b9de22d914a18
+msgid ""
+"The IP address and routes on ENIs attached to the instance will be "
+"managed by the Cilium agent. Therefore, any system service trying to "
+"manage newly attached network interfaces will interfere with Cilium's "
+"configuration. Common scenarios are ``NetworkManager`` or ``systemd-"
+"networkd`` automatically performing DHCP on these interfaces or removing "
+"Cilium's IP address when the carrier is temporarily lost. Be sure to "
+"disable these services or configure your Linux distribution to not manage"
+" the newly attached ENI devices. The following examples configure all "
+"Linux network devices named ``eth*`` except ``eth0`` as unmanaged."
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:496 4b0481c7f8bb4b41bfd4bea47bc68934
+msgid "Network Manager"
+msgstr ""
+
+#: ../../concepts/networking/ipam/eni.rst:506 2d27cd9c022e453bbbfe2896db8c585c
+msgid "systemd-networkd"
+msgstr ""
+

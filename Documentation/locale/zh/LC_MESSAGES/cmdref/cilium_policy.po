@@ -1,0 +1,75 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_policy.md:3 dd9f9eb81e0347849ab7c039dbd64d08
+msgid "cilium policy"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:5 ae052377ae1b434ea3ce13358c264c6f
+msgid "Manage security policies"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:7 0f648685dee9477a9aec007d3270557d
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:13 908d2da6b9404b01a03300cd0e765b96
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:21 ea6d671841004606805761961b0681c3
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:23 bbb8bd76cb054c379ebb37dbe0e43c45
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:24 e71e5b12101345088c665e34699198a9
+msgid "[cilium policy delete](cilium_policy_delete.md)\t - Delete policy rules"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:25 0759e52da2a848c096bce6a1cb501764
+msgid ""
+"[cilium policy get](cilium_policy_get.md)\t - Display policy node "
+"information"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:26 59c32d39d2294d4c9ce3c9928cbb1853
+msgid ""
+"[cilium policy import](cilium_policy_import.md)\t - Import security "
+"policy in JSON format"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:27 7e3dc566918249b0b0f71a0ad31a830e
+msgid ""
+"[cilium policy selectors](cilium_policy_selectors.md)\t - Display cached "
+"information about selectors"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:28 be4d659fd66b4e13b353a03c3fbc152b
+msgid "[cilium policy validate](cilium_policy_validate.md)\t - Validate a policy"
+msgstr ""
+
+#: ../../cmdref/cilium_policy.md:29 8afa0322093f48b3864b8a76b8f0148b
+msgid ""
+"[cilium policy wait](cilium_policy_wait.md)\t - Wait for all endpoints to"
+" have updated to a given policy revision"
+msgstr ""
+

@@ -1,0 +1,209 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../internals/hubble.rst:3 86c957c12c7244b9bd7059d3b9b72965
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../internals/hubble.rst:11 c5cec02b0da24ac0b3a9326a5f10d8bb
+msgid "Hubble internals"
+msgstr ""
+
+#: ../../internals/hubble.rst:13 128c57728a57451a9e67ef791f007264
+msgid ""
+"This documentation section is targeted at developers who are interested "
+"in contributing to Hubble. For this purpose, it describes Hubble "
+"internals."
+msgstr ""
+
+#: ../../internals/hubble.rst:17 4d95314652dd424a95ea71b074c5260c
+msgid ""
+"This documentation covers the Hubble server (sometimes referred as "
+"\"Hubble embedded\") and Hubble Relay components but does not cover the "
+"Hubble UI and CLI."
+msgstr ""
+
+#: ../../internals/hubble.rst:21 036e17dacd064270bf4086c561698bc2
+msgid ""
+"Hubble builds on top of Cilium and eBPF to enable deep visibility into "
+"the communication and behavior of services as well as the networking "
+"infrastructure in a completely transparent manner. One of the design "
+"goals of Hubble is to achieve all of this at large scale."
+msgstr ""
+
+#: ../../internals/hubble.rst:26 1ff6beaa75d048d5b6ccd8d4129f9a76
+msgid ""
+"Hubble's server component is embedded into the Cilium agent in order to "
+"achieve high performance with low-overhead. The gRPC services offered by "
+"Hubble server may be consumed locally via a Unix domain socket or, more "
+"typically, through Hubble Relay. Hubble Relay is a standalone component "
+"which is aware of all Hubble instances and offers full cluster visibility"
+" by connecting to their respective gRPC APIs. This capability is usually "
+"referred to as multi-node. Hubble Relay's main goal is to offer a rich "
+"API that can be safely exposed and consumed by the Hubble UI and CLI."
+msgstr ""
+
+#: ../../internals/hubble.rst:35 8b4a76d2160044f6b7e0a0945197226b
+msgid ""
+"This guide does not cover Hubble in standalone mode, which is deprecated "
+"with the release of Cilium v1.8."
+msgstr ""
+
+#: ../../internals/hubble.rst:39 0d3fb30c93c24a87b811f48b4f01c556
+msgid "Hubble Architecture"
+msgstr ""
+
+#: ../../internals/hubble.rst:41 69bad900920d48f6bfbf9b3fd6913d63
+msgid ""
+"Hubble exposes gRPC services from the Cilium process that allows clients "
+"to receive flows and other type of data."
+msgstr ""
+
+#: ../../internals/hubble.rst:45 678791ed1b1347589aef5b7172031008
+msgid "Hubble server"
+msgstr ""
+
+#: ../../internals/hubble.rst:47 aca29cede0a94cc5a7441252c6e4f81f
+msgid ""
+"The Hubble server component implements two gRPC services. The **Observer "
+"service** which may optionally be exposed via a TCP socket in addition to"
+" a local Unix domain socket and the  **Peer service**, which is served on"
+" both as well as a Kubernetes Service."
+msgstr ""
+
+#: ../../internals/hubble.rst:53 d9a825450f33478487db19456159db9b
+msgid "The Observer service"
+msgstr ""
+
+#: ../../internals/hubble.rst:55 d1a9db5b783346d49a2a3ec3da82b23a
+msgid ""
+"The Observer service is the principal service. It provides three RPC "
+"endpoints: ``GetFlows``, ``GetNodes`` and ``ServerStatus``.  While "
+"``ServerStatus`` and ``GetNodes`` endpoints are pretty straightforward "
+"(they provides metrics and other information related to the running "
+"instance(s)), ``GetFlows`` is far more sophisticated and the more "
+"important one."
+msgstr ""
+
+#: ../../internals/hubble.rst:61 4c123ca3ab3e4afb9629397fbb1a4ee3
+msgid ""
+"Using ``GetFlows``, callers get a stream of payloads. Request parameters "
+"allow callers to specify filters in the form of blacklists and whitelists"
+" to allow for fine-grained filtering of data."
+msgstr ""
+
+#: ../../internals/hubble.rst:65 fc69150f0fd846b2bc20715f53a48ddb
+msgid ""
+"In order to answer ``GetFlows`` requests, Hubble stores monitoring events"
+" from Cilium's event monitor into a user-space ring buffer structure. "
+"Monitoring events are obtained by registering a new listener on Cilium "
+"monitor. The ring buffer is capable of storing a configurable amount of "
+"events in memory. Events are continuously consumed, overriding older ones"
+" once the ring buffer is full."
+msgstr ""
+
+#: ../../internals/hubble.rst:74 6dfb6886c2514c72b51f81cdfcc10358
+msgid ""
+"For efficiency, the internal buffer length is a bit mask of ones + 1. The"
+" most significant bit of this bit mask is the same position of the most "
+"significant bit position of 'n'. In other terms, the internal buffer size"
+" is always a power of 2 with 1 slot reserved for the writer. In effect, "
+"from a user perspective, the ring buffer capacity is one less than a "
+"power of 2. As the ring buffer is a hot code path, it has been designed "
+"to not employ any locking mechanisms and uses atomic operations instead. "
+"While this approach has performance benefits, it also has the downsides "
+"of being a complex component."
+msgstr ""
+
+#: ../../internals/hubble.rst:83 e49343fcd1394eed8e273059b217d604
+msgid ""
+"Due to its complex nature, the ring buffer is typically accessed via a "
+"ring reader that abstracts the complexity of this data structure for "
+"reading. The ring reader allows reading one event at the time with "
+"'previous' and 'next' methods but also implements a follow mode where "
+"events are continuously read as they are written to the ring buffer."
+msgstr ""
+
+#: ../../internals/hubble.rst:90 8c56d44135d6467789c0fc295b519bf7
+msgid "The Peer service"
+msgstr ""
+
+#: ../../internals/hubble.rst:92 2141c18b8bb24bc5ba56cd335577e740
+msgid ""
+"The Peer service sends information about Hubble peers in the cluster in a"
+" stream. When the ``Notify`` method is called, it reports information "
+"about all the peers in the cluster and subsequently sends information "
+"about peers that are updated, added or removed from the cluster. Thus, it"
+" allows the caller to keep track of all Hubble instances and query their "
+"respective gRPC services."
+msgstr ""
+
+#: ../../internals/hubble.rst:98 4229359b0640436aa9e096a5041ef1a6
+msgid ""
+"This service is typically only exposed on a local Unix domain socket and "
+"a Kubernetes Service and is primarily used by Hubble Relay in order to "
+"have a cluster-wide view of all Hubble instances."
+msgstr ""
+
+#: ../../internals/hubble.rst:102 4ec92b35fba44a10aab16b819047d769
+msgid ""
+"The Peer service obtains peer change notifications by subscribing to "
+"Cilium's node manager. To this end, it internally defines a handler that "
+"implements Cilium's datapath node handler interface."
+msgstr ""
+
+#: ../../internals/hubble.rst:109 b53b02b50a4c41108de8c5baf710287b
+msgid "Hubble Relay"
+msgstr ""
+
+#: ../../internals/hubble.rst:111 a3f9e74fd6f84a4db21769b78dbb6203
+msgid ""
+"Hubble Relay is the Hubble component that brings multi-node support. It "
+"leverages the Peer service to obtain information about Hubble instances "
+"and consume their gRPC API in order to provide a more rich API that "
+"covers events from across the entire cluster (or even multiple clusters "
+"in a ClusterMesh scenario)."
+msgstr ""
+
+#: ../../internals/hubble.rst:117 bcf62acc31b54a6088df5d613906d64d
+msgid ""
+"Hubble Relay was first introduced as a technology preview with the "
+"release of Cilium v1.8. It is declared stable with the release of Cilium "
+"v1.9."
+msgstr ""
+
+#: ../../internals/hubble.rst:120 d4355dae30af4fb09c6ce0a12722c379
+msgid ""
+"Hubble Relay implements the Observer service for multi-node. To that end,"
+" it maintains a persistent connection with every Hubble peer in a cluster"
+" with a peer manager. This component provides callers with the list of "
+"peers. Callers may report when a peer is unreachable, in which case the "
+"peer manager will attempt to reconnect."
+msgstr ""
+
+#: ../../internals/hubble.rst:126 d12001a4c8974ac5b9559b279851833b
+msgid ""
+"As Hubble Relay connects to every node in a cluster, the Hubble server "
+"instances must make their API available (by default on port 4244). By "
+"default, Hubble server endpoints are secured using mutual TLS (mTLS) when"
+" exposed on a TCP port in order to limit access to Hubble Relay only."
+msgstr ""
+

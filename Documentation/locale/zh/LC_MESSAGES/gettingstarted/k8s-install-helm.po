@@ -1,0 +1,830 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: ../../gettingstarted/k8s-install-helm.rst:3 0dfcc10bbc864683bd6ac138cb0d7aa6
+#: a6c02e9b8a5b403c8ff485adb9ca638b
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:11
+#: 7b6db41733794dabab6515c5011eb039
+msgid "Installation using Helm"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:13
+#: 513e41e7ba564a878754caf56632ff95
+msgid ""
+"This guide will show you how to install Cilium using `Helm "
+"<https://helm.sh/>`_. This involves a couple of additional steps compared"
+" to the :ref:`k8s_quick_install` and requires you to manually select the "
+"best datapath and IPAM mode for your particular environment."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:19
+#: bbb3a913fcb74fd3bc6cd8e3cc187c8d
+msgid "Install Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: f9402058281844e9887e97959095b6d1
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 7cb0155ae01e47068203a8692b516b86
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 8f0fabf3bc74433db7faff6a0297418a
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:25
+#: bd041020a43d456bbe2a17472e5e0927
+msgid "Generic"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:27
+#: 052fead39a574479b477a709a4c431a5
+msgid ""
+"These are the generic instructions on how to install Cilium into any "
+"Kubernetes cluster using the default configuration options below. Please "
+"see the other tabs for distribution/platform specific instructions which "
+"also list the ideal default configuration for particular platforms."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:32
+#: ../../gettingstarted/requirements-aks.rst:4
+#: ../../gettingstarted/requirements-eks.rst:4
+#: ../../gettingstarted/requirements-gke.rst:4
+#: ../../gettingstarted/requirements-k3s.rst:4
+#: ../../gettingstarted/requirements-openshift.rst:4
+#: ../../gettingstarted/requirements-rke.rst:10
+#: 154764a3a3a84a44945f8583cff93d3e 494bd8cca3b74679a6e6070dfb663cc5
+#: 5f5e8b786c954fb7af1d16e02595f738 6cfaa33825f744b99457bea29c2c39b0
+#: 94614d3cd6734c6ea8c61c6b90a8a7b1 a087a3f7b60549629a72ade0eeeaa58a
+#: c5dceadd9a724ec0a72261154bede053
+msgid "**Default Configuration:**"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:35
+#: ../../gettingstarted/requirements-aks.rst:7
+#: ../../gettingstarted/requirements-eks.rst:7
+#: ../../gettingstarted/requirements-gke.rst:7
+#: ../../gettingstarted/requirements-k3s.rst:7
+#: ../../gettingstarted/requirements-openshift.rst:7
+#: ../../gettingstarted/requirements-rke.rst:13
+#: 0f235fe38c924f9688f516b62a43ec34 35b33046af624e0fa72bce70ee7c8a72
+#: 4e5fe0e2dcd649e2b1dac746e2686a1b 755c3fa6c85f40e5bab5ff8e25e6e3d6
+#: 76ad5b96065646b7bd5f30b0916911dd 8c0782e20e3b4ca3ad1d46990f9575fb
+#: e63d360662ff4fbd96c598f914218e5d
+msgid "Datapath"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:35
+#: ../../gettingstarted/requirements-aks.rst:7
+#: ../../gettingstarted/requirements-eks.rst:7
+#: ../../gettingstarted/requirements-gke.rst:7
+#: ../../gettingstarted/requirements-k3s.rst:7
+#: ../../gettingstarted/requirements-openshift.rst:7
+#: ../../gettingstarted/requirements-rke.rst:13
+#: 19446a53818b438388695f86a79cde3e 487ad63c3bc343f892f8090614671817
+#: 61c3435b08bb455889adc0e918fcbc7c 6d0b2c5bd96f4993bc16413e3cfde541
+#: 8112b85c6b8e427db080c643d83d29e3 9cf6fd0ec1d1434ba700090ebdea10ec
+#: b7544085d1154bc5a6a31f5fc066d855
+msgid "IPAM"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:35
+#: ../../gettingstarted/requirements-aks.rst:7
+#: ../../gettingstarted/requirements-eks.rst:7
+#: ../../gettingstarted/requirements-gke.rst:7
+#: ../../gettingstarted/requirements-k3s.rst:7
+#: ../../gettingstarted/requirements-openshift.rst:7
+#: ../../gettingstarted/requirements-rke.rst:13
+#: 1be5326673aa4b4da5795e7fee280a44 1dd2785bdb05457ebb90032ca1fe3d4e
+#: 3b4e6dedd7354e38ad564608d565ccb8 5ce652536f0e42868c4635e3aa6a4a83
+#: 6276808c263e422ab2766631411cb96f 636ffb95a4974128a0ba7d1bc632f33f
+#: ca5d4eefa4184dab8d17fe2ff8892813
+msgid "Datastore"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:37
+#: ../../gettingstarted/requirements-k3s.rst:9
+#: ../../gettingstarted/requirements-openshift.rst:9
+#: ../../gettingstarted/requirements-rke.rst:15
+#: ce12f4f325884aebbd5ad3c24d498ebc d79dfa888c6a480386084154e39bf132
+#: da35bc64bf8446d5962365e0a6e57fcf f827419ed8a04cdab3c881b4671745f8
+msgid "Encapsulation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:37
+#: ../../gettingstarted/requirements-k3s.rst:9
+#: ../../gettingstarted/requirements-openshift.rst:9
+#: ../../gettingstarted/requirements-rke.rst:15
+#: 3acb95b639e6438eaf9bf3873c7f9a17 79400c159cc747bd820071d2002af01a
+#: 8c9a1084c97f4a52a99cc19aa201fa73 adbdaf4ac8304e0394d3479f8675c34e
+msgid "Cluster Pool"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:37
+#: ../../gettingstarted/requirements-aks.rst:9
+#: ../../gettingstarted/requirements-eks.rst:9
+#: ../../gettingstarted/requirements-gke.rst:9
+#: ../../gettingstarted/requirements-k3s.rst:9
+#: ../../gettingstarted/requirements-openshift.rst:9
+#: ../../gettingstarted/requirements-rke.rst:15
+#: 0cada7c43b17408a8e73cbe48f4e1ed3 4617d6c35fd94a33be7291c481ea5abc
+#: 6d044339f4f7492ea4db9b8cd87f7f32 a57d9601c1a144aabf3a5fec9fb1cf2a
+#: db421c8d55464a85a86b4f9caa976310 deda9c985cee424da66e4a2c2f823096
+#: f1845acea93d4f87ba0d5ea4d83e3386
+msgid "Kubernetes CRD"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:17
+#: ../../gettingstarted/requirements-eks.rst:19
+#: ../../gettingstarted/requirements-generic.rst:1
+#: ../../gettingstarted/requirements-gke.rst:12
+#: ../../gettingstarted/requirements-k3s.rst:12
+#: ../../gettingstarted/requirements-openshift.rst:12
+#: ../../gettingstarted/requirements-rke.rst:18
+#: 048869dc60774704b09c899da9852096 0e20ed6158254a5e8a8df4c71d42b46e
+#: 102f592f0890486586cf810d91afe828 44ad61fa173b453bbceb511837f90fb8
+#: 6138bd72955a42d0857507a6a785602f b1ebd09d6c974435923fa4ed70ab4f8b
+#: ee776166126d4c548c701aa34b434cdd
+msgid "**Requirements:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-generic.rst:3
+#: a91abdc3c4b2479a8f5d8af122bb0a4c
+msgid ""
+"Kubernetes must be configured to use CNI (see `Network Plugin "
+"Requirements <https://kubernetes.io/docs/concepts/extend-kubernetes"
+"/compute-storage-net/network-plugins/#network-plugin-requirements>`_)"
+msgstr ""
+
+#: ../../gettingstarted/requirements-generic.rst:4
+#: 016e25307e9f40e391c5207d2e69484d
+msgid "Linux kernel >= 4.9.17"
+msgstr ""
+
+#: ../../gettingstarted/requirements-generic.rst:8
+#: 212acd4b4bf247a3825b5d7fc3c85d6d
+msgid "See :ref:`admin_system_reqs` for more details on the system requirements."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:42
+#: ../../gettingstarted/k8s-install-helm.rst:55
+#: ../../gettingstarted/k8s-install-helm.rst:118
+#: ../../gettingstarted/k8s-install-helm.rst:150
+#: ../../gettingstarted/k8s-install-helm.rst:200
+#: ../../gettingstarted/k8s-install-helm.rst:210
+#: ../../gettingstarted/k8s-install-helm.rst:223
+#: ../../gettingstarted/k8s-install-helm.rst:239
+#: 504919de8efb4110b2652c53e0ff03a3 5dbc835be96846858992128e7e90a6a2
+#: 8786bdd92b964ce7ab7d1fb5c5d6d570 90ee72c15c284284881ceb0d8825a0db
+#: aadfebf1117b4ad78b2b10704a8f2931 adf0a205414d4f10b2ad01729a78121a
+#: c1302391ef60494083630a867ae9e128 daa8e12459a14250b082af1bca59ed45
+msgid "**Install Cilium:**"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:44
+#: ../../gettingstarted/k8s-install-helm.rst:64
+#: ../../gettingstarted/k8s-install-helm.rst:120
+#: ../../gettingstarted/k8s-install-helm.rst:152
+#: 35f3e798226f4553a4e900df2b6cc9c5 4939266b606443b18818c9f271660e7d
+#: 765c342b74dc43f6b5d0200d31d3c3c1 efdc6dbc372040bfaba4f86cf8b674a3
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:51
+#: 0e16f896cc0c414aa17997506be208c6
+msgid "GKE"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:1 83e899f779e4423e817ebc6c33a7dfba
+msgid ""
+"To install Cilium on `Google Kubernetes Engine (GKE) "
+"<https://cloud.google.com/kubernetes-engine>`_, perform the following "
+"steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:9
+#: ../../gettingstarted/requirements-gke.rst:9 1ed9eda8757a4fe486ec1c42ff981c25
+#: 36990b42b84145eea76008297b9a8c8c
+msgid "Direct Routing"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:9 bb90041fefef4bedbc659942ed2185c8
+msgid "Kubernetes PodCIDR"
+msgstr ""
+
+#: ../../gettingstarted/requirements-gke.rst:14
+#: b66761a762fd49d790bfd76f86bc79c8
+msgid ""
+"The cluster should be created with the taint ``node.cilium.io/agent-not-"
+"ready=true:NoExecute`` using ``--node-taints`` option. However, there are"
+" other options. Please make sure to read and understand the documentation"
+" page on :ref:`taint effects and unmanaged pods<taint_effects>`."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:57
+#: 382c3cdd00e94b2f951cfff98c1a81d5
+msgid "Extract the Cluster CIDR to enable native-routing:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:78
+#: 2691e9bdc1f3489abe6727ef12ab834a
+msgid ""
+"The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are "
+"added to the cluster. The NodeInit DaemonSet will perform the following "
+"actions:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:81
+#: 42b3b40ad5a240218345cb95c288e79b
+msgid "Reconfigure kubelet to run in CNI mode"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:82
+#: 4a0c3c9d86f74637806f92c5f3f4cff6
+msgid "Mount the eBPF filesystem"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:84
+#: 1ea0c98e6fde496b9d02e074357ad5f1
+msgid "AKS"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:1 46d3927658a2496aa318c163b7590503
+msgid ""
+"To install Cilium on `Azure Kubernetes Service (AKS) "
+"<https://docs.microsoft.com/en-us/azure/aks/>`_, perform the following "
+"steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:9 3c1c689d23144f10bf74024d6c890040
+msgid "Azure IPAM"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:14
+#: d3fc8f28038d47d3b8c1f21039a221f8
+msgid ""
+"If you want to chain Cilium on top of the Azure CNI, refer to the guide "
+":ref:`chaining_azure`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:19
+#: c8b4225f0ed8468eac7107b6cc8bc688
+msgid ""
+"The AKS cluster must be created with ``--network-plugin azure`` for "
+"compatibility with Cilium. The Azure network plugin will be replaced with"
+" Cilium by the installer."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:23
+#: 29952608775d4b059f938bcea06d41e0
+msgid ""
+"Node pools must be properly tainted to ensure applications pods are "
+"properly managed by Cilium:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:26
+#: cb17525eef0f4b08a791982c81316922
+msgid ""
+"User node pools should be tainted with ``node.cilium.io/agent-not-"
+"ready=true:NoExecute`` to ensure application pods will only be "
+"scheduled/executed once Cilium is ready to manage them. However, there "
+"are other options. Please make sure to read and understand the "
+"documentation page on :ref:`taint effects and unmanaged "
+"pods<taint_effects>`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:31
+#: 0abeda0e5b2545279921e1f4c6ebaa10
+msgid ""
+"System node pools must be tainted with "
+"``CriticalAddonsOnly=true:NoSchedule``, preventing application pods from "
+"being scheduled on them. This is necessary because it is not possible to "
+"assign custom node taints such as ``node.cilium.io/agent-not-"
+"ready=true:NoExecute`` to system node pools, cf. `Azure/AKS#2578 "
+"<https://github.com/Azure/AKS/issues/2578>`_."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:36
+#: d91b4573077f47d393e6af2a46ef834f
+msgid ""
+"The initial node pool must be replaced with a new system node pool since "
+"it is not possible to assign taints to the initial node pool at this "
+"time, cf. `Azure/AKS#1402 <https://github.com/Azure/AKS/issues/1402>`_."
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:40
+#: ../../gettingstarted/requirements-eks.rst:50
+#: 136e648ad6514f94af15554aa32d9f59 6870f4a6e6a54344b06342b609f84b59
+msgid "**Limitations:**"
+msgstr ""
+
+#: ../../gettingstarted/requirements-aks.rst:42
+#: 72895c745b9d496594fe138697bc7e0a
+msgid ""
+"All VMs and VM scale sets used in a cluster must belong to the same "
+"resource group."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:88
+#: 79981985d4bd48e196d57ac665bd1792
+msgid "**Create a Service Principal:**"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:90
+#: 395182f9fc85441f8fbfaa94fc65494c
+msgid ""
+"In order to allow cilium-operator to interact with the Azure API, a "
+"Service Principal with ``Contributor`` privileges over the AKS cluster is"
+" required (see :ref:`Azure IPAM required privileges "
+"<ipam_azure_required_privileges>` for more details). It is recommended to"
+" create a dedicated Service Principal for each Cilium installation with "
+"minimal privileges over the AKS node resource group:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:108
+#: 60689d58b75b4004b233c15276d4a394
+msgid ""
+"The ``AZURE_NODE_RESOURCE_GROUP`` node resource group is *not* the "
+"resource group of the AKS cluster. A single resource group may hold "
+"multiple AKS clusters, but each AKS cluster regroups all resources in an "
+"automatically managed secondary resource group. See `Why are two resource"
+" groups created with AKS? <https://docs.microsoft.com/en-us/azure/aks/faq"
+"#why-are-two-resource-groups-created-with-aks>`__ for more details."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:115
+#: 5ca38bcb70b542298ba95429ce0388fd
+msgid ""
+"This ensures the Service Principal only has privileges over the AKS "
+"cluster itself and not any other resources within the resource group."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:137
+#: 0d29b4605c8548ba978c04d3f07c5f1b
+msgid "EKS"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:1 5a835b652c6d4116b6a797b1f16d68ed
+msgid ""
+"To install Cilium on `Amazon Elastic Kubernetes Service (EKS) "
+"<https://docs.aws.amazon.com/eks/latest/userguide/getting-"
+"started.html>`_, perform the following steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:9 566a6c4792734523bef7aab115666b62
+msgid "Direct Routing (ENI)"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:9 1ae96e0b4ca346e99945274e3a0f3b12
+msgid "AWS ENI"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:12
+#: 924ffb6b6af4449c8d5bc5a3b06ea93e
+msgid "For more information on AWS ENI mode, see :ref:`ipam_eni`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:16
+#: 43d9324d5edb4e8484021b058e203a44
+msgid ""
+"If you want to chain Cilium on top of the AWS CNI, refer to the guide "
+":ref:`chaining_aws_cni`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:21
+#: 89771f3c884f42ebb352be2e579a062d
+msgid ""
+"The `EKS Managed Nodegroups <https://eksctl.io/usage/eks-managed-nodes>`_"
+" must be properly tainted to ensure applications pods are properly "
+"managed by Cilium:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:25
+#: 7bd882c7592f43c69f0e7ab32f7ad365
+msgid ""
+"``managedNodeGroups`` should be tainted with ``node.cilium.io/agent-not-"
+"ready=true:NoExecute`` to ensure application pods will only be scheduled "
+"once Cilium is ready to manage them. However, there are other options. "
+"Please make sure to read and understand the documentation page on "
+":ref:`taint effects and unmanaged pods<taint_effects>`."
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:31
+#: a12ce94951c24a69b06940d8c98cfef2
+msgid ""
+"Below is an example on how to use `ClusterConfig <https://eksctl.io/usage"
+"/creating-and-managing-clusters/#using-config-files>`_ file to create the"
+" cluster:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-eks.rst:52
+#: 9d74c6009b7f47d097877ed2f6f946de
+msgid ""
+"The AWS ENI integration of Cilium is currently only enabled for IPv4. If "
+"you want to use IPv6, use a datapath/IPAM mode other than ENI."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:141
+#: c9083673680e415882169496a7bba05d
+msgid "**Delete VPC CNI (``aws-node`` DaemonSet)**"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:143
+#: b182eb176c784d7ebd85d0c94b77784e
+msgid ""
+"Cilium will manage ENIs instead of VPC CNI, so the ``aws-node`` DaemonSet"
+" has to be deleted to prevent conflict behavior."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:165
+#: abc6c59b4d4a46e1b904b5aeabd6ed93
+msgid ""
+"This helm command sets ``eni.enabled=true`` and ``tunnel=disabled``, "
+"meaning that Cilium will allocate a fully-routable AWS ENI IP address for"
+" each pod, similar to the behavior of the `Amazon VPC CNI plugin "
+"<https://docs.aws.amazon.com/eks/latest/userguide/pod-networking.html>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:170
+#: 368abbaf542f429292242b43f03a784f
+msgid "This mode depends on a set of :ref:`ec2privileges` from the EC2 API."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:172
+#: 42b5a810675147afb8e6fe3c2b3c758b
+msgid ""
+"Cilium can alternatively run in EKS using an overlay mode that gives pods"
+" non-VPC-routable IPs.  This allows running more pods per Kubernetes "
+"worker node than the ENI limit, but means that pod connectivity to "
+"resources outside the cluster (e.g., VMs in the VPC or AWS managed "
+"services) is masqueraded (i.e., SNAT) by Cilium to use the VPC IP address"
+" of the Kubernetes worker node. To set up Cilium overlay mode, follow the"
+" steps below:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:180
+#: 8e5c5b3c28e84e819d1029e39f601b72
+msgid ""
+"Excluding the lines for ``eni.enabled=true``, ``ipam.mode=eni`` and "
+"``tunnel=disabled`` from the helm command will configure Cilium to use "
+"overlay routing mode (which is the helm default)."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:183
+#: 2481cddcdb644a85a9191a930ed99437
+msgid "Flush iptables rules added by VPC CNI"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:192
+#: e0debc7eb92d4b828271b767f6770e4b
+msgid ""
+"Some Linux distributions use a different interface naming convention. If "
+"you use masquerading with the option ``egressMasqueradeInterfaces=eth0``,"
+" remember to replace ``eth0`` with the proper interface name."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:196
+#: 0a5e6e9c6bcf44aca7ad6164fb82a28e
+msgid "OpenShift"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:1
+#: 07875426bc3e4b1c994d48fc8d45a82e
+msgid ""
+"To install Cilium on `OpenShift <https://www.openshift.com/>`_, perform "
+"the following steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-openshift.rst:14
+#: 468a6193f67c403fb465668c0bb5da4e
+msgid "OpenShift 4.x"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:202
+#: fea95d2a071e4035a33e164b1369c012
+msgid ""
+"Cilium is a `Certified OpenShift CNI Plugin "
+"<https://access.redhat.com/articles/5436171>`_ and is best installed when"
+" an OpenShift cluster is created using the OpenShift installer. Please "
+"refer to :ref:`k8s_install_openshift_okd` for more information."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:206
+#: 6a0570830ce44c5e8725fc94ebafbf7f
+msgid "RKE"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:1 602204e73aac43f8b755ceed4ed96832
+msgid ""
+"To install Cilium on `Rancher Kubernetes Engine (RKE) "
+"<https://rancher.com/docs/rke/latest/en/>`_, perform the following steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:6 50096c1eba8e4670b5e8fc30873678dd
+msgid ""
+"If you are using RKE2, Cilium has been directly integrated. Please see "
+"`Using Cilium <https://docs.rke2.io/install/network_options/#using-"
+"cilium-or-calico-instead-of-canal>`_ in the RKE2 documentation. You can "
+"use either method."
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:20
+#: b0337a9090a94b7d9fba38a1dd456bde
+msgid ""
+"Follow the `RKE Installation Guide "
+"<https://rancher.com/docs/rke/latest/en/installation/>`_ with the below "
+"change:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:23
+#: 095eab2808f4436e9590f71c2db9dd73
+msgid "From:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-rke.rst:32
+#: 45360e6f935e45d0a107bb773c790281
+msgid "To:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:212
+#: 6d4404ecbc7f4562881925902701cfda
+msgid "Install Cilium via ``helm install``:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:219
+#: 8183ba7b67c54707b3fa793974eb1412
+msgid "k3s"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:1 1a3fe3d7140f47a080524253e0c758e2
+msgid ""
+"To install Cilium on `k3s <https://rancher.com/docs/k3s/latest/en/quick-"
+"start/>`_, perform the following steps:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:14
+#: 4c54a59be3e9420a82515a376a54cac3
+msgid ""
+"Install your k3s cluster as you normally would but making sure to disable"
+" support for the default CNI plugin and the built-in network policy "
+"enforcer so you can install Cilium on top:"
+msgstr ""
+
+#: ../../gettingstarted/requirements-k3s.rst:22
+#: b2aa3c79546c4c939117686ffd1901f9
+msgid ""
+"For the Cilium CLI to access the cluster in successive steps you will "
+"need to use the ``kubeconfig`` file stored at "
+"``/etc/rancher/k3s/k3s.yaml`` by setting the ``KUBECONFIG`` environment "
+"variable:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:230
+#: 2251c092a0524d689ec181f667db369a
+msgid "Rancher Desktop"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:232
+#: 0fcefee3874148a2adcb8eba3167396a
+msgid "**Configure Rancher Desktop:**"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-helm.rst:234
+#: e36e667b9e2e4c7f973f11ba7f87dd73
+msgid ""
+"To install Cilium on `Rancher Desktop <https://rancherdesktop.io>`_, "
+"perform the following steps:"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:1
+#: 4c6330bb0e1641ee9030ce87534125dc
+msgid ""
+"Configuring Rancher Desktop is done using a YAML configuration file. This"
+" step is necessary in order to disable the default CNI and replace it "
+"with Cilium."
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:5
+#: 7c9ef04d1e334479b68437957068299e
+msgid ""
+"Next you need to start Rancher Desktop with ``containerd`` and create a "
+":download:`override.yaml <rancher-desktop-override.yaml>`:"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:10
+#: 86ceac46b4d14eb6a399075f1ca7957b
+msgid ""
+"After the file is created move it into your Rancher Desktop's "
+"``lima/_config`` directory:"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6
+#: ../../gettingstarted/rancher-desktop-configure.rst:13
+#: 139a61d38a2a47438fe3ab4098db87d9 3dbff2809391431da97582dbd1666a20
+#: a4866bff7dca4951808a2405fbaf6cdf
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15
+#: ../../gettingstarted/rancher-desktop-configure.rst:19
+#: 031efc1b5696424c957d360501d67c65 0af55cb501444a2191f28dc001ee041b
+#: a2464bca5c124fd3aeb5f48dd3d19b30
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:25
+#: 7bc0fabbbbba4cc3817a833c1464a4bd
+msgid ""
+"Finally, open the Rancher Desktop UI and go to Kubernetes Settings panel "
+"and click \"Reset Kubernetes\"."
+msgstr ""
+
+#: ../../gettingstarted/rancher-desktop-configure.rst:27
+#: 9a810c53e23a48e6aa6fe5362e196cbc
+msgid ""
+"After a few minutes Rancher Desktop will start back up prepared for "
+"installing Cilium."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:2
+#: b27c34fd58ba41b186252b9a9b48d889
+msgid "Restart unmanaged Pods"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:4
+#: aff2e333cdc3436fa2a3fe364ba11d9b
+msgid ""
+"If you did not create a cluster with the nodes tainted with the taint "
+"``node.cilium.io/agent-not-ready``, then unmanaged pods need to be "
+"restarted manually. Restart all already running pods which are not "
+"running in host-networking mode to ensure that Cilium starts managing "
+"them. This is required to ensure that all pods which have been running "
+"before Cilium was deployed have network connectivity provided by Cilium "
+"and NetworkPolicy applies to them:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-restart-pods.rst:27
+#: da3a900db9284bae8bef3b565a6ca8c2
+msgid ""
+"This may error out on macOS due to ``-r`` being unsupported by ``xargs``."
+" In this case you can safely run this command without ``-r`` with the "
+"symptom that this will hang if there are no pods to restart. You can stop"
+" this with ``ctrl-c``."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: 7494eee54e7340de8e72e3949b9c74fa
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 450c994eaa1944b5b4131fb9712d3592
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 3b650e9ea8b641b58acb80111f15688b
+#: a1148b26871f4415907c2b0c5c8a03b6
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 4c85c58524bb4d99adca992563310c8e
+#: e168ef3fd6494a6abb78c98c1f4a1a3b
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 0fab795f832043148d3ac83e90361fd1
+#: abb2f58ce0584a09a7962d0f39cac87a
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 96407f8ff1c445809e47b21e3f140951
+#: be0258e8106c47a3a4ed04c09e629fcc
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: 9fee6410d39b48c49cfe74beb795d51b
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: d3343ed1819d4c7fbffdd81819ed6831
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 33f73fc2ea41409d98befc4cc787940d
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 1bf0f048fa764532b59ee2518c6131af
+#: f20c862ba7674fbe862d891c6ccffd42
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 8df44cde58bc42b389b35ada0f990b7a
+#: c03c16651a9048f0a91ff93807bc4f36
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 3f9fa725f95847cebc00a4d3cf6d8ce8
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: 4c169913c1c94d63a32be961773c7db6
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 253fabf6c2ad448dbbcb395a6d3b270f
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 6ef56990a0394d809a17a159b7f42af3
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 147e9b89817647c59eceffa6dfd980bb
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 97663a68bd9b47eeb67cfbe0e21c926c
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 70ddbf7727754c71ae9c3e65e4331def
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 d65b2495039248f9a41bdc33d233024c
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 f463b954cc2c4e0f87ff7f0fa393fe27
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 b57cfe64cf414517b306cf22f0f80a56
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 9f46615705624b1c9a89453ff4a79052
+msgid ":ref:`clustermesh`"
+msgstr ""
+

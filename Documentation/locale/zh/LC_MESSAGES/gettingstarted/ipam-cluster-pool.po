@@ -1,0 +1,113 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:3
+#: b47a56faedb1417bb13e43ede607ae2a
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: http://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:11
+#: 684f85b24383403fb2743330c1fb0cb9
+msgid "CRD-backed by Cilium cluster-pool IPAM"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:13
+#: 7d1767dc95c6489da58d43aa45db922b
+msgid ""
+"This is a quick tutorial walking through how to enable CRD-backed by "
+"Cilium cluster-pool IPAM. The purpose of this tutorial is to show how "
+"components are configured and resources interact with each other to "
+"enable users to automate or extend on their own."
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:18
+#: 3efac7d0679a4bb186e0a7b2642d9360
+msgid "For more details, see the section :ref:`ipam_crd_cluster_pool`"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:21
+#: 8cc6595f9f064ea68f38aa9455935d77
+msgid "Enable Cluster-pool IPAM mode"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:23
+#: c93edffb1c144940aef0ec686eae0a83
+msgid ""
+"Setup Cilium for Kubernetes using helm with the options: ``--set "
+"ipam.mode=cluster-pool``."
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:25
+#: 2531c12b3ad74c9985b26803c787b986
+msgid ""
+"Depending if you are using IPv4 and / or IPv6, you might want to adjust "
+"the ``podCIDR`` allocated for your cluster's pods with the options:"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:28
+#: 19849e4ad5434fa199fcbdded93f929b
+msgid "``--set ipam.operator.clusterPoolIPv4PodCIDRList=<IPv4CIDR>``"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:29
+#: 999b676264054d76b44840d07d90109e
+msgid "``--set ipam.operator.clusterPoolIPv6PodCIDRList=<IPv6CIDR>``"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:31
+#: cf981026b819427b948e1c1f6faf5106
+msgid ""
+"To adjust the CIDR size that should be allocated for each node you can "
+"use the following options:"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:34
+#: e1c831ca838f44f5ae37ed5830c623ec
+msgid "``--set ipam.operator.clusterPoolIPv4MaskSize=<IPv4MaskSize>``"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:35
+#: b15ee221d95441858f317a01f4cf7925
+msgid "``--set ipam.operator.clusterPoolIPv6MaskSize=<IPv6MaskSize>``"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:37
+#: 6065397897f943fca6ea91fd34f3514c
+msgid ""
+"Deploy Cilium and Cilium-Operator. Cilium will automatically wait until "
+"the ``podCIDR`` is allocated for its node by Cilium Operator."
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:41
+#: f5a775312471476db491f2aab7638a3e
+msgid "Validate installation"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:43
+#: aafba859c2534dc2886aefc1447ca16d
+msgid "Validate that Cilium has started up correctly"
+msgstr ""
+
+#: ../../gettingstarted/ipam-cluster-pool.rst:55
+#: e8212bde0f144a99b6d877773bed2d58
+msgid "Validate the ``spec.ipam.podCIDRs`` section:"
+msgstr ""
+

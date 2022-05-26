@@ -1,0 +1,134 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../concepts/networking/ipam/crd.rst:3 e52a7282279b48368a6b4402dc0c3bf8
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:11 8dbcfce890424f3f8a71058d30cf321f
+msgid "CRD-Backed"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:13 5aa51092b1c748988cf0129214bcbe20
+msgid ""
+"The CRD-backed IPAM mode provides an extendable interface to control the "
+"IP address management via a Kubernetes Custom Resource Definition (CRD). "
+"This allows to delegate IPAM to external operators or make it user "
+"configurable per node."
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:20 c71f8900e0ce4bdeafbd13c83b71948e
+msgid "Architecture"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:25 722bad5ca8b04611a1e03bc1712720d9
+msgid ""
+"When this mode is enabled, each Cilium agent will start watching for a "
+"Kubernetes custom resource ``ciliumnodes.cilium.io`` with a name matching"
+" the Kubernetes node on which the agent is running."
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:29 8d4a2f08d4744f398406935a79a14644
+msgid ""
+"Whenever the custom resource is updated, the per node allocation pool is "
+"updated with all addresses listed in the ``spec.ipam.available`` field. "
+"When an IP is removed that is currently allocated, the IP will continue "
+"to be used but will not be available for re-allocation after release."
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:34 4001d988ba7e43ee9bb0e509bcb4b0af
+msgid ""
+"Upon allocation of an IP in the allocation pool, the IP is added to the "
+"``status.ipam.inuse`` field."
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:39 0036373c055841ea9b6dcdbd4880fc19
+msgid ""
+"The node status update is limited to run at most once every 15 seconds. "
+"Therefore, if several pods are scheduled at the same time, the update of "
+"the status section can lag behind."
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:45 7a13c3d6905a41a29acf026fb3586c8f
+msgid "Configuration"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:47 68464284ff504fb3bae3729dd3577a1e
+msgid ""
+"The CRD-backed IPAM mode is enabled by setting ``ipam: crd`` in the "
+"``cilium-config`` ConfigMap or by specifying the option ``--ipam=crd``. "
+"When enabled, the agent will wait for a ``CiliumNode`` custom resource "
+"matching the Kubernetes node name to become available with at least one "
+"IP address listed as available. When connectivity health-checking is "
+"enabled, at least two IP addresses must be available."
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:54 3950e9f05689426ea7ba4a4f44950537
+msgid "While waiting, the agent will print the following log message:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:61 5a320c84e132444c91ad564a96c23a7b
+msgid ""
+"For a practical tutorial on how to enable CRD IPAM mode with Cilium, see "
+"the section :ref:`gsg_ipam_crd`."
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:65 26ff96d2896b469ab1b264455e64de19
+msgid "Privileges"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:67 c2309ce9c48240fcbabc0eb6716675c6
+msgid ""
+"In order for the custom resource to be functional, the following "
+"additional privileges are required. These privileges are automatically "
+"granted when using the standard Cilium deployment artifacts:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:88 6147491f999e46cca1797b6db92316f1
+msgid "CRD Definition"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:90 b613e5b3fa5f44c3bc08cebfeb001967
+msgid ""
+"The CilumNode custom resource is modeled after a standard Kubernetes "
+"resource and is split into a ``spec`` and ``status`` section:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:106 079fd176ecbf4ac78fddc1b6ad43cdba
+msgid "IPAM Specification"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:108 995993e9a157497583e24a9112e699e5
+msgid ""
+"The ``spec`` section embeds an IPAM specific field which allows to define"
+" the list of all IPs which are available to the node for allocation:"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:160 6ec9ba957c614d7593ceaedc1a39c621
+msgid "IPAM Status"
+msgstr ""
+
+#: ../../concepts/networking/ipam/crd.rst:162 69c39791663a4e8fa8a53ba21b55198c
+msgid ""
+"The ``status`` section contains an IPAM specific field. The IPAM status "
+"reports all used addresses on that node:"
+msgstr ""
+

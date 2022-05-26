@@ -1,0 +1,72 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:3
+#: d9b6a365171242aa88c0041cc6db2497
+msgid "cilium-operator-alibabacloud completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:5
+#: 4d966ae4dcfe4b4aa8129a2a09c4836f
+msgid "Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:7
+#: d47f936f4ba141cd9272976184a3c770
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:9
+#: 3101def28ad1472ab384e08a3a805553
+msgid "Generate the autocompletion script for the fish shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:11
+#: 4a58466efe5448eb92b08c085a2e8de1
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:15
+#: 172153f14090415799337b487f4ee07c
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:19
+#: cc7d7a79883242eda5a3d61cf80188ac
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:26
+#: 6e24867eac8e41fe8987ebc2129cb474
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:33
+#: b5651b2b89434552a43ff26263a68b62
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-alibabacloud_completion_fish.md:35
+#: 3ca27715b1ec40edaab01b8c8b83f999
+msgid ""
+"[cilium-operator-alibabacloud completion](cilium-operator-"
+"alibabacloud_completion.md)\t - Generate the autocompletion script for "
+"the specified shell"
+msgstr ""
+

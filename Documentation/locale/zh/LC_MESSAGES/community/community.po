@@ -1,0 +1,357 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../community/community.rst:3 54034a34b603417b9e68e5f771ca1f69
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../community/community.rst:10 6603b946639948159c824dd9457e52d1
+msgid "Weekly Community Meeting"
+msgstr ""
+
+#: ../../community/community.rst:12 6e82dc909b9c4f66ae720f396fdd7b7b
+msgid ""
+"The Cilium contributors gather every Wednesday at 8am PDT, 17:00 CEST, "
+"for a Zoom call open to everyone. During that time, we discuss:"
+msgstr ""
+
+#: ../../community/community.rst:15 1843448a84ee4638a649546ec069a5b4
+msgid "Status of the next releases for each supported Cilium release"
+msgstr ""
+
+#: ../../community/community.rst:16 af30a04eabb34405b0679478c5ab63da
+msgid "Current state of our CI: flakes being investigated and upcoming changes"
+msgstr ""
+
+#: ../../community/community.rst:17 6086429cd483463199e072da4cd34447
+msgid "Development items for the next release"
+msgstr ""
+
+#: ../../community/community.rst:18 7ff2bddbfdbc454c88f4c57d84663f2d
+msgid "Any other community-relevant topics during the open session"
+msgstr ""
+
+#: ../../community/community.rst:20 b7251af9111c4ab584fc07bf646d6060
+msgid ""
+"If you want to discuss something during the next meeting's open session, "
+"you can add it to `the meeting's Google doc "
+"<https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-"
+"ZutGajUv1eF0VDwQ/edit#>`_. The Zoom link to the meeting is available in "
+"the #development Slack channel and in `the meeting notes "
+"<https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-"
+"ZutGajUv1eF0VDwQ/edit#>`_."
+msgstr ""
+
+#: ../../community/community.rst:28 ../../community/community.rst:85
+#: 6ef94b7688f64b8f899bd6de5f60da4f 85820d48bccb4c0fafd5fa38a510fdf2
+msgid "Slack"
+msgstr ""
+
+#: ../../community/community.rst:30 1e0a2ee462624f648999f8dde632f6b9
+msgid ""
+"Our Cilium & eBPF Slack is the main discussion space for the Cilium "
+"community. Click `here <https://cilium.herokuapp.com>`_ to request an "
+"invite."
+msgstr ""
+
+#: ../../community/community.rst:34 518c933814fe40e595cc380dd2910ae4
+msgid "Slack channels"
+msgstr ""
+
+#: ../../community/community.rst:37 ../../community/community.rst:50
+#: ../../community/community.rst:62 9c780ab54ebc40ffb39435c0293e85cc
+#: ab6e289675bc44b599cd99ef597cbcee ddcd59962e844922b1d267dd7fe7a6ed
+msgid "Name"
+msgstr ""
+
+#: ../../community/community.rst:37 ../../community/community.rst:50
+#: ../../community/community.rst:62 855f8fad1bdf427ba7c44c890f1d4919
+#: ada0eafcd76b47f99f812277f703b08c ef16c9760fa34f1489ad15c79dfbcdb7
+msgid "Purpose"
+msgstr ""
+
+#: ../../community/community.rst:39 ed661f58d6c1477e8d0b155bd48a7ec4
+msgid "#general"
+msgstr ""
+
+#: ../../community/community.rst:39 7d008e62f46743fc89fa1f429549daad
+msgid "General user discussions & questions"
+msgstr ""
+
+#: ../../community/community.rst:40 a3a764ad20f745748d8c9f9dcfd9a080
+msgid "#hubble"
+msgstr ""
+
+#: ../../community/community.rst:40 1dc4280f1e4e4fd98da28a3b04d11801
+msgid "Questions on Hubble"
+msgstr ""
+
+#: ../../community/community.rst:41 92d2d7b50bb24fe7aa0e12e43fb5a8e9
+msgid "#kubernetes"
+msgstr ""
+
+#: ../../community/community.rst:41 a14e979525e94422a26cb48ea84b900b
+msgid "Kubernetes-specific questions"
+msgstr ""
+
+#: ../../community/community.rst:42 22d22933240e4375ab641bd0128792f5
+msgid "#networkpolicy"
+msgstr ""
+
+#: ../../community/community.rst:42 fb31f23a71b3493c9ee62cf1000b14e5
+msgid "Questions on network policies"
+msgstr ""
+
+#: ../../community/community.rst:43 e0add0d3496c435fb11244dad172e71b
+msgid "#release"
+msgstr ""
+
+#: ../../community/community.rst:43 4b933d4da9b0453c8c98a8ffa8d3fc32
+msgid "Release announcements only"
+msgstr ""
+
+#: ../../community/community.rst:46 295bcdccb6b04548a82dcac76df1bfa8
+msgid ""
+"You can join the following channels if you are looking to contribute to "
+"Cilium:"
+msgstr ""
+
+#: ../../community/community.rst:52 e3e5a44a591a475ca5167e1b0fa82389
+msgid "#development"
+msgstr ""
+
+#: ../../community/community.rst:52 46be70b47af44dc2b525da764ca98ff9
+msgid "Development discussions around Cilium"
+msgstr ""
+
+#: ../../community/community.rst:53 5f8731c7b57d4763b9ffb9488b4c80e9
+msgid "#ebpf-go-dev"
+msgstr ""
+
+#: ../../community/community.rst:53 21aec54ae81d4770b7ff1a6a6699a3ec
+msgid "Development discussion for the `eBPF Go library`_"
+msgstr ""
+
+#: ../../community/community.rst:54 f26604ea0f7043729a254a234ebba195
+msgid "#git"
+msgstr ""
+
+#: ../../community/community.rst:54 9f139535f5f64cf29e94dd15164b35f7
+msgid "GitHub notifications"
+msgstr ""
+
+#: ../../community/community.rst:55 6af054f1c2934a2bb1c4d4cd82b32503
+msgid "#sig-*"
+msgstr ""
+
+#: ../../community/community.rst:55 a9d7c4bee6f345d78d5ad4e3c0fb3725
+msgid "SIG-specific discussions (see below)"
+msgstr ""
+
+#: ../../community/community.rst:56 8bce1e8c09bc429cb1d9bc30dc99f005
+msgid "#testing"
+msgstr ""
+
+#: ../../community/community.rst:56 fcf9d4c599a54a5991938cc9d9bd1ca8
+msgid "Testing and CI discussions"
+msgstr ""
+
+#: ../../community/community.rst:59 ec6f4e24cc474edab0edd77b9d0b4970
+msgid "If you are interested in eBPF, then the following channels are for you:"
+msgstr ""
+
+#: ../../community/community.rst:64 117cfa7d51a7422cb8f418eb08a1c368
+msgid "#ebpf"
+msgstr ""
+
+#: ../../community/community.rst:64 5d434b1fc0fb49e5b9e2aac9737843ac
+msgid "General eBPF questions"
+msgstr ""
+
+#: ../../community/community.rst:65 a16e61adf9be486ea349c5826fe96337
+msgid "#ebpf-go"
+msgstr ""
+
+#: ../../community/community.rst:65 ffd353e7daa44e7ab9fa9d9ab08a8ff7
+msgid "Questions on the `eBPF Go library`_"
+msgstr ""
+
+#: ../../community/community.rst:66 fac9fe1037134e13b668acdadd6bbcba
+msgid "#ebpf-lsm"
+msgstr ""
+
+#: ../../community/community.rst:66 434b4fc0850f4181a280430dba11c981
+msgid "Questions on BPF Linux Security Modules (LSM)"
+msgstr ""
+
+#: ../../community/community.rst:67 4353fdc7527f4a71a0e4df6d4b7381a4
+msgid "#ebpf-news"
+msgstr ""
+
+#: ../../community/community.rst:67 80ca5b42a0bc416aa15363f1ef117c56
+msgid "Contributions to the `eBPF Updates`_"
+msgstr ""
+
+#: ../../community/community.rst:75 67ca208a920e406aa1e2f9071438f741
+msgid "Special Interest Groups"
+msgstr ""
+
+#: ../../community/community.rst:78 75cb3d7053ee4d169f18881d7055d4f2
+msgid "All SIGs"
+msgstr ""
+
+#: ../../community/community.rst:80 78497bcbd961401faa0c145ac6849041
+msgid ""
+"The following is a list of special interest groups (SIG) that are meeting"
+" on a regular interval. See the respective slack channel for exact "
+"meeting cadence and meeting links."
+msgstr ""
+
+#: ../../community/community.rst:85 6bd1ef34ab14465d9e6854802379fa4e
+msgid "SIG"
+msgstr ""
+
+#: ../../community/community.rst:85 f395600061734e26a0b01593c3b83c4b
+msgid "Meeting"
+msgstr ""
+
+#: ../../community/community.rst:85 216e9fda04ac458fba288010457ee006
+msgid "Description"
+msgstr ""
+
+#: ../../community/community.rst:87 0aac79feb7154f2aab90f6ff5bd0ee22
+msgid "Datapath"
+msgstr ""
+
+#: ../../community/community.rst:87 a205b8b5731f43358f4d26e8de40dbd5
+msgid "Thursdays, 08:00 PT"
+msgstr ""
+
+#: ../../community/community.rst:87 b5e308edc4aa4d4587a101aeff07e035
+msgid "#sig-datapath"
+msgstr ""
+
+#: ../../community/community.rst:87 efaaa12ef9724b3ea9228fc88cea8845
+msgid "Development discussions for Linux and eBPF code used in Cilium."
+msgstr ""
+
+#: ../../community/community.rst:88 a9689aa9f6e74268b11f8b1638fbeb3a
+msgid "Documentation"
+msgstr ""
+
+#: ../../community/community.rst:88 ../../community/community.rst:91
+#: ../../community/community.rst:92 0079b966377c4b6c975adf27b1c012cd
+#: 0c8cb33b8da84e34a107477560e63eaf b2e1a64bb8a04e27bdc3f42e6dfcbbb3
+msgid "None"
+msgstr ""
+
+#: ../../community/community.rst:88 1dce2c71c5e3482785a279cf190a2d87
+msgid "#sig-docs"
+msgstr ""
+
+#: ../../community/community.rst:88 5fa733470e0d48808658de41c7e5163d
+msgid "Documentation, Helm references, and translations."
+msgstr ""
+
+#: ../../community/community.rst:89 79a43376aaf445339dabefeef01b9829
+msgid "Envoy"
+msgstr ""
+
+#: ../../community/community.rst:89 8c02f251b1e742cb958137bc9063979b
+msgid "On demand"
+msgstr ""
+
+#: ../../community/community.rst:89 56e8c2d2c7f64b3a92d26e40aa244d0f
+msgid "#sig-envoy"
+msgstr ""
+
+#: ../../community/community.rst:89 f97885a586bc418eba627a43c6a8c060
+msgid "Envoy, Istio and maintenance of all L7 protocol parsers."
+msgstr ""
+
+#: ../../community/community.rst:90 11f3f4474798489b84cd35414953fd85
+msgid "Hubble"
+msgstr ""
+
+#: ../../community/community.rst:90 200fffb199a6400bb276c3c98f778796
+msgid "During community meeting"
+msgstr ""
+
+#: ../../community/community.rst:90 867a757a2caa4e9aa2ca5b09e1f65770
+msgid "#sig-hubble"
+msgstr ""
+
+#: ../../community/community.rst:90 9bc670b99fc64f39856f4fce653ee85f
+msgid "All Hubble-related code: Server, UI, CLI and Relay."
+msgstr ""
+
+#: ../../community/community.rst:91 efc943c923cd4e53a3fec89d38bb6e7b
+msgid "Policy"
+msgstr ""
+
+#: ../../community/community.rst:91 5378811c27554d67b2adb4ff4440f357
+msgid "#sig-policy"
+msgstr ""
+
+#: ../../community/community.rst:91 4eafdda294d74401bc00173aab669862
+msgid "Network policy and enforcement."
+msgstr ""
+
+#: ../../community/community.rst:92 d24e525b183d415f9968bb91a5b328e7
+msgid "Release Management"
+msgstr ""
+
+#: ../../community/community.rst:92 209a3a92eac643e58660b0026163bebf
+msgid "#launchpad"
+msgstr ""
+
+#: ../../community/community.rst:92 ca56f4c9707f46fc92e11d68f8d991ae
+msgid "Release management and backport coordination."
+msgstr ""
+
+#: ../../community/community.rst:96 425937d0673541019534d8b5220182d7
+msgid "How to create a SIG"
+msgstr ""
+
+#: ../../community/community.rst:98 50ba2d34b7d842d096a2788720328c6c
+msgid "Open a new `GitHub issue <https://github.com/cilium/cilium/issues>`_"
+msgstr ""
+
+#: ../../community/community.rst:99 e636f66dfd2e44098d2f380e0be90ef6
+msgid "Specify the title \"SIG-Request: <Name>\""
+msgstr ""
+
+#: ../../community/community.rst:100 9789b219078545eb8c69cfe5dadde50f
+msgid "Provide a description"
+msgstr ""
+
+#: ../../community/community.rst:101 dfeb7d2c56c34e32bffb25fb3cf86e42
+msgid "Find two Cilium committers to support the SIG."
+msgstr ""
+
+#: ../../community/community.rst:102 e142f4940eea43bda52ff8e1f10749bd
+msgid "Ask on #development to get the Slack channel and Zoom meeting created"
+msgstr ""
+
+#: ../../community/community.rst:103 d5061ac991a74b9e969d99ec5bfe0a8c
+msgid "Submit a PR to update the documentation to get your new SIG listed"
+msgstr ""
+

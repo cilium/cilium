@@ -1,0 +1,270 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/encryption-wireguard.rst:3
+#: 429653be3a8a435ca3f69aa9cba6c3a3
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:11
+#: 55d12d10f3bf4542ba4fbc4a502b75e1
+msgid "WireGuard Transparent Encryption"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:13
+#: 2cef9e6fbb144e0e900bb155f85dd2d0
+msgid ""
+"This guide explains how to configure Cilium with transparent encryption "
+"of traffic between Cilium-managed endpoints using `WireGuard® "
+"<https://www.wireguard.com/>`_."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:16
+#: d5c8273a606747e6bc28946858226a84
+msgid ""
+"When WireGuard is enabled in Cilium, the agent running on each cluster "
+"node will establish a secure WireGuard tunnel between it and all other "
+"known nodes in the cluster. Each node automatically creates its own "
+"encryption key-pair and distributes its public key via the "
+"``io.cilium.network.wg-pub-key`` annotation in the Kubernetes "
+"``CiliumNode`` custom resource object. Each node's public key is then "
+"used by other nodes to decrypt and encrypt traffic from and to Cilium-"
+"managed endpoints running on that node."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:24
+#: 2efb7ac95d5c4ebb9d6c32833a12aacc
+msgid ""
+"Packets are not encrypted when they are destined to the same node from "
+"which they were sent. This behavior is intended. Encryption would provide"
+" no benefits in that case, given that the raw traffic can be observed on "
+"the node anyway."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:28
+#: bf037f6a7cb94124ba5278ca25ccd3c8
+msgid ""
+"The WireGuard tunnel endpoint is exposed on UDP port ``51871`` on each "
+"node. If you run Cilium in an environment that requires firewall rules to"
+" enable connectivity, you will have to ensure that all Cilium cluster "
+"nodes can reach each other via that port."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:35
+#: cced047df57c4b03ab64a763794cce81
+msgid ""
+"When running in the tunneling mode (i.e. with VXLAN or Geneve), pod to "
+"pod traffic will be sent only over the WireGuard tunnel which means that "
+"the packets will bypass the other tunnel, and thus they will be "
+"encapsulated only once."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:41
+#: dfd51a9269874ca8b5f216d7a29eb27e
+msgid "Enable WireGuard in Cilium"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:43
+#: 69850f971e5548a1b5b384777935206e
+msgid ""
+"Before you enable WireGuard in Cilium, please ensure that the Linux "
+"distribution running on your cluster nodes has support for WireGuard in "
+"kernel mode (i.e. ``CONFIG_WIREGUARD=m`` on Linux 5.6 and newer, or via "
+"the out-of-tree WireGuard module on older kernels). See `WireGuard "
+"Installation <https://www.wireguard.com/install/>`_ for details on how to"
+" install the kernel module on your Linux distribution."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:50
+#: ad98e43a7f004c61b356f433ed4c9dc9
+msgid ""
+"If your kernel or distribution does not support WireGuard, Cilium agent "
+"can be configured to fall back on the user-space implementation via the "
+"``--enable-wireguard-userspace-fallback`` flag. When this flag is enabled"
+" and Cilium detects that the kernel has no native support for WireGuard, "
+"it will fallback on the ``wireguard-go`` user-space implementation of "
+"WireGuard. When running the user-space implementation, encryption and "
+"decryption of packets is performed by the ``cilium-agent`` process. As a "
+"consequence, connectivity between Cilium-managed endpoints will be "
+"unavailable whenever the ``cilium-agent`` process is restarted, such as "
+"during upgrades or configuration changes. Running WireGuard in user-space"
+" mode is therefore not recommended for production workloads that require "
+"high availability."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:64
+#: 4014bdfe9da149978ac2264ba4cd5984
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:66
+#: 5098f7f16e694c82a50617a1e60cc1fe
+msgid ""
+"If you are deploying Cilium with the Cilium CLI, pass the following "
+"options:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:73
+#: 3d0f3cd3109b441b984fd75bc90b3ef6
+msgid "Helm"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:75
+#: ae28f194c3044d18b1e73fcb9ed6b965
+msgid ""
+"If you are deploying Cilium with Helm by following "
+":ref:`k8s_install_helm`, pass the following options:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:86
+#: 314ef420f561431d853092ec7358dbd8
+msgid ""
+"WireGuard may also be enabled manually by setting setting the ``enable-"
+"wireguard: true`` option in the Cilium ``ConfigMap`` and restarting each "
+"Cilium agent instance."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:91
+#: ff17543f12b84e0e8a9921fa6ee7d9ea
+msgid "Validate the Setup"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:93
+#: 29e47f508eab4f52adfa773b18c87560
+msgid ""
+"Run a ``bash`` shell in one of the Cilium pods with ``kubectl -n kube-"
+"system exec -ti ds/cilium -- bash`` and execute the following commands:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:97
+#: 17439c7d54434e08b86770c2976946f1
+msgid ""
+"Check that WireGuard has been enabled (number of peers should correspond "
+"to a number of nodes subtracted by one):"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:106
+#: 1e4b1986793543f3859fe81ead81bb31
+msgid "Install tcpdump"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:113
+#: b6e912219ee1467197a7b6403d6af65d
+msgid "Check that traffic is sent via the ``cilium_wg0`` tunnel device:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:135
+#: 395abbad9c6747c0927b37a87a5ef55c
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:137
+#: 0de1e1b6f7374c8e9f5e437448442519
+msgid ""
+"When troubleshooting dropped or unencrypted packets between pods, the "
+"following commands can be helpful:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:193
+#: eeda801b5bfe4ab1868a4086d396623a
+msgid ""
+"For pod to pod packets to be successfully encrypted and decrypted, the "
+"following must hold:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:196
+#: 08b7746b693e46c092c9043b59bc5cf2
+msgid ""
+"WireGuard public key of a remote node in the ``peers[*].public-key`` "
+"section matches the actual public key of the remote node (``public-key`` "
+"retrieved via the same command on the remote node)."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:199
+#: 1a6061d66b2a41cf8eab520cf09ace78
+msgid ""
+"``peers[*].allowed-ips`` should contain a list of pod IP addresses "
+"running on the remote."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:203
+#: 8b0969c2f5e54c84afb70fbc704b7470
+msgid "Cluster Mesh"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:205
+#: 82bd8b6d38e445ca9860cfb20fd97036
+msgid ""
+"WireGuard enabled Cilium clusters can be connected via :ref:`Cluster "
+"Mesh`. The ``clustermesh-apiserver`` will forward the necessary WireGuard"
+" public keys automatically to remote clusters. In such a setup, it is "
+"important to note that all participating clusters must have WireGuard "
+"encryption enabled, i.e. mixed mode is currently not supported. In "
+"addition, UDP traffic between nodes of different clusters on port "
+"``51871`` must be allowed."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:214
+#: cfdb90b318704cb2b5d9d00680afeb2a
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:216
+#: f1006726d95a45b1b2fde5fbdb26a850
+msgid ""
+"WireGuard support in Cilium currently lacks the following features, which"
+" may be resolved in upcoming Cilium releases:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:219
+#: 8458a3b0510f4b0d8ab62e6fbe8e48fd
+msgid ""
+"Host-level encryption. Only traffic between two Cilium-managed endpoints "
+"(i.e. pod-to-pod traffic) is encrypted. Traffic between two nodes and "
+"traffic between a Cilium-managed pod and a remote node currently won't be"
+" encrypted."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:223
+#: 7afa8f8d5fac44eb8ee0631fa2793e1f
+msgid "L7 policy enforcement and visibility"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:224
+#: a001ed6656004cea9e362bf40704534d
+msgid "eBPF-based host routing"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:226
+#: 1711a80b5f9147aabb68757a2e271acc
+msgid "The current status of these limitations is tracked in :gh-issue:`15462`."
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:229
+#: a2459e98e3d1491fbd3147d7d313cd7b
+msgid "Legal"
+msgstr ""
+
+#: ../../gettingstarted/encryption-wireguard.rst:231
+#: d85550b876e240b59e781058b564088f
+msgid "\"WireGuard\" is a registered trademark of Jason A. Donenfeld."
+msgstr ""
+

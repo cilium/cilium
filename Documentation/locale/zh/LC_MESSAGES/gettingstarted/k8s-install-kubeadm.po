@@ -1,0 +1,250 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: ../../gettingstarted/k8s-install-kubeadm.rst:3
+#: d04e4bb160d440ab9d4f25abc64fc2b5 e1611a8cb10542c2ade621977b0396be
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:9
+#: a621009789074b88a959165c7b251afa
+msgid "Installation using kubeadm"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:11
+#: abc48e0c553449b2a4809657d50dcd6a
+msgid ""
+"This guide describes deploying Cilium on a Kubernetes cluster created "
+"with ``kubeadm``."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:14
+#: 340dc5ec16064542950acc579530a1bf
+msgid ""
+"For installing ``kubeadm`` on your system, please refer to `the official "
+"kubeadm documentation <https://kubernetes.io/docs/setup/production-"
+"environment/tools/kubeadm/create-cluster-kubeadm/>`_ The official "
+"documentation also describes additional options of kubeadm which are not "
+"mentioned here."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:20
+#: fb5b82b47ac44334afa60f7163bfb108
+msgid ""
+"If you are interested in using Cilium's kube-proxy replacement, please "
+"follow the :ref:`kubeproxy-free` guide and skip this one."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:24
+#: 7f4aeff54a56455d86412dc99123903c
+msgid "Create the cluster"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:26
+#: 407f4b42433b43e98f604c278f9fc0b7
+msgid "Initialize the control plane via executing on it:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:33
+#: a629b1d0d9dc48cf8bd44154aec09992
+msgid ""
+"If you want to use Cilium's kube-proxy replacement, kubeadm needs to skip"
+" the kube-proxy deployment phase, so it has to be executed with the "
+"``--skip-phases=addon/kube-proxy`` option:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:41
+#: 8bcf6f8ab4fe4bc88c1d3d0ea2c42e25
+msgid "For more information please refer to the :ref:`kubeproxy-free` guide."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:43
+#: 6992bd3381aa49189f5787510dbfe519
+msgid ""
+"Afterwards, join worker nodes by specifying the control-plane node IP "
+"address and the token returned by ``kubeadm init``:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:51
+#: 9450c297bfb14a05b14fadbc05d40b74
+msgid "Deploy Cilium"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: f693061bbcec4587af909a02dbce46f4
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 5d3c144079044739b544ea08c3a7cfa9
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 9c5ac1c8e49c49b4a4798f56a0561629
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-kubeadm.rst:55
+#: 67b05dcfdbe3482ea98128ffa61d9169
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: be81c90cdb064dfe8dcd8877364a84e3
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 9617b0c2f6624e11be2f4735890e941b
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 19b1c994bb694785be83b39a4d46ea13
+#: d2df1d270b404462b024b7d42c9ded39
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 765ad71be89a4699bfd17eb7a1af6df4
+#: f76baa92da154570b34aa02787327020
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 08ad903d171a4806927958b0526cb467
+#: 25e1d5c50f494c348a1de8c12b09327a
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 5bc0d617bbdb454ca6093c02f131901f
+#: c661edf0b56b45fabedd4bbfa55c49dc
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 38b91e928c0b475dbedb9f7574882198
+#: cb6c2b5b71904539a06ff0eec2b42cf6
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 889c2b62e7974e2eb5aed7b4a835e3fd
+#: a6c0599706dd4e90a85c5cde90138148
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: f1adefe5f0f1431db231a3f896729247
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: 3a282ffd2d8f4b66b294b5e2a8cc66b6
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 1322df8a3e024a42b77095aedca0c614
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 0e243a33c73a43159f2c3c1506a0ccb6
+#: 42092eed3bca4e8a871846b2b8431a79
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 41aabb89700648a9b138180faac9090b
+#: c0a39f3e00fc4225b85b044b6d9f4c25
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 5238ea313d37469cba0a27b8442db631
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: ef46969db55e48b2aa00138af4d7743e
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: ed4da6cc49ef4b68bab369cb75fa5e66
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 7237ea4bb1844c4db76cfd67b28b63c6
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: 8dd1d94c2bbb443e86176ceb18cca241
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 bf3139a682cf4e4793dc67aac60547b0
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 107b76da1bb0458db0efe43a887283dd
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 c5bc8778529946ccb23c56d0c3fd598d
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 0736c08326124b2d824658c393161ca1
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 8df0e1a4a301461580dde75cb3db3475
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 ccf927e5f2b64413b649f43f0d3c58d9
+msgid ":ref:`clustermesh`"
+msgstr ""
+

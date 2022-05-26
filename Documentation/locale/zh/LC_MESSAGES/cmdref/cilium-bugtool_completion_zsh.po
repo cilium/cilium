@@ -1,0 +1,83 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:3
+#: 8c08541598ea4df2ab9f5b4f4ac8e564
+msgid "cilium-bugtool completion zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:5
+#: 89376cfa07ad4adbb69782a98b786494
+msgid "Generate the autocompletion script for zsh"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:7
+#: 277660e9b5fa409f9ebea555dd6affa1
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:9
+#: cb265e9c4cef4d8f8e3cb8a3a726c336
+msgid "Generate the autocompletion script for the zsh shell."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:11
+#: b651874b6a1049c5b94b2a3c27f6642f
+msgid ""
+"If shell completion is not already enabled in your environment you will "
+"need to enable it.  You can execute the following once:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:16
+#: 8103d4805adb4782a3dc0e627b16d8e7
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:18
+#: 34bad26c22e7446d9368cdef1378356f
+msgid "Linux:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:22
+#: c7bc7c03549444d6b7323652e01eadf0
+msgid "macOS:"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:26
+#: 60819fd191da45bf8e57f313a4659cf4
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:33
+#: b34ea1cd95cd408a93f268389e9a465b
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:40
+#: 7c364785e80f478c97eced311ce56b7d
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-bugtool_completion_zsh.md:42
+#: 722631277f71468e93e65c2408718064
+msgid ""
+"[cilium-bugtool completion](cilium-bugtool_completion.md)\t - Generate "
+"the autocompletion script for the specified shell"
+msgstr ""
+

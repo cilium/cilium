@@ -1,0 +1,376 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/encryption-ipsec.rst:3 9d701fa375f74899a8bb706173de5d6c
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:11
+#: 81b392293e034011a42b0b723af66de1
+msgid "IPsec Transparent Encryption"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:13
+#: 7123c0273a224e31a84edfb75f2ac118
+msgid ""
+"This guide explains how to configure Cilium to use IPsec based "
+"transparent encryption using Kubernetes secrets to distribute the IPsec "
+"keys. After this configuration is complete all traffic between Cilium-"
+"managed endpoints, as well as Cilium-managed host traffic, will be "
+"encrypted using IPsec. This guide uses Kubernetes secrets to distribute "
+"keys. Alternatively, keys may be manually distributed, but that is not "
+"shown here."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:20
+#: 2d096c9eadbd48c9bc5cdddc7de7ea3b
+msgid ""
+"Packets are not encrypted when they are destined to the same node from "
+"which they were sent. This behavior is intended. Encryption would provide"
+" no benefits in that case, given that the raw traffic can be observed on "
+"the node anyway."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:25
+#: e4a4184ae8304d0fbd095fc84f946ad2
+msgid "Generate & Import the PSK"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:27
+#: cb217cd437a141229e725254bc05ba64
+msgid ""
+"First, create a Kubernetes secret for the IPsec configuration to be "
+"stored. The example below demonstrates generation of the necessary IPsec "
+"configuration which will be distributed as a Kubernetes secret called "
+"``cilium-ipsec-keys``. A Kubernetes secret should consist of one key-"
+"value pair where the key is the name of the file to be mounted as a "
+"volume in cilium-agent pods, and the value is an IPSec configuration in "
+"the following format::"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:38
+#: ac7a7382604a40e4a3a12eb876e82cb8
+msgid ""
+"``Secret`` resources need to be deployed in the same namespace as Cilium!"
+" In our example, we use ``kube-system``."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:41
+#: 4aaa4d17d2194ef8aaa82c0884d2886b
+msgid ""
+"In the example below, GMC-128-AES is used. However, any of the algorithms"
+" supported by Linux may be used. To generate the secret, you may use the "
+"following command:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:50
+#: d87a07ba5ef648779f79a9a2fba98da4
+msgid ""
+"The secret can be seen with ``kubectl -n kube-system get secrets`` and "
+"will be listed as ``cilium-ipsec-keys``."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:60
+#: c69243c21307488387f4f2299e942924
+msgid "Enable Encryption in Cilium"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:64
+#: ../../gettingstarted/encryption-ipsec.rst:112
+#: ../../gettingstarted/encryption-ipsec.rst:133
+#: 3772c3e51eda42f4bd2671a1ef78e0e2 3fa495fb83df4f46a10026bebcb5a686
+#: 88e76791f9eb455ab0619e2e43d3fdee
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:66
+#: e14c60f9d0ec4a57a6c21b20f3068e72
+msgid ""
+"If you are deploying Cilium with the Cilium CLI, pass the following "
+"options:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:73
+#: ../../gettingstarted/encryption-ipsec.rst:118
+#: ../../gettingstarted/encryption-ipsec.rst:139
+#: 2ed4eaf541ee4fe583e5d5c63de50065 969195f8adbf409884335fa5b22209d1
+#: e7effe3a241b442fbee101e2524a09b0
+msgid "Helm"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:75
+#: ce0553b94b124731a790a88f5e75fd92
+msgid ""
+"If you are deploying Cilium with Helm by following "
+":ref:`k8s_install_helm`, pass the following options:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:86
+#: 9154086d44f04bad850b07351b8c17ab
+msgid ""
+"``encryption.enabled`` enables encryption of the traffic between Cilium-"
+"managed pods and ``encryption.nodeEncryption`` controls whether host "
+"traffic is encrypted. ``encryption.type`` specifies the encryption method"
+" and can be omitted as it defaults to ``ipsec``."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:93
+#: fa20ee7b60c54265a99ca2d754dbae13
+msgid ""
+"When using Cilium in any direct routing configuration, ensure that the "
+"native routing CIDR is set properly. This is done using ``--ipv4-native-"
+"routing-cidr=CIDR`` with the CLI or ``--set ipv4NativeRoutingCIDR=CIDR`` "
+"with Helm."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:98
+#: fe98ef99f0ed45fa9f95a55b31bde006
+msgid ""
+"At this point the Cilium managed nodes will be using IPsec for all "
+"traffic. For further information on Cilium's transparent encryption, see "
+":ref:`ebpf_datapath`."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:102
+#: 643eb880563e4b1cbb44d6cd4e347004
+msgid "Encryption interface"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:104
+#: 4255e7a0a23b4cacac884817ea85fb71
+msgid ""
+"An additional argument can be used to identify the network-facing "
+"interface. If direct routing is used and no interface is specified, the "
+"default route link is chosen by inspecting the routing tables. This will "
+"work in many cases, but depending on routing rules, users may need to "
+"specify the encryption interface as follows:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:127
+#: 4f1193d262ee4a33baf001e50909a312
+msgid "Node-to-node encryption (beta)"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:129
+#: a2f0f3a75c8a422aaaeb1c3fd9962042
+msgid "In order to enable node-to-node encryption, add:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:148
+#: 68b6ad6ac49842c0b133d7f5ab99e974
+msgid ""
+"Node-to-node encryption is a beta feature. Please provide feedback and "
+"file a GitHub issue if you experience any problems."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:151
+#: 47160ce952c74456ae42acd6f74f2081
+msgid ""
+"Node-to-node encryption is tested and supported with direct routing "
+"modes. Using with encapsulation/tunneling is not currently tested or "
+"supported."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:154
+#: fec922372ba5427485e83f37dbf7c1b3
+msgid "Support with tunneling mode is tracked with :gh-issue:`13663`."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:157
+#: 80ba5908390c4f58945975f732c7d254
+msgid "Validate the Setup"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:159
+#: d14b3609d5904c73bd5ee8497c27994d
+msgid ""
+"Run a ``bash`` shell in one of the Cilium pods with ``kubectl -n kube-"
+"system exec -ti ds/cilium -- bash`` and execute the following commands:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:163
+#: a76b16a953754bcc92a864b96c40c3c4
+msgid "Install tcpdump"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:170
+#: f0a3fc9c71fb4e99a4f748e066d154ed
+msgid ""
+"Check that traffic is encrypted. In the example below, this can be "
+"verified by the fact that packets carry the IP Encapsulating Security "
+"Payload (ESP). In the example below, ``eth0`` is the interface used for "
+"pod-to-pod communication. Replace this interface with ``cilium_vxlan`` if"
+" tunneling is enabled."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:189
+#: ff2e75fe4626491583d3e68442dc23b5
+msgid "Key Rotation"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:191
+#: ec44514895aa499aa864f2e1da84bded
+msgid "To replace cilium-ipsec-keys secret with a new key:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:200
+#: 631e9addd21947ecb8c391aa91daadf5
+msgid ""
+"Then restart Cilium agents to transition to the new key with ``kubectl "
+"delete pod -n kube-system -l k8s-app=cilium``. During transition the new "
+"and old keys will be in use. The Cilium agent keeps per endpoint data on "
+"which key is used by each endpoint and will use the correct key if either"
+" side has not yet been updated. In this way encryption will work as new "
+"keys are rolled out."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:207
+#: 05434881fe9141149c50e6b55a48fbde
+msgid ""
+"The ``KEYID`` environment variable in the above example stores the "
+"current key ID used by Cilium. The key variable is a uint8 with value "
+"between 0-16 and should be monotonically increasing every re-key with a "
+"rollover from 16 to 0. The Cilium agent will default to ``KEYID`` of zero"
+" if its not specified in the secret."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:214
+#: a94d4af042164eeeb0958c6b68a59877
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:216
+#: 4fdabbc7bacc41e2af6454004a041129
+msgid ""
+"If the ``cilium`` Pods fail to start after enabling encryption, double-"
+"check if the IPSec ``Secret`` and Cilium are deployed in the same "
+"namespace together."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:219
+#: d40aebf8d9e34ae69cfbda3eb27fa5a3
+msgid "Make sure that the Cilium pods have kvstore connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:227
+#: fecac861e1504b76b857ea6c1bab73f2
+msgid ""
+"Check for ``level=warning`` and ``level=error`` messages in the Cilium "
+"log files"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:229
+#: c2730b140e0245f4bf30529d1f7cd6b6
+msgid ""
+"If there is a warning message similar to ``Device eth0 does not exist``, "
+"use ``--set encryption.ipsec.interface=ethX`` to set the encryption "
+"interface."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:233
+#: e4b810052a8f431ba6d9e28fba5d6ccd
+msgid "Run a ``bash`` in a Cilium Pod and validate the following:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:235
+#: 64307b9afe584c8b9c93486874ec756b
+msgid "Routing rules matching on fwmark:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:244
+#: cef4a6fef1d44693a214a763d05e60f7
+msgid "Content of routing tables"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:252
+#: c8f88fdaa4a2421cb66febaa3be56e0d
+msgid ""
+"In case of IPAM ENI mode, check if routing rules exist for the the IP "
+"address of ``cilium_host`` interface.."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:268
+#: c6c8f07cae22424e9d13e249631ffd8c
+msgid "XFRM policy:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:289
+#: 77700ae8993546bb8beb0a2f1a90f0f2
+msgid "XFRM stats with state:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:291
+#: cccf2ce564a04835b8eb8ce00e24ea16
+msgid "Check if the packets count increases as you send traffic."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:293
+#: 22569f1eefea4e67a8d0be50532d78b6
+msgid "Following is the output from the source node."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:316
+#: 780e31171a1a439c850c1d0620f29e02
+msgid "Following is the output from the destination node."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:339
+#: 32a0d0e7cd1543a68373639e4ba660e7
+msgid "BPF program to decrypt traffic:"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:341
+#: bb3fb8cf5f524797b39b4354139dacf4
+msgid ""
+"Check if the BPF program to decrypt traffic is attached to all network "
+"facing interfaces, or matching the configuration of ``--encrypt-"
+"interface`` (if specified)."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:351
+#: b268ffbedadb47bd8f48c843eaf59d28
+msgid "Disabling Encryption"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:353
+#: 0efeec0d6d0d4d2c9094626019658cac
+msgid ""
+"To disable the encryption, regenerate the YAML with the option "
+"``encryption.enabled=false``"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:357
+#: 38bff32b6ac54dc6b3e556388f97222c
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:359
+#: 3f84f829d2124e6dafae5d469f9f851b
+msgid ""
+"Transparent encryption is not currently supported when chaining Cilium on"
+" top of other CNI plugins. For more information, see :gh-issue:`15596`."
+msgstr ""
+
+#: ../../gettingstarted/encryption-ipsec.rst:361
+#: d71437810091448bbaa2f937ceb7510a
+msgid ":ref:`HostPolicies` are not currently supported with IPsec encryption."
+msgstr ""
+

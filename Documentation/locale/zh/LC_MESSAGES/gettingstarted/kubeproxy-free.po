@@ -1,0 +1,1793 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: ../../gettingstarted/kubeproxy-free.rst:3 35f956e651bc40258e4c3ec411215383
+#: 5bce2e83863f4ddabb818f0670b71bfe
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:11 81897c64f8a54edb951394cc206359c0
+msgid "Kubernetes Without kube-proxy"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:13 a82574a28446447aaeeae4950cdcf11d
+msgid ""
+"This guide explains how to provision a Kubernetes cluster without ``kube-"
+"proxy``, and to use Cilium to fully replace it. For simplicity, we will "
+"use ``kubeadm`` to bootstrap the cluster."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:17 271214c25d39470fad0085ee07a59728
+msgid ""
+"For installing ``kubeadm`` and for more provisioning options please refer"
+" to `the official kubeadm documentation <https://kubernetes.io/docs/setup"
+"/production-environment/tools/kubeadm/create-cluster-kubeadm/>`_."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:22 f6f14d68626f4e36b5d8efaa4265b64b
+msgid ""
+"Cilium's kube-proxy replacement depends on the :ref:`host-services` "
+"feature, therefore a v4.19.57, v5.1.16, v5.2.0 or more recent Linux "
+"kernel is required. Linux kernels v5.3 and v5.8 add additional features "
+"that Cilium can use to further optimize the kube-proxy replacement "
+"implementation."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:27 82d1705aa13340bbba04f64cebee3f93
+msgid ""
+"Note that v5.0.y kernels do not have the fix required to run the kube-"
+"proxy replacement since at this point in time the v5.0.y stable kernel is"
+" end-of-life (EOL) and not maintained anymore on kernel.org. For "
+"individual distribution maintained kernels, the situation could differ. "
+"Therefore, please check with your distribution."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:34 38dedfcfdc96406594dbe13a45aff0b6
+msgid "Quick-Start"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:36 5a794a3681b54ec5813171ba59f77c9b
+msgid ""
+"Initialize the control-plane node via ``kubeadm init`` and skip the "
+"installation of the ``kube-proxy`` add-on:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:43 f1392d5e0f1d4737bc75c7af05e0f187
+msgid ""
+"Afterwards, join worker nodes by specifying the control-plane node IP "
+"address and the token returned by ``kubeadm init``:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:52 615512dcc8754eb0b388a9af4b7cc29f
+msgid ""
+"Please ensure that `kubelet <https://kubernetes.io/docs/reference"
+"/command-line-tools-reference/kubelet/>`_'s ``--node-ip`` is set "
+"correctly on each worker if you have multiple interfaces. Cilium's kube-"
+"proxy replacement may not work correctly otherwise. You can validate this"
+" by running ``kubectl get nodes -o wide`` to see whether each node has an"
+" ``InternalIP`` which is assigned to a device with the same name on each "
+"node."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:60 634b1152f22540aa9edb0f888316e1fe
+msgid ""
+"For existing installations with ``kube-proxy`` running as a DaemonSet, "
+"remove it by using the following commands below. **Careful:** Be aware "
+"that this will break existing service connections. It will also stop "
+"service related traffic until the Cilium replacement has been installed:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: 4410846b6e7f495cb3a871835bdc6656
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 4de9e5131ade4601909f005679958c6d
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 5037a4c981d44f958a7885b8a1a631d4
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:75 8fbf4eccbc574efcb8528d49be333232
+msgid ""
+"Next, generate the required YAML files and deploy them. **Important:** "
+"Replace ``REPLACE_WITH_API_SERVER_IP`` and "
+"``REPLACE_WITH_API_SERVER_PORT`` below with the concrete control-plane "
+"node IP address and the kube-apiserver port number reported by ``kubeadm "
+"init`` (usually, it is port ``6443``)."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:80 9e850705ee5b416a916dbc6879e70b9e
+msgid ""
+"Specifying this is necessary as ``kubeadm init`` is run explicitly "
+"without setting up kube-proxy and as a consequence, although it exports "
+"``KUBERNETES_SERVICE_HOST`` and ``KUBERNETES_SERVICE_PORT`` with a "
+"ClusterIP of the kube-apiserver service to the environment, there is no "
+"kube-proxy in our setup provisioning that service. The Cilium agent "
+"therefore needs to be made aware of this information through below "
+"configuration."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:97 36dc526475c843ec82f04ac5b46409b0
+msgid ""
+"Cilium will automatically mount cgroup v2 filesystem required to attach "
+"BPF cgroup programs by default at the path ``/run/cilium/cgroupv2``. In "
+"order to do that, it needs to mount the host ``/proc`` inside an init "
+"container launched by the daemonset temporarily. If you need to disable "
+"the auto-mount, specify ``--set cgroup.autoMount.enabled=false``, and set"
+" the host mount point where cgroup v2 filesystem is already mounted by "
+"using ``--set cgroup.hostRoot``. For example, if not already mounted, you"
+" can mount cgroup v2 filesystem by running the below command on the host,"
+" and specify ``--set cgroup.hostRoot=/sys/fs/cgroup``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:110 93c77affe189488797adc5b4e8928819
+msgid ""
+"This will install Cilium as a CNI plugin with the eBPF kube-proxy "
+"replacement to implement handling of Kubernetes services of type "
+"ClusterIP, NodePort, LoadBalancer and services with externalIPs. On top "
+"of that the eBPF kube-proxy replacement also supports hostPort for "
+"containers such that using portmap is not necessary anymore."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:115 7244aaab740c4d63b31a7f73df89a06a
+msgid ""
+"Finally, as a last step, verify that Cilium has come up correctly on all "
+"nodes and is ready to operate:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:125 22fdbd640d864adc83d5a3eb915ceacb
+msgid ""
+"Note, in above Helm configuration, the ``kubeProxyReplacement`` has been "
+"set to ``strict`` mode. This means that the Cilium agent will bail out in"
+" case the underlying Linux kernel support is missing."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:129 76336bdfd8054c7788c458579c718af6
+msgid ""
+"By default, Helm sets ``kubeProxyReplacement=probe``, which automatically"
+" disables a subset of the features to implement the kube-proxy "
+"replacement instead of bailing out if the kernel support is missing. This"
+" makes the assumption that Cilium's eBPF kube-proxy replacement would co-"
+"exist with kube-proxy on the system to optimize Kubernetes services. "
+"Given we've used kubeadm to explicitly deploy a kube-proxy-free setup, "
+"``strict`` mode is explicitly set in this guide to ensure that we do not "
+"rely on a (non-existing) fallback."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:137 3a6372018d634d108bcc581ffd6eb587
+msgid ""
+"Cilium's eBPF kube-proxy replacement is supported in direct routing as "
+"well as in tunneling mode."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:141 7302dcfc4499401ea909e8567a346dcb
+msgid "Validate the Setup"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:143 c444cdb0584c4e4ca374d6c92ad0b33c
+msgid ""
+"After deploying Cilium with above Quick-Start guide, we can first "
+"validate that the Cilium agent is running in the desired mode:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:151 592387f594544b2cacc81647a0f50cc9
+msgid "Use ``--verbose`` for full details:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:175 ca9c52c3a3fb4bf4a95e21f1ab3b0c7f
+msgid ""
+"As a optional next step, we deploy nginx pods, create a new NodePort "
+"service and validate that Cilium installed the service correctly."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:178 69e491829b684ad7851f36fbeb73806f
+msgid "The following yaml is used for the backend pods:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:202 5b760534b38c4140adfc6e22163be06e
+msgid "Verify that the nginx pods are up and running:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:211 ed5a25376dc84974a595c991dff8c5fe
+msgid "In the next step, we create a NodePort service for the two instances:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:218 769408207757440c99bace34234a9a47
+msgid "Verify that the NodePort service has been created:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:226 053cedf74c96447e94edf59e91e131b4
+msgid ""
+"With the help of the ``cilium service list`` command, we can validate "
+"that Cilium's eBPF kube-proxy replacement created the new NodePort "
+"services under port ``31940`` (one for each of devices ``eth0`` and "
+"``eth1``):"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:244 f1f0ed2dc4584ab89b14a33fb1f9b154
+msgid ""
+"At the same time we can verify, using ``iptables`` in the host namespace,"
+" that no ``iptables`` rule for the service is present:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:252 aefcab71f299477ca516f660995ccc23
+msgid ""
+"Last but not least, a simple ``curl`` test shows connectivity for the "
+"exposed NodePort port ``31940`` as well as for the ClusterIP:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:291 5a17b09a3f0b473c8ddb237ec9a5b802
+msgid "As can be seen, Cilium's eBPF kube-proxy replacement is set up correctly."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:294 e5554d643c0b46bd8292322609189fae
+msgid "Advanced Configuration"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:296 8c43e58dd53b4551ab4cb1173665bc52
+msgid ""
+"This section covers a few advanced configuration modes for the kube-proxy"
+" replacement that go beyond the above Quick-Start guide and are entirely "
+"optional."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:300 3a345652d3784967ad268a0ae3b8fb76
+msgid "Client Source IP Preservation"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:302 d847db75e4224ac1a1a0a7a082405317
+msgid ""
+"Cilium's eBPF kube-proxy replacement implements a number of options in "
+"order to avoid performing SNAT on NodePort requests where the client "
+"source IP address would otherwise be lost on its path to the service "
+"endpoint."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:306 382451d3fede448785080bbaf2100a6a
+msgid ""
+"``externalTrafficPolicy=Local``: The ``Local`` policy is generally "
+"supported through the eBPF implementation. In-cluster connectivity for "
+"services with ``externalTrafficPolicy=Local`` is possible and can also be"
+" reached from nodes which have no local backends, meaning, given SNAT "
+"does not need to be performed, all service endpoints are available for "
+"load balancing from in-cluster side."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:312 437d240c43d54525a32760cbbee8cf74
+msgid ""
+"``externalTrafficPolicy=Cluster``: For the ``Cluster`` policy which is "
+"the default upon service creation, multiple options exist for achieving "
+"client source IP preservation for external traffic, that is, operating "
+"the kube-proxy replacement in :ref:`DSR<DSR Mode>` or :ref:`Hybrid<Hybrid"
+" Mode>` mode if only TCP-based services are exposed to the outside world "
+"for the latter."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:321 02f728ca88574209889e29238c55a99b
+msgid "Maglev Consistent Hashing (Beta)"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:323 3827c4e139f14fe796cbb14be14398c1
+#, python-format
+msgid ""
+"Cilium's eBPF kube-proxy replacement supports consistent hashing by "
+"implementing a variant of `The Maglev paper "
+"<https://storage.googleapis.com/pub-tools-public-publication-"
+"data/pdf/44824.pdf>`_ hashing in its load balancer for backend selection."
+" This improves resiliency in case of failures as well as better load "
+"balancing properties since nodes added to the cluster will make the same,"
+" consistent backend selection throughout the cluster for a given 5-tuple "
+"without having to synchronize state with the other nodes. Similarly, upon"
+" backend removal the backend lookup tables are reprogrammed with minimal "
+"disruption for unrelated backends (at most 1% difference in the "
+"reassignments) for the given service."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:332 3edb6b2aa82f48fcae3843061e2b6383
+msgid ""
+"Maglev hashing for services load balancing can be enabled by setting "
+"``loadBalancer.algorithm=maglev``:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:343 70b5157ae7954786b2b37606ab617c68
+msgid ""
+"Note that Maglev hashing is applied only to external (N-S) traffic. For "
+"in-cluster service connections (E-W), sockets are assigned to service "
+"backends directly, e.g. at TCP connect time, without any intermediate hop"
+" and thus are not subject to Maglev. Maglev hashing is also supported for"
+" Cilium's :ref:`XDP<XDP Acceleration>` acceleration."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:349 45e7364431524a4abaa53fbf056628d7
+msgid ""
+"There are two more Maglev-specific configuration settings: "
+"``maglev.tableSize`` and ``maglev.hashSeed``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:352 6a3aafb6145b49078582c55480893773
+#, python-format
+msgid ""
+"``maglev.tableSize`` specifies the size of the Maglev lookup table for "
+"each single service. `Maglev <https://storage.googleapis.com/pub-tools-"
+"public-publication-data/pdf/44824.pdf>`__ recommends the table size "
+"(``M``) to be significantly larger than the number of maximum expected "
+"backends (``N``). In practice that means that ``M`` should be larger than"
+" ``100 * N`` in order to guarantee the property of at most 1% difference "
+"in the reassignments on backend changes. ``M`` must be a prime number. "
+"Cilium uses a default size of ``16381`` for ``M``. The following sizes "
+"for ``M`` are supported as ``maglev.tableSize`` Helm option:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:361 61517122b1bb48e796a6c119bff2fa7d
+msgid "``maglev.tableSize`` value"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:363 76475da6a8dc4dcdabda33b823c2887c
+msgid "251"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:365 30a2905600064b13887864c532ea44d9
+msgid "509"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:367 c805e59fdfaf4df894333ef1ebb2cd67
+msgid "1021"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:369 6f7763bd0a9040218fb6fa79ab2505d4
+msgid "2039"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:371 5dcbdfc574be4cd6a4f2bce5f0be44ee
+msgid "4093"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:373 0c6f2897b3474c8b915500b5750df4a2
+msgid "8191"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:375 ba9cc79f907e412d9c00329b6112b899
+msgid "16381"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:377 0b4d68b5881c443e9613e59be18bbf0d
+msgid "32749"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:379 3bf52ca819044b34aa0a7290faf9a9ec
+msgid "65521"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:381 5c1d904d1ab84584b59749a469d011b5
+msgid "131071"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:384 69e9fee08bcd40eb8733026db068e76e
+msgid ""
+"For example, a ``maglev.tableSize`` of ``16381`` is suitable for a "
+"maximum of ``~160`` backends per service. If a higher number of backends "
+"are provisioned under this setting, then the difference in reassignments "
+"on backend changes will increase."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:388 62f94fd8a256437ab1289a9df4924916
+msgid ""
+"The ``maglev.hashSeed`` option is recommended to be set in order for "
+"Cilium to not rely on the fixed built-in seed. The seed is a "
+"base64-encoded 12 byte-random number, and can be generated once through "
+"``head -c12 /dev/urandom | base64 -w0``, for example. Every Cilium agent "
+"in the cluster must use the same hash seed in order for Maglev to work."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:393 09e08924628e431e8b99aee053ef2eaf
+#, python-format
+msgid ""
+"The below deployment example is generating and passing such seed to Helm "
+"as well as setting the Maglev table size to ``65521`` in order to allow "
+"for ``~650`` maximum number of backends for a given service (with the "
+"property of at most 1% difference on backend reassignments):"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:409 830a89e0a2b14b80a44e43d1b50c6b55
+msgid ""
+"Note that enabling Maglev will have a higher memory consumption on each "
+"Cilium-managed node compared to the default of "
+"``loadBalancer.algorithm=random`` given ``random`` does not need the "
+"extra lookup tables. However, ``random`` won't have consistent backend "
+"selection."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:416 a570581a530f4d4fb1e18629d96576b6
+msgid "Direct Server Return (DSR)"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:418 30a6c6324aff4485bb986103b0ae2442
+msgid ""
+"By default, Cilium's eBPF NodePort implementation operates in SNAT mode. "
+"That is, when node-external traffic arrives and the node determines that "
+"the backend for the LoadBalancer, NodePort or services with externalIPs "
+"is at a remote node, then the node is redirecting the request to the "
+"remote backend on its behalf by performing SNAT. This does not require "
+"any additional MTU changes at the cost that replies from the backend need"
+" to make the extra hop back that node in order to perform the reverse "
+"SNAT translation there before returning the packet directly to the "
+"external client."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:427 2bb4698ab1304be6ac58635dffff89b7
+msgid ""
+"This setting can be changed through the ``loadBalancer.mode`` Helm option"
+" to ``dsr`` in order to let Cilium's eBPF NodePort implementation operate"
+" in DSR mode. In this mode, the backends reply directly to the external "
+"client without taking the extra hop, meaning, backends reply by using the"
+" service IP/port as a source. DSR currently requires Cilium to be "
+"deployed in :ref:`arch_direct_routing`, i.e. it will not work in either "
+"tunneling mode."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:434 e358653d81a34035a4e0e11d53a8facd
+msgid ""
+"Another advantage in DSR mode is that the client's source IP is "
+"preserved, so policy can match on it at the backend node. In the SNAT "
+"mode this is not possible. Given a specific backend can be used by "
+"multiple services, the backends need to be made aware of the service "
+"IP/port which they need to reply with. Therefore, Cilium encodes this "
+"information in a Cilium-specific IPv4 option or IPv6 Destination Option "
+"extension header at the cost of advertising a lower MTU. For TCP "
+"services, Cilium only encodes the service IP/port for the SYN packet, but"
+" not subsequent ones. The latter also allows to operate Cilium in a "
+"hybrid mode as detailed in the next subsection where DSR is used for TCP "
+"and SNAT for UDP in order to avoid an otherwise needed MTU reduction."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:445 1eb0c84bf7234a7db6da7935c005e110
+msgid ""
+"Note that usage of DSR mode might not work in some public cloud provider "
+"environments due to the Cilium-specific IP options that could be dropped "
+"by an underlying fabric. Therefore, in case of connectivity issues to "
+"services where backends are located on a remote node from the node that "
+"is processing the given NodePort request, it is advised to first check "
+"whether the NodePort request actually arrived on the node containing the "
+"backend. If this was not the case, then switching back to the default "
+"SNAT mode would be advised as a workaround."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:453 e7500eb6b60d4125835435432925260b
+msgid ""
+"Also, in some public cloud provider environments, which implement a "
+"source / destination IP address checking (e.g. AWS), the checking has to "
+"be disabled in order for the DSR mode to work."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:457 8cd8db60c7564739a6ab962280d91d6d
+msgid ""
+"The above Helm example configuration in a kube-proxy-free environment "
+"with DSR-only mode enabled would look as follows:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:474 c73bb4c3b5a84ce7b2ef31592873343e
+msgid "Hybrid DSR and SNAT Mode"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:476 ea5971b565764964a80077612b35769e
+msgid ""
+"Cilium also supports a hybrid DSR and SNAT mode, that is, DSR is "
+"performed for TCP and SNAT for UDP connections. This has the advantage "
+"that it removes the need for manual MTU changes in the network while "
+"still benefiting from the latency improvements through the removed extra "
+"hop for replies, in particular, when TCP is the main transport for "
+"workloads."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:482 383aa00838f749af9f6d71e7e4822953
+msgid ""
+"The mode setting ``loadBalancer.mode`` allows to control the behavior "
+"through the options ``dsr``, ``snat`` and ``hybrid``. By default the "
+"``snat`` mode is used in the agent."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:486 b82f36fd528646aa87aabff5f053ee84
+msgid ""
+"A Helm example configuration in a kube-proxy-free environment with DSR "
+"enabled in hybrid mode would look as follows:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:501 c10a68543010460398154dbcff96a904
+msgid "Socket LoadBalancer Bypass in Pod Namespace"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:503 66ba6427231e49caa19112f7b17e4a03
+msgid ""
+"Cilium has built-in support for bypassing the socket-level loadbalancer "
+"and falling back to the tc loadbalancer at the veth interface when a "
+"custom redirection/operation relies on the original ClusterIP within pod "
+"namespace (e.g., Istio side-car) or due to the Pod's nature the socket-"
+"level loadbalancer is ineffective (e.g., KubeVirt, Kata Containers)."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:508 1f1a2aefac5c404aa1c70eedfcf8a008
+msgid ""
+"Setting ``hostServices.hostNamespaceOnly=true`` enables this bypassing "
+"mode. When enabled, this circumvents socket rewrite in the ``connect()`` "
+"and ``sendmsg()`` syscall bpf hook and will pass the original packet to "
+"next stage of operation (e.g., stack in ``per-endpoint-routing`` mode) "
+"and re-enables service lookup in the tc bpf program."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:513 bd0a413a859d44e09dcb924f5be878a2
+msgid ""
+"A Helm example configuration in a kube-proxy-free environment with socket"
+" LB bypass looks as follows:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:528 44a8f4b1c48a4482bb6fcdb70346bdb4
+msgid "LoadBalancer & NodePort XDP Acceleration"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:530 0d91321be6844461b484e632ed9b258b
+msgid ""
+"Cilium has built-in support for accelerating NodePort, LoadBalancer "
+"services and services with externalIPs for the case where the arriving "
+"request needs to be forwarded and the backend is located on a remote "
+"node. This feature was introduced in Cilium version `1.8 "
+"<https://cilium.io/blog/2020/06/22/cilium-18/#kube-proxy-replacement-at-"
+"the-xdp-layer>`_ at the XDP (eXpress Data Path) layer where eBPF is "
+"operating directly in the networking driver instead of a higher layer."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:537 883de91d6ccd4ad8a6241461b55b5f85
+msgid ""
+"The mode setting ``loadBalancer.acceleration`` allows to enable this "
+"acceleration through the option ``native``. The option ``disabled`` is "
+"the default and disables the acceleration. The majority of drivers "
+"supporting 10G or higher rates also support ``native`` XDP on a recent "
+"kernel. For cloud based deployments most of these drivers have SR-IOV "
+"variants that support native XDP as well. For on-prem deployments the "
+"Cilium XDP acceleration can be used in combination with LoadBalancer "
+"service implementations for Kubernetes such as `MetalLB "
+"<https://metallb.universe.tf/>`_. The acceleration can be enabled only on"
+" a single device which is used for direct routing."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:546 55fe1f143c3c4e089e12451eca483b60
+msgid ""
+"For high-scale environments, also consider tweaking the default map sizes"
+" to a larger number of entries e.g. through setting a higher "
+"``config.bpfMapDynamicSizeRatio``. See :ref:`bpf_map_limitations` for "
+"further details."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:550 91d7b1eed307475c9877260f56156032
+msgid ""
+"The ``loadBalancer.acceleration`` setting is supported for DSR, SNAT and "
+"hybrid modes and can be enabled as follows for "
+"``loadBalancer.mode=hybrid`` in this example:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:565 f66cb06689524b35b978be026edf3943
+msgid ""
+"In case of a multi-device environment, where Cilium's device auto-"
+"detection selects more than a single device to expose NodePort or a user "
+"specifies multiple devices with ``devices``, the XDP acceleration is "
+"enabled on all devices. This means that each underlying device's driver "
+"must have native XDP support on all Cilium managed nodes. In addition, "
+"for the performance reasons we recommend kernel >= 5.5 for the multi-"
+"device XDP acceleration."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:572 f958c384623b48ddb1d679e7f07b8d80
+msgid ""
+"A list of drivers supporting native XDP can be found in the table below. "
+"The corresponding network driver name of an interface can be determined "
+"as follows:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:582 c51c3b860b804e24a6e9b17a7f3da358
+msgid "Vendor"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:582 32b6f29e13f64a90b05b16c0513857ce
+msgid "Driver"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:582 f1fa887a1e9b4e489211fe3d40a9f9a0
+msgid "XDP Support"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:584 8da2edbf99a4498bbc4c225b678f035b
+msgid "Amazon"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:584 3dfde8b750f243f7a940607268a391cc
+msgid "ena"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:584
+#: ../../gettingstarted/kubeproxy-free.rst:606 db0f19ab9e2a402c9a7224706af9886c
+#: f09b3dc22175432ab1c46d5874a30281
+msgid ">= 5.6"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:586 c7a7732cdab34bcdb41bebbc9b39a1bd
+msgid "Broadcom"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:586 cfb6cdb259e14e9db4a67d64d902b7ef
+msgid "bnxt_en"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:586 8a16cee9f33f4218847a51960e6cb86d
+msgid ">= 4.11"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:588 3bc203c630fd49ed91d84718b3d383d3
+msgid "Cavium"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:588 e8b74ff035fc402390f4f80e2917c643
+msgid "thunderx"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:588
+#: ../../gettingstarted/kubeproxy-free.rst:592 97063882755940e694e519e76999a28c
+#: b27bba4fcecf4a63af9a7b965136191e
+msgid ">= 4.12"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:590 0516b32415034ed4ae52c434eb5abcdd
+msgid "Freescale"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:590 b5ca32445c584cc880cf065edae59e10
+msgid "dpaa2"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:590 17cb9018ffa34bada9f158c7edb6d06b
+msgid ">= 5.0"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:592 2cc9b32166f040f0a2b52eca16c7e8c2
+msgid "Intel"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:592 4fb4acbfc3cd42a3857f3fcf29ae7016
+msgid "ixgbe"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:594 1ac4d37f2a984ffeae4e517e4cf7c4b6
+msgid "ixgbevf"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:594 9b36e6853397405495f0652804e7573b
+msgid ">= 4.17"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:596 f9474102be49465d9154179d9db576a4
+msgid "i40e"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:596 a50d792793ee491c94a7a701dc99b2ca
+msgid ">= 4.13"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:598 059714a29d0140aba658c95c2ec80067
+msgid "ice"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:598
+#: ../../gettingstarted/kubeproxy-free.rst:600
+#: ../../gettingstarted/kubeproxy-free.rst:618 0b7bddcc83ab421aba588c5fb06300ce
+#: 3e2869c8cb26470ab8d8e05fd885fc21 453c8c941cfd47e0b65b79c0b108bdba
+msgid ">= 5.5"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:600 da86ba2d8d064153bf091711a27b29cb
+msgid "Marvell"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:600 45bed131265b415bb6f77a6c0860400a
+msgid "mvneta"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:602 09deb49fd7b942e2a775d5579a3c9245
+msgid "Mellanox"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:602 3bdd15f5d4474a06927ce8a427610a66
+msgid "mlx4"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:602 3b4e1760a0524474aecae5d23819fa84
+msgid ">= 4.8"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:604 063ad1cf67a349778af747fd6787fc69
+msgid "mlx5"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:604 fb7e12a74ca34ed19bf01d9f4c038f21
+msgid ">= 4.9"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:606 1113d2891fbe48b0a0c449e21d4cd1f4
+msgid "Microsoft"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:606 487eb86f5f0143d8b5d27ab4622093da
+msgid "hv_netvsc"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:608 3045a9299c2b48c59bd081e0b298939e
+msgid "Netronome"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:608 f8e683ee688f4ce38d43e6089146753a
+msgid "nfp"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:608
+#: ../../gettingstarted/kubeproxy-free.rst:610
+#: ../../gettingstarted/kubeproxy-free.rst:614 33183823152d49af89a9e04d439042ab
+#: 86099f9012de48ceaccc2050d943eaaf e1ca6fd6890f4c219a5640002d060aca
+msgid ">= 4.10"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:610 d64c550df42e49a89cdbd50976b6c0a6
+msgid "Others"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:610 ab623906f97d4f7ba3dad1bee1d0f61c
+msgid "virtio_net"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:612 dc6bc8a5cca448ca93948d1938c2a237
+msgid "tun/tap"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:612 59b81101c63a40fc96a85c5776336660
+msgid ">= 4.14"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:614 02095b2bd556408fba93e741e7c46bb4
+msgid "Qlogic"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:614 ec907b69c48042f3a6a6150d7ec74950
+msgid "qede"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:616 82825f6f8d0249b0b25593b40ce2a6d6
+msgid "Socionext"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:616 52ba926e7ebc42049122a8cb518b4322
+msgid "netsec"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:616
+#: ../../gettingstarted/kubeproxy-free.rst:620 506f424491bb4f3bbac8833937d7761f
+#: 854e51f9fffd41dd8cfc66f6eb08e628
+msgid ">= 5.3"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:618 425f90a77e10465b885137537d873cd8
+msgid "Solarflare"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:618 6e19a99121574e518e758f7181388eb0
+msgid "sfc"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:620 de3931931c2d4fb097dc262d24a0ab2d
+msgid "Texas Instruments"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:620 81e80f2b438d47d4a4ebeddac3201e21
+msgid "cpsw"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:623 d7ba735f5a6e4c3e96d726603ad988cf
+msgid ""
+"The current Cilium kube-proxy XDP acceleration mode can also be "
+"introspected through the ``cilium status`` CLI command. If it has been "
+"enabled successfully, ``Native`` is shown:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:632 7e32ff683b7445779b2b727b09982944
+msgid ""
+"Note that packets which have been pushed back out of the device for "
+"NodePort handling right at the XDP layer are not visible in tcpdump since"
+" packet taps come at a much later stage in the networking stack. Cilium's"
+" monitor or metric counters can be used instead for gaining visibility."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:638 8b8d577ff20141c3b4dec0d26e7f9622
+msgid "NodePort XDP on AWS"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:640 d0d0200d10f74f02bd78e4594df2bce2
+msgid ""
+"In order to run with NodePort XDP on AWS, follow the instructions in the "
+":ref:`k8s_install_quick` guide to set up an EKS cluster or use any other "
+"method of your preference to set up a Kubernetes cluster."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:644 a424bf32182f47a6a722f93bc259f033
+msgid ""
+"If you are following the EKS guide, make sure to create a node group with"
+" SSH access, since we need few additional setup steps as well as create a"
+" larger instance type which supports the `Elastic Network Adapter "
+"<https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-"
+"ena.html>`__ (ena). As an instance example, ``m5n.xlarge`` is used in the"
+" config ``nodegroup-config.yaml``:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:674 dc84be9681f141b08d97f53d21360eaf
+msgid ""
+"Please make sure to read and understand the documentation page on "
+":ref:`taint effects and unmanaged pods<taint_effects>`."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:676 ee6c7885cabe42488cd44889dc1dd90e
+msgid "The nodegroup is created with:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:682 d029de0fdcd842c3a715561ba318400d
+msgid ""
+"Each of the nodes need the ``kernel-ng`` and ``ethtool`` package "
+"installed. The former is needed in order to run a sufficiently recent "
+"kernel for eBPF in general and native XDP support on the ena driver. The "
+"latter is needed to configure channel parameters for the NIC."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:692 d4abed745cbd428b8dfbbcf65d43750c
+msgid ""
+"Once the nodes come back up their kernel version should say "
+"``5.4.58-27.104.amzn2.x86_64`` or similar through ``uname -r``. In order "
+"to run XDP on ena, make sure the driver version is at least `2.2.8 "
+"<https://github.com/amzn/amzn-"
+"drivers/commit/ccbb1fe2c2f2ab3fc6d7827b012ba8ec06f32c39>`__. The driver "
+"version can be inspected through ``ethtool -i eth0``. For the given "
+"kernel version the driver version should be reported as ``2.2.10g``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:698 638e48d414d5492583b733a0b9c36fea
+msgid ""
+"Before Cilium's XDP acceleration can be deployed, there are two settings "
+"needed on the network adapter side, that is, MTU needs to be lowered in "
+"order to be able to operate with XDP, and number of combined channels "
+"need to be adapted."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:702 aeef520e6eb24dd8969314453bdfd187
+msgid ""
+"The default MTU is set to 9001 on the ena driver. Given XDP buffers are "
+"linear, they operate on a single page. A driver typically reserves some "
+"headroom for XDP as well (e.g. for encapsulation purpose), therefore, the"
+" highest possible MTU for XDP would be 3498."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:707 5b7a6a42ff0744d2a1c9f1141e2864c3
+msgid ""
+"In terms of ena channels, the settings can be gathered via ``ethtool -l "
+"eth0``. For the ``m5n.xlarge`` instance, the default output should look "
+"like::"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:722 418699ab93d74dc48f3a2c3a8ec3018f
+msgid ""
+"In order to use XDP the channels must be set to at most 1/2 of the value "
+"from ``Combined`` above. Both, MTU and channel changes are applied as "
+"follows:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:730 dc18021fc2de4c759edd07faa3a28ad2
+msgid ""
+"In order to deploy Cilium, the Kubernetes API server IP and port is "
+"needed:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:737 2a77805091c64fd69658d9ebd47da43c
+msgid ""
+"Finally, the deployment can be upgraded and later rolled-out with the "
+"``loadBalancer.acceleration=native`` setting to enable XDP in Cilium:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:753 28fa528f1da245b0bc7a7202849fe7a7
+msgid "NodePort XDP on Azure"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:755 e33c7599fad040ed8d1b49bdeff814db
+msgid ""
+"To enable NodePort XDP on Azure AKS or a self-managed Kubernetes running "
+"on Azure, the virtual machines running Kubernetes must have `Accelerated "
+"Networking <https://azure.microsoft.com/en-us/updates/accelerated-"
+"networking-in-expanded-preview/>`_ enabled. In addition, the Linux kernel"
+" on the nodes must also have support for native XDP in the ``hv_netvsc`` "
+"driver, which is available in kernel >= 5.6 and was backported to the "
+"Azure Linux kernel in 5.4.0-1022."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:762 5fe2b4dd9f0e440e9ab2a0dcc40bcfcb
+msgid ""
+"On AKS, make sure to use the AKS Ubuntu 18.04 node image with Kubernetes "
+"version v1.18 which will provide a Linux kernel with the necessary "
+"backports to the ``hv_netvsc`` driver. Please refer to the documentation "
+"on `how to configure an AKS cluster <https://docs.microsoft.com/en-"
+"us/azure/aks/cluster-configuration>`_ for more details."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:767 2f3aa8a58cdd427ca75701efb458bd92
+msgid ""
+"To enable accelerated networking when creating a virtual machine or "
+"virtual machine scale set, pass the ``--accelerated-networking`` option "
+"to the Azure CLI. Please refer to the guide on how to `create a Linux "
+"virtual machine with Accelerated Networking using Azure CLI "
+"<https://docs.microsoft.com/en-us/azure/virtual-network/create-vm-"
+"accelerated-networking-cli>`_ for more details."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:774 fe24173e0389465aa5a648635d51a2f4
+msgid ""
+"When *Accelerated Networking* is enabled, ``lspci`` will show a Mellanox "
+"ConnectX-3 or ConnectX-4 Lx NIC:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:782 000258ef4ff840faa0c71535def0175d
+msgid ""
+"In order to run XDP, large receive offload (LRO) needs to be disabled on "
+"the ``hv_netvsc`` device. If not the case already, this can be achieved "
+"by:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:789 92ee5dd97e9d4037847a68c38b9379cf
+msgid ""
+"NodePort XDP requires Cilium to run in direct routing mode "
+"(``tunnel=disabled``). It is recommended to use Azure IPAM for the pod IP"
+" address allocation, which will automatically configure your virtual "
+"network to route pod traffic correctly:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:813 56176b00572f44f999b21b5e9a7cf482
+msgid ""
+"When running Azure IPAM on a self-managed Kubernetes cluster, each "
+"``v1.Node`` must have the resource ID of its VM in the "
+"``spec.providerID`` field. Refer to the :ref:`ipam_azure` reference for "
+"more information."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:818 1999985f4d8a4586aa2e7304b7ad990c
+msgid "NodePort XDP on GCP"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:820 0a5a1a5d082940978d43b0d4026459b0
+msgid ""
+"NodePort XDP on the Google Cloud Platform is currently not supported. "
+"Both virtual network interfaces available on Google Compute Engine (the "
+"older virtIO-based interface and the newer `gVNIC "
+"<https://cloud.google.com/compute/docs/instances/create-vm-with-gvnic>`_)"
+" are currently lacking support for native XDP."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:829 8871ff9891f049d08189e40031ac3a53
+msgid "NodePort Devices, Port and Bind settings"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:831 fbd5eef94d964eee8636f4cb5733fbfa
+msgid ""
+"When running Cilium's eBPF kube-proxy replacement, by default, a NodePort"
+" or LoadBalancer service or a service with externalIPs will be accessible"
+" through the IP addresses of native devices which have the default route "
+"on the host or have Kubernetes InternalIP or ExternalIP assigned. "
+"InternalIP is preferred over ExternalIP if both exist. To change the "
+"devices, set their names in the ``devices`` Helm option, e.g. "
+"``devices='{eth0,eth1,eth2}'``. Each listed device has to be named the "
+"same on all Cilium managed nodes. Alternatively if the devices do not "
+"match across different nodes, the wildcard option can be used, e.g. "
+"``devices=eth+``, which would match any device starting with prefix "
+"``eth``. If no device can be matched the Cilium agent will try to perform"
+" auto detection."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:843 b41d991da6a740fcacad3283cd12d1ec
+msgid ""
+"When multiple devices are used, only one device can be used for direct "
+"routing between Cilium nodes. By default, if a single device was detected"
+" or specified via ``devices`` then Cilium will use that device for direct"
+" routing. Otherwise, Cilium will use a device with Kubernetes InternalIP "
+"or ExternalIP being set. InternalIP is preferred over ExternalIP if both "
+"exist. To change the direct routing device, set the "
+"``nodePort.directRoutingDevice`` Helm option, e.g. "
+"``nodePort.directRoutingDevice=eth1``. The wildcard option can be used as"
+" well as the devices option, e.g. ``directRoutingDevice=eth+``. If more "
+"than one devices match the wildcard option, Cilium will sort them in "
+"increasing alphanumerical order and pick the first one. If the direct "
+"routing device does not exist within ``devices``, Cilium will add the "
+"device to the latter list. The direct routing device is used for "
+":ref:`the NodePort XDP acceleration<XDP Acceleration>` as well (if "
+"enabled)."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:857 da9076bb57e54a81802910b19c8ed301
+msgid ""
+"In addition, thanks to the :ref:`host-services` feature, the NodePort "
+"service can be accessed by default from a host or a pod within a cluster "
+"via its public, any local (except for ``docker*`` prefixed names) or "
+"loopback address, e.g. ``127.0.0.1:NODE_PORT``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:862 0b325336fd5c4dfb81bc354083bcbe1f
+msgid ""
+"If ``kube-apiserver`` was configured to use a non-default NodePort port "
+"range, then the same range must be passed to Cilium via the "
+"``nodePort.range`` option, for example, as "
+"``nodePort.range=\"10000\\,32767\"`` for a range of ``10000-32767``. The "
+"default Kubernetes NodePort range is ``30000-32767``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:867 e49bacf0e89a444db398381f66d59592
+msgid ""
+"If the NodePort port range overlaps with the ephemeral port range "
+"(``net.ipv4.ip_local_port_range``), Cilium will append the NodePort range"
+" to the reserved ports (``net.ipv4.ip_local_reserved_ports``). This is "
+"needed to prevent a NodePort service from hijacking traffic of a host "
+"local application which source port matches the service port. To disable "
+"the modification of the reserved ports, set "
+"``nodePort.autoProtectPortRanges`` to ``false``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:874 a502f09daf2741f89f613dee1368a2cc
+msgid ""
+"By default, the NodePort implementation prevents application ``bind(2)`` "
+"requests to NodePort service ports. In such case, the application will "
+"typically see a ``bind: Operation not permitted`` error. This happens "
+"either globally for older kernels or starting from v5.7 kernels only for "
+"the host namespace by default and therefore not affecting any application"
+" pod ``bind(2)`` requests anymore. In order to opt-out from this behavior"
+" in general, this setting can be changed for expert users by switching "
+"``nodePort.bindProtection`` to ``false``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:883 52b0f8d69e8c4196a4e6c0d34a448e55
+msgid "NodePort with FHRP & VPC"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:885 bedd95ec7ad0475c8569befa39faf6c6
+msgid ""
+"When using Cilium's kube-proxy replacement in conjunction with a `FHRP "
+"<https://en.wikipedia.org/wiki/First-hop_redundancy_protocol>`_ such as "
+"VRRP or Cisco's HSRP and VPC (also known as multi-chassis EtherChannel), "
+"the default configuration can cause issues or unwanted traffic flows. "
+"This is due to an optimization that causes the source IP of ingress "
+"packets destined for a NodePort to be associated with the corresponding "
+"MAC address, and later in the reply, the MAC address is used as the "
+"destination when forwarding the L2 frame, bypassing the FIB lookup."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:892 76d528e0a84f45e4a0df6b888f27c06f
+msgid ""
+"In such an environment, it may be preferred to instruct Cilium not to "
+"attempt this optimization. This will ensure the response is always "
+"forwarded to the MAC address of the currently active FHRP peer, no matter"
+" the origin of the incoming packet."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:896 d8142f09869149e486ff59d91aca0200
+msgid "To disable the optimization set ``bpf.lbBypassFIBLookup`` to ``false``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:908 d400d8170d4640c394a81488a69d9b25
+msgid "Configuring BPF Map Sizes"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:910 bd812c35087a495785771bd943c0ebb4
+msgid ""
+"For high-scale environments, Cilium's BPF maps can be configured to have "
+"higher limits on the number of entries. Overriding Helm options can be "
+"used to tweak these limits."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:914 53f4b3cbd2284ab19333d799c7db5bfb
+msgid ""
+"To increase the number of entries in Cilium's BPF LB service, backend and"
+" affinity maps consider overriding ``bpf.lbMapMax`` Helm option. The "
+"default value of this LB map size is 65536."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:928 edb15f2edcff45468d2fd8759811ded7
+msgid "Container HostPort Support"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:930 07477aa9c03f4f81b5e0a5b738c13b43
+msgid ""
+"Although not part of kube-proxy, Cilium's eBPF kube-proxy replacement "
+"also natively supports ``hostPort`` service mapping without having to use"
+" the Helm CNI chaining option of ``cni.chainingMode=portmap``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:934 44bf2cecba934221a68092704ac81d8b
+msgid ""
+"By specifying ``kubeProxyReplacement=strict`` or "
+"``kubeProxyReplacement=probe`` the native hostPort support is "
+"automatically enabled and therefore no further action is required. "
+"Otherwise ``hostPort.enabled=true`` can be used to enable the setting."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:939 2d0cda29b6f34dfaa4117d2ad45dc36e
+msgid ""
+"If the ``hostPort`` is specified without an additional ``hostIP``, then "
+"the Pod will be exposed to the outside world with the same local "
+"addresses from the node that were detected and used for exposing NodePort"
+" services, e.g. the Kubernetes InternalIP or ExternalIP if set. "
+"Additionally, the Pod is also accessible through the loopback address on "
+"the node such as ``127.0.0.1:hostPort``. If in addition to ``hostPort`` "
+"also a ``hostIP`` has been specified for the Pod, then the Pod will only "
+"be exposed on the given ``hostIP`` instead. A ``hostIP`` of ``0.0.0.0`` "
+"will have the same behavior as if a ``hostIP`` was not specified. The "
+"``hostPort`` must not reside in the configured NodePort port range to "
+"avoid collisions."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:950 7fd595f7de5940d0903fd18d4d288b90
+msgid ""
+"An example deployment in a kube-proxy-free environment therefore is the "
+"same as in the earlier getting started deployment:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:961 cae8e03eddee4e1eb80d89ec558f10a4
+msgid ""
+"Also, ensure that each node IP is known via ``INTERNAL-IP`` or "
+"``EXTERNAL-IP``, for example:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:971 f4a92e94ec9848f39d230272edbbf278
+msgid ""
+"If this is not the case, then ``kubelet`` needs to be made aware of it "
+"through specifying ``--node-ip`` through ``KUBELET_EXTRA_ARGS``. Assuming"
+" ``eth0`` is the public facing interface, this can be achieved by:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:979 935366bf3dfb453ab0aaffbb758bb9f0
+msgid "After updating ``/etc/default/kubelet``, kubelet needs to be restarted."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:981 bddee08c95364f8bb60827b89c4b7795
+msgid ""
+"In order to verify whether the HostPort feature has been enabled in "
+"Cilium, the ``cilium status`` CLI command provides visibility through the"
+" ``KubeProxyReplacement`` info line. If it has been enabled successfully,"
+" ``HostPort`` is shown as ``Enabled``, for example:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:991 6cbe05b188bc4a00b1297b90789aaf5c
+msgid ""
+"The following modified example yaml from the setup validation with an "
+"additional ``hostPort: 8080`` parameter can be used to verify the "
+"mapping:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1017
+#: 461f1aa249b6434fb068c0806df2ef11
+msgid ""
+"After deployment, we can validate that Cilium's eBPF kube-proxy "
+"replacement exposed the container as HostPort under the specified port "
+"``8080``:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1027
+#: b0c1b0f016dc443d8decef2a37cc2137
+msgid ""
+"Similarly, we can inspect through ``iptables`` in the host namespace that"
+" no ``iptables`` rule for the HostPort service is present:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1035
+#: 77743e0866ec4dd887a2afa70992c9d7
+msgid ""
+"Last but not least, a simple ``curl`` test shows connectivity for the "
+"exposed HostPort container under the node's IP:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1047
+#: ac2eee2c36ad4f7dbb7b1a7610b3d260
+msgid ""
+"Removing the deployment also removes the corresponding HostPort from the "
+"``cilium service list`` dump:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1055
+#: b9d8b93dbb9746f181085c31b1b22d6c
+msgid "kube-proxy Hybrid Modes"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1057
+#: e4726386ca16486eb181a517f63ecf43
+msgid ""
+"Cilium's eBPF kube-proxy replacement can be configured in several modes, "
+"i.e. it can replace kube-proxy entirely or it can co-exist with kube-"
+"proxy on the system if the underlying Linux kernel requirements do not "
+"support a full kube-proxy replacement."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1061
+#: 81e324623809440ab3c33918cf63a5df
+msgid ""
+"**Careful:** When deploying the eBPF kube-proxy replacement under co-"
+"existence with kube-proxy on the system, be aware that both mechanisms "
+"operate independent of each other. Meaning, if the eBPF kube-proxy "
+"replacement is added or removed on an already *running* cluster in order "
+"to delegate operation from respectively back to kube-proxy, then it must "
+"be expected that existing connections will break since, for example, both"
+" NAT tables are not aware of each other. If deployed in co-existence on a"
+" newly spawned up node/cluster which does not yet serve user traffic, "
+"then this is not an issue."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1070
+#: 271bcc3fdd2942999651757752e779e0
+msgid "This section elaborates on the various ``kubeProxyReplacement`` options:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1072
+#: 9e01806f059248d7a33b1427e7fa7fb6
+msgid ""
+"``kubeProxyReplacement=strict``: This option expects a kube-proxy-free "
+"Kubernetes setup where Cilium is expected to fully replace all kube-proxy"
+" functionality. Once the Cilium agent is up and running, it takes care of"
+" handling Kubernetes services of type ClusterIP, NodePort, LoadBalancer, "
+"services with externalIPs as well as HostPort. If the underlying kernel "
+"version requirements are not met (see :ref:`kubeproxy-free` note), then "
+"the Cilium agent will bail out on start-up with an error message."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1080
+#: 74f1350403d0487d9fcff1badeff8d6a
+msgid ""
+"``kubeProxyReplacement=probe``: This option is only intended for a hybrid"
+" setup, that is, kube-proxy is running in the Kubernetes cluster where "
+"Cilium partially replaces and optimizes kube-proxy functionality. Once "
+"the Cilium agent is up and running, it probes the underlying kernel for "
+"the availability of needed eBPF kernel features and, if not present, "
+"disables a subset of the functionality in eBPF by relying on kube-proxy "
+"to complement the remaining Kubernetes service handling. The Cilium agent"
+" will emit an info message into its log in such case. For example, if the"
+" kernel does not support :ref:`host-services`, then the ClusterIP "
+"translation for the node's host-namespace is done through kube-proxy's "
+"iptables rules. Also, the Cilium agent will set "
+"``nodePort.bindProtection`` to ``false`` in this mode in order to defer "
+"to kube-proxy for performing the bind-protection of the host namespace. "
+"This is done to avoid having kube-proxy throw (harmless) warnings to its "
+"log stating that it could not perform bind calls. In the ``strict`` mode "
+"this bind protection is performed by Cilium in a more efficient manner "
+"with the help of eBPF instead of allocating and binding actual sockets."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1096
+#: 36655e8ee44c4b56bef519e47e2ee835
+msgid ""
+"``kubeProxyReplacement=partial``: Similarly to ``probe``, this option is "
+"intended for a hybrid setup, that is, kube-proxy is running in the "
+"Kubernetes cluster where Cilium partially replaces and optimizes kube-"
+"proxy functionality. As opposed to ``probe`` which checks the underlying "
+"kernel for available eBPF features and automatically disables components "
+"responsible for the eBPF kube-proxy replacement when kernel support is "
+"missing, the ``partial`` option requires the user to manually specify "
+"which components for the eBPF kube-proxy replacement should be used. When"
+" ``kubeProxyReplacement`` is set to ``partial`` make sure to also set "
+"``enableHealthCheckNodeport`` to ``false``, so that the Cilium agent does"
+" not start the NodePort health check server. Similarly to ``strict`` "
+"mode, the Cilium agent will bail out on start-up with an error message if"
+" the underlying kernel requirements are not met. For fine-grained "
+"configuration, ``hostServices.enabled``, ``nodePort.enabled``, "
+"``externalIPs.enabled`` and ``hostPort.enabled`` can be set to ``true``. "
+"By default all four options are set to ``false``. A few example "
+"configurations for the ``partial`` option are provided below."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1111
+#: 24d1cf6226be4e4489353ee309efbd0b
+msgid ""
+"The following Helm setup below would be equivalent to "
+"``kubeProxyReplacement=strict`` in a kube-proxy-free environment:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1126
+#: 021d7794d5a340fc9087f2a77b9ad556
+msgid ""
+"The following Helm setup below would be equivalent to the default Cilium "
+"service handling in v1.6 or earlier in a kube-proxy environment, that is,"
+" serving ClusterIP for pods:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1136
+#: b6331b4811934e579b5c2d22731bd5b1
+msgid ""
+"The following Helm setup below would optimize Cilium's ClusterIP handling"
+" for TCP in a kube-proxy environment (``hostServices.protocols`` default "
+"is ``tcp,udp``):"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1147
+#: 1eb5cb1e7c624d82b66f2e9c23f25f27
+msgid ""
+"The following Helm setup below would optimize Cilium's NodePort, "
+"LoadBalancer and services with externalIPs handling for external traffic "
+"ingressing into the Cilium managed node in a kube-proxy environment:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1159
+#: 3970c916c2d24b6ca6382c0ff7e21bd5
+msgid ""
+"``kubeProxyReplacement=disabled``: This option disables any Kubernetes "
+"service handling by fully relying on kube-proxy instead, except for "
+"ClusterIP services accessed from pods (pre-v1.6 behavior)."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1163
+#: d9d61826432341fea807eb69086ccbef
+msgid ""
+"In Cilium's Helm chart, the default mode is "
+"``kubeProxyReplacement=probe`` for new deployments."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1166
+#: 8f28916733ab4489808f5df96d72b775
+msgid ""
+"The current Cilium kube-proxy replacement mode can also be introspected "
+"through the ``cilium status`` CLI command:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1175
+#: 8caa11fbed7c4749b5329e2f352850af
+msgid "Graceful Termination"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1177
+#: 1748573beb254284a73e670f19072c83
+msgid ""
+"Cilium's eBPF kube-proxy replacement supports graceful termination of "
+"service endpoint pods. The feature requires at least Kubernetes version "
+"1.20, and the feature gate ``EndpointSliceTerminatingCondition`` needs to"
+" be enabled. By default, the Cilium agent then detects such terminating "
+"Pod state. If needed, the feature can be disabled with the configuration "
+"option ``enable-k8s-terminating-endpoint``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1183
+#: 71aa58f5f13546b3be373fe9431d7fcc
+msgid ""
+"The cilium agent feature flag can be probed by running ``cilium status`` "
+"command:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1194
+#: 0e8c2b4a162b4c0b87522281061ddff3
+msgid ""
+"When Cilium agent receives a Kubernetes update event for a terminating "
+"endpoint, the datapath state for the endpoint is removed such that it "
+"won't service new connections, but the endpoint's active connections are "
+"able to terminate gracefully. The endpoint state is fully removed when "
+"the agent receives a Kubernetes delete event for the endpoint. The "
+"`Kubernetes pod termination "
+"<https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-"
+"termination>`_ documentation contains more background on the behavior and"
+" configuration using ``terminationGracePeriodSeconds``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1205
+#: c62fc953a7394bb88e1fa49bfdf02b1c
+msgid "Session Affinity"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1207
+#: 95c183ce0ba44148b2e85a02552e0e62
+msgid ""
+"Cilium's eBPF kube-proxy replacement supports Kubernetes service session "
+"affinity. Each connection from the same pod or host to a service "
+"configured with ``sessionAffinity: ClientIP`` will always select the same"
+" service endpoint. The default timeout for the affinity is three hours "
+"(updated by each request to the service), but it can be configured "
+"through Kubernetes' ``sessionAffinityConfig`` if needed."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1214
+#: 5347cd31dfc04f9b9067b20dbe243f52
+msgid ""
+"The source for the affinity depends on the origin of a request. If a "
+"request is sent from outside the cluster to the service, the request's "
+"source IP address is used for determining the endpoint affinity. If a "
+"request is sent from inside the cluster, the client's network namespace "
+"cookie is used. The latter was introduced in the 5.7 Linux kernel to "
+"implement the affinity at the socket layer at which :ref:`host-services` "
+"operate (a source IP is not available there, as the endpoint selection "
+"happens before a network packet has been built by the kernel)."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1222
+#: e7c5d3dd8d5f43088f1d23f67304fbb8
+msgid ""
+"The session affinity support is enabled by default for Cilium's kube-"
+"proxy replacement. For users who run on older kernels which do not "
+"support the network namespace cookies, a fallback in-cluster mode is "
+"implemented, which is based on a fixed cookie value as a trade-off. This "
+"makes all applications on the host to select the same service endpoint "
+"for a given service with session affinity configured. To disable the "
+"feature, set ``config.sessionAffinity=false``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1229
+#: 148f72a3a084418da36c52151bcf7864
+msgid ""
+"When the fixed cookie value is not used, the session affinity of a "
+"service with multiple ports is per service IP and port. Meaning that all "
+"requests for a given service sent from the same source and to the same "
+"service port will be routed to the same service endpoints; but two "
+"requests for the same service, sent from the same source but to different"
+" service ports may be routed to distinct service endpoints."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1237
+#: 77b9d900ea1d4ee08e7f6b50949671ec
+msgid "kube-proxy Replacement Health Check server"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1238
+#: 348f6a163453454588cba8dc79146759
+msgid ""
+"To enable health check server for the kube-proxy replacement, the "
+"``kubeProxyReplacementHealthzBindAddr`` option has to be set (disabled by"
+" default). The option accepts the IP address with port for the health "
+"check server to serve on. E.g. to enable for IPv4 interfaces set "
+"``kubeProxyReplacementHealthzBindAddr='0.0.0.0:10256'``, for IPv6 - "
+"``kubeProxyReplacementHealthzBindAddr='[::]:10256'``. The health check "
+"server is accessible via the HTTP ``/healthz`` endpoint."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1247
+#: 5d3056a202a541a082c9d72d522fec85
+msgid "LoadBalancer Source Ranges Checks"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1249
+#: fbd04c61f936444789e29a6cce57a276
+msgid ""
+"When a ``LoadBalancer`` service is configured with "
+"``spec.loadBalancerSourceRanges``, Cilium's eBPF kube-proxy replacement "
+"restricts access from outside (e.g. external world traffic) to the "
+"service to the white-listed CIDRs specified in the field. If the field is"
+" empty, no restrictions for the access will be applied."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1254
+#: bbf1361f2da34d68bd1031c2ceb065ef
+msgid ""
+"When accessing the service from inside a cluster, the kube-proxy "
+"replacement will ignore the field regardless whether it is set. This "
+"means that any pod or any host process in the cluster will be able to "
+"access the ``LoadBalancer`` service internally."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1258
+#: 15df4d13df6f43999b3864b4edf1eecd
+msgid ""
+"The load balancer source range check feature is enabled by default, and "
+"it can be disabled by setting ``config.svcSourceRangeCheck=false``. It "
+"makes sense to disable the check when running on some cloud providers. "
+"E.g. `Amazon NLB <https://kubernetes.io/docs/concepts/services-"
+"networking/service/#aws-nlb-support>`__ natively implements the check, so"
+" the kube-proxy replacement's feature can be disabled. Meanwhile `GKE "
+"internal TCP/UDP load balancer <https://cloud.google.com/kubernetes-"
+"engine/docs/how-to/internal-load-balancing#lb_source_ranges>`__ does not,"
+" so the feature must be kept enabled in order to restrict the access."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1268
+#: 303701a4e2d148da819f440cf13f70f7
+msgid "Service Proxy Name Configuration"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1270
+#: a24b8b1d5c614005b369ad7a3653ccb0
+msgid ""
+"Like kube-proxy, Cilium also honors the ``service.kubernetes.io/service-"
+"proxy-name`` service annotation and only manages services that contain a "
+"matching service-proxy-name label. This name can be configured by setting"
+" ``k8s.serviceProxyName`` option and the behavior is identical to that of"
+" kube-proxy. The service proxy name defaults to an empty string which "
+"instructs Cilium to only manage services not having "
+"``service.kubernetes.io/service-proxy-name`` label."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1276
+#: 5fd5b4bad93646fdb44e167116fed3a6
+msgid ""
+"For more details on the usage of ``service.kubernetes.io/service-proxy-"
+"name`` label and its working, take a look at `this KEP "
+"<https://github.com/kubernetes/enhancements/blob/3ad891202dab1fd5211946f10f31b48003bf8113/keps"
+"/sig-network/2447-Make-kube-proxy-service-abstraction-"
+"optional/README.md>`__."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1282
+#: 88c81bd5da734d87a4f55e854ea2f048
+msgid ""
+"If Cilium with a non-empty service proxy name is meant to manage all "
+"services in kube-proxy free mode, make sure that default Kubernetes "
+"services like ``kube-dns`` and ``kubernetes`` have the required label "
+"value."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1287
+#: e95636a561154b9facff63bcb9e551b5
+msgid "Topology Aware Hints"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1289
+#: 1aa216bbda1f4a47ad8a0adc9cc953e8
+msgid ""
+"The kube-proxy replacement implements the K8s service `Topology Aware "
+"Hints <https://kubernetes.io/docs/concepts/services-networking/topology-"
+"aware-hints>`__. This allows Cilium nodes to prefer service endpoints "
+"residing in the same zone. To enable the feature, set "
+"``loadBalancer.serviceTopology=true``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1295
+#: 7eb3eb03e9fe419884d0d2d1d9e51f10
+msgid "Neighbor Discovery"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1297
+#: 28912625de2f47918059edfc7088d1cc
+msgid ""
+"When kube-proxy replacement is enabled, Cilium does L2 neighbor discovery"
+" of nodes in the cluster. This is required for the service load-balancing"
+" to populate L2 addresses for backends since it is not possible to "
+"dynamically resolve neighbors on demand in the fast-path."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1302
+#: 4210ae6fc30a4774b426ff0bb2a1245e
+msgid ""
+"In Cilium 1.10 or earlier, the agent itself contained an ARP resolution "
+"library where it triggered discovery and periodic refresh of new nodes "
+"joining the cluster. The resolved neighbor entries were pushed into the "
+"kernel and refreshed as PERMANENT entries. In some rare cases, Cilium "
+"1.10 or earlier might have left stale entries behind in the neighbor "
+"table causing packets between some nodes to be dropped. To skip the "
+"neighbor discovery and instead rely on the Linux kernel to discover "
+"neighbors, you can pass the ``--enable-l2-neigh-discovery=false`` flag to"
+" the cilium-agent. However, note that relying on the Linux Kernel might "
+"also cause some packets to be dropped. For example, a NodePort request "
+"can be dropped on an intermediate node (i.e., the one which received a "
+"service packet and is going to forward it to a destination node which "
+"runs the selected service endpoint). This could happen if there is no L2 "
+"neighbor entry in the kernel (due to the entry being garbage collected or"
+" given that the neighbor resolution has not been done by the kernel). "
+"This is because it is not possible to drive the neighbor resolution from "
+"BPF programs in the fast-path e.g. at the XDP layer."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1317
+#: 22709def72c04f6a86fdd41fd4390510
+msgid ""
+"From Cilium 1.11 onwards, the neighbor discovery has been fully reworked "
+"and the Cilium internal ARP resolution library has been removed from the "
+"agent. The agent now fully relies on the Linux kernel to discover "
+"gateways or hosts on the same L2 network. Both IPv4 and IPv6 neighbor "
+"discovery is supported in the Cilium agent. As per our recent kernel work"
+" `presented at Plumbers "
+"<https://linuxplumbersconf.org/event/11/contributions/953/>`__, "
+"\"managed\" neighbor entries have been `upstreamed "
+"<https://lore.kernel.org/netdev/20211011121238.25542-1-daniel@iogearbox.net/>`__"
+" and will be available in Linux kernel v5.16 or later which the Cilium "
+"agent will detect and transparently use. In this case, the agent pushes "
+"down L3 addresses of new nodes joining the cluster as externally learned "
+"\"managed\" neighbor entries. For introspection, iproute2 displays them "
+"as \"managed extern_learn\". The \"extern_learn\" attribute prevents "
+"garbage collection of the entries by the kernel's neighboring subsystem. "
+"Such \"managed\" neighbor entries are dynamically resolved and "
+"periodically refreshed by the Linux kernel itself in case there is no "
+"active traffic for a certain period of time. That is, the kernel attempts"
+" to always keep them in REACHABLE state. For Linux kernels v5.15 or "
+"earlier where \"managed\" neighbor entries are not present, the Cilium "
+"agent similarly pushes L3 addresses of new nodes into the kernel for "
+"dynamic resolution, but with an agent triggered periodic refresh. For "
+"introspection, iproute2 displays them only as \"extern_learn\" in this "
+"case. If there is no active traffic for a certain period of time, then a "
+"Cilium agent controller triggers the Linux kernel-based re-resolution for"
+" attempting to keep them in REACHABLE state. The refresh interval can be "
+"changed if needed through a ``--arping-refresh-period=30s`` flag passed "
+"to the cilium-agent. The default period is ``30s`` which corresponds to "
+"the kernel's base reachable time."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1341
+#: 247325254dcc4cabb5e99ce2fd39737c
+msgid "External Access To ClusterIP Services"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1343
+#: de52eac19c664da49752b820c3a16e3a
+msgid ""
+"As per `k8s Service <https://kubernetes.io/docs/concepts/services-"
+"networking/service/#publishing-services-service-types>`__, Cilium's eBPF "
+"kube-proxy replacement by default disallows access to a ClusterIP service"
+" from outside the cluster. This can be allowed by setting "
+"``bpf.lbExternalClusterIP=true``."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1349
+#: 0295d6c083a249ce9c26217a2eb051e5
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1352
+#: 37ad298c5cca42c4884c09a9caeea672
+msgid "Validate BPF cgroup programs attachment"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1354
+#: 73492d25882f4d6282837f3dece2e4c5
+msgid ""
+"Cilium attaches BPF ``cgroup`` programs to enable socket-based load-"
+"balancing (aka ``host-reachable`` services). If you see connectivity "
+"issues for ``clusterIP`` services, check if the programs are attached to "
+"the host ``cgroup root``. The default ``cgroup`` root is set to "
+"``/run/cilium/cgroupv2``. Run the following commands from a Cilium agent "
+"pod as well as the underlying kubernetes node where the pod is running. "
+"If the container runtime in your cluster is running in the cgroup "
+"namespace mode, Cilium agent pod can attach BPF ``cgroup`` programs to "
+"the ``virtualized cgroup root``. In such cases, Cilium kube-proxy "
+"replacement based load-balancing may not be effective leading to "
+"connectivity issues. For more information, ensure that you have the fix "
+"`Pull Request <https://github.com/cilium/cilium/pull/16259>`__."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1385
+#: 3ac0debb14814ecf8b4758a11fb25720
+msgid "Limitations"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1387
+#: 7a2b7dae189949acb38c4063a8b60f03
+msgid ""
+"Cilium's eBPF kube-proxy replacement currently cannot be used with "
+":ref:`gsg_encryption`."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1388
+#: 3e98b0e54fdf482f95f4de533f76f9f1
+msgid ""
+"Cilium's eBPF kube-proxy replacement relies upon the :ref:`host-services`"
+" feature which uses eBPF cgroup hooks to implement the service "
+"translation. Using it with libceph deployments currently requires support"
+" for the getpeername(2) hook address translation in eBPF, which is only "
+"available for kernels v5.8 and higher."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1392
+#: 9b144555575947f7a4351ff6c213ebd4
+msgid ""
+"Cilium's DSR NodePort mode currently does not operate well in "
+"environments with TCP Fast Open (TFO) enabled. It is recommended to "
+"switch to ``snat`` mode in this situation."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1395
+#: 1dc6287a10ee40fc8137607c23fafa1f
+msgid ""
+"Cilium's eBPF kube-proxy replacement does not support the SCTP transport "
+"protocol. Only TCP and UDP is supported as a transport for services at "
+"this point."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1397
+#: 8615dbb9db384ff8bad67b97640e3179
+msgid ""
+"Cilium's eBPF kube-proxy replacement does not allow ``hostPort`` port "
+"configurations for Pods that overlap with the configured NodePort range. "
+"In such case, the ``hostPort`` setting will be ignored and a warning "
+"emitted to the Cilium agent log. Similarly, explicitly binding the "
+"``hostIP`` to the loopback address in the host namespace is currently not"
+" supported and will log a warning to the Cilium agent log."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1402
+#: 027a1050acb34647b0a3c7e8f4efb54d
+msgid ""
+"When Cilium's kube-proxy replacement is used with Kubernetes versions(< "
+"1.19) that have support for ``EndpointSlices``, ``Services`` without "
+"selectors and backing ``Endpoints`` don't work. The reason is that Cilium"
+" only monitors changes made to ``EndpointSlices`` objects if support is "
+"available and ignores ``Endpoints`` in those cases. Kubernetes 1.19 "
+"release introduces ``EndpointSliceMirroring`` controller that mirrors "
+"custom ``Endpoints`` resources to corresponding ``EndpointSlices`` and "
+"thus allowing backing ``Endpoints`` to work. For a more detailed "
+"discussion see :gh-issue:`12438`."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1409
+#: 6466c4411b3d47d19a875057d01f1189
+msgid ""
+"When deployed on kernels older than 5.7, Cilium is unable to distinguish "
+"between host and pod namespaces due to the lack of kernel support for "
+"network namespace cookies. As a result, Kubernetes services are reachable"
+" from all pods via the loopback address."
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1414
+#: 3a7e42bf54794c7cad8be144373e9610
+msgid "Further Readings"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1416
+#: 9612131d31b64ff3be9c56c605dd15a4
+msgid ""
+"The following presentations describe inner-workings of the kube-proxy "
+"replacement in eBPF in great details:"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1419
+#: aea8461cfe354d9faaef0fd596fc4f04
+msgid ""
+"\"Liberating Kubernetes from kube-proxy and iptables\" (KubeCon North "
+"America 2019, `slides <https://docs.google.com/presentation/d/1cZJ-"
+"pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit>`__, `video "
+"<https://www.youtube.com/watch?v=bIRwSIwNHC0>`__)"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1422
+#: 565acc717c9f4aaabfadeaa808bf5727
+msgid ""
+"\"Kubernetes service load-balancing at scale with BPF & XDP\" (Linux "
+"Plumbers 2020, `slides "
+"<https://linuxplumbersconf.org/event/7/contributions/674/attachments/568/1002/plumbers_2020_cilium_load_balancer.pdf>`__,"
+" `video <https://www.youtube.com/watch?v=UkvxPyIJAko&t=21s>`__)"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1425
+#: 7e3dcaa49787462b82c571130f0c6b4f
+msgid ""
+"\"eBPF as a revolutionary technology for the container landscape\" "
+"(Fosdem 2020, `slides "
+"<https://docs.google.com/presentation/d/1VOUcoIxgM_c6M_zAV1dLlRCjyYCMdR3tJv6CEdfLMh8/edit>`__,"
+" `video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__)"
+msgstr ""
+
+#: ../../gettingstarted/kubeproxy-free.rst:1428
+#: b3e9ff1df16240678632bd747f2b064a
+msgid ""
+"\"Kernel improvements for Cilium socket LB\" (LSF/MM/BPF 2020, `slides "
+"<https://docs.google.com/presentation/d/1w2zlpGWV7JUhHYd37El_AUZzyUNSvDfktrF5MJ5G8Bs/edit#slide=id.g746fc02b5b_2_0>`__)"
+msgstr ""
+

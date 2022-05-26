@@ -1,0 +1,617 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/images.rst:3 f8ea275b099047a8a116a34ca75ccb3f
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/development/images.rst:10
+#: 29ccdf27202342eb8cf83a7e7421dc3c
+msgid "Building Container Images"
+msgstr ""
+
+#: ../../contributing/development/images.rst:12
+#: fe37328192d94f9ea4171a1fc4faf074
+msgid ""
+"Two make targets exists to build container images automatically based on "
+"the locally checked out branch:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:16
+#: f7c1a512d4af46cdb474cf8d86619d3b
+msgid "Developer images"
+msgstr ""
+
+#: ../../contributing/development/images.rst:18
+#: a6d1a3d642044487af8160adddd4ab34
+msgid ""
+"Run ``make dev-docker-image`` to build a cilium-agent Docker image that "
+"contains your local changes."
+msgstr ""
+
+#: ../../contributing/development/images.rst:25
+#: 5f6d885aa1ce4789892a6db3236c2463
+msgid ""
+"Run ``make docker-operator-generic-image`` (respectively, ``docker-"
+"operator-aws-image`` or ``docker-operator-azure-image``) to build the "
+"cilium-operator Docker image:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:33
+#: de34e938ca7e440d9b3528df5c1f9493
+msgid ""
+"The commands above assumes that your username for ``quay.io`` is "
+"``myaccount``."
+msgstr ""
+
+#: ../../contributing/development/images.rst:37
+#: f2ef403556d24edab0e9f5c874817a6c
+msgid "Race detection"
+msgstr ""
+
+#: ../../contributing/development/images.rst:39
+#: a62bd77ef89a4801be2c742c2d00eb30
+msgid ""
+"See section on :ref:`compiling Cilium with race detection <compile-"
+"cilium-with-race-detection>`."
+msgstr ""
+
+#: ../../contributing/development/images.rst:43
+#: aad5888ca922421d90478dcf8344c4aa
+msgid "Official release images"
+msgstr ""
+
+#: ../../contributing/development/images.rst:45
+#: ea7a45a809ab48e39cd6acc9d9fd3715
+msgid "Anyone can build official release images using the make target below."
+msgstr ""
+
+#: ../../contributing/development/images.rst:52
+#: 31db6fcf19924043a5190e935e6f6f23
+msgid "Experimental Docker BuildKit and Buildx support"
+msgstr ""
+
+#: ../../contributing/development/images.rst:54
+#: 35ba9e2a9b234fbda3a3fe582d707e8f
+msgid ""
+"Docker BuildKit allows build artifact caching between builds and "
+"generally results in faster builds for the developer. Support can be "
+"enabled by:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:62
+#: 2fcfc46b9f684b8fbbe7f45594b039f1
+msgid ""
+"Multi-arch image build support for arm64 (aka aarch64) and amd64 (aka "
+"x86-64) can be enabled by defining:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:69
+#: f3140cd6954c452a882a29dfbcc4985b
+msgid ""
+"Multi-arch images are built using a cross-compilation builder by default,"
+" which uses Go cross compilation for Go targets, and QEMU based emulation"
+" for other build steps. You can also define your own Buildx builder if "
+"you have access to both arm64 and amd64 machines. The \"cross\" builder "
+"will be defined and used if your current builder is \"default\"."
+msgstr ""
+
+#: ../../contributing/development/images.rst:76
+#: 435d8be9b57e42c994616af5d858fa00
+msgid ""
+"Buildx targets push images automatically, so you must also have "
+"DOCKER_REGISTRY and DOCKER_DEV_ACCOUNT defined, e.g.:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:84
+#: 9bb91f1ec06f4bf0bd6ae3419c06f979
+msgid ""
+"Currently the cilium-runtime and cilium-builder images are released for "
+"amd64 only (see the table below). This means that you have to build your "
+"own cilium-runtime and cilium-builder images:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:92
+#: 84b2a2088fc74d4eb6b649a8a0836faf
+msgid ""
+"After the build finishes update the runtime image references in other "
+"Dockerfiles (``docker buildx imagetools inspect`` is useful for finding "
+"image information). Then proceed to build the cilium-builder:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:100
+#: 725c9ebfb659492f9c2abcfc8969a1ca
+msgid ""
+"After the build finishes update the main Cilium Dockerfile with the new "
+"builder reference, then proceed to build Hubble from "
+"github.com/cilium/hubble. Hubble builds via buildx QEMU based emulation, "
+"unless you have an ARM machine added to your buildx builder:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:111
+#: 978cf2ff698340d5ba80893dc9ce8670
+msgid ""
+"Update the main Cilium Dockerfile with the new Hubble reference and build"
+" the multi-arch versions of the Cilium images:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:119
+#: 0d5d8410d95f4371986db8ab3056705b
+msgid "Official Cilium repositories"
+msgstr ""
+
+#: ../../contributing/development/images.rst:121
+#: 7172af762c594f4487f786d31871f4eb
+msgid ""
+"The following table contains the main container image repositories "
+"managed by Cilium team. It is planned to convert the build process for "
+"all images based on GH actions."
+msgstr ""
+
+#: ../../contributing/development/images.rst:126
+#: 4f8b31971c6947a08e293b38b3e0ff44
+msgid "**Github Repository**"
+msgstr ""
+
+#: ../../contributing/development/images.rst:126
+#: 70de19731c6040408cdff60599f1f16a
+msgid "**Dockerfile**"
+msgstr ""
+
+#: ../../contributing/development/images.rst:126
+#: c30e21fb9b6a46e9ab5153aac887c670
+msgid "**container image repository**"
+msgstr ""
+
+#: ../../contributing/development/images.rst:126
+#: 509debbd2c9b45e9b10025c3cb5b3b56
+msgid "**Architectures**"
+msgstr ""
+
+#: ../../contributing/development/images.rst:126
+#: d1f2f3196d9b4a989e92ecb427aa8bf1
+msgid "**Build process**"
+msgstr ""
+
+#: ../../contributing/development/images.rst:128
+#: 664c9aa6eac749a48f9e6975c99daa31
+msgid "**amd64**"
+msgstr ""
+
+#: ../../contributing/development/images.rst:128
+#: d8797af4e70944dd851ae601aaec0325
+msgid "**aarch64**"
+msgstr ""
+
+#: ../../contributing/development/images.rst:130
+#: bf712319fdab4613a2e2f3a3c17fbcd6
+msgid "github.com/cilium/cilium"
+msgstr ""
+
+#: ../../contributing/development/images.rst:130
+#: e10bd32b68da42008a6045e923ecc087
+msgid "images/runtime/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:130
+#: fb1c146ca19842c58f824fe1005f6955
+msgid "quay.io/cilium/cilium-runtime"
+msgstr ""
+
+#: ../../contributing/development/images.rst:130
+#: ../../contributing/development/images.rst:132
+#: ../../contributing/development/images.rst:134
+#: ../../contributing/development/images.rst:136
+#: ../../contributing/development/images.rst:138
+#: ../../contributing/development/images.rst:140
+#: ../../contributing/development/images.rst:142
+#: ../../contributing/development/images.rst:144
+#: ../../contributing/development/images.rst:146
+#: ../../contributing/development/images.rst:148
+#: ../../contributing/development/images.rst:150
+#: ../../contributing/development/images.rst:152
+#: ../../contributing/development/images.rst:154
+#: ../../contributing/development/images.rst:156
+#: ../../contributing/development/images.rst:158
+#: ../../contributing/development/images.rst:160
+#: ../../contributing/development/images.rst:162
+#: ../../contributing/development/images.rst:164
+#: 067142af2dc149ff8e90845291d4ea39 0a3212ad19b2471592714dc8319412f7
+#: 0a84cbc6bf814280aa6a6a2c34714864 0fc9d8bc682b49d88e4dd334565209d2
+#: 119be43366284a65b17e35f0cc66e3d1 13b76246ea6c4b8da6ad6701e110437e
+#: 1c6d03d0789148ebb4a16f49154aaa79 2391057a062545a88d26560b29d41614
+#: 2a02561f02424f9c8e4d68b2f3cb1395 38595a2efc9041378eb15cd65dd19af6
+#: 3cfe54b0993b4ec6b5ab7bf8d5093b5d 47e075f76e54428693b913faf0570abb
+#: 4e4e9b6630fa4510b0b741d00e2e65bb 58934000b8894075a39a0ba9d5d796c7
+#: 60318d1bd98947769203afc707eb7bda 648960a864c748d7b5909348d50ae7b0
+#: 6a61e4dc9dc54401bf3af15fab9c5fc7 6b8c244a07d24b5ca411df2d6de71aee
+#: 6cb8f29a62e6450f873095091ecd2ede 6dc3a0bd2c1849638dfdb9b07db43a65
+#: 754ddd1388c744dcb1ffb52e9d879039 76eb4b9df2054a04b6ebd2d1f186452f
+#: 7a62077f87aa4d258dd3542596c5922e 7afd6b39cd0a4b61b3e3dfdbd5b4864d
+#: 8a54d843c0b7456d91c4a5bf166408ac 8cf1a9b9903f47a39db243814db8d09e
+#: 98a9dd2e4e6447399b9307c2275fa18c 9a4c5af216eb49f1bcfd151d3c6f0fec
+#: a67383e8e01c4d7abe655a5c8af77133 a99b073223674676b4c78bae965bcbe5
+#: b2a505b05ef9427b9bdffa678022e357 d3f4afa8b11e4802ada93cb8f8f0488d
+#: dd88e88252a24134beea774fe85c294c e99a883a296b42309e46e272b35af569
+#: f6939a52909d455bbfe24fb7f9563bb4 ff24c6efe73941de903a359c4a670028
+msgid "Y"
+msgstr ""
+
+#: ../../contributing/development/images.rst:130
+#: ../../contributing/development/images.rst:132
+#: ../../contributing/development/images.rst:134
+#: ../../contributing/development/images.rst:136
+#: ../../contributing/development/images.rst:138
+#: ../../contributing/development/images.rst:140
+#: ../../contributing/development/images.rst:142
+#: ../../contributing/development/images.rst:144
+#: ../../contributing/development/images.rst:146
+#: ../../contributing/development/images.rst:148
+#: ../../contributing/development/images.rst:150
+#: ../../contributing/development/images.rst:152
+#: ../../contributing/development/images.rst:154
+#: ../../contributing/development/images.rst:156
+#: ../../contributing/development/images.rst:158
+#: ../../contributing/development/images.rst:160
+#: ../../contributing/development/images.rst:162
+#: ../../contributing/development/images.rst:164
+#: 122336bd62cd40358243cc1e482c48a2 1a8657f2da0046e4adb862ef7fda33be
+#: 1f227ced034943998cf8dd36209aea28 289b85656e5742bbb046d3048a0d6c8b
+#: 48a10f8e733545fbb946db1ead051b2d 5431ef0a01df443597b0a71aa9b0b6ff
+#: 65ecbb5a6b58479a8a50f346a426ea28 71f82c253395488b9e9ee85e1cc63b90
+#: 7f913d072eaa4dfdbb63fbab08d73c5d 80cbca9e03b947acbb3a11110bdadf69
+#: 81cbb6f4089a414fa348e086ec3463a8 887543dda7a84482a8d3831b6493f2ff
+#: 8ce24162910f4e07be2019ba54432ec5 aee1b966261340cb954a3f90267a3246
+#: db5afaef53414a27bfff35990f413d5c e6b894d97f62443da4e884b618b92175
+#: f1ac99894fda424f9decb78a8b900414 f96d604974064a939440116205bec0ef
+msgid "GH Action"
+msgstr ""
+
+#: ../../contributing/development/images.rst:132
+#: cefcb40e9c604fd68d83fe5922cce7f1
+msgid "images/builder/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:132
+#: b2726a3b51dc4d23a2289d2c147ace2f
+msgid "quay.io/cilium/cilium-builder"
+msgstr ""
+
+#: ../../contributing/development/images.rst:134
+#: 6d4234a3f7b74293913be04ce469f864
+msgid "images/cilium/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:134
+#: db6983dc87054d69a687c74280fca264
+msgid "[docker|quay].io/cilium/cilium"
+msgstr ""
+
+#: ../../contributing/development/images.rst:136
+#: e9b472b9f1d24d46bbed37f6759bde9a
+msgid "images/cilium-docker-plugin/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:136
+#: e610e0203b604f14bbc66f5ac071dec5
+msgid "[docker|quay].io/cilium/docker-plugin"
+msgstr ""
+
+#: ../../contributing/development/images.rst:138
+#: 0febbd0ddc8d412a910c0e81eff79364
+msgid "images/hubble-relay/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:138
+#: d2323ba76e77479f9a41c7e927209202
+msgid "[docker|quay].io/cilium/hubble-relay"
+msgstr ""
+
+#: ../../contributing/development/images.rst:140
+#: 01a4339dca1e469ba182290eba0857b9
+msgid "images/operator/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:140
+#: be8845db2a0e4860b627dab59e6c9c63
+msgid "[docker|quay].io/cilium/operator"
+msgstr ""
+
+#: ../../contributing/development/images.rst:142
+#: 932e44d328b44e1296af9a25c487fc36
+msgid "images/operator-aws/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:142
+#: 9765796108434aa4869359c9356e93da
+msgid "[docker|quay].io/cilium/operator-aws"
+msgstr ""
+
+#: ../../contributing/development/images.rst:144
+#: 652b03491b434f14a297bff8186e52e4
+msgid "images/operator-azure/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:144
+#: 21ec2c195e2a414e800aca5133425015
+msgid "[docker|quay].io/cilium/operator-azure"
+msgstr ""
+
+#: ../../contributing/development/images.rst:146
+#: d1d1098e46674aeb811671e6c94eb6bd
+msgid "images/operator-generic/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:146
+#: f7f9dcdda2ae4cdf9e9c8a026b25238f
+msgid "[docker|quay].io/cilium/operator-generic"
+msgstr ""
+
+#: ../../contributing/development/images.rst:148
+#: bdb757113c0a428490dea59ad69c9a2f
+msgid "images/clustermesh-apiserver/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:148
+#: 166043c2680e4b8f98a2a2b80a33483a
+msgid "[docker|quay].io/cilium/clustermesh-apiserver"
+msgstr ""
+
+#: ../../contributing/development/images.rst:150
+#: 8f06582e37a440c7908db7ae22df1e39
+msgid "github.com/cilium/proxy"
+msgstr ""
+
+#: ../../contributing/development/images.rst:150
+#: 9178cef1aa054ee38d2a7c553820f6b5
+msgid "Dockerfile.builder"
+msgstr ""
+
+#: ../../contributing/development/images.rst:150
+#: 00f3e3591e574805964a4e2df55313e9
+msgid "quay.io/cilium/cilium-envoy-builder"
+msgstr ""
+
+#: ../../contributing/development/images.rst:152
+#: ebdb07ba6ae74ad3b2e3c35e67bdb3b7
+msgid "Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:152
+#: 5b6d0ccdf583453cbc167fc7e4c71493
+msgid "quay.io/cilium/cilium-envoy"
+msgstr ""
+
+#: ../../contributing/development/images.rst:159
+#: 805814f0fd3740ffa904604d8ae1d461
+msgid "github.com/cilium/image-tools"
+msgstr ""
+
+#: ../../contributing/development/images.rst:154
+#: a55d12a16ec94101914b799f006634af
+msgid "images/bpftool/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:154
+#: 9c925b7219654ecf8420a1eabcde5e78
+msgid "docker.io/cilium/cilium-bpftool"
+msgstr ""
+
+#: ../../contributing/development/images.rst:156
+#: 77e519c3c8154092b6cc3ce1e1366962
+msgid "images/iproute2/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:156
+#: a8b233156ab94097a07189d811f435ef
+msgid "docker.io/cilium/cilium-iproute2"
+msgstr ""
+
+#: ../../contributing/development/images.rst:158
+#: 93e7a680931846beb397e058cfb0cee0
+msgid "images/llvm/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:158
+#: 28ad3aabbf1845fd96d154f9fc9b4202
+msgid "docker.io/cilium/cilium-llvm"
+msgstr ""
+
+#: ../../contributing/development/images.rst:160
+#: be83415d9c834db6a346748574feaa32
+msgid "images/compilers/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:160
+#: 02e1a26c5e4f42e88ee4ce9661462e3a
+msgid "docker.io/cilium/image-compilers"
+msgstr ""
+
+#: ../../contributing/development/images.rst:162
+#: 6ea3294dd4334dfd8261862142852c5e
+msgid "images/maker/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:162
+#: d189313e673d44b4ab0e2366d134e16c
+msgid "docker.io/cilium/image-maker"
+msgstr ""
+
+#: ../../contributing/development/images.rst:164
+#: 6d21e001922b43d0a638b8480be08af3
+msgid "images/startup-script/Dockerfile"
+msgstr ""
+
+#: ../../contributing/development/images.rst:164
+#: d05582bd98c040378bdcb4210ca052d2
+msgid "docker.io/cilium/startup-script"
+msgstr ""
+
+#: ../../contributing/development/images.rst:167
+#: 3c171eab80af4d358cda5949374f1307
+msgid "Image dependency:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:197
+#: 6420ea3b5629426b90170bc41be389c0
+msgid "Update cilium-builder and cilium-runtime images"
+msgstr ""
+
+#: ../../contributing/development/images.rst:199
+#: 82c84f7892104fd28f705fe9b6df776f
+msgid ""
+"The steps described here, starting with a commit that updates the image "
+"versions, build the necessary images and update all the appropriate "
+"locations in the Cilium codebase. Hence, before executing the following "
+"steps, the user should have such a commit (e.g., see `this commit "
+"<https://github.com/cilium/cilium/pull/17713/commits/b7a37ff80df8681d25a24fd5b464082d360fc6e2>`__)"
+" in their local tree. After following the steps below, the result would "
+"be another commit with the image updates (e.g,. see `this commit "
+"<https://github.com/cilium/cilium/pull/17713/commits/bd3357704647117fa9ef4839b9f603cd0435b7cc>`__)."
+" Please keep the two commits separate to ease backporting."
+msgstr ""
+
+#: ../../contributing/development/images.rst:210
+#: efed5f0d42ec4244bc5d023b7e957d86
+msgid ""
+"If you only wish to update the packages in these images, then you can "
+"manually update the ``FORCE_BUILD`` variable in "
+"``images/runtime/Dockerfile`` to have a different value and then proceed "
+"with the steps below."
+msgstr ""
+
+#: ../../contributing/development/images.rst:214
+#: 31770019d20e469da53f5b694ff3abd8
+msgid ""
+"cilium-builder depends on cilium-runtime so one needs to update cilium-"
+"runtime first. Steps 4 and 7 will fetch the digest of the image built by "
+"GitHub actions."
+msgstr ""
+
+#: ../../contributing/development/images.rst:222
+#: 794f330d7c784d1a89aab268d5bfe9a8
+msgid "Commit your changes and create a PR in cilium/cilium."
+msgstr ""
+
+#: ../../contributing/development/images.rst:228
+#: fd498f368464464fa894c6daf4294322
+msgid ""
+"Ping one of the members of `team/build "
+"<https://github.com/orgs/cilium/teams/build/members>`__ to approve the "
+"build that was created by GitHub Actions `here "
+"<https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`__."
+" Note that at this step cilium-builder build failure is expected since we"
+" have yet to update the runtime digest."
+msgstr ""
+
+#: ../../contributing/development/images.rst:232
+#: e958da86321a4010afdf44b9488f0b79
+msgid ""
+"Wait for cilium-runtime build to complete. Only after the image is "
+"available run:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:238
+#: ../../contributing/development/images.rst:253
+#: 3e261264497f4e16a51c3ca68a6345a1 d4fa882ad484453bbdeb4f477c3236c6
+msgid "Commit your changes and re-push to the PR in cilium/cilium."
+msgstr ""
+
+#: ../../contributing/development/images.rst:244
+#: 9f9912aa259e4c438a3c2a60a03b7a62
+msgid ""
+"Ping one of the members of `team/build "
+"<https://github.com/orgs/cilium/teams/build/members>`__ to approve the "
+"build that was created by GitHub Actions `here "
+"<https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`__."
+msgstr ""
+
+#: ../../contributing/development/images.rst:247
+#: 49f75e4752654bc29e52357e1b0a8b49
+msgid "Wait for the build to complete. Only after the image is available run:"
+msgstr ""
+
+#: ../../contributing/development/images.rst:259
+#: bd8f6e7625834fa7b374a959d5bfb7f6
+msgid "Update the versions of the images that are pulled into the CI VMs."
+msgstr ""
+
+#: ../../contributing/development/images.rst:261
+#: 5a83004056884caca408d8927c9cee64
+msgid ""
+"Open a PR against the :ref:`packer_ci` with an update to said image "
+"versions. Once your PR is merged, a new version of the VM will be ready "
+"for consumption in the CI."
+msgstr ""
+
+#: ../../contributing/development/images.rst:262
+#: d47cfc580a3346398e7a8e501286ca70
+msgid ""
+"Update the ``SERVER_VERSION``  field in ``test/Vagrantfile`` to contain "
+"the new version, which is the build number from the `Jenkins Job for the "
+"VMs <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_."
+" For example, build 119 from the pipeline would be the value to set for "
+"``SERVER_VERSION``."
+msgstr ""
+
+#: ../../contributing/development/images.rst:263
+#: 76225830f71d42c695a09186542262aa
+msgid "Open a pull request with this version change in the cilium repository."
+msgstr ""
+
+#: ../../contributing/development/images.rst:266
+#: e3bc530fd5c34a7bb08512ed48f2e822
+msgid "Nightly Docker image"
+msgstr ""
+
+#: ../../contributing/development/images.rst:268
+#: 0f215c3e12e64c43b8a32948d384f32c
+msgid ""
+"After each successful Nightly build, a `cilium/nightly`_ image is pushed "
+"to dockerhub."
+msgstr ""
+
+#: ../../contributing/development/images.rst:270
+#: a22ad4f2c58547d58b36e4a96eed43f8
+msgid ""
+"To use latest nightly build, please use ``cilium/nightly:latest`` tag. "
+"Nightly images are stored on dockerhub tagged with following format: "
+"``YYYYMMDD-<job number>``. Job number is added to tag for the unlikely "
+"event of two consecutive nightly builds being built on the same date."
+msgstr ""
+
+#: ../../contributing/development/images.rst:277
+#: 945feaec746e42f9acb01d8254f9bb33
+msgid "Image Building Process"
+msgstr ""
+
+#: ../../contributing/development/images.rst:279
+#: aceb8fa50046487dbf80b217c1e7ab40
+msgid ""
+"Images are automatically created by a GitHub action: ``build-images``. "
+"This action will automatically run for any Pull Request, including Pull "
+"Requests submitted from forked repositories, and push the images into "
+"``quay.io/cilium/*-ci``. They will be available there for 1 week before "
+"they are removed by the ``ci-images-garbage-collect`` workflow. Once they"
+" are removed, the developer must re-push the Pull Request into GitHub so "
+"that new images are created."
+msgstr ""
+

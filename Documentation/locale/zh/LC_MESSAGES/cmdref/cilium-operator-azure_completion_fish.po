@@ -1,0 +1,71 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:3
+#: e4aac30558564bee826316e161528470
+msgid "cilium-operator-azure completion fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:5
+#: a3e671c68c9c4cba9a09ec033d34741f
+msgid "Generate the autocompletion script for fish"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:7
+#: 5c4d22e74f174f23bf42b6f69e22a9e1
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:9
+#: 67c6e41476ed4248b1b12e6cb3a0feff
+msgid "Generate the autocompletion script for the fish shell."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:11
+#: c3ca3503de7f4bbc956b9fc324b37e3d
+msgid "To load completions in your current shell session:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:15
+#: f9c731e9ffb34e1aa1c99037b2751d85
+msgid "To load completions for every new session, execute once:"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:19
+#: a354e114cf7b49e8825af133533646fa
+msgid "You will need to start a new shell for this setup to take effect."
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:26
+#: 196e8f5965f44b07a4a06b9c38c28292
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:33
+#: d765b2a44f234a458d204b4968bc8c06
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure_completion_fish.md:35
+#: 9320952094ec43b0994c5f6ea3a3e6e5
+msgid ""
+"[cilium-operator-azure completion](cilium-operator-azure_completion.md)"
+"\t - Generate the autocompletion script for the specified shell"
+msgstr ""
+

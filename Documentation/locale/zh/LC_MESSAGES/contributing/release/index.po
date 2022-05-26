@@ -1,0 +1,37 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/release/index.rst:3 78a826e310a24045a5083ca7e17006e9
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/release/index.rst:11 9b8972644a754141b9c02da0ec2c76a8
+msgid "Release Management"
+msgstr ""
+
+#: ../../contributing/release/index.rst:13 1861defed2b5498fbeee10a6f87d1ae8
+msgid ""
+"This section describes the release processes for tracking, preparing, and"
+" creating new Cilium releases. This includes information around the "
+"release cycles and guides for developers responsible for backporting "
+"fixes or preparing upcoming stable releases."
+msgstr ""
+

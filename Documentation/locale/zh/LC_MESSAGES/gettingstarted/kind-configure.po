@@ -1,0 +1,59 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/kind-configure.rst:1 d33b5734c4fc4a46a6910f376a2ae937
+msgid ""
+"Configuring kind cluster creation is done using a YAML configuration "
+"file. This step is necessary in order to disable the default CNI and "
+"replace it with Cilium."
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:5 b4db8643bcb24539821deaa84d9bf864
+msgid ""
+"Create a :download:`kind-config.yaml <./kind-config.yaml>` file based on "
+"the following template. It will create a cluster with 3 worker nodes and "
+"1 control-plane node."
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:12 5bf0ecfccf6744aa819e7187229ef67a
+msgid ""
+"By default, the latest version of Kubernetes from when the kind release "
+"was created is used."
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:15 3e8f81c978cd4634a969bd62cb2bec9f
+msgid ""
+"To change the version of Kubernetes being run,  ``image`` has to be "
+"defined for each node. See the `Node Configuration "
+"<https://kind.sigs.k8s.io/docs/user/configuration/#nodes>`_ documentation"
+" for more information."
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:21 db3ac5a597694eeab879676bc7ee422a
+msgid "By default, kind uses the following pod and service subnets::"
+msgstr ""
+
+#: ../../gettingstarted/kind-configure.rst:26 757d61fe77384a8da2d123d17a770261
+msgid ""
+"If any of these subnets conflicts with your local network address range, "
+"update the ``networking`` section of the kind configuration file to "
+"specify different subnets that do not conflict or you risk having "
+"connectivity issues when deploying Cilium. For example:"
+msgstr ""
+

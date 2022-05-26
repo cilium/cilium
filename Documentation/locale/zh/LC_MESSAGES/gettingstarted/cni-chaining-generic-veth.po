@@ -1,0 +1,145 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:3
+#: ../../gettingstarted/cni-chaining-limitations.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 71006797a30b4209a9151f0a931109d1 948796ae59674717bcc0483b172d3ab5
+#: b8340cb7d0b1487b9543c148e2b8b339
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:11
+#: d6f3a8fc589f45ebb0e988a96fc81fce
+msgid "Generic Veth Chaining"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:13
+#: 2248e824f85c42aaac392a6c6ae963d6
+msgid ""
+"The generic veth chaining plugin enables CNI chaining on top of any CNI "
+"plugin that is using a veth device model. The majority of CNI plugins use"
+" such a model."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:9
+#: 408341e917a247509fee75589b306f74
+msgid ""
+"Some advanced Cilium features may be limited when chaining with other CNI"
+" plugins, such as:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:12
+#: b24152184af94545a4c237350050a95b
+msgid ":ref:`Layer 7 Policy <l7_policy>` (see :gh-issue:`12454`)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:13
+#: a94de5346f614e2b8fb23a5bb749ad5b
+msgid ":ref:`encryption_ipsec` (see :gh-issue:`15596`)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:20
+#: 185c140dc37a47c983875c07bdf1cf08
+msgid "Validate that the current CNI plugin is using veth"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:22
+#: 7f38a9eb0fde4cafaa2b7a3558fe7be7
+msgid "Log into one of the worker nodes using SSH"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:23
+#: d06612a7014e4f159f21eafbef596806
+msgid ""
+"Run ``ip -d link`` to list all network devices on the node. You should be"
+" able spot network devices representing the pods running on that node."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:25
+#: 880d8630a1ac49b6ac567437575f39b4
+msgid "A network device might look something like this:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:32
+#: bf562f20a6344975b3382deb22bdca20
+msgid ""
+"The ``veth`` keyword on line 3 indicates that the network device type is "
+"virtual ethernet."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:34
+#: f50f4f0e3aa24cf0b275c1c9de4e4333
+msgid ""
+"If the CNI plugin you are chaining with is currently not using veth then "
+"the ``generic-veth`` plugin is not suitable. In that case, a full CNI "
+"chaining plugin is required which understands the device model of the "
+"underlying plugin. Writing such a plugin is trivial, contact us on "
+":ref:`slack` for more details."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:40
+#: f5191ae057724e919722f96fd6dfbc80
+msgid "Create a CNI configuration to define your chaining configuration"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:42
+#: 73ed9160d40e4f44ae0707da98fbc8c0
+msgid ""
+"Create a ``chaining.yaml`` file based on the following template to "
+"specify the desired CNI chaining configuration:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:69
+#: cdf77b62db174f38bc152b0d15055ce5
+msgid "Deploy the :term:`ConfigMap`:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:76
+#: 163384994d6c442daa02496b7bcd2a43
+msgid "Deploy Cilium with the portmap plugin enabled"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: a4537a828e2d41bfaab64c5c7dd80cb3
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: da81e812bd284815bd0080772708c403
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 759a03c84ef544b68c0147cd955c074b
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-generic-veth.rst:80
+#: 7d9b33d027c84aeab73670df2666ec5f
+msgid "Deploy Cilium release via Helm:"
+msgstr ""
+

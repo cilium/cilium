@@ -1,0 +1,75 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/index.rst:3 0001cf0cbd5e4e2083aede28efe96fb4
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/index.rst:10 6c51454c99224b48bc033174eecbcaf9
+msgid "Getting Started Guides"
+msgstr ""
+
+#: ../../gettingstarted/index.rst:12 e20a4ade74854a298a976945a4fad814
+msgid ""
+"The following is a list of guides that help you get started with Cilium. "
+"The guides cover the installation and then dive into more detailed topics"
+" such as securing clusters, connecting multiple clusters, monitoring, and"
+" troubleshooting. If you are new to Cilium it is recommended to read the "
+":ref:`intro` section first to learn about the basic concepts and "
+"motivation."
+msgstr ""
+
+#: ../../gettingstarted/index.rst:21 451d7c1cc6ff46e287d29f8787e7b487
+msgid "Installation"
+msgstr ""
+
+#: ../../gettingstarted/index.rst:33 55dcf1c1783e4ed39b2f27f99d575274
+msgid "Observability"
+msgstr ""
+
+#: ../../gettingstarted/index.rst:44 6d99d5a8bdf04aceb152af70c9e395de
+msgid "Network Policy Security Tutorials"
+msgstr ""
+
+#: ../../gettingstarted/index.rst:63 6bed1076c3e94ca39d4ebf933dfe7352
+msgid "Advanced Networking"
+msgstr ""
+
+#: ../../gettingstarted/index.rst:85 bc18336ed60a4cc897679c20ae3eb721
+msgid "Cluster Mesh"
+msgstr ""
+
+#: ../../gettingstarted/index.rst:97 b49a12db62e34e05bd2505bfa33d4f3a
+msgid "Operations"
+msgstr ""
+
+#: ../../gettingstarted/index.rst:106 dc7ce47a7ef3484d94e902ba6a183154
+msgid "Istio"
+msgstr ""
+
+#: ../../gettingstarted/index.rst:114 566c1e84a4bf44c7858ff0762119d39a
+msgid ""
+"The best way to get help if you get stuck is to ask a question on the "
+"`Cilium Slack channel <https://cilium.herokuapp.com>`_.  With Cilium "
+"contributors across the globe, there is almost always someone available "
+"to help."
+msgstr ""
+

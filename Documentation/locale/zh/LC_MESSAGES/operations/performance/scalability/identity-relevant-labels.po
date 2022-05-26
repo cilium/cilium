@@ -1,0 +1,397 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:3
+#: a0f3b6fca32e4a6d9ee8aa0f17146142
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:11
+#: 53fe66933d7e4f76aa73227d0e1fa6c5
+msgid "Limiting Identity-Relevant Labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:13
+#: 868927d99c804c55b8d53b5a153876ed
+msgid ""
+"We recommend that operators with larger environments limit the set of "
+"identity-relevant labels to avoid frequent creation of new security "
+"identities. Many Kubernetes labels are not useful for policy enforcement "
+"or visibility. A few good examples of such labels include timestamps or "
+"hashes. These labels, when included in evaluation, cause Cilium to "
+"generate a unique identity for each pod instead of a single identity for "
+"all of the pods that comprise a service or application."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:21
+#: 6df86146770a4fe5a42cab6fe1350c79
+msgid ""
+"By default, Cilium considers all labels to be relevant for identities, "
+"with the following exceptions:"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:25
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:50
+#: 8a47012eeaeb4376bb07950953b3190f d915a80c2df54e3fab3b720dbbec971f
+msgid "Label"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:25
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:50
+#: 908ba478da8940b48d79097a43b11c83 f1923f4294304996b0650b1970f52fa7
+msgid "Description"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:27
+#: 0d848b7f9c8a4f00b131fae17baa89f0
+msgid "``any:!io.kubernetes``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:27
+#: 62effbf4dc254a08a2a0965764e93c95
+msgid "Ignore all ``io.kubernetes`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:28
+#: 34ae49f77ff44bc99e657a3f1742db88
+msgid "``any:!kubernetes\\.io``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:28
+#: 1eb9030de17648fb82b8d8bc49383441
+msgid "Ignore all other ``kubernetes\\.io`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:29
+#: 67bd0b83411f4f53afa33934d94d2a0b
+msgid "``any:!beta.kubernetes\\.io``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:29
+#: ce8979bd8389491489e1adcde7fa35de
+msgid "Ignore all ``beta\\.kubernetes\\.io`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:30
+#: 67f9469e26224871aa397c6b21c6778d
+msgid "``any:!k8s\\.io``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:30
+#: 769ce5a1c81c4276aa08db2860e3537c
+msgid "Ignore all ``k8s\\.io`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:31
+#: b60120866911466983355a56b4e58d04
+msgid "``any:!pod-template-generation``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:31
+#: adedc4c8219b47e09bc957691c193c1d
+msgid "Ignore all ``pod-template-generation`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:32
+#: 07f9f24883b64e14bf6ad3af64c8abcc
+msgid "``any:!pod-template-hash``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:32
+#: db7eff1b74544436bd71872a4b0243f9
+msgid "Ignore all ``pod-template-hash`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:33
+#: 4c5743ffe59e431b853b56c3ff033615
+msgid "``any:!controller-revision-hash``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:33
+#: b35c020f8f7948ff92aa41ba4d617c5a
+msgid "Ignore all ``controller-revision-hash`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:34
+#: 38641d65e17849e188772698d88db023
+msgid "``any:!annotation.*``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:34
+#: ce2a61dd84c34d6a9eb56da57befabc7
+msgid "Ignore all ``annotation`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:35
+#: 364e5b9d3d344c57a7b08e5d3d32f041
+msgid "``any:!etcd_node``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:35
+#: c92672acd77040d4a8ef4434b9637934
+msgid "Ignore all ``etcd_node`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:38
+#: 9213a74a657e4da098bf502182b4502b
+msgid ""
+"The above label patterns are all *exclusive label patterns*, that is to "
+"say they define which label keys should be ignored. These are identified "
+"by the presence of the ``!`` character."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:42
+#: cd8cc991be5c4c8ebc79a7707c809ae2
+msgid ""
+"Label configurations that do not contain the ``!`` character are "
+"*inclusive label patterns*. Once at least one inclusive label pattern is "
+"added, only labels that match the inclusive label configuration may be "
+"considered relevant for identities. Additionally, when at least one "
+"inclusive label pattern is configured, the following inclusive label "
+"patterns are automatically added to the configuration:"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:52
+#: 56263831aeb54cec8a24194909527641
+msgid "``reserved:.*``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:52
+#: b14b7d5a86504c41a1e838c885219556
+msgid "Include all ``reserved:`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:53
+#: 0391826b923246a5a62ee571e1086395
+msgid "``any:io\\.kubernetes\\.pod\\.namespace``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:53
+#: 4cda01025cac4256ac98350ddd88e15a
+msgid "Include all ``io.kubernetes.pod.namespace`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:54
+#: a24137019bff48d4965586466fa6538a
+msgid "``any:io\\.cilium\\.k8s\\.namespace\\.labels``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:54
+#: 64b296edaba54a8da6bd5b0fe81bf89a
+msgid "Include all ``io.cilium.k8s.namespace.labels`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:55
+#: f69c077130564fe791f64fa78ad56303
+msgid "``any:app\\.kubernetes\\.io``"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:55
+#: 0f2a4f1196d54977941fd2c2e9632b5c
+msgid "Include all ``app.kubernetes.io`` labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:61
+#: 4e292c35d9b74e44ab71572871959a8b
+msgid "Configuring Identity-Relevant Labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:63
+#: 150ea52acde040778159775452e6e22d
+msgid ""
+"To limit the labels used for evaluating Cilium identities, edit the "
+"Cilium ConfigMap object using ``kubectl edit cm -n kube-system cilium-"
+"config`` and insert a line to define the label patterns to include or "
+"exclude. Alternatively, this attribute can also be set via helm option "
+"``--set labels=<values>``."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:79
+#: 3fa5ba55e5d744c482c36f0032c6fcb1
+msgid ""
+"The double backslash in ``\\\\.`` is required to escape the slash in the "
+"YAML string so that the regular expression contains ``\\.``."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:82
+#: 4b18bc37a0024686882d729fe8f50636
+msgid ""
+"Label patterns are regular expressions that are implicitly anchored at "
+"the start of the label. For example ``example\\.com`` will match labels "
+"that start with ``example.com``, whereas ``.*example\\.com`` will match "
+"labels that contain ``example.com`` anywhere. Be sure to escape periods "
+"in domain names to avoid the pattern matching too broadly and therefore "
+"including or excluding too many labels."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:89
+#: b80fa7f0cd6b4adb8d19d0eb3cbe441c
+msgid ""
+"Upon defining a custom list of label patterns in the ConfigMap, Cilium "
+"adds the provided list of label patterns to the default list of label "
+"patterns. After saving the ConfigMap, restart the Cilium Agents to pickup"
+" the new label pattern setting."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:98
+#: ee04e9223ae14e4587fe07a4a4ca47c9
+msgid ""
+"Existing identities will not change as a result of this new "
+"configuration. To apply the new label pattern setting to existing "
+"identities, restart the associated pods. Upon restart, new identities "
+"will be created. The old identities will be garbage collected by the "
+"Cilium Operator once they are no longer used by any Cilium endpoints."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:104
+#: 4b1e1f27ae544553a0dfd9fa01eb2adb
+msgid ""
+"When specifying multiple label patterns to evaluate, provide the list of "
+"labels as a space-separated string."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:108
+#: 48e61fc1a32e4014a0ddef6bc3075b71
+msgid "Including Labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:110
+#: cba8b1df6ddf4c8faf4ec07a0a7dfe25
+msgid ""
+"Labels can be defined as a list of labels to include. Only the labels "
+"specified and the default inclusive labels will be used to evaluate "
+"Cilium identities:"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:117
+#: c01eaffc69d546f291941e8bf71555d0
+msgid ""
+"The above configuration would only include the following label keys when "
+"evaluating Cilium identities:"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:120
+#: c338ebeb04b747fa8149863eb13a38ee
+msgid "k8s:k8s-app"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:121
+#: 82e8e95eca43432a98652d3b886b8516
+msgid "k8s:app"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:122
+#: 16341ee7c2a646e9be7b5f990bccbf6a
+msgid "k8s:name"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:123
+#: 6be3996e9b3d49ba8bae6efca00eface
+msgid "reserved:.*"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:124
+#: 20c1b5d995224680bf74fd6bce55a692
+msgid "io\\.kubernetes\\.pod\\.namespace"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:125
+#: 041d8e8e64074ec4aec8609453ee936d
+msgid "io\\.cilium\\.k8s.namespace\\.labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:126
+#: 5e1d7c6453034dab88b43fbe38fcb2ee
+msgid "app\\.kubernetes\\.io"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:128
+#: f0d5c0c3accf4153846012a300dce6a4
+msgid ""
+"Note that ``k8s:io\\.kubernetes\\.pod\\.namespace`` is already included "
+"in default label ``io\\.kubernetes\\.pod\\.namespace``."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:131
+#: 29f2a7fee3ee47f0b447693a03fcbcf9
+msgid ""
+"Labels with the same prefix as defined in the configuration will also be "
+"considered. This lists some examples of label keys that would also be "
+"evaluated for Cilium identities:"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:135
+#: 894e1d9f386240c09d82554bf9e11c9e
+msgid "k8s-app-team"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:136
+#: 873b87793f0842dda9ebc1a8072a3298
+msgid "app-production"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:137
+#: 49e3d60910df482f825c1e79b633fe77
+msgid "name-defined"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:139
+#: f05a042550e145f685afc047b33e1926
+msgid ""
+"When a single inclusive label is added to the filter, all labels not "
+"defined in the default list will be excluded. For example, pods running "
+"with the security labels ``team=team-1, env=prod`` will have the label "
+"``env=prod`` ignored as soon Cilium is started with the filter "
+"``k8s:team``."
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:145
+#: 129c02e2bc8941218f42fdc3a58dbbd6
+msgid "Excluding Labels"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:147
+#: a821bce1a8914bb581f533b7af46a9f1
+msgid ""
+"Label patterns can also be specified as a list of exclusions. Exclude "
+"labels by placing an exclamation mark after colon separating the prefix "
+"and pattern. When defined as a list of exclusions, Cilium will include "
+"the set of default labels, but will exclude any matches in the provided "
+"list when evaluating Cilium identities:"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:157
+#: 00cd3050162845849c49cd35a6e30329
+msgid ""
+"The provided example would cause Cilium to exclude any of the following "
+"label matches:"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:160
+#: 669517e75eb748e5b92e80a332aed30d
+msgid "k8s:controller-uid"
+msgstr ""
+
+#: ../../operations/performance/scalability/identity-relevant-labels.rst:161
+#: f63ce6e4f166468ca06933b42b7b9f89
+msgid "k8s:job-name"
+msgstr ""
+

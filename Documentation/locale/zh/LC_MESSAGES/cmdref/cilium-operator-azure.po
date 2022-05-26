@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium-operator-azure.md:3 4617caaff38e4f028e79c251ae830573
+msgid "cilium-operator-azure"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure.md:5 2d21aa8dc5534f4a83c89c6a0b052701
+msgid "Run cilium-operator-azure"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure.md:11 91e94090ef0747fbb7f61a3632ae1e21
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure.md:83 3c5f667e10ee4297a30ff97e4fe47564
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure.md:85 60b41de873ae463788f61d1188da2fb0
+msgid ""
+"[cilium-operator-azure completion](cilium-operator-azure_completion.md)"
+"\t - Generate the autocompletion script for the specified shell"
+msgstr ""
+
+#: ../../cmdref/cilium-operator-azure.md:86 d32f388117cb4de297c2d3679a339665
+msgid ""
+"[cilium-operator-azure metrics](cilium-operator-azure_metrics.md)\t - "
+"Access metric status of the operator"
+msgstr ""
+

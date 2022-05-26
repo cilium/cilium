@@ -1,0 +1,59 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_cleanup.md:3 0bb69c6928dc4fdf9d0b932c7c6a5dd7
+msgid "cilium cleanup"
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:5 fb9577a02d21491b9cab4a0f7176b46f
+msgid "Remove system state installed by Cilium at runtime"
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:7 d5a041a22d774d9ab128e5bbb1792ef6
+msgid "Synopsis"
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:9 bb16d1b3daf74ac3bcb3f6afef8787f7
+msgid ""
+"Clean up CNI configurations, CNI binaries, attached BPF programs, bpffs, "
+"tc filters, routes, links and named network namespaces."
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:12 cb221711f8c34e41b3bb381ebff180c9
+msgid ""
+"Running this command might be necessary to get the worker node back into "
+"working condition after uninstalling the Cilium agent."
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:19 c46216767d364c3b8e357094cc07442b
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:28 c819c2ea39f84210b044f2011719b23a
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:36 958cae39d4054983ade9e44abf9b83e9
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_cleanup.md:38 1a3fac841e4a47e0bdce14778eb57209
+msgid "[cilium](cilium.md)\t - CLI"
+msgstr ""
+

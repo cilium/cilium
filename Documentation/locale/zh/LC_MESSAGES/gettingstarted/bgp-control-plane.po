@@ -1,0 +1,587 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/bgp-control-plane.rst:2
+#: 60431d81b2564b538a263a80854969da
+msgid "Cilium BGP Control Plane"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:5
+#: 8e3a399217ef44e89cd77caa4ad0bcd9
+msgid "Usage"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:7
+#: 298c579a348a4ea0a8ac0f29957df236
+msgid ""
+"Currently a single flag in the ``Cilium Agent`` exists to turn on the "
+"``BGP Control Plane`` feature set."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:14
+#: 114e51cc84344ef7aa08a4ff6858881a
+msgid ""
+"When set to ``true`` the ``BGP Control Plane`` ``Controllers`` will be "
+"instantiated and will begin listening for ``CiliumBGPPeeringPolicy`` "
+"events."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:19
+#: 8367081e76724e369de07ed5cf40d0dc
+msgid "CiliumBGPPeeringPolicy CRD"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:21
+#: 78b7fca319014eca9a6a2e634ab05d58
+msgid ""
+"All ``BGP`` peering topology information is carried in a "
+"``CiliumBGPPeeringPolicy`` CRD."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:24
+#: 908625924dcf44e28753835477969fd1
+msgid ""
+"``CiliumBGPPeeringPolicy`` can be applied to one or more nodes based on "
+"its ``nodeSelector`` fields."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:27
+#: 0b68ce605f73410c9b9ba44e675a2184
+msgid ""
+"A Cilium node may only have a single ``CiliumBGPPeeringPolicy`` apply to "
+"it and if more than one does, it will apply no policy at all."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:30
+#: a2c0d341a4df482da80913dbb25d26a8
+msgid ""
+"Each ``CiliumBGPPeeringPolicy`` defines one or more "
+"``CiliumBGPVirtualRouter`` configurations."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:33
+#: 795dfa7022394c11a015e36cc94d4b49
+msgid ""
+"When these CRDs are written or read from the cluster the ``Controllers`` "
+"will take notice and perform the necessary actions to drive the ``BGP "
+"Control Plane`` to the desired state described by the policy."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:37
+#: c5a75c39daf240899429afefe2b05ef2
+msgid "The policy in ``yaml`` form is defined below:"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:57
+#: a7137585ad144771a048b20b6c9f208b
+msgid "Fields"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:75
+#: 33948e3ef7c9458d878cde5f2ce430a6
+msgid ""
+"Setting unique configuration details of a particular instantiated virtual"
+" router on a particular Cilium node is explained in `Virtual Router "
+"Attributes <#Virtual%20Router%20Attributes>`__"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:80
+#: 22e3f3f8432b43c69512e514919630b2
+msgid "Creating a BGP Topology"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:83
+#: 947a5f00502d437e8f9e1d332321f644
+msgid "Rules"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:85
+#: 5389abb960814549befe8177ef3eded4
+msgid ""
+"Follow the rules below to have a ``CiliumBGPPeeringPolicy`` correctly "
+"apply to a node."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:88
+#: efbc96f7f38043eaae860d120bac1755
+msgid "Only a single ``CiliumBGPPeeringPolicy`` can apply to a ``Cilium`` node."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:91
+#: 6e0a1d42ccbb49a68f226efb9dc67fb9
+msgid ""
+"If the ``BGP Control Plane`` on a node iterates through the "
+"``CiliumBGPPeeringPolicy`` CRs currently written to the cluster and "
+"discovers (n > 1) policies match its labels, it will return an error and "
+"remove any existing BGP sessions. Only (n == 1) policies **must** match a"
+" node's label sets."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:96
+#: 2375e7caf85746f09b6b2ad40e477950
+msgid ""
+"Administrators should test a new BGP topology in a staging environment "
+"before making permanent changes in production."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:99
+#: 8449e7ada74146c28668756274c952f5
+msgid ""
+"Within a ``CiliumBGPPeeringPolicy`` each ``CiliumBGPVirtualRouter`` "
+"defined must have a unique ``localASN`` field."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:102
+#: 08c07c2197e64514a622cf0d19a9c89a
+msgid ""
+"A node cannot host two or more logical routers with the same local ASN. "
+"Local ASNs are used as unique keys for a logical router."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:104
+#: 5450cf4907414e9e84b404b091a23972
+msgid ""
+"A node can define the remote ASN on a per-neighbor basis to mitigate this"
+" scenario. See ``CiliumBGPNeighbor`` CR sub-structure."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:108
+#: 2e7d153ce1df47c2b947f9fb2dcae488
+msgid ""
+"IPv6 single stack deployments **must** set an IPv4 encoded ``routerID`` "
+"field in each defined ``CiliumBGPVirtualRouter`` object within a "
+"``CiliumBGPPeeringPolicy``"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:112
+#: 8a73f08b8f2749bab2040487b59a70d8
+msgid ""
+"Cilium running on a IPv6 single stack cluster cannot reliably generate a "
+"unique 32 bit BGP router ID, as it defines no unique IPv4 addresses for "
+"the node. The administrator must define these IDs manually or an error "
+"applying the policy will occur."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:116
+#: ddd7e614c9674338bd17d23f6a7e2ed8
+msgid ""
+"This is explained further in `Virtual Router Attributes "
+"<#Virtual%20Router%20Attributes>`__"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:120
+#: cec98864134c4d6b94b5de14e015e65e
+msgid "Defining Topology"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:122
+#: 6e645408bacb40be8038366971e5a849
+msgid ""
+"Within a ``CiliumBGPPeeringPolicy`` multiple ``CiliumBGPVirtualRouter``\\"
+" (s) can be defined."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:125
+#: aa65bd5522234cf0b6e55f0bcd44d6b8
+msgid "Each one can be thought of as a logical BGP router instance."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:127
+#: 0f14b3d1e7b34bc7b05e69ce4634fb8b
+msgid ""
+"Defining more than one ``CiliumBGPVirtualRouter`` in a "
+"``CiliumBGPVirtualRouter`` creates more than one logical BGP router on "
+"the hosts which the policy matches."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:131
+#: c44acff963dd498db4c1a35cd3c09b0b
+msgid ""
+"It is possible to create a single ``CiliumBGPPeeringPolicy`` for all "
+"nodes by giving each node in a cluster the same label and defining a "
+"single ``CiliumBGPPeeringPolicy`` which applies to this label."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:135
+#: 2a6d3f6abc3741d69b94f74511cbb6af
+msgid ""
+"It is also possible to provide each ``Kubernetes`` node its own "
+"``CiliumBGPPeeringPolicy`` by giving each node a unique label and "
+"creating a ``CiliumBGPPeeringPolicy`` for each unique label."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:139
+#: a36b3dcf677c448cb6327137e63d1f83
+msgid ""
+"This allows for selecting subsets of nodes which peer to a particular BGP"
+" router while another subset of nodes peer to a separate BGP router, akin"
+" to an \"AS-per-rack\" topology."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:144
+#: d7c7f4fedde94fa5bfe07175e67ae1a9
+msgid "Virtual Router Attributes"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:146
+#: e4626f84cc41469abcc977d76723eaad
+msgid "A ``CiliumBGPPeeringPolicy`` can apply to multiple nodes."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:148
+#: a813b1a5709c47f3a9d38978b598d3c4
+msgid ""
+"When a ``CiliumBGPPeeringPolicy`` applies to one or more nodes each node "
+"will instantiate one or more BGP routers as defined by the list of "
+"``CiliumBGPVirutalRouter``."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:152
+#: 8bc5337165214effb07e265f49319255
+msgid ""
+"However, there are times where fine-grained control over an instantiated "
+"virtual router's configuration needs to take place."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:155
+#: 3c817e57403e4d2196c5b28eed106438
+msgid ""
+"To accomplish this a Kubernetes annotation is defined which applies to "
+"Kubernetes Node resources."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:158
+#: 39bbc6b182094922b11b577cadcd30e0
+msgid ""
+"A single annotation is used to specify a set of configuration attributes "
+"to apply to a particular virtual router instantiated on a particular "
+"host."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:162
+#: aecae5b4e7ac49f5a75449d55e71af84
+msgid "The syntax of the annotation is as follows:"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:168
+#: badd09d36c6549199e6eb0ade633a21f
+msgid ""
+"The ``{asn}`` portion should be replaced by the virtual router's local "
+"ASN you wish to apply these configuration attributes to."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:171
+#: 0f1c183ba4484af6b450acb2821e1643
+msgid "The following sections outline the currently supported attributes."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:175
+#: 6e388b05afe34af782ef9c86e84b4b5e
+msgid ""
+"Each following section describes the syntax of applying a single "
+"attribute, however the annotation's value supports a comma separated "
+"lists of attributes and applying multiple attributes in a single "
+"annotation is supported."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:182
+#: 412d46da3b71407aa0494e0b1d9381c1
+msgid ""
+"When duplicate ``key=value`` attributes are defined the last one will be "
+"selected."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:186
+#: 63d3556f0c3d4850bb3788451a3bfbc6
+msgid "Router ID Attribute"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:188
+#: cd162c6932544775a3c69cd5b7b93278
+msgid ""
+"When Cilium is running on an ``IPv4`` or a dual-stack ``IPv4/6`` cluster "
+"the ``BGP Control Plane`` will utilize the ``IPv4`` addressed used by "
+"Cilium for external reach ability."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:192
+#: 1d9c2733e8a04bd399117e538a92d201
+msgid ""
+"This will typically be Kubernetes' reported external IP address but can "
+"also be configured with a Cilium agent flag."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:195
+#: faffe0978da340668e593947018c505d
+msgid ""
+"When running in ``IPv6`` single stack or when the administrator needs to "
+"manually define the instantiated BGP server's router ID a Kubernetes "
+"annotation can be placed on the node."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:199
+#: dd1f4482fff14e3aa210afbf33ef1c6f
+msgid "The annotation takes the following syntax:"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:205
+#: 6f11d73934bd486bb48ef62d7476cd32
+msgid ""
+"The above annotation syntax should replace ``{asn}`` with the local ASN "
+"of the ``CiliumBGPVirtualRouter`` you are setting the provided router ID "
+"for."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:209
+#: fd7c18e545a845b5a5636baf30435c57
+msgid ""
+"When the ``BGPControlPlane`` evaluates a ``CiliumBGPPeeringPolicy`` with "
+"a ``CiliumBGPVirtualRouter`` it also searches for an annotation which "
+"targets the aforementioned ``CiliumBGPVirtualRouter`` local ASN."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:213
+#: e45cce2e3190486ab0e885f89903ff45
+msgid ""
+"If found it will use the provided router ID and not attempt to use the "
+"IPv4 address assigned to the node."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:217
+#: fbe1532202ed4e22b6930d84b9fedb13
+msgid "Local Listening Port"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:219
+#: bd202cba90da42cc87c5d92414656d52
+msgid ""
+"By default the ``GoBGP BGPRouterManager`` will instantiate each virtual "
+"router without a listening port."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:222
+#: 77b42e014cf6426baf1d91ed6fe59f34
+msgid ""
+"It is possible to deploy a virtual router which creates a local listening"
+" port where BGP connections may take place."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:225
+#: 6ddc96f9555b4819ba02cbe8e179370d
+msgid "If this is desired the following annotation can be provided"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:232
+#: a39a95d3fb124fe7b11dc13e46ef1f4e
+msgid "Architecture"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:234
+#: 5c08c5647b8442489684d4510aa2f50f
+msgid ""
+"The ``BGP Control Plane`` is split into a ``Agent-Side Control Plane`` "
+"and a ``Operator-Side`` control plane (not yet implemented)."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:237
+#: 855845376fda46f19dcc267117c912a0
+msgid ""
+"Both control planes are implemented by a ``Controller`` which follows the"
+" ``Kubernetes`` controller pattern."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:240
+#: e4a8fcc5f45646fa88a0d2e8f6b95c20
+msgid ""
+"Both control planes primary listen for ``CiliumBGPPeeringPolicy`` CRDs, "
+"long with other Cilium and Kubernetes resources useful for implementing a"
+" BGP control plane."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:245
+#: c3187d745b42426faf67b22ac584d555
+msgid "Agent-Side Architecture"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:248
+#: 79fc08dd08cc463aa504f3b7764d0c3d
+msgid "Controller"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:250
+#: 06fddd891c764e42a1d9563527f057eb
+msgid ""
+"The ``Agent-Side Control Plane`` implements a controller located in "
+"``pkg/bgpv1/agent/controller.go``."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:253
+#: 9370c295bbcb400698f0b7cd4964352c
+msgid ""
+"The controller listens for ``CiliumBGPPeeringPolicy``, determines if a "
+"policy applies to its current host and if it does, captures some "
+"information about Cilium's current state then calls down to the "
+"implemented ``BGPRouterManager``."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:259
+#: 2a33cb586aa34c659a9755d8db9d0054
+msgid "BGPRouterManager"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:261
+#: 3f18daf7025444c2b60392c210dd8e06
+msgid ""
+"The ``BGPRouterManager`` is an interface used to define a declarative API"
+" between the ``Controller`` and instantiated BGP routers."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:264
+#: 97d06b8cfe3d498086dc04e6a986fad8
+msgid ""
+"The interface defines a single declarative method whose argument is the "
+"desired ``CiliumBGPPeeringPolicy`` (among a few others)."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:267
+#: 01c752a4e9d44388874e08380ca13fc2
+msgid ""
+"The ``BGPRouterManager`` is in charge of pushing the ``BGP Control "
+"Plane`` to the desired ``CiliumBGPPeeringPolicy`` or returning an error "
+"if it is not possible."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:272
+#: db5c1e2d5cb3496b92b3a41ec0e39faf
+msgid "GoBGP Implementation"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:274
+#: c672e84711df46e2ad7da2a14fcb95da
+msgid ""
+"The first implementation of ``BGPRouterManager`` utilizes the ``gobgp`` "
+"package."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:277
+#: dd6c4223dbbd44d2926b93b755f8ecdd
+msgid "You can find this implementation in ``pkg/bgpv1/gobgp``."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:279
+#: 67b33c75a36c4abc8715984b4996d6d0
+msgid ""
+"This implementation will - evaluate the desired "
+"``CiliumBGPPeeringPolicy`` - create/remove the desired BGP routers - "
+"advertise/withdraw the desired BGP routes - enable/disable any BGP server"
+" specific features - inform the caller if the policy cannot be applied"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:285
+#: 01fb1903a48f4778a954a0a7824ab999
+msgid ""
+"The GoBGP implementation is capable of evaluating each "
+"``CiliumBGPVirtualRouter`` in isolation."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:288
+#: 203e8865544c4d788b6b69bea7c46eaf
+msgid ""
+"This means when applying a ``CiliumBGPPeeringPolicy`` the GoBGP "
+"``BGPRouterManager`` will attempt to create each "
+"``CiliumBGPVirtualRouter``."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:292
+#: 85c76d12bb4c40ab8bba5ef8287cfce0
+msgid ""
+"If a particular ``CiliumBGPVirtualRouter`` fails to instantiate the error"
+" is logged and the ``BGPRouterManager`` will continue to the next "
+"``CiliumBGPVirtualRouter``, utilizing the aforementioned logic."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:296
+#: 6903ee2a1038437b937d6ae2c5259607
+msgid "GoBGP BGPRouterManager Architecture"
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:299
+#: 01d0d26e6f764b73ac55c77b3cf7d87f
+msgid ""
+"It's worth expanding on how the ``gobgp`` implementation of the "
+"``BGPRouterManager`` works internally."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:302
+#: 678538d0dd76473b937ca23aa3383222
+msgid ""
+"This ``BGPRouterManager`` views each ``CiliumBGPVirtualRouter`` as a BGP "
+"router instance."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:305
+#: 7e90250dcfa9478ca19766e00ba3bd8e
+msgid ""
+"Each ``CiliumBGPVirtualRouter`` defines a local ASN, a router ID and a "
+"list of ``CiliumBGPNeighbors`` to peer with."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:308
+#: d4f723730c9e4b0080dac24180895bd2
+msgid ""
+"This is enough for the ``BGPRouterManager`` to create a ``BgpServer`` "
+"instance, which is the nomenclature defining a BGP speaker in ``gobgp"
+"``-package-parlance."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:312
+#: 760f965be06640418d489bd37c393721
+msgid ""
+"This ``BGPRouterManager`` groups ``BgpServer`` instances by their local "
+"ASNs."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:315
+#: 59d052e733a34af89622dc8438a3061b
+msgid ""
+"This leads to the following rule: - A ``CiliumBGPPeeringPolicy`` applying"
+" to node ``A`` must not have two or more ``CiliumBGPVirtualRouters`` with"
+" the same ``localASN`` fields."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:319
+#: f5387b43f8c3425e90d2b3aa1373540b
+msgid ""
+"The ``gobgp`` ``BGPRouterManager`` employs a set of "
+"``ConfigReconcilerFunc``\\ (s) which perform the order-dependent "
+"reconciliation actions for each ``BgpServer`` it must reconcile."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:323
+#: 9f15f66cf5374ccbbee3c307a8871b7c
+msgid "A ``ConfigReconcilerFunc`` is simply a function with a typed signature."
+msgstr ""
+
+#: ../../gettingstarted/bgp-control-plane.rst:329
+#: 3a0c11d2bcd74322a27e2e7b21aa9b4a
+msgid ""
+"See the source code at ``pkg/bgpv1/gobgp/reconcile.go`` for a more in "
+"depth explanation of how each ``ConfigReconcilerFunc`` is called."
+msgstr ""
+

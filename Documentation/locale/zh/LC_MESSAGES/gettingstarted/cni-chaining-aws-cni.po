@@ -1,0 +1,354 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:3
+#: ../../gettingstarted/cni-chaining-limitations.rst:3
+#: ../../gettingstarted/k8s-install-download-release.rst:3
+#: 21dcce86d4d64d5ab73dafee7d8120f5 ac21f969f4034b29b1e5b4fc8841da18
+#: afab0bc3e9e3493d9dd54c0737457a19
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:11
+#: 2d80c4a8302844ada364044873878684
+msgid "AWS VPC CNI plugin"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:13
+#: b0dd569414c649fd867423d6828104ed
+msgid ""
+"This guide explains how to set up Cilium in combination with the AWS VPC "
+"CNI plugin. In this hybrid mode, the AWS VPC CNI plugin is responsible "
+"for setting up the virtual network devices as well as for IP address "
+"management (IPAM) via ENIs. After the initial networking is setup for a "
+"given pod, the Cilium CNI plugin is called to attach eBPF programs to the"
+" network devices set up by the AWS VPC CNI plugin in order to enforce "
+"network policies, perform load-balancing and provide encryption."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:9
+#: 588456602b8c48848bdd44239c3b3430
+msgid ""
+"Some advanced Cilium features may be limited when chaining with other CNI"
+" plugins, such as:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:12
+#: c69a1df49f9047cb9b91127a4993d0f6
+msgid ":ref:`Layer 7 Policy <l7_policy>` (see :gh-issue:`12454`)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-limitations.rst:13
+#: 27b36934eb0949debfeeaf9c875f3cab
+msgid ":ref:`encryption_ipsec` (see :gh-issue:`15596`)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:25
+#: 56a15548e2144be2916bdadb374b9d9d
+msgid ""
+"Please ensure that you are running version `1.7.9 <https://github.com/aws"
+"/amazon-vpc-cni-k8s/releases/tag/v1.7.9>`_ or newer of the AWS VPC CNI "
+"plugin to guarantee compatibility with Cilium."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:33
+#: 4fadd885ab2d4e8bb774bc78dbe617b0
+msgid ""
+"If you are running an older version, as in the above example, you can "
+"upgrade it with:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:43
+#: ef5c2d2cbfd8475197107ce12e1c25e2
+msgid "Setting up a cluster on AWS"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:45
+#: d11abd83dab34ac9ab986cd0a42c7d9e
+msgid ""
+"Follow the instructions in the :ref:`k8s_install_quick` guide to set up "
+"an EKS cluster, or use any other method of your preference to set up a "
+"Kubernetes cluster on AWS."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:49
+#: a6e6394d8e7d4316b4a14cd1cd916e0d
+msgid ""
+"Ensure that the `aws-vpc-cni-k8s <https://github.com/aws/amazon-vpc-cni-"
+"k8s>`_ plugin is installed — which will already be the case if you have "
+"created an EKS cluster. Also, ensure the version of the plugin is up-to-"
+"date as per the above."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:9
+#: c061a22a917241cb91d657bcaa9b435a
+msgid ""
+"Make sure you have Helm 3 `installed "
+"<https://helm.sh/docs/intro/install/>`_. Helm 2 is `no longer supported "
+"<https://helm.sh/blog/helm-v2-deprecation-timeline/>`_."
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:14
+#: 0c3e5e4f48574dda9e1f7cb228b013b3
+msgid "Setup Helm repository:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-download-release.rst:22
+#: 0ef0c64e46e442ebbf203298be1a7b50
+msgid ""
+"Download the Cilium release tarball and change to the kubernetes install "
+"directory:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:55
+#: 0214e82a7a1c4ca2a90b6f18851c90a7
+msgid "Deploy Cilium via Helm:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:65
+#: fb6e7e13a6f540268375a79dfb37686f
+msgid ""
+"This will enable chaining with the AWS VPC CNI plugin. It will also "
+"disable tunneling, as it's not required since ENI IP addresses can be "
+"directly routed in the VPC. For the same reason, masquerading can be "
+"disabled as well."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:70
+#: 9bf6e5f589714a189730339ffe137583
+msgid "Restart existing pods"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:72
+#: f86faf0026cf4ce4ae683c75a9497c32
+msgid ""
+"The new CNI chaining configuration *will not* apply to any pod that is "
+"already running in the cluster. Existing pods will be reachable, and "
+"Cilium will load-balance *to* them, but not *from* them. Policy "
+"enforcement will also not be applied. For these reasons, you must restart"
+" these pods so that the chaining configuration can be applied to them."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:78
+#: d09720c3de2545ea9ab6c0a954562f7f
+msgid ""
+"The following command can be used to check which pods need to be "
+"restarted:"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:2
+#: 8aa538168fd44212a30c2e0e517df42f
+msgid "Validate the Installation"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:6
+#: 81aea4e9182944a4804cc9580db15b7e
+msgid "Cilium CLI"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:1 580a33cbf8fc4e87be7602830c6f67ad
+#: 79b498b3da3f4662aeeca532c5bd006a
+msgid ""
+"Install the latest version of the Cilium CLI. The Cilium CLI can be used "
+"to install Cilium, inspect the state of a Cilium installation, and "
+"enable/disable various features (e.g. clustermesh, Hubble)."
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:6 cbe2ed2f53e347c6ac32e454f7e1ccef
+#: df64b20f46374bca8d9a6530317765e7
+msgid "Linux"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:15 500a9b86e5ff4a769a3b18b39c648649
+#: 78bcdcfddf4e4a88b463e3ba7453b0fe
+msgid "macOS"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:24 7de4bf3b7fd945eebb81d9a1b12d6314
+#: d16f4e6b95a34cad8b49875b6e70b4ce
+msgid "Other"
+msgstr ""
+
+#: ../../gettingstarted/cli-download.rst:26 44291d77c0db4cd193272d5d2e152639
+#: 8c219c4fd11842f1acc0b9c6320019cc
+msgid ""
+"See the full page of `releases <https://github.com/cilium/cilium-"
+"cli/releases/latest>`_."
+msgstr ""
+
+#: ../../gettingstarted/cli-status.rst:1 6d356f8e7ead4acd9642d7d5278b8981
+#: c8ee8d12a5554022838dc4cab6e9d21d
+msgid "To validate that Cilium has been properly installed, you can run"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:1
+#: d5ce58f8e5ea460ba63a49be6243d288
+msgid ""
+"Run the following command to validate that your cluster has proper "
+"network connectivity:"
+msgstr ""
+
+#: ../../gettingstarted/cli-connectivity-test.rst:15
+#: 7769dcedcec449b48d958adbc8c231f2
+msgid ""
+"Congratulations! You have a fully functional Kubernetes cluster with "
+"Cilium. 🎉"
+msgstr ""
+
+#: ../../gettingstarted/k8s-install-validate.rst:12
+#: 3f539448fa54436a82d3838bd14c8980
+msgid "Manually"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:1 4a920afb976f4847a779b393d24c1943
+#: f659a7ef2ee3488fb10794e4f7b182ff
+msgid "You can monitor as Cilium and all required components are being installed:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-status.rst:12 735fdd29824240a9954f64cede1b2913
+#: e49cca41bbde4b66bb18ad5c2ec7f267
+msgid "It may take a couple of minutes for all components to come up:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:1
+#: 0d7abd934f25443cbfd06e85c1330e44
+msgid ""
+"You can deploy the \"connectivity-check\" to test connectivity between "
+"pods. It is recommended to create a separate namespace for this."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:8
+#: d94c8707eff544bda9c19bd3269b90da
+msgid "Deploy the check with:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:14
+#: 196e5cfc47d047c59318f7a48f48e676
+msgid ""
+"It will deploy a series of deployments which will use various "
+"connectivity paths to connect to each other. Connectivity paths include "
+"with and without service load-balancing and various network policy "
+"combinations. The pod name indicates the connectivity variant and the "
+"readiness and liveness gate indicates success or failure of the test:"
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:41
+#: 6127ed4cc08a4beda106a6eb1c9bf140
+msgid ""
+"If you deploy the connectivity check to a single node cluster, pods that "
+"check multi-node functionalities will remain in the ``Pending`` state. "
+"This is expected since these pods need at least 2 nodes to be scheduled "
+"successfully."
+msgstr ""
+
+#: ../../gettingstarted/kubectl-connectivity-test.rst:45
+#: c96a40ae59fb433aaee371c9e78785eb
+msgid "Once done with the test, remove the ``cilium-test`` namespace:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:97
+#: 01e8fae4107e4a27a8185f62304b2a6b
+msgid "Advanced"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:100
+#: 83a4acdd69b44b83a6b5e367daa3b84e
+msgid "Enabling security groups for pods (EKS)"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:102
+#: df921d75545043a7a4563d16cf5c3a42
+msgid ""
+"Cilium can be used alongside the `security groups for pods "
+"<https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-"
+"pods.html>`_ feature of EKS in supported clusters when running in "
+"chaining mode. Follow the instructions below to enable this feature:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:108
+#: 8295fb782a6146109eefafbb0ef73f1b
+msgid ""
+"The following guide requires `jq <https://stedolan.github.io/jq/>`_ and "
+"the `AWS CLI <https://aws.amazon.com/cli/>`_ to be installed and "
+"configured."
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:111
+#: 11b661b1d51e4a75ad8784bf868accc0
+msgid ""
+"Make sure that the ``AmazonEKSVPCResourceController`` managed policy is "
+"attached to the IAM role associated with the EKS cluster:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:124
+#: 2735f6cb771d4f2aaf36fe2314e75976
+msgid ""
+"Then, and as mentioned above, make sure that the version of the AWS VPC "
+"CNI plugin running in the cluster is up-to-date:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:133
+#: 5beb25c2757c4cf5b2c663a6282f64aa
+msgid ""
+"Next, patch the ``kube-system/aws-node`` DaemonSet in order to enable "
+"security groups for pods:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:142
+#: 4ed1f98836d6414cb301e49a66855422
+msgid ""
+"After the rollout is complete, all nodes in the cluster should have the "
+"``vps.amazonaws.com/has-trunk-attached`` label set to ``true``:"
+msgstr ""
+
+#: ../../gettingstarted/cni-chaining-aws-cni.rst:151
+#: be5b54e2804c4898a19c23d56e16ff2d
+msgid ""
+"From this moment everything should be in place. For details on how to "
+"actually associate security groups to pods, please refer to the `official"
+" documentation <https://docs.aws.amazon.com/eks/latest/userguide"
+"/security-groups-for-pods.html>`_."
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:2 b492c97436a549ca90ed9c894fef2bb6
+msgid "Next Steps"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:4 dc62d21a13c7498cb4024a5f2ecef624
+msgid ":ref:`hubble_setup`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:5 97c0f815fad248d4b239a76b1ba80bf1
+msgid ":ref:`hubble_cli`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:6 4587a03aeb814a50beafea257e231731
+msgid ":ref:`hubble_ui`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:7 260ea7668f1943da994c8f3f68bed639
+msgid ":ref:`gs_http`"
+msgstr ""
+
+#: ../../gettingstarted/next-steps.rst:8 d6082693aa56482f80b672a7f6198b22
+msgid ":ref:`clustermesh`"
+msgstr ""
+

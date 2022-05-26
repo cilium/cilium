@@ -1,0 +1,333 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/introducing_new_crds.rst:2
+#: 8facc40659004fca9d1a9d1d654678a1
+msgid "Introducing New CRDs"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:4
+#: dc31775f5d0c4ee0a0c3bc9827a25b5f
+msgid ""
+"Cilium uses a combination of code generation tools to facilitate adding "
+"CRDs to the Kubernetes instance it is installed on."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:7
+#: c9cf23a3d16b4f59a783d9915ed23a54
+msgid ""
+"These CRDs make themselves available in the generated Kubernetes client "
+"Cilium uses."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:11
+#: c68f88539f964be1b53376b028ed3569
+msgid "Defining And Generating CRDs"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:13
+#: 253a1c66bbfb4e39960adb7c58fbef81
+msgid "Currently, two API versions exist ``v2`` and ``v2alpha1``."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:15
+#: ../../contributing/development/introducing_new_crds.rst:68
+#: ../../contributing/development/introducing_new_crds.rst:162
+#: 17161d2f80b1411b94eba82478a65858 b0df20e019f5492fb9a1e16acdcdcf4b
+#: b4ea22ed68d44a8885bba9a4e40c31e3
+msgid "Paths:"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:22
+#: 6d854f8a0f634512a9b873b77456341c
+msgid ""
+"CRDs are defined via Golang structures, annotated with ``marks``, and "
+"generated with Cilium make file targets."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:26
+#: f7c8c0d67b92470494ca2734d22dd1ec
+msgid "Marks"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:28
+#: 2df9ce4f872d4a6c9b3720b1aaff1511
+msgid ""
+"Marks are used to tell ``controller-gen`` *how* to generate the CRD. This"
+" includes defining the CRD's various names (Singular, plural, group), its"
+" Scope (Cluster, Namespaced), Shortnames, etc…"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:32
+#: ../../contributing/development/introducing_new_crds.rst:49
+#: 334def1d6d774d1a9335d2ff79f63f94 7b3bb9e91ed64345abb28d8d338b5850
+msgid "An example:"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:42
+#: 0d1fe88fe6d14085b31eeda78b720c98
+msgid ""
+"You can find CRD generation ``marks`` documentation `here "
+"<https://book.kubebuilder.io/reference/markers/crd.html>`__."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:45
+#: 5cf7094fe53e4b1daa41ffaca83bcac9
+msgid ""
+"Marks are also used to generate json-schema validation. You can define "
+"validation criteria such as \"format=cidr\" and \"required\" via "
+"validation ``marks`` in your struct's comments."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:62
+#: e6571a065af348bbbebd5666195e6256
+msgid ""
+"You can find CRD validation ``marks`` documentation `here "
+"<https://book.kubebuilder.io/reference/markers/crd-validation.html>`__."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:66
+#: 3e70dda89a2148a7b7a760bba7a51db8
+msgid "Defining CRDs"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:75
+#: 2f320849baad45d2b414b0827871161d
+msgid ""
+"The portion of the directory after ``apis/`` makes up the CRD's ``Group``"
+" and ``Version``. See `KubeBuilder-GVK <https://book.kubebuilder.io"
+"/cronjob-tutorial/gvks.html>`__"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:79
+#: 4f8188a8c5654545911cafbc969de796
+msgid ""
+"You can begin defining your ``CRD`` structure, making any subtypes you "
+"like to adequately define your data model and using ``marks`` to control "
+"the CRD generation process."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:83
+#: 0451bc509035497aa413bd05eaa86624
+msgid ""
+"Here is a brief example, omitting any further definitions of sub-types to"
+" express the CRD data model."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:112
+#: f72401df6756495abbed26a6dd172857
+msgid "Integrating CRDs Into Cilium"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:114
+#: db27fa922e1643438fe21cda3abd5bf0
+msgid ""
+"Once you've coded your CRD data model you can use Cilium's ``make`` "
+"infrastructure to generate and integrate your CRD into Cilium."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:117
+#: af29e423aace414095a58f1e708d865e
+msgid ""
+"There are several make targets and a script which revolve around "
+"generating CRD and associated code gen (client, informers, ``DeepCopy`` "
+"implementations, ``DeepEqual`` implementations, etc)."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:121
+#: 5612bc33fbc7423e8f29117a01788954
+msgid ""
+"Each of the next sections also detail the steps you should take to "
+"integrate your CRD into Cilium."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:125
+#: 8a50e5c0f3cc495d8d70c6d38a53d85d
+msgid "Generating CRD YAML"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:127
+#: 3a67a83b611c4611b9985561d9c3504f
+msgid ""
+"To simply generate the CRDs and copy them into the correct location you "
+"must perform two tasks:"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:130
+#: 69e4f901b01e4b919de8652809f2f8a3
+msgid ""
+"Update the ``Makefile`` to copy your generated CRD from a ``tmp`` "
+"directory to the correct location in Cilium repository. Edit the "
+"following `location "
+"<https://github.com/cilium/cilium/blob/89ca3eddf3dae9ac5fc6c343a2cd26cf3aa405fa/Makefile#L303-L311>`__"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:133
+#: 2ba25ec92d74429681422b3b524bb629
+msgid "Run ``make manifests``"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:135
+#: a09c2511a52b49f1a160fb60dcc14ec2
+msgid ""
+"This will generate your Golang structs into CRD manifests and copy them "
+"to ``./pkg/k8s/apis/cilium.io/client/crds/`` into the appropriate "
+"``Version`` directory."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:139
+#: ea86a3506884406fb507bea2b07177b1
+msgid "You can inspect your generated ``CRDs`` to confirm they look OK."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:141
+#: 29a407d06c494fb2914989b6e8ab5c83
+msgid ""
+"Additionally ``./contrib/scripts/check-k8s-code-gen.sh`` is a script "
+"which will generate the CRD manifest along with generating the necessary "
+"K8s API changes to use your CRDs via K8s client in Cilium source code."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:146
+#: 4f88c4b5636b479aa2a5632565085ff3
+msgid "Generating Client Code"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:152
+#: b843d33e62ae46018810dd5c16e1f0b3
+msgid ""
+"This make target will perform the necessary code-gen to integrate your "
+"CRD into Cilium's ``client-go`` client, create listers, watchers, and "
+"informers."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:156
+#: 5dcf8f7188334eaca88098d89063d133
+msgid ""
+"Again, multiple steps must be taken to fully integrate your CRD into "
+"Cilium."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:160
+#: fa9424fb2f12474f831de0370a6d60e9
+msgid "Register With API Scheme"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:168
+#: 9c28e7bd866147e0a05467348b086b2d
+msgid ""
+"Make a change similar to this diff to register your CRDs with the API "
+"scheme."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:224
+#: a5ea4bcc22294fc8a6a4f1c323691b3c
+msgid ""
+"You should also bump the ``CustomResourceDefinitionSchemaVersion`` "
+"variable in the correct ``{api_version}/register.go`` to instruct Cilium "
+"that new CRDs have been added to the system. For example, bump this line "
+"if adding a CRD to the ``v2`` group: `register.go "
+"<https://github.com/cilium/cilium/blob/ea9fd6f97b6e7b0d115067dc9f69ba461055530f/pkg/k8s/apis/cilium.io/v2/register.go#L21-L27>`__"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:231
+#: 41ea3417e20644ccb6612cba1f6ef716
+msgid "Register With Client"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:233
+#: 9f9eeac228fe402b8d03fcdc64b3855b
+msgid "``pkg/k8s/apis/cilium.io/client/register.go``"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:235
+#: ebfacb5120814401b592b07a7083aa0e
+msgid ""
+"Make a change similar to the following to register CRD types with the "
+"client."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:313
+#: 66fe116847774fb986a5ad2dd40647c1
+msgid "Getting Your CRDs Installed"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:315
+#: efae00cfed304a1b9db95e982289e99b
+msgid ""
+"Your new CRDs must be installed into Kubernetes. This is controlled in "
+"the ``pkg/k8s/synced/crd.go`` file."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:318
+#: 04241caa89894967a0db27bbcfb801f6
+msgid ""
+"Here is an example diff which installs the CRDs ``v2alpha1.BGPPName`` and"
+" ``v2alpha.BGPPoolName``:"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:339
+#: 91c785dc9ff44ba3bc10e4016705c6c5
+msgid "Updating RBAC Roles"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:341
+#: eaf3a743db8f42cba78faede9b3382fd
+msgid ""
+"Cilium is installed with a service account and this service account "
+"should be given RBAC permissions to access your new CRDs. The following "
+"files should be updated to include permissions to create, read, update, "
+"and delete your new CRD."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:352
+#: 52ce913b11dc4f14980e2843401cc6d2
+msgid ""
+"Here is a diff of updating the Agent's cluster role template to include "
+"our new BGP CRDs:"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:371
+#: ab35d139c10a4a3fbaa2317f107265d4
+msgid ""
+"It's important to note, neither the Agent nor the Operator installs these"
+" manifests to the Kubernetes clusters. This means when testing your CRD "
+"out the updated ``clusterrole`` must be written to the cluster manually."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:376
+#: ace6d93865b24b7e93dd8f1cbfc2c510
+msgid ""
+"Also please note, you should be specific about which 'verbs' are added to"
+" the Agent's cluster role. This ensures a good security posture and best "
+"practice."
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:380
+#: 88d03f02434a4d7388e24fe215283c07
+msgid "A convenient script for this follows:"
+msgstr ""
+
+#: ../../contributing/development/introducing_new_crds.rst:407
+#: 1389c31207c7461faf486726a86b6b43
+msgid ""
+"The above script with install Cilium and newest ``clusterrole`` manifests"
+" to anywhere your ``kubectl`` is pointed."
+msgstr ""
+

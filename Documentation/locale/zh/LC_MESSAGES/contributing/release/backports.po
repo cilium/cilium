@@ -1,0 +1,602 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/release/backports.rst:3 ee9236b112e448309f99f820474e60c0
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:10 2157719b3f04405f8bdd92e1ed2d3661
+msgid "Backporting process"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:15 4333d43943e549f6b7c94dd02ff81476
+msgid "Backport Criteria"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:17 6a6606f20ac24af5bb210ba4123a2d8f
+msgid ""
+"Committers may nominate PRs that have been merged into master as "
+"candidates for backport into stable releases if they affect the stable "
+"production usage of community users."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:22 e99e9e6759b2438ca3543a9537953255
+msgid "Backport Criteria for Current Minor Release"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:24 0440df22ddaf4b88aef498c30ea727d7
+msgid ""
+"Criteria for inclusion into the next stable release of the current latest"
+" minor version of Cilium, for example in a ``v1.2.z`` release prior to "
+"the release of version ``v1.3.0``:"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:28 08e70eccbd004feb85b8dfefa9187031
+msgid "All bugfixes"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:29
+#: ../../contributing/release/backports.rst:40 03cc99ed458844f0b83668dfad5cab63
+#: 11b6c6acd2d2407e80b8b712493921aa
+msgid "Debug tool improvements"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:32 ad503699285449a0bff6cd36683f7d10
+msgid "Backport Criteria for X.Y-1.Z and X.Y-2.Z"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:34 5908059daff547268ae6d7bb5d1d3015
+msgid ""
+"Criteria for the inclusion into the next stable release of the prior two "
+"minor versions of Cilium, for example in a ``v1.0.z`` or ``v1.1.z`` "
+"release prior to the release of version ``v1.3.0``:"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:38 ab4409af38cf43e3a8a3c6eee61180a0
+msgid "Security relevant fixes"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:39 ebcdbf6354004f629738e231fab1428d
+msgid "Major bugfixes relevant to the correct operation of Cilium"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:43 8d00f0aad94841d1b2e76c1b46b91c7f
+msgid "Backport Criteria for documentation changes"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:45 3fe165f758094bf0a33e99c27a4355f3
+msgid ""
+"Changes to Cilium's documentation should generally be subject to "
+"backports for all supported branches to which they apply (all supported "
+"branches containing the parent features to which the modified sections "
+"relate)."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:49 4aaa3c70d748412bae255b4264e5725c
+msgid ""
+"The motivation is that users can then simply look at the branch of the "
+"documentation related to the version they are deploying, and find the "
+"latest correct instructions for their version."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:54 5ed0f678248c4281b14a90eeb7076703
+msgid "Proposing PRs for backporting"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:56 70732aa18f794b1ab4e8e8ccffe0d6d6
+msgid ""
+"PRs are proposed for backporting by adding a ``needs-backport/X.Y`` label"
+" to them. Normally this is done by the author when the PR is created or "
+"one of the maintainers when the PR is reviewed. When proposing PRs that "
+"have already been merged, also add a comment to the PR to ensure that the"
+" backporters are notified."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:63 2195ba2add424cc99061fd330fe94bce
+msgid "Backporting Guide for the Backporter"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:65 2c584853ee9f4f68bf0a38b4091ef822
+msgid ""
+"Cilium PRs that are marked with the label ``needs-backport/X.Y`` need to "
+"be backported to the stable branch ``X.Y``. The following steps summarize"
+" the process for backporting these PRs:"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:69 6c3a8be993dc4ae98146b93b8513a9c0
+msgid "One-time setup"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:70 b27cd742e11643f3a97f9ef942797ee4
+msgid "Preparing PRs for backport"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:71 8a4ac3d544dc4c82a01ca57b04c9acd5
+msgid "Cherry-picking commits into a backport branch"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:72 81ff36a4b2b64481af2a84b1f19731e5
+msgid "Posting the PR and updating GitHub labels"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:77 52c2ad0e456648f9a17b9ba79ced77e2
+msgid "One-time Setup"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:79 029195c55313474fa7967c40b6010ddf
+msgid ""
+"Make sure you have a GitHub developer access token with the "
+"``public_repos`` ``workflow``, ``read:user`` scopes available. You can do"
+" this directly from https://github.com/settings/tokens or by opening "
+"GitHub and then navigating to: User Profile -> Settings -> Developer "
+"Settings -> Personal access token -> Generate new token."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:85 f02f825bdc5a4981a57a39f6063e2265
+msgid ""
+"The scripts referred to below need to be run on Linux, they do not work "
+"on macOS. It is recommended to create a container using "
+"(``contrib/backporting/Dockerfile``), as it will have all the correct "
+"versions of dependencies / libraries."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:100
+#: f600b0c59ef948b6a490ba5f5ff259f0
+msgid ""
+"If you are running on a mac OS, and see ``/home/user/.ssh/config: line 3:"
+" Bad configuration option: usekeychain`` error message while running any "
+"of the backporting scripts, comment out the line ``UseKeychain yes``."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:104
+#: b360990e5e2a4d33b3a2ae6305b10296
+msgid ""
+"Once you have a setup ready, you need to configure git to have your name "
+"and email address to be used in the commit messages:"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:112
+#: 1d3e2c8d3c70400981ae5971fa30aaa2
+msgid ""
+"Add remotes for the Cilium upstream repository and your Cilium repository"
+" fork."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:119
+#: a76acab8501c4305920c442ec457bff5
+msgid ""
+"Skip this step if you have created a setup using the pre-defined "
+"Dockerfile. This guide makes use of several tools to automate the "
+"backporting process. The basics require ``bash`` and ``git``, but to "
+"automate interactions with github, further tools are required."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:125
+#: 2df8985c6cdd4324a4cc43fd0783d7ce
+msgid "Dependency"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:125
+#: 1ff77b5183c946d4b7fdc2d89a69d2c3
+msgid "Required?"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:125
+#: 69a22211dda44464840245460c2ff00f
+msgid "Download Command"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:127
+#: 3e6b52cc2e354787ad13954efb5420cc
+msgid "bash"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:127
+#: ../../contributing/release/backports.rst:129
+#: ../../contributing/release/backports.rst:131
+#: ../../contributing/release/backports.rst:133
+#: ../../contributing/release/backports.rst:135
+#: ../../contributing/release/backports.rst:137
+#: 007371c09c2449e8bca8335b3101f482 9849515caccb4c129a0a6d7bb067eb40
+#: a70a66fcaac8469198308a4e8bf35ca2 d9ed414e104d445e82c5333fd96250b8
+#: e2b92e5006a74769851b33db978449fe f31624b828894d839852708021cb1fe3
+msgid "Yes"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:127
+#: ../../contributing/release/backports.rst:129
+#: ../../contributing/release/backports.rst:131
+#: ../../contributing/release/backports.rst:137
+#: 9012bf53825b47aa9e266f85eb4164bd a5ef5948973f413fbf0af970ce1fa8d8
+#: aa97543f7651484a90cd03b3471ba57c d981077daec941aaa1a69f71f1970472
+msgid "N/A (OS-specific)"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:129
+#: f145b97468d54bf19bb097d3fa8c01ea
+msgid "git"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:131
+#: bf63f00a4c274dfaaf64e32c8ec96e75
+msgid "jq"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:133
+#: a9ba8ae23fbd4571953ce05ade48efdc
+msgid "python3"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:133
+#: 8a0ed8733bfc4b76b602ab633513f910
+msgid "`Python Downloads <https://www.python.org/downloads/>`_"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:135
+#: 54098cd0ccae478c8155c7a5091ae89b
+msgid "`PyGithub <https://pypi.org/project/PyGithub/>`_"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:135
+#: cfc8f1223d764aa89153e44f70c5f1f5
+msgid "``pip3 install PyGithub``"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:137
+#: c1c887c1e4c74e739a0b4d3ab62f7fcb
+msgid "`Github hub CLI (>= 2.8.3) <https://github.com/github/hub>`_"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:140
+#: a8704965a5ba48d4bd64f5d453f8fe4e
+msgid "Verify your machine is correctly configured by running"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:147
+#: 58c87b9b923743719c1f0e6c5b52d87b
+msgid "Preparation"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:149
+#: d295889520e24ca8b8e2693eb7ed1f2d
+msgid ""
+"Pull requests that are candidates for backports to the X.Y stable release"
+" are tracked through the following links:"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:152
+#: 40874567b9474a9d9b8f3109d863e074
+msgid ""
+"PRs with the needs-backport/X.Y label (\\ |CURRENT_RELEASE|: :github-"
+"backport:`GitHub Link<needs-backport>`)"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:153
+#: 179a1254aafa49b29eda946c93b0deb3
+msgid ""
+"PRs with the backport-pending/X.Y label (\\ |CURRENT_RELEASE|: :github-"
+"backport:`GitHub Link<backport-pending>`)"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:154
+#: c9b7f6dc7dc34e9c8d643b86c5e3ccc9
+msgid ""
+"The X.Y GitHub project (\\ |NEXT_RELEASE|: :github-project:`GitHub "
+"Link<>`)"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:156
+#: 47a2a96ec94a42069ea93db0f0127bfb
+msgid ""
+"Make sure that the Github labels are up-to-date, as this process will "
+"deal with all commits from PRs that have the ``needs-backport/X.Y`` label"
+" set (for a stable release version X.Y). If any PRs contain labels such "
+"as ``backport-pending/X.Y``, ensure that the backport for that PR have "
+"been merged and if so, change the label to ``backport-done/X.Y``."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:163
+#: f9986c7927554f11a2dd966d045c0f21
+msgid "Creating the Backports Branch"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:165
+#: d119494b061e4d5fa53d67065b841c26
+#, python-format
+msgid ""
+"Check whether there are any `outstanding backport PRs for the target "
+"branch "
+"<https://github.com/cilium/cilium/pulls?q=is%3Aopen+is%3Apr+label%3Akind%2Fbackports>`__."
+" If there are already backports for that branch, create a thread in the "
+"#launchpad channel in Slack and reach out to the author to coordinate "
+"triage, review and merge of the existing PR into the target branch."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:171
+#: 4b9e9ece79dc4677a166089b9ffeb5bd
+msgid ""
+"Run ``contrib/backporting/start-backport`` for the release version that "
+"you intend to backport PRs for. This will pull the latest repository "
+"commits from the Cilium repository (assumed to be the git remote "
+"``origin``), create a new branch, and runs the ``contrib/backporting"
+"/check-stable`` script to fetch the full set of PRs to backport."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:183
+#: 1dbb66e30adc403a807371ac35e57f18
+msgid ""
+"This command will leave behind a file in the current directory with a "
+"name based upon the release version and the current date in the form "
+"``vRELEASE-backport-YYYY-MM-DD.txt`` which contains a prepared backport "
+"pull-request description so you don't need to write one yourself."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:188
+#: 23a49fc3b03d4c88872b48595534ad64
+msgid ""
+"Cherry-pick the commits using the master git SHAs listed, starting from "
+"the oldest (top), working your way down and fixing any merge conflicts as"
+" they appear. Note that for PRs that have multiple commits you will want "
+"to check that you are cherry-picking oldest commits first. The ``cherry-"
+"pick`` script accepts multiple arguments, in which case it will attempt "
+"to apply each commit in the order specified on the command line until one"
+" cherry pick fails or every commit is cherry-picked."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:203
+#: 1d0a16e83f8641618ef37ef87f2946a9
+msgid ""
+"Conflicts may be resolved by applying changes or backporting other PRs to"
+" completely avoid conflicts. Backporting entire PRs is preferred if the "
+"changes in the dependent PRs are small. `This stackoverflow.com question "
+"<https://stackoverflow.com/questions/17818167/find-a-pull-request-on-"
+"github-where-a-commit-was-originally-created>`_ describes how to "
+"determine the original PR corresponding to a particular commit SHA in the"
+" GitHub UI."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:210
+#: e2c33407f285475d9bca7602af9b4658
+msgid ""
+"If a conflict is resolved by modifying a commit during backport, describe"
+" the changes made in the commit message and collect these to add to the "
+"backport PR description when creating the PR below. This helps to direct "
+"backport reviewers towards which changes may deviate from the original "
+"commits to ensure that the changes are correctly backported. This can be "
+"fairly simple, for example inside the commit message of the modified "
+"commit::"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:232
+#: 26780f2715484e68a81f90461f75ce8c
+msgid ""
+"**It is the backporter's responsibility to check that the backport "
+"commits they are preparing are identical to the original commits**. This "
+"can be achieved by preparing the commits, then running ``git show "
+"<commit>`` for both the original upstream commit and the prepared "
+"backport, and read through the commits side-by-side, line-by-line to "
+"check that the changes are the same. If there is any uncertainty about "
+"the backport, reach out to the original author directly to coordinate how"
+" to prepare the backport for the target branch."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:241
+#: caa35eba14c842499923b765376f63be
+msgid ""
+"For backporting commits that update cilium-builder and cilium-runtime "
+"images, the backporter should build new images as described in "
+":ref:`update_cilim_builder_runtime_images`."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:244
+#: 43f810f91fc54d86b74970a027649b71
+msgid ""
+"(Optional) If there are any commits or pull requests that are tricky or "
+"time-consuming to backport, consider reaching out for help on Slack. If "
+"the commit does not cherry-pick cleanly, please mention the necessary "
+"changes in the pull request description in the next section."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:250
+#: 96eb0bc1303d47dab509c8d6805f227e
+msgid "Creating the Backport Pull Request"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:252
+#: ff194f7881a64939a2f0bf2013797ec8
+msgid ""
+"The backport pull-request may be created via CLI tools, or alternatively "
+"you can use the GitHub web interface to achieve these steps."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:256
+#: b579e9590ac0458eb79712c0c23e1a32
+msgid "Via Command-Line Tools (Recommended)"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:258
+#: e4ac59f2f66742aba928727c34c869ec
+msgid ""
+"These steps require all of the tools described in the "
+":ref:`backport_setup` section above. It pushes the git tree, creates the "
+"pull request and updates the labels for the PRs that are backported, "
+"based on the ``vRELEASE-backport-YYYY-MM-DD.txt`` file in the current "
+"directory."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:267
+#: 522383af835d4dff8ebfff3638adc50e
+msgid "The script takes up to three positional arguments::"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:271
+#: 2ca9f9bf175241b8912b4a4941dcdeda
+msgid ""
+"The first parameter is the version of the branch against which the PR "
+"should be done, and defaults to the version passed to ``start-backport``."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:273
+#: 0633e333864a480c8132a3dba578953a
+msgid ""
+"The second one is the name of the file containing the text summary to use"
+" for the PR, and defaults to the file created by ``start-backport``."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:275
+#: 956ded5b3ef74e1db42827cda5af874c
+msgid ""
+"The third one is the name of the git remote of your (forked) repository "
+"to which your changes will be pushed. It defaults to the git remote which"
+" matches ``github.com/<your github username>/cilium``."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:280
+#: 03cceba7fcf5480d95502fbc685c55bd
+msgid "Via GitHub Web Interface"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:282
+#: c77ebc8299654bdea63ec39beba67748
+msgid "Push your backports branch to your fork of the Cilium repo."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:288
+#: 4cfdb8e8112c4328b3ad1dac5f1e91b3
+msgid ""
+"Create a new PR from your branch towards the feature branch you are "
+"backporting to. Note that by default Github creates PRs against the "
+"``master`` branch, so you will need to change it. The title and "
+"description for the pull request should be based upon the ``vRELEASE-"
+"backport-YYYY-MM-DD.txt`` file that was generated by the scripts above."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:297
+#: a1c3be90a87a48c19b10f63b8812eb86
+msgid "The ``vRELEASE-backport-YYYY-MM-DD.txt`` file will include:"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:306
+#: 9431a4c397de4857a02503d22944f28a
+msgid ""
+"The ``upstream-prs`` tag `is required "
+"<https://github.com/cilium/release/blob/3c5fc2bdc38f8d290349a612a03cc83655f57a51/pkg/github/labels.go#L26>`_,"
+" so add it if you manually write the message."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:311
+#: 7ac4708291d546fcb68f8b26bcc73020
+msgid ""
+"Label the new backport PR with the backport label for the stable branch "
+"such as ``backport/X.Y`` as well as ``kind/backports`` so that it is easy"
+" to find backport PRs later."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:315
+#: e06562a7f47748a2bec7ef354f022dda
+msgid ""
+"Mark all PRs you backported with the backport pending label ``backport-"
+"pending/X.Y`` and clear the ``needs-backport/X.Y`` label. This can be "
+"done with the command printed out at the bottom of the output from the "
+"``start-backport`` script above (``GITHUB_TOKEN`` needs to be set for "
+"this to work)."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:322
+#: 35c89c8e0ecc43a7907c712b60a08160
+msgid "Running the CI Against the Pull Request"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:324
+#: 72667887968642b28a45cce059d85e3b
+msgid ""
+"To validate a cross-section of various tests against the PRs, backport "
+"PRs should be validated in the CI by running all CI targets. This can be "
+"triggered by adding a comment to the PR with exactly the text ``/test-"
+"backport-x.x``, where ``x.x`` is the target version as described in "
+":ref:`trigger_phrases`. The comment must not contain any other "
+"characters."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:331
+#: 1d2b4c586af7492f9213708ee5b3c757
+msgid "After the Backports are Merged"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:333
+#: 78549355407e41d6bc9dc1a527f90383
+msgid ""
+"After the backport PR is merged, if the person who merged the PR didn't "
+"take care of it already, mark all backported PRs with ``backport-"
+"done/X.Y`` label and clear the ``backport-pending/X.Y`` label(s). If the "
+"backport pull request description was generated using the scripts above, "
+"then the full command is listed in the pull request description."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:344
+#: 6a1750a5cbf143699d1c4d6f3aef810c
+msgid "Backporting Guide for Others"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:347
+#: 359ce6f672b9418ebdb60997cda5daae
+msgid "Original Committers and Reviewers"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:349
+#: 32dadda79d774ef38f4596f22d3a145a
+msgid ""
+"Committers should mark PRs needing backport as ``needs-backport/X.Y``, "
+"based on the `backport criteria <backport_criteria_>`_. It is up to the "
+"reviewers to confirm that the backport request is reasonable and, if not,"
+" raise concerns on the PR as comments."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:354
+#: d61e22af238241dcbaed93f5211b4746
+msgid ""
+"At some point, changes will be picked up on a backport PR and the "
+"committer will be notified and asked to approve the backport commits. "
+"Confirm that:"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:357
+#: 0d8e929374f94b4ea4440fca28ea0c58
+msgid "All the commits from the original PR have been indeed backported."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:358
+#: 984ab54c567e425fa56ee4765ad7caac
+msgid "In case of conflicts, the resulting changes look good."
+msgstr ""
+
+#: ../../contributing/release/backports.rst:361
+#: 5b06fe78e4d0429e8ad078a78c904db4
+msgid "Merger"
+msgstr ""
+
+#: ../../contributing/release/backports.rst:363
+#: 800416d52db646dea5060e2fa63e68bb
+msgid ""
+"When merging a backport PR, set the labels of the backported PRs to "
+"``done``. Typically, backport PRs include a line on how do that. E.g.,:"
+msgstr ""
+

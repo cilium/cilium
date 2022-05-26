@@ -1,0 +1,347 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../contributing/development/season_of_docs.rst:3
+#: 1e0d79560ad744d184360c4574df702c
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:11
+#: 0841f991d6a444bd97d68eb6a8a410b6
+msgid "Google Season of Docs 2022"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:13
+#: 3866d139f9be45ffabab6c78e4e30f73
+msgid ""
+"Cilium has been accepted into the 2022 Google Season of Docs to improve "
+"the documentation experience for our users and contributors. Below is our"
+" project idea, if you have any questions, please reach out to "
+"gsod@cilium.io."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:16
+#: 3aaea58b107e48ba8c85a4db9df5d41c
+msgid ""
+"**Edit:** We now have selected our candidates, and would like to thank "
+"all applicants. Our two technical writers are `Yoyo`_ and `Divine`_!"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:19
+#: 1eb508e8508043e5b85cdfa7d6bbd9ed
+msgid "Reorganize Cilium Features and Getting Started"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:22
+#: 27e3c9ca952b4009bcf5bc763c8eeac4
+msgid "About Our Organization"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:24
+#: a60723295b814083b62045813708b154
+msgid ""
+"Cilium (current version 1.11, first released in 2017) is an Apache "
+"2.0-licensed project for providing, securing, and observing network "
+"connectivity between container workloads - cloud native, and built around"
+" the revolutionary Linux Kernel technology eBPF. Our users adopt Cilium "
+"to solve their cloud networking, observability, and security issues at "
+"scale including running some of the largest Kubernetes clusters in the "
+"world. Cilium has a large community of contributors from over 50 "
+"countries around the world. Multiple companies have staff paid to work on"
+" Cilium too. Cilium is an incubating project in the Cloud Native "
+"Computing Foundation and is the networking data plane for Google "
+"Kubernetes Engine and Anthos."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:33
+#: 62d30c0179804cc890deb735e1a90159
+msgid "About the Problem"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:35
+#: 2ae60ed988f5452ebaf3875dc6157d9d
+msgid ""
+"Cloud native networking and security are complex topics that even long "
+"time practitioners struggle to master. Cilium documentation has grown "
+"organically over time and the project has mainly been used by advanced "
+"cloud native users. The documentation lacks the structure that new, and "
+"even existing, users can rely on to quickly find the information they "
+"need. In addition, users sometimes struggle to discover all of the "
+"features and functionality of Cilium because the documentation does not "
+"make them easily discoverable. Finally, new users often have questions "
+"about how to troubleshoot setting up their network."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:41
+#: 49b3aaca1c684019abd28f0cf331c8ff
+msgid ""
+"Improving the structure of the documentation will help new users adopt "
+"Cilium and reduce the support load on the community."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:44
+#: 03d9ae3f96e24163b824e8924b088aa3
+msgid "Project Scope"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:46
+#: 2b5adbdb43ef41f8bf8786cebbba4264
+msgid "The project will:"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:48
+#: 69c55210f80a40938a00719ab6341990
+msgid "Audit the existing document structure and inventory existing documentation"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:49
+#: 94bde338304049148669aaecc5c070e5
+msgid ""
+"Using the inventory as a guide, determine existing documentation and gaps"
+" for the top three use cases (Networking, Observability and Security)"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:50
+#: c7863ed5b55a4d799d32cfba4e6f3df5
+msgid ""
+"Restructure the existing documentation to surface Cilium's capabilities "
+"more prominently and determine documentation gaps of existing "
+"functionality or missing links to existing talks or presentations"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:51
+#: 8e2a04335a9441719029ab4cb2b582c3
+msgid ""
+"Simplify the “Getting Started” section by moving advanced and detailed "
+"config guides out to more appropriate sections"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:52
+#: 67911fec0dfa4752878b86c8d5575511
+msgid ""
+"Work with the release team to restructure the documentation and create a "
+"process for keeping the documentation up to date going forward"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:54
+#: 7f2d69c54dc54a3181598fc35b3e8720
+msgid "Work that is out of scope:"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:56
+#: d94abafa95d64c31ad729e057aad788a
+msgid "Writing tutorials or reference documentation"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:58
+#: f7da158582f34704aeefb643f53eafba
+msgid ""
+"The writer will be working closely with Liz Rice, Bill Mulligan, and "
+"other Cilium maintainers. We estimate the project will take five months "
+"to complete."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:62
+#: 5b7b09ddd1264225a9eaeb466f60b422
+msgid "Measuring Success"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:64
+#: 04d791d864b346ec83b922d05419b909
+msgid ""
+"Cilium currently receives issues covered in the documentation in both the"
+" Slack and through Github issues. It also receives few new contributors "
+"to the documentation. We believe that this restructuring will result in "
+"fewer questions and issues already covered in the documentation and more "
+"contributors to the documentation since they will know where to add it."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:68
+#: 545df5b9b8ee465c96c6ba159355d05f
+msgid ""
+"We will track three metrics (number of questions covered in documentation"
+" in Slack, number of questions covered in documentation in Github issues,"
+" and number of pull requests from new contributors) monthly after the "
+"documentation is published."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:71
+#: c694b9dfac264134a48824c69c3163d9
+msgid ""
+"We would consider the project successful if, after publication of the new"
+" documentation each of the following happens:"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:73
+#: 8638f702b8734c0abc2a3c9d8f1cbbd8
+msgid ""
+"The number of Slack questions covered in the documentation decreases by "
+"10%"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:74
+#: 986e3b73ee394f36b7fea83095baf940
+msgid "The number of Github issues covered in the documentation decreases by 20%"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:75
+#: 71d451606ed94ccabde6d98d2fba1909
+msgid "The number of pull requests from new contributors increases by 15%"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:78
+#: 04f98982d96043b3abca1c1270dd02c5
+msgid "Timeline"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:80
+#: a635497c905a4a12a0b7df4fa19de27d
+msgid ""
+"The project itself will take approximately six months to complete. Once "
+"the tech writer is hired, we'll spend a month on tech writer orientation,"
+" then move onto the audit and inventory, and spend the last three months "
+"focusing on restructuring the documentation."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:84
+#: 2f27ca6585ca4a22ab457d6008320c22
+msgid "Dates"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:84
+#: 35d0e062aee34363988d3c9abdb11b10
+msgid "Action Items"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:86
+#: e8074d05403c4aa2922351f1799b9369
+msgid "May"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:86
+#: 0a07b1489d0f4841aea6feb909729801
+msgid "Orientation"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:88
+#: ee53b839feae4c98ae558181bf8f2195
+msgid "June - July"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:88
+#: d31bc615344f41929c0b8d2a1f60b75a
+msgid "Audit existing documentation and create inventory"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:90
+#: a205f1705b824734b0cd35a65eb37a45
+msgid "August - October"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:90
+#: 598dce82615643abad3e9b119640cf6b
+msgid "Restructure documentation"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:94
+#: 610ae9ce74214d8682ec496e2df1c4d3
+msgid "Project Budget"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:97
+#: f380817bc55d46f38bc43ade6684bae0
+msgid "Budget Item"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:97
+#: 0e4f32860fb04d8189342b0a0c1a4834
+msgid "Amount"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:97
+#: 965833adace14b3e8a093db6ecebc83f
+msgid "Running Total"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:99
+#: 8ad180f569ec43fdb4e136aed49b6e74
+msgid ""
+"Technical writer audit, inventory, restructure, test, and publish "
+"documentation"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:99
+#: 61b5da9257774f2997108f93e89edf64 a0a59d89a10e47549f20925aab3ab12c
+msgid "9,000.00"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:101
+#: d6241cd3998a416db57ac19a0a1bd6cf
+msgid "Project Swag"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:101
+#: 2020f6db8f674ea7a8b4b04ebd694b7e
+msgid "150.00"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:101
+#: ../../contributing/development/season_of_docs.rst:103
+#: 3ecc8e659f2e43a681169365ef2b67f3 4d8f83a57f91444e9f17225ac3e8a6c8
+msgid "9,150.00"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:103
+#: 15875312236849adbeb167c4a54f38aa
+msgid "Total"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:106
+#: 7877414159f14273af359eda90b7afa4
+msgid ""
+"This budget would allow us to hire a writer part time for $1,500 per "
+"month for six months."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:109
+#: 66c4d40867324a45af3771a60f804708
+msgid "Additional Information"
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:111
+#: 42ae10347ddf45a4a08e0e4101f1366c
+msgid ""
+"Cilium participated in the Google Summer of Code in 2021. Our three "
+"students successfully completed their project before the summer's end. "
+"One of them presented it afterward at a national conference and another "
+"continues to contribute regularly to Cilium."
+msgstr ""
+
+#: ../../contributing/development/season_of_docs.rst:114
+#: 8e62c285441e4be9aa507d2ba5510162
+msgid ""
+"This experience highlighted the importance of regular status "
+"reports/meetings between mentors and mentees. We also gained experience "
+"establishing realistic timelines for people with diverse backgrounds. "
+"Finally, this experience highlighted the need for better documentation "
+"and led us to apply for Season of Docs."
+msgstr ""
+

@@ -1,0 +1,218 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../further_reading.rst:3 4cddbfa2294547e58f7aa4496f13897e
+msgid ""
+"WARNING: You are looking at unreleased Cilium documentation. Please use "
+"the official rendered version released here: https://docs.cilium.io"
+msgstr ""
+
+#: ../../further_reading.rst:9 6bc3c0b2ed0440028a3b3ae0fc45aeb8
+msgid "Further Reading"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:4 0470c99ab0a445cd9e7df455dee2a623
+msgid "Related Material"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:6 cb70912058cf4f8795dbdb15bba6dd8b
+msgid ""
+"`BPF for security—and chaos—in Kubernetes "
+"<https://lwn.net/Articles/790684/>`_"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:7 481224ba2f2e4bd8b150b88e7e578c76
+msgid ""
+"`k8s-snowflake: Configs and scripts for bootstrapping an opinionated "
+"Kubernetes cluster anywhere using Cilium plugin "
+"<https://github.com/jessfraz/k8s-snowflake>`_"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:10 55cfd331c1974e9897253fc406880b8d
+msgid ""
+"`Using Cilium for NetworkPolicy: Kubernetes documentation on how to use "
+"Cilium to implement NetworkPolicy <https://kubernetes.io/docs/tasks"
+"/administer-cluster/cilium-network-policy/>`_"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:15 6ff30ffab48a460a823e16743e0f743c
+msgid "Presentations"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:17 c6338c9cde474d938ac07369d570462b
+msgid ""
+"Fosdem, Brussels, 2020 - BPF as a revolutionary technology for the "
+"container landscape: `Slides "
+"<https://docs.google.com/presentation/d/1VOUcoIxgM_c6M_zAV1dLlRCjyYCMdR3tJv6CEdfLMh8/edit#slide=id.g7055f48ba8_0_0>`__,"
+" `Video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:19 91851cea79a8417dafd59e9adf8e48ab
+msgid ""
+"KubeCon, North America 2019 - Liberating Kubernetes from kube-proxy and "
+"iptables: `Slides <https://docs.google.com/presentation/d/1cZJ-"
+"pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit#slide=id.g7055f48ba8_0_0>`__,"
+" `Video <https://www.youtube.com/watch?v=bIRwSIwNHC0>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:21 445be47625b74d8dbc18b611a4409cba
+msgid ""
+"KubeCon, Europe 2019 - Using eBPF to Bring Kubernetes-Aware Security to "
+"the Linux Kernel: `Video <https://www.youtube.com/watch?v=7PXQB-1U380>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:23 42d3e3c267a04b1180457a9933879857
+#, python-format
+msgid ""
+"KubeCon, Europe 2019 - Transparent Chaos Testing with Envoy , Cilium and "
+"BPF: `Slides "
+"<https://static.sched.com/hosted_files/kccnceu19/54/Chaos%20Testing%20with%20Envoy%2C%20Cilium%20and%20eBPF.pdf>`__,"
+" `Video <https://www.youtube.com/watch?v=gPvl2NDIWzY>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:25 35568637349d4467beedeac3a6d1e7de
+msgid ""
+"All Systems Go!, Berlin, Sept 2018 - Cilium - Bringing the BPF Revolution"
+" to Kubernetes Networking and Security `Slides "
+"<https://www.slideshare.net/ThomasGraf5/cilium-bringing-the-bpf-"
+"revolution-to-kubernetes-networking-and-security>`__, `Video "
+"<https://www.youtube.com/watch?v=QmmId1QEE5k>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:27 4fa6e4a6430345fe88701c6c4ce95199
+msgid ""
+"QCon, San Francisco 2018 - How to Make Linux Microservice-Aware with "
+"Cilium and eBPF: `Slides <https://www.slideshare.net/InfoQ/how-to-make-"
+"linux-microserviceaware-with-cilium-and-ebpf>`__, `Video "
+"<https://www.youtube.com/watch?v=_Iq1xxNZOAo>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:29 efeeadcc9dcf4c14b74cf485a2768985
+msgid ""
+"KubeCon, North America 2018 - Connecting Kubernetes Clusters Across Cloud"
+" Providers: `Slides "
+"<https://static.sched.com/hosted_files/kccna18/68/Connecting%20Multiple%20Kubernetes%20Clusters%20Across%20Cloud%20Providers.pdf>`__,"
+" `Video <https://www.youtube.com/watch?v=U34lQ8KbQow>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:31 af68fc1474354078a7a67b7006ff9538
+msgid ""
+"KubeCon, North America 2018 - Implementing Least Privilege Security and "
+"Networking with BPF on Kubernetes: `Slides "
+"<https://www.slideshare.net/ThomasGraf5/accelerating-envoy-and-istio-"
+"with-cilium-and-the-linux-kernel>`__, `Video "
+"<https://www.youtube.com/watch?v=3F_XNbhjgxY>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:33 72bc4c47a2d14006bced7eca6e915a6f
+msgid ""
+"KubeCon, Europe 2018 - Accelerating Envoy with the Linux Kernel: `Video "
+"<https://www.youtube.com/watch?v=ER9eIXL2_14>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:35 fcd8f19346d24a938eed9d8dab365a93
+msgid ""
+"Open Source Summit, North America - Cilium: Networking and security for "
+"containers with BPF and XDP: `Video "
+"<https://www.youtube.com/watch?v=CcGtDMm1SJA>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:37 4b3ee689d5c1419f971719a60d2ce55a
+msgid ""
+"DockerCon, Austin TX, Apr 2017 - Cilium - Network and Application "
+"Security with BPF and XDP: `Slides "
+"<https://www.slideshare.net/ThomasGraf5/dockercon-2017-cilium-network-"
+"and-application-security-with-bpf-and-xdp>`__, `Video "
+"<https://www.youtube.com/watch?v=ilKlmTDdFgk>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:39 2d167c0d703148a4aeeede9841bd6a02
+msgid ""
+"CNCF/KubeCon Meetup, Berlin, Mar 2017 - Linux Native, HTTP Aware Network "
+"Security: `Slides <https://www.slideshare.net/ThomasGraf5/linux-native-"
+"http-aware-network-security>`__, `Video "
+"<https://www.youtube.com/watch?v=Yf_INdTWIHI>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:41 8747d14391f2425faebc50604a344356
+msgid ""
+"Docker Distributed Systems Summit, Berlin, Oct 2016: `Slides "
+"<http://www.slideshare.net/Docker/cilium-bpf-xdp-for-"
+"containers-66969823>`__, `Video "
+"<https://www.youtube.com/watch?v=TnJF7ht3ZYc&list=PLkA60AVN3hh8oPas3cq2VA9xB7WazcIgs&index=7>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:43 34243838a1434bf8a7d29c06af60e970
+msgid ""
+"NetDev1.2, Tokyo, Sep 2016 - cls_bpf/eBPF updates since netdev 1.1: "
+"`Slides <http://borkmann.ch/talks/2016_tcws.pdf>`__, `Video "
+"<https://youtu.be/gwzaKXWIelc?t=12m55s>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:45 df73c0ad89f04b308fb7a873ab97838d
+msgid ""
+"NetDev1.2, Tokyo, Sep 2016 - Advanced programmability and recent updates "
+"with tc’s cls_bpf: `Slides "
+"<http://borkmann.ch/talks/2016_netdev2.pdf>`__, `Video "
+"<https://www.youtube.com/watch?v=GwT9hRiqdUo>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:47 7e127538ce7c4a9fb8b55d263ba96f09
+msgid ""
+"ContainerCon NA, Toronto, Aug 2016 - Fast IPv6 container networking with "
+"BPF & XDP: `Slides <http://www.slideshare.net/ThomasGraf5/cilium-fast-"
+"ipv6-container-networking-with-bpf-and-xdp>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:51 5288ab6f4e5e4886a6d03c96db945b56
+msgid "Podcasts"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:53 7367c6b986a843a2b0f9ef86a33eeab0
+msgid ""
+"Software Gone Wild by Ivan Pepelnjak, Oct 2016: `Blog "
+"<http://blog.ipspace.net/2016/10/fast-linux-packet-forwarding-"
+"with.html>`__, `MP3 "
+"<http://media.blubrry.com/ipspace/stream.ipspace.net/nuggets/podcast/Show_64-Cilium_with_Thomas_Graf.mp3>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:54 183f4920f96c4cde81f9d57375fadb6d
+msgid ""
+"OVS Orbit by Ben Pfaff, May 2016: `Blog "
+"<https://ovsorbit.benpfaff.org/#e4>`__, `MP3 "
+"<https://ovsorbit.benpfaff.org/episode-4.mp3>`__"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:57 c2fb3350ed54484aae2f8127a47776f9
+msgid "Community blog posts"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:59 c76f5d50ca9d40a7b21025021bb4e281
+msgid ""
+"`Cilium for Network and Application Security with BPF and XDP, Apr 2017 "
+"<https://blog.scottlowe.org/2017/04/18/black-belt-cilium/>`_"
+msgstr ""
+
+#: ../../../FURTHER_READINGS.rst:61 75b31d4f3a9e47acb8f7e8151bdb11c4
+msgid ""
+"`Cilium, BPF and XDP, Google Open Source Blog, Nov 2016 "
+"<https://opensource.googleblog.com/2016/11/cilium-networking-and-"
+"security.html>`_"
+msgstr ""
+

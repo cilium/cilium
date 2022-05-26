@@ -1,0 +1,43 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) Cilium Authors
+# This file is distributed under the same license as the Cilium package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Cilium \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-05-25 23:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: ../../cmdref/cilium_bpf_recorder_list.md:3 071ef82ebde147d7aa42237e3e5ad300
+msgid "cilium bpf recorder list"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder_list.md:5 1f0be7208ac54704a33cfcc27c67bd43
+msgid "List PCAP recorder entries"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder_list.md:11 091c4552fad448bc995bc0481483861c
+msgid "Options"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder_list.md:18 53d416edc17a4c5f8795b91df2f79720
+msgid "Options inherited from parent commands"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder_list.md:26 72d1f5d6ad3b49bd8131b0ab4499c6fa
+msgid "SEE ALSO"
+msgstr ""
+
+#: ../../cmdref/cilium_bpf_recorder_list.md:28 4ccf0cb483bb4284afc21d9093736c53
+msgid "[cilium bpf recorder](cilium_bpf_recorder.md)\t - PCAP recorder"
+msgstr ""
+
