@@ -70,6 +70,18 @@ GO_TAGS_FLAGS = osusergo
 # RACE is specified.
 GOTEST_COVER_OPTS =
 
+# By default, just print go test output immediately to the terminal. If tparse
+# is installed, use it to format the output. This is either silent silent (V=0)
+# or gives some signal about ongoing progress by teeing to the terminal (V=1).
+GOTEST_FORMATTER ?= cat
+ifneq ($(shell which tparse),)
+	GOTEST_COVER_OPTS += -json
+	GOTEST_FORMATTER = tparse
+ifneq ($(V),0)
+	GOTEST_FORMATTER += -follow
+endif
+endif
+
 GOLANGCILINT_WANT_VERSION = 1.46.2
 GOLANGCILINT_IMAGE_SHA = sha256:e84b639c061c8888be91939c78dae9b1525359954e405ab0d9868a46861bd21b
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
