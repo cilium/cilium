@@ -132,6 +132,7 @@ tests-privileged: GO_TAGS_FLAGS+=privileged_tests ## Run integration-tests for C
 tests-privileged:
 	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
+		>&2 $(ECHO_TEST) $$pkg; \
 		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
@@ -199,6 +200,7 @@ endif
 	# hence will trigger an error of too many arguments. As a workaround, we
 	# have to process these packages in different subshells.
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
+		>&2 $(ECHO_TEST) $$pkg; \
 		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
