@@ -885,6 +885,36 @@ data:
   unmanaged-pod-watcher-interval: "0"
 {{- end }}
 
+{{- if .Values.dnsProxy }}
+  {{- if .Values.dnsProxy.dnsRejectResponseCode }}
+  tofqdns-dns-reject-response-code: {{ .Values.dnsProxy.dnsRejectResponseCode | quote }}
+  {{- end }}
+  {{- if hasKey .Values.dnsProxy "enableDnsCompression" }}
+  tofqdns-enable-dns-compression: {{ .Values.dnsProxy.enableDnsCompression | quote }}
+  {{- end }}
+  {{- if .Values.dnsProxy.endpointMaxIpPerHostname }}
+  tofqdns-endpoint-max-ip-per-hostname: {{ .Values.dnsProxy.endpointMaxIpPerHostname | quote }}
+  {{- end }}
+  {{- if .Values.dnsProxy.idleConnectionGracePeriod }}
+  tofqdns-idle-connection-grace-period: {{ .Values.dnsProxy.idleConnectionGracePeriod | quote }}
+  {{- end }}
+  {{- if .Values.dnsProxy.maxDeferredConnectionDeletes }}
+  tofqdns-max-deferred-connection-deletes: {{ .Values.dnsProxy.maxDeferredConnectionDeletes | quote }}
+  {{- end }}
+  {{- if .Values.dnsProxy.minTtl }}
+  tofqdns-min-ttl: {{ .Values.dnsProxy.minTtl | quote }}
+  {{- end }}
+  {{- if .Values.dnsProxy.preCache }}
+  tofqdns-pre-cache: {{ .Values.dnsProxy.preCache | quote }}
+  {{- end }}
+  {{- if .Values.dnsProxy.proxyPort }}
+  tofqdns-proxy-port: {{ .Values.dnsProxy.proxyPort | quote }}
+  {{- end }}
+  {{- if .Values.dnsProxy.proxyResponseMaxDelay }}
+  tofqdns-proxy-response-max-delay: {{ .Values.dnsProxy.proxyResponseMaxDelay | quote }}
+  {{- end }}
+{{- end }}
+
 {{- if .Values.extraConfig }}
   {{ toYaml .Values.extraConfig | nindent 2 }}
 {{- end }}

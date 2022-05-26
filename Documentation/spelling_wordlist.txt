@@ -330,6 +330,8 @@ discoverable
 distro
 distros
 dns
+dnsProxy
+dnsRejectResponseCode
 dockerhub
 dpaa
 dports
@@ -351,6 +353,7 @@ ena
 enableCiliumEndpointSlice
 enableCnpStatusUpdates
 enableCriticalPriorityClass
+enableDnsCompression
 enableHealthCheck
 enableIPv
 enableIdentityMark
@@ -363,6 +366,7 @@ endian
 endianness
 endpointGCInterval
 endpointHealthChecking
+endpointMaxIpPerHostname
 endpointRoutes
 endpointSelector
 endpointStatus
@@ -479,6 +483,7 @@ identityAllocationMode
 identityChangeGracePeriod
 identityGCInterval
 identityHeartbeatTimeout
+idleConnectionGracePeriod
 ie
 ifindex
 imagePullSecrets
@@ -618,6 +623,7 @@ masqLinkLocal
 masterDevice
 matchLabels
 matchPattern
+maxDeferredConnectionDeletes
 maxUnavailable
 mc
 mediabot
@@ -631,6 +637,7 @@ microk
 microservice
 microservices
 minAvailable
+minTtl
 minikube
 misconfigures
 mlx
@@ -650,6 +657,7 @@ mvneta
 myCA
 myapp
 mysql
+nameError
 namespace
 namespaced
 namespaces
@@ -727,11 +735,13 @@ postcheck
 powershell
 pprof
 pre
+preCache
 preallocateMaps
 prebuild
 prefilter
 preflight
 preload
+preloaded
 preloading
 prem
 prepend
@@ -747,6 +757,8 @@ programmability
 prometheus
 proto
 protobuf
+proxyPort
+proxyResponseMaxDelay
 proxying
 proxylib
 pullPolicy

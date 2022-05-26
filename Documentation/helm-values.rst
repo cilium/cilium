@@ -369,6 +369,42 @@
      - Disable the usage of CiliumEndpoint CRD.
      - string
      - ``"false"``
+   * - dnsProxy.dnsRejectResponseCode
+     - DNS response code for rejecting DNS requests, available options are '[nameError refused]'.
+     - string
+     - ``"refused"``
+   * - dnsProxy.enableDnsCompression
+     - Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
+     - bool
+     - ``true``
+   * - dnsProxy.endpointMaxIpPerHostname
+     - Maximum number of IPs to maintain per FQDN name for each endpoint.
+     - int
+     - ``50``
+   * - dnsProxy.idleConnectionGracePeriod
+     - Time during which idle but previously active connections with expired DNS lookups are still considered alive.
+     - string
+     - ``"0s"``
+   * - dnsProxy.maxDeferredConnectionDeletes
+     - Maximum number of IPs to retain for expired DNS lookups with still-active connections.
+     - int
+     - ``10000``
+   * - dnsProxy.minTtl
+     - The minimum time, in seconds, to use DNS data for toFQDNs policies.
+     - int
+     - ``3600``
+   * - dnsProxy.preCache
+     - DNS cache data at this path is preloaded on agent startup.
+     - string
+     - ``""``
+   * - dnsProxy.proxyPort
+     - Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
+     - int
+     - ``0``
+   * - dnsProxy.proxyResponseMaxDelay
+     - The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
+     - string
+     - ``"100ms"``
    * - egressGateway
      - Enables egress gateway to redirect and SNAT the traffic that leaves the cluster.
      - object
