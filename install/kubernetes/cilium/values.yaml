@@ -2057,3 +2057,23 @@ enableK8sTerminatingEndpoint: true
 # -- Configure the key of the taint indicating that Cilium is not ready on the node.
 # When set to a value starting with `ignore-taint.cluster-autoscaler.kubernetes.io/`, the Cluster Autoscaler will ignore the taint on its decisions, allowing the cluster to scale up.
 agentNotReadyTaintKey: "node.cilium.io/agent-not-ready"
+
+dnsProxy:
+  # -- DNS response code for rejecting DNS requests, available options are '[nameError refused]'.
+  dnsRejectResponseCode: refused
+  # -- Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
+  enableDnsCompression: true
+  # -- Maximum number of IPs to maintain per FQDN name for each endpoint.
+  endpointMaxIpPerHostname: 50
+  # -- Time during which idle but previously active connections with expired DNS lookups are still considered alive.
+  idleConnectionGracePeriod: 0s
+  # -- Maximum number of IPs to retain for expired DNS lookups with still-active connections.
+  maxDeferredConnectionDeletes: 10000
+  # -- The minimum time, in seconds, to use DNS data for toFQDNs policies.
+  minTtl: 3600
+  # -- DNS cache data at this path is preloaded on agent startup.
+  preCache: ""
+  # -- Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
+  proxyPort: 0
+  # -- The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
+  proxyResponseMaxDelay: 100ms
