@@ -8,3 +8,8 @@ if grep -r --exclude-dir={.git,_build,vendor,contrib} -i --include \*.go "viper.
   echo "Found viper.GetStringMapString(key) usage. Please use command.GetStringMapString(viper.GetViper(), key) instead";
   exit 1
 fi
+
+if grep -r --exclude-dir={.git,_build,vendor,contrib} -i --include \*.go "StringToStringVar" .; then
+  echo "Found flags.StringToStringVar usage. Please use option.NewNamedMapOptions instead";
+  exit 1
+fi
