@@ -136,10 +136,11 @@ tests-privileged: GO_TAGS_FLAGS+=privileged_tests ## Run integration-tests for C
 tests-privileged:
 	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
+		>&3 $(ECHO_TEST) $$pkg; \
 		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
-	done | $(GOTEST_FORMATTER)
+	done 3>/dev/tty | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
 start-kvstores: ## Start running kvstores required for running Cilium integration-tests. More specifically this will run etcd and consul containers.
@@ -203,10 +204,11 @@ endif
 	# hence will trigger an error of too many arguments. As a workaround, we
 	# have to process these packages in different subshells.
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
+		>&3 $(ECHO_TEST) $$pkg; \
 		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
-	done | $(GOTEST_FORMATTER)
+	done 3>/dev/tty | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
 
