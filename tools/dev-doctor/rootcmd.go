@@ -56,6 +56,13 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			minVersion:    &minGoVersion,
 		},
 		&binaryCheck{
+			name:          "tparse",
+			ifNotFound:    checkWarning,
+			versionArgs:   []string{"-v"},
+			versionRegexp: regexp.MustCompile(`tparse version: v(\d+\.\d+\.\d+)`),
+			hint:          `Run "go install github.com/mfridman/tparse@latest"`,
+		},
+		&binaryCheck{
 			name:          "clang",
 			ifNotFound:    checkError,
 			versionArgs:   []string{"--version"},
