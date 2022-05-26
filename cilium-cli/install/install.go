@@ -86,6 +86,27 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 	return &deploy
 }
 
+func (k *K8sInstaller) generateIngressClass() *networkingv1.IngressClass {
+	var (
+		ingressFileName string
+	)
+
+	ciliumVer := k.getCiliumVersion()
+	switch {
+	case versioncheck.MustCompile(">=1.12.0")(ciliumVer):
+		ingressFileName = "templates/cilium-operator-deployment.yaml"
+	}
+
+	ingressClassFile, exists := k.manifests[ingressFileName]
+	if !exists {
+		return nil
+	}
+
+	var ingressClass networkingv1.IngressClass
+	utils.MustUnmarshalYAML([]byte(ingressClassFile), &ingressClass)
+	return &ingressClass
+}
+
 func (k *K8sInstaller) getSecretNamespace() string {
 	var (
 		nsFilename string
@@ -687,14 +708,17 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	}
 
-	if _, err := k.client.CreateIngressClass(ctx, k8s.NewIngressClass(defaults.IngressClassName, defaults.IngressControllerName), metav1.CreateOptions{}); err != nil {
-		return err
-	}
-	k.pushRollbackStep(func(ctx context.Context) {
-		if err := k.client.DeleteIngressClass(ctx, defaults.IngressClassName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s IngressClass: %s", defaults.IngressClassName, err)
+	ingressClass := k.generateIngressClass()
+	if ingressClass != nil {
+		if _, err := k.client.CreateIngressClass(ctx, ingressClass, metav1.CreateOptions{}); err != nil {
+			return err
 		}
-	})
+		k.pushRollbackStep(func(ctx context.Context) {
+			if err := k.client.DeleteIngressClass(ctx, defaults.IngressClassName, metav1.DeleteOptions{}); err != nil {
+				k.Log("Cannot delete %s IngressClass: %s", defaults.IngressClassName, err)
+			}
+		})
+	}
 
 	secretsNamespace := k.getSecretNamespace()
 	if len(secretsNamespace) != 0 {
