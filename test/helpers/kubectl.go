@@ -4565,7 +4565,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"clusterrolebinding": "cilium cilium-operator hubble-relay",
 			"clusterrole":        "cilium cilium-operator hubble-relay hubble-ui",
 			"serviceaccount":     "cilium cilium-operator hubble-relay",
-			"service":            "cilium-agent hubble-metrics hubble-relay",
+			"service":            "cilium-agent hubble-metrics hubble-relay hubble-peer",
 			"secret":             "hubble-relay-client-certs hubble-server-certs hubble-ca-secret cilium-ca",
 			"resourcequota":      "cilium-resource-quota cilium-operator-resource-quota",
 		}
