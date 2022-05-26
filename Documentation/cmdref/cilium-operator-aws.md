@@ -47,7 +47,7 @@ cilium-operator-aws [flags]
       --identity-gc-rate-interval duration        Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration       Timeout after which identity expires on lack of heartbeat (default 30m0s)
-      --instance-tags-filter stringToString       EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag (default [])
+      --instance-tags-filter map                  EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                               Backend to use for IPAM (default "eni")
       --k8s-api-server string                     Kubernetes API server URL
       --k8s-client-burst int                      Burst value allowed for the K8s client
@@ -75,7 +75,7 @@ cilium-operator-aws [flags]
       --set-cilium-is-up-condition                Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
       --skip-crd-creation                         When true, Kubernetes Custom Resource Definitions will not be created
       --subnet-ids-filter strings                 Subnets IDs (separated by commas)
-      --subnet-tags-filter stringToString         Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag (default [])
+      --subnet-tags-filter map                    Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --synchronize-k8s-nodes                     Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                  Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
