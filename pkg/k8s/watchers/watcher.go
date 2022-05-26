@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -57,9 +58,6 @@ const (
 	k8sAPIGroupNodeV1Core                       = "core/v1::Node"
 	k8sAPIGroupNamespaceV1Core                  = "core/v1::Namespace"
 	K8sAPIGroupServiceV1Core                    = "core/v1::Service"
-	K8sAPIGroupEndpointV1Core                   = "core/v1::Endpoint"
-	K8sAPIGroupPodV1Core                        = "core/v1::Pods"
-	K8sAPIGroupSecretV1Core                     = "core/v1::Secrets"
 	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
@@ -71,13 +69,7 @@ const (
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
-	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
-	K8sAPIGroupEndpointSliceV1Discovery         = "discovery/v1::EndpointSlice"
 
-	metricCNP            = "CiliumNetworkPolicy"
-	metricCCNP           = "CiliumClusterwideNetworkPolicy"
-	metricEndpoint       = "Endpoint"
-	metricEndpointSlice  = "EndpointSlice"
 	metricKNP            = "NetworkPolicy"
 	metricNS             = "Namespace"
 	metricSecret         = "Secret"
@@ -90,10 +82,6 @@ const (
 	metricCEC            = "CiliumEnvoyConfig"
 	metricPod            = "Pod"
 	metricNode           = "Node"
-	metricService        = "Service"
-	metricCreate         = "create"
-	metricDelete         = "delete"
-	metricUpdate         = "update"
 )
 
 func init() {
@@ -325,6 +313,14 @@ func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 	k.k8sResourceSynced.WaitForCacheSync(resourceNames...)
 }
 
+// WaitForCacheSyncWithTimeout calls WaitForCacheSync to block until given resources have had their caches
+// synced from K8s. This will wait up to the timeout duration after starting or since the last K8s
+// registered watcher event (i.e. each event causes the timeout to be pushed back). Events are recorded
+// using K8sResourcesSynced.Event function. If the timeout is exceeded, an error is returned.
+func (k *K8sWatcher) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceNames ...string) error {
+	return k.k8sResourceSynced.WaitForCacheSyncWithTimeout(timeout, resourceNames...)
+}
+
 func (k *K8sWatcher) cancelWaitGroupToSyncResources(resourceName string) {
 	k.k8sResourceSynced.CancelWaitGroupToSyncResources(resourceName)
 }
@@ -403,7 +399,7 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		k8sAPIGroupNamespaceV1Core,
 		// Pods can contain labels which are essential for endpoints
 		// being restored to have the right identity.
-		K8sAPIGroupPodV1Core,
+		resources.K8sAPIGroupPodV1Core,
 		// We need to know the node labels to populate the host
 		// endpoint labels.
 		k8sAPIGroupNodeV1Core,
@@ -412,17 +408,17 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 	if k.cfg.K8sIngressControllerEnabled() {
 		// While Ingress controller is part of operator, we need to watch
 		// TLS secrets in pre-defined namespace for populating Envoy xDS SDS cache.
-		k8sGroups = append(k8sGroups, K8sAPIGroupSecretV1Core)
+		k8sGroups = append(k8sGroups, resources.K8sAPIGroupSecretV1Core)
 	}
 
 	// To perform the service translation and have the BPF LB datapath
 	// with the right service -> backend (k8s endpoints) translation.
 	if k8s.SupportsEndpointSlice() {
-		k8sGroups = append(k8sGroups, K8sAPIGroupEndpointSliceV1Beta1Discovery)
+		k8sGroups = append(k8sGroups, resources.K8sAPIGroupEndpointSliceV1Beta1Discovery)
 	} else if k8s.SupportsEndpointSliceV1() {
-		k8sGroups = append(k8sGroups, K8sAPIGroupEndpointSliceV1Discovery)
+		k8sGroups = append(k8sGroups, resources.K8sAPIGroupEndpointSliceV1Discovery)
 	}
-	k8sGroups = append(k8sGroups, K8sAPIGroupEndpointV1Core)
+	k8sGroups = append(k8sGroups, resources.K8sAPIGroupEndpointV1Core)
 	ciliumResources := synced.AgentCRDResourceNames()
 	ciliumGroups := make([]string, 0, len(ciliumResources))
 	for _, r := range ciliumResources {
@@ -470,7 +466,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 			return
 		}
 		log.Info("Waiting until all pre-existing resources have been received")
-		if err := k.k8sResourceSynced.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, append(resources, afterNodeInitResources...)...); err != nil {
+		if err := k.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, append(resources, afterNodeInitResources...)...); err != nil {
 			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
 		}
 		close(cachesSynced)
@@ -484,7 +480,7 @@ type WatcherConfiguration interface {
 }
 
 // enableK8sWatchers starts watchers for given resources.
-func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resources []string) error {
+func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []string) error {
 	if !k8s.IsEnabled() {
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil
@@ -497,10 +493,10 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resources []string) 
 		return fmt.Errorf("error creating service list option modifier: %w", err)
 	}
 
-	for _, r := range resources {
+	for _, r := range resourceNames {
 		switch r {
 		// Core Cilium
-		case K8sAPIGroupPodV1Core:
+		case resources.K8sAPIGroupPodV1Core:
 			asyncControllers.Add(1)
 			go k.podsInit(k8s.WatcherClient(), asyncControllers)
 		case k8sAPIGroupNodeV1Core:
@@ -515,16 +511,16 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resources []string) 
 		case k8sAPIGroupNetworkingV1Core:
 			swgKNP := lock.NewStoppableWaitGroup()
 			k.networkPoliciesInit(k8s.WatcherClient(), swgKNP)
-		case K8sAPIGroupServiceV1Core:
+		case resources.K8sAPIGroupServiceV1Core:
 			swgSvcs := lock.NewStoppableWaitGroup()
 			k.servicesInit(k8s.WatcherClient(), swgSvcs, serviceOptModifier)
-		case K8sAPIGroupEndpointSliceV1Beta1Discovery:
-			// no-op; handled in K8sAPIGroupEndpointV1Core.
-		case K8sAPIGroupEndpointSliceV1Discovery:
-			// no-op; handled in K8sAPIGroupEndpointV1Core.
-		case K8sAPIGroupEndpointV1Core:
+		case resources.K8sAPIGroupEndpointSliceV1Beta1Discovery:
+			// no-op; handled in resources.K8sAPIGroupEndpointV1Core.
+		case resources.K8sAPIGroupEndpointSliceV1Discovery:
+			// no-op; handled in resources.K8sAPIGroupEndpointV1Core.
+		case resources.K8sAPIGroupEndpointV1Core:
 			k.initEndpointsOrSlices(k8s.WatcherClient(), serviceOptModifier)
-		case K8sAPIGroupSecretV1Core:
+		case resources.K8sAPIGroupSecretV1Core:
 			swgSecret := lock.NewStoppableWaitGroup()
 			// only watch tls secret
 			k.tlsSecretInit(k8s.WatcherClient(), option.Config.EnvoySecretNamespace, swgSecret)
@@ -906,22 +902,26 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 
 // K8sEventProcessed is called to do metrics accounting for each processed
 // Kubernetes event
-func (k *K8sWatcher) K8sEventProcessed(scope string, action string, status bool) {
+func (k *K8sWatcher) K8sEventProcessed(scope, action string, status bool) {
 	result := "success"
 	if status == false {
 		result = "failed"
 	}
-	k.k8sResourceSynced.SetEventTimestamp(scope)
 
 	metrics.KubernetesEventProcessed.WithLabelValues(scope, action, result).Inc()
 }
 
-// K8sEventReceived does metric accounting for each received Kubernetes event
-func (k *K8sWatcher) K8sEventReceived(scope string, action string, valid, equal bool) {
-	metrics.EventTSK8s.SetToCurrentTime()
+// K8sEventReceived does metric accounting for each received Kubernetes event, as well
+// as notifying of events for k8s resources synced.
+func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, valid, equal bool) {
 	k8smetrics.LastInteraction.Reset()
 
-	metrics.KubernetesEventReceived.WithLabelValues(scope, action, strconv.FormatBool(valid), strconv.FormatBool(equal)).Inc()
+	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action).SetToCurrentTime()
+	validStr := strconv.FormatBool(valid)
+	equalStr := strconv.FormatBool(equal)
+	metrics.KubernetesEventReceived.WithLabelValues(scope, action, validStr, equalStr).Inc()
+
+	k.k8sResourceSynced.SetEventTimestamp(apiResourceName)
 }
 
 // GetStore returns the k8s cache store for the given resource name.

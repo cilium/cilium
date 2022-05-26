@@ -210,7 +210,7 @@ const (
 	// K8sServiceCacheSize is service cache size for cilium k8s package.
 	K8sServiceCacheSize = "k8s-service-cache-size"
 
-	// K8sSyncTimeout is the timeout to synchronize all resources with k8s.
+	// K8sSyncTimeout is the timeout since last event was received to synchronize all resources with k8s.
 	K8sSyncTimeoutName = "k8s-sync-timeout"
 
 	// AllocatorListTimeout is the timeout to list initial allocator state.

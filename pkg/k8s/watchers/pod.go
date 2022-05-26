@@ -37,6 +37,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -51,6 +52,7 @@ import (
 )
 
 func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fields.Selector) (cache.Store, cache.Controller) {
+	apiGroup := resources.K8sAPIGroupPodV1Core
 	return informer.NewInformer(
 		cache.NewListWatchFromClient(getter,
 			"pods", v1.NamespaceAll, fieldSelector),
@@ -80,9 +82,9 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 						metrics.EventLagK8s.Set(0)
 					}
 					err := k.addK8sPodV1(pod)
-					k.K8sEventProcessed(metricPod, metricCreate, err == nil)
+					k.K8sEventProcessed(metricPod, resources.MetricCreate, err == nil)
 				}
-				k.K8sEventReceived(metricPod, metricCreate, valid, false)
+				k.K8sEventReceived(apiGroup, metricPod, resources.MetricCreate, valid, false)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
@@ -93,20 +95,20 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 							equal = true
 						} else {
 							err := k.updateK8sPodV1(oldPod, newPod)
-							k.K8sEventProcessed(metricPod, metricUpdate, err == nil)
+							k.K8sEventProcessed(metricPod, resources.MetricUpdate, err == nil)
 						}
 					}
 				}
-				k.K8sEventReceived(metricPod, metricUpdate, valid, equal)
+				k.K8sEventReceived(apiGroup, metricPod, resources.MetricUpdate, valid, equal)
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid bool
 				if pod := k8s.ObjTov1Pod(obj); pod != nil {
 					valid = true
 					err := k.deleteK8sPodV1(pod)
-					k.K8sEventProcessed(metricPod, metricDelete, err == nil)
+					k.K8sEventProcessed(metricPod, resources.MetricDelete, err == nil)
 				}
-				k.K8sEventReceived(metricPod, metricDelete, valid, false)
+				k.K8sEventReceived(apiGroup, metricPod, resources.MetricDelete, valid, false)
 			},
 		},
 		nil,
@@ -128,10 +130,10 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 			close(k.podStoreSet)
 		})
 
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, resources.K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.AddAPI(K8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 		return isConnected
@@ -157,10 +159,10 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, resources.K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.AddAPI(K8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 
@@ -856,7 +858,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 //  - false: returns any pod in the cluster received by the pod watcher.
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	<-k.controllersStarted
-	k.WaitForCacheSync(K8sAPIGroupPodV1Core)
+	k.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
 	<-k.podStoreSet
 	k.podStoreMU.RLock()
 	defer k.podStoreMU.RUnlock()

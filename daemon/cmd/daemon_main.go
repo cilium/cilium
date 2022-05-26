@@ -51,7 +51,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -556,7 +556,7 @@ func initializeFlags() {
 		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	option.BindEnv(option.KVStoreOpt)
 
-	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout for synchronizing k8s resources before exiting")
+	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout after last K8s event for synchronizing k8s resources before exiting")
 	flags.MarkHidden(option.K8sSyncTimeoutName)
 	option.BindEnv(option.K8sSyncTimeoutName)
 
@@ -1636,10 +1636,10 @@ func (d *Daemon) initKVStore() {
 		// to the service IP as well perform the service -> backend IPs for
 		// that service IP.
 		d.k8sWatcher.WaitForCacheSync(
-			watchers.K8sAPIGroupServiceV1Core,
-			watchers.K8sAPIGroupEndpointV1Core,
-			watchers.K8sAPIGroupEndpointSliceV1Discovery,
-			watchers.K8sAPIGroupEndpointSliceV1Beta1Discovery,
+			resources.K8sAPIGroupServiceV1Core,
+			resources.K8sAPIGroupEndpointV1Core,
+			resources.K8sAPIGroupEndpointSliceV1Discovery,
+			resources.K8sAPIGroupEndpointSliceV1Beta1Discovery,
 		)
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{

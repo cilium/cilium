@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,6 +27,7 @@ import (
 )
 
 func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControllers *sync.WaitGroup) {
+	apiGroup := k8sAPIGroupNamespaceV1Core
 	namespaceStore, namespaceController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
@@ -38,7 +40,7 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 			// pods belonging to that namespace are also deleted.
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricNS, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricNS, resources.MetricUpdate, valid, equal) }()
 				if oldNS := k8s.ObjToV1Namespace(oldObj); oldNS != nil {
 					if newNS := k8s.ObjToV1Namespace(newObj); newNS != nil {
 						valid = true
@@ -48,7 +50,7 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 						}
 
 						err := k.updateK8sV1Namespace(oldNS, newNS)
-						k.K8sEventProcessed(metricNS, metricUpdate, err == nil)
+						k.K8sEventProcessed(metricNS, resources.MetricUpdate, err == nil)
 					}
 				}
 			},
@@ -58,7 +60,7 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 
 	k.namespaceStore = namespaceStore
 	k.blockWaitGroupToSyncResources(k.stop, nil, namespaceController.HasSynced, k8sAPIGroupNamespaceV1Core)
-	k.k8sAPIGroups.AddAPI(k8sAPIGroupNamespaceV1Core)
+	k.k8sAPIGroups.AddAPI(apiGroup)
 	asyncControllers.Done()
 	namespaceController.Run(k.stop)
 }

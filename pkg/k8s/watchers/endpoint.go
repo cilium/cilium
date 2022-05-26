@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -24,7 +25,7 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.
 		options.FieldSelector = fields.ParseSelectorOrDie(option.Config.K8sWatcherEndpointSelector).String()
 		optsModifier(options)
 	}
-
+	apiGroup := resources.K8sAPIGroupEndpointV1Core
 	_, endpointController := informer.NewInformer(
 		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"endpoints", v1.NamespaceAll,
@@ -35,16 +36,18 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricEndpoint, metricCreate, valid, equal) }()
+				defer func() {
+					k.K8sEventReceived(apiGroup, resources.MetricEndpoint, resources.MetricCreate, valid, equal)
+				}()
 				if k8sEP := k8s.ObjToV1Endpoints(obj); k8sEP != nil {
 					valid = true
 					err := k.addK8sEndpointV1(k8sEP, swgEps)
-					k.K8sEventProcessed(metricEndpoint, metricCreate, err == nil)
+					k.K8sEventProcessed(resources.MetricEndpoint, resources.MetricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricEndpoint, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, resources.MetricEndpoint, resources.MetricUpdate, valid, equal) }()
 				if oldk8sEP := k8s.ObjToV1Endpoints(oldObj); oldk8sEP != nil {
 					if newk8sEP := k8s.ObjToV1Endpoints(newObj); newk8sEP != nil {
 						valid = true
@@ -54,27 +57,27 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.
 						}
 
 						err := k.updateK8sEndpointV1(oldk8sEP, newk8sEP, swgEps)
-						k.K8sEventProcessed(metricEndpoint, metricUpdate, err == nil)
+						k.K8sEventProcessed(resources.MetricEndpoint, resources.MetricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricEndpoint, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, resources.MetricEndpoint, resources.MetricDelete, valid, equal) }()
 				k8sEP := k8s.ObjToV1Endpoints(obj)
 				if k8sEP == nil {
 					return
 				}
 				valid = true
 				err := k.deleteK8sEndpointV1(k8sEP, swgEps)
-				k.K8sEventProcessed(metricEndpoint, metricDelete, err == nil)
+				k.K8sEventProcessed(resources.MetricEndpoint, resources.MetricDelete, err == nil)
 			},
 		},
 		nil,
 	)
-	k.blockWaitGroupToSyncResources(k.stop, swgEps, endpointController.HasSynced, K8sAPIGroupEndpointV1Core)
+	k.blockWaitGroupToSyncResources(k.stop, swgEps, endpointController.HasSynced, resources.K8sAPIGroupEndpointV1Core)
 	go endpointController.Run(k.stop)
-	k.k8sAPIGroups.AddAPI(K8sAPIGroupEndpointV1Core)
+	k.k8sAPIGroups.AddAPI(apiGroup)
 }
 
 func (k *K8sWatcher) addK8sEndpointV1(ep *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) error {

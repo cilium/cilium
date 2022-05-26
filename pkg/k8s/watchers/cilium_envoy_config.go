@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
@@ -24,7 +25,7 @@ import (
 
 func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) {
 	cecStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-
+	apiGroup := k8sAPIGroupCiliumEnvoyConfigV2
 	cecController := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
 			cilium_v2.CECPluralName, v1.NamespaceAll, fields.Everything()),
@@ -33,16 +34,16 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) 
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCEC, metricCreate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricCreate, valid, equal) }()
 				if cec := k8s.ObjToCEC(obj); cec != nil {
 					valid = true
 					err := k.addCiliumEnvoyConfig(cec)
-					k.K8sEventProcessed(metricCEC, metricCreate, err == nil)
+					k.K8sEventProcessed(metricCEC, resources.MetricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCEC, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricUpdate, valid, equal) }()
 
 				if oldCEC := k8s.ObjToCEC(oldObj); oldCEC != nil {
 					if newCEC := k8s.ObjToCEC(newObj); newCEC != nil {
@@ -52,20 +53,20 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) 
 							return
 						}
 						err := k.updateCiliumEnvoyConfig(oldCEC, newCEC)
-						k.K8sEventProcessed(metricCEC, metricUpdate, err == nil)
+						k.K8sEventProcessed(metricCEC, resources.MetricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCEC, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricDelete, valid, equal) }()
 				cec := k8s.ObjToCEC(obj)
 				if cec == nil {
 					return
 				}
 				valid = true
 				err := k.deleteCiliumEnvoyConfig(cec)
-				k.K8sEventProcessed(metricCEC, metricDelete, err == nil)
+				k.K8sEventProcessed(metricCEC, resources.MetricDelete, err == nil)
 			},
 		},
 		k8s.ConvertToCiliumEnvoyConfig,

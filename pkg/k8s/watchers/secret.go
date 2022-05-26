@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -32,6 +33,7 @@ func (k *K8sWatcher) tlsSecretInit(k8sClient kubernetes.Interface, namespace str
 		options.FieldSelector = tlsFieldSelector
 	}
 
+	apiGroup := resources.K8sAPIGroupSecretV1Core
 	_, secretController := informer.NewInformer(
 		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"secrets", namespace,
@@ -43,17 +45,17 @@ func (k *K8sWatcher) tlsSecretInit(k8sClient kubernetes.Interface, namespace str
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() {
-					k.K8sEventReceived(metricSecret, metricCreate, valid, equal)
+					k.K8sEventReceived(apiGroup, metricSecret, resources.MetricCreate, valid, equal)
 				}()
 				if k8sSecret := k8s.ObjToV1Secret(obj); k8sSecret != nil {
 					valid = true
 					err := k.addK8sSecretV1(k8sSecret)
-					k.K8sEventProcessed(metricSecret, metricCreate, err == nil)
+					k.K8sEventProcessed(metricSecret, resources.MetricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricSecret, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricSecret, resources.MetricUpdate, valid, equal) }()
 				if oldSecret := k8s.ObjToV1Secret(oldObj); oldSecret != nil {
 					if newSecret := k8s.ObjToV1Secret(newObj); newSecret != nil {
 						valid = true
@@ -62,14 +64,14 @@ func (k *K8sWatcher) tlsSecretInit(k8sClient kubernetes.Interface, namespace str
 							return
 						}
 						err := k.updateK8sSecretV1(oldSecret, newSecret)
-						k.K8sEventProcessed(metricSecret, metricUpdate, err == nil)
+						k.K8sEventProcessed(metricSecret, resources.MetricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() {
-					k.K8sEventReceived(metricSecret, metricDelete, valid, equal)
+					k.K8sEventReceived(apiGroup, metricSecret, resources.MetricDelete, valid, equal)
 				}()
 				k8sSecret := k8s.ObjToV1Secret(obj)
 				if k8sSecret == nil {
@@ -77,14 +79,14 @@ func (k *K8sWatcher) tlsSecretInit(k8sClient kubernetes.Interface, namespace str
 				}
 				valid = true
 				err := k.deleteK8sSecretV1(k8sSecret)
-				k.K8sEventProcessed(metricSecret, metricDelete, err == nil)
+				k.K8sEventProcessed(metricSecret, resources.MetricDelete, err == nil)
 			},
 		},
 		nil,
 	)
-	k.blockWaitGroupToSyncResources(k.stop, swgSecrets, secretController.HasSynced, K8sAPIGroupSecretV1Core)
+	k.blockWaitGroupToSyncResources(k.stop, swgSecrets, secretController.HasSynced, resources.K8sAPIGroupSecretV1Core)
 	go secretController.Run(k.stop)
-	k.k8sAPIGroups.AddAPI(K8sAPIGroupSecretV1Core)
+	k.k8sAPIGroups.AddAPI(apiGroup)
 }
 
 // addK8sSecretV1 performs Envoy upsert operation for newly added secret.

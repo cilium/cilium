@@ -18,8 +18,8 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/groups"
 )
@@ -76,9 +76,8 @@ func enableCNPWatcher() error {
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEventMetric(resources.MetricCNP, resources.MetricCreate)
 				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
-
 					// We need to deepcopy this structure because we are writing
 					// fields.
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
@@ -91,7 +90,7 @@ func enableCNPWatcher() error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEventMetric(resources.MetricCNP, resources.MetricUpdate)
 				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
 					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
 						if oldCNP.DeepEqual(newCNP) {
@@ -109,7 +108,7 @@ func enableCNPWatcher() error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEventMetric(resources.MetricCNP, resources.MetricDelete)
 				cnp := k8s.ObjToSlimCNP(obj)
 				if cnp == nil {
 					return
