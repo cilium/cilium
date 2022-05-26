@@ -470,17 +470,10 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 			return
 		}
 		log.Info("Waiting until all pre-existing resources have been received")
-		k.WaitForCacheSync(append(resources, afterNodeInitResources...)...)
-		close(cachesSynced)
-	}()
-
-	go func() {
-		select {
-		case <-cachesSynced:
-			log.Info("All pre-existing resources have been received; continuing")
-		case <-time.After(option.Config.K8sSyncTimeout):
-			log.Fatal("Timed out waiting for pre-existing resources to be received; exiting")
+		if err := k.k8sResourceSynced.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, append(resources, afterNodeInitResources...)...); err != nil {
+			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
 		}
+		close(cachesSynced)
 	}()
 }
 
@@ -918,6 +911,7 @@ func (k *K8sWatcher) K8sEventProcessed(scope string, action string, status bool)
 	if status == false {
 		result = "failed"
 	}
+	k.k8sResourceSynced.SetEventTimestamp(scope)
 
 	metrics.KubernetesEventProcessed.WithLabelValues(scope, action, result).Inc()
 }
