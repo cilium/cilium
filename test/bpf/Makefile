@@ -24,7 +24,7 @@ BPF_LLC_FLAGS := -march=bpf -mcpu=probe -filetype=obj
 
 LIB := $(shell find ../../bpf/ -name '*.h')
 
-CLANG ?= $(QUIET) clang
+CLANG ?= clang
 LLC ?= llc
 
 BPF_TARGETS := elf-demo.o
@@ -35,11 +35,11 @@ all: $(TARGETS) unit-tests
 
 elf-demo.o: elf-demo.c
 	@$(ECHO_CC)
-	$(CLANG) ${FLAGS_CLANG} ${BPF_CC_FLAGS} -c $< -o - | $(LLC) ${BPF_LLC_FLAGS} -o $@
+	$(QUIET) $(CLANG) ${FLAGS_CLANG} ${BPF_CC_FLAGS} -c $< -o - | $(LLC) ${BPF_LLC_FLAGS} -o $@
 
 %: %.c $(LIB)
 	@$(ECHO_CC)
-	$(CLANG) ${FLAGS_CLANG} ${FLAGS} -I../../bpf/ $< -o $@
+	$(QUIET) $(CLANG) ${FLAGS_CLANG} ${FLAGS} -I../../bpf/ $< -o $@
 
 mocks:
 	$(QUIET)$(MAKE) -C $(ROOT_DIR)/bpf/mock generate_helper_headers
