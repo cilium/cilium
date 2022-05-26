@@ -14,6 +14,7 @@ ifeq ($(V),0)
 	ECHO_GEN=echo "  GEN    $(RELATIVE_DIR)/"
 	ECHO_GINKGO=echo "  GINKGO $(RELATIVE_DIR)"
 	ECHO_GO=echo "  GO     $(RELATIVE_DIR)/$@"
+	ECHO_TEST=echo "  TEST "
 	SUBMAKEOPTS="-s"
 else
 	# The whitespace at below EOLs is required for verbose case!
@@ -24,5 +25,6 @@ else
 	ECHO_GEN=: 
 	ECHO_GINKGO=: 
 	ECHO_GO=: 
+	ECHO_TEST=: 
 	SUBMAKEOPTS=
 endif
