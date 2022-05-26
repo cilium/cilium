@@ -105,7 +105,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	// Create the CiliumNode custom resource. This call will block until
 	// the custom resource has been created
 	owner.UpdateCiliumNodeResource()
-
+	apiGroup := "cilium/v2::CiliumNode"
 	ciliumNodeSelector := fields.ParseSelectorOrDie("metadata.name=" + nodeName)
 	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	ciliumNodeInformer := informer.NewInformerWithStore(
@@ -116,7 +116,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "create", valid, equal) }()
+				defer func() { k8sEventReg.K8sEventReceived(apiGroup, "CiliumNode", "create", valid, equal) }()
 				if node, ok := obj.(*ciliumv2.CiliumNode); ok {
 					valid = true
 					store.updateLocalNodeResource(node.DeepCopy())
@@ -127,7 +127,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "update", valid, equal) }()
+				defer func() { k8sEventReg.K8sEventReceived(apiGroup, "CiliumNode", "update", valid, equal) }()
 				if oldNode, ok := oldObj.(*ciliumv2.CiliumNode); ok {
 					if newNode, ok := newObj.(*ciliumv2.CiliumNode); ok {
 						valid = true
@@ -159,7 +159,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 				// removed. No attempt to cast is required.
 				store.deleteLocalNodeResource()
 				k8sEventReg.K8sEventProcessed("CiliumNode", "delete", true)
-				k8sEventReg.K8sEventReceived("CiliumNode", "delete", true, false)
+				k8sEventReg.K8sEventReceived(apiGroup, "CiliumNode", "delete", true, false)
 			},
 		},
 		nil,

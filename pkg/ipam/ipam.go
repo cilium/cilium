@@ -79,13 +79,16 @@ type Owner interface {
 	LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR)
 }
 
+// K8sEventRegister is used to register and handle events as they are processed
+// by K8s controllers.
 type K8sEventRegister interface {
 	// K8sEventReceived is called to do metrics accounting for received
-	// Kubernetes events
-	K8sEventReceived(scope string, action string, valid, equal bool)
+	// Kubernetes events, as well as calculating timeouts for k8s watcher
+	// cache sync.
+	K8sEventReceived(apiGroupResourceName string, scope string, action string, valid, equal bool)
 
 	// K8sEventProcessed is called to do metrics accounting for each processed
-	// Kubernetes event
+	// Kubernetes event.
 	K8sEventProcessed(scope string, action string, status bool)
 
 	// RegisterCiliumNodeSubscriber allows registration of subscriber.CiliumNode

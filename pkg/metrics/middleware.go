@@ -18,7 +18,7 @@ import (
 // It records the timestamp of an API call in the provided gauge.
 type APIEventTSHelper struct {
 	Next      http.Handler
-	TSGauge   prometheus.Gauge
+	TSGauge   GaugeVec
 	Histogram prometheus.ObserverVec
 }
 
@@ -52,7 +52,9 @@ func getShortPath(s string) string {
 // ServeHTTP implements the http.Handler interface. It records the timestamp
 // this API call began at, then chains to the next handler.
 func (m *APIEventTSHelper) ServeHTTP(r http.ResponseWriter, req *http.Request) {
-	m.TSGauge.SetToCurrentTime()
+	if req != nil {
+		m.TSGauge.WithLabelValues(LabelEventSourceAPI, req.URL.Path, req.Method)
+	}
 	duration := spanstat.Start()
 	rw := &responderWrapper{ResponseWriter: r}
 	m.Next.ServeHTTP(rw, req)

@@ -24,6 +24,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -60,6 +61,7 @@ func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
 }
 
 func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
+	apiGroup := k8sAPIGroupNodeV1Core
 	onceNodeInitStart.Do(func() {
 		swg := lock.NewStoppableWaitGroup()
 
@@ -74,9 +76,9 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 					if node := k8s.ObjToV1Node(obj); node != nil {
 						valid = true
 						errs := k.NodeChain.OnAddNode(node, swg)
-						k.K8sEventProcessed(metricNode, metricCreate, errs == nil)
+						k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
 					}
-					k.K8sEventReceived(metricNode, metricCreate, valid, false)
+					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, valid, false)
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
@@ -86,11 +88,11 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 							equal = nodeEventsAreEqual(oldNode, newNode)
 							if !equal {
 								errs := k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
-								k.K8sEventProcessed(metricNode, metricUpdate, errs == nil)
+								k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
 							}
 						}
 					}
-					k.K8sEventReceived(metricNode, metricUpdate, valid, equal)
+					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, valid, false)
 				},
 				DeleteFunc: func(obj interface{}) {
 				},
@@ -102,7 +104,7 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 
 		k.blockWaitGroupToSyncResources(wait.NeverStop, swg, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
 		go nodeController.Run(k.stop)
-		k.k8sAPIGroups.AddAPI(k8sAPIGroupNodeV1Core)
+		k.k8sAPIGroups.AddAPI(apiGroup)
 	})
 }
 
