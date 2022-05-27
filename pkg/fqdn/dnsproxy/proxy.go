@@ -385,6 +385,7 @@ type ProxyRequestContext struct {
 	UpstreamTime         spanstat.SpanStat
 	SemaphoreAcquireTime spanstat.SpanStat
 	PolicyCheckTime      spanstat.SpanStat
+	DataplaneTime        spanstat.SpanStat
 	Success              bool
 	Err                  error
 }
