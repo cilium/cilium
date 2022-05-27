@@ -196,9 +196,7 @@ jobs:
           tar xzvf prometheus-${PROM_VERSION}.linux-amd64.tar.gz prometheus-${PROM_VERSION}.linux-amd64/promtool
           rm -f prometheus-${PROM_VERSION}.linux-amd64.tar.gz
           sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
-          # filter go_ metrics which do not conform to the _total convention with gauges
-          # See https://github.com/prometheus/prometheus/issues/10574
-          cat metrics.prom | grep -v 'go_' | promtool check metrics
+          cat metrics.prom | promtool check metrics
 
       - name: Capture cilium-sysdump
         if: ${{ failure() }}
