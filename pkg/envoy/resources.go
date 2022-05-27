@@ -41,6 +41,9 @@ const (
 	// NetworkPolicyHostsTypeURL is the type URL of NetworkPolicyHosts resources.
 	NetworkPolicyHostsTypeURL = "type.googleapis.com/cilium.NetworkPolicyHosts"
 
+	// BpfMetadataTypeURL is the type URL of Cilium BPF Metadata listener filter.
+	BpfMetadataTypeURL = "type.googleapis.com/cilium.bpf_metadata"
+
 	// DownstreamTlsContextURL is the type URL of DownstreamTlsContext
 	DownstreamTlsContextURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext"
 )

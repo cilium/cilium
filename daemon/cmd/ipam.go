@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -284,8 +285,12 @@ func (d *Daemon) allocateHealthIPs() error {
 	return nil
 }
 
+var IngressIPAMError = errors.New("unable to allocate ingress IP")
+
 func (d *Daemon) allocateIngressIPs() error {
 	bootstrapStats.ingressIPAM.Start()
+	defer bootstrapStats.ingressIPAM.End(true)
+
 	if option.Config.EnableEnvoyConfig {
 		if option.Config.EnableIPv4 {
 			var result *ipam.AllocationResult
@@ -306,7 +311,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			if result == nil {
 				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "ingress")
 				if err != nil {
-					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
+					return IngressIPAMError
 				}
 			}
 
@@ -355,7 +360,7 @@ func (d *Daemon) allocateIngressIPs() error {
 						d.ipam.ReleaseIP(ingressIPv4)
 						node.SetIngressIPv4(nil)
 					}
-					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
+					return IngressIPAMError
 				}
 			}
 
@@ -363,7 +368,6 @@ func (d *Daemon) allocateIngressIPs() error {
 			log.Infof("  Ingress IPv6: %s", node.GetIngressIPv6())
 		}
 	}
-	bootstrapStats.ingressIPAM.End(true)
 	return nil
 }
 
@@ -444,13 +448,11 @@ func (d *Daemon) allocateIPs() error {
 
 	bootstrapStats.ipam.End(true)
 
-	if option.Config.EnableEnvoyConfig {
-		if err := d.allocateIngressIPs(); err != nil {
-			return err
-		}
+	if err := d.allocateHealthIPs(); err != nil {
+		return err
 	}
 
-	return d.allocateHealthIPs()
+	return d.allocateIngressIPs()
 }
 
 func (d *Daemon) configureIPAM() {

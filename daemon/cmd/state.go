@@ -211,6 +211,9 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 		ep.SetDefaultConfiguration(true)
 		ep.SetProxy(d.l7Proxy)
 		ep.SkipStateClean()
+		if ep.IsIngressDrone() {
+			d.setIngressIPsFromEndpoint(ep)
+		}
 
 		state.restored = append(state.restored, ep)
 

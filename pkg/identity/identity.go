@@ -235,6 +235,9 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 		case lbl.Source == labels.LabelSourceReserved:
 			id := GetReservedID(lbl.Key)
 			switch {
+			case id == ReservedIdentityIngress:
+				// Create Ingress ID with the given set of labels
+				createID = true
 			case id == ReservedIdentityKubeAPIServer && lbls.Has(labels.LabelHost[labels.IDNameHost]):
 				// Due to Golang map iteration order (random) we might get the
 				// ID returned as kube-apiserver. If there's a local host

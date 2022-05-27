@@ -130,7 +130,7 @@ type endpointManager interface {
 }
 
 type nodeDiscoverManager interface {
-	WaitForLocalNodeInit()
+	WaitForIngressIPs(ctx context.Context) error
 	NodeDeleted(n nodeTypes.Node)
 	NodeUpdated(n nodeTypes.Node)
 	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
@@ -359,9 +359,9 @@ const (
 	// start causes watcher to be started as soon as possible.
 	start
 
-	// afterNodeInit causes watcher to be started after local node has been initialized
+	// afterIngressIPs causes watcher to be started after local node has been initialized
 	// so that e.g., local node addressing info is available.
-	afterNodeInit
+	afterIngressIPs
 )
 
 type watcherInfo struct {
@@ -380,15 +380,15 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2.CEGPName):          {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
 	synced.CRDResourceName(v2alpha1.CENPName):    {start, k8sAPIGroupCiliumEgressNATPolicyV2},
 	synced.CRDResourceName(v2alpha1.CESName):     {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
-	synced.CRDResourceName(v2.CCECName):          {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
-	synced.CRDResourceName(v2.CECName):           {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
+	synced.CRDResourceName(v2.CCECName):          {afterIngressIPs, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
+	synced.CRDResourceName(v2.CECName):           {afterIngressIPs, k8sAPIGroupCiliumEnvoyConfigV2},
 	synced.CRDResourceName(v2alpha1.BGPPName):    {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.BGPPoolName): {skip, ""}, // Handled in BGP control plane
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
 // which the Cilium agent watches to implement CNI functionality.
-func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups []string) {
+func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterIngressIPsGroups []string) {
 	k8sGroups := []string{
 		// To perform the service translation and have the BPF LB datapath
 		// with the right service -> backend (k8s endpoints) translation.
@@ -435,12 +435,12 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 			continue
 		case start:
 			ciliumGroups = append(ciliumGroups, groupInfo.group)
-		case afterNodeInit:
-			afterNodeInitGroups = append(afterNodeInitGroups, groupInfo.group)
+		case afterIngressIPs:
+			afterIngressIPsGroups = append(afterIngressIPsGroups, groupInfo.group)
 		}
 	}
 
-	return append(k8sGroups, ciliumGroups...), afterNodeInitGroups
+	return append(k8sGroups, ciliumGroups...), afterIngressIPsGroups
 }
 
 // InitK8sSubsystem takes a channel for which it will be closed when all
@@ -449,7 +449,7 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 // already been registered.
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
 	log.Info("Enabling k8s event listener")
-	resources, afterNodeInitResources := k.resourceGroups()
+	resources, afterIngressIPsResources := k.resourceGroups()
 	if err := k.enableK8sWatchers(ctx, resources); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
@@ -461,8 +461,16 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 
 	go func() {
 		log.Info("Waiting until local node addressing before starting watchers depending on it")
-		k.nodeDiscoverManager.WaitForLocalNodeInit()
-		if err := k.enableK8sWatchers(ctx, afterNodeInitResources); err != nil {
+		err := k.nodeDiscoverManager.WaitForIngressIPs(ctx)
+		if err != nil {
+			if !errors.Is(err, context.Canceled) {
+				log.WithError(err).Fatal("Ingress IPs not configured in time, was cilium-ingress-drone pod deployed?")
+			}
+			// If the context was canceled it means the daemon is being stopped
+			return
+		}
+		err = k.enableK8sWatchers(ctx, afterIngressIPsResources)
+		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
 			}
@@ -470,7 +478,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 			return
 		}
 		log.Info("Waiting until all pre-existing resources have been received")
-		k.WaitForCacheSync(append(resources, afterNodeInitResources...)...)
+		k.WaitForCacheSync(append(resources, afterIngressIPsResources...)...)
 		close(cachesSynced)
 	}()
 

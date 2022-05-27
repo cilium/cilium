@@ -76,6 +76,7 @@ type NodeDiscovery struct {
 	k8sNodeGetter         k8sNodeGetter
 	localNodeLock         lock.Mutex
 	localNode             nodeTypes.Node
+	ingressIPsConfigured  chan struct{}
 }
 
 func enableLocalNodeRoute() bool {
@@ -128,6 +129,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 		},
 		Registered:            make(chan struct{}),
 		localStateInitialized: make(chan struct{}),
+		ingressIPsConfigured:  make(chan struct{}),
 		NetConf:               netConf,
 	}
 }
@@ -218,6 +220,15 @@ func (n *NodeDiscovery) WaitForLocalNodeInit() {
 	<-n.localStateInitialized
 }
 
+func (n *NodeDiscovery) WaitForIngressIPs(ctx context.Context) error {
+	select {
+	case <-n.ingressIPsConfigured:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	return nil
+}
+
 func (n *NodeDiscovery) NodeDeleted(node nodeTypes.Node) {
 	n.Manager.NodeDeleted(node)
 }
@@ -289,6 +300,7 @@ func (n *NodeDiscovery) fillLocalNode() {
 	}
 }
 
+// updateLocalNode is called with localNodeLock held
 func (n *NodeDiscovery) updateLocalNode() {
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		go func() {
@@ -310,6 +322,19 @@ func (n *NodeDiscovery) updateLocalNode() {
 		// CRD IPAM endpoint restoration depends on the completion of this
 		// to avoid custom resource update conflicts.
 		n.UpdateCiliumNodeResource()
+	}
+
+	// Close ingressIPsConfigured the first time we see IngressIPs configured on the local node
+	select {
+	case <-n.ingressIPsConfigured:
+		// already closed, do nothing
+	default:
+		// Check if Ingress IPs have been configured
+		if option.Config.EnableIPv4 && n.localNode.IPv4IngressIP != nil ||
+			option.Config.EnableIPv6 && n.localNode.IPv6IngressIP != nil {
+			// called with localNodeLock held so we'll close only once
+			close(n.ingressIPsConfigured)
+		}
 	}
 }
 

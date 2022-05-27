@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -33,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
 )
@@ -731,6 +733,52 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 	}
 }
 
+func (d *Daemon) setIngressIPsFromEndpoint(ep *endpoint.Endpoint) {
+	changed := false
+	// Use EPs addresses as ingress addresses
+	if ingressIPv4 := node.GetIngressIPv4(); ingressIPv4 == nil && ep.IPv4.IsSet() {
+		ip := ep.IPv4.IP()
+		if !ip.Equal(node.GetIngressIPv4()) {
+			node.SetIngressIPv4(ip)
+			changed = true
+		}
+	}
+	if ingressIPv6 := node.GetIngressIPv6(); ingressIPv6 == nil && ep.IPv6.IsSet() {
+		ip := ep.IPv6.IP()
+		if !ip.Equal(node.GetIngressIPv6()) {
+			node.SetIngressIPv6(ip)
+			changed = true
+		}
+	}
+	// Update any possible Envoy listeners that may depend on the changed values
+	if changed && d.l7Proxy != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
+		wg := completion.NewWaitGroup(ctx)
+		err, revertFuncs := d.l7Proxy.UpdateListenersForNodeChanges(wg)
+		if err != nil {
+			log.WithError(err).Error("Envoy Listener updates for ingress address changes failed")
+			return
+		}
+		// Wait & revert asynchronously
+		go func() {
+			defer cancel()
+			if len(revertFuncs) > 0 {
+				start := time.Now()
+				log.Debug("Waiting for proxy updates to complete...")
+				err := wg.Wait()
+				log.Debugf("Wait time for proxy updates %v", time.Since(start))
+
+				// revert all changes in case of failure
+				if err != nil {
+					revertFuncs.Revert(nil)
+					log.WithError(err).Warn("daemon: Finished reverting failed Envoy Listener updates for ingress address changes")
+				}
+				return
+			}
+		}()
+	}
+}
+
 // EndpointCreated is a callback to satisfy EndpointManager.Subscriber,
 // allowing the EndpointManager to be the primary implementer of the core
 // endpoint management functionality while deferring other responsibilities
@@ -738,6 +786,9 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 //
 // It is called after Daemon calls into d.endpointManager.AddEndpoint().
 func (d *Daemon) EndpointCreated(ep *endpoint.Endpoint) {
+	if ep.IsIngressDrone() {
+		d.setIngressIPsFromEndpoint(ep)
+	}
 	d.SendNotification(monitorAPI.EndpointCreateMessage(ep))
 }
 

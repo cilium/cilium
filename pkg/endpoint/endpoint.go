@@ -391,6 +391,10 @@ func (e *Endpoint) IsHost() bool {
 	return e.isHost
 }
 
+func (e *Endpoint) IsIngressDrone() bool {
+	return e.HasLabels(labels.LabelIngress)
+}
+
 // closeBPFProgramChannel closes the channel that signals whether the endpoint
 // has had its BPF program compiled. If the channel is already closed, this is
 // a no-op.

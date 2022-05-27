@@ -100,6 +100,10 @@ type XDSServer struct {
 	// mutex protects accesses to the configuration resources below.
 	mutex lock.RWMutex
 
+	// listenerCache publishes listener configuration updates to
+	// Envoy proxies.
+	listenerCache *xds.Cache
+
 	// listenerMutator publishes listener updates to Envoy proxies.
 	// Manages it's own locking
 	listenerMutator xds.AckingResourceMutator
@@ -242,6 +246,7 @@ func StartXDSServer(ipcache *ipcache.IPCache, stateDir string) *XDSServer {
 	return &XDSServer{
 		socketPath:             xdsPath,
 		accessLogPath:          getAccessLogPath(stateDir),
+		listenerCache:          ldsCache,
 		listenerMutator:        ldsMutator,
 		listeners:              make(map[string]*Listener),
 		routeMutator:           rdsMutator,
@@ -673,6 +678,19 @@ func (s *XDSServer) deleteSecret(name string, wg *completion.WaitGroup, callback
 	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, callback)
 }
 
+func setIngressSourceAddresses(conf *cilium.BpfMetadata) {
+	ingressIPv4 := node.GetIngressIPv4()
+	if ingressIPv4 != nil {
+		conf.Ipv4SourceAddress = ingressIPv4.String()
+	}
+	ingressIPv6 := node.GetIngressIPv6()
+	if ingressIPv6 != nil {
+		conf.Ipv6SourceAddress = ingressIPv6.String()
+	}
+	log.Debugf("cilium.bpf_metadata: ipv4_source_address: %s", conf.GetIpv4SourceAddress())
+	log.Debugf("cilium.bpf_metadata: ipv6_source_address: %s", conf.GetIpv6SourceAddress())
+}
+
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
 func getListenerFilter(isIngress bool, mayUseOriginalSourceAddr bool, l7lb bool) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
@@ -683,16 +701,7 @@ func getListenerFilter(isIngress bool, mayUseOriginalSourceAddr bool, l7lb bool)
 	}
 	// Set Ingress source addresses if configuring for L7 LB
 	if l7lb {
-		ingressIPv4 := node.GetIngressIPv4()
-		if ingressIPv4 != nil {
-			conf.Ipv4SourceAddress = ingressIPv4.String()
-		}
-		ingressIPv6 := node.GetIngressIPv6()
-		if ingressIPv6 != nil {
-			conf.Ipv6SourceAddress = ingressIPv6.String()
-		}
-		log.Debugf("cilium.bpf_metadata: ipv4_source_address: %s", conf.GetIpv4SourceAddress())
-		log.Debugf("cilium.bpf_metadata: ipv6_source_address: %s", conf.GetIpv6SourceAddress())
+		setIngressSourceAddresses(conf)
 	}
 
 	return &envoy_config_listener.ListenerFilter{
@@ -779,6 +788,77 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 	s.addListener(name, func() *envoy_config_listener.Listener {
 		return s.getListenerConf(name, kind, port, isIngress, mayUseOriginalSourceAddr)
 	}, wg, nil, true)
+}
+
+// UpdateListenersForNodeChanges updates cached listeners added from CiliumEnvoyConfigs for changes
+// in ingress IP addresses
+func (s *XDSServer) UpdateListenersForNodeChanges(wg *completion.WaitGroup) (err error, revertFuncs xds.AckingResourceMutatorRevertFuncList) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Get all cached Listeners
+	vListeners, err := s.listenerCache.GetResources(wg.Context(), ListenerTypeURL, 0, "", []string{})
+	if err != nil {
+		return err, revertFuncs
+	}
+
+	for i, res := range vListeners.Resources {
+		listenerName := vListeners.ResourceNames[i]
+		listenerConfig, ok := res.(*envoy_config_listener.Listener)
+		if !ok || listenerConfig.Name != listenerName {
+			log.Warningf("Envoy Listener type/name mismatch, skipping update %s: %v",
+				listenerName, listenerConfig)
+			continue
+		}
+		// Update agent configuration dependent parts of the listener configuration
+		var bpfConfig *cilium.BpfMetadata
+		var filterIndex int
+		for j, lf := range listenerConfig.ListenerFilters {
+			if lf.GetTypedConfig().GetTypeUrl() == BpfMetadataTypeURL {
+				any, err := lf.GetTypedConfig().UnmarshalNew()
+				if err != nil {
+					log.WithError(err).Warningf("Envoy Listener filter unmarshal failed: %v", lf)
+					continue
+				}
+				var ok bool
+				bpfConfig, ok = any.(*cilium.BpfMetadata)
+				if !ok {
+					log.Warningf("Envoy Listener filter type cast failed: %v", lf)
+					continue
+				}
+				// Only listeners added via CiliumEnvoyConfig have
+				// EgressMarkSourceEndpointId set
+				if bpfConfig.EgressMarkSourceEndpointId {
+					setIngressSourceAddresses(bpfConfig)
+					filterIndex = j
+				} else {
+					bpfConfig = nil
+				}
+			}
+		}
+		// Update if changed
+		if bpfConfig != nil {
+			listenerConfig.ListenerFilters[filterIndex].ConfigType = &envoy_config_listener.ListenerFilter_TypedConfig{
+				TypedConfig: toAny(bpfConfig),
+			}
+
+			if err := listenerConfig.Validate(); err != nil {
+				log.Errorf("Envoy: Could not validate Listener (%s): %s", err, listenerConfig.String())
+				continue
+			}
+
+			revertFuncs = append(revertFuncs, s.upsertListener(listenerName, listenerConfig, wg, func(err error) {
+				if err == nil {
+					log.Debugf("Updated listener %s after node changes: %s",
+						listenerName, listenerConfig.String())
+				} else {
+					log.WithError(err).Warnf("Listener %s update after node changes failed: %s", listenerName, listenerConfig.String())
+				}
+			}))
+		}
+	}
+
+	return nil, revertFuncs
 }
 
 // RemoveListener removes an existing Envoy Listener.

@@ -1,0 +1,32 @@
+{{- if .Values.ingressController.enabled -}}
+{{- if ne .Values.cni.chainingMode "none" -}}
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: cilium-ingress-drone
+  namespace: {{ .Release.Namespace }}
+  labels:
+    io.cilium/app: ingress-drone
+    name: cilium-ingress-drone
+spec:
+  selector:
+    matchLabels:
+      io.cilium/app: ingress-drone
+      'reserved:ingress': ''
+  template:
+    metadata:
+      labels:
+        io.cilium/app: ingress-drone
+        'reserved:ingress': ''
+    spec:
+      containers:
+        - name: pause
+          image: k8s.gcr.io/pause:3.6
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
+      terminationGracePeriodSeconds: 0
+{{- end }}
+{{- end }}

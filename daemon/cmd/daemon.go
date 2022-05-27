@@ -1086,7 +1086,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	bootstrapStats.restore.End(true)
 
 	if err := d.allocateIPs(); err != nil { // will log errors/fatal internally
-		return nil, nil, err
+		if err == IngressIPAMError {
+			log.WithError(err).Info("waiting for cilium-ingress-drone pod to be deployed")
+		} else {
+			return nil, nil, err
+		}
 	}
 
 	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
