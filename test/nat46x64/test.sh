@@ -4,6 +4,7 @@ set -eux
 
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
+PULL_REQUEST_CHECKOUT=${3:-../..}
 
 # With Kind we create two nodes cluster:
 #
@@ -15,7 +16,7 @@ IMG_TAG=${2:-latest}
 kind create cluster --config kind-config.yaml
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm install cilium ../../install/kubernetes/cilium \
+helm install cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --set debug.enabled=true \
@@ -70,7 +71,7 @@ for i in $(seq 1 10); do
 done
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
-helm upgrade cilium ../../install/kubernetes/cilium \
+helm upgrade cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --reuse-values \
@@ -89,7 +90,7 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
 [ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm upgrade cilium ../../install/kubernetes/cilium \
+helm upgrade cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --reuse-values \
@@ -104,7 +105,7 @@ for i in $(seq 1 10); do
 done
 
 # Install Cilium as standalone L4LB: tc/Random/SNAT
-helm upgrade cilium ../../install/kubernetes/cilium \
+helm upgrade cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --reuse-values \
@@ -145,7 +146,7 @@ done
 # Check if restore for both is proper
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm upgrade cilium ../../install/kubernetes/cilium \
+helm upgrade cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --reuse-values \
@@ -189,7 +190,7 @@ for i in $(seq 1 10); do
 done
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
-helm upgrade cilium ../../install/kubernetes/cilium \
+helm upgrade cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --reuse-values \
@@ -208,7 +209,7 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
 [ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm upgrade cilium ../../install/kubernetes/cilium \
+helm upgrade cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --reuse-values \
@@ -223,7 +224,7 @@ for i in $(seq 1 10); do
 done
 
 # Install Cilium as standalone L4LB: tc/Random/SNAT
-helm upgrade cilium ../../install/kubernetes/cilium \
+helm upgrade cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --reuse-values \
@@ -264,7 +265,7 @@ done
 # Check if restore for both is proper
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm upgrade cilium ../../install/kubernetes/cilium \
+helm upgrade cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --reuse-values \
@@ -291,7 +292,7 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 2
 ################################
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT/Recorder
-helm upgrade cilium ../../install/kubernetes/cilium \
+helm upgrade cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --reuse-values \
