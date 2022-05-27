@@ -58,6 +58,7 @@ const (
 	processingTime  = "processingTime"
 	semaphoreTime   = "semaphoreTime"
 	policyCheckTime = "policyCheckTime"
+	dataplaneTime   = "dataplaneTime"
 
 	metricErrorTimeout = "timeout"
 	metricErrorProxy   = "proxyErr"
@@ -429,6 +430,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	stat.ProcessingTime.Start()
 
 	endMetric := func() {
+		stat.DataplaneTime.End(true)
 		stat.ProcessingTime.End(true)
 		metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorTimeout, metrics.L7DNS, upstream).Observe(
 			stat.UpstreamTime.Total().Seconds())
@@ -438,6 +440,8 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			stat.SemaphoreAcquireTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
 			stat.PolicyCheckTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
+			stat.DataplaneTime.Total().Seconds())
 	}
 
 	switch {
@@ -566,6 +570,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	record.Log()
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
+		stat.DataplaneTime.Start()
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
 		// We also need to add to the cache before we purge any matching zombies
