@@ -185,6 +185,9 @@ const (
 	LabelDirection = "direction"
 
 	LabelPeerEndpoint = "endpoint"
+
+	// LabelType is the label for type in general (e.g. endpoint, node)
+	LabelType = "type"
 )
 
 var (
@@ -240,8 +243,8 @@ var (
 
 	// Identity
 
-	// Identity is the number of identities currently in use on the node
-	Identity = NoOpGauge
+	// Identity is the number of identities currently in use on the node by type
+	Identity = NoOpGaugeVec
 
 	// Events
 
@@ -728,11 +731,11 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			c.PolicyImplementationDelayEnabled = true
 
 		case Namespace + "_identity":
-			Identity = prometheus.NewGauge(prometheus.GaugeOpts{
+			Identity = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Namespace: Namespace,
 				Name:      "identity",
 				Help:      "Number of identities currently allocated",
-			})
+			}, []string{LabelType})
 
 			collectors = append(collectors, Identity)
 			c.IdentityCountEnabled = true
