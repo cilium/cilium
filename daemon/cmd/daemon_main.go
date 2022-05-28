@@ -1695,14 +1695,6 @@ func runDaemon() {
 		link.DeleteByName(wireguardTypes.IfaceName)
 	}
 
-	if k8s.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-		if err := k8s.Init(option.Config); err != nil {
-			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
-		}
-		bootstrapStats.k8sInit.End(true)
-	}
-
 	ctx, cancel := context.WithCancel(server.ServerCtx)
 	d, restoredEndpoints, err := NewDaemon(ctx, cancel,
 		WithDefaultEndpointManager(ctx, endpoint.CheckHealth),
