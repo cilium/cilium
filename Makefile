@@ -498,11 +498,15 @@ check-microk8s: ## Validate if microk8s is ready to install cilium.
 
 LOCAL_IMAGE_TAG=local
 microk8s: export DOCKER_REGISTRY=localhost:32000
-microk8s: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+microk8s: export LOCAL_AGENT_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+microk8s: export LOCAL_OPERATOR_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/operator:$(LOCAL_IMAGE_TAG)
 microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
-	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
+	@echo "  DEPLOY image to microk8s ($(LOCAL_AGENT_IMAGE))"
+	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_AGENT_IMAGE)
+	$(QUIET)$(MAKE) dev-docker-operator-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	@echo "  DEPLOY image to microk8s ($(LOCAL_OPERATOR_IMAGE))"
+	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
 
 kind: ## Create a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind.sh
@@ -511,14 +515,19 @@ kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
 
 kind-image: export DOCKER_REGISTRY=localhost:5000
-kind-image: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+kind-image: export LOCAL_AGENT_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+kind-image: export LOCAL_OPERATOR_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/operator:$(LOCAL_IMAGE_TAG)
 kind-image: ## Build cilium-dev docker image and import it into kind.
 	@$(ECHO_CHECK) kind is ready...
 	@kind get clusters >/dev/null
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DEPLOY image to kind ($(LOCAL_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_IMAGE)
-	$(QUIET)kind load docker-image $(LOCAL_IMAGE)
+	@echo "  DEPLOY image to kind ($(LOCAL_AGENT_IMAGE))"
+	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_AGENT_IMAGE)
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
+	$(QUIET)$(MAKE) dev-docker-operator-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	@echo "  DEPLOY image to kind ($(LOCAL_OPERATOR_IMAGE))"
+	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE)
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE)
 
 precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
