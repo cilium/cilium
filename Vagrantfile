@@ -47,7 +47,7 @@ end
 $cleanup = <<SCRIPT
 i=1
 while [ "$i" -le "$((num_workers+1))" ]; do
-    VBoxManage natnetwork add --netname natnet$i --network fd08::/64 --ipv6 on --enable
+    VBoxManage natnetwork add --netname natnet$i --network 192.168.0.0/16 --ipv6 on --enable
     i=$((i+1))
 done 2>/dev/null
 
