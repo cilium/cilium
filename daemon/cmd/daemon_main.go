@@ -1730,7 +1730,8 @@ func runDaemon() {
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
 	gc.Enable(option.Config.EnableIPv4, option.Config.EnableIPv6,
-		restoredEndpoints.restored, d.endpointManager)
+		restoredEndpoints.restored, d.endpointManager,
+		d.datapath.LocalNodeAddressing())
 	bootstrapStats.enableConntrack.End(true)
 
 	bootstrapStats.k8sInit.Start()

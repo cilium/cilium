@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -30,7 +31,11 @@ type EndpointManager interface {
 }
 
 // Enable enables the connection tracking garbage collection.
-func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr EndpointManager) {
+// The restored endpoints and local node addresses are used to avoid GCing
+// connections that may still be in use: connections of active endpoints and,
+// in case the host firewall is enabled, connections of the local host.
+func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr EndpointManager,
+	nodeAddressing types.NodeAddressing) {
 	var (
 		initialScan         = true
 		initialScanComplete = make(chan struct{})
@@ -87,7 +92,8 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 			}
 
 			if len(eps) > 0 || initialScan {
-				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, triggeredBySignal, createGCFilter(initialScan, restoredEndpoints, emitEntryCB))
+				gcFilter := createGCFilter(initialScan, restoredEndpoints, emitEntryCB, nodeAddressing)
+				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
@@ -226,7 +232,8 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctm
 	return
 }
 
-func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint, emitEntryCB ctmap.EmitCTEntryCBFunc) *ctmap.GCFilter {
+func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint,
+	emitEntryCB ctmap.EmitCTEntryCBFunc, nodeAddressing types.NodeAddressing) *ctmap.GCFilter {
 	filter := &ctmap.GCFilter{
 		RemoveExpired: true,
 		EmitCTEntryCB: emitEntryCB,
@@ -239,8 +246,33 @@ func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint, em
 	if initialScan {
 		filter.ValidIPs = map[string]struct{}{}
 		for _, ep := range restoredEndpoints {
+			if ep.IsHost() {
+				continue
+			}
 			filter.ValidIPs[ep.IPv6.String()] = struct{}{}
 			filter.ValidIPs[ep.IPv4.String()] = struct{}{}
+		}
+
+		// Once the host firewall is enabled, we will start tracking (and
+		// potentially enforcing policies) on all connections to and from the
+		// host IP addresses. Thus, we also need to avoid GCing the host IPs.
+		if option.Config.EnableHostFirewall {
+			addrs, err := nodeAddressing.IPv4().LocalAddresses()
+			if err != nil {
+				log.WithError(err).Warning("Unable to list local IPv4 addresses")
+			}
+			addrsV6, err := nodeAddressing.IPv6().LocalAddresses()
+			if err != nil {
+				log.WithError(err).Warning("Unable to list local IPv6 addresses")
+			}
+			addrs = append(addrs, addrsV6...)
+
+			for _, ip := range addrs {
+				if option.Config.IsExcludedLocalAddress(ip) {
+					continue
+				}
+				filter.ValidIPs[ip.String()] = struct{}{}
+			}
 		}
 	}
 
