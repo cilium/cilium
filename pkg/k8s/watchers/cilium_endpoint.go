@@ -124,13 +124,13 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 					}
 				}
 				if !v4Added {
-					portsChanged := k.ipcache.Delete(oldPair.IPV4, source.CustomResource)
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
 					if portsChanged {
 						namedPortsChanged = true
 					}
 				}
 				if !v6Added {
-					portsChanged := k.ipcache.Delete(oldPair.IPV6, source.CustomResource)
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
 					if portsChanged {
 						namedPortsChanged = true
 					}
