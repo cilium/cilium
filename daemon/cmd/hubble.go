@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/identity"
-	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -275,12 +274,12 @@ func (d *Daemon) launchHubble() {
 // to populate source and destination labels of flows.
 //
 //  - IdentityGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L40
-func (d *Daemon) GetIdentity(securityIdentity uint32) (*models.Identity, error) {
+func (d *Daemon) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
 	ident := d.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
 	if ident == nil {
 		return nil, fmt.Errorf("identity %d not found", securityIdentity)
 	}
-	return identitymodel.CreateModel(ident), nil
+	return ident, nil
 }
 
 // GetEndpointInfo returns endpoint info for a given IP address. Hubble uses this function to populate
