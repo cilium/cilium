@@ -4,6 +4,7 @@ set -eux
 
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
+PULL_REQUEST_CHECKOUT=${3:-../..}
 
 ###########
 #  SETUP  #
@@ -44,7 +45,7 @@ nsenter -t $CONTROL_PLANE_PID -n /bin/sh -c "\
     ip l s dev l4lb-veth1 up"
 
 # Install Cilium as standalone L4LB
-helm install cilium ../../install/kubernetes/cilium \
+helm install cilium ${PULL_REQUEST_CHECKOUT}/install/kubernetes/cilium \
     --wait \
     --namespace kube-system \
     --set debug.enabled=true \
