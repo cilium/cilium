@@ -392,11 +392,11 @@ var NoopServiceGetter = FakeServiceGetter{
 
 // FakeIdentityGetter is used for unit tests that need IdentityGetter.
 type FakeIdentityGetter struct {
-	OnGetIdentity func(securityIdentity uint32) (*models.Identity, error)
+	OnGetIdentity func(securityIdentity uint32) (*identity.Identity, error)
 }
 
 // GetIdentity implements IdentityGetter.GetIPIdentity.
-func (f *FakeIdentityGetter) GetIdentity(securityIdentity uint32) (*models.Identity, error) {
+func (f *FakeIdentityGetter) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
 	if f.OnGetIdentity != nil {
 		return f.OnGetIdentity(securityIdentity)
 	}
@@ -405,8 +405,8 @@ func (f *FakeIdentityGetter) GetIdentity(securityIdentity uint32) (*models.Ident
 
 // NoopIdentityGetter always returns an empty response.
 var NoopIdentityGetter = FakeIdentityGetter{
-	OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
-		return &models.Identity{}, nil
+	OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
+		return &identity.Identity{}, nil
 	},
 }
 

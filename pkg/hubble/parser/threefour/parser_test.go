@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
@@ -291,11 +290,11 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.NoError(t, err)
 	buf.Write(buffer.Bytes())
 	require.NoError(t, err)
-	identityGetter := &testutils.FakeIdentityGetter{OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
+	identityGetter := &testutils.FakeIdentityGetter{OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
 		if securityIdentity == uint32(tn.SrcLabel) {
-			return &models.Identity{Labels: []string{"src=label"}}, nil
+			return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:src=label"})}, nil
 		} else if securityIdentity == uint32(tn.DstLabel) {
-			return &models.Identity{Labels: []string{"dst=label"}}, nil
+			return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
 		}
 		return nil, fmt.Errorf("identity not found for %d", securityIdentity)
 	}}
@@ -306,8 +305,8 @@ func TestDecodeTraceNotify(t *testing.T) {
 	f := &flowpb.Flow{}
 	err = parser.Decode(buf.Bytes(), f)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"src=label"}, f.GetSource().GetLabels())
-	assert.Equal(t, []string{"dst=label"}, f.GetDestination().GetLabels())
+	assert.Equal(t, []string{"k8s:src=label"}, f.GetSource().GetLabels())
+	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
 }
 
 func TestDecodeDropNotify(t *testing.T) {
@@ -335,11 +334,11 @@ func TestDecodeDropNotify(t *testing.T) {
 	buf.Write(buffer.Bytes())
 	require.NoError(t, err)
 	identityGetter := &testutils.FakeIdentityGetter{
-		OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
+		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
 			if securityIdentity == uint32(dn.SrcLabel) {
-				return &models.Identity{Labels: []string{"src=label"}}, nil
+				return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:src=label"})}, nil
 			} else if securityIdentity == uint32(dn.DstLabel) {
-				return &models.Identity{Labels: []string{"dst=label"}}, nil
+				return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
 		},
@@ -351,16 +350,16 @@ func TestDecodeDropNotify(t *testing.T) {
 	f := &flowpb.Flow{}
 	err = parser.Decode(buf.Bytes(), f)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"src=label"}, f.GetSource().GetLabels())
-	assert.Equal(t, []string{"dst=label"}, f.GetDestination().GetLabels())
+	assert.Equal(t, []string{"k8s:src=label"}, f.GetSource().GetLabels())
+	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
 }
 
 func TestDecodePolicyVerdictNotify(t *testing.T) {
 	var remoteLabel identity.NumericIdentity = 123
 	identityGetter := &testutils.FakeIdentityGetter{
-		OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
+		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
 			if securityIdentity == uint32(remoteLabel) {
-				return &models.Identity{Labels: []string{"dst=label"}}, nil
+				return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
 		},
@@ -391,7 +390,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(api.PolicyMatchL3L4), f.GetPolicyMatchType())
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
-	assert.Equal(t, []string{"dst=label"}, f.GetDestination().GetLabels())
+	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
 
 	// PolicyVerdictNotify for dropped flow
 	flags = api.PolicyIngress
@@ -414,7 +413,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	assert.Equal(t, uint32(151), f.GetDropReason())
 	assert.Equal(t, flowpb.DropReason(151), f.GetDropReasonDesc())
 	assert.Equal(t, flowpb.Verdict_DROPPED, f.GetVerdict())
-	assert.Equal(t, []string{"dst=label"}, f.GetSource().GetLabels())
+	assert.Equal(t, []string{"k8s:dst=label"}, f.GetSource().GetLabels())
 }
 
 func TestDecodeDropReason(t *testing.T) {
@@ -446,8 +445,8 @@ func TestDecodeLocalIdentity(t *testing.T) {
 	data, err := testutils.CreateL3L4Payload(tn)
 	require.NoError(t, err)
 	identityGetter := &testutils.FakeIdentityGetter{
-		OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
-			return &models.Identity{Labels: []string{"some=label", "cidr:1.2.3.4/12", "cidr:1.2.3.4/11"}}, nil
+		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
+			return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"unspec:some=label", "cidr:1.2.3.4/12", "cidr:1.2.3.4/11"})}, nil
 		},
 	}
 
@@ -458,8 +457,8 @@ func TestDecodeLocalIdentity(t *testing.T) {
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"cidr:1.2.3.4/12", "some=label"}, f.GetSource().GetLabels())
-	assert.Equal(t, []string{"cidr:1.2.3.4/12", "some=label"}, f.GetDestination().GetLabels())
+	assert.Equal(t, []string{"cidr:1.2.3.4/12", "unspec:some=label"}, f.GetSource().GetLabels())
+	assert.Equal(t, []string{"cidr:1.2.3.4/12", "unspec:some=label"}, f.GetDestination().GetLabels())
 }
 
 func TestDecodeTrafficDirection(t *testing.T) {
