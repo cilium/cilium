@@ -6,16 +6,15 @@ include ../Makefile.quiet
 
 HELM_VALUES := helm-values.rst
 
-.PHONY: default clean builder-image cilium-build cmdref epub latex html
+.PHONY: default clean help builder-image cilium-build cmdref epub latex html
+
+##@ Targets (default: "html")
 
 default: html
 
-clean:
-	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock
-
 DOCS_BUILDER_IMG ?= cilium/docs-builder
 
-builder-image: Dockerfile requirements.txt
+builder-image: Dockerfile requirements.txt ## Build the docs-builder image for rendering and checking the documentation.
 	$(ECHO_DOCKER)
 	# Pre-pull FROM docker images due to Buildkit sometimes failing to pull them.
 	grep "^FROM " $< | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
@@ -37,12 +36,12 @@ DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
-update-cmdref: builder-image cilium-build
+update-cmdref: builder-image cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
-check: builder-image update-cmdref update-helm-values
+check: builder-image update-cmdref update-helm-values ## Validate command and Helm references, as well as policy examples.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
@@ -69,7 +68,7 @@ ifneq ($(shell uname -m),x86_64)
     HELM_VALUES_DEP :=
   endif
 endif
-update-helm-values: $(HELM_VALUES_DEP)
+update-helm-values: $(HELM_VALUES_DEP) ## Update the Helm reference documentation.
 
 HELM_DOCS_ROOT_PATH := $(DOCKER_CTR_ROOT_DIR)
 HELM_DOCS_CHARTS_DIR := $(HELM_DOCS_ROOT_PATH)/install/kubernetes
@@ -91,7 +90,7 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $@)" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2)
 
-epub latex html: builder-image copy-api update-helm-values
+epub latex html: builder-image copy-api update-helm-values ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
@@ -101,9 +100,15 @@ html-netlify: copy-api
 
 DOCS_PORT = 9081
 
-live-preview: builder-image
+live-preview: builder-image ## Build and serve the documentation locally.
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
 	$(QUIET)$(DOCKER_CTR) \
 		--publish $(DOCS_PORT):8000 \
 			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 $(SPHINX_OPTS) --ignore *.swp -Q . _preview
+
+clean: ## Clean up all artefacts from documentation.
+	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock
+
+help: ## Display help for the Makefile.
+	$(call print_help_from_makefile)
