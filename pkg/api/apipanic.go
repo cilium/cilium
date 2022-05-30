@@ -11,7 +11,10 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "api")
 
 // APIPanicHandler recovers from API panics and logs encountered panics
 type APIPanicHandler struct {
