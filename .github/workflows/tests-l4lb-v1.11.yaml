@@ -156,19 +156,19 @@ jobs:
           sudo cp docker/docker /usr/local/bin/docker
           rm -r docker docker-20.10.9.tgz
 
-      - name: Checkout pull request for Helm chart
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-        with:
-          ref: ${{ steps.vars.outputs.sha }}
-          persist-credentials: false
-          path: pull-request
-
       - name: Checkout upstream for Vagrantfile
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           # This is intentionally set to stable branch to avoid using Vagrantfile from pull requests.
           ref: v1.11
           persist-credentials: false
+
+      - name: Checkout pull request for Helm chart
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: pull-request
 
       - name: Boot Fedora
         run: |
@@ -191,7 +191,7 @@ jobs:
 
       - name: Run tests
         run: |
-          ssh default "sudo /bin/sh -c 'cd /vagrant/test/l4lb && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request'"
+          ssh default "sudo /bin/sh -c 'cd /vagrant/test/l4lb && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} /vagrant/pull-request/install/kubernetes/cilium'"
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
