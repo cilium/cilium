@@ -178,6 +178,12 @@ Users (Alphabetically)
       U: Networking, CiliumNetworkPolicy, BPF NodePort, Direct routing, kube-proxy replacement
       L: https://www.infomaniak.com/en
       Q: @reneluria
+    
+    * N: innoQ Schweiz GmbH
+      D: As a consulting company we added Cilium to a couple of our customers infrastructure
+      U: Networking, CiliumNetworkPolicy at L7, kube-proxy replacement, encryption
+      L: https://www.cloud-migration.ch/
+      Q: @fakod
   
     * N: JUMO
       D: JUMO is using Cilium as their CNI plugin for all of their AWS-hosted EKS clusters
