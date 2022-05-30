@@ -105,17 +105,22 @@ else
 
   echo "Validating documentation (syntax, spelling)..."
   if ! build_with_spellchecker ; then
+    status_ok=0
     if has_build_warnings ; then
         printf "\nPlease fix the following documentation warnings:\n"
         filter_warnings
+        status_ok=1
     fi
 
     if has_spelling_errors ; then
         printf "\nPlease fix the following spelling mistakes:\n"
         describe_spelling_errors
+        status_ok=1
     fi
 
-    exit 1
+    if [ "${status_ok}" -ne 0 ] ; then
+        exit 1
+    fi
   fi
 fi
 
