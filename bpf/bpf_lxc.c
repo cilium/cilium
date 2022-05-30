@@ -1353,7 +1353,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 {
 	struct ct_state ct_state_on_stack __maybe_unused, *ct_state, ct_state_new = {};
 	struct ipv6_ct_tuple tuple_on_stack __maybe_unused, *tuple;
-	int ret, verdict, hdrlen, zero = 0;
+	int ret, l4_off, verdict, hdrlen, zero = 0;
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1363,6 +1363,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	union tcp_flags tcp_flags __maybe_unused = { .value = 0 };
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1396,6 +1397,12 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	ret = ct_buffer->ret;
 	*ct_status = (enum ct_status)ret;
 
+	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = ETH_HLEN + hdrlen;
+
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
 	 * Always redirect connections that originated from L7 LB.
@@ -1415,13 +1422,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 	if (unlikely(ct_state->rev_nat_index)) {
 		struct csum_offset csum_off = {};
-		int ret2, l4_off;
-
-		hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
-		if (hdrlen < 0)
-			return hdrlen;
-
-		l4_off = ETH_HLEN + hdrlen;
+		int ret2;
 
 		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
@@ -1455,9 +1456,17 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	}
 
 #ifdef ENABLE_NODEPORT
-	if (ret == CT_NEW || ret == CT_REOPENED) {
-		bool dsr = false;
 # ifdef ENABLE_DSR
+	if (tuple->nexthdr == IPPROTO_TCP) {
+		if (ctx_load_bytes(ctx, l4_off + 12, &tcp_flags, 2) < 0)
+			return DROP_CT_INVALID_HDR;
+	}
+
+	if (ret == CT_NEW || ret == CT_REOPENED ||
+	    /* See comment in ipv4_policy() */
+	    (ret == CT_ESTABLISHED && (tuple->nexthdr != IPPROTO_TCP ||
+	    ((tcp_flags.value & TCP_FLAG_SYN) && !(tcp_flags.value & TCP_FLAG_ACK))))) {
+		bool dsr = false;
 		int ret2;
 
 		ret2 = handle_dsr_v6(ctx, &dsr);
@@ -1465,8 +1474,11 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 			return ret2;
 
 		ct_state_new.dsr = dsr;
-		if (ret == CT_REOPENED && ct_state->dsr != dsr)
+		if ((ret == CT_REOPENED || ret == CT_ESTABLISHED) && ct_state->dsr != dsr)
 			ct_update6_dsr(get_ct_map6(tuple), tuple, dsr);
+# else
+	if (ret == CT_NEW || ret == CT_REOPENED) {
+		bool dsr = false;
 # endif /* ENABLE_DSR */
 		if (!dsr) {
 			bool node_port =
@@ -1664,16 +1676,21 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	struct iphdr *ip4;
 	bool skip_ingress_proxy = false;
 	bool is_untracked_fragment = false;
+	bool has_l4_header = false;
 	struct ct_buffer4 *ct_buffer;
 	__u32 monitor = 0, zero = 0;
 	enum trace_reason reason;
-	int ret, verdict = 0;
+	int ret, verdict = 0, l4_off;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	union tcp_flags tcp_flags __maybe_unused = { .value = 0 };
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	has_l4_header = ipv4_has_l4_header(ip4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	policy_clear_mark(ctx);
 
@@ -1732,12 +1749,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	if (unlikely(ret == CT_REPLY && ct_state->rev_nat_index &&
 		     !ct_state->loopback)) {
 		struct csum_offset csum_off = {};
-		bool has_l4_header = false;
-		int ret2, l4_off;
+		int ret2;
 
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-
-		has_l4_header = ipv4_has_l4_header(ip4);
 		if (has_l4_header)
 			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
@@ -1788,9 +1801,19 @@ skip_policy_enforcement:
 #endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
 
 #ifdef ENABLE_NODEPORT
-	if (ret == CT_NEW || ret == CT_REOPENED) {
-		bool dsr = false;
 # ifdef ENABLE_DSR
+	if (tuple->nexthdr == IPPROTO_TCP && has_l4_header) {
+		if (ctx_load_bytes(ctx, l4_off + 12, &tcp_flags, 2) < 0)
+			return DROP_CT_INVALID_HDR;
+	}
+
+	if (ret == CT_NEW || ret == CT_REOPENED ||
+	    /* In case a DSR flow hits a stale nodeport ct entry, override it
+	     * so that a reply packet will be SNATed properly
+	     */
+	    (ret == CT_ESTABLISHED && ((tuple->nexthdr != IPPROTO_TCP || !has_l4_header) ||
+	    ((tcp_flags.value & TCP_FLAG_SYN) && !(tcp_flags.value & TCP_FLAG_ACK))))) {
+		bool dsr = false;
 		int ret2;
 
 		ret2 = handle_dsr_v4(ctx, &dsr);
@@ -1798,8 +1821,11 @@ skip_policy_enforcement:
 			return ret2;
 
 		ct_state_new.dsr = dsr;
-		if (ret == CT_REOPENED && ct_state->dsr != dsr)
+		if ((ret == CT_REOPENED || ret == CT_ESTABLISHED) && ct_state->dsr != dsr)
 			ct_update4_dsr(get_ct_map4(tuple), tuple, dsr);
+# else
+	if (ret == CT_NEW || ret == CT_REOPENED) {
+		bool dsr = false;
 # endif /* ENABLE_DSR */
 		if (!dsr) {
 			bool node_port =
