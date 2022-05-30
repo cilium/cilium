@@ -60,10 +60,6 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddres
 
 TEST_UNITTEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
-define print_help_line
-	@printf "  \033[36m%-29s\033[0m %s.\n" $(1) $(2)
-endef
-
 define generate_k8s_api
 	cd "./vendor/k8s.io/code-generator" && \
 	GO111MODULE=off bash ./generate-groups.sh $(1) \
@@ -634,8 +630,8 @@ dev-doctor: ## Run Cilium dev-doctor to validate local development environment.
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
 	$(QUIET)$(GO) run ./tools/dev-doctor
 
-help: Makefile ## Display help for the Makefile, from https://www.thapaliya.com/en/writings/well-documented-makefiles/
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-28s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writings/well-documented-makefiles/.
+	$(call print_help_from_makefile)
 	@# There is also a list of target we have to manually put the information about.
 	@# These are templated targets.
 	$(call print_help_line,"docker-cilium-image","Build cilium-agent docker image")
