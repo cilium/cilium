@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 
@@ -60,7 +60,7 @@ func (conn *ConnTestSpec) GetField(field string) ResultType {
 // Template field is used to render the cilium network policy.
 type PolicyTestKind struct {
 	name     string
-	kind     string //Egress/ingress
+	kind     string // Egress/ingress
 	tests    ConnTestSpec
 	template map[string]string
 	exclude  []string
@@ -142,7 +142,6 @@ func (t *Target) SetPortNumber() int {
 // be retrieved. This function only returns the first port mapped in the
 // service;  It'll not work with multiple ports.
 func (t *Target) GetTarget(spec *TestSpec) (*TargetDetails, error) {
-
 	switch t.Kind {
 	case nodePort, service:
 		host, port, err := spec.Kub.GetServiceHostPort(helpers.DefaultNamespace, t.GetServiceName(spec))
@@ -518,7 +517,6 @@ func (t *TestSpec) GetPodMetadata() (map[string]string, error) {
 // `TestSpec` l3, l4 and l7 rules. Returns an error if any of the `PolicyTest`
 // set Template fails or if spec cannot be dump as string
 func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
-
 	type rule map[string]interface{}
 
 	specs := []api.Rule{}
@@ -541,7 +539,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 	  },
 	  "specs": %[2]s}`)
 
-	//Create template
+	// Create template
 	switch kind := t.l3.kind; kind {
 	case ingress:
 		err = t.l3.SetTemplate(&ingressMap, t)
@@ -652,7 +650,7 @@ func (t *TestSpec) NetworkPolicyApply(base string) error {
 	}
 
 	if policy == "" {
-		//This only happens on L3:No Policy L4:No Policy L7:No Policy
+		// This only happens on L3:No Policy L4:No Policy L7:No Policy
 		logrus.Info("No policy so do not import it")
 		return nil
 	}
@@ -726,7 +724,8 @@ func (t *TestSpec) getConnectivityTest(kind string) []connTestResultType {
 	return []connTestResultType{
 		{t.l3.kind, t.l3.tests.GetField(kind)},
 		{t.l4.kind, t.l4.tests.GetField(kind)},
-		{t.l7.kind, t.l7.tests.GetField(kind)}}
+		{t.l7.kind, t.l7.tests.GetField(kind)},
+	}
 }
 
 // GetTestExpects returns a map with the connTestType and the expected result
@@ -735,7 +734,7 @@ func (t *TestSpec) GetTestExpects() map[string]ResultType {
 	expectedTestResult := func(testType string) ResultType {
 		connTest := t.getConnectivityTest(testType)
 
-		//First check the egress rules that are the first rules that match
+		// First check the egress rules that are the first rules that match
 		for _, kind := range ConnTestsFailedResults {
 			for _, test := range connTest {
 				if test.kind == egress {

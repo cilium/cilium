@@ -28,8 +28,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/config"
 
 	"github.com/cilium/cilium/pkg/lock"
 	ciliumTestConfig "github.com/cilium/cilium/test/config"
@@ -113,7 +113,7 @@ func init() {
 		}
 	}
 
-	//Get GinkgoConfig flags
+	// Get GinkgoConfig flags
 	commandFlags := flag.NewFlagSet("ginkgo", flag.ContinueOnError)
 	commandFlags.SetOutput(new(bytes.Buffer))
 
@@ -229,8 +229,8 @@ func AfterAll(body func()) bool {
 	return true
 }
 
-//JustAfterEach runs the function just after each test, before all AfterEeach,
-//AfterFailed and AfterAll
+// JustAfterEach runs the function just after each test, before all AfterEeach,
+// AfterFailed and AfterAll
 func JustAfterEach(body func()) bool {
 	if currentScope != nil {
 		if body == nil {

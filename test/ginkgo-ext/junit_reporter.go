@@ -7,7 +7,7 @@ JUnit XML Reporter for Ginkgo
 For usage instructions: http://onsi.github.io/ginkgo/#generating_junit_xml_output
 
 Reference file:
-https://github.com/onsi/ginkgo/blob/39febac9157b63aeba74d843d6b1c30990f3d7ed/reporters/junit_reporter.go
+https://github.com/onsi/ginkgo/v2/blob/39febac9157b63aeba74d843d6b1c30990f3d7ed/reporters/junit_reporter.go
 Junit Reference:
 https://www.ibm.com/support/knowledgecenter/en/SSQ2R2_9.1.1/com.ibm.rsar.analysis.codereview.cobol.doc/topics/cac_useresults_junit.html
 */
@@ -19,8 +19,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/types"
+	"github.com/onsi/ginkgo/v2/config"
+	"github.com/onsi/ginkgo/v2/types"
 )
 
 // JUnitTestSuite main struct to report all test in Junit Format
@@ -63,7 +63,7 @@ type JUnitReporter struct {
 	testSuiteName string
 }
 
-//NewJUnitReporter creates a new JUnit XML reporter.  The XML will be stored in the passed in filename.
+// NewJUnitReporter creates a new JUnit XML reporter.  The XML will be stored in the passed in filename.
 func NewJUnitReporter(filename string) *JUnitReporter {
 	return &JUnitReporter{
 		filename: filename,
@@ -175,7 +175,7 @@ func (reporter *JUnitReporter) failureTypeForState(state types.SpecState) string
 func reportChecks(output string) (string, string) {
 	var checks string
 	var stdout string
-	var dest = "stdout"
+	dest := "stdout"
 
 	for _, line := range strings.Split(output, "\n") {
 		if line == "<Checks>" {

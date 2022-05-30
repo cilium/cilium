@@ -13,8 +13,8 @@ import (
 	"time"
 
 	gops "github.com/google/gops/agent"
-	"github.com/onsi/ginkgo"
-	ginkgoconfig "github.com/onsi/ginkgo/config"
+	"github.com/onsi/ginkgo/v2"
+	ginkgoconfig "github.com/onsi/ginkgo/v2/config"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"github.com/sirupsen/logrus"
@@ -285,7 +285,6 @@ func getOrSetEnvVar(key, value string) {
 }
 
 var _ = AfterEach(func() {
-
 	// Send the Checks output to Junit report to be render on Jenkins.
 	defer helpers.CheckLogs.Reset()
 	GinkgoPrint("<Checks>\n%s\n</Checks>\n", helpers.CheckLogs.Buffer.String())

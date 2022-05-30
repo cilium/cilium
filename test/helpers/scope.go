@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	ginkgoconfig "github.com/onsi/ginkgo/config"
+	ginkgoconfig "github.com/onsi/ginkgo/v2/config"
 )
 
 // UserDefinedScope in case that the test scope is defined by the user instead

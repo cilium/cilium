@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/sys/unix"
 
@@ -385,7 +385,7 @@ func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
 
 // DNSDeployment returns the manifest to install dns engine on the server.
 func DNSDeployment(base string) string {
-	var DNSEngine = "coredns"
+	DNSEngine := "coredns"
 	k8sVersion := GetCurrentK8SEnv()
 	switch k8sVersion {
 	case "1.8", "1.9", "1.10":
