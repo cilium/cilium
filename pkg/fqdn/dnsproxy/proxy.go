@@ -178,8 +178,30 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPort uint16, destIP stri
 		return false
 	}
 
+	dest, err := restore.ParseRuleIPOrCIDR(destIP)
+	if err != nil || !dest.IsAddr() {
+		return false
+	}
+
 	for i := range ipRules {
-		if _, exists := ipRules[i].IPs[destIP]; (exists || ipRules[i].IPs == nil) && ipRules[i].Re.MatchString(name) {
+		if IPs := ipRules[i].IPs; IPs == nil {
+			// ok
+		} else if _, exists = IPs[dest]; exists {
+			// ok
+		} else if _, exists = IPs[dest.ToSingleCIDR()]; exists {
+			// ok
+		} else {
+			for ip := range IPs {
+				if ip.ContainsAddr(dest) {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				continue
+			}
+		}
+		if ipRules[i].Re.MatchString(name) {
 			return true
 		}
 	}
@@ -196,22 +218,24 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	for port, entries := range p.allowed[uint64(endpointID)] {
 		var ipRules restore.IPRules
 		for cs, regex := range entries {
-			var IPs map[string]struct{}
+			var IPs map[restore.RuleIPOrCIDR]struct{}
 			if !cs.IsWildcard() {
-				IPs = make(map[string]struct{})
+				IPs = make(map[restore.RuleIPOrCIDR]struct{})
 				count := 0
 			Loop:
 				for _, nid := range cs.GetSelections() {
 					nidIPs := p.LookupIPsBySecID(nid)
 					for _, ip := range nidIPs {
+						rip := restore.MustParseRuleIPOrCIDR(ip)
+
 						// Skip IPs that are allowed but have never been used,
 						// but only if at least one server has been used so far.
-						if len(p.usedServers) > 0 {
+						if len(p.usedServers) > 0 && rip.IsAddr() {
 							if _, used := p.usedServers[ip]; !used {
 								continue
 							}
 						}
-						IPs[ip] = struct{}{}
+						IPs[rip] = struct{}{}
 						count++
 						if count > p.maxIPsPerRestoredDNSRule {
 							log.WithFields(logrus.Fields{
