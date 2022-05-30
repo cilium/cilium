@@ -68,6 +68,13 @@ var ciliumChains = []customChain{
 		feederArgs: []string{""},
 	},
 	{
+		name:       ciliumOutMangleChain,
+		table:      "mangle",
+		hook:       "OUTPUT",
+		feederArgs: []string{""},
+		ipv6:       true,
+	},
+	{
 		name:       ciliumPostMangleChain,
 		table:      "mangle",
 		hook:       "POSTROUTING",

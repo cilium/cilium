@@ -5,6 +5,7 @@ package iptables
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -44,6 +45,7 @@ const (
 	ciliumPostNatChain    = "CILIUM_POST_nat"
 	ciliumOutputNatChain  = "CILIUM_OUTPUT_nat"
 	ciliumPreNatChain     = "CILIUM_PRE_nat"
+	ciliumOutMangleChain  = "CILIUM_OUT_mangle"
 	ciliumPostMangleChain = "CILIUM_POST_mangle"
 	ciliumPreMangleChain  = "CILIUM_PRE_mangle"
 	ciliumPreRawChain     = "CILIUM_PRE_raw"
@@ -1254,6 +1256,7 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
 	matchFromProxyEPID := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxyEPID, linux_defaults.MagicMarkProxyMask)
+	matchHostProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkProxyMask)
 	markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
 
 	return prog.runProg([]string{
@@ -1263,8 +1266,78 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
 		"-m", "mark", "!", "--mark", matchFromProxyEPID, // Don't match proxy traffic
+		"-m", "mark", "!", "--mark", matchHostProxy, // Don't match host proxy traffic
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
 		"-j", "MARK", "--set-xmark", markAsFromHost})
+}
+
+func installHostDnsProxyRule(prog iptablesInterface, addOrDelete, proto string, proxyPort uint16) error {
+	if err := prog.runProg([]string{
+		"-t", "mangle",
+		addOrDelete, ciliumOutMangleChain,
+		"-p", proto, "-m", proto, "--dport", "53",
+		"-m", "mark", "!", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask),
+		"-m", "mark", "!", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask),
+		"-j", "MARK", "--set-xmark", fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|(uint32(byteorder.HostToNetwork16(proxyPort))<<16)),
+	}); err != nil {
+		log.WithFields(logrus.Fields{
+			"addOrDelete": addOrDelete,
+			"proto":       proto,
+			"proxyPort":   proxyPort,
+		}).WithError(err).Error("installHostDnsProxyRule")
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (m *IptablesManager) InstallHostDnsProxyRules(install bool) error {
+	port := m.GetProxyPort("cilium-dns-egress")
+	prog := ip4tables
+	if !option.Config.EnableIPv4 {
+		prog = ip6tables
+	}
+
+	res, err := prog.runProgCombinedOutput([]string{"-t", "mangle", "-S", ciliumOutMangleChain})
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(res))
+	haveUdp := false
+	haveTcp := false
+	for scanner.Scan() {
+		rule := scanner.Bytes()
+		switch {
+		case bytes.Contains(rule, []byte("-p udp -m udp --dport 53")):
+			if install {
+				haveUdp = true
+			} else {
+				installHostDnsProxyRule(prog, "-D", "udp", port)
+			}
+		case bytes.Contains(rule, []byte("-p tcp -m tcp --dport 53")):
+			if install {
+				haveTcp = true
+			} else {
+				installHostDnsProxyRule(prog, "-D", "tcp", port)
+			}
+		}
+	}
+
+	if install {
+		if !haveUdp {
+			if err = installHostDnsProxyRule(prog, "-A", "udp", port); err != nil {
+				return err
+			}
+		}
+		if !haveTcp {
+			if err = installHostDnsProxyRule(prog, "-A", "tcp", port); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // InstallRules installs iptables rules for Cilium in specific use-cases

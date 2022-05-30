@@ -58,6 +58,10 @@ func (f *fakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfigura
 	return nil
 }
 
+func (f *fakeDatapath) InstallHostDnsProxyRules(install bool) error {
+	return nil
+}
+
 func (f *fakeDatapath) InstallProxyRules(context.Context, uint16, bool, string) error {
 	return nil
 }

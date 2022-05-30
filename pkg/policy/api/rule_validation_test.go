@@ -467,7 +467,7 @@ func (s *PolicyAPITestSuite) TestL7Rules(c *C) {
 	c.Assert(err, Not(IsNil))
 }
 
-// This test ensures that host policies with L7 rules are rejected.
+// This test ensures that host policies with L7 rules (except for DNS egress) are rejected.
 func (s *PolicyAPITestSuite) TestL7RulesWithNodeSelector(c *C) {
 	invalidL7RuleIngress := Rule{
 		NodeSelector: WildcardEndpointSelector,
@@ -490,9 +490,32 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNodeSelector(c *C) {
 		},
 	}
 	err := invalidL7RuleIngress.Sanitize()
-	c.Assert(err.Error(), Equals, "host policies do not support L7 rules yet")
+	c.Assert(err.Error(), Equals, "L7 policy is not supported on host ingress yet")
 
 	invalidL7RuleEgress := Rule{
+		NodeSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						HTTP: []PortRuleHTTP{
+							{Method: "PUT", Path: "/"},
+						},
+					},
+				}},
+			},
+		},
+	}
+	err = invalidL7RuleEgress.Sanitize()
+	c.Assert(err.Error(), Equals, "L7 protocol HTTP is not supported on host egress yet")
+
+	validL7RuleEgress := Rule{
 		NodeSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
 			{
@@ -512,8 +535,8 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNodeSelector(c *C) {
 			},
 		},
 	}
-	err = invalidL7RuleEgress.Sanitize()
-	c.Assert(err.Error(), Equals, "host policies do not support L7 rules yet")
+	err = validL7RuleEgress.Sanitize()
+	c.Assert(err, IsNil)
 
 	validL7RuleIngress := Rule{
 		NodeSelector: WildcardEndpointSelector,

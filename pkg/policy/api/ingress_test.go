@@ -230,7 +230,7 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedIngress(c *C) {
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		c.Assert(args.eg.sanitize(), Equals, nil, Commentf("Test name: %q", tt.name))
+		c.Assert(args.eg.sanitize(false), Equals, nil, Commentf("Test name: %q", tt.name))
 		isLabelBased := args.eg.AllowsWildcarding()
 		c.Assert(isLabelBased, checker.DeepEquals, want.isLabelBased, Commentf("Test name: %q", tt.name))
 	}

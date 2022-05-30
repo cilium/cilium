@@ -49,6 +49,10 @@ type Proxy interface {
 
 // IptablesManager manages iptables rules.
 type IptablesManager interface {
+	// InstallHostDnsProxyRules creates the necessary datapath config rules
+	// for redirecting host L7 traffic to proxy
+	InstallHostDnsProxyRules(install bool) error
+
 	// InstallProxyRules creates the necessary datapath config (e.g., iptables
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
 	InstallProxyRules(ctx context.Context, proxyPort uint16, ingress bool, name string) error

@@ -104,6 +104,21 @@ func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 		}}
 }
 
+func dialerConfig(mark int) *net.Dialer {
+	return &net.Dialer{
+		Control: func(network, address string, c syscall.RawConn) error {
+			var opErr error
+			err := c.Control(func(fd uintptr) {
+				opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_MARK, mark)
+			})
+			if err != nil {
+				return err
+			}
+
+			return opErr
+		}}
+}
+
 func bindUDP(addr string, ipv4, ipv6 bool) *net.IPConn {
 	// Mark outgoing packets as proxy egress return traffic (0x0b00)
 	conn, err := listenConfig(0xb00, ipv4, ipv6).ListenPacket(context.Background(), "ip:udp", addr)

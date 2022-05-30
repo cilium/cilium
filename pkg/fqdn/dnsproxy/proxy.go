@@ -520,11 +520,14 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		}(s)
 	}
 
+	// Mark outgoing packets forwarded by proxy
+	dialer := dialerConfig(linux_defaults.MagicMarkEgress)
+
 	// Bind the DNS forwarding clients on UDP and TCP
 	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
 	// retries into the previous lookup, suppressing them.
-	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
-	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
+	p.UDPClient = &dns.Client{Dialer: dialer, Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
+	p.TCPClient = &dns.Client{Dialer: dialer, Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 
 	return p, nil
 }

@@ -408,6 +408,23 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		return err
 	}
 
+	// KLUDGE
+	if e.isHost {
+		install := false
+		if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil {
+			for _, filter := range e.desiredPolicy.L4Policy.Egress {
+				if filter.L7Parser == policy.ParserTypeDNS {
+					install = true
+				}
+			}
+		}
+
+		err = e.owner.Datapath().InstallHostDnsProxyRules(install)
+		if err != nil {
+			return fmt.Errorf("installing host DNS proxy rules failed: %s", err)
+		}
+	}
+
 	return e.updateRealizedState(stats, origDir, revision, stateDirComplete)
 }
 
