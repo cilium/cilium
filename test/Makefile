@@ -20,6 +20,8 @@ GINKGO = $(QUIET) ginkgo
 
 REGISTRY_CREDENTIALS ?= "${DOCKER_LOGIN}:${DOCKER_PASSWORD}"
 
+.PHONY = all build test run k8s k8s-kind nightly clean run_bpf_tests
+
 all: build
 
 build:
@@ -65,3 +67,13 @@ clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET) rm -rf $(TEST_ARTIFACTS)
 	-$(QUIET) rm -f .vagrant/*.box
+
+BPF_TEST_FLAGS:=
+ifneq ($(V),0)
+    BPF_TEST_FLAGS += -test.v
+endif
+
+run_bpf_tests:
+	sudo /tmp/bpf-tests -bpf-test-path ../bpf/tests/bpf_tests $(BPF_TEST_FLAGS)
+	$(QUIET) make -C ../bpf/tests/bpf_tests all
+	go test bpf_tests/*.go -c -o /tmp/bpf-tests

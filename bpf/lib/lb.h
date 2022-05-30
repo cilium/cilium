@@ -81,7 +81,7 @@ struct {
 	/* Maglev inner map definition */
 	__array(values, struct {
 		__uint(type, BPF_MAP_TYPE_ARRAY);
-		__type(key, __u32);
+		__uint(key_size, sizeof(__u32));
 		__uint(value_size, sizeof(__u32) * LB_MAGLEV_LUT_SIZE);
 		__uint(max_entries, 1);
 	});
@@ -159,7 +159,7 @@ struct {
 	/* Maglev inner map definition */
 	__array(values, struct {
 		__uint(type, BPF_MAP_TYPE_ARRAY);
-		__type(key, __u32);
+		__uint(key_size, sizeof(__u32));
 		__uint(value_size, sizeof(__u32) * LB_MAGLEV_LUT_SIZE);
 		__uint(max_entries, 1);
 	});
