@@ -11,6 +11,13 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
+const (
+	NodeLocalIdentityType    = "node_local"
+	ReservedIdentityType     = "reserved"
+	ClusterLocalIdentityType = "cluster_local"
+	WellKnownIdentityType    = "well_known"
+)
+
 // Identity is the representation of the security context for a particular set of
 // labels.
 type Identity struct {
