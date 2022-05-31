@@ -423,12 +423,12 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	identity.IterateReservedIdentities(func(_ string, _ identity.NumericIdentity) {
-		metrics.Identity.WithLabelValues("reserved").Inc()
+		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
 	})
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config)
-		metrics.Identity.WithLabelValues("well_known").Add(float64(num))
+		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
