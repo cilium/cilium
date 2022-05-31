@@ -50,6 +50,9 @@ type Setting struct {
 	Name      string
 	Val       string
 	IgnoreErr bool
+
+	// Warn if non-empty is the alternative warning log message to use when IgnoreErr is false.
+	Warn string
 }
 
 // parameterPath returns the path to the sysctl file for parameter name.
@@ -142,10 +145,15 @@ func ApplySettings(sysSettings []Setting) error {
 			if !s.IgnoreErr || errors.Is(err, ErrInvalidSysctlParameter("")) {
 				return fmt.Errorf("Failed to sysctl -w %s=%s: %s", s.Name, s.Val, err)
 			}
+
+			warn := "Failed to sysctl -w"
+			if s.Warn != "" {
+				warn = s.Warn
+			}
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.SysParamName:  s.Name,
 				logfields.SysParamValue: s.Val,
-			}).Warning("Failed to sysctl -w")
+			}).Warning(warn)
 		}
 	}
 
