@@ -319,11 +319,11 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 		if err == nil {
 			if allocated || isNewLocally {
 				if id.ID.HasLocalScope() {
-					metrics.Identity.WithLabelValues("cidr").Inc()
+					metrics.Identity.WithLabelValues(identity.NodeLocalIdentityType).Inc()
 				} else if id.ID.IsReservedIdentity() {
-					metrics.Identity.WithLabelValues("reserved").Inc()
+					metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
 				} else {
-					metrics.Identity.WithLabelValues("cluster_local").Inc()
+					metrics.Identity.WithLabelValues(identity.ClusterLocalIdentityType).Inc()
 				}
 			}
 
@@ -396,11 +396,11 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	defer func() {
 		if released {
 			if id.ID.HasLocalScope() {
-				metrics.Identity.WithLabelValues("cidr").Dec()
+				metrics.Identity.WithLabelValues(identity.NodeLocalIdentityType).Dec()
 			} else if id.ID.IsReservedIdentity() {
-				metrics.Identity.WithLabelValues("reserved").Dec()
+				metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Dec()
 			} else {
-				metrics.Identity.WithLabelValues("cluster_local").Dec()
+				metrics.Identity.WithLabelValues(identity.ClusterLocalIdentityType).Dec()
 			}
 		}
 		if m.owner != nil && released && notifyOwner {
