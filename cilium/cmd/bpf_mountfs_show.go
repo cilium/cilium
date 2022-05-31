@@ -43,6 +43,9 @@ func getbpfmountFS(cmd *cobra.Command, args []string) {
 			break
 		}
 	}
+	if bpfmountDetail == nil {
+		Fatalf("No BPF filesystems are mounted")
+	}
 	if command.OutputOption() {
 		if err := command.PrintOutput(bpfmountDetail); err != nil {
 			os.Exit(1)
