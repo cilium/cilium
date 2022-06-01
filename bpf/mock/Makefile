@@ -5,10 +5,11 @@ include ../../Makefile.defs
 include ../../Makefile.quiet
 
 builder-image: Dockerfile
+	$(ECHO_DOCKER)
 	# Pre-pull FROM docker images due to Buildkit sometimes failing to pull them.
 	grep "^FROM " $< | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
 	$(QUIET)tar c Dockerfile \
-	 | $(CONTAINER_ENGINE) build --tag cilium/bpf-mock -
+	 | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) --tag cilium/bpf-mock -
 
 DOCKER_CTR_ROOT_DIR := /src
 DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
