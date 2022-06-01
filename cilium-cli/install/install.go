@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
+	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
@@ -297,6 +298,9 @@ type Parameters struct {
 	// HelmValuesSecretName is the name of the secret where helm values will be
 	// stored.
 	HelmValuesSecretName string
+
+	// ListVersions lists all the available versions for install without actually installing.
+	ListVersions bool
 }
 
 type rollbackStep func(context.Context)
@@ -559,7 +563,27 @@ func (k *K8sInstaller) restartUnmanagedPods(ctx context.Context) error {
 
 }
 
+func (k *K8sInstaller) listVersions() error {
+	versions, err := helm.ListVersions()
+	if err != nil {
+		return err
+	}
+	// Iterate backwards to print the newest version first.
+	for i := len(versions) - 1; i >= 0; i-- {
+		if versions[i] == defaults.Version {
+			fmt.Println(versions[i], "(default)")
+		} else {
+			fmt.Println(versions[i])
+		}
+	}
+	return err
+}
+
 func (k *K8sInstaller) Install(ctx context.Context) error {
+	// If --list-versions flag is specified, print available versions and return.
+	if k.params.ListVersions {
+		return k.listVersions()
+	}
 	if err := k.autodetectAndValidate(ctx); err != nil {
 		return err
 	}
