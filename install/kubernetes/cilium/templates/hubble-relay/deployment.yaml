@@ -92,6 +92,17 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.hubble.relay.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $constraint := . }}
+      - {{ toYaml $constraint | nindent 8 | trim }}
+          {{- if not $constraint.labelSelector }}
+        labelSelector:
+          matchLabels:
+            k8s-app: hubble-relay
+          {{- end }}
+        {{- end }}
+      {{- end }}
       {{- with .Values.hubble.relay.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}

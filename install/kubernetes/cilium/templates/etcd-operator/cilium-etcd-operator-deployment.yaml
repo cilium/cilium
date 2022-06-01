@@ -34,6 +34,18 @@ spec:
       affinity:
 {{ toYaml .Values.etcd.affinity | indent 8 }}
 {{- end }}
+{{- with .Values.etcd.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $constraint := . }}
+      - {{ toYaml $constraint | nindent 8 | trim }}
+          {{- if not $constraint.labelSelector }}
+        labelSelector:
+          matchLabels:
+            io.cilium/app: etcd-operator
+            name: cilium-etcd-operator
+          {{- end }}
+        {{- end }}
+{{- end }}
 {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
         {{ toYaml .Values.imagePullSecrets | indent 8 }}
