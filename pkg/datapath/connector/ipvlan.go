@@ -115,7 +115,7 @@ func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (*ebpf.M
 }
 
 // CreateIpvlanSlave creates an ipvlan slave in L3 based on the master device.
-func CreateIpvlanSlave(id string, mtu, masterDev int, mode string, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, string, error) {
+func CreateIpvlanSlave(id string, mtu, masterDev int, mode string, ep *models.EndpointChangeRequest) (*netlink.IPVlan, netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
@@ -126,7 +126,7 @@ func CreateIpvlanSlave(id string, mtu, masterDev int, mode string, ep *models.En
 	return ipvlan, link, tmpIfName, err
 }
 
-func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, error) {
+func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *models.EndpointChangeRequest) (*netlink.IPVlan, netlink.Link, error) {
 	var (
 		link       netlink.Link
 		err        error
@@ -196,7 +196,7 @@ func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *mo
 	ep.InterfaceIndex = int64(link.Attrs().Index)
 	ep.InterfaceName = link.Attrs().Name
 
-	return ipvlan, &link, nil
+	return ipvlan, link, nil
 }
 
 // CreateAndSetupIpvlanSlave creates an ipvlan slave device for the given
@@ -216,7 +216,7 @@ func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mt
 		return nil, fmt.Errorf("createIpvlanSlave has failed: %w", err)
 	}
 
-	if err = netlink.LinkSetNsFd(*link, int(netNs.Fd())); err != nil {
+	if err = netlink.LinkSetNsFd(link, int(netNs.Fd())); err != nil {
 		return nil, fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
 	}
 

@@ -422,7 +422,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	case datapathOption.DatapathModeVeth:
 		var (
 			veth      *netlink.Veth
-			peer      *netlink.Link
+			peer      netlink.Link
 			tmpIfName string
 		)
 		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
@@ -438,7 +438,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			}
 		}()
 
-		if err = netlink.LinkSetNsFd(*peer, int(netNs.Fd())); err != nil {
+		if err = netlink.LinkSetNsFd(peer, int(netNs.Fd())); err != nil {
 			err = fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
 			return
 		}
