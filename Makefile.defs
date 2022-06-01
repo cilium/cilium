@@ -27,6 +27,8 @@ export GOARCH ?= $(shell $(GO) env GOARCH)
 INSTALL = install
 
 CONTAINER_ENGINE?=docker
+DOCKER_FLAGS?=
+DOCKER_BUILD_FLAGS?=
 
 # Set DOCKER_DEV_ACCOUNT with "cilium" by default
 ifeq ($(DOCKER_DEV_ACCOUNT),)

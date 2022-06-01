@@ -56,7 +56,6 @@ GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)
 GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$2 "." z}' GO_VERSION)
 GO_INSTALLED_MAJOR_AND_MINOR_VERSION := $(shell $(GO) version | sed 's/go version go\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?.*/\1.\2/')
 
-DOCKER_FLAGS ?=
 GO_CONTAINER := $(CONTAINER_ENGINE) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) golang:$(GO_VERSION)
 GOIMPORTS_VERSION ?= v0.1.12
 
