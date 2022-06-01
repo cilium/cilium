@@ -16,10 +16,11 @@ clean:
 DOCS_BUILDER_IMG ?= cilium/docs-builder
 
 builder-image: Dockerfile requirements.txt
+	$(ECHO_DOCKER)
 	# Pre-pull FROM docker images due to Buildkit sometimes failing to pull them.
 	grep "^FROM " $< | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
 	$(QUIET)tar c requirements.txt Dockerfile \
-	  | $(CONTAINER_ENGINE) build --tag $(DOCS_BUILDER_IMG) -
+	  | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) --tag $(DOCS_BUILDER_IMG) -
 
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.

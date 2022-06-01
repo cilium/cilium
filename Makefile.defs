@@ -29,6 +29,8 @@ export GOARCH ?= $(NATIVE_ARCH)
 INSTALL = install
 
 CONTAINER_ENGINE?=docker
+DOCKER_FLAGS?=
+DOCKER_BUILD_FLAGS?=
 
 # use gsed if avaiable, otherwise use sed.
 # gsed is needed for MacOS to make in-place replacement work correctly.
