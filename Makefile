@@ -33,11 +33,9 @@ GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFIL
 SWAGGER_VERSION := v0.25.0
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
-COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "github.com/cilium/cilium/$(TESTPKGS)"; fi)
-COVERPKG ?= $(COVERPKG_EVAL)
 GOTEST_BASE := -test.v -timeout 600s
 GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
-GOTEST_COVER_OPTS += -coverprofile=coverage.out -coverpkg $(COVERPKG)
+GOTEST_COVER_OPTS += -coverprofile=coverage.out
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
 BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
@@ -138,7 +136,7 @@ tests-privileged: GO_TAGS_FLAGS+=privileged_tests ## Run integration-tests for C
 tests-privileged:
 	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
-		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) \
+		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done
@@ -205,7 +203,7 @@ endif
 	# hence will trigger an error of too many arguments. As a workaround, we
 	# have to process these packages in different subshells.
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
+		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done
