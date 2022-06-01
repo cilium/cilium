@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 
 	helm "github.com/cilium/charts"
+	"golang.org/x/mod/semver"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -270,4 +271,23 @@ func MergeVals(
 	}
 
 	return vals, nil
+}
+
+// ListVersions returns a list of available Helm chart versions (with "v" prefix) sorted by semver in ascending order.
+func ListVersions() ([]string, error) {
+	var versions []string
+	re := regexp.MustCompile(`^cilium-(.+)\.tgz$`)
+	entries, err := helm.HelmFS.ReadDir(".")
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		match := re.FindStringSubmatch(entry.Name())
+		if len(match) == 2 {
+			// semver.Sort expects a leading "v" in version strings.
+			versions = append(versions, "v"+match[1])
+		}
+	}
+	semver.Sort(versions)
+	return versions, nil
 }
