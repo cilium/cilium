@@ -136,6 +136,9 @@ jobs:
             OWNER=${{ github.sha }}
           fi
 
+          # Set ipam.mode=cluster-pool to overwrite the ipam value set by the
+          # cilium-cli which is setting it to 'eni' because it auto-detects
+          # the cluster as being EKS.
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
             --chart-directory=install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
@@ -152,6 +155,8 @@ jobs:
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=enableIPv4Masquerade=false \
             --helm-set=cni.chainingMode=aws-cni \
+            --helm-set=eni.enabled=false \
+            --helm-set=ipam.mode=cluster-pool \
             --helm-set=tunnel=disabled \
             --helm-set=bandwidthManager=false \
             --wait=false \
