@@ -92,8 +92,7 @@ func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 		Scope:  netlink.SCOPE_LINK,
 	}
 
-	_, err := route.Upsert(endpointRoute)
-	return err
+	return route.Upsert(endpointRoute)
 }
 
 func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
