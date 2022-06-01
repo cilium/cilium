@@ -55,7 +55,7 @@ func (c *clientImpl) findAuthority(n *xdsresource.Name) (_ *authority, unref fun
 		config = cfg.XDSServer
 	}
 
-	a, err := c.newAuthority(config)
+	a, err := c.newAuthorityLocked(config)
 	if err != nil {
 		return nil, nil, fmt.Errorf("xds: failed to connect to the control plane for authority %q: %v", authority, err)
 	}
@@ -73,14 +73,14 @@ func (c *clientImpl) findAuthority(n *xdsresource.Name) (_ *authority, unref fun
 	return a, func() { c.unrefAuthority(a) }, nil
 }
 
-// newAuthority creates a new authority for the config. But before that, it
+// newAuthorityLocked creates a new authority for the config. But before that, it
 // checks the cache to see if an authority for this config already exists.
 //
 // The caller must take a reference of the returned authority before using, and
 // unref afterwards.
 //
 // caller must hold c.authorityMu
-func (c *clientImpl) newAuthority(config *bootstrap.ServerConfig) (_ *authority, retErr error) {
+func (c *clientImpl) newAuthorityLocked(config *bootstrap.ServerConfig) (_ *authority, retErr error) {
 	// First check if there's already an authority for this config. If found, it
 	// means this authority is used by other watches (could be the same
 	// authority name, or a different authority name but the same server
