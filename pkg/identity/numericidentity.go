@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -483,12 +484,20 @@ func (id NumericIdentity) ClusterID() int {
 	return int((uint32(id) >> 16) & 0xFF)
 }
 
-// GetAllReservedIdentities returns a list of all reserved numeric identities.
+// GetAllReservedIdentities returns a list of all reserved numeric identities
+// in ascending order.
+// NOTE: While this func is unused from the cilium repository, is it imported
+// and called by the hubble cli.
 func GetAllReservedIdentities() []NumericIdentity {
-	identities := []NumericIdentity{}
+	identities := make([]NumericIdentity, 0, len(reservedIdentities))
 	for _, id := range reservedIdentities {
 		identities = append(identities, id)
 	}
+	// Because our reservedIdentities source is a go map, and go map order is
+	// randomized, we need to sort the resulting slice before returning it.
+	sort.Slice(identities, func(i, j int) bool {
+		return identities[i].Uint32() < identities[j].Uint32()
+	})
 	return identities
 }
 
