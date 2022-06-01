@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/balancer/roundrobin"
 	internalserviceconfig "google.golang.org/grpc/internal/serviceconfig"
 	"google.golang.org/grpc/serviceconfig"
+	"google.golang.org/grpc/xds/internal/balancer/outlierdetection"
 	"google.golang.org/grpc/xds/internal/balancer/ringhash"
 	"google.golang.org/grpc/xds/internal/xdsclient/bootstrap"
 )
@@ -102,6 +103,9 @@ type DiscoveryMechanism struct {
 	// DNSHostname is the DNS name to resolve in "host:port" form. For type
 	// LOGICAL_DNS only.
 	DNSHostname string `json:"dnsHostname,omitempty"`
+	// OutlierDetection is the Outlier Detection LB configuration for this
+	// priority.
+	OutlierDetection *outlierdetection.LBConfig `json:"outlierDetection,omitempty"`
 }
 
 // Equal returns whether the DiscoveryMechanism is the same with the parameter.
@@ -116,6 +120,8 @@ func (dm DiscoveryMechanism) Equal(b DiscoveryMechanism) bool {
 	case dm.EDSServiceName != b.EDSServiceName:
 		return false
 	case dm.DNSHostname != b.DNSHostname:
+		return false
+	case !dm.OutlierDetection.EqualIgnoringChildPolicy(b.OutlierDetection):
 		return false
 	}
 

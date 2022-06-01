@@ -19,6 +19,8 @@
 package priority
 
 import (
+	"time"
+
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"google.golang.org/grpc/connectivity"
@@ -36,7 +38,16 @@ type childBalancer struct {
 	rState                     resolver.State
 
 	started bool
-	state   balancer.State
+	// This is set when the child reports TransientFailure, and unset when it
+	// reports Ready or Idle. It is used to decide whether the failover timer
+	// should start when the child is transitioning into Connecting. The timer
+	// will be restarted if the child has not reported TF more recently than it
+	// reported Ready or Idle.
+	reportedTF bool
+	state      balancer.State
+	// The timer to give a priority some time to connect. And if the priority
+	// doesn't go into Ready/Failure, the next priority will be started.
+	initTimer *timerWrapper
 }
 
 // newChildBalancer creates a child balancer place holder, but doesn't
@@ -79,6 +90,7 @@ func (cb *childBalancer) start() {
 	}
 	cb.started = true
 	cb.parent.bg.Add(cb.name, cb.bb)
+	cb.startInitTimer()
 }
 
 // sendUpdate sends the addresses and config to the child balancer.
@@ -103,10 +115,46 @@ func (cb *childBalancer) stop() {
 	if !cb.started {
 		return
 	}
+	cb.stopInitTimer()
 	cb.parent.bg.Remove(cb.name)
 	cb.started = false
 	cb.state = balancer.State{
 		ConnectivityState: connectivity.Connecting,
 		Picker:            base.NewErrPicker(balancer.ErrNoSubConnAvailable),
 	}
+	// Clear child.reportedTF, so that if this child is started later, it will
+	// be given time to connect.
+	cb.reportedTF = false
+}
+
+func (cb *childBalancer) startInitTimer() {
+	if cb.initTimer != nil {
+		return
+	}
+	// Need this local variable to capture timerW in the AfterFunc closure
+	// to check the stopped boolean.
+	timerW := &timerWrapper{}
+	cb.initTimer = timerW
+	timerW.timer = time.AfterFunc(DefaultPriorityInitTimeout, func() {
+		cb.parent.mu.Lock()
+		defer cb.parent.mu.Unlock()
+		if timerW.stopped {
+			return
+		}
+		cb.initTimer = nil
+		// Re-sync the priority. This will switch to the next priority if
+		// there's any. Note that it's important sync() is called after setting
+		// initTimer to nil.
+		cb.parent.syncPriority(false)
+	})
+}
+
+func (cb *childBalancer) stopInitTimer() {
+	timerW := cb.initTimer
+	if timerW == nil {
+		return
+	}
+	cb.initTimer = nil
+	timerW.stopped = true
+	timerW.timer.Stop()
 }
