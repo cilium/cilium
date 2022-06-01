@@ -1002,10 +1002,6 @@ func (n *Node) syncToAPIServer() (err error) {
 	}
 
 	for retry := 0; retry < 2; retry++ {
-		if node.Spec.IPAM.Pool == nil {
-			node.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
-		}
-
 		node.Spec.IPAM.Pool = pool
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
