@@ -1318,21 +1318,18 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 
 func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt bool) route.Route {
 	var tbl int
-	var dev string
 	var mtu int
 
 	if dflt {
-		dev = n.datapathConfig.HostDevice
 		mtu = n.nodeConfig.MtuConfig.GetRouteMTU()
 	} else {
 		tbl = linux_defaults.RouteTableIPSec
-		dev = n.datapathConfig.HostDevice
 		mtu = n.nodeConfig.MtuConfig.GetRoutePostEncryptMTU()
 	}
 
 	// The default routing table accounts for encryption overhead for encrypt-node traffic
 	return route.Route{
-		Device: dev,
+		Device: n.datapathConfig.HostDevice,
 		Prefix: *ip,
 		Table:  tbl,
 		Proto:  route.EncryptRouteProtocol,
