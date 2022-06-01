@@ -100,12 +100,6 @@ type priorityBalancer struct {
 	childToPriority map[string]int
 	// children is a map from child name to sub-balancers.
 	children map[string]*childBalancer
-	// The timer to give a priority some time to connect. And if the priority
-	// doesn't go into Ready/Failure, the next priority will be started.
-	//
-	// One timer is enough because there can be at most one priority in init
-	// state.
-	priorityInitTimer *timerWrapper
 }
 
 func (b *priorityBalancer) UpdateClientConnState(s balancer.ClientConnState) error {
@@ -176,7 +170,7 @@ func (b *priorityBalancer) UpdateClientConnState(s balancer.ClientConnState) err
 	}
 	// Sync the states of all children to the new updated priorities. This
 	// include starting/stopping child balancers when necessary.
-	b.syncPriority()
+	b.syncPriority(true)
 
 	return nil
 }
@@ -198,25 +192,15 @@ func (b *priorityBalancer) Close() {
 	// Clear states of the current child in use, so if there's a race in picker
 	// update, it will be dropped.
 	b.childInUse = ""
-	b.stopPriorityInitTimer()
+	// Stop the child policies, this is necessary to stop the init timers in the
+	// children.
+	for _, child := range b.children {
+		child.stop()
+	}
 }
 
 func (b *priorityBalancer) ExitIdle() {
 	b.bg.ExitIdle()
-}
-
-// stopPriorityInitTimer stops the priorityInitTimer if it's not nil, and set it
-// to nil.
-//
-// Caller must hold b.mu.
-func (b *priorityBalancer) stopPriorityInitTimer() {
-	timerW := b.priorityInitTimer
-	if timerW == nil {
-		return
-	}
-	b.priorityInitTimer = nil
-	timerW.stopped = true
-	timerW.timer.Stop()
 }
 
 // UpdateState implements balancergroup.BalancerStateAggregator interface. The
