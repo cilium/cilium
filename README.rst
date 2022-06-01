@@ -1,4 +1,9 @@
-|logo|
+.. raw:: html
+
+   <picture>
+      <source media="(prefers-color-scheme: light)" srcset="https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo.png" width="350" alt="Cilium Logo">
+      <img src="https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo-dark.png" width="350" alt="Cilium Logo">
+   </picture>
 
 |cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl|
 
@@ -32,11 +37,11 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-04-15 | ``quay.io/cilium/cilium:v1.11.4``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.4>`__  | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-05-10 | ``quay.io/cilium/cilium:v1.11.5``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.5>`__  | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-04-15 | ``quay.io/cilium/cilium:v1.10.10`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.10>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
+| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-05-10 | ``quay.io/cilium/cilium:v1.10.11`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.11>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__   | 2022-04-15 | ``quay.io/cilium/cilium:v1.9.15``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.15>`__  | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__         |
+| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__   | 2022-05-10 | ``quay.io/cilium/cilium:v1.9.16``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.16>`__  | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__         |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 
 Functionality Overview
@@ -292,10 +297,6 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/stable/bpf/
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
-
-.. |logo| image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo.svg
-    :alt: Cilium Logo
-    :width: 350px
 
 .. |go-report| image:: https://goreportcard.com/badge/github.com/cilium/cilium
     :alt: Go Report Card

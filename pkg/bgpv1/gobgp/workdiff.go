@@ -88,9 +88,9 @@ func (wd *reconcileDiff) empty() bool {
 // since registerOrReconcileDiff populates the `seen` field of a diff, this method should always
 // be called first when computing a reconcileDiff.
 func (wd *reconcileDiff) registerOrReconcileDiff(m LocalASNMap, policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
-	for _, config := range policy.Spec.VirtualRouters {
+	for i, config := range policy.Spec.VirtualRouters {
 		if _, ok := wd.seen[config.LocalASN]; !ok {
-			wd.seen[config.LocalASN] = &config
+			wd.seen[config.LocalASN] = &policy.Spec.VirtualRouters[i]
 		} else {
 			return fmt.Errorf("encountered duplicate local ASNs")
 		}

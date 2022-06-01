@@ -249,7 +249,7 @@ func (d *Daemon) allocateHealthIPs() error {
 		if option.Config.EnableIPv4 {
 			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health")
 			if err != nil {
-				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
+				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
 			}
 
 			log.Debugf("IPv4 health endpoint address: %s", result.IP)
@@ -259,7 +259,8 @@ func (d *Daemon) allocateHealthIPs() error {
 			// in order to set up rules and routes on the local node to direct
 			// endpoint traffic out of the ENIs.
 			if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
-				if err := d.parseHealthEndpointInfo(result); err != nil {
+				var err error
+				if d.healthEndpointRouting, err = parseRoutingInfo(result); err != nil {
 					log.WithError(err).Warn("Unable to allocate health information for ENI")
 				}
 			}
@@ -272,7 +273,7 @@ func (d *Daemon) allocateHealthIPs() error {
 					d.ipam.ReleaseIP(healthIPv4)
 					node.SetEndpointHealthIPv4(nil)
 				}
-				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
+				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
 			}
 
 			node.SetEndpointHealthIPv6(result.IP)
@@ -280,6 +281,89 @@ func (d *Daemon) allocateHealthIPs() error {
 		}
 	}
 	bootstrapStats.healthCheck.End(true)
+	return nil
+}
+
+func (d *Daemon) allocateIngressIPs() error {
+	bootstrapStats.ingressIPAM.Start()
+	if option.Config.EnableEnvoyConfig {
+		if option.Config.EnableIPv4 {
+			var result *ipam.AllocationResult
+			var err error
+
+			// Reallocate the same address as before, if possible
+			ingressIPv4 := node.GetIngressIPv4()
+			if ingressIPv4 != nil {
+				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress")
+				if err != nil {
+					log.WithError(err).WithField(logfields.SourceIP, ingressIPv4).Warn("unable to re-allocate ingress IPv4.")
+					result = nil
+				}
+			}
+
+			// Allocate a fresh IP if not restored, or the reallocation of the restored
+			// IP failed
+			if result == nil {
+				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "ingress")
+				if err != nil {
+					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
+				}
+			}
+
+			node.SetIngressIPv4(result.IP)
+			log.Infof("  Ingress IPv4: %s", node.GetIngressIPv4())
+
+			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
+			// ENI MAC addr in order to set up rules and routes on the local node to
+			// direct ingress traffic out of the ENIs.
+			if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
+				if ingressRouting, err := parseRoutingInfo(result); err != nil {
+					log.WithError(err).Warn("Unable to allocate ingress information for ENI")
+				} else {
+					if err := ingressRouting.Configure(
+						result.IP,
+						d.mtuConfig.GetDeviceMTU(),
+						option.Config.EgressMultiHomeIPRuleCompat,
+					); err != nil {
+						log.WithError(err).Warn("Error while configuring ingress IP rules and routes.")
+					}
+				}
+			}
+		}
+
+		// Only allocate if enabled and not restored already
+		if option.Config.EnableIPv6 {
+			var result *ipam.AllocationResult
+			var err error
+
+			// Reallocate the same address as before, if possible
+			ingressIPv6 := node.GetIngressIPv6()
+			if ingressIPv6 != nil {
+				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress")
+				if err != nil {
+					log.WithError(err).WithField(logfields.SourceIP, ingressIPv6).Warn("unable to re-allocate ingress IPv6.")
+					result = nil
+				}
+			}
+
+			// Allocate a fresh IP if not restored, or the reallocation of the restored
+			// IP failed
+			if result == nil {
+				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress")
+				if err != nil {
+					if ingressIPv4 := node.GetIngressIPv4(); ingressIPv4 != nil {
+						d.ipam.ReleaseIP(ingressIPv4)
+						node.SetIngressIPv4(nil)
+					}
+					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
+				}
+			}
+
+			node.SetIngressIPv6(result.IP)
+			log.Infof("  Ingress IPv6: %s", node.GetIngressIPv6())
+		}
+	}
+	bootstrapStats.ingressIPAM.End(true)
 	return nil
 }
 
@@ -359,6 +443,13 @@ func (d *Daemon) allocateIPs() error {
 	}
 
 	bootstrapStats.ipam.End(true)
+
+	if option.Config.EnableEnvoyConfig {
+		if err := d.allocateIngressIPs(); err != nil {
+			return err
+		}
+	}
+
 	return d.allocateHealthIPs()
 }
 
@@ -405,9 +496,8 @@ func (d *Daemon) startIPAM() {
 	bootstrapStats.ipam.End(true)
 }
 
-func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
-	var err error
-	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(
+func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
+	return linuxrouting.NewRoutingInfo(
 		result.GatewayIP,
 		result.CIDRs,
 		result.PrimaryMAC,
@@ -415,5 +505,4 @@ func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 		option.Config.IPAM,
 		option.Config.EnableIPv4Masquerade,
 	)
-	return err
 }

@@ -9,7 +9,7 @@ import (
 
 const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
-	AgentHealthPort = 9876
+	AgentHealthPort = 9879
 
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
@@ -360,10 +360,12 @@ const (
 
 	// IPAMPodCIDRAllocationThreshold is the default value for
 	// CiliumNode.Spec.IPAM.PodCIDRAllocationThreshold if no value is set
+	// Defaults to 8, which is similar to IPAMPreAllocation
 	IPAMPodCIDRAllocationThreshold = 8
 
 	// IPAMPodCIDRReleaseThreshold is the default value for
 	// CiliumNode.Spec.IPAM.PodCIDRReleaseThreshold if no value is set
+	// Defaults to 16, which is 2x the allocation threshold to avoid flapping
 	IPAMPodCIDRReleaseThreshold = 16
 
 	// AutoCreateCiliumNodeResource enables automatic creation of a

@@ -12,6 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -624,6 +625,25 @@ func (c *DNSCache) Dump() (lookups []*cacheEntry) {
 	return deduped
 }
 
+// Count returns two values, the count of still-valid FQDNs inside the DNS
+// cache and the count of the still-valid entries (IPs) in the DNS cache.
+//
+// The FQDN count returns the length of the DNS cache size.
+//
+// The IP count is not deduplicated, see Dump(). In other words, this value
+// represents an accurate tally of IPs associated with an FQDN in the DNS
+// cache.
+func (c *DNSCache) Count() (uint64, uint64) {
+	c.RLock()
+	defer c.RUnlock()
+
+	var ips uint64
+	for _, entries := range c.forward {
+		ips += uint64(len(entries))
+	}
+	return uint64(len(c.forward)), ips
+}
+
 // MarshalJSON serialises the set of DNS lookup cacheEntries needed to
 // reconstruct this cache instance.
 // Note: Expiration times are honored and the reconstructed cache instance is
@@ -1013,7 +1033,7 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 // never happen.
 func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...net.IP) error {
 	reStr := matchpattern.ToRegexp(name)
-	re, err := regexp.Compile(reStr)
+	re, err := re.CompileRegex(reStr)
 	if err != nil {
 		return err
 	}

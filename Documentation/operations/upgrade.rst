@@ -343,6 +343,15 @@ Removed Options
   Helm) was deprecated, and it will be removed in version 1.13.
 * The ``native-routing-cidr`` option deprecated in 1.11 in favor of
   ``ipv4-native-routing-cidr`` has been removed.
+* The ``prefilter-device`` and ``prefilter-mode`` options deprecated in 1.11 in
+  favor of ``enable-xdp-prefilter`` and ``bpf-lb-acceleration`` have been removed.
+
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``CiliumEgressNATPolicy`` CRD has been deprecated, and will be removed in
+  version 1.13. It is superseded by the ``CiliumEgressGatewayPolicy`` CRD, which
+  allows for better selection of the Egress Node, Egress Interface and Masquerade IP.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -361,6 +370,10 @@ Helm Options
   and will be removed in 1.13.
 * ``clustermesh.apiserver.tls.ca.key`` has been deprecated in favor of ``tls.ca.key``,
   and will be removed in 1.13.
+* ``operator.unmanagedPodWatcher.restart`` has been introduced to govern
+  whether the cilium-operator will attempt to restart pods that are not
+  managed by Cilium. To retain consistency with earlier releases, this setting
+  is enabled by default.
 * ``tls.enabled`` has been removed as this attribute is not used at all.
 * Only one CA will be generated with either the helm or CronJob auto method, there will
   be a short disruption while the new CA is propagated to all nodes.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package ipam
 
@@ -14,6 +14,9 @@ import (
 
 	"github.com/cilium/ipam/service/ipallocator"
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+	"go.uber.org/multierr"
+	"golang.org/x/sys/unix"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -186,15 +189,15 @@ func (p *podCIDRPool) dump() (ipToOwner map[string]string, usedIPs, freeIPs, num
 	return
 }
 
-func (p *podCIDRPool) status() types.UsedPodCIDRMap {
+func (p *podCIDRPool) status() types.PodCIDRMap {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	result := types.UsedPodCIDRMap{}
+	result := types.PodCIDRMap{}
 
 	// Mark all released pod CIDRs as released.
 	for cidrStr := range p.released {
-		result[cidrStr] = types.UsedPodCIDR{
+		result[cidrStr] = types.PodCIDRMapEntry{
 			Status: types.PodCIDRStatusReleased,
 		}
 	}
@@ -225,7 +228,7 @@ func (p *podCIDRPool) status() types.UsedPodCIDRMap {
 			if _, released := p.released[cidrStr]; released {
 				continue
 			}
-			result[cidrStr] = types.UsedPodCIDR{
+			result[cidrStr] = types.PodCIDRMapEntry{
 				Status: types.PodCIDRStatusDepleted,
 			}
 		}
@@ -239,7 +242,7 @@ func (p *podCIDRPool) status() types.UsedPodCIDRMap {
 			if _, released := p.released[cidrStr]; released {
 				continue
 			}
-			var status types.UsedPodCIDRStatus
+			var status types.PodCIDRStatus
 			if ipAllocator.Used() > 0 {
 				// If a pod CIDR is used, then mark it as in-use or depleted.
 				if ipAllocator.Free() == 0 {
@@ -265,7 +268,7 @@ func (p *podCIDRPool) status() types.UsedPodCIDRMap {
 				// Otherwise, mark the pod CIDR as in-use.
 				status = types.PodCIDRStatusInUse
 			}
-			result[cidrStr] = types.UsedPodCIDR{
+			result[cidrStr] = types.PodCIDRMapEntry{
 				Status: status,
 			}
 		}
@@ -307,6 +310,15 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 		if _, ok := cidrStrSet[cidrStr]; !ok {
 			log.WithField(logfields.CIDR, cidrStr).Debug("removing released pod CIDR")
 			delete(p.released, cidrStr)
+		}
+
+		if option.Config.EnableUnreachableRoutes {
+			if err := cleanupUnreachableRoutes(cidrStr); err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.CIDR:  cidrStr,
+					logrus.ErrorKey: err,
+				}).Warning("failed to remove unreachable routes for pod cidr")
+			}
 		}
 	}
 
@@ -357,6 +369,56 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 	}
 
 	p.ipAllocators = newIPAllocators
+}
+
+// containsCIDR checks if the outer IPNet contains the inner IPNet
+func containsCIDR(outer, inner *net.IPNet) bool {
+	outerMask, _ := outer.Mask.Size()
+	innerMask, _ := inner.Mask.Size()
+	return outerMask <= innerMask && outer.Contains(inner.IP)
+}
+
+// cleanupUnreachableRoutes remove all unreachable routes for the given pod CIDR.
+// This is only needed if EnableUnreachableRoutes has been set.
+func cleanupUnreachableRoutes(podCIDR string) error {
+	_, removedCIDR, err := net.ParseCIDR(podCIDR)
+	if err != nil {
+		return err
+	}
+
+	var family int
+	switch podCIDRFamily(podCIDR) {
+	case IPv4:
+		family = netlink.FAMILY_V4
+	case IPv6:
+		family = netlink.FAMILY_V6
+	default:
+		return errors.New("unknown pod cidr family")
+	}
+
+	routes, err := netlink.RouteListFiltered(family, &netlink.Route{
+		Table: unix.RT_TABLE_MAIN,
+		Type:  unix.RTN_UNREACHABLE,
+	}, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_TYPE)
+	if err != nil {
+		return fmt.Errorf("failed to fetch unreachable routes: %w", err)
+	}
+
+	var deleteErr error
+	for _, route := range routes {
+		if !containsCIDR(removedCIDR, route.Dst) {
+			continue
+		}
+
+		err = netlink.RouteDel(&route)
+		if err != nil && !errors.Is(err, unix.ESRCH) {
+			// We ignore ESRCH, as it means the entry was already deleted
+			err = fmt.Errorf("failed to delete unreachable route for %s: %w", route.Dst.String(), err)
+			deleteErr = multierr.Append(deleteErr, err)
+		}
+	}
+
+	return deleteErr
 }
 
 func podCIDRFamily(podCIDR string) Family {
@@ -440,7 +502,7 @@ func (c *crdWatcher) localNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	// initialize pod CIDR pools from existing or new CiliumNode CRD
 	if c.node == nil {
 		var releasedIPv4PodCIDRs, releasedIPv6PodCIDRs []string
-		for podCIDR, s := range newNode.Status.IPAM.UsedPodCIDRs {
+		for podCIDR, s := range newNode.Status.IPAM.PodCIDRs {
 			if s.Status == types.PodCIDRStatusReleased {
 				switch podCIDRFamily(podCIDR) {
 				case IPv4:
@@ -544,15 +606,15 @@ func (c *crdWatcher) updateCiliumNodeStatus(ctx context.Context) error {
 	}
 
 	oldStatus := node.Status.IPAM.DeepCopy()
-	node.Status.IPAM.UsedPodCIDRs = types.UsedPodCIDRMap{}
+	node.Status.IPAM.PodCIDRs = types.PodCIDRMap{}
 	if ipv4Pool != nil {
 		for podCIDR, status := range c.ipv4Pool.status() {
-			node.Status.IPAM.UsedPodCIDRs[podCIDR] = status
+			node.Status.IPAM.PodCIDRs[podCIDR] = status
 		}
 	}
 	if ipv6Pool != nil {
 		for podCIDR, status := range c.ipv6Pool.status() {
-			node.Status.IPAM.UsedPodCIDRs[podCIDR] = status
+			node.Status.IPAM.PodCIDRs[podCIDR] = status
 		}
 	}
 

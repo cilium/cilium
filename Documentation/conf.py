@@ -155,6 +155,9 @@ highlight_language = 'none'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
+# Ignore spelling errors in generated files.
+spelling_exclude_patterns=['_api/v1/*/README.md']
+
 # Add custom filters for spell checks.
 spelling_filters = [cilium_spellfilters.WireGuardFilter]
 
@@ -167,10 +170,7 @@ suppress_warnings = ['myst.header']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-if os.uname()[4] == "aarch64":
-  html_theme = "sphinx_rtd_theme"
-else:
-  html_theme = "sphinx_rtd_theme_cilium"
+html_theme = "sphinx_rtd_theme_cilium"
 
 html_context = {
     'release': release

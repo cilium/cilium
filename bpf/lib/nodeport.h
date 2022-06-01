@@ -638,7 +638,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		 */
 		if (dir == NAT_DIR_INGRESS) {
 			bpf_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 			ret = DROP_MISSED_TAIL_CALL;
 			goto drop_err;
 		}
@@ -987,7 +987,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 	} else {
 		if (!bpf_skip_recirculation(ctx)) {
 			bpf_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 			return DROP_MISSED_TAIL_CALL;
 		}
 	}
@@ -1689,7 +1689,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		 */
 		if (dir == NAT_DIR_INGRESS) {
 			bpf_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 			ret = DROP_MISSED_TAIL_CALL;
 			goto drop_err;
 		}
@@ -1700,7 +1700,13 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	bpf_mark_snat_done(ctx);
 
 	if (dir == NAT_DIR_INGRESS) {
-		/* Handle reverse DNAT for reply packets from remote backends. */
+		/* At this point we know that a reverse SNAT mapping exists.
+		 * Otherwise, we would have tail-called back to
+		 * CALL_IPV4_FROM_NETDEV in the code above. The existence of the
+		 * mapping is an indicator that the packet might be a reply from
+		 * a remote backend. So handle the service reverse DNAT (if
+		 * needed)
+		 */
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 		ret = DROP_MISSED_TAIL_CALL;
 		goto drop_err;
@@ -2073,7 +2079,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	} else {
 		if (!bpf_skip_recirculation(ctx)) {
 			bpf_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 			return DROP_MISSED_TAIL_CALL;
 		}
 	}

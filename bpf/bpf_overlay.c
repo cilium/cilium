@@ -175,7 +175,7 @@ to_host:
 #endif
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_OVERLAY)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = 0;
@@ -328,7 +328,7 @@ to_host:
 #endif
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_OVERLAY)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = 0;
@@ -488,7 +488,7 @@ int from_overlay(struct __ctx_buff *ctx)
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
 #ifdef ENABLE_IPV6
-		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_OVERLAY);
 		ret = DROP_MISSED_TAIL_CALL;
 #else
 		ret = DROP_UNKNOWN_L3;
@@ -497,7 +497,7 @@ int from_overlay(struct __ctx_buff *ctx)
 
 	case bpf_htons(ETH_P_IP):
 #ifdef ENABLE_IPV4
-		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_OVERLAY);
 		ret = DROP_MISSED_TAIL_CALL;
 #else
 		ret = DROP_UNKNOWN_L3;

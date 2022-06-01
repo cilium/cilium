@@ -108,6 +108,11 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+# Add an exception for the cilium repo for the root user to fix the
+# "fatal: unsafe repository ('/home/vagrant/go/src/github.com/cilium/cilium' is owned by someone else)"
+# error condition when running `sudo make install`
+git config --global --add safe.directory /home/vagrant/go/src/github.com/cilium/cilium
+
 sudo -E make -C /home/vagrant/go/src/github.com/cilium/cilium/ install
 
 sudo mkdir -p /etc/sysconfig

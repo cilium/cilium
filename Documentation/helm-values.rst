@@ -628,7 +628,7 @@
    * - healthPort
      - TCP port for the agent health API. This is not the port for cilium-health.
      - int
-     - ``9876``
+     - ``9879``
    * - hostAliases
      - Host aliases for cilium-agent.
      - list
@@ -705,6 +705,10 @@
      - Service Port for the Peer service.
      - int
      - ``4254``
+   * - hubble.peerService.targetPort
+     - Target Port for the Peer service.
+     - int
+     - ``4244``
    * - hubble.relay.affinity
      - Affinity for hubble-replay
      - object
@@ -945,18 +949,6 @@
      - The priority class to use for hubble-ui
      - string
      - ``""``
-   * - hubble.ui.proxy.extraEnv
-     - Additional hubble-ui proxy environment variables.
-     - list
-     - ``[]``
-   * - hubble.ui.proxy.image
-     - Hubble-ui ingress proxy image.
-     - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"docker.io/envoyproxy/envoy","tag":"v1.20.2@sha256:eb7d88d5186648049f0a80062120bd45e7557bdff3f6a30e1fc92cbb50916868"}``
-   * - hubble.ui.proxy.resources
-     - Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
-     - object
-     - ``{}``
    * - hubble.ui.replicas
      - The number of replicas of Hubble UI to deploy.
      - int
@@ -1208,7 +1200,7 @@
    * - nodeinit.securityContext
      - Security context to be added to nodeinit pods.
      - object
-     - ``{"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
+     - ``{"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
    * - nodeinit.tolerations
      - Node tolerations for nodeinit scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
@@ -1504,7 +1496,7 @@
    * - securityContext
      - Security context to be added to agent pods
      - object
-     - ``{"privileged":false}``
+     - ``{"extraCapabilities":["DAC_OVERRIDE","FOWNER","SETGID","SETUID"],"privileged":false}``
    * - serviceAccounts
      - Define serviceAccount names for components.
      - object

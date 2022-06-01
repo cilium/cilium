@@ -26,6 +26,13 @@ const (
 	// address of the cilium-health endpoint in the node's annotations.
 	V6HealthName = Prefix + ".network.ipv6-health-ip"
 
+	// V4IngressName is the annotation name used to store the IPv4
+	// address of the Ingress listener in the node's annotations.
+	V4IngressName = Prefix + ".network.ipv4-Ingress-ip"
+	// V6IngressName is the annotation name used to store the IPv6
+	// address of the Ingress listener in the node's annotations.
+	V6IngressName = Prefix + ".network.ipv6-Ingress-ip"
+
 	// CiliumHostIP is the annotation name used to store the IPv4 address
 	// of the cilium host interface in the node's annotations.
 	CiliumHostIP = Prefix + ".network.ipv4-cilium-host"

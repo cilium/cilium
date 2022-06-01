@@ -188,12 +188,6 @@ const (
 	// IPv6ServiceRange is the Kubernetes IPv6 services CIDR if not inside cluster prefix
 	IPv6ServiceRange = "ipv6-service-range"
 
-	// ModePreFilterNative for loading progs with xdpdrv
-	ModePreFilterNative = XDPModeNative
-
-	// ModePreFilterGeneric for loading progs with xdpgeneric
-	ModePreFilterGeneric = XDPModeGeneric
-
 	// IPv6ClusterAllocCIDRName is the name of the IPv6ClusterAllocCIDR option
 	IPv6ClusterAllocCIDRName = "ipv6-cluster-alloc-cidr"
 
@@ -430,12 +424,6 @@ const (
 
 	// EnableXDPPrefilter enables XDP-based prefiltering
 	EnableXDPPrefilter = "enable-xdp-prefilter"
-
-	// PrefilterDevice is the device facing external network for XDP prefiltering
-	PrefilterDevice = "prefilter-device"
-
-	// PrefilterMode { "+ModePreFilterNative+" | "+ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")
-	PrefilterMode = "prefilter-mode"
 
 	ProcFs = "procfs"
 
@@ -1309,8 +1297,6 @@ type DaemonConfig struct {
 	DirectRoutingDevice string       // Direct routing device (used by BPF NodePort and BPF Host Routing)
 	LBDevInheritIPAddr  string       // Device which IP addr used by bpf_host devices
 	EnableXDPPrefilter  bool         // Enable XDP-based prefiltering
-	DevicePreFilter     string       // Prefilter device
-	ModePreFilter       string       // Prefilter mode
 	XDPMode             string       // XDP mode, values: { xdpdrv | xdpgeneric | none }
 	HostV4Addr          net.IP       // Host v4 address of the snooping device
 	HostV6Addr          net.IP       // Host v6 address of the snooping device
@@ -2765,7 +2751,6 @@ func (c *DaemonConfig) Populate() {
 	c.EnableWireguardUserspaceFallback = viper.GetBool(EnableWireguardUserspaceFallback)
 	c.EnableWellKnownIdentities = viper.GetBool(EnableWellKnownIdentities)
 	c.EnableXDPPrefilter = viper.GetBool(EnableXDPPrefilter)
-	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.BPFSocketLBHostnsOnly = viper.GetBool(BPFSocketLBHostnsOnly)
@@ -2867,7 +2852,6 @@ func (c *DaemonConfig) Populate() {
 	c.IPTablesRandomFully = viper.GetBool(IPTablesRandomFully)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.IpvlanMasterDevice = viper.GetString(IpvlanMasterDevice)
-	c.ModePreFilter = viper.GetString(PrefilterMode)
 	c.EnableMonitor = viper.GetBool(EnableMonitorName)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)

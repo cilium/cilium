@@ -77,9 +77,13 @@
 #define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
 #define CILIUM_CALL_ARP				6
 #define CILIUM_CALL_IPV4_FROM_LXC		7
+#define CILIUM_CALL_IPV4_FROM_NETDEV		CILIUM_CALL_IPV4_FROM_LXC
+#define CILIUM_CALL_IPV4_FROM_OVERLAY		CILIUM_CALL_IPV4_FROM_LXC
 #define CILIUM_CALL_UNUSED1			8
 #define CILIUM_CALL_UNUSED2			9
 #define CILIUM_CALL_IPV6_FROM_LXC		10
+#define CILIUM_CALL_IPV6_FROM_NETDEV		CILIUM_CALL_IPV6_FROM_LXC
+#define CILIUM_CALL_IPV6_FROM_OVERLAY		CILIUM_CALL_IPV6_FROM_LXC
 #define CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY	11
 #define CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY
 #define CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY	12
@@ -142,7 +146,7 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 static __always_inline __maybe_unused bool
 ____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 			 void **l3, const __u32 l3_len, const bool pull,
-			 __u8 eth_hlen)
+			 __u32 eth_hlen)
 {
 	const __u64 tot_len = eth_hlen + l3_len;
 	void *data_end;

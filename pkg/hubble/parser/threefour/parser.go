@@ -337,7 +337,7 @@ func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb
 			p.log.WithError(err).WithField("identity", numericIdentity).
 				Debug("failed to resolve identity")
 		} else {
-			labels = sortAndFilterLabels(p.log, id.Labels, numericIdentity)
+			labels = sortAndFilterLabels(p.log, id.Labels.GetModel(), numericIdentity)
 		}
 	}
 

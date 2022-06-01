@@ -7,6 +7,7 @@ package ipsec
 
 import (
 	"bufio"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -16,12 +17,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/fswatcher"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -32,6 +39,20 @@ const (
 	IPSecDirOut     IPSecDir = "IPSEC_OUT"
 	IPSecDirBoth    IPSecDir = "IPSEC_BOTH"
 	IPSecDirOutNode IPSecDir = "IPSEC_OUT_NODE"
+
+	// Constants used to decode the IPsec secret in both formats:
+	// 1. [spi] aead-algo aead-key icv-len
+	// 2. [spi] auth-algo auth-key enc-algo enc-key [IP]
+	offsetSPI      = 0
+	offsetAeadAlgo = 1
+	offsetAeadKey  = 2
+	offsetICV      = 3
+	offsetAuthAlgo = 1
+	offsetAuthKey  = 2
+	offsetEncAlgo  = 3
+	offsetEncKey   = 4
+	offsetIP       = 5
+	maxOffset      = offsetIP
 )
 
 type ipSecKey struct {
@@ -42,11 +63,18 @@ type ipSecKey struct {
 	Aead  *netlink.XfrmStateAlgo
 }
 
-// ipSecKeysGlobal is safe to read unlocked because the only writers are from
-// daemon init time before any readers will be online.
-var ipSecKeysGlobal = make(map[string]*ipSecKey)
+var (
+	ipSecKeysGlobalLock lock.RWMutex
+	// ipSecKeysGlobal can be accessed by multiple subsystems concurrently,
+	// so it should be accessed only through the getIPSecKeys and
+	// loadIPSecKeys functions, which will ensure the proper lock is held
+	ipSecKeysGlobal = make(map[string]*ipSecKey)
+)
 
 func getIPSecKeys(ip net.IP) *ipSecKey {
+	ipSecKeysGlobalLock.RLock()
+	defer ipSecKeysGlobalLock.RUnlock()
+
 	key, scoped := ipSecKeysGlobal[ip.String()]
 	if scoped == false {
 		key, _ = ipSecKeysGlobal[""]
@@ -470,6 +498,8 @@ func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
 // Returns the authentication overhead in bytes, the key ID, and an error.
 func LoadIPSecKeysFile(path string) (int, uint8, error) {
+	log.WithField(logfields.Path, path).Info("Loading IPsec keyfile")
+
 	file, err := os.Open(path)
 	if err != nil {
 		return 0, 0, err
@@ -483,6 +513,9 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var keyLen int
 	scopedLog := log
 
+	ipSecKeysGlobalLock.Lock()
+	defer ipSecKeysGlobalLock.Unlock()
+
 	if err := encrypt.MapCreate(); err != nil {
 		return 0, 0, fmt.Errorf("Encrypt map create failed: %v", err)
 	}
@@ -491,82 +524,101 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		var oldSpi uint8
-		var authkey []byte
-		offset := 0
+		var aeadKey, authKey []byte
+		offsetBase := 0
 
 		ipSecKey := &ipSecKey{
 			ReqID: 1,
 		}
 
-		// Scanning IPsec keys formatted as follows,
-		//    auth-algo auth-key enc-algo enc-key
+		// Scanning IPsec keys with one of the following formats:
+		// 1. [spi] aead-algo aead-key icv-len
+		// 2. [spi] auth-algo auth-key enc-algo enc-key [IP]
 		s := strings.Split(scanner.Text(), " ")
-		if len(s) < 2 {
-			return 0, 0, fmt.Errorf("missing IPSec keys or invalid format")
+		if len(s) < 3 {
+			// Regardless of the format used, the IPsec secret should have at
+			// least 3 fields separated by white spaces.
+			return 0, 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spiI, err := strconv.Atoi(s[0])
+		spiI, err := strconv.Atoi(s[offsetSPI])
 		if err != nil {
 			// If no version info is provided assume using key format without
 			// versioning and assign SPI.
+			log.Warning("IPsec secrets without an SPI as the first argument are deprecated and will be unsupported in v1.13.")
 			spiI = 1
-			offset = -1
+			offsetBase = -1
 		}
 		if spiI > linux_defaults.IPsecMaxKeyVersion {
-			return 0, 0, fmt.Errorf("encryption Key space exhausted, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[0])
+			return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[offsetSPI])
 		}
 		if spiI == 0 {
-			return 0, 0, fmt.Errorf("zero is not a valid key to disable encryption use `--enable-ipsec=false`, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[0])
+			return 0, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[offsetSPI])
 		}
 		spi = uint8(spiI)
 
-		keyLen, authkey, err = decodeIPSecKey(s[2+offset])
-		if err != nil {
-			return 0, 0, fmt.Errorf("unable to decode authkey string %q", s[1+offset])
-		}
-		authname := s[1+offset]
+		if len(s) > offsetBase+maxOffset+1 {
+			return 0, 0, fmt.Errorf("invalid format: too many fields in the IPsec secret")
+		} else if len(s) == offsetBase+offsetICV+1 {
+			// We're in the first case, with "[spi] aead-algo aead-key icv-len".
+			aeadName := s[offsetBase+offsetAeadAlgo]
+			if !strings.HasPrefix(aeadName, "rfc") {
+				return 0, 0, fmt.Errorf("invalid AEAD algorithm %q", aeadName)
+			}
 
-		if strings.HasPrefix(authname, "rfc") {
-			icvLen, err := strconv.Atoi(s[3+offset])
+			_, aeadKey, err = decodeIPSecKey(s[offsetBase+offsetAeadKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("ICVLen is invalid or missing")
+				return 0, 0, fmt.Errorf("unable to decode AEAD key string %q", s[offsetBase+offsetAeadKey])
+			}
+
+			icvLen, err := strconv.Atoi(s[offsetICV+offsetBase])
+			if err != nil {
+				return 0, 0, fmt.Errorf("ICV length is invalid or missing")
 			}
 
 			if icvLen != 96 && icvLen != 128 && icvLen != 256 {
-				return 0, 0, fmt.Errorf("Unknown ICVLen accepts 96, 128, 256")
+				return 0, 0, fmt.Errorf("only ICV lengths 96, 128, and 256 are accepted")
 			}
 
 			ipSecKey.Aead = &netlink.XfrmStateAlgo{
-				Name:   authname,
-				Key:    authkey,
+				Name:   aeadName,
+				Key:    aeadKey,
 				ICVLen: icvLen,
 			}
 			keyLen = icvLen / 8
 		} else {
-			_, enckey, err := decodeIPSecKey(s[4+offset])
+			// We're in the second case, with "[spi] auth-algo auth-key enc-algo enc-key [IP]".
+			authAlgo := s[offsetBase+offsetAuthAlgo]
+			keyLen, authKey, err = decodeIPSecKey(s[offsetBase+offsetAuthKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("unable to decode enckey string %q", s[3+offset])
+				return 0, 0, fmt.Errorf("unable to decode authentication key string %q", s[offsetBase+offsetAuthKey])
 			}
 
-			encname := s[3+offset]
+			encAlgo := s[offsetBase+offsetEncAlgo]
+			_, encKey, err := decodeIPSecKey(s[offsetBase+offsetEncKey])
+			if err != nil {
+				return 0, 0, fmt.Errorf("unable to decode encryption key string %q", s[offsetBase+offsetEncKey])
+			}
 
 			ipSecKey.Auth = &netlink.XfrmStateAlgo{
-				Name: authname,
-				Key:  authkey,
+				Name: authAlgo,
+				Key:  authKey,
 			}
 			ipSecKey.Crypt = &netlink.XfrmStateAlgo{
-				Name: encname,
-				Key:  enckey,
+				Name: encAlgo,
+				Key:  encKey,
 			}
 		}
 
 		ipSecKey.Spi = spi
 
-		if len(s) == 6+offset {
-			if ipSecKeysGlobal[s[5+offset]] != nil {
-				oldSpi = ipSecKeysGlobal[s[5+offset]].Spi
+		if len(s) == offsetBase+offsetIP+1 {
+			// The IPsec secret has the optional IP address field at the end.
+			log.Warning("IPsec secrets with an IP address as the last argument are deprecated and will be unsupported in v1.13.")
+			if ipSecKeysGlobal[s[offsetBase+offsetIP]] != nil {
+				oldSpi = ipSecKeysGlobal[s[offsetBase+offsetIP]].Spi
 			}
-			ipSecKeysGlobal[s[5+offset]] = ipSecKey
+			ipSecKeysGlobal[s[offsetBase+offsetIP]] = ipSecKey
 		} else {
 			if ipSecKeysGlobal[""] != nil {
 				oldSpi = ipSecKeysGlobal[""].Spi
@@ -619,4 +671,42 @@ func DeleteIPsecEncryptRoute() {
 			}
 		}
 	}
+}
+
+func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodediscovery *nodediscovery.NodeDiscovery) {
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op&(fsnotify.Create|fsnotify.Write) == 0 {
+				continue
+			}
+
+			_, spi, err := LoadIPSecKeysFile(keyfilePath)
+			if err != nil {
+				log.WithError(err).Errorf("Failed to load IPsec keyfile")
+				continue
+			}
+
+			node.SetIPsecKeyIdentity(spi)
+			nodediscovery.UpdateLocalNode()
+
+		case err := <-watcher.Errors:
+			log.WithError(err).WithField(logfields.Path, keyfilePath).Warning("Error encountered while watching file with fsnotify")
+
+		case <-ctx.Done():
+			watcher.Close()
+			return
+		}
+	}
+}
+
+func StartKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery *nodediscovery.NodeDiscovery) error {
+	watcher, err := fswatcher.New([]string{keyfilePath})
+	if err != nil {
+		return err
+	}
+
+	go keyfileWatcher(ctx, watcher, keyfilePath, nodediscovery)
+
+	return nil
 }

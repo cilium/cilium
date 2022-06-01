@@ -16,66 +16,53 @@ k8s_cache_dir="${cache_dir}/k8s/${k8s_version}"
 certs_dir="${dir}/certs"
 
 function install_crio() {
-   sudo apt-key adv --recv-key --keyserver keyserver.ubuntu.com 8BECF1637AD8C79D
-
-   cat <<EOF > /etc/apt/sources.list.d/projectatomic-ubuntu-ppa-artful.list
-deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu bionic main
-deb-src http://ppa.launchpad.net/projectatomic/ppa/ubuntu bionic main
-EOF
-   sudo apt-get update
-   sudo apt-get remove cri-o-1.* -y || true
-   sudo apt-get install cri-o-1.13 -y || true
-   sudo ln -s /usr/sbin/runc /usr/local/sbin/runc || true
+   curl https://raw.githubusercontent.com/cri-o/cri-o/main/scripts/get | bash -s -- -t a68a72071e5004be78fe2b1b98cb3bfa0e51b74b
 }
 
 function install_containerd() {
-    sudo service docker stop
-    sudo apt remove containerd* -y
-    download_to "${cache_dir}/containerd" "containerd-1.2.1.linux-amd64.tar.gz" \
-       "https://github.com/containerd/containerd/releases/download/v1.2.1/containerd-1.2.1.linux-amd64.tar.gz"
+    download_to "${cache_dir}/containerd" "cri-containerd-cni-1.6.3-linux-amd64.tar.gz" \
+       "https://github.com/containerd/containerd/releases/download/v1.6.3/cri-containerd-cni-1.6.3-linux-amd64.tar.gz"
 
-    cp "${cache_dir}/containerd/containerd-1.2.1.linux-amd64.tar.gz" .
+    cp "${cache_dir}/containerd/cri-containerd-cni-1.6.3-linux-amd64.tar.gz" .
 
-    sudo apt-get install runc -y
-    sudo tar -xvf containerd-1.2.1.linux-amd64.tar.gz -C / --no-same-owner
+    sudo tar -C / -xzf cri-containerd-cni-1.6.3-linux-amd64.tar.gz
 
-    sudo rm -f /etc/systemd/system/containerd.service
-    sudo ln -s /bin/containerd /usr/local/bin/containerd
-    cat << EOF | sudo tee /etc/systemd/system/containerd.service
-[Unit]
-Description=containerd container runtime
-Documentation=https://containerd.io
-After=network.target
+    # Remove the default CNI config installed by containerd.
+    sudo rm -f /etc/cni/net.d/10-containerd-net.conflist
 
-[Service]
-ExecStartPre=-/sbin/modprobe overlay
-ExecStart=/usr/local/bin/containerd
+    cat <<EOF > /etc/containerd/config.toml
+root = "/tmp/containers"
+state = "/run/containerd"
+oom_score = 0
 
-Delegate=yes
-KillMode=process
-# Having non-zero Limit*s causes performance problems due to accounting overhead
-# in the kernel. We recommend using cgroups to do container-local accounting.
-LimitNPROC=infinity
-LimitCORE=infinity
-LimitNOFILE=infinity
-# Comment TasksMax if your systemd version does not supports it.
-# Only systemd 226 and above support this version.
-TasksMax=infinity
+[grpc]
+  address = "/run/containerd/containerd.sock"
+  uid = 0
+  gid = 0
+  max_recv_message_size = 16777216
+  max_send_message_size = 16777216
 
-[Install]
-WantedBy=multi-user.target
+[plugins.cri.containerd]
+  snapshotter = "native"
+
+[debug]
+  address = ""
+  uid = 0
+  gid = 0
+  level = ""
+
+[metrics]
+  address = ""
+  grpc_histogram = false
 EOF
 
-    cat << EOF | sudo tee /etc/containerd/config.toml
-[plugins]
-  [plugins.cri.containerd]
-    snapshotter = "overlayfs"
-    [plugins.cri.containerd.default_runtime]
-      runtime_type = "io.containerd.runtime.v1.linux"
-      runtime_engine = "/usr/sbin/runc"
-      runtime_root = ""
-EOF
-    sudo systemctl daemon-reload
+    sudo systemctl enable containerd
+    sudo systemctl restart containerd
+
+    sudo crictl -r unix:///run/containerd/containerd.sock ps
+
+    sudo systemctl restart docker
+    sudo docker ps
 }
 
 log "Installing kubernetes worker components..."
@@ -103,20 +90,27 @@ if [ -n "${INSTALL}" ]; then
 
     sudo cp kubelet kubectl kube-proxy /usr/bin/
 
+    case "${RUNTIME}" in
+    "crio" | "cri-o")
+        install_crio
+        ;;
+    *)
+        install_containerd
+        ;;
+    esac
+
 fi
 
 case "${RUNTIME}" in
-    "containerd" | "containerD")
-        cat <<EOF > /etc/crictl.yaml
-runtime-endpoint: unix:///var/run/containerd/containerd.sock
-EOF
-        ;;
     "crio" | "cri-o")
         cat <<EOF > /etc/crictl.yaml
 runtime-endpoint: unix:///var/run/crio/crio.sock
 EOF
         ;;
     *)
+        cat <<EOF > /etc/crictl.yaml
+runtime-endpoint: unix:///var/run/containerd/containerd.sock
+EOF
         ;;
 esac
 
@@ -341,7 +335,6 @@ ExecStart=/usr/bin/kubelet \\
   --kubeconfig=/var/lib/kubelet/kubelet.kubeconfig \\
   --fail-swap-on=false \\
   --make-iptables-util-chains=false \\
-  --network-plugin=cni \\
   --node-ip=${node_ip} \\
   --register-node=true \\
   --serialize-image-pulls=false \\

@@ -88,6 +88,11 @@ Users (Alphabetically)
       U: Hubble for Visibility, Cilium as Mesh between Services
       L: https://www.ayedo.de/
 
+    * N: ByteDance
+      D: ByteDance is using Cilium as CNI plug-in for self-hosted Kubernetes.
+      U: CNI, Networking
+      L: @Jiang Wang
+
     * N: Canonical
       D: Canonical's Kubernetes distribution microk8s uses Cilium as CNI plugin
       U: Networking, NetworkPolicy, and Kubernetes services
@@ -107,6 +112,12 @@ Users (Alphabetically)
     * N: Cognite
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
+
+    * N: CONNY
+      D: CONNY is legaltech platform to improve access to justice for individuals
+      U: Networking, NetworkPolicy, Services
+      Q: @ant31
+      L: https://conny.de
 
     * N: Crane
       D: Crane uses Cilium as the default CNI
@@ -173,6 +184,12 @@ Users (Alphabetically)
       U: Networking, CiliumNetworkPolicy, BPF NodePort, Direct routing, kube-proxy replacement
       L: https://www.infomaniak.com/en
       Q: @reneluria
+    
+    * N: innoQ Schweiz GmbH
+      D: As a consulting company we added Cilium to a couple of our customers infrastructure
+      U: Networking, CiliumNetworkPolicy at L7, kube-proxy replacement, encryption
+      L: https://www.cloud-migration.ch/
+      Q: @fakod
   
     * N: JUMO
       D: JUMO is using Cilium as their CNI plugin for all of their AWS-hosted EKS clusters
@@ -207,6 +224,11 @@ Users (Alphabetically)
       U: Networking, network policy, Hubble for network visibility, Security
       L: http://liquidreply.com
       Q: @mkorbi
+      
+    * N: Melenion Inc
+      D: Melenion is using Cilium as the CNI for its on-premise production clusters
+      U: Service Load Balancing, Hubble
+      Q: @edude03
 
     * N: Meltwater
       D: Meltwater is using Cilim in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
@@ -312,6 +334,11 @@ Users (Alphabetically)
       D: Sportradar is using Cilium as their main CNI plugin in AWS (using kops)
       U: L3/L4 policies, Hubble, BPF NodePort, CiliumClusterwideNetworkPolicy
       Q: @Eric Bailey, @Ole Markus
+      
+    * N: Sproutfi
+      D: Sproutfi uses Cilium as the CNI on its GKE based clusters
+      U: Service Load Balancing, Hubble, Datadog Integration for Prometheus metrics 
+      Q: @edude03
 
     * N: Talos
       D: Cilium is one of the supported CNI's in Talos

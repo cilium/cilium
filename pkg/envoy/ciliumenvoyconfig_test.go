@@ -7,6 +7,7 @@
 package envoy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -49,7 +50,7 @@ func (m *MockPortAllocator) AllocateProxyPort(name string, ingress bool) (uint16
 	return m.port, nil
 }
 
-func (m *MockPortAllocator) AckProxyPort(name string) error {
+func (m *MockPortAllocator) AckProxyPort(ctx context.Context, name string) error {
 	mp, exists := m.ports[name]
 	if !exists {
 		return fmt.Errorf("Non-allocated port %s", name)

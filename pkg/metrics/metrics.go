@@ -52,6 +52,9 @@ const (
 	// SubsystemKVStore is the subsystem to scope metrics related to the kvstore.
 	SubsystemKVStore = "kvstore"
 
+	// SubsystemFQDN is the subsystem to scope metrics related to the FQDN proxy.
+	SubsystemFQDN = "fqdn"
+
 	// SubsystemNodes is the subsystem to scope metrics related to the node manager.
 	SubsystemNodes = "nodes"
 
@@ -322,6 +325,10 @@ var (
 	// by error, protocol and span time
 	ProxyUpstreamTime = NoOpObserverVec
 
+	// ProxyDatapathUpdateTimeout is a count of all the timeouts encountered while
+	// updating the datapath due to an FQDN IP update
+	ProxyDatapathUpdateTimeout = NoOpCounter
+
 	// L3-L4 statistics
 
 	// DropCount is the total drop requests,
@@ -431,6 +438,20 @@ var (
 	// GC job.
 	FQDNGarbageCollectorCleanedTotal = NoOpCounter
 
+	// FQDNActiveNames is the number of domains inside the DNS cache that have
+	// not expired (by TTL), per endpoint.
+	FQDNActiveNames = NoOpGaugeVec
+
+	// FQDNActiveIPs is the number of IPs inside the DNS cache associated with
+	// a domain that has not expired (by TTL) and are currently active, per
+	// endpoint.
+	FQDNActiveIPs = NoOpGaugeVec
+
+	// FQDNAliveZombieConnections is the number IPs associated with domains
+	// that have expired (by TTL) yet still associated with an active
+	// connection (aka zombie), per endpoint.
+	FQDNAliveZombieConnections = NoOpGaugeVec
+
 	// BPFSyscallDuration is the metric for bpf syscalls duration.
 	BPFSyscallDuration = NoOpObserverVec
 
@@ -512,6 +533,7 @@ type Configuration struct {
 	ProxyForwardedEnabled                   bool
 	ProxyDeniedEnabled                      bool
 	ProxyReceivedEnabled                    bool
+	ProxyDatapathUpdateTimeoutEnabled       bool
 	NoOpObserverVecEnabled                  bool
 	DropCountEnabled                        bool
 	DropBytesEnabled                        bool
@@ -538,6 +560,9 @@ type Configuration struct {
 	KVStoreEventsQueueDurationEnabled       bool
 	KVStoreQuorumErrorsEnabled              bool
 	FQDNGarbageCollectorCleanedTotalEnabled bool
+	FQDNActiveNames                         bool
+	FQDNActiveIPs                           bool
+	FQDNActiveZombiesConnections            bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
 	BPFMapPressure                          bool
@@ -604,7 +629,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":          {},
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":                 {},
 		Namespace + "_" + SubsystemKVStore + "_quorum_errors_total":                  {},
-		Namespace + "_fqdn_gc_deletions_total":                                       {},
+		Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":                      {},
 		Namespace + "_" + SubsystemBPF + "_map_ops_total":                            {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_total":                 {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_folds":                 {},
@@ -864,6 +889,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ProxyUpstreamTime)
 			c.NoOpObserverVecEnabled = true
+
+		case Namespace + "_proxy_datapath_update_timeout_total":
+			ProxyDatapathUpdateTimeout = prometheus.NewCounter(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Name:      "proxy_datapath_update_timeout_total",
+				Help:      "Number of total datapath update timeouts due to FQDN IP updates",
+			})
+
+			collectors = append(collectors, ProxyDatapathUpdateTimeout)
+			c.ProxyDatapathUpdateTimeoutEnabled = true
 
 		case Namespace + "_drop_count_total":
 			DropCount = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -1136,15 +1171,49 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, KVStoreQuorumErrors)
 			c.KVStoreQuorumErrorsEnabled = true
 
-		case Namespace + "_fqdn_gc_deletions_total":
+		case Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":
 			FQDNGarbageCollectorCleanedTotal = prometheus.NewCounter(prometheus.CounterOpts{
 				Namespace: Namespace,
-				Name:      "fqdn_gc_deletions_total",
+				Subsystem: SubsystemFQDN,
+				Name:      "gc_deletions_total",
 				Help:      "Number of FQDNs that have been cleaned on FQDN Garbage collector job",
 			})
 
 			collectors = append(collectors, FQDNGarbageCollectorCleanedTotal)
 			c.FQDNGarbageCollectorCleanedTotalEnabled = true
+
+		case Namespace + "_" + SubsystemFQDN + "_active_names":
+			FQDNActiveNames = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemFQDN,
+				Name:      "active_names",
+				Help:      "Number of domains inside the DNS cache that have not expired (by TTL), per endpoint",
+			}, []string{LabelPeerEndpoint})
+
+			collectors = append(collectors, FQDNActiveNames)
+			c.FQDNActiveNames = true
+
+		case Namespace + "_" + SubsystemFQDN + "_active_ips":
+			FQDNActiveIPs = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemFQDN,
+				Name:      "active_ips",
+				Help:      "Number of IPs inside the DNS cache associated with a domain that has not expired (by TTL), per endpoint",
+			}, []string{LabelPeerEndpoint})
+
+			collectors = append(collectors, FQDNActiveIPs)
+			c.FQDNActiveIPs = true
+
+		case Namespace + "_" + SubsystemFQDN + "_alive_zombie_connections":
+			FQDNAliveZombieConnections = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemFQDN,
+				Name:      "alive_zombie_connections",
+				Help:      "Number of IPs associated with domains that have expired (by TTL) yet still associated with an active connection (aka zombie), per endpoint",
+			}, []string{LabelPeerEndpoint})
+
+			collectors = append(collectors, FQDNAliveZombieConnections)
+			c.FQDNActiveZombiesConnections = true
 
 		case Namespace + "_" + SubsystemBPF + "_syscall_duration_seconds":
 			BPFSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{

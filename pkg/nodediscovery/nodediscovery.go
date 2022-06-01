@@ -71,7 +71,7 @@ type NodeDiscovery struct {
 	LocalConfig           datapath.LocalNodeConfiguration
 	Registrar             nodestore.NodeRegistrar
 	Registered            chan struct{}
-	LocalStateInitialized chan struct{}
+	localStateInitialized chan struct{}
 	NetConf               *cnitypes.NetConf
 	k8sNodeGetter         k8sNodeGetter
 	localNodeLock         lock.Mutex
@@ -127,7 +127,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 			Source: source.Local,
 		},
 		Registered:            make(chan struct{}),
-		LocalStateInitialized: make(chan struct{}),
+		localStateInitialized: make(chan struct{}),
 		NetConf:               netConf,
 	}
 }
@@ -179,6 +179,58 @@ func (n *NodeDiscovery) StartDiscovery() {
 	n.localNodeLock.Lock()
 	defer n.localNodeLock.Unlock()
 
+	n.fillLocalNode()
+
+	go func() {
+		log.WithFields(
+			logrus.Fields{
+				logfields.Node: n.localNode,
+			}).Info("Adding local node to cluster")
+		for {
+			if err := n.Registrar.RegisterNode(&n.localNode, n.Manager); err != nil {
+				log.WithError(err).Error("Unable to initialize local node. Retrying...")
+				time.Sleep(time.Second)
+			} else {
+				break
+			}
+		}
+		close(n.Registered)
+	}()
+
+	go func() {
+		select {
+		case <-n.Registered:
+		case <-time.After(defaults.NodeInitTimeout):
+			log.Fatalf("Unable to initialize local node due to timeout")
+		}
+	}()
+
+	n.Manager.NodeUpdated(n.localNode)
+	close(n.localStateInitialized)
+
+	n.updateLocalNode()
+}
+
+// WaitForLocalNodeInit blocks until StartDiscovery() has been called.  This is used to block until
+// Node's local IP addresses have been allocated, see https://github.com/cilium/cilium/pull/14299
+// and https://github.com/cilium/cilium/pull/14670.
+func (n *NodeDiscovery) WaitForLocalNodeInit() {
+	<-n.localStateInitialized
+}
+
+func (n *NodeDiscovery) NodeDeleted(node nodeTypes.Node) {
+	n.Manager.NodeDeleted(node)
+}
+
+func (n *NodeDiscovery) NodeUpdated(node nodeTypes.Node) {
+	n.Manager.NodeUpdated(node)
+}
+
+func (n *NodeDiscovery) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
+	return n.Manager.ClusterSizeDependantInterval(baseInterval)
+}
+
+func (n *NodeDiscovery) fillLocalNode() {
 	n.localNode.Name = nodeTypes.GetName()
 	n.localNode.Cluster = option.Config.ClusterName
 	n.localNode.IPAddresses = []nodeTypes.Address{}
@@ -186,6 +238,8 @@ func (n *NodeDiscovery) StartDiscovery() {
 	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.localNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
 	n.localNode.IPv6HealthIP = node.GetEndpointHealthIPv6()
+	n.localNode.IPv4IngressIP = node.GetIngressIPv4()
+	n.localNode.IPv6IngressIP = node.GetIngressIPv6()
 	n.localNode.ClusterID = option.Config.ClusterID
 	n.localNode.EncryptionKey = node.GetIPsecKeyIdentity()
 	n.localNode.WireguardPubKey = node.GetWireguardPubKey()
@@ -233,34 +287,9 @@ func (n *NodeDiscovery) StartDiscovery() {
 			IP:   node.GetK8sExternalIPv6(),
 		})
 	}
+}
 
-	go func() {
-		log.WithFields(
-			logrus.Fields{
-				logfields.Node: n.localNode,
-			}).Info("Adding local node to cluster")
-		for {
-			if err := n.Registrar.RegisterNode(&n.localNode, n.Manager); err != nil {
-				log.WithError(err).Error("Unable to initialize local node. Retrying...")
-				time.Sleep(time.Second)
-			} else {
-				break
-			}
-		}
-		close(n.Registered)
-	}()
-
-	go func() {
-		select {
-		case <-n.Registered:
-		case <-time.NewTimer(defaults.NodeInitTimeout).C:
-			log.Fatalf("Unable to initialize local node due to timeout")
-		}
-	}()
-
-	n.Manager.NodeUpdated(n.localNode)
-	close(n.LocalStateInitialized)
-
+func (n *NodeDiscovery) updateLocalNode() {
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		go func() {
 			<-n.Registered
@@ -282,6 +311,17 @@ func (n *NodeDiscovery) StartDiscovery() {
 		// to avoid custom resource update conflicts.
 		n.UpdateCiliumNodeResource()
 	}
+}
+
+// UpdateLocalNode syncs the internal localNode object with the actual state of
+// the local node and publishes the corresponding updated KV store entry and/or
+// CiliumNode object
+func (n *NodeDiscovery) UpdateLocalNode() {
+	n.localNodeLock.Lock()
+	defer n.localNodeLock.Unlock()
+
+	n.fillLocalNode()
+	n.updateLocalNode()
 }
 
 // Close shuts down the node discovery engine
@@ -462,6 +502,16 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	nodeResource.Spec.HealthAddressing.IPv6 = ""
 	if ip := n.localNode.IPv6HealthIP; ip != nil {
 		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
+	}
+
+	nodeResource.Spec.IngressAddressing.IPV4 = ""
+	if ip := n.localNode.IPv4IngressIP; ip != nil {
+		nodeResource.Spec.IngressAddressing.IPV4 = ip.String()
+	}
+
+	nodeResource.Spec.IngressAddressing.IPV6 = ""
+	if ip := n.localNode.IPv6IngressIP; ip != nil {
+		nodeResource.Spec.IngressAddressing.IPV6 = ip.String()
 	}
 
 	if pk := n.localNode.WireguardPubKey; pk != "" {

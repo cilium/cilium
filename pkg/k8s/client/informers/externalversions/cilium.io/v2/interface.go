@@ -15,6 +15,8 @@ type Interface interface {
 	CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInformer
 	// CiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicyInformer.
 	CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer
+	// CiliumEgressGatewayPolicies returns a CiliumEgressGatewayPolicyInformer.
+	CiliumEgressGatewayPolicies() CiliumEgressGatewayPolicyInformer
 	// CiliumEndpoints returns a CiliumEndpointInformer.
 	CiliumEndpoints() CiliumEndpointInformer
 	// CiliumEnvoyConfigs returns a CiliumEnvoyConfigInformer.
@@ -50,6 +52,11 @@ func (v *version) CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigIn
 // CiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicyInformer.
 func (v *version) CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer {
 	return &ciliumClusterwideNetworkPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumEgressGatewayPolicies returns a CiliumEgressGatewayPolicyInformer.
+func (v *version) CiliumEgressGatewayPolicies() CiliumEgressGatewayPolicyInformer {
+	return &ciliumEgressGatewayPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumEndpoints returns a CiliumEndpointInformer.

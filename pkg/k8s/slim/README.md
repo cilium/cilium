@@ -6,7 +6,7 @@ The most common structures are under `vendor/k8s.io/api/core/v1/types.go`, or
 `vendor/k8s.io/apimachinery/pkg/apis/meta/v1/types.go`. 
 
 ```bash
-tag=v1.23.0-rc.0
+tag=v1.24.0
 url="https://raw.githubusercontent.com/kubernetes/kubernetes/${tag}"
 
 curl "${url}/staging/src/k8s.io/api/core/v1/doc.go" > pkg/k8s/slim/k8s/api/core/v1/doc.go
@@ -23,10 +23,6 @@ curl "${url}/staging/src/k8s.io/api/discovery/v1/doc.go" > pkg/k8s/slim/k8s/api/
 curl "${url}/staging/src/k8s.io/api/discovery/v1/register.go" > pkg/k8s/slim/k8s/api/discovery/v1/register.go
 curl "${url}/staging/src/k8s.io/api/discovery/v1/types.go" > pkg/k8s/slim/k8s/api/discovery/v1/types.go
 curl "${url}/staging/src/k8s.io/api/discovery/v1/well_known_labels.go" > pkg/k8s/slim/k8s/api/discovery/v1/well_known_labels.go
-
-curl "${url}/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1/doc.go" > pkg/k8s/slim/k8s/apis/apiextensions/v1beta1/doc.go
-curl "${url}/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1/register.go" > pkg/k8s/slim/k8s/apis/apiextensions/v1beta1/register.go
-curl "${url}/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1/types.go" > pkg/k8s/slim/k8s/apis/apiextensions/v1beta1/types.go
 
 curl "${url}/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1/doc.go" > pkg/k8s/slim/k8s/apis/apiextensions/v1/doc.go
 curl "${url}/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1/register.go" > pkg/k8s/slim/k8s/apis/apiextensions/v1/register.go

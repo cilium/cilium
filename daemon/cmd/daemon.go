@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -82,6 +83,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -520,6 +522,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	// Collect old CIDR identities
 	var oldNIDs []identity.NumericIdentity
+	var oldIngressIPs []*net.IPNet
 	if option.Config.RestoreState && !option.Config.DryMode {
 		if err := ipcachemap.IPCache.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 			k := key.(*ipcachemap.Key)
@@ -528,6 +531,14 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			if nid.HasLocalScope() {
 				d.restoredCIDRs = append(d.restoredCIDRs, k.IPNet())
 				oldNIDs = append(oldNIDs, nid)
+			} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
+				oldIngressIPs = append(oldIngressIPs, k.IPNet())
+				ip := k.IPNet().IP
+				if ip.To4() != nil {
+					node.SetIngressIPv4(ip)
+				} else {
+					node.SetIngressIPv6(ip)
+				}
 			}
 		}); err != nil && !os.IsNotExist(err) {
 			log.WithError(err).Debug("Error dumping ipcache")
@@ -629,7 +640,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
-		d.nodeDiscovery.Manager,
+		d.nodeDiscovery,
 		&d,
 		d.policy,
 		d.svc,
@@ -697,6 +708,22 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// Upsert restored CIDRs after the new ipcache has been opened above
 	if len(restoredCIDRidentities) > 0 {
 		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities)
+	}
+	// Upsert restored local Ingress IPs
+	restoredIngressIPs := []string{}
+	for _, ingressIP := range oldIngressIPs {
+		_, err := d.ipcache.Upsert(ingressIP.String(), nil, 0, nil, ipcache.Identity{
+			ID:     identity.ReservedIdentityIngress,
+			Source: source.Restored,
+		})
+		if err == nil {
+			restoredIngressIPs = append(restoredIngressIPs, ingressIP.String())
+		} else {
+			log.WithError(err).Warning("could not restore Ingress IP, a new one will be allocated")
+		}
+	}
+	if len(restoredIngressIPs) > 0 {
+		log.WithField(logfields.Ingress, restoredIngressIPs).Info("Restored ingress IPs")
 	}
 
 	// Read the service IDs of existing services from the BPF map and
@@ -1074,6 +1101,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			logfields.V6Prefix:       node.GetIPv6AllocRange(),
 			logfields.V4HealthIP:     node.GetEndpointHealthIPv4(),
 			logfields.V6HealthIP:     node.GetEndpointHealthIPv6(),
+			logfields.V4IngressIP:    node.GetIngressIPv4(),
+			logfields.V6IngressIP:    node.GetIngressIPv6(),
 			logfields.V4CiliumHostIP: node.GetInternalIPv4Router(),
 			logfields.V6CiliumHostIP: node.GetIPv6Router(),
 		}).Info("Annotating k8s node")
@@ -1082,6 +1111,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			encryptKeyID,
 			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
 			node.GetEndpointHealthIPv4(), node.GetEndpointHealthIPv6(),
+			node.GetIngressIPv4(), node.GetIngressIPv6(),
 			node.GetInternalIPv4Router(), node.GetIPv6Router())
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
@@ -1125,7 +1155,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	// iptables rules can be updated only after d.init() intializes the iptables above.
-	err = d.updateDNSDatapathRules()
+	err = d.updateDNSDatapathRules(d.ctx)
 	if err != nil {
 		log.WithError(err).Error("error encountered while updating DNS datapath rules.")
 		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
@@ -1196,6 +1226,12 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			}()
 		} else {
 			log.Info("Runtime device detection requested, but no feature requires it. Disabling detection.")
+		}
+	}
+
+	if option.Config.EnableIPSec {
+		if err := ipsec.StartKeyfileWatcher(ctx, option.Config.IPSecKeyFile, nd); err != nil {
+			log.WithError(err).Error("Unable to start IPSec keyfile watcher")
 		}
 	}
 

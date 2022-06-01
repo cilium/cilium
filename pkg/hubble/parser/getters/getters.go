@@ -9,8 +9,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/api/v1/models"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -39,7 +39,7 @@ type EndpointsGetter interface {
 // IdentityGetter ...
 type IdentityGetter interface {
 	// GetIdentity fetches a full identity object given a numeric security id.
-	GetIdentity(id uint32) (*models.Identity, error)
+	GetIdentity(id uint32) (*identity.Identity, error)
 }
 
 // IPGetter fetches per-IP metadata

@@ -204,6 +204,16 @@ func (r *Ring) LastWrite() uint64 {
 	return atomic.LoadUint64(&r.write) - 1
 }
 
+// OldestWrite returns the oldest element written.
+// Note: It should only be used to read from the beginning of the buffer.
+func (r *Ring) OldestWrite() uint64 {
+	write := atomic.LoadUint64(&r.write)
+	if write > r.dataLen {
+		return write - r.dataLen
+	}
+	return 0
+}
+
 func getLostEvent() *v1.Event {
 	now := time.Now().UTC()
 	return &v1.Event{

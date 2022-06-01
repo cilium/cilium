@@ -21,9 +21,9 @@ jobs:
           git config --global user.email "github-actions@users.noreply.github.com"
 
       - name: Install Go
-        uses: actions/setup-go@fcdc43634adb5f7ae75a9d7a9b9361790f7293e2
+        uses: actions/setup-go@b22fbbc2921299758641fab08929b4ac52b32923
         with:
-          go-version: 1.18.1
+          go-version: 1.18.2
 
       - name: Cache LLVM and Clang
         id: cache-llvm
@@ -33,7 +33,7 @@ jobs:
           key: llvm-10.0
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@bd6088fe89d09103b9f166e8ac04d92fa629f6e0
+        uses: KyleMayes/install-llvm-action@f0cccbdf563688c6e0f9273d4bc27a8c5278de85
         with:
           version: "10.0"
           directory: $HOME/.clang

@@ -56,6 +56,10 @@ type addresses struct {
 	ipv4HealthIP net.IP
 	ipv6HealthIP net.IP
 
+	// Addresses of the Cilium Ingress located on the node
+	ipv4IngressIP net.IP
+	ipv6IngressIP net.IP
+
 	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is preferred)
 	k8sNodeIP net.IP
 
@@ -238,17 +242,26 @@ func InitBPFMasqueradeAddrs(devices []string) error {
 	return nil
 }
 
+func clone(ip net.IP) net.IP {
+	if ip == nil {
+		return nil
+	}
+	dup := make(net.IP, len(ip))
+	copy(dup, ip)
+	return dup
+}
+
 // GetIPv4Loopback returns the loopback IPv4 address of this node.
 func GetIPv4Loopback() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv4Loopback
+	return clone(addrs.ipv4Loopback)
 }
 
 // SetIPv4Loopback sets the loopback IPv4 address of this node.
 func SetIPv4Loopback(ip net.IP) {
 	addrsMu.Lock()
-	addrs.ipv4Loopback = ip
+	addrs.ipv4Loopback = clone(ip)
 	addrsMu.Unlock()
 }
 
@@ -256,14 +269,14 @@ func SetIPv4Loopback(ip net.IP) {
 func GetIPv4AllocRange() *cidr.CIDR {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv4AllocRange
+	return addrs.ipv4AllocRange.DeepCopy()
 }
 
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange() *cidr.CIDR {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv6AllocRange
+	return addrs.ipv6AllocRange.DeepCopy()
 }
 
 // SetIPv4 sets the IPv4 node address. It must be reachable on the network.
@@ -273,7 +286,7 @@ func GetIPv6AllocRange() *cidr.CIDR {
 // - other IP address type
 func SetIPv4(ip net.IP) {
 	addrsMu.Lock()
-	addrs.ipv4Address = ip
+	addrs.ipv4Address = clone(ip)
 	addrsMu.Unlock()
 }
 
@@ -286,7 +299,7 @@ func SetIPv4(ip net.IP) {
 func GetIPv4() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv4Address
+	return clone(addrs.ipv4Address)
 }
 
 // SetInternalIPv4Router sets the cilium internal IPv4 node address, it is allocated from the node prefix.
@@ -295,7 +308,7 @@ func GetIPv4() net.IP {
 // for tunnel mode).
 func SetInternalIPv4Router(ip net.IP) {
 	addrsMu.Lock()
-	addrs.ipv4RouterAddress = ip
+	addrs.ipv4RouterAddress = clone(ip)
 	addrsMu.Unlock()
 }
 
@@ -305,14 +318,14 @@ func SetInternalIPv4Router(ip net.IP) {
 func GetInternalIPv4Router() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv4RouterAddress
+	return clone(addrs.ipv4RouterAddress)
 }
 
 // SetK8sExternalIPv4 sets the external IPv4 node address. It must be a public IP that is routable
 // on the network as well as the internet.
 func SetK8sExternalIPv4(ip net.IP) {
 	addrsMu.Lock()
-	addrs.ipv4ExternalAddress = ip
+	addrs.ipv4ExternalAddress = clone(ip)
 	addrsMu.Unlock()
 }
 
@@ -321,7 +334,7 @@ func SetK8sExternalIPv4(ip net.IP) {
 func GetK8sExternalIPv4() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv4ExternalAddress
+	return clone(addrs.ipv4ExternalAddress)
 }
 
 // GetRouterInfo returns additional information for the router, the cilium_host interface.
@@ -343,14 +356,14 @@ func SetRouterInfo(info RouterInfo) {
 func GetHostMasqueradeIPv4() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv4RouterAddress
+	return clone(addrs.ipv4RouterAddress)
 }
 
 // SetIPv4AllocRange sets the IPv4 address pool to use when allocating
 // addresses for local endpoints
 func SetIPv4AllocRange(net *cidr.CIDR) {
 	addrsMu.Lock()
-	addrs.ipv4AllocRange = net
+	addrs.ipv4AllocRange = net.DeepCopy()
 	addrsMu.Unlock()
 }
 
@@ -368,7 +381,7 @@ func GetNodePortIPv4Addrs() []net.IP {
 	defer addrsMu.RUnlock()
 	addrs4 := make([]net.IP, 0, len(addrs.ipv4NodePortAddrs))
 	for _, addr := range addrs.ipv4NodePortAddrs {
-		addrs4 = append(addrs4, addr)
+		addrs4 = append(addrs4, clone(addr))
 	}
 	return addrs4
 }
@@ -386,7 +399,7 @@ func GetNodePortIPv6Addrs() []net.IP {
 	defer addrsMu.RUnlock()
 	addrs6 := make([]net.IP, 0, len(addrs.ipv6NodePortAddrs))
 	for _, addr := range addrs.ipv6NodePortAddrs {
-		addrs6 = append(addrs6, addr)
+		addrs6 = append(addrs6, clone(addr))
 	}
 	return addrs6
 }
@@ -408,7 +421,7 @@ func GetMasqIPv4AddrsWithDevices() map[string]net.IP {
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
 func SetIPv6NodeRange(net *cidr.CIDR) {
 	addrsMu.Lock()
-	addrs.ipv6AllocRange = net
+	addrs.ipv6AllocRange = net.DeepCopy()
 	addrsMu.Unlock()
 }
 
@@ -568,7 +581,7 @@ func ValidatePostInit() error {
 // SetIPv6 sets the IPv6 address of the node
 func SetIPv6(ip net.IP) {
 	addrsMu.Lock()
-	addrs.ipv6Address = ip
+	addrs.ipv6Address = clone(ip)
 	addrsMu.Unlock()
 }
 
@@ -576,7 +589,7 @@ func SetIPv6(ip net.IP) {
 func GetIPv6() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv6Address
+	return clone(addrs.ipv6Address)
 }
 
 // GetHostMasqueradeIPv6 returns the IPv6 address to be used for masquerading
@@ -584,27 +597,27 @@ func GetIPv6() net.IP {
 func GetHostMasqueradeIPv6() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv6Address
+	return clone(addrs.ipv6Address)
 }
 
 // GetIPv6Router returns the IPv6 address of the node
 func GetIPv6Router() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv6RouterAddress
+	return clone(addrs.ipv6RouterAddress)
 }
 
 // SetIPv6Router returns the IPv6 address of the node
 func SetIPv6Router(ip net.IP) {
 	addrsMu.Lock()
-	addrs.ipv6RouterAddress = ip
+	addrs.ipv6RouterAddress = clone(ip)
 	addrsMu.Unlock()
 }
 
 // SetK8sExternalIPv6 sets the external IPv6 node address. It must be a public IP.
 func SetK8sExternalIPv6(ip net.IP) {
 	addrsMu.Lock()
-	addrs.ipv6ExternalAddress = ip
+	addrs.ipv6ExternalAddress = clone(ip)
 	addrsMu.Unlock()
 }
 
@@ -612,7 +625,7 @@ func SetK8sExternalIPv6(ip net.IP) {
 func GetK8sExternalIPv6() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv6ExternalAddress
+	return clone(addrs.ipv6ExternalAddress)
 }
 
 // GetNodeAddressing returns the NodeAddressing model for the local IPs.
@@ -748,13 +761,13 @@ func GetIPsecKeyIdentity() uint8 {
 func GetK8sNodeIP() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.k8sNodeIP
+	return clone(addrs.k8sNodeIP)
 }
 
 // SetK8sNodeIP sets k8s Node IP addr.
 func SetK8sNodeIP(ip net.IP) {
 	addrsMu.Lock()
-	addrs.k8sNodeIP = ip
+	addrs.k8sNodeIP = clone(ip)
 	addrsMu.Unlock()
 }
 
@@ -770,10 +783,10 @@ func GetWireguardPubKey() string {
 	return addrs.wireguardPubKey
 }
 
-// SetEndpointHealthIPv4 sets the IPv6 cilium-health endpoint address.
+// SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.
 func SetEndpointHealthIPv4(ip net.IP) {
 	addrsMu.Lock()
-	addrs.ipv4HealthIP = ip
+	addrs.ipv4HealthIP = clone(ip)
 	addrsMu.Unlock()
 }
 
@@ -781,13 +794,13 @@ func SetEndpointHealthIPv4(ip net.IP) {
 func GetEndpointHealthIPv4() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv4HealthIP
+	return clone(addrs.ipv4HealthIP)
 }
 
 // SetEndpointHealthIPv6 sets the IPv6 cilium-health endpoint address.
 func SetEndpointHealthIPv6(ip net.IP) {
 	addrsMu.Lock()
-	addrs.ipv6HealthIP = ip
+	addrs.ipv6HealthIP = clone(ip)
 	addrsMu.Unlock()
 }
 
@@ -795,7 +808,35 @@ func SetEndpointHealthIPv6(ip net.IP) {
 func GetEndpointHealthIPv6() net.IP {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	return addrs.ipv6HealthIP
+	return clone(addrs.ipv6HealthIP)
+}
+
+// SetIngressIPv4 sets the local IPv4 source address for Cilium Ingress.
+func SetIngressIPv4(ip net.IP) {
+	addrsMu.RLock()
+	addrs.ipv4IngressIP = clone(ip)
+	addrsMu.RUnlock()
+}
+
+// GetIngressIPv4 returns the local IPv4 source address for Cilium Ingress.
+func GetIngressIPv4() net.IP {
+	addrsMu.RLock()
+	defer addrsMu.RUnlock()
+	return clone(addrs.ipv4IngressIP)
+}
+
+// SetIngressIPv6 sets the local IPv6 source address for Cilium Ingress.
+func SetIngressIPv6(ip net.IP) {
+	addrsMu.RLock()
+	addrs.ipv6IngressIP = clone(ip)
+	addrsMu.RUnlock()
+}
+
+// GetIngressIPv6 returns the local IPv6 source address for Cilium Ingress.
+func GetIngressIPv6() net.IP {
+	addrsMu.RLock()
+	defer addrsMu.RUnlock()
+	return clone(addrs.ipv6IngressIP)
 }
 
 func copyStringToNetIPMap(in map[string]net.IP) map[string]net.IP {

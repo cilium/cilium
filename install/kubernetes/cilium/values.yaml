@@ -173,6 +173,15 @@ resources: {}
 securityContext:
   # runAsUser: 0
   privileged: false
+  extraCapabilities:
+    # Allow discretionary access control (e.g. required for package installation)
+    - DAC_OVERRIDE
+    # Allow to set Access Control Lists (ACLs) on arbitrary files (e.g. required for package installation)
+    - FOWNER
+    # Allow to execute program that changes GID (e.g. required for package installation)
+    - SETGID
+    # Allow to execute program that changes UID (e.g. required for package installation)
+    - SETUID
 
 # -- Cilium agent update strategy
 updateStrategy:
@@ -583,7 +592,7 @@ gke:
 healthChecking: true
 
 # -- TCP port for the agent health API. This is not the port for cilium-health.
-healthPort: 9876
+healthPort: 9879
 
 # -- Configure the host firewall.
 hostFirewall:
@@ -685,6 +694,8 @@ hubble:
     enabled: true
     # -- Service Port for the Peer service.
     servicePort: 4254
+    # -- Target Port for the Peer service.
+    targetPort: 4244
     # -- The cluster domain to use to query the Hubble Peer service. It should
     # be the local cluster.
     clusterDomain: cluster.local
@@ -943,26 +954,6 @@ hubble:
       extraEnv: []
 
       # -- Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
-      resources: {}
-      #   limits:
-      #     cpu: 1000m
-      #     memory: 1024M
-      #   requests:
-      #     cpu: 100m
-      #     memory: 64Mi
-
-    proxy:
-      # -- Hubble-ui ingress proxy image.
-      image:
-        override: ~
-        repository: docker.io/envoyproxy/envoy
-        tag: v1.20.2@sha256:eb7d88d5186648049f0a80062120bd45e7557bdff3f6a30e1fc92cbb50916868
-        pullPolicy: Always
-
-      # -- Additional hubble-ui proxy environment variables.
-      extraEnv: []
-
-      # -- Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
       resources: {}
       #   limits:
       #     cpu: 1000m
@@ -1701,6 +1692,7 @@ nodeinit:
         # Used for nsenter
         - NET_ADMIN
         - SYS_ADMIN
+        - SYS_CHROOT
         - SYS_PTRACE
 
   # -- bootstrapFile is the location of the file where the bootstrap timestamp is

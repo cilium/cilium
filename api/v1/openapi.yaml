@@ -2320,6 +2320,9 @@ definitions:
       health-endpoint-address:
         description: Address used for probing cluster connectivity
         "$ref": "#/definitions/NodeAddressing"
+      ingress-address:
+        description: Source address for Ingress listener
+        "$ref": "#/definitions/NodeAddressing"
   NodeAddressing:
     description: |-
       Addressing information of a node for all address families

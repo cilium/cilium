@@ -1371,7 +1371,6 @@ func (s *K8sSuite) Test_ConvertToCiliumEndpoint(c *C) {
 									Controller: nil,
 								},
 							},
-							ClusterName: "default",
 						},
 						Status: v2.EndpointStatus{
 							ID:          0,

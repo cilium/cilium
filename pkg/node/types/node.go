@@ -66,13 +66,11 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		}
 	}
 
-	if healthIP := n.Spec.HealthAddressing.IPv4; healthIP != "" {
-		node.IPv4HealthIP = net.ParseIP(healthIP)
-	}
+	node.IPv4HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv4)
+	node.IPv6HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv6)
 
-	if healthIP := n.Spec.HealthAddressing.IPv6; healthIP != "" {
-		node.IPv6HealthIP = net.ParseIP(healthIP)
-	}
+	node.IPv4IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV4)
+	node.IPv6IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV6)
 
 	for _, address := range n.Spec.Addresses {
 		if ip := net.ParseIP(address.IP); ip != nil {
@@ -86,10 +84,11 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 // ToCiliumNode converts the node to a CiliumNode
 func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 	var (
-		podCIDRs               []string
-		ipAddrs                []ciliumv2.NodeAddress
-		healthIPv4, healthIPv6 string
-		annotations            = map[string]string{}
+		podCIDRs                 []string
+		ipAddrs                  []ciliumv2.NodeAddress
+		healthIPv4, healthIPv6   string
+		ingressIPv4, ingressIPv6 string
+		annotations              = map[string]string{}
 	)
 
 	if n.IPv4AllocCIDR != nil {
@@ -109,6 +108,12 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 	}
 	if n.IPv6HealthIP != nil {
 		healthIPv6 = n.IPv6HealthIP.String()
+	}
+	if n.IPv4IngressIP != nil {
+		ingressIPv4 = n.IPv4IngressIP.String()
+	}
+	if n.IPv6IngressIP != nil {
+		ingressIPv6 = n.IPv6IngressIP.String()
 	}
 
 	for _, address := range n.IPAddresses {
@@ -133,6 +138,10 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 			HealthAddressing: ciliumv2.HealthAddressingSpec{
 				IPv4: healthIPv4,
 				IPv6: healthIPv6,
+			},
+			IngressAddressing: ciliumv2.AddressPair{
+				IPV4: ingressIPv4,
+				IPV6: ingressIPv6,
 			},
 			Encryption: ciliumv2.EncryptionSpec{
 				Key: int(n.EncryptionKey),
@@ -197,6 +206,14 @@ type Node struct {
 	// IPv6HealthIP if not nil, this is the IPv6 address of the
 	// cilium-health endpoint located on the node.
 	IPv6HealthIP net.IP
+
+	// IPv4IngressIP if not nil, this is the IPv4 address of the
+	// Ingress listener on the node.
+	IPv4IngressIP net.IP
+
+	// IPv6IngressIP if not nil, this is the IPv6 address of the
+	// Ingress listener located on the node.
+	IPv6IngressIP net.IP
 
 	// ClusterID is the unique identifier of the cluster
 	ClusterID int
@@ -408,6 +425,31 @@ func (n *Node) getHealthAddresses() *models.NodeAddressing {
 	}
 }
 
+func (n *Node) getIngressAddresses() *models.NodeAddressing {
+	if n.IPv4IngressIP == nil && n.IPv6IngressIP == nil {
+		return nil
+	}
+
+	var v4Str, v6Str string
+	if n.IPv4IngressIP != nil {
+		v4Str = n.IPv4IngressIP.String()
+	}
+	if n.IPv6IngressIP != nil {
+		v6Str = n.IPv6IngressIP.String()
+	}
+
+	return &models.NodeAddressing{
+		IPV4: &models.NodeAddressingElement{
+			Enabled: option.Config.EnableIPv4,
+			IP:      v4Str,
+		},
+		IPV6: &models.NodeAddressingElement{
+			Enabled: option.Config.EnableIPv6,
+			IP:      v6Str,
+		},
+	}
+}
+
 // GetModel returns the API model representation of a node.
 func (n *Node) GetModel() *models.NodeElement {
 	return &models.NodeElement{
@@ -415,6 +457,7 @@ func (n *Node) GetModel() *models.NodeElement {
 		PrimaryAddress:        n.getPrimaryAddress(),
 		SecondaryAddresses:    n.getSecondaryAddresses(),
 		HealthEndpointAddress: n.getHealthAddresses(),
+		IngressAddress:        n.getIngressAddresses(),
 	}
 }
 

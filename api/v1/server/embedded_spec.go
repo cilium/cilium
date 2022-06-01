@@ -3386,6 +3386,10 @@ func init() {
           "description": "Address used for probing cluster connectivity",
           "$ref": "#/definitions/NodeAddressing"
         },
+        "ingress-address": {
+          "description": "Source address for Ingress listener",
+          "$ref": "#/definitions/NodeAddressing"
+        },
         "name": {
           "description": "Name of the node including the cluster association. This is typically\n\u003cclustername\u003e/\u003chostname\u003e.\n",
           "type": "string"
@@ -8174,6 +8178,10 @@ func init() {
       "properties": {
         "health-endpoint-address": {
           "description": "Address used for probing cluster connectivity",
+          "$ref": "#/definitions/NodeAddressing"
+        },
+        "ingress-address": {
+          "description": "Source address for Ingress listener",
           "$ref": "#/definitions/NodeAddressing"
         },
         "name": {

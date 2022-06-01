@@ -18,9 +18,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 )
 
 type DNSCacheTestSuite struct{}
+
+func (ds *DNSCacheTestSuite) SetUpSuite(c *C) {
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+}
 
 var _ = Suite(&DNSCacheTestSuite{})
 
@@ -268,6 +273,29 @@ func (ds *DNSCacheTestSuite) TestJSONMarshal(c *C) {
 		IPs := cache.lookupByTime(currentTime, name)
 		c.Assert(len(IPs), Equals, 0, Commentf("Returned IPs that should be expired for %s", name))
 	}
+}
+
+func (ds *DNSCacheTestSuite) TestCountIPs(c *C) {
+	names := map[string]net.IP{
+		"test1.com": net.ParseIP("1.1.1.1"),
+		"test2.com": net.ParseIP("2.2.2.2"),
+		"test3.com": net.ParseIP("3.3.3.3")}
+	sharedIP := net.ParseIP("8.8.8.8")
+	cache := NewDNSCache(0)
+
+	// Insert 3 records all sharing one IP and 1 unique IP.
+	cache.Update(now, "test1.com", []net.IP{sharedIP, names["test1.com"]}, 5)
+	cache.Update(now, "test2.com", []net.IP{sharedIP, names["test2.com"]}, 5)
+	cache.Update(now, "test3.com", []net.IP{sharedIP, names["test3.com"]}, 5)
+
+	fqdns, ips := cache.Count()
+
+	// Dump() returns the deduplicated (or consolidated) list of entries with
+	// length equal to CountFQDNs(), while CountIPs() returns the raw number of
+	// IPs.
+	c.Assert(len(cache.Dump()), Equals, len(names))
+	c.Assert(int(fqdns), Equals, len(names))
+	c.Assert(int(ips), Equals, len(names)*2)
 }
 
 /* Benchmarks

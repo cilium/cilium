@@ -29,7 +29,7 @@ import (
 var (
 	log             = logging.DefaultLogger
 	DefaultSettings = map[string]string{
-		"K8S_VERSION": "1.23",
+		"K8S_VERSION": "1.24",
 	}
 	k8sNodesEnv         = "K8S_NODES"
 	commandsLogFileName = "cmds.log"
@@ -204,7 +204,7 @@ var _ = BeforeAll(func() {
 		go vm.PprofReport()
 
 	case helpers.K8s:
-		//FIXME: This should be:
+		// FIXME: This should be:
 		// Start k8s1 and provision kubernetes.
 		// When finish, start to build cilium in background
 		// Start k8s2

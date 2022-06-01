@@ -33,3 +33,13 @@
     {{ fail "ClusterMesh TLS certgen method=certmanager requires user specify .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef" }}
   {{- end }}  
 {{- end }}
+
+{{/* validate hubble-ui specific config */}}
+{{- if .Values.hubble.ui.enabled }}
+  {{- if regexReplaceAll "@.*$" .Values.hubble.ui.backend.image.tag "" | trimPrefix "v" | semverCompare "<0.9.0" }}
+    {{ fail "Hubble UI requires hubble.ui.backend.image.tag to be '>=v0.9.0'" }}
+  {{- end }}
+  {{- if regexReplaceAll "@.*$" .Values.hubble.ui.frontend.image.tag "" | trimPrefix "v" | semverCompare "<0.9.0" }}
+    {{ fail "Hubble UI requires hubble.ui.frontend.image.tag to be '>=v0.9.0'" }}
+  {{- end }}
+{{- end }}

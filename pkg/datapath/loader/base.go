@@ -109,7 +109,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
 	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.GetDevices(), " "))
-	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.ModePreFilter)
+	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.NodePortAcceleration)
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
 	return fw.Flush()
@@ -464,13 +464,15 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if err := iptMgr.InstallRules(defaults.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
+	if err := iptMgr.InstallRules(ctx, defaults.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
 		return err
 	}
 
 	// Reinstall proxy rules for any running proxies if needed
 	if p != nil {
-		p.ReinstallRules()
+		if err := p.ReinstallRules(ctx); err != nil {
+			return err
+		}
 	}
 
 	return nil

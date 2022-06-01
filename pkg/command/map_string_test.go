@@ -74,6 +74,53 @@ func TestGetStringMapString(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
+			name: "valid kv format with @",
+			args: args{
+				key:   "FOO_BAR",
+				value: "k1=v1,k2=test@test.com",
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "test@test.com",
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "valid kv format with empty value",
+			args: args{
+				key:   "FOO_BAR",
+				value: "k1=,k2=v2",
+			},
+			want: map[string]string{
+				"k1": "",
+				"k2": "v2",
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "valid kv format with comma in value",
+			args: args{
+				key:   "API_RATE_LIMIT",
+				value: "endpoint-create=rate-limit:10/s,rate-burst:10,parallel-requests:10,auto-adjust:true,endpoint-delete=rate-limit:10/s,rate-burst:10,parallel-requests:10,auto-adjust:true",
+			},
+			want: map[string]string{
+				"endpoint-create": "rate-limit:10/s,rate-burst:10,parallel-requests:10,auto-adjust:true",
+				"endpoint-delete": "rate-limit:10/s,rate-burst:10,parallel-requests:10,auto-adjust:true",
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "another valid kv format with comma in value",
+			args: args{
+				key:   "AWS_INSTANCE_LIMIT_MAPPING",
+				value: "c6a.2xlarge=4,15,15",
+			},
+			want: map[string]string{
+				"c6a.2xlarge": "4,15,15",
+			},
+			wantErr: assert.NoError,
+		},
+		{
 			name: "valid kv format with forward slash",
 			args: args{
 				key:   "FOO_BAR",

@@ -358,7 +358,7 @@ int tail_handle_ipv6_from_host(struct __ctx_buff *ctx __maybe_unused)
 	return tail_handle_ipv6(ctx, true);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv6(ctx, false);
@@ -491,7 +491,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			ret = nodeport_lb4(ctx, secctx);
 			if (ret == NAT_46X64_RECIRC) {
 				ctx_store_meta(ctx, CB_SRC_IDENTITY, secctx);
-				ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+				ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 				return send_drop_notify_error(ctx, secctx,
 							      DROP_MISSED_TAIL_CALL,
 							      CTX_ACT_DROP,
@@ -662,7 +662,7 @@ int tail_handle_ipv4_from_host(struct __ctx_buff *ctx)
 	return tail_handle_ipv4(ctx, ipcache_srcid, true);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv4(ctx, 0, false);
@@ -937,7 +937,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		if (from_host)
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_HOST);
 		else
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 		/* See comment below for IPv4. */
 		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
 					      CTX_ACT_OK, METRIC_INGRESS);
@@ -957,7 +957,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 # endif
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_HOST);
 		} else {
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 		}
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.
@@ -1266,7 +1266,7 @@ out:
 	return ret;
 }
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+#if defined(ENABLE_HOST_FIREWALL)
 #ifdef ENABLE_IPV6
 declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 			 is_defined(DEBUG)), CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
@@ -1411,7 +1411,7 @@ from_host_to_lxc(struct __ctx_buff *ctx)
  * bpf_lxc program.
  */
 __section_tail(CILIUM_MAP_POLICY, TEMPLATE_HOST_EP_ID)
-handle_lxc_traffic(struct __ctx_buff *ctx)
+int handle_lxc_traffic(struct __ctx_buff *ctx)
 {
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	__u32 lxc_id;
@@ -1431,6 +1431,6 @@ handle_lxc_traffic(struct __ctx_buff *ctx)
 
 	return to_host_from_lxc(ctx);
 }
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+#endif /* ENABLE_HOST_FIREWALL */
 
 BPF_LICENSE("Dual BSD/GPL");

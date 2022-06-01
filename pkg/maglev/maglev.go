@@ -4,11 +4,12 @@
 package maglev
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"runtime"
-	"sync"
 
+	"github.com/cilium/workerpool"
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/cilium/cilium/pkg/murmur3"
@@ -63,8 +64,6 @@ func getOffsetAndSkip(backend string, m uint64) (uint64, uint64) {
 }
 
 func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
-	var wg sync.WaitGroup
-
 	// The idea is to split the calculation into batches so that they can be
 	// concurrently executed. We limit the number of concurrent goroutines to
 	// the number of available CPU cores. This is because the calculation does
@@ -84,13 +83,18 @@ func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
 		batchSize = bCount
 	}
 
+	// Since no other goroutine is controlling the WorkerPool, it is safe to
+	// ignore the returned error from wp methods. Also as our task func never
+	// return any error, we have no use returned value from Drain() and don't
+	// need to provide an id to Submit().
+	wp := workerpool.New(numCPU)
+	defer wp.Close()
 	for g := 0; g < bCount; g += batchSize {
-		wg.Add(1)
-		go func(from int) {
-			to := from + batchSize
-			if to > bCount {
-				to = bCount
-			}
+		from, to := g, g+batchSize
+		if to > bCount {
+			to = bCount
+		}
+		wp.Submit("", func(_ context.Context) error {
 			for i := from; i < to; i++ {
 				offset, skip := getOffsetAndSkip(backends[i], m)
 				permutation[i*int(m)] = offset % m
@@ -98,10 +102,10 @@ func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
 					permutation[i*int(m)+int(j)] = (permutation[i*int(m)+int(j-1)] + skip) % m
 				}
 			}
-			wg.Done()
-		}(g)
+			return nil
+		})
 	}
-	wg.Wait()
+	wp.Drain()
 
 	return permutation[:bCount*int(m)]
 }

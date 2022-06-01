@@ -22,7 +22,7 @@ concurrency:
 
 env:
   minikube_version: 1.25.2
-  cilium_cli_version: v0.11.5
+  cilium_cli_version: v0.11.7
   timeout: 5m
 
 jobs:
@@ -110,6 +110,8 @@ jobs:
             --set operator.image.tag=${{ steps.vars.outputs.sha }} \
             --set operator.image.pullPolicy=IfNotPresent \
             --set operator.image.useDigest=false \
+            --set debug.enabled=true \
+            --set debug.verbose=flow \
             --set securityContext.privileged=true \
             --set ingressController.enabled=true
 
@@ -127,8 +129,8 @@ jobs:
           kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
           lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          curl --fail -- http://"$lb"
-          curl --fail -- http://"$lb"/details/1
+          curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"
+          curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
 
       - name: Run Ingress conformance test
         timeout-minutes: 30
@@ -146,7 +148,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip

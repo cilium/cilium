@@ -23,6 +23,23 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
+
+	// Imports for Envoy extensions not used directly from Cilium Agent, but that we want to
+	// be registered for use in Cilium Encoy Config CRDs:
+	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/set_metadata/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/connection_limit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/ext_authz/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/local_ratelimit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/ratelimit/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_cluster/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/http/v3"
+	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/tcp/v3"
 )
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
@@ -39,7 +56,7 @@ type Resources struct {
 
 type PortAllocator interface {
 	AllocateProxyPort(name string, ingress bool) (uint16, error)
-	AckProxyPort(name string) error
+	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
 
@@ -364,7 +381,7 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 				if err == nil {
 					// Ack the proxy port, if any
 					if port, exists := resources.portAllocations[listenerName]; exists && port != 0 {
-						portAllocator.AckProxyPort(listenerName)
+						portAllocator.AckProxyPort(ctx, listenerName)
 					}
 				}
 			}))
@@ -556,7 +573,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 				if err == nil {
 					// Ack the proxy port, if any, but only if the listener's port was new
 					if port, exists := new.portAllocations[listenerName]; exists && port != 0 {
-						portAllocator.AckProxyPort(listenerName)
+						portAllocator.AckProxyPort(ctx, listenerName)
 					}
 				}
 			}))

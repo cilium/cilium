@@ -302,6 +302,7 @@ manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumnodes.yaml
 	mv ${TMPDIR}/cilium.io_ciliumexternalworkloads.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumexternalworkloads.yaml
 	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumlocalredirectpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumegressgatewaypolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumegressnatpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumegressnatpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumendpointslices.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumendpointslices.yaml
 	mv ${TMPDIR}/cilium.io_ciliumclusterwideenvoyconfigs.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumclusterwideenvoyconfigs.yaml
@@ -511,7 +512,7 @@ kind-down: ## Destroy a kind cluster for Cilium development.
 
 kind-image: export DOCKER_REGISTRY=localhost:5000
 kind-image: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
-kind-image:
+kind-image: ## Build cilium-dev docker image and import it into kind.
 	@$(ECHO_CHECK) kind is ready...
 	@kind get clusters >/dev/null
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
@@ -569,10 +570,7 @@ update-authors: ## Update AUTHORS file for Cilium repository.
 test-docs: ## Build HTML documentation.
 	$(MAKE) -C Documentation html
 
-render-docs: test-docs ## Run server to render documentation.
-	$(MAKE) -C Documentation run-server
-
-render-docs-live-preview: ## Run server with live preview to render documentation.
+render-docs: ## Run server with live preview to render documentation.
 	$(MAKE) -C Documentation live-preview
 
 manpages: ## Generate manpage for Cilium CLI.

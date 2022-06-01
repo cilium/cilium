@@ -138,6 +138,7 @@ The Kubernetes tests support the following Kubernetes versions:
 * 1.21
 * 1.22
 * 1.23
+* 1.24
 
 By default, the Vagrant VMs are provisioned with Kubernetes 1.23. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
@@ -637,6 +638,8 @@ configuration options that can be passed as environment variables:
 +======================+===================+==============+==================================================================+
 | K8S\_NODES           | 2                 | 0..100       | Number of Kubernetes nodes in the cluster                        |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
+| NO_CILIUM_ON_NODE[S] | none              | \*           | Comma-separated list of K8s nodes that should not run Cilium     |
++----------------------+-------------------+--------------+------------------------------------------------------------------+
 | NFS                  | 0                 | 1            | If Cilium folder needs to be shared using NFS                    |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | IPv6                 | 0                 | 0-1          | If 1 the Kubernetes cluster will use IPv6                        |
@@ -647,7 +650,7 @@ configuration options that can be passed as environment variables:
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | KUBEPROXY            | 1                 | 0-1          | If 0 the Kubernetes' kube-proxy won't be installed               |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
-| SERVER\_BOX          | cilium/ubuntu-dev | *            | Vagrantcloud base image                                          |
+| SERVER\_BOX          | cilium/ubuntu-dev | \*           | Vagrantcloud base image                                          |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | VM\_CPUS             | 2                 | 0..100       | Number of CPUs that need to have the VM                          |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+

@@ -114,7 +114,7 @@ bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 
 #ifdef ENABLE_IPV4
 #ifdef ENABLE_NODEPORT_ACCELERATION
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
@@ -122,7 +122,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 	if (!bpf_skip_nodeport(ctx)) {
 		ret = nodeport_lb4(ctx, 0);
 		if (ret == NAT_46X64_RECIRC) {
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
 						      CTX_ACT_DROP,
 						      METRIC_INGRESS);
@@ -137,7 +137,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 
 static __always_inline int check_v4_lb(struct __ctx_buff *ctx)
 {
-	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 	return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL, CTX_ACT_DROP,
 				      METRIC_INGRESS);
 }
@@ -183,7 +183,7 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPV6
 #ifdef ENABLE_NODEPORT_ACCELERATION
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
@@ -200,7 +200,7 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 
 static __always_inline int check_v6_lb(struct __ctx_buff *ctx)
 {
-	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 	return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL, CTX_ACT_DROP,
 				      METRIC_INGRESS);
 }

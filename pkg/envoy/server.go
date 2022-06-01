@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -139,8 +141,7 @@ type XDSServer struct {
 	// Exported for testing only!
 	NetworkPolicyMutator xds.AckingResourceMutator
 
-	// networkPolicyEndpoints maps each network policy's name to the info on
-	// the local endpoint.
+	// networkPolicyEndpoints maps endpoint IP to the info on the local endpoint.
 	// mutex must be held when accessing this.
 	networkPolicyEndpoints map[string]logger.EndpointUpdater
 
@@ -674,15 +675,30 @@ func (s *XDSServer) deleteSecret(name string, wg *completion.WaitGroup, callback
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
 func getListenerFilter(isIngress bool, mayUseOriginalSourceAddr bool, l7lb bool) *envoy_config_listener.ListenerFilter {
+	conf := &cilium.BpfMetadata{
+		IsIngress:                   isIngress,
+		MayUseOriginalSourceAddress: mayUseOriginalSourceAddr,
+		BpfRoot:                     bpf.GetMapRoot(),
+		EgressMarkSourceEndpointId:  l7lb,
+	}
+	// Set Ingress source addresses if configuring for L7 LB
+	if l7lb {
+		ingressIPv4 := node.GetIngressIPv4()
+		if ingressIPv4 != nil {
+			conf.Ipv4SourceAddress = ingressIPv4.String()
+		}
+		ingressIPv6 := node.GetIngressIPv6()
+		if ingressIPv6 != nil {
+			conf.Ipv6SourceAddress = ingressIPv6.String()
+		}
+		log.Debugf("cilium.bpf_metadata: ipv4_source_address: %s", conf.GetIpv4SourceAddress())
+		log.Debugf("cilium.bpf_metadata: ipv6_source_address: %s", conf.GetIpv6SourceAddress())
+	}
+
 	return &envoy_config_listener.ListenerFilter{
 		Name: "cilium.bpf_metadata",
 		ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
-			TypedConfig: toAny(&cilium.BpfMetadata{
-				IsIngress:                   isIngress,
-				MayUseOriginalSourceAddress: mayUseOriginalSourceAddr,
-				BpfRoot:                     bpf.GetMapRoot(),
-				EgressMarkSourceEndpointId:  l7lb,
-			}),
+			TypedConfig: toAny(conf),
 		},
 	}
 }
@@ -1543,11 +1559,11 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, name string, l4Policy *policy.L4Policy,
+func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, ips []string, l4Policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
-		Name:             name,
-		EndpointId:       uint64(ep.GetID()),
+		EndpointIps:      ips,
+		EndpointId:       ep.GetID(),
 		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
@@ -1602,22 +1618,31 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// First, validate all policies
-	ips := []string{
-		ep.GetIPv6Address(),
-		ep.GetIPv4Address(),
+	// Put IPv4 last for compatibility with sidecar containers
+	var ips []string
+	if ipv6 := ep.GetIPv6Address(); ipv6 != "" {
+		ips = append(ips, ipv6)
 	}
-	policies := make([]*cilium.NetworkPolicy, 0, len(ips))
-	for _, ip := range ips {
-		if ip == "" {
-			continue
-		}
-		networkPolicy := getNetworkPolicy(ep, vis, ip, policy, ingressPolicyEnforced, egressPolicyEnforced)
-		err := networkPolicy.Validate()
-		if err != nil {
-			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err), nil
-		}
-		policies = append(policies, networkPolicy)
+	if ipv4 := ep.GetIPv4Address(); ipv4 != "" {
+		ips = append(ips, ipv4)
+	}
+	if len(ips) == 0 {
+		// It looks like the "host EP" (identity == 1) has no IPs, so it is possible to find
+		// there are no IPs here. In this case just skip without updating a policy, as
+		// policies are always keyed by an IP.
+		//
+		// TODO: When L7 policy support for the host is needed, all host IPs should be
+		// considered here?
+		log.WithField(logfields.EndpointID, ep.GetID()).Debug("Endpoint has no IP addresses")
+		return nil, func() error { return nil }
+	}
+
+	networkPolicy := getNetworkPolicy(ep, vis, ips, policy, ingressPolicyEnforced, egressPolicyEnforced)
+
+	// First, validate the policy
+	err := networkPolicy.Validate()
+	if err != nil {
+		return fmt.Errorf("error validating generated NetworkPolicy for Endpoint %d: %s", ep.GetID(), err), nil
 	}
 
 	nodeIDs := getNodeIDs(ep, policy)
@@ -1631,22 +1656,23 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 		}
 	}
 
-	// When successful, push them into the cache.
-	revertFuncs := make(xds.AckingResourceMutatorRevertFuncList, 0, len(policies))
-	revertUpdatedNetworkPolicyEndpoints := make(map[string]logger.EndpointUpdater, len(policies))
-	for _, p := range policies {
-		var callback func(error)
-		if policy != nil {
-			policyRevision := policy.Revision
-			callback = func(err error) {
-				if err == nil {
-					go ep.OnProxyPolicyUpdate(policyRevision)
-				}
+	// When successful, push policy into the cache.
+	var callback func(error)
+	if policy != nil {
+		policyRevision := policy.Revision
+		callback = func(err error) {
+			if err == nil {
+				go ep.OnProxyPolicyUpdate(policyRevision)
 			}
 		}
-		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, wg, callback))
-		revertUpdatedNetworkPolicyEndpoints[p.Name] = s.networkPolicyEndpoints[p.Name]
-		s.networkPolicyEndpoints[p.Name] = ep
+	}
+	epID := ep.GetID()
+	resourceName := strconv.FormatUint(epID, 10)
+	revertFunc := s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
+	revertUpdatedNetworkPolicyEndpoints := make(map[string]logger.EndpointUpdater, len(ips))
+	for _, ip := range ips {
+		revertUpdatedNetworkPolicyEndpoints[ip] = s.networkPolicyEndpoints[ip]
+		s.networkPolicyEndpoints[ip] = ep
 	}
 
 	return nil, func() error {
@@ -1655,17 +1681,17 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
-		for name, ep := range revertUpdatedNetworkPolicyEndpoints {
+		for ip, ep := range revertUpdatedNetworkPolicyEndpoints {
 			if ep == nil {
-				delete(s.networkPolicyEndpoints, name)
+				delete(s.networkPolicyEndpoints, ip)
 			} else {
-				s.networkPolicyEndpoints[name] = ep
+				s.networkPolicyEndpoints[ip] = ep
 			}
 		}
 
 		// Don't wait for an ACK for the reverted xDS updates.
 		// This is best-effort.
-		revertFuncs.Revert(nil)
+		revertFunc(nil)
 
 		log.Debug("Finished reverting xDS network policy update")
 
@@ -1697,17 +1723,19 @@ func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	name := ep.GetIPv6Address()
-	if name != "" {
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name)
-		delete(s.networkPolicyEndpoints, name)
+	epID := ep.GetID()
+	resourceName := strconv.FormatUint(epID, 10)
+	s.networkPolicyCache.Delete(NetworkPolicyTypeURL, resourceName)
+
+	ip := ep.GetIPv6Address()
+	if ip != "" {
+		delete(s.networkPolicyEndpoints, ip)
 	}
-	name = ep.GetIPv4Address()
-	if name != "" {
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name)
-		delete(s.networkPolicyEndpoints, name)
+	ip = ep.GetIPv4Address()
+	if ip != "" {
+		delete(s.networkPolicyEndpoints, ip)
 		// Delete node resources held in the cache for the endpoint (e.g., sidecar)
-		s.NetworkPolicyMutator.DeleteNode(name)
+		s.NetworkPolicyMutator.DeleteNode(ip)
 	}
 }
 
@@ -1720,6 +1748,8 @@ func (s *XDSServer) RemoveAllNetworkPolicies() {
 // GetNetworkPolicies returns the current version of the network policies with
 // the given names.
 // If resourceNames is empty, all resources are returned.
+//
+// Only used for testing
 func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
 	resources, err := s.networkPolicyCache.GetResources(context.Background(), NetworkPolicyTypeURL, 0, "", resourceNames)
 	if err != nil {
@@ -1728,16 +1758,18 @@ func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 	networkPolicies := make(map[string]*cilium.NetworkPolicy, len(resources.Resources))
 	for _, res := range resources.Resources {
 		networkPolicy := res.(*cilium.NetworkPolicy)
-		networkPolicies[networkPolicy.Name] = networkPolicy
+		for _, ip := range networkPolicy.EndpointIps {
+			networkPolicies[ip] = networkPolicy
+		}
 	}
 	return networkPolicies, nil
 }
 
 // getLocalEndpoint returns the endpoint info for the local endpoint on which
 // the network policy of the given name if enforced, or nil if not found.
-func (s *XDSServer) getLocalEndpoint(networkPolicyName string) logger.EndpointUpdater {
+func (s *XDSServer) getLocalEndpoint(endpointIP string) logger.EndpointUpdater {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	return s.networkPolicyEndpoints[networkPolicyName]
+	return s.networkPolicyEndpoints[endpointIP]
 }
