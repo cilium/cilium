@@ -229,18 +229,18 @@ func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) er
 // EINVAL if the Netlink calls are issued in short order.
 //
 // An error is returned if the route can not be added or updated.
-func Upsert(route Route) (bool, error) {
+func Upsert(route Route) error {
 	var nexthopRouteCreated bool
 
 	link, err := netlink.LinkByName(route.Device)
 	if err != nil {
-		return false, fmt.Errorf("unable to lookup interface %s: %s", route.Device, err)
+		return fmt.Errorf("unable to lookup interface %s: %s", route.Device, err)
 	}
 
 	routerNet := route.getNexthopAsIPNet()
 	if routerNet != nil {
 		if _, err := replaceNexthopRoute(route, link, routerNet); err != nil {
-			return false, fmt.Errorf("unable to add nexthop route: %s", err)
+			return fmt.Errorf("unable to add nexthop route: %s", err)
 		}
 
 		nexthopRouteCreated = true
@@ -264,10 +264,10 @@ func Upsert(route Route) (bool, error) {
 		if nexthopRouteCreated {
 			deleteNexthopRoute(route, link, routerNet)
 		}
-		return false, err
+		return err
 	}
 
-	return true, nil
+	return nil
 }
 
 // Delete deletes a Linux route. An error is returned if the route does not

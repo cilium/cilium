@@ -265,7 +265,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 			Mask: net.CIDRMask(0, 8*net.IPv4len),
 		}
 		rt.Prefix = subnet
-		if _, err := route.Upsert(rt); err != nil {
+		if err := route.Upsert(rt); err != nil {
 			return fmt.Errorf("failed to upsert ipv4 route: %w", err)
 		}
 	}
@@ -279,7 +279,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 			Mask: net.CIDRMask(0, 8*net.IPv6len),
 		}
 		rt.Prefix = subnet
-		if _, err := route.Upsert(rt); err != nil {
+		if err := route.Upsert(rt); err != nil {
 			return fmt.Errorf("failed to upsert ipv6 route: %w", err)
 		}
 	}
