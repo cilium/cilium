@@ -277,6 +277,10 @@
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
      - ``[]``
+   * - clustermesh.apiserver.topologySpreadConstraints
+     - Pod topology spread constraints for clustermesh-apiserver
+     - list
+     - ``[]``
    * - clustermesh.apiserver.updateStrategy
      - clustermesh-apiserver update strategy
      - object
@@ -621,6 +625,10 @@
      - Node tolerations for cilium-etcd-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
      - ``[{"operator":"Exists"}]``
+   * - etcd.topologySpreadConstraints
+     - Pod topology spread constraints for cilium-etcd-operator
+     - list
+     - ``[]``
    * - etcd.updateStrategy
      - cilium-etcd-operator update strategy
      - object
@@ -873,6 +881,10 @@
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
      - ``[]``
+   * - hubble.relay.topologySpreadConstraints
+     - Pod topology spread constraints for hubble-relay
+     - list
+     - ``[]``
    * - hubble.relay.updateStrategy
      - hubble-relay update strategy
      - object
@@ -1043,6 +1055,10 @@
      - ``{"cert":"","key":""}``
    * - hubble.ui.tolerations
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+     - list
+     - ``[]``
+   * - hubble.ui.topologySpreadConstraints
+     - Pod topology spread constraints for hubble-ui
      - list
      - ``[]``
    * - hubble.ui.updateStrategy
@@ -1401,6 +1417,10 @@
      - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
      - ``[{"operator":"Exists"}]``
+   * - operator.topologySpreadConstraints
+     - Pod topology spread constraints for cilium-operator
+     - list
+     - ``[]``
    * - operator.unmanagedPodWatcher.intervalSeconds
      - Interval, in seconds, to check if there are any pods that are not managed by Cilium.
      - int

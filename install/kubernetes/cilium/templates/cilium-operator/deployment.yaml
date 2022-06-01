@@ -218,6 +218,18 @@ spec:
       affinity:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
+      {{- with .Values.operator.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $constraint := . }}
+      - {{ toYaml $constraint | nindent 8 | trim }}
+          {{- if not $constraint.labelSelector }}
+        labelSelector:
+          matchLabels:
+            io.cilium/app: operator
+            name: cilium-operator
+          {{- end }}
+        {{- end }}
+      {{- end }}
       {{- with .Values.operator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}

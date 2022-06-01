@@ -802,6 +802,12 @@ hubble:
             matchLabels:
               k8s-app: cilium
 
+    # -- Pod topology spread constraints for hubble-relay
+    topologySpreadConstraints: []
+      # - maxSkew: 1
+      #   topologyKey: topology.kubernetes.io/zone
+      #   whenUnsatisfiable: DoNotSchedule
+
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
     nodeSelector:
@@ -1003,6 +1009,12 @@ hubble:
 
     # -- Affinity for hubble-ui
     affinity: {}
+
+    # -- Pod topology spread constraints for hubble-ui
+    topologySpreadConstraints: []
+      # - maxSkew: 1
+      #   topologyKey: topology.kubernetes.io/zone
+      #   whenUnsatisfiable: DoNotSchedule
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1440,6 +1452,12 @@ etcd:
     #   value: "value"
     #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
+  # -- Pod topology spread constraints for cilium-etcd-operator
+  topologySpreadConstraints: []
+    # - maxSkew: 1
+    #   topologyKey: topology.kubernetes.io/zone
+    #   whenUnsatisfiable: DoNotSchedule
+
   # -- Node labels for cilium-etcd-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
   nodeSelector:
@@ -1544,6 +1562,12 @@ operator:
         labelSelector:
           matchLabels:
             io.cilium/app: operator
+
+  # -- Pod topology spread constraints for cilium-operator
+  topologySpreadConstraints: []
+    # - maxSkew: 1
+    #   topologyKey: topology.kubernetes.io/zone
+    #   whenUnsatisfiable: DoNotSchedule
 
   # -- Node labels for cilium-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1953,6 +1977,12 @@ clustermesh:
           labelSelector:
             matchLabels:
               k8s-app: clustermesh-apiserver
+
+    # -- Pod topology spread constraints for clustermesh-apiserver
+    topologySpreadConstraints: []
+      # - maxSkew: 1
+      #   topologyKey: topology.kubernetes.io/zone
+      #   whenUnsatisfiable: DoNotSchedule
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
