@@ -346,6 +346,7 @@ func findProxyPortByType(l7Type ProxyType, ingress bool) (string, *ProxyPort) {
 	default:
 		// "Unknown" parsers are assumed to be Proxylib (TCP) parsers, which
 		// is registered with an empty string.
+		// This works also for explicit TCP and TLS parser types.
 		portType = ProxyTypeAny
 	}
 	// proxyPorts is small enough to not bother indexing it.

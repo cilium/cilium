@@ -28,6 +28,7 @@ func (s *PolicyTestSuite) TestParserTypeMerge(c *C) {
 		{ParserTypeHTTP, ParserTypeHTTP, ParserTypeHTTP, true},
 		{ParserTypeKafka, ParserTypeKafka, ParserTypeKafka, true},
 		{L7ParserType("foo"), L7ParserType("foo"), L7ParserType("foo"), true},
+		{ParserTypeTLS, ParserTypeTLS, ParserTypeTLS, true},
 
 		// None can be promoted to any other type
 		{ParserTypeNone, ParserTypeDNS, ParserTypeDNS, true},
@@ -42,7 +43,25 @@ func (s *PolicyTestSuite) TestParserTypeMerge(c *C) {
 		{ParserTypeNone, L7ParserType("foo"), L7ParserType("foo"), true},
 		{L7ParserType("foo"), ParserTypeNone, L7ParserType("foo"), true},
 
-		// All other combinations are not mergeable
+		{ParserTypeNone, ParserTypeTLS, ParserTypeTLS, true},
+		{ParserTypeTLS, ParserTypeNone, ParserTypeTLS, true},
+
+		// TLS can also be promoted to any other type except for DNS (but not demoted to
+		// None)
+
+		{ParserTypeTLS, ParserTypeHTTP, ParserTypeHTTP, true},
+		{ParserTypeHTTP, ParserTypeTLS, ParserTypeHTTP, true},
+
+		{ParserTypeTLS, ParserTypeKafka, ParserTypeKafka, true},
+		{ParserTypeKafka, ParserTypeTLS, ParserTypeKafka, true},
+
+		{ParserTypeTLS, L7ParserType("foo"), L7ParserType("foo"), true},
+		{L7ParserType("foo"), ParserTypeTLS, L7ParserType("foo"), true},
+
+		// DNS does not merge with anything else
+
+		{ParserTypeTLS, ParserTypeDNS, ParserTypeNone, false},
+		{ParserTypeDNS, ParserTypeTLS, ParserTypeNone, false},
 
 		{ParserTypeDNS, ParserTypeHTTP, ParserTypeNone, false},
 		{ParserTypeHTTP, ParserTypeDNS, ParserTypeNone, false},
@@ -50,14 +69,19 @@ func (s *PolicyTestSuite) TestParserTypeMerge(c *C) {
 		{ParserTypeDNS, ParserTypeKafka, ParserTypeNone, false},
 		{ParserTypeKafka, ParserTypeDNS, ParserTypeNone, false},
 
+		{ParserTypeDNS, L7ParserType("foo"), ParserTypeNone, false},
+		{L7ParserType("foo"), ParserTypeDNS, ParserTypeNone, false},
+
+		// Proxylib parsers do not merge with other proxylib parsers nor with HTTP
+
 		{ParserTypeKafka, ParserTypeHTTP, ParserTypeNone, false},
 		{ParserTypeHTTP, ParserTypeKafka, ParserTypeNone, false},
 
 		{L7ParserType("bar"), L7ParserType("foo"), ParserTypeNone, false},
 		{L7ParserType("foo"), L7ParserType("bar"), ParserTypeNone, false},
 
-		{ParserTypeDNS, L7ParserType("foo"), ParserTypeNone, false},
-		{L7ParserType("foo"), ParserTypeDNS, ParserTypeNone, false},
+		{L7ParserType("bar"), ParserTypeHTTP, ParserTypeNone, false},
+		{ParserTypeHTTP, L7ParserType("bar"), ParserTypeNone, false},
 	} {
 		res, err := t.a.Merge(t.b)
 		if t.success {
