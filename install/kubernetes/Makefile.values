@@ -6,4 +6,24 @@ include $(DIGESTS_PATH)
 export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"; else echo "true"; fi)
 
 # When branching, update these values
-export CILIUM_BRANCH:=master# -> vX.Y
+export PULL_POLICY:=IfNotPresent
+export CILIUM_BRANCH:=v1.11
+export CILIUM_REPO:=quay.io/cilium/cilium
+
+export CERTGEN_REPO:=quay.io/cilium/certgen
+export CERTGEN_VERSION:=v0.1.5@sha256:0c2b71bb3469990e7990e7e26243617aa344b5a69a4ce465740b8577f9d48ab9
+
+export CILIUM_ETCD_OPERATOR_REPO:=quay.io/cilium/cilium-etcd-operator
+export CILIUM_ETCD_OPERATOR_VERSION:=v2.0.7@sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc
+export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
+export CILIUM_NODEINIT_VERSION:=62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
+export CILIUM_OPERATOR_BASE_REPO:=quay.io/cilium/operator
+
+export ETCD_REPO:=quay.io/coreos/etcd
+export ETCD_VERSION:=v3.4.13@sha256:04833b601fa130512450afa45c4fe484fee1293634f34c7ddc231bd193c74017
+
+export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay
+export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
+export HUBBLE_UI_BACKEND_VERSION:=v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b
+export HUBBLE_UI_FRONTEND_REPO:=quay.io/cilium/hubble-ui
+export HUBBLE_UI_FRONTEND_VERSION:=v0.9.0@sha256:0ef04e9a29212925da6bdfd0ba5b581765e41a01f1cc30563cef9b30b457fea0
