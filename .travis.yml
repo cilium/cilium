@@ -3,7 +3,7 @@ language: go
 dist: focal
 sudo: required
 
-go: "1.18.2"
+go: "1.18.3"
 
 jobs:
   include:
