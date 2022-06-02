@@ -56,14 +56,7 @@ lint:
 docs:
 	$(QUIET)$(HELM_DOCS)
 
-check-docker-images:
-	$(QUIET)\
-         HUBBLE_UI_VERSION=$(HUBBLE_UI_FRONTEND_VERSION) \
-         HUBBLE_UI_BACKEND_VERSION=$(HUBBLE_UI_BACKEND_VERSION) \
-         MANAGED_ETCD_VERSION=$(CILIUM_ETCD_OPERATOR_VERSION) \
-         ETCD_VERSION=$(ETCD_VERSION) \
-         NODEINIT_VERSION=$(CILIUM_NODEINIT_VERSION) \
-         CERTGEN_VERSION=$(CERTGEN_VERSION) \
-         ../../contrib/release/check-docker-images.sh "$(CILIUM_VERSION)"
+check-docker-images: # Check whether docker images are available for the current version.
+	$(QUIET)$(ROOT_DIR)/contrib/release/check-docker-images.sh "$(CILIUM_VERSION)"
 
 .PHONY: all check-docker-images clean docs lint update-chart update-versions
