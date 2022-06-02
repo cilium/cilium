@@ -58,6 +58,8 @@ On Freeze date
 
    Run ``./Documentation/check-crd-compat-table.sh vX.Y``
 
+#. Update ``install/kubernetes/Makefile.values`` for the new branch.
+
 #. Commit changes, open a pull request against the new ``v1.2`` branch, and get
    the pull request merged
 
