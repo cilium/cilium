@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"sort"
 	"strconv"
 	"sync/atomic"
@@ -160,7 +159,7 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 		a.TerminatingTLS.Equal(b.TerminatingTLS) &&
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
 		a.IsDeny == b.IsDeny &&
-		reflect.DeepEqual(a.L7Rules, b.L7Rules)
+		a.L7Rules.DeepEqual(&b.L7Rules)
 }
 
 // IsRedirect returns true if the L7Rules are a redirect.
