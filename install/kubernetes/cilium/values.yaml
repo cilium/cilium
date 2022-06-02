@@ -88,7 +88,7 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   override: ~
-  repository: "quay.io/cilium/cilium"
+  repository: "quay.io/cilium/cilium-ci"
   tag: "latest"
   pullPolicy: "Always"
   # cilium-digest
@@ -1510,7 +1510,7 @@ operator:
     alibabacloudDigest: ""
     useDigest: false
     pullPolicy: "Always"
-    suffix: ""
+    suffix: "-ci"
 
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2

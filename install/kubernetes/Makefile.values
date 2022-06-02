@@ -11,11 +11,11 @@ export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"
 #export CILIUM_REPO:=quay.io/cilium/cilium
 export PULL_POLICY:=Always
 export CILIUM_BRANCH:=master
-export CILIUM_REPO:=quay.io/cilium/cilium
+export CILIUM_REPO:=quay.io/cilium/cilium-ci
 
 # When branching, delete the following lines to defer to the branch's versions
 export CILIUM_VERSION:=latest
-export CILIUM_OPERATOR_SUFFIX=
+export CILIUM_OPERATOR_SUFFIX=-ci
 
 export CERTGEN_REPO:=quay.io/cilium/certgen
 export CERTGEN_VERSION:=v0.1.8@sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd
