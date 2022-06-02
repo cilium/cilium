@@ -17,6 +17,10 @@
      - Install the cilium agent resources.
      - bool
      - ``true``
+   * - aksbyocni.enabled
+     - Enable AKS BYOCNI integration. Note that this is incompatible with AKS clusters not created in BYOCNI mode: use Azure integration (\ ``azure.enabled``\ ) instead.
+     - bool
+     - ``false``
    * - alibabacloud.enabled
      - Enable AlibabaCloud ENI integration
      - bool
@@ -30,7 +34,7 @@
      - bool
      - ``false``
    * - azure.enabled
-     - Enable Azure integration
+     - Enable Azure integration. Note that this is incompatible with AKS clusters created in BYOCNI mode: use AKS BYOCNI integration (\ ``aksbyocni.enabled``\ ) instead.
      - bool
      - ``false``
    * - bandwidthManager
