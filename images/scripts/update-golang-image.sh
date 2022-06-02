@@ -19,7 +19,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-go_version=1.18.2
+go_version=1.18.3
 
 image="${1:-docker.io/library/golang:${go_version}}"
 image_digest="$("${script_dir}/get-image-digest.sh" "${image}")"
