@@ -151,7 +151,7 @@ jobs:
           echo "# Copyright "$(date +'%Y')" Authors of Cilium" >> ../Makefile.digests
           echo "# SPDX-License-Identifier: Apache-2.0" >> ../Makefile.digests
           echo "" >> ../Makefile.digests
-          find -type f  -name "makefile-digest.txt" | sort | xargs -d '\n' cat >> ../Makefile.digests
+          find -type f  -name "makefile-digest.txt" | sort | xargs -d '\n' awk '{print "export " $0}' >> ../Makefile.digests
 
       # Upload artifact digests
       - name: Upload artifact digests
