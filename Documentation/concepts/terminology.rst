@@ -235,6 +235,9 @@ identities are prefixed with the string ``reserved:``.
 | ``reserved:kube-apiserver`` | 7          | Remote node(s) which have backend(s) serving the  |
 |                             |            | kube-apiserver running.                           |
 +-----------------------------+------------+---------------------------------------------------+
+| ``reserved:ingress``        | 8          | Given to the IPs used as the source address for   |
+|                             |            | connections from Ingress proxies.                 |
++-----------------------------+------------+---------------------------------------------------+
 
 .. note::
 
