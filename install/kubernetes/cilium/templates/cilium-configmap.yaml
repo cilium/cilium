@@ -371,8 +371,10 @@ data:
   tunnel: "disabled"
   enable-endpoint-routes: "true"
   enable-local-node-route: "false"
+{{- else if .Values.aksbyocni.enabled }}
+  tunnel: "vxlan"
 {{- else }}
-  tunnel: {{ .Values.tunnel }}
+  tunnel: {{ .Values.tunnel | quote }}
 {{- end }}
 
 {{- if hasKey .Values "tunnelPort" }}
@@ -746,7 +748,11 @@ data:
   # A space separated list of iptables chains to disable when installing feeder rules.
   disable-iptables-feeder-rules: {{ .Values.disableIptablesFeederRules | join " " | quote }}
 {{- end }}
+{{- if .Values.aksbyocni.enabled }}
+  ipam: "cluster-pool"
+{{- else }}
   ipam: {{ $ipam | quote }}
+{{- end }}
 
 {{- if or (eq $ipam "cluster-pool") (eq $ipam "cluster-pool-v2beta") }}
 {{- if .Values.ipv4.enabled }}
