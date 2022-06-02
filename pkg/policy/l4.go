@@ -245,6 +245,18 @@ const (
 	ParserTypeDNS L7ParserType = "dns"
 )
 
+// Merge ParserTypes 'a' to 'b' if possible
+func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
+	// ParserTypeNone can be promoted to any other type.
+	if a == b || b == ParserTypeNone {
+		return a, nil
+	}
+	if a == ParserTypeNone {
+		return b, nil
+	}
+	return ParserTypeNone, fmt.Errorf("cannot merge conflicting L7 parsers (%s/%s)", a, b)
+}
+
 // L4Filter represents the policy (allowed remote sources / destinations of
 // traffic) that applies at a specific L4 port/protocol combination (including
 // all ports and protocols), at either ingress or egress. The policy here is
@@ -596,6 +608,8 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 			}
 		}
 
+		// Determine L7ParserType from rules present. Earlier validation ensures rules
+		// for multiple protocols are not present here.
 		if protocol == api.ProtoTCP {
 			switch {
 			case len(pr.Rules.HTTP) > 0:
