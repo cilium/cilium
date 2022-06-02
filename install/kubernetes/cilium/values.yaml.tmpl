@@ -85,12 +85,12 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   override: ~
-  repository: quay.io/cilium/cilium
-  tag: latest
-  pullPolicy: Always
+  repository: "${CILIUM_REPO}"
+  tag: "${CILIUM_VERSION}"
+  pullPolicy: "${PULL_POLICY}"
   # cilium-digest
-  digest: ""
-  useDigest: false
+  digest: ${CILIUM_DIGEST}
+  useDigest: ${USE_DIGESTS}
 
 # -- Affinity for cilium-agent.
 affinity:
@@ -621,9 +621,9 @@ hostServices:
 certgen:
   image:
     override: ~
-    repository: quay.io/cilium/certgen
-    tag: v0.1.8
-    pullPolicy: Always
+    repository: "${CERTGEN_REPO}"
+    tag: "${CERTGEN_VERSION}"
+    pullPolicy: "${PULL_POLICY}"
   # -- Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
   # -- Labels to be added to hubble-certgen pods
@@ -771,12 +771,12 @@ hubble:
     # -- Hubble-relay container image.
     image:
       override: ~
-      repository: quay.io/cilium/hubble-relay
-      tag: latest
+      repository: "${HUBBLE_RELAY_REPO}"
+      tag: "${CILIUM_VERSION}"
        # hubble-relay-digest
-      digest: ""
-      useDigest: false
-      pullPolicy: Always
+      digest: ${HUBBLE_RELAY_DIGEST}
+      useDigest: ${USE_DIGESTS}
+      pullPolicy: "${PULL_POLICY}"
 
     # -- Specifies the resources for the hubble-relay pods
     resources: {}
@@ -935,9 +935,9 @@ hubble:
       # -- Hubble-ui backend image.
       image:
         override: ~
-        repository: quay.io/cilium/hubble-ui-backend
-        tag: latest
-        pullPolicy: Always
+        repository: "${HUBBLE_UI_BACKEND_REPO}"
+        tag: "${HUBBLE_UI_BACKEND_VERSION}"
+        pullPolicy: "${PULL_POLICY}"
 
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
@@ -955,9 +955,9 @@ hubble:
       # -- Hubble-ui frontend image.
       image:
         override: ~
-        repository: quay.io/cilium/hubble-ui
-        tag: latest
-        pullPolicy: Always
+        repository: "${HUBBLE_UI_FRONTEND_REPO}"
+        tag: "${HUBBLE_UI_FRONTEND_VERSION}"
+        pullPolicy: "${PULL_POLICY}"
 
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
@@ -1408,9 +1408,9 @@ etcd:
   # -- cilium-etcd-operator image.
   image:
     override: ~
-    repository: quay.io/cilium/cilium-etcd-operator
-    tag: v2.0.7
-    pullPolicy: Always
+    repository: "${CILIUM_ETCD_OPERATOR_REPO}"
+    tag: "${CILIUM_ETCD_OPERATOR_VERSION}"
+    pullPolicy: "${PULL_POLICY}"
 
   # -- The priority class to use for cilium-etcd-operator
   priorityClassName: ""
@@ -1495,19 +1495,19 @@ operator:
   # -- cilium-operator image.
   image:
     override: ~
-    repository: quay.io/cilium/operator
-    tag: latest
+    repository: "${CILIUM_OPERATOR_BASE_REPO}"
+    tag: "${CILIUM_VERSION}"
     # operator-generic-digest
-    genericDigest: ""
+    genericDigest: ${OPERATOR_GENERIC_DIGEST}
     # operator-azure-digest
-    azureDigest: ""
+    azureDigest: ${OPERATOR_AZURE_DIGEST}
     # operator-aws-digest
-    awsDigest: ""
+    awsDigest: ${OPERATOR_AWS_DIGEST}
     # operator-alibabacloud-digest
-    alibabacloudDigest: ""
-    useDigest: false
-    pullPolicy: Always
-    suffix: ""
+    alibabacloudDigest: ${OPERATOR_ALIBABACLOUD_DIGEST}
+    useDigest: ${USE_DIGESTS}
+    pullPolicy: "${PULL_POLICY}"
+    suffix: "${CILIUM_OPERATOR_SUFFIX}"
 
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2
@@ -1648,9 +1648,9 @@ nodeinit:
   # -- node-init image.
   image:
     override: ~
-    repository: quay.io/cilium/startup-script
-    tag: d69851597ea019af980891a4628fb36b7880ec26
-    pullPolicy: Always
+    repository: "${CILIUM_NODEINIT_REPO}"
+    tag: "${CILIUM_NODEINIT_VERSION}"
+    pullPolicy: "${PULL_POLICY}"
 
   # -- The priority class to use for the nodeinit pod.
   priorityClassName: ""
@@ -1722,12 +1722,12 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     override: ~
-    repository: quay.io/cilium/cilium
-    tag: latest
+    repository: "quay.io/cilium/cilium"
+    tag: "${CILIUM_VERSION}"
     # cilium-digest
-    digest: ""
-    useDigest: false
-    pullPolicy: Always
+    digest: ${CILIUM_DIGEST}
+    useDigest: ${USE_DIGESTS}
+    pullPolicy: "${PULL_POLICY}"
 
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
@@ -1858,20 +1858,20 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       override: ~
-      repository: quay.io/cilium/clustermesh-apiserver
-      tag: latest
+      repository: "quay.io/cilium/clustermesh-apiserver"
+      tag: "${CILIUM_VERSION}"
       # clustermesh-apiserver-digest
-      digest: ""
-      useDigest: false
-      pullPolicy: Always
+      digest: ${CLUSTERMESH_APISERVER_DIGEST}
+      useDigest: ${USE_DIGESTS}
+      pullPolicy: "${PULL_POLICY}"
 
     etcd:
       # -- Clustermesh API server etcd image.
       image:
         override: ~
-        repository: quay.io/coreos/etcd
-        tag: v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3
-        pullPolicy: Always
+        repository: "${ETCD_REPO}"
+        tag: "${ETCD_VERSION}"
+        pullPolicy: "${PULL_POLICY}"
 
     service:
       # -- The type of service used for apiserver access.
