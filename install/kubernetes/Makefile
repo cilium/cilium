@@ -1,7 +1,10 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-include Makefile.digests ../../Makefile.defs
+MAKEFILE_VALUES?=Makefile.values
+include $(MAKEFILE_VALUES)
+
+include ../../Makefile.defs
 
 HUBBLE_UI_VERSION := "v0.9.0@sha256:0ef04e9a29212925da6bdfd0ba5b581765e41a01f1cc30563cef9b30b457fea0"
 HUBBLE_UI_BACKEND_VERSION := "v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b"
@@ -17,7 +20,6 @@ MIN_K8S_VERSION := "v$(MIN_K8S_MAJOR).$(MIN_K8S_MINOR).0"
 CILIUM_CHARTS := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium"
 CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml"
 CHART_FILE := "$(CILIUM_CHARTS)/Chart.yaml"
-USE_DIGESTS ?= $(shell if grep -q '""' Makefile.digests; then echo "false"; else echo "true"; fi)
 
 VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+.*'
 LATEST_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.90'
@@ -36,34 +38,35 @@ LOGO_PATH := Documentation/images/logo-solo.svg
 
 all: update-versions docs
 
-update-versions:
+update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the current version.
+	$(ECHO_GEN)cilium/Chart.yaml
+	$(QUIET)grep -lR -e 'version:' -e 'appVersion:' $(CILIUM_CHARTS)/ \
+		| xargs -L 1 $(SED) -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 '$(VERSION)'/g'
+	$(QUIET)$(SED) -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@$(CILIUM_BRANCH)/$(LOGO_PATH);' $(CHART_FILE)
+
+update-versions: update-chart
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
 	@# Update chart versions to point to the current version.
-	$(QUIET)grep -lRZ -e "version:" -e "appVersion:" $(CILIUM_CHARTS)/ | \
-		xargs -L 1 $(SED) -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g';						\
+	$(QUIET): ;														\
 		# Fix up the container image tags										\
 		cilium_version="v$(VERSION)";											\
-		branch="$$cilium_version";											\
 		hubble_version=$(HUBBLE_UI_VERSION);										\
 		hubble_backend_version=$(HUBBLE_UI_BACKEND_VERSION);								\
 		pull_policy="IfNotPresent";											\
 		use_digest="$(USE_DIGESTS)";													\
 		if echo "$(VERSION)" | grep -q $(LATEST_VERSION_REGEX); then							\
 			cilium_version="latest";										\
-			branch="master";											\
 			hubble_version="latest";										\
 			hubble_backend_version="latest";									\
 			pull_policy="Always";											\
 			use_digest="false";												\
 		elif echo "$(VERSION)" | grep -q $(DEV_VERSION_REGEX); then							\
 			cilium_version="v$(subst -dev,,$(VERSION))";								\
-			branch="$$cilium_version";										\
 			hubble_version="$(HUBBLE_UI_VERSION)";									\
 			hubble_backend_version="$(HUBBLE_UI_BACKEND_VERSION)";							\
 			pull_policy="Always";											\
 			use_digest="false";												\
 		fi;														\
-		$(SED) -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@'$$branch'/$(LOGO_PATH);' $(CHART_FILE);			\
 		# image.tag operator.image.tag preflight.image.tag hubble.relay.image.tag;					\
 		$(SED) -i 's/tag: .*/tag: '$$cilium_version'/g' $(CILIUM_VALUES);							\
 		# hubble.ui.frontend.image.tag;											\
@@ -110,4 +113,4 @@ check-docker-images:
          CERTGEN_VERSION=$(CERTGEN_VERSION) \
          ../../contrib/release/check-docker-images.sh "v$(VERSION)"
 
-.PHONY: all check-docker-images clean docs lint update-versions
+.PHONY: all check-docker-images clean docs lint update-chart update-versions

@@ -1,0 +1,9 @@
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+DIGESTS_PATH:=Makefile.digests
+include $(DIGESTS_PATH)
+export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"; else echo "true"; fi)
+
+# When branching, update these values
+export CILIUM_BRANCH:=master# -> vX.Y
