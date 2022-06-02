@@ -1274,6 +1274,10 @@ monitor:
   # used to pass a service IP and port to remote backend
   # dsrDispatch: opt
 
+  # -- dsrL4Translate configures whether use frontend or backend to
+  # translate service port
+  # dsrL4Translate: frontend
+
   # -- serviceTopology enables K8s Topology Aware Hints -based service
   # endpoints filtering
   # serviceTopology: false

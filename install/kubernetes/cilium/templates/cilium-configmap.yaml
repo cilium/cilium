@@ -609,6 +609,9 @@ data:
 {{- if hasKey .Values.loadBalancer "acceleration" }}
   bpf-lb-acceleration: {{ .Values.loadBalancer.acceleration | quote }}
 {{- end }}
+{{- if hasKey .Values.loadBalancer "dsrL4Translate" }}
+  bpf-lb-dsr-l4-xlate: {{ .Values.loadBalancer.dsrL4Translate | quote }}
+{{- end }}
 {{- if hasKey .Values.loadBalancer "dsrDispatch" }}
   bpf-lb-dsr-dispatch: {{ .Values.loadBalancer.dsrDispatch | quote }}
 {{- end }}
