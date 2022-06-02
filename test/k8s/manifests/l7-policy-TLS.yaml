@@ -63,3 +63,13 @@ spec:
             secret:
               namespace: "default"
               name: "user-agent"
+  - toFQDNs:
+    - matchPattern: "www.cloudflare.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      originatingTLS:
+        secret:
+          namespace: "default"
+          name: "test-client"

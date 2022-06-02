@@ -696,6 +696,15 @@ var _ = SkipDescribeIf(func() bool {
 				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/private", 5, true, "-v --cacert /cacert.pem"))
 			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/private'",
 				appPods[helpers.App2])
+
+			By("Testing L7 Policy with TLS without HTTP rules")
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlWithRetries("-4 %s http://www.cloudflare.com:443/", 5, true, "-v"))
+			res.ExpectSuccess("Cannot connect from %q to 'http://www.cloudflare.com:443/privacy'",
+				appPods[helpers.App2])
+
 		}, 500)
 
 		It("Invalid Policy report status correctly", func() {

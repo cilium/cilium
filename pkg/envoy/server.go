@@ -733,17 +733,16 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		},
 		// FilterChains: []*envoy_config_listener.FilterChain
 		ListenerFilters: []*envoy_config_listener.ListenerFilter{
+			// Always insert tls_inspector as the first filter
+			{
+				Name: "envoy.filters.listener.tls_inspector",
+			},
 			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false),
 		},
 	}
 
 	// Add filter chains
 	if kind == policy.ParserTypeHTTP {
-		// Use tls_inspector only with HTTP, insert as the first filter
-		listenerConf.ListenerFilters = append([]*envoy_config_listener.ListenerFilter{{
-			Name: "envoy.filters.listener.tls_inspector",
-		}}, listenerConf.ListenerFilters...)
-
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false))
 
 		// Add a TLS variant
@@ -1263,6 +1262,7 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 }
 
 func getCiliumTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
+	fmt.Printf("getCiliumTLSContext: %v\n", tls)
 	return &cilium.TLSContext{
 		TrustedCa:        tls.TrustedCA,
 		CertificateChain: tls.CertificateChain,
@@ -1521,7 +1521,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 					if !cs {
 						canShortCircuit = false
 					}
-					if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
+					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil {
 						// Got an allow-all rule, which can short-circuit all of
 						// the other rules.
 						allowAll = true
