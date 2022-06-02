@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
-	"reflect"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -60,9 +60,9 @@ type linuxNodeHandler struct {
 	nodes                map[nodeTypes.Identity]*nodeTypes.Node
 	enableNeighDiscovery bool
 	neighLock            lock.Mutex // protects neigh* fields below
-	neighDiscoveryLink   netlink.Link
-	neighNextHopByNode4  map[nodeTypes.Identity]string // val = string(net.IP)
-	neighNextHopByNode6  map[nodeTypes.Identity]string // val = string(net.IP)
+	neighDiscoveryLinks  []netlink.Link
+	neighNextHopByNode4  map[nodeTypes.Identity]map[string]string // val = (key=link, value=string(net.IP))
+	neighNextHopByNode6  map[nodeTypes.Identity]map[string]string // val = (key=link, value=string(net.IP))
 	// All three mappings below hold both IPv4 and IPv6 entries.
 	neighNextHopRefCount   counter.StringCounter
 	neighByNextHop         map[string]*netlink.Neigh // key = string(net.IP)
@@ -79,8 +79,8 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing types.N
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
 		nodes:                  map[nodeTypes.Identity]*nodeTypes.Node{},
-		neighNextHopByNode4:    map[nodeTypes.Identity]string{},
-		neighNextHopByNode6:    map[nodeTypes.Identity]string{},
+		neighNextHopByNode4:    map[nodeTypes.Identity]map[string]string{},
+		neighNextHopByNode6:    map[nodeTypes.Identity]map[string]string{},
 		neighNextHopRefCount:   counter.StringCounter{},
 		neighByNextHop:         map[string]*netlink.Neigh{},
 		neighLastPingByNextHop: map[string]time.Time{},
@@ -656,9 +656,9 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 }
 
-func getNextHopIP(nodeIP net.IP) (nextHopIP net.IP, err error) {
+func getNextHopIP(nodeIP net.IP, link netlink.Link) (nextHopIP net.IP, err error) {
 	// Figure out whether nodeIP is directly reachable (i.e. in the same L2)
-	routes, err := netlink.RouteGet(nodeIP)
+	routes, err := netlink.RouteGetWithOptions(nodeIP, &netlink.RouteGetOptions{Oif: link.Attrs().Name})
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve route for remote node IP: %w", err)
 	}
@@ -775,7 +775,7 @@ func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTyp
 		logfields.IPAddr:    newNodeIP,
 	})
 
-	nextHopIPv4, err := getNextHopIP(nextHopIPv4)
+	nextHopIPv4, err := getNextHopIP(nextHopIPv4, link)
 	if err != nil {
 		scopedLog.WithError(err).Info("Unable to determine next hop address")
 		return
@@ -786,8 +786,14 @@ func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTyp
 	n.neighLock.Lock()
 	defer n.neighLock.Unlock()
 
+	nextHopByLink, found := n.neighNextHopByNode4[newNode.Identity()]
+	if !found {
+		nextHopByLink = make(map[string]string)
+		n.neighNextHopByNode4[newNode.Identity()] = nextHopByLink
+	}
+
 	nextHopIsNew := false
-	if existingNextHopStr, found := n.neighNextHopByNode4[newNode.Identity()]; found {
+	if existingNextHopStr, found := nextHopByLink[link.Attrs().Name]; found {
 		if existingNextHopStr != nextHopStr {
 			if n.neighNextHopRefCount.Delete(existingNextHopStr) {
 				neigh, found := n.neighByNextHop[existingNextHopStr]
@@ -820,7 +826,7 @@ func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTyp
 		nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
 	}
 
-	n.neighNextHopByNode4[newNode.Identity()] = nextHopStr
+	n.neighNextHopByNode4[newNode.Identity()][link.Attrs().Name] = nextHopStr
 	nh := NextHop{
 		Name:  nextHopStr,
 		IP:    nextHopIPv4,
@@ -840,7 +846,7 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 		logfields.IPAddr:    newNodeIP,
 	})
 
-	nextHopIPv6, err := getNextHopIP(nextHopIPv6)
+	nextHopIPv6, err := getNextHopIP(nextHopIPv6, link)
 	if err != nil {
 		scopedLog.WithError(err).Info("Unable to determine next hop address")
 		return
@@ -851,8 +857,14 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 	n.neighLock.Lock()
 	defer n.neighLock.Unlock()
 
+	nextHopByLink, found := n.neighNextHopByNode6[newNode.Identity()]
+	if !found {
+		nextHopByLink = make(map[string]string)
+		n.neighNextHopByNode6[newNode.Identity()] = nextHopByLink
+	}
+
 	nextHopIsNew := false
-	if existingNextHopStr, found := n.neighNextHopByNode6[newNode.Identity()]; found {
+	if existingNextHopStr, found := nextHopByLink[link.Attrs().Name]; found {
 		if existingNextHopStr != nextHopStr {
 			if n.neighNextHopRefCount.Delete(existingNextHopStr) {
 				// nextHop has changed and nobody else is using it, so remove the old one.
@@ -886,7 +898,7 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 		nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
 	}
 
-	n.neighNextHopByNode6[newNode.Identity()] = nextHopStr
+	n.neighNextHopByNode6[newNode.Identity()][link.Attrs().Name] = nextHopStr
 	nh := NextHop{
 		Name:  nextHopStr,
 		IP:    nextHopIPv6,
@@ -904,22 +916,26 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 // which tries to update neighbor entries previously inserted by insertNeighbor().
 // In this case the kernel refreshes the entry via NTF_USE.
 func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, refresh bool) {
-	var link netlink.Link
+	var links []netlink.Link
 
 	n.neighLock.Lock()
-	if n.neighDiscoveryLink == nil || reflect.ValueOf(n.neighDiscoveryLink).IsNil() {
+	if n.neighDiscoveryLinks == nil || len(n.neighDiscoveryLinks) == 0 {
 		n.neighLock.Unlock()
 		// Nothing to do - the discovery link was not set yet
 		return
 	}
-	link = n.neighDiscoveryLink
+	links = n.neighDiscoveryLinks
 	n.neighLock.Unlock()
 
 	if newNode.GetNodeIP(false).To4() != nil {
-		n.insertNeighbor4(ctx, newNode, link, refresh)
+		for _, l := range links {
+			n.insertNeighbor4(ctx, newNode, l, refresh)
+		}
 	}
 	if newNode.GetNodeIP(true).To16() != nil {
-		n.insertNeighbor6(ctx, newNode, link, refresh)
+		for _, l := range links {
+			n.insertNeighbor6(ctx, newNode, l, refresh)
+		}
 	}
 }
 
@@ -951,23 +967,27 @@ func (n *linuxNodeHandler) deleteNeighborCommon(nextHopStr string) {
 func (n *linuxNodeHandler) deleteNeighbor4(oldNode *nodeTypes.Node) {
 	n.neighLock.Lock()
 	defer n.neighLock.Unlock()
-	nextHopStr, found := n.neighNextHopByNode4[oldNode.Identity()]
+	nextHopByLink, found := n.neighNextHopByNode4[oldNode.Identity()]
 	if !found {
 		return
 	}
 	defer func() { delete(n.neighNextHopByNode4, oldNode.Identity()) }()
-	n.deleteNeighborCommon(nextHopStr)
+	for _, nextHopStr := range nextHopByLink {
+		n.deleteNeighborCommon(nextHopStr)
+	}
 }
 
 func (n *linuxNodeHandler) deleteNeighbor6(oldNode *nodeTypes.Node) {
 	n.neighLock.Lock()
 	defer n.neighLock.Unlock()
-	nextHopStr, found := n.neighNextHopByNode6[oldNode.Identity()]
+	nextHopByLink, found := n.neighNextHopByNode6[oldNode.Identity()]
 	if !found {
 		return
 	}
 	defer func() { delete(n.neighNextHopByNode6, oldNode.Identity()) }()
-	n.deleteNeighborCommon(nextHopStr)
+	for _, nextHopStr := range nextHopByLink {
+		n.deleteNeighborCommon(nextHopStr)
+	}
 }
 
 func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
@@ -1476,7 +1496,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 	n.nodeConfig = newConfig
 
 	if n.nodeConfig.EnableIPv4 || n.nodeConfig.EnableIPv6 {
-		ifaceName := ""
+		var ifaceNames []string
 		switch {
 		case !option.Config.EnableL2NeighDiscovery:
 			n.enableNeighDiscovery = false
@@ -1485,12 +1505,16 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 				return fmt.Errorf("direct routing device is required, but not defined")
 			}
 
-			mac, err := link.GetHardwareAddr(option.Config.DirectRoutingDevice)
+			var targetDevices []string
+			targetDevices = append(targetDevices, option.Config.DirectRoutingDevice)
+			targetDevices = append(targetDevices, option.Config.GetDevices()...)
+
+			var err error
+			ifaceNames, err = filterL2Devices(targetDevices)
 			if err != nil {
 				return err
 			}
-			ifaceName = option.Config.DirectRoutingDevice
-			n.enableNeighDiscovery = mac != nil // No need to arping for L2-less devices
+			n.enableNeighDiscovery = len(ifaceNames) != 0 // No need to arping for L2-less devices
 		case n.nodeConfig.EnableIPSec &&
 			option.Config.Tunnel == option.TunnelDisabled &&
 			len(option.Config.EncryptInterface) != 0:
@@ -1498,21 +1522,25 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 			// interface so pick first interface in the list. On
 			// kernels with FIB lookup helpers we do a lookup from
 			// the datapath side and ignore this value.
-			ifaceName = option.Config.EncryptInterface[0]
+			ifaceNames = append(ifaceNames, option.Config.EncryptInterface[0])
 			n.enableNeighDiscovery = true
 		}
 
 		if n.enableNeighDiscovery {
-			link, err := netlink.LinkByName(ifaceName)
-			if err != nil {
-				return fmt.Errorf("cannot find link by name %s for neighbor discovery: %w",
-					ifaceName, err)
+			var neighDiscoveryLinks []netlink.Link
+			for _, ifaceName := range ifaceNames {
+				l, err := netlink.LinkByName(ifaceName)
+				if err != nil {
+					return fmt.Errorf("cannot find link by name %s for neighbor discovery: %w",
+						ifaceName, err)
+				}
+				neighDiscoveryLinks = append(neighDiscoveryLinks, l)
 			}
 
 			// Store neighDiscoveryLink so that we can remove the ARP
 			// PERM entries when cilium-agent starts with neigh discovery
 			// disabled next time.
-			err = storeNeighLink(option.Config.StateDir, ifaceName)
+			err := storeNeighLink(option.Config.StateDir, ifaceNames)
 			if err != nil {
 				log.WithError(err).Warning("Unable to store neighbor discovery iface." +
 					" Removing PERM neighbor entries upon cilium-agent init when neighbor" +
@@ -1522,7 +1550,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 			// neighDiscoveryLink can be accessed by a concurrent insertNeighbor
 			// goroutine.
 			n.neighLock.Lock()
-			n.neighDiscoveryLink = link
+			n.neighDiscoveryLinks = neighDiscoveryLinks
 			n.neighLock.Unlock()
 		}
 	}
@@ -1576,6 +1604,26 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 	}
 
 	return nil
+}
+
+func filterL2Devices(devices []string) ([]string, error) {
+	// Eliminate duplicates
+	deviceSets := make(map[string]struct{})
+	for _, d := range devices {
+		deviceSets[d] = struct{}{}
+	}
+
+	var l2devices []string
+	for k := range deviceSets {
+		mac, err := link.GetHardwareAddr(k)
+		if err != nil {
+			return nil, err
+		}
+		if mac != nil {
+			l2devices = append(l2devices, k)
+		}
+	}
+	return l2devices, nil
 }
 
 // NodeValidateImplementation is called to validate the implementation of the
@@ -1733,13 +1781,13 @@ func (n *linuxNodeHandler) NodeCleanNeighborsLink(l netlink.Link, migrateOnly bo
 // deleted (and the new agent instance did not see the delete event during the
 // down/up cycle).
 func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
-	linkName, err := loadNeighLink(option.Config.StateDir)
+	linkNames, err := loadNeighLink(option.Config.StateDir)
 	if err != nil {
 		log.WithError(err).Error("Unable to load neighbor discovery iface name" +
 			" for removing PERM neighbor entries")
 		return
 	}
-	if len(linkName) == 0 {
+	if len(linkNames) == 0 {
 		return
 	}
 
@@ -1752,54 +1800,74 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 		}
 	}()
 
-	l, err := netlink.LinkByName(linkName)
-	if err != nil {
-		// If the link is not found we don't need to keep retrying cleaning
-		// up the neihbor entries so we can keep successClean=true
-		if _, ok := err.(netlink.LinkNotFoundError); !ok {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Device: linkName,
-			}).Error("Unable to remove PERM neighbor entries of network device")
-			successClean = false
+	for _, linkName := range linkNames {
+		l, err := netlink.LinkByName(linkName)
+		if err != nil {
+			// If the link is not found we don't need to keep retrying cleaning
+			// up the neihbor entries so we can keep successClean=true
+			if _, ok := err.(netlink.LinkNotFoundError); !ok {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.Device: linkName,
+				}).Error("Unable to remove PERM neighbor entries of network device")
+				successClean = false
+			}
+			continue
 		}
-		return
-	}
 
-	successClean = n.NodeCleanNeighborsLink(l, migrateOnly)
+		successClean = n.NodeCleanNeighborsLink(l, migrateOnly)
+	}
 }
 
-func storeNeighLink(dir string, name string) error {
+func storeNeighLink(dir string, names []string) error {
 	configFileName := filepath.Join(dir, neighFileName)
 	f, err := os.Create(configFileName)
 	if err != nil {
 		return fmt.Errorf("unable to create '%s': %w", configFileName, err)
 	}
 	defer f.Close()
-	nl := NeighLink{Name: name}
-	err = json.NewEncoder(f).Encode(nl)
+
+	var nls []NeighLink
+	for _, name := range names {
+		nls = append(nls, NeighLink{Name: name})
+	}
+	err = json.NewEncoder(f).Encode(nls)
 	if err != nil {
-		return fmt.Errorf("unable to encode '%+v': %w", nl, err)
+		return fmt.Errorf("unable to encode '%+v': %w", nls, err)
 	}
 	return nil
 }
 
-func loadNeighLink(dir string) (string, error) {
+func loadNeighLink(dir string) ([]string, error) {
 	configFileName := filepath.Join(dir, neighFileName)
 	f, err := os.Open(configFileName)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", nil
+			return nil, nil
 		}
-		return "", fmt.Errorf("unable to open '%s': %w", configFileName, err)
+		return nil, fmt.Errorf("unable to open '%s': %w", configFileName, err)
 	}
 	defer f.Close()
-	var nl NeighLink
 
-	err = json.NewDecoder(f).Decode(&nl)
-	if err != nil {
-		return "", fmt.Errorf("unable to decode '%s': %w", configFileName, err)
+	// Ensure backward compatibility
+	var nl NeighLink
+	if err = json.NewDecoder(f).Decode(&nl); err == nil {
+		if len(nl.Name) > 0 {
+			return []string{nl.Name}, nil
+		}
 	}
-	return nl.Name, nil
+
+	var nls []NeighLink
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	if err := json.NewDecoder(f).Decode(&nls); err != nil {
+		return nil, fmt.Errorf("unable to decode '%s': %w", configFileName, err)
+	}
+	var names []string
+	for _, nl := range nls {
+		names = append(names, nl.Name)
+	}
+	return names, nil
 }
 
 // NodeDeviceNameWithDefaultRoute returns the node's device name which
