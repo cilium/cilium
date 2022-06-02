@@ -139,8 +139,7 @@ type PerSelectorPolicy struct {
 	// the local POD.
 	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`
 
-	// Pre-computed HTTP rules with resolved k8s secrets
-	// Computed after rule merging is complete!
+	// Pre-computed HTTP rules, computed after rule merging is complete
 	EnvoyHTTPRules *cilium.HttpNetworkPolicyRules `json:"-"`
 
 	// CanShortCircuit is true if all 'EnvoyHTTPRules' may be
