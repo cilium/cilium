@@ -12,7 +12,7 @@ metadata:
   {{- end }}
 spec:
   {{- if .Values.hubble.ui.ingress.className }}
-  ingressClassName: {{- .Values.hubble.ui.ingress.className }}
+  ingressClassName: {{ .Values.hubble.ui.ingress.className }}
   {{- end }}
   {{- if .Values.hubble.ui.ingress.tls }}
   tls:
