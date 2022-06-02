@@ -305,21 +305,13 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			return err
 		}
 	} else {
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
-		if err != nil {
-			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-				logfields.Path: objPath,
-				logfields.Veth: ep.InterfaceName(),
-			})
-			// Don't log an error here if the context was canceled or timed out;
-			// this log message should only represent failures with respect to
-			// loading the program.
-			if ctx.Err() == nil {
-				scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
-			}
-			return err
-		}
-		defer finalize()
+		ingressFinalize := make(chan func())
+		ingressErr := make(chan error)
+		go func() {
+			finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+			ingressFinalize <- finalize
+			ingressErr <- err
+		}()
 
 		if ep.RequireEgressProg() {
 			finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress, false, "")
@@ -343,6 +335,24 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				log.WithField("device", ep.InterfaceName()).Error(err)
 			}
 		}
+
+		err := <-ingressErr
+		finalize := <-ingressFinalize
+
+		if err != nil {
+			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+				logfields.Path: objPath,
+				logfields.Veth: ep.InterfaceName(),
+			})
+			// Don't log an error here if the context was canceled or timed out;
+			// this log message should only represent failures with respect to
+			// loading the program.
+			if ctx.Err() == nil {
+				scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+			}
+			return err
+		}
+		defer finalize()
 	}
 
 	if ep.RequireEndpointRoute() {
