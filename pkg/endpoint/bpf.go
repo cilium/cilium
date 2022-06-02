@@ -231,9 +231,10 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 			}
 
 			var redirectPort uint16
-			// Only create a redirect if the proxy is NOT running in a sidecar
-			// container. If running in a sidecar container, just allow traffic
-			// to the port at L4 by setting the proxy port to 0.
+			// Only create a redirect if the proxy is NOT running in a sidecar container
+			// and the parser is HTTP. If running in a sidecar container and the parser
+			// is HTTP, just allow traffic to the port at L4 by setting the proxy port
+			// to 0.
 			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc

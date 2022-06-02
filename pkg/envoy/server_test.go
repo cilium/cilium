@@ -754,3 +754,84 @@ func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
 
 	c.Assert(obtained, checker.ExportedEquals, expected)
 }
+
+var L4PolicyTLSEgress = &policy.L4Policy{
+	Egress: map[string]*policy.L4Filter{
+		"443/TCP": {
+			Port: 443, Protocol: api.ProtoTCP,
+			L7Parser: "tls",
+			L7RulesPerSelector: policy.L7DataMap{
+				cachedSelector1: &policy.PerSelectorPolicy{
+					OriginatingTLS: &policy.TLSContext{
+						TrustedCA: "foo",
+					},
+				},
+			},
+		},
+	},
+}
+
+var ExpectedPerPortPoliciesTLSEgress = []*cilium.PortNetworkPolicy{
+	{
+		Port:     443,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{{
+			UpstreamTlsContext: &cilium.TLSContext{
+				TrustedCa: "foo",
+			},
+		}},
+	},
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyTLSEgress(c *C) {
+	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4PolicyTLSEgress, true, true)
+	expected := &cilium.NetworkPolicy{
+		EndpointIps:           []string{IPv4Addr},
+		EndpointId:            uint64(ep.GetID()),
+		EgressPerPortPolicies: ExpectedPerPortPoliciesTLSEgress,
+		ConntrackMapName:      "global",
+	}
+	c.Assert(obtained, checker.ExportedEquals, expected)
+}
+
+var L4PolicyTLSIngress = &policy.L4Policy{
+	Ingress: map[string]*policy.L4Filter{
+		"443/TCP": {
+			Port: 443, Protocol: api.ProtoTCP,
+			L7Parser: "tls",
+			L7RulesPerSelector: policy.L7DataMap{
+				cachedSelector1: &policy.PerSelectorPolicy{
+					OriginatingTLS: &policy.TLSContext{
+						CertificateChain: "certchain",
+						PrivateKey:       "key",
+					},
+				},
+			},
+			Ingress: true,
+		},
+	},
+}
+
+var ExpectedPerPortPoliciesTLSIngress = []*cilium.PortNetworkPolicy{
+	{
+		Port:     443,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{{
+			UpstreamTlsContext: &cilium.TLSContext{
+				CertificateChain: "certchain",
+				PrivateKey:       "key",
+			},
+		}},
+	},
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyTLSIngress(c *C) {
+	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, L4PolicyTLSIngress, true, true)
+	expected := &cilium.NetworkPolicy{
+		EndpointIps:            []string{IPv4Addr},
+		EndpointId:             uint64(ep.GetID()),
+		IngressPerPortPolicies: ExpectedPerPortPoliciesTLSIngress,
+		ConntrackMapName:       "global",
+	}
+	c.Assert(obtained, checker.ExportedEquals, expected)
+}
