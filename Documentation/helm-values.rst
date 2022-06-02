@@ -21,6 +21,10 @@
      - Configure the key of the taint indicating that Cilium is not ready on the node. When set to a value starting with ``ignore-taint.cluster-autoscaler.kubernetes.io/``\ , the Cluster Autoscaler will ignore the taint on its decisions, allowing the cluster to scale up.
      - string
      - ``"node.cilium.io/agent-not-ready"``
+   * - aksbyocni.enabled
+     - Enable AKS BYOCNI integration. Note that this is incompatible with AKS clusters not created in BYOCNI mode: use Azure integration (\ ``azure.enabled``\ ) instead.
+     - bool
+     - ``false``
    * - alibabacloud.enabled
      - Enable AlibabaCloud ENI integration
      - bool
@@ -34,7 +38,7 @@
      - bool
      - ``false``
    * - azure.enabled
-     - Enable Azure integration
+     - Enable Azure integration. Note that this is incompatible with AKS clusters created in BYOCNI mode: use AKS BYOCNI integration (\ ``aksbyocni.enabled``\ ) instead.
      - bool
      - ``false``
    * - bandwidthManager
