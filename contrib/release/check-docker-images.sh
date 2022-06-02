@@ -11,9 +11,9 @@ external_dependencies=(
 
 internal_dependencies=(
   "certgen:${CERTGEN_VERSION}" \
-  "cilium-etcd-operator:${MANAGED_ETCD_VERSION}" \
-  "startup-script:${NODEINIT_VERSION}"
-  "hubble-ui:${HUBBLE_UI_VERSION}" \
+  "cilium-etcd-operator:${CILIUM_ETCD_OPERATOR_VERSION}" \
+  "startup-script:${CILIUM_NODEINIT_VERSION}"
+  "hubble-ui:${HUBBLE_UI_FRONTEND_VERSION}" \
   "hubble-ui-backend:${HUBBLE_UI_BACKEND_VERSION}" \
 )
 
