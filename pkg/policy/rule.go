@@ -54,7 +54,7 @@ func (r *rule) getSelector() *api.EndpointSelector {
 	return &r.EndpointSelector
 }
 
-func (epd *PerSelectorPolicy) appendL7WildcardRule(ctx *SearchContext) *PerSelectorPolicy {
+func (epd *PerSelectorPolicy) appendL7WildcardRule(ctx *SearchContext) api.L7Rules {
 	// Wildcard rule only needs to be appended if some rules already exist
 	switch {
 	case len(epd.L7Rules.HTTP) > 0:
@@ -94,7 +94,7 @@ func (epd *PerSelectorPolicy) appendL7WildcardRule(ctx *SearchContext) *PerSelec
 			ctx.PolicyTrace("   Merging L7 wildcard rule, equal rule already exists: %+v\n", rule)
 		}
 	}
-	return epd
+	return epd.L7Rules
 }
 
 func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter, selectorCache *SelectorCache) (err error) {
@@ -140,24 +140,43 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				continue
 			}
 
-			// nil L7 rules wildcard L7. When merging with a non-nil rule, the nil must be expanded
-			// to an actual wildcard rule for the specific L7
-			if l7Rules.IsEmpty() && !newL7Rules.IsEmpty() {
-				existingFilter.L7RulesPerSelector[cs] = newL7Rules.appendL7WildcardRule(ctx)
-				continue
+			// One of the rules may be a nil rule, expand it to an empty non-nil rule
+			if l7Rules == nil {
+				l7Rules = &PerSelectorPolicy{}
 			}
-			if !l7Rules.IsEmpty() && newL7Rules.IsEmpty() {
-				existingFilter.L7RulesPerSelector[cs] = l7Rules.appendL7WildcardRule(ctx)
-				continue
+			if newL7Rules == nil {
+				newL7Rules = &PerSelectorPolicy{}
 			}
 
-			if !newL7Rules.TerminatingTLS.Equal(l7Rules.TerminatingTLS) {
+			if l7Rules.TerminatingTLS == nil || newL7Rules.TerminatingTLS == nil {
+				if newL7Rules.TerminatingTLS != nil {
+					l7Rules.TerminatingTLS = newL7Rules.TerminatingTLS
+				}
+			} else if !newL7Rules.TerminatingTLS.Equal(l7Rules.TerminatingTLS) {
 				ctx.PolicyTrace("   Merge conflict: mismatching terminating TLS contexts %v/%v\n", newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
 				return fmt.Errorf("cannot merge conflicting terminating TLS contexts for cached selector %s: (%v/%v)", cs.String(), newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
 			}
-			if !newL7Rules.OriginatingTLS.Equal(l7Rules.OriginatingTLS) {
+			if l7Rules.OriginatingTLS == nil || newL7Rules.OriginatingTLS == nil {
+				if newL7Rules.OriginatingTLS != nil {
+					l7Rules.OriginatingTLS = newL7Rules.OriginatingTLS
+				}
+			} else if !newL7Rules.OriginatingTLS.Equal(l7Rules.OriginatingTLS) {
 				ctx.PolicyTrace("   Merge conflict: mismatching originating TLS contexts %v/%v\n", newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
 				return fmt.Errorf("cannot merge conflicting originating TLS contexts for cached selector %s: (%v/%v)", cs.String(), newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
+			}
+
+			// empty L7 rules effectively wildcard L7. When merging with a non-empty
+			// rule, the empty must be expanded to an actual wildcard rule for the
+			// specific L7
+			if !l7Rules.HasL7Rules() && newL7Rules.HasL7Rules() {
+				l7Rules.L7Rules = newL7Rules.appendL7WildcardRule(ctx)
+				existingFilter.L7RulesPerSelector[cs] = l7Rules
+				continue
+			}
+			if l7Rules.HasL7Rules() && !newL7Rules.HasL7Rules() {
+				l7Rules.appendL7WildcardRule(ctx)
+				existingFilter.L7RulesPerSelector[cs] = l7Rules
+				continue
 			}
 
 			// We already know from the L7Parser.Merge() above that there are no

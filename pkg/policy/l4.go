@@ -163,16 +163,21 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 
 // IsRedirect returns true if the L7Rules are a redirect.
 func (a *PerSelectorPolicy) IsRedirect() bool {
-	// policy is for an L7 redirect if it:
-	// - is not nil,
-	// - has some L7 rules, and
+	// policy is for an proxy redirect if it:
+	// - is not empty, i.e., has L7 rules or TLS config, and
 	// - it is not a deny policy, as deny policies do not support L7 rules
 	return !a.IsEmpty() && !a.IsDeny
 }
 
-// IsEmpty returns whether the `L7Rules` is nil or contains nil rules.
+// IsEmpty returns whether the `L7Rules` is nil or has no L7 rules and no TLS config.
 func (a *PerSelectorPolicy) IsEmpty() bool {
-	return a == nil || a.L7Rules.IsEmpty()
+	return a == nil ||
+		(a.L7Rules.IsEmpty() && a.TerminatingTLS == nil && a.OriginatingTLS == nil)
+}
+
+// HasL7Rules returns whether the `L7Rules` contains any L7 rules.
+func (a *PerSelectorPolicy) HasL7Rules() bool {
+	return !a.L7Rules.IsEmpty()
 }
 
 // L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
@@ -236,6 +241,9 @@ func (l7 L7ParserType) String() string {
 const (
 	// ParserTypeNone represents the case where no parser type is provided.
 	ParserTypeNone L7ParserType = ""
+	// ParserTypeTLS is used when TLS origination, termination, or SNI filtering is used
+	// without any L7 parsing. If TLS policies are used with HTTP, ParserTypeHTTP is used.
+	ParserTypeTLS L7ParserType = "tls"
 	// ParserTypeHTTP specifies a HTTP parser type
 	ParserTypeHTTP L7ParserType = "http"
 	// ParserTypeKafka specifies a Kafka parser type
@@ -244,14 +252,31 @@ const (
 	ParserTypeDNS L7ParserType = "dns"
 )
 
+func (from L7ParserType) canPromoteTo(to L7ParserType) bool {
+	switch from {
+	case ParserTypeNone:
+		// ParserTypeNone can be promoted to any other type
+		return true
+	case ParserTypeTLS:
+		// ParserTypeTLS can be promoted to any other type, except for DNS,
+		// but ParserTypeTLS can not be demoted to ParserTypeNone
+		if to != ParserTypeNone && to != ParserTypeDNS {
+			return true
+		}
+	}
+	return false
+}
+
 // Merge ParserTypes 'a' to 'b' if possible
 func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
-	// ParserTypeNone can be promoted to any other type.
-	if a == b || b == ParserTypeNone {
+	if a == b {
 		return a, nil
 	}
-	if a == ParserTypeNone {
+	if a.canPromoteTo(b) {
 		return b, nil
+	}
+	if b.canPromoteTo(a) {
+		return a, nil
 	}
 	return ParserTypeNone, fmt.Errorf("cannot merge conflicting L7 parsers (%s/%s)", a, b)
 }
@@ -503,12 +528,14 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *Selec
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, terminatingTLS, originatingTLS *TLSContext, deny bool) {
+func (l7 L7DataMap) addRulesForEndpoints(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, deny bool) {
 	l7policy := &PerSelectorPolicy{
-		L7Rules:        rules,
 		TerminatingTLS: terminatingTLS,
 		OriginatingTLS: originatingTLS,
 		IsDeny:         deny,
+	}
+	if rules != nil {
+		l7policy.L7Rules = *rules
 	}
 	for epsel := range l7 {
 		l7[epsel] = l7policy
@@ -590,43 +617,46 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	}
 
 	pr := rule.GetPortRule()
-	if pr != nil && pr.Rules != nil {
+	if pr != nil {
 		var terminatingTLS *TLSContext
 		var originatingTLS *TLSContext
 
-		// Note: No rules -> no TLS
-		if !pr.Rules.IsEmpty() {
-			var err error
-			terminatingTLS, err = l4.getCerts(policyCtx, pr.TerminatingTLS, TerminatingTLS)
-			if err != nil {
-				return nil, err
-			}
-			originatingTLS, err = l4.getCerts(policyCtx, pr.OriginatingTLS, OriginatingTLS)
-			if err != nil {
-				return nil, err
-			}
+		// Get TLS contexts, if any
+		var err error
+		terminatingTLS, err = l4.getCerts(policyCtx, pr.TerminatingTLS, TerminatingTLS)
+		if err != nil {
+			return nil, err
+		}
+		originatingTLS, err = l4.getCerts(policyCtx, pr.OriginatingTLS, OriginatingTLS)
+		if err != nil {
+			return nil, err
+		}
+		// Set parser type to TLS, if any. This will be overridden by L7 below, if rules
+		// exists
+		if terminatingTLS != nil || originatingTLS != nil {
+			l4.L7Parser = ParserTypeTLS
 		}
 
 		// Determine L7ParserType from rules present. Earlier validation ensures rules
 		// for multiple protocols are not present here.
-		if protocol == api.ProtoTCP {
-			switch {
-			case len(pr.Rules.HTTP) > 0:
-				l4.L7Parser = ParserTypeHTTP
-			case len(pr.Rules.Kafka) > 0:
-				l4.L7Parser = ParserTypeKafka
-			case pr.Rules.L7Proto != "":
-				l4.L7Parser = (L7ParserType)(pr.Rules.L7Proto)
-			}
-			if !pr.Rules.IsEmpty() {
-				l4.L7RulesPerSelector.addRulesForEndpoints(*pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny())
+		if pr.Rules != nil {
+			// we need this to redirect DNS UDP (or ANY, which is more useful)
+			if len(pr.Rules.DNS) > 0 {
+				l4.L7Parser = ParserTypeDNS
+			} else if protocol == api.ProtoTCP { // Other than DNS only support TCP
+				switch {
+				case len(pr.Rules.HTTP) > 0:
+					l4.L7Parser = ParserTypeHTTP
+				case len(pr.Rules.Kafka) > 0:
+					l4.L7Parser = ParserTypeKafka
+				case pr.Rules.L7Proto != "":
+					l4.L7Parser = (L7ParserType)(pr.Rules.L7Proto)
+				}
 			}
 		}
 
-		// we need this to redirect DNS UDP (or ANY, which is more useful)
-		if len(pr.Rules.DNS) > 0 {
-			l4.L7Parser = ParserTypeDNS
-			l4.L7RulesPerSelector.addRulesForEndpoints(*pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny())
+		if l4.L7Parser != ParserTypeNone {
+			l4.L7RulesPerSelector.addRulesForEndpoints(pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny())
 		}
 	}
 
@@ -726,7 +756,7 @@ func (l4 *L4Filter) IsEnvoyRedirect() bool {
 
 // IsProxylibRedirect returns true if the L4 filter contains a port redirected to Proxylib (via Envoy)
 func (l4 *L4Filter) IsProxylibRedirect() bool {
-	return l4.IsEnvoyRedirect() && l4.L7Parser != ParserTypeHTTP
+	return l4.IsEnvoyRedirect() && l4.L7Parser != ParserTypeHTTP && l4.L7Parser != ParserTypeTLS
 }
 
 // Marshal returns the `L4Filter` in a JSON string.
