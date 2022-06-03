@@ -201,6 +201,9 @@ github.com/containernetworking/plugins/pkg/ns
 github.com/coreos/go-semver/semver
 # github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e
 github.com/coreos/go-systemd/journal
+# github.com/coreos/go-systemd/v22 v22.3.2
+## explicit
+github.com/coreos/go-systemd/v22/dbus
 # github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 github.com/coreos/pkg/capnslog
 # github.com/cpuguy83/go-md2man/v2 v2.0.0
@@ -318,6 +321,8 @@ github.com/go-openapi/validate
 github.com/go-stack/stack
 # github.com/gobuffalo/flect v0.2.0
 github.com/gobuffalo/flect
+# github.com/godbus/dbus/v5 v5.0.4
+github.com/godbus/dbus/v5
 # github.com/gogo/protobuf v1.3.2
 ## explicit
 github.com/gogo/protobuf/gogoproto

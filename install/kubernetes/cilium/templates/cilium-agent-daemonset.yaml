@@ -404,6 +404,31 @@ spec:
         securityContext:
           privileged: true
 {{- end }}
+      - name: apply-sysctl-overwrites
+        image: "{{ if .Values.image.override }}{{ .Values.image.override }}{{ else }}{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}{{ end }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: BIN_PATH
+          value: {{ .Values.cni.binPath }}
+        command:
+        - sh
+        - -ec
+        # The statically linked Go program binary is invoked to avoid any
+        # dependency on utilities like sh that can be missing on certain
+        # distros installed on the underlying host. Copy the binary to the
+        # same directory where we install cilium cni plugin so that exec permissions
+        # are available.
+        - |
+          cp /usr/bin/cilium-sysctlfix /hostbin/cilium-sysctlfix;
+          nsenter --mount=/hostproc/1/ns/mnt "${BIN_PATH}/cilium-sysctlfix";
+          rm /hostbin/cilium-sysctlfix
+        volumeMounts:
+        - name: hostproc
+          mountPath: /hostproc
+        - name: cni-path
+          mountPath: /hostbin
+        securityContext:
+          privileged: true
 {{- if and .Values.nodeinit.enabled (not (eq .Values.nodeinit.bootstrapFile "")) }}
       - name: wait-for-node-init
         command: ['sh', '-c', 'until test -s {{ (print "/tmp/cilium-bootstrap.d/" (.Values.nodeinit.bootstrapFile | base)) | quote }}; do echo "Waiting on node-init to run..."; sleep 1; done']
