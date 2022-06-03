@@ -52,11 +52,10 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 		dsFilename string
 	)
 
-	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(k.chartVersion):
 		dsFilename = "templates/cilium-agent/daemonset.yaml"
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
 		dsFilename = "templates/cilium-agent-daemonset.yaml"
 	}
 
@@ -72,11 +71,10 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 		deployFilename string
 	)
 
-	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(k.chartVersion):
 		deployFilename = "templates/cilium-operator/deployment.yaml"
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
 		deployFilename = "templates/cilium-operator-deployment.yaml"
 	}
 
@@ -92,9 +90,8 @@ func (k *K8sInstaller) generateIngressClass() *networkingv1.IngressClass {
 		ingressFileName string
 	)
 
-	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">=1.12.0")(ciliumVer):
+	case versioncheck.MustCompile(">=1.12.0")(k.chartVersion):
 		ingressFileName = "templates/cilium-operator-deployment.yaml"
 	}
 
@@ -113,9 +110,8 @@ func (k *K8sInstaller) getSecretNamespace() string {
 		nsFilename string
 	)
 
-	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">1.11.99")(ciliumVer):
+	case versioncheck.MustCompile(">1.11.99")(k.chartVersion):
 		nsFilename = "templates/cilium-secrets-namespace.yaml"
 	}
 
@@ -193,6 +189,7 @@ type K8sInstaller struct {
 	rollbackSteps  []rollbackStep
 	manifests      map[string]string
 	helmYAMLValues string
+	chartVersion   semver.Version
 }
 
 const (
@@ -265,10 +262,6 @@ type Parameters struct {
 	// CiliumReadyTimeout defines the wait timeout for Cilium to become ready
 	// after installing.
 	CiliumReadyTimeout time.Duration
-
-	// BaseVersion is used to explicitly specify Cilium version for generating the config map
-	// in case it cannot be inferred from the Version field (e.g. commit SHA tags for CI images).
-	BaseVersion string
 
 	// K8sVersion is the Kubernetes version that will be used to generate the
 	// kubernetes manifests. If the auto-detection fails, this flag can be used
@@ -350,11 +343,16 @@ func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInsta
 	}
 
 	cm := certs.NewCertManager(client, certs.Parameters{Namespace: p.Namespace})
+	chartVersion, err := helm.ResolveHelmChartVersion(p.Version, p.HelmChartDirectory)
+	if err != nil {
+		return nil, err
+	}
 
 	return &K8sInstaller{
-		client:      client,
-		params:      p,
-		certManager: cm,
+		client:       client,
+		params:       p,
+		certManager:  cm,
+		chartVersion: chartVersion,
 	}, nil
 }
 
@@ -364,15 +362,6 @@ func (k *K8sInstaller) Log(format string, a ...interface{}) {
 
 func (k *K8sInstaller) Exec(command string, args ...string) ([]byte, error) {
 	return utils.Exec(k, command, args...)
-}
-
-func (k *K8sInstaller) getCiliumVersion() semver.Version {
-	v, err := utils.ParseCiliumVersion(k.params.Version, k.params.BaseVersion)
-	if err != nil {
-		v = versioncheck.MustVersion(defaults.Version)
-		k.Log("Unable to parse the provided version %q, assuming %v for ConfigMap compatibility", k.params.Version, defaults.Version)
-	}
-	return v
 }
 
 func (k *K8sInstaller) getImagesSHA() string {
@@ -391,19 +380,18 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		cmFilename string
 	)
 
-	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
 		cmFilename = "templates/cilium-configmap.yaml"
 	default:
-		return nil, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
+		return nil, fmt.Errorf("cilium version unsupported %s", k.chartVersion.String())
 	}
 
 	cmFile := k.manifests[cmFilename]
 
 	var cm corev1.ConfigMap
 	utils.MustUnmarshalYAML([]byte(cmFile), &cm)
-	k.Log("🚀 Creating ConfigMap for Cilium version %s...", ciliumVer.String())
+	k.Log("🚀 Creating ConfigMap for Cilium version %s...", k.chartVersion)
 
 	for key, value := range k.params.configOverwrites {
 		k.Log("ℹ️ Manual overwrite in ConfigMap: %s=%s", key, value)
@@ -612,7 +600,11 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.Log("ℹ️  Storing helm values file in %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
 
-	helmSecret := k8s.NewSecret(k.params.HelmValuesSecretName, k.params.Namespace, map[string][]byte{defaults.HelmValuesSecretKeyName: []byte(k.helmYAMLValues)})
+	helmSecret := k8s.NewSecret(k.params.HelmValuesSecretName, k.params.Namespace,
+		map[string][]byte{
+			defaults.HelmValuesSecretKeyName:       []byte(k.helmYAMLValues),
+			defaults.HelmChartVersionSecretKeyName: []byte(k.chartVersion.String()),
+		})
 	if _, err := k.client.GetSecret(ctx, k.params.Namespace, k.params.HelmValuesSecretName, metav1.GetOptions{}); err == nil {
 		if _, err := k.client.UpdateSecret(ctx, k.params.Namespace, helmSecret, metav1.UpdateOptions{}); err != nil {
 			k.Log("❌ Unable to store helm values file %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
@@ -656,9 +648,8 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	case k8s.KindAKS:
 		// We only made the secret-based azure installation available in >= 1.12.0
 		// Introduced in https://github.com/cilium/cilium/pull/18010
-		ciliumVer := k.getCiliumVersion()
 		switch {
-		case versioncheck.MustCompile(">=1.12.0")(ciliumVer):
+		case versioncheck.MustCompile(">=1.12.0")(k.chartVersion):
 			if err := k.createAKSSecrets(ctx); err != nil {
 				return err
 			}

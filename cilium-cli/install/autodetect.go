@@ -112,7 +112,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		}
 	}
 
-	k.Log("ℹ️  using Cilium version %q", k.params.Version)
+	k.Log("ℹ️  Using Cilium version %s", k.chartVersion)
 
 	if k.params.ClusterName == "" {
 		if k.flavor.ClusterName != "" {

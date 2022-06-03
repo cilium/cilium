@@ -204,12 +204,11 @@ func (k *K8sInstaller) createAKSSecrets(ctx context.Context) error {
 		secretFileName string
 	)
 
-	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">=1.12.0")(ciliumVer):
+	case versioncheck.MustCompile(">=1.12.0")(k.chartVersion):
 		secretFileName = "templates/cilium-operator/secret.yaml"
 	default:
-		return fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
+		return fmt.Errorf("cilium version unsupported %s", k.chartVersion)
 	}
 
 	secretFile := k.manifests[secretFileName]
