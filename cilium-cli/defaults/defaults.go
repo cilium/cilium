@@ -90,8 +90,9 @@ const (
 	IngressControllerName   = "cilium.io/ingress-controller"
 	IngressSecretsNamespace = "cilium-secrets"
 
-	HelmValuesSecretName    = "cilium-cli-helm-values"
-	HelmValuesSecretKeyName = "io.cilium.cilium-cli"
+	HelmValuesSecretName          = "cilium-cli-helm-values"
+	HelmValuesSecretKeyName       = "io.cilium.cilium-cli"
+	HelmChartVersionSecretKeyName = "io.cilium.chart-version"
 )
 
 var (
