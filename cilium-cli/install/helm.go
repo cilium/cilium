@@ -194,9 +194,14 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
 				helmMapOpts["masquerade"] = "false"
 			}
-			helmMapOpts["azure.subscriptionID"] = k.params.Azure.SubscriptionID
-			helmMapOpts["azure.tenantID"] = k.params.Azure.TenantID
-			helmMapOpts["azure.resourceGroup"] = k.params.Azure.AKSNodeResourceGroup
+
+		case DatapathAKSBYOCNI:
+			// TODO: replace with `helmMapOpts["aksbyocni.enabled"] = true` once the
+			// new `aksbyocni` mode has made it to Helm charts on stable releases.
+			// Until then, we manually configure the same ConfigMap options as the new
+			// `aksbyocni` mode does, so that it works transparently.
+			helmMapOpts["ipam.mode"] = ipamClusterPool
+			helmMapOpts["tunnel"] = tunnelVxlan
 		}
 
 		// TODO: remove when removing "cluster-name" flag (marked as deprecated),
