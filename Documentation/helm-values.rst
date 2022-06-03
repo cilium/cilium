@@ -325,6 +325,10 @@
      - Disable the usage of CiliumEndpoint CRD.
      - string
      - ``"false"``
+   * - dnsPolicy
+     - DNS policy for Cilium agent pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+     - string
+     - ``""``
    * - egressGateway
      - Enables egress gateway (beta) to redirect and SNAT the traffic that leaves the cluster.
      - object
@@ -1077,6 +1081,10 @@
      - cilium-operator affinity
      - object
      - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"io.cilium/app","operator":"In","values":["operator"]}]},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - operator.dnsPolicy
+     - DNS policy for Cilium operator pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+     - string
+     - ``""``
    * - operator.enabled
      - Enable the cilium-operator component (required).
      - bool

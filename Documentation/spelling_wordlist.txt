@@ -323,6 +323,7 @@ discoverable
 distro
 distros
 dns
+dnsPolicy
 dockerhub
 dpaa
 dports
