@@ -331,6 +331,7 @@ discoverable
 distro
 distros
 dns
+dnsPolicy
 dnsProxy
 dnsRejectResponseCode
 dockerhub

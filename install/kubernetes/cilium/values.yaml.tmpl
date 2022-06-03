@@ -118,6 +118,10 @@ tolerations:
 # -- The priority class to use for cilium-agent.
 priorityClassName: ""
 
+# -- DNS policy for Cilium agent pods.
+# Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+dnsPolicy: ""
+
 # -- Additional agent container arguments.
 extraArgs: []
 
@@ -1543,6 +1547,10 @@ operator:
 
   # -- The priority class to use for cilium-operator
   priorityClassName: ""
+
+  # -- DNS policy for Cilium operator pods.
+  # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+  dnsPolicy: ""
 
   # -- cilium-operator update strategy
   updateStrategy:
