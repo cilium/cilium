@@ -24,11 +24,10 @@ func (k *K8sInstaller) generateNodeInitDaemonSet(_ k8s.Kind) *appsv1.DaemonSet {
 		dsFileName string
 	)
 
-	ciliumVer := k.getCiliumVersion()
 	switch {
-	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
+	case versioncheck.MustCompile(">1.10.99")(k.chartVersion):
 		dsFileName = "templates/cilium-nodeinit/daemonset.yaml"
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
 		dsFileName = "templates/cilium-nodeinit-daemonset.yaml"
 	}
 
