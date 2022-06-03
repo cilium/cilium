@@ -299,7 +299,7 @@ jobs:
       - name: Clean up EKS
         if: ${{ always() }}
         run: |
-          eksctl delete cluster --name ${{ env.clusterName }}
+          eksctl delete cluster --wait --name ${{ env.clusterName }}
 
       - name: Upload artifacts
         if: ${{ !success() }}

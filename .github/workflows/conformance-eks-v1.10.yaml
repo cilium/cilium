@@ -293,7 +293,7 @@ jobs:
       - name: Clean up EKS
         if: ${{ always() }}
         run: |
-          eksctl delete cluster --name ${{ env.clusterName }}
+          eksctl delete cluster --wait --name ${{ env.clusterName }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
