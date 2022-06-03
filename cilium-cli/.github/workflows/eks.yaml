@@ -54,6 +54,14 @@ jobs:
           sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
           rm eksctl_$(uname -s)_amd64.tar.gz
 
+      - name: Install helm
+        uses: azure/setup-helm@18bc76811624f360dbd7f18c2d4ecb32c7b87bab
+        with:
+          # Due to the below issue, v3.8.2 is pinned currently to avoid
+          # exec plugin: invalid apiVersion "client.authentication.k8s.io/v1alpha1"
+          # https://github.com/helm/helm/issues/10975
+          version: v3.8.2
+
       - name: Set up AWS CLI credentials
         uses: aws-actions/configure-aws-credentials@05b148adc31e091bafbaf404f745055d4d3bc9d2
         with:
