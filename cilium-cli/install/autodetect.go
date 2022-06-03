@@ -50,10 +50,10 @@ func (k *K8sUninstaller) autodetect(ctx context.Context) {
 	}
 }
 
-func (k *K8sInstaller) detectDatapathMode(withKPR bool) {
+func (k *K8sInstaller) detectDatapathMode(ctx context.Context, withKPR bool) error {
 	if k.params.DatapathMode != "" {
 		k.Log("ℹ️ Custom datapath mode: %s", k.params.DatapathMode)
-		return
+		return nil
 	}
 
 	switch k.flavor.Kind {
@@ -71,7 +71,18 @@ func (k *K8sInstaller) detectDatapathMode(withKPR bool) {
 	case k8s.KindGKE:
 		k.params.DatapathMode = DatapathGKE
 	case k8s.KindAKS:
-		k.params.DatapathMode = DatapathAzure
+		// When on AKS, we need to determine if the cluster is in BYOCNI mode before
+		// determining which DatapathMode to use.
+		if err := k.azureAutodetect(ctx); err != nil {
+			return err
+		}
+
+		// Azure IPAM is not available in BYOCNI mode
+		if k.params.Azure.IsBYOCNI {
+			k.params.DatapathMode = DatapathAKSBYOCNI
+		} else {
+			k.params.DatapathMode = DatapathAzure
+		}
 
 		if withKPR && k.params.KubeProxyReplacement == "" {
 			k.Log("ℹ️  kube-proxy-replacement disabled")
@@ -84,6 +95,7 @@ func (k *K8sInstaller) detectDatapathMode(withKPR bool) {
 	if k.params.DatapathMode != "" {
 		k.Log("🔮 Auto-detected datapath mode: %s", k.params.DatapathMode)
 	}
+	return nil
 }
 
 func (k *K8sInstaller) autodetect(ctx context.Context) {
@@ -124,7 +136,10 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		}
 	}
 
-	k.detectDatapathMode(true)
+	if err := k.detectDatapathMode(ctx, true); err != nil {
+		return err
+	}
+
 	// TODO: remove when removing "ipam" flag (marked as deprecated), kept for
 	// backwards compatibility
 	if k.params.IPAM != "" {

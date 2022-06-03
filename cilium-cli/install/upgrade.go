@@ -23,7 +23,9 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 
 	// no need to determine KPR setting on upgrade, keep the setting configured with the old
 	// version.
-	k.detectDatapathMode(false)
+	if err := k.detectDatapathMode(ctx, false); err != nil {
+		return err
+	}
 
 	daemonSet, err := k.client.GetDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
 	if err != nil {
