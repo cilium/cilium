@@ -99,7 +99,7 @@ Users (Alphabetically)
       L: https://microk8s.io/
 
     * N: Capital One
-      D: Capital One as its standard CNI for all Kubernetes environments
+      D: Capital One uses Cilium as its standard CNI for all Kubernetes environments
       U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, Hubble, network visibility
       L: https://www.youtube.com/watch?v=hwOpCKBaJ-w
 
