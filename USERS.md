@@ -158,6 +158,12 @@ Users (Alphabetically)
       L: https://metal.equinix.com/
       Q: @matoszz
 
+    * N: Exoscale
+      D: Exoscale is offering Cilium as a CNI option on its managed Kubernetes service named SKS (Scalable Kubernetes Service)
+      U: CNI, Networking
+      L: https://www.exoscale.com/sks/
+      Q: @Antoine
+
     * N: finleap connect
       D: finleap connect is using Cilium in their production clusters (self-hosted, bare-metal, private cloud)
       U: CNI, NetworkPolicies
