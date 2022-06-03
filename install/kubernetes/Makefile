@@ -45,8 +45,10 @@ cilium/values.yaml: $(CILIUM_CHARTS)/values.yaml.tmpl $(ROOT_DIR)/VERSION $(ROOT
 
 update-versions: update-chart cilium/values.yaml # Update the Helm values file to point to the current version.
 
-CRDS = $(foreach path,$(patsubst %.yaml,%,$(shell find $(ROOT_DIR)/examples/crds/*/ -type f)),$(shell basename $(path)))
+CRD_FILES := $(shell find $(ROOT_DIR)/examples/crds/*/ -type f)
+CRDS := $(foreach path,$(patsubst %.yaml,%,$(CRD_FILES)),$(shell basename $(path)))
 lint:
+	$(ECHO_CHECK)
 	$(QUIET)for crd in $(CRDS); do \
 		grep -q $$crd $(CHART_FILE) \
 		|| (echo -e "$$crd not found in $(CHART_FILE).\nPlease update the chart to include $$crd."; exit 1); \
