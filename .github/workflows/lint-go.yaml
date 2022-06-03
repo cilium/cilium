@@ -47,7 +47,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@0ad9a0988b3973e851ab0a07adf248ec2e100376
         with:
-          version: v1.45.2
+          version: v1.46.2
           skip-cache: true
 
   precheck:
