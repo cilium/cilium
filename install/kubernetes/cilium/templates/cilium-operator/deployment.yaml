@@ -207,6 +207,8 @@ spec:
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
       dnsPolicy: ClusterFirstWithHostNet
+      {{- else if .Values.dnsPolicy }}
+      dnsPolicy: {{ .Values.operator.dnsPolicy }}
       {{- end }}
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.operator.priorityClassName "system-cluster-critical") }}
