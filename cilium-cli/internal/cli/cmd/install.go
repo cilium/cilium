@@ -54,7 +54,7 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().MarkDeprecated("cluster-name", "This can now be overridden via `helm-set` (Helm value: `cluster.name`).")
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
 	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
-	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | aws-eni | gke | azure } (default: autodetected).")
+	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | aws-eni | gke | azure | aks-byocni } (default: autodetected).")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.IPAM, "ipam", "", "IP Address Management (IPAM) mode")
 	cmd.Flags().MarkDeprecated("ipam", "IPAM mode is autodetected depending on `datapath-mode`. If needed, this can now be overridden via `helm-set` (Helm value: `ipam.mode`).")
