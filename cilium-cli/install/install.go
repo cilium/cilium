@@ -35,16 +35,18 @@ import (
 )
 
 const (
-	DatapathTunnel = "tunnel"
-	DatapathAwsENI = "aws-eni"
-	DatapathGKE    = "gke"
-	DatapathAzure  = "azure"
+	DatapathTunnel    = "tunnel"
+	DatapathAwsENI    = "aws-eni"
+	DatapathGKE       = "gke"
+	DatapathAzure     = "azure"
+	DatapathAKSBYOCNI = "aks-byocni"
 )
 
 const (
-	ipamKubernetes = "kubernetes"
-	ipamENI        = "eni"
-	ipamAzure      = "azure"
+	ipamKubernetes  = "kubernetes"
+	ipamClusterPool = "cluster-pool"
+	ipamENI         = "eni"
+	ipamAzure       = "azure"
 )
 
 const (
@@ -215,6 +217,7 @@ type AzureParameters struct {
 	TenantID             string
 	ClientID             string
 	ClientSecret         string
+	IsBYOCNI             bool
 }
 
 var (
@@ -594,8 +597,11 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 
 	case k8s.KindAKS:
-		if err := k.aksSetup(ctx); err != nil {
-			return err
+		if k.params.DatapathMode == DatapathAzure {
+			// The Azure Service Principal is only needed when using Azure IPAM
+			if err := k.azureSetupServicePrincipal(ctx); err != nil {
+				return err
+			}
 		}
 	}
 

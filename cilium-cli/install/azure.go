@@ -48,18 +48,20 @@ type azurePrincipalOutput struct {
 
 type aksClusterInfo struct {
 	NodeResourceGroup string `json:"nodeResourceGroup"`
+	NetworkProfile    struct {
+		NetworkPlugin string `json:"networkPlugin"`
+	} `json:"networkProfile"`
 }
 
-func (k *K8sInstaller) aksSetup(ctx context.Context) error {
+// For the global auto-detection mechanism to properly work when on AKS, we need
+// to determine if the cluster is in BYOCNI mode before determining which
+// DatapathMode to use.
+func (k *K8sInstaller) azureAutodetect(ctx context.Context) error {
 	if err := k.azureRetrieveSubscriptionID(ctx); err != nil {
 		return err
 	}
 
-	if err := k.azureRetrieveAKSNodeResourceGroup(ctx); err != nil {
-		return err
-	}
-
-	return k.azureSetupServicePrincipal(ctx)
+	return k.azureRetrieveAKSClusterInfo(ctx)
 }
 
 // Retrieve subscription ID to pass to other `az` commands:
@@ -104,15 +106,22 @@ func (k *K8sInstaller) azureRetrieveSubscriptionID(ctx context.Context) error {
 // this cluster. See Azure documentation for more details:
 // https://docs.microsoft.com/en-us/azure/aks/faq#why-are-two-resource-groups-created-with-aks
 //
-// The CLI installs itself into this intermediate resource group, and thus
-// derives it from the user-given resource group and cluster name using
-// `az aks show`.
+// When using Azure IPAM, the CLI will needs to know about this intermediate
+// resource group for creating the Service Principal, and thus derives it from
+// the user-given resource group and cluster name using `az aks show`.
 //
 // Optionally, it might be provided via the `--azure-node-resource-group` flag,
 // which is currently a hidden feature not advertised to the users and intended
 // for development purposes, notably CI usage where `az` CLI is not available.
 // If provided, it bypasses the requirement for `--azure-resource-group`.
-func (k *K8sInstaller) azureRetrieveAKSNodeResourceGroup(ctx context.Context) error {
+//
+// When using AKS BYOCNI, the CLI does not need any other Azure flags as it does
+// not use Azure IPAM. We can detect if the cluster has been created in BYOCNI
+// mode by also using `az aks show`.
+func (k *K8sInstaller) azureRetrieveAKSClusterInfo(ctx context.Context) error {
+	// If the hidden `--azure-node-resource-group` flag is provided, we assume the
+	// user know what they're doing and we are not in BYOCNI mode because this
+	// flag is not necessary for BYOCNI, so we skip auto-detection.
 	if k.params.Azure.AKSNodeResourceGroup != "" {
 		k.Log("ℹ️ Using manually configured Azure AKS node resource group %s", k.params.Azure.AKSNodeResourceGroup)
 		return nil
@@ -133,8 +142,16 @@ func (k *K8sInstaller) azureRetrieveAKSNodeResourceGroup(ctx context.Context) er
 		return fmt.Errorf("unable to unmarshal az output: %w", err)
 	}
 
-	k.Log("✅ Derived Azure AKS node resource group %s from resource group %s", clusterInfo.NodeResourceGroup, k.params.Azure.ResourceGroupName)
-	k.params.Azure.AKSNodeResourceGroup = clusterInfo.NodeResourceGroup
+	if clusterInfo.NetworkProfile.NetworkPlugin == "none" {
+		// If we are in BYOCNI mode, we won't need any other Azure flags
+		k.Log("✅ Detected Azure AKS cluster in BYOCNI mode (no CNI plugin pre-installed)")
+		k.params.Azure.IsBYOCNI = true
+	} else {
+		// If we are not in BYOCNI, we derive AKSNodeResourceGroup from retrieved
+		// info so that it can be used later on for creating the Service Principal
+		k.Log("✅ Derived Azure AKS node resource group %s from resource group %s", clusterInfo.NodeResourceGroup, k.params.Azure.ResourceGroupName)
+		k.params.Azure.AKSNodeResourceGroup = clusterInfo.NodeResourceGroup
+	}
 
 	return nil
 }
@@ -152,8 +169,17 @@ func (k *K8sInstaller) azureRetrieveAKSNodeResourceGroup(ctx context.Context) er
 // 		overwrites the existing SP with a new ClientSecret on subsequent calls, which potentially
 // 		interferes with existing installations.
 func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
+	// Since we depend on SubscriptionID and AKSNodeResourceGroup being properly
+	// set to create the Service Principal, we run the auto-detection mechanism if
+	// it was skipped due to the user manually setting `--datapath-mode=azure`.
+	if k.params.Azure.SubscriptionID == "" || k.params.Azure.AKSNodeResourceGroup == "" {
+		if err := k.azureAutodetect(ctx); err != nil {
+			return err
+		}
+	}
+
 	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
-		k.Log("🚀 Creating Azure Service Principal for Cilium operator...")
+		k.Log("🚀 Creating Azure Service Principal for Cilium Azure operator...")
 		bytes, err := k.azExec("ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID+"/resourceGroups/"+k.params.Azure.AKSNodeResourceGroup, "--role", "Contributor")
 		if err != nil {
 			return err
@@ -164,7 +190,7 @@ func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
 			return fmt.Errorf("unable to unmarshal az output: %w", err)
 		}
 
-		k.Log("✅ Created Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s", p.AppID, p.Tenant)
+		k.Log("✅ Created Azure Service Principal for Cilium Azure operator with App ID %s and Tenant ID %s", p.AppID, p.Tenant)
 		k.Log("ℹ️ Its RBAC privileges are restricted to the AKS node resource group %s", k.params.Azure.AKSNodeResourceGroup)
 		k.params.Azure.TenantID = p.Tenant
 		k.params.Azure.ClientID = p.AppID
@@ -178,7 +204,7 @@ func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
 			return fmt.Errorf("missing at least one of Azure Service Principal parameters")
 		}
 
-		k.Log("ℹ️ Using manually configured Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s",
+		k.Log("ℹ️ Using manually configured Azure Service Principal for Cilium Azure operator with App ID %s and Tenant ID %s",
 			k.params.Azure.ClientID, k.params.Azure.TenantID)
 	}
 
