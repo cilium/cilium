@@ -35,16 +35,31 @@ import (
 )
 
 const (
-	ipamKubernetes  = "kubernetes"
-	ipamClusterPool = "cluster-pool"
-	ipamENI         = "eni"
-	ipamAzure       = "azure"
+	DatapathTunnel = "tunnel"
+	DatapathAwsENI = "aws-eni"
+	DatapathGKE    = "gke"
+	DatapathAzure  = "azure"
+)
+
+const (
+	ipamKubernetes = "kubernetes"
+	ipamENI        = "eni"
+	ipamAzure      = "azure"
+)
+
+const (
+	tunnelDisabled = "disabled"
+	tunnelVxlan    = "vxlan"
 )
 
 const (
 	encryptionDisabled  = "disabled"
 	encryptionIPsec     = "ipsec"
 	encryptionWireguard = "wireguard"
+)
+
+const (
+	Microk8sSnapPath = "/var/snap/microk8s/current"
 )
 
 func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
@@ -192,15 +207,6 @@ type K8sInstaller struct {
 	chartVersion   semver.Version
 }
 
-const (
-	DatapathTunnel = "tunnel"
-	DatapathAwsENI = "aws-eni"
-	DatapathGKE    = "gke"
-	DatapathAzure  = "azure"
-
-	Microk8sSnapPath = "/var/snap/microk8s/current"
-)
-
 type AzureParameters struct {
 	ResourceGroupName    string
 	AKSNodeResourceGroup string
@@ -246,7 +252,6 @@ type Parameters struct {
 	Wait                  bool
 	WaitDuration          time.Duration
 	DatapathMode          string
-	TunnelType            string
 	IPv4NativeRoutingCIDR string
 	ClusterID             int
 	IPAM                  string

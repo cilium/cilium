@@ -52,7 +52,7 @@ func (k *K8sUninstaller) autodetect(ctx context.Context) {
 
 func (k *K8sInstaller) detectDatapathMode(withKPR bool) {
 	if k.params.DatapathMode != "" {
-		k.Log("🔮 Custom datapath mode: %s", k.params.DatapathMode)
+		k.Log("ℹ️ Custom datapath mode: %s", k.params.DatapathMode)
 		return
 	}
 
@@ -77,6 +77,8 @@ func (k *K8sInstaller) detectDatapathMode(withKPR bool) {
 			k.Log("ℹ️  kube-proxy-replacement disabled")
 			k.params.KubeProxyReplacement = "disabled"
 		}
+	default:
+		k.params.DatapathMode = DatapathTunnel
 	}
 
 	if k.params.DatapathMode != "" {
@@ -122,24 +124,12 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		}
 	}
 
-	if k.params.IPAM == "" {
-		switch k.flavor.Kind {
-		case k8s.KindKind:
-			k.params.IPAM = ipamKubernetes
-		case k8s.KindEKS:
-			k.params.IPAM = ipamENI
-		case k8s.KindGKE:
-			k.params.IPAM = ipamKubernetes
-		case k8s.KindAKS:
-			k.params.IPAM = ipamAzure
-		default:
-			k.params.IPAM = ipamClusterPool
-		}
-
-		k.Log("🔮 Auto-detected IPAM mode: %s", k.params.IPAM)
-	}
-
 	k.detectDatapathMode(true)
+	// TODO: remove when removing "ipam" flag (marked as deprecated), kept for
+	// backwards compatibility
+	if k.params.IPAM != "" {
+		k.Log("ℹ️ Custom IPAM mode: %s", k.params.IPAM)
+	}
 
 	if strings.Contains(k.params.ClusterName, ".") {
 		k.Log("❌ Cluster name %q cannot contain dots", k.params.ClusterName)
