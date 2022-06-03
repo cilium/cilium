@@ -83,6 +83,8 @@ jobs:
           gcloud container clusters create ${{ env.clusterName }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.zone }} \
+            --enable-ip-alias \
+            --create-subnetwork="" \
             --image-type COS_CONTAINERD \
             --num-nodes 2 \
             --machine-type e2-custom-2-4096 \
