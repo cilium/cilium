@@ -1,6 +1,6 @@
 # Maintainers
 
-See [Governance](Documentation/contributing/governance/commit_access.rst) for
+See [Governance](Documentation/community/governance/commit_access.rst) for
 governance, commit, and vote guidelines as well as maintainer responsibilities.
 Everybody listed in this file is a committer as per governance definition.
 
