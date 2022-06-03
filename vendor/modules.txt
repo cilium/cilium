@@ -257,6 +257,7 @@ github.com/containernetworking/plugins/pkg/ns
 github.com/coreos/go-semver/semver
 # github.com/coreos/go-systemd/v22 v22.3.2
 ## explicit; go 1.12
+github.com/coreos/go-systemd/v22/dbus
 github.com/coreos/go-systemd/v22/journal
 # github.com/cpuguy83/go-md2man/v2 v2.0.1
 ## explicit; go 1.11
@@ -404,6 +405,9 @@ github.com/go-stack/stack
 # github.com/gobuffalo/flect v0.2.3
 ## explicit; go 1.13
 github.com/gobuffalo/flect
+# github.com/godbus/dbus/v5 v5.0.4
+## explicit; go 1.12
+github.com/godbus/dbus/v5
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
 github.com/gogo/protobuf/gogoproto
