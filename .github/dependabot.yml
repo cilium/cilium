@@ -16,9 +16,6 @@ updates:
       - dependency-name: "github.com/aliyun/alibaba-cloud-sdk-go"
       - dependency-name: "github.com/aws/*"
       - dependency-name: "github.com/Azure/*"
-        # Remove when https://github.com/prometheus/client_golang/issues/995
-        # has been solved and shipped in a release.
-      - dependency-name: "github.com/prometheus/client_golang"
     labels:
     - kind/enhancement
     - release-note/misc
