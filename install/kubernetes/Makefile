@@ -29,7 +29,7 @@ HELM_DOCS := $(DOCKER_RUN) $(HELM_DOCS_IMAGE)
 LOGO_BASE_URL := https://cdn.jsdelivr.net/gh/cilium
 LOGO_PATH := Documentation/images/logo-solo.svg
 
-all: update-versions docs
+all: update-versions docs lint
 
 update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the current version.
 	$(ECHO_GEN)cilium/Chart.yaml
