@@ -60,31 +60,6 @@ jobs:
              cilium-agent/clusterrole.yaml \
              cilium-preflight/clusterrole.yaml
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-        with:
-          persist-credentials: false
-
-      - name: Run helm lint
-        run: |
-          make -C install/kubernetes lint
-
-  helm-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-        with:
-          persist-credentials: false
-
-      - name: Run helm-docs
-        run: |
-          make -C install/kubernetes docs
-          test -z "$(git status --porcelain)" || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
-
   helm-charts:
     runs-on: ubuntu-latest
     steps:
