@@ -81,6 +81,8 @@ func containsIP(allowedIPs []net.IPNet, ipnet *net.IPNet) bool {
 }
 
 func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
+	c.Assert(true, checker.DeepEquals, false)
+
 	ipCache := ipcache.NewIPCache(nil)
 	wgAgent := &Agent{
 		wgClient:         &fakeWgClient{},
