@@ -71,8 +71,6 @@ const (
 	ConfigMapName = "cilium-config"
 	Version       = "v1.11.5"
 
-	TunnelType = "vxlan"
-
 	StatusWaitDuration = 5 * time.Minute
 
 	WaitRetryInterval   = 2 * time.Second

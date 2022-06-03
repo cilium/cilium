@@ -113,14 +113,6 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		// of the operator replicas to 1. Ideally this should be the default in the helm chart
 		helmMapOpts["operator.replicas"] = "1"
 
-		if k.params.ClusterName != "" {
-			helmMapOpts["cluster.name"] = k.params.ClusterName
-		}
-
-		if k.params.ClusterID != 0 {
-			helmMapOpts["cluster.id"] = strconv.FormatInt(int64(k.params.ClusterID), 10)
-		}
-
 		switch k.params.Encryption {
 		case encryptionIPsec:
 			helmMapOpts["encryption.enabled"] = "true"
@@ -142,26 +134,22 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			}
 		}
 
-		if k.params.IPAM != "" {
-			helmMapOpts["ipam.mode"] = k.params.IPAM
-		}
-
-		if k.params.ClusterID != 0 {
-			helmMapOpts["cluster.id"] = fmt.Sprintf("%d", k.params.ClusterID)
-		}
-
-		if k.params.KubeProxyReplacement != "" {
-			helmMapOpts["kubeProxyReplacement"] = k.params.KubeProxyReplacement
-		}
-
+		// Set Helm options specific to the detected Kubernetes cluster type
 		switch k.flavor.Kind {
+		case k8s.KindKind:
+			helmMapOpts["ipam.mode"] = ipamKubernetes
+
+		case k8s.KindEKS:
+			helmMapOpts["nodeinit.enabled"] = "true"
+
 		case k8s.KindGKE:
-			helmMapOpts["gke.enabled"] = "true"
-			helmMapOpts["gke.disableDefaultSnat"] = "true"
 			helmMapOpts["nodeinit.enabled"] = "true"
 			helmMapOpts["nodeinit.removeCbrBridge"] = "true"
 			helmMapOpts["nodeinit.reconfigureKubelet"] = "true"
 			helmMapOpts["cni.binPath"] = "/home/kubernetes/bin"
+
+		case k8s.KindAKS:
+			helmMapOpts["nodeinit.enabled"] = "true"
 
 		case k8s.KindMicrok8s:
 			helmMapOpts["cni.binPath"] = Microk8sSnapPath + "/opt/cni/bin"
@@ -170,38 +158,34 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 
 		case k8s.KindRancherDesktop:
 			helmMapOpts["cni.binPath"] = "/usr/libexec/cni"
-
-		case k8s.KindAKS:
-			helmMapOpts["nodeinit.enabled"] = "true"
-			helmMapOpts["azure.enabled"] = "true"
-			helmMapOpts["azure.clientID"] = k.params.Azure.ClientID
-			helmMapOpts["azure.clientSecret"] = k.params.Azure.ClientSecret
-
-		case k8s.KindEKS:
-			helmMapOpts["nodeinit.enabled"] = "true"
 		}
 
+		// Set Helm options specific to the detected / selected datapath mode
 		switch k.params.DatapathMode {
 		case DatapathTunnel:
-			t := k.params.TunnelType
-			if t == "" {
-				t = defaults.TunnelType
-			}
-			helmMapOpts["tunnel"] = t
+			helmMapOpts["tunnel"] = tunnelVxlan
 
 		case DatapathAwsENI:
-			helmMapOpts["nodeinit.enabled"] = "true"
-			helmMapOpts["tunnel"] = "disabled"
+			helmMapOpts["ipam.mode"] = ipamENI
 			helmMapOpts["eni.enabled"] = "true"
+			helmMapOpts["tunnel"] = tunnelDisabled
 			// TODO(tgraf) Is this really sane?
 			helmMapOpts["egressMasqueradeInterfaces"] = "eth0"
 
 		case DatapathGKE:
+			helmMapOpts["ipam.mode"] = ipamKubernetes
 			helmMapOpts["gke.enabled"] = "true"
+			helmMapOpts["gke.disableDefaultSnat"] = "true"
 
 		case DatapathAzure:
+			helmMapOpts["ipam.mode"] = ipamAzure
 			helmMapOpts["azure.enabled"] = "true"
-			helmMapOpts["tunnel"] = "disabled"
+			helmMapOpts["azure.subscriptionID"] = k.params.Azure.SubscriptionID
+			helmMapOpts["azure.resourceGroup"] = k.params.Azure.AKSNodeResourceGroup
+			helmMapOpts["azure.tenantID"] = k.params.Azure.TenantID
+			helmMapOpts["azure.clientID"] = k.params.Azure.ClientID
+			helmMapOpts["azure.clientSecret"] = k.params.Azure.ClientSecret
+			helmMapOpts["tunnel"] = tunnelDisabled
 			switch {
 			case versioncheck.MustCompile(">=1.10.0")(k.chartVersion):
 				helmMapOpts["bpf.masquerade"] = "false"
@@ -215,10 +199,38 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			helmMapOpts["azure.resourceGroup"] = k.params.Azure.AKSNodeResourceGroup
 		}
 
+		// TODO: remove when removing "cluster-name" flag (marked as deprecated),
+		// kept for backwards compatibility
+		if k.params.ClusterName != "" {
+			helmMapOpts["cluster.name"] = k.params.ClusterName
+		}
+
+		// TODO: remove when removing "cluster-id" flag (marked as deprecated), kept
+		// for backwards compatibility
+		if k.params.ClusterID != 0 {
+			helmMapOpts["cluster.id"] = strconv.FormatInt(int64(k.params.ClusterID), 10)
+		}
+
+		// TODO: remove when removing "ipam" flag (marked as deprecated), kept for
+		// backwards compatibility
+		if k.params.IPAM != "" {
+			helmMapOpts["ipam.mode"] = k.params.IPAM
+		}
+
+		// TODO: remove when removing "kube-proxy-replacement" flag (marked as
+		// deprecated), kept for backwards compatibility
+		if k.params.KubeProxyReplacement != "" {
+			helmMapOpts["kubeProxyReplacement"] = k.params.KubeProxyReplacement
+		}
+
+		// TODO: remove when removing "config" flag (marked as deprecated), kept
+		// for backwards compatibility
 		if k.bgpEnabled() {
 			helmMapOpts["bgp.enabled"] = "true"
 		}
 
+		// TODO: remove when removing "ipv4-native-routing-cidr" flag (marked as
+		// deprecated), kept for backwards compatibility
 		if k.params.IPv4NativeRoutingCIDR != "" {
 			// NOTE: Cilium v1.11 replaced --native-routing-cidr by
 			// --ipv4-native-routing-cidr

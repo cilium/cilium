@@ -51,18 +51,23 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.ClusterName, "cluster-name", "", "Name of the cluster")
+	cmd.Flags().MarkDeprecated("cluster-name", "This can now be overridden via `helm-set` (Helm value: `cluster.name`).")
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
 	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
-	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use")
+	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | aws-eni | gke | azure } (default: autodetected).")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.IPAM, "ipam", "", "IP Address Management (IPAM) mode")
+	cmd.Flags().MarkDeprecated("ipam", "IPAM mode is autodetected depending on `datapath-mode`. If needed, this can now be overridden via `helm-set` (Helm value: `ipam.mode`).")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.IPv4NativeRoutingCIDR, "ipv4-native-routing-cidr", "", "IPv4 CIDR within which native routing is possible")
+	cmd.Flags().MarkDeprecated("ipv4-native-routing-cidr", "This can now be overridden via `helm-set` (Helm value: `ipv4NativeRoutingCIDR`).")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().IntVar(&params.ClusterID, "cluster-id", 0, "Unique cluster identifier for multi-cluster")
+	cmd.Flags().MarkDeprecated("cluster-id", "This can now be overridden via `helm-set` (Helm value: `cluster.id`).")
 	cmd.Flags().StringVar(&params.InheritCA, "inherit-ca", "", "Inherit/import CA from another cluster")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.KubeProxyReplacement, "kube-proxy-replacement", "disabled", "Enable/disable kube-proxy replacement { disabled | probe | strict }")
+	cmd.Flags().MarkDeprecated("kube-proxy-replacement", "This can now be overridden via `helm-set` (Helm value: `kubeProxyReplacement`).")
 	cmd.Flags().BoolVar(&params.Wait, "wait", true, "Wait for status to report success (no errors)")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
 	cmd.Flags().BoolVar(&params.RestartUnmanagedPods, "restart-unmanaged-pods", true, "Restart pods which are not being managed by Cilium")
