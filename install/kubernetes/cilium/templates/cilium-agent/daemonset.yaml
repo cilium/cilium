@@ -50,6 +50,7 @@ spec:
         container.apparmor.security.beta.kubernetes.io/cilium-agent: "unconfined"
         container.apparmor.security.beta.kubernetes.io/clean-cilium-state: "unconfined"
         container.apparmor.security.beta.kubernetes.io/mount-cgroup: "unconfined"
+        container.apparmor.security.beta.kubernetes.io/apply-sysctl-overwrites: "unconfined"
         {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -454,6 +455,49 @@ spec:
               - SYS_PTRACE
           {{- end}}
       {{- end }}
+      - name: apply-sysctl-overwrites
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: BIN_PATH
+          value: {{ .Values.cni.binPath }}
+        command:
+        - sh
+        - -ec
+        # The statically linked Go program binary is invoked to avoid any
+        # dependency on utilities like sh that can be missing on certain
+        # distros installed on the underlying host. Copy the binary to the
+        # same directory where we install cilium cni plugin so that exec permissions
+        # are available.
+        - |
+          cp /usr/bin/cilium-sysctlfix /hostbin/cilium-sysctlfix;
+          nsenter --mount=/hostproc/1/ns/mnt "${BIN_PATH}/cilium-sysctlfix";
+          rm /hostbin/cilium-sysctlfix
+        volumeMounts:
+        - name: hostproc
+          mountPath: /hostproc
+        - name: cni-path
+          mountPath: /hostbin
+        securityContext:
+          {{- if .Values.securityContext.privileged }}
+          privileged: true
+          {{- else }}
+          seLinuxOptions:
+            level: 's0'
+            # Running with spc_t since we have removed the privileged mode.
+            # Users can change it to a different type as long as they have the
+            # type available on the system.
+            type: 'spc_t'
+          capabilities:
+            drop:
+              - ALL
+            add:
+              # Required in order to access host's /etc/sysctl.d dir
+              - SYS_ADMIN
+              # Used for nsenter
+              - SYS_CHROOT
+              - SYS_PTRACE
+          {{- end}}
       {{- if not .Values.securityContext.privileged }}
       # Mount the bpf fs if it is not mounted. We will perform this task
       # from a privileged container because the mount propagation bidirectional
