@@ -555,7 +555,7 @@ func setupRouteToVtepCidr() error {
 				MTU:    vtepMTU,
 				Table:  linux_defaults.RouteTableVtep,
 			}
-			if _, err := route.Upsert(r); err != nil {
+			if err := route.Upsert(r); err != nil {
 				return fmt.Errorf("Update VTEP CIDR route error: %w", err)
 			}
 			log.WithFields(logrus.Fields{
