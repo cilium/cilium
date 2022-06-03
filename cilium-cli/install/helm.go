@@ -21,8 +21,6 @@ import (
 )
 
 func (k *K8sInstaller) generateManifests(ctx context.Context) error {
-	ciliumVer := k.getCiliumVersion()
-
 	helmMapOpts := map[string]string{}
 	deprecatedCfgOpts := map[string]string{}
 
@@ -30,7 +28,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 	// It's likely that certain helm options have changed since 1.9.0
 	// These were tested for the >=1.11.0. In case something breaks for versions
 	// older than 1.11.0 we will fix it afterwards.
-	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+	case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
 		// case versioncheck.MustCompile(">=1.11.0")(ciliumVer):
 		// If the user has specified a version with `--image-tag` then
 		// set all image tags with that version. The user will have the
@@ -205,11 +203,11 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			helmMapOpts["azure.enabled"] = "true"
 			helmMapOpts["tunnel"] = "disabled"
 			switch {
-			case versioncheck.MustCompile(">=1.10.0")(ciliumVer):
+			case versioncheck.MustCompile(">=1.10.0")(k.chartVersion):
 				helmMapOpts["bpf.masquerade"] = "false"
 				helmMapOpts["enableIPv4Masquerade"] = "false"
 				helmMapOpts["enableIPv6Masquerade"] = "false"
-			case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+			case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
 				helmMapOpts["masquerade"] = "false"
 			}
 			helmMapOpts["azure.subscriptionID"] = k.params.Azure.SubscriptionID
@@ -225,15 +223,15 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			// NOTE: Cilium v1.11 replaced --native-routing-cidr by
 			// --ipv4-native-routing-cidr
 			switch {
-			case versioncheck.MustCompile(">=1.11.0")(ciliumVer):
+			case versioncheck.MustCompile(">=1.11.0")(k.chartVersion):
 				helmMapOpts["ipv4NativeRoutingCIDR"] = k.params.IPv4NativeRoutingCIDR
-			case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+			case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
 				helmMapOpts["nativeRoutingCIDR"] = k.params.IPv4NativeRoutingCIDR
 			}
 		}
 
 	default:
-		return fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
+		return fmt.Errorf("cilium version unsupported %s", k.chartVersion)
 	}
 
 	// Store all the options passed by --config into helm extraConfig
@@ -242,7 +240,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		extraConfigMap[k] = v
 	}
 
-	vals, err := helm.MergeVals(k, true, k.params.HelmOpts, helmMapOpts, nil, extraConfigMap, k.params.HelmChartDirectory, ciliumVer.String(), k.params.Namespace)
+	vals, err := helm.MergeVals(k, true, k.params.HelmOpts, helmMapOpts, nil, extraConfigMap, k.params.HelmChartDirectory, k.chartVersion.String(), k.params.Namespace)
 	if err != nil {
 		return err
 	}
@@ -265,7 +263,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		k8sVersionStr = k8sVersion.String()
 	}
 
-	manifests, err := helm.GenManifests(ctx, k.params.HelmChartDirectory, k8sVersionStr, ciliumVer.String(), k.params.Namespace, vals)
+	manifests, err := helm.GenManifests(ctx, k.params.HelmChartDirectory, k8sVersionStr, k.chartVersion.String(), k.params.Namespace, vals)
 	if err != nil {
 		return err
 	}

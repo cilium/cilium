@@ -1,0 +1,6 @@
+apiVersion: v2
+name: test
+description: A dummy chart for unit tests
+type: application
+version: 1.2.3
+appVersion: "1.16.0"

@@ -14,7 +14,9 @@ import (
 
 	"github.com/cilium/cilium-cli/internal/utils"
 
+	semver2 "github.com/blang/semver/v4"
 	helm "github.com/cilium/charts"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	"golang.org/x/mod/semver"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -290,4 +292,26 @@ func ListVersions() ([]string, error) {
 	}
 	semver.Sort(versions)
 	return versions, nil
+}
+
+// ResolveHelmChartVersion resolves Helm chart version based on --version and --chart-directory flags.
+func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag string) (semver2.Version, error) {
+	if chartDirectoryFlag == "" {
+		// If --chart-directory flag is not specified, use the version specified with --version flag.
+		version, err := utils.ParseCiliumVersion(versionFlag, "")
+		if err != nil {
+			return semver2.Version{}, err
+		}
+		if _, err = newChartFromCiliumVersion(version.String()); err != nil {
+			return semver2.Version{}, err
+		}
+		return version, nil
+	}
+
+	// Get the chart version from the local Helm chart specified with --chart-directory flag.
+	localChart, err := newChartFromDirectory(chartDirectoryFlag)
+	if err != nil {
+		return semver2.Version{}, fmt.Errorf("failed to load Helm chart directory %s: %s", chartDirectoryFlag, err)
+	}
+	return versioncheck.MustVersion(localChart.Metadata.Version), nil
 }
