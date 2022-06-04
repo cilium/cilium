@@ -98,6 +98,11 @@ Users (Alphabetically)
       U: Networking, NetworkPolicy, and Kubernetes services
       L: https://microk8s.io/
 
+    * N: Capital One
+      D: Capital One uses Cilium as its standard CNI for all Kubernetes environments
+      U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, Hubble, network visibility
+      L: https://www.youtube.com/watch?v=hwOpCKBaJ-w
+
     * N: CENGN - Centre of Excellence in Next Generation Networks
       D: CENGN is using Cilium in multiple clusters including production and development clusters (self-hosted k8s, On-premises)
       U: L3/L4/L7 network policies, Monitoring via Prometheus metrics & Hubble
