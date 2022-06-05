@@ -220,12 +220,21 @@ egressCNP: [ID=_]: _cnp & {
 	if _allowDNS {
 		spec: egress: _rules + [
 				{
-				toEndpoints: [{
-					matchLabels: {
-						"k8s:io.kubernetes.pod.namespace": "kube-system"
-						"k8s:k8s-app":                     "kube-dns"
-					}
-				}]
+				toEndpoints: [
+					{
+						matchLabels: {
+							"k8s:io.kubernetes.pod.namespace": "kube-system"
+							"k8s:k8s-app":                     "kube-dns"
+						}
+					},
+					{
+						// Allows connectivity to NodeLocal DNSCache when deployed with Local Redirect Policy.
+						matchLabels: {
+							"k8s:io.kubernetes.pod.namespace": "kube-system"
+							"k8s:k8s-app":                     "node-local-dns"
+						}
+					},
+				]
 				toPorts: [{
 					ports: [{
 						port:     "53"

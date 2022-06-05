@@ -613,6 +613,9 @@ spec:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: kube-dns
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: node-local-dns
   - toPorts:
     - ports:
       - port: "5353"
@@ -653,6 +656,9 @@ spec:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: kube-dns
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: node-local-dns
   - toPorts:
     - ports:
       - port: "5353"
@@ -691,6 +697,9 @@ spec:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: kube-dns
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: node-local-dns
   - toPorts:
     - ports:
       - port: "5353"
