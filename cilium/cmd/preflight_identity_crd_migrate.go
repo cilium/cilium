@@ -181,7 +181,7 @@ func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *a
 	k8sClientQPSLimit := viper.GetFloat64(option.K8sClientQPSLimit)
 	k8sClientBurst := viper.GetInt(option.K8sClientBurst)
 
-	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
+	k8s.Configure([]string{k8sAPIServer}, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
 
 	if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")

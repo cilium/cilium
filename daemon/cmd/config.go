@@ -182,7 +182,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	status := &models.DaemonConfigurationStatus{
 		Addressing:       node.GetNodeAddressing(),
 		K8sConfiguration: k8s.GetKubeconfigPath(),
-		K8sEndpoint:      k8s.GetAPIServerURL(),
+		K8sEndpoint:      k8s.GetAPIServerURLString(),
 		NodeMonitor:      d.monitorAgent.State(),
 		KvstoreConfiguration: &models.KVstoreConfiguration{
 			Type:    option.Config.KVStore,

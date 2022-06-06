@@ -1092,6 +1092,11 @@ const (
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
+
+	// K8sAPIServerURLs is the URLs for Kubernetes API servers. This is used
+	// in Kube-Proxy free mode to connect directly to the API server not relying
+	// on the service.
+	K8sAPIServerURLs = "k8s-api-server-urls"
 )
 
 // Default string arguments
@@ -2253,6 +2258,10 @@ type DaemonConfig struct {
 
 	// EnvoySecretNamespace for TLS secrets. Used by CiliumEnvoyConfig via SDS.
 	EnvoySecretNamespace string
+
+	// K8sAPIServerURLs contains a list of URLs pointing to Kubernetes
+	// API server instances.
+	K8sAPIServerURLs []string
 }
 
 var (
@@ -2860,12 +2869,11 @@ func (c *DaemonConfig) Populate() {
 	c.IPv6Range = viper.GetString(IPv6Range)
 	c.IPv6ServiceRange = viper.GetString(IPv6ServiceRange)
 	c.JoinCluster = viper.GetBool(JoinClusterName)
-	c.K8sAPIServer = viper.GetString(K8sAPIServer)
-	c.K8sClientBurst = viper.GetInt(K8sClientBurst)
-	c.K8sClientQPSLimit = viper.GetFloat64(K8sClientQPSLimit)
+
+	c.populateK8sClientConfiguration()
+
 	c.K8sEnableK8sEndpointSlice = viper.GetBool(K8sEnableEndpointSlice)
 	c.K8sEnableAPIDiscovery = viper.GetBool(K8sEnableAPIDiscovery)
-	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(viper.GetInt(K8sServiceCacheSize))
@@ -3691,6 +3699,23 @@ func (c *DaemonConfig) validateVTEP() error {
 
 	}
 	return nil
+}
+
+func (c *DaemonConfig) populateK8sClientConfiguration() {
+	c.K8sClientBurst = viper.GetInt(K8sClientBurst)
+	c.K8sClientQPSLimit = viper.GetFloat64(K8sClientQPSLimit)
+	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
+
+	// List of URLs for Kubernetes API server instances.
+	c.K8sAPIServerURLs = viper.GetStringSlice(K8sAPIServerURLs)
+	if viper.IsSet(K8sAPIServer) {
+		if len(c.K8sAPIServerURLs) > 0 {
+			log.Warningf("The option %s has been deprecated in favour of %s. Ignoring %s: %s",
+				K8sAPIServer, K8sAPIServerURLs, K8sAPIServer, viper.GetString(K8sAPIServer))
+		} else {
+			c.K8sAPIServer = viper.GetString(K8sAPIServer)
+		}
+	}
 }
 
 // KubeProxyReplacementFullyEnabled returns true if Cilium is _effectively_

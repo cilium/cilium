@@ -82,7 +82,7 @@ func WatcherAPIExtClient() *K8sAPIExtensionsClient {
 // CreateConfig creates a client configuration based on the configured API
 // server and Kubeconfig path
 func CreateConfig() (*rest.Config, error) {
-	return createConfig(GetAPIServerURL(), GetKubeconfigPath(), GetQPS(), GetBurst())
+	return createConfig(GetAPIServerURLString(), GetKubeconfigPath(), GetQPS(), GetBurst())
 }
 
 // CreateConfigFromAgentResponse creates a client configuration from a
@@ -271,6 +271,14 @@ func runHeartbeat(heartBeat func(context.Context) error, timeout time.Duration, 
 	case err := <-done:
 		if err != nil {
 			log.WithError(err).Warn("Network status error received, restarting client connections")
+
+			// Reinitialize clients if we have alternate API server addresses available.
+			// KubeconfigPath takes precedence over APIServerAddresses
+			if config.KubeconfigPath == "" && len(config.APIServerURLs) > 1 {
+				RotateAPIServerURL()
+				log.WithField("address", config.APIServerURL).Info("Rotating Kubernetes API server URL for connection")
+			}
+
 			for _, fn := range closeAllConns {
 				fn()
 			}

@@ -65,9 +65,9 @@ func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
 	}
 	if os.Getenv("INTEGRATION") != "" {
 		if k8sConfigPath := os.Getenv("KUBECONFIG"); k8sConfigPath == "" {
-			Configure("", "/var/lib/cilium/cilium.kubeconfig", defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
+			Configure([]string{}, "/var/lib/cilium/cilium.kubeconfig", defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 		} else {
-			Configure("", k8sConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
+			Configure([]string{}, k8sConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 		}
 		restConfig, err := CreateConfig()
 		c.Assert(err, IsNil)

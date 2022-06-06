@@ -571,7 +571,7 @@ func runServer(cmd *cobra.Command) {
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {
-		k8s.Configure("", option.Config.K8sKubeConfigPath, 0.0, 0)
+		k8s.Configure([]string{}, option.Config.K8sKubeConfigPath, 0.0, 0)
 		if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
 			log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 		}

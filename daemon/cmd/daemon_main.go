@@ -1146,6 +1146,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableBGPControlPlane, false, "Enable the BGP control plane.")
 	option.BindEnv(option.EnableBGPControlPlane)
 
+	flags.StringSlice(option.K8sAPIServerURLs, []string{}, "List of URLs for Kubernetes API server instances")
+	option.BindEnv(option.K8sAPIServerURLs)
+
 	viper.BindPFlags(flags)
 }
 
@@ -1202,7 +1205,20 @@ func initEnv(cmd *cobra.Command) {
 	// Configure k8s as soon as possible so that k8s.IsEnabled() has the right
 	// behavior.
 	bootstrapStats.k8sInit.Start()
-	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
+	// The flag K8sAPIServerURLs takes precedence over K8sAPIServer.
+	if len(option.Config.K8sAPIServerURLs) > 0 {
+		k8s.Configure(
+			option.Config.K8sAPIServerURLs,
+			option.Config.K8sKubeConfigPath,
+			defaults.K8sClientQPSLimit,
+			defaults.K8sClientBurst)
+	} else {
+		k8s.Configure(
+			[]string{option.Config.K8sAPIServer},
+			option.Config.K8sKubeConfigPath,
+			defaults.K8sClientQPSLimit,
+			defaults.K8sClientBurst)
+	}
 	bootstrapStats.k8sInit.End(true)
 
 	for _, grp := range option.Config.DebugVerbose {

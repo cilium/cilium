@@ -142,6 +142,13 @@ func Init(conf k8sconfig.Configuration) error {
 		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
 	}
 
+	// If the user provided multiple APIServer URLs modify the restConfig
+	// with a http.RoundTripper wrapper to get APIServer URL for every request
+	// from the configuration
+	if len(config.APIServerURLs) > 1 {
+		restConfig.Wrap(defaultHTTPRoundTripper)
+	}
+
 	defaultCloseAllConns := setDialer(restConfig)
 
 	// Use the same http client for all k8s connections. It does not matter that

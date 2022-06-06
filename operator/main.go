@@ -138,7 +138,7 @@ func initEnv() {
 
 func initK8s(k8sInitDone chan struct{}) {
 	k8s.Configure(
-		option.Config.K8sAPIServer,
+		[]string{option.Config.K8sAPIServer},
 		option.Config.K8sKubeConfigPath,
 		float32(option.Config.K8sClientQPSLimit),
 		option.Config.K8sClientBurst,
