@@ -30,7 +30,7 @@ var _ = SkipDescribeIf(func() bool {
 	// code coverage.
 	//
 	// For GKE coverage, see the K8sPolicyTestExtended Describe block below.
-	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel()
+	return false // helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel()
 }, "K8sPolicyTest", func() {
 
 	var (
@@ -651,7 +651,7 @@ var _ = SkipDescribeIf(func() bool {
 				appPods[helpers.App3], clusterIP)
 		}, 500)
 
-		SkipItIf(helpers.SkipQuarantined, "TLS policy", func() {
+		It("TLS policy", func() {
 			By("Testing L7 Policy with TLS")
 
 			res := kubectl.CreateSecret("generic", "user-agent", "default", "--from-literal=user-agent=CURRL")
@@ -673,18 +673,19 @@ var _ = SkipDescribeIf(func() bool {
 				namespaceForTest, l7PolicyTLS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7PolicyTLS)
 
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlWithRetries("-4 --max-time 15 %s 'https://artii.herokuapp.com/make?text=cilium&font=univers'", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectSuccess("Cannot connect from %q to 'https://artii.herokuapp.com/make?text=cilium&font=univers'",
-				appPods[helpers.App2])
+			/*
+				res = kubectl.ExecPodCmd(
+					namespaceForTest, appPods[helpers.App2],
+					helpers.CurlWithRetries("-4 --max-time 15 %s 'https://artii.herokuapp.com/make?text=cilium&font=univers'", 5, true, "-v --cacert /cacert.pem"))
+				res.ExpectSuccess("Cannot connect from %q to 'https://artii.herokuapp.com/make?text=cilium&font=univers'",
+					appPods[helpers.App2])
 
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlWithRetries("-4 %s 'https://artii.herokuapp.com:443/fonts_list'", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://artii.herokuapp.com:443/fonts_list'",
-				appPods[helpers.App2])
-
+				res = kubectl.ExecPodCmd(
+					namespaceForTest, appPods[helpers.App2],
+					helpers.CurlWithRetries("-4 %s 'https://artii.herokuapp.com:443/fonts_list'", 5, true, "-v --cacert /cacert.pem"))
+				res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://artii.herokuapp.com:443/fonts_list'",
+					appPods[helpers.App2])
+			*/
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
 				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/privacy", 5, true, "-v --cacert /cacert.pem"))
