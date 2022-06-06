@@ -305,8 +305,8 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			return err
 		}
 	} else {
-		ingressFinalize := make(chan func())
-		ingressErr := make(chan error)
+		ingressFinalize := make(chan func(), 1)
+		ingressErr := make(chan error, 1)
 		go func() {
 			finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
 			ingressFinalize <- finalize
@@ -336,8 +336,10 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			}
 		}
 
-		err := <-ingressErr
 		finalize := <-ingressFinalize
+		err := <-ingressErr
+		close(ingressFinalize)
+		close(ingressErr)
 
 		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
