@@ -116,7 +116,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 #endif
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, verdict = 0, l3_off = ETH_HLEN, l4_off, hdrlen;
+	int ret, verdict = 0, l4_off, hdrlen;
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	struct trace_ctx trace = {
@@ -144,7 +144,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	if (hdrlen < 0)
 		return hdrlen;
 
-	l4_off = l3_off + hdrlen;
+	l4_off = ETH_HLEN + hdrlen;
 
 	/* Determine the destination category for policy fallback.  Service
 	 * translation of the destination address is done before this function,
@@ -354,7 +354,7 @@ ct_recreate6:
 #endif /* ENABLE_ROUTING */
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
-			return ipv6_local_delivery(ctx, l3_off, SECLABEL, ep,
+			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL, ep,
 						   METRIC_EGRESS, from_l7lb);
 		}
 	}
@@ -405,7 +405,7 @@ ct_recreate6:
 	}
 #endif
 	if (is_defined(ENABLE_HOST_ROUTING))
-		return redirect_direct_v6(ctx, l3_off, ip6);
+		return redirect_direct_v6(ctx, ETH_HLEN, ip6);
 
 	goto pass_to_stack;
 
@@ -420,12 +420,12 @@ to_host:
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING
-	ret = ipv6_l3(ctx, l3_off, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
+	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 #endif
 
-	if (ipv6_store_flowlabel(ctx, l3_off, SECLABEL_NB) < 0)
+	if (ipv6_store_flowlabel(ctx, ETH_HLEN, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
 #ifdef ENABLE_WIREGUARD
@@ -519,12 +519,12 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #ifdef ENABLE_PER_PACKET_LB
 	{
 		struct ipv6_ct_tuple tuple = {};
-		int l3_off = ETH_HLEN, l4_off, hdrlen;
 		struct csum_offset csum_off = {};
 		struct ct_state ct_state_new = {};
 		struct lb6_service *svc;
 		struct lb6_key key = {};
 		__u16 proxy_port = 0;
+		int l4_off, hdrlen;
 
 		tuple.nexthdr = ip6->nexthdr;
 		ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
@@ -534,7 +534,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 		if (hdrlen < 0)
 			return hdrlen;
 
-		l4_off = l3_off + hdrlen;
+		l4_off = ETH_HLEN + hdrlen;
 
 		ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off,
 				      CT_EGRESS);
@@ -560,7 +560,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 				goto skip_service_lookup;
 			}
 #endif /* ENABLE_L7_LB */
-			ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
+			ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					false);
 			if (IS_ERR(ret))
@@ -593,9 +593,9 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 #endif
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret, verdict = 0, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
+	int ret, verdict = 0, l4_off;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -620,7 +620,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 
-	l4_off = l3_off + ipv4_hdrlen(ip4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	/* Determine the destination category for policy fallback. */
 	if (1) {
@@ -775,7 +775,7 @@ ct_recreate4:
 			struct csum_offset csum_off = {};
 
 			csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
-			ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
+			ret = lb4_rev_nat(ctx, ETH_HLEN, l4_off, &csum_off,
 					  &ct_state, &tuple, 0, has_l4_header);
 			if (IS_ERR(ret))
 				return ret;
@@ -832,7 +832,7 @@ ct_recreate4:
 #endif /* ENABLE_ROUTING */
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
-			return ipv4_local_delivery(ctx, l3_off, SECLABEL, ip4,
+			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL, ip4,
 						   ep, METRIC_EGRESS, from_l7lb);
 		}
 	}
@@ -950,7 +950,7 @@ skip_vtep:
 	}
 #endif /* TUNNEL_MODE */
 	if (is_defined(ENABLE_HOST_ROUTING))
-		return redirect_direct_v4(ctx, l3_off, ip4);
+		return redirect_direct_v4(ctx, ETH_HLEN, ip4);
 
 	goto pass_to_stack;
 
@@ -965,7 +965,7 @@ to_host:
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING
-	ret = ipv4_l3(ctx, l3_off, NULL, (__u8 *)&router_mac.addr, ip4);
+	ret = ipv4_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 #endif
@@ -1055,20 +1055,20 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 #ifdef ENABLE_PER_PACKET_LB
 	{
 		struct ipv4_ct_tuple tuple = {};
-		int l3_off = ETH_HLEN, l4_off;
 		struct csum_offset csum_off = {};
 		struct ct_state ct_state_new = {};
 		bool has_l4_header;
 		struct lb4_service *svc;
 		struct lb4_key key = {};
 		__u16 proxy_port = 0;
+		int l4_off;
 
 		has_l4_header = ipv4_has_l4_header(ip4);
 		tuple.nexthdr = ip4->protocol;
 		tuple.daddr = ip4->daddr;
 		tuple.saddr = ip4->saddr;
 
-		l4_off = l3_off + ipv4_hdrlen(ip4);
+		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
 				      CT_EGRESS);
@@ -1087,7 +1087,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 				goto skip_service_lookup;
 			}
 #endif /* ENABLE_L7_LB */
-			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
+			ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					ip4->saddr, has_l4_header, false);
 			if (IS_ERR(ret))
@@ -1493,11 +1493,11 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct csum_offset csum_off = {};
-	int ret, verdict = 0, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_ingress_proxy = false;
 	bool is_untracked_fragment = false;
+	int ret, verdict = 0, l4_off;
 	bool has_l4_header = false;
 	enum trace_reason reason;
 	__u32 monitor = 0;
@@ -1521,7 +1521,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	tuple.saddr = ip4->saddr;
 	orig_sip = ip4->saddr;
 
-	l4_off = l3_off + ipv4_hdrlen(ip4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	if (has_l4_header)
 		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 #ifndef ENABLE_IPV4_FRAGMENTS
@@ -1560,7 +1560,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 		     !ct_state.loopback)) {
 		int ret2;
 
-		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
+		ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off, &csum_off,
 				   &ct_state, &tuple,
 				   REV_NAT_F_TUPLE_SADDR, has_l4_header);
 		if (IS_ERR(ret2))
