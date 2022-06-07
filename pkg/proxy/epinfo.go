@@ -73,6 +73,5 @@ func (r *defaultEndpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointI
 	identity := Allocator.LookupIdentityByID(context.TODO(), id)
 	if identity != nil {
 		info.Labels = identity.Labels.GetModel()
-		info.LabelsSHA256 = identity.GetLabelsSHA256()
 	}
 }
