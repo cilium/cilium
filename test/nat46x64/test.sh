@@ -1,5 +1,6 @@
 #!/bin/bash
 
+PS4='+[\t] '
 set -eux
 
 IMG_OWNER=${1:-cilium}
