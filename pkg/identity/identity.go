@@ -6,7 +6,6 @@ package identity
 import (
 	"fmt"
 	"net"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -25,11 +24,6 @@ type Identity struct {
 	ID NumericIdentity `json:"id"`
 	// Set of labels that belong to this Identity.
 	Labels labels.Labels `json:"labels"`
-
-	// onceLabelSHA256 makes sure LabelsSHA256 is only set once
-	onceLabelSHA256 sync.Once
-	// SHA256 of labels.
-	LabelsSHA256 string `json:"labelsSHA256"`
 
 	// LabelArray contains the same labels as Labels in a form of a list, used
 	// for faster lookup.
@@ -87,18 +81,6 @@ func (id *Identity) Sanitize() {
 	if id.Labels != nil {
 		id.LabelArray = id.Labels.LabelArray()
 	}
-}
-
-// GetLabelsSHA256 returns the SHA256 of the labels associated with the
-// identity. The SHA is calculated if not already cached.
-func (id *Identity) GetLabelsSHA256() string {
-	id.onceLabelSHA256.Do(func() {
-		if id.LabelsSHA256 == "" {
-			id.LabelsSHA256 = id.Labels.SHA256Sum()
-		}
-	})
-
-	return id.LabelsSHA256
 }
 
 // StringID returns the identity identifier as string
@@ -276,10 +258,7 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 			}
 
 			if createID {
-				identity := NewIdentity(id, lbls)
-				// Pre-calculate the SHA256 hash.
-				identity.GetLabelsSHA256()
-				return identity
+				return NewIdentity(id, lbls)
 			}
 
 			// If it doesn't contain a fixed-identity then make sure the set of

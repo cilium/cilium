@@ -40,7 +40,6 @@ var _ = Describe("K8sCLI", func() {
 			const (
 				manifestYAML = "test-cli.yaml"
 				fooID        = "foo"
-				fooSHA       = "c97de9490c28e929fd143f1988deba185345aab2a3a171fabcb8a0d03db68240"
 				fooNode      = "k8s1"
 				// These labels are automatically added to all pods in the default namespace.
 				defaultLabels = "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=default " +
@@ -77,15 +76,6 @@ var _ = Describe("K8sCLI", func() {
 			AfterAll(func() {
 				_ = kubectl.Delete(cliManifest)
 				ExpectAllPodsTerminated(kubectl)
-			})
-
-			It("Test labelsSHA256", func() {
-				cmd := fmt.Sprintf("cilium identity get %d -o json", identity)
-				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
-				res.ExpectSuccess()
-				out, err := res.Filter("{[0].labelsSHA256}")
-				Expect(err).Should(BeNil(), "Error getting SHA from identity")
-				Expect(out.String()).Should(Equal(fooSHA))
 			})
 
 			It("Test identity list", func() {
