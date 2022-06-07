@@ -441,9 +441,7 @@ function set_vagrant_env(){
     export 'FIRST_IP_SUFFIX_NFS'="${ipv4_array[3]}"
     echo "# NFS enabled. don't forget to enable these ports on your host"
     echo "# before starting the VMs in order to have nfs working"
-    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
-    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
-    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
+    echo "# iptables -I INPUT -s ${IPV4_BASE_ADDR_NFS}0/24 -j ACCEPT"
 
     echo "# To use kubectl on the host, you need to add the following route:"
     echo "# ip route add $MASTER_IPV4 via $MASTER_IPV4_NFS"
