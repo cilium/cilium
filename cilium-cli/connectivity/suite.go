@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 var (
@@ -54,13 +53,11 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		return err
 	}
 
-	version := ct.FetchCiliumPodImageTag()
-	ct.Debugf("Cilium image version: %v", version)
-	v, err := utils.ParseCiliumVersion(version, ct.CiliumBaseVersion())
+	helmState, err := ct.K8sClient().GetHelmState(ctx, ct.Params().CiliumNamespace, defaults.HelmValuesSecretName)
 	if err != nil {
-		v = versioncheck.MustVersion(defaults.Version)
-		ct.Warnf("Unable to parse Cilium version %q, assuming %v for connectivity tests", version, defaults.Version)
+		return err
 	}
+	v := helmState.Version
 
 	ct.Infof("Cilium version: %v", v)
 
