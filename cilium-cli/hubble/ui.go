@@ -24,7 +24,7 @@ func (k *K8sHubble) generateHubbleUIService() (*corev1.Service, error) {
 		svcFilename string
 	)
 
-	ciliumVer := k.semVerCiliumVersion
+	ciliumVer := k.helmState.Version
 	switch {
 	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		svcFilename = "templates/hubble-ui/service.yaml"
@@ -46,7 +46,7 @@ func (k *K8sHubble) generateHubbleUIConfigMap() (*corev1.ConfigMap, error) {
 		cmFilename string
 	)
 
-	ciliumVer := k.semVerCiliumVersion
+	ciliumVer := k.helmState.Version
 	switch {
 	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		cmFilename = "templates/hubble-ui/configmap.yaml"
@@ -68,7 +68,7 @@ func (k *K8sHubble) generateHubbleUIDeployment() (*appsv1.Deployment, error) {
 		deployFilename string
 	)
 
-	ciliumVer := k.semVerCiliumVersion
+	ciliumVer := k.helmState.Version
 	switch {
 	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		deployFilename = "templates/hubble-ui/deployment.yaml"
