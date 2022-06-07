@@ -830,7 +830,7 @@ func (c *Client) GetHelmState(ctx context.Context, namespace string, secretName 
 		return nil, fmt.Errorf("unable to retrieve helm chart version from secret %s/%s: %w", namespace, secretName, err)
 	}
 	versionString := string(versionBytes)
-	version, err := utils.ParseCiliumVersion(versionString, "")
+	version, err := utils.ParseCiliumVersion(versionString)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse helm chart version from secret %s/%s: %s %w", namespace, secretName, versionString, err)
 	}
