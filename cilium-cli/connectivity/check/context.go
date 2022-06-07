@@ -543,6 +543,6 @@ func (ct *ConnectivityTest) PostTestSleepDuration() time.Duration {
 	return ct.params.PostTestSleepDuration
 }
 
-func (ct *ConnectivityTest) CiliumBaseVersion() string {
-	return ct.params.CiliumBaseVersion
+func (ct *ConnectivityTest) K8sClient() *k8s.Client {
+	return ct.client
 }
