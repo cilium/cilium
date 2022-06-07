@@ -1777,9 +1777,9 @@ func (s *BgpServer) EnableZebra(ctx context.Context, r *api.EnableZebraRequest) 
 		if s.zclient != nil {
 			return fmt.Errorf("already connected to Zebra")
 		}
-
+		software := zebra.NewSoftware(uint8(r.Version), r.SoftwareName)
 		for _, p := range r.RouteTypes {
-			if _, err := zebra.RouteTypeFromString(p, uint8(r.Version), r.SoftwareName); err != nil {
+			if _, err := zebra.RouteTypeFromString(p, uint8(r.Version), software); err != nil {
 				return err
 			}
 		}
@@ -1789,7 +1789,7 @@ func (s *BgpServer) EnableZebra(ctx context.Context, r *api.EnableZebraRequest) 
 			protos = append(protos, string(p))
 		}
 		var err error
-		s.zclient, err = newZebraClient(s, r.Url, protos, uint8(r.Version), r.NexthopTriggerEnable, uint8(r.NexthopTriggerDelay), r.MplsLabelRangeSize, r.SoftwareName)
+		s.zclient, err = newZebraClient(s, r.Url, protos, uint8(r.Version), r.NexthopTriggerEnable, uint8(r.NexthopTriggerDelay), r.MplsLabelRangeSize, software)
 		return err
 	}, false)
 }
@@ -2239,7 +2239,7 @@ func (s *BgpServer) StartBgp(ctx context.Context, r *api.StartBgpRequest) error 
 		}
 
 		if c.Config.Port > 0 {
-			acceptCh := make(chan *net.TCPConn, 4096)
+			acceptCh := make(chan *net.TCPConn, 32)
 			for _, addr := range c.Config.LocalAddressList {
 				l, err := newTCPListener(s.logger, addr, uint32(c.Config.Port), g.BindToDevice, acceptCh)
 				if err != nil {

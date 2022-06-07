@@ -683,7 +683,7 @@ github.com/opentracing/opentracing-go/log
 # github.com/optiopay/kafka v0.0.0-00010101000000-000000000000 => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 ## explicit
 github.com/optiopay/kafka/proto
-# github.com/osrg/gobgp/v3 v3.2.0
+# github.com/osrg/gobgp/v3 v3.3.0
 ## explicit; go 1.15
 github.com/osrg/gobgp/v3/api
 github.com/osrg/gobgp/v3/internal/pkg/config

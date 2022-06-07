@@ -421,10 +421,6 @@ func setDefaultConfigValuesWithViper(v *viper.Viper, b *BgpConfigSet) error {
 		b.Zebra.Config.NexthopTriggerDelay = 5
 	}
 
-	if !zebra.IsAllowableSoftwareName(b.Zebra.Config.Version, b.Zebra.Config.SoftwareName) {
-		b.Zebra.Config.SoftwareName = ""
-	}
-
 	list, err := extractArray(v.Get("neighbors"))
 	if err != nil {
 		return err
