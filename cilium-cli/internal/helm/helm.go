@@ -27,9 +27,21 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var settings = cli.New()
+
+// State contains Helm state for the current Cilium installation. Cilium CLI retrieves this
+// information from cilium-cli-helm-values Kubernetes secret.
+type State struct {
+	// Pointer to cilium-cli-helm-values secret.
+	Secret *corev1.Secret
+	// Helm chart version.
+	Version semver2.Version
+	// Helm values used for this installation.
+	Values chartutil.Values
+}
 
 // filterManifests a map of generated manifests. The Key is the filename and the
 // Value is its manifest.
