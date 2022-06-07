@@ -160,6 +160,11 @@ static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 	d += len;
 	s += len;
 
+	if (len > 1 && len % 2 == 1) {
+		__it_mob(d, s, 8);
+		len -= 1;
+	}
+
 	switch (len) {
 	case 96:         __it_mob(d, s, 64);
 	case 88: jmp_88: __it_mob(d, s, 64);
@@ -276,25 +281,50 @@ static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 	x += len;
 	y += len;
 
+	if (len > 1 && len % 2 == 1) {
+		__it_xor(x, y, r, 8);
+		len -= 1;
+	}
+
 	switch (len) {
-	case 32:         __it_xor(x, y, r, 64);
+	case 72:         __it_xor(x, y, r, 64);
+	case 64: jmp_64: __it_xor(x, y, r, 64);
+	case 56: jmp_56: __it_xor(x, y, r, 64);
+	case 48: jmp_48: __it_xor(x, y, r, 64);
+	case 40: jmp_40: __it_xor(x, y, r, 64);
+	case 32: jmp_32: __it_xor(x, y, r, 64);
 	case 24: jmp_24: __it_xor(x, y, r, 64);
 	case 16: jmp_16: __it_xor(x, y, r, 64);
 	case  8: jmp_8:  __it_xor(x, y, r, 64);
 		break;
 
+	case 70: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_64;
+	case 62: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_56;
+	case 54: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_48;
+	case 46: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_40;
+	case 38: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_32;
 	case 30: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_24;
 	case 22: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_16;
 	case 14: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_8;
 	case  6: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32);
 		break;
 
+	case 68: __it_xor(x, y, r, 32); goto jmp_64;
+	case 60: __it_xor(x, y, r, 32); goto jmp_56;
+	case 52: __it_xor(x, y, r, 32); goto jmp_48;
+	case 44: __it_xor(x, y, r, 32); goto jmp_40;
+	case 36: __it_xor(x, y, r, 32); goto jmp_32;
 	case 28: __it_xor(x, y, r, 32); goto jmp_24;
 	case 20: __it_xor(x, y, r, 32); goto jmp_16;
 	case 12: __it_xor(x, y, r, 32); goto jmp_8;
 	case  4: __it_xor(x, y, r, 32);
 		break;
 
+	case 66: __it_xor(x, y, r, 16); goto jmp_64;
+	case 58: __it_xor(x, y, r, 16); goto jmp_56;
+	case 50: __it_xor(x, y, r, 16); goto jmp_48;
+	case 42: __it_xor(x, y, r, 16); goto jmp_40;
+	case 34: __it_xor(x, y, r, 16); goto jmp_32;
 	case 26: __it_xor(x, y, r, 16); goto jmp_24;
 	case 18: __it_xor(x, y, r, 16); goto jmp_16;
 	case 10: __it_xor(x, y, r, 16); goto jmp_8;
