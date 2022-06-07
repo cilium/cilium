@@ -22,14 +22,9 @@ func CheckVersion(version string) bool {
 	return versionRegexp(version)
 }
 
-func ParseCiliumVersion(version, baseVersion string) (semver.Version, error) {
+func ParseCiliumVersion(version string) (semver.Version, error) {
 	ersion := strings.TrimPrefix(version, "v")
-	v, err := versioncheck.Version(ersion)
-	if err != nil {
-		ersion = strings.TrimPrefix(baseVersion, "v")
-		v, err = versioncheck.Version(ersion)
-	}
-	return v, err
+	return versioncheck.Version(ersion)
 }
 
 type ImagePathMode int
