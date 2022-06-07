@@ -5,7 +5,6 @@ package labels
 
 import (
 	"bytes"
-	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -450,12 +449,6 @@ func (l Labels) Remove(from Labels) Labels {
 	return result
 }
 
-// SHA256Sum calculates l' internal SHA256Sum. For a particular set of labels is
-// guarantee that it will always have the same SHA256Sum.
-func (l Labels) SHA256Sum() string {
-	return fmt.Sprintf("%x", sha512.Sum512_256(l.SortedList()))
-}
-
 // FormatForKVStore returns the label as a formatted string, ending in
 // a semicolon
 //
@@ -464,8 +457,7 @@ func (l Labels) SHA256Sum() string {
 //
 // Non-pointer receiver allows this to be called on a value in a map.
 func (l Label) FormatForKVStore() []byte {
-	// We don't care if the values already have a '=' since this method is
-	// only used to calculate a SHA256Sum
+	// We don't care if the values already have a '='.
 	//
 	// We absolutely care that the final character is a semi-colon.
 	// Identity allocation in the kvstore depends on this (see

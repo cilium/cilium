@@ -43,11 +43,6 @@ var (
 	DefaultLabelSourceKeyPrefix = LabelSourceAny + "."
 )
 
-func (s *LabelsSuite) TestSHA256Sum(c *C) {
-	str := lbls.SHA256Sum()
-	c.Assert(str, Equals, "cf51cc7e153a09e82b242f2f0fb2f0f3923d2742a9d84de8bb0de669e5e558e3")
-}
-
 func (s *LabelsSuite) TestSortMap(c *C) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
