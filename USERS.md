@@ -179,6 +179,11 @@ Users (Alphabetically)
       U: Networking, network policy, and network visibility
       L: https://cloud.google.com/blog/products/containers-kubernetes/bringing-ebpf-and-cilium-to-google-kubernetes-engine
 
+    * N: IKEA IT AB
+      D: IKEA IT AB is using Cilium for production and non-production environments (self-hosted, bare-metal, private cloud)
+      U: Networking, CiliumclusterWideNetworkPolicy, CiliumNetworkPolicy, kube-proxy replacement, Hubble, Direct routing, egress gateway, hubble-otel, Multi Nic XDP, BGP advertisements, Bandwidth Manager, Service Load Balancing, Cluster Mesh
+      L: https://www.ingka.com/
+
     * N: Infomaniak
       D: Infomaniak is using Cilium in their production clusters (self-hosted, bare-metal and openstack)
       U: Networking, CiliumNetworkPolicy, BPF NodePort, Direct routing, kube-proxy replacement
