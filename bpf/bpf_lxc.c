@@ -700,7 +700,7 @@ struct {
 	__uint(max_entries, 1);
 } CT_TAIL_CALL_BUFFER4 __section_maps_btf;
 
-/* Handle egress IPv6 traffic from a container after service translation has been done
+/* Handle egress IPv4 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
  * In the case of the caller doing the service translation it passes in state via CB,
  * which we take in with lb4_ctx_restore_state().
@@ -1373,7 +1373,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	ret = ct_buffer->ret;
 	*ct_status = (enum ct_status)ret;
 
-	/* Check it this is return traffic to an egress proxy.
+	/* Check if this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
 	 * Always redirect connections that originated from L7 LB.
 	 */
@@ -1688,7 +1688,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	ret = ct_buffer->ret;
 	*ct_status = (enum ct_status)ret;
 
-	/* Check it this is return traffic to an egress proxy.
+	/* Check if this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
 	 * Always redirect connections that originated from L7 LB.
 	 */
@@ -1971,7 +1971,7 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
 /* Handle policy decisions as the packet makes its way towards the endpoint.
  * Previously, the packet may have come from another local endpoint, another
  * endpoint in the cluster, or from the big blue room (as identified by the
- * contents of ctx / CB_SRC_LABEL. Determine whether the traffic may be
+ * contents of ctx / CB_SRC_LABEL). Determine whether the traffic may be
  * passed into the endpoint or if it needs further inspection by a userspace
  * proxy.
  *
