@@ -310,7 +310,7 @@ func ListVersions() ([]string, error) {
 func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag string) (semver2.Version, error) {
 	if chartDirectoryFlag == "" {
 		// If --chart-directory flag is not specified, use the version specified with --version flag.
-		version, err := utils.ParseCiliumVersion(versionFlag, "")
+		version, err := utils.ParseCiliumVersion(versionFlag)
 		if err != nil {
 			return semver2.Version{}, err
 		}
