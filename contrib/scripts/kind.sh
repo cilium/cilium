@@ -19,7 +19,7 @@ cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
 image="${4:-${IMAGE:=${default_image}}}"
 kubeproxy_mode="${5:-${KUBEPROXY_MODE:=${default_kubeproxy_mode}}}"
 ipfamily="${6:-${IPFAMILY:=${default_ipfamily}}}"
-CILIUM_ROOT="$(realpath $(dirname $(readlink -ne $BASH_SOURCE))/../..)"
+CILIUM_ROOT="$(git rev-parse --show-toplevel)"
 
 usage() {
   echo "Usage: ${PROG} [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
