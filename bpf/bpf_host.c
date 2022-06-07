@@ -728,7 +728,7 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 	struct iphdr *iphdr;
 	__be32 sum;
 
-	tunnel_endpoint = ctx_load_meta(ctx, 4);
+	tunnel_endpoint = ctx_load_meta(ctx, CB_ENCRYPT_DST);
 	ctx->mark = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &iphdr)) {
@@ -876,7 +876,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 	};
 	__u32 tunnel_endpoint = 0;
 
-	tunnel_endpoint = ctx_load_meta(ctx, 4);
+	tunnel_endpoint = ctx_load_meta(ctx, CB_ENCRYPT_DST);
 	ctx->mark = 0;
 
 	bpf_clear_meta(ctx);
