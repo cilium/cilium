@@ -129,15 +129,21 @@ func newCmdUninstall() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
+			ctx := context.Background()
 
-			h := hubble.NewK8sHubble(k8sClient, hubble.Parameters{
-				Namespace:            params.Namespace,
-				HelmValuesSecretName: params.HelmValuesSecretName,
-				RedactHelmCertKeys:   params.RedactHelmCertKeys,
-				Writer:               params.Writer,
-				HelmChartDirectory:   params.HelmChartDirectory,
-			})
-			h.Disable(context.Background())
+			h, err := hubble.NewK8sHubble(ctx,
+				k8sClient, hubble.Parameters{
+					Namespace:            params.Namespace,
+					HelmValuesSecretName: params.HelmValuesSecretName,
+					RedactHelmCertKeys:   params.RedactHelmCertKeys,
+					Writer:               params.Writer,
+					HelmChartDirectory:   params.HelmChartDirectory,
+				})
+			if err != nil {
+				fmt.Printf("⚠ ️ Failed to initialize Hubble uninstaller: %s", err)
+			} else if h.Disable(ctx) != nil {
+				fmt.Printf("ℹ️  Failed to disable Hubble. This is expected if Hubble is not enabled: %s", err)
+			}
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
 			if err := uninstaller.Uninstall(context.Background()); err != nil {
 				fatalf("Unable to uninstall Cilium:  %s", err)

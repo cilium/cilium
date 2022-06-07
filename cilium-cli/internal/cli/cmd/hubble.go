@@ -41,10 +41,13 @@ func newCmdHubbleEnable() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
-
-			h := hubble.NewK8sHubble(k8sClient, params)
-			if err := h.Enable(context.Background()); err != nil {
-				fatalf("Unable to enable Hubble:  %s", err)
+			ctx := context.Background()
+			h, err := hubble.NewK8sHubble(ctx, k8sClient, params)
+			if err != nil {
+				fatalf("Unable to enable Hubble: %s", err)
+			}
+			if err := h.Enable(ctx); err != nil {
+				fatalf("Unable to enable Hubble: %s", err)
 			}
 			return nil
 		},
@@ -71,8 +74,6 @@ func newCmdHubbleEnable() *cobra.Command {
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
 
 	cmd.Flags().StringVar(&params.K8sVersion, "k8s-version", "", "Kubernetes server version in case auto-detection fails")
-	cmd.Flags().StringVar(&params.BaseVersion, "base-version", defaults.Version,
-		"Specify the base Cilium version for configuration purpose in case the --version flag doesn't indicate the actual Cilium version")
 	cmd.Flags().StringVar(&params.HelmChartDirectory, "chart-directory", "", "Helm chart directory")
 	cmd.Flags().StringSliceVar(&params.HelmOpts.ValueFiles, "helm-values", []string{}, "Specify helm values in a YAML file or a URL (can specify multiple)")
 	cmd.Flags().StringArrayVar(&params.HelmOpts.Values, "helm-set", []string{}, "Set helm values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
@@ -106,9 +107,13 @@ func newCmdHubbleDisable() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
+			ctx := context.Background()
 
-			h := hubble.NewK8sHubble(k8sClient, params)
-			if err := h.Disable(context.Background()); err != nil {
+			h, err := hubble.NewK8sHubble(ctx, k8sClient, params)
+			if err != nil {
+				fatalf("Unable to disable Hubble:  %s", err)
+			}
+			if err := h.Disable(ctx); err != nil {
 				fatalf("Unable to disable Hubble:  %s", err)
 			}
 			return nil
@@ -134,9 +139,13 @@ func newCmdPortForwardCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Context = contextName
 			params.Namespace = namespace
+			ctx := context.Background()
 
-			h := hubble.NewK8sHubble(k8sClient, params)
-			if err := h.PortForwardCommand(context.Background()); err != nil {
+			h, err := hubble.NewK8sHubble(ctx, k8sClient, params)
+			if err != nil {
+				fatalf("Unable to port forward: %s", err)
+			}
+			if err := h.PortForwardCommand(ctx); err != nil {
 				fatalf("Unable to port forward: %s", err)
 			}
 			return nil

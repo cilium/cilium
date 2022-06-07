@@ -34,19 +34,18 @@ func TestK8sHubbleRelayImage(t *testing.T) {
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			k := &K8sHubble{
-				ciliumVersion: tt.ciliumVersion,
 				params: Parameters{
 					RelayImage:   tt.relayImage,
 					RelayVersion: tt.relayVersion,
 				},
 			}
-			if got := k.relayImage(tt.imagePathMode); got != tt.want {
+			if got := k.relayImage(tt.imagePathMode, tt.ciliumVersion); got != tt.want {
 				t.Errorf("k.relayImage(%d) == %q, want %q", tt.imagePathMode, got, tt.want)
 			}
 		})
 	}
 }
 
-func (k *K8sHubble) relayImage(imagePathMode utils.ImagePathMode) string {
-	return utils.BuildImagePath(k.params.RelayImage, k.params.RelayVersion, defaults.RelayImage, k.ciliumVersion, imagePathMode)
+func (k *K8sHubble) relayImage(imagePathMode utils.ImagePathMode, ciliumVersion string) string {
+	return utils.BuildImagePath(k.params.RelayImage, k.params.RelayVersion, defaults.RelayImage, ciliumVersion, imagePathMode)
 }

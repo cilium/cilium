@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
-	"helm.sh/helm/v3/pkg/chartutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +21,7 @@ func (k *K8sHubble) generateRelayService() (*corev1.Service, error) {
 		svcFilename string
 	)
 
-	ciliumVer := k.semVerCiliumVersion
+	ciliumVer := k.helmState.Version
 	switch {
 	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		svcFilename = "templates/hubble-relay/service.yaml"
@@ -44,7 +43,7 @@ func (k *K8sHubble) generateRelayDeployment() (*appsv1.Deployment, error) {
 		deployFilename string
 	)
 
-	ciliumVer := k.semVerCiliumVersion
+	ciliumVer := k.helmState.Version
 	switch {
 	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		deployFilename = "templates/hubble-relay/deployment.yaml"
@@ -66,7 +65,7 @@ func (k *K8sHubble) generateRelayConfigMap() (*corev1.ConfigMap, error) {
 		cmFilename string
 	)
 
-	ciliumVer := k.semVerCiliumVersion
+	ciliumVer := k.helmState.Version
 	switch {
 	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
 		cmFilename = "templates/hubble-relay/configmap.yaml"
@@ -226,7 +225,7 @@ func (k *K8sHubble) generateRelayCertificate(name string) (corev1.Secret, error)
 		relaySecretFilename string
 	)
 
-	ciliumVer := k.semVerCiliumVersion
+	ciliumVer := k.helmState.Version
 
 	switch {
 	case versioncheck.MustCompile(">1.10.99")(ciliumVer):
@@ -253,30 +252,16 @@ func (k *K8sHubble) generateRelayCertificate(name string) (corev1.Secret, error)
 }
 
 func (k *K8sHubble) PortForwardCommand(ctx context.Context) error {
-	// Ignore the GetRunningCiliumVersion error since it doesn't work for
-	// unreleased versions, and we will fall back to the --base-version
-	k.ciliumVersion, _ = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
-	k.semVerCiliumVersion = k.getCiliumVersion()
-
-	helmSecret, err := k.client.GetSecret(ctx, k.params.Namespace, k.params.HelmValuesSecretName, metav1.GetOptions{})
+	helmState, err := k.client.GetHelmState(ctx, k.params.Namespace, k.params.HelmValuesSecretName)
 	if err != nil {
-		return fmt.Errorf("unable to retrieve helm values secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
-	}
-	yamlSecret, ok := helmSecret.Data[defaults.HelmValuesSecretKeyName]
-	if !ok {
-		return fmt.Errorf("unable to retrieve helm values from secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
-	}
-
-	vals, err := chartutil.ReadValues(yamlSecret)
-	if err != nil {
-		return fmt.Errorf("unable to parse helm values from secret %s/%s: %w", k.params.Namespace, k.params.HelmValuesSecretName, err)
+		return err
 	}
 
 	// Generate the manifests has if hubble was being enabled so that we can
 	// retrieve all UI and Relay's resource names.
 	k.params.UI = true
 	k.params.Relay = true
-	err = k.generateManifestsEnable(ctx, false, vals)
+	err = k.generateManifestsEnable(ctx, false, helmState.Values)
 	if err != nil {
 		return err
 	}
