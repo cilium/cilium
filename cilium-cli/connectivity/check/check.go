@@ -40,7 +40,6 @@ type Parameters struct {
 	PerfCRR               bool
 	PerfHostNet           bool
 	PerfSamples           int
-	CiliumBaseVersion     string
 	CurlImage             string
 	PerformanceImage      string
 	JSONMockImage         string
