@@ -648,14 +648,26 @@ func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(ctx context.C
 		// name `s`.
 		u, err := url.Parse(s)
 		if err == nil {
-			svc := ParseServiceIDFrom(u.Host)
+			var svc *ServiceID
+			// In etcd v3.5.0, 's' doesn't contain the URL Scheme and the u.Host
+			// will be empty because url.Parse will consider the "host" as the
+			// url Scheme. If 's' doesn't contain the URL Scheme then we will be
+			// able to parse the service ID directly from it without the need
+			// to do url.Parse.
+			if u.Host != "" {
+				svc = ParseServiceIDFrom(u.Host)
+			} else {
+				svc = ParseServiceIDFrom(s)
+			}
 			if svc != nil {
 				svcIP := b.GetServiceIP(*svc)
 				if svcIP != nil {
 					s = svcIP.String()
+				} else {
+					log.Debug("Service not found in the service IP getter")
 				}
 			} else {
-				log.Debug("Service not found")
+				log.WithFields(logrus.Fields{"url-host": u.Host, "url": s}).Debug("Unable to parse etcd service URL into a service ID")
 			}
 			log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
 		} else {
