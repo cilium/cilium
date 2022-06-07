@@ -20,8 +20,6 @@ var (
 // label into the map of reserved identity cache.
 func AddReservedIdentity(ni NumericIdentity, lbl string) {
 	identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
-	// Pre-calculate the SHA256 hash.
-	identity.GetLabelsSHA256()
 	cacheMU.Lock()
 	reservedIdentityCache[ni] = identity
 	cacheMU.Unlock()
@@ -31,8 +29,6 @@ func AddReservedIdentity(ni NumericIdentity, lbl string) {
 // multiple labels.
 func AddReservedIdentityWithLabels(ni NumericIdentity, lbls labels.Labels) {
 	identity := NewIdentity(ni, lbls)
-	// Pre-calculate the SHA256 hash.
-	identity.GetLabelsSHA256()
 	cacheMU.Lock()
 	reservedIdentityCache[ni] = identity
 	cacheMU.Unlock()
