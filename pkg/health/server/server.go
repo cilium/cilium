@@ -4,11 +4,13 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
 	"time"
 
 	"github.com/go-openapi/loads"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
@@ -45,6 +47,14 @@ type ipString string
 // nodeMap maps IP addresses to healthNode objects for convenient access to
 // node information.
 type nodeMap map[ipString]healthNode
+
+func (n nodeMap) String() string {
+	b, err := json.Marshal(n)
+	if err != nil {
+		return fmt.Sprintf("unable to marshal nodemap: %s", err)
+	}
+	return string(b)
+}
 
 // Server is the cilium-health daemon that is in charge of performing health
 // and connectivity checks periodically, and serving the cilium-health API.
@@ -91,11 +101,19 @@ func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get nodes' cluster: %s", err)
 	}
-	log.Debug("Got cilium /cluster/nodes")
-
 	if resp == nil || resp.Payload == nil {
 		return nil, nil, fmt.Errorf("received nil health response")
 	}
+
+	var respStr string
+	jsonResp, jsonErr := json.Marshal(resp)
+	if jsonErr != nil {
+		respStr = jsonErr.Error()
+	} else {
+		respStr = string(jsonResp)
+	}
+
+	log.WithField("response", respStr).Info("Got cilium /cluster/nodes")
 
 	s.RWMutex.Lock()
 	s.clientID = resp.Payload.ClientID
@@ -330,6 +348,8 @@ func (s *Server) runActiveServices() error {
 	// Run it once at the start so we get some initial status
 	s.FetchStatusResponse()
 
+	initialStatePrinted := false
+
 	// We can safely ignore nodesRemoved since it's the first time we are
 	// fetching the nodes from the server.
 	nodesAdded, _, _ := s.getNodes()
@@ -342,7 +362,21 @@ func (s *Server) runActiveServices() error {
 		if nodesAdded, nodesRemoved, err := s.getNodes(); err != nil {
 			log.WithError(err).Error("unable to get cluster nodes")
 		} else {
+			before := prober.dumpNodes()
 			prober.setNodes(nodesAdded, nodesRemoved)
+			after := prober.dumpNodes()
+			log.WithFields(logrus.Fields{
+				"nodesAdded":   nodesAdded,
+				"nodesRemoved": nodesRemoved,
+			}).Info("cluster state updated")
+
+			if len(nodesAdded) > 0 || len(nodesRemoved) > 0 || !initialStatePrinted {
+				log.WithFields(logrus.Fields{
+					"before": before,
+					"after":  after,
+				}).Info("cluster state comparison")
+				initialStatePrinted = true
+			}
 		}
 	}
 	prober.RunLoop()

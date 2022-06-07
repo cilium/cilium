@@ -267,6 +267,13 @@ func (p *prober) getIPsByNode() map[string][]*net.IPAddr {
 	return nodes
 }
 
+func (p *prober) dumpNodes() string {
+	p.RLock()
+	defer p.RUnlock()
+
+	return p.nodes.String()
+}
+
 func (p *prober) runHTTPProbe() {
 	startTime := time.Now()
 	p.Lock()
