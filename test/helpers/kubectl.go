@@ -1963,7 +1963,7 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 // ValidateKubernetesDNS validates that the Kubernetes DNS server has been
 // deployed correctly and can resolve DNS names. The following validations are
 // done:
-//  - The Kuberentes DNS deployment has at least one replica
+//  - The Kubernetes DNS deployment has at least one replica
 //  - All replicas are up-to-date and ready
 //  - All pods matching the deployment are represented by a CiliumEndpoint with an identity
 //  - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
