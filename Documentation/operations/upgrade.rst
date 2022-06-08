@@ -365,6 +365,9 @@ New Options
 * ``nodes-gc-interval``: This option was marked as deprecated and has no effect
   in 1.11. Cilium Node Garbage collector is added back in 1.12 (but for k8s GC instead
   of kvstore), so this flag is moved out of deprecated list.
+* ``k8s-api-server-urls``: This option specifies a list of URLs for Kubernetes
+  API server instances. The client will be configured to connect to one of these servers.
+  A new backend server is selected for client connections if the heartbeat check fails.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -393,6 +396,8 @@ Deprecated Options
   Helm) was deprecated, and it will be removed in version 1.13.
 * The ``probe`` option of ``kube-proxy-replacement`` was deprecated, and it will
   be removed in version 1.13.
+* ``k8s-api-server``: This option has been deprecated in favor of ``k8s-api-server-urls``
+  and will be removed in 1.13.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -423,6 +428,8 @@ Helm Options
   container images are not scheduled on non-Linux nodes.
 * ``cluster.id`` cannot be empty and a value must be specified.
   Use the ``0`` value to leave Cluster Mesh disabled.
+* ``k8s.apiServerURLs`` has been introduced to specify multiple Kubernetes API
+  server instances for k8s client configuration.
 
 .. _1.11_upgrade_notes:
 

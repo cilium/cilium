@@ -237,6 +237,8 @@ func init() {
 
 	flags.String(option.K8sAPIServer, "", "Kubernetes API server URL")
 	option.BindEnv(option.K8sAPIServer)
+	flags.MarkDeprecated(option.K8sAPIServer,
+		fmt.Sprintf("This option is deprecated in favor of %s and will be removed in v1.13", option.K8sAPIServerURLs))
 
 	flags.StringSlice(option.K8sAPIServerURLs, []string{}, "List of URLs for Kubernetes API server instances")
 	option.BindEnv(option.K8sAPIServerURLs)
