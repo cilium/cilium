@@ -19,6 +19,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -193,6 +194,22 @@ func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily) (net.IP, 
 	}
 }
 
+// Coalesce CIDRS when allocating the DatapathIPs and healthIPs. GH #18868
+func coalesceCIDRs(rCIDRs []string) (result []string) {
+	cidrs := make([]*net.IPNet, 0, len(rCIDRs))
+	for _, k := range rCIDRs {
+		ip, mask, _ := net.ParseCIDR(k)
+		cidrs = append(cidrs, &net.IPNet{IP: ip, Mask: mask.Mask})
+	}
+	ipv4cidr, ipv6cidr := iputil.CoalesceCIDRs(cidrs)
+	combinedcidrs := append(ipv4cidr, ipv6cidr...)
+	result = make([]string, len(combinedcidrs))
+	for i, k := range combinedcidrs {
+		result[i] = k.String()
+	}
+	return
+}
+
 func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerIP net.IP, err error) {
 	// Blacklist allocation of the external IP
 	d.ipam.BlacklistIP(family.PrimaryExternal(), "node-ip")
@@ -240,6 +257,10 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 		node.SetRouterInfo(routingInfo)
 	}
 
+	// Coalescing multiple CIDRs. GH #18868
+	if result != nil && len(result.CIDRs) > 0 {
+		result.CIDRs = coalesceCIDRs(result.CIDRs)
+	}
 	return
 }
 
@@ -250,6 +271,11 @@ func (d *Daemon) allocateHealthIPs() error {
 			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health")
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
+			}
+
+			// Coalescing multiple CIDRs. GH #18868
+			if result != nil && len(result.CIDRs) > 0 {
+				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
 			log.Debugf("IPv4 health endpoint address: %s", result.IP)
@@ -274,6 +300,11 @@ func (d *Daemon) allocateHealthIPs() error {
 					node.SetEndpointHealthIPv4(nil)
 				}
 				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
+			}
+
+			// Coalescing multiple CIDRs. GH #18868
+			if result != nil && len(result.CIDRs) > 0 {
+				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
 			node.SetEndpointHealthIPv6(result.IP)
