@@ -55,3 +55,6 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	str.WriteString(name)
 	return ResourceID(str.String())
 }
+
+type EncryptKey uint8
+type TunnelPeer string

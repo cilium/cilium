@@ -375,6 +375,9 @@ const (
 	// Resource is a resource
 	Resource = "resource"
 
+	// ConflictingResource is a resource that conflicts with 'Resource'
+	ConflictingResource = "conflicting-resource"
+
 	// Route is a L2 or L3 Linux route
 	Route = "route"
 
@@ -513,6 +516,10 @@ const (
 
 	// Key is the identity of the encryption key
 	Key = "key"
+
+	// ConflictingKey is the identity of the encryption key that conflicts
+	// with 'Key'.
+	ConflictingKey = "conflicting-key"
 
 	// URL represents a Uniform Resource Locator.
 	URL = "url"

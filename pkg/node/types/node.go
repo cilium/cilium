@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -42,6 +43,7 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		Cluster:         option.Config.ClusterName,
 		ClusterID:       option.Config.ClusterID,
 		Source:          source.CustomResource,
+		ResourceID:      ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name),
 		Labels:          n.ObjectMeta.Labels,
 		NodeIdentity:    uint32(n.Spec.NodeIdentity),
 		WireguardPubKey: n.ObjectMeta.Annotations[annotation.WireguardPubKey],
@@ -220,6 +222,9 @@ type Node struct {
 
 	// Source is the source where the node configuration was generated / created.
 	Source source.Source
+
+	// ResourceID is the identifier for this resource in Kubernetes.
+	ResourceID ipcacheTypes.ResourceID
 
 	// Key index used for transparent encryption or 0 for no encryption
 	EncryptionKey uint8

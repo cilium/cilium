@@ -270,6 +270,11 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 	for p, id := range entriesToReplace {
+		// TODO: We should be able to store & restore this info from
+		// the prefixInfo structure so that there isn't this weird
+		// split where some ipcache updates come through the metadata
+		// side and merge with other relevant info while other updates
+		// come down directly to the IPCache.Upsert codepath.
 		prefix := p.String()
 		hIP, key := ipc.getHostIPCache(prefix)
 		meta := ipc.getK8sMetadata(prefix)
