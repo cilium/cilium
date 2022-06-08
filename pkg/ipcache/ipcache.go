@@ -19,6 +19,7 @@ import (
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -522,6 +523,43 @@ func (ipc *IPCache) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.Re
 	ipc.metadata.remove(prefix, resource, aux...)
 	ipc.metadata.Unlock()
 	ipc.metadata.enqueuePrefixUpdates(prefix)
+	ipc.TriggerLabelInjection()
+}
+
+// UpsertPrefixes inserts the prefixes into the IPCache and associates CIDR
+// labels with these prefixes, thereby making these prefixes selectable in
+// policy via local ("CIDR") identities.
+//
+// This will trigger asynchronous calculation of any datapath updates necessary
+// to implement the logic associated with the new CIDR labels.
+func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) {
+	ipc.metadata.Lock()
+	for _, p := range prefixes {
+		ipc.metadata.upsertLocked(p, src, resource, cidr.GetCIDRLabels(p))
+		ipc.metadata.enqueuePrefixUpdates(p)
+	}
+	ipc.metadata.Unlock()
+	ipc.TriggerLabelInjection()
+}
+
+// RemovePrefixes removes the association between the prefixes and the CIDR
+// labels corresponding to those prefixes.
+//
+// This is the reverse operation of UpsertPrefixes(). If multiple callers call
+// UpsertPrefixes() with different resources, then RemovePrefixes() will only
+// remove the association for the target resource. That is, *all* callers must
+// call RemovePrefixes() before this the these prefixes become disassociated
+// from the "CIDR" labels.
+//
+// This will trigger asynchronous calculation of any datapath updates necessary
+// to implement the logic associated with the removed CIDR labels.
+func (ipc *IPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) {
+	ipc.metadata.Lock()
+	for _, p := range prefixes {
+		ipc.metadata.remove(p, resource, cidr.GetCIDRLabels(p))
+		ipc.metadata.enqueuePrefixUpdates(p)
+	}
+	ipc.metadata.Unlock()
 	ipc.TriggerLabelInjection()
 }
 
