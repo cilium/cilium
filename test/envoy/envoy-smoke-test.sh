@@ -309,6 +309,59 @@ function policy_egress_and_ingress {
 EOF
 }
 
+function policy_tls_egress {
+  cilium policy delete policy=test
+  # Cilium must be configured with `--certificates-directory=/var/run/cilium/certs` for this to work!
+  sudo mkdir -p /var/run/cilium/certs/default/test-client
+  sudo cp /home/ubuntu/go/src/github.com/cilium/cilium/test/k8s/manifests/ca.crt /var/run/cilium/certs/default/test-client/
+  cat <<EOF | policy_import_and_wait -
+[{
+    "labels": [{"key": "policy", "value": "test"}],
+    "endpointSelector": {"matchLabels":{"id.client":""}},
+    "egress": [{
+	"toPorts": [{
+	    "ports": [{"port": "53", "protocol": "ANY"}],
+	    "rules": {
+                "dns": [{
+		    "matchPattern": "*"
+                }]
+	    }
+	}]
+    }, {
+	"toFQDNs": [{
+	    "matchPattern": "www.cloudflare.com"
+        }],
+        "toPorts": [{
+            "ports": [{
+                "port": "443",
+                "protocol": "TCP"
+            }],
+            "serverNames": ["www.cloudflare.com"]
+        }]
+    }]
+}]
+EOF
+}
+#            "originatingTLS": {
+#	        "secret": {
+#                    "namespace": "default",
+#                    "name": "test-client"
+#                }
+#	    }
+
+function tls_test {
+  log "beginning tls test"
+  monitor_clear
+
+  # Cilium launches Envoy with path normalization enabled by default, so '//public' will be seen as '/public'
+  log "trying to reach http://www.cloudflare.com:443/ from client (expected: 200)"
+  RETURN=$(docker exec -i client curl -4 -v -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET https://www.cloudflare.com:443/)
+  if [[ "${RETURN//$'\n'}" != "200" ]]; then
+    abort "GET /public, unexpected return ${RETURN//$'\n'} != 200"
+  fi
+  log "finished tls test"
+}
+
 function proxy_test {
   log "beginning proxy test"
   monitor_clear
@@ -346,6 +399,7 @@ proxy_init
 log "+----------------------------------------------------------------------+"
 log "Testing without Policy"
 log "+----------------------------------------------------------------------+"
+cilium policy delete --all
 # Cilium launches Envoy with path normalization enabled by default, so '//public' will be seen as '/public'
 log "trying to reach server IPv4 at http://$SERVER_IP4:80//public from client (expected: 200)"
 RETURN=$(docker exec -i client curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80//public)
@@ -355,7 +409,10 @@ fi
 
 policy_base
 
-for state in "false" "true"; do
+policy_tls_egress
+tls_test
+
+for state in ; do # "false" "true"; do
   cilium config ConntrackLocal=$state
 
   for service in "none" "lb"; do
@@ -391,10 +448,10 @@ for state in "false" "true"; do
 done
 
 log "deleting all services from Cilium"
-cilium service delete --all
+# cilium service delete --all
 log "deleting all policies from Cilium"
-cilium policy delete --all 2> /dev/null || true
+# cilium policy delete --all 2> /dev/null || true
 log "removing containers"
-docker rm -f server1 server2 client 2> /dev/null || true
+# docker rm -f server1 server2 client 2> /dev/null || true
 
 test_succeeded "${TEST_NAME}"
