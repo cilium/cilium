@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -163,6 +164,17 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing types.NodeAddressi
 		IP:   nodeAddressing.IPv4().Router(),
 		Mask: net.CIDRMask(32, 32),
 	}
+
+	cidrs2 := make([]*net.IPNet, 0, 0)
+	for i := range cidrs {
+		cidrs2 = append(cidrs2, &cidrs[i])
+	}
+	resultcidr, _ := iputil.CoalesceCIDRs(cidrs2)
+	cidrs = make([]net.IPNet, 0, len(resultcidr))
+	for _, cidr := range resultcidr {
+		cidrs = append(cidrs, *cidr)
+	}
+
 	for _, cidr := range cidrs {
 		if err = linuxrouting.SetupRules(&routerIP, &cidr, info.GetMac().String(), info.GetInterfaceNumber()); err != nil {
 			return nil, fmt.Errorf("unable to install ip rule for cilium_host: %w", err)
