@@ -157,6 +157,7 @@ jobs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
+            --helm-set=debug.enabled=true \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
