@@ -1,0 +1,10 @@
+{
+  "repository_owner": "cilium",
+  "action": "created",
+  "comment": {
+    "body": "/ci-gke"
+  },
+  "repository": {
+    "name": "cilium"
+  }
+}

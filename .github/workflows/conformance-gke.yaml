@@ -91,7 +91,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
-        if: ${{ github.event.issue.pull_request }}
+        if: ${{ !env.ACT && github.event.issue.pull_request }}
         id: pr
         run: |
           curl ${{ github.event.issue.pull_request.url }} > pr.json
@@ -125,16 +125,21 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            PR_API_JSON=$(curl \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+          if [ ${{ env.ACT }} ]; then
+            SHA=${{ env.ACT_SHA }}
+            OWNER=${{ env.ACT_SHA }}
           else
-            SHA=${{ github.sha }}
-            OWNER=${{ github.sha }}
+            if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+              PR_API_JSON=$(curl \
+                -H "Accept: application/vnd.github.v3+json" \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+              SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+              OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+            else
+              SHA=${{ github.sha }}
+              OWNER=${{ github.sha }}
+            fi
           fi
 
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
@@ -167,6 +172,7 @@ jobs:
           echo ::set-output name=owner::${OWNER}
 
       - name: Set commit status to pending
+        if: ${{ !env.ACT }}
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
@@ -183,6 +189,14 @@ jobs:
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
           rm cilium-linux-amd64.tar.gz{,.sha256sum}
           cilium version
+
+      - name: Install kubectl
+        # For some reason ACT docker images don't have kubectl, so we need to
+        # install it.
+        if: ${{ env.ACT }}
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@877d4953d2c70a0ba7ef3290ae968eb24af233bb
@@ -350,7 +364,7 @@ jobs:
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ !env.ACT && !success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
           name: cilium-sysdump-out.zip
@@ -358,7 +372,7 @@ jobs:
           retention-days: 5
 
       - name: Set commit status to success
-        if: ${{ success() }}
+        if: ${{ !env.ACT && success() }}
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
@@ -369,7 +383,7 @@ jobs:
           target_url: ${{ env.check_url }}
 
       - name: Set commit status to failure
-        if: ${{ failure() }}
+        if: ${{ !env.ACT && failure() }}
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
@@ -380,7 +394,7 @@ jobs:
           target_url: ${{ env.check_url }}
 
       - name: Set commit status to cancelled
-        if: ${{ cancelled() }}
+        if: ${{ !env.ACT && cancelled() }}
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
@@ -391,7 +405,7 @@ jobs:
           target_url: ${{ env.check_url }}
 
       - name: Send slack notification
-        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        if: ${{ !env.ACT && !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
         with:
           status: ${{ job.status }}
