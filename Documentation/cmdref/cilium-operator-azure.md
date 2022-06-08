@@ -48,6 +48,7 @@ cilium-operator-azure [flags]
       --instance-tags-filter map                  EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                               Backend to use for IPAM (default "azure")
       --k8s-api-server string                     Kubernetes API server URL
+      --k8s-api-server-urls strings               List of URLs for Kubernetes API server instances
       --k8s-client-burst int                      Burst value allowed for the K8s client
       --k8s-client-qps float32                    Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)

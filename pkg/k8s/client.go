@@ -273,10 +273,10 @@ func runHeartbeat(heartBeat func(context.Context) error, timeout time.Duration, 
 			log.WithError(err).Warn("Network status error received, restarting client connections")
 
 			// Reinitialize clients if we have alternate API server addresses available.
-			// KubeconfigPath takes precedence over APIServerAddresses
+			// KubeconfigPath takes precedence over APIServerURLs
 			if config.KubeconfigPath == "" && len(config.APIServerURLs) > 1 {
 				RotateAPIServerURL()
-				log.WithField("address", config.APIServerURL).Info("Rotating Kubernetes API server URL for connection")
+				log.WithField("url", config.APIServerURL).Info("Rotating Kubernetes API server URL for client connections")
 			}
 
 			for _, fn := range closeAllConns {
