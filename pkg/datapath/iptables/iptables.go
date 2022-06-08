@@ -702,7 +702,7 @@ func (m *IptablesManager) addProxyRules(prog iptablesInterface, proxyPort uint16
 	scanner := bufio.NewScanner(strings.NewReader(rules))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || strings.Contains(rule, "cilium: TPROXY to host "+name) || !strings.Contains(rule, portMatch) {
+		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || !strings.Contains(rule, "cilium: TPROXY to host "+name) || strings.Contains(rule, portMatch) {
 			continue
 		}
 
