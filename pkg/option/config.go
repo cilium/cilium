@@ -777,10 +777,6 @@ const (
 	// endpoints that are no longer alive and healthy.
 	EndpointGCInterval = "endpoint-gc-interval"
 
-	// SelectiveRegeneration specifies whether only the endpoints which policy
-	// changes select should be regenerated upon policy changes.
-	SelectiveRegeneration = "enable-selective-regeneration"
-
 	// K8sEventHandover is the name of the K8sEventHandover option
 	K8sEventHandover = "enable-k8s-event-handover"
 
@@ -1773,13 +1769,6 @@ type DaemonConfig struct {
 	// endpoints that are no longer alive and healthy.
 	EndpointGCInterval time.Duration
 
-	// SelectiveRegeneration, when true, enables the functionality to only
-	// regenerate endpoints which are selected by the policy rules that have
-	// been changed (added, deleted, or updated). If false, then all endpoints
-	// are regenerated upon every policy change regardless of the scope of the
-	// policy change.
-	SelectiveRegeneration bool
-
 	// ConntrackGCInterval is the connection tracking garbage collection
 	// interval
 	ConntrackGCInterval time.Duration
@@ -2263,7 +2252,6 @@ var (
 		FixedIdentityMapping:         make(map[string]string),
 		KVStoreOpt:                   make(map[string]string),
 		LogOpt:                       make(map[string]string),
-		SelectiveRegeneration:        defaults.SelectiveRegeneration,
 		LoopbackIPv4:                 defaults.LoopbackIPv4,
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
@@ -3206,7 +3194,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.PolicyQueueSize = sanitizeIntParam(vp, PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(vp, EndpointQueueSize, defaults.EndpointQueueSize)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
-	c.SelectiveRegeneration = vp.GetBool(SelectiveRegeneration)
 	c.DisableCNPStatusUpdates = vp.GetBool(DisableCNPStatusUpdates)
 	c.EnableICMPRules = vp.GetBool(EnableICMPRules)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)

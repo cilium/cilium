@@ -871,10 +871,6 @@ func initializeFlags() {
 	flags.MarkHidden(option.EndpointGCInterval)
 	option.BindEnv(Vp, option.EndpointGCInterval)
 
-	flags.Bool(option.SelectiveRegeneration, true, "only regenerate endpoints which need to be regenerated upon policy changes")
-	flags.MarkHidden(option.SelectiveRegeneration)
-	option.BindEnv(Vp, option.SelectiveRegeneration)
-
 	flags.String(option.WriteCNIConfigurationWhenReady, "", fmt.Sprintf("Write the CNI configuration as specified via --%s to path when agent is ready", option.ReadCNIConfiguration))
 	option.BindEnv(Vp, option.WriteCNIConfigurationWhenReady)
 
