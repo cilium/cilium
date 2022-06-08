@@ -17,13 +17,6 @@
 #include "mono.h"
 #include "config.h"
 
-/* FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
- * #ifndef HAVE_LRU_HASH_MAP_TYPE
- * #define NEEDS_TIMEOUT 1
- * #endif
- */
-#define NEEDS_TIMEOUT 1
-
 #ifndef AF_INET
 #define AF_INET 2
 #endif
