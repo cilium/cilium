@@ -460,7 +460,7 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 	oldSet := ipc.metadata.filterByLabels(lbls)
 	for _, ip := range oldSet {
 		if _, ok := toExclude[ip]; !ok {
-			ipc.removeLabels(ip, lbls, rid)
+			ipc.metadata.remove(ip, rid, lbls)
 		}
 	}
 }
@@ -485,19 +485,21 @@ func (m *metadata) filterByLabels(filter labels.Labels) []string {
 // removeLabels asynchronously removes the labels association for a prefix.
 //
 // This function assumes that the ipcache metadata lock is held for writing.
-func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, resource types.ResourceID) {
-	info, ok := ipc.metadata.m[prefix]
+func (m *metadata) remove(prefix string, resource types.ResourceID, aux ...IPMetadata) {
+	info, ok := m.m[prefix]
 	if !ok {
 		return
 	}
-	info[resource].unmerge(lbls)
+	for _, a := range aux {
+		info[resource].unmerge(a)
+	}
 	if !info[resource].isValid() {
 		delete(info, resource)
 	}
 	if !info.isValid() { // Labels empty, delete
-		delete(ipc.metadata.m, prefix)
+		delete(m.m, prefix)
 	}
-	ipc.metadata.enqueuePrefixUpdates(prefix)
+	m.enqueuePrefixUpdates(prefix)
 }
 
 // TriggerLabelInjection triggers the label injection controller to iterate
