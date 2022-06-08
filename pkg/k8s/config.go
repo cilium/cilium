@@ -87,6 +87,18 @@ func RotateAPIServerURL() {
 	}
 }
 
+// CanRotateAPIServerURL returns true if we can Rotate the APIServer URL used
+// for client connections.
+// If Kubeconfig path is provided it takes precedence over api server addresses
+// for client configuration.
+func CanRotateAPIServerURL() bool {
+	if config.KubeconfigPath == "" && len(config.APIServerURLs) > 1 {
+		return true
+	}
+
+	return false
+}
+
 // GetKubeconfigPath returns the configured path to the kubeconfig
 // configuration file
 func GetKubeconfigPath() string {

@@ -2439,10 +2439,10 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		if DoesNotRunOnGKE() {
 			nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
 			if err != nil {
-				return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
+				return fmt.Errorf("cannot retrieve Node IP for k8s1: %s", err)
 			}
-			opts["k8sServiceHost"] = nodeIP
-			opts["k8sServicePort"] = "6443"
+
+			opts["k8s.apiServerURLs"] = fmt.Sprintf("https://%s:6443", nodeIP)
 		}
 
 		if RunsOn419OrLaterKernel() {

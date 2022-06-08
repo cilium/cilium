@@ -109,7 +109,14 @@ func createClient(config *rest.Config, cs kubernetes.Interface) error {
 		case <-timeout.C:
 			log.WithError(err).WithField(logfields.IPAddr, config.Host).Error("Unable to contact k8s api-server")
 			close(stop)
+
 		default:
+			// If we are using explicit connection to API Server
+			// Rotate the URL to see if we can connect to any other instance.
+			if CanRotateAPIServerURL() {
+				RotateAPIServerURL()
+				config.Host = GetAPIServerURL().Host
+			}
 		}
 	}, 5*time.Second, stop)
 	if err == nil {
@@ -272,11 +279,9 @@ func runHeartbeat(heartBeat func(context.Context) error, timeout time.Duration, 
 		if err != nil {
 			log.WithError(err).Warn("Network status error received, restarting client connections")
 
-			// Reinitialize clients if we have alternate API server addresses available.
-			// KubeconfigPath takes precedence over APIServerURLs
-			if config.KubeconfigPath == "" && len(config.APIServerURLs) > 1 {
+			if CanRotateAPIServerURL() {
 				RotateAPIServerURL()
-				log.WithField("url", config.APIServerURL).Info("Rotating Kubernetes API server URL for client connections")
+				log.WithField("url", GetAPIServerURLString()).Info("Rotated Kubernetes API server URL for client connections")
 			}
 
 			for _, fn := range closeAllConns {
