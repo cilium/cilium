@@ -69,9 +69,8 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	__u8 seen_flags = flags.lower_bits & report_mask;
 	__u32 last_report;
 
-#ifdef NEEDS_TIMEOUT
 	WRITE_ONCE(entry->lifetime, now + lifetime);
-#endif
+
 	if (dir == CT_INGRESS) {
 		accumulated_flags = READ_ONCE(entry->rx_flags_seen);
 		last_report = READ_ONCE(entry->last_rx_report);
