@@ -271,10 +271,6 @@ const (
 	// EndpointQueueSize is the default queue size for an endpoint.
 	EndpointQueueSize = 25
 
-	// SelectiveRegeneration specifies whether regeneration of endpoints will be
-	// invoked only for endpoints which are selected by policy changes.
-	SelectiveRegeneration = true
-
 	// K8sSyncTimeout specifies the default time to wait after the last event
 	// of a Kubernetes resource type before timing out while waiting for synchronization.
 	K8sSyncTimeout = 3 * time.Minute
