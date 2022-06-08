@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1078,13 +1079,14 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 }
 
 func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod, containerName string) error {
+	hubbleFlowsTimeout := strconv.FormatInt(int64(c.Options.HubbleFlowsTimeout/time.Second), 10)
 	for _, p := range pods {
 		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("hubble-flows-"+p.Name), func(ctx context.Context) error {
 			// HACK: Run hubble observe with --follow to avoid hitting the code path that triggers
 			// https://github.com/cilium/cilium/issues/17036.
 			b, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, []string{
-				"timeout", "--signal", "SIGINT", "--preserve-status", "5", "bash", "-c",
+				"timeout", "--signal", "SIGINT", "--preserve-status", hubbleFlowsTimeout, "bash", "-c",
 				fmt.Sprintf("hubble observe --follow --last %d --debug -o jsonpb", c.Options.HubbleFlowsCount),
 			})
 			if err != nil {
@@ -1098,6 +1100,7 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 			if err := c.WriteBytes(fmt.Sprintf(hubbleObserveFileName, p.Name), e.Bytes()); err != nil {
 				return fmt.Errorf("failed to write hubble stderr for %q in namespace %q: %w", p.Name, p.Namespace, err)
 			}
+			c.logDebug("Finished collecting hubble flows from %s/%s", p.Namespace, p.Name)
 			return nil
 		}); err != nil {
 			return fmt.Errorf("failed to submit 'hubble-flows' task for %q: %w", p.Name, err)
