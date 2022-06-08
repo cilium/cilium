@@ -47,10 +47,6 @@
 # define THIS_MTU MTU
 #endif
 
-#define PORT_UDP_VXLAN 4789
-#define PORT_UDP_GENEVE 6081
-#define PORT_UDP_VXLAN_LINUX 8472
-
 #ifdef PREALLOCATE_MAPS
 #define CONDITIONAL_PREALLOC 0
 #else
