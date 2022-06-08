@@ -83,7 +83,7 @@ const (
 // Special identities for well-known cluster components
 // Each component has two identities. The first one is used for Kubernetes <1.21
 // or when the NamespaceDefaultLabelName feature gate is disabled. The second
-// one is used for Kubernets >= 1.21 and when the NamespaceDefaultLabelName is
+// one is used for Kubernetes >= 1.21 and when the NamespaceDefaultLabelName is
 // enabled.
 const (
 	// ReservedETCDOperator is the reserved identity used for the etcd-operator

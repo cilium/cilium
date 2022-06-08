@@ -41,7 +41,7 @@ Enable CNI in Kubernetes
 delegate networking configuration. CNI must be enabled in your Kubernetes
 cluster in order to install Cilium. This is done by passing
 ``--network-plugin=cni`` to kubelet on all nodes. For more information, see
-the `Kubernets CNI network-plugins documentation <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>`_.
+the `Kubernetes CNI network-plugins documentation <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>`_.
 
 Enable automatic node CIDR allocation (Recommended)
 ===================================================

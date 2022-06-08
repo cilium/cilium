@@ -422,7 +422,7 @@ const (
 	// the map used to track datagram fragments.
 	FragmentsMapEntries = 8192
 
-	// K8sEnableAPIDiscovery defines whether Kuberntes API groups and
+	// K8sEnableAPIDiscovery defines whether Kubernetes API groups and
 	// resources should be probed using the discovery API
 	K8sEnableAPIDiscovery = false
 
