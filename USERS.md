@@ -247,7 +247,7 @@ Users (Alphabetically)
       Q: @edude03
 
     * N: Meltwater
-      D: Meltwater is using Cilim in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
+      D: Meltwater is using Cilium in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
       U: ENI Networking, Encryption, Monitoring via Prometheus metrics & Hubble
       Q: @recollir, @dezmodue
       

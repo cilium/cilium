@@ -105,13 +105,13 @@ Return the appropriate apiVersion for podDisruptionBudget.
 {{/*
 Generate TLS CA for Cilium
 Note: Always use this template as follows:
-    {{- $_ := include "cilum.ca.setup" . -}}
+    {{- $_ := include "cilium.ca.setup" . -}}
 
 The assignment to `$_` is required because we store the generated CI in a global `commonCA`
 and `commonCASecretName` variables.
 
 */}}
-{{- define "cilum.ca.setup" }}
+{{- define "cilium.ca.setup" }}
   {{- if not .commonCA -}}
     {{- $ca := "" -}}
     {{- $secretName := "cilium-ca" -}}
