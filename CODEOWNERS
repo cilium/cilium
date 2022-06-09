@@ -287,7 +287,6 @@ jenkinsfiles @cilium/ci-structure
 /test/runtime/cassandra.go @cilium/proxy @cilium/ci-structure
 /test/runtime/fqdn.go @cilium/proxy @cilium/ci-structure
 /test/runtime/kafka.go @cilium/proxy @cilium/ci-structure
-/test/runtime/memcache.go @cilium/proxy @cilium/ci-structure
 # Standalone L4LB tests
 /test/l4lb @cilium/loadbalancer @cilium/ci-structure
 /test/nat46x64 @cilium/loadbalancer @cilium/ci-structure
