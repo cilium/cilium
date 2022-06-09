@@ -105,7 +105,7 @@ jobs:
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
-          retention-days: 1
+          retention-days: 10
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
@@ -159,7 +159,7 @@ jobs:
         with:
           name: image-digest-output.txt-${{ steps.tag.outputs.tag }}
           path: image-digest-output.txt
-          retention-days: 1
+          retention-days: 10
 
       # Upload artifact digests
       - name: Upload artifact digests
@@ -167,4 +167,4 @@ jobs:
         with:
           name: Makefile.digests-${{ steps.tag.outputs.tag }}
           path: Makefile.digests
-          retention-days: 1
+          retention-days: 10
