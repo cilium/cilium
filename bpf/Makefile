@@ -10,7 +10,6 @@ SUBDIRS = sockops custom
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
 BPF_SIMPLE_C = $(patsubst %.o,%.c,${BPF_SIMPLE})
 BPF_SIMPLE_LL = $(patsubst %.o,%.ll,${BPF_SIMPLE})
-BPF_TEST=tests/bpf_ct_tests.o
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
 TARGET=cilium-probe-kernel-hz
@@ -302,21 +301,6 @@ bpf_lxc.ll: bpf_lxc.c $(LIB)
 bpf_lxc.o: bpf_lxc.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
-
-CT_TEST_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6 -DENABLE_HOST_REDIRECT -DENABLE_NAT_46X64 \
-	-DENABLE_ROUTING -DENABLE_IPSEC -DIP_POOLS -DPOLICY_VERDICT_NOTIFY
-
-tests/bpf_ct_tests.ll: tests/bpf_ct_tests.c $(LIB)
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} $(patsubst %,%=1,${CT_TEST_OPTIONS}) ${CLANG_FLAGS} -c $< -o $@
-
-tests/bpf_ct_tests.o: tests/bpf_ct_tests.ll
-	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
-
-.PHONY: go_prog_test
-go_prog_test: $(BPF_TEST)
-	$(GO) test -tags privileged_tests -exec sudo ./tests/prog_test
 
 subdirs: $(SUBDIRS)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \

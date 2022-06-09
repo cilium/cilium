@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#include "common.h"
+
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
 
 /* most values taken from node_config.h */
+#define ENABLE_IPV4
+
 #define ENDPOINTS_MAP test_cilium_lxc
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define METRICS_MAP test_cilium_metrics
@@ -12,7 +16,7 @@
 #define ENDPOINTS_MAP_SIZE 65536
 #define IPCACHE_MAP_SIZE 512000
 #define METRICS_MAP_SIZE 65536
-#define EVENTS_MAP test_events_map
+#define EVENTS_MAP test_cilium_events
 
 #define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
 #define CT_MAP_ANY6 test_cilium_ct_any6_65535
@@ -36,128 +40,198 @@
 #include <lib/dbg.h>
 #include <lib/conntrack.h>
 #include <lib/conntrack_map.h>
+#include <lib/time.h>
 
-__section("action/test-nop")
-int test_nop(struct __ctx_buff __maybe_unused *ctx)
+__always_inline int mkpkt(void *dst, bool first)
 {
-	return CTX_ACT_OK;
+	void *orig = dst;
+	struct ethhdr *l2 = dst;
+
+	l2->h_proto = bpf_htons(ETH_P_IP);
+
+	if (first) {
+		char src[6] = {1, 0, 0, 3, 0, 10};
+		char dest[6] = {1, 0, 0, 3, 0, 20};
+
+		memcpy(l2->h_source, src, sizeof(src));
+		memcpy(l2->h_dest, dest, sizeof(dest));
+	} else {
+		char src[6] = {1, 0, 0, 3, 0, 20};
+		char dest[6] = {1, 0, 0, 3, 0, 10};
+
+		memcpy(l2->h_source, src, sizeof(src));
+		memcpy(l2->h_dest, dest, sizeof(dest));
+	}
+
+	dst += sizeof(struct ethhdr);
+
+	struct iphdr *l3 = dst;
+
+	l3->version = 4;
+	l3->ihl = 5;
+	l3->protocol = IPPROTO_TCP;
+
+	if (first) {
+		l3->saddr =  0x0A00030A; /* 10.3.0.10 */
+		l3->daddr = 0x1400030A; /* 10.3.0.20 */
+	} else {
+		l3->saddr = 0x1400030A; /* 10.3.0.20 */
+		l3->daddr =  0x0A00030A; /* 10.3.0.10 */
+	}
+
+	dst += sizeof(struct iphdr);
+
+	char tcp_data[11] = "pizza! :-)";
+
+	struct tcphdr *l4 = dst;
+
+	l4->doff = 5;
+	if (first) {
+		l4->source = __bpf_htons(3010);
+		l4->dest = __bpf_htons(3020);
+		l4->syn = 1;
+	} else {
+		l4->source = __bpf_htons(3020);
+		l4->dest = __bpf_htons(3010);
+		l4->rst = 1;
+	}
+	dst += sizeof(struct tcphdr);
+
+	memcpy(dst, tcp_data, sizeof(tcp_data));
+	dst += sizeof(tcp_data);
+
+	return dst - orig;
 }
 
-__section("action/test-map")
-int test_map(struct __ctx_buff __maybe_unused *ctx)
+static char pkt[100];
+
+CHECK("tc", "ct4")
+int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 {
-	/*
-	 * Declare static, otherwise this ends up in .rodata.
-	 * On new clang + pre-5.12 kernel, this causes BTF to be rejected,
-	 * since the Datasec is patched up to the real size of .rodata,
-	 * but vlen remains 0, since this is a var with local scope.
-	 * See https://lore.kernel.org/bpf/20210119153519.3901963-1-yhs@fb.com.
-	 */
-	static struct ipv4_ct_tuple ct_key = (struct ipv4_ct_tuple){
-		.saddr = bpf_htonl(16843009), /* 1.1.1.1 */
-		.daddr = bpf_htonl(16843010), /* 1.1.1.2 */
-		.sport = bpf_htons(1001),
-		.dport = bpf_htons(1002),
-		.nexthdr = 0,
-		.flags = 0,
-	};
+	test_init();
 
-	struct ct_entry ct_val = (struct ct_entry){
-		.rx_packets = 1000,
-		.tx_packets = 1000,
-	};
+	int pkt_size = mkpkt(pkt, true);
 
-	map_update_elem(&CT_MAP_TCP4, &ct_key, &ct_val, 0);
-	return CTX_ACT_OK;
-}
+	{
+		unsigned int data_len = ctx->data_end - ctx->data;
+		int offset = offset = pkt_size - 256 - 320 - data_len;
 
-__section("action/test-ct4-rst1")
-int test_ct4_rst1(struct __ctx_buff *ctx)
-{
-	struct ipv4_ct_tuple tuple = {};
-	void *data, *data_end;
-	struct iphdr *ip4;
-	int l3_off = ETH_HLEN, l4_off;
-	struct ct_state ct_state = {}, ct_state_new = {};
-	__u16 proto;
-	__u32 monitor = 0;
-	int ret;
+		ctx_adjust_troom(ctx, offset);
 
-	bpf_clear_meta(ctx);
-	if (!validate_ethertype(ctx, &proto)) {
-		ret = DROP_UNSUPPORTED_L2;
-		goto out;
-	}
-	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
-		ret = DROP_INVALID;
-		goto out;
+		void *data = (void *)(long)ctx->data;
+		void *data_end = (void *)(long)ctx->data_end;
+
+		if (data + pkt_size > data_end)
+			return TEST_ERROR;
+
+		memcpy(data, pkt, pkt_size);
 	}
 
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
-	l4_off = l3_off + ipv4_hdrlen(ip4);
+	TEST("ct4_syn", {
+		struct ipv4_ct_tuple tuple = {};
+		void *data;
+		void *data_end;
+		struct iphdr *ip4;
+		int l3_off = ETH_HLEN;
+		int l4_off;
+		struct ct_state ct_state = {};
+		struct ct_state ct_state_new = {};
+		__u16 proto;
+		__u32 monitor = 0;
+		int ret;
 
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
-	switch (ret) {
-	case CT_NEW:
-		ct_state_new.node_port = ct_state.node_port;
-		ct_state_new.ifindex = ct_state.ifindex;
-		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false, false);
-		break;
+		bpf_clear_meta(ctx);
+		assert(validate_ethertype(ctx, &proto));
+		assert(revalidate_data(ctx, &data, &data_end, &ip4));
 
-	default:
-		ret = -1;
-		break;
+		tuple.nexthdr = ip4->protocol;
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
+		l4_off = l3_off + ipv4_hdrlen(ip4);
+
+		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
+				 &ct_state, &monitor);
+		switch (ret) {
+		case CT_NEW:
+			ct_state_new.node_port = ct_state.node_port;
+			ct_state_new.ifindex = ct_state.ifindex;
+			ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
+					 CT_EGRESS, &ct_state_new, false, false);
+			break;
+
+		default:
+			test_log("ct_lookup4, expected CT_NEW, got %d", ret);
+			test_fail();
+		}
+
+		if (data + pkt_size > data_end)
+			test_fatal("packet shrank");
+
+		/* unexpected data modification */
+		assert(memcmp(pkt, data, pkt_size) == 0);
+	});
+
+	pkt_size = mkpkt(pkt, false);
+	{
+		void *data = (void *)(long)ctx->data;
+		void *data_end = (void *)(long)ctx->data_end;
+
+		if (data + pkt_size > data_end)
+			return TEST_ERROR;
+
+		memcpy(data, pkt, pkt_size);
 	}
 
-out:
-	/* mark the termination of our program so that the go program stops
-	 * blocking on the ring buffer
-	 */
-	cilium_dbg(ctx, DBG_UNSPEC, 0xe3d, 0xe3d);
-	return ret;
-}
+	#define TEST_LOG
 
-__section("action/test-ct4-rst2")
-int test_ct4_rst2(struct __ctx_buff *ctx)
-{
-	struct ipv4_ct_tuple tuple = {};
-	void *data, *data_end;
-	struct iphdr *ip4;
-	int l3_off = ETH_HLEN, l4_off;
-	struct ct_state ct_state = {};
-	__u16 proto;
-	__u32 monitor = 0;
-	int ret;
+	TEST("ct4_rst", {
+		struct ipv4_ct_tuple tuple = {};
+		void *data;
+		void *data_end;
+		struct iphdr *ip4;
+		int l3_off = ETH_HLEN;
+		int l4_off;
+		struct ct_state ct_state = {};
+		__u16 proto;
+		__u32 monitor = 0;
 
-	bpf_clear_meta(ctx);
-	if (!validate_ethertype(ctx, &proto)) {
-		ret = DROP_UNSUPPORTED_L2;
-		goto out;
-	}
+		bpf_clear_meta(ctx);
+		assert(validate_ethertype(ctx, &proto));
+		assert(revalidate_data(ctx, &data, &data_end, &ip4));
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
-		ret = DROP_INVALID;
-		goto out;
-	}
+		tuple.nexthdr = ip4->protocol;
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
+		l4_off = l3_off + ipv4_hdrlen(ip4);
 
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
-	l4_off = l3_off + ipv4_hdrlen(ip4);
+		ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
+			   &ct_state, &monitor);
 
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			 &ct_state, &monitor);
-	cilium_dbg(ctx, DBG_UNSPEC, 1000, ret);
-out:
-	/* mark the termination of our program so that the go program stops
-	 * blocking on the ring buffer
-	 */
-	cilium_dbg(ctx, DBG_UNSPEC, 0xe3d, 0xe3d);
-	return CTX_ACT_OK;
+		if (data + pkt_size > data_end)
+			test_fatal("packet shrank");
+
+		/* unexpected data modification */
+		assert(memcmp(pkt, data, pkt_size) == 0);
+
+		tuple.nexthdr = IPPROTO_TCP;
+		tuple.saddr = 0x1400030A; /* 10.3.0.20 */
+		tuple.daddr = 0x0A00030A; /* 10.3.0.10 */
+		tuple.sport = __bpf_htons(3010);
+		tuple.dport = __bpf_htons(3020);
+		tuple.flags = 0;
+
+		struct ct_entry *entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+
+		assert(entry);
+
+		__u32 expires = entry->lifetime - bpf_ktime_get_sec();
+
+		if (expires > 10)
+			test_fatal("Expiration is %ds even if RST flag was set", expires);
+
+	});
+
+	test_finish();
 }
 
 BPF_LICENSE("Dual BSD/GPL");
