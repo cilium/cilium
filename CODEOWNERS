@@ -274,7 +274,6 @@ jenkinsfiles @cilium/ci-structure
 /test/runtime/connectivity.go @cilium/bpf @cilium/ci-structure
 # Policy tests
 /test/k8s/net_policies.go @cilium/policy @cilium/ci-structure
-/test/k8s/stress_policy.go @cilium/policy @cilium/ci-structure
 /test/runtime/net_policies.go @cilium/policy @cilium/ci-structure
 # Hubble/monitoring tests
 /test/k8s/hubble.go @cilium/hubble @cilium/ci-structure
