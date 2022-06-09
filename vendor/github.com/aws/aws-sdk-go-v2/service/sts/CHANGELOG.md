@@ -1,3 +1,15 @@
+# v1.16.7 (2022-06-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.16.6 (2022-05-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.16.5 (2022-05-16)
+
+* **Documentation**: Documentation updates for AWS Security Token Service.
+
 # v1.16.4 (2022-04-25)
 
 * **Dependency Update**: Updated to the latest SDK module versions

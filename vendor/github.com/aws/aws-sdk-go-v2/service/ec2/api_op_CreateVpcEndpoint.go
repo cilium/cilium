@@ -51,11 +51,17 @@ type CreateVpcEndpointInput struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
 
+	// The DNS options for the endpoint.
+	DnsOptions *types.DnsOptionsSpecification
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	// The IP address type for the endpoint.
+	IpAddressType types.IpAddressType
 
 	// (Interface and gateway endpoints) A policy to attach to the endpoint that
 	// controls access to the service. The policy must be in valid JSON format. If this

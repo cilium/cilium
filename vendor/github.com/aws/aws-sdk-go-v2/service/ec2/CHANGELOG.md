@@ -1,3 +1,43 @@
+# v1.45.1 (2022-06-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.45.0 (2022-05-26)
+
+* **Feature**: C7g instances, powered by the latest generation AWS Graviton3 processors, provide the best price performance in Amazon EC2 for compute-intensive workloads.
+
+# v1.44.0 (2022-05-24)
+
+* **Feature**: Stop Protection feature enables customers to protect their instances from accidental stop actions.
+
+# v1.43.1 (2022-05-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.43.0 (2022-05-12)
+
+* **Feature**: This release introduces a target type Gateway Load Balancer Endpoint for mirrored traffic. Customers can now specify GatewayLoadBalancerEndpoint option during the creation of a traffic mirror target.
+
+# v1.42.0 (2022-05-11)
+
+* **Feature**: This release updates AWS PrivateLink APIs to support IPv6 for PrivateLink Services and Endpoints of type 'Interface'.
+
+# v1.41.0 (2022-05-10)
+
+* **Feature**: Added support for using NitroTPM and UEFI Secure Boot on EC2 instances.
+
+# v1.40.0 (2022-05-06)
+
+* **Feature**: Add new state values for IPAMs, IPAM Scopes, and IPAM Pools.
+
+# v1.39.0 (2022-05-05)
+
+* **Feature**: Amazon EC2 I4i instances are powered by 3rd generation Intel Xeon Scalable processors and feature up to 30 TB of local AWS Nitro SSD storage
+
+# v1.38.0 (2022-05-03)
+
+* **Feature**: Adds support for allocating Dedicated Hosts on AWS  Outposts. The AllocateHosts API now accepts an OutpostArn request  parameter, and the DescribeHosts API now includes an OutpostArn response parameter.
+
 # v1.37.0 (2022-04-28)
 
 * **Feature**: This release adds support to query the public key and creation date of EC2 Key Pairs. Additionally, the format (pem or ppk) of a key pair can be specified when creating a new key pair.

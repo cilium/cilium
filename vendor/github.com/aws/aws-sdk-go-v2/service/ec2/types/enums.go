@@ -1365,6 +1365,28 @@ func (DnsNameState) Values() []DnsNameState {
 	}
 }
 
+type DnsRecordIpType string
+
+// Enum values for DnsRecordIpType
+const (
+	DnsRecordIpTypeIpv4           DnsRecordIpType = "ipv4"
+	DnsRecordIpTypeDualstack      DnsRecordIpType = "dualstack"
+	DnsRecordIpTypeIpv6           DnsRecordIpType = "ipv6"
+	DnsRecordIpTypeServiceDefined DnsRecordIpType = "service-defined"
+)
+
+// Values returns all known values for DnsRecordIpType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (DnsRecordIpType) Values() []DnsRecordIpType {
+	return []DnsRecordIpType{
+		"ipv4",
+		"dualstack",
+		"ipv6",
+		"service-defined",
+	}
+}
+
 type DnsSupportValue string
 
 // Enum values for DnsSupportValue
@@ -2185,6 +2207,8 @@ const (
 	ImageAttributeNameBlockDeviceMapping ImageAttributeName = "blockDeviceMapping"
 	ImageAttributeNameSriovNetSupport    ImageAttributeName = "sriovNetSupport"
 	ImageAttributeNameBootMode           ImageAttributeName = "bootMode"
+	ImageAttributeNameTpmSupport         ImageAttributeName = "tpmSupport"
+	ImageAttributeNameUefiData           ImageAttributeName = "uefiData"
 	ImageAttributeNameLastLaunchedTime   ImageAttributeName = "lastLaunchedTime"
 )
 
@@ -2201,6 +2225,8 @@ func (ImageAttributeName) Values() []ImageAttributeName {
 		"blockDeviceMapping",
 		"sriovNetSupport",
 		"bootMode",
+		"tpmSupport",
+		"uefiData",
 		"lastLaunchedTime",
 	}
 }
@@ -2272,6 +2298,7 @@ const (
 	InstanceAttributeNameSriovNetSupport                   InstanceAttributeName = "sriovNetSupport"
 	InstanceAttributeNameEnaSupport                        InstanceAttributeName = "enaSupport"
 	InstanceAttributeNameEnclaveOptions                    InstanceAttributeName = "enclaveOptions"
+	InstanceAttributeNameDisableApiStop                    InstanceAttributeName = "disableApiStop"
 )
 
 // Values returns all known values for InstanceAttributeName. Note that this can be
@@ -2294,6 +2321,7 @@ func (InstanceAttributeName) Values() []InstanceAttributeName {
 		"sriovNetSupport",
 		"enaSupport",
 		"enclaveOptions",
+		"disableApiStop",
 	}
 }
 
@@ -3077,6 +3105,24 @@ const (
 	InstanceTypeC6a48xlarge     InstanceType = "c6a.48xlarge"
 	InstanceTypeC6aMetal        InstanceType = "c6a.metal"
 	InstanceTypeM6aMetal        InstanceType = "m6a.metal"
+	InstanceTypeI4iLarge        InstanceType = "i4i.large"
+	InstanceTypeI4iXlarge       InstanceType = "i4i.xlarge"
+	InstanceTypeI4i2xlarge      InstanceType = "i4i.2xlarge"
+	InstanceTypeI4i4xlarge      InstanceType = "i4i.4xlarge"
+	InstanceTypeI4i8xlarge      InstanceType = "i4i.8xlarge"
+	InstanceTypeI4i16xlarge     InstanceType = "i4i.16xlarge"
+	InstanceTypeI4i32xlarge     InstanceType = "i4i.32xlarge"
+	InstanceTypeI4iMetal        InstanceType = "i4i.metal"
+	InstanceTypeX2idnMetal      InstanceType = "x2idn.metal"
+	InstanceTypeX2iednMetal     InstanceType = "x2iedn.metal"
+	InstanceTypeC7gMedium       InstanceType = "c7g.medium"
+	InstanceTypeC7gLarge        InstanceType = "c7g.large"
+	InstanceTypeC7gXlarge       InstanceType = "c7g.xlarge"
+	InstanceTypeC7g2xlarge      InstanceType = "c7g.2xlarge"
+	InstanceTypeC7g4xlarge      InstanceType = "c7g.4xlarge"
+	InstanceTypeC7g8xlarge      InstanceType = "c7g.8xlarge"
+	InstanceTypeC7g12xlarge     InstanceType = "c7g.12xlarge"
+	InstanceTypeC7g16xlarge     InstanceType = "c7g.16xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be expanded
@@ -3591,6 +3637,24 @@ func (InstanceType) Values() []InstanceType {
 		"c6a.48xlarge",
 		"c6a.metal",
 		"m6a.metal",
+		"i4i.large",
+		"i4i.xlarge",
+		"i4i.2xlarge",
+		"i4i.4xlarge",
+		"i4i.8xlarge",
+		"i4i.16xlarge",
+		"i4i.32xlarge",
+		"i4i.metal",
+		"x2idn.metal",
+		"x2iedn.metal",
+		"c7g.medium",
+		"c7g.large",
+		"c7g.xlarge",
+		"c7g.2xlarge",
+		"c7g.4xlarge",
+		"c7g.8xlarge",
+		"c7g.12xlarge",
+		"c7g.16xlarge",
 	}
 }
 
@@ -3645,6 +3709,26 @@ func (InterfaceProtocolType) Values() []InterfaceProtocolType {
 	return []InterfaceProtocolType{
 		"VLAN",
 		"GRE",
+	}
+}
+
+type IpAddressType string
+
+// Enum values for IpAddressType
+const (
+	IpAddressTypeIpv4      IpAddressType = "ipv4"
+	IpAddressTypeDualstack IpAddressType = "dualstack"
+	IpAddressTypeIpv6      IpAddressType = "ipv6"
+)
+
+// Values returns all known values for IpAddressType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (IpAddressType) Values() []IpAddressType {
+	return []IpAddressType{
+		"ipv4",
+		"dualstack",
+		"ipv6",
 	}
 }
 
@@ -3824,15 +3908,18 @@ type IpamPoolState string
 
 // Enum values for IpamPoolState
 const (
-	IpamPoolStateCreateInProgress IpamPoolState = "create-in-progress"
-	IpamPoolStateCreateComplete   IpamPoolState = "create-complete"
-	IpamPoolStateCreateFailed     IpamPoolState = "create-failed"
-	IpamPoolStateModifyInProgress IpamPoolState = "modify-in-progress"
-	IpamPoolStateModifyComplete   IpamPoolState = "modify-complete"
-	IpamPoolStateModifyFailed     IpamPoolState = "modify-failed"
-	IpamPoolStateDeleteInProgress IpamPoolState = "delete-in-progress"
-	IpamPoolStateDeleteComplete   IpamPoolState = "delete-complete"
-	IpamPoolStateDeleteFailed     IpamPoolState = "delete-failed"
+	IpamPoolStateCreateInProgress  IpamPoolState = "create-in-progress"
+	IpamPoolStateCreateComplete    IpamPoolState = "create-complete"
+	IpamPoolStateCreateFailed      IpamPoolState = "create-failed"
+	IpamPoolStateModifyInProgress  IpamPoolState = "modify-in-progress"
+	IpamPoolStateModifyComplete    IpamPoolState = "modify-complete"
+	IpamPoolStateModifyFailed      IpamPoolState = "modify-failed"
+	IpamPoolStateDeleteInProgress  IpamPoolState = "delete-in-progress"
+	IpamPoolStateDeleteComplete    IpamPoolState = "delete-complete"
+	IpamPoolStateDeleteFailed      IpamPoolState = "delete-failed"
+	IpamPoolStateIsolateInProgress IpamPoolState = "isolate-in-progress"
+	IpamPoolStateIsolateComplete   IpamPoolState = "isolate-complete"
+	IpamPoolStateRestoreInProgress IpamPoolState = "restore-in-progress"
 )
 
 // Values returns all known values for IpamPoolState. Note that this can be
@@ -3849,6 +3936,9 @@ func (IpamPoolState) Values() []IpamPoolState {
 		"delete-in-progress",
 		"delete-complete",
 		"delete-failed",
+		"isolate-in-progress",
+		"isolate-complete",
+		"restore-in-progress",
 	}
 }
 
@@ -3880,15 +3970,18 @@ type IpamScopeState string
 
 // Enum values for IpamScopeState
 const (
-	IpamScopeStateCreateInProgress IpamScopeState = "create-in-progress"
-	IpamScopeStateCreateComplete   IpamScopeState = "create-complete"
-	IpamScopeStateCreateFailed     IpamScopeState = "create-failed"
-	IpamScopeStateModifyInProgress IpamScopeState = "modify-in-progress"
-	IpamScopeStateModifyComplete   IpamScopeState = "modify-complete"
-	IpamScopeStateModifyFailed     IpamScopeState = "modify-failed"
-	IpamScopeStateDeleteInProgress IpamScopeState = "delete-in-progress"
-	IpamScopeStateDeleteComplete   IpamScopeState = "delete-complete"
-	IpamScopeStateDeleteFailed     IpamScopeState = "delete-failed"
+	IpamScopeStateCreateInProgress  IpamScopeState = "create-in-progress"
+	IpamScopeStateCreateComplete    IpamScopeState = "create-complete"
+	IpamScopeStateCreateFailed      IpamScopeState = "create-failed"
+	IpamScopeStateModifyInProgress  IpamScopeState = "modify-in-progress"
+	IpamScopeStateModifyComplete    IpamScopeState = "modify-complete"
+	IpamScopeStateModifyFailed      IpamScopeState = "modify-failed"
+	IpamScopeStateDeleteInProgress  IpamScopeState = "delete-in-progress"
+	IpamScopeStateDeleteComplete    IpamScopeState = "delete-complete"
+	IpamScopeStateDeleteFailed      IpamScopeState = "delete-failed"
+	IpamScopeStateIsolateInProgress IpamScopeState = "isolate-in-progress"
+	IpamScopeStateIsolateComplete   IpamScopeState = "isolate-complete"
+	IpamScopeStateRestoreInProgress IpamScopeState = "restore-in-progress"
 )
 
 // Values returns all known values for IpamScopeState. Note that this can be
@@ -3905,6 +3998,9 @@ func (IpamScopeState) Values() []IpamScopeState {
 		"delete-in-progress",
 		"delete-complete",
 		"delete-failed",
+		"isolate-in-progress",
+		"isolate-complete",
+		"restore-in-progress",
 	}
 }
 
@@ -3930,15 +4026,18 @@ type IpamState string
 
 // Enum values for IpamState
 const (
-	IpamStateCreateInProgress IpamState = "create-in-progress"
-	IpamStateCreateComplete   IpamState = "create-complete"
-	IpamStateCreateFailed     IpamState = "create-failed"
-	IpamStateModifyInProgress IpamState = "modify-in-progress"
-	IpamStateModifyComplete   IpamState = "modify-complete"
-	IpamStateModifyFailed     IpamState = "modify-failed"
-	IpamStateDeleteInProgress IpamState = "delete-in-progress"
-	IpamStateDeleteComplete   IpamState = "delete-complete"
-	IpamStateDeleteFailed     IpamState = "delete-failed"
+	IpamStateCreateInProgress  IpamState = "create-in-progress"
+	IpamStateCreateComplete    IpamState = "create-complete"
+	IpamStateCreateFailed      IpamState = "create-failed"
+	IpamStateModifyInProgress  IpamState = "modify-in-progress"
+	IpamStateModifyComplete    IpamState = "modify-complete"
+	IpamStateModifyFailed      IpamState = "modify-failed"
+	IpamStateDeleteInProgress  IpamState = "delete-in-progress"
+	IpamStateDeleteComplete    IpamState = "delete-complete"
+	IpamStateDeleteFailed      IpamState = "delete-failed"
+	IpamStateIsolateInProgress IpamState = "isolate-in-progress"
+	IpamStateIsolateComplete   IpamState = "isolate-complete"
+	IpamStateRestoreInProgress IpamState = "restore-in-progress"
 )
 
 // Values returns all known values for IpamState. Note that this can be expanded in
@@ -3955,6 +4054,9 @@ func (IpamState) Values() []IpamState {
 		"delete-in-progress",
 		"delete-complete",
 		"delete-failed",
+		"isolate-in-progress",
+		"isolate-complete",
+		"restore-in-progress",
 	}
 }
 
@@ -5423,6 +5525,24 @@ func (SelfServicePortal) Values() []SelfServicePortal {
 	}
 }
 
+type ServiceConnectivityType string
+
+// Enum values for ServiceConnectivityType
+const (
+	ServiceConnectivityTypeIpv4 ServiceConnectivityType = "ipv4"
+	ServiceConnectivityTypeIpv6 ServiceConnectivityType = "ipv6"
+)
+
+// Values returns all known values for ServiceConnectivityType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (ServiceConnectivityType) Values() []ServiceConnectivityType {
+	return []ServiceConnectivityType{
+		"ipv4",
+		"ipv6",
+	}
+}
+
 type ServiceState string
 
 // Enum values for ServiceState
@@ -5928,6 +6048,22 @@ func (TieringOperationStatus) Values() []TieringOperationStatus {
 	}
 }
 
+type TpmSupportValues string
+
+// Enum values for TpmSupportValues
+const (
+	TpmSupportValuesV20 TpmSupportValues = "v2.0"
+)
+
+// Values returns all known values for TpmSupportValues. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (TpmSupportValues) Values() []TpmSupportValues {
+	return []TpmSupportValues{
+		"v2.0",
+	}
+}
+
 type TrafficDirection string
 
 // Enum values for TrafficDirection
@@ -6026,8 +6162,9 @@ type TrafficMirrorTargetType string
 
 // Enum values for TrafficMirrorTargetType
 const (
-	TrafficMirrorTargetTypeNetworkInterface    TrafficMirrorTargetType = "network-interface"
-	TrafficMirrorTargetTypeNetworkLoadBalancer TrafficMirrorTargetType = "network-load-balancer"
+	TrafficMirrorTargetTypeNetworkInterface            TrafficMirrorTargetType = "network-interface"
+	TrafficMirrorTargetTypeNetworkLoadBalancer         TrafficMirrorTargetType = "network-load-balancer"
+	TrafficMirrorTargetTypeGatewayLoadBalancerEndpoint TrafficMirrorTargetType = "gateway-load-balancer-endpoint"
 )
 
 // Values returns all known values for TrafficMirrorTargetType. Note that this can
@@ -6037,6 +6174,7 @@ func (TrafficMirrorTargetType) Values() []TrafficMirrorTargetType {
 	return []TrafficMirrorTargetType{
 		"network-interface",
 		"network-load-balancer",
+		"gateway-load-balancer-endpoint",
 	}
 }
 

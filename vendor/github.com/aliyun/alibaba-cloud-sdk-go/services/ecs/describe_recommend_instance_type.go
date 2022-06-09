@@ -71,25 +71,27 @@ func (client *Client) DescribeRecommendInstanceTypeWithCallback(request *Describ
 // DescribeRecommendInstanceTypeRequest is the request struct for api DescribeRecommendInstanceType
 type DescribeRecommendInstanceTypeRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Memory               requests.Float   `position:"Query" name:"Memory"`
-	IoOptimized          string           `position:"Query" name:"IoOptimized"`
-	NetworkType          string           `position:"Query" name:"NetworkType"`
-	Scene                string           `position:"Query" name:"Scene"`
-	Cores                requests.Integer `position:"Query" name:"Cores"`
-	SystemDiskCategory   string           `position:"Query" name:"SystemDiskCategory"`
-	InstanceType         string           `position:"Query" name:"InstanceType"`
-	InstanceChargeType   string           `position:"Query" name:"InstanceChargeType"`
-	MaxPrice             requests.Float   `position:"Query" name:"MaxPrice"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	ZoneMatchMode        string           `position:"Query" name:"ZoneMatchMode"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	InstanceTypeFamily   *[]string        `position:"Query" name:"InstanceTypeFamily"  type:"Repeated"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	SpotStrategy         string           `position:"Query" name:"SpotStrategy"`
-	PriorityStrategy     string           `position:"Query" name:"PriorityStrategy"`
-	InstanceFamilyLevel  string           `position:"Query" name:"InstanceFamilyLevel"`
-	ZoneId               string           `position:"Query" name:"ZoneId"`
+	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	Memory                  requests.Float   `position:"Query" name:"Memory"`
+	IoOptimized             string           `position:"Query" name:"IoOptimized"`
+	NetworkType             string           `position:"Query" name:"NetworkType"`
+	Scene                   string           `position:"Query" name:"Scene"`
+	Cores                   requests.Integer `position:"Query" name:"Cores"`
+	ZoneIds                 *[]string        `position:"Query" name:"ZoneIds"  type:"Repeated"`
+	SystemDiskCategory      string           `position:"Query" name:"SystemDiskCategory"`
+	InstanceType            string           `position:"Query" name:"InstanceType"`
+	InstanceChargeType      string           `position:"Query" name:"InstanceChargeType"`
+	MaxPrice                requests.Float   `position:"Query" name:"MaxPrice"`
+	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
+	ZoneMatchMode           string           `position:"Query" name:"ZoneMatchMode"`
+	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
+	InstanceTypeFamily      *[]string        `position:"Query" name:"InstanceTypeFamily"  type:"Repeated"`
+	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`
+	SpotStrategy            string           `position:"Query" name:"SpotStrategy"`
+	PriorityStrategy        string           `position:"Query" name:"PriorityStrategy"`
+	InstanceFamilyLevel     string           `position:"Query" name:"InstanceFamilyLevel"`
+	InstanceTypeSupportIPv6 requests.Boolean `position:"Query" name:"InstanceTypeSupportIPv6"`
+	ZoneId                  string           `position:"Query" name:"ZoneId"`
 }
 
 // DescribeRecommendInstanceTypeResponse is the response struct for api DescribeRecommendInstanceType

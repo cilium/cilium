@@ -1,3 +1,9 @@
+# Release (v1.11.3)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.11.3
+  * **Dependency Update**: Updates smithy-go unit test dependency go-cmp to 0.5.8.
+
 # Release (v1.11.2)
 
 * No change notes available for this release.

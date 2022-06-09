@@ -102,7 +102,7 @@ type DescribeSnapshotsRequest struct {
 
 // DescribeSnapshotsTag is a repeated param struct in DescribeSnapshotsRequest
 type DescribeSnapshotsTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

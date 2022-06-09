@@ -4450,6 +4450,26 @@ func (m *validateOpGetInstanceTypesFromInstanceRequirements) HandleInitialize(ct
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpGetInstanceUefiData struct {
+}
+
+func (*validateOpGetInstanceUefiData) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetInstanceUefiData) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetInstanceUefiDataInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetInstanceUefiDataInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpGetIpamAddressHistory struct {
 }
 
@@ -7936,6 +7956,10 @@ func addOpGetHostReservationPurchasePreviewValidationMiddleware(stack *middlewar
 
 func addOpGetInstanceTypesFromInstanceRequirementsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetInstanceTypesFromInstanceRequirements{}, middleware.After)
+}
+
+func addOpGetInstanceUefiDataValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetInstanceUefiData{}, middleware.After)
 }
 
 func addOpGetIpamAddressHistoryValidationMiddleware(stack *middleware.Stack) error {
@@ -12932,6 +12956,21 @@ func validateOpGetInstanceTypesFromInstanceRequirementsInput(v *GetInstanceTypes
 		if err := validateInstanceRequirementsRequest(v.InstanceRequirements); err != nil {
 			invalidParams.AddNested("InstanceRequirements", err.(smithy.InvalidParamsError))
 		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetInstanceUefiDataInput(v *GetInstanceUefiDataInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetInstanceUefiDataInput"}
+	if v.InstanceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

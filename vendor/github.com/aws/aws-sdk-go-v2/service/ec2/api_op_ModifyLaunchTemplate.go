@@ -32,7 +32,7 @@ func (c *Client) ModifyLaunchTemplate(ctx context.Context, params *ModifyLaunchT
 type ModifyLaunchTemplateInput struct {
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of the
-	// request. For more information, see Ensuring Idempotency
+	// request. For more information, see Ensuring idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	// Constraint: Maximum 128 ASCII characters.
 	ClientToken *string
