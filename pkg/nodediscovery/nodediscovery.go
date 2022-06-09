@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -322,6 +323,16 @@ func (n *NodeDiscovery) UpdateLocalNode() {
 
 	n.fillLocalNode()
 	n.updateLocalNode()
+}
+
+// LocalNode syncs the localNode object with the information stored in the node
+// package and then returns a copy of the localNode object
+func (n *NodeDiscovery) LocalNode() types.Node {
+	n.localNodeLock.Lock()
+	defer n.localNodeLock.Unlock()
+
+	n.fillLocalNode()
+	return n.localNode
 }
 
 // Close shuts down the node discovery engine
