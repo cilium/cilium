@@ -51,9 +51,10 @@ var (
 
 func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.NodeEventHandler, withKVStore bool) error {
 	var (
-		ciliumNodeKVStore *store.SharedStore
-		err               error
-		syncHandler       func(key string) error
+		ciliumNodeKVStore  *store.SharedStore
+		err                error
+		syncHandler        func(key string) error
+		connectedToKVStore = make(chan struct{})
 
 		resourceEventHandler  = cache.ResourceEventHandlerFuncs{}
 		ciliumNodeConvertFunc = k8s.ConvertToCiliumNode
@@ -63,19 +64,23 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 	// KVStore is enabled -> we will run the event handler to sync objects into
 	// KVStore.
 	if withKVStore {
-		log.Info("Starting to synchronize CiliumNode custom resources to KVStore")
-
-		ciliumNodeKVStore, err = store.JoinSharedStore(store.Configuration{
-			Prefix:     nodeStore.NodeStorePrefix,
-			KeyCreator: nodeStore.KeyCreator,
-		})
-		if err != nil {
-			return err
-		}
-
+		// Connect to the KVStore asynchronously so that we are able to start
+		// the operator without relying on the KVStore to be up.
 		// Start a go routine to GC all CiliumNodes from the KVStore that are
 		// no longer running.
 		go func() {
+			log.Info("Starting to synchronize CiliumNode custom resources to KVStore")
+
+			ciliumNodeKVStore, err = store.JoinSharedStore(store.Configuration{
+				Prefix:     nodeStore.NodeStorePrefix,
+				KeyCreator: nodeStore.KeyCreator,
+			})
+
+			if err != nil {
+				log.WithError(err).Fatal("Unable to setup node watcher")
+			}
+			close(connectedToKVStore)
+
 			<-k8sCiliumNodesCacheSynced
 			// Since we processed all events received from k8s we know that
 			// at this point the list in ciliumNodeStore should be the source of
@@ -203,6 +208,9 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced)
 		close(k8sCiliumNodesCacheSynced)
+		if withKVStore {
+			<-connectedToKVStore
+		}
 		// Only handle events if syncHandler is not nil. If it is nil then
 		// there isn't any event handler set for CiliumNodes events.
 		if syncHandler != nil {
