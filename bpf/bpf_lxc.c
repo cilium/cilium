@@ -598,8 +598,7 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_EGRESS, tail_ipv6_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV6_FROM_LXC_CONT, tail_handle_ipv6_cont)
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
-int tail_handle_ipv6(struct __ctx_buff *ctx)
+static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -683,6 +682,17 @@ skip_service_lookup:
 
 	invoke_tailcall_if(is_defined(ENABLE_PER_PACKET_LB),
 			   CILIUM_CALL_IPV6_CT_EGRESS, tail_ipv6_ct_egress);
+	return ret;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
+int tail_handle_ipv6(struct __ctx_buff *ctx)
+{
+	int ret = __tail_handle_ipv6(ctx);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, SECLABEL, ret,
+		    CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -1160,8 +1170,7 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont)
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
-int tail_handle_ipv4(struct __ctx_buff *ctx)
+static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1231,6 +1240,17 @@ skip_service_lookup:
 
 	invoke_tailcall_if(is_defined(ENABLE_PER_PACKET_LB),
 			   CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress);
+	return ret;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
+int tail_handle_ipv4(struct __ctx_buff *ctx)
+{
+	int ret = __tail_handle_ipv4(ctx);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, SECLABEL, ret,
+		    CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }
 
