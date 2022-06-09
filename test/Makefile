@@ -74,6 +74,5 @@ ifneq ($(V),0)
 endif
 
 run_bpf_tests:
-	sudo /tmp/bpf-tests -bpf-test-path ../bpf/tests/bpf_tests $(BPF_TEST_FLAGS)
-	$(QUIET) make -C ../bpf/tests/bpf_tests all
-	go test bpf_tests/*.go -c -o /tmp/bpf-tests
+	$(QUIET)$(MAKE) -C ../bpf/tests all
+	$(QUIET)$(GO) test bpf_tests/*.go -exec sudo -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)
