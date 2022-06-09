@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
-	"github.com/cilium/ebpf/internal/btf"
 	"github.com/cilium/ebpf/internal/unix"
 )
 
@@ -26,6 +26,7 @@ type elfCode struct {
 	license  string
 	version  uint32
 	btf      *btf.Spec
+	extInfo  *btf.ExtInfos
 }
 
 // LoadCollectionSpec parses an ELF file into a CollectionSpec.
@@ -49,7 +50,6 @@ func LoadCollectionSpecFromReader(rd io.ReaderAt) (*CollectionSpec, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 
 	var (
 		licenseSection *elf.Section
@@ -95,7 +95,7 @@ func LoadCollectionSpecFromReader(rd io.ReaderAt) (*CollectionSpec, error) {
 		return nil, fmt.Errorf("load version: %w", err)
 	}
 
-	btfSpec, err := btf.LoadSpecFromReader(rd)
+	btfSpec, btfExtInfo, err := btf.LoadSpecAndExtInfosFromReader(rd)
 	if err != nil && !errors.Is(err, btf.ErrNotFound) {
 		return nil, fmt.Errorf("load BTF: %w", err)
 	}
@@ -106,6 +106,7 @@ func LoadCollectionSpecFromReader(rd io.ReaderAt) (*CollectionSpec, error) {
 		license:     license,
 		version:     version,
 		btf:         btfSpec,
+		extInfo:     btfExtInfo,
 	}
 
 	symbols, err := f.Symbols()
@@ -115,33 +116,8 @@ func LoadCollectionSpecFromReader(rd io.ReaderAt) (*CollectionSpec, error) {
 
 	ec.assignSymbols(symbols)
 
-	// Go through relocation sections, and parse the ones for sections we're
-	// interested in. Make sure that relocations point at valid sections.
-	for idx, relSection := range relSections {
-		section := sections[idx]
-		if section == nil {
-			continue
-		}
-
-		rels, err := ec.loadRelocations(relSection, symbols)
-		if err != nil {
-			return nil, fmt.Errorf("relocation for section %q: %w", section.Name, err)
-		}
-
-		for _, rel := range rels {
-			target := sections[rel.Section]
-			if target == nil {
-				return nil, fmt.Errorf("section %q: reference to %q in section %s: %w", section.Name, rel.Name, rel.Section, ErrNotSupported)
-			}
-
-			if target.Flags&elf.SHF_STRINGS > 0 {
-				return nil, fmt.Errorf("section %q: string is not stack allocated: %w", section.Name, ErrNotSupported)
-			}
-
-			target.references++
-		}
-
-		section.relocations = rels
+	if err := ec.loadRelocations(relSections, symbols); err != nil {
+		return nil, fmt.Errorf("load relocations: %w", err)
 	}
 
 	// Collect all the various ways to define maps.
@@ -164,7 +140,7 @@ func LoadCollectionSpecFromReader(rd io.ReaderAt) (*CollectionSpec, error) {
 		return nil, fmt.Errorf("load programs: %w", err)
 	}
 
-	return &CollectionSpec{maps, progs, ec.ByteOrder}, nil
+	return &CollectionSpec{maps, progs, btfSpec, ec.ByteOrder}, nil
 }
 
 func loadLicense(sec *elf.Section) (string, error) {
@@ -265,6 +241,39 @@ func (ec *elfCode) assignSymbols(symbols []elf.Symbol) {
 	}
 }
 
+// loadRelocations iterates .rel* sections and extracts relocation entries for
+// sections of interest. Makes sure relocations point at valid sections.
+func (ec *elfCode) loadRelocations(relSections map[elf.SectionIndex]*elf.Section, symbols []elf.Symbol) error {
+	for idx, relSection := range relSections {
+		section := ec.sections[idx]
+		if section == nil {
+			continue
+		}
+
+		rels, err := ec.loadSectionRelocations(relSection, symbols)
+		if err != nil {
+			return fmt.Errorf("relocation for section %q: %w", section.Name, err)
+		}
+
+		for _, rel := range rels {
+			target := ec.sections[rel.Section]
+			if target == nil {
+				return fmt.Errorf("section %q: reference to %q in section %s: %w", section.Name, rel.Name, rel.Section, ErrNotSupported)
+			}
+
+			if target.Flags&elf.SHF_STRINGS > 0 {
+				return fmt.Errorf("section %q: string is not stack allocated: %w", section.Name, ErrNotSupported)
+			}
+
+			target.references++
+		}
+
+		section.relocations = rels
+	}
+
+	return nil
+}
+
 // loadProgramSections iterates ec's sections and emits a ProgramSpec
 // for each function it finds.
 //
@@ -302,13 +311,7 @@ func (ec *elfCode) loadProgramSections() (map[string]*ProgramSpec, error) {
 				KernelVersion: ec.version,
 				Instructions:  insns,
 				ByteOrder:     ec.ByteOrder,
-			}
-
-			if ec.btf != nil {
-				spec.BTF, err = ec.btf.Program(name)
-				if err != nil && !errors.Is(err, btf.ErrNoExtendedInfo) {
-					return nil, fmt.Errorf("program %s: %w", name, err)
-				}
+				BTF:           ec.btf,
 			}
 
 			// Function names must be unique within a single ELF blob.
@@ -342,73 +345,72 @@ func (ec *elfCode) loadProgramSections() (map[string]*ProgramSpec, error) {
 //
 // The resulting map is indexed by function name.
 func (ec *elfCode) loadFunctions(section *elfSection) (map[string]asm.Instructions, error) {
-	var (
-		r      = bufio.NewReader(section.Open())
-		funcs  = make(map[string]asm.Instructions)
-		offset uint64
-		insns  asm.Instructions
-	)
-	for {
-		ins := asm.Instruction{
-			// Symbols denote the first instruction of a function body.
-			Symbol: section.symbols[offset].Name,
-		}
+	r := bufio.NewReader(section.Open())
 
-		// Pull one instruction from the instruction stream.
-		n, err := ins.Unmarshal(r, ec.ByteOrder)
-		if errors.Is(err, io.EOF) {
-			fn := insns.Name()
-			if fn == "" {
-				return nil, errors.New("reached EOF before finding a valid symbol")
-			}
-
-			// Reached the end of the section and the decoded instruction buffer
-			// contains at least one valid instruction belonging to a function.
-			// Store the result and stop processing instructions.
-			funcs[fn] = insns
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("offset %d: %w", offset, err)
-		}
-
-		// Decoded the first instruction of a function body but insns already
-		// holds a valid instruction stream. Store the result and flush insns.
-		if ins.Symbol != "" && insns.Name() != "" {
-			funcs[insns.Name()] = insns
-			insns = nil
-		}
-
-		if rel, ok := section.relocations[offset]; ok {
-			// A relocation was found for the current offset. Apply it to the insn.
-			if err = ec.relocateInstruction(&ins, rel); err != nil {
-				return nil, fmt.Errorf("offset %d: relocate instruction: %w", offset, err)
-			}
-		} else {
-			// Up to LLVM 9, calls to subprograms within the same ELF section are
-			// sometimes encoded using relative jumps without relocation entries.
-			// If, after all relocations entries have been processed, there are
-			// still relative pseudocalls left, they must point to an existing
-			// symbol within the section.
-			// When splitting sections into subprograms, the targets of these calls
-			// are no longer in scope, so they must be resolved here.
-			if ins.IsFunctionReference() && ins.Constant != -1 {
-				tgt := jumpTarget(offset, ins)
-				sym := section.symbols[tgt].Name
-				if sym == "" {
-					return nil, fmt.Errorf("offset %d: no jump target found at offset %d", offset, tgt)
-				}
-
-				ins.Reference = sym
-				ins.Constant = -1
-			}
-		}
-
-		insns = append(insns, ins)
-		offset += n
+	// Decode the section's instruction stream.
+	var insns asm.Instructions
+	if err := insns.Unmarshal(r, ec.ByteOrder); err != nil {
+		return nil, fmt.Errorf("decoding instructions for section %s: %w", section.Name, err)
+	}
+	if len(insns) == 0 {
+		return nil, fmt.Errorf("no instructions found in section %s", section.Name)
 	}
 
-	return funcs, nil
+	iter := insns.Iterate()
+	for iter.Next() {
+		ins := iter.Ins
+		offset := iter.Offset.Bytes()
+
+		// Tag Symbol Instructions.
+		if sym, ok := section.symbols[offset]; ok {
+			*ins = ins.WithSymbol(sym.Name)
+		}
+
+		// Apply any relocations for the current instruction.
+		// If no relocation is present, resolve any section-relative function calls.
+		if rel, ok := section.relocations[offset]; ok {
+			if err := ec.relocateInstruction(ins, rel); err != nil {
+				return nil, fmt.Errorf("offset %d: relocating instruction: %w", offset, err)
+			}
+		} else {
+			if err := referenceRelativeJump(ins, offset, section.symbols); err != nil {
+				return nil, fmt.Errorf("offset %d: resolving relative jump: %w", offset, err)
+			}
+		}
+	}
+
+	if ec.extInfo != nil {
+		ec.extInfo.Assign(insns, section.Name)
+	}
+
+	return splitSymbols(insns)
+}
+
+// referenceRelativeJump turns a relative jump to another bpf subprogram within
+// the same ELF section into a Reference Instruction.
+//
+// Up to LLVM 9, calls to subprograms within the same ELF section are sometimes
+// encoded using relative jumps instead of relocation entries. These jumps go
+// out of bounds of the current program, so their targets must be memoized
+// before the section's instruction stream is split.
+//
+// The relative jump Constant is blinded to -1 and the target Symbol is set as
+// the Instruction's Reference so it can be resolved by the linker.
+func referenceRelativeJump(ins *asm.Instruction, offset uint64, symbols map[uint64]elf.Symbol) error {
+	if !ins.IsFunctionReference() || ins.Constant == -1 {
+		return nil
+	}
+
+	tgt := jumpTarget(offset, *ins)
+	sym := symbols[tgt].Name
+	if sym == "" {
+		return fmt.Errorf("no jump target found at offset %d", tgt)
+	}
+
+	*ins = ins.WithReference(sym)
+	ins.Constant = -1
+
+	return nil
 }
 
 // jumpTarget takes ins' offset within an instruction stream (in bytes)
@@ -452,18 +454,12 @@ func (ec *elfCode) relocateInstruction(ins *asm.Instruction, rel elf.Symbol) err
 
 		ins.Src = asm.PseudoMapFD
 
-		// Mark the instruction as needing an update when creating the
-		// collection.
-		if err := ins.RewriteMapPtr(-1); err != nil {
-			return err
-		}
-
 	case dataSection:
 		var offset uint32
 		switch typ {
 		case elf.STT_SECTION:
 			if bind != elf.STB_LOCAL {
-				return fmt.Errorf("direct load: %s: unsupported relocation %s", name, bind)
+				return fmt.Errorf("direct load: %s: unsupported section relocation %s", name, bind)
 			}
 
 			// This is really a reference to a static symbol, which clang doesn't
@@ -472,8 +468,17 @@ func (ec *elfCode) relocateInstruction(ins *asm.Instruction, rel elf.Symbol) err
 			offset = uint32(uint64(ins.Constant))
 
 		case elf.STT_OBJECT:
-			if bind != elf.STB_GLOBAL {
-				return fmt.Errorf("direct load: %s: unsupported relocation %s", name, bind)
+			// LLVM 9 emits OBJECT-LOCAL symbols for anonymous constants.
+			if bind != elf.STB_GLOBAL && bind != elf.STB_LOCAL {
+				return fmt.Errorf("direct load: %s: unsupported object relocation %s", name, bind)
+			}
+
+			offset = uint32(rel.Value)
+
+		case elf.STT_NOTYPE:
+			// LLVM 7 emits NOTYPE-LOCAL symbols for anonymous constants.
+			if bind != elf.STB_LOCAL {
+				return fmt.Errorf("direct load: %s: unsupported untyped relocation %s", name, bind)
 			}
 
 			offset = uint32(rel.Value)
@@ -490,12 +495,6 @@ func (ec *elfCode) relocateInstruction(ins *asm.Instruction, rel elf.Symbol) err
 		// The kernel expects the offset in the second basic BPF instruction.
 		ins.Constant = int64(uint64(offset) << 32)
 		ins.Src = asm.PseudoMapValue
-
-		// Mark the instruction as needing an update when creating the
-		// collection.
-		if err := ins.RewriteMapPtr(-1); err != nil {
-			return err
-		}
 
 	case programSection:
 		switch opCode := ins.OpCode; {
@@ -579,7 +578,7 @@ func (ec *elfCode) relocateInstruction(ins *asm.Instruction, rel elf.Symbol) err
 		return fmt.Errorf("relocation to %q: %w", target.Name, ErrNotSupported)
 	}
 
-	ins.Reference = name
+	*ins = ins.WithReference(name)
 	return nil
 }
 
@@ -914,7 +913,9 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 		ValueSize:  valueSize,
 		MaxEntries: maxEntries,
 		Flags:      flags,
-		BTF:        &btf.Map{Spec: spec, Key: key, Value: value},
+		Key:        key,
+		Value:      value,
+		BTF:        spec,
 		Pinning:    pinType,
 		InnerMap:   innerMapSpec,
 		Contents:   contents,
@@ -966,7 +967,7 @@ func resolveBTFValuesContents(es *elfSection, vs *btf.VarSecinfo, member btf.Mem
 	// The offset of the 'values' member within the _struct_ (in bits)
 	// is the starting point of the array. Convert to bytes. Add VarSecinfo
 	// offset to get the absolute position in the ELF blob.
-	start := (member.OffsetBits / 8) + vs.Offset
+	start := member.Offset.Bytes() + vs.Offset
 	// 'values' is encoded in BTF as a zero (variable) length struct
 	// member, and its contents run until the end of the VarSecinfo.
 	// Add VarSecinfo offset to get the absolute position in the ELF blob.
@@ -1024,15 +1025,6 @@ func (ec *elfCode) loadDataSections(maps map[string]*MapSpec) error {
 			continue
 		}
 
-		if ec.btf == nil {
-			return errors.New("data sections require BTF, make sure all consts are marked as static")
-		}
-
-		var datasec *btf.Datasec
-		if err := ec.btf.TypeByName(sec.Name, &datasec); err != nil {
-			return fmt.Errorf("data section %s: can't get BTF: %w", sec.Name, err)
-		}
-
 		data, err := sec.Data()
 		if err != nil {
 			return fmt.Errorf("data section %s: can't get contents: %w", sec.Name, err)
@@ -1049,14 +1041,25 @@ func (ec *elfCode) loadDataSections(maps map[string]*MapSpec) error {
 			ValueSize:  uint32(len(data)),
 			MaxEntries: 1,
 			Contents:   []MapKV{{uint32(0), data}},
-			BTF:        &btf.Map{Spec: ec.btf, Key: &btf.Void{}, Value: datasec},
 		}
 
-		switch sec.Name {
-		case ".rodata":
+		// It is possible for a data section to exist without a corresponding BTF Datasec
+		// if it only contains anonymous values like macro-defined arrays.
+		if ec.btf != nil {
+			var ds *btf.Datasec
+			if ec.btf.TypeByName(sec.Name, &ds) == nil {
+				// Assign the spec's key and BTF only if the Datasec lookup was successful.
+				mapSpec.BTF = ec.btf
+				mapSpec.Key = &btf.Void{}
+				mapSpec.Value = ds
+			}
+		}
+
+		switch n := sec.Name; {
+		case strings.HasPrefix(n, ".rodata"):
 			mapSpec.Flags = unix.BPF_F_RDONLY_PROG
 			mapSpec.Freeze = true
-		case ".bss":
+		case n == ".bss":
 			// The kernel already zero-initializes the map
 			mapSpec.Contents = nil
 		}
@@ -1114,8 +1117,8 @@ func getProgType(sectionName string) (ProgramType, AttachType, uint32, string) {
 		{"cgroup_skb/ingress", CGroupSKB, AttachCGroupInetIngress, 0},
 		{"cgroup_skb/egress", CGroupSKB, AttachCGroupInetEgress, 0},
 		{"cgroup/skb", CGroupSKB, AttachNone, 0},
-		{"cgroup/sock_create", CGroupSKB, AttachCGroupInetSockCreate, 0},
-		{"cgroup/sock_release", CGroupSKB, AttachCgroupInetSockRelease, 0},
+		{"cgroup/sock_create", CGroupSock, AttachCGroupInetSockCreate, 0},
+		{"cgroup/sock_release", CGroupSock, AttachCgroupInetSockRelease, 0},
 		{"cgroup/sock", CGroupSock, AttachCGroupInetSockCreate, 0},
 		{"cgroup/post_bind4", CGroupSock, AttachCGroupInet4PostBind, 0},
 		{"cgroup/post_bind6", CGroupSock, AttachCGroupInet6PostBind, 0},
@@ -1163,7 +1166,7 @@ func getProgType(sectionName string) (ProgramType, AttachType, uint32, string) {
 	return UnspecifiedProgram, AttachNone, 0, ""
 }
 
-func (ec *elfCode) loadRelocations(sec *elf.Section, symbols []elf.Symbol) (map[uint64]elf.Symbol, error) {
+func (ec *elfCode) loadSectionRelocations(sec *elf.Section, symbols []elf.Symbol) (map[uint64]elf.Symbol, error) {
 	rels := make(map[uint64]elf.Symbol)
 
 	if sec.Entsize < 16 {

@@ -1,8 +1,8 @@
 # The development version of clang is distributed as the 'clang' binary,
 # while stable/released versions have a version number attached.
 # Pin the default clang to a stable version.
-CLANG ?= clang-13
-STRIP ?= llvm-strip-13
+CLANG ?= clang-14
+STRIP ?= llvm-strip-14
 CFLAGS := -O2 -g -Wall -Werror $(CFLAGS)
 
 # Obtain an absolute path to the directory of the Makefile.
@@ -13,7 +13,7 @@ UIDGID := $(shell stat -c '%u:%g' ${REPODIR})
 # Prefer podman if installed, otherwise use docker.
 # Note: Setting the var at runtime will always override.
 CONTAINER_ENGINE ?= $(if $(shell command -v podman), podman, docker)
-CONTAINER_RUN_ARGS ?= $(if $(filter ${CONTAINER_ENGINE}, podman),, --user "${UIDGID}")
+CONTAINER_RUN_ARGS ?= $(if $(filter ${CONTAINER_ENGINE}, podman), --log-driver=none, --user "${UIDGID}")
 
 IMAGE := $(shell cat ${REPODIR}/testdata/docker/IMAGE)
 VERSION := $(shell cat ${REPODIR}/testdata/docker/VERSION)
@@ -35,7 +35,9 @@ TARGETS := \
 	testdata/map_spin_lock \
 	testdata/subprog_reloc \
 	testdata/fwd_decl \
-	internal/btf/testdata/relocs
+	btf/testdata/relocs \
+	btf/testdata/relocs_read \
+	btf/testdata/relocs_read_tgt
 
 .PHONY: all clean container-all container-shell generate
 
@@ -58,9 +60,12 @@ container-shell:
 
 clean:
 	-$(RM) testdata/*.elf
-	-$(RM) internal/btf/testdata/*.elf
+	-$(RM) btf/testdata/*.elf
 
-all: $(addsuffix -el.elf,$(TARGETS)) $(addsuffix -eb.elf,$(TARGETS)) generate
+format:
+	find . -type f -name "*.c" | xargs clang-format -i
+
+all: format $(addsuffix -el.elf,$(TARGETS)) $(addsuffix -eb.elf,$(TARGETS)) generate
 	ln -srf testdata/loader-$(CLANG)-el.elf testdata/loader-el.elf
 	ln -srf testdata/loader-$(CLANG)-eb.elf testdata/loader-eb.elf
 
@@ -69,6 +74,7 @@ generate: export BPF_CLANG := $(CLANG)
 generate: export BPF_CFLAGS := $(CFLAGS)
 generate:
 	go generate ./cmd/bpf2go/test
+	go generate ./internal/sys
 	cd examples/ && go generate ./...
 
 testdata/loader-%-el.elf: testdata/loader.c
@@ -89,6 +95,6 @@ testdata/loader-%-eb.elf: testdata/loader.c
 
 # Usage: make VMLINUX=/path/to/vmlinux vmlinux-btf
 .PHONY: vmlinux-btf
-vmlinux-btf: internal/btf/testdata/vmlinux-btf.gz
-internal/btf/testdata/vmlinux-btf.gz: $(VMLINUX)
+vmlinux-btf: btf/testdata/vmlinux-btf.gz
+btf/testdata/vmlinux-btf.gz: $(VMLINUX)
 	objcopy --dump-section .BTF=/dev/stdout "$<" /dev/null | gzip > "$@"

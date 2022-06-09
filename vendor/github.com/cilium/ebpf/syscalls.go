@@ -38,6 +38,21 @@ func invalidBPFObjNameChar(char rune) bool {
 	}
 }
 
+func progLoad(insns asm.Instructions, typ ProgramType, license string) (*sys.FD, error) {
+	buf := bytes.NewBuffer(make([]byte, 0, insns.Size()))
+	if err := insns.Marshal(buf, internal.NativeEndian); err != nil {
+		return nil, err
+	}
+	bytecode := buf.Bytes()
+
+	return sys.ProgLoad(&sys.ProgLoadAttr{
+		ProgType: sys.ProgType(typ),
+		License:  sys.NewStringPointer(license),
+		Insns:    sys.NewSlicePointer(bytecode),
+		InsnCnt:  uint32(len(bytecode) / asm.InstructionSize),
+	})
+}
+
 var haveNestedMaps = internal.FeatureTest("nested maps", "4.12", func() error {
 	_, err := sys.MapCreate(&sys.MapCreateAttr{
 		MapType:    sys.MapType(ArrayOfMaps),
@@ -226,20 +241,29 @@ var haveProbeReadKernel = internal.FeatureTest("bpf_probe_read_kernel", "5.5", f
 		asm.FnProbeReadKernel.Call(),
 		asm.Return(),
 	}
-	buf := bytes.NewBuffer(make([]byte, 0, insns.Size()))
-	if err := insns.Marshal(buf, internal.NativeEndian); err != nil {
-		return err
-	}
-	bytecode := buf.Bytes()
 
-	fd, err := sys.ProgLoad(&sys.ProgLoadAttr{
-		ProgType: sys.ProgType(Kprobe),
-		License:  sys.NewStringPointer("GPL"),
-		Insns:    sys.NewSlicePointer(bytecode),
-		InsnCnt:  uint32(len(bytecode) / asm.InstructionSize),
-	})
+	fd, err := progLoad(insns, Kprobe, "GPL")
 	if err != nil {
 		return internal.ErrNotSupported
+	}
+	_ = fd.Close()
+	return nil
+})
+
+var haveBPFToBPFCalls = internal.FeatureTest("bpf2bpf calls", "4.16", func() error {
+	insns := asm.Instructions{
+		asm.Call.Label("prog2").WithSymbol("prog1"),
+		asm.Return(),
+		asm.Mov.Imm(asm.R0, 0).WithSymbol("prog2"),
+		asm.Return(),
+	}
+
+	fd, err := progLoad(insns, SocketFilter, "MIT")
+	if errors.Is(err, unix.EINVAL) {
+		return internal.ErrNotSupported
+	}
+	if err != nil {
+		return err
 	}
 	_ = fd.Close()
 	return nil

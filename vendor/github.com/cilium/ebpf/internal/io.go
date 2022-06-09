@@ -18,7 +18,7 @@ import (
 // end up being read completely anyway.
 //
 // Use instead of the r.Seek() + io.LimitReader() pattern.
-func NewBufferedSectionReader(ra io.ReaderAt, off, n int64) io.Reader {
+func NewBufferedSectionReader(ra io.ReaderAt, off, n int64) *bufio.Reader {
 	// Clamp the size of the buffer to one page to avoid slurping large parts
 	// of a file into memory. bufio.NewReader uses a hardcoded default buffer
 	// of 4096. Allow arches with larger pages to allocate more, but don't

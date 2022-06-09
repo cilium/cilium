@@ -48,21 +48,31 @@ if [[ "${1:-}" = "--exec-vm" ]]; then
     rm "${output}/fake-stdin"
   fi
 
-  if ! $sudo virtme-run --kimg "${input}/bzImage" --memory 768M --pwd \
-    --rwdir="${testdir}=${testdir}" \
-    --rodir=/run/input="${input}" \
-    --rwdir=/run/output="${output}" \
-    --script-sh "PATH=\"$PATH\" CI_MAX_KERNEL_VERSION="${CI_MAX_KERNEL_VERSION:-}" \"$script\" --exec-test $cmd" \
-    --kopt possible_cpus=2; then # need at least two CPUs for some tests
-    exit 23
-  fi
+  for ((i = 0; i < 3; i++)); do
+    if ! $sudo virtme-run --kimg "${input}/bzImage" --memory 768M --pwd \
+      --rwdir="${testdir}=${testdir}" \
+      --rodir=/run/input="${input}" \
+      --rwdir=/run/output="${output}" \
+      --script-sh "PATH=\"$PATH\" CI_MAX_KERNEL_VERSION="${CI_MAX_KERNEL_VERSION:-}" \"$script\" --exec-test $cmd" \
+      --kopt possible_cpus=2; then # need at least two CPUs for some tests
+      exit 23
+    fi
 
-  if [[ ! -e "${output}/success" ]]; then
+    if [[ -e "${output}/status" ]]; then
+      break
+    fi
+    
+    if [[ -v CI ]]; then
+      echo "Retrying test run due to qemu crash"
+      continue
+    fi
+
     exit 42
-  fi
+  done
 
+  rc=$(<"${output}/status")
   $sudo rm -r "$output"
-  exit 0
+  exit $rc
 elif [[ "${1:-}" = "--exec-test" ]]; then
   shift
 
@@ -73,13 +83,12 @@ elif [[ "${1:-}" = "--exec-test" ]]; then
     export KERNEL_SELFTESTS="/run/input/bpf"
   fi
 
-  dmesg -C
-  if ! "$@"; then
-    dmesg
-    exit 1 # this return code is "swallowed" by qemu
-  fi
-  touch "/run/output/success"
-  exit 0
+  dmesg --clear
+  rc=0
+  "$@" || rc=$?
+  dmesg
+  echo $rc > "/run/output/status"
+  exit $rc # this return code is "swallowed" by qemu
 fi
 
 readonly kernel_version="${1:-}"

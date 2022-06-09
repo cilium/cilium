@@ -18,22 +18,23 @@ type Class uint8
 const classMask OpCode = 0x07
 
 const (
-	// LdClass load memory
+	// LdClass loads immediate values into registers.
+	// Also used for non-standard load operations from cBPF.
 	LdClass Class = 0x00
-	// LdXClass load memory from constant
+	// LdXClass loads memory into registers.
 	LdXClass Class = 0x01
-	// StClass load register from memory
+	// StClass stores immediate values to memory.
 	StClass Class = 0x02
-	// StXClass load register from constant
+	// StXClass stores registers to memory.
 	StXClass Class = 0x03
-	// ALUClass arithmetic operators
+	// ALUClass describes arithmetic operators.
 	ALUClass Class = 0x04
-	// JumpClass jump operators
+	// JumpClass describes jump operators.
 	JumpClass Class = 0x05
-	// Jump32Class jump operators with 32 bit comparaisons
-	// Requires kernel 5.1
+	// Jump32Class describes jump operators with 32-bit comparisons.
+	// Requires kernel 5.1.
 	Jump32Class Class = 0x06
-	// ALU64Class arithmetic in 64 bit mode
+	// ALU64Class describes arithmetic operators in 64-bit mode.
 	ALU64Class Class = 0x07
 )
 
