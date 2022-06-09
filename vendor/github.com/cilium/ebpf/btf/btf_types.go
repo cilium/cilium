@@ -177,6 +177,10 @@ func (bt *btfType) Size() uint32 {
 	return bt.SizeType
 }
 
+func (bt *btfType) SetSize(size uint32) {
+	bt.SizeType = size
+}
+
 type rawType struct {
 	btfType
 	data interface{}
@@ -226,11 +230,14 @@ type btfParam struct {
 	Type    TypeID
 }
 
-func readTypes(r io.Reader, bo binary.ByteOrder) ([]rawType, error) {
-	var (
-		header btfType
-		types  []rawType
-	)
+func readTypes(r io.Reader, bo binary.ByteOrder, typeLen uint32) ([]rawType, error) {
+	var header btfType
+	// because of the interleaving between types and struct members it is difficult to
+	// precompute the numbers of raw types this will parse
+	// this "guess" is a good first estimation
+	sizeOfbtfType := uintptr(binary.Size(btfType{}))
+	tyMaxCount := uintptr(typeLen) / sizeOfbtfType / 2
+	types := make([]rawType, 0, tyMaxCount)
 
 	for id := TypeID(1); ; id++ {
 		if err := binary.Read(r, bo, &header); err == io.EOF {
@@ -282,6 +289,6 @@ func readTypes(r io.Reader, bo binary.ByteOrder) ([]rawType, error) {
 	}
 }
 
-func intEncoding(raw uint32) (IntEncoding, uint32, byte) {
-	return IntEncoding((raw & 0x0f000000) >> 24), (raw & 0x00ff0000) >> 16, byte(raw & 0x000000ff)
+func intEncoding(raw uint32) (IntEncoding, Bits, Bits) {
+	return IntEncoding((raw & 0x0f000000) >> 24), Bits(raw&0x00ff0000) >> 16, Bits(raw & 0x000000ff)
 }

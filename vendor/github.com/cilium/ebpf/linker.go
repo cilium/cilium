@@ -1,13 +1,42 @@
 package ebpf
 
 import (
-	"bytes"
-	"encoding/binary"
+	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/cilium/ebpf/asm"
-	"github.com/cilium/ebpf/internal/btf"
+	"github.com/cilium/ebpf/btf"
 )
+
+// splitSymbols splits insns into subsections delimited by Symbol Instructions.
+// insns cannot be empty and must start with a Symbol Instruction.
+//
+// The resulting map is indexed by Symbol name.
+func splitSymbols(insns asm.Instructions) (map[string]asm.Instructions, error) {
+	if len(insns) == 0 {
+		return nil, errors.New("insns is empty")
+	}
+
+	if insns[0].Symbol() == "" {
+		return nil, errors.New("insns must start with a Symbol")
+	}
+
+	var name string
+	progs := make(map[string]asm.Instructions)
+	for _, ins := range insns {
+		if sym := ins.Symbol(); sym != "" {
+			if progs[sym] != nil {
+				return nil, fmt.Errorf("insns contains duplicate Symbol %s", sym)
+			}
+			name = sym
+		}
+
+		progs[name] = append(progs[name], ins)
+	}
+
+	return progs, nil
+}
 
 // The linker is responsible for resolving bpf-to-bpf calls between programs
 // within an ELF. Each BPF program must be a self-contained binary blob,
@@ -82,112 +111,116 @@ func findReferences(progs map[string]*ProgramSpec) error {
 	return nil
 }
 
-// marshalFuncInfos returns the BTF func infos of all progs in order.
-func marshalFuncInfos(layout []reference) ([]byte, error) {
-	if len(layout) == 0 {
-		return nil, nil
-	}
-
-	buf := bytes.NewBuffer(make([]byte, 0, binary.Size(&btf.FuncInfo{})*len(layout)))
-	for _, sym := range layout {
-		if err := sym.spec.BTF.FuncInfo.Marshal(buf, sym.offset); err != nil {
-			return nil, fmt.Errorf("marshaling prog %s func info: %w", sym.spec.Name, err)
+// hasReferences returns true if insns contains one or more bpf2bpf
+// function references.
+func hasReferences(insns asm.Instructions) bool {
+	for _, i := range insns {
+		if i.IsFunctionReference() {
+			return true
 		}
 	}
-
-	return buf.Bytes(), nil
+	return false
 }
 
-// marshalLineInfos returns the BTF line infos of all progs in order.
-func marshalLineInfos(layout []reference) ([]byte, error) {
-	if len(layout) == 0 {
-		return nil, nil
-	}
-
-	buf := bytes.NewBuffer(make([]byte, 0, binary.Size(&btf.LineInfo{})*len(layout)))
-	for _, sym := range layout {
-		if err := sym.spec.BTF.LineInfos.Marshal(buf, sym.offset); err != nil {
-			return nil, fmt.Errorf("marshaling prog %s line infos: %w", sym.spec.Name, err)
-		}
-	}
-
-	return buf.Bytes(), nil
-}
-
-func fixupJumpsAndCalls(insns asm.Instructions) error {
-	symbolOffsets := make(map[string]asm.RawInstructionOffset)
+// applyRelocations collects and applies any CO-RE relocations in insns.
+//
+// Passing a nil target will relocate against the running kernel. insns are
+// modified in place.
+func applyRelocations(insns asm.Instructions, local, target *btf.Spec) error {
+	var relos []*btf.CORERelocation
+	var reloInsns []*asm.Instruction
 	iter := insns.Iterate()
 	for iter.Next() {
-		ins := iter.Ins
-
-		if ins.Symbol == "" {
-			continue
+		if relo := btf.CORERelocationMetadata(iter.Ins); relo != nil {
+			relos = append(relos, relo)
+			reloInsns = append(reloInsns, iter.Ins)
 		}
-
-		if _, ok := symbolOffsets[ins.Symbol]; ok {
-			return fmt.Errorf("duplicate symbol %s", ins.Symbol)
-		}
-
-		symbolOffsets[ins.Symbol] = iter.Offset
 	}
 
-	iter = insns.Iterate()
-	for iter.Next() {
-		i := iter.Index
-		offset := iter.Offset
-		ins := iter.Ins
-
-		if ins.Reference == "" {
-			continue
-		}
-
-		symOffset, ok := symbolOffsets[ins.Reference]
-		switch {
-		case ins.IsFunctionReference() && ins.Constant == -1:
-			if !ok {
-				break
-			}
-
-			ins.Constant = int64(symOffset - offset - 1)
-			continue
-
-		case ins.OpCode.Class().IsJump() && ins.Offset == -1:
-			if !ok {
-				break
-			}
-
-			ins.Offset = int16(symOffset - offset - 1)
-			continue
-
-		case ins.IsLoadFromMap() && ins.MapPtr() == -1:
-			return fmt.Errorf("map %s: %w", ins.Reference, errUnsatisfiedMap)
-		default:
-			// no fixup needed
-			continue
-		}
-
-		return fmt.Errorf("%s at insn %d: symbol %q: %w", ins.OpCode, i, ins.Reference, errUnsatisfiedProgram)
+	if len(relos) == 0 {
+		return nil
 	}
 
-	// fixupBPFCalls replaces bpf_probe_read_{kernel,user}[_str] with bpf_probe_read[_str] on older kernels
-	// https://github.com/libbpf/libbpf/blob/master/src/libbpf.c#L6009
-	iter = insns.Iterate()
-	for iter.Next() {
-		ins := iter.Ins
-		if !ins.IsBuiltinCall() {
-			continue
-		}
-		switch asm.BuiltinFunc(ins.Constant) {
-		case asm.FnProbeReadKernel, asm.FnProbeReadUser:
-			if err := haveProbeReadKernel(); err != nil {
-				ins.Constant = int64(asm.FnProbeRead)
-			}
-		case asm.FnProbeReadKernelStr, asm.FnProbeReadUserStr:
-			if err := haveProbeReadKernel(); err != nil {
-				ins.Constant = int64(asm.FnProbeReadStr)
-			}
+	target, err := maybeLoadKernelBTF(target)
+	if err != nil {
+		return err
+	}
+
+	fixups, err := btf.CORERelocate(local, target, relos)
+	if err != nil {
+		return err
+	}
+
+	for i, fixup := range fixups {
+		if err := fixup.Apply(reloInsns[i]); err != nil {
+			return fmt.Errorf("apply fixup %s: %w", &fixup, err)
 		}
 	}
 
 	return nil
+}
+
+// fixupAndValidate is called by the ELF reader right before marshaling the
+// instruction stream. It performs last-minute adjustments to the program and
+// runs some sanity checks before sending it off to the kernel.
+func fixupAndValidate(insns asm.Instructions) error {
+	iter := insns.Iterate()
+	for iter.Next() {
+		ins := iter.Ins
+
+		// Map load was tagged with a Reference, but does not contain a Map pointer.
+		if ins.IsLoadFromMap() && ins.Reference() != "" && ins.Map() == nil {
+			return fmt.Errorf("instruction %d: map %s: %w", iter.Index, ins.Reference(), asm.ErrUnsatisfiedMapReference)
+		}
+
+		fixupProbeReadKernel(ins)
+	}
+
+	return nil
+}
+
+// fixupProbeReadKernel replaces calls to bpf_probe_read_{kernel,user}(_str)
+// with bpf_probe_read(_str) on kernels that don't support it yet.
+func fixupProbeReadKernel(ins *asm.Instruction) {
+	if !ins.IsBuiltinCall() {
+		return
+	}
+
+	// Kernel supports bpf_probe_read_kernel, nothing to do.
+	if haveProbeReadKernel() == nil {
+		return
+	}
+
+	switch asm.BuiltinFunc(ins.Constant) {
+	case asm.FnProbeReadKernel, asm.FnProbeReadUser:
+		ins.Constant = int64(asm.FnProbeRead)
+	case asm.FnProbeReadKernelStr, asm.FnProbeReadUserStr:
+		ins.Constant = int64(asm.FnProbeReadStr)
+	}
+}
+
+var kernelBTF struct {
+	sync.Mutex
+	spec *btf.Spec
+}
+
+// maybeLoadKernelBTF loads the current kernel's BTF if spec is nil, otherwise
+// it returns spec unchanged.
+//
+// The kernel BTF is cached for the lifetime of the process.
+func maybeLoadKernelBTF(spec *btf.Spec) (*btf.Spec, error) {
+	if spec != nil {
+		return spec, nil
+	}
+
+	kernelBTF.Lock()
+	defer kernelBTF.Unlock()
+
+	if kernelBTF.spec != nil {
+		return kernelBTF.spec, nil
+	}
+
+	var err error
+	kernelBTF.spec, err = btf.LoadKernelSpec()
+	return kernelBTF.spec, err
 }
