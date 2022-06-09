@@ -384,6 +384,7 @@
         "api_op_GetGroupsForCapacityReservation.go",
         "api_op_GetHostReservationPurchasePreview.go",
         "api_op_GetInstanceTypesFromInstanceRequirements.go",
+        "api_op_GetInstanceUefiData.go",
         "api_op_GetIpamAddressHistory.go",
         "api_op_GetIpamPoolAllocations.go",
         "api_op_GetIpamPoolCidrs.go",

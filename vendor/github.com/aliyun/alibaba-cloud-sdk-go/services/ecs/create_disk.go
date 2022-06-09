@@ -101,7 +101,7 @@ type CreateDiskRequest struct {
 
 // CreateDiskTag is a repeated param struct in CreateDiskRequest
 type CreateDiskTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

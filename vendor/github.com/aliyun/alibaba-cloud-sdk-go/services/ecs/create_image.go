@@ -78,6 +78,7 @@ type CreateImageRequest struct {
 	Description          string                          `position:"Query" name:"Description"`
 	Platform             string                          `position:"Query" name:"Platform"`
 	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
+	BootMode             string                          `position:"Query" name:"BootMode"`
 	ImageName            string                          `position:"Query" name:"ImageName"`
 	Tag                  *[]CreateImageTag               `position:"Query" name:"Tag"  type:"Repeated"`
 	Architecture         string                          `position:"Query" name:"Architecture"`
@@ -99,7 +100,7 @@ type CreateImageDiskDeviceMapping struct {
 
 // CreateImageTag is a repeated param struct in CreateImageRequest
 type CreateImageTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

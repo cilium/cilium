@@ -94,7 +94,7 @@ type DescribeSecurityGroupsRequest struct {
 
 // DescribeSecurityGroupsTag is a repeated param struct in DescribeSecurityGroupsRequest
 type DescribeSecurityGroupsTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

@@ -74,6 +74,7 @@ type DescribeAccountAttributesRequest struct {
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	AttributeName        *[]string        `position:"Query" name:"AttributeName"  type:"Repeated"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
+	BizAliUid            string           `position:"Query" name:"BizAliUid"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	ZoneId               string           `position:"Query" name:"ZoneId"`
 }

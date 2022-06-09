@@ -76,6 +76,7 @@ type RedeployDedicatedHostRequest struct {
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	DedicatedHostId      string           `position:"Query" name:"DedicatedHostId"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	WaiveLocalDiskData   requests.Boolean `position:"Query" name:"WaiveLocalDiskData"`
 }
 
 // RedeployDedicatedHostResponse is the response struct for api RedeployDedicatedHost

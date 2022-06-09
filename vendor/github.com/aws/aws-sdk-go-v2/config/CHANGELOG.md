@@ -1,3 +1,27 @@
+# v1.15.10 (2022-06-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.9 (2022-05-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.8 (2022-05-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.7 (2022-05-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.6 (2022-05-16)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.5 (2022-05-09)
+
+* **Bug Fix**: Fixes a bug in LoadDefaultConfig to correctly assign ConfigSources so all config resolvers have access to the config sources. This fixes the feature/ec2/imds client not having configuration applied via config.LoadOptions such as EC2IMDSClientEnableState. PR [#1682](https://github.com/aws/aws-sdk-go-v2/pull/1682)
+
 # v1.15.4 (2022-04-25)
 
 * **Dependency Update**: Updated to the latest SDK module versions
