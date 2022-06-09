@@ -51,14 +51,16 @@ var (
 
 func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.NodeEventHandler, withKVStore bool) error {
 	var (
-		ciliumNodeKVStore  *store.SharedStore
-		err                error
-		syncHandler        func(key string) error
-		connectedToKVStore = make(chan struct{})
+		ciliumNodeKVStore      *store.SharedStore
+		err                    error
+		nodeManagerSyncHandler func(key string) error
+		kvStoreSyncHandler     func(key string) error
+		connectedToKVStore     = make(chan struct{})
 
 		resourceEventHandler  = cache.ResourceEventHandlerFuncs{}
 		ciliumNodeConvertFunc = k8s.ConvertToCiliumNode
-		queue                 = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		nodeManagerQueue      = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		kvStoreQueue          = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	)
 
 	// KVStore is enabled -> we will run the event handler to sync objects into
@@ -106,49 +108,32 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 		log.Info("Starting to synchronize CiliumNode custom resources")
 	}
 
-	// If Both nodeManager and KVStore are nil. We don't need to handle
+	if nodeManager != nil {
+		nodeManagerSyncHandler = syncHandlerConstructor(
+			func(name string) {
+				nodeManager.Delete(name)
+			},
+			func(node *cilium_v2.CiliumNode) {
+				// node is deep copied before it is stored in pkg/aws/eni
+				nodeManager.Update(node)
+			})
+	}
+	if withKVStore {
+		kvStoreSyncHandler = syncHandlerConstructor(
+			func(name string) {
+				ciliumNodeKVStore.DeleteLocalKey(ctx, &ciliumNodeName{name: name})
+			},
+			func(node *cilium_v2.CiliumNode) {
+				nodeNew := nodeTypes.ParseCiliumNode(node)
+				ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew)
+			})
+	}
+
+	// If both nodeManager and KVStore are nil, then we don't need to handle
 	// any watcher events, but we will need to keep all CiliumNodes in
 	// memory because 'ciliumNodeStore' is used across the operator
 	// to get the latest state of a CiliumNode.
 	if withKVStore || nodeManager != nil {
-		syncHandler = func(key string) error {
-			_, name, err := cache.SplitMetaNamespaceKey(key)
-			if err != nil {
-				log.WithError(err).Error("Unable to process CiliumNode event")
-				return err
-			}
-			obj, exists, err := ciliumNodeStore.GetByKey(name)
-
-			// Delete handling
-			if !exists || errors.IsNotFound(err) {
-				if withKVStore {
-					ciliumNodeKVStore.DeleteLocalKey(ctx, &ciliumNodeName{name: name})
-				}
-				if nodeManager != nil {
-					nodeManager.Delete(name)
-				}
-				return nil
-			}
-			if err != nil {
-				log.WithError(err).Warning("Unable to retrieve CiliumNode from watcher store")
-				return err
-			}
-			cn, ok := obj.(*cilium_v2.CiliumNode)
-			if !ok {
-				log.Errorf("Object stored in store is not *cilium_v2.CiliumNode but %T", obj)
-				return err
-			}
-			if withKVStore {
-				nodeNew := nodeTypes.ParseCiliumNode(cn)
-				ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew)
-			}
-			if nodeManager != nil {
-				// node is deep copied before it is stored in pkg/aws/eni
-				nodeManager.Update(cn)
-			}
-			return nil
-		}
-
 		resourceEventHandler = cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
@@ -156,7 +141,12 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 					log.WithError(err).Warning("Unable to process CiliumNode Add event")
 					return
 				}
-				queue.Add(key)
+				if nodeManager != nil {
+					nodeManagerQueue.Add(key)
+				}
+				if withKVStore {
+					kvStoreQueue.Add(key)
+				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
@@ -169,7 +159,12 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 							log.WithError(err).Warning("Unable to process CiliumNode Update event")
 							return
 						}
-						queue.Add(key)
+						if nodeManager != nil {
+							nodeManagerQueue.Add(key)
+						}
+						if withKVStore {
+							kvStoreQueue.Add(key)
+						}
 					} else {
 						log.Warningf("Unknown CiliumNode object type %T received: %+v", newNode, newNode)
 					}
@@ -183,7 +178,12 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 					log.WithError(err).Warning("Unable to process CiliumNode Delete event")
 					return
 				}
-				queue.Add(key)
+				if nodeManager != nil {
+					nodeManagerQueue.Add(key)
+				}
+				if withKVStore {
+					kvStoreQueue.Add(key)
+				}
 			},
 		}
 	} else {
@@ -208,13 +208,22 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced)
 		close(k8sCiliumNodesCacheSynced)
-		if withKVStore {
-			<-connectedToKVStore
+		// Only handle events if nodeManagerSyncHandler is not nil. If it is nil
+		// then there isn't any event handler set for CiliumNodes events.
+		if nodeManagerSyncHandler != nil {
+			for processNextWorkItem(nodeManagerQueue, nodeManagerSyncHandler) {
+			}
 		}
-		// Only handle events if syncHandler is not nil. If it is nil then
-		// there isn't any event handler set for CiliumNodes events.
-		if syncHandler != nil {
-			for processNextWorkItem(queue, syncHandler) {
+		// Start handling events for KVStore **after** nodeManagerSyncHandler
+		// otherwise Cilium Operator will block until the KVStore is available.
+		// This might be problematic in clusters that have etcd-operator with
+		// cluster-pool ipam mode because they depend on Cilium Operator to be
+		// running and handling IP Addresses with nodeManagerSyncHandler.
+		// Only handle events if kvStoreSyncHandler is not nil. If it is nil
+		// then there isn't any event handler set for CiliumNodes events.
+		if withKVStore && kvStoreSyncHandler != nil {
+			<-connectedToKVStore
+			for processNextWorkItem(kvStoreQueue, kvStoreSyncHandler) {
 			}
 		}
 	}()
@@ -222,6 +231,34 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 	go ciliumNodeInformer.Run(wait.NeverStop)
 
 	return nil
+}
+
+func syncHandlerConstructor(notFoundHandler func(name string), foundHandler func(node *cilium_v2.CiliumNode)) func(key string) error {
+	return func(key string) error {
+		_, name, err := cache.SplitMetaNamespaceKey(key)
+		if err != nil {
+			log.WithError(err).Error("Unable to process CiliumNode event")
+			return err
+		}
+		obj, exists, err := ciliumNodeStore.GetByKey(name)
+
+		// Delete handling
+		if !exists || errors.IsNotFound(err) {
+			notFoundHandler(name)
+			return nil
+		}
+		if err != nil {
+			log.WithError(err).Warning("Unable to retrieve CiliumNode from watcher store")
+			return err
+		}
+		cn, ok := obj.(*cilium_v2.CiliumNode)
+		if !ok {
+			log.Errorf("Object stored in store is not *cilium_v2.CiliumNode but %T", obj)
+			return err
+		}
+		foundHandler(cn)
+		return nil
+	}
 }
 
 // processNextWorkItem process all events from the workqueue.
