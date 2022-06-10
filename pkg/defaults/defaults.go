@@ -349,6 +349,10 @@ const (
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set.
 	ENIFirstInterfaceIndex = 0
 
+	// UseENIPrimaryAddress is the default value for
+	// CiliumNode.Spec.ENI.UsePrimaryAddress if no value is set.
+	UseENIPrimaryAddress = false
+
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
 
