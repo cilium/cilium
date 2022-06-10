@@ -65,7 +65,7 @@ cilium-operator-azure [flags]
       --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
       --nodes-gc-interval duration                GC interval for CiliumNodes
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
-      --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":6942")
+      --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)
       --pprof                                     Enable pprof debugging endpoint
       --pprof-port int                            Port that the pprof listens on (default 6061)

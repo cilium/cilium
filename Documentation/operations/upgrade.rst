@@ -322,6 +322,22 @@ Annotations:
   ``reserved:remote-node``. The change might impact those who have a network policy
   allowing access to the service from inside the cluster, and the policy was used
   to allow access from outside.
+* The default metrics exporter ports have changed to reserved ports in the
+  `Prometheus project <https://github.com/prometheus/prometheus/wiki/Default-port-allocations>`__.
+
+  +-----------------------+-----------------------+-------------------------+
+  | Exporter              | Default port          | Default port            |
+  |                       | Cilium <= v1.11       | Cilium >= v1.12         |
+  +=======================+=======================+=========================+
+  | Cilium Agent          |  9090                 | 9962                    |
+  +-----------------------+-----------------------+-------------------------+
+  | Cilium Operator       |  6942                 | 9963                    |
+  +-----------------------+-----------------------+-------------------------+
+  | Cilium Proxy          |  9095                 | 9964                    |
+  +-----------------------+-----------------------+-------------------------+
+  | Hubble                |  9091                 | 9965                    |
+  +-----------------------+-----------------------+-------------------------+
+  
 
 New Options
 ~~~~~~~~~~~

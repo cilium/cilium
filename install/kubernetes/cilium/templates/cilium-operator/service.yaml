@@ -12,7 +12,7 @@ spec:
   type: ClusterIP
   ports:
   - name: metrics
-    port: 6942
+    port: 9963
     protocol: TCP
     targetPort: prometheus
   selector:

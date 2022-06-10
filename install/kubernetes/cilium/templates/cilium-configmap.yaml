@@ -165,7 +165,7 @@ data:
   # NOTE that this will open the port on ALL nodes where Cilium pods are
   # scheduled.
   prometheus-serve-addr: ":{{ .Values.prometheus.port }}"
-  # Port to expose Envoy metrics (e.g. "9095"). Envoy metrics listener will be disabled if this
+  # Port to expose Envoy metrics (e.g. "9964"). Envoy metrics listener will be disabled if this
   # field is not set.
   {{- if .Values.proxy.prometheus.enabled }}
   proxy-prometheus-port: "{{ .Values.proxy.prometheus.port }}"

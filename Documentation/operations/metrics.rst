@@ -56,7 +56,7 @@ annotations. They can be used to signal Prometheus whether to scrape metrics:
 .. code-block:: yaml
 
         prometheus.io/scrape: true
-        prometheus.io/port: 9090
+        prometheus.io/port: 9962
 
 To collect Envoy metrics the Cilium chart will create a Kubernetes headless
 service named ``cilium-agent`` with the ``prometheus.io/scrape:'true'`` annotation set:
@@ -64,7 +64,7 @@ service named ``cilium-agent`` with the ``prometheus.io/scrape:'true'`` annotati
 .. code-block:: yaml
 
         prometheus.io/scrape: true
-        prometheus.io/port: 9095
+        prometheus.io/port: 9964
 
 This additional headless service in addition to the other Cilium components is needed
 as each component can only have one Prometheus scrape and port annotation.
@@ -127,7 +127,7 @@ with the ``prometheus.io/scrape:'true'`` annotation set:
 .. code-block:: yaml
 
         prometheus.io/scrape: true
-        prometheus.io/port: 9091
+        prometheus.io/port: 9965
 
 Set the following options in the ``scrape_configs`` section of Prometheus to
 have it scrape all Hubble metrics from the endpoints automatically:
@@ -181,7 +181,7 @@ Configuration
 
 To expose any metrics, invoke ``cilium-agent`` with the
 ``--prometheus-serve-addr`` option. This option takes a ``IP:Port`` pair but
-passing an empty IP (e.g. ``:9090``) will bind the server to all available
+passing an empty IP (e.g. ``:9962``) will bind the server to all available
 interfaces (there is usually only one in a container).
 
 Exported Metrics
@@ -435,7 +435,7 @@ Configuration
 
 ``cilium-operator`` can be configured to serve metrics by running with the
 option ``--enable-metrics``.  By default, the operator will expose metrics on
-port 6942, the port can be changed with the option
+port 9963, the port can be changed with the option
 ``--operator-prometheus-serve-addr``.
 
 Exported Metrics
@@ -471,7 +471,7 @@ Hubble metrics are served by a Hubble instance running inside ``cilium-agent``.
 The command-line options to configure them are ``--enable-hubble``,
 ``--hubble-metrics-server``, and ``--hubble-metrics``.
 ``--hubble-metrics-server`` takes an ``IP:Port`` pair, but
-passing an empty IP (e.g. ``:9091``) will bind the server to all available
+passing an empty IP (e.g. ``:9965``) will bind the server to all available
 interfaces. ``--hubble-metrics`` takes a comma-separated list of metrics.
 
 Some metrics can take additional semicolon-separated options per metric, e.g.
