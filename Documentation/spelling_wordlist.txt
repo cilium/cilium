@@ -612,6 +612,7 @@ mTLS
 macOS
 maglev
 mainboard
+makefile
 mapDynamicSizeRatio
 masq
 masqLinkLocal
@@ -735,6 +736,7 @@ preload
 preloading
 prem
 prepend
+prepended
 prepulls
 prerequirement
 priori
