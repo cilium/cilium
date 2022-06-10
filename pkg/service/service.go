@@ -208,14 +208,19 @@ type Service struct {
 
 // NewService creates a new instance of the service handler.
 func NewService(monitorNotify monitorNotify, envoyCache envoyCache) *Service {
+	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
+	maglevTableSize := option.Config.MaglevTableSize
+	return NewServiceWithMap(
+		monitorNotify, envoyCache,
+		lbmap.New(maglev, maglevTableSize))
+}
+
+func NewServiceWithMap(monitorNotify monitorNotify, envoyCache envoyCache, lbmap LBMap) *Service {
 
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New()
 	}
-
-	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
-	maglevTableSize := option.Config.MaglevTableSize
 
 	svc := &Service{
 		svcByHash:       map[string]*svcInfo{},
@@ -225,7 +230,7 @@ func NewService(monitorNotify monitorNotify, envoyCache envoyCache) *Service {
 		monitorNotify:   monitorNotify,
 		envoyCache:      envoyCache,
 		healthServer:    localHealthServer,
-		lbmap:           lbmap.New(maglev, maglevTableSize),
+		lbmap:           lbmap,
 		l7lbSvcs:        map[Name]*L7LBInfo{},
 	}
 	svc.lastUpdatedTs.Store(time.Now())

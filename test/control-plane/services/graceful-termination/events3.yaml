@@ -1,0 +1,29 @@
+apiVersion: v1
+items:
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints: null
+  kind: EndpointSlice
+  metadata:
+    creationTimestamp: "2022-06-10T15:06:36Z"
+    generateName: graceful-term-svc-
+    generation: 6
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: graceful-term-svc
+    name: graceful-term-svc-vmhf4
+    namespace: test
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: graceful-term-svc
+      uid: e840ac7a-9a30-4feb-aa6a-4f1a0d096039
+    resourceVersion: "622"
+    uid: fd8d758e-c47c-4b02-a748-8534fa58f1ad
+  ports: null
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""

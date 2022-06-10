@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: graceful-term-svc
+  namespace: test
+spec:
+  ports:
+    - port: 8081
+  selector:
+    app: graceful-term-server
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: graceful-term-server
+  namespace: test
+  labels:
+    app: graceful-term-server
+spec:
+  containers:
+    - name: server
+      image: docker.io/cilium/graceful-termination-test-apps:1.0.0
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 8081
+          protocol: TCP
+      command: [ "/server", "8081" ]
+  # The server signals shutdown to client upon receiving SIGTERM, waits for
+  # the terminationGracePeriodSeconds duration, and then gracefully closes client connection.
+  # The duration is configured such so that CI assertions can be made before exiting.
+  terminationGracePeriodSeconds: 15
+  tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+    - effect: NoSchedule
+      key: node.cloudprovider.kubernetes.io/uninitialized
+      value: "true"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: graceful-term-client
+  namespace: test
+  labels:
+    app: graceful-term-client
+spec:
+  # The client exits with status code 0 on graceful termination so no need to restart the pod on success.
+  restartPolicy: OnFailure
+  terminationGracePeriodSeconds: 0
+  containers:
+    - name: client
+      image: docker.io/cilium/graceful-termination-test-apps:1.0.0
+      imagePullPolicy: IfNotPresent
+      command: [ "/client", "graceful-term-svc.default.svc.cluster.local.:8081" ]
