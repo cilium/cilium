@@ -164,7 +164,7 @@ jobs:
           cd $HOME
           cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
           kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
-          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9090/metrics > metrics.prom
+          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9962/metrics > metrics.prom
           # Install promtool binary release. `go install` doesn't work due to
           # https://github.com/prometheus/prometheus/issues/8852 and related issues.
           curl -sSL --remote-name-all https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/{prometheus-${PROM_VERSION}.linux-amd64.tar.gz,sha256sums.txt}

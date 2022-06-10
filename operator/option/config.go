@@ -22,7 +22,7 @@ const (
 	EndpointGCIntervalDefault = 5 * time.Minute
 
 	// PrometheusServeAddr is the default server address for operator metrics
-	PrometheusServeAddr = ":6942"
+	PrometheusServeAddr = ":9963"
 
 	// CESMaxCEPsInCESDefault is the maximum number of cilium endpoints allowed in a CES
 	CESMaxCEPsInCESDefault = 100

@@ -668,7 +668,7 @@ hubble:
     #
     enabled: ~
     # -- Configure the port the hubble metric server listens on.
-    port: 9091
+    port: 9965
     # -- Annotations to be added to hubble-metrics service.
     serviceAnnotations: {}
     serviceMonitor:
@@ -1301,7 +1301,7 @@ pprof:
 # -- Configure prometheus metrics on the configured port at /metrics
 prometheus:
   enabled: false
-  port: 9090
+  port: 9962
   serviceMonitor:
     # -- Enable service monitors.
     # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
@@ -1323,7 +1323,7 @@ prometheus:
 proxy:
   prometheus:
     enabled: true
-    port: "9095"
+    port: "9964"
   # -- Regular expression matching compatible Istio sidecar istio-proxy
   # container image names
   sidecarImageRegex: "cilium/istio_proxy"
@@ -1613,7 +1613,7 @@ operator:
   # /metrics
   prometheus:
     enabled: false
-    port: 6942
+    port: 9963
     serviceMonitor:
       # -- Enable service monitors.
       # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)

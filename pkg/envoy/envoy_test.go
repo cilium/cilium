@@ -72,7 +72,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	log.Debug("started Envoy")
 
 	log.Debug("adding metrics listener")
-	xdsServer.AddMetricsListener(9095, s.waitGroup)
+	xdsServer.AddMetricsListener(9964, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
