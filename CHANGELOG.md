@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.17
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump cilium envoy to latest version v1.21.3 (Backport PR #20148, Upstream PR #20142, @sayboras)
+
+**Bugfixes:**
+* ipsec: Fix off-by-one error on max keyID (Backport PR #20016, Upstream PR #16647, @pchaigno)
+
+**Misc Changes:**
+* api: change "group not found" log to debug (Backport PR #20016, Upstream PR #19927, @tklauser)
+* build(deps): bump actions/upload-artifact from 3.0.0 to 3.1.0 (#19916, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.10.0 to 3 (#19739, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.2 to 1.5.3 (#19866, @dependabot[bot])
+* docs: Add docs-builder build as dependency to live preview (Backport PR #20016, Upstream PR #19885, @qmonnet)
+* docs: Document operator.unmanagedPodWatcher (Backport PR #19844, Upstream PR #19820, @joestringer)
+* docs: Fix incorrect FQDN flag (Backport PR #20016, Upstream PR #19930, @pchaigno)
+* docs: Fix max SPI value for IPsec key rotations (Backport PR #20016, Upstream PR #19893, @pchaigno)
+* Improve Cilium DNS Proxy-related error metrics (Backport PR #19769, Upstream PR #19702, @christarazi)
+
+**Other Changes:**
+* install: Update image digests for v1.9.16 (#19838, @joestringer)
+* Remove group from the right Dockerfile (#19924, @aanm)
+
 ## v1.9.16
 
 Summary of Changes
