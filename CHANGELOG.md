@@ -1,5 +1,67 @@
 # Changelog
 
+## v1.10.12
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add concurrency limiting for DNS message processing (Backport PR #19859, Upstream PR #19592, @nebril)
+* Add counter to track all datapath timeouts due to FQDN IP updates (Backport PR #20015, Upstream PR #19809, @ungureanuvladvictor)
+* Add type label to the identity metric (Backport PR #20100, Upstream PR #19999, @ungureanuvladvictor)
+* Bugtool: Add additional Linux traffic-control (tc) data to cilium-bugtool output. (Backport PR #20015, Upstream PR #19856, @tommyp1ckles)
+* Change default agent health check port to avoid conflicts (Backport PR #19859, Upstream PR #19830, @tklauser)
+* envoy: Bump cilium envoy to latest version v1.21.3 (Backport PR #20147, Upstream PR #20142, @sayboras)
+* ui: v0.9.0 images and drop envoy proxy container (Backport PR #20110, Upstream PR #19565, @geakstr)
+
+**Bugfixes:**
+* Also take secondary CIDRs into account when checking for validity of IPv4NativeRoutingCIDR (Backport PR #20028, Upstream PR #18653, @codablock)
+* cli: Update regex for key value validation (Backport PR #19859, Upstream PR #19794, @sayboras)
+* clustermesh: Add ownerReferences for CiliumNodes (Backport PR #20100, Upstream PR #19959, @sayboras)
+* cmd: Allow more complicated patterns in map string type. (Backport PR #20015, Upstream PR #19955, @sayboras)
+* Fix memory leak in the DNS cache when a long-lived endpoint makes many unique DNS lookups over time (Backport PR #20100, Upstream PR #19925, @christarazi)
+* Fix race condition leading to inconsistent CiliumNode that can cause the agent to fatal. (Backport PR #20110, Upstream PR #19923, @pchaigno)
+* Improve endpoint and DNS proxy lock contention during bursty DNS traffic (Backport PR #20100, Upstream PR #19347, @christarazi)
+* ipsec: Fix off-by-one error on max keyID (Backport PR #20015, Upstream PR #16647, @pchaigno)
+
+**CI Changes:**
+* .github/workflows: bump kind workflow to cilium-cli v0.10.5 (#19896, @tklauser)
+* jenkins: switch to ad-hoc GKE cluster creation/deletion (Backport PR #19859, Upstream PR #19918, @nbusseneau)
+* v1.10: .github/workflows: bump kind workflow to cilium-cli v0.10.6 (#19934, @tklauser)
+
+**Misc Changes:**
+* api: change "group not found" log to debug (Backport PR #20015, Upstream PR #19927, @tklauser)
+* bug: Fix Hubble Peer Service Helm File Location (#19912, @nathanjsweet)
+* bugtool: Add structured node and health output (Backport PR #20100, Upstream PR #20011, @gandro)
+* build(deps): bump actions/cache from 3.0.2 to 3.0.3 (#20022, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.3 to 3.0.4 (#20101, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.0.0 to 3.1.0 (#19802, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.1.0 to 3.2.0 (#19973, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.0.0 to 3.1.0 (#19901, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.1.0 to 3.2.0 (#19781, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.2 to 1.5.3 (#19867, @dependabot[bot])
+* daemon, fqdn: Add flag to control FQDN regex LRU size (Backport PR #20100, Upstream PR #19383, @christarazi)
+* Do not disable peer service when hubble.listenAddress is empty (Backport PR #20015, Upstream PR #19886, @chancez)
+* docs: Add docs-builder build as dependency to live preview (Backport PR #20015, Upstream PR #19885, @qmonnet)
+* docs: Document operator.unmanagedPodWatcher (Backport PR #19845, Upstream PR #19820, @joestringer)
+* docs: Fix incorrect command in IPsec GSG (Backport PR #19859, Upstream PR #19767, @pchaigno)
+* docs: Fix incorrect FQDN flag (Backport PR #20015, Upstream PR #19930, @pchaigno)
+* docs: Fix max SPI value for IPsec key rotations (Backport PR #20015, Upstream PR #19893, @pchaigno)
+* docs: Remove '\r' chars from grep result to parse Alpine image name (Backport PR #20015, Upstream PR #19888, @qmonnet)
+* Expose metrics for active FQDN connections per endpoint (Backport PR #20100, Upstream PR #19857, @christarazi)
+* helm: don't generate the hubble-peer svc during preflight checks (Backport PR #19859, Upstream PR #19759, @kaworu)
+* helm: use port 80/443 by default for the peer service (Backport PR #20100, Upstream PR #19933, @rolinh)
+* Improve Cilium DNS Proxy-related error metrics (Backport PR #19859, Upstream PR #19702, @christarazi)
+* k8s: Update libraries to v1.21.11 (#19246, @nathanjsweet)
+* metrics: Fix NaN value for cilium metrics list CLI (Backport PR #20100, Upstream PR #19987, @sayboras)
+* pkg/labels: Optimize SortedList() and FormatForKVStore() (Backport PR #20100, Upstream PR #19423, @christarazi)
+* pkg/policy/api: Optimize FQDNSelector String() (Backport PR #20100, Upstream PR #19570, @christarazi)
+
+**Other Changes:**
+* install: Update image digests for v1.10.11 (#19839, @joestringer)
+* v1.10: tests-l4lb: Use Helm chart from local branch (#20004, @jibi)
+* workflow: l4lb: pass correct path for PR checkout (#20008, @jibi)
+
 ## v1.10.11
 
 Summary of Changes
