@@ -79,6 +79,7 @@ var errors = map[uint8]string{
 	181: "Policy denied by denylist",
 	182: "VLAN traffic disallowed by VLAN filter",
 	183: "Incorrect VNI from VTEP",
+	184: "Failed to update or lookup TC buffer",
 }
 
 // DropReason prints the drop reason in a human readable string

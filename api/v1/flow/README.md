@@ -885,6 +885,7 @@ here.
 | POLICY_DENY | 181 |  |
 | VLAN_FILTERED | 182 |  |
 | INVALID_VNI | 183 |  |
+| INVALID_TC_BUFFER | 184 |  |
 
 
 
