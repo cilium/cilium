@@ -1449,8 +1449,16 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
 	}
 
-	if option.Config.TunnelingEnabled() && option.Config.EnableAutoDirectRouting {
-		log.Fatalf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName)
+	if option.Config.TunnelingEnabled() {
+		if option.Config.EnableAutoDirectRouting {
+			log.Fatalf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName)
+		}
+		if option.Config.EnableEndpointRoutes {
+			log.WithFields(logrus.Fields{
+				logfields.URL:  "https://github.com/cilium/cilium/issues/14955",
+				logfields.Hint: fmt.Sprintf("Disable %s", option.EnableEndpointRoutes),
+			}).Fatalf("%s cannot be used with tunneling.", option.EnableEndpointRoutes)
+		}
 	}
 
 	initClockSourceOption()
