@@ -341,8 +341,8 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	ciliumClient := k8s.CiliumClient()
 
 	performGet := true
+	var nodeResource *ciliumv2.CiliumNode
 	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
-		var nodeResource *ciliumv2.CiliumNode
 		performUpdate := true
 		if performGet {
 			var err error
