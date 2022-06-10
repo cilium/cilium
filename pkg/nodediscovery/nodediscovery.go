@@ -548,6 +548,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		// determine the appropriate value to place inside the resource.
 		nodeResource.Spec.ENI.VpcID = vpcID
 		nodeResource.Spec.ENI.FirstInterfaceIndex = getInt(defaults.ENIFirstInterfaceIndex)
+		nodeResource.Spec.ENI.UsePrimaryAddress = getBool(defaults.UseENIPrimaryAddress)
 
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
@@ -584,6 +585,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 			if len(c.ENI.ExcludeInterfaceTags) > 0 {
 				nodeResource.Spec.ENI.ExcludeInterfaceTags = c.ENI.ExcludeInterfaceTags
+			}
+
+			if c.ENI.UsePrimaryAddress != nil {
+				nodeResource.Spec.ENI.UsePrimaryAddress = c.ENI.UsePrimaryAddress
 			}
 
 			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
@@ -747,6 +752,10 @@ func validatePrimaryCIDR(oldCIDR, newCIDR *cidr.CIDR, family ipam.Family) {
 
 func getInt(i int) *int {
 	return &i
+}
+
+func getBool(b bool) *bool {
+	return &b
 }
 
 func (nodeDiscovery *NodeDiscovery) UpdateKVNodeEntry(node *nodeTypes.Node) error {
