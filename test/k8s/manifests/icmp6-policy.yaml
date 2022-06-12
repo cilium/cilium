@@ -1,0 +1,17 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "icmp6-policy"
+spec:
+  description: "ICMPv6 policy"
+  endpointSelector:
+    matchLabels:
+      id: app1
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        id: app2
+    icmps:
+    - fields:
+      - type: 128
+        family: IPv6

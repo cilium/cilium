@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "icmp-policy-deny"
+spec:
+  description: "ICMP policy deny"
+  endpointSelector:
+    matchLabels:
+      id: app1
+  ingressDeny:
+  - fromEndpoints:
+    - matchLabels:
+        id: app2
+    icmps:
+    - fields:
+      - type: 8
