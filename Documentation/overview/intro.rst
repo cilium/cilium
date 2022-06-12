@@ -124,6 +124,6 @@ scalable even for large-scale environments.
 Functionality Overview
 ======================
 
-.. include:: ../README.rst
+.. include:: ../../README.rst
      :start-after: begin-functionality-overview
      :end-before: end-functionality-overview
