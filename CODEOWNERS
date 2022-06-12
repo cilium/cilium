@@ -112,7 +112,6 @@ Makefile* @cilium/build
 /Documentation/concepts/networking/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
 /Documentation/concepts/networking/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
 /Documentation/concepts/observability/hubble-configuration.rst @cilium/sig-hubble @cilium/docs-structure
-/Documentation/concepts/overview.rst @cilium/docs-structure
 /Documentation/concepts/security/proxy/ @cilium/proxy @cilium/docs-structure
 /Documentation/conf.py @cilium/docs-structure
 /Documentation/configuration/index.rst @cilium/docs-structure
@@ -140,12 +139,13 @@ Makefile* @cilium/build
 /Documentation/internals/index.rst @cilium/docs-structure
 /Documentation/internals/cilium_operator.rst @cilium/operator @cilium/docs-structure
 /Documentation/internals/hubble.rst @cilium/sig-hubble @cilium/docs-structure
-/Documentation/intro.rst @cilium/docs-structure
 /Documentation/images/bpf* @cilium/sig-datapath @cilium/docs-structure
 /Documentation/images/hubble_getflows.png @cilium/sig-hubble @cilium/docs-structure
 /Documentation/Makefile @cilium/docs-structure
 /Documentation/operations/performance/ @cilium/sig-datapath @cilium/docs-structure
 /Documentation/operations/system_requirements.rst @cilium/sig-datapath @cilium/docs-structure
+/Documentation/overview/component-overview.rst @cilium/docs-structure
+/Documentation/overview/intro.rst @cilium/docs-structure
 /Documentation/policy/ @cilium/sig-policy @cilium/docs-structure
 /Documentation/requirements.txt @cilium/docs-structure
 /Documentation/spelling_wordlist.txt @cilium/docs-structure
