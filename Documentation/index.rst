@@ -44,9 +44,15 @@ get started and experiment with Cilium.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Overview
+
+   overview/intro
+   overview/component-overview
+
+.. toctree::
+   :maxdepth: 2
    :caption: Getting Started
 
-   intro
    gettingstarted/index
    concepts/index
    gettinghelp

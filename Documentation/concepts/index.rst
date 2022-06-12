@@ -20,7 +20,6 @@ Choose one of the following topics to start reading:
    :maxdepth: 1
    :glob:
 
-   overview
    terminology
    networking/index
    security/index
