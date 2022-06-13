@@ -16,9 +16,31 @@
  *	*under construction*
  */
 
+#if __UAPI_DEF_IN6_PKTINFO
+struct in6_pktinfo {
+	struct in6_addr	ipi6_addr;
+	int		ipi6_ifindex;
+};
+#endif
+
+#if __UAPI_DEF_IP6_MTUINFO
+struct ip6_mtuinfo {
+	struct sockaddr_in6	ip6m_addr;
+	__u32			ip6m_mtu;
+};
+#endif
+
+struct in6_ifreq {
+	struct in6_addr	ifr6_addr;
+	__u32		ifr6_prefixlen;
+	int		ifr6_ifindex; 
+};
+
 #define IPV6_SRCRT_STRICT	0x01	/* Deprecated; will be removed */
 #define IPV6_SRCRT_TYPE_0	0	/* Deprecated; will be removed */
 #define IPV6_SRCRT_TYPE_2	2	/* IPv6 type 2 Routing Header	*/
+#define IPV6_SRCRT_TYPE_3	3	/* RPL Segment Routing with IPv6 */
+#define IPV6_SRCRT_TYPE_4	4	/* Segment Routing with IPv6 */
 
 /*
  *	routing header
@@ -154,6 +176,24 @@ enum {
 	DEVCONF_USE_OIF_ADDRS_ONLY,
 	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
 	DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
+	DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
+	DEVCONF_DROP_UNSOLICITED_NA,
+	DEVCONF_KEEP_ADDR_ON_DOWN,
+	DEVCONF_RTR_SOLICIT_MAX_INTERVAL,
+	DEVCONF_SEG6_ENABLED,
+	DEVCONF_SEG6_REQUIRE_HMAC,
+	DEVCONF_ENHANCED_DAD,
+	DEVCONF_ADDR_GEN_MODE,
+	DEVCONF_DISABLE_POLICY,
+	DEVCONF_ACCEPT_RA_RT_INFO_MIN_PLEN,
+	DEVCONF_NDISC_TCLASS,
+	DEVCONF_RPL_SEG_ENABLED,
+	DEVCONF_RA_DEFRTR_METRIC,
+	DEVCONF_IOAM6_ENABLED,
+	DEVCONF_IOAM6_ID,
+	DEVCONF_IOAM6_ID_WIDE,
+	DEVCONF_NDISC_EVICT_NOCARRIER,
+	DEVCONF_ACCEPT_UNTRACKED_NA,
 	DEVCONF_MAX
 };
 
