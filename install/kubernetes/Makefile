@@ -7,7 +7,7 @@ include $(MAKEFILE_VALUES)
 include ../../Makefile.defs
 
 ifeq ($(CILIUM_VERSION),)
-export CILIUM_VERSION:="v$(VERSION)"
+export CILIUM_VERSION:=v$(VERSION)
 endif
 
 MIN_K8S_MAJOR := 1
