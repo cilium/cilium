@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -230,6 +231,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	policyGetter policyRepoGetter,
 	ipcache *ipcache.IPCache,
 	mtuConfig mtu.Configuration,
+	bigTCPConfig bigtcp.Configuration,
 	epMgr EndpointAdder,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
@@ -272,7 +274,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		_, epLink, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(), info)
+		_, epLink, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(), bigTCPConfig.GetGROMaxSize(), bigTCPConfig.GetGSOMaxSize(), info)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %s", err)
 		}
