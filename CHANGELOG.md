@@ -1,5 +1,77 @@
 # Changelog
 
+## v1.11.6
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add concurrency limiting for DNS message processing (Backport PR #19858, Upstream PR #19592, @nebril)
+* Add config flag to add a prefix to AgentNotReadyNodeTaint value in order to enable the taint being ignored by cluster autoscaler. (Backport PR #20183, Upstream PR #19247, @thejosephstevens)
+* Add counter to track all datapath timeouts due to FQDN IP updates (Backport PR #20111, Upstream PR #19809, @ungureanuvladvictor)
+* Add type label to the identity metric (Backport PR #20111, Upstream PR #19999, @ungureanuvladvictor)
+* Bugtool: Add additional Linux traffic-control (tc) data to cilium-bugtool output. (Backport PR #19966, Upstream PR #19856, @tommyp1ckles)
+* Change default agent health check port to avoid conflicts (Backport PR #19858, Upstream PR #19830, @tklauser)
+* Ensure priority scheduling of CNI agent. Repair a deprecated Kubernetes annotation. The annotation was used to schedule pods at high priority. This deprecation, which occurred in Kubernetes 1.16, results in unexpected behavior. (Backport PR #20111, Upstream PR #18667, @sdake)
+* envoy: Bump cilium envoy to latest version v1.21.3 (Backport PR #20146, Upstream PR #20142, @sayboras)
+* ui: v0.9.0 images and drop envoy proxy container (Backport PR #20111, Upstream PR #19565, @geakstr)
+
+**Bugfixes:**
+* cli: Update regex for key value validation (Backport PR #19858, Upstream PR #19794, @sayboras)
+* cli: Use custom named map instead of StringToStringVar (Backport PR #20111, Upstream PR #19968, @sayboras)
+* clustermesh: Add ownerReferences for CiliumNodes (Backport PR #20111, Upstream PR #19959, @sayboras)
+* cmd: Allow more complicated patterns in map string type. (Backport PR #20111, Upstream PR #19955, @sayboras)
+* datapath: Fix implicit-int-conversion err in common.h (Backport PR #19966, Upstream PR #19832, @brb)
+* Fix bug where established host connections would be interrupted on agent restart if the host firewall was enabled. (Backport PR #20111, Upstream PR #19998, @pchaigno)
+* Fix memory leak in the DNS cache when a long-lived endpoint makes many unique DNS lookups over time (Backport PR #20111, Upstream PR #19925, @christarazi)
+* Fix race condition leading to inconsistent CiliumNode that can cause the agent to fatal. (Backport PR #20111, Upstream PR #19923, @pchaigno)
+
+**CI Changes:**
+* jenkins: switch to ad-hoc GKE cluster creation/deletion (Backport PR #19966, Upstream PR #19918, @nbusseneau)
+* test: Wait for pod termination in K8sServicesTest (Backport PR #19858, Upstream PR #19750, @brb)
+
+**Misc Changes:**
+* api: change "group not found" log to debug (Backport PR #19966, Upstream PR #19927, @tklauser)
+* bugtool: Add structured node and health output (Backport PR #20111, Upstream PR #20011, @gandro)
+* build(deps): bump actions/cache from 3.0.2 to 3.0.3 (#20023, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.3 to 3.0.4 (#20102, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.0.0 to 3.1.0 (#19803, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.1.0 to 3.2.0 (#19974, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.0.0 to 3.1.0 (#19902, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.11 to 2.1.12 (#20059, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.9 to 2.1.11 (#19854, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.1.0 to 3.2.0 (#19783, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.2 to 1.5.3 (#19868, @dependabot[bot])
+* build(deps): bump library/alpine from 3.15.4 to 3.16.0 in /images/cache (#19944, @dependabot[bot])
+* Do not disable peer service when hubble.listenAddress is empty (Backport PR #19966, Upstream PR #19886, @chancez)
+* docs: Add docs-builder build as dependency to live preview (Backport PR #19966, Upstream PR #19885, @qmonnet)
+* docs: add kube-apiserver to the special identity list (Backport PR #20111, Upstream PR #20047, @kaworu)
+* docs: Document operator.unmanagedPodWatcher (Backport PR #19846, Upstream PR #19820, @joestringer)
+* docs: Fix incorrect command in IPsec GSG (Backport PR #19858, Upstream PR #19767, @pchaigno)
+* docs: Fix incorrect FQDN flag (Backport PR #19966, Upstream PR #19930, @pchaigno)
+* docs: Fix max SPI value for IPsec key rotations (Backport PR #19966, Upstream PR #19893, @pchaigno)
+* docs: Remove '\r' chars from grep result to parse Alpine image name (Backport PR #19966, Upstream PR #19888, @qmonnet)
+* Document that clustermesh cluster-id range is 1-255 (Backport PR #19858, Upstream PR #19683, @stonith)
+* Expose metrics for active FQDN connections per endpoint (Backport PR #20111, Upstream PR #19857, @christarazi)
+* helm: don't generate the hubble-peer svc during preflight checks (Backport PR #19858, Upstream PR #19759, @kaworu)
+* helm: use port 80/443 by default for the peer service (Backport PR #20111, Upstream PR #19933, @rolinh)
+* Improve Cilium DNS Proxy-related error metrics (Backport PR #19858, Upstream PR #19702, @christarazi)
+* ipcache: Error out from InjectLabels if Checker is nil (Backport PR #19966, Upstream PR #19887, @jrajahalme)
+* k8s: Update libraries to v1.23.5 (#19245, @nathanjsweet)
+* metrics: Fix NaN value for cilium metrics list CLI (Backport PR #20111, Upstream PR #19987, @sayboras)
+* Optimize CIDR label functions (Backport PR #20111, Upstream PR #19843, @christarazi)
+* pkg/fqdn: Replace remaining usages of regex compile with LRU (Backport PR #20111, Upstream PR #19875, @christarazi)
+* Templatize helm template image references (Backport PR #20189, Upstream PR #20066, @joestringer)
+* Use FQDN regex LRU everywhere (Backport PR #19858, Upstream PR #19632, @christarazi)
+* v1.11: Update Go to 1.17.10 (#19776, @tklauser)
+* v1.11: Update Go to 1.17.11 (#20063, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.11.5 (#19840, @joestringer)
+* v1.11: Pick up the latest cilium-cli for kind conformance test (#19889, @michi-covalent)
+* v1.11: tests-l4lb: Use Helm chart from local branch (#20003, @jibi)
+* workflow: l4lb: pass correct path for PR checkout (#20009, @jibi)
+
 ## v1.11.5
 
 Summary of Changes
