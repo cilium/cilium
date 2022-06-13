@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package services
 
 import (
@@ -22,14 +25,10 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
-	"github.com/kr/pretty"
-	"github.com/pmezard/go-difflib/difflib"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	yaml2 "sigs.k8s.io/yaml"
-
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 )
 
 //
@@ -48,8 +47,8 @@ import (
 // - code with manual construction of the k8s objects, steps
 //   and validation functions.
 //
-// - golden test with k8s objects and lbmap state expressed
-//   as yaml files.
+// - golden test with k8s objects and lbmap state expressed as
+//   pretty-printed table.
 //
 
 // ValidateFunc is called on each test case step to validate the state
@@ -116,78 +115,14 @@ func (testCase *ServicesTestCase) Run(t *testing.T) {
 	}
 }
 
-// goldenLBMapValidator
-type goldenLBMapValidator struct {
-	expectedFile string
-}
-
-func newGoldenLBMapValidator(eventsFile string) goldenLBMapValidator {
-	var v goldenLBMapValidator
-	var stepNum int
-	fmt.Sscanf(path.Base(eventsFile), "events%d.yaml", &stepNum)
-	v.expectedFile = path.Join(path.Dir(eventsFile), fmt.Sprintf("lbmap%d.yaml", stepNum))
-	return v
-}
-
-// lbmapsEqual returns true if the actual content of the lbmap produced by the test
-// matches with the expected. If it doesn't, a textual diff is included to describe
-// the mismatch.
-func (v goldenLBMapValidator) lbmapsEqual(expected, actual *mockmaps.LBMockMap) (string, bool) {
-	stringA := pretty.Sprintf("%# v", expected)
-	stringB := pretty.Sprintf("%# v", actual)
-	diff := difflib.UnifiedDiff{
-		A:        difflib.SplitLines(stringA),
-		B:        difflib.SplitLines(stringB),
-		FromFile: v.expectedFile,
-		ToFile:   "<actual>",
-		Context:  10,
-	}
-	out, err := difflib.GetUnifiedDiffString(diff)
-	if err != nil {
-		return err.Error(), false
-	}
-	if out != "" {
-		return out, false
-	}
-	return "", true
-}
-
-func (v goldenLBMapValidator) validate(t *testing.T, lbmap *mockmaps.LBMockMap) {
-	if _, err := os.Stat(v.expectedFile); err == nil {
-		var expected mockmaps.LBMockMap
-		bs, err := os.ReadFile(v.expectedFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = yaml.Unmarshal(bs, &expected)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if diff, ok := v.lbmapsEqual(&expected, lbmap); !ok {
-			t.Fatalf("lbmap mismatch:\n%s", diff)
-		}
-	} else {
-		// Mark failed as the expected output was missing, but
-		// continue with the rest of the steps.
-		t.Fail()
-		t.Logf("%s missing, creating...", v.expectedFile)
-		out, _ := yaml2.Marshal(lbmap)
-		if err := os.WriteFile(v.expectedFile, out, 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 // RunGoldenTest runs the golden test written in terms of YAML files defining
 // the input events and expected LBMap output.
 //
-// The input events are specified in files events1.yaml, events2.yaml and so on.
+// The input events are specified in files events<N>.yaml.
 // These are expected to be a k8s "List", e.g. the format of "kubectl get <res> -o yaml".
-//
-// The lbmap expected state is stored in lbmap1.yaml, lbmap2.yaml and so on.
-// Expected state defined by "lbmap1.yaml" is checked after events in
-// "events1.yaml" are applied.
-func RunGoldenTest(t *testing.T, dir string) {
+// They're fed to the control-plane in lexicographical order and after each the
+// lbmap state is validated against the expected state as described by lbmap<N>.golden.
+func RunGoldenTest(t *testing.T, dir string, updateGolden bool) {
 	var testCase ServicesTestCase
 
 	// Construct the test case by parsing all input event files
@@ -228,7 +163,7 @@ func RunGoldenTest(t *testing.T, dir string) {
 			return nil
 		})
 
-		validator := newGoldenLBMapValidator(eventsFile)
+		validator := newGoldenLBMapValidator(eventsFile, updateGolden)
 		testCase.Steps = append(testCase.Steps,
 			NewStep(path.Join(dir, path.Base(ent.Name())),
 				validator.validate,
@@ -356,6 +291,7 @@ func toStructured(obj k8sRuntime.Object) k8sRuntime.Object {
 	if err != nil {
 		panic(err)
 	}
+
 	switch kind {
 	case "Service":
 		return unmarshal[*slim_corev1.Service](bs)
