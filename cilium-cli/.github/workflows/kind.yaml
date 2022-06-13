@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  KIND_VERSION: v0.11.1
+  KIND_VERSION: v0.14.0
   KIND_CONFIG: .github/kind-config.yaml
   TIMEOUT: 2m
   LOG_TIME: 30m
