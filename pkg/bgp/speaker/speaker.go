@@ -423,16 +423,25 @@ func convertEndpointSliceV1(in *slim_discover_v1.EndpointSlice) *metallbspr.Endp
 	}
 	out := new(metallbspr.Endpoints)
 	for _, ep := range in.Endpoints {
-		for _, addr := range ep.Addresses {
-			out.Ready = append(out.Ready, metallbspr.Endpoint{
-				IP:       addr,
-				NodeName: ep.NodeName,
-			})
+		if isConditionReadyForSliceV1(ep.Conditions) {
+			for _, addr := range ep.Addresses {
+				out.Ready = append(out.Ready, metallbspr.Endpoint{
+					IP:       addr,
+					NodeName: ep.NodeName,
+				})
+			}
 		}
 		// See above comment in convertEndpoints() for why we only append
 		// "ready" endpoints.
 	}
 	return out
+}
+
+func isConditionReadyForSliceV1(conditions slim_discover_v1.EndpointConditions) bool {
+	if conditions.Ready == nil {
+		return true
+	}
+	return *conditions.Ready
 }
 
 func convertEndpointSliceV1Beta1(in *slim_discover_v1beta1.EndpointSlice) *metallbspr.Endpoints {
@@ -441,16 +450,25 @@ func convertEndpointSliceV1Beta1(in *slim_discover_v1beta1.EndpointSlice) *metal
 	}
 	out := new(metallbspr.Endpoints)
 	for _, ep := range in.Endpoints {
-		for _, addr := range ep.Addresses {
-			out.Ready = append(out.Ready, metallbspr.Endpoint{
-				IP:       addr,
-				NodeName: ep.NodeName,
-			})
+		if isConditionReadyForSliceV1Beta1(ep.Conditions) {
+			for _, addr := range ep.Addresses {
+				out.Ready = append(out.Ready, metallbspr.Endpoint{
+					IP:       addr,
+					NodeName: ep.NodeName,
+				})
+			}
 		}
 		// See above comment in convertEndpoints() for why we only append
 		// "ready" endpoints.
 	}
 	return out
+}
+
+func isConditionReadyForSliceV1Beta1(conditions slim_discover_v1beta1.EndpointConditions) bool {
+	if conditions.Ready == nil {
+		return true
+	}
+	return *conditions.Ready
 }
 
 // nodeLabels copies the provided labels and returns
