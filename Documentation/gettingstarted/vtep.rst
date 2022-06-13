@@ -30,13 +30,6 @@ endpoint IPs, CIDRs, and MAC addresses.
    identifier (VNI) *must* be configured as VNI ``2``, which represents traffic
    from the VTEP as the world identity. See :ref:`reserved_labels` for more details.
 
-.. warning::
-
-   This feature is in beta, and currently, it is partially incompatible the L7 policy.
-   When a pod with an egress L7 policy sends a request to VTEP devices, the VTEP redirection
-   is bypassed. The improvement is tracked in :gh-issue:`19699`.
-
-
 Enable VXLAN Tunnel Endpoint (VTEP) integration
 ===============================================
 
@@ -118,14 +111,9 @@ run the commands below using ``sudo``.
    ip addr add 10.1.1.236/24 dev vxlan2
    # Assume Cilium podCIDR network is 10.0.0.0/16, add route to 10.0.0.0/16
    ip route add 10.0.0.0/16 dev vxlan2  proto kernel  scope link  src 10.1.1.236
-   # Allow Linux VM send ARP broadcast request to Cilium node for busybox pod ARP resolution
-   # through vxlan2 device, note this depend on if Cilium is able to proxy busybox pod ARP
-   # see https://github.com/cilium/cilium/issues/16890
+   # Allow Linux VM to send ARP broadcast request to Cilium node for busybox pod
+   # ARP resolution through vxlan2 device
    bridge fdb append 00:00:00:00:00:00 dst 10.169.72.233 dev vxlan2
-   # Another way is to manually add busybox pod ARP address with Cilium node 10.169.72.233
-   # cilium_vxlan interface MAC address like below
-   bridge fdb append  <cilium_vxlan MAC> dst 10.169.72.233 dev vxlan2
-   arp -i vxlan2 -s <busybox pod IP> <cilium_vxlan MAC>
 
 If you are managing multiple VTEPs, follow the above process for each instance.
 Once the VTEPs are configured, you can configure Cilium to use the MAC, IP and CIDR ranges that
@@ -141,5 +129,4 @@ To test the VTEP network connectivity:
 Limitations
 ===========
 
-* This feature does not work with traffic from the host network namespace (including pods with ``hostNetwork=true``).
 * This feature does not work with ipsec encryption between Cilium managed pod and VTEPs.
