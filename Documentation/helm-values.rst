@@ -441,6 +441,10 @@
      - Enables masquerading of IPv4 traffic leaving the node from endpoints.
      - bool
      - ``true``
+   * - enableIPv6BIGTCP
+     - Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
+     - bool
+     - ``false``
    * - enableIPv6Masquerade
      - Enables masquerading of IPv6 traffic leaving the node from endpoints.
      - bool
