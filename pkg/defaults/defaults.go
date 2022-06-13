@@ -452,7 +452,7 @@ const (
 	ExternalClusterIP = false
 
 	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
-	EnableICMPRules = false
+	EnableICMPRules = true
 
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN = 8472
