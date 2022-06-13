@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
+	"net/netip"
 	"os"
 	"path"
 	"sort"
@@ -87,43 +89,87 @@ func (v goldenLBMapValidator) validate(t *testing.T, lbmap *mockmaps.LBMockMap) 
 	}
 }
 
+func ipLess(a, b net.IP) bool {
+	nipA, _ := netip.AddrFromSlice(a)
+	nipB, _ := netip.AddrFromSlice(b)
+	return nipA.Compare(nipB) < 0
+}
+
+func l3n4AddrLess(a, b *lb.L3n4Addr) bool {
+	if a.Protocol < b.Protocol {
+		return true
+	} else if a.Protocol > b.Protocol {
+		return false
+	}
+	if ipLess(a.IP, b.IP) {
+		return true
+	}
+	return a.Port < b.Port
+}
+
 func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
+	// Since the order in which backends and services (and their ids)
+	// are allocated is non-deterministic, we sort the backends and services
+	// by address, and use the new ordering to allocate deterministic ids.
+	backends := make([]*lb.Backend, 0, len(lbmap.BackendByID))
+	for _, be := range lbmap.BackendByID {
+		backends = append(backends, be)
+	}
+	sort.Slice(backends, func(i, j int) bool {
+		return backends[i].L3n4Addr.String() < backends[j].String()
+	})
+	newBackendIds := map[lb.BackendID]int{}
+	for i, be := range backends {
+		newBackendIds[be.ID] = i
+	}
+
+	services := make([]*lb.SVC, 0, len(lbmap.ServiceByID))
+	for _, svc := range lbmap.ServiceByID {
+		services = append(services, svc)
+	}
+	sort.Slice(services, func(i, j int) bool {
+		return services[i].Frontend.L3n4Addr.String() < services[j].Frontend.L3n4Addr.String()
+	})
+
 	tw := newTableWriter(w, "Services", "ID", "Type", "Frontend", "Backend IDs")
-	MapInOrder(lbmap.ServiceByID,
-		func(id uint16, svc *lb.SVC) {
-			tw.AddRow(
-				fmt.Sprintf("%d", id),
-				string(svc.Type),
-				svc.Frontend.String(),
-				showBackendIDs(svc.Backends),
-			)
-		})
+	for i, svc := range services {
+		tw.AddRow(
+			strconv.FormatInt(int64(i), 10),
+			string(svc.Type),
+			svc.Frontend.String(),
+			showBackendIDs(newBackendIds, svc.Backends),
+		)
+	}
 	tw.Flush()
 
 	tw = newTableWriter(w, "Backends", "ID", "L3n4Addr", "State", "Restored")
-	MapInOrder(lbmap.BackendByID,
-		func(_ lb.BackendID, be *lb.Backend) {
-			stateStr, err := be.State.String()
-			if err != nil {
-				stateStr = err.Error()
-			}
+	for i, be := range backends {
+		stateStr, err := be.State.String()
+		if err != nil {
+			stateStr = err.Error()
+		}
 
-			tw.AddRow(
-				fmt.Sprintf("%d", be.ID),
-				be.L3n4Addr.String(),
-				stateStr,
-				fmt.Sprintf("%v", be.RestoredFromDatapath))
-		})
+		tw.AddRow(
+			strconv.FormatInt(int64(i), 10),
+			be.L3n4Addr.String(),
+			stateStr,
+			fmt.Sprintf("%v", be.RestoredFromDatapath))
+	}
 	tw.Flush()
 
 }
 
-func showBackendIDs(bes []lb.Backend) string {
-	var ids []string
+func showBackendIDs(idMap map[lb.BackendID]int, bes []lb.Backend) string {
+	var ids []int
 	for _, be := range bes {
-		ids = append(ids, strconv.FormatUint(uint64(be.ID), 10))
+		ids = append(ids, idMap[be.ID])
 	}
-	return strings.Join(ids, ", ")
+	sort.Ints(ids)
+	var strs []string
+	for _, id := range ids {
+		strs = append(strs, strconv.FormatInt(int64(id), 10))
+	}
+	return strings.Join(strs, ", ")
 }
 
 type orderedComparable interface {

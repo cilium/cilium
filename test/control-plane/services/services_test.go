@@ -21,6 +21,9 @@ func TestMain(m *testing.M) {
 		logging.SetLogLevelToDebug()
 	}
 	logging.InitializeDefaultLogger()
+
+	option.Config.EnableHealthCheckNodePort = false
+
 	os.Exit(m.Run())
 }
 
