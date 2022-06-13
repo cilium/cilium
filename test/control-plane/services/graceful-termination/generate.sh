@@ -11,6 +11,10 @@ set -eux
 
 export KUBECONFIG=kubeconfig
 
+function get_state() {
+    kubectl get -n test services,endpointslices -o yaml
+}
+
 : Start a kind cluster with the EndpointSliceTerminatingCondition gate
 kind create cluster --config kind-config.yaml --name graceful-term
 
@@ -23,7 +27,7 @@ done
 kubectl create namespace test
 kubectl apply -f graceful-termination.yaml
 kubectl wait -n test --for=condition=ready --timeout=60s --all pods
-kubectl get -n test services,endpointslices -o yaml > events1.yaml
+get_state > events1.yaml
 
 : Stop the server
 kubectl -n test delete pod -l app=graceful-term-server &
@@ -34,11 +38,11 @@ kubectl wait -n test --timeout=60s \
 	-l kubernetes.io/service-name=graceful-term-svc \
 	endpointslices \
 	--for=jsonpath='{..endpoints..conditions.terminating}=true'
-kubectl -n test get services,endpointslices -o yaml > events2.yaml
+get_state > events2.yaml
 
 : Finish deletion and dump the final state
 wait $PID_DELETE
-kubectl -n test get endpointslices -o yaml > events3.yaml
+get_state > events3.yaml
 
 : Tear down the cluster
 kind delete clusters graceful-term

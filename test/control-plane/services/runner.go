@@ -83,18 +83,64 @@ func NewTestCase(steps ...*ServicesTestStep) *ServicesTestCase {
 	return &ServicesTestCase{steps}
 }
 
+type k8sObjectCache struct {
+	objs map[string]k8sRuntime.Object
+}
+
+func newK8sObjectCache() *k8sObjectCache {
+	return &k8sObjectCache{make(map[string]k8sRuntime.Object)}
+}
+
+func (c *k8sObjectCache) keys() map[string]struct{} {
+	keys := make(map[string]struct{})
+	for k := range c.objs {
+		keys[k] = struct{}{}
+	}
+	return keys
+}
+
+type nameAndNamespace interface {
+	GetName() string
+	GetNamespace() string
+}
+
+func (c *k8sObjectCache) updateObjects(newObjs []k8sRuntime.Object) (updated, deleted []k8sRuntime.Object) {
+	deletedKeys := c.keys()
+	for _, newObj := range newObjs {
+		var key string
+		if acc, ok := newObj.(nameAndNamespace); !ok {
+			panic("object does not implement GetName and GetNamespace")
+		} else {
+			key = acc.GetNamespace() + "/" + acc.GetName()
+		}
+
+		c.objs[key] = newObj
+		updated = append(updated, newObj)
+		delete(deletedKeys, key)
+	}
+
+	for k := range deletedKeys {
+		deleted = append(deleted, c.objs[k])
+		delete(c.objs, k)
+	}
+	return
+}
+
 // Run sets up the control-plane with a mock lbmap and executes the test case
 // against it.
 func (testCase *ServicesTestCase) Run(t *testing.T) {
 	watcher, lbmap := setupTest()
 	defer tearDown(watcher)
 
+	objCache := newK8sObjectCache()
+
 	// Run through test steps and validate
 	for _, step := range testCase.Steps {
 		// Feed in the input objects to the service cache
 		swg := lock.NewStoppableWaitGroup()
-		for _, input := range step.Inputs {
-			switch obj := input.(type) {
+		updated, deleted := objCache.updateObjects(step.Inputs)
+		for _, obj := range updated {
+			switch obj := obj.(type) {
 			case *slim_corev1.Service:
 				watcher.K8sSvcCache.UpdateService(obj, swg)
 			case *slim_corev1.Endpoints:
@@ -104,7 +150,21 @@ func (testCase *ServicesTestCase) Run(t *testing.T) {
 			case *slim_discovery_v1beta1.EndpointSlice:
 				watcher.K8sSvcCache.UpdateEndpointSlicesV1Beta1(obj, swg)
 			default:
-				t.Fatalf("Invalid test case: input of type %T is unknown", input)
+				t.Fatalf("Invalid test case: input of type %T is unknown", obj)
+			}
+		}
+		for _, obj := range deleted {
+			switch obj := obj.(type) {
+			case *slim_corev1.Service:
+				watcher.K8sSvcCache.DeleteService(obj, swg)
+			case *slim_corev1.Endpoints:
+				watcher.K8sSvcCache.DeleteEndpoints(obj, swg)
+			case *slim_discovery_v1.EndpointSlice:
+				watcher.K8sSvcCache.DeleteEndpointSlices(obj, swg)
+			case *slim_discovery_v1beta1.EndpointSlice:
+				watcher.K8sSvcCache.DeleteEndpointSlices(obj, swg)
+			default:
+				t.Fatalf("Invalid test case: input of type %T is unknown", obj)
 			}
 		}
 		swg.Stop()
