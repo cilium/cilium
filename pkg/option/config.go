@@ -351,6 +351,9 @@ const (
 	// EnableIPv6Masquerade masquerades IPv6 packets from endpoints leaving the host.
 	EnableIPv6Masquerade = "enable-ipv6-masquerade"
 
+	// EnableIPv6BIGTCP enables IPv6 BIG TCP (larger GSO/GRO limits) for the node including pods.
+	EnableIPv6BIGTCP = "enable-ipv6-big-tcp"
+
 	// EnableBPFClockProbe selects a more efficient source clock (jiffies vs ktime)
 	EnableBPFClockProbe = "enable-bpf-clock-probe"
 
@@ -1550,6 +1553,9 @@ type DaemonConfig struct {
 
 	// EnableIPv6NDP is true when NDP is enabled for IPv6
 	EnableIPv6NDP bool
+
+	// EnableIPv6BIGTCP enables IPv6 BIG TCP (larger GSO/GRO limits) for the node including pods.
+	EnableIPv6BIGTCP bool
 
 	// IPv6MCastDevice is the name of device that joins IPv6's solicitation multicast group
 	IPv6MCastDevice string
@@ -2779,6 +2785,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPv4 = viper.GetBool(EnableIPv4Name)
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
 	c.EnableIPv6NDP = viper.GetBool(EnableIPv6NDPName)
+	c.EnableIPv6BIGTCP = viper.GetBool(EnableIPv6BIGTCP)
 	c.IPv6MCastDevice = viper.GetString(IPv6MCastDevice)
 	c.EnableIPSec = viper.GetBool(EnableIPSecName)
 	c.EnableWireguard = viper.GetBool(EnableWireguard)
