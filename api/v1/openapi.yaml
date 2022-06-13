@@ -2258,6 +2258,12 @@ definitions:
         description: Config map which contains all the active daemon configurations
         additionalProperties:
           type: object
+      GSOMaxSize:
+        description: Maximum GSO size on workload facing devices
+        type: integer
+      GROMaxSize:
+        description: Maximum GRO size on workload facing devices
+        type: integer
   DatapathMode:
     description: Datapath mode
     type: string
