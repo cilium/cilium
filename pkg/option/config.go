@@ -670,6 +670,9 @@ const (
 	// EnableSRv6 is the name of the option to enable SRv6 encapsulation support
 	EnableSRv6 = "enable-srv6"
 
+	// SRv6EncapModeName is the name of the option to specify the SRv6 encapsulation mode
+	SRv6EncapModeName = "srv6-encap-mode"
+
 	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
 	IPv6MCastDevice = "ipv6-mcast-device"
 
@@ -1574,6 +1577,9 @@ type DaemonConfig struct {
 
 	// EnableSRv6 is true when SRv6 encapsulation support is enabled
 	EnableSRv6 bool
+
+	// SRv6EncapMode is the encapsulation mode for SRv6
+	SRv6EncapMode string
 
 	// IPv6MCastDevice is the name of device that joins IPv6's solicitation multicast group
 	IPv6MCastDevice string
@@ -2809,6 +2815,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPv6NDP = vp.GetBool(EnableIPv6NDPName)
 	c.EnableIPv6BIGTCP = vp.GetBool(EnableIPv6BIGTCP)
 	c.EnableSRv6 = vp.GetBool(EnableSRv6)
+	c.SRv6EncapMode = vp.GetString(SRv6EncapModeName)
 	c.IPv6MCastDevice = vp.GetString(IPv6MCastDevice)
 	c.EnableIPSec = vp.GetBool(EnableIPSecName)
 	c.EnableWireguard = vp.GetBool(EnableWireguard)

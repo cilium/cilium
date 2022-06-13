@@ -318,6 +318,10 @@ func initializeFlags() {
 	flags.MarkHidden(option.EnableSRv6)
 	regOpts.BindEnv(option.EnableSRv6)
 
+	flags.String(option.SRv6EncapModeName, defaults.SRv6EncapMode, "Encapsulation mode for SRv6 (\"srh\" or \"reduced\")")
+	flags.MarkHidden(option.SRv6EncapModeName)
+	regOpts.BindEnv(option.SRv6EncapModeName)
+
 	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
 	regOpts.BindEnv(option.IPv6MCastDevice)
 
