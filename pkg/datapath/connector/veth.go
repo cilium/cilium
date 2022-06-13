@@ -32,7 +32,7 @@ func SetupVethRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, e
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
-func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.Veth, netlink.Link, string, error) {
+func SetupVeth(id string, mtu, groMaxSize, gsoMaxSize int, ep *models.EndpointChangeRequest) (*netlink.Veth, netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
@@ -40,7 +40,7 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 	lxcIfName := Endpoint2IfName(id)
 	tmpIfName := Endpoint2TempIfName(id)
 
-	veth, link, err := SetupVethWithNames(lxcIfName, tmpIfName, mtu, ep)
+	veth, link, err := SetupVethWithNames(lxcIfName, tmpIfName, mtu, groMaxSize, gsoMaxSize, ep)
 	return veth, link, tmpIfName, err
 }
 
@@ -48,7 +48,7 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
-func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.EndpointChangeRequest) (*netlink.Veth, netlink.Link, error) {
+func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groMaxSize, gsoMaxSize int, ep *models.EndpointChangeRequest) (*netlink.Veth, netlink.Link, error) {
 	var (
 		epHostMAC, epLXCMAC mac.MAC
 		err                 error
@@ -121,6 +121,28 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.Endpoin
 
 	if err = netlink.LinkSetUp(veth); err != nil {
 		return nil, nil, fmt.Errorf("unable to bring up veth pair: %s", err)
+	}
+
+	if groMaxSize > 0 {
+		if err = netlink.LinkSetGROMaxSize(hostVeth, groMaxSize); err != nil {
+			return nil, nil, fmt.Errorf("unable to set GRO max size to %q: %w",
+				lxcIfName, err)
+		}
+		if err = netlink.LinkSetGROMaxSize(peer, groMaxSize); err != nil {
+			return nil, nil, fmt.Errorf("unable to set GRO max size to %q: %w",
+				tmpIfName, err)
+		}
+	}
+
+	if gsoMaxSize > 0 {
+		if err = netlink.LinkSetGSOMaxSize(hostVeth, gsoMaxSize); err != nil {
+			return nil, nil, fmt.Errorf("unable to set GSO max size to %q: %w",
+				lxcIfName, err)
+		}
+		if err = netlink.LinkSetGSOMaxSize(peer, gsoMaxSize); err != nil {
+			return nil, nil, fmt.Errorf("unable to set GSO max size to %q: %w",
+				tmpIfName, err)
+		}
 	}
 
 	ep.Mac = peer.Attrs().HardwareAddr.String()
