@@ -25,6 +25,15 @@ func TestMain(m *testing.M) {
 }
 
 func TestGracefulTermination(t *testing.T) {
+	defer func(old bool) { option.Config.EnableK8sTerminatingEndpoint = old }(option.Config.EnableK8sTerminatingEndpoint)
 	option.Config.EnableK8sTerminatingEndpoint = true
 	RunGoldenTest(t, "graceful-termination", *flagUpdate)
+}
+
+func TestDualStack(t *testing.T) {
+	defer func(old bool) { option.Config.EnableNodePort = old }(option.Config.EnableNodePort)
+	defer func(old bool) { option.Config.EnableIPv6 = old }(option.Config.EnableIPv6)
+	option.Config.EnableNodePort = true
+	option.Config.EnableIPv6 = true
+	RunGoldenTest(t, "dual-stack", *flagUpdate)
 }

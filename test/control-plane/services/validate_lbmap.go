@@ -88,7 +88,19 @@ func (v goldenLBMapValidator) validate(t *testing.T, lbmap *mockmaps.LBMockMap) 
 }
 
 func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
-	tw := newTableWriter(w, "Backends", "ID", "L3n4Addr", "FEPortName", "NodeName", "State", "Restored")
+	tw := newTableWriter(w, "Services", "ID", "Type", "Frontend", "Backend IDs")
+	MapInOrder(lbmap.ServiceByID,
+		func(id uint16, svc *lb.SVC) {
+			tw.AddRow(
+				fmt.Sprintf("%d", id),
+				string(svc.Type),
+				svc.Frontend.String(),
+				showBackendIDs(svc.Backends),
+			)
+		})
+	tw.Flush()
+
+	tw = newTableWriter(w, "Backends", "ID", "L3n4Addr", "State", "Restored")
 	MapInOrder(lbmap.BackendByID,
 		func(_ lb.BackendID, be *lb.Backend) {
 			stateStr, err := be.State.String()
@@ -99,26 +111,11 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 			tw.AddRow(
 				fmt.Sprintf("%d", be.ID),
 				be.L3n4Addr.String(),
-				be.FEPortName,
-				be.NodeName,
 				stateStr,
 				fmt.Sprintf("%v", be.RestoredFromDatapath))
 		})
 	tw.Flush()
 
-	tw = newTableWriter(w, "Services", "ID" /*"Name", "Namespace",*/, "Type", "Backend IDs")
-	MapInOrder(lbmap.ServiceByID,
-		func(id uint16, svc *lb.SVC) {
-			tw.AddRow(
-				fmt.Sprintf("%d", id),
-				/* FIXME: these are never set anywhere
-				svc.Name,
-				svc.Namespace,*/
-				string(svc.Type),
-				showBackendIDs(svc.Backends),
-			)
-		})
-	tw.Flush()
 }
 
 func showBackendIDs(bes []lb.Backend) string {
