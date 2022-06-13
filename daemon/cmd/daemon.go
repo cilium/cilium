@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -195,6 +196,9 @@ type Daemon struct {
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
+
+	// BIG-TCP config values
+	bigTCPConfig bigtcp.Configuration
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -998,6 +1002,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		log.WithError(err).Errorf(msg, option.Devices)
 		return nil, nil, fmt.Errorf(msg, option.Devices)
 	}
+
+	bigtcp.InitBIGTCP(&d.bigTCPConfig)
 
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
