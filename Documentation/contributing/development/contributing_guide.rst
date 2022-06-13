@@ -115,7 +115,7 @@ requirements have been met:
        Passing the ``-s`` option to ``git commit`` will add the
        ``Signed-off-by:`` line to your commit message automatically.
 
-#. Document any user-facing or breaking changes in ``Documentation/install/upgrade.rst``.
+#. Document any user-facing or breaking changes in ``Documentation/operations/upgrade.rst``.
 
 #. (optional) Pick the appropriate milestone for which this PR is being
    targeted, e.g. ``1.6``, ``1.7``. This is in particular important in the time
