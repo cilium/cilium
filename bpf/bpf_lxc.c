@@ -995,7 +995,7 @@ ct_recreate4:
 		 * gateway since only traffic leaving the cluster is supposed to
 		 * be masqueraded with an egress IP.
 		 */
-		if (identity_is_cluster(ip4, *dst_id, tunnel_endpoint))
+		if (identity_is_cluster(*dst_id, SCOPE_MULTI_CLUSTER))
 			goto skip_egress_gateway;
 
 		/* If the packet is a reply or is related, it means that outside

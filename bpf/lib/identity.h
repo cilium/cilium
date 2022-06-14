@@ -6,6 +6,21 @@
 
 #include "dbg.h"
 
+#define LOCAL_CLUSTER_IDENTITY_RANGE_START 1
+#define LOCAL_CLUSTER_IDENTITY_RANGE_END   ((1 << 16) - 1)
+#define MULTI_CLUSTER_IDENTITY_RANGE_START (1 << 16)
+#define MULTI_CLUSTER_IDENTITY_RANGE_END   ((1 << 24) - 1)
+#define CIDR_IDENTITY_RANGE_START          (1 << 24)
+#define CIDR_IDENTITY_RANGE_END            ((1 << 24) + (1 << 16) - 1)
+
+#define SCOPE_LOCAL_CLUSTER 0
+#define SCOPE_MULTI_CLUSTER 1
+
+static __always_inline bool identity_in_range(__u32 identity, __u32 range_start, __u32 range_end)
+{
+	return range_start <= identity && identity <= range_end;
+}
+
 static __always_inline bool identity_is_remote_node(__u32 identity)
 {
 	/* KUBE_APISERVER_NODE_ID is the reserved identity that corresponds to
@@ -54,31 +69,47 @@ static __always_inline bool identity_is_reserved(__u32 identity)
 	return identity < UNMANAGED_ID || identity_is_remote_node(identity);
 }
 
-/* identity_is_cluster returns true if the given destination is part of the
- * cluster. It uses the ipcache and endpoint maps information.
+/**
+ * identity_is_cluster is used to determine whether an identity is assigned to
+ * an entity inside the cluster.
+ *
+ * In addition to the identity, the function takes a scope parameter which can
+ * be either SCOPE_LOCAL_CLUSTER or SCOPE_MULTI_CLUSTER and is used to specify
+ * if a cluster identity outside the local cluster should be still considered a
+ * cluster identity.
+ *
+ * This function will return false for:
+ * - ReservedIdentityWorld
+ * - an identity in the CIDR range
+ * - identities belonging to a different cluster in case the scope is set to
+ *   SCOPE_LOCAL_CLUSTER
+ *
+ * For all other identities:
+ * - ReservedIdentityHost
+ * - ReservedIdentityUnmanaged
+ * - ReservedIdentityHealth
+ * - ReservedIdentityInit
+ * - ReservedIdentityRemoteNode
+ * - ReservedIdentityKubeAPIServer
+ * - ReservedIdentityIngress
+ *
+ * it will return true.
  */
-static __always_inline bool identity_is_cluster(struct iphdr *ip4, __u32 dst_id,
-						__u32 tunnel_endpoint)
+static __always_inline bool identity_is_cluster(__u32 identity, __u8 scope)
 {
-	/* If tunnel endpoint is found in ipcache, it means the remote endpoint
-	 * is in cluster.
-	 */
-	if (tunnel_endpoint != 0)
-		return true;
+	if (identity == WORLD_ID)
+		return false;
 
-	/* If the destination is a Cilium-managed node (remote or local), it's
-	 * part of the cluster.
-	 */
-	if (identity_is_node(dst_id))
-		return true;
+	if (identity_in_range(identity, CIDR_IDENTITY_RANGE_START,
+			      CIDR_IDENTITY_RANGE_END))
+		return false;
 
-	/* Use the endpoint map to know if the destination is a local endpoint.
-	 */
-	if (lookup_ip4_endpoint(ip4))
-		return true;
+	if (scope == SCOPE_LOCAL_CLUSTER &&
+	    identity_in_range(identity, MULTI_CLUSTER_IDENTITY_RANGE_START,
+			      MULTI_CLUSTER_IDENTITY_RANGE_START))
+		return false;
 
-	/* Everything else is outside the cluster. */
-	return false;
+	return true;
 }
 
 #if __ctx_is == __ctx_skb
