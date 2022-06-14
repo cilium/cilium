@@ -1003,6 +1003,8 @@ This enum corresponds to Cilium&#39;s L7 accesslog FlowType:
 | ERROR | 3 |  |
 | AUDIT | 4 |  |
 | REDIRECTED | 5 |  |
+| ALLOWED | 6 |  |
+| DENIED | 7 |  |
 
 
  

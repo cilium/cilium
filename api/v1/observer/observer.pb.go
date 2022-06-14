@@ -84,6 +84,8 @@ const Verdict_DROPPED = flow.Verdict_DROPPED
 const Verdict_ERROR = flow.Verdict_ERROR
 const Verdict_AUDIT = flow.Verdict_AUDIT
 const Verdict_REDIRECTED = flow.Verdict_REDIRECTED
+const Verdict_ALLOWED = flow.Verdict_ALLOWED
+const Verdict_DENIED = flow.Verdict_DENIED
 
 var Verdict_name = flow.Verdict_name
 var Verdict_value = flow.Verdict_value
