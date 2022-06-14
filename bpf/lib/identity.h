@@ -6,6 +6,11 @@
 
 #include "dbg.h"
 
+static __always_inline bool identity_in_range(__u32 identity, __u32 range_start, __u32 range_end)
+{
+	return range_start <= identity && identity <= range_end;
+}
+
 static __always_inline bool identity_is_remote_node(__u32 identity)
 {
 	/* KUBE_APISERVER_NODE_ID is the reserved identity that corresponds to
@@ -52,6 +57,36 @@ static __always_inline bool identity_is_node(__u32 identity)
 static __always_inline bool identity_is_reserved(__u32 identity)
 {
 	return identity < UNMANAGED_ID || identity_is_remote_node(identity);
+}
+
+/**
+ * identity_is_cluster is used to determine whether an identity is assigned to
+ * an entity inside the cluster.
+ *
+ * This function will return false for:
+ * - ReservedIdentityWorld
+ * - an identity in the CIDR range
+ *
+ * This function will return true for:
+ * - ReservedIdentityHost
+ * - ReservedIdentityUnmanaged
+ * - ReservedIdentityHealth
+ * - ReservedIdentityInit
+ * - ReservedIdentityRemoteNode
+ * - ReservedIdentityKubeAPIServer
+ * - ReservedIdentityIngress
+ * - all other identifies
+ */
+static __always_inline bool identity_is_cluster(__u32 identity)
+{
+	if (identity == WORLD_ID)
+		return false;
+
+	if (identity_in_range(identity, CIDR_IDENTITY_RANGE_START,
+			      CIDR_IDENTITY_RANGE_END))
+		return false;
+
+	return true;
 }
 
 #if __ctx_is == __ctx_skb
