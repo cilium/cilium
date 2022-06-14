@@ -41,6 +41,23 @@ new feature please file the issue according to the `GitHub template
 **Contributing**: If you want to contribute, reading the :ref:`dev_guide` should
 help you.
 
+Training
+========
+
+**Training courses**: Our website lists `training courses
+<https://cilium.io/enterprise>`__ that have been
+`approved
+<https://github.com/cilium/cilium.io/blob/main/CONTRIBUTING.md#listing-cilium-training>`__
+by the Cilium project. 
+
+Enterprise support
+==================
+
+**Distributions**: Enterprise-ready, supported and `approved
+<https://github.com/cilium/cilium.io/blob/main/CONTRIBUTING.md#listing-cilium-distributions>`__
+Cilium distributions are
+listed on the `Cilium website <https://cilium.io/enterprise>`__.
+
 Security Bugs
 =============
 
