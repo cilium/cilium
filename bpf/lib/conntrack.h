@@ -292,6 +292,9 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		return ret;
 
 	if (unlikely(tuple->nexthdr != IPPROTO_TCP &&
+#ifdef ENABLE_SCTP
+			 tuple->nexthdr != IPPROTO_SCTP &&
+#endif  /* ENABLE_SCTP */
 		     tuple->nexthdr != IPPROTO_UDP))
 		return DROP_CT_UNKNOWN_PROTO;
 
@@ -415,6 +418,9 @@ static __always_inline int ct_lookup6(const void *map,
 		break;
 
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		/* load sport + dport into tuple */
 		if (ctx_load_bytes(ctx, l4_off, &tuple->dport, 4) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -472,6 +478,9 @@ ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	tuple->nexthdr = ip4->protocol;
 
 	if (unlikely(tuple->nexthdr != IPPROTO_TCP &&
+#ifdef ENABLE_SCTP
+			 tuple->nexthdr != IPPROTO_SCTP &&
+#endif  /* ENABLE_SCTP */
 		     tuple->nexthdr != IPPROTO_UDP))
 		return DROP_CT_UNKNOWN_PROTO;
 
@@ -589,8 +598,12 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 		}
 		break;
 
+	/* TCP, UDP, and SCTP all have the ports at the same location */
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
 		if (err < 0)
 			return err;
@@ -710,6 +723,9 @@ static __always_inline int ct_lookup4(const void *map,
 		break;
 
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
 		if (err < 0)
 			return err;

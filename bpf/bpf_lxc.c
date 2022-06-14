@@ -57,10 +57,13 @@
 /* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
  * Most services with L7 LB flag can not be redirected to their proxy port
  * in bpf_sock, so we must check for those via per packet LB as well.
+ * Furthermore, since SCTP cannot be handled as part of bpf_sock, also
+ * enable per-packet LB is SCTP is enabled.
  */
 #if !defined(ENABLE_SOCKET_LB_FULL) || \
     defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
-    defined(ENABLE_L7_LB)
+    defined(ENABLE_L7_LB)               || \
+    defined(ENABLE_SCTP)
 # define ENABLE_PER_PACKET_LB 1
 #endif
 
