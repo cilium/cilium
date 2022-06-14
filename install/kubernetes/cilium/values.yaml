@@ -1725,7 +1725,7 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     override: ~
-    repository: "quay.io/cilium/cilium"
+    repository: "quay.io/cilium/cilium-ci"
     tag: "latest"
     # cilium-digest
     digest: ""
@@ -1861,7 +1861,7 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       override: ~
-      repository: "quay.io/cilium/clustermesh-apiserver"
+      repository: "quay.io/cilium/clustermesh-apiserver-ci"
       tag: "latest"
       # clustermesh-apiserver-digest
       digest: ""
