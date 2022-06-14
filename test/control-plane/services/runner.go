@@ -69,6 +69,14 @@ type ServicesTestStep struct {
 	Validate ValidateFunc
 }
 
+func (t *ServicesTestStep) AddValidation(newValidate ValidateFunc) {
+	oldValidate := t.Validate
+	t.Validate = func(t *testing.T, lbmap *mockmaps.LBMockMap) {
+		oldValidate(t, lbmap)
+		newValidate(t, lbmap)
+	}
+}
+
 func NewStep(desc string, validate ValidateFunc, inputs ...k8sRuntime.Object) *ServicesTestStep {
 	return &ServicesTestStep{desc, inputs, validate}
 }
@@ -175,15 +183,15 @@ func (testCase *ServicesTestCase) Run(t *testing.T) {
 	}
 }
 
-// RunGoldenTest runs the golden test written in terms of YAML files defining
+// NewGoldenTest creates a test suite from YAML files defining
 // the input events and expected LBMap output.
 //
 // The input events are specified in files events<N>.yaml.
 // These are expected to be a k8s "List", e.g. the format of "kubectl get <res> -o yaml".
 // They're fed to the control-plane in lexicographical order and after each the
 // lbmap state is validated against the expected state as described by lbmap<N>.golden.
-func RunGoldenTest(t *testing.T, dir string, updateGolden bool) {
-	var testCase ServicesTestCase
+func NewGoldenTest(t *testing.T, dir string, updateGolden bool) (testCase *ServicesTestCase) {
+	testCase = &ServicesTestCase{}
 
 	// Construct the test case by parsing all input event files
 	// (<dir>/events*.yaml)
@@ -229,8 +237,7 @@ func RunGoldenTest(t *testing.T, dir string, updateGolden bool) {
 				validator.validate,
 				objs...))
 	}
-
-	testCase.Run(t)
+	return
 }
 
 // setupTest sets up enough of the control-plane to test the control aspects of

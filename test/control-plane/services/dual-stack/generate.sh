@@ -8,13 +8,13 @@ set -eux
 export KUBECONFIG=kubeconfig
 
 manifests=(
-	manifests/demo.yaml
-	manifests/demo_ds.yaml
-	manifests/echo-svc.yaml
+	# Creates the echo deployment with two echo replicas.
+	manifests/echo-dpl.yaml
+
+	# Allows all to echo.
 	manifests/echo-policy.yaml
-	manifests/demo_v6.yaml
-	manifests/demo_ds_v6.yaml
-	manifests/echo-svc_v6.yaml
+
+	# Creates dual-stack service for echo.
 	manifests/echo_svc_dualstack.yaml
 )
 
@@ -41,4 +41,4 @@ kubectl wait --for=condition=ready --timeout=60s --all pods
 kubectl get services,endpointslices -o yaml > events1.yaml
 
 : Tear down the cluster
-# kind delete clusters dual-stack
+kind delete clusters dual-stack

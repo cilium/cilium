@@ -127,14 +127,39 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	for _, svc := range lbmap.ServiceByID {
 		services = append(services, svc)
 	}
+	// Sort services by type, then namespace/name and finally by frontend address.
 	sort.Slice(services, func(i, j int) bool {
-		return services[i].Frontend.L3n4Addr.StringWithProtocol() < services[j].Frontend.L3n4Addr.StringWithProtocol()
+		if services[i].Type < services[j].Type {
+			return true
+		} else if services[i].Type > services[j].Type {
+			return false
+		}
+		if services[i].Namespace < services[j].Namespace {
+			return true
+		} else if services[i].Namespace > services[j].Namespace {
+			return false
+		}
+		if services[i].Name < services[j].Name {
+			return true
+		} else if services[i].Name > services[j].Name {
+			return false
+		}
+		return services[i].Frontend.L3n4Addr.StringWithProtocol() <
+			services[j].Frontend.L3n4Addr.StringWithProtocol()
 	})
 
-	tw := newTableWriter(w, "Services", "ID", "Type", "Frontend", "Backend IDs")
+	// Map for linking backend to services that refer to it.
+	backendToServiceId := make(map[int][]string)
+
+	tw := newTableWriter(w, "Services", "ID", "Name", "Type", "Frontend", "Backend IDs")
 	for i, svc := range services {
+		for _, be := range svc.Backends {
+			id := newBackendIds[be.ID]
+			backendToServiceId[id] = append(backendToServiceId[id], strconv.FormatInt(int64(i), 10))
+		}
 		tw.AddRow(
 			strconv.FormatInt(int64(i), 10),
+			svc.Namespace+"/"+svc.Name,
 			string(svc.Type),
 			svc.Frontend.StringWithProtocol(),
 			showBackendIDs(newBackendIds, svc.Backends),
@@ -142,18 +167,18 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	}
 	tw.Flush()
 
-	tw = newTableWriter(w, "Backends", "ID", "L3n4Addr", "State", "Restored")
+	tw = newTableWriter(w, "Backends", "ID", "L3n4Addr", "State", "Linked Services")
 	for i, be := range backends {
 		stateStr, err := be.State.String()
 		if err != nil {
 			stateStr = err.Error()
 		}
-
 		tw.AddRow(
 			strconv.FormatInt(int64(i), 10),
 			be.L3n4Addr.StringWithProtocol(),
 			stateStr,
-			fmt.Sprintf("%v", be.RestoredFromDatapath))
+			strings.Join(backendToServiceId[i], ", "),
+		)
 	}
 	tw.Flush()
 

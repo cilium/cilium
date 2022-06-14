@@ -33,19 +33,3 @@ spec:
             - localhost
       - name: echo-container-udp
         image: docker.io/cilium/echoserver-udp:v2020.01.30
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: echo
-spec:
-  type: NodePort
-  ports:
-  - name: http
-    port: 80
-    protocol: TCP
-  - name: tftp
-    port: 69
-    protocol: UDP
-  selector:
-    name: echo
