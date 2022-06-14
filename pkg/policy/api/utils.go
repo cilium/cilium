@@ -102,9 +102,9 @@ func (h *PortRuleL7) Equal(o PortRuleL7) bool {
 // Validate returns an error if the layer 4 protocol is not valid
 func (l4 L4Proto) Validate() error {
 	switch l4 {
-	case ProtoAny, ProtoTCP, ProtoUDP:
+	case ProtoAny, ProtoTCP, ProtoUDP, ProtoSCTP:
 	default:
-		return fmt.Errorf("invalid protocol %q, must be { tcp | udp | any }", l4)
+		return fmt.Errorf("invalid protocol %q, must be { tcp | udp | sctp | any }", l4)
 	}
 
 	return nil

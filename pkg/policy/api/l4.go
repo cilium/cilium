@@ -15,6 +15,7 @@ const (
 
 	ProtoTCP    L4Proto = "TCP"
 	ProtoUDP    L4Proto = "UDP"
+	ProtoSCTP   L4Proto = "SCTP"
 	ProtoICMP   L4Proto = "ICMP"
 	ProtoICMPv6 L4Proto = "ICMPV6"
 	ProtoAny    L4Proto = "ANY"
@@ -35,14 +36,14 @@ type PortProtocol struct {
 	Port string `json:"port"`
 
 	// Protocol is the L4 protocol. If omitted or empty, any protocol
-	// matches. Accepted values: "TCP", "UDP", ""/"ANY"
+	// matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
 	//
 	// Matching on ICMP is not supported.
 	//
 	// Named port specified for a container may narrow this down, but may not
 	// contradict this.
 	//
-	// +kubebuilder:validation:Enum=TCP;UDP;ANY
+	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;ANY
 	// +kubebuilder:validation:Optional
 	Protocol L4Proto `json:"protocol,omitempty"`
 }

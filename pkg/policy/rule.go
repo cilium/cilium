@@ -406,6 +406,12 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 					return err
 				}
 				found += cnt
+
+				cnt, err = mergeIngressPortProto(policyCtx, ctx, fromEndpoints, hostWildcardL7, r, p, api.ProtoSCTP, ruleLabels, resMap)
+				if err != nil {
+					return err
+				}
+				found += cnt
 			}
 		}
 		return nil
@@ -615,6 +621,12 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 				found += cnt
 
 				cnt, err = mergeEgressPortProto(policyCtx, ctx, toEndpoints, r, p, api.ProtoUDP, ruleLabels, resMap, fqdns)
+				if err != nil {
+					return err
+				}
+				found += cnt
+
+				cnt, err = mergeEgressPortProto(policyCtx, ctx, toEndpoints, r, p, api.ProtoSCTP, ruleLabels, resMap, fqdns)
 				if err != nil {
 					return err
 				}

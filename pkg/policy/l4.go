@@ -885,7 +885,7 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 			portStr = fmt.Sprintf("%d", l4Ctx.Port)
 		}
 		lwrProtocol := l4Ctx.Protocol
-		var isUDPDeny, isTCPDeny bool
+		var isUDPDeny, isTCPDeny, isSCTPDeny bool
 		switch lwrProtocol {
 		case "", models.PortProtocolANY:
 			tcpPort := fmt.Sprintf("%s/TCP", portStr)
@@ -898,7 +898,12 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 			if udpmatch {
 				udpmatch, isUDPDeny = udpFilter.matchesLabels(labels)
 			}
-			if (!tcpmatch && !udpmatch) || (isTCPDeny && isUDPDeny) {
+			sctpPort := fmt.Sprintf("%s/SCTP", portStr)
+			sctpFilter, sctpmatch := l4[sctpPort]
+			if sctpmatch {
+				sctpmatch, isSCTPDeny = sctpFilter.matchesLabels(labels)
+			}
+			if (!tcpmatch && !udpmatch && !sctpmatch) || (isTCPDeny && isUDPDeny && isSCTPDeny) {
 				return api.Denied
 			}
 		default:
