@@ -534,7 +534,7 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		port := backendVal.GetPort()
 		proto := loadbalancer.NONE
 		state := loadbalancer.GetBackendStateFromFlags(backendVal.GetFlags())
-		lbBackend := loadbalancer.NewBackendWithState(backendID, proto, ip, port, state, true)
+		lbBackend := loadbalancer.NewBackendWithState(backendID, proto, ip, port, state)
 		lbBackends = append(lbBackends, lbBackend)
 	}
 

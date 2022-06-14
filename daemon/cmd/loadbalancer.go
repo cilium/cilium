@@ -11,8 +11,10 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -32,8 +34,8 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 			return api.Error(PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
 		}
 		backends := []*loadbalancer.Backend{}
-		for i, v := range params.Config.BackendAddresses {
-			b, err := loadbalancer.NewBackendFromBackendModel(v, params.Config.BackendWeights[i])
+		for _, v := range params.Config.BackendAddresses {
+			b, err := loadbalancer.NewBackendFromBackendModel(v, nil)
 			if err != nil {
 				return api.Error(PutServiceIDInvalidBackendCode, err)
 			}
@@ -56,6 +58,9 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	}
 	backends := []*loadbalancer.Backend{}
 	for i, v := range params.Config.BackendAddresses {
+		if params.Config.BackendWeights[i] != nil && option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+			return api.Error(PutServiceIDInvalidBackendCode, fmt.Errorf("backend weights are supported currently only in lb-only mode"))
+		}
 		b, err := loadbalancer.NewBackendFromBackendModel(v, params.Config.BackendWeights[i])
 		if err != nil {
 			return api.Error(PutServiceIDInvalidBackendCode, err)

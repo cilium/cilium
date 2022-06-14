@@ -121,7 +121,7 @@ func (m *LBMockMap) AddBackend(b *lb.Backend, ipv6 bool) error {
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	be := lb.NewBackendWithState(id, b.Protocol, ip, port, b.State, false)
+	be := lb.NewBackendWithState(id, b.Protocol, ip, port, b.State)
 	m.BackendByID[id] = be
 
 	return nil
@@ -171,7 +171,6 @@ func (m *LBMockMap) DumpBackendMaps() ([]*lb.Backend, error) {
 	defer m.Unlock()
 	list := make([]*lb.Backend, 0, len(m.BackendByID))
 	for _, backend := range m.BackendByID {
-		backend.RestoredFromDatapath = true
 		list = append(list, backend)
 	}
 	return list, nil

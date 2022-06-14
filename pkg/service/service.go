@@ -1472,28 +1472,32 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 			svc.backendByHash[hash] = backends[i]
 		} else {
 			backends[i].ID = b.ID
-			b.RestoredFromDatapath = false
 			// Backend state can either be updated via kubernetes events,
 			// or service API. If the state update is coming via kubernetes events,
 			// then we need to update the internal state. Currently, the only state
 			// update in this case is for the terminating state or when backend
-			// weight has changed or is set to zero (maintenance). All other state
-			// updates happen via the API (UpdateBackendsState) in which case we need
-			// to set the backend state to the saved state.
-			if (backends[i].State == lb.BackendStateTerminating &&
-				b.State != lb.BackendStateTerminating) ||
-				b.Weight == 0 || b.Weight != backends[i].Weight {
+			// weight has changed. All other state updates happen via the API
+			// (UpdateBackendsState) in which case we need to set the backend state
+			// to the saved state.
+			switch {
+			case backends[i].State == lb.BackendStateTerminating &&
+				b.State != lb.BackendStateTerminating:
 				b.State = backends[i].State
 				// Update the persisted backend state in BPF maps.
 				if err := s.lbmap.UpdateBackendWithState(backends[i]); err != nil {
 					return nil, nil, nil, fmt.Errorf("failed to update backend %+v %w",
 						backends[i], err)
 				}
-			} else {
+			case backends[i].Weight != b.Weight:
+				// Update the cached weight as weight has changed
+				b.Weight = backends[i].Weight
+				// Update but do not persist the state as backend might be set as active
+				// only temporarily for specific service
+				b.State = backends[i].State
+			default:
 				// Set the backend state to the saved state.
 				backends[i].State = b.State
 			}
-			b.Weight = backends[i].Weight
 		}
 	}
 
