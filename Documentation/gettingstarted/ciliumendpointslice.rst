@@ -95,9 +95,3 @@ resulting in traffic to/from said CEP with an UNKNOWN identity.
 In current implementation, Cilium adds a delay (default: 1s) before sending
 out the DELETE event. This should greatly reduce the probability of
 connection disruption in most cases.
-
-Egress Gateway Won't Work with CES
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-This is a temporary issue until :gh-issue:`17669` is fixed. If you
-are running Egress Gateway feature, enabling CES would break all egress
-masquerading until the fix is in place.
