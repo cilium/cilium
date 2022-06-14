@@ -389,16 +389,13 @@ func decodeVerdict(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor
 	case tn != nil:
 		return pb.Verdict_FORWARDED
 	case pvn != nil:
-		if pvn.Verdict < 0 {
-			return pb.Verdict_DROPPED
-		}
-		if pvn.Verdict > 0 {
-			return pb.Verdict_REDIRECTED
-		}
 		if pvn.IsTrafficAudited() {
 			return pb.Verdict_AUDIT
 		}
-		return pb.Verdict_FORWARDED
+		if pvn.Verdict < 0 {
+			return pb.Verdict_DENIED
+		}
+		return pb.Verdict_ALLOWED
 	}
 	return pb.Verdict_VERDICT_UNKNOWN
 }

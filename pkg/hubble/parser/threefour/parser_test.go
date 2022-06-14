@@ -389,7 +389,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	assert.Equal(t, int32(api.MessageTypePolicyVerdict), f.GetEventType().GetType())
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(api.PolicyMatchL3L4), f.GetPolicyMatchType())
-	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
+	assert.Equal(t, flowpb.Verdict_ALLOWED, f.GetVerdict())
 	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
 
 	// PolicyVerdictNotify for dropped flow
@@ -412,7 +412,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(151), f.GetDropReason())
 	assert.Equal(t, flowpb.DropReason(151), f.GetDropReasonDesc())
-	assert.Equal(t, flowpb.Verdict_DROPPED, f.GetVerdict())
+	assert.Equal(t, flowpb.Verdict_DENIED, f.GetVerdict())
 	assert.Equal(t, []string{"k8s:dst=label"}, f.GetSource().GetLabels())
 }
 
