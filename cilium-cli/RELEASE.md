@@ -32,6 +32,27 @@ draft release, building artifacts and attaching them to the draft release. Once
 the draft is ready, use the "Auto-generate release notes" button to generate
 the release notes from PR titles, review them and publish the release.
 
+## Update the README.md
+
+Update the *Releases* section of the `README.md` to point to the latest GitHub
+release. This section lists all currently supported releases in a table. The
+version in this table needs to be updated to match the new release.
+
+## (OPTIONAL) Update stable.txt
+
+The CLI installation instructions in the Cilium documentation use the version
+specified in `stable.txt` in the `master` branch. Update `stable.txt` whenever
+Cilium users should pick up this new release for installation.
+
+To update `stable.txt`:
+
+    git checkout -b pr/update-stable-to-$RELEASE
+    echo $RELEASE > stable.txt
+    git add stable.txt
+    git commit -s -m "stable.txt: update to $RELEASE"
+
+Then open a pull request against `master` branch.
+
 ## (OPTIONAL) Update the Homebrew formula
 
 The `cilium-cli` Homebrew formula can be updated using the command:

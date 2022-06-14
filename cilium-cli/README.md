@@ -27,9 +27,10 @@ BINDIR=~/.local/bin make install
 Alternatively, to install the latest binary release:
 
 ```
+CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/master/stable.txt)
 GOOS=$(go env GOOS)
 GOARCH=$(go env GOARCH)
-curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-${GOOS}-${GOARCH}.tar.gz{,.sha256sum}
+curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-${GOOS}-${GOARCH}.tar.gz{,.sha256sum}
 sha256sum --check cilium-${GOOS}-${GOARCH}.tar.gz.sha256sum
 sudo tar -C /usr/local/bin -xzvf cilium-${GOOS}-${GOARCH}.tar.gz
 rm cilium-${GOOS}-${GOARCH}.tar.gz{,.sha256sum}
@@ -37,6 +38,13 @@ rm cilium-${GOOS}-${GOARCH}.tar.gz{,.sha256sum}
 
 See https://github.com/cilium/cilium-cli/releases for supported `GOOS`/`GOARCH`
 binary releases.
+
+## Releases
+
+| Release                                                              | Release Date | Maintained | Supported Cilium Versions |
+|----------------------------------------------------------------------|--------------|------------|---------------------------|
+| [v0.11.7](https://github.com/cilium/cilium-cli/releases/tag/v0.11.7) | 2022-05-17   | Yes        | Cilium 1.11 and newer     |
+| [v0.10.7](https://github.com/cilium/cilium-cli/releases/tag/v0.10.7) | 2022-05-31   | Yes        | Cilium 1.10               |
 
 ## Capabilities
 
