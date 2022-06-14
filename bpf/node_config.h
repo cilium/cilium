@@ -225,3 +225,6 @@ return true; \
 break; \
 } \
 return false;
+
+#define CIDR_IDENTITY_RANGE_START ((1 << 24) + 1)
+#define CIDR_IDENTITY_RANGE_END   ((1 << 24) + (1<<16) - 1)
