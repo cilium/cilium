@@ -54,6 +54,7 @@ type packet struct {
 	layers.ICMPv6
 	layers.TCP
 	layers.UDP
+	layers.SCTP
 }
 
 // New returns a new L3/L4 parser
@@ -70,7 +71,8 @@ func New(
 	packet.decLayer = gopacket.NewDecodingLayerParser(
 		layers.LayerTypeEthernet, &packet.Ethernet,
 		&packet.IPv4, &packet.IPv6,
-		&packet.ICMPv4, &packet.ICMPv6, &packet.TCP, &packet.UDP)
+		&packet.ICMPv4, &packet.ICMPv6,
+		&packet.TCP, &packet.UDP, &packet.SCTP)
 	// Let packet.decLayer.DecodeLayers return a nil error when it
 	// encounters a layer it doesn't have a parser for, instead of returning
 	// an UnsupportedLayerType error.
@@ -370,6 +372,8 @@ func decodeLayers(packet *packet) (
 			summary = "TCP Flags: " + getTCPFlags(packet.TCP)
 		case layers.LayerTypeUDP:
 			l4, sourcePort, destinationPort = decodeUDP(&packet.UDP)
+		case layers.LayerTypeSCTP:
+			l4, sourcePort, destinationPort = decodeSCTP(&packet.SCTP)
 		case layers.LayerTypeICMPv4:
 			l4 = decodeICMPv4(&packet.ICMPv4)
 			summary = "ICMPv4 " + packet.ICMPv4.TypeCode.String()
@@ -459,6 +463,17 @@ func decodeTCP(tcp *layers.TCP) (l4 *pb.Layer4, src, dst uint16) {
 			},
 		},
 	}, uint16(tcp.SrcPort), uint16(tcp.DstPort)
+}
+
+func decodeSCTP(sctp *layers.SCTP) (l4 *pb.Layer4, src, dst uint16) {
+	return &pb.Layer4{
+		Protocol: &pb.Layer4_SCTP{
+			SCTP: &pb.SCTP{
+				SourcePort:      uint32(sctp.SrcPort),
+				DestinationPort: uint32(sctp.DstPort),
+			},
+		},
+	}, uint16(sctp.SrcPort), uint16(sctp.DstPort)
 }
 
 func decodeUDP(udp *layers.UDP) (l4 *pb.Layer4, src, dst uint16) {

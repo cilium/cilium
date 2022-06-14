@@ -20,6 +20,9 @@ func sourcePort(ev *v1.Event) (port uint16, ok bool) {
 	if udp := l4.GetUDP(); udp != nil {
 		return uint16(udp.SourcePort), true
 	}
+	if sctp := l4.GetSCTP(); sctp != nil {
+		return uint16(sctp.SourcePort), true
+	}
 	return 0, false
 }
 
@@ -30,6 +33,9 @@ func destinationPort(ev *v1.Event) (port uint16, ok bool) {
 	}
 	if udp := l4.GetUDP(); udp != nil {
 		return uint16(udp.DestinationPort), true
+	}
+	if sctp := l4.GetSCTP(); sctp != nil {
+		return uint16(sctp.DestinationPort), true
 	}
 	return 0, false
 }
