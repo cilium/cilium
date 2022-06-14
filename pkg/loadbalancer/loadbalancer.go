@@ -333,12 +333,8 @@ type Backend struct {
 	L3n4Addr
 	// State of the backend for load-balancing service traffic
 	State BackendState
-
 	// Preferred indicates if the healthy backend is preferred
 	Preferred Preferred
-
-	// RestoredFromDatapath indicates whether the backend was restored from BPF maps
-	RestoredFromDatapath bool
 }
 
 func (b *Backend) String() string {
@@ -576,34 +572,27 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 
 // NewBackend creates the Backend struct instance from given params.
 // The default state for the returned Backend is BackendStateActive.
-func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, weight uint16) *Backend {
+func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
 		ID:        id,
 		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *lbport},
+		State:     BackendStateActive,
 		Preferred: Preferred(false),
-		Weight:    weight,
-	}
-
-	if weight == 0 {
-		b.State = BackendStateMaintenance
-	} else {
-		b.State = BackendStateActive
 	}
 
 	return &b
 }
 
-// NewBackendWithState creates the Backend struct instance from given params,
-// and sets the restore state for the Backend.
+// NewBackendWithState creates the Backend struct instance from given params.
 func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber uint16,
-	state BackendState, restored bool) *Backend {
+	state BackendState) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
-		ID:                   id,
-		L3n4Addr:             L3n4Addr{IP: ip, L4Addr: *lbport},
-		State:                state,
-		RestoredFromDatapath: restored,
+		ID:       id,
+		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
+		State:    state,
+		Weight:   1,
 	}
 
 	return &b
@@ -625,16 +614,24 @@ func NewBackendFromBackendModel(base *models.BackendAddress, bw *models.BackendW
 		return nil, fmt.Errorf("invalid backend state [%s]", base.State)
 	}
 
-	if bw.Weight == 0 {
-		state = BackendStateMaintenance
-	}
-	return &Backend{
+	b := &Backend{
 		NodeName:  base.NodeName,
 		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *l4addr},
 		State:     state,
 		Preferred: Preferred(base.Preferred),
-		Weight:    bw.Weight,
-	}, nil
+	}
+
+	if bw != nil {
+		b.Weight = bw.Weight
+	} else {
+		b.Weight = 1
+	}
+
+	if b.Weight == 0 {
+		b.State = BackendStateMaintenance
+	}
+
+	return b, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {

@@ -154,12 +154,7 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if len(backendWeights) == 0 {
-		backendWeights = make([]uint, len(backends))
-		for idx := range backends {
-			backendWeights[idx] = 1
-		}
-	} else if len(backendWeights) != len(backends) {
+	if len(backendWeights) > 0 && len(backendWeights) != len(backends) {
 		Fatalf("Mismatch between number of backend weights and number of backends")
 	}
 
@@ -185,7 +180,7 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 
 		// Backend ID will be set by the daemon
-		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), uint16(backendWeights[i]))
+		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port))
 
 		if !skipFrontendCheck && fa.Port == 0 && beAddr.Port != 0 {
 			Fatalf("L4 backend found (%v) with L3 frontend", beAddr)
@@ -204,7 +199,12 @@ func updateService(cmd *cobra.Command, args []string) {
 
 		spec.BackendAddresses = append(spec.BackendAddresses, ba)
 
-		bw := be.GetBackendWeightModel()
+		var bw *models.BackendWeight
+		if len(backendWeights) > 0 {
+			bw = &models.BackendWeight{
+				Weight: uint16(backendWeights[i]),
+			}
+		}
 		spec.BackendWeights = append(spec.BackendWeights, bw)
 	}
 
