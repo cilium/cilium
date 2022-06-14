@@ -59,6 +59,8 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	svc.SessionAffinity = p.SessionAffinity
 	svc.SessionAffinityTimeoutSec = p.SessionAffinityTimeoutSec
 	svc.Type = p.Type
+	svc.Name = p.Name
+	svc.Namespace = p.Namespace
 
 	m.ServiceByID[p.ID] = svc
 	m.SvcActiveBackendsCount[p.ID] = len(p.ActiveBackends)

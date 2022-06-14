@@ -75,6 +75,8 @@ type UpsertServiceParams struct {
 	CheckSourceRange          bool
 	UseMaglev                 bool
 	L7LBProxyPort             uint16 // Non-zero for L7 LB services
+	Name                      string // Name of the k8s Service
+	Namespace                 string // Namespace of the k8s Service
 }
 
 func (lbmap *LBBPFMap) upsertServiceProto(p *UpsertServiceParams, ipv6 bool) error {

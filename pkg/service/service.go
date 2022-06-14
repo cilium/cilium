@@ -763,6 +763,8 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 						SessionAffinityTimeoutSec: info.sessionAffinityTimeoutSec,
 						CheckSourceRange:          info.checkLBSourceRange(),
 						UseMaglev:                 info.useMaglev(),
+						Name:                      info.svcName,
+						Namespace:                 info.svcNamespace,
 					}
 				}
 				p.ActiveBackends, p.NonActiveBackends = segregateBackends(info.backends)
@@ -1240,6 +1242,8 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		CheckSourceRange:          checkLBSrcRange,
 		UseMaglev:                 svc.useMaglev(),
 		L7LBProxyPort:             svc.l7LBProxyPort,
+		Name:                      svc.svcName,
+		Namespace:                 svc.svcNamespace,
 	}
 	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
