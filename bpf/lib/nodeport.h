@@ -1169,7 +1169,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	 * to be masqueraded with an egress IP.
 	 */
 	if (remote_ep &&
-	    is_cluster_destination(ip4, remote_ep->sec_label, remote_ep->tunnel_endpoint))
+	    identity_is_cluster(remote_ep->sec_label))
 		goto skip_egress_gateway;
 
 	/* If the packet is a reply it means that outside has initiated the
