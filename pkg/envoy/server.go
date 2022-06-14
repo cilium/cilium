@@ -60,8 +60,8 @@ var (
 	allowAllPortNetworkPolicy = []*cilium.PortNetworkPolicy{
 		// Allow all TCP traffic to any port.
 		allowAllTCPPortNetworkPolicy,
-		// Allow all UDP traffic to any port.
-		// UDP rules not sent to Envoy for now.
+		// Allow all UDP/SCTP traffic to any port.
+		// UDP/SCTP rules not sent to Envoy for now.
 	}
 )
 
@@ -1474,8 +1474,8 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 		switch l4.Protocol {
 		case api.ProtoTCP:
 			protocol = envoy_config_core.SocketAddress_TCP
-		case api.ProtoUDP:
-			// UDP rules not sent to Envoy for now.
+		case api.ProtoUDP, api.ProtoSCTP:
+			// UDP/SCTP rules not sent to Envoy for now.
 			continue
 		}
 

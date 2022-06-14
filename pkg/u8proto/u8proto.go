@@ -19,14 +19,16 @@ const (
 	TCP    U8proto = 6
 	UDP    U8proto = 17
 	ICMPv6 U8proto = 58
+	SCTP   U8proto = 132
 )
 
 var protoNames = map[U8proto]string{
-	0:  "ANY",
-	1:  "ICMP",
-	6:  "TCP",
-	17: "UDP",
-	58: "ICMPv6",
+	0:   "ANY",
+	1:   "ICMP",
+	6:   "TCP",
+	17:  "UDP",
+	58:  "ICMPv6",
+	132: "SCTP",
 }
 
 var ProtoIDs = map[string]U8proto{
@@ -36,6 +38,7 @@ var ProtoIDs = map[string]U8proto{
 	"tcp":    6,
 	"udp":    17,
 	"icmpv6": 58,
+	"sctp":   132,
 }
 
 type U8proto uint8

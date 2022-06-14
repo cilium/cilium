@@ -195,6 +195,8 @@ const (
 	TCP = L4Type("TCP")
 	// UDP type.
 	UDP = L4Type("UDP")
+	// SCTP type.
+	SCTP = L4Type("SCTP")
 )
 
 const (
@@ -282,7 +284,7 @@ func GetBackendStateFromFlags(flags uint8) BackendState {
 
 var (
 	// AllProtocols is the list of all supported L4 protocols
-	AllProtocols = []L4Type{TCP, UDP}
+	AllProtocols = []L4Type{TCP, UDP, SCTP}
 )
 
 // L4Type name.
@@ -473,6 +475,8 @@ func NewL4Type(name string) (L4Type, error) {
 		return TCP, nil
 	case "udp":
 		return UDP, nil
+	case "sctp":
+		return SCTP, nil
 	default:
 		return "", fmt.Errorf("unknown L4 protocol")
 	}

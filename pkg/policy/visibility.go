@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	singleAnnotationRegex = "<(Ingress|Egress)/([1-9][0-9]{1,5})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>"
+	singleAnnotationRegex = "<(Ingress|Egress)/([1-9][0-9]{1,5})/(TCP|UDP|SCTP|ANY)/([A-Za-z]{3,32})>"
 	annotationRegex       = regexp.MustCompile(fmt.Sprintf(`^((%s)(,(%s))*)$`, singleAnnotationRegex, singleAnnotationRegex))
 )
 
@@ -83,6 +83,7 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 		if u8Prot == u8proto.ANY {
 			protos = append(protos, u8proto.TCP)
 			protos = append(protos, u8proto.UDP)
+			protos = append(protos, u8proto.SCTP)
 		} else {
 			protos = append(protos, u8Prot)
 		}

@@ -263,7 +263,7 @@ func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
 		case 2:
 			protoStr = strings.ToUpper(vSplit[1])
 			switch protoStr {
-			case models.PortProtocolTCP, models.PortProtocolUDP, models.PortProtocolICMP, models.PortProtocolICMPV6, models.PortProtocolANY:
+			case models.PortProtocolTCP, models.PortProtocolUDP, models.PortProtocolSCTP, models.PortProtocolICMP, models.PortProtocolICMPV6, models.PortProtocolANY:
 			default:
 				return nil, fmt.Errorf("invalid protocol %q", protoStr)
 			}

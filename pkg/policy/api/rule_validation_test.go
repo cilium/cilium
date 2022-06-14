@@ -95,6 +95,25 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 	err = validPortRule.Sanitize()
 	c.Assert(err, IsNil, Commentf("Saw an error for a L7 rule with DNS rules. This should be allowed."))
 
+	validSCTPRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "4000", Protocol: ProtoSCTP},
+					},
+				}},
+			},
+		},
+	}
+
+	err = validSCTPRule.Sanitize()
+	c.Assert(err, IsNil, Commentf("Saw an error for an SCTP rule."))
+
 	// Rule is invalid because only ProtoTCP is allowed for L7 rules (except with DNS, below).
 	invalidPortRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
