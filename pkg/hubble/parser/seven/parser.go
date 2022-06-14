@@ -261,6 +261,15 @@ func decodeLayer4(protocol accesslog.TransportProtocol, source, destination acce
 				},
 			},
 		}, uint16(source.Port), uint16(destination.Port)
+	case u8proto.SCTP:
+		return &pb.Layer4{
+			Protocol: &pb.Layer4_SCTP{
+				SCTP: &pb.SCTP{
+					SourcePort:      uint32(source.Port),
+					DestinationPort: uint32(destination.Port),
+				},
+			},
+		}, uint16(source.Port), uint16(destination.Port)
 	default:
 		return nil, 0, 0
 	}
