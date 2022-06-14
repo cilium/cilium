@@ -9,9 +9,11 @@ export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"
 #export PULL_POLICY:=IfNotPresent
 #export CILIUM_BRANCH:=vX.Y
 #export CILIUM_REPO:=quay.io/cilium/cilium
+#export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver
 export PULL_POLICY:=Always
 export CILIUM_BRANCH:=master
 export CILIUM_REPO:=quay.io/cilium/cilium-ci
+export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver-ci
 
 # When branching, delete the following lines to defer to the branch's versions
 export CILIUM_VERSION:=latest
