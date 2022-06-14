@@ -281,6 +281,9 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 	/* read original v6 payload into offset 48 */
 	switch (ipv6hdr->nexthdr) {
 	case IPPROTO_ICMPV6:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 	case IPPROTO_UDP:
 		if (ctx_load_bytes(ctx, nh_off + sizeof(struct ipv6hdr),
 				   upper, 8) < 0)

@@ -348,6 +348,10 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 				if (ret < 0)
 					return ret;
 				break;
+#ifdef ENABLE_SCTP
+			case IPPROTO_SCTP:
+				return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
 			case IPPROTO_ICMP: {
 				__be32 from, to;
 
@@ -404,6 +408,10 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 			if (ret < 0)
 				return ret;
 			break;
+#ifdef ENABLE_SCTP
+		case IPPROTO_SCTP:
+			return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
 		case IPPROTO_ICMP: {
 			__be32 from, to;
 
@@ -481,6 +489,9 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
 			return DROP_INVALID;
 		tuple.dport = l4hdr.sport;
@@ -534,6 +545,9 @@ snat_v4_process(struct __ctx_buff *ctx, enum nat_dir dir,
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
 			return DROP_INVALID;
 		tuple.dport = l4hdr.dport;
@@ -830,6 +844,10 @@ static __always_inline int snat_v6_rewrite_egress(struct __ctx_buff *ctx,
 			if (ret < 0)
 				return ret;
 			break;
+#ifdef ENABLE_SCTP
+		case IPPROTO_SCTP:
+			return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
 		case IPPROTO_ICMPV6: {
 			__be32 from, to;
 
@@ -879,6 +897,10 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 			if (ret < 0)
 				return ret;
 			break;
+#ifdef ENABLE_SCTP
+		case IPPROTO_SCTP:
+			return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
 		case IPPROTO_ICMPV6: {
 			__be32 from, to;
 
@@ -953,6 +975,9 @@ static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
 			return DROP_INVALID;
 		tuple.dport = l4hdr.sport;
@@ -1012,6 +1037,9 @@ snat_v6_process(struct __ctx_buff *ctx, enum nat_dir dir,
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
 			return DROP_INVALID;
 		tuple.dport = l4hdr.dport;
