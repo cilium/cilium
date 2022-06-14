@@ -54,6 +54,33 @@ static __always_inline bool identity_is_reserved(__u32 identity)
 	return identity < UNMANAGED_ID || identity_is_remote_node(identity);
 }
 
+/* identity_is_cluster returns true if the given destination is part of the
+ * cluster. It uses the ipcache and endpoint maps information.
+ */
+static __always_inline bool identity_is_cluster(struct iphdr *ip4, __u32 dst_id,
+						__u32 tunnel_endpoint)
+{
+	/* If tunnel endpoint is found in ipcache, it means the remote endpoint
+	 * is in cluster.
+	 */
+	if (tunnel_endpoint != 0)
+		return true;
+
+	/* If the destination is a Cilium-managed node (remote or local), it's
+	 * part of the cluster.
+	 */
+	if (identity_is_node(dst_id))
+		return true;
+
+	/* Use the endpoint map to know if the destination is a local endpoint.
+	 */
+	if (lookup_ip4_endpoint(ip4))
+		return true;
+
+	/* Everything else is outside the cluster. */
+	return false;
+}
+
 #if __ctx_is == __ctx_skb
 static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, __u32 *identity)
 {
