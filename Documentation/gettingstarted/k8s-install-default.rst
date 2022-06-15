@@ -109,9 +109,6 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
        <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
        for instructions on how to install ``az`` and prepare your account.
 
-       For more details about why node pools must be set up in this way on AKS,
-       see the note below the commands.
-
        .. code-block:: bash
 
            export NAME="$(whoami)-$RANDOM"
@@ -123,40 +120,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
              --resource-group "${AZURE_RESOURCE_GROUP}" \
              --name "${NAME}" \
              --network-plugin azure \
-             --node-count 1
-
-           # Get name of initial system node pool
-           nodepool_to_delete=$(az aks nodepool list \
-             --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --cluster-name "${NAME}" \
-             --output tsv --query "[0].name")
-
-           # Create system node pool tainted with `CriticalAddonsOnly=true:NoSchedule`
-           az aks nodepool add \
-             --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --cluster-name "${NAME}" \
-             --name systempool \
-             --mode system \
-             --node-count 1 \
-             --node-taints "CriticalAddonsOnly=true:NoSchedule" \
-             --no-wait
-
-           # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoExecute`
-           az aks nodepool add \
-             --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --cluster-name "${NAME}" \
-             --name userpool \
-             --mode user \
-             --node-count 2 \
-             --node-taints "node.cilium.io/agent-not-ready=true:NoExecute" \
-             --no-wait
-
-           # Delete the initial system node pool
-           az aks nodepool delete \
-             --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --cluster-name "${NAME}" \
-             --name "${nodepool_to_delete}" \
-             --no-wait
+             --node-count 2
 
            # Get the credentials to access the cluster with kubectl
            az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}"
@@ -166,33 +130,6 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
            Do NOT specify the ``--network-policy`` flag when creating the
            cluster, as this will cause the Azure CNI plugin to install unwanted
            iptables rules.
-
-       .. note::
-
-          `Node pools <https://aka.ms/aks/nodepools>`_ should be tainted with
-          ``node.cilium.io/agent-not-ready=true:NoExecute`` to ensure that
-          applications pods will only be scheduled/executed once Cilium is ready
-          to manage them. However, there are other options. Please make sure to
-          read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
-
-          Additionally on AKS:
-
-          * It is not possible to assign taints to the initial node pool at this
-            time, cf. `Azure/AKS#1402 <https://github.com/Azure/AKS/issues/1402>`_.
-
-          * It is not possible to assign custom node taints such as ``node.cilium.io/agent-not-ready=true:NoExecute``
-            to system node pools, cf. `Azure/AKS#2578 <https://github.com/Azure/AKS/issues/2578>`_.
-
-          In order to have Cilium properly manage application pods on AKS with
-          these limitations, the operations above:
-
-          * Replace the initial node pool with a new system node pool tainted
-            with ``CriticalAddonsOnly=true:NoSchedule``, preventing application
-            pods from being scheduled on it.
-
-          * Create a secondary user node pool tainted with ``node.cilium.io/agent-not-ready=true:NoExecute``,
-            preventing application pods from being scheduled/executed on it until Cilium
-            is ready to manage them.
 
     .. group-tab:: EKS
 
