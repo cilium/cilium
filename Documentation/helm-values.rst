@@ -1244,7 +1244,7 @@
    * - nodeinit.nodeSelector
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
-     - ``{}``
+     - ``{"kubernetes.io/os":"linux"}``
    * - nodeinit.podAnnotations
      - Annotations to be added to node-init pods.
      - object
@@ -1448,7 +1448,7 @@
    * - preflight.nodeSelector
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
-     - ``{}``
+     - ``{"kubernetes.io/os":"linux"}``
    * - preflight.podAnnotations
      - Annotations to be added to preflight pods
      - object
