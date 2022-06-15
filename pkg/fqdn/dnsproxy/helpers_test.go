@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -24,6 +25,11 @@ var _ = Suite(&DNSProxyHelperTestSuite{})
 // Hook up gocheck into the "go test" runner.
 func TestNonPrivileged(t *testing.T) {
 	TestingT(t)
+}
+
+func (s *DNSProxyHelperTestSuite) SetUpSuite(c *C) {
+	_, collectors := metrics.CreateConfiguration([]string{"cilium_fqdn_regex_lru_accesses_total"})
+	metrics.MustRegister(collectors...)
 }
 
 func (s *DNSProxyHelperTestSuite) TestGetSelectorRegexMap(c *C) {
@@ -51,6 +57,13 @@ func (s *DNSProxyHelperTestSuite) TestGetSelectorRegexMap(c *C) {
 
 	c.Assert(regex.MatchString(dnsName), Equals, true)
 	c.Assert(regex.MatchString(dnsName+"trolo"), Equals, false)
+
+	cnt, err := metrics.FQDNRegexLRUAccesses.GetMetricWithLabelValues(metrics.LabelValueCacheMiss)
+	c.Assert(err, IsNil)
+	c.Assert(metrics.GetCounterValue(cnt), Equals, 1.0)
+	cnt, err = metrics.FQDNRegexLRUAccesses.GetMetricWithLabelValues(metrics.LabelValueCacheHit)
+	c.Assert(err, IsNil)
+	c.Assert(metrics.GetCounterValue(cnt), Equals, 0.0)
 }
 
 type MockCachedSelector struct{}

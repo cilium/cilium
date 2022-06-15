@@ -88,6 +88,12 @@ const (
 	// LabelValueOutcomeFail is used as an unsuccessful outcome of an operation
 	LabelValueOutcomeFail = "fail"
 
+	// LabelValueCacheHit is used when there's a cache hit.
+	LabelValueCacheHit = "hit"
+
+	// LabelValueCacheMiss is used when there's a cache miss.
+	LabelValueCacheMiss = "miss"
+
 	// LabelEventSourceAPI marks event-related metrics that come from the API
 	LabelEventSourceAPI = "api"
 
@@ -458,6 +464,10 @@ var (
 	// the admission semaphore.
 	FQDNSemaphoreRejectedTotal = NoOpCounter
 
+	// FQDNRegexLRUAccesses is the metric to keep track of the total number of
+	// hits and misses to the FQDN regex LRU.
+	FQDNRegexLRUAccesses = NoOpCounterVec
+
 	// BPFSyscallDuration is the metric for bpf syscalls duration.
 	BPFSyscallDuration = NoOpObserverVec
 
@@ -572,6 +582,7 @@ type Configuration struct {
 	FQDNActiveIPs                           bool
 	FQDNActiveZombiesConnections            bool
 	FQDNSemaphoreRejectedTotal              bool
+	FQDNRegexLRUAccesses                    bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
 	BPFMapPressure                          bool
@@ -1225,6 +1236,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, FQDNSemaphoreRejectedTotal)
 			c.FQDNSemaphoreRejectedTotal = true
+
+		case Namespace + "_" + SubsystemFQDN + "_regex_lru_accesses_total":
+			FQDNRegexLRUAccesses = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemFQDN,
+				Name:      "regex_lru_accesses_total",
+				Help:      "Keeps track of the total number of hits and misses to the FQDN regex LRU",
+			}, []string{LabelType})
+
+			collectors = append(collectors, FQDNRegexLRUAccesses)
+			c.FQDNRegexLRUAccesses = true
 
 		case Namespace + "_" + SubsystemBPF + "_syscall_duration_seconds":
 			BPFSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{

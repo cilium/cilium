@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -39,8 +40,10 @@ func CompileRegex(p string) (*regexp.Regexp, error) {
 	r, ok := lru.Get(p)
 	lru.Unlock()
 	if ok {
+		metrics.FQDNRegexLRUAccesses.WithLabelValues(metrics.LabelValueCacheHit).Inc() // hit
 		return r.(*regexp.Regexp), nil
 	}
+	metrics.FQDNRegexLRUAccesses.WithLabelValues(metrics.LabelValueCacheMiss).Inc() // miss
 	n, err := regexp.Compile(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile regex: %w", err)
