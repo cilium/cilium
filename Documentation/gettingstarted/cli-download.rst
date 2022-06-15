@@ -12,7 +12,7 @@ various features (e.g. clustermesh, Hubble).
       sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
       rm cilium-linux-amd64.tar.gz{,.sha256sum}
 
-  .. group-tab:: macOS
+  .. group-tab:: macOS (Intel)
 
     .. code-block:: shell-session
 
@@ -20,6 +20,15 @@ various features (e.g. clustermesh, Hubble).
       shasum -a 256 -c cilium-darwin-amd64.tar.gz.sha256sum
       sudo tar xzvfC cilium-darwin-amd64.tar.gz /usr/local/bin
       rm cilium-darwin-amd64.tar.gz{,.sha256sum}
+
+  .. group-tab:: macOS (Apple Silicon - ARM)
+
+    .. code-block:: shell-session
+
+      curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-darwin-arm64.tar.gz{,.sha256sum}
+      shasum -a 256 -c cilium-darwin-arm64.tar.gz.sha256sum
+      sudo tar xzvfC cilium-darwin-arm64.tar.gz /usr/local/bin
+      rm cilium-darwin-arm64.tar.gz{,.sha256sum}
 
   .. group-tab:: Other
 
