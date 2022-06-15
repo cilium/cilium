@@ -16,5 +16,6 @@ Core Agent
    :glob:
 
    api-rate-limiting
+   sctp
    vlan-802.1q
    argocd-issues
