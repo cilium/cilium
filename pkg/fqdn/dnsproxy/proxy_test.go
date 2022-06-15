@@ -803,14 +803,14 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	expected := `
 	{
 		"53": [{
-			"Re":  "(^[-a-zA-Z0-9_]*[.]ubuntu[.]com[.]$)|(^aws[.]amazon[.]com[.]$)",
+			"Re":  "^[-a-zA-Z0-9_]*[.]ubuntu[.]com[.]$|^aws[.]amazon[.]com[.]$",
 			"IPs": {"::": {}}
 		}, {
-			"Re":  "(^cilium[.]io[.]$)",
+			"Re":  "^cilium[.]io[.]$",
 			"IPs": {"127.0.0.1": {}, "127.0.0.2": {}}
 		}],
 		"54": [{
-			"Re":  "(^example[.]com[.]$)",
+			"Re":  "^example[.]com[.]$",
 			"IPs": null
 		}]
 	}`
