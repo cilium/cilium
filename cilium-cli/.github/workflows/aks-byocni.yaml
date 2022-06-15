@@ -1,4 +1,4 @@
-name: AKS
+name: AKS (BYOCNI)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -109,7 +109,7 @@ jobs:
 
       - name: Load cilium install script in configmap
         run: |
-          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/aks-install.sh
+          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/aks-byocni-install.sh
 
       - name: Create cilium-cli install job
         run: |
