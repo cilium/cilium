@@ -1590,7 +1590,7 @@ func initEnv(cmd *cobra.Command) {
 	// mode which support the bypass.
 	if option.Config.BypassIPAvailabilityUponRestore {
 		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMENI:
+		case ipamOption.IPAMENI, ipamOption.IPAMAzure:
 			log.Info(
 				"Running with bypass of IP not available errors upon endpoint " +
 					"restore. Be advised that this mode is intended to be " +

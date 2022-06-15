@@ -337,7 +337,14 @@ Annotations:
   +-----------------------+-----------------------+-------------------------+
   | Hubble                |  9091                 | 9965                    |
   +-----------------------+-----------------------+-------------------------+
-  
+
+* In Azure IPAM mode, the default for ``--azure-use-primary-address`` has changed from
+  true to false. With this change pod interface's primary IP is no longer included in the
+  node's IP pool by default. The previous default required users to disable DHCP on the
+  pod's interface to avoid primary IP from interfering with host networking. Unless the
+  flag is explicitly set to true, ``--bypass-ip-availability-upon-restore`` also needs
+  to be set to ensure that pods using primary IP get a new IP address. This flag can be
+  removed once the upgrade is complete.
 
 New Options
 ~~~~~~~~~~~
