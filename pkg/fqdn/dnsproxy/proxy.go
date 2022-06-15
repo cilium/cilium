@@ -912,12 +912,12 @@ func GetSelectorRegexMap(l7 policy.L7DataMap) (CachedSelectorREEntry, error) {
 			if len(dnsRule.MatchName) > 0 {
 				dnsRuleName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
 				dnsPatternAsRE := matchpattern.ToRegexp(dnsRuleName)
-				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
+				reStrings = append(reStrings, dnsPatternAsRE)
 			}
 			if len(dnsRule.MatchPattern) > 0 {
 				dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
 				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
-				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
+				reStrings = append(reStrings, dnsPatternAsRE)
 			}
 		}
 		mp := strings.Join(reStrings, "|")
