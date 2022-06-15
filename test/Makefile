@@ -66,8 +66,14 @@ clean:
 	-$(QUIET) rm -f .vagrant/*.box
 
 BPF_TEST_FLAGS:=
-ifneq ($(V),0)
+ifeq ($(V),1)
     BPF_TEST_FLAGS += -test.v
+endif
+ifeq ($(COVER),1)
+    BPF_TEST_FLAGS += -coverage-report $(ROOT_DIR)/bpf-coverage.html
+endif
+ifeq ($(INSTRLOG),1)
+    BPF_TEST_FLAGS += -instrumentation-log $(ROOT_DIR)/test/bpf-instrumentation.log
 endif
 
 run_bpf_tests:

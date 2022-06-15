@@ -151,6 +151,10 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.1.2
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
+# github.com/cilium/coverbee v0.1.5
+## explicit; go 1.18
+github.com/cilium/coverbee
+github.com/cilium/coverbee/pkg/verifierlog
 # github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
 ## explicit; go 1.15
 github.com/cilium/customvet
@@ -316,6 +320,9 @@ github.com/docker/libnetwork/drivers/remote/api
 github.com/docker/libnetwork/ipamapi
 github.com/docker/libnetwork/ipams/remote/api
 github.com/docker/libnetwork/types
+# github.com/dylandreimerink/gocovmerge v1.0.1
+## explicit; go 1.16
+github.com/dylandreimerink/gocovmerge
 # github.com/eapache/channels v1.1.0
 ## explicit
 github.com/eapache/channels
@@ -904,6 +911,10 @@ golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
+# golang.org/x/exp v0.0.0-20220602145555-4a0574d9293f
+## explicit; go 1.18
+golang.org/x/exp/constraints
+golang.org/x/exp/slices
 # golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
 ## explicit; go 1.17
 golang.org/x/mod/internal/lazyregexp
@@ -979,6 +990,7 @@ golang.org/x/time/rate
 # golang.org/x/tools v0.1.11
 ## explicit; go 1.17
 golang.org/x/tools/cmd/goimports
+golang.org/x/tools/cover
 golang.org/x/tools/go/analysis
 golang.org/x/tools/go/analysis/internal/analysisflags
 golang.org/x/tools/go/analysis/internal/checker

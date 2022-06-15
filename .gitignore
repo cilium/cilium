@@ -34,6 +34,7 @@ coverage.out
 coverage-all.out
 coverage-all.html
 coverage-all-tmp.out
+bpf-coverage.html
 
 .DS_Store
 .idea/

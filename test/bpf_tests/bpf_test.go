@@ -7,6 +7,7 @@
 package bpftests
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
@@ -24,10 +25,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/coverbee"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
+	"github.com/dylandreimerink/gocovmerge"
 	"github.com/golang/protobuf/proto"
 	"github.com/vishvananda/netlink/nl"
+	"golang.org/x/tools/cover"
 	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -35,7 +39,12 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 )
 
-var testPath = flag.String("bpf-test-path", "", "Path to the eBPF tests")
+var (
+	testPath               = flag.String("bpf-test-path", "", "Path to the eBPF tests")
+	testCoverageReport     = flag.String("coverage-report", "", "Specify a path for the coverage report")
+	testInstrumentationLog = flag.String("instrumentation-log", "", "Path to a log file containing details about"+
+		" code coverage instrumentation, needed if code coverage breaks the verifier")
+)
 
 func TestBPF(t *testing.T) {
 	if testPath == nil || *testPath == "" {
@@ -47,6 +56,21 @@ func TestBPF(t *testing.T) {
 		t.Fatal("os readdir: ", err)
 	}
 
+	var instrLog io.Writer
+	if *testInstrumentationLog != "" {
+		instrLogFile, err := os.Create(*testInstrumentationLog)
+		if err != nil {
+			t.Fatal("os create instrumentation log: ", err)
+		}
+		defer instrLogFile.Close()
+
+		buf := bufio.NewWriter(instrLogFile)
+		instrLog = buf
+		defer buf.Flush()
+	}
+
+	mergedProfiles := make([]*cover.Profile, 0)
+
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -56,26 +80,60 @@ func TestBPF(t *testing.T) {
 			continue
 		}
 
-		loadAndRunSpec(t, entry)
+		profiles := loadAndRunSpec(t, entry, instrLog)
+		for _, profile := range profiles {
+			if len(profile.Blocks) > 0 {
+				mergedProfiles = gocovmerge.AddProfile(mergedProfiles, profile)
+			}
+		}
+	}
+
+	if *testCoverageReport != "" {
+		coverReport, err := os.Create(*testCoverageReport)
+		if err != nil {
+			t.Fatalf("create coverage report: %s", err.Error())
+		}
+		defer coverReport.Close()
+
+		if err = coverbee.HTMLOutput(mergedProfiles, coverReport); err != nil {
+			t.Fatalf("create HTML coverage report: %s", err.Error())
+		}
 	}
 }
 
-func loadAndRunSpec(t *testing.T, entry fs.DirEntry) {
+func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cover.Profile {
 	elfPath := path.Join(*testPath, entry.Name())
+
+	if instrLog != nil {
+		fmt.Fprintln(instrLog, "===", elfPath, "===")
+	}
+
 	spec := loadAndPrepSpec(t, elfPath)
 
-	coll, err := ebpf.NewCollectionWithOptions(spec, ebpf.CollectionOptions{
+	var (
+		coll *ebpf.Collection
+		cfg  []*coverbee.BasicBlock
+		err  error
+	)
+
+	opts := ebpf.CollectionOptions{
 		Programs: ebpf.ProgramOptions{
-			LogSize: 4 << 20, // 4 MiB
+			LogSize: 64 << 20, // 64 MiB, not needed in most cases, except when running instrumented code.
 		},
-	})
+	}
+
+	if *testCoverageReport == "" {
+		coll, err = ebpf.NewCollectionWithOptions(spec, opts)
+	} else {
+		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, opts, instrLog)
+	}
 	if err != nil {
 		// Use this definition of ENOSPC instead of syscall.ENOSPC, since the stdlib constant is only
 		// available on linux. Even if this doesn't run, we still want it to compile on non-linux systems.
 		const ENOSPC = syscall.Errno(0x1c)
 		// ENOSPC usually means that the log size was to small, so increase and retry.
 		if errors.Is(err, ENOSPC) {
-			t.Fatal("Verifier logs larger than 4MiB, increase the log size passed to ebpf.NewCollectionWithOptions " +
+			t.Fatal("Verifier logs larger than 64MiB, increase the log size passed to ebpf.NewCollectionWithOptions " +
 				"or decrease the size/complexity of the program")
 		}
 
@@ -154,6 +212,24 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry) {
 		// TODO: replace with flush on the buffer, as soon as cilium/ebpf supports that
 		time.Sleep(50 * time.Millisecond)
 	}
+
+	if *testCoverageReport == "" {
+		return nil
+	}
+
+	blocklist := coverbee.CFGToBlockList(cfg)
+	if err = coverbee.ApplyCoverMapToBlockList(coll.Maps["coverbee_covermap"], blocklist); err != nil {
+		t.Fatalf("apply covermap to blocklist: %s", err.Error())
+	}
+
+	var buf bytes.Buffer
+	coverbee.BlockListToGoCover(blocklist, &buf, "count")
+	profiles, err := cover.ParseProfilesFromReader(&buf)
+	if err != nil {
+		t.Fatalf("parse profiles: %s", err.Error())
+	}
+
+	return profiles
 }
 
 func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
