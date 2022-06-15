@@ -35,8 +35,13 @@ const (
 	ClientDeploymentName  = "client"
 	Client2DeploymentName = "client2"
 
+	DNSTestServerContainerName = "dns-test-server"
+	DNSTestServerImage         = "coredns/coredns:1.9.3@sha256:bdb36ee882c13135669cfc2bb91c808a33926ad1a411fee07bd2dc344bb8f782"
+
 	echoSameNodeDeploymentName  = "echo-same-node"
 	echoOtherNodeDeploymentName = "echo-other-node"
+	corednsConfigMapName        = "coredns-configmap"
+	corednsConfigVolumeName     = "coredns-config-volume"
 	kindEchoName                = "echo"
 	kindClientName              = "client"
 	kindPerfName                = "perf"
@@ -155,6 +160,52 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 	return dep
 }
 
+func newDeploymentWithDNSTestServer(p deploymentParameters) *appsv1.Deployment {
+	dep := newDeployment(p)
+
+	dep.Spec.Template.Spec.Containers = append(
+		dep.Spec.Template.Spec.Containers,
+		corev1.Container{
+			Args: []string{"-conf", "/etc/coredns/Corefile"},
+			Name: DNSTestServerContainerName,
+			Ports: []corev1.ContainerPort{
+				{ContainerPort: 53},
+				{ContainerPort: 53, Protocol: corev1.ProtocolUDP},
+			},
+			Image:           DNSTestServerImage,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			ReadinessProbe:  newLocalReadinessProbe(8181, "/ready"),
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      corednsConfigVolumeName,
+					MountPath: "/etc/coredns",
+					ReadOnly:  true,
+				},
+			},
+		},
+	)
+	dep.Spec.Template.Spec.Volumes = []corev1.Volume{
+		{
+			Name: corednsConfigVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: corednsConfigMapName,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "Corefile",
+							Path: "Corefile",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return dep
+}
+
 var serviceLabels = map[string]string{
 	"kind": kindEchoName,
 }
@@ -251,13 +302,45 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
+	dnsConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: corednsConfigMapName,
+		},
+		Data: map[string]string{
+			"Corefile": `. {
+				local
+				ready
+				log
+			}`,
+		},
+	}
+	_, err = ct.clients.src.GetConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying DNS test server configmap...", ct.clients.src.ClusterName())
+		_, err = ct.clients.src.CreateConfigMap(ctx, ct.params.TestNamespace, dnsConfigMap, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create configmap %s: %s", corednsConfigMapName, err)
+		}
+	}
+	if ct.params.MultiCluster != "" {
+		_, err = ct.clients.dst.GetConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying DNS test server configmap...", ct.clients.dst.ClusterName())
+			_, err = ct.clients.dst.CreateConfigMap(ctx, ct.params.TestNamespace, dnsConfigMap, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create configmap %s: %s", corednsConfigMapName, err)
+			}
+		}
+	}
+
 	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying same-node deployment...", ct.clients.src.ClusterName())
-		echoDeployment := newDeployment(deploymentParameters{
+		containerPort := 8080
+		echoDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
 			Name:   echoSameNodeDeploymentName,
 			Kind:   kindEchoName,
-			Port:   8080,
+			Port:   containerPort,
 			Image:  ct.params.JSONMockImage,
 			Labels: map[string]string{"other": "echo"},
 			Affinity: &corev1.Affinity{
@@ -274,9 +357,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					},
 				},
 			},
-			ReadinessProbe: newLocalReadinessProbe(8080, "/"),
+			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
 		})
-
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoDeployment, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create deployment %s: %s", echoSameNodeDeploymentName, err)
@@ -506,10 +588,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		_, err = ct.clients.dst.GetDeployment(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying other-node deployment...", ct.clients.dst.ClusterName())
-			echoOtherNodeDeployment := newDeployment(deploymentParameters{
+			containerPort := 8080
+			echoOtherNodeDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
 				Name:  echoOtherNodeDeploymentName,
 				Kind:  kindEchoName,
-				Port:  8080,
+				Port:  containerPort,
 				Image: ct.params.JSONMockImage,
 				Affinity: &corev1.Affinity{
 					PodAntiAffinity: &corev1.PodAntiAffinity{
@@ -525,9 +608,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
-				ReadinessProbe: newLocalReadinessProbe(8080, "/"),
+				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
 			})
-
 			_, err = ct.clients.dst.CreateDeployment(ctx, ct.params.TestNamespace, echoOtherNodeDeployment, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create deployment %s: %w", echoOtherNodeDeploymentName, err)
@@ -563,6 +645,7 @@ func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.C
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, Client2DeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.DeleteOptions{})
 	_ = client.DeleteNamespace(ctx, ct.params.TestNamespace, metav1.DeleteOptions{})
 
 	_, err := client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
@@ -622,11 +705,52 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	// Set the timeout for all DNS lookup retries
-	dnsCtx, cancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
-	defer cancel()
+	sameNodePods, err := ct.clients.src.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "name=" + echoSameNodeDeploymentName})
+	if err != nil {
+		return fmt.Errorf("unable to list same node pods: %w", err)
+	}
+	if len(sameNodePods.Items) != 1 {
+		return fmt.Errorf("unexpected number of same node pods: %d", len(sameNodePods.Items))
+	}
+	sameNodePod := Pod{
+		Pod: sameNodePods.Items[0].DeepCopy(),
+	}
+
+	sameNodeDNSCtx, sameNodeDNSCancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
+	defer sameNodeDNSCancel()
 	for _, cp := range ct.clientPods {
-		err := ct.waitForDNS(dnsCtx, cp)
+		err := ct.waitForPodDNS(sameNodeDNSCtx, cp, sameNodePod)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !ct.params.SingleNode || ct.params.MultiCluster != "" {
+		otherNodePods, err := ct.clients.dst.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "name=" + echoOtherNodeDeploymentName})
+		if err != nil {
+			return fmt.Errorf("unable to list other node pods: %w", err)
+		}
+		if len(otherNodePods.Items) != 1 {
+			return fmt.Errorf("unexpected number of other node pods: %d", len(otherNodePods.Items))
+		}
+		otherNodePod := Pod{
+			Pod: otherNodePods.Items[0].DeepCopy(),
+		}
+
+		otherNodeDNSCtx, otherNodeDNSCancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
+		defer otherNodeDNSCancel()
+		for _, cp := range ct.clientPods {
+			err := ct.waitForPodDNS(otherNodeDNSCtx, cp, otherNodePod)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	svcDNSCtx, svcDNSCancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
+	defer svcDNSCancel()
+	for _, cp := range ct.clientPods {
+		err := ct.waitForServiceDNS(svcDNSCtx, cp)
 		if err != nil {
 			return err
 		}
@@ -763,8 +887,43 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	return nil
 }
 
+// Validate that srcPod can query the DNS server on dstPod successfully
+func (ct *ConnectivityTest) waitForPodDNS(ctx context.Context, srcPod, dstPod Pod) error {
+	ct.Logf("⌛ [%s] Waiting for pod %s to reach DNS server on %s pod...", ct.client.ClusterName(), srcPod.Name(), dstPod.Name())
+
+	for {
+		// Don't retry lookups more often than once per second.
+		r := time.After(time.Second)
+
+		// We don't care about the actual response content, we just want to check the DNS operativity.
+		// Since the coreDNS test server has been deployed with the "local" plugin enabled,
+		// we query it with a so-called "local request" (e.g. "localhost") to get a response.
+		// See https://coredns.io/plugins/local/ for more info.
+		target := "localhost"
+		stdout, err := srcPod.K8sClient.ExecInPodWithTTY(ctx, srcPod.Pod.Namespace, srcPod.Pod.Name,
+			"", []string{"nslookup", target, dstPod.Address()})
+
+		if err == nil {
+			return nil
+		}
+
+		ct.Debugf("Error looking up %s from pod %s to server on pod %s: %s: %s", target, srcPod.Name(), dstPod.Name(), err, stdout.String())
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout reached waiting lookup for %s from pod %s to server on pod %s to succeed",
+				target, srcPod.Name(), dstPod.Name(),
+			)
+		default:
+		}
+
+		// Wait for the pace timer to avoid busy polling.
+		<-r
+	}
+}
+
 // Validate that kube-dns responds and knows about cluster services
-func (ct *ConnectivityTest) waitForDNS(ctx context.Context, pod Pod) error {
+func (ct *ConnectivityTest) waitForServiceDNS(ctx context.Context, pod Pod) error {
 	ct.Logf("⌛ [%s] Waiting for pod %s to reach default/kubernetes service...", ct.client.ClusterName(), pod.Name())
 
 	for {
