@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/distribution/distribution/reference"
 	"helm.sh/helm/v3/pkg/chartutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -723,6 +724,47 @@ func (c *Client) GetLogs(ctx context.Context, namespace, name, container string,
 	return b.String(), nil
 }
 
+func getCiliumVersionFromImage(image string) (string, error) {
+	// default to "latest" as k8s may not include it explicitly
+	version := "latest"
+
+	ref, err := reference.Parse(image)
+	if err != nil {
+		// Image has an invalid name, skip it
+		return "", err
+	}
+
+	tagged, isTagged := ref.(reference.Tagged)
+	if isTagged {
+		version = tagged.Tag()
+	}
+
+	named, isNamed := ref.(reference.Named)
+	if isNamed {
+		path := reference.Path(named)
+		strs := strings.Split(path, "/")
+
+		// Take the last element as an image name
+		imageName := strs[len(strs)-1]
+		if !strings.HasPrefix(imageName, "cilium") {
+			// Not likely to be Cilium
+			return "", fmt.Errorf("image name %s is not prefixed with cilium", imageName)
+		}
+
+		// Add any part in the pod image separated by a '-` to the version,
+		// e.g., "quay.io/cilium/cilium-ci:1234" -> "-ci:1234"
+		dash := strings.Index(imageName, "-")
+		if dash >= 0 {
+			version = imageName[dash:] + ":" + version
+		}
+	} else {
+		// Image somehow doesn't contain name, skip it.
+		return "", fmt.Errorf("image does't contain name")
+	}
+
+	return version, nil
+}
+
 func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error) {
 	pods, err := c.ListPods(ctx, namespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
 	if err != nil {
@@ -730,30 +772,9 @@ func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) 
 	}
 	if len(pods.Items) > 0 && len(pods.Items[0].Spec.Containers) > 0 {
 		for _, container := range pods.Items[0].Spec.Containers {
-			image := strings.SplitN(container.Image, ":", 2)
-			base := strings.Split(image[0], "/")
-			last := base[len(base)-1]
-			if !strings.HasPrefix(last, "cilium") {
-				// skip non cilium images
+			version, err := getCiliumVersionFromImage(container.Image)
+			if err != nil {
 				continue
-			}
-			// default to "latest" as k8s may not include it explicitly
-			version := "latest"
-			if len(image) > 2 {
-				// skip image with too many colons
-				continue
-			} else if len(image) == 2 {
-				version = image[1]
-				// chop off digest if any
-				if digest := strings.Index(version, "@"); digest > 0 {
-					version = version[:digest]
-				}
-			}
-			// Add any part in the pod image separated by a '-` to the version,
-			// e.g., "quay.io/cilium/cilium-ci:1234" -> "-ci:1234"
-			dash := strings.Index(last, "-")
-			if dash >= 0 {
-				version = last[dash:] + ":" + version
 			}
 			return version, nil
 		}
