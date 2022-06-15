@@ -400,6 +400,9 @@ Helm Options
 * ``tls.enabled`` has been removed as this attribute is not used at all.
 * Only one CA will be generated with either the helm or CronJob auto method, there will
   be a short disruption while the new CA is propagated to all nodes.
+* ``nodeinit.nodeSelector`` and ``preflight.nodeSelector`` now default to
+  ``{"kubernetes.io/os":"linux"}`` to ensure these pods are not scheduled on
+  non-Linux nodes.
 
 .. _1.11_upgrade_notes:
 

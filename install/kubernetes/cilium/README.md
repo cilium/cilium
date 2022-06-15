@@ -360,7 +360,7 @@ contributors across the globe, there is almost always someone available to help.
 | nodeinit.enabled | bool | `false` | Enable the node initialization DaemonSet |
 | nodeinit.extraEnv | list | `[]` | Additional nodeinit environment variables. |
 | nodeinit.image | object | `{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"d69851597ea019af980891a4628fb36b7880ec26"}` | node-init image. |
-| nodeinit.nodeSelector | object | `{}` | Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
+| nodeinit.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | nodeinit.podAnnotations | object | `{}` | Annotations to be added to node-init pods. |
 | nodeinit.podLabels | object | `{}` | Labels to be added to node-init pods. |
 | nodeinit.priorityClassName | string | `""` | The priority class to use for the nodeinit pod. |
@@ -410,7 +410,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
 | preflight.extraEnv | list | `[]` | Additional preflight environment variables. |
 | preflight.image | object | `{"digest":"sha256:e4cf44318235764561e19ef4e49d64d4d2b465fbe7acf424689bc29d2f7d30cf","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.12.0-rc3","useDigest":true}` | Cilium pre-flight image. |
-| preflight.nodeSelector | object | `{}` | Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
+| preflight.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | preflight.podAnnotations | object | `{}` | Annotations to be added to preflight pods |
 | preflight.podDisruptionBudget.enabled | bool | `false` | enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
 | preflight.podDisruptionBudget.maxUnavailable | int | `1` | Maximum number/percentage of pods that may be made unavailable |
