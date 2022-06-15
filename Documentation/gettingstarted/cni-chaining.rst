@@ -25,5 +25,6 @@ visibility, policy enforcement and other advanced features.
    cni-chaining-azure-cni
    cni-chaining-calico
    cni-chaining-generic-veth
+   cni-chaining-kube-ovn
    cni-chaining-portmap
    cni-chaining-weave
