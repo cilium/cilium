@@ -159,7 +159,7 @@ struct {
 		return TEST_SKIP;			\
 	}
 
-/* Write message to the log and mark current test as failed */
+/* Write message to the log and mark current test as failed. */
 #define test_error(fmt, ...)			\
 	{					\
 		test_log(fmt, ##__VA_ARGS__);	\
