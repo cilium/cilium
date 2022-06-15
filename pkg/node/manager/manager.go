@@ -5,6 +5,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"math"
 	"net"
 	"sync"
@@ -450,7 +451,14 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// the source of the node update that triggered this node
 		// update (kvstore, k8s, ...) The datapath is only updated if
 		// that source of truth is updated.
-		if err != nil {
+		// The only exception are kube-apiserver entries. In that case,
+		// we still want to inform subscribers about changes in auxiliary
+		// data such as for example the health endpoint.
+		overwriteErr := &ipcache.ErrOverwrite{
+			ExistingSrc: source.KubeAPIServer,
+			NewSrc:      n.Source,
+		}
+		if err != nil && !errors.Is(err, overwriteErr) {
 			dpUpdate = false
 		} else {
 			ipsAdded = append(ipsAdded, ipAddrStr)
