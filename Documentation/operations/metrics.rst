@@ -637,6 +637,20 @@ Options
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
+``policy``
+~~~~~~~~~~
+
+================================ ======================================== ===============================
+Name                             Labels                                   Description
+================================ ======================================== ===============================
+``policy_verdicts_total``        ``direction``, ``match``                 Number of policy verdict events
+================================ ======================================== ===============================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
 ``tcp``
 ~~~~~~~
 
