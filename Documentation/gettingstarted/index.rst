@@ -90,6 +90,7 @@ Cluster Mesh
 
    clustermesh/clustermesh
    clustermesh/services
+   clustermesh/affinity
    clustermesh/policy
    external-workloads
 
