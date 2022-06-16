@@ -62,6 +62,7 @@ type k8sHubbleImplementation interface {
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	GetServerVersion() (*semver.Version, error)
 	GetHelmState(ctx context.Context, namespace string, secretName string) (*helm.State, error)
+	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
 }
 
 type K8sHubble struct {
