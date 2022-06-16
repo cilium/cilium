@@ -65,6 +65,14 @@
 
 #define default_data "Should not change!!"
 
+/* Define SCTP header here because this is all we need. */
+struct sctphdr {
+	__be16 source;
+	__be16 dest;
+	__be32 vtag;
+	__le32 checksum;
+};
+
 enum pkt_layer {
 	PKT_LAYER_NONE,
 
@@ -83,6 +91,7 @@ enum pkt_layer {
 	PKT_LAYER_UDP,
 	PKT_LAYER_ICMP,
 	PKT_LAYER_ICMPV6,
+	PKT_LAYER_SCTP,
 
 	/* Packet data*/
 	PKT_LAYER_DATA,
@@ -275,6 +284,39 @@ struct tcphdr *pktgen__push_default_tcphdr(struct pktgen *builder)
 	return hdr;
 }
 
+/* Push an empty SCTP header onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct sctphdr *pktgen__push_sctphdr(struct pktgen *builder)
+{
+	struct __ctx_buff *ctx = builder->ctx;
+	struct sctphdr *layer;
+	int layer_idx;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct sctphdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct sctphdr) > ctx_data_end(ctx))
+		return 0;
+
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct sctphdr))
+		return 0;
+
+	layer = ctx_data(ctx) + builder->cur_off;
+	layer_idx = pktgen__free_layer(builder);
+
+	if (layer_idx < 0)
+		return 0;
+
+	builder->layers[layer_idx] = PKT_LAYER_SCTP;
+	builder->layer_offsets[layer_idx] = builder->cur_off;
+	builder->cur_off += sizeof(struct sctphdr);
+
+	return layer;
+}
+
 /* Push room for x bytes of data onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
@@ -408,6 +450,9 @@ void pktgen__finish(const struct pktgen *builder)
 			case PKT_LAYER_ICMP:
 				ipv4_layer->protocol = IPPROTO_ICMP;
 				break;
+			case PKT_LAYER_SCTP:
+				ipv4_layer->protocol = IPPROTO_SCTP;
+				break;
 			default:
 				break;
 			}
@@ -443,6 +488,9 @@ void pktgen__finish(const struct pktgen *builder)
 				break;
 			case PKT_LAYER_ICMPV6:
 				ipv6_layer->nexthdr = IPPROTO_ICMPV6;
+				break;
+			case PKT_LAYER_SCTP:
+				ipv6_layer->nexthdr = IPPROTO_SCTP;
 				break;
 			default:
 				break;
@@ -502,6 +550,10 @@ void pktgen__finish(const struct pktgen *builder)
 
 		case PKT_LAYER_ICMPV6:
 			/* TODO implement checksum calc? */
+			break;
+
+		case PKT_LAYER_SCTP:
+			/* TODO implement checksum calc */
 			break;
 
 		case PKT_LAYER_DATA:
