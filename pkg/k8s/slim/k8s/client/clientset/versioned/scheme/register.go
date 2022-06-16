@@ -9,7 +9,7 @@ import (
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
-	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,7 +24,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	corev1.AddToScheme,
 	discoveryv1beta1.AddToScheme,
 	discoveryv1.AddToScheme,
-	metav1.AddToScheme,
+	networkingv1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

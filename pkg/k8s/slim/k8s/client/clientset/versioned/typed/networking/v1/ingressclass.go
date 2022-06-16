@@ -42,7 +42,7 @@ type ingressClasses struct {
 }
 
 // newIngressClasses returns a IngressClasses
-func newIngressClasses(c *MetaV1Client) *ingressClasses {
+func newIngressClasses(c *NetworkingV1Client) *ingressClasses {
 	return &ingressClasses{
 		client: c.RESTClient(),
 	}

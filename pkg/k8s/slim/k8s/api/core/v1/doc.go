@@ -5,7 +5,7 @@
 // +k8s:deepcopy-gen=package
 // +k8s:protobuf-gen=package
 // +deepequal-gen=package
-// +groupName=core
+// +groupGoName=core
 
 // Package v1 contains slimmer versions of k8s core types.
 package v1

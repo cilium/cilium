@@ -22,9 +22,9 @@ type FakeNodes struct {
 	Fake *FakeCoreV1
 }
 
-var nodesResource = schema.GroupVersionResource{Group: "core", Version: "v1", Resource: "nodes"}
+var nodesResource = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
 
-var nodesKind = schema.GroupVersionKind{Group: "core", Version: "v1", Kind: "Node"}
+var nodesKind = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Node"}
 
 // Get takes name of the node, and returns the corresponding node object, and an error if there is any.
 func (c *FakeNodes) Get(ctx context.Context, name string, options v1.GetOptions) (result *corev1.Node, err error) {

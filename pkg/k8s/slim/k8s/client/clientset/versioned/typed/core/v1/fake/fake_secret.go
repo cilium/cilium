@@ -23,9 +23,9 @@ type FakeSecrets struct {
 	ns   string
 }
 
-var secretsResource = schema.GroupVersionResource{Group: "core", Version: "v1", Resource: "secrets"}
+var secretsResource = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
 
-var secretsKind = schema.GroupVersionKind{Group: "core", Version: "v1", Kind: "Secret"}
+var secretsKind = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 
 // Get takes name of the secret, and returns the corresponding secret object, and an error if there is any.
 func (c *FakeSecrets) Get(ctx context.Context, name string, options v1.GetOptions) (result *corev1.Secret, err error) {

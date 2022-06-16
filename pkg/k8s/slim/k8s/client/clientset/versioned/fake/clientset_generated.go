@@ -13,8 +13,8 @@ import (
 	fakediscoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1/fake"
 	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1"
 	fakediscoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1/fake"
-	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1"
-	fakemetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1/fake"
+	networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1"
+	fakenetworkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -87,7 +87,7 @@ func (c *Clientset) DiscoveryV1() discoveryv1.DiscoveryV1Interface {
 	return &fakediscoveryv1.FakeDiscoveryV1{Fake: &c.Fake}
 }
 
-// MetaV1 retrieves the MetaV1Client
-func (c *Clientset) MetaV1() metav1.MetaV1Interface {
-	return &fakemetav1.FakeMetaV1{Fake: &c.Fake}
+// NetworkingV1 retrieves the NetworkingV1Client
+func (c *Clientset) NetworkingV1() networkingv1.NetworkingV1Interface {
+	return &fakenetworkingv1.FakeNetworkingV1{Fake: &c.Fake}
 }

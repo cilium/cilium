@@ -22,9 +22,9 @@ type FakeNamespaces struct {
 	Fake *FakeCoreV1
 }
 
-var namespacesResource = schema.GroupVersionResource{Group: "core", Version: "v1", Resource: "namespaces"}
+var namespacesResource = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 
-var namespacesKind = schema.GroupVersionKind{Group: "core", Version: "v1", Kind: "Namespace"}
+var namespacesKind = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}
 
 // Get takes name of the namespace, and returns the corresponding namespace object, and an error if there is any.
 func (c *FakeNamespaces) Get(ctx context.Context, name string, options v1.GetOptions) (result *corev1.Namespace, err error) {
