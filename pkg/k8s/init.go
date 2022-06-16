@@ -189,7 +189,7 @@ func Init(conf k8sconfig.Configuration) error {
 		return res.Error()
 	}
 
-	if option.Config.K8sHeartbeatTimeout != 0 {
+	if !option.Config.DryMode && option.Config.K8sHeartbeatTimeout != 0 {
 		controller.NewManager().UpdateController("k8s-heartbeat",
 			controller.ControllerParams{
 				DoFunc: func(context.Context) error {

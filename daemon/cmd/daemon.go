@@ -197,6 +197,13 @@ type Daemon struct {
 	controllers *controller.Manager
 }
 
+func (d *Daemon) GetK8sWatcher() *watchers.K8sWatcher {
+	return d.k8sWatcher
+}
+func (d *Daemon) GetService() *service.Service {
+	return d.svc
+}
+
 // GetPolicyRepository returns the policy repository of the daemon
 func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
@@ -401,10 +408,13 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	isKubeProxyReplacementStrict, err := initKubeProxyReplacementOptions()
-	if err != nil {
-		log.WithError(err).Error("unable to initialize Kube proxy replacement options")
-		return nil, nil, fmt.Errorf("unable to initialize Kube proxy replacement options: %w", err)
+	var isKubeProxyReplacementStrict bool
+	if !option.Config.DryMode {
+		isKubeProxyReplacementStrict, err = initKubeProxyReplacementOptions()
+		if err != nil {
+			log.WithError(err).Error("unable to initialize Kube proxy replacement options")
+			return nil, nil, fmt.Errorf("unable to initialize Kube proxy replacement options: %w", err)
+		}
 	}
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
@@ -839,8 +849,12 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
 		// context deadline or if the context has been cancelled, the context's
 		// error will be returned. Otherwise, it succeeded.
-		if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
-			return nil, restoredEndpoints, err
+		if !option.Config.DryMode {
+			// FIXME(JM): Mock the api extensions client and implement SyncCRDs in a way
+			// that doesn't require use of RESTClient()?
+			if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
+				return nil, restoredEndpoints, err
+			}
 		}
 
 		// Launch the K8s node watcher so we can start receiving node events.
@@ -1330,6 +1344,7 @@ func (d *Daemon) Close() {
 		d.datapathRegenTrigger.Shutdown()
 	}
 	d.nodeDiscovery.Close()
+	d.cancel()
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,

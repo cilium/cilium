@@ -4,7 +4,6 @@
 package watchers
 
 import (
-	"fmt"
 	"sync"
 
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,8 +38,6 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 			slimClient.DiscoveryV1().EndpointSlices(""))
 		objType = &slim_discover_v1.EndpointSlice{}
 		addFunc = func(obj interface{}) {
-			fmt.Printf(">>> Got endpoint slices: %#v\n", obj)
-
 			once.Do(func() {
 				// signalize that we have received an endpoint slice
 				// so it means the cluster has endpoint slices enabled.
@@ -128,8 +125,6 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 			k.K8sEventProcessed(metricEndpointSlice, metricDelete, true)
 		}
 	}
-
-	log.Printf(">>> started endpointslices informer\n")
 
 	_, endpointController := informer.NewInformer(
 		esLW,

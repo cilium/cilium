@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
+	"github.com/cilium/cilium/test/control-plane/services"
 )
 
 // Flags
@@ -30,15 +31,10 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestGracefulTermination(t *testing.T) {
-	defer setOption(&option.Config.EnableK8sTerminatingEndpoint).restore()
-	NewGoldenTest(t, "graceful-termination", *flagUpdate).Run(t)
-}
-
 func TestDualStack(t *testing.T) {
 	defer setOption(&option.Config.EnableIPv6).restore()
 	defer setOption(&option.Config.EnableNodePort).restore()
-	testCase := NewGoldenTest(t, "dual-stack", *flagUpdate)
+	testCase := services.NewGoldenTest(t, "dual-stack", *flagUpdate)
 
 	// FIXME remove use of testing.T from within validation
 	testCase.Steps[0].AddValidation(func(lbmap *mockmaps.LBMockMap) error {

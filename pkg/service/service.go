@@ -238,6 +238,10 @@ func NewServiceWithMap(monitorNotify monitorNotify, envoyCache envoyCache, lbmap
 	return svc
 }
 
+func (s *Service) SetLBMap(lbmap LBMap) {
+	s.lbmap = lbmap
+}
+
 // RegisterL7LBService makes the given service to be locally forwarded to the
 // given proxy port.
 func (s *Service) RegisterL7LBService(serviceName, resourceName Name, ports []string, proxyPort uint16) error {

@@ -117,6 +117,9 @@ func updateVersion(version semver.Version) {
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
 	cached.capabilities.APIExtensionsV1CRD = isGEThanAPIExtensionsV1CRD(version)
 	cached.capabilities.EndpointSliceV1 = isGEThanAPIDiscoveryV1(version)
+	if cached.capabilities.EndpointSliceV1 {
+		cached.capabilities.EndpointSlice = true
+	}
 }
 
 func updateServerGroupsAndResources(apiResourceLists []*metav1.APIResourceList) {
@@ -297,6 +300,9 @@ func Update(client kubernetes.Interface, conf k8sconfig.Configuration) error {
 		// start because the API groups can't be discovered and th API
 		// groups will only become discoverable once Cilium is up.
 		_, apiResourceLists, err := client.Discovery().ServerGroupsAndResources()
+
+		fmt.Printf("apiResourceLists: %v\n", apiResourceLists)
+
 		if err != nil {
 			// It doesn't make sense to retry the retrieval of this
 			// information at a later point because the capabilities are

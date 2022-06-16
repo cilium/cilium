@@ -856,8 +856,6 @@ func hashSVCMap(svcs []loadbalancer.SVC) map[string]loadbalancer.L3n4Addr {
 }
 
 func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) error {
-	fmt.Printf("addK8sSVCs\n")
-
 	// Headless services do not need any datapath implementation
 	if svc.IsHeadless {
 		return nil
@@ -869,8 +867,6 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 	})
 
 	svcs := datapathSVCs(svc, endpoints)
-	fmt.Printf("svc: %#v\nendpoints: %#v\nsvcs: %#v\n", svc, endpoints, svcs)
-
 	svcMap := hashSVCMap(svcs)
 
 	if oldSvc != nil {
@@ -908,7 +904,6 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			Namespace:                 svcID.Namespace,
 		}
 
-		fmt.Printf("upserting service %v\n", p)
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
 			scopedLog.WithError(err).Error("Error while inserting service in LB map")
 		}

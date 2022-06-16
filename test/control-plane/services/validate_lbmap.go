@@ -14,7 +14,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"testing"
 
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
@@ -54,38 +53,40 @@ func (v goldenLBMapValidator) diffStrings(expected, actual string) (string, bool
 	return "", true
 }
 
-func (v goldenLBMapValidator) validate(t *testing.T, lbmap *mockmaps.LBMockMap) {
-	writeLBMap := func() {
+func (v goldenLBMapValidator) validate(lbmap *mockmaps.LBMockMap) error {
+	writeLBMap := func() error {
 		f, err := os.OpenFile(v.expectedFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		writeLBMapAsTable(f, lbmap)
 		f.Close()
+		return nil
 	}
 
 	if _, err := os.Stat(v.expectedFile); err == nil {
 		bs, err := os.ReadFile(v.expectedFile)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		var buf bytes.Buffer
 		writeLBMapAsTable(&buf, lbmap)
 		if diff, ok := v.diffStrings(string(bs), buf.String()); !ok {
 			if v.update {
-				t.Logf("lbmap mismatch:\n%s", diff)
-				t.Logf("updated %s as requested", v.expectedFile)
-				writeLBMap()
+				//t.Logf("lbmap mismatch:\n%s", diff)
+				//t.Logf("updated %s as requested", v.expectedFile)
+				return writeLBMap()
 			} else {
-				t.Fatalf("lbmap mismatch:\n%s", diff)
+				return fmt.Errorf("lbmap mismatch:\n%s", diff)
 			}
 		}
+		return nil
 	} else {
 		// Mark failed as the expected output was missing, but
 		// continue with the rest of the steps.
-		t.Fail()
-		t.Logf("%s missing, creating...", v.expectedFile)
-		writeLBMap()
+		//t.Fail()
+		//t.Logf("%s missing, creating...", v.expectedFile)
+		return writeLBMap()
 	}
 }
 

@@ -147,6 +147,10 @@ func Execute() {
 }
 
 func skipInit(basePath string) bool {
+	if strings.HasSuffix(basePath, ".test") {
+		return false
+	}
+
 	switch basePath {
 	case components.CiliumAgentName, components.CiliumDaemonTestName:
 		return false
