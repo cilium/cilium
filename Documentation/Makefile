@@ -56,28 +56,14 @@ copy-api:
 	@$(ECHO_GEN)_api
 	$(QUIET)cp -r ../api _api
 
-# $(HELM_DOCS_IMAGE), necessary to update the reference for Helm values,
-# attempts to run a Go binary compiled for x86_64. Skip the update on other
-# architectures by making update-helm-values an empty target, unless the user
-# passes a compatible image.
-HELM_VALUES_DEP := $(HELM_VALUES)
-ifneq ($(shell uname -m),x86_64)
-  ifeq ($(origin HELM_DOCS_IMAGE), file)
-    $(info Documentation: skipping update for the Helm reference (image needs x86_64))
-    HELM_VALUES_DEP :=
-  endif
-endif
-update-helm-values: $(HELM_VALUES_DEP)
+update-helm-values: $(HELM_VALUES)
 
 HELM_DOCS_ROOT_PATH := $(DOCKER_CTR_ROOT_DIR)
 HELM_DOCS_CHARTS_DIR := $(HELM_DOCS_ROOT_PATH)/install/kubernetes
 HELM_DOCS_OUTPUT_DIR := $(HELM_DOCS_ROOT_PATH)/Documentation
-HELM_DOCS := $(DOCKER_CTR) $(HELM_DOCS_IMAGE)
+HELM_DOCS := $(DOCKER_CTR) $(HELM_TOOLBOX_IMAGE) helm-docs
 
-M2R_VERSION := 0.2.1
-M2R_SHA := a3dc2c3fcdc31260dcb7cd42e39763281a6fdce4ca59b4c150fb3bfff5be9eb7
-M2R_IMAGE := docker.io/bmcustodio/m2r:$(M2R_VERSION)@sha256:$(M2R_SHA)
-M2R := $(DOCKER_CTR) $(M2R_IMAGE) m2r
+M2R := $(DOCKER_CTR) $(HELM_TOOLBOX_IMAGE) python3 /usr/bin/m2r2
 
 .PHONY: update-helm-values FORCE
 $(HELM_VALUES): TMP_FILE_1 := helm-values.tmp
