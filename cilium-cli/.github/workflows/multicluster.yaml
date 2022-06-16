@@ -30,7 +30,7 @@ env:
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
-  cilium_version: v1.11.5
+  cilium_version: v1.11.6
   kubectl_version: v1.23.6
 
 jobs:
