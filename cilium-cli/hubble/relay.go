@@ -252,24 +252,11 @@ func (k *K8sHubble) generateRelayCertificate(name string) (corev1.Secret, error)
 }
 
 func (k *K8sHubble) PortForwardCommand(ctx context.Context) error {
-	helmState, err := k.client.GetHelmState(ctx, k.params.Namespace, k.params.HelmValuesSecretName)
+	relaySvc, err := k.client.GetService(ctx, k.params.Namespace, "hubble-relay", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	// Generate the manifests has if hubble was being enabled so that we can
-	// retrieve all UI and Relay's resource names.
-	k.params.UI = true
-	k.params.Relay = true
-	err = k.generateManifestsEnable(ctx, false, helmState.Values)
-	if err != nil {
-		return err
-	}
-
-	relaySvc, err := k.generateRelayService()
-	if err != nil {
-		return err
-	}
 	args := []string{
 		"port-forward",
 		"-n", k.params.Namespace,
