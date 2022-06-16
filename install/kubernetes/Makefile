@@ -24,7 +24,8 @@ DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 	--workdir /src/install/kubernetes \
 	--volume $(CURDIR)/../..:/src \
 	--user "$(shell id -u):$(shell id -g)"
-HELM_DOCS := $(DOCKER_RUN) $(HELM_DOCS_IMAGE)
+HELM_DOCS := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm-docs
+HELM := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm
 
 LOGO_BASE_URL := https://cdn.jsdelivr.net/gh/cilium
 LOGO_PATH := Documentation/images/logo-solo.svg
@@ -53,7 +54,7 @@ lint:
 		grep -q $$crd $(CHART_FILE) \
 		|| (echo -e "$$crd not found in $(CHART_FILE).\nPlease update the chart to include $$crd."; exit 1); \
 	done
-	$(QUIET)helm lint --with-subcharts --values ./cilium/values.yaml ./cilium
+	$(QUIET)$(HELM) lint --with-subcharts --values ./cilium/values.yaml ./cilium
 
 docs:
 	$(QUIET)$(HELM_DOCS)
