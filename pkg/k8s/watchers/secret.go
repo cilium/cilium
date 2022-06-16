@@ -10,13 +10,14 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_entensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -27,16 +28,15 @@ const (
 	tlsFieldSelector = "type=kubernetes.io/tls"
 )
 
-func (k *K8sWatcher) tlsSecretInit(k8sClient kubernetes.Interface, namespace string, swgSecrets *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) tlsSecretInit(slimClient slimclientset.Interface, namespace string, swgSecrets *lock.StoppableWaitGroup) {
 	secretOptsModifier := func(options *metav1.ListOptions) {
 		options.FieldSelector = tlsFieldSelector
 	}
 
 	_, secretController := informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"secrets", namespace,
-			secretOptsModifier,
-		),
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.SecretList](slimClient.CoreV1().Secrets(namespace)),
+			secretOptsModifier),
 		&slim_corev1.Secret{},
 		0,
 		cache.ResourceEventHandlerFuncs{

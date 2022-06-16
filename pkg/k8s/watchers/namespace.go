@@ -7,11 +7,8 @@ import (
 	"errors"
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -19,16 +16,17 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) namespacesInit(slimClient slimclientset.Interface, asyncControllers *sync.WaitGroup) {
 	namespaceStore, namespaceController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"namespaces", v1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*slim_corev1.NamespaceList](slimClient.CoreV1().Namespaces()),
 		&slim_corev1.Namespace{},
 		0,
 		cache.ResourceEventHandlerFuncs{
