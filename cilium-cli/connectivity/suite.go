@@ -7,11 +7,13 @@ import (
 	"context"
 	_ "embed"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 var (
@@ -53,11 +55,17 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		return err
 	}
 
+	var v semver.Version
 	helmState, err := ct.K8sClient().GetHelmState(ctx, ct.Params().CiliumNamespace, defaults.HelmValuesSecretName)
 	if err != nil {
-		return err
+		ct.Warnf("Unable to detect Cilium version, assuming %v for connectivity tests", defaults.Version)
+		v, err = utils.ParseCiliumVersion(defaults.Version)
+		if err != nil {
+			return err
+		}
+	} else {
+		v = helmState.Version
 	}
-	v := helmState.Version
 
 	ct.Infof("Cilium version: %v", v)
 
