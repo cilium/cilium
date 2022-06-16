@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"k8s.io/utils/strings/slices"
 )
 
 // ContextIdentifier describes the identification method of a transmission or
@@ -147,7 +148,7 @@ func sourceNamespaceContext(flow *pb.Flow) (context string) {
 
 func sourceIdentityContext(flow *pb.Flow) (context string) {
 	if flow.GetSource() != nil {
-		context = strings.Join(flow.GetSource().Labels, ",")
+		context = strings.Join(handleReservedIdentityLabels(flow.GetSource().Labels), ",")
 	}
 	return
 }
@@ -197,9 +198,18 @@ func destinationNamespaceContext(flow *pb.Flow) (context string) {
 	return
 }
 
+func handleReservedIdentityLabels(labels []string) []string {
+	if slices.Contains(labels, "reserved:kube-apiserver") {
+		return []string{"reserved:kube-apiserver"}
+	} else if slices.Contains(labels, "reserved:world") {
+		return []string{"reserved:world"}
+	}
+	return labels
+}
+
 func destinationIdentityContext(flow *pb.Flow) (context string) {
 	if flow.GetDestination() != nil {
-		context = strings.Join(flow.GetDestination().Labels, ",")
+		context = strings.Join(handleReservedIdentityLabels(flow.GetDestination().Labels), ",")
 	}
 	return
 }
