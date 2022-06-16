@@ -22,9 +22,9 @@ cd $CILIUM_DIR/install/kubernetes
 helm package --destination "$CWD" cilium
 cd -
 helm repo index . --merge index.yaml
-$EDITOR README.md
+./generate_readme.sh > README.md
 git add README.md index.yaml cilium-$VERSION.tgz
-git commit -s -m "Add $VERSION@$(cd $CILIUM_DIR; git rev-parse HEAD) ⎈"
+git commit -s -m "Add cilium $VERSION@$(cd $CILIUM_DIR; git rev-parse HEAD) ⎈"
 ./fix_dates.sh
 git add index.yaml
-git commit --amend
+git commit --amend --no-edit
