@@ -408,7 +408,7 @@ FQDN
 ================================ ================================ ========================================================
 Name                             Labels                           Description
 ================================ ================================ ========================================================
-``qdn_gc_deletions_total``                                        Number of FQDNs that have been cleaned on FQDN garbage collector job
+``fqdn_gc_deletions_total``                                       Number of FQDNs that have been cleaned on FQDN garbage collector job
 ================================ ================================ ========================================================
 
 .. _metrics_api_rate_limiting:
