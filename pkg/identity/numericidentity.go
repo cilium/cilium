@@ -25,6 +25,32 @@ const (
 	// a numeric identity to have local scope
 	LocalIdentityFlag = NumericIdentity(1 << 24)
 
+	// MinAllocatorLocalIdentity represents the minimal numeric identity
+	// that the localIdentityCache allocator can allocate for a local (CIDR)
+	// identity.
+	//
+	// Note that this does not represents the minimal value for a local
+	// identity, as the allocated ID will then be bitwise OR'ed with
+	// LocalIdentityFlag.
+	MinAllocatorLocalIdentity = 1
+
+	// MinLocalIdentity represents the actual minimal numeric identity value
+	// for a local (CIDR) identity.
+	MinLocalIdentity = MinAllocatorLocalIdentity | LocalIdentityFlag
+
+	// MaxAllocatorLocalIdentity represents the maximal numeric identity
+	// that the localIdentityCache allocator can allocate for a local (CIDR)
+	// identity.
+	//
+	// Note that this does not represents the maximal value for a local
+	// identity, as the allocated ID will then be bitwise OR'ed with
+	// LocalIdentityFlag.
+	MaxAllocatorLocalIdentity = 0xFFFFFF
+
+	// MaxLocalIdentity represents the actual maximal numeric identity value
+	// for a local (CIDR) identity.
+	MaxLocalIdentity = MaxAllocatorLocalIdentity | LocalIdentityFlag
+
 	// MinimalNumericIdentity represents the minimal numeric identity not
 	// used for reserved purposes.
 	MinimalNumericIdentity = NumericIdentity(256)
