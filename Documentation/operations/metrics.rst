@@ -648,6 +648,26 @@ Options
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
+``policy``
+~~~~~~~~~~
+
+================================ ======================================== ===============================
+Name                             Labels                                   Description
+================================ ======================================== ===============================
+``policy_verdicts_total``        ``action``, ``direction``, ``match``     Number of policy verdict events
+================================ ======================================== ===============================
+
+.. note::
+
+   ``policy_verdicts_total`` metric does not count policy verdict events with ``reserved:host`` as
+   the source since ``reserved:host`` is allowed to connect to any local endpoints regardless of
+   whether a Cilium network policy rule explicitly allows it.
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
 ``tcp``
 ~~~~~~~
 
