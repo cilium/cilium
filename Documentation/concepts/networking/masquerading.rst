@@ -116,23 +116,17 @@ The agent uses Fsnotify to track updates to the configuration file, so the origi
 
 The example below shows how to configure the agent via :term:`ConfigMap` and to verify it:
 
-.. code-block:: shell-session
+.. literalinclude:: ../../../examples/kubernetes-ip-masq-agent/rfc1918.yaml
 
-    $ cat agent-config/config
-    nonMasqueradeCIDRs:
-    - 10.0.0.0/8
-    - 172.16.0.0/12
-    - 192.168.0.0/16
-    masqLinkLocal: false
+.. parsed-literal::
 
-    $ kubectl create configmap ip-masq-agent --from-file=agent-config --namespace=kube-system
+    $ kubectl create -n kube-system -f \ |SCM_WEB|\/examples/kubernetes-ip-masq-agent/rfc1918.yaml
 
-    $ # Wait ~60s until the ConfigMap is mounted into a cilium pod
+    $ # Wait ~60s until the ConfigMap is propagated into the configuration file
 
     $ kubectl -n kube-system exec ds/cilium -- cilium bpf ipmasq list
     IP PREFIX/ADDRESS
     10.0.0.0/8
-    169.254.0.0/16
     172.16.0.0/12
     192.168.0.0/16
 
