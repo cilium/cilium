@@ -152,6 +152,25 @@ jobs:
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
 
+      - name: CI Unstripped Binaries Build ${{ matrix.name }}
+        if: ${{ github.event_name != 'pull_request_target' }}
+        uses: docker/build-push-action@e551b19e49efd4e98792db7592c17c09b89db8d8
+        id: docker_build_ci_master_unstripped
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          # Only push when the event name was a GitHub push, this is to avoid
+          # re-pushing the image tags when we only want to re-create the Golang
+          # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
+          push: ${{ github.event_name == 'push' }}
+          platforms: linux/amd64
+          tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-unstripped
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
+          build-args: |
+            NOSTRIP=1
+            OPERATOR_VARIANT=${{ matrix.name }}
+
       - name: CI Image Releases digests
         if: ${{ github.event_name != 'pull_request_target' }}
         shell: bash
@@ -159,8 +178,10 @@ jobs:
           mkdir -p image-digest/
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-unstripped@${{ steps.docker_build_ci_master_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_master_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # PR updates
       - name: CI Build ${{ matrix.name }}
@@ -194,6 +215,21 @@ jobs:
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
 
+      - name: CI Unstripped Binaries Build ${{ matrix.name }}
+        if: ${{ github.event_name == 'pull_request_target' }}
+        uses: docker/build-push-action@e551b19e49efd4e98792db7592c17c09b89db8d8
+        id: docker_build_ci_pr_unstripped
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
+          build-args: |
+            NOSTRIP=1
+            OPERATOR_VARIANT=${{ matrix.name }}
+
       - name: CI Image Releases digests
         if: ${{ github.event_name == 'pull_request_target' }}
         shell: bash
@@ -201,6 +237,7 @@ jobs:
           mkdir -p image-digest/
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
