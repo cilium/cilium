@@ -1,40 +1,20 @@
 package services
 
 import (
-	"flag"
-	"os"
 	"testing"
 
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/test/control-plane/services"
 )
 
-// Flags
-var (
-	flagUpdate = flag.Bool("update", false, "Update golden test files")
-	flagDebug  = flag.Bool("debug", false, "Enable debug logging")
-)
-
 func TestMain(m *testing.M) {
-	flag.Parse()
-	if *flagDebug {
-		logging.SetLogLevelToDebug()
-	}
-	logging.InitializeDefaultLogger()
-
-	option.Config.Populate()
-	option.Config.EnableHealthCheckNodePort = false
-
-	os.Exit(m.Run())
+	services.TestMain(m)
 }
 
 func TestDualStack(t *testing.T) {
-	defer setOption(&option.Config.EnableIPv6).restore()
-	defer setOption(&option.Config.EnableNodePort).restore()
-	testCase := services.NewGoldenTest(t, "dual-stack", *flagUpdate)
+	testCase := services.NewGoldenTest(t, "dual-stack")
 
 	// FIXME remove use of testing.T from within validation
 	testCase.Steps[0].AddValidation(func(lbmap *mockmaps.LBMockMap) error {
@@ -59,7 +39,11 @@ func TestDualStack(t *testing.T) {
 		return nil
 	})
 
-	testCase.Run(t)
+	modConfig := func(c *option.DaemonConfig) {
+		c.EnableIPv6 = true
+		c.EnableNodePort = true
+	}
+	testCase.Run(t, modConfig)
 }
 
 //
@@ -118,29 +102,4 @@ func (a lbmapAssert) servicesExist(name string, svcTypes []lb.SVCType, l3s []svc
 			}
 		}
 	}
-}
-
-//
-// Utils for working with option.Config.
-//
-
-type oldOption struct {
-	opt *bool
-	old bool
-}
-
-func setOption(opt *bool) oldOption {
-	old := oldOption{opt, *opt}
-	*opt = true
-	return old
-}
-
-func unsetOption(opt *bool) oldOption {
-	old := oldOption{opt, *opt}
-	*opt = false
-	return old
-}
-
-func (o oldOption) restore() {
-	*o.opt = o.old
 }

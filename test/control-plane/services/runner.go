@@ -176,8 +176,8 @@ func gvrAndName(obj k8sRuntime.Object) (gvr schema.GroupVersionResource, ns stri
 
 // Run sets up the control-plane with a mock lbmap and executes the test case
 // against it.
-func (testCase *ServicesTestCase) Run(t *testing.T) {
-	clients, datapath, agentHandle := startCiliumAgent()
+func (testCase *ServicesTestCase) Run(t *testing.T, modConfig func(*option.DaemonConfig)) {
+	clients, datapath, agentHandle := startCiliumAgent(modConfig)
 	defer tearDown(agentHandle)
 	coreTracker := clients.core.Tracker()
 	slimTracker := clients.slim.Tracker()
@@ -282,7 +282,7 @@ func (testCase *ServicesTestCase) Run(t *testing.T) {
 // These are expected to be a k8s "List", e.g. the format of "kubectl get <res> -o yaml".
 // They're fed to the control-plane in lexicographical order and after each the
 // lbmap state is validated against the expected state as described by lbmap<N>.golden.
-func NewGoldenTest(t *testing.T, name string, updateGolden bool) (testCase *ServicesTestCase) {
+func NewGoldenTest(t *testing.T, name string) (testCase *ServicesTestCase) {
 	testCase = &ServicesTestCase{}
 
 	// Construct the test case by parsing all input event files
@@ -323,7 +323,7 @@ func NewGoldenTest(t *testing.T, name string, updateGolden bool) (testCase *Serv
 			return nil
 		})
 
-		validator := newGoldenLBMapValidator(eventsFile, updateGolden)
+		validator := newGoldenLBMapValidator(eventsFile, *flagUpdate)
 		testCase.Steps = append(testCase.Steps,
 			NewStep(path.Join(name, path.Base(ent.Name())),
 				validator.validate,
@@ -544,7 +544,7 @@ type agentHandle struct {
 	d *cmd.Daemon
 }
 
-func startCiliumAgent() (fakeClients, mockDatapath, agentHandle) {
+func startCiliumAgent(modConfig func(*option.DaemonConfig)) (fakeClients, mockDatapath, agentHandle) {
 	types.SetName("kind-control-plane")
 	k8s.Configure("dummy", "dummy", 10.0, 10)
 	version.Force("1.23")
@@ -558,6 +558,7 @@ func startCiliumAgent() (fakeClients, mockDatapath, agentHandle) {
 	k8s.SetClients(clients.core, clients.slim, clients.cilium, clients.apiext)
 
 	proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
+	option.Config.Populate()
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
@@ -576,6 +577,9 @@ func startCiliumAgent() (fakeClients, mockDatapath, agentHandle) {
 	option.Config.K8sRequireIPv6PodCIDR = false
 	option.Config.K8sEnableK8sEndpointSlice = true
 	option.Config.EnableL7Proxy = false
+	option.Config.EnableHealthCheckNodePort = false
+
+	modConfig(option.Config)
 
 	setupTestDirectories()
 
