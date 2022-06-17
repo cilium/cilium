@@ -712,7 +712,7 @@
    * - hubble.metrics
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/operations/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"labels":{}}}``
+     - ``{"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{}}}``
    * - hubble.metrics.enabled
      - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:   enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http You can specify the list of metrics from the helm CLI:   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
      - string
@@ -733,6 +733,10 @@
      - Create ServiceMonitor resources for Prometheus Operator. This requires the prometheus CRDs to be available. ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
      - bool
      - ``false``
+   * - hubble.metrics.serviceMonitor.interval
+     - Interval for scrape metrics.
+     - string
+     - ``"10s"``
    * - hubble.metrics.serviceMonitor.labels
      - Labels to add to ServiceMonitor hubble
      - object
@@ -1352,7 +1356,7 @@
    * - operator.prometheus
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{}}}``
+     - ``{"enabled":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{}}}``
    * - operator.prometheus.serviceMonitor.annotations
      - Annotations to add to ServiceMonitor cilium-operator
      - object
@@ -1361,6 +1365,10 @@
      - Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
      - bool
      - ``false``
+   * - operator.prometheus.serviceMonitor.interval
+     - Interval for scrape metrics.
+     - string
+     - ``"10s"``
    * - operator.prometheus.serviceMonitor.labels
      - Labels to add to ServiceMonitor cilium-operator
      - object
@@ -1504,7 +1512,7 @@
    * - prometheus
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{}}}``
+     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{}}}``
    * - prometheus.metrics
      - Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
      - string
@@ -1517,6 +1525,10 @@
      - Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
      - bool
      - ``false``
+   * - prometheus.serviceMonitor.interval
+     - Interval for scrape metrics.
+     - string
+     - ``"10s"``
    * - prometheus.serviceMonitor.labels
      - Labels to add to ServiceMonitor cilium-agent
      - object

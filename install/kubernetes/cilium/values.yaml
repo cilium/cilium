@@ -691,6 +691,8 @@ hubble:
       labels: {}
       # -- Annotations to add to ServiceMonitor hubble
       annotations: {}
+      # -- Interval for scrape metrics.
+      interval: "10s"
 
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
@@ -1321,6 +1323,8 @@ prometheus:
     labels: {}
     # -- Annotations to add to ServiceMonitor cilium-agent
     annotations: {}
+    # -- Interval for scrape metrics.
+    interval: "10s"
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
@@ -1633,6 +1637,8 @@ operator:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-operator
       annotations: {}
+      # -- Interval for scrape metrics.
+      interval: "10s"
 
   # -- Skip CRDs creation for cilium-operator
   skipCRDCreation: false
