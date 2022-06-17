@@ -817,6 +817,13 @@ github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74
 ## explicit; go 1.12
 github.com/vishvananda/netns
+# github.com/vladimirvivien/gexe v0.1.1
+## explicit; go 1.16
+github.com/vladimirvivien/gexe
+github.com/vladimirvivien/gexe/exec
+github.com/vladimirvivien/gexe/fs
+github.com/vladimirvivien/gexe/prog
+github.com/vladimirvivien/gexe/vars
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
@@ -1222,6 +1229,7 @@ k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
 k8s.io/apimachinery/pkg/api/resource
 k8s.io/apimachinery/pkg/apis/meta/internalversion
+k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme
 k8s.io/apimachinery/pkg/apis/meta/v1
 k8s.io/apimachinery/pkg/apis/meta/v1/unstructured
 k8s.io/apimachinery/pkg/apis/meta/v1beta1
@@ -1307,6 +1315,7 @@ k8s.io/client-go/applyconfigurations/storage/v1alpha1
 k8s.io/client-go/applyconfigurations/storage/v1beta1
 k8s.io/client-go/discovery
 k8s.io/client-go/discovery/fake
+k8s.io/client-go/dynamic
 k8s.io/client-go/informers
 k8s.io/client-go/informers/admissionregistration
 k8s.io/client-go/informers/admissionregistration/v1
@@ -1502,6 +1511,7 @@ k8s.io/client-go/listers/scheduling/v1beta1
 k8s.io/client-go/listers/storage/v1
 k8s.io/client-go/listers/storage/v1alpha1
 k8s.io/client-go/listers/storage/v1beta1
+k8s.io/client-go/metadata
 k8s.io/client-go/openapi
 k8s.io/client-go/pkg/apis/clientauthentication
 k8s.io/client-go/pkg/apis/clientauthentication/install
@@ -1512,6 +1522,7 @@ k8s.io/client-go/plugin/pkg/client/auth/exec
 k8s.io/client-go/rest
 k8s.io/client-go/rest/fake
 k8s.io/client-go/rest/watch
+k8s.io/client-go/restmapper
 k8s.io/client-go/testing
 k8s.io/client-go/third_party/forked/golang/template
 k8s.io/client-go/tools/auth
@@ -1624,6 +1635,13 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
+# sigs.k8s.io/controller-runtime v0.11.1
+## explicit; go 1.17
+sigs.k8s.io/controller-runtime/pkg/client
+sigs.k8s.io/controller-runtime/pkg/client/apiutil
+sigs.k8s.io/controller-runtime/pkg/controller/controllerutil
+sigs.k8s.io/controller-runtime/pkg/internal/objectutil
+sigs.k8s.io/controller-runtime/pkg/log
 # sigs.k8s.io/controller-tools v0.6.2 => github.com/cilium/controller-tools v0.6.2
 ## explicit; go 1.16
 sigs.k8s.io/controller-tools/cmd/controller-gen
@@ -1640,6 +1658,23 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
+# sigs.k8s.io/e2e-framework v0.0.7
+## explicit; go 1.17
+sigs.k8s.io/e2e-framework/klient
+sigs.k8s.io/e2e-framework/klient/conf
+sigs.k8s.io/e2e-framework/klient/decoder
+sigs.k8s.io/e2e-framework/klient/k8s
+sigs.k8s.io/e2e-framework/klient/k8s/resources
+sigs.k8s.io/e2e-framework/klient/k8s/watcher
+sigs.k8s.io/e2e-framework/klient/wait
+sigs.k8s.io/e2e-framework/klient/wait/conditions
+sigs.k8s.io/e2e-framework/pkg/env
+sigs.k8s.io/e2e-framework/pkg/envconf
+sigs.k8s.io/e2e-framework/pkg/envfuncs
+sigs.k8s.io/e2e-framework/pkg/features
+sigs.k8s.io/e2e-framework/pkg/flags
+sigs.k8s.io/e2e-framework/pkg/internal/types
+sigs.k8s.io/e2e-framework/support/kind
 # sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2
 ## explicit; go 1.17
 sigs.k8s.io/json
