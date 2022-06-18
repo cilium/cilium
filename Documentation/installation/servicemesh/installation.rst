@@ -77,4 +77,4 @@ Installation
 
 Hubble CLI is also used to observe the traffic in later steps.
 
-.. include:: ../hubble-install.rst
+.. include:: /gettingstarted/hubble-install.rst

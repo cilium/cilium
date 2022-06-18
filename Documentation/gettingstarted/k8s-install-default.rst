@@ -8,9 +8,9 @@
 .. _k8s_quick_install:
 .. _k8s_install_standard:
 
-******************
-Quick Installation
-******************
+*************************
+Cilium Quick Installation
+*************************
 
 This guide will walk you through the quick default installation. It will
 automatically detect and use the best configuration possible for the Kubernetes
@@ -18,7 +18,7 @@ distribution you are using. All state is stored using Kubernetes custom resource
 
 This is the best installation method for most use cases.  For large
 environments (> 500 nodes) or if you want to run specific datapath modes, refer
-to the :ref:`k8s_install_advanced` guide.
+to the :ref:`gs_guide` guide.
 
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on the :term:`Slack channel`.
@@ -175,7 +175,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
        .. parsed-literal::
 
-          curl -LO \ |SCM_WEB|\/Documentation/gettingstarted/kind-config.yaml
+          curl -LO \ |SCM_WEB|\/Documentation/installation/kind-config.yaml
           kind create cluster --config=kind-config.yaml
 
     .. group-tab:: minikube
@@ -201,13 +201,13 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
        Next you need to configure Rancher Desktop so to disable the builtin CNI so you can install Cilium.
 
-       .. include:: rancher-desktop-configure.rst
+       .. include:: ../installation/rancher-desktop-configure.rst
 
 
 Install the Cilium CLI
 ======================
 
-.. include:: cli-download.rst
+.. include:: ../installation/cli-download.rst
 
 Install Cilium
 ==============
@@ -224,7 +224,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
        distribution/platform specific instructions which also list the ideal
        default configuration for particular platforms.
 
-       .. include:: requirements-generic.rst
+       .. include:: ../installation/requirements-generic.rst
 
        **Install Cilium**
 
@@ -236,7 +236,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: GKE
 
-       .. include:: requirements-gke.rst
+       .. include:: ../installation/requirements-gke.rst
 
        **Install Cilium:**
 
@@ -248,7 +248,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: AKS (BYOCNI)
 
-       .. include:: requirements-aks-byocni.rst
+       .. include:: ../installation/requirements-aks-byocni.rst
 
        **Install Cilium:**
 
@@ -260,7 +260,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: AKS (Azure IPAM)
 
-       .. include:: requirements-aks-azure-ipam.rst
+       .. include:: ../installation/requirements-aks-azure-ipam.rst
 
        **Install Cilium:**
 
@@ -272,7 +272,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: EKS
 
-       .. include:: requirements-eks.rst
+       .. include:: ../installation/requirements-eks.rst
 
        **Install Cilium:**
 
@@ -285,7 +285,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: OpenShift
 
-       .. include:: requirements-openshift.rst
+       .. include:: ../installation/requirements-openshift.rst
 
        **Install Cilium:**
 
@@ -295,7 +295,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: RKE
 
-       .. include:: requirements-rke.rst
+       .. include:: ../installation/requirements-rke.rst
 
        **Install Cilium:**
 
@@ -307,7 +307,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: k3s
 
-       .. include:: requirements-k3s.rst
+       .. include:: ../installation/requirements-k3s.rst
 
        **Install Cilium:**
 
@@ -342,7 +342,7 @@ pods are failing to be deployed.
 Validate the Installation
 =========================
 
-.. include:: cli-status.rst
-.. include:: cli-connectivity-test.rst
+.. include:: ../installation/cli-status.rst
+.. include:: ../installation/cli-connectivity-test.rst
 
-.. include:: next-steps.rst
+.. include:: ../installation/next-steps.rst

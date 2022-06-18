@@ -5,7 +5,7 @@ Service Mesh Troubleshooting
 Install the Cilium CLI
 ----------------------
 
-.. include:: ../gettingstarted/cli-download.rst
+.. include:: /installation/cli-download.rst
 
 Generic
 -------
@@ -69,7 +69,7 @@ Internally, the Cilium Ingress controller will create one Load Balancer service,
     the ``CiliumEnvoyConfig`` resource. This is unlikely to happen for CEC resources
     originating from the Cilium Ingress controller.
 
-    .. include:: ../gettingstarted/servicemesh/warning.rst
+    .. include:: /installation/servicemesh/warning.rst
 
 
 Connectivity Troubleshooting

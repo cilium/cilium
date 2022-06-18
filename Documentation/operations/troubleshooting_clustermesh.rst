@@ -5,7 +5,7 @@ Cluster Mesh Troubleshooting
 Install the Cilium CLI
 ----------------------
 
-.. include:: ../gettingstarted/cli-download.rst
+.. include:: /installation/cli-download.rst
 
 Generic
 -------
