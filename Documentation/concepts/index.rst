@@ -20,10 +20,8 @@ Choose one of the following topics to start reading:
    :maxdepth: 1
    :glob:
 
-   terminology
    networking/index
    security/index
    ebpf/index
-   observability/index
    kubernetes/index
    clustermesh/index

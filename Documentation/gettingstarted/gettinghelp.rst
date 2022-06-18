@@ -10,7 +10,7 @@
 Getting Help
 ############
 
-Cilium is a project  with a growing community. There are numerous ways to get
+Cilium is a project with a growing community. There are numerous ways to get
 help with Cilium if needed:
 
 FAQ
