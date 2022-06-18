@@ -12,7 +12,7 @@ Hubble Configuration
 
 This page provides guidance to configure Hubble in a way that suits your
 environment. Instructions to enable Hubble are provided as part of each
-Cilium :ref:`gs_install` guide.
+Cilium :ref:`gs_guide` guide.
 
 .. _hubble_configure_tls_certs:
 

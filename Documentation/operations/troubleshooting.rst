@@ -651,7 +651,7 @@ Cluster Mesh Troubleshooting
 Install the Cilium CLI
 ----------------------
 
-.. include:: ../gettingstarted/cli-download.rst
+.. include:: ../installation/cli-download.rst
 
 Generic
 -------
@@ -972,7 +972,7 @@ from your cluster before the failure state is lost.
 Automatic log & state collection
 --------------------------------
 
-.. include:: ../gettingstarted/cli-download.rst
+.. include:: ../installation/cli-download.rst
 
 Then, execute ``cilium sysdump`` command to collect troubleshooting information
 from your Kubernetes cluster:

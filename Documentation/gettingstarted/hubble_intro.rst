@@ -6,9 +6,9 @@
 
 .. _observability_intro:
 
-************
-Introduction
-************
+*******************
+Hubble Introduction
+*******************
 
 Observability is provided by Hubble which enables deep visibility into the
 communication and behavior of services as well as the networking infrastructure

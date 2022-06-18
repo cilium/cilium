@@ -159,7 +159,7 @@ specifying the equivalent options as used for the initial deployment, either by
 specifying a them at the command line or by committing the values to a YAML
 file.
 
-.. include:: ../gettingstarted/k8s-install-download-release.rst
+.. include:: ../installation/k8s-install-download-release.rst
 
 To minimize datapath disruption during the upgrade, the
 ``upgradeCompatibility`` option should be set to the initial Cilium

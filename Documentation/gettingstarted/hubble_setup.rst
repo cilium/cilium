@@ -12,8 +12,7 @@ Setting up Hubble Observability
 
 Hubble is the observability layer of Cilium and can be used to obtain
 cluster-wide visibility into the network and security layer of your Kubernetes
-cluster. For more information about Hubble and its components, see the
-:ref:`concepts_observability` section.
+cluster.
 
 .. note::
 

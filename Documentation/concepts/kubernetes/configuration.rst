@@ -351,7 +351,7 @@ CRIO
 
 If you want to use CRIO, generate the YAML using:
 
-.. include:: ../../gettingstarted/k8s-install-download-release.rst
+.. include:: ../../installation/k8s-install-download-release.rst
 
 .. note::
 
