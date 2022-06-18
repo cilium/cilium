@@ -231,6 +231,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	bool __maybe_unused dst_remote_ep = false;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
+	bool emit_policy_verdict = true;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -299,6 +300,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
 			    bpf_ntohs(proxy_port));
 		verdict = proxy_port;
+		emit_policy_verdict = false;
 		goto skip_policy_enforcement;
 	}
 #endif /* ENABLE_L7_LB */
@@ -316,8 +318,10 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * want to execute the conntrack logic so that replies can be correctly
 	 * matched.
 	 */
-	if (hairpin_flow)
+	if (hairpin_flow) {
+		emit_policy_verdict = false;
 		goto skip_policy_enforcement;
+	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
@@ -339,7 +343,7 @@ skip_policy_enforcement:
 #endif
 	switch (ct_status) {
 	case CT_NEW:
-		if (!hairpin_flow)
+		if (emit_policy_verdict)
 			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 1,
 						   verdict, policy_match_type, audited);
@@ -358,7 +362,7 @@ ct_recreate6:
 		break;
 
 	case CT_REOPENED:
-		if (!hairpin_flow)
+		if (emit_policy_verdict)
 			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 1,
 						   verdict, policy_match_type, audited);
@@ -742,6 +746,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
+	bool emit_policy_verdict = true;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -810,6 +815,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		/* tuple addresses have been swapped by CT lookup */
 		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr, tuple->saddr, bpf_ntohs(proxy_port));
 		verdict = proxy_port;
+		emit_policy_verdict = false;
 		goto skip_policy_enforcement;
 	}
 #endif /* ENABLE_L7_LB */
@@ -826,8 +832,10 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * want to execute the conntrack logic so that replies can be correctly
 	 * matched.
 	 */
-	if (hairpin_flow)
+	if (hairpin_flow) {
+		emit_policy_verdict = false;
 		goto skip_policy_enforcement;
+	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
@@ -849,7 +857,7 @@ skip_policy_enforcement:
 #endif
 	switch (ct_status) {
 	case CT_NEW:
-		if (!hairpin_flow)
+		if (emit_policy_verdict)
 			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 0,
 						   verdict, policy_match_type, audited);
@@ -870,7 +878,7 @@ ct_recreate4:
 		break;
 
 	case CT_REOPENED:
-		if (!hairpin_flow)
+		if (emit_policy_verdict)
 			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 0,
 						   verdict, policy_match_type, audited);
@@ -1363,6 +1371,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	bool emit_policy_verdict = true;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1445,10 +1454,12 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		return verdict;
 	}
 
-	if (skip_ingress_proxy)
+	if (skip_ingress_proxy) {
 		verdict = 0;
+		emit_policy_verdict = false;
+	}
 
-	if (ret == CT_NEW || ret == CT_REOPENED) {
+	if (emit_policy_verdict && (ret == CT_NEW || ret == CT_REOPENED)) {
 		send_policy_verdict_notify(ctx, src_label, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 1,
 					   verdict, policy_match_type, audited);
@@ -1671,6 +1682,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	bool emit_policy_verdict = true;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1774,10 +1786,12 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 		return verdict;
 	}
 
-	if (skip_ingress_proxy)
+	if (skip_ingress_proxy) {
 		verdict = 0;
+		emit_policy_verdict = false;
+	}
 
-	if (ret == CT_NEW || ret == CT_REOPENED) {
+	if (emit_policy_verdict && (ret == CT_NEW || ret == CT_REOPENED)) {
 		send_policy_verdict_notify(ctx, src_label, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 0,
 					   verdict, policy_match_type, audited);
