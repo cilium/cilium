@@ -17,9 +17,9 @@ specs:
           protocol: TCP
     - fromEndpoints:
       - matchExpressions:
-        - key: zgroup
+        - key: test
           operator: NotIn
-          values: [testClient]
+          values: [hostfw]
     egress:
     - toEndpoints:
       - matchLabels:
@@ -30,9 +30,9 @@ specs:
           protocol: TCP
     - toEndpoints:
       - matchExpressions:
-        - key: zgroup
+        - key: test
           operator: NotIn
-          values: [testServer]
+          values: [hostfw]
   - description: "Open required ports + test application's port between nodes"
     nodeSelector: {}
     ingress:
