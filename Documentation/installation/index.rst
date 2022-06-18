@@ -6,39 +6,64 @@
 
 .. _gs_guide:
 
-Getting Started Guides
-======================
+Advanced Installation Guides
+============================
 
-The following is a list of guides that help you get started with Cilium. The
-guides cover the installation and then dive into more detailed topics such as
+The following is a list of guides that help you install Cilium. The
+guides cover the advanced installation and then dive into more detailed topics such as
 securing clusters, connecting multiple clusters, monitoring, and
 troubleshooting. If you are new to Cilium it is recommended to read the
 :ref:`intro` section first to learn about the basic concepts and motivation.
 
 .. _gs_install:
 
-Installation
-------------
 .. toctree::
    :maxdepth: 1
    :glob:
 
-   k8s-install-default
-   k8s-install-helm
-   k8s-install-advanced
    taints
 
+Installation with Helm
+----------------------
+.. toctree::
+   :maxdepth: 1
+   :glob:
 
-Observability
--------------
+   k8s-install-helm
+
+Installing with K8s distributions
+---------------------------------
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   k8s-install-external-etcd
+   k8s-install-openshift-okd
+   k3s
+   kind
+   cni-chaining
+
+External Installers
+-------------------
 
 .. toctree::
    :maxdepth: 1
    :glob:
 
-   hubble_setup
-   hubble_cli
-   hubble
+   k8s-install-kops
+   k8s-install-kubespray
+   k8s-install-kubeadm
+   k8s-install-rancher-existing-nodes
+   k8s-install-rke
+   rancher-desktop
+
+Installation on Cloud Providers
+-------------------------------
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   alibabacloud-eni
 
 Network Policy Security Tutorials
 ---------------------------------
