@@ -8,6 +8,7 @@ package ipcache
 import (
 	"context"
 	"net"
+	"net/netip"
 	"sync"
 	"testing"
 
@@ -20,43 +21,48 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
+var (
+	worldPrefix     = netip.MustParsePrefix("1.1.1.1/32")
+	inClusterPrefix = netip.MustParsePrefix("10.0.0.4/32")
+)
+
 func TestInjectLabels(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
-	remaining, err := IPIdentityCache.InjectLabels(ctx, []string{"1.1.1.1"})
+	remaining, err := IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.Len(t, remaining, 0)
 	assert.NoError(t, err)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
 	// Insert kube-apiserver IP from outside of the cluster. This should create
 	// a CIDR ID for this IP.
-	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelKubeAPIServer, source.KubeAPIServer, "kube-uid")
+	IPIdentityCache.UpsertMetadata(inClusterPrefix, labels.LabelKubeAPIServer, source.KubeAPIServer, "kube-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
-	remaining, err = IPIdentityCache.InjectLabels(ctx, []string{"10.0.0.4"})
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
-	assert.True(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
+	assert.True(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
 
 	// Upsert node labels to the kube-apiserver to validate that the CIDR ID is
 	// deallocated and the kube-apiserver reserved ID is associated with this
 	// IP now.
-	IPIdentityCache.UpsertMetadata("10.0.0.4", labels.LabelRemoteNode, source.CustomResource, "node-uid")
+	IPIdentityCache.UpsertMetadata(inClusterPrefix, labels.LabelRemoteNode, source.CustomResource, "node-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
-	remaining, err = IPIdentityCache.InjectLabels(ctx, []string{"10.0.0.4"})
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
-	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4"].ID.HasLocalScope())
+	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {
 	setupTest(t)
 
-	IPIdentityCache.UpsertMetadata("2.1.1.1", labels.LabelWorld, source.Generated, "gen-uid")
-	IPIdentityCache.UpsertMetadata("3.1.1.1", labels.LabelWorld, source.Generated, "gen-uid-2")
+	IPIdentityCache.UpsertMetadata(netip.MustParsePrefix("2.1.1.1/32"), labels.LabelWorld, source.Generated, "gen-uid")
+	IPIdentityCache.UpsertMetadata(netip.MustParsePrefix("3.1.1.1/32"), labels.LabelWorld, source.Generated, "gen-uid-2")
 
 	assert.Len(t, IPIdentityCache.metadata.filterByLabels(labels.LabelKubeAPIServer), 1)
 	assert.Len(t, IPIdentityCache.metadata.filterByLabels(labels.LabelWorld), 2)
@@ -67,27 +73,27 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	ctx := context.Background()
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
-	remaining, err := IPIdentityCache.InjectLabels(ctx, []string{"1.1.1.1"})
+	remaining, err := IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
 	IPIdentityCache.RemoveLabelsExcluded(
-		labels.LabelKubeAPIServer, map[string]struct{}{},
+		labels.LabelKubeAPIServer, map[netip.Prefix]struct{}{},
 		"kube-uid")
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
-	assert.Equal(t, labels.LabelHost, IPIdentityCache.metadata.m["1.1.1.1"].ToLabels())
+	assert.Equal(t, labels.LabelHost, IPIdentityCache.metadata.m[worldPrefix].ToLabels())
 
 	// Simulate kube-apiserver policy + CIDR policy on same prefix. Validate
 	// that removing the kube-apiserver policy will result in a new CIDR
 	// identity for the CIDR policy.
 
-	delete(IPIdentityCache.metadata.m, "1.1.1.1") // clean slate first
+	delete(IPIdentityCache.metadata.m, worldPrefix) // clean slate first
 	// Entry with only kube-apiserver labels means kube-apiserver is outside of
 	// the cluster, and thus will have a CIDR identity when InjectLabels() is
 	// called.
-	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer, source.CustomResource, "kube-uid")
-	remaining, err = IPIdentityCache.InjectLabels(ctx, []string{"1.1.1.1"})
+	IPIdentityCache.UpsertMetadata(worldPrefix, labels.LabelKubeAPIServer, source.CustomResource, "kube-uid")
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	id := IPIdentityCache.IdentityAllocator.LookupIdentityByID(
@@ -102,12 +108,12 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Len(t, ids, 1)
 	assert.Equal(t, 2, id.ReferenceCount)
 	IPIdentityCache.RemoveLabelsExcluded(
-		labels.LabelKubeAPIServer, map[string]struct{}{},
+		labels.LabelKubeAPIServer, map[netip.Prefix]struct{}{},
 		"kube-uid")
-	remaining, err = IPIdentityCache.InjectLabels(ctx, []string{"1.1.1.1"})
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
-	assert.NotContains(t, IPIdentityCache.metadata.m["1.1.1.1"].ToLabels(), labels.LabelKubeAPIServer)
+	assert.NotContains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.LabelKubeAPIServer)
 	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 }
 
@@ -122,8 +128,8 @@ func setupTest(t *testing.T) {
 	})
 	IPIdentityCache.k8sSyncedChecker = &mockK8sSyncedChecker{}
 
-	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelKubeAPIServer, source.CustomResource, "kube-uid")
-	IPIdentityCache.UpsertMetadata("1.1.1.1", labels.LabelHost, source.Local, "host-uid")
+	IPIdentityCache.UpsertMetadata(worldPrefix, labels.LabelKubeAPIServer, source.CustomResource, "kube-uid")
+	IPIdentityCache.UpsertMetadata(worldPrefix, labels.LabelHost, source.Local, "host-uid")
 }
 
 type mockK8sSyncedChecker struct{}

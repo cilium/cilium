@@ -4,6 +4,9 @@
 package watchers
 
 import (
+	"net/netip"
+
+	"github.com/sirupsen/logrus"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
@@ -17,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -108,7 +112,7 @@ func (k *K8sWatcher) deleteK8sEndpointV1(ep *slim_corev1.Endpoints, swg *lock.St
 //
 // The actual implementation of this logic down to the datapath is handled
 // asynchronously.
-func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]struct{}, rid ipcacheTypes.ResourceID) {
+func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[netip.Prefix]struct{}, rid ipcacheTypes.ResourceID) {
 	src := source.KubeAPIServer
 
 	// We must perform a diff on the ipcache.identityMetadata map in order to
@@ -139,6 +143,18 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[string]s
 	k.ipcache.TriggerLabelInjection()
 }
 
+func insertK8sPrefix(desiredIPs map[netip.Prefix]struct{}, addr string, resource ipcacheTypes.ResourceID) {
+	a, err := netip.ParseAddr(addr)
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr:   addr,
+			logfields.Resource: resource,
+		}).Warning("Received malformatted IP address from kube-apiserver. This IP will not be used to determine kube-apiserver policy.")
+		return
+	}
+	desiredIPs[netip.PrefixFrom(a, a.BitLen())] = struct{}{}
+}
+
 // TODO(christarazi): Convert to subscriber model along with the corresponding
 // EndpointSlice version.
 func (k *K8sWatcher) addKubeAPIServerServiceEPs(ep *slim_corev1.Endpoints) {
@@ -146,17 +162,17 @@ func (k *K8sWatcher) addKubeAPIServerServiceEPs(ep *slim_corev1.Endpoints) {
 		return
 	}
 
-	desiredIPs := make(map[string]struct{})
-	for _, sub := range ep.Subsets {
-		for _, addr := range sub.Addresses {
-			desiredIPs[addr.IP] = struct{}{}
-		}
-	}
-
 	resource := ipcacheTypes.NewResourceID(
 		ipcacheTypes.ResourceKindEndpoint,
 		ep.ObjectMeta.GetNamespace(),
 		ep.ObjectMeta.GetName(),
 	)
+
+	desiredIPs := make(map[netip.Prefix]struct{})
+	for _, sub := range ep.Subsets {
+		for _, addr := range sub.Addresses {
+			insertK8sPrefix(desiredIPs, addr.IP, resource)
+		}
+	}
 	k.handleKubeAPIServerServiceEPChanges(desiredIPs, resource)
 }

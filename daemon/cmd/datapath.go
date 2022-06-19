@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"strings"
 	"time"
@@ -257,7 +258,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		// ipcache. Until then, it is expected to succeed.
 		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
-			Source: d.sourceByIP(ipIDPair.IP.String(), source.Local),
+			Source: d.sourceByIP(ipIDPair.IP, source.Local),
 		})
 	}
 
@@ -271,7 +272,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
 			}
 
-			d.ipcache.Delete(hostIP, d.sourceByIP(hostIP, source.Local))
+			d.ipcache.Delete(hostIP, d.sourceByIP(ip, source.Local))
 		}
 	}
 
@@ -290,11 +291,16 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	return nil
 }
 
-func (d *Daemon) sourceByIP(prefix string, defaultSrc source.Source) source.Source {
-	if lbls := d.ipcache.GetIDMetadataByIP(prefix); lbls.Has(
-		labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer],
-	) {
-		return source.KubeAPIServer
+func (d *Daemon) sourceByIP(ip net.IP, defaultSrc source.Source) source.Source {
+	if addr, ok := netip.AddrFromSlice(ip); ok {
+		lbls := d.ipcache.GetIDMetadataByIP(addr)
+		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
+			return source.KubeAPIServer
+		}
+	} else {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: ip,
+		}).Warning("BUG: Invalid addr detected in host stack. Please report this bug to the Cilium developers.")
 	}
 	return defaultSrc
 }
