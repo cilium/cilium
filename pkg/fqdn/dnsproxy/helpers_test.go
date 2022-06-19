@@ -8,6 +8,8 @@ package dnsproxy
 import (
 	"testing"
 
+	"regexp"
+
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -41,7 +43,7 @@ func (s *DNSProxyHelperTestSuite) TestGetSelectorRegexMap(c *C) {
 		},
 	}
 	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
-	m, err := GetSelectorRegexMap(l7)
+	m, err := GetSelectorRegexMap(l7, make(map[string]*regexp.Regexp))
 
 	c.Assert(err, Equals, nil)
 

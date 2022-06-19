@@ -282,7 +282,15 @@ func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, ne
 		return nil
 	}
 
-	newRE, err := GetSelectorRegexMap(newRules)
+	regexMappings := make(map[string]*regexp.Regexp)
+	for _, epPorts := range allow {
+		for _, cachedSelector := range epPorts {
+			for _, rei := range cachedSelector {
+				regexMappings[rei.String()] = rei
+			}
+		}
+	}
+	newRE, err := GetSelectorRegexMap(newRules, regexMappings)
 	if err != nil {
 		return err
 	}
@@ -901,7 +909,7 @@ func shouldCompressResponse(request, response *dns.Msg) bool {
 	return false
 }
 
-func GetSelectorRegexMap(l7 policy.L7DataMap) (CachedSelectorREEntry, error) {
+func GetSelectorRegexMap(l7 policy.L7DataMap, mapping map[string]*regexp.Regexp) (CachedSelectorREEntry, error) {
 	newRE := make(CachedSelectorREEntry)
 	for selector, l7Rules := range l7 {
 		if l7Rules == nil {
@@ -921,7 +929,13 @@ func GetSelectorRegexMap(l7 policy.L7DataMap) (CachedSelectorREEntry, error) {
 			}
 		}
 		mp := strings.Join(reStrings, "|")
+		if rei, ok := mapping[mp]; ok {
+			newRE[selector] = rei
+			// metric here
+			continue
+		}
 		rei, err := re.CompileRegex(mp)
+
 		if err != nil {
 			return nil, err
 		}
