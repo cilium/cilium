@@ -4,6 +4,7 @@
 package watchers
 
 import (
+	"net/netip"
 	"sync"
 
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -195,18 +196,17 @@ func (k *K8sWatcher) addKubeAPIServerServiceEPSliceV1(eps *slim_discover_v1.Endp
 		return
 	}
 
-	desiredIPs := make(map[string]struct{})
-	for _, e := range eps.Endpoints {
-		for _, addr := range e.Addresses {
-			desiredIPs[addr] = struct{}{}
-		}
-	}
-
 	resource := ipcacheTypes.NewResourceID(
 		ipcacheTypes.ResourceKindEndpointSlice,
 		eps.ObjectMeta.GetNamespace(),
 		eps.ObjectMeta.GetName(),
 	)
+	desiredIPs := make(map[netip.Prefix]struct{})
+	for _, e := range eps.Endpoints {
+		for _, addr := range e.Addresses {
+			insertK8sPrefix(desiredIPs, addr, resource)
+		}
+	}
 	k.handleKubeAPIServerServiceEPChanges(desiredIPs, resource)
 }
 
@@ -217,18 +217,17 @@ func (k *K8sWatcher) addKubeAPIServerServiceEPSliceV1Beta1(eps *slim_discover_v1
 		return
 	}
 
-	desiredIPs := make(map[string]struct{})
-	for _, e := range eps.Endpoints {
-		for _, addr := range e.Addresses {
-			desiredIPs[addr] = struct{}{}
-		}
-	}
-
 	resource := ipcacheTypes.NewResourceID(
 		ipcacheTypes.ResourceKindEndpointSlicev1beta1,
 		eps.ObjectMeta.GetNamespace(),
 		eps.ObjectMeta.GetName(),
 	)
+	desiredIPs := make(map[netip.Prefix]struct{})
+	for _, e := range eps.Endpoints {
+		for _, addr := range e.Addresses {
+			insertK8sPrefix(desiredIPs, addr, resource)
+		}
+	}
 	k.handleKubeAPIServerServiceEPChanges(desiredIPs, resource)
 }
 

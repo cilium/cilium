@@ -8,13 +8,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"sync"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	cidrlabels "github.com/cilium/cilium/pkg/labels/cidr"
@@ -65,7 +66,7 @@ type metadata struct {
 	lock.RWMutex
 
 	// m is the actual map containing the mappings.
-	m map[string]prefixInfo
+	m map[netip.Prefix]prefixInfo
 
 	// queued* handle updates into the IPCache. Whenever a label is added
 	// or removed from a specific IP prefix, that prefix is added into
@@ -73,29 +74,29 @@ type metadata struct {
 	// process the metadata changes for these prefixes and potentially
 	// generate updates into the ipcache, policy engine and datapath.
 	queuedChangesMU lock.Mutex
-	queuedPrefixes  map[string]struct{}
+	queuedPrefixes  map[netip.Prefix]struct{}
 }
 
 func newMetadata() *metadata {
 	return &metadata{
-		m:              make(map[string]prefixInfo),
-		queuedPrefixes: make(map[string]struct{}),
+		m:              make(map[netip.Prefix]prefixInfo),
+		queuedPrefixes: make(map[netip.Prefix]struct{}),
 	}
 }
 
-func (m *metadata) dequeuePrefixUpdates() (modifiedPrefixes []string) {
+func (m *metadata) dequeuePrefixUpdates() (modifiedPrefixes []netip.Prefix) {
 	m.queuedChangesMU.Lock()
-	modifiedPrefixes = make([]string, 0, len(m.queuedPrefixes))
+	modifiedPrefixes = make([]netip.Prefix, 0, len(m.queuedPrefixes))
 	for p := range m.queuedPrefixes {
 		modifiedPrefixes = append(modifiedPrefixes, p)
 	}
-	m.queuedPrefixes = make(map[string]struct{})
+	m.queuedPrefixes = make(map[netip.Prefix]struct{})
 	m.queuedChangesMU.Unlock()
 
 	return
 }
 
-func (m *metadata) enqueuePrefixUpdates(prefixes ...string) {
+func (m *metadata) enqueuePrefixUpdates(prefixes ...netip.Prefix) {
 	m.queuedChangesMU.Lock()
 	defer m.queuedChangesMU.Unlock()
 
@@ -110,14 +111,14 @@ func (m *metadata) enqueuePrefixUpdates(prefixes ...string) {
 //
 // The caller must subsequently call ipc.TriggerLabelInjection() to implement
 // these metadata updates into the datapath.
-func (ipc *IPCache) UpsertMetadata(prefix string, lbls labels.Labels, src source.Source, rid types.ResourceID) {
+func (ipc *IPCache) UpsertMetadata(prefix netip.Prefix, lbls labels.Labels, src source.Source, rid types.ResourceID) {
 	ipc.metadata.Lock()
 	ipc.metadata.upsertLocked(prefix, src, rid, lbls)
 	ipc.metadata.Unlock()
 	ipc.metadata.enqueuePrefixUpdates(prefix)
 }
 
-func (m *metadata) upsertLocked(prefix string, src source.Source, resource types.ResourceID, info ...IPMetadata) {
+func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource types.ResourceID, info ...IPMetadata) {
 	if _, ok := m.m[prefix]; !ok {
 		m.m[prefix] = make(prefixInfo)
 	}
@@ -135,20 +136,21 @@ func (m *metadata) upsertLocked(prefix string, src source.Source, resource types
 // GetIDMetadataByIP returns the associated labels with an IP. The caller must
 // not modifying the returned object as it's a live reference to the underlying
 // map.
-func (ipc *IPCache) GetIDMetadataByIP(prefix string) labels.Labels {
+func (ipc *IPCache) GetIDMetadataByIP(addr netip.Addr) labels.Labels {
+	prefix := netip.PrefixFrom(addr, addr.BitLen())
 	if info := ipc.metadata.get(prefix); info != nil {
 		return info.ToLabels()
 	}
 	return nil
 }
 
-func (m *metadata) get(prefix string) prefixInfo {
+func (m *metadata) get(prefix netip.Prefix) prefixInfo {
 	m.RLock()
 	defer m.RUnlock()
 	return m.getLocked(prefix)
 }
 
-func (m *metadata) getLocked(prefix string) prefixInfo {
+func (m *metadata) getLocked(prefix netip.Prefix) prefixInfo {
 	return m.m[prefix]
 }
 
@@ -168,33 +170,33 @@ func (m *metadata) getLocked(prefix string) prefixInfo {
 // Returns the CIDRs that were not yet processed, for example due to an
 // unexpected error while processing the identity updates for those CIDRs
 // The caller should attempt to retry injecting labels for those CIDRs.
-func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedCIDRs []string) (remainingCIDRs []string, err error) {
+func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.Prefix) (remainingPrefixes []netip.Prefix, err error) {
 	if ipc.IdentityAllocator == nil {
-		return modifiedCIDRs, ErrLocalIdentityAllocatorUninitialized
+		return modifiedPrefixes, ErrLocalIdentityAllocatorUninitialized
 	}
 
 	if ipc.k8sSyncedChecker == nil || !ipc.k8sSyncedChecker.K8sCacheIsSynced() {
-		return modifiedCIDRs, errors.New("k8s cache not fully synced")
+		return modifiedPrefixes, errors.New("k8s cache not fully synced")
 	}
 
 	var (
 		// previouslyAllocatedIdentities maps IP Prefix -> Identity for
 		// old identities where the prefix will now map to a new identity
-		previouslyAllocatedIdentities = make(map[string]Identity)
+		previouslyAllocatedIdentities = make(map[netip.Prefix]Identity)
 		// idsToAdd stores the identities that must be updated via the
 		// selector cache.
 		idsToAdd    = make(map[identity.NumericIdentity]labels.LabelArray)
 		idsToDelete = make(map[identity.NumericIdentity]labels.LabelArray)
 		// entriesToReplace stores the identity to replace in the ipcache.
-		entriesToReplace   = make(map[string]Identity)
-		entriesToDelete    = make(map[string]Identity)
-		forceIPCacheUpdate = make(map[string]bool) // prefix => force
+		entriesToReplace   = make(map[netip.Prefix]Identity)
+		entriesToDelete    = make(map[netip.Prefix]Identity)
+		forceIPCacheUpdate = make(map[netip.Prefix]bool) // prefix => force
 	)
 
 	ipc.metadata.RLock()
 
-	for i, prefix := range modifiedCIDRs {
-		id, entryExists := ipc.LookupByIP(prefix)
+	for i, prefix := range modifiedPrefixes {
+		id, entryExists := ipc.LookupByIP(prefix.String())
 		prefixInfo := ipc.metadata.getLocked(prefix)
 		if prefixInfo == nil {
 			if !entryExists {
@@ -226,7 +228,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedCIDRs []string) (r
 				}).Warning(
 					"Failed to allocate new identity while handling change in labels associated with a prefix.",
 				)
-				remainingCIDRs = modifiedCIDRs[i:]
+				remainingPrefixes = modifiedPrefixes[i:]
 				err = fmt.Errorf("failed to allocate new identity during label injection: %w", err)
 				break
 			}
@@ -280,19 +282,20 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedCIDRs []string) (r
 
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
-	for ip, id := range entriesToReplace {
-		hIP, key := ipc.getHostIPCache(ip)
-		meta := ipc.getK8sMetadata(ip)
+	for p, id := range entriesToReplace {
+		prefix := p.String()
+		hIP, key := ipc.getHostIPCache(prefix)
+		meta := ipc.getK8sMetadata(prefix)
 		if _, err2 := ipc.upsertLocked(
-			ip,
+			prefix,
 			hIP,
 			key,
 			meta,
 			id,
-			forceIPCacheUpdate[ip],
+			forceIPCacheUpdate[p],
 		); err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
-				logfields.IPAddr:   ip,
+				logfields.IPAddr:   prefix,
 				logfields.Identity: id,
 			}).Error("Failed to replace ipcache entry with new identity after label removal. Traffic may be disrupted.")
 		}
@@ -330,11 +333,11 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedCIDRs []string) (r
 	if len(idsToDelete) > 0 {
 		ipc.UpdatePolicyMaps(ctx, nil, idsToDelete)
 	}
-	for ip, id := range entriesToDelete {
-		ipc.deleteLocked(ip, id.Source)
+	for prefix, id := range entriesToDelete {
+		ipc.deleteLocked(prefix.String(), id.Source)
 	}
 
-	return remainingCIDRs, err
+	return remainingPrefixes, err
 }
 
 // UpdatePolicyMaps pushes updates for the specified identities into the policy
@@ -371,7 +374,7 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 // policy is applied will need to be converted (released and re-allocated) to
 // account for the new kube-apiserver label that will be attached to them. This
 // is a known issue, see GH-17962 below.
-func (ipc *IPCache) injectLabels(ctx context.Context, prefix string, lbls labels.Labels) (*identity.Identity, bool, error) {
+func (ipc *IPCache) injectLabels(ctx context.Context, prefix netip.Prefix, lbls labels.Labels) (*identity.Identity, bool, error) {
 	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
 		// Associate any new labels with the host identity.
 		//
@@ -414,34 +417,18 @@ func (ipc *IPCache) injectLabels(ctx context.Context, prefix string, lbls labels
 
 // injectLabelsForCIDR will allocate a CIDR identity for the given prefix. The
 // release of the identity must be managed by the caller.
-func (ipc *IPCache) injectLabelsForCIDR(ctx context.Context, p string, lbls labels.Labels) (*identity.Identity, bool, error) {
-	var prefix string
-
-	ip := net.ParseIP(p)
-	if ip == nil {
-		return nil, false, fmt.Errorf("Invalid IP inserted into IdentityMetadata: %s", prefix)
-	} else if ip.To4() != nil {
-		prefix = p + "/32"
-	} else {
-		prefix = p + "/128"
-	}
-
-	_, cidr, err := net.ParseCIDR(prefix)
-	if err != nil {
-		return nil, false, err
-	}
-
-	allLbls := cidrlabels.GetCIDRLabels(cidr)
+func (ipc *IPCache) injectLabelsForCIDR(ctx context.Context, prefix netip.Prefix, lbls labels.Labels) (*identity.Identity, bool, error) {
+	allLbls := cidrlabels.GetCIDRLabels(ip.PrefixToIPNet(prefix))
 	allLbls.MergeLabels(lbls)
 
 	log.WithFields(logrus.Fields{
-		logfields.CIDR:   cidr,
+		logfields.CIDR:   prefix,
 		logfields.Labels: lbls, // omitting allLbls as CIDR labels would make this massive
 	}).Debug(
 		"Injecting CIDR labels for prefix",
 	)
 
-	return ipc.allocate(ctx, cidr, allLbls, identity.InvalidIdentity)
+	return ipc.allocate(ctx, prefix, allLbls, identity.InvalidIdentity)
 }
 
 // RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD
@@ -451,7 +438,7 @@ func (ipc *IPCache) injectLabelsForCIDR(ctx context.Context, p string, lbls labe
 // these changes down into the policy engine and ipcache datapath maps.
 func (ipc *IPCache) RemoveLabelsExcluded(
 	lbls labels.Labels,
-	toExclude map[string]struct{},
+	toExclude map[netip.Prefix]struct{},
 	rid types.ResourceID,
 ) {
 	ipc.metadata.Lock()
@@ -470,8 +457,8 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 // full match.
 //
 // Assumes that the ipcache metadata read lock is taken!
-func (m *metadata) filterByLabels(filter labels.Labels) []string {
-	var matching []string
+func (m *metadata) filterByLabels(filter labels.Labels) []netip.Prefix {
+	var matching []netip.Prefix
 	sortedFilter := filter.SortedList()
 	for prefix, info := range m.m {
 		lbls := info.ToLabels()
@@ -485,7 +472,7 @@ func (m *metadata) filterByLabels(filter labels.Labels) []string {
 // removeLabels asynchronously removes the labels association for a prefix.
 //
 // This function assumes that the ipcache metadata lock is held for writing.
-func (m *metadata) remove(prefix string, resource types.ResourceID, aux ...IPMetadata) {
+func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ...IPMetadata) {
 	info, ok := m.m[prefix]
 	if !ok {
 		return

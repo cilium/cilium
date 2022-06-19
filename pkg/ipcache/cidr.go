@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -52,30 +53,30 @@ func (ipc *IPCache) AllocateCIDRs(
 	defer cancel()
 
 	ipc.Lock()
-	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
+	allocatedIdentities := make(map[netip.Prefix]*identity.Identity, len(prefixes))
 	for i, p := range prefixes {
 		if p == nil {
 			continue
 		}
 
 		lbls := cidr.GetCIDRLabels(p)
-		lbls.MergeLabels(ipc.GetIDMetadataByIP(p.IP.String()))
+		prefix := ip.IPNetToPrefix(p)
+		lbls.MergeLabels(ipc.metadata.get(prefix).ToLabels())
 		oldNID := identity.InvalidIdentity
 		if oldNIDs != nil && len(oldNIDs) > i {
 			oldNID = oldNIDs[i]
 		}
-		id, isNew, err := ipc.allocate(allocateCtx, p, lbls, oldNID)
+		id, isNew, err := ipc.allocate(allocateCtx, prefix, lbls, oldNID)
 		if err != nil {
 			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			ipc.Unlock()
 			return nil, err
 		}
 
-		prefixStr := p.String()
 		usedIdentities = append(usedIdentities, id)
-		allocatedIdentities[prefixStr] = id
+		allocatedIdentities[prefix] = id
 		if isNew {
-			newlyAllocatedIdentities[prefixStr] = id
+			newlyAllocatedIdentities[prefix.String()] = id
 		}
 	}
 	ipc.Unlock()
@@ -169,11 +170,7 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[strin
 //
 // It is up to the caller to provide the full set of labels for identity
 // allocation.
-func (ipc *IPCache) allocate(ctx context.Context, prefix *net.IPNet, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
-	if prefix == nil {
-		return nil, false, nil
-	}
-
+func (ipc *IPCache) allocate(ctx context.Context, prefix netip.Prefix, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, oldNID)
 	if err != nil {
 		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
@@ -186,7 +183,7 @@ func (ipc *IPCache) allocate(ctx context.Context, prefix *net.IPNet, lbls labels
 	return id, isNew, err
 }
 
-func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
+func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[netip.Prefix]*identity.Identity) {
 	// Create a critical section for identity release + removal from ipcache.
 	// Otherwise, it's possible to trigger the following race condition:
 	//
@@ -212,7 +209,7 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[st
 		}
 
 		if released {
-			ipc.deleteLocked(prefix, source.Generated)
+			ipc.deleteLocked(prefix.String(), source.Generated)
 		}
 	}
 }
@@ -224,16 +221,17 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
 	releaseCtx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
-	identities := make(map[string]*identity.Identity, len(prefixes))
+	identities := make(map[netip.Prefix]*identity.Identity, len(prefixes))
 	for _, prefix := range prefixes {
 		if prefix == nil {
 			continue
 		}
 
+		p := ip.IPNetToPrefix(prefix)
 		if id := ipc.IdentityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(prefix)); id != nil {
-			identities[prefix.String()] = id
+			identities[p] = id
 		} else {
-			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())
+			log.Errorf("Unable to find identity of previously used CIDR %s", p.String())
 		}
 	}
 
@@ -243,7 +241,7 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
 // ReleaseCIDRIdentitiesByID releases the specified identities.
 // When the last use of the identity is released, the ipcache entry is deleted.
 func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
-	fullIdentities := make(map[string]*identity.Identity, len(identities))
+	fullIdentities := make(map[netip.Prefix]*identity.Identity, len(identities))
 	for _, nid := range identities {
 		if id := ipc.IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
 			cidr, ok := cidrLabelToPrefix(id.CIDRLabel.String())
@@ -254,7 +252,15 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []
 				}).Warn("Unexpected release of non-CIDR identity, will leak this identity. Please report this issue to the developers.")
 				continue
 			}
-			fullIdentities[cidr] = id
+			prefix, err := netip.ParsePrefix(strings.TrimPrefix(cidr, labels.LabelSourceCIDR+":"))
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.Identity: nid,
+					logfields.Labels:   id.Labels,
+				}).Warn("BUG: Cannot parse prefix from CIDR label during CIDR identity release. Please report this issue to the developers.")
+				continue
+			}
+			fullIdentities[prefix] = id
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: nid,

@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 	"testing"
 	"time"
@@ -73,20 +74,43 @@ func newIPcacheMock() *ipcacheMock {
 	}
 }
 
+func AddrOrPrefixToIP(ip string) (net.IP, error) {
+	var err error
+
+	addr := net.ParseIP(ip)
+	if addr == nil {
+		addr, _, err = net.ParseCIDR(ip)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return addr, nil
+}
+
 func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
-	i.events <- nodeEvent{"upsert", net.ParseIP(ip)}
+	addr, err := AddrOrPrefixToIP(ip)
+	if err != nil {
+		i.events <- nodeEvent{fmt.Sprintf("upsert failed: %s", err), addr}
+		return false, err
+	}
+	i.events <- nodeEvent{"upsert", addr}
 	return false, nil
 }
 
-func (i *ipcacheMock) Delete(IP string, source source.Source) bool {
-	i.events <- nodeEvent{"delete", net.ParseIP(IP)}
+func (i *ipcacheMock) Delete(ip string, source source.Source) bool {
+	addr, err := AddrOrPrefixToIP(ip)
+	if err != nil {
+		i.events <- nodeEvent{fmt.Sprintf("delete failed: %s", err), addr}
+		return false
+	}
+	i.events <- nodeEvent{"delete", addr}
 	return false
 }
 
 func (i *ipcacheMock) TriggerLabelInjection() {
 }
 
-func (i *ipcacheMock) UpsertMetadata(string, labels.Labels, source.Source, ipcacheTypes.ResourceID) {
+func (i *ipcacheMock) UpsertMetadata(netip.Prefix, labels.Labels, source.Source, ipcacheTypes.ResourceID) {
 }
 
 type signalNodeHandler struct {
@@ -664,7 +688,10 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	ipcacheExpect := func(eventType, ipStr string) {
 		select {
 		case event := <-ipcacheMock.events:
-			c.Assert(event, checker.DeepEquals, nodeEvent{event: eventType, ip: net.ParseIP(ipStr)})
+			if !c.Check(event, checker.DeepEquals, nodeEvent{event: eventType, ip: net.ParseIP(ipStr)}) {
+				// Panic just to get a stack trace so you can find the source of the problem
+				panic("assertion failed")
+			}
 		case <-time.After(5 * time.Second):
 			c.Errorf("timeout while waiting for ipcache upsert for IP %s", ipStr)
 		}
@@ -747,6 +774,7 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	ipcacheExpect("upsert", "2001:DB8::20")
 
 	ipcacheExpect("delete", "192.0.2.1")
+	ipcacheExpect("delete", "2001:DB8::1")
 	ipcacheExpect("delete", "192.0.2.2")
 	ipcacheExpect("delete", "2001:DB8::2")
 
