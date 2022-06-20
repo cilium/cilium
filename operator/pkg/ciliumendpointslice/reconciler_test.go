@@ -88,6 +88,18 @@ var (
 			},
 		},
 	}
+
+	// Test CES object, with no CEPs packed in it.
+	emptyCES = &capi_v2a1.CiliumEndpointSlice{
+		TypeMeta: meta_v1.TypeMeta{
+			Kind:       "CiliumEndpointSlice",
+			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "CES-empty",
+		},
+		Endpoints: []capi_v2a1.CoreCiliumEndpoint{},
+	}
 )
 
 func newQueue() workqueue.RateLimitingInterface {
@@ -154,6 +166,17 @@ func TestCiliumReconcile(t *testing.T) {
 		// Get CES from local datastore
 		ces, _ = m.getCESFromCache(CES3.Name)
 		assert.Equal(t, string(ces.GetUID()), CESReconcilerUID, "Returned CES UID from api-server should match with local CES UID")
+	})
+
+	t.Run("Attempt to create empty CES and check that it is not created", func(*testing.T) {
+		m.createCES(emptyCES.Name)
+		m.updateCESInCache(emptyCES, true)
+		err := r.reconcileCESCreate(emptyCES.Name)
+		// There should not be any error from api-server
+		assert.Equal(t, err, nil, "No error in CES Create request to api-server")
+		ces, _ := m.getCESFromCache(emptyCES.Name)
+		// CES is empty, so it should be removed from cache instead of created in the api-server
+		assert.Equal(t, (*capi_v2a1.CiliumEndpointSlice)(nil), ces, "Empty CES was removed from cache rather than created in api-server")
 	})
 
 	// Update CESs, check errors from api-server and match CESs Generate value returned
