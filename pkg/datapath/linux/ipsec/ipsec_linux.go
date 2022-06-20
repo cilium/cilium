@@ -283,7 +283,7 @@ func ipsecDeleteXfrmState(ip net.IP) {
 		"remote-ip": ip,
 	})
 
-	xfrmStateList, err := netlink.XfrmStateList(0)
+	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		scopedLog.WithError(err).Warning("deleting xfrm state, xfrm state list error")
 		return
@@ -302,7 +302,7 @@ func ipsecDeleteXfrmPolicy(ip net.IP) {
 		"remote-ip": ip,
 	})
 
-	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		scopedLog.WithError(err).Warning("deleting policy state, xfrm policy list error")
 	}
@@ -458,7 +458,7 @@ func isXfrmStateCilium(state netlink.XfrmState) bool {
 
 // DeleteXfrm remove any remaining XFRM policy or state from tables
 func DeleteXfrm() {
-	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err == nil {
 		for _, p := range xfrmPolicyList {
 			if isXfrmPolicyCilium(p) {
@@ -468,7 +468,7 @@ func DeleteXfrm() {
 			}
 		}
 	}
-	xfrmStateList, err := netlink.XfrmStateList(0)
+	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err == nil {
 		for _, s := range xfrmStateList {
 			if isXfrmStateCilium(s) {
@@ -728,7 +728,7 @@ func ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
 func deleteStaleXfrmStates(reclaimTimestamp time.Time) {
 	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
 
-	xfrmStateList, err := netlink.XfrmStateList(0)
+	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		scopedLog.WithError(err).Warning("Failed to list XFRM states")
 		return
@@ -753,7 +753,7 @@ func deleteStaleXfrmStates(reclaimTimestamp time.Time) {
 func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
 
-	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		scopedLog.WithError(err).Warning("Failed to list XFRM policies")
 		return
