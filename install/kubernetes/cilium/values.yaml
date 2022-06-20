@@ -802,7 +802,8 @@ hubble:
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
-    nodeSelector: {}
+    nodeSelector:
+      kubernetes.io/os: linux
 
     # -- Node tolerations for pod assignment on nodes with taints
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -1003,7 +1004,8 @@ hubble:
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
-    nodeSelector: {}
+    nodeSelector:
+      kubernetes.io/os: linux
 
     # -- Node tolerations for pod assignment on nodes with taints
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -1438,7 +1440,8 @@ etcd:
 
   # -- Node labels for cilium-etcd-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/os: linux
 
   # -- Annotations to be added to cilium-etcd-operator pods
   podAnnotations: {}
@@ -1543,7 +1546,8 @@ operator:
   # -- Node labels for cilium-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
   #
-  nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/os: linux
 
   # -- Node tolerations for cilium-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -1950,7 +1954,8 @@ clustermesh:
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
-    nodeSelector: {}
+    nodeSelector:
+      kubernetes.io/os: linux
 
     # -- Node tolerations for pod assignment on nodes with taints
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
