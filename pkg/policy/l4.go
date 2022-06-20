@@ -286,9 +286,13 @@ func (l7 L7ParserType) String() string {
 const (
 	// ParserTypeNone represents the case where no parser type is provided.
 	ParserTypeNone L7ParserType = ""
-	// ParserTypeTLS is used when TLS origination, termination, or SNI filtering is used
-	// without any L7 parsing. If TLS policies are used with HTTP, ParserTypeHTTP is used.
+	// ParserTypeTLS is used for TLS origination, termination, or SNI filtering without any L7
+	// parsing. If TLS policies are used with HTTP rules, ParserTypeHTTP is used instead.
 	ParserTypeTLS L7ParserType = "tls"
+	// ParserTypeCRD is used with a custom CiliumEnvoyConfig redirection. Incompatible with any
+	// parser type with L7 enforcement (HTTP, Kafka, proxylib), as the custom Listener generally
+	// does not support them.
+	ParserTypeCRD L7ParserType = "crd"
 	// ParserTypeHTTP specifies a HTTP parser type
 	ParserTypeHTTP L7ParserType = "http"
 	// ParserTypeKafka specifies a Kafka parser type
@@ -319,9 +323,9 @@ func (from L7ParserType) canPromoteTo(to L7ParserType) bool {
 		// ParserTypeNone can be promoted to any other type
 		return true
 	case ParserTypeTLS:
-		// ParserTypeTLS can be promoted to any other type, except for DNS,
+		// ParserTypeTLS can be promoted to any other type, except for DNS or CRD,
 		// but ParserTypeTLS can not be demoted to ParserTypeNone
-		if to != ParserTypeNone && to != ParserTypeDNS {
+		if to != ParserTypeNone && to != ParserTypeDNS && to != ParserTypeCRD {
 			return true
 		}
 	}
@@ -694,6 +698,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		if err != nil {
 			return nil, err
 		}
+
 		// Set parser type to TLS, if TLS. This will be overridden by L7 below, if rules
 		// exists.
 		if terminatingTLS != nil || originatingTLS != nil || len(pr.ServerNames) > 0 {
@@ -814,7 +819,7 @@ func (l4 *L4Filter) redirectType() redirectTypes {
 		return redirectTypeNone
 	case ParserTypeDNS:
 		return redirectTypeDNS
-	case ParserTypeHTTP, ParserTypeTLS:
+	case ParserTypeHTTP, ParserTypeTLS, ParserTypeCRD:
 		return redirectTypeEnvoy
 	default:
 		// all other (non-empty) values are used for proxylib redirects
