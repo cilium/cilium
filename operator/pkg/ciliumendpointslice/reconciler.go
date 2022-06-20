@@ -37,6 +37,13 @@ func (r *reconciler) reconcileCESCreate(cesToCreate string) (err error) {
 		return
 	}
 
+	if len(ces.Endpoints) == 0 {
+		// The CES is empty, delete ces information from cache rather than creating
+		// empty CES.
+		r.cesManager.deleteCESFromCache(cesToCreate)
+		return
+	}
+
 	// Call the client API, to Create CES
 	if retCES, err = r.client.CiliumEndpointSlices().Create(
 		context.TODO(), ces, metav1.CreateOptions{}); err != nil {
