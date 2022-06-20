@@ -176,7 +176,7 @@
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
-     - ``{}``
+     - ``{"kubernetes.io/os":"linux"}``
    * - clustermesh.apiserver.podAnnotations
      - Annotations to be added to clustermesh-apiserver pods
      - object
@@ -580,7 +580,7 @@
    * - etcd.nodeSelector
      - Node labels for cilium-etcd-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
-     - ``{}``
+     - ``{"kubernetes.io/os":"linux"}``
    * - etcd.podAnnotations
      - Annotations to be added to cilium-etcd-operator pods
      - object
@@ -776,7 +776,7 @@
    * - hubble.relay.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
-     - ``{}``
+     - ``{"kubernetes.io/os":"linux"}``
    * - hubble.relay.podAnnotations
      - Annotations to be added to hubble-relay pods
      - object
@@ -972,7 +972,7 @@
    * - hubble.ui.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
-     - ``{}``
+     - ``{"kubernetes.io/os":"linux"}``
    * - hubble.ui.podAnnotations
      - Annotations to be added to hubble-ui pods
      - object
@@ -1320,7 +1320,7 @@
    * - operator.nodeSelector
      - Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
-     - ``{}``
+     - ``{"kubernetes.io/os":"linux"}``
    * - operator.podAnnotations
      - Annotations to be added to cilium-operator pods
      - object
