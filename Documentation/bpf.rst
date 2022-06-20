@@ -2075,9 +2075,10 @@ describe some of the differences for the BPF model:
 10. **Remove struct padding with aligning members by using #pragma pack.**
 
   In modern compilers, data structures are aligned by default to access memory
-  efficiently. Structure members are aligned to memory address that multiples their
-  size, and padding is added for the proper alignment. Because of this, the size
-  of struct may often grow larger than expected.
+  efficiently. Structure members are packed to memory addresses that fit their
+  size, and padding is added for the proper alignment with the processor word size
+  (e.g. 8-byte for 64-bit processors, 4-bytes for 32-bit processors).
+  Because of this, the size of struct may often grow larger than expected.
 
   .. code-block:: c
 
@@ -2169,7 +2170,7 @@ describe some of the differences for the BPF model:
   byte from the start pointer to make sure that it's within stack boundary and all
   elements of the stack are initialized. Since the padding isn't supposed to be used,
   it gets the 'invalid indirect read from stack' failure. To avoid this kind of
-  failure, remove the padding from the struct is necessary.
+  failure, removing the padding from the struct is necessary.
 
   Removing the padding by using ``#pragma pack(n)`` directive:
 
@@ -2194,12 +2195,12 @@ describe some of the differences for the BPF model:
     //  |  sector(4) |             <= address aligned to 4
     //  |____________|                 with no PADDING.
 
-  By locating ``#pragma pack(4)`` before of ``struct called_info``, compiler will align
+  By locating ``#pragma pack(4)`` before of ``struct called_info``, the compiler will align
   members of a struct to the least of 4-byte and their natural alignment. As you can
   see, the size of ``struct called_info`` has been shrunk to 20-byte and the padding
-  is no longer exist.
+  no longer exists.
 
-  But, removing the padding have downsides either. For example, compiler will generate
+  But, removing the padding has downsides too. For example, the compiler will generate
   less optimized code. Since we've removed the padding, processors will conduct
   unaligned access to the structure and this might lead to performance degradation.
   And also, unaligned access might get rejected by verifier on some architectures.
