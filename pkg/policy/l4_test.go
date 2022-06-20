@@ -6,6 +6,7 @@
 package policy
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/kr/pretty"
@@ -54,6 +55,23 @@ func (s *PolicyTestSuite) TestParserTypeMerge(c *C) {
 		{ParserTypeNone, ParserTypeTLS, ParserTypeTLS, true},
 		{ParserTypeTLS, ParserTypeNone, ParserTypeTLS, true},
 
+		{ParserTypeNone, ParserTypeCRD, ParserTypeCRD, true},
+		{ParserTypeCRD, ParserTypeNone, ParserTypeCRD, true},
+
+		// All non-DNS types can be promoted CRD
+
+		{ParserTypeHTTP, ParserTypeCRD, ParserTypeCRD, true},
+		{ParserTypeCRD, ParserTypeHTTP, ParserTypeCRD, true},
+
+		{ParserTypeTLS, ParserTypeCRD, ParserTypeCRD, true},
+		{ParserTypeCRD, ParserTypeTLS, ParserTypeCRD, true},
+
+		{ParserTypeKafka, ParserTypeCRD, ParserTypeCRD, true},
+		{ParserTypeCRD, ParserTypeKafka, ParserTypeCRD, true},
+
+		{L7ParserType("foo"), ParserTypeCRD, ParserTypeCRD, true},
+		{ParserTypeCRD, L7ParserType("foo"), ParserTypeCRD, true},
+
 		// TLS can also be promoted to any other type except for DNS (but not demoted to
 		// None)
 
@@ -67,6 +85,9 @@ func (s *PolicyTestSuite) TestParserTypeMerge(c *C) {
 		{L7ParserType("foo"), ParserTypeTLS, L7ParserType("foo"), true},
 
 		// DNS does not merge with anything else
+
+		{ParserTypeCRD, ParserTypeDNS, ParserTypeNone, false},
+		{ParserTypeDNS, ParserTypeCRD, ParserTypeNone, false},
 
 		{ParserTypeTLS, ParserTypeDNS, ParserTypeNone, false},
 		{ParserTypeDNS, ParserTypeTLS, ParserTypeNone, false},
@@ -96,6 +117,9 @@ func (s *PolicyTestSuite) TestParserTypeMerge(c *C) {
 			c.Assert(err, Equals, nil)
 		} else {
 			c.Assert(err, Not(Equals), nil)
+		}
+		if res != t.c {
+			fmt.Printf("Merge %s with %s, expecting %s\n", t.a, t.b, t.c)
 		}
 		c.Assert(res, Equals, t.c)
 	}
