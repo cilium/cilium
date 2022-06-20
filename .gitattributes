@@ -1,3 +1,4 @@
+/install/kubernetes/cilium/values.yaml.tmpl linguist-language=yml
 go.sum linguist-generated
 examples/kubernetes/connectivity-check/connectivity-*.yaml linguist-generated
 pkg/k8s/apis/cilium.io/v2/client/crds/*.yaml linguist-generated
