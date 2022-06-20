@@ -112,15 +112,15 @@ Install Cilium
        .. code-block:: shell-session
 
           AZURE_SUBSCRIPTION_ID=$(az account show --query "id" --output tsv)
-          AZURE_NODE_RESOURCE_GROUP=$(az aks show --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --query "nodeResourceGroup" --output tsv)
-          AZURE_SERVICE_PRINCIPAL=$(az ad sp create-for-rbac --scopes /subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_NODE_RESOURCE_GROUP} --role Contributor --output json --only-show-errors)
+          AZURE_RESOURCE_GROUP=$(az aks show --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --query "nodeResourceGroup" --output tsv)
+          AZURE_SERVICE_PRINCIPAL=$(az ad sp create-for-rbac --scopes /subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP} --role Contributor --output json --only-show-errors)
           AZURE_TENANT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.tenant')
           AZURE_CLIENT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.appId')
           AZURE_CLIENT_SECRET=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.password')
 
        .. note::
 
-          The ``AZURE_NODE_RESOURCE_GROUP`` node resource group is *not* the
+          The ``AZURE_RESOURCE_GROUP`` node resource group is *not* the
           resource group of the AKS cluster. A single resource group may hold
           multiple AKS clusters, but each AKS cluster regroups all resources in
           an automatically managed secondary resource group. See `Why are two
@@ -139,7 +139,7 @@ Install Cilium
           helm install cilium |CHART_RELEASE| \\
             --namespace kube-system \\
             --set azure.enabled=true \\
-            --set azure.resourceGroup=$AZURE_NODE_RESOURCE_GROUP \\
+            --set azure.resourceGroup=$AZURE_RESOURCE_GROUP \\
             --set azure.subscriptionID=$AZURE_SUBSCRIPTION_ID \\
             --set azure.tenantID=$AZURE_TENANT_ID \\
             --set azure.clientID=$AZURE_CLIENT_ID \\
