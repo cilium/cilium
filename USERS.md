@@ -357,6 +357,11 @@ Users (Alphabetically)
       U: CNI, Network Policies, Hubble
       Q: @m-yosefpor
 
+    * N: Solo.io
+      D: Cilium is part of Gloo Application Networking platform, with a “batteries included but swappable” manner
+      U: CNI, Network Policies
+      Q: @linsun
+      
     * N: Sphere Knowledge
       D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
       U: ENI Networking, Network policies, Service load-balancing, Hubble
