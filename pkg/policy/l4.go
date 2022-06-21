@@ -297,6 +297,22 @@ const (
 	ParserTypeDNS L7ParserType = "dns"
 )
 
+// redirectTypes is a bitmask of redirection types of multiple filters
+type redirectTypes uint16
+
+const (
+	// redirectTypeDNS bit is set when policy contains a redirection to DNS proxy
+	redirectTypeDNS redirectTypes = 1 << iota
+	// redirectTypeEnvoy bit is set when policy contains a redirection to Envoy
+	redirectTypeEnvoy
+	// redirectTypeProxylib bits are set when policy contains a redirection to Proxylib (via
+	// Envoy)
+	redirectTypeProxylib redirectTypes = 1<<iota | redirectTypeEnvoy
+
+	// redirectTypeNone represents the case where there is no proxy redirect
+	redirectTypeNone redirectTypes = redirectTypes(0)
+)
+
 func (from L7ParserType) canPromoteTo(to L7ParserType) bool {
 	switch from {
 	case ParserTypeNone:
@@ -791,19 +807,24 @@ func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelec
 	return createL4Filter(policyCtx, toEndpoints, rule, port, protocol, ruleLabels, false, fqdns)
 }
 
+// redirectType returns the redirectType for this filter
+func (l4 *L4Filter) redirectType() redirectTypes {
+	switch l4.L7Parser {
+	case ParserTypeNone:
+		return redirectTypeNone
+	case ParserTypeDNS:
+		return redirectTypeDNS
+	case ParserTypeHTTP, ParserTypeTLS:
+		return redirectTypeEnvoy
+	default:
+		// all other (non-empty) values are used for proxylib redirects
+		return redirectTypeProxylib
+	}
+}
+
 // IsRedirect returns true if the L4 filter contains a port redirection
 func (l4 *L4Filter) IsRedirect() bool {
 	return l4.L7Parser != ParserTypeNone
-}
-
-// IsEnvoyRedirect returns true if the L4 filter contains a port redirected to Envoy
-func (l4 *L4Filter) IsEnvoyRedirect() bool {
-	return l4.IsRedirect() && l4.L7Parser != ParserTypeDNS
-}
-
-// IsProxylibRedirect returns true if the L4 filter contains a port redirected to Proxylib (via Envoy)
-func (l4 *L4Filter) IsProxylibRedirect() bool {
-	return l4.IsEnvoyRedirect() && l4.L7Parser != ParserTypeHTTP && l4.L7Parser != ParserTypeTLS
 }
 
 // Marshal returns the `L4Filter` in a JSON string.
@@ -898,43 +919,14 @@ func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4PolicyMap is exposed to concurrent access.
-func (l4 L4PolicyMap) Attach(ctx PolicyContext, l4Policy *L4Policy) {
+// Returns the bitmask of all redirect types for this policymap.
+func (l4 L4PolicyMap) attach(ctx PolicyContext, l4Policy *L4Policy) redirectTypes {
+	var redirectTypes redirectTypes
 	for _, f := range l4 {
 		f.attach(ctx, l4Policy)
+		redirectTypes |= f.redirectType()
 	}
-}
-
-// HasRedirect returns true if at least one L4 filter contains a port
-// redirection
-func (l4 L4PolicyMap) HasRedirect() bool {
-	for _, f := range l4 {
-		if f.IsRedirect() {
-			return true
-		}
-	}
-	return false
-}
-
-// HasEnvoyRedirect returns true if at least one L4 filter contains a port
-// redirection that is forwarded to Envoy
-func (l4 L4PolicyMap) HasEnvoyRedirect() bool {
-	for _, f := range l4 {
-		if f.IsEnvoyRedirect() {
-			return true
-		}
-	}
-	return false
-}
-
-// HasProxylibRedirect returns true if at least one L4 filter contains a port
-// redirection that is forwarded to Proxylib (via Envoy)
-func (l4 L4PolicyMap) HasProxylibRedirect() bool {
-	for _, f := range l4 {
-		if f.IsProxylibRedirect() {
-			return true
-		}
-	}
-	return false
+	return redirectTypes
 }
 
 // containsAllL3L4 checks if the L4PolicyMap contains all L4 ports in `ports`.
@@ -1016,6 +1008,11 @@ type L4Policy struct {
 
 	// Revision is the repository revision used to generate this policy.
 	Revision uint64
+
+	// redirectTypes is a bitmap containing the types of redirect contained by this policy.  It
+	// is computed after the policy maps to avoid scanning them repeatedly when using the
+	// L4Policy
+	redirectTypes redirectTypes
 
 	// Endpoint policies using this L4Policy
 	// These are circular references, cleaned up in Detach()
@@ -1118,8 +1115,9 @@ func (l4 *L4Policy) Detach(selectorCache *SelectorCache) {
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4Policy is exposed to concurrent access.
 func (l4 *L4Policy) Attach(ctx PolicyContext) {
-	l4.Ingress.Attach(ctx, l4)
-	l4.Egress.Attach(ctx, l4)
+	ingressRedirects := l4.Ingress.attach(ctx, l4)
+	egressRedirects := l4.Egress.attach(ctx, l4)
+	l4.redirectTypes = ingressRedirects | egressRedirects
 }
 
 // IngressCoversContext checks if the receiver's ingress L4Policy contains
@@ -1140,17 +1138,17 @@ func (l4 *L4PolicyMap) EgressCoversContext(ctx *SearchContext) api.Decision {
 
 // HasRedirect returns true if the L4 policy contains at least one port redirection
 func (l4 *L4Policy) HasRedirect() bool {
-	return l4 != nil && (l4.Ingress.HasRedirect() || l4.Egress.HasRedirect())
+	return l4 != nil && l4.redirectTypes != redirectTypeNone
 }
 
 // HasEnvoyRedirect returns true if the L4 policy contains at least one port redirection to Envoy
 func (l4 *L4Policy) HasEnvoyRedirect() bool {
-	return l4 != nil && (l4.Ingress.HasEnvoyRedirect() || l4.Egress.HasEnvoyRedirect())
+	return l4 != nil && l4.redirectTypes&redirectTypeEnvoy == redirectTypeEnvoy
 }
 
 // HasProxylibRedirect returns true if the L4 policy contains at least one port redirection to Proxylib
 func (l4 *L4Policy) HasProxylibRedirect() bool {
-	return l4 != nil && (l4.Ingress.HasProxylibRedirect() || l4.Egress.HasProxylibRedirect())
+	return l4 != nil && l4.redirectTypes&redirectTypeProxylib == redirectTypeProxylib
 }
 
 func (l4 *L4Policy) GetModel() *models.L4Policy {
