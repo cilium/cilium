@@ -2388,6 +2388,13 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
 
+// TunnelExists returns true if some traffic may go through a tunnel, including
+// if the primary mode is native routing. For example, in the egress gateway,
+// we may send such traffic to a gateway node via a tunnel.
+func (c *DaemonConfig) TunnelExists() bool {
+	return c.TunnelingEnabled() || c.EnableIPv4EgressGateway
+}
+
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
 func (c *DaemonConfig) MasqueradingEnabled() bool {
 	return c.EnableIPv4Masquerade || c.EnableIPv6Masquerade
