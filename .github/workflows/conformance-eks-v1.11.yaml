@@ -256,6 +256,8 @@ jobs:
       - name: Enable Relay
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          # NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
+          cilium status --wait
 
       - name: Port forward Relay
         run: |
@@ -289,6 +291,8 @@ jobs:
         if: ${{ false }} # see comment above for details
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          # NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
+          cilium status --wait
 
       - name: Port forward Relay
         if: ${{ false }} # see comment above for details
