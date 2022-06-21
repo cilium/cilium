@@ -66,7 +66,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_cli_version: v0.11.7
+  cilium_cli_version: v0.11.9
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.94.0
   kubectl_version: v1.23.6
@@ -165,15 +165,12 @@ jobs:
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
-            --base-version=v1.12 \
             --version="
-          HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
+          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
-            --base-version=v1.12 \
             --relay-version=${SHA}"
           # L7 policies are not supported in chaining mode.
-          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.12 \
-            --flow-validation=disabled \
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled \
             --test '!fqdn,!l7'"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}

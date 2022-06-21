@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.11.7
+  cilium_cli_version: v0.11.9
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
