@@ -148,6 +148,9 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				newL7Rules = &PerSelectorPolicy{}
 			}
 
+			// Merge isRedirect flag
+			l7Rules.isRedirect = l7Rules.isRedirect || newL7Rules.isRedirect
+
 			if l7Rules.TerminatingTLS == nil || newL7Rules.TerminatingTLS == nil {
 				if newL7Rules.TerminatingTLS != nil {
 					l7Rules.TerminatingTLS = newL7Rules.TerminatingTLS
