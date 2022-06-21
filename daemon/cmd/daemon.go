@@ -464,7 +464,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	mtuConfig = mtu.NewConfiguration(
 		authKeySize,
 		option.Config.EnableIPSec,
-		option.Config.TunnelingEnabled(),
+		option.Config.TunnelExists(),
 		option.Config.EnableWireguard,
 		configuredMTU,
 		externalIP,
