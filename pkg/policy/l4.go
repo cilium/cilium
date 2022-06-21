@@ -183,6 +183,9 @@ type PerSelectorPolicy struct {
 	// TLS handshake.
 	ServerNames StringSet `json:"serverNames,omitempty"`
 
+	// isRedirect is 'true' when traffic must be redirected
+	isRedirect bool `json:"-"`
+
 	// Pre-computed HTTP rules, computed after rule merging is complete
 	EnvoyHTTPRules *cilium.HttpNetworkPolicyRules `json:"-"`
 
@@ -202,22 +205,14 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 		a.TerminatingTLS.Equal(b.TerminatingTLS) &&
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
 		a.ServerNames.Equal(b.ServerNames) &&
+		a.isRedirect == b.isRedirect &&
 		a.IsDeny == b.IsDeny &&
 		a.L7Rules.DeepEqual(&b.L7Rules)
 }
 
 // IsRedirect returns true if the L7Rules are a redirect.
 func (a *PerSelectorPolicy) IsRedirect() bool {
-	// policy is for an proxy redirect if it:
-	// - is not empty, i.e., has L7 rules or TLS config, and
-	// - it is not a deny policy, as deny policies do not support L7 rules
-	return !a.IsEmpty() && !a.IsDeny
-}
-
-// IsEmpty returns whether the `L7Rules` is nil or has no L7 rules and no TLS config.
-func (a *PerSelectorPolicy) IsEmpty() bool {
-	return a == nil ||
-		(a.L7Rules.IsEmpty() && a.TerminatingTLS == nil && a.OriginatingTLS == nil && len(a.ServerNames) > 0)
+	return a != nil && a.isRedirect
 }
 
 // HasL7Rules returns whether the `L7Rules` contains any L7 rules.
@@ -594,12 +589,13 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *Selec
 
 // add L7 rules for all endpoints in the L7DataMap
 
-func (l7 L7DataMap) addRulesForEndpoints(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, deny bool, sni []string) {
+func (l7 L7DataMap) addRulesForEndpoints(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, deny bool, sni []string, forceRedirect bool) {
 	l7policy := &PerSelectorPolicy{
 		TerminatingTLS: terminatingTLS,
 		OriginatingTLS: originatingTLS,
 		IsDeny:         deny,
 		ServerNames:    NewStringSet(sni),
+		isRedirect:     !deny && (forceRedirect || terminatingTLS != nil || originatingTLS != nil || len(sni) > 0 || !rules.IsEmpty()),
 	}
 	if rules != nil {
 		l7policy.L7Rules = *rules
@@ -724,7 +720,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		}
 
 		if l4.L7Parser != ParserTypeNone {
-			l4.L7RulesPerSelector.addRulesForEndpoints(pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny(), pr.ServerNames)
+			l4.L7RulesPerSelector.addRulesForEndpoints(pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny(), pr.ServerNames, false)
 		}
 	}
 
@@ -782,15 +778,11 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 		return nil, err
 	}
 
-	pr := rule.GetPortRule()
-	if pr == nil {
-		return filter, nil
-	}
-	// If the filter would apply L7 rules for the Host, when we should accept everything from host,
-	// then wildcard Host at L7.
-	if !pr.Rules.IsEmpty() && len(hostWildcardL7) > 0 {
-		for cs := range filter.L7RulesPerSelector {
-			if cs.Selects(identity.ReservedIdentityHost) {
+	// If the filter would apply proxy redirection for the Host, when we should accept
+	// everything from host, then wildcard Host at L7.
+	if len(hostWildcardL7) > 0 {
+		for cs, l7 := range filter.L7RulesPerSelector {
+			if l7.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
 				for _, name := range hostWildcardL7 {
 					selector := api.ReservedEndpointSelectors[name]
 					filter.cacheIdentitySelector(selector, policyCtx.GetSelectorCache(), policyCtx.IsDeny())
