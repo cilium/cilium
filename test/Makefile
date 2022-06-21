@@ -20,7 +20,7 @@ GINKGO = $(QUIET) ginkgo
 
 REGISTRY_CREDENTIALS ?= "${DOCKER_LOGIN}:${DOCKER_PASSWORD}"
 
-.PHONY = all build test run k8s k8s-kind nightly clean run_bpf_tests
+.PHONY = all build test run k8s-test k8s-kind nightly clean run_bpf_tests
 
 all: build
 
@@ -29,12 +29,12 @@ build:
 	$(GINKGO) build -tags=integration_tests
 	$(QUIET)$(MAKE) -C bpf/
 
-test: run k8s
+test: run k8s-test
 
 run:
 	KERNEL=net-next ginkgo --focus "Runtime" --tags integration_tests -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
-k8s:
+k8s-test:
 	ginkgo --focus "K8s" --tags integration_tests -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 # Match kind-image target in parent directory
