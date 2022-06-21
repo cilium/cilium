@@ -3,7 +3,7 @@ name: Hot Fix Image Release Build
 on:
   push:
     branches:
-      - hf/master/**
+      - hf/v1.12/**
 
 permissions: read-all
 
