@@ -68,7 +68,7 @@ env:
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
-  cilium_cli_version: v0.11.7
+  cilium_cli_version: v0.11.9
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -155,14 +155,11 @@ jobs:
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
-            --base-version=v1.12 \
             --version="
-          HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
+          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
-            --base-version=v1.12 \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.12 \
-            --flow-validation=disabled"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
             --apiserver-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
