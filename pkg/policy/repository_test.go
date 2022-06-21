@@ -698,6 +698,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsKafka},
@@ -713,6 +714,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
@@ -729,6 +731,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 						L7Proto: "tester",
 						L7:      []api.PortRuleL7{l7Rule.Ingress[0].ToPorts[0].Rules.L7[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL7},
@@ -863,6 +866,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL4HTTP, labelsL7HTTP},
@@ -879,6 +883,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL4Kafka, labelsL7Kafka},
@@ -1150,6 +1155,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsDNS},
@@ -1165,6 +1171,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
@@ -1316,6 +1323,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL3HTTP, labelsL7HTTP},
@@ -1332,6 +1340,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL3DNS, labelsL7DNS},
@@ -1437,6 +1446,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 							Path:    "/",
 						}},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
@@ -1573,6 +1583,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsKafka},
@@ -1588,6 +1599,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
@@ -1711,6 +1723,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsDNS},
@@ -1726,6 +1739,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
+					isRedirect: true,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
@@ -1848,6 +1862,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/"}, {}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          true,
