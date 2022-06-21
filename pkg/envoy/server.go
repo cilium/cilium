@@ -1428,11 +1428,11 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 			remoteMap[uint64(id)] = struct{}{}
 		}
 
-		if !l7.IsEmpty() {
-			// If it is not empty then we issue the warning.
+		if l7.IsRedirect() {
+			// Issue a warning if this port-0 rule is a redirect.
 			// Deny rules don't support L7 therefore for the deny case
-			// l7.IsEmpty() will always return true.
-			log.Warningf("L3-only rule for selector %v surprisingly has L7 rules (%v)!", sel, *l7)
+			// l7.IsRedirect() will always return false.
+			log.Warningf("L3-only rule for selector %v surprisingly requires proxy redirection (%v)!", sel, *l7)
 		}
 	}
 

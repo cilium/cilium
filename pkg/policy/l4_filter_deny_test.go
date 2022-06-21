@@ -561,6 +561,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          true,
@@ -638,6 +639,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          true,
