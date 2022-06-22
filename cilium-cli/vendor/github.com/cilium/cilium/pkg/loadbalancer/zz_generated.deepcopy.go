@@ -107,6 +107,11 @@ func (in *SVC) DeepCopyInto(out *SVC) {
 			}
 		}
 	}
+	if in.L7LBFrontendPorts != nil {
+		in, out := &in.L7LBFrontendPorts, &out.L7LBFrontendPorts
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

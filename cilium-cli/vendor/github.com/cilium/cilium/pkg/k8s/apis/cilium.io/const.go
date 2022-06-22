@@ -62,17 +62,8 @@ const (
 	// to sync the CNP with kube-apiserver.
 	CtrlPrefixPolicyStatus = "sync-cnp-policy-status"
 
-	// CiliumK8sAnnotationPrefix is the prefix key for the annotations used in kubernetes.
-	CiliumK8sAnnotationPrefix = "cilium.io/"
-
 	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
 	CiliumIdentityAnnotationDeprecated = "cilium-identity"
-
-	// AgentNotReadyNodeTaint is a node taint which prevents pods from being
-	// scheduled. Once cilium is setup it is removed from the node. Mostly
-	// used in cloud providers to prevent existing CNI plugins from managing
-	// pods.
-	AgentNotReadyNodeTaint = "node." + CiliumK8sAnnotationPrefix + "agent-not-ready"
 )
 
 const (
