@@ -849,6 +849,11 @@ func (in *ServiceSpec) DeepCopyInto(out *ServiceSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.InternalTrafficPolicy != nil {
+		in, out := &in.InternalTrafficPolicy, &out.InternalTrafficPolicy
+		*out = new(ServiceInternalTrafficPolicyType)
+		**out = **in
+	}
 	if in.SessionAffinityConfig != nil {
 		in, out := &in.SessionAffinityConfig, &out.SessionAffinityConfig
 		*out = new(SessionAffinityConfig)

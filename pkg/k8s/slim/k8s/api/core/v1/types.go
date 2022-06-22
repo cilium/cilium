@@ -420,6 +420,20 @@ const (
 	ServiceTypeExternalName ServiceType = "ExternalName"
 )
 
+// ServiceInternalTrafficPolicyType describes the type of traffic routing for
+// internal traffic
+// +enum
+type ServiceInternalTrafficPolicyType string
+
+const (
+	// ServiceInternalTrafficPolicyCluster routes traffic to all endpoints
+	ServiceInternalTrafficPolicyCluster ServiceInternalTrafficPolicyType = "Cluster"
+
+	// ServiceInternalTrafficPolicyLocal only routes to node-local
+	// endpoints, otherwise drops the traffic
+	ServiceInternalTrafficPolicyLocal ServiceInternalTrafficPolicyType = "Local"
+)
+
 // Service External Traffic Policy Type string
 // +enum
 type ServiceExternalTrafficPolicyType string
@@ -597,6 +611,16 @@ type ServiceSpec struct {
 	// More info: https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/
 	// +optional
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty" protobuf:"bytes,9,opt,name=loadBalancerSourceRanges"`
+
+	// InternalTrafficPolicy specifies if the cluster internal traffic
+	// should be routed to all endpoints or node-local endpoints only.
+	// "Cluster" routes internal traffic to a Service to all endpoints.
+	// "Local" routes traffic to node-local endpoints only, traffic is
+	// dropped if no node-local endpoints are ready.
+	// The default value is "Cluster".
+	// +featureGate=ServiceInternalTrafficPolicy
+	// +optional
+	InternalTrafficPolicy *ServiceInternalTrafficPolicyType `json:"internalTrafficPolicy,omitempty" protobuf:"bytes,22,opt,name=internalTrafficPolicy"`
 
 	// externalTrafficPolicy denotes if this Service desires to route external
 	// traffic to node-local or cluster-wide endpoints. "Local" preserves the
