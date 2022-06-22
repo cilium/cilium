@@ -335,6 +335,7 @@ type SVC struct {
 	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID
 	Backends                  []Backend        // List of service backends
 	Type                      SVCType          // Service type
+	InternalTrafficPolicy     SVCTrafficPolicy // Service internal traffic policy
 	ExternalTrafficPolicy     SVCTrafficPolicy // Service external traffic policy
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool

@@ -439,7 +439,8 @@ func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) 
 		return localEndpoints
 	}
 
-	if svc.ExternalTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+	if svc.ExternalTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal ||
+		svc.InternalTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
 		// According to https://kubernetes.io/docs/concepts/services-networking/topology-aware-hints/#constraints:
 		// """
 		// Topology Aware Hints are not used when either externalTrafficPolicy or

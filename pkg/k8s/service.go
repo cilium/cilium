@@ -628,6 +628,7 @@ func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
 		s.IsHeadless == (len(svc.Frontends) == 0) &&
 		s.IncludeExternal == true &&
 		s.Shared == true &&
+		s.InternalTrafficPolicy == loadbalancer.SVCTrafficPolicyCluster &&
 		s.ExternalTrafficPolicy == loadbalancer.SVCTrafficPolicyCluster &&
 		s.HealthCheckNodePort == 0 &&
 		len(s.NodePorts) == 0 &&

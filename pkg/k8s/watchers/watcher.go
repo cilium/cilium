@@ -695,7 +695,8 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 
 func genCartesianProduct(
 	fe net.IP,
-	svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+	internalTrafficPolicy loadbalancer.SVCTrafficPolicy,
+	externalTrafficPolicy loadbalancer.SVCTrafficPolicy,
 	svcType loadbalancer.SVCType,
 	ports map[loadbalancer.FEPortName]*loadbalancer.L4Addr,
 	bes *k8s.Endpoints,
@@ -704,8 +705,9 @@ func genCartesianProduct(
 
 	// For externalTrafficPolicy=Local we add both external and internal
 	// scoped frontends, hence twice the size for only this case.
-	if svcTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal &&
-		(svcType == loadbalancer.SVCTypeLoadBalancer || svcType == loadbalancer.SVCTypeNodePort) {
+	if internalTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal ||
+		(externalTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal &&
+			(svcType == loadbalancer.SVCTypeLoadBalancer || svcType == loadbalancer.SVCTypeNodePort)) {
 		svcSize = len(ports) * 2
 	} else {
 		svcSize = len(ports)
@@ -792,17 +794,17 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 	}
 
 	for _, frontendIP := range svc.FrontendIPs {
-		dpSVC := genCartesianProduct(frontendIP, svc.ExternalTrafficPolicy, loadbalancer.SVCTypeClusterIP, clusterIPPorts, endpoints)
+		dpSVC := genCartesianProduct(frontendIP, svc.InternalTrafficPolicy, svc.ExternalTrafficPolicy, loadbalancer.SVCTypeClusterIP, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 
 	for _, ip := range svc.LoadBalancerIPs {
-		dpSVC := genCartesianProduct(ip, svc.ExternalTrafficPolicy, loadbalancer.SVCTypeLoadBalancer, clusterIPPorts, endpoints)
+		dpSVC := genCartesianProduct(ip, svc.InternalTrafficPolicy, svc.ExternalTrafficPolicy, loadbalancer.SVCTypeLoadBalancer, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 
 	for _, k8sExternalIP := range svc.K8sExternalIPs {
-		dpSVC := genCartesianProduct(k8sExternalIP, svc.ExternalTrafficPolicy, loadbalancer.SVCTypeExternalIPs, clusterIPPorts, endpoints)
+		dpSVC := genCartesianProduct(k8sExternalIP, svc.InternalTrafficPolicy, svc.ExternalTrafficPolicy, loadbalancer.SVCTypeExternalIPs, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 
@@ -811,7 +813,7 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 			nodePortPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 				fePortName: &nodePortFE.L4Addr,
 			}
-			dpSVC := genCartesianProduct(nodePortFE.IP, svc.ExternalTrafficPolicy, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
+			dpSVC := genCartesianProduct(nodePortFE.IP, svc.InternalTrafficPolicy, svc.ExternalTrafficPolicy, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
 			svcs = append(svcs, dpSVC...)
 		}
 	}
@@ -885,6 +887,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			Frontend:                  dpSvc.Frontend,
 			Backends:                  dpSvc.Backends,
 			Type:                      dpSvc.Type,
+			InternalTrafficPolicy:     dpSvc.InternalTrafficPolicy,
 			ExternalTrafficPolicy:     dpSvc.ExternalTrafficPolicy,
 			SessionAffinity:           dpSvc.SessionAffinity,
 			SessionAffinityTimeoutSec: dpSvc.SessionAffinityTimeoutSec,
