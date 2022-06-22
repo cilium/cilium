@@ -196,13 +196,11 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 	entry = map_lookup_elem(map, tuple);
 	if (entry) {
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
-#ifdef HAVE_LARGE_INSN_LIMIT
 		if (dir == CT_SERVICE &&
 		    (seen_flags.value & TCP_FLAG_SYN) &&
 		    ct_entry_closing(entry) &&
 		    ct_entry_expired_rebalance(entry))
 			goto ct_new;
-#endif
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 		if (ct_state) {
