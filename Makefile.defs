@@ -41,6 +41,11 @@ ifeq ($(DOCKER_DEV_ACCOUNT),)
     DOCKER_DEV_ACCOUNT=cilium
 endif
 
+ifneq ($(CI_BUILD),)
+    DOCKER_IMAGE_SUFFIX=-ci
+    DOCKER_IMAGE_TAG=$(shell git rev-parse HEAD)
+endif
+
 # Set DOCKER_IMAGE_TAG with "latest" by default
 ifeq ($(DOCKER_IMAGE_TAG),)
     DOCKER_IMAGE_TAG=latest
