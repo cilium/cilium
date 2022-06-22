@@ -311,6 +311,10 @@ type Service struct {
 	// Applicable values: local, remote, none (default).
 	ServiceAffinity string
 
+	// InternalTrafficPolicy controls how backends are selected for internal traffic.
+	// If set to "Local", only node-local backends are chosen.
+	InternalTrafficPolicy loadbalancer.SVCTrafficPolicy
+
 	// ExternalTrafficPolicy controls how backends are selected for external traffic.
 	// If set to "Local", only node-local backends are chosen.
 	ExternalTrafficPolicy loadbalancer.SVCTrafficPolicy
