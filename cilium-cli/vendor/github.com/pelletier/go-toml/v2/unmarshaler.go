@@ -866,12 +866,27 @@ func (d *decoder) unmarshalFloat(value *ast.Node, v reflect.Value) error {
 	return nil
 }
 
-func (d *decoder) unmarshalInteger(value *ast.Node, v reflect.Value) error {
-	const (
-		maxInt = int64(^uint(0) >> 1)
-		minInt = -maxInt - 1
-	)
+const (
+	maxInt = int64(^uint(0) >> 1)
+	minInt = -maxInt - 1
+)
 
+// Maximum value of uint for decoding. Currently the decoder parses the integer
+// into an int64. As a result, on architectures where uint is 64 bits, the
+// effective maximum uint we can decode is the maximum of int64. On
+// architectures where uint is 32 bits, the maximum value we can decode is
+// lower: the maximum of uint32. I didn't find a way to figure out this value at
+// compile time, so it is computed during initialization.
+var maxUint int64 = math.MaxInt64
+
+func init() {
+	m := uint64(^uint(0))
+	if m < uint64(maxUint) {
+		maxUint = int64(m)
+	}
+}
+
+func (d *decoder) unmarshalInteger(value *ast.Node, v reflect.Value) error {
 	i, err := parseInteger(value.Data)
 	if err != nil {
 		return err
@@ -932,7 +947,7 @@ func (d *decoder) unmarshalInteger(value *ast.Node, v reflect.Value) error {
 
 		r = reflect.ValueOf(uint8(i))
 	case reflect.Uint:
-		if i < 0 {
+		if i < 0 || i > maxUint {
 			return fmt.Errorf("toml: negative number %d does not fit in an uint", i)
 		}
 
@@ -1167,11 +1182,6 @@ func forEachField(t reflect.Type, path []int, do func(name string, path []int)) 
 		fieldPath := append(path, i)
 		fieldPath = fieldPath[:len(fieldPath):len(fieldPath)]
 
-		if f.Anonymous {
-			forEachField(f.Type, fieldPath, do)
-			continue
-		}
-
 		name := f.Tag.Get("toml")
 		if name == "-" {
 			continue
@@ -1180,6 +1190,12 @@ func forEachField(t reflect.Type, path []int, do func(name string, path []int)) 
 		if i := strings.IndexByte(name, ','); i >= 0 {
 			name = name[:i]
 		}
+
+		if f.Anonymous && name == "" {
+			forEachField(f.Type, fieldPath, do)
+			continue
+		}
+
 		if name == "" {
 			name = f.Name
 		}

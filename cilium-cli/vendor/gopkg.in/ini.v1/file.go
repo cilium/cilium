@@ -342,6 +342,7 @@ func (f *File) writeToBuffer(indent string) (*bytes.Buffer, error) {
 
 	// Use buffer to make sure target is safe until finish encoding.
 	buf := bytes.NewBuffer(nil)
+	lastSectionIdx := len(f.sectionList) - 1
 	for i, sname := range f.sectionList {
 		sec := f.SectionWithIndex(sname, f.sectionIndexes[i])
 		if len(sec.Comment) > 0 {
@@ -371,12 +372,13 @@ func (f *File) writeToBuffer(indent string) (*bytes.Buffer, error) {
 			}
 		}
 
+		isLastSection := i == lastSectionIdx
 		if sec.isRawSection {
 			if _, err := buf.WriteString(sec.rawBody); err != nil {
 				return nil, err
 			}
 
-			if PrettySection {
+			if PrettySection && !isLastSection {
 				// Put a line between sections
 				if _, err := buf.WriteString(LineBreak); err != nil {
 					return nil, err
@@ -448,9 +450,7 @@ func (f *File) writeToBuffer(indent string) (*bytes.Buffer, error) {
 				}
 
 				if key.isBooleanType {
-					if kname != sec.keyList[len(sec.keyList)-1] {
-						buf.WriteString(LineBreak)
-					}
+					buf.WriteString(LineBreak)
 					return true, nil
 				}
 
@@ -496,7 +496,7 @@ func (f *File) writeToBuffer(indent string) (*bytes.Buffer, error) {
 			}
 		}
 
-		if PrettySection {
+		if PrettySection && !isLastSection {
 			// Put a line between sections
 			if _, err := buf.WriteString(LineBreak); err != nil {
 				return nil, err
