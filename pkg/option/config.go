@@ -2948,7 +2948,15 @@ func (c *DaemonConfig) Populate() {
 	c.EnableRuntimeDeviceDetection = viper.GetBool(EnableRuntimeDeviceDetection)
 	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
 
-	c.VLANBPFBypass = viper.GetIntSlice(VLANBPFBypass)
+	vlanBPFBypassIDs := viper.GetStringSlice(VLANBPFBypass)
+	c.VLANBPFBypass = make([]int, 0, len(vlanBPFBypassIDs))
+	for _, vlanIDStr := range vlanBPFBypassIDs {
+		vlanID, err := strconv.Atoi(vlanIDStr)
+		if err != nil {
+			log.WithError(err).Fatalf("Cannot parse vlan ID integer from --%s option", VLANBPFBypass)
+		}
+		c.VLANBPFBypass = append(c.VLANBPFBypass, vlanID)
+	}
 
 	c.Tunnel = viper.GetString(TunnelName)
 	c.TunnelPort = viper.GetInt(TunnelPortName)
