@@ -6,6 +6,7 @@ package cidr
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
@@ -31,8 +32,23 @@ func maskedIPToLabelString(ip *net.IP, prefix int) string {
 	if ipNoColons[len(ipNoColons)-1] == '-' {
 		postZero = "0"
 	}
-	return fmt.Sprintf("%s:%s%s%s/%d", labels.LabelSourceCIDR, preZero,
-		ipNoColons, postZero, prefix)
+	var str strings.Builder
+	str.Grow(
+		len(labels.LabelSourceCIDR) +
+			len(preZero) +
+			len(ipNoColons) +
+			len(postZero) +
+			2 /*len of prefix*/ +
+			2, /* ':' '/' */
+	)
+	str.WriteString(labels.LabelSourceCIDR)
+	str.WriteRune(':')
+	str.WriteString(preZero)
+	str.WriteString(ipNoColons)
+	str.WriteString(postZero)
+	str.WriteRune('/')
+	str.WriteString(strconv.Itoa(prefix))
+	return str.String()
 }
 
 // ipNetToLabel turns a CIDR into a Label object which can be used to create
@@ -81,7 +97,7 @@ func maskedIPNetToLabelString(cidr *net.IPNet, prefix, bits int) string {
 // The identity reserved:world is always added as it includes any CIDR.
 func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 	ones, bits := cidr.Mask.Size()
-	result := []string{}
+	result := make([]string, 0, ones+1)
 
 	// If ones is zero, then it's the default CIDR prefix /0 which should
 	// just be regarded as reserved:world. In all other cases, we need
@@ -94,7 +110,7 @@ func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 		}
 	}
 
-	result = append(result, fmt.Sprintf("%s:%s", labels.LabelSourceReserved, labels.IDNameWorld))
+	result = append(result, labels.LabelSourceReserved+":"+labels.IDNameWorld)
 
 	return labels.NewLabelsFromModel(result)
 }

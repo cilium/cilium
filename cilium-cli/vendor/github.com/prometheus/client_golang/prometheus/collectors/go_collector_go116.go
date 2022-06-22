@@ -11,6 +11,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !go1.17
+// +build !go1.17
+
 package collectors
 
 import "github.com/prometheus/client_golang/prometheus"
@@ -42,28 +45,5 @@ import "github.com/prometheus/client_golang/prometheus"
 // NOTE: The problem is solved in Go 1.15, see
 // https://github.com/golang/go/issues/19812 for the related Go issue.
 func NewGoCollector() prometheus.Collector {
-	//nolint:staticcheck // Ignore SA1019 until v2.
 	return prometheus.NewGoCollector()
-}
-
-// NewBuildInfoCollector returns a collector collecting a single metric
-// "go_build_info" with the constant value 1 and three labels "path", "version",
-// and "checksum". Their label values contain the main module path, version, and
-// checksum, respectively. The labels will only have meaningful values if the
-// binary is built with Go module support and from source code retrieved from
-// the source repository (rather than the local file system). This is usually
-// accomplished by building from outside of GOPATH, specifying the full address
-// of the main package, e.g. "GO111MODULE=on go run
-// github.com/prometheus/client_golang/examples/random". If built without Go
-// module support, all label values will be "unknown". If built with Go module
-// support but using the source code from the local file system, the "path" will
-// be set appropriately, but "checksum" will be empty and "version" will be
-// "(devel)".
-//
-// This collector uses only the build information for the main module. See
-// https://github.com/povilasv/prommod for an example of a collector for the
-// module dependencies.
-func NewBuildInfoCollector() prometheus.Collector {
-	//nolint:staticcheck // Ignore SA1019 until v2.
-	return prometheus.NewBuildInfoCollector()
 }

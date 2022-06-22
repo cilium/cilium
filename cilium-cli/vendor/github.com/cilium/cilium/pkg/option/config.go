@@ -188,12 +188,6 @@ const (
 	// IPv6ServiceRange is the Kubernetes IPv6 services CIDR if not inside cluster prefix
 	IPv6ServiceRange = "ipv6-service-range"
 
-	// ModePreFilterNative for loading progs with xdpdrv
-	ModePreFilterNative = XDPModeNative
-
-	// ModePreFilterGeneric for loading progs with xdpgeneric
-	ModePreFilterGeneric = XDPModeGeneric
-
 	// IPv6ClusterAllocCIDRName is the name of the IPv6ClusterAllocCIDR option
 	IPv6ClusterAllocCIDRName = "ipv6-cluster-alloc-cidr"
 
@@ -216,7 +210,7 @@ const (
 	// K8sServiceCacheSize is service cache size for cilium k8s package.
 	K8sServiceCacheSize = "k8s-service-cache-size"
 
-	// K8sSyncTimeout is the timeout to synchronize all resources with k8s.
+	// K8sSyncTimeout is the timeout since last event was received to synchronize all resources with k8s.
 	K8sSyncTimeoutName = "k8s-sync-timeout"
 
 	// AllocatorListTimeout is the timeout to list initial allocator state.
@@ -431,12 +425,6 @@ const (
 	// EnableXDPPrefilter enables XDP-based prefiltering
 	EnableXDPPrefilter = "enable-xdp-prefilter"
 
-	// PrefilterDevice is the device facing external network for XDP prefiltering
-	PrefilterDevice = "prefilter-device"
-
-	// PrefilterMode { "+ModePreFilterNative+" | "+ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")
-	PrefilterMode = "prefilter-mode"
-
 	ProcFs = "procfs"
 
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
@@ -567,12 +555,13 @@ const (
 	CTMapEntriesGlobalAnyName = "bpf-ct-global-any-max"
 
 	// CTMapEntriesTimeout* name option and default value mappings
-	CTMapEntriesTimeoutSYNName    = "bpf-ct-timeout-regular-tcp-syn"
-	CTMapEntriesTimeoutFINName    = "bpf-ct-timeout-regular-tcp-fin"
-	CTMapEntriesTimeoutTCPName    = "bpf-ct-timeout-regular-tcp"
-	CTMapEntriesTimeoutAnyName    = "bpf-ct-timeout-regular-any"
-	CTMapEntriesTimeoutSVCTCPName = "bpf-ct-timeout-service-tcp"
-	CTMapEntriesTimeoutSVCAnyName = "bpf-ct-timeout-service-any"
+	CTMapEntriesTimeoutSYNName         = "bpf-ct-timeout-regular-tcp-syn"
+	CTMapEntriesTimeoutFINName         = "bpf-ct-timeout-regular-tcp-fin"
+	CTMapEntriesTimeoutTCPName         = "bpf-ct-timeout-regular-tcp"
+	CTMapEntriesTimeoutAnyName         = "bpf-ct-timeout-regular-any"
+	CTMapEntriesTimeoutSVCTCPName      = "bpf-ct-timeout-service-tcp"
+	CTMapEntriesTimeoutSVCTCPGraceName = "bpf-ct-timeout-service-tcp-grace"
+	CTMapEntriesTimeoutSVCAnyName      = "bpf-ct-timeout-service-any"
 
 	// NATMapEntriesGlobalDefault holds the default size of the NAT map
 	// and is 2/3 of the full CT size as a heuristic
@@ -656,6 +645,10 @@ const (
 
 	// K8sNamespaceName is the name of the K8sNamespace option
 	K8sNamespaceName = "k8s-namespace"
+
+	// AgentNotReadyNodeTaintKeyName is the name of the option to set
+	// AgentNotReadyNodeTaintKey
+	AgentNotReadyNodeTaintKeyName = "agent-not-ready-taint-key"
 
 	// JoinClusterName is the name of the JoinCluster Option
 	JoinClusterName = "join-cluster"
@@ -1309,8 +1302,6 @@ type DaemonConfig struct {
 	DirectRoutingDevice string       // Direct routing device (used by BPF NodePort and BPF Host Routing)
 	LBDevInheritIPAddr  string       // Device which IP addr used by bpf_host devices
 	EnableXDPPrefilter  bool         // Enable XDP-based prefiltering
-	DevicePreFilter     string       // Prefilter device
-	ModePreFilter       string       // Prefilter mode
 	XDPMode             string       // XDP mode, values: { xdpdrv | xdpgeneric | none }
 	HostV4Addr          net.IP       // Host v4 address of the snooping device
 	HostV6Addr          net.IP       // Host v6 address of the snooping device
@@ -1415,12 +1406,13 @@ type DaemonConfig struct {
 	CTMapEntriesGlobalAny int
 
 	// CTMapEntriesTimeout* values configured by the user.
-	CTMapEntriesTimeoutTCP    time.Duration
-	CTMapEntriesTimeoutAny    time.Duration
-	CTMapEntriesTimeoutSVCTCP time.Duration
-	CTMapEntriesTimeoutSVCAny time.Duration
-	CTMapEntriesTimeoutSYN    time.Duration
-	CTMapEntriesTimeoutFIN    time.Duration
+	CTMapEntriesTimeoutTCP         time.Duration
+	CTMapEntriesTimeoutAny         time.Duration
+	CTMapEntriesTimeoutSVCTCP      time.Duration
+	CTMapEntriesTimeoutSVCTCPGrace time.Duration
+	CTMapEntriesTimeoutSVCAny      time.Duration
+	CTMapEntriesTimeoutSYN         time.Duration
+	CTMapEntriesTimeoutFIN         time.Duration
 
 	// EnableMonitor enables the monitor unix domain socket server
 	EnableMonitor bool
@@ -1538,6 +1530,12 @@ type DaemonConfig struct {
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
 	K8sNamespace string
+
+	// AgentNotReadyNodeTaint is a node taint which prevents pods from being
+	// scheduled. Once cilium is setup it is removed from the node. Mostly
+	// used in cloud providers to prevent existing CNI plugins from managing
+	// pods.
+	AgentNotReadyNodeTaintKey string
 
 	// JoinCluster is 'true' if the agent should join a Cilium cluster via kvstore
 	// registration
@@ -2495,6 +2493,16 @@ func (c *DaemonConfig) CiliumNamespaceName() string {
 	return c.K8sNamespace
 }
 
+// AgentNotReadyNodeTaintValue returns the value of the taint key that cilium agents
+// will manage on their nodes
+func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
+	if c.AgentNotReadyNodeTaintKey != "" {
+		return c.AgentNotReadyNodeTaintKey
+	} else {
+		return defaults.AgentNotReadyNodeTaint
+	}
+}
+
 // K8sAPIDiscoveryEnabled returns true if API discovery of API groups and
 // resources is enabled
 func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
@@ -2607,6 +2615,10 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	if err := c.checkIPv6NativeRoutingCIDR(); err != nil {
+		return err
+	}
+
+	if err := c.checkIPAMDelegatedPlugin(); err != nil {
 		return err
 	}
 
@@ -2765,7 +2777,6 @@ func (c *DaemonConfig) Populate() {
 	c.EnableWireguardUserspaceFallback = viper.GetBool(EnableWireguardUserspaceFallback)
 	c.EnableWellKnownIdentities = viper.GetBool(EnableWellKnownIdentities)
 	c.EnableXDPPrefilter = viper.GetBool(EnableXDPPrefilter)
-	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.BPFSocketLBHostnsOnly = viper.GetBool(BPFSocketLBHostnsOnly)
@@ -2867,7 +2878,6 @@ func (c *DaemonConfig) Populate() {
 	c.IPTablesRandomFully = viper.GetBool(IPTablesRandomFully)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.IpvlanMasterDevice = viper.GetString(IpvlanMasterDevice)
-	c.ModePreFilter = viper.GetString(PrefilterMode)
 	c.EnableMonitor = viper.GetBool(EnableMonitorName)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
@@ -2899,6 +2909,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesTimeoutTCP = viper.GetDuration(CTMapEntriesTimeoutTCPName)
 	c.CTMapEntriesTimeoutAny = viper.GetDuration(CTMapEntriesTimeoutAnyName)
 	c.CTMapEntriesTimeoutSVCTCP = viper.GetDuration(CTMapEntriesTimeoutSVCTCPName)
+	c.CTMapEntriesTimeoutSVCTCPGrace = viper.GetDuration(CTMapEntriesTimeoutSVCTCPGraceName)
 	c.CTMapEntriesTimeoutSVCAny = viper.GetDuration(CTMapEntriesTimeoutSVCAnyName)
 	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
@@ -3181,6 +3192,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTP403Message = viper.GetString(HTTP403Message)
 	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
 	c.K8sNamespace = viper.GetString(K8sNamespaceName)
+	c.AgentNotReadyNodeTaintKey = viper.GetString(AgentNotReadyNodeTaintKeyName)
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
 	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
@@ -3409,6 +3421,24 @@ func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
 			EnableIPv6Name)
 	}
 
+	return nil
+}
+
+func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {
+	if c.IPAM == ipamOption.IPAMDelegatedPlugin {
+		// When using IPAM delegated plugin, IP addresses are allocated by the CNI binary,
+		// not the daemon. Therefore, features which require the daemon to allocate IPs for itself
+		// must be disabled.
+		if c.EnableIPv4 && c.LocalRouterIPv4 == "" {
+			return fmt.Errorf("--%s must be provided when IPv4 is enabled with --%s=%s", LocalRouterIPv4, IPAM, ipamOption.IPAMDelegatedPlugin)
+		}
+		if c.EnableIPv6 && c.LocalRouterIPv6 == "" {
+			return fmt.Errorf("--%s must be provided when IPv6 is enabled with --%s=%s", LocalRouterIPv6, IPAM, ipamOption.IPAMDelegatedPlugin)
+		}
+		if c.EnableEndpointHealthChecking {
+			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEndpointHealthChecking, IPAM, ipamOption.IPAMDelegatedPlugin)
+		}
+	}
 	return nil
 }
 

@@ -266,8 +266,8 @@ const (
 	// invoked only for endpoints which are selected by policy changes.
 	SelectiveRegeneration = true
 
-	// K8sSyncTimeout specifies the standard time to allow for synchronizing
-	// local caches with Kubernetes state before exiting.
+	// K8sSyncTimeout specifies the default time to wait after the last event
+	// of a Kubernetes resource type before timing out while waiting for synchronization.
 	K8sSyncTimeout = 3 * time.Minute
 
 	// AllocatorListTimeout specifies the standard time to allow for listing
@@ -349,6 +349,10 @@ const (
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set.
 	ENIFirstInterfaceIndex = 0
 
+	// UseENIPrimaryAddress is the default value for
+	// CiliumNode.Spec.ENI.UsePrimaryAddress if no value is set.
+	UseENIPrimaryAddress = false
+
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
 
@@ -422,7 +426,7 @@ const (
 	// the map used to track datagram fragments.
 	FragmentsMapEntries = 8192
 
-	// K8sEnableAPIDiscovery defines whether Kuberntes API groups and
+	// K8sEnableAPIDiscovery defines whether Kubernetes API groups and
 	// resources should be probed using the discovery API
 	K8sEnableAPIDiscovery = false
 
@@ -452,7 +456,7 @@ const (
 	ExternalClusterIP = false
 
 	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
-	EnableICMPRules = false
+	EnableICMPRules = true
 
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN = 8472

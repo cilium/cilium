@@ -136,7 +136,7 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, erro
   GetFqdnCache retrieves the list of DNS lookups intercepted from all endpoints
 
   Retrieves the list of DNS lookups intercepted from endpoints,
-optionally filtered by endpoint id, DNS name, or CIDR IP range.
+optionally filtered by DNS name, CIDR IP range or source.
 
 */
 func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, error) {
@@ -173,8 +173,8 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, erro
 /*
   GetFqdnCacheID retrieves the list of DNS lookups intercepted from an endpoint
 
-  Retrieves the list of DNS lookups intercepted from endpoints,
-optionally filtered by endpoint id, DNS name, or CIDR IP range.
+  Retrieves the list of DNS lookups intercepted from the specific endpoint,
+optionally filtered by endpoint id, DNS name, CIDR IP range or source.
 
 */
 func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK, error) {

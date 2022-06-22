@@ -32,6 +32,10 @@ type BackendAddress struct {
 	// Layer 4 port number
 	Port uint16 `json:"port,omitempty"`
 
+	// Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based
+	// on related annotation of global service. Applicable for active state only.
+	Preferred bool `json:"preferred,omitempty"`
+
 	// State of the backend for load-balancing service traffic
 	// Enum: [active terminating quarantined maintenance]
 	State string `json:"state,omitempty"`

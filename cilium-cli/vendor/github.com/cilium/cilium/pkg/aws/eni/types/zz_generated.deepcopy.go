@@ -129,6 +129,11 @@ func (in *ENISpec) DeepCopyInto(out *ENISpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.UsePrimaryAddress != nil {
+		in, out := &in.UsePrimaryAddress, &out.UsePrimaryAddress
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

@@ -1,12 +1,11 @@
 # gotenv
 
-[![Build Status](https://travis-ci.org/subosito/gotenv.svg?branch=master)](https://travis-ci.org/subosito/gotenv)
-[![Build status](https://ci.appveyor.com/api/projects/status/wb2e075xkfl0m0v2/branch/master?svg=true)](https://ci.appveyor.com/project/subosito/gotenv/branch/master)
+[![Build Status](https://github.com/subosito/gotenv/workflows/Go%20workflow/badge.svg)](https://github.com/subosito/gotenv/actions)
 [![Coverage Status](https://badgen.net/codecov/c/github/subosito/gotenv)](https://codecov.io/gh/subosito/gotenv)
 [![Go Report Card](https://goreportcard.com/badge/github.com/subosito/gotenv)](https://goreportcard.com/report/github.com/subosito/gotenv)
 [![GoDoc](https://godoc.org/github.com/subosito/gotenv?status.svg)](https://godoc.org/github.com/subosito/gotenv)
 
-Load environment variables dynamically in Go.
+Load environment variables from `.env` or `io.Reader` in Go.
 
 ## Usage
 
@@ -120,7 +119,7 @@ Just in case you want to parse environment variables from any `io.Reader`, goten
 pairs := gotenv.Parse(strings.NewReader("FOO=test\nBAR=$FOO"))
 // gotenv.Env{"FOO": "test", "BAR": "test"}
 
-err, pairs = gotenv.StrictParse(strings.NewReader(`FOO="bar"`))
+pairs, err := gotenv.StrictParse(strings.NewReader(`FOO="bar"`))
 // gotenv.Env{"FOO": "bar"}
 ```
 

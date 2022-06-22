@@ -70,7 +70,13 @@ message ServerStatusResponse {
 
 message GetFlowsRequest {
     // Number of flows that should be returned. Incompatible with `since/until`.
+    // Defaults to the most recent (last) `number` flows, unless `first` is
+    // true, then it will return the earliest `number` flows.
     uint64 number = 1;
+
+    // first specifies if we should look at the first `number` flows or the
+    // last `number` of flows. Incompatible with `follow`.
+    bool first = 9;
 
     reserved 2; // removed, do not use
 
@@ -119,9 +125,14 @@ message GetFlowsResponse {
 }
 
 message GetAgentEventsRequest {
-    // Number of agent events that should be returned. Incompatible with
-    // `since/until`.
+    // Number of flows that should be returned. Incompatible with `since/until`.
+    // Defaults to the most recent (last) `number` events, unless `first` is
+    // true, then it will return the earliest `number` events.
     uint64 number = 1;
+
+    // first specifies if we should look at the first `number` events or the
+    // last `number` of events. Incompatible with `follow`.
+    bool first = 9;
 
     // follow sets when the server should continue to stream agent events after
     // printing the last N agent events.
@@ -147,9 +158,14 @@ message GetAgentEventsResponse {
 }
 
 message GetDebugEventsRequest {
-    // Number of debug events that should be returned. Incompatible with
-    // `since/until`.
+    // Number of events that should be returned. Incompatible with `since/until`.
+    // Defaults to the most recent (last) `number` events, unless `first` is
+    // true, then it will return the earliest `number` events.
     uint64 number = 1;
+
+    // first specifies if we should look at the first `number` events or the
+    // last `number` of events. Incompatible with `follow`.
+    bool first = 9;
 
     // follow sets when the server should continue to stream debug events after
     // printing the last N debug events.
