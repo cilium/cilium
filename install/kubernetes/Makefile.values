@@ -10,6 +10,7 @@ export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"
 #export CILIUM_BRANCH:=vX.Y
 #export CILIUM_REPO:=quay.io/cilium/cilium
 #export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver
+#export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay
 export PULL_POLICY:=Always
 export CILIUM_BRANCH:=master
 export CILIUM_REPO:=quay.io/cilium/cilium-ci
@@ -31,7 +32,7 @@ export CILIUM_OPERATOR_BASE_REPO:=quay.io/cilium/operator
 export ETCD_REPO:=quay.io/coreos/etcd
 export ETCD_VERSION:=v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3
 
-export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay
+export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay-ci
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
 export HUBBLE_UI_BACKEND_VERSION:=v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b
 export HUBBLE_UI_FRONTEND_REPO:=quay.io/cilium/hubble-ui
