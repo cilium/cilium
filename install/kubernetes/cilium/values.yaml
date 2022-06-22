@@ -779,7 +779,7 @@ hubble:
     # -- Hubble-relay container image.
     image:
       override: ~
-      repository: "quay.io/cilium/hubble-relay"
+      repository: "quay.io/cilium/hubble-relay-ci"
       tag: "latest"
        # hubble-relay-digest
       digest: ""
