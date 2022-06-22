@@ -116,7 +116,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	id, svc := ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
-		TrafficPolicy:            loadbalancer.SVCTrafficPolicyCluster,
+		ExternalTrafficPolicy:    loadbalancer.SVCTrafficPolicyCluster,
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
 		Selector:                 map[string]string{"foo": "bar"},
 		Labels:                   map[string]string{"foo": "bar"},
@@ -138,7 +138,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		IsHeadless:               true,
-		TrafficPolicy:            loadbalancer.SVCTrafficPolicyCluster,
+		ExternalTrafficPolicy:    loadbalancer.SVCTrafficPolicyCluster,
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
@@ -159,7 +159,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
-		TrafficPolicy:            loadbalancer.SVCTrafficPolicyLocal,
+		ExternalTrafficPolicy:    loadbalancer.SVCTrafficPolicyLocal,
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
@@ -216,7 +216,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 			"http": loadbalancer.NewL4Addr(loadbalancer.L4Type(slim_corev1.ProtocolTCP), uint16(80)),
 			"tftp": loadbalancer.NewL4Addr(loadbalancer.L4Type(slim_corev1.ProtocolUDP), uint16(69)),
 		},
-		TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		ExternalTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 		NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 			"http": {
 				zeroFE.String():     zeroFE,
