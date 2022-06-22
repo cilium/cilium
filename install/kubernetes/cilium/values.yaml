@@ -117,12 +117,6 @@ tolerations:
   #   value: "value"
   #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
-# -- Host aliases for cilium-agent.
-hostAliases: []
-# - ip: 10.10.xx.xx
-#   hostnames:
-#   - cluster1.mesh.cilium.io
-
 # -- The priority class to use for cilium-agent.
 priorityClassName: ""
 
