@@ -122,6 +122,12 @@ type ENISpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	DeleteOnTermination *bool `json:"delete-on-termination,omitempty"`
+
+	// UsePrimaryAddress determines whether an ENI's primary address
+	// should be available for allocations on the node
+	//
+	// +kubebuilder:validation:Optional
+	UsePrimaryAddress *bool `json:"use-primary-address,omitempty"`
 }
 
 // ENI represents an AWS Elastic Network Interface
