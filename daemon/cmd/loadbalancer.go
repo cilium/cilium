@@ -96,13 +96,13 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	}
 
 	p := &loadbalancer.SVC{
-		Name:                svcName,
-		Namespace:           svcNamespace,
-		Type:                svcType,
-		Frontend:            frontend,
-		Backends:            backends,
-		TrafficPolicy:       svcTrafficPolicy,
-		HealthCheckNodePort: svcHealthCheckNodePort,
+		Name:                  svcName,
+		Namespace:             svcNamespace,
+		Type:                  svcType,
+		Frontend:              frontend,
+		Backends:              backends,
+		ExternalTrafficPolicy: svcTrafficPolicy,
+		HealthCheckNodePort:   svcHealthCheckNodePort,
 	}
 	created, id, err := h.svc.UpsertService(p)
 	if err == nil && id != frontend.ID {

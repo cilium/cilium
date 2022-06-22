@@ -113,16 +113,16 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		backends[i] = *backend.DeepCopy()
 	}
 	return &lb.SVC{
-		Frontend:            *svc.frontend.DeepCopy(),
-		Backends:            backends,
-		Type:                svc.svcType,
-		TrafficPolicy:       svc.svcTrafficPolicy,
-		NatPolicy:           svc.svcNatPolicy,
-		HealthCheckNodePort: svc.svcHealthCheckNodePort,
-		Name:                svc.svcName,
-		Namespace:           svc.svcNamespace,
-		L7LBProxyPort:       svc.l7LBProxyPort,
-		L7LBFrontendPorts:   svc.l7LBFrontendPorts,
+		Frontend:              *svc.frontend.DeepCopy(),
+		Backends:              backends,
+		Type:                  svc.svcType,
+		ExternalTrafficPolicy: svc.svcTrafficPolicy,
+		NatPolicy:             svc.svcNatPolicy,
+		HealthCheckNodePort:   svc.svcHealthCheckNodePort,
+		Name:                  svc.svcName,
+		Namespace:             svc.svcNamespace,
+		L7LBProxyPort:         svc.l7LBProxyPort,
+		L7LBFrontendPorts:     svc.l7LBFrontendPorts,
 	}
 }
 
@@ -523,7 +523,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 		logfields.Backends:  params.Backends,
 
 		logfields.ServiceType:                params.Type,
-		logfields.ServiceTrafficPolicy:       params.TrafficPolicy,
+		logfields.ServiceTrafficPolicy:       params.ExternalTrafficPolicy,
 		logfields.ServiceHealthCheckNodePort: params.HealthCheckNodePort,
 		logfields.ServiceName:                params.Name,
 		logfields.ServiceNamespace:           params.Namespace,
@@ -1035,7 +1035,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 			sessionAffinity:           p.SessionAffinity,
 			sessionAffinityTimeoutSec: p.SessionAffinityTimeoutSec,
 
-			svcTrafficPolicy:         p.TrafficPolicy,
+			svcTrafficPolicy:         p.ExternalTrafficPolicy,
 			svcNatPolicy:             p.NatPolicy,
 			svcHealthCheckNodePort:   p.HealthCheckNodePort,
 			loadBalancerSourceRanges: p.LoadBalancerSourceRanges,
@@ -1065,7 +1065,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		prevSessionAffinity = svc.sessionAffinity
 		prevLoadBalancerSourceRanges = svc.loadBalancerSourceRanges
 		svc.svcType = p.Type
-		svc.svcTrafficPolicy = p.TrafficPolicy
+		svc.svcTrafficPolicy = p.ExternalTrafficPolicy
 		svc.svcNatPolicy = p.NatPolicy
 		svc.svcHealthCheckNodePort = p.HealthCheckNodePort
 		svc.sessionAffinity = p.SessionAffinity
@@ -1340,7 +1340,7 @@ func (s *Service) restoreServicesLocked() error {
 			backends:         svc.Backends,
 			backendByHash:    map[string]*lb.Backend{},
 			svcType:          svc.Type,
-			svcTrafficPolicy: svc.TrafficPolicy,
+			svcTrafficPolicy: svc.ExternalTrafficPolicy,
 			svcNatPolicy:     svc.NatPolicy,
 
 			sessionAffinity:           svc.SessionAffinity,

@@ -335,7 +335,7 @@ type SVC struct {
 	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID
 	Backends                  []Backend        // List of service backends
 	Type                      SVCType          // Service type
-	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
+	ExternalTrafficPolicy     SVCTrafficPolicy // Service external traffic policy
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
@@ -368,7 +368,7 @@ func (s *SVC) GetModel() *models.Service {
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
 			Type:                string(s.Type),
-			TrafficPolicy:       string(s.TrafficPolicy),
+			TrafficPolicy:       string(s.ExternalTrafficPolicy),
 			NatPolicy:           natPolicy,
 			HealthCheckNodePort: s.HealthCheckNodePort,
 
