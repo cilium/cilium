@@ -14,6 +14,7 @@
 {{- $fragmentTracking := "true" -}}
 {{- $crdWaitTimeout := "5m" -}}
 {{- $defaultKubeProxyReplacement := "probe" -}}
+{{- $azureUsePrimaryAddress := "true" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -39,10 +40,18 @@
   {{- $defaultBpfMasquerade = "false" -}}
 {{- end -}}
 
+{{- /* Default values when 1.12 was initially deployed */ -}}
+{{- if semverCompare ">=1.12" (default "1.12" .Values.upgradeCompatibility) -}}
+  {{- if .Values.azure.enabled }}
+      {{- $azureUsePrimaryAddress = "false" -}}
+  {{- end }}
+{{- end -}}
+
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
+{{- $azureUsePrimaryAddress := (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -407,6 +416,7 @@ data:
 {{- if .Values.azure.userAssignedIdentityID }}
   azure-user-assigned-identity-id: {{ .Values.azure.userAssignedIdentityID | quote }}
 {{- end }}
+  azure-use-primary-address: {{ $azureUsePrimaryAddress | quote }}
 {{- end }}
 
 {{- if .Values.alibabacloud.enabled }}
