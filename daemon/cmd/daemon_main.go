@@ -1051,7 +1051,9 @@ func initializeFlags() {
 	flags.Bool(option.ExternalClusterIPName, false, "Enable external access to ClusterIP services (default false)")
 	option.BindEnv(option.ExternalClusterIPName)
 
-	flags.IntSlice(option.VLANBPFBypass, []int{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
+	// flags.IntSlice cannot be used due to missing support for appropriate conversion in Viper.
+	// See https://github.com/cilium/cilium/pull/20282 for more information.
+	flags.StringSlice(option.VLANBPFBypass, []string{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
 	option.BindEnv(option.VLANBPFBypass)
 
 	flags.Bool(option.EnableICMPRules, false, "Enable ICMP-based rule support for Cilium Network Policies")
