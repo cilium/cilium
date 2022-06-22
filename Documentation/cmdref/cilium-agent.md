@@ -249,7 +249,7 @@ cilium-agent [flags]
   -t, --tunnel string                                           Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
       --tunnel-port int                                         Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --version                                                 Print version information
-      --vlan-bpf-bypass ints                                    List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs
+      --vlan-bpf-bypass strings                                 List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs
       --write-cni-conf-when-ready string                        Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
 ```
 
