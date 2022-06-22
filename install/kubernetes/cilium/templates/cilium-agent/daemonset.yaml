@@ -627,10 +627,6 @@ spec:
       # the etcd service
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
-      {{- with .Values.hostAliases }}
-      hostAliases:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
