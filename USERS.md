@@ -223,6 +223,10 @@ Users (Alphabetically)
       U: Networking, Hubble, Encryption, kube-proxy replacement
       L: kops.sigs.k8s.io/
       Q: @olemarkus
+      
+    * N: Kryptos Logic
+      D: Kryptos is a cyber security company that is using Kubernetes on-prem in which Cilium is our CNI of choice.
+      U: Networking, Observability, kube-proxy replacement
 
     * N: Kube-OVN
       D: Kube-OVN uses Cilium to enhance service performance, security and monitoring.  
