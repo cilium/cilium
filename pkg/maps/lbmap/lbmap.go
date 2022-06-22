@@ -72,7 +72,8 @@ type UpsertServiceParams struct {
 	IPv6                      bool
 	Type                      loadbalancer.SVCType
 	NatPolicy                 loadbalancer.SVCNatPolicy
-	Local                     bool
+	InternalLocal             bool
+	ExternalLocal             bool
 	Scope                     uint8
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
@@ -145,7 +146,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *UpsertServiceParams, ipv6 bool) err
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backends), int(p.ID), p.Type, p.Local, p.NatPolicy,
+	if err := updateMasterService(svcKey, len(backends), int(p.ID), p.Type, p.InternalLocal, p.ExternalLocal, p.NatPolicy,
 		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
@@ -628,7 +629,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 }
 
 func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
-	svcLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
+	svcInternalLocal bool, svcExternalLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
@@ -641,7 +642,8 @@ func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcTyp
 	zeroValue.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
-		SvcLocal:         svcLocal,
+		SvcInternalLocal: svcInternalLocal,
+		SvcExternalLocal: svcExternalLocal,
 		SvcNatPolicy:     svcNatPolicy,
 		SessionAffinity:  sessionAffinity,
 		IsRoutable:       isRoutable,

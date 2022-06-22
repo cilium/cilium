@@ -89,6 +89,7 @@ type svcInfo struct {
 	backendByHash map[string]*lb.Backend
 
 	svcType                   lb.SVCType
+	svcInternalTrafficPolicy  lb.SVCTrafficPolicy
 	svcExternalTrafficPolicy  lb.SVCTrafficPolicy
 	svcNatPolicy              lb.SVCNatPolicy
 	sessionAffinity           bool
@@ -116,6 +117,7 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		Frontend:              *svc.frontend.DeepCopy(),
 		Backends:              backends,
 		Type:                  svc.svcType,
+		InternalTrafficPolicy: svc.svcInternalTrafficPolicy,
 		ExternalTrafficPolicy: svc.svcExternalTrafficPolicy,
 		NatPolicy:             svc.svcNatPolicy,
 		HealthCheckNodePort:   svc.svcHealthCheckNodePort,
@@ -139,6 +141,9 @@ func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool
 		}
 		fallthrough
 	default:
+		if svc.svcInternalTrafficPolicy == lb.SVCTrafficPolicyLocal {
+			return true, frontend.Scope == lb.ScopeInternal
+		}
 		return false, false
 	}
 }
@@ -634,7 +639,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	}
 
 	// Only add a HealthCheckNodePort server if this is a service which may
-	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
+	// only contain local backends (i.e. it has externalTrafficPolicy=InternalLocal)
 	if option.Config.EnableHealthCheckNodePort {
 		if onlyLocalBackends && filterBackends {
 			localBackendCount := len(backendsCopy)
@@ -642,7 +647,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 				localBackendCount, svc.svcHealthCheckNodePort)
 		} else if svc.svcHealthCheckNodePort == 0 {
 			// Remove the health check server in case this service used to have
-			// externalTrafficPolicy=Local with HealthCheckNodePort in the previous
+			// externalTrafficPolicy=InternalLocal with HealthCheckNodePort in the previous
 			// version, but not anymore.
 			s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 		}
@@ -755,7 +760,7 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 						PrevBackendsCount:         len(info.backends),
 						IPv6:                      info.frontend.IsIPv6(),
 						Type:                      info.svcType,
-						Local:                     onlyLocalBackends,
+						InternalLocal:             onlyLocalBackends,
 						Scope:                     info.frontend.L3n4Addr.Scope,
 						SessionAffinity:           info.sessionAffinity,
 						SessionAffinityTimeoutSec: info.sessionAffinityTimeoutSec,
@@ -1045,8 +1050,8 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		s.svcByID[p.Frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
-		// Local Redirect Policies with service matcher would have same frontend
-		// as the service clusterIP type. In such cases, if a Local redirect service
+		// InternalLocal Redirect Policies with service matcher would have same frontend
+		// as the service clusterIP type. In such cases, if a InternalLocal redirect service
 		// exists, we shouldn't override it with clusterIP type (e.g., k8s event/sync, etc).
 		if svc.svcType == lb.SVCTypeLocalRedirect && p.Type == lb.SVCTypeClusterIP {
 			err := fmt.Errorf("local-redirect service exists for "+
@@ -1054,7 +1059,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 			return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, err
 
 		}
-		// Local-redirect service can only override clusterIP service type or itself.
+		// InternalLocal-redirect service can only override clusterIP service type or itself.
 		if p.Type == lb.SVCTypeLocalRedirect &&
 			(svc.svcType != lb.SVCTypeClusterIP && svc.svcType != lb.SVCTypeLocalRedirect) {
 			err := fmt.Errorf("skip local-redirect service for "+
@@ -1234,7 +1239,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		IPv6:                      v6FE,
 		NatPolicy:                 natPolicy,
 		Type:                      svc.svcType,
-		Local:                     onlyLocalBackends,
+		InternalLocal:             onlyLocalBackends,
 		Scope:                     svc.frontend.L3n4Addr.Scope,
 		SessionAffinity:           svc.sessionAffinity,
 		SessionAffinityTimeoutSec: svc.sessionAffinityTimeoutSec,

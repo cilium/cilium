@@ -705,7 +705,7 @@ func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
-	// Create a service entry of type Local Redirect.
+	// Create a service entry of type InternalLocal Redirect.
 	p1 := &lb.SVC{
 		Frontend:              frontend1,
 		Backends:              allBackends,
@@ -714,7 +714,7 @@ func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
 		Name:                  "svc1",
 		Namespace:             "ns1",
 	}
-	// Insert the service entry of type Local Redirect.
+	// Insert the service entry of type InternalLocal Redirect.
 	created, id, err := m.svc.UpsertService(p1)
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
@@ -732,7 +732,7 @@ func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
 	c.Assert(len(svcFromLbMap.Backends), Equals, len(svc.backends))
 }
 
-// Local redirect service should be able to override a ClusterIP service with same
+// InternalLocal redirect service should be able to override a ClusterIP service with same
 // frontend, but reverse should produce an error. Also, it should not override
 // any other type besides itself or clusterIP type.
 func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
@@ -769,11 +769,11 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
 
-	// Insert the service entry of type Local Redirect.
+	// Insert the service entry of type InternalLocal Redirect.
 	p1.Type = lb.SVCTypeLocalRedirect
 	created, id, err = m.svc.UpsertService(p1)
 
-	// Local redirect service should override the ClusterIP service with node-local backends.
+	// InternalLocal redirect service should override the ClusterIP service with node-local backends.
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id, Not(Equals), lb.ID(0))
@@ -807,11 +807,11 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
 
-	// Insert the service entry of type Local Redirect.
+	// Insert the service entry of type InternalLocal Redirect.
 	p2.Type = lb.SVCTypeLocalRedirect
 	created, _, err = m.svc.UpsertService(p2)
 
-	// Local redirect service should not override the NodePort service.
+	// InternalLocal redirect service should not override the NodePort service.
 	c.Assert(err, NotNil)
 	c.Assert(created, Equals, false)
 }

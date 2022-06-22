@@ -49,24 +49,26 @@ const (
 type ServiceFlags uint16
 
 const (
-	serviceFlagNone            = 0
-	serviceFlagExternalIPs     = 1 << 0
-	serviceFlagNodePort        = 1 << 1
-	serviceFlagLocalScope      = 1 << 2
-	serviceFlagHostPort        = 1 << 3
-	serviceFlagSessionAffinity = 1 << 4
-	serviceFlagLoadBalancer    = 1 << 5
-	serviceFlagRoutable        = 1 << 6
-	serviceFlagSourceRange     = 1 << 7
-	serviceFlagLocalRedirect   = 1 << 8
-	serviceFlagNat46x64        = 1 << 9
-	serviceFlagL7LoadBalancer  = 1 << 10
+	serviceFlagNone               = 0
+	serviceFlagExternalIPs        = 1 << 0
+	serviceFlagNodePort           = 1 << 1
+	serviceFlagExternalLocalScope = 1 << 2
+	serviceFlagHostPort           = 1 << 3
+	serviceFlagSessionAffinity    = 1 << 4
+	serviceFlagLoadBalancer       = 1 << 5
+	serviceFlagRoutable           = 1 << 6
+	serviceFlagSourceRange        = 1 << 7
+	serviceFlagLocalRedirect      = 1 << 8
+	serviceFlagNat46x64           = 1 << 9
+	serviceFlagL7LoadBalancer     = 1 << 10
+	serviceFlagInternalLocalScope = 1 << 11
 )
 
 type SvcFlagParam struct {
 	SvcType          SVCType
 	SvcNatPolicy     SVCNatPolicy
-	SvcLocal         bool
+	SvcInternalLocal bool
+	SvcExternalLocal bool
 	SessionAffinity  bool
 	IsRoutable       bool
 	CheckSourceRange bool
@@ -97,8 +99,11 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 		flags |= serviceFlagNat46x64
 	}
 
-	if p.SvcLocal {
-		flags |= serviceFlagLocalScope
+	if p.SvcInternalLocal {
+		flags |= serviceFlagInternalLocalScope
+	}
+	if p.SvcExternalLocal {
+		flags |= serviceFlagExternalLocalScope
 	}
 	if p.SessionAffinity {
 		flags |= serviceFlagSessionAffinity
@@ -137,7 +142,7 @@ func (s ServiceFlags) SVCType() SVCType {
 // SVCTrafficPolicy returns a service traffic policy from the flags
 func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
 	switch {
-	case s&serviceFlagLocalScope != 0:
+	case s&serviceFlagExternalLocalScope != 0:
 		return SVCTrafficPolicyLocal
 	default:
 		return SVCTrafficPolicyCluster
@@ -162,7 +167,7 @@ func (s ServiceFlags) String() string {
 	var str []string
 
 	str = append(str, string(s.SVCType()))
-	if s&serviceFlagLocalScope != 0 {
+	if s&serviceFlagExternalLocalScope != 0 {
 		str = append(str, string(SVCTrafficPolicyLocal))
 	}
 	if s&serviceFlagSessionAffinity != 0 {
