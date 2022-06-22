@@ -344,7 +344,8 @@ Annotations:
   pod's interface to avoid primary IP from interfering with host networking. Unless the
   flag is explicitly set to true, ``--bypass-ip-availability-upon-restore`` also needs
   to be set to ensure that pods using primary IP get a new IP address. This flag can be
-  removed once the upgrade is complete.
+  removed once the upgrade is complete. Backward compatibility will be maintained when
+  ``upgradeCompatibility`` is set on the helm chart.
 
 New Options
 ~~~~~~~~~~~
