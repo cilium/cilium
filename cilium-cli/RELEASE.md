@@ -44,7 +44,7 @@ Then open a pull request against `master` branch. Wait for the PR to be reviewed
 Update your local checkout:
 
     git checkout master
-		git pull origin master
+    git pull origin master
 
 Set the commit you want to tag:
 
@@ -65,7 +65,7 @@ draft release, building artifacts and attaching them to the draft release. Once
 the draft is ready, use the "Auto-generate release notes" button to generate
 the release notes from PR titles, review them and publish the release.
 
-## (OPTIONAL) Update the Homebrew formula
+## (Optional) Update the Homebrew formula
 
 The `cilium-cli` Homebrew formula can be updated using the command:
 
