@@ -15,7 +15,7 @@ Aleksei Zakharov                        zakharov.a.g@yandex.ru
 Alexander Alemayhu                      alexander@alemayhu.com
 Alexander Berger                        alex-berger@users.noreply.github.com
 Alexander Block                         ablock84@gmail.com
-Alexandre Perrin                        alex@kaworu.ch
+Alexandre Perrin                        alex@isovalent.com
 Alexei Starovoitov                      alexei.starovoitov@gmail.com
 Alex Romanov                            alex@romanov.ws
 Alex Szakaly                            alex.szakaly@gmail.com
@@ -26,6 +26,7 @@ Anderson, David L                       david.l.anderson@intel.com
 Andor Nemeth                            andor_nemeth@swissre.com
 Andree Klattenhoff                      mail@andr.ee
 André Martins                           andre@cilium.io
+Andrew Bulford                          andrew.bulford@form3.tech
 Andrew Holt                             andrew.holt@utmost.co
 Andrew Sy Kim                           kim.andrewsy@gmail.com
 Andrey Devyatkin                        andrey.devyatkin@fivexl.io
@@ -36,6 +37,8 @@ Anish Shah                              anishshah@google.com
 Anit Gandhi                             anitgandhi@gmail.com
 Ankur Kothiwal                          ankur.kothiwal@accuknox.com
 Anthony Rabbito                         hello@anthonyrabbito.com
+Antoine Coetsier                        acr@exoscale.ch
+Antoine Legrand                         2t.antoine@gmail.com
 Anton Protopopov                        a.s.protopopov@gmail.com
 Archana Shinde                          archana.m.shinde@intel.com
 Arika Chen                              eaglesora@gmail.com
@@ -45,6 +48,7 @@ Arvind Soni                             arvind@covalent.io
 Ashray Jain                             ashrayj@palantir.com
 Ashwin Paranjpe                         ashwin@covalent.io
 Assiya Khuzyakhmetova                   assiya.khuzyakhmetova@nu.edu.kz
+Atkins Chang                            atkinschang@gmail.com
 Austin Cawley-Edwards                   austin.cawley@gmail.com
 Ayush Dwivedi                           ayush.dwivedi@accuknox.com
 Barun Acharya                           barun1024@gmail.com
@@ -57,8 +61,10 @@ Bob Bouteillier                         bob.bouteillier@datadoghq.com
 Bokang Li                               libokang.dev@gmail.com
 Bolun Zhao                              blzhao@google.com
 Boran Car                               boran.car@gmail.com
+Brad Whitfield                          bradswhitfield@gmail.com
 Brian Topping                           brian@coglative.com
 Bruno Miguel Custódio                   brunomcustodio@gmail.com
+Bryan Stenson                           bryan.stenson@okta.com
 Calum MacRae                            hi@cmacr.ae
 Camilo Schoeningh                       camilo.schoeningh@dunnhumby.com
 Canh Ngo                                canhnt@gmail.com
@@ -75,6 +81,7 @@ Christian Hörtnagl                      christian2@univie.ac.at
 Christian Hüning                        christian.huening@finleap.com
 Christine Chen                          christine.chen@datadoghq.com
 Christopher Biscardi                    chris@christopherbiscardi.com
+Christopher Schmidt                     fakod666@gmail.com
 Cintia Sanchez Garcia                   cynthiasg@icloud.com
 Claudia J. Kang                         claudiajkang@gmail.com
 Clément Delzotti                        elk1ns@outlook.fr
@@ -94,6 +101,7 @@ Daniel T. Lee                           danieltimlee@gmail.com
 Danni Skov Høglund                      skuffe@pwnz.dk
 Dan Sexton                              dan.b.sexton@gmail.com
 Dan Wendlandt                           dan@covalent.io
+Darren Foo                              darren.foo@shopify.com
 Darren Mackintosh                       unixdaddy@gmail.com
 Darshan Chaudhary                       deathbullet@gmail.com
 David Birks                             davidebirks@gmail.com
@@ -121,6 +129,7 @@ Dmitry Savintsev                        dsavints@verizonmedia.com
 Dom Del Nano                            ddelnano@gmail.com
 Dom Goodwin                             dom.goodwin@capgemini.com
 Duffie Cooley                           dcooley@isovalent.com
+Dylan Reimerink                         dylan.reimerink@isovalent.com
 El-Fadel Bonfoh                         elfadel@accuknox.com
 Eloy Coto                               eloy.coto@gmail.com
 Emmanuel T Odeke                        emmanuel@orijtech.com
@@ -157,6 +166,7 @@ Guilherme Souza                         101073+guilhermef@users.noreply.github.c
 Gunju Kim                               gjkim042@gmail.com
 Hang Yan                                hang.yan@hotmail.com
 Han Zhou                                hzhou8@ebay.com
+Harsh Modi                              harshmodi@google.com
 Heiko Rothe                             me@heikorothe.com
 Hemanth Malla                           hemanth.malla@datadoghq.com
 Hemslo Wang                             hemslo.wang@gmail.com
@@ -186,6 +196,7 @@ Jim Angel                               jimangel@google.com.com
 Jim Ntosas                              ntosas@gmail.com
 JinLin Fu                               withlin@apache.org
 Jiong Wang                              jiong.wang@netronome.com
+Joao Ubaldo                             me@joaoubaldo.com
 Joao Victorino                          joao@accuknox.com
 Joe Farrell                             joe2farrell@gmail.com
 Joe Stringer                            joe@cilium.io
@@ -214,6 +225,7 @@ Jussi Maki                              jussi@isovalent.com
 Kaito Ii                                kaitoii1111@gmail.com
 Kamil Lach                              kamil.lach.rs@gmail.com
 Karl Heins                              karlheins@northwesternmutual.com
+Karsten Nielsen                         karsten.nielsen@ingka.ikea.com
 Katarzyna Borkmann                      kasia@iogearbox.net
 Kazuki Suda                             kazuki.suda@gmail.com
 Keisuke Kondo                           k.gryphus@gmail.com
@@ -223,6 +235,7 @@ Kevin Holditch                          82885135+kevholditch-f3@users.noreply.gi
 Kiran Bondalapati                       kiran@bondalapati.com
 Kir Kolyshkin                           kolyshkin@gmail.com
 Koichiro Den                            den@klaipeden.com
+Konstantin Aksenov                      konstantin.aksenov@flant.com
 Kornilios Kourtis                       kornilios@isovalent.com
 Laurent Bernaille                       laurent.bernaille@datadoghq.com
 Lehner Florian                          dev@der-flo.net
@@ -249,6 +262,7 @@ Mandar U Jog                            mjog@google.com
 Manuel Buil                             mbuil@suse.com
 Manuel Stößel                           manuel.stoessel@t-systems.com
 Marcin Skarbek                          git@skarbek.name
+Marco Kilchhofer                        mkilchhofer@users.noreply.github.com
 Marc Stulz                              m@footek.ch
 Marius Gerling                          marius.gerling@uniberg.com
 Mark deVilliers                         markdevilliers@gmail.com
@@ -271,6 +285,7 @@ Max Körbächer                           16919345+mkorbi@users.noreply.github.c
 Melissa Peiffer                         mbp83@nau.edu
 Michael Fischer                         fiscmi@amazon.com
 Michael Fornaro                         20387402+xUnholy@users.noreply.github.com
+Michael Francis                         michael@melenion.com
 Michael Kashin                          mmkashin@gmail.com
 Michael Petrov                          michael@openai.com
 Michael Ryan Dempsey                    bluestealth@bluestealth.pw
@@ -279,11 +294,13 @@ Michael Vorburger                       vorburger@redhat.com
 Michal Rostecki                         vadorovsky@gmail.com
 Michi Mutsuzaki                         michi@isovalent.com
 Mike Fedosin                            mfedosin@gmail.com
+MikeLing                                sabergeass@gmail.com
 Moh Ahmed                               moh.ahmed@cengn.ca
 Mohammad Yosefpor                       47300215+m-yosefpor@users.noreply.github.com
 Moritz Johner                           beller.moritz@googlemail.com
 Moshe Immerman                          moshe.immerman@vitalitygroup.com
 Nate Sweet                              nathanjsweet@pm.me
+Nate Taylor                             ntaylor1781@gmail.com
 Nathan Bird                             njbird@infiniteenergy.com
 nathannaveen                            42319948+nathannaveen@users.noreply.github.com
 Nathan Taylor                           ntaylor1781@gmail.com
@@ -293,9 +310,12 @@ Neil Seward                             neil.seward@elasticpath.com
 Neil Wilson                             neil@aldur.co.uk
 Nick M                                  4718+rkage@users.noreply.github.com
 Nicolas Busseneau                       nicolas@isovalent.com
+Nico Vibert                             nicolas.vibert@isovalent.com
+Nikolay Aleksandrov                     nikolay@isovalent.com
 Nirmoy Das                              ndas@suse.de
 Nitish Malhotra                         nitishm@microsoft.com
 Noel Georgi                             git@frezbo.dev
+Odin Ugedal                             ougedal@palantir.com
 Oilbeater                               mengxin@alauda.io
 Ole Markus With                         o.with@sportradar.com
 Oliver Wang                             a0924100192@gmail.com
@@ -320,6 +340,7 @@ Quentin Monnet                          quentin@isovalent.com
 Raam                                    ram29@bskyb.com
 Raghu Gyambavantha                      raghug@bld-ml-loan4.olympus.f5net.com
 Rahul Jadhav                            nyrahul@gmail.com
+Rahul Joshi                             rkjoshi@google.com
 Rajat Jindal                            rajatjindal83@gmail.com
 Raphael Campos                          raphael@accuknox.com
 Raphaël Pinson                          raphael@isovalent.com
@@ -341,6 +362,7 @@ Ross Guarino                            rssguar@gmail.com
 Rui Gu                                  rui@covalent.io
 Russell Bryant                          russell@russellbryant.net
 Ryan McNamara                           rmcnamara@palantir.com
+Sahid Orentino Ferdjaoui                sahid.ferdjaoui@industrialdiscipline.com
 Saikrishna Edupuganti                   saikrishna.edupuganti@intel.com
 Saiyam Pathak                           saiyam@civo.com
 Salvatore Mazzarino                     salvatore@accuknox.com
@@ -370,7 +392,7 @@ Strukov Anton                           anstrukov@luxoft.com
 Sugang Li                               sugangli@google.com
 Swaminathan Vasudevan                   svasudevan@suse.com
 Taeung Song                             treeze.taeung@gmail.com
-Tam Mach                                tam.mach@isovalent.com
+Tam Mach                                tam.mach@cilium.io
 Tasdik Rahman                           prodicus@outlook.com
 Te-Yu Chang                             dale.teyuchang@gmail.com
 Thales Paiva                            thales@accuknox.com
@@ -385,7 +407,7 @@ Tobias Brunner                          tobias.brunner@vshn.ch
 Tobias Klauser                          tobias@cilium.io
 Tobias Kohlbau                          tobias@kohlbau.de
 Tobias Mose                             mosetobias@gmail.com
-Tom Hadlaw                              thomas.hadlaw@hootsuite.com
+Tom Hadlaw                              tom.hadlaw@isovalent.com
 Tomoki Sugiura                          cheztomo513@gmail.com
 Tom Payne                               tom@isovalent.com
 Tony Lambiris                           tony@criticalstack.com
@@ -412,11 +434,16 @@ Wang Li                                 wangli09@kuaishou.com
 Wayne Haber                             whaber@gitlab.com
 Wazir Ahmed                             wazir@accuknox.com
 Weilong Cui                             cuiwl@google.com
+Wei Yang                                wei.yang@daocloud.io
 Weizhou Lan                             weizhou.lan@daocloud.io
 Wenxian Li                              wofanli@gmail.com
+Will Daly                               widaly@microsoft.com
 Will Deuschle                           wdeuschle@palantir.com
 Will Stewart                            will@northflank.com
+Wojtek Czekalski                        me@wczekalski.com
 Wongyu Lee                              kyu21@outlook.com
+Xiaoyang Zhu                            zhuxiaoyang1996@gmail.com
+Xin Li                                  xin.li@daocloud.io
 Xinyuan Zhang                           zhangxinyuan@google.com
 yanhongchang                            yanhongchang@100tal.com
 Ye Sijun                                junnplus@gmail.com
@@ -425,6 +452,7 @@ Yongkun Gui                             ygui@google.com
 Yosh de Vos                             yosh@elzorro.nl
 Youssef Azrak                           yazrak.tech@gmail.com
 Yuan Liu                                liuyuan@google.com
+Yugo Kobayashi                          kobdotsh@gmail.com
 Yurii Dzobak                            yurii.dzobak@lotusflare.com
 Yurii Komar                             Subreptivus@gmail.com
 Yusuke Suzuki                           yusuke-suzuki@cybozu.co.jp

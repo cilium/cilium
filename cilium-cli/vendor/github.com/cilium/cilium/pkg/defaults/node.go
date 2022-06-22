@@ -19,8 +19,18 @@ const (
 	// HostDevice is the name of the device that connects the cilium IP
 	// space with the host's networking model
 	HostDevice = "cilium_host"
+
 	// SecondHostDevice is the name of the second interface of the host veth pair.
 	SecondHostDevice = "cilium_net"
+
+	// CiliumK8sAnnotationPrefix is the prefix key for the annotations used in kubernetes.
+	CiliumK8sAnnotationPrefix = "cilium.io/"
+
+	// AgentNotReadyNodeTaint is a node taint which prevents pods from being
+	// scheduled. Once cilium is setup it is removed from the node. Mostly
+	// used in cloud providers to prevent existing CNI plugins from managing
+	// pods.
+	AgentNotReadyNodeTaint = "node." + CiliumK8sAnnotationPrefix + "agent-not-ready"
 )
 
 var (

@@ -5,7 +5,6 @@ package labels
 
 import (
 	"bytes"
-	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -43,6 +42,10 @@ const (
 	// with IDNameHost if the kube-apiserver is running on the local host.
 	IDNameKubeAPIServer = "kube-apiserver"
 
+	// IDNameIngress is the label used to identify Ingress proxies. It is part
+	// of the reserved identity 8.
+	IDNameIngress = "ingress"
+
 	// IDNameNone is the label used to identify no endpoint or other L3 entity.
 	// It will never be assigned and this "label" is here for consistency with
 	// other Entities.
@@ -72,6 +75,10 @@ var (
 	// LabelKubeAPIServer is the label used for the kube-apiserver. See comment
 	// on IDNameKubeAPIServer.
 	LabelKubeAPIServer = Labels{IDNameKubeAPIServer: NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved)}
+
+	// LabelIngress is the label used for Ingress proxies. See comment
+	// on IDNameIngress.
+	LabelIngress = Labels{IDNameIngress: NewLabel(IDNameIngress, "", LabelSourceReserved)}
 )
 
 const (
@@ -442,12 +449,6 @@ func (l Labels) Remove(from Labels) Labels {
 	return result
 }
 
-// SHA256Sum calculates l' internal SHA256Sum. For a particular set of labels is
-// guarantee that it will always have the same SHA256Sum.
-func (l Labels) SHA256Sum() string {
-	return fmt.Sprintf("%x", sha512.Sum512_256(l.SortedList()))
-}
-
 // FormatForKVStore returns the label as a formatted string, ending in
 // a semicolon
 //
@@ -456,8 +457,7 @@ func (l Labels) SHA256Sum() string {
 //
 // Non-pointer receiver allows this to be called on a value in a map.
 func (l Label) FormatForKVStore() []byte {
-	// We don't care if the values already have a '=' since this method is
-	// only used to calculate a SHA256Sum
+	// We don't care if the values already have a '='.
 	//
 	// We absolutely care that the final character is a semi-colon.
 	// Identity allocation in the kvstore depends on this (see

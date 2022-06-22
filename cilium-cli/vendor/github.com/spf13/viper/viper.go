@@ -1197,6 +1197,17 @@ func (v *Viper) BindEnv(input ...string) error {
 	return nil
 }
 
+// MustBindEnv wraps BindEnv in a panic.
+// If there is an error binding an environment variable, MustBindEnv will
+// panic.
+func MustBindEnv(input ...string) { v.MustBindEnv(input...) }
+
+func (v *Viper) MustBindEnv(input ...string) {
+	if err := v.BindEnv(input...); err != nil {
+		panic(fmt.Sprintf("error while binding environment variable: %v", err))
+	}
+}
+
 // Given a key, find the value.
 //
 // Viper will check to see if an alias exists first.
@@ -1798,8 +1809,13 @@ func mergeMaps(
 			tsv, ok := sv.(map[interface{}]interface{})
 			if !ok {
 				v.logger.Error(
-					"Could not cast sv to map[interface{}]interface{}; key=%s, st=%v, tt=%v, sv=%v, tv=%v",
-					sk, svType, tvType, sv, tv)
+					"Could not cast sv to map[interface{}]interface{}",
+					"key", sk,
+					"st", svType,
+					"tt", tvType,
+					"sv", sv,
+					"tv", tv,
+				)
 				continue
 			}
 
@@ -1811,8 +1827,13 @@ func mergeMaps(
 			tsv, ok := sv.(map[string]interface{})
 			if !ok {
 				v.logger.Error(
-					"Could not cast sv to map[string]interface{}; key=%s, st=%v, tt=%v, sv=%v, tv=%v",
-					sk, svType, tvType, sv, tv)
+					"Could not cast sv to map[string]interface{}",
+					"key", sk,
+					"st", svType,
+					"tt", tvType,
+					"sv", sv,
+					"tv", tv,
+				)
 				continue
 			}
 			mergeMaps(tsv, ttv, nil)

@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/anypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/option"
@@ -89,6 +89,12 @@ type Service struct {
 	// In CiliumClusterwideEnvoyConfig namespace defaults to "default".
 	// +kubebuilder:validation:Optional
 	Namespace string `json:"namespace"`
+
+	// Port is the port number, which can be used for filtering in case of underlying
+	// is exposing multiple port numbers.
+	//
+	// +kubebuilder:validation:Optional
+	Ports []string `json:"number,omitempty"`
 }
 
 type ServiceListener struct {
@@ -126,7 +132,7 @@ func (in *XDSResource) DeepCopyInto(out *XDSResource) {
 	out.Any, _ = proto.Clone(in.Any).(*anypb.Any)
 }
 
-// Equal returns 'true' if 'a' and 'b' are equal.
+// DeepEqual returns 'true' if 'a' and 'b' are equal.
 func (a *XDSResource) DeepEqual(b *XDSResource) bool {
 	return proto.Equal(a.Any, b.Any)
 }

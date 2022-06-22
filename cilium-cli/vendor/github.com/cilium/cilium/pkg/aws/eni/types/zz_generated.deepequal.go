@@ -307,6 +307,14 @@ func (in *ENISpec) DeepEqual(other *ENISpec) bool {
 		}
 	}
 
+	if (in.UsePrimaryAddress == nil) != (other.UsePrimaryAddress == nil) {
+		return false
+	} else if in.UsePrimaryAddress != nil {
+		if *in.UsePrimaryAddress != *other.UsePrimaryAddress {
+			return false
+		}
+	}
+
 	return true
 }
 

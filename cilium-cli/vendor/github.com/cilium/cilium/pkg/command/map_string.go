@@ -15,7 +15,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-var keyValueRegex = regexp.MustCompile(`([\w-:./@]+=[\w-:./@]*,)*([\w-:./@]+=[\w-:./@]*)$`)
+const (
+	comma = ','
+	equal = '='
+)
+
+var keyValueRegex = regexp.MustCompile(`([\w-:./@]+=[\w-:,./@]*,)*([\w-:./@]+=[\w-,:./@]*[\w-:./@]+)$`)
 
 // GetStringMapString contains one enhancement to support k1=v2,k2=v2 compared to original
 // implementation of GetStringMapString function
@@ -57,9 +62,9 @@ func GetStringMapStringE(vp *viper.Viper, key string) (map[string]string, error)
 			}
 
 			var v = map[string]string{}
-			kvs := strings.Split(s, ",")
+			kvs := splitKeyValue(s, comma, equal)
 			for _, kv := range kvs {
-				temp := strings.Split(kv, "=")
+				temp := strings.Split(kv, string(equal))
 				if len(temp) != 2 {
 					return map[string]string{}, fmt.Errorf("'%s' is not formatted as key=value,key1=value1", s)
 				}
@@ -77,4 +82,41 @@ func isValidKeyValuePair(str string) bool {
 		return true
 	}
 	return len(keyValueRegex.ReplaceAllString(str, "")) == 0
+}
+
+// splitKeyValue is similar to strings.Split, but looks ahead to make sure
+// that sep character is allowed in value component of key-value pair.
+//
+// Example: with the input "c6a.2xlarge=4,15,15,m4.xlarge=2,4,8",
+// - strings.Split function will return []string{"c6a.2xlarge=4", "15", "15", "m4.xlarge=2", "4", "8"}.
+// - splitKeyValue function will return []string{"c6a.2xlarge=4,15,15", "m4.xlarge=2,4,8"} instead.
+func splitKeyValue(str string, sep rune, keyValueSep rune) []string {
+	var sepIndexes []int
+	// find all indexes of separator character
+	for i := 0; i < len(str); i++ {
+		if int32(str[i]) == sep {
+			sepIndexes = append(sepIndexes, i)
+		}
+	}
+
+	if len(sepIndexes) == 0 {
+		return []string{str}
+	}
+
+	if len(sepIndexes) == 1 {
+		index := sepIndexes[0]
+		return []string{str[:index], str[index+1:]}
+	}
+
+	var res []string
+	var start = 0
+	for i := 0; i < len(sepIndexes)-1; i++ {
+		if strings.Contains(str[sepIndexes[i]:sepIndexes[i+1]], string(keyValueSep)) {
+			res = append(res, str[start:sepIndexes[i]])
+			start = sepIndexes[i] + 1
+		}
+	}
+	// append the remaining for last sep index
+	res = append(res, str[start:])
+	return res
 }

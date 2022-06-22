@@ -814,6 +814,11 @@ func (in *NodeElement) DeepCopyInto(out *NodeElement) {
 		*out = new(NodeAddressing)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.IngressAddress != nil {
+		in, out := &in.IngressAddress, &out.IngressAddress
+		*out = new(NodeAddressing)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.PrimaryAddress != nil {
 		in, out := &in.PrimaryAddress, &out.PrimaryAddress
 		*out = new(NodeAddressing)

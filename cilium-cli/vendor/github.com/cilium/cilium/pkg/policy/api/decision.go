@@ -58,5 +58,11 @@ func (d *Decision) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON returns the decision as JSON formatted buffer
 func (d Decision) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s"`, d)), nil
+	s := d.String()
+	// length of decision string plus two `"`
+	b := make([]byte, len(s)+2)
+	b[0] = '"'
+	copy(b[1:], s)
+	b[len(b)-1] = '"'
+	return b, nil
 }

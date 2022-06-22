@@ -15,10 +15,9 @@
 package runtime
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-
-	"encoding/json"
 )
 
 // A ClientResponse represents a client response
@@ -61,13 +60,18 @@ type APIError struct {
 	Code          int
 }
 
-func (a *APIError) Error() string {
-	resp, _ := json.Marshal(a.Response)
-	return fmt.Sprintf("%s (status %d): %s", a.OperationName, a.Code, resp)
+func (o *APIError) Error() string {
+	var resp []byte
+	if err, ok := o.Response.(error); ok {
+		resp = []byte("'" + err.Error() + "'")
+	} else {
+		resp, _ = json.Marshal(o.Response)
+	}
+	return fmt.Sprintf("%s (status %d): %s", o.OperationName, o.Code, resp)
 }
 
-func (a *APIError) String() string {
-	return a.Error()
+func (o *APIError) String() string {
+	return o.Error()
 }
 
 // IsSuccess returns true when this elapse o k response returns a 2xx status code

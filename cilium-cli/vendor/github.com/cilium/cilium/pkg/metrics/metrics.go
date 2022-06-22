@@ -52,6 +52,9 @@ const (
 	// SubsystemKVStore is the subsystem to scope metrics related to the kvstore.
 	SubsystemKVStore = "kvstore"
 
+	// SubsystemFQDN is the subsystem to scope metrics related to the FQDN proxy.
+	SubsystemFQDN = "fqdn"
+
 	// SubsystemNodes is the subsystem to scope metrics related to the node manager.
 	SubsystemNodes = "nodes"
 
@@ -147,8 +150,12 @@ const (
 	// started by cilium (Envoy, monitor, etc..)
 	LabelSubsystem = "subsystem"
 
-	// LabelKind is the kind a label
+	// LabelKind is the kind of a label
 	LabelKind = "kind"
+
+	// LabelEventSource is the source of a label for event metrics
+	// i.e. k8s, containerd, api.
+	LabelEventSource = "source"
 
 	// LabelPath is the label for the API path
 	LabelPath = "path"
@@ -273,8 +280,8 @@ var (
 
 	// Identity
 
-	// Identity is the number of identities currently in use on the node
-	Identity = NoOpGauge
+	// Identity is the number of identities currently in use on the node by type
+	Identity = NoOpGaugeVec
 
 	// Events
 
@@ -282,17 +289,11 @@ var (
 	// event that we will handle
 	// source is one of k8s, docker or apia
 
-	// EventTSK8s is the timestamp of k8s events
-	EventTSK8s = NoOpGauge
+	// EventTS is the timestamp of k8s resource events.
+	EventTS = NoOpGaugeVec
 
 	// EventLagK8s is the lag calculation for k8s Pod events.
 	EventLagK8s = NoOpGauge
-
-	// EventTSContainerd is the timestamp of docker events
-	EventTSContainerd = NoOpGauge
-
-	// EventTSAPI is the timestamp of docker events
-	EventTSAPI = NoOpGauge
 
 	// L7 statistics
 
@@ -321,6 +322,10 @@ var (
 	// ProxyUpstreamTime is how long the upstream server took to reply labeled
 	// by error, protocol and span time
 	ProxyUpstreamTime = NoOpObserverVec
+
+	// ProxyDatapathUpdateTimeout is a count of all the timeouts encountered while
+	// updating the datapath due to an FQDN IP update
+	ProxyDatapathUpdateTimeout = NoOpCounter
 
 	// L3-L4 statistics
 
@@ -431,6 +436,20 @@ var (
 	// GC job.
 	FQDNGarbageCollectorCleanedTotal = NoOpCounter
 
+	// FQDNActiveNames is the number of domains inside the DNS cache that have
+	// not expired (by TTL), per endpoint.
+	FQDNActiveNames = NoOpGaugeVec
+
+	// FQDNActiveIPs is the number of IPs inside the DNS cache associated with
+	// a domain that has not expired (by TTL) and are currently active, per
+	// endpoint.
+	FQDNActiveIPs = NoOpGaugeVec
+
+	// FQDNAliveZombieConnections is the number IPs associated with domains
+	// that have expired (by TTL) yet still associated with an active
+	// connection (aka zombie), per endpoint.
+	FQDNAliveZombieConnections = NoOpGaugeVec
+
 	// BPFSyscallDuration is the metric for bpf syscalls duration.
 	BPFSyscallDuration = NoOpObserverVec
 
@@ -502,7 +521,7 @@ type Configuration struct {
 	PolicyEndpointStatusEnabled             bool
 	PolicyImplementationDelayEnabled        bool
 	IdentityCountEnabled                    bool
-	EventTSK8sEnabled                       bool
+	EventTSEnabled                          bool
 	EventLagK8sEnabled                      bool
 	EventTSContainerdEnabled                bool
 	EventTSAPIEnabled                       bool
@@ -512,6 +531,7 @@ type Configuration struct {
 	ProxyForwardedEnabled                   bool
 	ProxyDeniedEnabled                      bool
 	ProxyReceivedEnabled                    bool
+	ProxyDatapathUpdateTimeoutEnabled       bool
 	NoOpObserverVecEnabled                  bool
 	DropCountEnabled                        bool
 	DropBytesEnabled                        bool
@@ -530,6 +550,7 @@ type Configuration struct {
 	SubprocessStartEnabled                  bool
 	KubernetesEventProcessedEnabled         bool
 	KubernetesEventReceivedEnabled          bool
+	KubernetesTimeBetweenEventsEnabled      bool
 	KubernetesAPIInteractionsEnabled        bool
 	KubernetesAPICallsEnabled               bool
 	KubernetesCNPStatusCompletionEnabled    bool
@@ -538,6 +559,9 @@ type Configuration struct {
 	KVStoreEventsQueueDurationEnabled       bool
 	KVStoreQuorumErrorsEnabled              bool
 	FQDNGarbageCollectorCleanedTotalEnabled bool
+	FQDNActiveNames                         bool
+	FQDNActiveIPs                           bool
+	FQDNActiveZombiesConnections            bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
 	BPFMapPressure                          bool
@@ -604,7 +628,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":          {},
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":                 {},
 		Namespace + "_" + SubsystemKVStore + "_quorum_errors_total":                  {},
-		Namespace + "_fqdn_gc_deletions_total":                                       {},
+		Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":                      {},
 		Namespace + "_" + SubsystemBPF + "_map_ops_total":                            {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_total":                 {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_folds":                 {},
@@ -745,25 +769,24 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			c.PolicyImplementationDelayEnabled = true
 
 		case Namespace + "_identity":
-			Identity = prometheus.NewGauge(prometheus.GaugeOpts{
+			Identity = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Namespace: Namespace,
 				Name:      "identity",
 				Help:      "Number of identities currently allocated",
-			})
+			}, []string{LabelType})
 
 			collectors = append(collectors, Identity)
 			c.IdentityCountEnabled = true
 
 		case Namespace + "_event_ts":
-			EventTSK8s = prometheus.NewGauge(prometheus.GaugeOpts{
-				Namespace:   Namespace,
-				Name:        "event_ts",
-				Help:        "Last timestamp when we received an event",
-				ConstLabels: prometheus.Labels{"source": LabelEventSourceK8s},
-			})
+			EventTS = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "event_ts",
+				Help:      "Last timestamp when we received an event",
+			}, []string{LabelEventSource, LabelScope, LabelAction})
 
-			collectors = append(collectors, EventTSK8s)
-			c.EventTSK8sEnabled = true
+			collectors = append(collectors, EventTS)
+			c.EventTSEnabled = true
 
 			EventLagK8s = prometheus.NewGauge(prometheus.GaugeOpts{
 				Namespace:   Namespace,
@@ -774,26 +797,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, EventLagK8s)
 			c.EventLagK8sEnabled = true
-
-			EventTSContainerd = prometheus.NewGauge(prometheus.GaugeOpts{
-				Namespace:   Namespace,
-				Name:        "event_ts",
-				Help:        "Last timestamp when we received an event",
-				ConstLabels: prometheus.Labels{"source": LabelEventSourceContainerd},
-			})
-
-			collectors = append(collectors, EventTSContainerd)
-			c.EventTSContainerdEnabled = true
-
-			EventTSAPI = prometheus.NewGauge(prometheus.GaugeOpts{
-				Namespace:   Namespace,
-				Name:        "event_ts",
-				Help:        "Last timestamp when we received an event",
-				ConstLabels: prometheus.Labels{"source": LabelEventSourceAPI},
-			})
-
-			collectors = append(collectors, EventTSAPI)
-			c.EventTSAPIEnabled = true
 
 		case Namespace + "_proxy_redirects":
 			ProxyRedirects = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -864,6 +867,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ProxyUpstreamTime)
 			c.NoOpObserverVecEnabled = true
+
+		case Namespace + "_proxy_datapath_update_timeout_total":
+			ProxyDatapathUpdateTimeout = prometheus.NewCounter(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Name:      "proxy_datapath_update_timeout_total",
+				Help:      "Number of total datapath update timeouts due to FQDN IP updates",
+			})
+
+			collectors = append(collectors, ProxyDatapathUpdateTimeout)
+			c.ProxyDatapathUpdateTimeoutEnabled = true
 
 		case Namespace + "_drop_count_total":
 			DropCount = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -1136,15 +1149,49 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, KVStoreQuorumErrors)
 			c.KVStoreQuorumErrorsEnabled = true
 
-		case Namespace + "_fqdn_gc_deletions_total":
+		case Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":
 			FQDNGarbageCollectorCleanedTotal = prometheus.NewCounter(prometheus.CounterOpts{
 				Namespace: Namespace,
-				Name:      "fqdn_gc_deletions_total",
+				Subsystem: SubsystemFQDN,
+				Name:      "gc_deletions_total",
 				Help:      "Number of FQDNs that have been cleaned on FQDN Garbage collector job",
 			})
 
 			collectors = append(collectors, FQDNGarbageCollectorCleanedTotal)
 			c.FQDNGarbageCollectorCleanedTotalEnabled = true
+
+		case Namespace + "_" + SubsystemFQDN + "_active_names":
+			FQDNActiveNames = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemFQDN,
+				Name:      "active_names",
+				Help:      "Number of domains inside the DNS cache that have not expired (by TTL), per endpoint",
+			}, []string{LabelPeerEndpoint})
+
+			collectors = append(collectors, FQDNActiveNames)
+			c.FQDNActiveNames = true
+
+		case Namespace + "_" + SubsystemFQDN + "_active_ips":
+			FQDNActiveIPs = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemFQDN,
+				Name:      "active_ips",
+				Help:      "Number of IPs inside the DNS cache associated with a domain that has not expired (by TTL), per endpoint",
+			}, []string{LabelPeerEndpoint})
+
+			collectors = append(collectors, FQDNActiveIPs)
+			c.FQDNActiveIPs = true
+
+		case Namespace + "_" + SubsystemFQDN + "_alive_zombie_connections":
+			FQDNAliveZombieConnections = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemFQDN,
+				Name:      "alive_zombie_connections",
+				Help:      "Number of IPs associated with domains that have expired (by TTL) yet still associated with an active connection (aka zombie), per endpoint",
+			}, []string{LabelPeerEndpoint})
+
+			collectors = append(collectors, FQDNAliveZombieConnections)
+			c.FQDNActiveZombiesConnections = true
 
 		case Namespace + "_" + SubsystemBPF + "_syscall_duration_seconds":
 			BPFSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{

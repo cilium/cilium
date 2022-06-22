@@ -34,7 +34,7 @@ func SetDefaultPermissions(socketPath string) error {
 		log.WithError(err).WithFields(logrus.Fields{
 			logfields.Path: socketPath,
 			"group":        CiliumGroupName,
-		}).Info("Group not found")
+		}).Debug("Group not found")
 	} else {
 		if err := os.Chown(socketPath, 0, gid); err != nil {
 			return fmt.Errorf("failed while setting up %s's group ID"+
@@ -42,8 +42,8 @@ func SetDefaultPermissions(socketPath string) error {
 		}
 	}
 	if err := os.Chmod(socketPath, SocketFileMode); err != nil {
-		return fmt.Errorf("failed while setting up %s's file"+
-			" permissions in %q: %s", CiliumGroupName, socketPath, err)
+		return fmt.Errorf("failed while setting up file permissions in %q: %w",
+			socketPath, err)
 	}
 	return nil
 }
