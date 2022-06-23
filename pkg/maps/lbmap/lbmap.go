@@ -572,7 +572,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		portStr := strconv.Itoa(int(svc.Frontend.Port))
 		host := net.JoinHostPort(addrStr, portStr)
 		svc.Type = flagsCache[host].SVCType()
-		svc.ExternalTrafficPolicy = flagsCache[host].SVCTrafficPolicy()
+		svc.InternalTrafficPolicy = flagsCache[host].SVCInternalTrafficPolicy()
+		svc.ExternalTrafficPolicy = flagsCache[host].SVCExternalTrafficPolicy()
 		svc.NatPolicy = flagsCache[host].SVCNatPolicy(svc.Frontend.L3n4Addr)
 		newSVCList = append(newSVCList, &svc)
 	}

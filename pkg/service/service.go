@@ -137,7 +137,8 @@ func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool
 		return false, true
 	case lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
 		if svc.svcExternalTrafficPolicy == lb.SVCTrafficPolicyLocal {
-			return true, frontend.Scope == lb.ScopeExternal
+			return true, frontend.Scope == lb.ScopeExternal ||
+				(svc.svcInternalTrafficPolicy == lb.SVCTrafficPolicyLocal && frontend.Scope == lb.ScopeInternal)
 		}
 		fallthrough
 	default:
@@ -600,8 +601,8 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	backendsCopy := []lb.Backend{}
 	for _, b := range params.Backends {
-		// Local redirect services or services with trafficPolicy=Local may
-		// only use node-local backends for external scope. We implement this by
+		// Local redirect services or services with internalTrafficPolicy|externalTrafficPolicy=Local
+		// may only use node-local backends for external scope. We implement this by
 		// filtering out all backend IPs which are not a local endpoint.
 		if filterBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
 			continue
@@ -750,7 +751,6 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 				info.backends[i].State = updatedB.State
 				info.backends[i].Preferred = updatedB.Preferred
 				found := false
-				onlyLocalBackends, _ := info.requireNodeLocalBackends(info.frontend)
 
 				if p, found = updateSvcs[id]; !found {
 					p = &lbmap.UpsertServiceParams{
@@ -760,7 +760,8 @@ func (s *Service) UpdateBackendsState(backends []lb.Backend) error {
 						PrevBackendsCount:         len(info.backends),
 						IPv6:                      info.frontend.IsIPv6(),
 						Type:                      info.svcType,
-						InternalLocal:             onlyLocalBackends,
+						InternalLocal:             info.svcInternalTrafficPolicy == lb.SVCTrafficPolicyLocal,
+						ExternalLocal:             info.svcExternalTrafficPolicy == lb.SVCTrafficPolicyLocal,
 						Scope:                     info.frontend.L3n4Addr.Scope,
 						SessionAffinity:           info.sessionAffinity,
 						SessionAffinityTimeoutSec: info.sessionAffinityTimeoutSec,
@@ -1040,6 +1041,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 			sessionAffinity:           p.SessionAffinity,
 			sessionAffinityTimeoutSec: p.SessionAffinityTimeoutSec,
 
+			svcInternalTrafficPolicy: p.InternalTrafficPolicy,
 			svcExternalTrafficPolicy: p.ExternalTrafficPolicy,
 			svcNatPolicy:             p.NatPolicy,
 			svcHealthCheckNodePort:   p.HealthCheckNodePort,
@@ -1070,6 +1072,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		prevSessionAffinity = svc.sessionAffinity
 		prevLoadBalancerSourceRanges = svc.loadBalancerSourceRanges
 		svc.svcType = p.Type
+		svc.svcInternalTrafficPolicy = p.InternalTrafficPolicy
 		svc.svcExternalTrafficPolicy = p.ExternalTrafficPolicy
 		svc.svcNatPolicy = p.NatPolicy
 		svc.svcHealthCheckNodePort = p.HealthCheckNodePort
@@ -1346,6 +1349,7 @@ func (s *Service) restoreServicesLocked() error {
 			backends:                 svc.Backends,
 			backendByHash:            map[string]*lb.Backend{},
 			svcType:                  svc.Type,
+			svcInternalTrafficPolicy: svc.InternalTrafficPolicy,
 			svcExternalTrafficPolicy: svc.ExternalTrafficPolicy,
 			svcNatPolicy:             svc.NatPolicy,
 

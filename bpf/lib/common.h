@@ -649,14 +649,15 @@ enum ct_status {
 
 /* Service flags (lb{4,6}_service->flags) */
 enum {
-	SVC_FLAG_EXTERNAL_IP  = (1 << 0),  /* External IPs */
-	SVC_FLAG_NODEPORT     = (1 << 1),  /* NodePort service */
-	SVC_FLAG_LOCAL_SCOPE  = (1 << 2),  /* externalTrafficPolicy=Local */
-	SVC_FLAG_HOSTPORT     = (1 << 3),  /* hostPort forwarding */
-	SVC_FLAG_AFFINITY     = (1 << 4),  /* sessionAffinity=clientIP */
-	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
-	SVC_FLAG_ROUTABLE     = (1 << 6),  /* Not a surrogate/ClusterIP entry */
-	SVC_FLAG_SOURCE_RANGE = (1 << 7),  /* Check LoadBalancer source range */
+	SVC_FLAG_EXTERNAL_IP           = (1 << 0),  /* External IPs */
+	SVC_FLAG_NODEPORT              = (1 << 1),  /* NodePort service */
+	SVC_FLAG_EXTERNAL_LOCAL_SCOPE  = (1 << 2),  /* externalTrafficPolicy=Local */
+	SVC_FLAG_HOSTPORT              = (1 << 3),  /* hostPort forwarding */
+	SVC_FLAG_AFFINITY              = (1 << 4),  /* sessionAffinity=clientIP */
+	SVC_FLAG_LOADBALANCER          = (1 << 5),  /* LoadBalancer service */
+	SVC_FLAG_ROUTABLE              = (1 << 6),  /* Not a surrogate/ClusterIP entry */
+	SVC_FLAG_SOURCE_RANGE          = (1 << 7),  /* Check LoadBalancer source range */
+	SVC_FLAG_INTERNAL_LOCAL_SCOPE  = (1 << 8),  /* externalTrafficPolicy=Local */
 };
 
 /* Service flags (lb{4,6}_service->flags2) */

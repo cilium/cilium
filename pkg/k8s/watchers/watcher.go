@@ -825,6 +825,7 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 
 	// apply common service properties
 	for i := range svcs {
+		svcs[i].InternalTrafficPolicy = svc.InternalTrafficPolicy
 		svcs[i].ExternalTrafficPolicy = svc.ExternalTrafficPolicy
 		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
 		svcs[i].SessionAffinity = svc.SessionAffinity

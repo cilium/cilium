@@ -139,8 +139,18 @@ func (s ServiceFlags) SVCType() SVCType {
 	}
 }
 
-// SVCTrafficPolicy returns a service traffic policy from the flags
-func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
+// SVCInternalTrafficPolicy returns a service internal traffic policy from the flags
+func (s ServiceFlags) SVCInternalTrafficPolicy() SVCTrafficPolicy {
+	switch {
+	case s&serviceFlagInternalLocalScope != 0:
+		return SVCTrafficPolicyLocal
+	default:
+		return SVCTrafficPolicyCluster
+	}
+}
+
+// SVCExternalTrafficPolicy returns a service external traffic policy from the flags
+func (s ServiceFlags) SVCExternalTrafficPolicy() SVCTrafficPolicy {
 	switch {
 	case s&serviceFlagExternalLocalScope != 0:
 		return SVCTrafficPolicyLocal
@@ -167,6 +177,9 @@ func (s ServiceFlags) String() string {
 	var str []string
 
 	str = append(str, string(s.SVCType()))
+	if s&serviceFlagInternalLocalScope != 0 {
+		str = append(str, string(SVCTrafficPolicyLocal))
+	}
 	if s&serviceFlagExternalLocalScope != 0 {
 		str = append(str, string(SVCTrafficPolicyLocal))
 	}

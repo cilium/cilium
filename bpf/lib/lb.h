@@ -271,15 +271,27 @@ static __always_inline bool lb_skip_l4_dnat(void)
 }
 
 static __always_inline
-bool lb4_svc_is_local_scope(const struct lb4_service *svc)
+bool lb4_svc_is_internal_local_scope(const struct lb4_service *svc)
 {
-	return svc->flags & SVC_FLAG_LOCAL_SCOPE;
+	return svc->flags & SVC_FLAG_INTERNAL_LOCAL_SCOPE;
 }
 
 static __always_inline
-bool lb6_svc_is_local_scope(const struct lb6_service *svc)
+bool lb4_svc_is_external_local_scope(const struct lb4_service *svc)
 {
-	return svc->flags & SVC_FLAG_LOCAL_SCOPE;
+	return svc->flags & SVC_FLAG_EXTERNAL_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb6_svc_is_internal_local_scope(const struct lb6_service *svc)
+{
+	return svc->flags & SVC_FLAG_INTERNAL_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb6_svc_is_external_local_scope(const struct lb6_service *svc)
+{
+	return svc->flags & SVC_FLAG_EXTERNAL_LOCAL_SCOPE;
 }
 
 static __always_inline
@@ -560,7 +572,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 	if (svc) {
-		if (!scope_switch || !lb6_svc_is_local_scope(svc))
+		if (!scope_switch || !lb6_svc_is_external_local_scope(svc) || !lb6_svc_is_internal_local_scope(svc))
 			/* Packets for L7 LB are redirected even when there are no backends. */
 			return (svc->count || lb6_svc_is_l7loadbalancer(svc)) ? svc : NULL;
 		key->scope = LB_LOOKUP_SCOPE_INT;
@@ -1180,7 +1192,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	if (svc) {
-		if (!scope_switch || !lb4_svc_is_local_scope(svc))
+		if (!scope_switch || !lb4_svc_is_external_local_scope(svc) || !lb4_svc_is_internal_local_scope(svc))
 			/* Packets for L7 LB are redirected even when there are no backends. */
 			return (svc->count || lb4_to_lb6_service(svc) ||
 				lb4_svc_is_l7loadbalancer(svc)) ? svc : NULL;

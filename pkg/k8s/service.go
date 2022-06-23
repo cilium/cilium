@@ -142,12 +142,17 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 		headless = true
 	}
 
-	var trafficPolicy loadbalancer.SVCTrafficPolicy
+	var externalTrafficPolicy loadbalancer.SVCTrafficPolicy
 	switch svc.Spec.ExternalTrafficPolicy {
 	case slim_corev1.ServiceExternalTrafficPolicyTypeLocal:
-		trafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+		externalTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
 	default:
-		trafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+		externalTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+	}
+
+	var internalTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal {
+		internalTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
 	}
 
 	for _, ip := range svc.Status.LoadBalancer.Ingress {
@@ -162,7 +167,7 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 	}
 
 	svcInfo := NewService(clusterIPs, svc.Spec.ExternalIPs, loadBalancerIPs,
-		lbSrcRanges, headless, trafficPolicy,
+		lbSrcRanges, headless, internalTrafficPolicy, externalTrafficPolicy,
 		uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector,
 		svc.GetNamespace(), svcType)
 
@@ -454,7 +459,7 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 
 // NewService returns a new Service with the Ports map initialized.
 func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRanges []string,
-	headless bool, trafficPolicy loadbalancer.SVCTrafficPolicy,
+	headless bool, internalTrafficPolicy, externalTrafficPolicy loadbalancer.SVCTrafficPolicy,
 	healthCheckNodePort uint16, labels, selector map[string]string,
 	namespace string, svcType loadbalancer.SVCType) *Service {
 
@@ -493,7 +498,8 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 		FrontendIPs: ips,
 
 		IsHeadless:            headless,
-		ExternalTrafficPolicy: trafficPolicy,
+		InternalTrafficPolicy: internalTrafficPolicy,
+		ExternalTrafficPolicy: externalTrafficPolicy,
 		HealthCheckNodePort:   healthCheckNodePort,
 
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
@@ -573,6 +579,7 @@ func ParseClusterService(svc *serviceStore.ClusterService) *Service {
 		IsHeadless:            len(svc.Frontends) == 0,
 		IncludeExternal:       true,
 		Shared:                true,
+		InternalTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 		ExternalTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 		Ports:                 map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		Labels:                svc.Labels,
