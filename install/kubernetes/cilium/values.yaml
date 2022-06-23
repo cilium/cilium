@@ -632,7 +632,7 @@ hubble:
   peerService:
     # -- Enable a K8s Service for the Peer service, so that it can be accessed
     # by a non-local client
-    enabled: true
+    enabled: false
     # -- Service Port for the Peer service.
     # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
     # port 80 if not.
