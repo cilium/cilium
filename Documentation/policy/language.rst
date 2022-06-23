@@ -850,6 +850,12 @@ latter rule will have no effect.
 .. note:: Layer 7 rules are not currently supported in `HostPolicies`, i.e.,
           policies that use :ref:`NodeSelector`.
 
+.. note:: Layer 7 policies --and pod annotations-- result in traffic being
+   proxied through an Envoy instance provided in each Cilium agent pod.
+   As a result, L7 traffic targeted by policies depend on the availability
+   of the Cilium agent pod.
+   This includes L7 policies as well as :ref:`proxy_visibility` annotations.
+
 HTTP
 ----
 
