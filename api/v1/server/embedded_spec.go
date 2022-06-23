@@ -3852,10 +3852,26 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "externalTrafficPolicy": {
+              "description": "Service external traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
             "healthCheckNodePort": {
               "description": "Service health check node port",
               "type": "integer",
               "format": "uint16"
+            },
+            "internalTrafficPolicy": {
+              "description": "Service external traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
             },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
@@ -3872,14 +3888,6 @@ func init() {
                 "None",
                 "Nat46",
                 "Nat64"
-              ]
-            },
-            "trafficPolicy": {
-              "description": "Service traffic policy",
-              "type": "string",
-              "enum": [
-                "Cluster",
-                "Local"
               ]
             },
             "type": {
@@ -8668,10 +8676,26 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "externalTrafficPolicy": {
+              "description": "Service external traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
             "healthCheckNodePort": {
               "description": "Service health check node port",
               "type": "integer",
               "format": "uint16"
+            },
+            "internalTrafficPolicy": {
+              "description": "Service external traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
             },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
@@ -8688,14 +8712,6 @@ func init() {
                 "None",
                 "Nat46",
                 "Nat64"
-              ]
-            },
-            "trafficPolicy": {
-              "description": "Service traffic policy",
-              "type": "string",
-              "enum": [
-                "Cluster",
-                "Local"
               ]
             },
             "type": {
@@ -8730,10 +8746,26 @@ func init() {
       "description": "Optional service configuration flags",
       "type": "object",
       "properties": {
+        "externalTrafficPolicy": {
+          "description": "Service external traffic policy",
+          "type": "string",
+          "enum": [
+            "Cluster",
+            "Local"
+          ]
+        },
         "healthCheckNodePort": {
           "description": "Service health check node port",
           "type": "integer",
           "format": "uint16"
+        },
+        "internalTrafficPolicy": {
+          "description": "Service external traffic policy",
+          "type": "string",
+          "enum": [
+            "Cluster",
+            "Local"
+          ]
         },
         "name": {
           "description": "Service name  (e.g. Kubernetes service name)",
@@ -8750,14 +8782,6 @@ func init() {
             "None",
             "Nat46",
             "Nat64"
-          ]
-        },
-        "trafficPolicy": {
-          "description": "Service traffic policy",
-          "type": "string",
-          "enum": [
-            "Cluster",
-            "Local"
           ]
         },
         "type": {

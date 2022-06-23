@@ -148,8 +148,16 @@ func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 // swagger:model ServiceSpecFlags
 type ServiceSpecFlags struct {
 
+	// Service external traffic policy
+	// Enum: [Cluster Local]
+	ExternalTrafficPolicy string `json:"externalTrafficPolicy,omitempty"`
+
 	// Service health check node port
 	HealthCheckNodePort uint16 `json:"healthCheckNodePort,omitempty"`
+
+	// Service external traffic policy
+	// Enum: [Cluster Local]
+	InternalTrafficPolicy string `json:"internalTrafficPolicy,omitempty"`
 
 	// Service name  (e.g. Kubernetes service name)
 	Name string `json:"name,omitempty"`
@@ -161,10 +169,6 @@ type ServiceSpecFlags struct {
 	// Enum: [None Nat46 Nat64]
 	NatPolicy string `json:"natPolicy,omitempty"`
 
-	// Service traffic policy
-	// Enum: [Cluster Local]
-	TrafficPolicy string `json:"trafficPolicy,omitempty"`
-
 	// Service type
 	// Enum: [ClusterIP NodePort ExternalIPs HostPort LoadBalancer LocalRedirect]
 	Type string `json:"type,omitempty"`
@@ -174,11 +178,15 @@ type ServiceSpecFlags struct {
 func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateNatPolicy(formats); err != nil {
+	if err := m.validateExternalTrafficPolicy(formats); err != nil {
 		res = append(res, err)
 	}
 
-	if err := m.validateTrafficPolicy(formats); err != nil {
+	if err := m.validateInternalTrafficPolicy(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateNatPolicy(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -189,6 +197,92 @@ func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+var serviceSpecFlagsTypeExternalTrafficPolicyPropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["Cluster","Local"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		serviceSpecFlagsTypeExternalTrafficPolicyPropEnum = append(serviceSpecFlagsTypeExternalTrafficPolicyPropEnum, v)
+	}
+}
+
+const (
+
+	// ServiceSpecFlagsExternalTrafficPolicyCluster captures enum value "Cluster"
+	ServiceSpecFlagsExternalTrafficPolicyCluster string = "Cluster"
+
+	// ServiceSpecFlagsExternalTrafficPolicyLocal captures enum value "Local"
+	ServiceSpecFlagsExternalTrafficPolicyLocal string = "Local"
+)
+
+// prop value enum
+func (m *ServiceSpecFlags) validateExternalTrafficPolicyEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, serviceSpecFlagsTypeExternalTrafficPolicyPropEnum, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *ServiceSpecFlags) validateExternalTrafficPolicy(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ExternalTrafficPolicy) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateExternalTrafficPolicyEnum("flags"+"."+"externalTrafficPolicy", "body", m.ExternalTrafficPolicy); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var serviceSpecFlagsTypeInternalTrafficPolicyPropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["Cluster","Local"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		serviceSpecFlagsTypeInternalTrafficPolicyPropEnum = append(serviceSpecFlagsTypeInternalTrafficPolicyPropEnum, v)
+	}
+}
+
+const (
+
+	// ServiceSpecFlagsInternalTrafficPolicyCluster captures enum value "Cluster"
+	ServiceSpecFlagsInternalTrafficPolicyCluster string = "Cluster"
+
+	// ServiceSpecFlagsInternalTrafficPolicyLocal captures enum value "Local"
+	ServiceSpecFlagsInternalTrafficPolicyLocal string = "Local"
+)
+
+// prop value enum
+func (m *ServiceSpecFlags) validateInternalTrafficPolicyEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, serviceSpecFlagsTypeInternalTrafficPolicyPropEnum, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *ServiceSpecFlags) validateInternalTrafficPolicy(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.InternalTrafficPolicy) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateInternalTrafficPolicyEnum("flags"+"."+"internalTrafficPolicy", "body", m.InternalTrafficPolicy); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -232,49 +326,6 @@ func (m *ServiceSpecFlags) validateNatPolicy(formats strfmt.Registry) error {
 
 	// value enum
 	if err := m.validateNatPolicyEnum("flags"+"."+"natPolicy", "body", m.NatPolicy); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-var serviceSpecFlagsTypeTrafficPolicyPropEnum []interface{}
-
-func init() {
-	var res []string
-	if err := json.Unmarshal([]byte(`["Cluster","Local"]`), &res); err != nil {
-		panic(err)
-	}
-	for _, v := range res {
-		serviceSpecFlagsTypeTrafficPolicyPropEnum = append(serviceSpecFlagsTypeTrafficPolicyPropEnum, v)
-	}
-}
-
-const (
-
-	// ServiceSpecFlagsTrafficPolicyCluster captures enum value "Cluster"
-	ServiceSpecFlagsTrafficPolicyCluster string = "Cluster"
-
-	// ServiceSpecFlagsTrafficPolicyLocal captures enum value "Local"
-	ServiceSpecFlagsTrafficPolicyLocal string = "Local"
-)
-
-// prop value enum
-func (m *ServiceSpecFlags) validateTrafficPolicyEnum(path, location string, value string) error {
-	if err := validate.EnumCase(path, location, value, serviceSpecFlagsTypeTrafficPolicyPropEnum, true); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *ServiceSpecFlags) validateTrafficPolicy(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.TrafficPolicy) { // not required
-		return nil
-	}
-
-	// value enum
-	if err := m.validateTrafficPolicyEnum("flags"+"."+"trafficPolicy", "body", m.TrafficPolicy); err != nil {
 		return err
 	}
 

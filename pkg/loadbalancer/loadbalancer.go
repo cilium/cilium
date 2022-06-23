@@ -373,10 +373,11 @@ func (s *SVC) GetModel() *models.Service {
 		FrontendAddress:  s.Frontend.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
-			Type:                string(s.Type),
-			TrafficPolicy:       string(s.ExternalTrafficPolicy),
-			NatPolicy:           natPolicy,
-			HealthCheckNodePort: s.HealthCheckNodePort,
+			Type:                  string(s.Type),
+			InternalTrafficPolicy: string(s.InternalTrafficPolicy),
+			ExternalTrafficPolicy: string(s.ExternalTrafficPolicy),
+			NatPolicy:             natPolicy,
+			HealthCheckNodePort:   s.HealthCheckNodePort,
 
 			Name:      s.Name,
 			Namespace: s.Namespace,
