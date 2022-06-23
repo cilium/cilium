@@ -245,6 +245,12 @@ spec:
         name: cilium-agent
 {{- if or .Values.prometheus.enabled .Values.hubble.metrics.enabled }}
         ports:
+{{- if .Values.hubble.peerService.enabled }}
+        - name: peer-service
+          containerPort: {{ .Values.hubble.peerService.targetPort }}
+          hostPort: {{ .Values.hubble.peerService.targetPort }}
+          protocol: TCP
+{{- end }}
 {{- if .Values.prometheus.enabled }}
         - containerPort: {{ .Values.prometheus.port }}
           hostPort: {{ .Values.prometheus.port }}
