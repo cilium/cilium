@@ -718,6 +718,7 @@ prog
 programmability
 prometheus
 protobuf
+proxied
 proxylib
 pullPolicy
 qdisc
