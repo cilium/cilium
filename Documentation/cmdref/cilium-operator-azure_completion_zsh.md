@@ -13,6 +13,10 @@ to enable it.  You can execute the following once:
 
 	echo "autoload -U compinit; compinit" >> ~/.zshrc
 
+To load completions in your current shell session:
+
+	source <(cilium-operator-azure completion zsh); compdef _cilium-operator-azure cilium-operator-azure
+
 To load completions for every new session, execute once:
 
 #### Linux:
@@ -21,7 +25,7 @@ To load completions for every new session, execute once:
 
 #### macOS:
 
-	cilium-operator-azure completion zsh > /usr/local/share/zsh/site-functions/_cilium-operator-azure
+	cilium-operator-azure completion zsh > $(brew --prefix)/share/zsh/site-functions/_cilium-operator-azure
 
 You will need to start a new shell for this setup to take effect.
 
