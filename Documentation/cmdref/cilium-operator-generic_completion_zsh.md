@@ -13,6 +13,10 @@ to enable it.  You can execute the following once:
 
 	echo "autoload -U compinit; compinit" >> ~/.zshrc
 
+To load completions in your current shell session:
+
+	source <(cilium-operator-generic completion zsh); compdef _cilium-operator-generic cilium-operator-generic
+
 To load completions for every new session, execute once:
 
 #### Linux:
@@ -21,7 +25,7 @@ To load completions for every new session, execute once:
 
 #### macOS:
 
-	cilium-operator-generic completion zsh > /usr/local/share/zsh/site-functions/_cilium-operator-generic
+	cilium-operator-generic completion zsh > $(brew --prefix)/share/zsh/site-functions/_cilium-operator-generic
 
 You will need to start a new shell for this setup to take effect.
 
