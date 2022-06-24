@@ -126,6 +126,10 @@ spec:
                       is not set the default behavior is to delete the ENI on instance
                       termination.
                     type: boolean
+                  disable-prefix-delegation:
+                    description: DisablePrefixDelegation determines whether ENI prefix
+                      delegation should be disabled on this node.
+                    type: boolean
                   exclude-interface-tags:
                     additionalProperties:
                       type: string
