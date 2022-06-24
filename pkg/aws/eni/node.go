@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/smithy-go"
 	"github.com/sirupsen/logrus"
 
@@ -671,6 +672,10 @@ func (n *Node) IsPrefixDelegated() bool {
 	}
 	// Allocating prefixes is supported only on nitro instances
 	if limits.HypervisorType != "nitro" {
+		return false
+	}
+	// Check if this node is allowed to use prefix delegation
+	if n.k8sObj.Spec.ENI.DisablePrefixDelegation != nil && aws.ToBool(n.k8sObj.Spec.ENI.DisablePrefixDelegation) {
 		return false
 	}
 	// Verify if all interfaces are prefix delegated. We don't want to enable prefix delegation on nodes that already
