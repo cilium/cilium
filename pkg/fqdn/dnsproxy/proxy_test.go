@@ -1068,8 +1068,23 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 
 func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	b.Skip()
+	cacheSize := 128
+	numEPs := uint64(20)
+	cnpFile := "testdata/cnps-large.yaml"
 
-	bb, err := ioutil.ReadFile("testdata/cnps-large.yaml")
+	// init empty cache so old cache entries are correctly
+	// garbage collected.
+	re.InitRegexCompileLRU(cacheSize)
+	runtime.GC()
+	m := getMemStats()
+	fmt.Printf("Before Setup (N=%v,EPs=%d,cache=%d)\n", b.N, numEPs, cacheSize)
+
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tHeapInuse = %v MiB", bToMb(m.HeapInuse))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+
+	bb, err := ioutil.ReadFile(cnpFile)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1126,30 +1141,36 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 		}
 	}
 
-	fmt.Printf("Before (N=%v)\n", b.N)
-
 	runtime.GC()
+	m = getMemStats()
+	fmt.Printf("Before Test (N=%v,EPs=%d,cache=%d)\n", b.N, numEPs, cacheSize)
 
-	m := getMemStats()
 	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
 	fmt.Printf("\tHeapInuse = %v MiB", bToMb(m.HeapInuse))
 	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 
 	pea := perEPAllow{}
-	re.InitRegexCompileLRU(128) // modify to 1024 and compare results
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for epID := uint64(0); epID < 20; epID++ {
+		for epID := uint64(0); epID < numEPs; epID++ {
 			pea.setPortRulesForID(epID, 8053, rules)
 		}
 	}
 	b.StopTimer()
 
-	fmt.Printf("After (N=%v)\n", b.N)
+	// Uncomment to see the HeapInUse from only the regexp cache
+	// for epID := uint64(0); epID < numEPs; epID++ {
+	//	 pea.setPortRulesForID(epID, 8053, nil)
+	// }
 
+	// Explicitly run gc to ensure we measure what we want
+	runtime.GC()
 	m = getMemStats()
+	// Explicitly keep a reference to "pea" to keep it on the heap
+	// so that we can measure it before it is garbage collected.
+	fmt.Printf("After Test (N=%v,EPs=%d,cache=%d)\n", b.N, len(pea), cacheSize)
 	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
 	fmt.Printf("\tHeapInuse = %v MiB", bToMb(m.HeapInuse))
 	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
