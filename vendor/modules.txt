@@ -1543,6 +1543,7 @@ k8s.io/client-go/tools/leaderelection
 k8s.io/client-go/tools/leaderelection/resourcelock
 k8s.io/client-go/tools/metrics
 k8s.io/client-go/tools/pager
+k8s.io/client-go/tools/portforward
 k8s.io/client-go/tools/record
 k8s.io/client-go/tools/record/util
 k8s.io/client-go/tools/reference
