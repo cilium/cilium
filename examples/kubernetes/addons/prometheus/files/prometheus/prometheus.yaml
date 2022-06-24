@@ -33,10 +33,10 @@ scrape_configs:
         regex: __meta_kubernetes_service_label_(.+)
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
-        target_label: kubernetes_namespace
+        target_label: namespace
       - source_labels: [__meta_kubernetes_service_name]
         action: replace
-        target_label: kubernetes_name
+        target_label: service
 
   # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L156
   - job_name: 'kubernetes-pods'
@@ -59,10 +59,10 @@ scrape_configs:
         regex: __meta_kubernetes_pod_label_(.+)
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
-        target_label: kubernetes_namespace
+        target_label: namespace
       - source_labels: [__meta_kubernetes_pod_name]
         action: replace
-        target_label: kubernetes_pod_name
+        target_label: pod
       - source_labels: [__meta_kubernetes_pod_container_port_number]
         action: keep
         regex: \d+
@@ -86,9 +86,9 @@ scrape_configs:
       - action: labelmap
         regex: __meta_kubernetes_service_label_(.+)
       - source_labels: [__meta_kubernetes_namespace]
-        target_label: kubernetes_namespace
+        target_label: namespace
       - source_labels: [__meta_kubernetes_service_name]
-        target_label: kubernetes_name
+        target_label: service
 
   - job_name: 'kubernetes-cadvisor'
     scheme: https
