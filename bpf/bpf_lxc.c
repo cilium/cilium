@@ -1788,18 +1788,32 @@ skip_policy_enforcement:
 #endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
 
 #ifdef ENABLE_NODEPORT
-	if (ret == CT_NEW || ret == CT_REOPENED) {
+	{
 		bool dsr = false;
 # ifdef ENABLE_DSR
 		int ret2;
 
-		ret2 = handle_dsr_v4(ctx, &dsr);
+		ret2 = handle_dsr_v4(ctx, &dsr, *ct_status);
 		if (ret2 != 0)
 			return ret2;
 
 		ct_state_new.dsr = dsr;
+
 		if (ret == CT_REOPENED && ct_state->dsr != dsr)
 			ct_update4_dsr(get_ct_map4(tuple), tuple, dsr);
+
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP_CNI
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		tuple.nexthdr = ip4->protocol;
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
+
+		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
+				 &monitor);
+		if (ret < 0)
+			return ret;
+#endif /* DSR_ENCAP_MODE */
 # endif /* ENABLE_DSR */
 		if (!dsr) {
 			bool node_port =

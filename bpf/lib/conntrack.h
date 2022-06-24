@@ -586,7 +586,17 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 			}
 		}
 		break;
+	case IPPROTO_IPIP:
+		{
+			__u8 ver_ihl;
+			__u8 ihl;
 
+			if (ctx_load_bytes(ctx, off, &ver_ihl, 1) < 0)
+				return DROP_CT_INVALID_HDR;
+			ihl = (ver_ihl & 0x0f);
+			off = off + (ihl << 2);
+		}
+		/* fallthrough; */
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
@@ -690,7 +700,30 @@ static __always_inline int ct_lookup4(const void *map,
 			}
 		}
 		break;
+	case IPPROTO_IPIP:
+		{
+			__u8 protocol;
+			__u8 ver_ihl;
+			__u8 ihl;
 
+			if (ctx_load_bytes(ctx, off, &ver_ihl, 1) < 0)
+				return DROP_CT_INVALID_HDR;
+			ihl = (ver_ihl & 0x0f);
+
+			if (ctx_load_bytes(ctx, off +
+					offsetof(struct iphdr, protocol), &protocol, 1) < 0)
+				return DROP_CT_INVALID_HDR;
+
+			off = off + (ihl << 2);
+
+			if (protocol == IPPROTO_UDP)
+				goto udp;
+			else if (protocol == IPPROTO_TCP)
+				goto tcp;
+			else
+				return DROP_INVALID;
+		}
+tcp:
 	case IPPROTO_TCP:
 		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, &has_l4_header);
 		if (err < 0)
@@ -706,7 +739,7 @@ static __always_inline int ct_lookup4(const void *map,
 				action = ACTION_CLOSE;
 		}
 		break;
-
+udp:
 	case IPPROTO_UDP:
 		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
 		if (err < 0)

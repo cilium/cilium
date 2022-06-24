@@ -311,7 +311,7 @@ be lost on its path to the service endpoint.
 
 - ``externalTrafficPolicy=Cluster``: For the ``Cluster`` policy which is the default
   upon service creation, multiple options exist for achieving client source IP preservation
-  for external traffic, that is, operating the kube-proxy replacement in :ref:`DSR<DSR Mode>`
+  for external traffic, that is, operating the kube-proxy replacement in :ref:`DSR<DSR Mode with IP option>`
   or :ref:`Hybrid<Hybrid Mode>` mode if only TCP-based services are exposed to the outside
   world for the latter.
 
@@ -410,10 +410,10 @@ Note that enabling Maglev will have a higher memory consumption on each Cilium-m
 to the default of ``loadBalancer.algorithm=random`` given ``random`` does not need the extra lookup
 tables. However, ``random`` won't have consistent backend selection.
 
-.. _DSR mode:
+.. _DSR mode with IP option:
 
-Direct Server Return (DSR)
-**************************
+Direct Server Return (DSR) with IP option
+*****************************************
 
 By default, Cilium's eBPF NodePort implementation operates in SNAT mode. That is,
 when node-external traffic arrives and the node determines that the backend for
@@ -438,16 +438,17 @@ made aware of the service IP/port which they need to reply with. Therefore, Cili
 encodes this information in a Cilium-specific IPv4 option or IPv6 Destination Option
 extension header at the cost of advertising a lower MTU. For TCP services, Cilium
 only encodes the service IP/port for the SYN packet, but not subsequent ones. The
-latter also allows to operate Cilium in a hybrid mode as detailed in the next subsection
+latter also allows to operate Cilium in a hybrid mode as detailed in the later subsection
 where DSR is used for TCP and SNAT for UDP in order to avoid an otherwise needed MTU
 reduction.
 
-Note that usage of DSR mode might not work in some public cloud provider environments
+Note that usage of DSR mode with IP option might not work in some public cloud provider environments
 due to the Cilium-specific IP options that could be dropped by an underlying fabric.
 Therefore, in case of connectivity issues to services where backends are located on
 a remote node from the node that is processing the given NodePort request, it is
 advised to first check whether the NodePort request actually arrived on the node
-containing the backend. If this was not the case, then switching back to the default
+containing the backend. If this was not the case, then either switching to DSR with IPIP
+which will be described in the later sections, or switching back to the default
 SNAT mode would be advised as a workaround.
 
 Also, in some public cloud provider environments, which implement a source /
@@ -467,6 +468,43 @@ enabled would look as follows:
         --set loadBalancer.mode=dsr \\
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
         --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
+
+.. _DSR mode with IPIP:
+
+Direct Server Return (DSR) with IPIP
+************************************
+DSR mode has two options: DSR with IP options, or DSR with IPIP (experimental).
+Sometimes, DSR with IP options are not supported by the underlying network,
+or underlying network switches forwarded the packets with IP options via a slow
+path. In both cases, DSR can be changed to use IPIP encapsulation instead.
+
+In DSR with IPIP mode, the packets are encapsulated with an outer IP header,
+which does not have any options. When the packets arrive backend servers, they
+are decapsulated and then sent to the Pod. For TCP services, Cilium
+only encodes the service IP/port for the SYN packet, but not subsequent ones.
+
+The above Helm example configuration in a kube-proxy-free environment with DSR-only
+and IPIP enabled would look as follows:
+
+Note, DSR with IPIP requires loadBalancer.dsrL4Translate to be set as backend
+(default is frontend), and loadBalancer.acceleration is not disabled. Also,
+only IPv4 is supported. 
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set tunnel=disabled \\
+        --set autoDirectNodeRoutes=true \\
+        --set kubeProxyReplacement=strict \\
+        --set loadBalancer.mode=dsr \\
+        --set loadBalancer.dsrDispatch=ipipcni \\
+        --set loadBalancer.dsrL4Translate=backend \\
+        --set loadBalancer.acceleration=native \\
+        --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
+
+
 
 .. _Hybrid mode:
 
@@ -496,6 +534,8 @@ mode would look as follows:
         --set loadBalancer.mode=hybrid \\
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
         --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
+
+
 
 Socket LoadBalancer Bypass in Pod Namespace
 *******************************************

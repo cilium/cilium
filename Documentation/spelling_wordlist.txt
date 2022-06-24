@@ -340,6 +340,8 @@ droid
 dropdown
 dryRun
 dsr
+dsrL
+dsrL4Translate
 dst
 dwarfris
 eBPF
