@@ -411,6 +411,8 @@ Helm Options
 * The ``nodeSelector`` of all components now default to
   ``{"kubernetes.io/os":"linux"}`` to ensure these pods with Linux-based
   container images are not scheduled on non-Linux nodes.
+* ``cluster.id`` cannot be empty and a value must be specified.
+  Use the ``0`` value to leave Cluster Mesh disabled.
 
 .. _1.11_upgrade_notes:
 

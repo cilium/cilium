@@ -25,8 +25,9 @@ cluster:
   # -- Name of the cluster. Only required for Cluster Mesh.
   name: default
   # -- (int) Unique ID of the cluster. Must be unique across all connected
-  # clusters and in the range of 1 to 255. Only required for Cluster Mesh.
-  id:
+  # clusters and in the range of 1 to 255. Only required for Cluster Mesh,
+  # may be 0 if Cluster Mesh is not used.
+  id: 0
 
 # -- Define serviceAccount names for components.
 # @default -- Component's fully qualified name.
