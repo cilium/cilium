@@ -461,6 +461,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
 		}
+
+		if option.Config.LoadBalancerPreserveWorldID {
+			cDefinesMap["PRESERVE_WORLD_ID"] = "1"
+		}
 	} else {
 		var directRoutingIPv6 net.IP
 		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = "0"
