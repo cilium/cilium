@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -3730,23 +3731,67 @@ func sanitizeIntParam(paramName string, paramDefault int) int {
 	return intParam
 }
 
-// validateConfigmap checks whether the flag exists and validate the value of flag
-func validateConfigmap(cmd *cobra.Command, m map[string]interface{}) (error, string) {
-	// validate the config-map
+// validateConfigMap checks whether the flag exists and validate its value
+func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
+	flags := cmd.Flags()
+
 	for key, value := range m {
-		if val := fmt.Sprintf("%v", value); val != "" {
-			flags := cmd.Flags()
-			// check whether the flag exists
-			if flag := flags.Lookup(key); flag != nil {
-				// validate the value of flag
-				if err := flag.Value.Set(val); err != nil {
-					return err, key
-				}
-			}
+		flag := flags.Lookup(key)
+		if flag == nil {
+			continue
+		}
+
+		var err error
+
+		switch t := flag.Value.Type(); t {
+		case "bool":
+			_, err = cast.ToBoolE(value)
+		case "duration":
+			_, err = cast.ToDurationE(value)
+		case "float32":
+			_, err = cast.ToFloat32E(value)
+		case "float64":
+			_, err = cast.ToFloat64E(value)
+		// remove this after PR https://github.com/cilium/cilium/pull/20282 is merged
+		case "intSlice":
+			_, err = cast.ToIntSliceE(value)
+		case "int":
+			_, err = cast.ToIntE(value)
+		case "int8":
+			_, err = cast.ToInt8E(value)
+		case "int16":
+			_, err = cast.ToInt16E(value)
+		case "int32":
+			_, err = cast.ToInt32E(value)
+		case "int64":
+			_, err = cast.ToInt64E(value)
+		case "map":
+			// custom type, see pkg/option/map_options.go
+			err = flag.Value.Set(fmt.Sprintf("%s", value))
+		case "stringSlice":
+			_, err = cast.ToStringSliceE(value)
+		case "string":
+			_, err = cast.ToStringE(value)
+		case "uint":
+			_, err = cast.ToUintE(value)
+		case "uint8":
+			_, err = cast.ToUint8E(value)
+		case "uint16":
+			_, err = cast.ToUint16E(value)
+		case "uint32":
+			_, err = cast.ToUint32E(value)
+		case "uint64":
+			_, err = cast.ToUint64E(value)
+		default:
+			log.Warnf("Unable to validate option %s value of type %s", key, t)
+		}
+
+		if err != nil {
+			return fmt.Errorf("option %s: %w", key, err)
 		}
 	}
 
-	return nil, ""
+	return nil
 }
 
 // InitConfig reads in config file and ENV variables if set.
@@ -3777,8 +3822,8 @@ func InitConfig(cmd *cobra.Command, programName, configName string) func() {
 				ReplaceDeprecatedFields(m)
 
 				// validate the config-map
-				if err, flag := validateConfigmap(cmd, m); err != nil {
-					log.WithError(err).Fatal("Incorrect config-map flag " + flag)
+				if err := validateConfigMap(cmd, m); err != nil {
+					log.WithError(err).Fatal("Incorrect config-map flag value")
 				}
 
 				if err := MergeConfig(m); err != nil {
