@@ -218,6 +218,11 @@ Users (Alphabetically)
       L: kops.sigs.k8s.io/
       Q: @olemarkus
 
+    * N: kubeasz
+      D: kubeasz, a certified kubernetes installer, is using Cilium as a one of the supported CNIs.
+      U: Networking, network policy, Hubble for network visibility
+      L: https://github.com/easzlab/kubeasz
+
     * N: Kube-OVN
       D: Kube-OVN uses Cilium to enhance service performance, security and monitoring.  
       U: CNI-Chaining, Hubble, kube-proxy replacement
