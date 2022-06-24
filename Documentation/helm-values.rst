@@ -150,9 +150,9 @@
      - bool
      - ``false``
    * - cluster.id
-     - Unique ID of the cluster. Must be unique across all connected clusters and in the range of 1 to 255. Only required for Cluster Mesh.
+     - Unique ID of the cluster. Must be unique across all connected clusters and in the range of 1 to 255. Only required for Cluster Mesh, may be 0 if Cluster Mesh is not used.
      - int
-     - ``nil``
+     - ``0``
    * - cluster.name
      - Name of the cluster. Only required for Cluster Mesh.
      - string
