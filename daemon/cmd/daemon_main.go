@@ -636,6 +636,10 @@ func initializeFlags() {
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
 	option.BindEnv(option.LoadBalancerAcceleration)
 
+	flags.Bool(option.LoadBalancerPreserveWorldID, false, "Set reserved:world security identity for to be forwarded LB requests in tunnel mode")
+	flags.MarkHidden(option.LoadBalancerPreserveWorldID)
+	option.BindEnv(option.LoadBalancerPreserveWorldID)
+
 	flags.Uint(option.MaglevTableSize, maglev.DefaultTableSize, "Maglev per service backend table size (parameter M)")
 	option.BindEnv(option.MaglevTableSize)
 
