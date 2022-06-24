@@ -228,6 +228,11 @@ Users (Alphabetically)
       D: Kryptos is a cyber security company that is using Kubernetes on-prem in which Cilium is our CNI of choice.
       U: Networking, Observability, kube-proxy replacement
 
+    * N: kubeasz
+      D: kubeasz, a certified kubernetes installer, is using Cilium as a one of the supported CNIs.
+      U: Networking, network policy, Hubble for network visibility
+      L: https://github.com/easzlab/kubeasz
+
     * N: Kube-OVN
       D: Kube-OVN uses Cilium to enhance service performance, security and monitoring.  
       U: CNI-Chaining, Hubble, kube-proxy replacement
