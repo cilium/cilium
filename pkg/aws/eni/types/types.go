@@ -128,6 +128,12 @@ type ENISpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	UsePrimaryAddress *bool `json:"use-primary-address,omitempty"`
+
+	// DisablePrefixDelegation determines whether ENI prefix delegation should be
+	// disabled on this node.
+	//
+	// +kubebuilder:validation:Optional
+	DisablePrefixDelegation *bool `json:"disable-prefix-delegation,omitempty"`
 }
 
 // ENI represents an AWS Elastic Network Interface

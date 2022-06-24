@@ -549,6 +549,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		nodeResource.Spec.ENI.VpcID = vpcID
 		nodeResource.Spec.ENI.FirstInterfaceIndex = getInt(defaults.ENIFirstInterfaceIndex)
 		nodeResource.Spec.ENI.UsePrimaryAddress = getBool(defaults.UseENIPrimaryAddress)
+		nodeResource.Spec.ENI.DisablePrefixDelegation = getBool(defaults.ENIDisableNodeLevelPD)
 
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
@@ -589,6 +590,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 			if c.ENI.UsePrimaryAddress != nil {
 				nodeResource.Spec.ENI.UsePrimaryAddress = c.ENI.UsePrimaryAddress
+			}
+
+			if c.ENI.DisablePrefixDelegation != nil {
+				nodeResource.Spec.ENI.DisablePrefixDelegation = c.ENI.DisablePrefixDelegation
 			}
 
 			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
