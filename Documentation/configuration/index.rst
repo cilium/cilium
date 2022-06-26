@@ -17,3 +17,4 @@ Core Agent
 
    api-rate-limiting
    vlan-802.1q
+   argocd-issues
