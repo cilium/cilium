@@ -107,6 +107,7 @@ spec:
         - --debug
         {{- end }}
         - --cluster-name=$(CLUSTER_NAME)
+        - --cluster-id=$(CLUSTER_ID)
         - --kvstore-opt
         - etcd.config=/var/lib/cilium/etcd-config.yaml
         env:
