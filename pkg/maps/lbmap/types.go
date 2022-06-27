@@ -7,7 +7,6 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -170,12 +169,6 @@ type RevNatValue interface {
 	// ToHost converts fields to host byte order.
 	ToHost() RevNatValue
 }
-
-// BackendIDByServiceIDSet is the type of a set for checking whether a backend
-// belongs to a given service
-type BackendIDByServiceIDSet map[uint16]map[loadbalancer.BackendID]struct{} // svc ID => backend ID
-
-type SourceRangeSetByServiceID map[uint16][]*cidr.CIDR // svc ID => src range CIDRs
 
 func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4AddrID {
 	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, svcKey.GetAddress(), svcKey.GetPort(), svcKey.GetScope())

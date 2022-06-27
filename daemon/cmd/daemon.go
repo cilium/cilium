@@ -630,7 +630,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	bootstrapStats.proxyStart.End(true)
 
 	// Start service support after proxy support so that we can inject 'd.l7Proxy`.
-	d.svc = service.NewService(&d, d.l7Proxy)
+	d.svc = service.NewService(&d, d.l7Proxy, d.datapath.LBMap())
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
