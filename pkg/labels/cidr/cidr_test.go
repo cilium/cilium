@@ -124,13 +124,15 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
 
 func (s *CIDRLabelsSuite) TestIPStringToLabel(c *C) {
 	ipToLabels := map[string]string{
-		"0.0.0.0/0":    "cidr:0.0.0.0/0",
-		"192.0.2.3":    "cidr:192.0.2.3/32",
-		"192.0.2.3/32": "cidr:192.0.2.3/32",
-		"192.0.2.3/24": "cidr:192.0.2.0/24",
-		"192.0.2.0/24": "cidr:192.0.2.0/24",
-		"::/0":         "cidr:0--0/0",
-		"fdff::ff":     "cidr:fdff--ff/128",
+		"0.0.0.0/0":       "cidr:0.0.0.0/0",
+		"192.0.2.3":       "cidr:192.0.2.3/32",
+		"192.0.2.3/32":    "cidr:192.0.2.3/32",
+		"192.0.2.3/24":    "cidr:192.0.2.0/24",
+		"192.0.2.0/24":    "cidr:192.0.2.0/24",
+		"::/0":            "cidr:0--0/0",
+		"fdff::ff":        "cidr:fdff--ff/128",
+		"f00d:42::ff/128": "cidr:f00d-42--ff/128",
+		"f00d:42::ff/96":  "cidr:f00d-42--0/96",
 	}
 	for ip, labelStr := range ipToLabels {
 		lbl, err := IPStringToLabel(ip)
@@ -191,5 +193,29 @@ func Benchmark_GetCIDRLabels(b *testing.B) {
 		for _, c := range cidrs {
 			_ = GetCIDRLabels(c)
 		}
+	}
+}
+
+func BenchmarkIPStringToLabel(b *testing.B) {
+	for _, ip := range []string{
+		"0.0.0.0/0",
+		"192.0.2.3",
+		"192.0.2.3/32",
+		"192.0.2.3/24",
+		"192.0.2.0/24",
+		"::/0",
+		"fdff::ff",
+		"f00d:42::ff/128",
+		"f00d:42::ff/96",
+	} {
+		b.Run(ip, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				_, err := IPStringToLabel(ip)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
