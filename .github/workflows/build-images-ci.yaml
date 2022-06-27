@@ -117,7 +117,7 @@ jobs:
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
         uses: docker/build-push-action@e551b19e49efd4e98792db7592c17c09b89db8d8
-        id: docker_build_ci_v1.12_unstripped
+        id: docker_build_ci_v1_12_unstripped
         with:
           context: .
           file: ${{ matrix.dockerfile }}
