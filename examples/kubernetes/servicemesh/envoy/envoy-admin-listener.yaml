@@ -1,0 +1,31 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideEnvoyConfig
+metadata:
+  name: envoy-admin-listener
+spec:
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: envoy-admin-listener
+    address:
+      socket_address:
+        address: "::"
+        ipv4_compat: true
+        port_value: 9901
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: envoy-admin-listener
+          route_config:
+            name: admin_route
+            virtual_hosts:
+            - name: "admin_route"
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: "/"
+                route:
+                  cluster: "envoy-admin"
+          http_filters:
+          - name: envoy.filters.http.router
