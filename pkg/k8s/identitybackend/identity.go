@@ -11,9 +11,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -22,6 +20,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -312,8 +311,7 @@ func (c *crdBackend) Release(ctx context.Context, id idpool.ID, key allocator.Al
 func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
 	c.Store = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	identityInformer := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(c.Client.CiliumV2().RESTClient(),
-			v2.CIDPluralName, v1.NamespaceAll, fields.Everything()),
+		k8sUtils.ListerWatcherFromTyped[*v2.CiliumIdentityList](c.Client.CiliumV2().CiliumIdentities()),
 		&v2.CiliumIdentity{},
 		0,
 		cache.ResourceEventHandlerFuncs{

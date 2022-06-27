@@ -10,14 +10,13 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
@@ -26,8 +25,7 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ciliumNPClient *k8s.K8sCil
 	ccecStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	apiGroup := k8sAPIGroupCiliumClusterwideEnvoyConfigV2
 	ccecController := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
-			cilium_v2.CCECPluralName, v1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumClusterwideEnvoyConfigList](ciliumNPClient.CiliumV2().CiliumClusterwideEnvoyConfigs()),
 		&cilium_v2.CiliumClusterwideEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{

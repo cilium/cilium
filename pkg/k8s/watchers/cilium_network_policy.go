@@ -8,8 +8,6 @@ import (
 	"errors"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -18,6 +16,7 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
@@ -86,8 +85,8 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 
 	apiGroup := k8sAPIGroupCiliumNetworkPolicyV2
 	ciliumV2Controller := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
-			cilium_v2.CNPPluralName, v1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNetworkPolicyList](
+			ciliumNPClient.CiliumV2().CiliumNetworkPolicies("")),
 		&cilium_v2.CiliumNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{

@@ -6,13 +6,12 @@ package watchers
 import (
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/kvstore"
 )
@@ -32,8 +31,8 @@ func (k *K8sWatcher) ciliumEndpointSliceInit(client *k8s.K8sCiliumClient, asyncC
 
 	for {
 		_, cesInformer := informer.NewInformer(
-			cache.NewListWatchFromClient(client.CiliumV2alpha1().RESTClient(),
-				cilium_v2a1.CESPluralName, v1.NamespaceAll, fields.Everything()),
+			utils.ListerWatcherFromTyped[*cilium_v2a1.CiliumEndpointSliceList](
+				client.CiliumV2alpha1().CiliumEndpointSlices()),
 			&cilium_v2a1.CiliumEndpointSlice{},
 			0,
 			cache.ResourceEventHandlerFuncs{

@@ -4,16 +4,15 @@ import (
 	"sync"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
 var (
@@ -56,11 +55,10 @@ func (nodeGetter) GetK8sSlimNode(nodeName string) (*slim_corev1.Node, error) {
 }
 
 // nodesInit starts up a node watcher to handle node events.
-func nodesInit(k8sClient kubernetes.Interface, stopCh <-chan struct{}) {
+func nodesInit(slimClient slimclientset.Interface, stopCh <-chan struct{}) {
 	nodeSyncOnce.Do(func() {
 		slimNodeStore, nodeController = informer.NewInformer(
-			cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-				"nodes", metav1.NamespaceAll, fields.Everything()),
+			utils.ListerWatcherFromTyped[*slim_corev1.NodeList](slimClient.CoreV1().Nodes()),
 			&slim_corev1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{

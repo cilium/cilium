@@ -14,13 +14,11 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -35,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -51,11 +50,12 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fields.Selector) (cache.Store, cache.Controller) {
+func (k *K8sWatcher) createPodController(slimClient slimclientset.Interface, fieldSelector fields.Selector) (cache.Store, cache.Controller) {
 	apiGroup := resources.K8sAPIGroupPodV1Core
 	return informer.NewInformer(
-		cache.NewListWatchFromClient(getter,
-			"pods", v1.NamespaceAll, fieldSelector),
+		k8sUtils.ListerWatcherWithFields(
+			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](slimClient.CoreV1().Pods("")),
+			fieldSelector),
 		&slim_corev1.Pod{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -115,12 +115,12 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 	)
 }
 
-func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControllers *sync.WaitGroup) {
 	var once sync.Once
 	watchNodePods := func() chan struct{} {
 		// Only watch for pod events for our node.
 		podStore, podController := k.createPodController(
-			k8sClient.CoreV1().RESTClient(),
+			slimClient,
 			fields.ParseSelectorOrDie("spec.nodeName="+nodeTypes.GetName()))
 		isConnected := make(chan struct{})
 		k.podStoreMU.Lock()
@@ -153,7 +153,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 	// K8sEventHandover is enabled.
 	for {
 		podStore, podController := k.createPodController(
-			k8sClient.CoreV1().RESTClient(),
+			slimClient,
 			fields.Everything())
 
 		isConnected := make(chan struct{})

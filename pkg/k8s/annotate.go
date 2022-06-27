@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -29,6 +30,11 @@ type K8sClient struct {
 	// kubernetes.Interface is the object through which interactions with
 	// Kubernetes are performed.
 	kubernetes.Interface
+}
+
+// K8sSlimClient is a wrapper around slimclientset.Clientset.
+type K8sSlimClient struct {
+	slimclientset.Interface
 }
 
 // K8sCiliumClient is a wrapper around clientset.Interface.

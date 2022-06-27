@@ -4,15 +4,15 @@
 package watchers
 
 import (
-	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -20,17 +20,16 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) {
+func (k *K8sWatcher) endpointsInit(slimClient slimclientset.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) {
 	epOptsModifier := func(options *v1meta.ListOptions) {
 		options.FieldSelector = fields.ParseSelectorOrDie(option.Config.K8sWatcherEndpointSelector).String()
 		optsModifier(options)
 	}
 	apiGroup := resources.K8sAPIGroupEndpointV1Core
 	_, endpointController := informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"endpoints", v1.NamespaceAll,
-			epOptsModifier,
-		),
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](slimClient.CoreV1().Endpoints("")),
+			epOptsModifier),
 		&slim_corev1.Endpoints{},
 		0,
 		cache.ResourceEventHandlerFuncs{

@@ -6,14 +6,13 @@ package watchers
 import (
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -37,8 +36,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 	for {
 		swgNodes := lock.NewStoppableWaitGroup()
 		ciliumNodeStore, ciliumNodeInformer := informer.NewInformer(
-			cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
-				cilium_v2.CNPluralName, v1.NamespaceAll, fields.Everything()),
+			utils.ListerWatcherFromTyped[*cilium_v2.CiliumNodeList](ciliumNPClient.CiliumV2().CiliumNodes()),
 			&cilium_v2.CiliumNode{},
 			0,
 			cache.ResourceEventHandlerFuncs{
