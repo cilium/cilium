@@ -362,6 +362,12 @@ Users (Alphabetically)
       U: Service Load Balancing, Hubble, Datadog Integration for Prometheus metrics 
       Q: @edude03
 
+    * N: SuperOrbital
+      D: As a Kubernetes-focused consulting firm, we have implemented Cilium on customer engagements
+      U: CNI, CiliumNetworkPolicy at L7, Hubble
+      L: https://superorbital.io/
+      Q: @jmcshane
+
     * N: Talos
       D: Cilium is one of the supported CNI's in Talos
       U: Networking, NetworkPolicy, Hubble, BPF NodePort
