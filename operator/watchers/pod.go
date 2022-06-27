@@ -4,16 +4,16 @@
 package watchers
 
 import (
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 )
 
 const PodNodeNameIndex = "pod-node"
@@ -47,14 +47,15 @@ func podNodeNameIndexFunc(obj interface{}) ([]string, error) {
 	return []string{}, nil
 }
 
-func PodsInit(k8sClient kubernetes.Interface, stopCh <-chan struct{}) {
+func PodsInit(slimClient *k8s.K8sSlimClient, stopCh <-chan struct{}) {
 	var podInformer cache.Controller
 	PodStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
 		PodNodeNameIndex: podNodeNameIndexFunc,
 	})
 	podInformer = informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"pods", v1.NamespaceAll, fields.Everything()),
+		k8sUtils.ListerWatcherWithFields(
+			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](slimClient.CoreV1().Pods("")),
+			fields.Everything()),
 		&slim_corev1.Pod{},
 		0,
 		cache.ResourceEventHandlerFuncs{},
@@ -119,11 +120,12 @@ func convertToPod(obj interface{}) interface{} {
 	}
 }
 
-func UnmanagedKubeDNSPodsInit(k8sClient kubernetes.Interface) {
+func UnmanagedKubeDNSPodsInit(slimClient *k8s.K8sSlimClient) {
 	var unmanagedPodInformer cache.Controller
 	UnmanagedKubeDNSPodStore, unmanagedPodInformer = informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"pods", v1.NamespaceAll, func(options *metav1.ListOptions) {
+		k8sUtils.ListerWatcherWithModifier(
+			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](slimClient.CoreV1().Pods("")),
+			func(options *metav1.ListOptions) {
 				options.LabelSelector = "k8s-app=kube-dns"
 				options.FieldSelector = "status.phase=Running"
 			}),

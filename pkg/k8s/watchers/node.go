@@ -24,6 +24,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
@@ -66,8 +67,9 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 		swg := lock.NewStoppableWaitGroup()
 
 		nodeStore, nodeController := informer.NewInformer(
-			cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-				"nodes", v1.NamespaceAll, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName())),
+			utils.ListerWatcherWithFields(
+				utils.ListerWatcherFromTyped[*v1.NodeList](k8sClient.CoreV1().Nodes()),
+				fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName())),
 			&v1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{

@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	pkgOption "github.com/cilium/cilium/pkg/option"
@@ -106,12 +107,15 @@ func checkAndMarkNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeNam
 }
 
 // ciliumPodsWatcher starts up a pod watcher to handle pod events.
-func ciliumPodsWatcher(k8sClient kubernetes.Interface, stopCh <-chan struct{}) {
+func ciliumPodsWatcher(slimClient slimclientset.Interface, stopCh <-chan struct{}) {
 	ciliumQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "cilium-pod-queue")
 
 	ciliumPodInformer := informer.NewInformerWithStore(
-		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"pods", option.Config.CiliumK8sNamespace, func(options *metav1.ListOptions) {
+		k8sUtils.ListerWatcherWithModifier(
+			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](
+				slimClient.CoreV1().Pods(option.Config.CiliumK8sNamespace),
+			),
+			func(options *metav1.ListOptions) {
 				options.LabelSelector = option.Config.CiliumPodLabels
 			}),
 		&slim_corev1.Pod{},
