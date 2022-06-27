@@ -1879,10 +1879,7 @@ var _ = SkipDescribeIf(func() bool {
 				validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityAllow, WorldConnectivityDeny)
 			})
 
-			// Quarantined on net-next until #18520 is fixed
-			SkipItIf(func() bool {
-				return helpers.RunsOnNetNextKernel() && helpers.SkipQuarantined()
-			}, "Validates fromEntities all policy", func() {
+			It("Validates fromEntities all policy", func() {
 				installDefaultDenyIngressPolicy(kubectl, testNamespace, validateConnectivity)
 
 				By("Installing fromEntities all policy")
