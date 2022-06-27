@@ -23,9 +23,9 @@ type FakePods struct {
 	ns   string
 }
 
-var podsResource = schema.GroupVersionResource{Group: "core", Version: "v1", Resource: "pods"}
+var podsResource = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 
-var podsKind = schema.GroupVersionKind{Group: "core", Version: "v1", Kind: "Pod"}
+var podsKind = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 
 // Get takes name of the pod, and returns the corresponding pod object, and an error if there is any.
 func (c *FakePods) Get(ctx context.Context, name string, options v1.GetOptions) (result *corev1.Pod, err error) {

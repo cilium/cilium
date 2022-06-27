@@ -13,34 +13,34 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
-type MetaV1Interface interface {
+type NetworkingV1Interface interface {
 	RESTClient() rest.Interface
 	IngressesGetter
 	IngressClassesGetter
 	NetworkPoliciesGetter
 }
 
-// MetaV1Client is used to interact with features provided by the meta group.
-type MetaV1Client struct {
+// NetworkingV1Client is used to interact with features provided by the networking.k8s.io group.
+type NetworkingV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *MetaV1Client) Ingresses(namespace string) IngressInterface {
+func (c *NetworkingV1Client) Ingresses(namespace string) IngressInterface {
 	return newIngresses(c, namespace)
 }
 
-func (c *MetaV1Client) IngressClasses() IngressClassInterface {
+func (c *NetworkingV1Client) IngressClasses() IngressClassInterface {
 	return newIngressClasses(c)
 }
 
-func (c *MetaV1Client) NetworkPolicies(namespace string) NetworkPolicyInterface {
+func (c *NetworkingV1Client) NetworkPolicies(namespace string) NetworkPolicyInterface {
 	return newNetworkPolicies(c, namespace)
 }
 
-// NewForConfig creates a new MetaV1Client for the given config.
+// NewForConfig creates a new NetworkingV1Client for the given config.
 // NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
 // where httpClient was generated with rest.HTTPClientFor(c).
-func NewForConfig(c *rest.Config) (*MetaV1Client, error) {
+func NewForConfig(c *rest.Config) (*NetworkingV1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -52,9 +52,9 @@ func NewForConfig(c *rest.Config) (*MetaV1Client, error) {
 	return NewForConfigAndClient(&config, httpClient)
 }
 
-// NewForConfigAndClient creates a new MetaV1Client for the given config and http client.
+// NewForConfigAndClient creates a new NetworkingV1Client for the given config and http client.
 // Note the http client provided takes precedence over the configured transport values.
-func NewForConfigAndClient(c *rest.Config, h *http.Client) (*MetaV1Client, error) {
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*NetworkingV1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -63,12 +63,12 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*MetaV1Client, error
 	if err != nil {
 		return nil, err
 	}
-	return &MetaV1Client{client}, nil
+	return &NetworkingV1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new MetaV1Client for the given config and
+// NewForConfigOrDie creates a new NetworkingV1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *MetaV1Client {
+func NewForConfigOrDie(c *rest.Config) *NetworkingV1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -76,9 +76,9 @@ func NewForConfigOrDie(c *rest.Config) *MetaV1Client {
 	return client
 }
 
-// New creates a new MetaV1Client for the given RESTClient.
-func New(c rest.Interface) *MetaV1Client {
-	return &MetaV1Client{c}
+// New creates a new NetworkingV1Client for the given RESTClient.
+func New(c rest.Interface) *NetworkingV1Client {
+	return &NetworkingV1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -96,7 +96,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *MetaV1Client) RESTClient() rest.Interface {
+func (c *NetworkingV1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

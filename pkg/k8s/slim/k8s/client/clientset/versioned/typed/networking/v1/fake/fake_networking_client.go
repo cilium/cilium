@@ -11,25 +11,25 @@ import (
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeMetaV1 struct {
+type FakeNetworkingV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeMetaV1) Ingresses(namespace string) v1.IngressInterface {
+func (c *FakeNetworkingV1) Ingresses(namespace string) v1.IngressInterface {
 	return &FakeIngresses{c, namespace}
 }
 
-func (c *FakeMetaV1) IngressClasses() v1.IngressClassInterface {
+func (c *FakeNetworkingV1) IngressClasses() v1.IngressClassInterface {
 	return &FakeIngressClasses{c}
 }
 
-func (c *FakeMetaV1) NetworkPolicies(namespace string) v1.NetworkPolicyInterface {
+func (c *FakeNetworkingV1) NetworkPolicies(namespace string) v1.NetworkPolicyInterface {
 	return &FakeNetworkPolicies{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeMetaV1) RESTClient() rest.Interface {
+func (c *FakeNetworkingV1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }
