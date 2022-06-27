@@ -173,26 +173,32 @@ func Benchmark_maskedIPNetToLabelString(b *testing.B) {
 	}
 }
 
-func Benchmark_GetCIDRLabels(b *testing.B) {
-	var cidrs []*net.IPNet
-	for _, cidr := range []string{
-		"0.0.0.0/0",
-		"10.16.0.0/16",
-		"192.0.2.3/32",
-		"192.0.2.3/24",
-		"192.0.2.0/24",
-		"::/0",
-		"fdff::ff/128",
-	} {
-		_, c, _ := net.ParseCIDR(cidr)
-		cidrs = append(cidrs, c)
+func mustCIDR(cidr string) *net.IPNet {
+	_, c, err := net.ParseCIDR(cidr)
+	if err != nil {
+		panic(err)
 	}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for _, c := range cidrs {
-			_ = GetCIDRLabels(c)
-		}
+	return c
+}
+
+func BenchmarkGetCIDRLabels(b *testing.B) {
+	for _, cidr := range []*net.IPNet{
+		mustCIDR("0.0.0.0/0"),
+		mustCIDR("10.16.0.0/16"),
+		mustCIDR("192.0.2.3/32"),
+		mustCIDR("192.0.2.3/24"),
+		mustCIDR("192.0.2.0/24"),
+		mustCIDR("::/0"),
+		mustCIDR("fdff::ff/128"),
+		mustCIDR("f00d:42::ff/128"),
+		mustCIDR("f00d:42::ff/96"),
+	} {
+		b.Run(cidr.String(), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				_ = GetCIDRLabels(cidr)
+			}
+		})
 	}
 }
 
