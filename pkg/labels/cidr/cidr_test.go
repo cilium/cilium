@@ -123,21 +123,63 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
 }
 
 func (s *CIDRLabelsSuite) TestIPStringToLabel(c *C) {
-	ipToLabels := map[string]string{
-		"0.0.0.0/0":       "cidr:0.0.0.0/0",
-		"192.0.2.3":       "cidr:192.0.2.3/32",
-		"192.0.2.3/32":    "cidr:192.0.2.3/32",
-		"192.0.2.3/24":    "cidr:192.0.2.0/24",
-		"192.0.2.0/24":    "cidr:192.0.2.0/24",
-		"::/0":            "cidr:0--0/0",
-		"fdff::ff":        "cidr:fdff--ff/128",
-		"f00d:42::ff/128": "cidr:f00d-42--ff/128",
-		"f00d:42::ff/96":  "cidr:f00d-42--0/96",
-	}
-	for ip, labelStr := range ipToLabels {
-		lbl, err := IPStringToLabel(ip)
-		c.Assert(err, IsNil)
-		c.Assert(lbl.String(), checker.DeepEquals, labelStr)
+	for _, tc := range []struct {
+		ip      string
+		label   string
+		wantErr bool
+	}{
+		{
+			ip:    "0.0.0.0/0",
+			label: "cidr:0.0.0.0/0",
+		},
+		{
+			ip:    "192.0.2.3",
+			label: "cidr:192.0.2.3/32",
+		},
+		{
+			ip:    "192.0.2.3/32",
+			label: "cidr:192.0.2.3/32",
+		},
+		{
+			ip:    "192.0.2.3/24",
+			label: "cidr:192.0.2.0/24",
+		},
+		{
+			ip:    "192.0.2.0/24",
+			label: "cidr:192.0.2.0/24",
+		},
+		{
+			ip:    "::/0",
+			label: "cidr:0--0/0",
+		},
+		{
+			ip:    "fdff::ff",
+			label: "cidr:fdff--ff/128",
+		},
+		{
+			ip:    "f00d:42::ff/128",
+			label: "cidr:f00d-42--ff/128",
+		},
+		{
+			ip:    "f00d:42::ff/96",
+			label: "cidr:f00d-42--0/96",
+		},
+		{
+			ip:      "",
+			wantErr: true,
+		},
+		{
+			ip:      "foobar",
+			wantErr: true,
+		},
+	} {
+		lbl, err := IPStringToLabel(tc.ip)
+		if !tc.wantErr {
+			c.Assert(err, IsNil)
+			c.Assert(lbl.String(), checker.DeepEquals, tc.label)
+		} else {
+			c.Assert(err, Not(IsNil))
+		}
 	}
 }
 
