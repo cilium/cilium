@@ -183,38 +183,6 @@ func (s *CIDRLabelsSuite) TestIPStringToLabel(c *C) {
 	}
 }
 
-func Benchmark_maskedIPNetToLabelString(b *testing.B) {
-	type input struct {
-		prefix     *net.IPNet
-		ones, bits int
-	}
-	var ins []input
-	for _, cidr := range []string{
-		"0.0.0.0/0",
-		"10.16.0.0/16",
-		"192.0.2.3/32",
-		"192.0.2.3/24",
-		"192.0.2.0/24",
-		"::/0",
-		"fdff::ff/128",
-	} {
-		_, c, _ := net.ParseCIDR(cidr)
-		ones, bits := c.Mask.Size()
-		ins = append(ins, input{
-			prefix: c,
-			ones:   ones,
-			bits:   bits,
-		})
-	}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for _, in := range ins {
-			_ = maskedIPNetToLabelString(in.prefix, in.ones, in.bits)
-		}
-	}
-}
-
 func mustCIDR(cidr string) *net.IPNet {
 	_, c, err := net.ParseCIDR(cidr)
 	if err != nil {

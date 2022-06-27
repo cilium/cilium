@@ -6,6 +6,7 @@ package cidr
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -17,7 +18,7 @@ import (
 //
 // For IPv6 addresses, it converts ":" into "-" as EndpointSelectors don't
 // support colons inside the name section of a label.
-func maskedIPToLabelString(ip *net.IP, prefix int) string {
+func maskedIPToLabelString(ip netip.Addr, prefix int) string {
 	ipStr := ip.String()
 	ipNoColons := strings.Replace(ipStr, ":", "-", -1)
 
@@ -51,40 +52,28 @@ func maskedIPToLabelString(ip *net.IP, prefix int) string {
 	return str.String()
 }
 
-// ipNetToLabel turns a CIDR into a Label object which can be used to create
-// EndpointSelector objects.
-func ipNetToLabel(cidr *net.IPNet) labels.Label {
-	ones, _ := cidr.Mask.Size()
-	lblStr := maskedIPToLabelString(&cidr.IP, ones)
-	return labels.ParseLabel(lblStr)
-}
-
 // IPStringToLabel parses a string and returns it as a CIDR label.
 //
-// If "IP" is not a valid IP address or CIDR Prefix, returns an error.
-func IPStringToLabel(IP string) (labels.Label, error) {
-	_, parsedPrefix, err := net.ParseCIDR(IP)
-	if err != nil {
-		parsedIP := net.ParseIP(IP)
-		if parsedIP == nil {
-			return labels.Label{}, fmt.Errorf("Not an IP address or CIDR: %s", IP)
+// If ip is not a valid IP address or CIDR Prefix, returns an error.
+func IPStringToLabel(ip string) (labels.Label, error) {
+	var lblString string
+	// factored out of netip.ParsePrefix to avoid allocating an empty netip.Prefix in case it's
+	// an IP and not a CIDR.
+	i := strings.LastIndexByte(ip, '/')
+	if i < 0 {
+		parsedIP, err := netip.ParseAddr(ip)
+		if err != nil {
+			return labels.Label{}, fmt.Errorf("%q is not an IP address: %w", ip, err)
 		}
-		bits := net.IPv6len * 8
-		if parsedIP.To4() != nil {
-			bits = net.IPv4len * 8
+		lblString = maskedIPToLabelString(parsedIP, parsedIP.BitLen())
+	} else {
+		parsedPrefix, err := netip.ParsePrefix(ip)
+		if err != nil {
+			return labels.Label{}, fmt.Errorf("%q is not a CIDR: %w", ip, err)
 		}
-		parsedPrefix = &net.IPNet{IP: parsedIP, Mask: net.CIDRMask(bits, bits)}
+		lblString = maskedIPToLabelString(parsedPrefix.Masked().Addr(), parsedPrefix.Bits())
 	}
-
-	return ipNetToLabel(parsedPrefix), nil
-}
-
-// maskedIPNetToLabelString masks the prefix/bits of the specified 'cidr' then
-// turns the resulting CIDR into a label string for use elsewhere.
-func maskedIPNetToLabelString(cidr *net.IPNet, prefix, bits int) string {
-	mask := net.CIDRMask(prefix, bits)
-	maskedIP := cidr.IP.Mask(mask)
-	return maskedIPToLabelString(&maskedIP, prefix)
+	return labels.ParseLabel(lblString), nil
 }
 
 // GetCIDRLabels turns a CIDR into a set of labels representing the cidr itself
@@ -96,7 +85,7 @@ func maskedIPNetToLabelString(cidr *net.IPNet, prefix, bits int) string {
 //
 // The identity reserved:world is always added as it includes any CIDR.
 func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
-	ones, bits := cidr.Mask.Size()
+	ones, _ := cidr.Mask.Size()
 	result := make([]string, 0, ones+1)
 
 	// If ones is zero, then it's the default CIDR prefix /0 which should
@@ -104,8 +93,10 @@ func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 	// to generate the set of prefixes starting from the /0 up to the
 	// specified prefix length.
 	if ones > 0 {
+		ip, _ := netip.AddrFromSlice(cidr.IP)
 		for i := 0; i <= ones; i++ {
-			label := maskedIPNetToLabelString(cidr, i, bits)
+			prefix := netip.PrefixFrom(ip, i)
+			label := maskedIPToLabelString(prefix.Masked().Addr(), i)
 			result = append(result, label)
 		}
 	}
