@@ -144,15 +144,6 @@ func Execute() {
 	<-interruptCh
 }
 
-func skipInit(basePath string) bool {
-	switch basePath {
-	case components.CiliumAgentName, components.CiliumDaemonTestName:
-		return false
-	default:
-		return true
-	}
-}
-
 func init() {
 	setupSleepBeforeFatal()
 	initializeFlags()
@@ -171,11 +162,6 @@ func setupSleepBeforeFatal() {
 }
 
 func initializeFlags() {
-	if skipInit(path.Base(os.Args[0])) {
-		log.Debug("Skipping preparation of cilium-agent environment")
-		return
-	}
-
 	cobra.OnInitialize(option.InitConfig(RootCmd, "Cilium", "ciliumd"))
 
 	// Reset the help function to also exit, as we block elsewhere in interrupts
