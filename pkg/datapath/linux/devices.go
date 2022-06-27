@@ -85,7 +85,7 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 	}
 
 	l3DevOK := true
-	if !option.Config.EnableHostLegacyRouting {
+	if !option.Config.EnableHostLegacyRouting && !option.Config.DryMode {
 		// Probe whether BPF host routing is supported for L3 devices. This will
 		// invoke bpftool and requires root privileges, so we're only probing
 		// when necessary.
@@ -403,6 +403,10 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 }
 
 func (dm *DeviceManager) AreDevicesRequired() bool {
+	if option.Config.DryMode {
+		return false
+	}
+
 	return option.Config.EnableNodePort ||
 		option.Config.EnableHostFirewall ||
 		option.Config.EnableBandwidthManager
