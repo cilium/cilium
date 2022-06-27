@@ -19,12 +19,12 @@ import (
 
 // FakeIngressClasses implements IngressClassInterface
 type FakeIngressClasses struct {
-	Fake *FakeMetaV1
+	Fake *FakeNetworkingV1
 }
 
-var ingressclassesResource = schema.GroupVersionResource{Group: "meta", Version: "v1", Resource: "ingressclasses"}
+var ingressclassesResource = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}
 
-var ingressclassesKind = schema.GroupVersionKind{Group: "meta", Version: "v1", Kind: "IngressClass"}
+var ingressclassesKind = schema.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "IngressClass"}
 
 // Get takes name of the ingressClass, and returns the corresponding ingressClass object, and an error if there is any.
 func (c *FakeIngressClasses) Get(ctx context.Context, name string, options v1.GetOptions) (result *networkingv1.IngressClass, err error) {

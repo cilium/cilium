@@ -23,9 +23,9 @@ type FakeEndpoints struct {
 	ns   string
 }
 
-var endpointsResource = schema.GroupVersionResource{Group: "core", Version: "v1", Resource: "endpoints"}
+var endpointsResource = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpoints"}
 
-var endpointsKind = schema.GroupVersionKind{Group: "core", Version: "v1", Kind: "Endpoints"}
+var endpointsKind = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"}
 
 // Get takes name of the endpoints, and returns the corresponding endpoints object, and an error if there is any.
 func (c *FakeEndpoints) Get(ctx context.Context, name string, options v1.GetOptions) (result *corev1.Endpoints, err error) {

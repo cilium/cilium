@@ -23,9 +23,9 @@ type FakeServices struct {
 	ns   string
 }
 
-var servicesResource = schema.GroupVersionResource{Group: "core", Version: "v1", Resource: "services"}
+var servicesResource = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
 
-var servicesKind = schema.GroupVersionKind{Group: "core", Version: "v1", Kind: "Service"}
+var servicesKind = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
 
 // Get takes name of the service, and returns the corresponding service object, and an error if there is any.
 func (c *FakeServices) Get(ctx context.Context, name string, options v1.GetOptions) (result *corev1.Service, err error) {
