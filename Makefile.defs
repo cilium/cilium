@@ -74,7 +74,7 @@ GOTEST_COVER_OPTS =
 # is installed, use it to format the output. This is either silent silent (V=0)
 # or gives some signal about ongoing progress by teeing to the terminal (V=1).
 GOTEST_FORMATTER ?= cat
-ifneq ($(shell which tparse),)
+ifneq ($(shell command -v tparse),)
 	GOTEST_COVER_OPTS += -json
 	GOTEST_FORMATTER = tparse
 ifneq ($(V),0)
