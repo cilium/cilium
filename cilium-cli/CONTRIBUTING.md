@@ -10,7 +10,7 @@ Guide](https://docs.cilium.io/en/latest/contributing/development/).
 ## Slack
 
 Most developers are using the [Cilium & eBPF
-Slack](https://docs.cilium.io/en/latest/community/#slack) to communicate
+Slack](https://docs.cilium.io/en/latest/community/community/#slack) to communicate
 outside of GitHub.
 
 ## Code of conduct
