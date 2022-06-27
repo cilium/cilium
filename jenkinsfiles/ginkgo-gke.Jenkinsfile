@@ -92,9 +92,9 @@ pipeline {
                     steps {
                         retry(25) {
                             sleep(time: 60)
-                            sh 'docker manifest inspect quay.io/cilium/cilium-ci:${DOCKER_TAG}} &> /dev/null'
-                            sh 'docker manifest inspect quay.io/cilium/operator-generic-ci:${DOCKER_TAG}} &> /dev/null'
-                            sh 'docker manifest inspect quay.io/cilium/hubble-relay-ci:${DOCKER_TAG}} &> /dev/null'
+                            sh 'docker manifest inspect quay.io/cilium/cilium-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect quay.io/cilium/operator-generic-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect quay.io/cilium/hubble-relay-ci:${DOCKER_TAG} &> /dev/null'
                         }
                     }
                 }
