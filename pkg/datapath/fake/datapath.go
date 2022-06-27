@@ -10,88 +10,101 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
-type fakeDatapath struct {
+var _ datapath.Datapath = (*FakeDatapath)(nil)
+
+type FakeDatapath struct {
 	node           datapath.NodeHandler
 	nodeAddressing types.NodeAddressing
 	loader         datapath.Loader
+	lbmap          *mockmaps.LBMockMap
 }
 
 // NewDatapath returns a new fake datapath
-func NewDatapath() datapath.Datapath {
-	return &fakeDatapath{
+func NewDatapath() *FakeDatapath {
+	return &FakeDatapath{
 		node:           NewNodeHandler(),
 		nodeAddressing: NewNodeAddressing(),
 		loader:         &fakeLoader{},
+		lbmap:          mockmaps.NewLBMockMap(),
 	}
 }
 
 // Node returns a fake handler for node events
-func (f *fakeDatapath) Node() datapath.NodeHandler {
+func (f *FakeDatapath) Node() datapath.NodeHandler {
 	return f.node
 }
 
 // LocalNodeAddressing returns a fake node addressing implementation of the
 // local node
-func (f *fakeDatapath) LocalNodeAddressing() types.NodeAddressing {
+func (f *FakeDatapath) LocalNodeAddressing() types.NodeAddressing {
 	return f.nodeAddressing
 }
 
 // WriteNodeConfig pretends to write the datapath configuration to the writer.
-func (f *fakeDatapath) WriteNodeConfig(io.Writer, *datapath.LocalNodeConfiguration) error {
+func (f *FakeDatapath) WriteNodeConfig(io.Writer, *datapath.LocalNodeConfiguration) error {
 	return nil
 }
 
 // WriteNetdevConfig pretends to write the netdev configuration to a writer.
-func (f *fakeDatapath) WriteNetdevConfig(io.Writer, datapath.DeviceConfiguration) error {
+func (f *FakeDatapath) WriteNetdevConfig(io.Writer, datapath.DeviceConfiguration) error {
 	return nil
 }
 
 // WriteTemplateConfig pretends to write the endpoint configuration to a writer.
-func (f *fakeDatapath) WriteTemplateConfig(io.Writer, datapath.EndpointConfiguration) error {
+func (f *FakeDatapath) WriteTemplateConfig(io.Writer, datapath.EndpointConfiguration) error {
 	return nil
 }
 
 // WriteEndpointConfig pretends to write the endpoint configuration to a writer.
-func (f *fakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfiguration) error {
+func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfiguration) error {
 	return nil
 }
 
-func (f *fakeDatapath) InstallProxyRules(context.Context, uint16, bool, string) error {
+func (f *FakeDatapath) InstallProxyRules(context.Context, uint16, bool, string) error {
 	return nil
 }
 
-func (f *fakeDatapath) SupportsOriginalSourceAddr() bool {
+func (f *FakeDatapath) SupportsOriginalSourceAddr() bool {
 	return false
 }
 
-func (f *fakeDatapath) InstallRules(ctx context.Context, ifName string, quiet, install bool) error {
+func (f *FakeDatapath) InstallRules(ctx context.Context, ifName string, quiet, install bool) error {
 	return nil
 }
 
-func (m *fakeDatapath) GetProxyPort(name string) uint16 {
+func (m *FakeDatapath) GetProxyPort(name string) uint16 {
 	return 0
 }
 
-func (m *fakeDatapath) InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
+func (m *FakeDatapath) InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	return nil
 }
 
-func (m *fakeDatapath) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
+func (m *FakeDatapath) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	return nil
 }
 
-func (f *fakeDatapath) Loader() datapath.Loader {
+func (f *FakeDatapath) Loader() datapath.Loader {
 	return f.loader
 }
 
-func (f *fakeDatapath) WireguardAgent() datapath.WireguardAgent {
+func (f *FakeDatapath) WireguardAgent() datapath.WireguardAgent {
 	return nil
 }
 
-func (f *fakeDatapath) Procfs() string {
+func (f *FakeDatapath) Procfs() string {
 	return "/proc"
+}
+
+func (f *FakeDatapath) LBMap() types.LBMap {
+	return f.lbmap
+}
+
+func (f *FakeDatapath) LBMockMap() *mockmaps.LBMockMap {
+	return f.lbmap
 }
 
 // Loader is an interface to abstract out loading of datapath programs.

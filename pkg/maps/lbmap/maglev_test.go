@@ -9,10 +9,10 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/ebpf/rlimit"
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/ebpf/rlimit"
-
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
@@ -25,6 +25,7 @@ func Test(t *testing.T) {
 
 type MaglevSuite struct {
 	prevMaglevTableSize int
+	prevNodePortAlg     string
 }
 
 var _ = Suite(&MaglevSuite{})
@@ -42,12 +43,14 @@ func (s *MaglevSuite) SetUpSuite(c *C) {
 	}
 
 	s.prevMaglevTableSize = option.Config.MaglevTableSize
+	s.prevNodePortAlg = option.Config.NodePortAlg
 
 	// Otherwise opening the map might fail with EPERM
 	err = rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 
 	option.Config.LBMapEntries = DefaultMaxEntries
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
 
 	Init(InitParams{
 		IPv4: option.Config.EnableIPv4,
@@ -61,6 +64,7 @@ func (s *MaglevSuite) SetUpSuite(c *C) {
 
 func (s *MaglevSuite) TeadDownTest(c *C) {
 	option.Config.MaglevTableSize = s.prevMaglevTableSize
+	option.Config.NodePortAlg = s.prevNodePortAlg
 }
 
 func (s *MaglevSuite) TestInitMaps(c *C) {
@@ -84,8 +88,8 @@ func (s *MaglevSuite) TestInitMaps(c *C) {
 	// Now insert the entry, so that the map should not be removed
 	err = InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
-	lbm := New(true, option.Config.MaglevTableSize)
-	params := &UpsertServiceParams{
+	lbm := New()
+	params := &datapathTypes.UpsertServiceParams{
 		ID:             1,
 		IP:             net.ParseIP("1.1.1.1"),
 		Port:           8080,

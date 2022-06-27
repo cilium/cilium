@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -36,24 +37,6 @@ var (
 	deleteMetric = metrics.ServicesCount.WithLabelValues("delete")
 	addMetric    = metrics.ServicesCount.WithLabelValues("add")
 )
-
-// LBMap is the interface describing methods for manipulating service maps.
-type LBMap interface {
-	UpsertService(*lbmap.UpsertServiceParams) error
-	UpsertMaglevLookupTable(uint16, map[string]lb.BackendID, bool) error
-	IsMaglevLookupTableRecreated(bool) bool
-	DeleteService(lb.L3n4AddrID, int, bool, lb.SVCNatPolicy) error
-	AddBackend(*lb.Backend, bool) error
-	UpdateBackendWithState(*lb.Backend) error
-	DeleteBackendByID(lb.BackendID) error
-	AddAffinityMatch(uint16, lb.BackendID) error
-	DeleteAffinityMatch(uint16, lb.BackendID) error
-	UpdateSourceRanges(uint16, []*cidr.CIDR, []*cidr.CIDR, bool) error
-	DumpServiceMaps() ([]*lb.SVC, []error)
-	DumpBackendMaps() ([]*lb.Backend, error)
-	DumpAffinityMatches() (lbmap.BackendIDByServiceIDSet, error)
-	DumpSourceRanges(bool) (lbmap.SourceRangeSetByServiceID, error)
-}
 
 // healthServer is used to manage HealtCheckNodePort listeners
 type healthServer interface {
@@ -217,22 +200,19 @@ type Service struct {
 	monitorNotify monitorNotify
 	envoyCache    envoyCache
 
-	lbmap         LBMap
+	lbmap         datapathTypes.LBMap
 	lastUpdatedTs atomic.Value
 
 	l7lbSvcs map[Name]*L7LBInfo
 }
 
 // NewService creates a new instance of the service handler.
-func NewService(monitorNotify monitorNotify, envoyCache envoyCache) *Service {
+func NewService(monitorNotify monitorNotify, envoyCache envoyCache, lbmap datapathTypes.LBMap) *Service {
 
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New()
 	}
-
-	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
-	maglevTableSize := option.Config.MaglevTableSize
 
 	svc := &Service{
 		svcByHash:       map[string]*svcInfo{},
@@ -242,7 +222,7 @@ func NewService(monitorNotify monitorNotify, envoyCache envoyCache) *Service {
 		monitorNotify:   monitorNotify,
 		envoyCache:      envoyCache,
 		healthServer:    localHealthServer,
-		lbmap:           lbmap.New(maglev, maglevTableSize),
+		lbmap:           lbmap,
 		l7lbSvcs:        map[Name]*L7LBInfo{},
 	}
 	svc.lastUpdatedTs.Store(time.Now())
@@ -726,7 +706,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 		errs            error
 		updatedBackends []*lb.Backend
 	)
-	updateSvcs := make(map[lb.ID]*lbmap.UpsertServiceParams)
+	updateSvcs := make(map[lb.ID]*datapathTypes.UpsertServiceParams)
 
 	s.Lock()
 	defer s.Unlock()
@@ -754,7 +734,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 		be.Preferred = updatedB.Preferred
 
 		for id, info := range s.svcByID {
-			var p *lbmap.UpsertServiceParams
+			var p *datapathTypes.UpsertServiceParams
 			for i, b := range info.backends {
 				if b.L3n4Addr.String() != updatedB.L3n4Addr.String() {
 					continue
@@ -765,7 +745,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 				onlyLocalBackends, _ := info.requireNodeLocalBackends(info.frontend)
 
 				if p, found = updateSvcs[id]; !found {
-					p = &lbmap.UpsertServiceParams{
+					p = &datapathTypes.UpsertServiceParams{
 						ID:                        uint16(id),
 						IP:                        info.frontend.L3n4Addr.IP,
 						Port:                      info.frontend.L3n4Addr.L4Addr.Port,
@@ -778,6 +758,8 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 						SessionAffinityTimeoutSec: info.sessionAffinityTimeoutSec,
 						CheckSourceRange:          info.checkLBSourceRange(),
 						UseMaglev:                 info.useMaglev(),
+						Name:                      info.svcName,
+						Namespace:                 info.svcNamespace,
 					}
 				}
 				p.PreferredBackends, p.ActiveBackends, p.NonActiveBackends = segregateBackends(info.backends)
@@ -1240,7 +1222,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 	svc.svcNatPolicy = natPolicy
 
-	p := &lbmap.UpsertServiceParams{
+	p := &datapathTypes.UpsertServiceParams{
 		ID:                        uint16(svc.frontend.ID),
 		IP:                        svc.frontend.L3n4Addr.IP,
 		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
@@ -1258,6 +1240,8 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		CheckSourceRange:          checkLBSrcRange,
 		UseMaglev:                 svc.useMaglev(),
 		L7LBProxyPort:             svc.l7LBProxyPort,
+		Name:                      svc.svcName,
+		Namespace:                 svc.svcNamespace,
 	}
 	if err := s.lbmap.UpsertService(p); err != nil {
 		return err

@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -47,7 +48,10 @@ type LBBPFMap struct {
 	maglevTableSize        uint64
 }
 
-func New(maglev bool, maglevTableSize int) *LBBPFMap {
+func New() *LBBPFMap {
+	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
+	maglevTableSize := option.Config.MaglevTableSize
+
 	m := &LBBPFMap{}
 
 	if maglev {
@@ -58,30 +62,7 @@ func New(maglev bool, maglevTableSize int) *LBBPFMap {
 	return m
 }
 
-type UpsertServiceParams struct {
-	ID   uint16
-	IP   net.IP
-	Port uint16
-
-	// PreferredBackends is a subset of ActiveBackends
-	// Note: this is only used in clustermesh with service affinity annotation.
-	PreferredBackends         map[string]loadbalancer.BackendID
-	ActiveBackends            map[string]loadbalancer.BackendID
-	NonActiveBackends         []loadbalancer.BackendID
-	PrevBackendsCount         int
-	IPv6                      bool
-	Type                      loadbalancer.SVCType
-	NatPolicy                 loadbalancer.SVCNatPolicy
-	Local                     bool
-	Scope                     uint8
-	SessionAffinity           bool
-	SessionAffinityTimeoutSec uint32
-	CheckSourceRange          bool
-	UseMaglev                 bool
-	L7LBProxyPort             uint16 // Non-zero for L7 LB services
-}
-
-func (lbmap *LBBPFMap) upsertServiceProto(p *UpsertServiceParams, ipv6 bool) error {
+func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, ipv6 bool) error {
 	var svcKey ServiceKey
 
 	// Backends should be added to the backend maps for the case when:
@@ -113,7 +94,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *UpsertServiceParams, ipv6 bool) err
 	}
 
 	if backendsOk {
-		backendIDs := GetOrderedBackends(p)
+		backendIDs := p.GetOrderedBackends()
 
 		for _, backendID := range backendIDs {
 			if backendID == 0 {
@@ -181,7 +162,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *UpsertServiceParams, ipv6 bool) err
 // backends count is used in the datapath to determine if a service has any backends.
 // The non-active backends are, however, populated in the service map so that they
 // can be restored upon agent restart along with their state.
-func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
+func (lbmap *LBBPFMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 	if p.ID == 0 {
 		return fmt.Errorf("Invalid svc ID 0")
 	}
@@ -219,52 +200,6 @@ func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string
 	}
 
 	return nil
-}
-
-// GetOrderedBackends returns an ordered list of backends with all the sorted
-// preferred backend followed by active and non-active backends.
-// Encapsulates logic to be also used in unit tests.
-func GetOrderedBackends(p *UpsertServiceParams) []loadbalancer.BackendID {
-	backendIDs := make([]loadbalancer.BackendID, 0, len(p.ActiveBackends)+len(p.NonActiveBackends))
-	for _, id := range p.ActiveBackends {
-		backendIDs = append(backendIDs, id)
-	}
-
-	preferredMap := map[loadbalancer.BackendID]struct{}{}
-	for _, id := range p.PreferredBackends {
-		preferredMap[id] = struct{}{}
-	}
-
-	// Map iterations are non-deterministic so sort the backends by their IDs
-	// in order to maintain the same order before they are populated in BPF maps.
-	// This will minimize disruption to existing connections to the backends in the datapath.
-	sort.Slice(backendIDs, func(i, j int) bool {
-		// compare preferred flags of two backend IDs
-		_, firstPreferred := preferredMap[backendIDs[i]]
-		_, secondPreferred := preferredMap[backendIDs[j]]
-
-		if firstPreferred && secondPreferred {
-			return backendIDs[i] < backendIDs[j]
-		}
-
-		if firstPreferred {
-			return true
-		}
-
-		if secondPreferred {
-			return false
-		}
-
-		return backendIDs[i] < backendIDs[j]
-	})
-
-	// Add the non-active backends to the end of preferred/active backends list so that they are
-	// not considered while selecting backends to load-balance service traffic.
-	if len(p.NonActiveBackends) > 0 {
-		backendIDs = append(backendIDs, p.NonActiveBackends...)
-	}
-
-	return backendIDs
 }
 
 func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev, ipv6 bool) error {
@@ -405,8 +340,8 @@ func (*LBBPFMap) AddAffinityMatch(revNATID uint16, backendID loadbalancer.Backen
 
 // DumpAffinityMatches returns the affinity match map represented as a nested
 // map which first key is svc ID and the second - backend ID.
-func (*LBBPFMap) DumpAffinityMatches() (BackendIDByServiceIDSet, error) {
-	matches := BackendIDByServiceIDSet{}
+func (*LBBPFMap) DumpAffinityMatches() (datapathTypes.BackendIDByServiceIDSet, error) {
+	matches := datapathTypes.BackendIDByServiceIDSet{}
 
 	parse := func(key bpf.MapKey, value bpf.MapValue) {
 		matchKey := key.DeepCopyMapKey().(*AffinityMatchKey).ToHost()
@@ -427,8 +362,8 @@ func (*LBBPFMap) DumpAffinityMatches() (BackendIDByServiceIDSet, error) {
 	return matches, nil
 }
 
-func (*LBBPFMap) DumpSourceRanges(ipv6 bool) (SourceRangeSetByServiceID, error) {
-	ret := SourceRangeSetByServiceID{}
+func (*LBBPFMap) DumpSourceRanges(ipv6 bool) (datapathTypes.SourceRangeSetByServiceID, error) {
+	ret := datapathTypes.SourceRangeSetByServiceID{}
 	parser := func(key bpf.MapKey, value bpf.MapValue) {
 		k := key.(SourceRangeKey).ToHost()
 		revNATID := k.GetRevNATID()

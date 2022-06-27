@@ -3,7 +3,9 @@
 
 package datapath
 
-import "github.com/cilium/cilium/pkg/datapath/types"
+import (
+	"github.com/cilium/cilium/pkg/datapath/types"
+)
 
 // Datapath is the interface to abstract all datapath interactions. The
 // abstraction allows to implement the datapath requirements with multiple
@@ -25,6 +27,9 @@ type Datapath interface {
 
 	// WireguardAgent returns the Wireguard agent for the local node
 	WireguardAgent() WireguardAgent
+
+	// LBMap returns the load-balancer map
+	LBMap() types.LBMap
 
 	Procfs() string
 }
