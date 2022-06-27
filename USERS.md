@@ -240,6 +240,12 @@ Users (Alphabetically)
       U: Networking, Security, Hubble UI for network visibility
       L: https://github.com/kubesphere/kubekey
       Q: @FeynmanZhou
+      
+    * N: K8e - Simple Kubernetes Distribution
+      D: Kubernetes Easy (k8e) is a lightweight, Extensible, Enterprise Kubernetes distribution. It uses Cilium as default CNI network.
+      U: Networking, network policy, Hubble for network visibility
+      L: https://github.com/xiaods/k8e
+      Q: @xds2000
     
     * N: Liquid Reply
       D: Liquid Reply is a professional service provider and utilizes Cilium on suitable projects and implementations.
