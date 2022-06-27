@@ -311,6 +311,8 @@ If you are running Cilium in an environment that requires firewall rules to enab
 
 It is recommended but optional that all nodes running Cilium in a given cluster must be able to ping each other so ``cilium-health`` can report and monitor connectivity among nodes. This requires ICMP Type 0/8, Code 0 open among all nodes. TCP 4240 should also be open among all nodes for ``cilium-health`` monitoring. Note that it is also an option to only use one of these two methods to enable health monitoring. If the firewall does not permit either of these methods, Cilium will still operate fine but will not be able to provide health information.
 
+For IPSec enabled Cilium deployments, you need to ensure that the firewall allows ESP traffic through. For example, AWS Security Groups doesn't allow ESP traffic by default.
+
 If you are using VXLAN overlay network mode, Cilium uses Linux's default VXLAN port 8472 over UDP, unless Linux has been configured otherwise. In this case, UDP 8472 must be open among all nodes to enable VXLAN overlay mode. The same applies to Geneve overlay network mode, except the port is UDP 6081.
 
 If you are running in direct routing mode, your network must allow routing of pod IPs.
