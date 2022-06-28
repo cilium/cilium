@@ -4,7 +4,7 @@ Who is using Cilium?
 Sharing experiences and learning from other users is essential. We are
 frequently asked who is using a particular feature of Cilium so people can get in
 contact with other users to share experiences and best practices. People
-also often want to know if product/platform X has integrated Cilium. 
+also often want to know if product/platform X has integrated Cilium.
 While the [Cilium Slack community](https://cilium.herokuapp.com/) allows
 users to get in touch, it can be challenging to find this information quickly.
 
@@ -14,7 +14,7 @@ features. The users themselves directly maintain the list.
 Adding yourself as a user
 -------------------------
 
-If you are using Cilium or it is integrated into your product, service, or 
+If you are using Cilium or it is integrated into your product, service, or
 platform, please consider adding yourself as a user with a quick
 description of your use case by opening a pull request to this file and adding
 a section describing your usage of Cilium. If you are open to others contacting
@@ -71,7 +71,7 @@ Users (Alphabetically)
       D: AWS uses Cilium as the default CNI for EKS Anywhere
       U: Networking, NetworkPolicy, Services
       L: https://isovalent.com/blog/post/2021-09-aws-eks-anywhere-chooses-cilium
-      
+
     * N: APPUiO by VSHN
       D: VSHN uses Cilium for multi-tenant networking on APPUiO Cloud and as an add-on to APPUiO Managed, both on Red Hat OpenShift and Cloud Kubernetes.
       U: CNI, Networking, NetworkPolicy, Hubble, IPAM, Kubernetes services
@@ -140,7 +140,7 @@ Users (Alphabetically)
       D: Datadog is using Cilium in AWS (self-hosted k8s)
       U: ENI Networking, Service load-balancing, Encryption
       Q: @lbernail, @roboll
-      
+
     * N: Deckhouse
       D: Deckhouse Kubernetes Platform is using Cilium as a one of the supported CNIs.
       U: Networking, Security, Hubble UI for network visibility
@@ -158,7 +158,7 @@ Users (Alphabetically)
       Q: @Neil Seward
 
     * N: Equinix
-      D: Equinix Metal is using Cilium for production and non-production environments on bare metal 
+      D: Equinix Metal is using Cilium for production and non-production environments on bare metal
       U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble, network visibility
       L: https://metal.equinix.com/
       Q: @matoszz
@@ -206,13 +206,13 @@ Users (Alphabetically)
       U: Networking, CiliumNetworkPolicy, BPF NodePort, Direct routing, kube-proxy replacement
       L: https://www.infomaniak.com/en
       Q: @reneluria
-    
+
     * N: innoQ Schweiz GmbH
       D: As a consulting company we added Cilium to a couple of our customers infrastructure
       U: Networking, CiliumNetworkPolicy at L7, kube-proxy replacement, encryption
       L: https://www.cloud-migration.ch/
       Q: @fakod
-  
+
     * N: JUMO
       D: JUMO is using Cilium as their CNI plugin for all of their AWS-hosted EKS clusters
       U: Networking, network policy, network visibility, cluster mesh
@@ -223,7 +223,7 @@ Users (Alphabetically)
       U: Networking, Hubble, Encryption, kube-proxy replacement
       L: kops.sigs.k8s.io/
       Q: @olemarkus
-      
+
     * N: Kryptos Logic
       D: Kryptos is a cyber security company that is using Kubernetes on-prem in which Cilium is our CNI of choice.
       U: Networking, Observability, kube-proxy replacement
@@ -234,7 +234,7 @@ Users (Alphabetically)
       L: https://github.com/easzlab/kubeasz
 
     * N: Kube-OVN
-      D: Kube-OVN uses Cilium to enhance service performance, security and monitoring.  
+      D: Kube-OVN uses Cilium to enhance service performance, security and monitoring.
       U: CNI-Chaining, Hubble, kube-proxy replacement
       L: https://github.com/kubeovn/kube-ovn/blob/master/docs/IntegrateCiliumIntoKubeOVN.md
       Q: @oilbeater
@@ -249,19 +249,19 @@ Users (Alphabetically)
       U: Networking, Security, Hubble UI for network visibility
       L: https://github.com/kubesphere/kubekey
       Q: @FeynmanZhou
-      
+
     * N: K8e - Simple Kubernetes Distribution
       D: Kubernetes Easy (k8e) is a lightweight, Extensible, Enterprise Kubernetes distribution. It uses Cilium as default CNI network.
       U: Networking, network policy, Hubble for network visibility
       L: https://github.com/xiaods/k8e
       Q: @xds2000
-    
+
     * N: Liquid Reply
       D: Liquid Reply is a professional service provider and utilizes Cilium on suitable projects and implementations.
       U: Networking, network policy, Hubble for network visibility, Security
       L: http://liquidreply.com
       Q: @mkorbi
-      
+
     * N: Melenion Inc
       D: Melenion is using Cilium as the CNI for its on-premise production clusters
       U: Service Load Balancing, Hubble
@@ -271,7 +271,7 @@ Users (Alphabetically)
       D: Meltwater is using Cilium in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
       U: ENI Networking, Encryption, Monitoring via Prometheus metrics & Hubble
       Q: @recollir, @dezmodue
-      
+
     * N: MyFitnessPal
       D: MyFitnessPal trusts Cilium with high volume user traffic in AWS on self-hosted k8s clusters as the CNI plugin and in GKE with Dataplane V2
       U: Networking (CNI, Maglev, kube-proxy replacement, local redirect policy),  Observability (Network metrics with Hubble, DNS proxy, service maps, policy troubleshooting) and Security (Network Policy)
@@ -309,6 +309,12 @@ Users (Alphabetically)
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
 
+    * N: PlanetScale
+      D: PlanetScale is using Cilium as the CNI for its serverless database platform.
+      U: Networking (CNI, IPAM, kube-proxy replacement, native routing), Network Security, Cluster Mesh, Load Balancing
+      L: https://planetscale.com/
+      Q: @dctrwatson
+
     * N: Poseidon Laboratories
       D: Poseidon's Typhoon Kubernetes distro uses Cilium as the default CNI and its used internally
       U: Networking, policies, service load balancing
@@ -324,7 +330,7 @@ Users (Alphabetically)
       D: Radio France is using Cilium in their production clusters (self-hosted k8s with kops on AWS)
       U: Mainly Service load-balancing
       Q: @francoisj
-    
+
     * N: Rancher Labs, now part of SUSE
       D: Rancher Labs certified Kubernetes distribution RKE2 can be deployed with Cilium.
       U: Networking and network policy
@@ -366,7 +372,7 @@ Users (Alphabetically)
       D: Cilium is part of Gloo Application Networking platform, with a “batteries included but swappable” manner
       U: CNI, Network Policies
       Q: @linsun
-      
+
     * N: Sphere Knowledge
       D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
       U: ENI Networking, Network policies, Service load-balancing, Hubble
@@ -376,10 +382,10 @@ Users (Alphabetically)
       D: Sportradar is using Cilium as their main CNI plugin in AWS (using kops)
       U: L3/L4 policies, Hubble, BPF NodePort, CiliumClusterwideNetworkPolicy
       Q: @Eric Bailey, @Ole Markus
-      
+
     * N: Sproutfi
       D: Sproutfi uses Cilium as the CNI on its GKE based clusters
-      U: Service Load Balancing, Hubble, Datadog Integration for Prometheus metrics 
+      U: Service Load Balancing, Hubble, Datadog Integration for Prometheus metrics
       Q: @edude03
 
     * N: SuperOrbital
@@ -398,7 +404,7 @@ Users (Alphabetically)
       D: Tencent Cloud container team designed the TKE hybrid cloud container network solution with Cilium as the cluster network base
       U: Networking, CNI
       L: https://segmentfault.com/a/1190000040298428/en
-      
+
     * N: T-Systems International
       D: TSI uses Cilium for it's Open Sovereign Cloud product, including as a CNI for Gardener-based Kubernetes clusters and bare-metal infrastructure managed by OnMetal.
       U: CNI, overlay network, NetworkPolicies
