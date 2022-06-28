@@ -406,12 +406,12 @@ func runCNPNodeStatusGC(name string, clusterwide bool, nodeStore cache.Store) {
 						nodesToDelete := map[string]v1.Time{}
 						for n, status := range cnp.Status.Nodes {
 							if _, exists, err := nodeStore.GetByKey(n); !exists && err == nil {
-								// To avoid concurrency issues where a is
+								// To avoid concurrency issues where a node is
 								// created and adds its CNP Status before the operator
 								// node watcher receives an event that the node
 								// was created, we will only delete the node
 								// from the CNP Status if the last time it was
-								// update was before the lastRun.
+								// updated was before the lastRun.
 								if status.LastUpdated.Before(&lastRun) {
 									nodesToDelete[n] = status.LastUpdated
 									delete(cnp.Status.Nodes, n)
