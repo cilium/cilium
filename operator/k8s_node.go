@@ -166,7 +166,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 							return err
 						}
 
-						cnpItemsList = make([]cilium_v2.CiliumNetworkPolicy, 0)
+						cnpItemsList = make([]cilium_v2.CiliumNetworkPolicy, 0, len(ccnpList.Items))
 						for _, ccnp := range ccnpList.Items {
 							cnpItemsList = append(cnpItemsList, cilium_v2.CiliumNetworkPolicy{
 								ObjectMeta: meta_v1.ObjectMeta{
