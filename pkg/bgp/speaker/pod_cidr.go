@@ -4,14 +4,12 @@
 package speaker
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	metallbbgp "go.universe.tf/metallb/pkg/bgp"
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/cilium/cilium/pkg/cidr"
 )
@@ -73,6 +71,9 @@ func (s *MetalLBSpeaker) withdraw() {
 //
 // returning an error from this method will requeue the event
 // which triggered the invocation.
+//
+// This function is not thread safe and should not be called while other functions that modify the underlying speaker
+// are being called.
 func (s *MetalLBSpeaker) announcePodCIDRs(cidrs CidrSlice) error {
 	var (
 		l = log.WithFields(logrus.Fields{
@@ -80,12 +81,7 @@ func (s *MetalLBSpeaker) announcePodCIDRs(cidrs CidrSlice) error {
 		})
 	)
 
-	sessions := s.speaker.PeerSessions()
-	if len(sessions) == 0 {
-		// no sessions available, returning this error will
-		// requeue the event.
-		return fmt.Errorf("no established BGP session")
-	}
+	ctl := s.speaker.GetBGPController()
 
 	// create advertisements
 	adverts := cidrs.ToAdvertisements()
@@ -97,20 +93,7 @@ func (s *MetalLBSpeaker) announcePodCIDRs(cidrs CidrSlice) error {
 	l.WithField("advertisements", cidrs).
 		Info("Advertising CIDRs to all available session")
 
-	var eg errgroup.Group
-	for _, session := range sessions {
-		func(s metallbspr.Session) { // Need an outer closure to capture session.
-			eg.Go(func() error {
-				// if node-selectors are on its possible to receive
-				// nil sessions. look for them here and send a debug
-				// log as this is normal behavior.
-				if s == nil {
-					l.Debug("Encountered nil session from MetalLB. If node-selector(s) are not configured this could be an error.")
-					return nil
-				}
-				return s.Set(adverts...)
-			})
-		}(session)
-	}
-	return eg.Wait()
+	ctl.SvcAds["podcidr"] = adverts
+
+	return ctl.UpdateAds()
 }

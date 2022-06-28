@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"go.universe.tf/metallb/pkg/config"
 	"go.universe.tf/metallb/pkg/k8s/types"
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
 
@@ -37,6 +38,8 @@ type Speaker interface {
 	SetNodeLabels(labels map[string]string) types.SyncState
 	// PeerSessions returns any active BGP sessions.
 	PeerSessions() []metallbspr.Session
+	// GetBGPController returns the BGPController of the speaker
+	GetBGPController() *metallbspr.BGPController
 }
 
 // metalLBSpeaker implements the Speaker interface
@@ -98,4 +101,7 @@ func (m metalLBSpeaker) SetNodeLabels(labels map[string]string) types.SyncState 
 }
 func (m metalLBSpeaker) PeerSessions() []metallbspr.Session {
 	return m.C.PeerSessions()
+}
+func (m metalLBSpeaker) GetBGPController() *metallbspr.BGPController {
+	return m.C.Protocols[config.BGP].(*metallbspr.BGPController)
 }

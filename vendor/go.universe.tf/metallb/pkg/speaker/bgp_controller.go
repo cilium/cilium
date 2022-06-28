@@ -178,7 +178,7 @@ func (c *BGPController) syncPeers(l log.Logger) error {
 	}
 	if needUpdateAds {
 		// Some new sessions came up, resync advertisement state.
-		if err := c.updateAds(); err != nil {
+		if err := c.UpdateAds(); err != nil {
 			l.Log("op", "updateAds", "error", err, "msg", "failed to update BGP advertisements")
 			return err
 		}
@@ -207,7 +207,7 @@ func (c *BGPController) SetBalancer(l log.Logger, name string, lbIP net.IP, pool
 		c.SvcAds[name] = append(c.SvcAds[name], ad)
 	}
 
-	if err := c.updateAds(); err != nil {
+	if err := c.UpdateAds(); err != nil {
 		return err
 	}
 
@@ -216,7 +216,7 @@ func (c *BGPController) SetBalancer(l log.Logger, name string, lbIP net.IP, pool
 	return nil
 }
 
-func (c *BGPController) updateAds() error {
+func (c *BGPController) UpdateAds() error {
 	var allAds []*bgp.Advertisement
 	for _, ads := range c.SvcAds {
 		// This list might contain duplicates, but that's fine,
@@ -243,7 +243,7 @@ func (c *BGPController) DeleteBalancer(l log.Logger, name, reason string) error 
 		return nil
 	}
 	delete(c.SvcAds, name)
-	return c.updateAds()
+	return c.UpdateAds()
 }
 
 // Session gives access to the BGP session.

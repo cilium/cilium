@@ -16,9 +16,10 @@ import (
 // MockMetalLBSpeaker implements the speaker.Speaker interface by delegating to
 // a set of functions defined during test.
 type MockMetalLBSpeaker struct {
-	SetService_    func(name string, svc *metallbspr.Service, eps *metallbspr.Endpoints) types.SyncState
-	SetNodeLabels_ func(labels map[string]string) types.SyncState
-	PeerSession_   func() []metallbspr.Session
+	SetService_       func(name string, svc *metallbspr.Service, eps *metallbspr.Endpoints) types.SyncState
+	SetNodeLabels_    func(labels map[string]string) types.SyncState
+	PeerSession_      func() []metallbspr.Session
+	GetBGPController_ func() *metallbspr.BGPController
 }
 
 func (m *MockMetalLBSpeaker) SetService(name string, svc *metallbspr.Service, eps *metallbspr.Endpoints) types.SyncState {
@@ -31,6 +32,10 @@ func (m *MockMetalLBSpeaker) SetNodeLabels(labels map[string]string) types.SyncS
 
 func (m *MockMetalLBSpeaker) PeerSessions() []metallbspr.Session {
 	return m.PeerSession_()
+}
+
+func (m *MockMetalLBSpeaker) GetBGPController() *metallbspr.BGPController {
+	return m.GetBGPController_()
 }
 
 // MockEndpointGetter implements the method set for obtaining th endpoints
