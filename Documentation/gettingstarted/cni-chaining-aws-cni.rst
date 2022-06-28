@@ -22,19 +22,19 @@ and provide encryption.
 
 .. important::
 
-   Please ensure that you are running version `1.7.9 <https://github.com/aws/amazon-vpc-cni-k8s/releases/tag/v1.7.9>`_
+   Please ensure that you are running version `1.11.2 <https://github.com/aws/amazon-vpc-cni-k8s/releases/tag/v1.11.2>`_
    or newer of the AWS VPC CNI plugin to guarantee compatibility with Cilium.
 
    .. code-block:: shell-session
 
       $ kubectl -n kube-system get ds/aws-node -o json | jq -r '.spec.template.spec.containers[0].image'
-      602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon-k8s-cni:v1.7.5-eksbuild.1
+      602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon-k8s-cni:v1.11.2
 
    If you are running an older version, as in the above example, you can upgrade it with:
 
    .. code-block:: shell-session
 
-      $ kubectl apply -f https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.9/config/v1.7/aws-k8s-cni.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/release-1.11/config/master/aws-k8s-cni.yaml
 
 .. image:: aws-cni-architecture.png
 
