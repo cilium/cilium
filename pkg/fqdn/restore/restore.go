@@ -21,8 +21,9 @@ type IPRules []IPRule
 
 // IPRule stores the allowed destination IPs for a DNS names matching a regex
 type IPRule struct {
-	Re  RuleRegex
-	IPs map[string]struct{} // IPs, nil set is wildcard and allows all IPs!
+	Re    RuleRegex
+	FQDNs map[string]struct{} // List of allowed fqdns
+	IPs   map[string]struct{} // IPs, nil set is wildcard and allows all IPs!
 }
 
 // RuleRegex is a wrapper for *regexp.Regexp so that we can define marshalers for it.

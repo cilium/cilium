@@ -26,34 +26,89 @@ func TestNonPrivileged(t *testing.T) {
 	TestingT(t)
 }
 
-func (s *DNSProxyHelperTestSuite) TestGetSelectorRegexMap(c *C) {
-	selector := MockCachedSelector{}
-
-	dnsName := "example.name."
-
-	l7 := policy.L7DataMap{
-		selector: &policy.PerSelectorPolicy{
-			L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{
-				{
-					MatchName: dnsName,
-				},
-			}},
+func (s *DNSProxyHelperTestSuite) TestSetPortRulesForID(c *C) {
+	re.InitRegexCompileLRU(1)
+	rules := policy.L7DataMap{}
+	epID := uint64(1)
+	pea := newPerEPAllow()
+	rules[new(MockCachedSelector)] = &policy.PerSelectorPolicy{
+		L7Rules: api.L7Rules{
+			DNS: []api.PortRuleDNS{
+				{MatchName: "cilium.io."},
+				{MatchPattern: "*.cilium.io."},
+			},
 		},
 	}
-	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
-	m, err := GetSelectorRegexMap(l7)
-
+	err := pea.setPortRulesForID(epID, 8053, rules)
 	c.Assert(err, Equals, nil)
+	c.Assert(len(pea.patternMatchersByPattern), Equals, 1)
+	c.Assert(len(pea.nameMatcherBySignature), Equals, 1)
 
-	regex, ok := m[selector]
+	selector2 := new(MockCachedSelector)
+	rules[selector2] = &policy.PerSelectorPolicy{
+		L7Rules: api.L7Rules{
+			DNS: []api.PortRuleDNS{
+				{MatchName: "cilium2.io."},
+				{MatchPattern: "*.cilium2.io."},
+				{MatchPattern: "*.cilium3.io."},
+			},
+		},
+	}
+	err = pea.setPortRulesForID(epID, 8053, rules)
+	c.Assert(err, Equals, nil)
+	c.Assert(len(pea.patternMatchersByPattern), Equals, 2)
+	c.Assert(len(pea.nameMatcherBySignature), Equals, 2)
 
-	c.Assert(ok, Equals, true)
+	delete(rules, selector2)
+	err = pea.setPortRulesForID(epID, 8053, rules)
+	c.Assert(err, Equals, nil)
+	c.Assert(len(pea.patternMatchersByPattern), Equals, 1)
+	c.Assert(len(pea.nameMatcherBySignature), Equals, 1)
 
-	c.Assert(regex.MatchString(dnsName), Equals, true)
-	c.Assert(regex.MatchString(dnsName+"trolo"), Equals, false)
+	err = pea.setPortRulesForID(epID, 8053, nil)
+	c.Assert(err, Equals, nil)
+	c.Assert(len(pea.patternMatchersByPattern), Equals, 0)
+	c.Assert(len(pea.nameMatcherBySignature), Equals, 0)
+
 }
 
-type MockCachedSelector struct{}
+func (s *DNSProxyHelperTestSuite) TestGenerateRegexpAndFqdns(c *C) {
+	dnsName := "example.name."
+	dnsPattern := "*matc*.name."
+
+	l7 := &policy.PerSelectorPolicy{
+		L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{
+			{
+				MatchName: dnsName,
+			},
+			{
+				MatchPattern: dnsPattern,
+			},
+		}},
+	}
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+	regex, fqdns := GenerateRegexpAndFqdns(l7)
+
+	regexp, err := re.CompileRegex(regex)
+	c.Assert(err, Equals, nil)
+
+	domainMatcher := func(fqdn string) bool {
+		for _, val := range fqdns {
+			if val == fqdn {
+				return true
+			}
+		}
+		return regexp.MatchString(fqdn)
+	}
+
+	c.Assert(domainMatcher(dnsName), Equals, true)
+	c.Assert(domainMatcher(dnsName+"trolo"), Equals, false)
+	c.Assert(domainMatcher("thi-is-a-match.name."), Equals, true)
+}
+
+type MockCachedSelector struct {
+	key string
+}
 
 func (m MockCachedSelector) GetSelections() []identity.NumericIdentity {
 	return nil
@@ -72,5 +127,5 @@ func (m MockCachedSelector) IsNone() bool {
 }
 
 func (m MockCachedSelector) String() string {
-	return "string"
+	return m.key
 }

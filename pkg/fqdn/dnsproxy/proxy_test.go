@@ -250,7 +250,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 }
 
 func (s *DNSProxyTestSuite) TearDownTest(c *C) {
-	s.proxy.allowed = make(perEPAllow)
+	s.proxy.allowed = newPerEPAllow()
 	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
 	s.dnsServer.Listener.Close()
 	s.proxy.UDPServer.Shutdown()
@@ -631,14 +631,17 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	// Get rules for restoration
 	expected1 := restore.DNSRules{
 		53: restore.IPRules{{
-			IPs: map[string]struct{}{"::": {}},
-			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID1][53][cachedDstID1Selector]},
+			IPs:   map[string]struct{}{"::": {}},
+			Re:    restore.RuleRegex{Regexp: s.proxy.allowed.allowMap[epID1][53][cachedDstID1Selector].patternMatcher},
+			FQDNs: s.proxy.allowed.allowMap[epID1][53][cachedDstID1Selector].nameMatcher.asNewMap(),
 		}, {
-			IPs: map[string]struct{}{"127.0.0.1": {}, "127.0.0.2": {}},
-			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID1][53][cachedDstID2Selector]},
+			IPs:   map[string]struct{}{"127.0.0.1": {}, "127.0.0.2": {}},
+			Re:    restore.RuleRegex{Regexp: s.proxy.allowed.allowMap[epID1][53][cachedDstID2Selector].patternMatcher},
+			FQDNs: s.proxy.allowed.allowMap[epID1][53][cachedDstID2Selector].nameMatcher.asNewMap(),
 		}}.Sort(),
 		54: restore.IPRules{{
-			Re: restore.RuleRegex{Regexp: s.proxy.allowed[epID1][54][cachedWildcardSelector]},
+			Re:    restore.RuleRegex{Regexp: s.proxy.allowed.allowMap[epID1][54][cachedWildcardSelector].patternMatcher},
+			FQDNs: s.proxy.allowed.allowMap[epID1][54][cachedWildcardSelector].nameMatcher.asNewMap(),
 		}},
 	}
 	restored1, _ := s.proxy.GetRules(uint16(epID1))
@@ -652,14 +655,17 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 
 	expected3 := restore.DNSRules{
 		53: restore.IPRules{{
-			IPs: map[string]struct{}{"::": {}},
-			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID3][53][cachedDstID1Selector]},
+			IPs:   map[string]struct{}{"::": {}},
+			Re:    restore.RuleRegex{Regexp: s.proxy.allowed.allowMap[epID3][53][cachedDstID1Selector].patternMatcher},
+			FQDNs: s.proxy.allowed.allowMap[epID3][53][cachedDstID1Selector].nameMatcher.asNewMap(),
 		}, {
-			IPs: map[string]struct{}{},
-			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID3][53][cachedDstID3Selector]},
+			IPs:   map[string]struct{}{},
+			Re:    restore.RuleRegex{Regexp: s.proxy.allowed.allowMap[epID3][53][cachedDstID3Selector].patternMatcher},
+			FQDNs: s.proxy.allowed.allowMap[epID3][53][cachedDstID3Selector].nameMatcher.asNewMap(),
 		}, {
-			IPs: map[string]struct{}{},
-			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID3][53][cachedDstID4Selector]},
+			IPs:   map[string]struct{}{},
+			Re:    restore.RuleRegex{Regexp: s.proxy.allowed.allowMap[epID3][53][cachedDstID4Selector].patternMatcher},
+			FQDNs: s.proxy.allowed.allowMap[epID3][53][cachedDstID4Selector].nameMatcher.asNewMap(),
 		}}.Sort(),
 	}
 	restored3, _ := s.proxy.GetRules(uint16(epID3))
@@ -672,14 +678,17 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 
 	expected1b := restore.DNSRules{
 		53: restore.IPRules{{
-			IPs: map[string]struct{}{},
-			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID1][53][cachedDstID1Selector]},
+			IPs:   map[string]struct{}{},
+			Re:    restore.RuleRegex{Regexp: s.proxy.allowed.allowMap[epID1][53][cachedDstID1Selector].patternMatcher},
+			FQDNs: s.proxy.allowed.allowMap[epID1][53][cachedDstID1Selector].nameMatcher.asNewMap(),
 		}, {
-			IPs: map[string]struct{}{"127.0.0.2": {}},
-			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID1][53][cachedDstID2Selector]},
+			IPs:   map[string]struct{}{"127.0.0.2": {}},
+			Re:    restore.RuleRegex{Regexp: s.proxy.allowed.allowMap[epID1][53][cachedDstID2Selector].patternMatcher},
+			FQDNs: s.proxy.allowed.allowMap[epID1][53][cachedDstID2Selector].nameMatcher.asNewMap(),
 		}}.Sort(),
 		54: restore.IPRules{{
-			Re: restore.RuleRegex{Regexp: s.proxy.allowed[epID1][54][cachedWildcardSelector]},
+			Re:    restore.RuleRegex{Regexp: s.proxy.allowed.allowMap[epID1][54][cachedWildcardSelector].patternMatcher},
+			FQDNs: s.proxy.allowed.allowMap[epID1][54][cachedWildcardSelector].nameMatcher.asNewMap(),
 		}},
 	}
 	restored1b, _ := s.proxy.GetRules(uint16(epID1))
@@ -691,14 +700,14 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 
 	s.proxy.UpdateAllowed(epID1, 53, nil)
 	s.proxy.UpdateAllowed(epID1, 54, nil)
-	_, exists := s.proxy.allowed[epID1]
+	_, exists := s.proxy.allowed.allowMap[epID1]
 	c.Assert(exists, Equals, false)
 
-	_, exists = s.proxy.allowed[epID2]
+	_, exists = s.proxy.allowed.allowMap[epID2]
 	c.Assert(exists, Equals, false)
 
 	s.proxy.UpdateAllowed(epID3, 53, nil)
-	_, exists = s.proxy.allowed[epID3]
+	_, exists = s.proxy.allowed.allowMap[epID3]
 	c.Assert(exists, Equals, false)
 
 	dstIP1 := (s.dnsServer.Listener.Addr()).(*net.TCPAddr).IP
@@ -803,14 +812,17 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	expected := `
 	{
 		"53": [{
-			"Re":  "(^[-a-zA-Z0-9_]*[.]ubuntu[.]com[.]$)|(^aws[.]amazon[.]com[.]$)",
+			"Re":  "(^[-a-zA-Z0-9_]*[.]ubuntu[.]com[.]$)",
+			"FQDNs": {"aws.amazon.com.": {}},
 			"IPs": {"::": {}}
-		}, {
-			"Re":  "(^cilium[.]io[.]$)",
+		},{
+			"Re":  "a^",
+			"FQDNs": {"cilium.io.": {}},
 			"IPs": {"127.0.0.1": {}, "127.0.0.2": {}}
 		}],
 		"54": [{
-			"Re":  "(^example[.]com[.]$)",
+			"Re":  "a^",
+			"FQDNs": {"example.com.": {}},
 			"IPs": null
 		}]
 	}`
@@ -1055,7 +1067,7 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 		}
 	}
 
-	pea := perEPAllow{}
+	pea := newPerEPAllow()
 	re.InitRegexCompileLRU(128)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -1063,6 +1075,14 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 		for epID := uint64(0); epID < 20; epID++ {
 			pea.setPortRulesForID(epID, 8053, newRules)
 		}
+	}
+	b.StopTimer()
+	// Remove all the inserted rules to ensure both indexes go to zero entries
+	for epID := uint64(0); epID < 20; epID++ {
+		pea.setPortRulesForID(epID, 8053, nil)
+	}
+	if len(pea.allowMap) > 0 || len(pea.patternMatchersByPattern) > 0 || len(pea.nameMatcherBySignature) > 0 {
+		b.Fail()
 	}
 }
 
@@ -1150,7 +1170,7 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 
-	pea := perEPAllow{}
+	pea := newPerEPAllow()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1170,11 +1190,18 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	m = getMemStats()
 	// Explicitly keep a reference to "pea" to keep it on the heap
 	// so that we can measure it before it is garbage collected.
-	fmt.Printf("After Test (N=%v,EPs=%d,cache=%d)\n", b.N, len(pea), cacheSize)
+	fmt.Printf("After Test (N=%v,EPs=%d,cache=%d)\n", b.N, len(pea.allowMap), cacheSize)
 	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
 	fmt.Printf("\tHeapInuse = %v MiB", bToMb(m.HeapInuse))
 	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+	// Remove all the inserted rules to ensure both indexes go to zero entries
+	for epID := uint64(0); epID < numEPs; epID++ {
+		pea.setPortRulesForID(epID, 8053, nil)
+	}
+	if len(pea.allowMap) > 0 || len(pea.patternMatchersByPattern) > 0 || len(pea.nameMatcherBySignature) > 0 {
+		b.Fail()
+	}
 }
 
 func getMemStats() runtime.MemStats {
