@@ -2861,7 +2861,7 @@ func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, 
 	gomega.Expect(err).Should(gomega.BeNil(), "failed to retrieve Cilium pods")
 
 	for _, pod := range pods {
-		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription).
+		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription...).
 			ExpectSuccess("failed to execute %q on Cilium pod %s", cmd, pod)
 	}
 }
