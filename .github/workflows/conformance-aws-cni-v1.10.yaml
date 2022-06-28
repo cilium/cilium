@@ -220,7 +220,7 @@ jobs:
 
       - name: Update AWS VPC CNI plugin
         run: |
-          kubectl apply -f https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/v1.7/aws-k8s-cni.yaml
+          kubectl apply -f https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/release-1.11/config/master/aws-k8s-cni.yaml
 
       - name: Wait for images to be available
         timeout-minutes: 10
