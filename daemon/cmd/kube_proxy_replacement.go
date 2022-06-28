@@ -50,6 +50,11 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		return false, fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
+	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe {
+		log.Warnf("The option --%s=%s is deprecated and it will be removed in v1.13",
+			option.KubeProxyReplacement, option.KubeProxyReplacementProbe)
+	}
+
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
 		log.Infof("Auto-disabling %q, %q, %q, %q, %q features and falling back to %q",
 			option.EnableNodePort, option.EnableExternalIPs,
