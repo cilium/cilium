@@ -38,7 +38,7 @@ func NewController(cfg ControllerConfig) (*Controller, error) {
 
 	ret := &Controller{
 		myNode:    cfg.MyNode,
-		protocols: protocols,
+		Protocols: protocols,
 		announced: map[string]config.Proto{},
 		svcIP:     map[string]net.IP{},
 	}
@@ -52,7 +52,7 @@ type Controller struct {
 	config *config.Config
 	Client service
 
-	protocols map[config.Proto]Protocol
+	Protocols map[config.Proto]Protocol
 	announced map[string]config.Proto // service name -> protocol advertising it
 	svcIP     map[string]net.IP       // service name -> assigned IP
 }
@@ -142,7 +142,7 @@ func (c *Controller) SetService(l gokitlog.Logger, name string, svc *Service, ep
 	}
 
 	l = gokitlog.With(l, "protocol", pool.Protocol)
-	handler := c.protocols[pool.Protocol]
+	handler := c.Protocols[pool.Protocol]
 	if handler == nil {
 		l.Log("bug", "true", "msg", "internal error: unknown balancer protocol!")
 		return c.deleteBalancer(l, name, "internalError")
@@ -179,7 +179,7 @@ func (c *Controller) deleteBalancer(l gokitlog.Logger, name, reason string) type
 		return types.SyncStateSuccess
 	}
 
-	if err := c.protocols[proto].DeleteBalancer(l, name, reason); err != nil {
+	if err := c.Protocols[proto].DeleteBalancer(l, name, reason); err != nil {
 		l.Log("op", "deleteBalancer", "error", err, "msg", "failed to clear balancer state")
 		return types.SyncStateError
 	}
@@ -225,7 +225,7 @@ func (c *Controller) SetConfig(l gokitlog.Logger, cfg *config.Config) types.Sync
 		}
 	}
 
-	for proto, handler := range c.protocols {
+	for proto, handler := range c.Protocols {
 		if err := handler.SetConfig(l, cfg); err != nil {
 			l.Log("op", "setConfig", "protocol", proto, "error", err, "msg", "applying new configuration to protocol handler failed")
 			return types.SyncStateError
@@ -242,7 +242,7 @@ func (c *Controller) SetNode(l gokitlog.Logger, node *v1.Node) types.SyncState {
 }
 
 func (c *Controller) SetNodeLabels(l gokitlog.Logger, labels map[string]string) types.SyncState {
-	for proto, handler := range c.protocols {
+	for proto, handler := range c.Protocols {
 		if err := handler.SetNodeLabels(l, labels); err != nil {
 			l.Log("op", "setNode", "error", err, "protocol", proto, "msg", "failed to propagate node info to protocol handler")
 			return types.SyncStateError
@@ -254,7 +254,7 @@ func (c *Controller) SetNodeLabels(l gokitlog.Logger, labels map[string]string) 
 // PeerSessions returns the underlying BGP sessions from the BGP controller. In
 // Layer2 mode only, this returns nil.
 func (c *Controller) PeerSessions() []Session {
-	if handler, ok := c.protocols[config.BGP]; ok {
+	if handler, ok := c.Protocols[config.BGP]; ok {
 		return handler.(*BGPController).PeerSessions()
 	}
 	return nil
