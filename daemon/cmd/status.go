@@ -148,6 +148,14 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	return s
 }
 
+func (d *Daemon) getIPV6BigTCPStatus() *models.IPV6BigTCP {
+	s := &models.IPV6BigTCP{
+		Enabled: option.Config.EnableIPv6BIGTCP,
+	}
+
+	return s
+}
+
 func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 	s := &models.BandwidthManager{
 		Enabled: option.Config.EnableBandwidthManager,
@@ -1013,6 +1021,7 @@ func (d *Daemon) startStatusCollector() {
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
+	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()

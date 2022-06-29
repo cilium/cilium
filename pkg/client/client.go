@@ -381,6 +381,14 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 	}
 
+	if sr.IPV6BigTCP != nil {
+		status := "Enabled"
+		if !sr.IPV6BigTCP.Enabled {
+			status = "Disabled"
+		}
+		fmt.Fprintf(w, "IPv6 BIG TCP:\t%s\n", status)
+	}
+
 	if sr.BandwidthManager != nil {
 		var status string
 		if !sr.BandwidthManager.Enabled {

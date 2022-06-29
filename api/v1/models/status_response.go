@@ -73,6 +73,9 @@ type StatusResponse struct {
 	// Status of IP address management
 	Ipam *IPAMStatus `json:"ipam,omitempty"`
 
+	// Status of IPv6 BIG TCP
+	IPV6BigTCP *IPV6BigTCP `json:"ipv6-big-tcp,omitempty"`
+
 	// Status of kube-proxy replacement
 	KubeProxyReplacement *KubeProxyReplacement `json:"kube-proxy-replacement,omitempty"`
 
@@ -156,6 +159,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateIpam(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateIPV6BigTCP(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -453,6 +460,24 @@ func (m *StatusResponse) validateIpam(formats strfmt.Registry) error {
 		if err := m.Ipam.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipam")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateIPV6BigTCP(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.IPV6BigTCP) { // not required
+		return nil
+	}
+
+	if m.IPV6BigTCP != nil {
+		if err := m.IPV6BigTCP.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipv6-big-tcp")
 			}
 			return err
 		}
