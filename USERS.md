@@ -271,6 +271,11 @@ Users (Alphabetically)
       D: Meltwater is using Cilium in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
       U: ENI Networking, Encryption, Monitoring via Prometheus metrics & Hubble
       Q: @recollir, @dezmodue
+      
+    * N: Mobilab
+      D: Mobilab uses Cilium as the CNI for its internal cloud
+      U: CNI
+      L: https://mobilabsolutions.com/2019/01/why-we-switched-to-cilium/
 
     * N: MyFitnessPal
       D: MyFitnessPal trusts Cilium with high volume user traffic in AWS on self-hosted k8s clusters as the CNI plugin and in GKE with Dataplane V2
