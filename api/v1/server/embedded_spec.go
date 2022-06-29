@@ -2843,6 +2843,16 @@ func init() {
         }
       }
     },
+    "IPV6BigTCP": {
+      "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv6 BIG TCP enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "Identity": {
       "description": "Security identity",
       "type": "object",
@@ -4014,6 +4024,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv6-big-tcp": {
+          "description": "Status of IPv6 BIG TCP",
+          "$ref": "#/definitions/IPV6BigTCP"
         },
         "kube-proxy-replacement": {
           "description": "Status of kube-proxy replacement",
@@ -7442,6 +7456,16 @@ func init() {
         }
       }
     },
+    "IPV6BigTCP": {
+      "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv6 BIG TCP enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "Identity": {
       "description": "Security identity",
       "type": "object",
@@ -8886,6 +8910,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv6-big-tcp": {
+          "description": "Status of IPv6 BIG TCP",
+          "$ref": "#/definitions/IPV6BigTCP"
         },
         "kube-proxy-replacement": {
           "description": "Status of kube-proxy replacement",

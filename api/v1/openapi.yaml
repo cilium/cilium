@@ -1760,6 +1760,9 @@ definitions:
       identity-range:
         description: Status of identity range of the cluster
         "$ref": "#/definitions/IdentityRange"
+      ipv6-big-tcp:
+        description: Status of IPv6 BIG TCP
+        "$ref": "#/definitions/IPV6BigTCP"
       bandwidth-manager:
         description: Status of bandwidth manager
         "$ref": "#/definitions/BandwidthManager"
@@ -2827,6 +2830,16 @@ definitions:
       forwarded:
         description: Number of messages forwarded
         type: integer
+  IPV6BigTCP:
+    description: |-
+      Status of IPv6 BIG TCP
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      enabled:
+        description: Is IPv6 BIG TCP enabled
+        type: boolean
   BandwidthManager:
     description: |-
       Status of bandwidth manager
