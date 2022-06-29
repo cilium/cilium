@@ -12,6 +12,12 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
 )
 
+type helperContextKey string
+
+const (
+	keyTempClusterName = helperContextKey("tempClusterName")
+)
+
 // MaybeCreateTempKindCluster creates a new temporary kind cluster in case no kubeconfig file is
 // specified on the command line.
 func MaybeCreateTempKindCluster(testenv env.Environment, namePrefix string) env.Func {
@@ -26,7 +32,7 @@ func MaybeCreateTempKindCluster(testenv env.Environment, namePrefix string) env.
 			}
 			// Automatically clean up the cluster when the test finishes
 			testenv.Finish(deleteTempKindCluster(name))
-			return ctx, nil
+			return context.WithValue(ctx, keyTempClusterName, name), nil
 		}
 		return ctx, nil
 	}
@@ -42,6 +48,15 @@ func deleteTempKindCluster(clusterName string) env.Func {
 		if err != nil {
 			return ctx, err
 		}
-		return ctx, nil
+		return context.WithValue(ctx, keyTempClusterName, nil), nil
 	}
+}
+
+// GetTempKindClusterName returns the name of the temporary kind cluster if it exists,
+// otherwise it returns an empty string.
+func GetTempKindClusterName(ctx context.Context) string {
+	if name, ok := ctx.Value(keyTempClusterName).(string); ok {
+		return name
+	}
+	return ""
 }
