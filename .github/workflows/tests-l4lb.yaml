@@ -196,6 +196,7 @@ jobs:
         run: |
           ssh default "sudo /bin/sh -c 'cd /vagrant/test/l4lb && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} /vagrant/pull-request/install/kubernetes/cilium'"
           ssh default "sudo /bin/sh -c 'cd /vagrant/test/nat46x64 && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} /vagrant/pull-request/install/kubernetes/cilium'"
+          ssh default "sudo /bin/sh -c 'cd /vagrant/test/bigtcp && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} /vagrant/pull-request/install/kubernetes/cilium'"
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
