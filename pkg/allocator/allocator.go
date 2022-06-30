@@ -170,7 +170,7 @@ func NewAllocatorForGC(backend Backend, opts ...AllocatorOption) *Allocator {
 		fn(a)
 	}
 
-	return &Allocator{backend: backend}
+	return a
 }
 
 type GCStats struct {
