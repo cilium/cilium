@@ -109,6 +109,7 @@ rules:
   - ciliumclusterwidenetworkpolicies/status
   verbs:
   # Update the auto-generated CNPs and CCNPs status.
+  - patch
   - update
 - apiGroups:
   - cilium.io
