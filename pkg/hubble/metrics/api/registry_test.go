@@ -53,13 +53,13 @@ func TestRegister(t *testing.T) {
 
 	handlers, err := r.ConfigureHandlers(nil, Map{})
 	assert.EqualValues(t, err, nil)
-	assert.EqualValues(t, len(handlers), 0)
+	assert.EqualValues(t, len(handlers.handlers), 0)
 
 	handlers, err = r.ConfigureHandlers(nil, Map{"test": Options{}})
 	assert.EqualValues(t, err, nil)
-	assert.EqualValues(t, len(handlers), 1)
-	assert.EqualValues(t, handlers[0].(*testHandler).InitCalled, 1)
+	assert.EqualValues(t, len(handlers.handlers), 1)
+	assert.EqualValues(t, handlers.handlers[0].(*testHandler).InitCalled, 1)
 
 	handlers.ProcessFlow(context.TODO(), nil)
-	assert.EqualValues(t, handlers[0].(*testHandler).ProcessCalled, 1)
+	assert.EqualValues(t, handlers.handlers[0].(*testHandler).ProcessCalled, 1)
 }
