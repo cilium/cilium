@@ -288,11 +288,16 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	dst = (union v6addr *)&ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (info && info->tunnel_endpoint != 0) {
+		__be16 src_port = tunnel_gen_src_port_v6();
+
 		if (need_opt) {
 			struct geneve_dsr_opt6 gopt;
 
 			set_geneve_dsr_opt6(svc_port, svc_addr, &gopt);
-			return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
+			return  __encap_with_nodeid_opt(ctx,
+							IPV4_DIRECT_ROUTING,
+							src_port,
+							info->tunnel_endpoint,
 							WORLD_ID,
 							info->sec_identity,
 							NOT_VTEP_DST,
@@ -304,7 +309,10 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 							ifindex);
 		}
 
-		return __encap_with_nodeid(ctx, 0, info->tunnel_endpoint,
+		return __encap_with_nodeid(ctx,
+					   IPV4_DIRECT_ROUTING,
+					   src_port,
+					   info->tunnel_endpoint,
 					   WORLD_ID,
 					   info->sec_identity,
 					   NOT_VTEP_DST,
@@ -859,7 +867,12 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
-		ret = __encap_with_nodeid(ctx, 0, tunnel_endpoint,
+		__be16 src_port = tunnel_gen_src_port_v6();
+
+		ret = __encap_with_nodeid(ctx,
+					  IPV4_DIRECT_ROUTING,
+					  src_port,
+					  tunnel_endpoint,
 					  WORLD_ID,
 					  dst_sec_identity,
 					  NOT_VTEP_DST,
@@ -1156,6 +1169,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 	__u32 monitor = TRACE_PAYLOAD_LEN;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
+	__be16 src_port __maybe_unused = 0;
 	int ifindex = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1229,7 +1243,10 @@ out:
 	return DROP_MISSED_TAIL_CALL;
 #ifdef TUNNEL_MODE
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, 0, tunnel_endpoint, SECLABEL, dst_sec_identity,
+	src_port = tunnel_gen_src_port_v6();
+
+	ret = __encap_with_nodeid(ctx, IPV4_DIRECT_ROUTING, src_port,
+				  tunnel_endpoint, SECLABEL, dst_sec_identity,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
 	if (ret == CTX_ACT_REDIRECT)
 		ret = ctx_redirect(ctx, ifindex, 0);
@@ -1565,11 +1582,16 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info && info->tunnel_endpoint != 0) {
+		__be16 src_port = tunnel_gen_src_port_v4();
+
 		if (need_opt) {
 			struct geneve_dsr_opt4 gopt;
 
 			set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
-			return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
+			return  __encap_with_nodeid_opt(ctx,
+							IPV4_DIRECT_ROUTING,
+							src_port,
+							info->tunnel_endpoint,
 							WORLD_ID,
 							info->sec_identity,
 							NOT_VTEP_DST,
@@ -1581,7 +1603,10 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 							ifindex);
 		}
 
-		return __encap_with_nodeid(ctx, 0, info->tunnel_endpoint,
+		return __encap_with_nodeid(ctx,
+					   IPV4_DIRECT_ROUTING,
+					   src_port,
+					   info->tunnel_endpoint,
 					   WORLD_ID,
 					   info->sec_identity,
 					   NOT_VTEP_DST,
@@ -2071,6 +2096,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
+		__be16 src_port = tunnel_gen_src_port_v4();
+
 		/* The request came from outside, so we need to
 		 * set the security id in the tunnel header to WORLD_ID.
 		 * Otherwise, the remote node will assume, that the
@@ -2078,7 +2105,10 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		 * bypass any netpol which disallows LB requests from
 		 * outside.
 		 */
-		ret = __encap_with_nodeid(ctx, 0, tunnel_endpoint,
+		ret = __encap_with_nodeid(ctx,
+					  IPV4_DIRECT_ROUTING,
+					  src_port,
+					  tunnel_endpoint,
 					  WORLD_ID,
 					  dst_sec_identity,
 					  NOT_VTEP_DST,
@@ -2405,6 +2435,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 	__u32 monitor = TRACE_PAYLOAD_LEN;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
+	__be16 src_port __maybe_unused = 0;
 	bool has_l4_header;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -2467,7 +2498,10 @@ out:
 	return DROP_MISSED_TAIL_CALL;
 #if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, 0, tunnel_endpoint, SECLABEL, dst_sec_identity,
+	src_port = tunnel_gen_src_port_v4();
+
+	ret = __encap_with_nodeid(ctx, IPV4_DIRECT_ROUTING, src_port,
+				  tunnel_endpoint, SECLABEL, dst_sec_identity,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
 	if (ret == CTX_ACT_REDIRECT)
 		ret = ctx_redirect(ctx, ifindex, 0);

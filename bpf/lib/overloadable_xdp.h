@@ -179,6 +179,7 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx __maybe_unused, __u32 src_ip __maybe_unused,
+		   __be16 src_port __maybe_unused,
 		   __u32 node_id __maybe_unused,
 		   __u32 seclabel __maybe_unused,
 		   __u32 dstid __maybe_unused,
