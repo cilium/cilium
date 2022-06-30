@@ -181,7 +181,7 @@ func (c *ciliumCLI) status(ctx context.Context, wait bool) error {
 		return fmt.Errorf("cilium status command failed: %s: %w", p.Result(), p.Err())
 	}
 
-	klog.Infof("Cilium status %s", stdout.String())
+	klog.Infof("Cilium status\n%s", stdout.String())
 
 	return nil
 }
