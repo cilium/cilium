@@ -67,7 +67,7 @@ env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   location: westeurope
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
-  cilium_cli_version: v0.11.9
+  cilium_cli_version: v0.11.10
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:

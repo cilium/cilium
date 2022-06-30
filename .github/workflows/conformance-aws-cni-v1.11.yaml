@@ -63,7 +63,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_cli_version: v0.11.9
+  cilium_cli_version: v0.11.10
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.101.0
   kubectl_version: v1.23.6
