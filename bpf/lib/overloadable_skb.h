@@ -185,7 +185,8 @@ static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
-ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip, __u32 node_id,
+ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
+		   __be16 src_port __maybe_unused, __u32 node_id,
 		   __u32 seclabel, __u32 dstid __maybe_unused,
 		   __u32 vni __maybe_unused,
 		   void *opt, __u32 opt_len, bool is_ipv6 __maybe_unused,
