@@ -71,16 +71,14 @@ func (client *Client) ModifySnapshotAttributeWithCallback(request *ModifySnapsho
 // ModifySnapshotAttributeRequest is the request struct for api ModifySnapshotAttribute
 type ModifySnapshotAttributeRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId            requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	SnapshotId                 string           `position:"Query" name:"SnapshotId"`
-	Description                string           `position:"Query" name:"Description"`
-	SnapshotName               string           `position:"Query" name:"SnapshotName"`
-	InstantAccessRetentionDays requests.Integer `position:"Query" name:"InstantAccessRetentionDays"`
-	ResourceOwnerAccount       string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount               string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                    requests.Integer `position:"Query" name:"OwnerId"`
-	DisableInstantAccess       requests.Boolean `position:"Query" name:"DisableInstantAccess"`
-	RetentionDays              requests.Integer `position:"Query" name:"RetentionDays"`
+	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	SnapshotId           string           `position:"Query" name:"SnapshotId"`
+	Description          string           `position:"Query" name:"Description"`
+	SnapshotName         string           `position:"Query" name:"SnapshotName"`
+	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	DisableInstantAccess requests.Boolean `position:"Query" name:"DisableInstantAccess"`
 }
 
 // ModifySnapshotAttributeResponse is the response struct for api ModifySnapshotAttribute

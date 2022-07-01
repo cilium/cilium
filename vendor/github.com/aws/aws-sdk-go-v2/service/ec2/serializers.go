@@ -42034,6 +42034,11 @@ func awsEc2query_serializeDocumentVpnConnectionOptionsSpecification(v *types.Vpn
 		objectKey.String(*v.LocalIpv6NetworkCidr)
 	}
 
+	if v.OutsideIpAddressType != nil {
+		objectKey := object.Key("OutsideIpAddressType")
+		objectKey.String(*v.OutsideIpAddressType)
+	}
+
 	if v.RemoteIpv4NetworkCidr != nil {
 		objectKey := object.Key("RemoteIpv4NetworkCidr")
 		objectKey.String(*v.RemoteIpv4NetworkCidr)
@@ -42047,6 +42052,11 @@ func awsEc2query_serializeDocumentVpnConnectionOptionsSpecification(v *types.Vpn
 	if v.StaticRoutesOnly != nil {
 		objectKey := object.Key("StaticRoutesOnly")
 		objectKey.Boolean(*v.StaticRoutesOnly)
+	}
+
+	if v.TransportTransitGatewayAttachmentId != nil {
+		objectKey := object.Key("TransportTransitGatewayAttachmentId")
+		objectKey.String(*v.TransportTransitGatewayAttachmentId)
 	}
 
 	if len(v.TunnelInsideIpVersion) > 0 {
@@ -43979,8 +43989,13 @@ func awsEc2query_serializeOpDocumentCreateCustomerGatewayInput(v *CreateCustomer
 		objectKey.Boolean(*v.DryRun)
 	}
 
-	if v.PublicIp != nil {
+	if v.IpAddress != nil {
 		objectKey := object.Key("IpAddress")
+		objectKey.String(*v.IpAddress)
+	}
+
+	if v.PublicIp != nil {
+		objectKey := object.Key("PublicIp")
 		objectKey.String(*v.PublicIp)
 	}
 
@@ -45179,6 +45194,11 @@ func awsEc2query_serializeOpDocumentCreatePlacementGroupInput(v *CreatePlacement
 	if v.PartitionCount != nil {
 		objectKey := object.Key("PartitionCount")
 		objectKey.Integer(*v.PartitionCount)
+	}
+
+	if len(v.SpreadLevel) > 0 {
+		objectKey := object.Key("SpreadLevel")
+		objectKey.String(string(v.SpreadLevel))
 	}
 
 	if len(v.Strategy) > 0 {
