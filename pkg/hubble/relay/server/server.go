@@ -10,6 +10,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
@@ -37,10 +38,11 @@ var (
 // Server is a proxy that connects to a running instance of hubble gRPC server
 // via unix domain socket.
 type Server struct {
-	server *grpc.Server
-	pm     *pool.PeerManager
-	opts   options
-	stop   chan struct{}
+	server       *grpc.Server
+	pm           *pool.PeerManager
+	healthServer *health.Server
+	opts         options
+	stop         chan struct{}
 }
 
 // New creates a new Server.
@@ -87,10 +89,33 @@ func New(options ...Option) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	var serverOpts []grpc.ServerOption
+	if opts.serverTLSConfig != nil {
+		tlsConfig := opts.serverTLSConfig.ServerConfig(&tls.Config{
+			MinVersion: MinTLSVersion,
+		})
+		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
+	}
+	grpcServer := grpc.NewServer(serverOpts...)
+
+	observerOptions := copyObserverOptionsWithLogger(opts.log, opts.observerOptions)
+	observerSrv, err := observer.NewServer(pm, observerOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create observer server: %v", err)
+	}
+	healthSrv := health.NewServer()
+
+	observerpb.RegisterObserverServer(grpcServer, observerSrv)
+	healthpb.RegisterHealthServer(grpcServer, healthSrv)
+	reflection.Register(grpcServer)
+
 	return &Server{
-		pm:   pm,
-		stop: make(chan struct{}),
-		opts: opts,
+		pm:           pm,
+		stop:         make(chan struct{}),
+		server:       grpcServer,
+		healthServer: healthSrv,
+		opts:         opts,
 	}, nil
 }
 
@@ -99,39 +124,13 @@ func New(options ...Option) (*Server, error) {
 // Stop() is not called.
 func (s *Server) Serve() error {
 	s.opts.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting server...")
-
-	switch {
-	case s.opts.insecureServer:
-		s.server = grpc.NewServer()
-	case s.opts.serverTLSConfig != nil:
-		tlsConfig := s.opts.serverTLSConfig.ServerConfig(&tls.Config{
-			MinVersion: MinTLSVersion,
-		})
-		creds := credentials.NewTLS(tlsConfig)
-		s.server = grpc.NewServer(grpc.Creds(creds))
-	default:
-		return ErrNoServerTLSConfig
-	}
-
 	s.pm.Start()
-	observerOptions := s.observerOptions()
-	observerSrv, err := observer.NewServer(s.pm, observerOptions...)
-	if err != nil {
-		return fmt.Errorf("failed to create observer server: %v", err)
-	}
-
-	healthSrv := health.NewServer()
-	healthSrv.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
-
 	socket, err := net.Listen("tcp", s.opts.listenAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.listenAddress, err)
 	}
 
-	healthpb.RegisterHealthServer(s.server, healthSrv)
-	observerpb.RegisterObserverServer(s.server, observerSrv)
-
-	reflection.Register(s.server)
+	s.healthServer.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
 	return s.server.Serve(socket)
 }
 
@@ -146,9 +145,9 @@ func (s *Server) Stop() {
 
 // observerOptions returns the configured hubble-relay observer options along
 // with the hubble-relay logger.
-func (s *Server) observerOptions() []observer.Option {
-	observerOptions := make([]observer.Option, len(s.opts.observerOptions), len(s.opts.observerOptions)+1)
-	copy(observerOptions, s.opts.observerOptions)
-	observerOptions = append(observerOptions, observer.WithLogger(s.opts.log))
-	return observerOptions
+func copyObserverOptionsWithLogger(log logrus.FieldLogger, options []observer.Option) []observer.Option {
+	newOptions := make([]observer.Option, len(options), len(options)+1)
+	copy(newOptions, options)
+	newOptions = append(newOptions, observer.WithLogger(log))
+	return newOptions
 }
