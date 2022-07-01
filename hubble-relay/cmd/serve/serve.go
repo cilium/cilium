@@ -30,6 +30,7 @@ const (
 	keyDialTimeout            = "dial-timeout"
 	keyRetryTimeout           = "retry-timeout"
 	keyListenAddress          = "listen-address"
+	keyMetricsListenAddress   = "metrics-listen-address"
 	keyPeerService            = "peer-service"
 	keySortBufferMaxLen       = "sort-buffer-len-max"
 	keySortBufferDrainTimeout = "sort-buffer-drain-timeout"
@@ -82,6 +83,10 @@ func New(vp *viper.Viper) *cobra.Command {
 		keyListenAddress,
 		defaults.ListenAddress,
 		"Address on which to listen")
+	flags.String(
+		keyMetricsListenAddress,
+		"",
+		"Address on which to listen for metrics")
 	flags.String(
 		keyPeerService,
 		defaults.PeerTarget,
@@ -145,6 +150,7 @@ func runServe(vp *viper.Viper) error {
 		server.WithDialTimeout(vp.GetDuration(keyDialTimeout)),
 		server.WithPeerTarget(vp.GetString(keyPeerService)),
 		server.WithListenAddress(vp.GetString(keyListenAddress)),
+		server.WithMetricsListenAddress(vp.GetString(keyMetricsListenAddress)),
 		server.WithRetryTimeout(vp.GetDuration(keyRetryTimeout)),
 		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
 		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),

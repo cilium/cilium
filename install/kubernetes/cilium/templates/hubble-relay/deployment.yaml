@@ -54,6 +54,11 @@ spec:
           ports:
             - name: grpc
               containerPort: {{ .Values.hubble.relay.listenPort }}
+            {{- if .Values.hubble.relay.prometheus.enabled }}
+            - name: prometheus
+              containerPort: {{ .Values.hubble.relay.prometheus.port }}
+              protocol: TCP
+            {{- end }}
           readinessProbe:
             tcpSocket:
               port: grpc

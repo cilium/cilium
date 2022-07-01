@@ -1,0 +1,20 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled .Values.hubble.relay.prometheus.enabled }}
+# We use a separate service from hubble-relay which can be exposed externally
+kind: Service
+apiVersion: v1
+metadata:
+  name: hubble-relay-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-relay
+spec:
+  clusterIP: None
+  type: ClusterIP
+  selector:
+    k8s-app: hubble-relay
+  ports:
+  - name: metrics
+    port: {{ .Values.hubble.relay.prometheus.port }}
+    protocol: TCP
+    targetPort: prometheus
+{{- end }}
