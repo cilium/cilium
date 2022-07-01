@@ -38,7 +38,7 @@ proxy, but that will only work if mTLS is not used.
    If Cilium is deployed with the kube-proxy replacement (this is not
    the case by default) you need to pass ``--config
    bpf-lb-sock-hostns-only=true`` to cilium CLI or
-   ``hostServices.hostNamespaceOnly`` option with Helm.  Without this
+   ``socketLB.hostNamespaceOnly`` option with Helm.  Without this
    option, when Cilium does service resolution via socket load
    balancing, Istio sidecar will be bypassed, resulting in loss of
    Istio features including encryption and telemetry.
