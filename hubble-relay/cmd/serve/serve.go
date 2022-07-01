@@ -9,6 +9,7 @@ import (
 	"os/signal"
 
 	"github.com/google/gops/agent"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
@@ -150,11 +151,22 @@ func runServe(vp *viper.Viper) error {
 		server.WithDialTimeout(vp.GetDuration(keyDialTimeout)),
 		server.WithPeerTarget(vp.GetString(keyPeerService)),
 		server.WithListenAddress(vp.GetString(keyListenAddress)),
-		server.WithMetricsListenAddress(vp.GetString(keyMetricsListenAddress)),
 		server.WithRetryTimeout(vp.GetDuration(keyRetryTimeout)),
 		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
 		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),
 		server.WithLogger(logger),
+	}
+
+	metricsListenAddress := vp.GetString(keyMetricsListenAddress)
+	if metricsListenAddress != "" {
+		grpcMetrics := grpc_prometheus.NewServerMetrics()
+		opts = append(
+			opts,
+			server.WithMetricsListenAddress(metricsListenAddress),
+			server.WithGRPCMetrics(grpcMetrics),
+			server.WithGRPCStreamInterceptor(grpcMetrics.StreamServerInterceptor()),
+			server.WithGRPCUnaryInterceptor(grpcMetrics.UnaryServerInterceptor()),
+		)
 	}
 
 	// Relay to Hubble TLS/mTLS setup.

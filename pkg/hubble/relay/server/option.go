@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"time"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
@@ -35,6 +36,7 @@ type options struct {
 	clusterName            string
 	insecureClient         bool
 	observerOptions        []observer.Option
+	grpcMetrics            *grpc_prometheus.ServerMetrics
 	grpcUnaryInterceptors  []grpc.UnaryServerInterceptor
 	grpcStreamInterceptors []grpc.StreamServerInterceptor
 }
@@ -180,6 +182,15 @@ func WithInsecureClient() Option {
 func WithLocalClusterName(clusterName string) Option {
 	return func(o *options) error {
 		o.clusterName = clusterName
+		return nil
+	}
+}
+
+// WithGRPCMetrics configures the server with the specified prometheus gPRC
+// ServerMetrics.
+func WithGRPCMetrics(grpcMetrics *grpc_prometheus.ServerMetrics) Option {
+	return func(o *options) error {
+		o.grpcMetrics = grpcMetrics
 		return nil
 	}
 }
