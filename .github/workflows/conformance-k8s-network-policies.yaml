@@ -76,7 +76,7 @@ jobs:
              --namespace kube-system \
              --set nodeinit.enabled=true \
              --set kubeProxyReplacement=partial \
-             --set hostServices.enabled=false \
+             --set socketLB.enabled=false \
              --set externalIPs.enabled=true \
              --set nodePort.enabled=true \
              --set hostPort.enabled=true \

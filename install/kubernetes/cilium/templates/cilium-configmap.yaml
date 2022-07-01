@@ -55,6 +55,7 @@
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
 {{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
+{{- $socketLB := (coalesce .Values.socketLB .Values.hostServices) -}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -573,15 +574,18 @@ data:
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
 
-{{- if hasKey .Values "hostServices" }}
-{{- if .Values.hostServices.enabled }}
-  enable-host-reachable-services: {{ .Values.hostServices.enabled | quote }}
+{{- if $socketLB }}
+{{- if hasKey $socketLB "enabled" }}
+  bpf-lb-sock: {{ $socketLB.enabled | quote }}
 {{- end }}
+{{- if hasKey $socketLB "hostNamespaceOnly" }}
+  bpf-lb-sock-hostns-only: {{ $socketLB.hostNamespaceOnly | quote }}
+{{- end }}
+{{- end }}
+
+{{- if hasKey .Values "hostServices" }}
 {{- if ne .Values.hostServices.protocols "tcp,udp" }}
   host-reachable-services-protos: {{ .Values.hostServices.protocols }}
-{{- end }}
-{{- if hasKey .Values.hostServices "hostNamespaceOnly" }}
-  bpf-lb-sock-hostns-only: {{ .Values.hostServices.hostNamespaceOnly | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "hostPort" }}

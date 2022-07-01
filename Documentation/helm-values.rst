@@ -705,18 +705,6 @@
      - Enable hostPort service support.
      - bool
      - ``false``
-   * - hostServices
-     - Configure ClusterIP service handling in the host namespace (the node).
-     - object
-     - ``{"enabled":false,"protocols":"tcp,udp"}``
-   * - hostServices.enabled
-     - Enable host reachable services.
-     - bool
-     - ``false``
-   * - hostServices.protocols
-     - Supported list of protocols to apply ClusterIP translation to.
-     - string
-     - ``"tcp,udp"``
    * - hubble.enabled
      - Enable Hubble (true by default).
      - bool
@@ -1639,6 +1627,14 @@
      - ``{"annotations":{},"create":true,"name":"hubble-generate-certs"}``
    * - sleepAfterInit
      - Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node.
+     - bool
+     - ``false``
+   * - socketLB
+     - Configure socket LB
+     - object
+     - ``{"enabled":false}``
+   * - socketLB.enabled
+     - Enable socket LB
      - bool
      - ``false``
    * - sockops
