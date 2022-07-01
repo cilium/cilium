@@ -141,22 +141,22 @@ static __always_inline __maybe_unused
 bool sock_proto_enabled(__u32 proto)
 {
 	switch (proto) {
-#ifdef ENABLE_HOST_SERVICES_TCP
+#ifdef ENABLE_SOCKET_LB_TCP
 	case IPPROTO_TCP:
 		return true;
-#endif /* ENABLE_HOST_SERVICES_TCP */
-#ifdef ENABLE_HOST_SERVICES_UDP
+#endif /* ENABLE_SOCKET_LB_TCP */
+#ifdef ENABLE_SOCKET_LB_UDP
 	case IPPROTO_UDPLITE:
 	case IPPROTO_UDP:
 		return true;
-#endif /* ENABLE_HOST_SERVICES_UDP */
+#endif /* ENABLE_SOCKET_LB_UDP */
 	default:
 		return false;
 	}
 }
 
 #ifdef ENABLE_IPV4
-#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
+#if defined(ENABLE_SOCKET_LB_UDP) || defined(ENABLE_SOCKET_LB_PEER)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_revnat_tuple);
@@ -197,7 +197,7 @@ int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 {
 	return 0;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
+#endif /* ENABLE_SOCKET_LB_UDP || ENABLE_SOCKET_LB_PEER */
 
 static __always_inline bool
 sock4_skip_xlate(struct lb4_service *svc, __be32 address)
@@ -573,7 +573,7 @@ int sock4_pre_bind(struct bpf_sock_addr *ctx)
 }
 #endif /* ENABLE_HEALTH_CHECK */
 
-#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
+#if defined(ENABLE_SOCKET_LB_UDP) || defined(ENABLE_SOCKET_LB_PEER)
 static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
 {
@@ -630,12 +630,12 @@ int sock4_getpeername(struct bpf_sock_addr *ctx)
 	__sock4_xlate_rev(ctx, ctx);
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
+#endif /* ENABLE_SOCKET_LB_UDP || ENABLE_SOCKET_LB_PEER */
 #endif /* ENABLE_IPV4 */
 
 #if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
 #ifdef ENABLE_IPV6
-#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
+#if defined(ENABLE_SOCKET_LB_UDP) || defined(ENABLE_SOCKET_LB_PEER)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_revnat_tuple);
@@ -676,7 +676,7 @@ int sock6_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 {
 	return 0;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
+#endif /* ENABLE_SOCKET_LB_UDP || ENABLE_SOCKET_LB_PEER */
 #endif /* ENABLE_IPV6 */
 
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
@@ -1098,7 +1098,7 @@ int sock6_connect(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
-#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
+#if defined(ENABLE_SOCKET_LB_UDP) || defined(ENABLE_SOCKET_LB_PEER)
 static __always_inline int
 sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
@@ -1186,7 +1186,7 @@ int sock6_getpeername(struct bpf_sock_addr *ctx)
 	__sock6_xlate_rev(ctx);
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
+#endif /* ENABLE_SOCKET_LB_UDP || ENABLE_SOCKET_LB_PEER */
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
 BPF_LICENSE("Dual BSD/GPL");

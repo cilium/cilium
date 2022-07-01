@@ -58,7 +58,7 @@
  * Most services with L7 LB flag can not be redirected to their proxy port
  * in bpf_sock, so we must check for those via per packet LB as well.
  */
-#if !defined(ENABLE_HOST_SERVICES_FULL) || \
+#if !defined(ENABLE_SOCKET_LB_FULL) || \
     defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
     defined(ENABLE_L7_LB)
 # define ENABLE_PER_PACKET_LB 1
