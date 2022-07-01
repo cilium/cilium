@@ -659,8 +659,8 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	case k8s.KindAKS:
 		// We only made the secret-based azure installation available in >= 1.12.0
 		// Introduced in https://github.com/cilium/cilium/pull/18010
-		switch {
-		case versioncheck.MustCompile(">=1.12.0")(k.chartVersion):
+		// Additionally, secrets are only needed when using Azure IPAM
+		if k.params.DatapathMode == DatapathAzure && versioncheck.MustCompile(">=1.12.0")(k.chartVersion) {
 			if err := k.createAKSSecrets(ctx); err != nil {
 				return err
 			}
