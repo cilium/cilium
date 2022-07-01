@@ -27,6 +27,7 @@ type options struct {
 	dialTimeout            time.Duration
 	retryTimeout           time.Duration
 	listenAddress          string
+	metricsListenAddress   string
 	log                    logrus.FieldLogger
 	serverTLSConfig        certloader.ServerConfigBuilder
 	insecureServer         bool
@@ -80,6 +81,14 @@ func WithRetryTimeout(t time.Duration) Option {
 func WithListenAddress(a string) Option {
 	return func(o *options) error {
 		o.listenAddress = a
+		return nil
+	}
+}
+
+// WithMetricsListenAddress sets the listen address for the hubble-relay server.
+func WithMetricsListenAddress(a string) Option {
+	return func(o *options) error {
+		o.metricsListenAddress = a
 		return nil
 	}
 }

@@ -8,9 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
@@ -33,16 +37,19 @@ var (
 	// ErrNoServerTLSConfig is returned when no server TLS config is set unless
 	// WithInsecureServer() is provided.
 	ErrNoServerTLSConfig = errors.New("no server TLS config is set")
+
+	registry = prometheus.NewPedanticRegistry()
 )
 
 // Server is a proxy that connects to a running instance of hubble gRPC server
 // via unix domain socket.
 type Server struct {
-	server       *grpc.Server
-	pm           *pool.PeerManager
-	healthServer *health.Server
-	opts         options
-	stop         chan struct{}
+	server        *grpc.Server
+	pm            *pool.PeerManager
+	healthServer  *health.Server
+	metricsServer *http.Server
+	opts          options
+	stop          chan struct{}
 }
 
 // New creates a new Server.
@@ -118,12 +125,23 @@ func New(options ...Option) (*Server, error) {
 	healthpb.RegisterHealthServer(grpcServer, healthSrv)
 	reflection.Register(grpcServer)
 
+	var metricsServer *http.Server
+	if opts.metricsListenAddress != "" {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		metricsServer = &http.Server{
+			Addr:    opts.metricsListenAddress,
+			Handler: mux,
+		}
+	}
+
 	return &Server{
-		pm:           pm,
-		stop:         make(chan struct{}),
-		server:       grpcServer,
-		healthServer: healthSrv,
-		opts:         opts,
+		pm:            pm,
+		stop:          make(chan struct{}),
+		server:        grpcServer,
+		metricsServer: metricsServer,
+		healthServer:  healthSrv,
+		opts:          opts,
 	}, nil
 }
 
@@ -131,15 +149,27 @@ func New(options ...Option) (*Server, error) {
 // listening fails with fatal errors. Serve will return a non-nil error if
 // Stop() is not called.
 func (s *Server) Serve() error {
-	s.opts.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting server...")
-	s.pm.Start()
-	socket, err := net.Listen("tcp", s.opts.listenAddress)
-	if err != nil {
-		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.listenAddress, err)
+	var eg errgroup.Group
+	if s.metricsServer != nil {
+		eg.Go(func() error {
+			s.opts.log.WithField("address", s.opts.metricsListenAddress).Info("Starting metrics server...")
+			return s.metricsServer.ListenAndServe()
+		})
 	}
 
-	s.healthServer.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
-	return s.server.Serve(socket)
+	eg.Go(func() error {
+		s.opts.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting gRPC server...")
+		s.pm.Start()
+		socket, err := net.Listen("tcp", s.opts.listenAddress)
+		if err != nil {
+			return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.listenAddress, err)
+		}
+
+		s.healthServer.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
+		return s.server.Serve(socket)
+	})
+
+	return eg.Wait()
 }
 
 // Stop terminates the hubble-relay server.
