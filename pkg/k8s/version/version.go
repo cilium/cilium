@@ -87,6 +87,10 @@ var (
 	// discovery was introduced in K8s version 1.21.
 	isGEThanAPIDiscoveryV1 = versioncheck.MustCompile(">=1.21.0")
 
+	// Constraint to check support for discovery/v1beta1 types. Support for
+	// v1beta1 discovery was introduced in K8s version 1.17.
+	isGEThanAPIDiscoveryV1Beta1 = versioncheck.MustCompile(">=1.17.0")
+
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
 	isGEThanMinimalVersionConstraint = versioncheck.MustCompile(">=" + MinimalVersionConstraint)
@@ -117,6 +121,7 @@ func updateVersion(version semver.Version) {
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
 	cached.capabilities.APIExtensionsV1CRD = isGEThanAPIExtensionsV1CRD(version)
 	cached.capabilities.EndpointSliceV1 = isGEThanAPIDiscoveryV1(version)
+	cached.capabilities.EndpointSlice = isGEThanAPIDiscoveryV1Beta1(version)
 }
 
 func updateServerGroupsAndResources(apiResourceLists []*metav1.APIResourceList) {
