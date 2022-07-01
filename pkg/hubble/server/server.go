@@ -55,18 +55,20 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 }
 
 func (s *Server) newGRPCServer() (*grpc.Server, error) {
-	switch {
-	case s.opts.Insecure:
-		return grpc.NewServer(), nil
-	case s.opts.ServerTLSConfig != nil:
+	var opts []grpc.ServerOption
+	for _, interceptor := range s.opts.GRPCUnaryInterceptors {
+		opts = append(opts, grpc.UnaryInterceptor(interceptor))
+	}
+	for _, interceptor := range s.opts.GRPCStreamInterceptors {
+		opts = append(opts, grpc.StreamInterceptor(interceptor))
+	}
+	if s.opts.ServerTLSConfig != nil {
 		tlsConfig := s.opts.ServerTLSConfig.ServerConfig(&tls.Config{
 			MinVersion: serveroption.MinTLSVersion,
 		})
-		creds := credentials.NewTLS(tlsConfig)
-		return grpc.NewServer(grpc.Creds(creds)), nil
-	default:
-		return nil, errNoServerTLSConfig
+		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
+	return grpc.NewServer(opts...), nil
 }
 
 func (s *Server) initGRPCServer() error {
