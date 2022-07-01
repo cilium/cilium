@@ -249,10 +249,10 @@ bgp:
     # -- Enable announcement of node pod CIDR
     podCIDR: false
 
-# -- This feature set enables virtual BGP routers to be created via 
+# -- This feature set enables virtual BGP routers to be created via
 # CiliumBGPPeeringPolicy CRDs.
 bgpControlPlane:
-  # -- Enables the BGP control plane. 
+  # -- Enables the BGP control plane.
   enabled: false
 
 bpf:
@@ -859,7 +859,7 @@ hubble:
 
     # -- hubble-relay service configuration.
     service:
-      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort. 
+      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31234
@@ -910,6 +910,25 @@ hubble:
     # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
     # port 80 if not.
     # servicePort: 80
+
+    # -- Enable prometheus metrics for hubble-relay on the configured port at
+    # /metrics
+    prometheus:
+      enabled: false
+      port: 9966
+      serviceMonitor:
+        # -- Enable service monitors.
+        # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+        enabled: false
+        # -- Labels to add to ServiceMonitor hubble-relay
+        labels: {}
+        # -- Annotations to add to ServiceMonitor hubble-relay
+        annotations: {}
+        # -- Interval for scrape metrics.
+        interval: "10s"
+        # -- Specify the Kubernetes namespace where Prometheus expects to find
+        # service monitors configured.
+        # namespace: ""
 
   ui:
     # -- Whether to enable the Hubble UI.
@@ -1050,7 +1069,7 @@ hubble:
 
     # -- hubble-ui service configuration.
     service:
-      # --- The type of service used for Hubble UI access, either ClusterIP or NodePort. 
+      # --- The type of service used for Hubble UI access, either ClusterIP or NodePort.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31235
