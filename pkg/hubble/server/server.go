@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -47,7 +46,12 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 	if opts.ServerTLSConfig == nil && !opts.Insecure {
 		return nil, errNoServerTLSConfig
 	}
-	return &Server{log: log, opts: opts}, nil
+
+	s := &Server{log: log, opts: opts}
+	if err := s.initGRPCServer(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *Server) newGRPCServer() (*grpc.Server, error) {
@@ -90,18 +94,7 @@ func (s *Server) initGRPCServer() error {
 // Serve starts the hubble server and accepts new connections on the configured
 // listener. Stop should be called to stop the server.
 func (s *Server) Serve() error {
-	if err := s.initGRPCServer(); err != nil {
-		return err
-	}
-	if s.opts.Listener == nil {
-		return errNoListener
-	}
-	go func(listener net.Listener) {
-		if err := s.srv.Serve(s.opts.Listener); err != nil {
-			s.log.WithError(err).WithField("address", listener.Addr().String()).Error("Failed to start gRPC server")
-		}
-	}(s.opts.Listener)
-	return nil
+	return s.srv.Serve(s.opts.Listener)
 }
 
 // Stop stops the hubble server.
