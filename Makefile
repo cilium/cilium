@@ -115,9 +115,9 @@ define generate_k8s_protobuf
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 endef
 
-build: $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
+build: check-sources $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
 
-build-container: ## Builds components required for cilium-agent container.
+build-container: check-sources ## Builds components required for cilium-agent container.
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i all; done
 
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
@@ -547,6 +547,10 @@ endif
 	@$(ECHO_CHECK) contrib/scripts/rand-check.sh
 	$(QUIET) contrib/scripts/rand-check.sh
 
+check-sources:
+	@$(ECHO_CHECK) pkg/datapath/loader/check-sources.sh
+	$(QUIET) pkg/datapath/loader/check-sources.sh
+
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
 
@@ -642,5 +646,5 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-operator-*-image","Build platform specific cilium-operator images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean check-sources
 force :;
