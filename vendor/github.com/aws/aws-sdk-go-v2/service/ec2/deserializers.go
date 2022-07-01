@@ -90851,6 +90851,19 @@ func awsEc2query_deserializeDocumentPlacementGroup(v **types.PlacementGroup, dec
 				sv.PartitionCount = ptr.Int32(int32(i64))
 			}
 
+		case strings.EqualFold("spreadLevel", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SpreadLevel = types.SpreadLevel(xtv)
+			}
+
 		case strings.EqualFold("state", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -118342,6 +118355,19 @@ func awsEc2query_deserializeDocumentVpnConnectionOptions(v **types.VpnConnection
 				sv.LocalIpv6NetworkCidr = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("outsideIpAddressType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.OutsideIpAddressType = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("remoteIpv4NetworkCidr", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -118382,6 +118408,19 @@ func awsEc2query_deserializeDocumentVpnConnectionOptions(v **types.VpnConnection
 					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
 				}
 				sv.StaticRoutesOnly = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("transportTransitGatewayAttachmentId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransportTransitGatewayAttachmentId = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("tunnelInsideIpVersion", t.Name.Local):

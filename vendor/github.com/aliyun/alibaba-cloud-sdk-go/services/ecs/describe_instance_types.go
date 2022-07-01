@@ -71,21 +71,14 @@ func (client *Client) DescribeInstanceTypesWithCallback(request *DescribeInstanc
 // DescribeInstanceTypesRequest is the request struct for api DescribeInstanceTypes
 type DescribeInstanceTypesRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer                `position:"Query" name:"ResourceOwnerId"`
-	InstanceTypes        *[]string                       `position:"Query" name:"InstanceTypes"  type:"Repeated"`
-	NextToken            string                          `position:"Query" name:"NextToken"`
-	ResourceOwnerAccount string                          `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string                          `position:"Query" name:"OwnerAccount"`
-	InstanceTypeFamily   string                          `position:"Query" name:"InstanceTypeFamily"`
-	Filters              *[]DescribeInstanceTypesFilters `position:"Query" name:"Filters"  type:"Repeated"`
-	OwnerId              requests.Integer                `position:"Query" name:"OwnerId"`
-	MaxResults           requests.Integer                `position:"Query" name:"MaxResults"`
-}
-
-// DescribeInstanceTypesFilters is a repeated param struct in DescribeInstanceTypesRequest
-type DescribeInstanceTypesFilters struct {
-	Name  string `name:"Name"`
-	Value string `name:"Value"`
+	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	InstanceTypes        *[]string        `position:"Query" name:"InstanceTypes"  type:"Repeated"`
+	NextToken            string           `position:"Query" name:"NextToken"`
+	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	InstanceTypeFamily   string           `position:"Query" name:"InstanceTypeFamily"`
+	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
 }
 
 // DescribeInstanceTypesResponse is the response struct for api DescribeInstanceTypes

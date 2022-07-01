@@ -55,24 +55,24 @@ type DescribeCustomerGatewaysInput struct {
 	// * customer-gateway-id - The ID of the
 	// customer gateway.
 	//
-	// * ip-address - The IP address of the customer gateway's
-	// Internet-routable external interface.
+	// * ip-address - The IP address of the customer gateway
+	// device's external interface.
 	//
-	// * state - The state of the customer
-	// gateway (pending | available | deleting | deleted).
+	// * state - The state of the customer gateway
+	// (pending | available | deleting | deleted).
 	//
-	// * type - The type of
-	// customer gateway. Currently, the only supported type is ipsec.1.
+	// * type - The type of customer
+	// gateway. Currently, the only supported type is ipsec.1.
 	//
-	// * tag: - The
-	// key/value combination of a tag assigned to the resource. Use the tag key in the
-	// filter name and the tag value as the filter value. For example, to find all
-	// resources that have a tag with the key Owner and the value TeamA, specify
-	// tag:Owner for the filter name and TeamA for the filter value.
+	// * tag: - The key/value
+	// combination of a tag assigned to the resource. Use the tag key in the filter
+	// name and the tag value as the filter value. For example, to find all resources
+	// that have a tag with the key Owner and the value TeamA, specify tag:Owner for
+	// the filter name and TeamA for the filter value.
 	//
-	// * tag-key - The
-	// key of a tag assigned to the resource. Use this filter to find all resources
-	// assigned a tag with a specific key, regardless of the tag value.
+	// * tag-key - The key of a tag
+	// assigned to the resource. Use this filter to find all resources assigned a tag
+	// with a specific key, regardless of the tag value.
 	Filters []types.Filter
 
 	noSmithyDocumentSerde
