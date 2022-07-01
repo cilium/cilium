@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
@@ -29,13 +30,15 @@ const MinTLSVersion = tls.VersionTLS13
 
 // Options stores all the configuration values for the hubble server.
 type Options struct {
-	Listener        net.Listener
-	HealthService   healthpb.HealthServer
-	ObserverService observerpb.ObserverServer
-	PeerService     peerpb.PeerServer
-	RecorderService recorderpb.RecorderServer
-	ServerTLSConfig certloader.ServerConfigBuilder
-	Insecure        bool
+	Listener               net.Listener
+	HealthService          healthpb.HealthServer
+	ObserverService        observerpb.ObserverServer
+	PeerService            peerpb.PeerServer
+	RecorderService        recorderpb.RecorderServer
+	ServerTLSConfig        certloader.ServerConfigBuilder
+	Insecure               bool
+	GRPCUnaryInterceptors  []grpc.UnaryServerInterceptor
+	GRPCStreamInterceptors []grpc.StreamServerInterceptor
 }
 
 // Option customizes the hubble server's configuration.
@@ -131,6 +134,22 @@ func WithServerTLS(cfg certloader.ServerConfigBuilder) Option {
 func WithRecorderService(svc recorderpb.RecorderServer) Option {
 	return func(o *Options) error {
 		o.RecorderService = svc
+		return nil
+	}
+}
+
+// WithGRPCStreamInterceptor configures the server with the given gRPC server stream interceptors
+func WithGRPCStreamInterceptor(interceptors ...grpc.StreamServerInterceptor) Option {
+	return func(o *Options) error {
+		o.GRPCStreamInterceptors = append(o.GRPCStreamInterceptors, interceptors...)
+		return nil
+	}
+}
+
+// WithGRPCUnaryInterceptor configures the server with the given gRPC server stream interceptors
+func WithGRPCUnaryInterceptor(interceptors ...grpc.UnaryServerInterceptor) Option {
+	return func(o *Options) error {
+		o.GRPCUnaryInterceptors = append(o.GRPCUnaryInterceptors, interceptors...)
 		return nil
 	}
 }
