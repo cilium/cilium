@@ -2016,6 +2016,15 @@ definitions:
                 type: array
                 items:
                   type: string
+          socketLB:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
+            type: object
+            properties:
+              enabled:
+                type: boolean
           sessionAffinity:
             description: |-
 
