@@ -236,7 +236,7 @@ Cilium Feature                                          Minimum Kernel Version
 :ref:`cidr_limitations`                     		>= 4.11
 :ref:`encryption_ipsec` in tunneling mode   		>= 4.19
 :ref:`encryption_wg`                        		>= 5.6
-:ref:`host-services`                        		>= 4.19.57, >= 5.1.16,  >= 5.2
+Socket-level LB                        		        >= 4.19.57, >= 5.1.16,  >= 5.2
 :ref:`kubeproxy-free`                       		>= 4.19.57, >= 5.1.16,  >= 5.2
 :ref:`bandwidth-manager`                    		>= 5.1
 :ref:`local-redirect-policy`				>= 4.19.57, >= 5.1.16,  >= 5.2

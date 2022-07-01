@@ -19,8 +19,8 @@ For installing ``kubeadm`` and for more provisioning options please refer to
 
 .. note::
 
-   Cilium's kube-proxy replacement depends on the :ref:`host-services` feature,
-   therefore a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required.
+   Cilium's kube-proxy replacement depends on the socket-LB feature,
+   which requires a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel.
    Linux kernels v5.3 and v5.8 add additional features that Cilium can use to
    further optimize the kube-proxy replacement implementation.
 
@@ -151,6 +151,7 @@ Use ``--verbose`` for full details:
     [...]
     KubeProxyReplacement Details:
       Status:                Strict
+      Socket LB:             Enabled
       Protocols:             TCP, UDP
       Devices:               eth0 (Direct Routing), eth1
       Mode:                  SNAT
@@ -495,12 +496,20 @@ mode would look as follows:
 Socket LoadBalancer Bypass in Pod Namespace
 *******************************************
 
+The socket-level loadbalancer acts transparent to Cilium's lower layer datapath
+in that upon ``connect`` (TCP, connected UDP), ``sendmsg`` (UDP), or ``recvmsg``
+(UDP) system calls, the destination IP is checked for an existing service IP and
+one of the service backends is selected as a target. This means that although
+the application assumes it is connected to the service address, the
+corresponding kernel socket is actually connected to the backend address and
+therefore no additional lower layer NAT is required.
+
 Cilium has built-in support for bypassing the socket-level loadbalancer and falling back
 to the tc loadbalancer at the veth interface when a custom redirection/operation relies
 on the original ClusterIP within pod namespace (e.g., Istio side-car) or due to the Pod's
 nature the socket-level loadbalancer is ineffective (e.g., KubeVirt, Kata Containers).
 
-Setting ``hostServices.hostNamespaceOnly=true`` enables this bypassing mode. When enabled,
+Setting ``socketLB.hostNamespaceOnly=true`` enables this bypassing mode. When enabled,
 this circumvents socket rewrite in the ``connect()`` and ``sendmsg()`` syscall bpf hook and
 will pass the original packet to next stage of operation (e.g., stack in
 ``per-endpoint-routing`` mode) and re-enables service lookup in the tc bpf program.
@@ -515,7 +524,7 @@ looks as follows:
         --set tunnel=disabled \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
-        --set hostServices.hostNamespaceOnly=true
+        --set socketLB.hostNamespaceOnly=true
 
 .. _XDP acceleration:
 
@@ -849,7 +858,7 @@ device does not exist within ``devices``, Cilium will add the device to the latt
 list. The direct routing device is used for
 :ref:`the NodePort XDP acceleration<XDP Acceleration>` as well (if enabled).
 
-In addition, thanks to the :ref:`host-services` feature, the NodePort service can
+In addition, thanks to the socket-LB feature, the NodePort service can
 be accessed by default from a host or a pod within a cluster via its public, any
 local (except for ``docker*`` prefixed names) or loopback address, e.g.
 ``127.0.0.1:NODE_PORT``.
@@ -1078,7 +1087,7 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
   kube-proxy replacement should be used.
   Similarly to ``strict`` mode, the Cilium agent will bail out on start-up with
   an error message if the underlying kernel requirements are not met. For
-  fine-grained configuration, ``hostServices.enabled``, ``nodePort.enabled``,
+  fine-grained configuration, ``socketLB.enabled``, ``nodePort.enabled``,
   ``externalIPs.enabled`` and ``hostPort.enabled`` can be set to ``true``. By
   default all four options are set to ``false``.
   If you are setting ``nodePort.enabled`` to true, make sure to also
@@ -1096,7 +1105,7 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=partial \\
-        --set hostServices.enabled=true \\
+        --set socketLB.enabled=true \\
         --set nodePort.enabled=true \\
         --set externalIPs.enabled=true \\
         --set hostPort.enabled=true \\
@@ -1112,17 +1121,6 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=partial
-
-  The following Helm setup below would optimize Cilium's ClusterIP handling for TCP in a
-  kube-proxy environment (``hostServices.protocols`` default is ``tcp,udp``):
-
-  .. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set kubeProxyReplacement=partial \\
-        --set hostServices.enabled=true \\
-        --set hostServices.protocols=tcp
 
   The following Helm setup below would optimize Cilium's NodePort, LoadBalancer and services
   with externalIPs handling for external traffic ingressing into the Cilium managed node in
@@ -1194,13 +1192,13 @@ if needed.
 The source for the affinity depends on the origin of a request. If a request is
 sent from outside the cluster to the service, the request's source IP address is
 used for determining the endpoint affinity. If a request is sent from inside
-the cluster, then the source depends on whether the :ref:`host-services` feature
+the cluster, then the source depends on whether the socket-LB feature
 is used to load balance ClusterIP services. If yes, then the client's network
 namespace cookie is used as the source. The latter was introduced in the 5.7
 Linux kernel to implement the affinity at the socket layer at which
-:ref:`host-services` operate (a source IP is not available there, as the
+the socket-LB operates (a source IP is not available there, as the
 endpoint selection happens before a network packet has been built by the
-kernel). If :ref:`host-services` is not used (i.e. the loadbalancing is done
+kernel). If the socket-LB is not used (i.e. the loadbalancing is done
 at the pod network interface, on a per-packet basis), then the request's source
 IP address is used as the source.
 
@@ -1413,7 +1411,7 @@ Limitations
 ###########
 
     * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`gsg_encryption`.
-    * Cilium's eBPF kube-proxy replacement relies upon the :ref:`host-services` feature
+    * Cilium's eBPF kube-proxy replacement relies upon the socket-LB feature
       which uses eBPF cgroup hooks to implement the service translation. Using it with libceph
       deployments currently requires support for the getpeername(2) hook address translation in
       eBPF, which is only available for kernels v5.8 and higher.

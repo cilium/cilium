@@ -25,9 +25,9 @@ Prerequisites
   (``identityAllocationMode`` set to ``crd``). This is the default
   for new installations.
 
-* External workloads must run a recent enough kernel (>= 4.17) for k8s
+* External workloads must run a recent enough kernel (>= 4.19.57) for k8s
   service access from the external host to work, see
-  :ref:`host-services` for details.
+  :ref:`kubeproxy-free` for details.
 
 * External workloads must have Docker 20.10 or newer installed on the
   system (a version which supports ``--cgroupns`` CLI option).

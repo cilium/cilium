@@ -44,7 +44,7 @@ Then, install Cilium release via Helm:
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
       --set kubeProxyReplacement=partial \\
-      --set hostServices.enabled=false \\
+      --set socketLB.enabled=false \\
       --set externalIPs.enabled=true \\
       --set nodePort.enabled=true \\
       --set hostPort.enabled=true \\
@@ -86,7 +86,7 @@ In the :ref:`Cilium agent logs <ts_agent_logs>` you will see::
     level=fatal msg="Unable to initialize Kubernetes subsystem" error="unable to create k8s client: unable to create k8s client: Get https://10.96.0.1:443/api/v1/namespaces/kube-system: dial tcp 10.96.0.1:443: connect: no route to host" subsys=daemon
 
 As Kind is running nodes as containers in Docker, they're sharing your host machines' kernel.
-If :ref:`host-services` wasn't disabled, the eBPF programs attached by Cilium may be out of date
+If the socket LB wasn't disabled, the eBPF programs attached by Cilium may be out of date
 and no longer routing api-server requests to the current ``kind-control-plane`` container.
 
 Recreating the kind cluster and using the helm command :ref:`kind_install_cilium` will detach the
