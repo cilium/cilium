@@ -11,16 +11,15 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Provides information to Amazon Web Services about your VPN customer gateway
-// device. The customer gateway is the appliance at your end of the VPN connection.
-// (The device on the Amazon Web Services side of the VPN connection is the virtual
-// private gateway.) You must provide the internet-routable IP address of the
-// customer gateway's external interface. The IP address must be static and can be
-// behind a device performing network address translation (NAT). For devices that
-// use Border Gateway Protocol (BGP), you can also provide the device's BGP
-// Autonomous System Number (ASN). You can use an existing ASN assigned to your
-// network. If you don't have an ASN already, you can use a private ASN. For more
-// information, see Customer gateway options for your Site-to-Site VPN connection
+// Provides information to Amazon Web Services about your customer gateway device.
+// The customer gateway device is the appliance at your end of the VPN connection.
+// You must provide the IP address of the customer gateway device’s external
+// interface. The IP address must be static and can be behind a device performing
+// network address translation (NAT). For devices that use Border Gateway Protocol
+// (BGP), you can also provide the device's BGP Autonomous System Number (ASN). You
+// can use an existing ASN assigned to your network. If you don't have an ASN
+// already, you can use a private ASN. For more information, see Customer gateway
+// options for your Site-to-Site VPN connection
 // (https://docs.aws.amazon.com/vpn/latest/s2svpn/cgw-options.html) in the Amazon
 // Web Services Site-to-Site VPN User Guide. To create more than one customer
 // gateway with the same VPN type, IP address, and BGP ASN, specify a unique device
@@ -67,8 +66,12 @@ type CreateCustomerGatewayInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The Internet-routable IP address for the customer gateway's outside interface.
-	// The address must be static.
+	// IPv4 address for the customer gateway device's outside interface. The address
+	// must be static.
+	IpAddress *string
+
+	// This member has been deprecated. The Internet-routable IP address for the
+	// customer gateway's outside interface. The address must be static.
 	PublicIp *string
 
 	// The tags to apply to the customer gateway.

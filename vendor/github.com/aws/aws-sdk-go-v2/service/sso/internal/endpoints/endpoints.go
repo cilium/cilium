@@ -208,6 +208,14 @@ var defaultPartitions = endpoints.Partitions{
 				},
 			},
 			endpoints.EndpointKey{
+				Region: "eu-south-1",
+			}: endpoints.Endpoint{
+				Hostname: "portal.sso.eu-south-1.amazonaws.com",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "eu-south-1",
+				},
+			},
+			endpoints.EndpointKey{
 				Region: "eu-west-1",
 			}: endpoints.Endpoint{
 				Hostname: "portal.sso.eu-west-1.amazonaws.com",

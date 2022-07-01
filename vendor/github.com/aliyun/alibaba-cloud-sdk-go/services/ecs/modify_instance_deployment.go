@@ -71,20 +71,21 @@ func (client *Client) ModifyInstanceDeploymentWithCallback(request *ModifyInstan
 // ModifyInstanceDeploymentRequest is the request struct for api ModifyInstanceDeployment
 type ModifyInstanceDeploymentRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId        requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	DeploymentSetGroupNo   requests.Integer `position:"Query" name:"DeploymentSetGroupNo"`
-	DedicatedHostClusterId string           `position:"Query" name:"DedicatedHostClusterId"`
-	InstanceType           string           `position:"Query" name:"InstanceType"`
-	DeploymentSetId        string           `position:"Query" name:"DeploymentSetId"`
-	ResourceOwnerAccount   string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount           string           `position:"Query" name:"OwnerAccount"`
-	Tenancy                string           `position:"Query" name:"Tenancy"`
-	DedicatedHostId        string           `position:"Query" name:"DedicatedHostId"`
-	OwnerId                requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId             string           `position:"Query" name:"InstanceId"`
-	Force                  requests.Boolean `position:"Query" name:"Force"`
-	MigrationType          string           `position:"Query" name:"MigrationType"`
-	Affinity               string           `position:"Query" name:"Affinity"`
+	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	RemoveFromDeploymentSet requests.Boolean `position:"Query" name:"RemoveFromDeploymentSet"`
+	DeploymentSetGroupNo    requests.Integer `position:"Query" name:"DeploymentSetGroupNo"`
+	DedicatedHostClusterId  string           `position:"Query" name:"DedicatedHostClusterId"`
+	InstanceType            string           `position:"Query" name:"InstanceType"`
+	DeploymentSetId         string           `position:"Query" name:"DeploymentSetId"`
+	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
+	Tenancy                 string           `position:"Query" name:"Tenancy"`
+	DedicatedHostId         string           `position:"Query" name:"DedicatedHostId"`
+	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`
+	InstanceId              string           `position:"Query" name:"InstanceId"`
+	Force                   requests.Boolean `position:"Query" name:"Force"`
+	MigrationType           string           `position:"Query" name:"MigrationType"`
+	Affinity                string           `position:"Query" name:"Affinity"`
 }
 
 // ModifyInstanceDeploymentResponse is the response struct for api ModifyInstanceDeployment
