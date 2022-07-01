@@ -91,6 +91,14 @@ func New(options ...Option) (*Server, error) {
 	}
 
 	var serverOpts []grpc.ServerOption
+
+	for _, interceptor := range opts.grpcUnaryInterceptors {
+		serverOpts = append(serverOpts, grpc.UnaryInterceptor(interceptor))
+	}
+	for _, interceptor := range opts.grpcStreamInterceptors {
+		serverOpts = append(serverOpts, grpc.StreamInterceptor(interceptor))
+	}
+
 	if opts.serverTLSConfig != nil {
 		tlsConfig := opts.serverTLSConfig.ServerConfig(&tls.Config{
 			MinVersion: MinTLSVersion,
