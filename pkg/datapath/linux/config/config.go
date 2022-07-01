@@ -268,16 +268,16 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableHostReachableServices {
 		if option.Config.EnableHostServicesTCP {
-			cDefinesMap["ENABLE_HOST_SERVICES_TCP"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_TCP"] = "1"
 		}
 		if option.Config.EnableHostServicesUDP {
-			cDefinesMap["ENABLE_HOST_SERVICES_UDP"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_UDP"] = "1"
 		}
 		if option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP && !option.Config.BPFSocketLBHostnsOnly {
-			cDefinesMap["ENABLE_HOST_SERVICES_FULL"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_FULL"] = "1"
 		}
 		if option.Config.EnableHostServicesPeer {
-			cDefinesMap["ENABLE_HOST_SERVICES_PEER"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
 		}
 		if option.Config.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
