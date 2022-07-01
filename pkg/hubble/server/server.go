@@ -88,8 +88,11 @@ func (s *Server) initGRPCServer() error {
 	if s.opts.RecorderService != nil {
 		recorderpb.RegisterRecorderServer(srv, s.opts.RecorderService)
 	}
+	reflection.Register(srv)
+	if s.opts.GRPCMetrics != nil {
+		s.opts.GRPCMetrics.InitializeMetrics(srv)
+	}
 	s.srv = srv
-	reflection.Register(s.srv)
 	return nil
 }
 
