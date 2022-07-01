@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
@@ -22,17 +23,19 @@ const MinTLSVersion = tls.VersionTLS13
 
 // options stores all the configuration values for the hubble-relay server.
 type options struct {
-	peerTarget      string
-	dialTimeout     time.Duration
-	retryTimeout    time.Duration
-	listenAddress   string
-	log             logrus.FieldLogger
-	serverTLSConfig certloader.ServerConfigBuilder
-	insecureServer  bool
-	clientTLSConfig certloader.ClientConfigBuilder
-	clusterName     string
-	insecureClient  bool
-	observerOptions []observer.Option
+	peerTarget             string
+	dialTimeout            time.Duration
+	retryTimeout           time.Duration
+	listenAddress          string
+	log                    logrus.FieldLogger
+	serverTLSConfig        certloader.ServerConfigBuilder
+	insecureServer         bool
+	clientTLSConfig        certloader.ClientConfigBuilder
+	clusterName            string
+	insecureClient         bool
+	observerOptions        []observer.Option
+	grpcUnaryInterceptors  []grpc.UnaryServerInterceptor
+	grpcStreamInterceptors []grpc.StreamServerInterceptor
 }
 
 // defaultOptions is the reference point for default values.
@@ -168,6 +171,22 @@ func WithInsecureClient() Option {
 func WithLocalClusterName(clusterName string) Option {
 	return func(o *options) error {
 		o.clusterName = clusterName
+		return nil
+	}
+}
+
+// WithGRPCStreamInterceptor configures the server with the given gRPC server stream interceptors
+func WithGRPCStreamInterceptor(interceptors ...grpc.StreamServerInterceptor) Option {
+	return func(o *options) error {
+		o.grpcStreamInterceptors = append(o.grpcStreamInterceptors, interceptors...)
+		return nil
+	}
+}
+
+// WithGRPCUnaryInterceptor configures the server with the given gRPC server stream interceptors
+func WithGRPCUnaryInterceptor(interceptors ...grpc.UnaryServerInterceptor) Option {
+	return func(o *options) error {
+		o.grpcUnaryInterceptors = append(o.grpcUnaryInterceptors, interceptors...)
 		return nil
 	}
 }
