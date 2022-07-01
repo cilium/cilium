@@ -115,8 +115,7 @@ type CreateCapacityReservationInput struct {
 	// the EndDateType value is limited.
 	EndDateType types.EndDateType
 
-	// Indicates whether the Capacity Reservation supports instances with temporary,
-	// block-level storage.
+	// Deprecated.
 	EphemeralStorage *bool
 
 	// Indicates the type of instance launches that the Capacity Reservation accepts.
