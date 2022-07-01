@@ -249,6 +249,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		HostPort:              &models.KubeProxyReplacementFeaturesHostPort{},
 		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
 		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
+		SocketLB:              &models.KubeProxyReplacementFeaturesSocketLB{},
 		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 		GracefulTermination:   &models.KubeProxyReplacementFeaturesGracefulTermination{},
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
@@ -278,8 +279,11 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableExternalIPs {
 		features.ExternalIPs.Enabled = true
 	}
-	if option.Config.EnableHostServicesTCP {
+	if option.Config.EnableSocketLB {
+		features.SocketLB.Enabled = true
+
 		features.HostReachableServices.Enabled = true
+
 		protocols := []string{}
 		if option.Config.EnableHostServicesTCP {
 			protocols = append(protocols, "TCP")
