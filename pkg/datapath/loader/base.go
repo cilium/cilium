@@ -321,7 +321,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
 
-	if option.Config.EnableHostReachableServices {
+	if option.Config.EnableSocketLB {
 		args[initArgHostReachableServices] = "true"
 		if option.Config.EnableHostServicesUDP {
 			args[initArgHostReachableServicesUDP] = "true"

@@ -47,6 +47,7 @@ cilium-agent [flags]
       --bpf-lb-mode string                                      BPF load balancing mode ("snat", "dsr", "hybrid") (default "snat")
       --bpf-lb-rss-ipv4-src-cidr string                         BPF load balancing RSS outer source IPv4 CIDR prefix for IPIP
       --bpf-lb-rss-ipv6-src-cidr string                         BPF load balancing RSS outer source IPv6 CIDR prefix for IPIP
+      --bpf-lb-sock                                             Enable socket-based LB for E/W traffic
       --bpf-lb-sock-hostns-only                                 Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).
       --bpf-map-dynamic-size-ratio float                        Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)
       --bpf-nat-global-max int                                  Maximum number of entries for the global BPF NAT table (default 524288)
@@ -96,7 +97,6 @@ cilium-agent [flags]
       --enable-host-firewall                                    Enable host network policies
       --enable-host-legacy-routing                              Enable the legacy host forwarding model which does not bypass upper stack in host namespace
       --enable-host-port                                        Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
-      --enable-host-reachable-services                          Enable reachability of services for host applications
       --enable-hubble                                           Enable hubble server
       --enable-hubble-recorder-api                              Enable the Hubble recorder API (default true)
       --enable-identity-mark                                    Enable setting identity mark for local traffic (default true)
