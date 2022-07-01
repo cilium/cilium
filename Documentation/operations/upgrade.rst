@@ -375,6 +375,9 @@ Removed Options
   connection tracking was removed. In addition, we deprecated the
   ``disable-conntrack`` option and made it non-operational. It will be removed
   in version 1.13.
+* The ``enable-host-reachable-services`` option (``.hostServices`` in Helm) was
+  renamed to ``bpf-lb-sock`` (``.socketLB`` in Helm), and will be removed
+  in version 1.13.
 * The ``native-routing-cidr`` option deprecated in 1.11 in favor of
   ``ipv4-native-routing-cidr`` has been removed.
 * The ``prefilter-device`` and ``prefilter-mode`` options deprecated in 1.11 in
