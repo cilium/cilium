@@ -125,6 +125,11 @@ func New(options ...Option) (*Server, error) {
 	healthpb.RegisterHealthServer(grpcServer, healthSrv)
 	reflection.Register(grpcServer)
 
+	if opts.grpcMetrics != nil {
+		registry.MustRegister(opts.grpcMetrics)
+		opts.grpcMetrics.InitializeMetrics(grpcServer)
+	}
+
 	var metricsServer *http.Server
 	if opts.metricsListenAddress != "" {
 		mux := http.NewServeMux()
