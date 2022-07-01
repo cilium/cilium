@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -37,6 +38,7 @@ type Options struct {
 	RecorderService        recorderpb.RecorderServer
 	ServerTLSConfig        certloader.ServerConfigBuilder
 	Insecure               bool
+	GRPCMetrics            *grpc_prometheus.ServerMetrics
 	GRPCUnaryInterceptors  []grpc.UnaryServerInterceptor
 	GRPCStreamInterceptors []grpc.StreamServerInterceptor
 }
@@ -134,6 +136,15 @@ func WithServerTLS(cfg certloader.ServerConfigBuilder) Option {
 func WithRecorderService(svc recorderpb.RecorderServer) Option {
 	return func(o *Options) error {
 		o.RecorderService = svc
+		return nil
+	}
+}
+
+// WithGRPCMetrics configures the server with the specified prometheus gPRC
+// ServerMetrics.
+func WithGRPCMetrics(grpcMetrics *grpc_prometheus.ServerMetrics) Option {
+	return func(o *Options) error {
+		o.GRPCMetrics = grpcMetrics
 		return nil
 	}
 }
