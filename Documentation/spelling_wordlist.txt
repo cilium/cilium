@@ -461,7 +461,6 @@ hostNetwork
 hostPath
 hostPort
 hostRoot
-hostServices
 hostname
 hostns
 hostonlyif
@@ -860,7 +859,6 @@ skipteardown
 sleepAfterInit
 snat
 socketLB
-socketLB.enabled
 socketPath
 sockmap
 sockops
