@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-openapi/strfmt"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	k8scache "k8s.io/client-go/tools/cache"
 
@@ -91,22 +92,35 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 
-	var observerOpts []observeroption.Option
+	var (
+		observerOpts []observeroption.Option
+		localSrvOpts []serveroption.Option
+	)
+
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
 			"metrics": option.Config.HubbleMetrics,
 		}).Info("Starting Hubble Metrics server")
-		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics); err != nil {
+		grpcMetrics := grpc_prometheus.NewServerMetrics()
+
+		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics, grpcMetrics); err != nil {
 			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
 			return
 		}
 
-		opt := observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
-			metrics.ProcessFlow(ctx, flow)
-			return false, nil
-		})
-		observerOpts = append(observerOpts, opt)
+		observerOpts = append(observerOpts,
+			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+				metrics.ProcessFlow(ctx, flow)
+				return false, nil
+			}),
+		)
+
+		localSrvOpts = append(localSrvOpts,
+			serveroption.WithGRPCMetrics(grpcMetrics),
+			serveroption.WithGRPCStreamInterceptor(grpcMetrics.StreamServerInterceptor()),
+			serveroption.WithGRPCUnaryInterceptor(grpcMetrics.UnaryServerInterceptor()),
+		)
 	}
 
 	d.linkCache = link.NewLinkCache()
@@ -161,13 +175,13 @@ func (d *Daemon) launchHubble() {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
 	}
 	peerSvc := peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)
-	localSrvOpts := []serveroption.Option{
+	localSrvOpts = append(localSrvOpts,
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
 		serveroption.WithPeerService(peerSvc),
 		serveroption.WithInsecure(),
-	}
+	)
 
 	if option.Config.EnableRecorder && option.Config.EnableHubbleRecorderAPI {
 		dispatch, err := sink.NewDispatch(option.Config.HubbleRecorderSinkQueueSize)
