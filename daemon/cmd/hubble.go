@@ -191,10 +191,11 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 	logger.WithField("address", sockPath).Info("Starting local Hubble server")
-	if err := localSrv.Serve(); err != nil {
-		logger.WithError(err).Error("Failed to start local Hubble server")
-		return
-	}
+	go func() {
+		if err := localSrv.Serve(); err != nil {
+			logger.WithError(err).WithField("address", sockPath).Error("Error while serving from local Hubble server")
+		}
+	}()
 	go func() {
 		<-d.ctx.Done()
 		localSrv.Stop()
@@ -252,13 +253,14 @@ func (d *Daemon) launchHubble() {
 		}
 
 		logger.WithField("address", address).Info("Starting Hubble server")
-		if err := srv.Serve(); err != nil {
-			logger.WithError(err).Error("Failed to start Hubble server")
-			if tlsServerConfig != nil {
-				tlsServerConfig.Stop()
+		go func() {
+			if err := srv.Serve(); err != nil {
+				logger.WithError(err).WithField("address", address).Error("Error while serving from Hubble server")
+				if tlsServerConfig != nil {
+					tlsServerConfig.Stop()
+				}
 			}
-			return
-		}
+		}()
 
 		go func() {
 			<-d.ctx.Done()
