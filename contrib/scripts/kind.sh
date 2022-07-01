@@ -12,14 +12,14 @@ default_kubeproxy_mode="iptables"
 default_ipfamily="ipv4"
 
 PROG=${0}
-CONTROLPLANES="${1:-${default_controlplanes}}"
-WORKERS="${2:-${default_workers}}"
-CLUSTER_NAME="${3:-${default_cluster_name}}"
+controlplanes="${1:-${CONTROLPLANES:=${default_controlplanes}}}"
+workers="${2:-${WORKERS:=${default_workers}}}"
+cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
 # IMAGE controls the K8s version as well (e.g. kindest/node:v1.11.10)
-IMAGE="${4:-${default_image}}"
-KUBEPROXY_MODE="${5:-${default_kubeproxy_mode}}"
-IPFAMILY="${6:-${default_ipfamily}}"
-CILIUM_ROOT="$(realpath $(dirname $(readlink -ne $BASH_SOURCE))/../..)"
+image="${4:-${IMAGE:=${default_image}}}"
+kubeproxy_mode="${5:-${KUBEPROXY_MODE:=${default_kubeproxy_mode}}}"
+ipfamily="${6:-${IPFAMILY:=${default_ipfamily}}}"
+CILIUM_ROOT="$(git rev-parse --show-toplevel)"
 
 usage() {
   echo "Usage: ${PROG} [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
@@ -39,7 +39,7 @@ if [ ${#} -gt 6 ]; then
   exit 1
 fi
 
-if [[ "${CONTROLPLANES}" == "-h" || "${CONTROLPLANES}" == "--help" ]]; then
+if [[ "${controlplanes}" == "-h" || "${controlplanes}" == "--help" ]]; then
   usage
   exit 0
 fi
@@ -56,15 +56,15 @@ fi
 
 kind_cmd="kind create cluster"
 
-if [[ -n "${CLUSTER_NAME}" ]]; then
-  kind_cmd+=" --name ${CLUSTER_NAME}"
+if [[ -n "${cluster_name}" ]]; then
+  kind_cmd+=" --name ${cluster_name}"
 fi
-if [[ -n "${IMAGE}" ]]; then
-  kind_cmd+=" --image ${IMAGE}"
+if [[ -n "${image}" ]]; then
+  kind_cmd+=" --image ${image}"
 fi
 
 control_planes() {
-  for _ in $(seq 1 "${CONTROLPLANES}"); do
+  for _ in $(seq 1 "${controlplanes}"); do
     echo "- role: control-plane"
     echo "  extraMounts:"
     echo "  - hostPath: $CILIUM_ROOT"
@@ -73,7 +73,7 @@ control_planes() {
 }
 
 workers() {
-  for _ in $(seq 1 "${WORKERS}"); do
+  for _ in $(seq 1 "${workers}"); do
     echo "- role: worker"
     echo "  extraMounts:"
     echo "  - hostPath: $CILIUM_ROOT"
@@ -90,8 +90,8 @@ $(control_planes)
 $(workers)
 networking:
   disableDefaultCNI: true
-  kubeProxyMode: ${KUBEPROXY_MODE}
-  ipFamily: ${IPFAMILY}
+  kubeProxyMode: ${kubeproxy_mode}
+  ipFamily: ${ipfamily}
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]

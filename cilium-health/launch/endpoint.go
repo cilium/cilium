@@ -277,7 +277,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			return nil, fmt.Errorf("Error while creating veth: %s", err)
 		}
 
-		if err = netlink.LinkSetNsFd(*epLink, int(netNS.Fd())); err != nil {
+		if err = netlink.LinkSetNsFd(epLink, int(netNS.Fd())); err != nil {
 			return nil, fmt.Errorf("failed to move device %q to health namespace: %s", epIfaceName, err)
 		}
 

@@ -11,8 +11,6 @@ import (
 	"net"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -29,6 +27,25 @@ var (
 	nodeIPv4 = net.ParseIP("192.168.0.1")
 )
 
+// a mock agent.nodeSpecer implementation.
+type fakeNodeSpecer struct {
+	PodCIDRs_    func() ([]string, error)
+	Labels_      func() (map[string]string, error)
+	Annotations_ func() (map[string]string, error)
+}
+
+func (f *fakeNodeSpecer) PodCIDRs() ([]string, error) {
+	return f.PodCIDRs_()
+}
+
+func (f *fakeNodeSpecer) Labels() (map[string]string, error) {
+	return f.Labels_()
+}
+
+func (f *fakeNodeSpecer) Annotations() (map[string]string, error) {
+	return f.Annotations_()
+}
+
 // TestControllerSanity ensures that the controller calls the correct methods,
 // with the correct arguments, during its Reconcile loop.
 func TestControllerSanity(t *testing.T) {
@@ -41,18 +58,13 @@ func TestControllerSanity(t *testing.T) {
 			},
 		},
 	}
-	var wantNode = &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"bgp-policy": "a",
-			},
-		},
-	}
 	var table = []struct {
 		// name of test case
 		name string
-		// a mock Get method for the controller's NodeLister
-		get func(string) (*corev1.Node, error)
+		// mock functions to provide to fakeNodeSpecer
+		labels      func() (map[string]string, error)
+		annotations func() (map[string]string, error)
+		podCIDRs    func() ([]string, error)
 		// a mock List method for the controller's PolicyLister
 		plist func(k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error)
 		// a mock ConfigurePeers method for the controller's BGPRouterManager
@@ -63,11 +75,16 @@ func TestControllerSanity(t *testing.T) {
 		// test the normal control flow of a policy being selected and applied.
 		{
 			name: "successful reconcile",
-			get: func(node string) (*corev1.Node, error) {
-				if node != nodeName {
-					t.Fatalf("got: %v, want: %v", node, nodeName)
-				}
-				return wantNode, nil
+			labels: func() (map[string]string, error) {
+				return map[string]string{
+					"bgp-policy": "a",
+				}, nil
+			},
+			annotations: func() (map[string]string, error) {
+				return map[string]string{}, nil
+			},
+			podCIDRs: func() ([]string, error) {
+				return []string{}, nil
 			},
 			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
 				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
@@ -90,37 +107,91 @@ func TestControllerSanity(t *testing.T) {
 		// make use of nil function pointer dereferences to indicate a dependency
 		// was called erroneously
 		{
-			name: "node lister error",
-			get: func(node string) (*corev1.Node, error) {
-				if node != nodeName {
-					t.Fatalf("got: %v, want: %v", node, nodeName)
-				}
-				return nil, errors.New("")
+			name: "podcidr listing error",
+			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			},
+			labels: func() (map[string]string, error) {
+				return map[string]string{
+					"bgp-policy": "a",
+				}, nil
+			},
+			annotations: func() (map[string]string, error) {
+				return map[string]string{}, nil
+			},
+			podCIDRs: func() ([]string, error) {
+				return []string{}, errors.New("")
+			},
+			err: errors.New(""),
+		},
+		{
+			name: "annotations listing error",
+			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			},
+			labels: func() (map[string]string, error) {
+				return map[string]string{
+					"bgp-policy": "a",
+				}, nil
+			},
+			annotations: func() (map[string]string, error) {
+				return map[string]string{}, errors.New("")
+			},
+			podCIDRs: func() ([]string, error) {
+				return []string{}, nil
+			},
+			err: errors.New(""),
+		},
+		{
+			name: "label listening error",
+			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			},
+			labels: func() (map[string]string, error) {
+				return map[string]string{
+					"bgp-policy": "a",
+				}, errors.New("")
+			},
+			annotations: func() (map[string]string, error) {
+				return map[string]string{}, nil
+			},
+			podCIDRs: func() ([]string, error) {
+				return []string{}, nil
 			},
 			err: errors.New(""),
 		},
 		{
 			name: "policy list error",
-			get: func(node string) (*corev1.Node, error) {
-				if node != nodeName {
-					t.Fatalf("got: %v, want: %v", node, nodeName)
-				}
-				return wantNode, nil
-			},
 			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
 				return nil, errors.New("")
+			},
+			labels: func() (map[string]string, error) {
+				return map[string]string{
+					"bgp-policy": "a",
+				}, nil
+			},
+			annotations: func() (map[string]string, error) {
+				return map[string]string{}, nil
+			},
+			podCIDRs: func() ([]string, error) {
+				return []string{}, nil
 			},
 			err: errors.New(""),
 		}, {
 			name: "configure peers error",
-			get: func(node string) (*corev1.Node, error) {
-				if node != nodeName {
-					t.Fatalf("got: %v, want: %v", node, nodeName)
-				}
-				return wantNode, nil
-			},
 			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
 				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			},
+			labels: func() (map[string]string, error) {
+				return map[string]string{
+					"bgp-policy": "a",
+				}, nil
+			},
+			annotations: func() (map[string]string, error) {
+				return map[string]string{}, nil
+			},
+			podCIDRs: func() ([]string, error) {
+				return []string{}, nil
 			},
 			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
 				return errors.New("")
@@ -132,9 +203,10 @@ func TestControllerSanity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			nodeaddr.SetIPv4(nodeIPv4)
 			nodetypes.SetName(nodeName)
-
-			nodeLister := &mock.MockNodeLister{
-				Get_: tt.get,
+			nodeSpecer := &fakeNodeSpecer{
+				Annotations_: tt.annotations,
+				Labels_:      tt.labels,
+				PodCIDRs_:    tt.podCIDRs,
 			}
 			policyLister := &mock.MockCiliumBGPPeeringPolicyLister{
 				List_: tt.plist,
@@ -143,7 +215,7 @@ func TestControllerSanity(t *testing.T) {
 				ConfigurePeers_: tt.configurePeers,
 			}
 			c := agent.Controller{
-				NodeLister:   nodeLister,
+				NodeSpec:     nodeSpecer,
 				PolicyLister: policyLister,
 				BGPMgr:       rtmgr,
 			}
@@ -298,12 +370,6 @@ func TestPolicySelection(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			// expand tt.nodeLabel into a corev1.Node
-			node := &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: tt.nodeLabels,
-				},
-			}
 			// expand anon policies into CiliumBGPPeeringPolicy, make note of wanted
 			var policies []*v2alpha1api.CiliumBGPPeeringPolicy
 			var want *v2alpha1api.CiliumBGPPeeringPolicy
@@ -319,7 +385,7 @@ func TestPolicySelection(t *testing.T) {
 				}
 			}
 			// call function under test
-			policy, err := agent.PolicySelection(context.Background(), node, policies)
+			policy, err := agent.PolicySelection(context.Background(), tt.nodeLabels, policies)
 			if (tt.err == nil) != (err == nil) {
 				t.Fatalf("expected err: %v", (tt.err == nil))
 			}

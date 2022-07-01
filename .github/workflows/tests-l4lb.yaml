@@ -123,7 +123,7 @@ jobs:
       github.event_name == 'pull_request'
     # We need nested virtualisation which is supported only by MacOS runner
     runs-on: macos-10.15
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Set up job variables
         id: vars

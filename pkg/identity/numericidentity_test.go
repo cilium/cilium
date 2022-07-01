@@ -6,7 +6,11 @@
 package identity
 
 import (
+	"testing"
+
 	. "gopkg.in/check.v1"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 )
@@ -54,5 +58,16 @@ func (s *IdentityTestSuite) TestClusterID(c *C) {
 
 	for _, item := range tbl {
 		c.Assert(NumericIdentity(item.identity).ClusterID(), Equals, item.clusterID)
+	}
+}
+
+func TestGetAllReservedIdentities(t *testing.T) {
+	allReservedIdentities := GetAllReservedIdentities()
+	require.NotNil(t, allReservedIdentities)
+	require.Len(t, allReservedIdentities, len(reservedIdentities))
+	for i, id := range allReservedIdentities {
+		// NOTE: identity 0 is unknown, so the reserved identities start at 1
+		// hence the plus one here.
+		require.Equal(t, uint32(i+1), id.Uint32())
 	}
 }

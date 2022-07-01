@@ -1,36 +1,36 @@
-project: "https://github.com/cilium/cilium/projects/172"
+project: "https://github.com/cilium/cilium/projects/195"
 column: "In progress"
 move-to-projects-for-labels-xored:
+  v1.12:
+    needs-backport/1.12:
+      project: "https://github.com/cilium/cilium/projects/196"
+      column: "Needs backport from master"
+    backport-pending/1.12:
+      project: "https://github.com/cilium/cilium/projects/196"
+      column: "Backport pending to v1.12"
+    backport-done/1.12:
+      project: "https://github.com/cilium/cilium/projects/196"
+      column: "Backport done to v1.12"
   v1.11:
     needs-backport/1.11:
-      project: "https://github.com/cilium/cilium/projects/191"
+      project: "https://github.com/cilium/cilium/projects/194"
       column: "Needs backport from master"
     backport-pending/1.11:
-      project: "https://github.com/cilium/cilium/projects/191"
+      project: "https://github.com/cilium/cilium/projects/194"
       column: "Backport pending to v1.10"
     backport-done/1.11:
-      project: "https://github.com/cilium/cilium/projects/191"
+      project: "https://github.com/cilium/cilium/projects/194"
       column: "Backport done to v1.11"
   v1.10:
     needs-backport/1.10:
-      project: "https://github.com/cilium/cilium/projects/190"
+      project: "https://github.com/cilium/cilium/projects/193"
       column: "Needs backport from master"
     backport-pending/1.10:
-      project: "https://github.com/cilium/cilium/projects/190"
+      project: "https://github.com/cilium/cilium/projects/193"
       column: "Backport pending to v1.10"
     backport-done/1.10:
-      project: "https://github.com/cilium/cilium/projects/190"
+      project: "https://github.com/cilium/cilium/projects/193"
       column: "Backport done to v1.10"
-  v1.9:
-    needs-backport/1.9:
-      project: "https://github.com/cilium/cilium/projects/189"
-      column: "Needs backport from master"
-    backport-pending/1.9:
-      project: "https://github.com/cilium/cilium/projects/189"
-      column: "Backport pending to v1.9"
-    backport-done/1.9:
-      project: "https://github.com/cilium/cilium/projects/189"
-      column: "Backport done to v1.9"
 require-msgs-in-commit:
   - msg: "Signed-off-by"
     helper: "https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#developer-s-certificate-of-origin"
@@ -61,8 +61,8 @@ flake-tracker:
     - cilium-master-k8s-1.21-kernel-4.9
     - cilium-master-k8s-1.22-kernel-4.9
     - cilium-master-k8s-1.22-kernel-5.4
-    - cilium-master-k8s-1.23-kernel-net-next
-    - cilium-master-k8s-1.24-kernel-4.19
+    - cilium-master-k8s-1.23-kernel-4.19
+    - cilium-master-k8s-1.24-kernel-net-next
     - cilium-master-k8s-upstream
     pr-jobs:
       Cilium-PR-K8s-1.16-kernel-4.9:
@@ -131,12 +131,12 @@ flake-tracker:
       Cilium-PR-K8s-1.22-kernel-5.4:
         correlate-with-stable-jobs:
         - cilium-master-k8s-1.22-kernel-5.4
-      Cilium-PR-K8s-1.23-kernel-net-next:
+      Cilium-PR-K8s-1.23-kernel-4.19:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.23-kernel-net-next
-      Cilium-PR-K8s-1.24-kernel-4.19:
+        - cilium-master-k8s-1.23-kernel-4.19
+      Cilium-PR-K8s-1.24-kernel-net-next:
         correlate-with-stable-jobs:
-        - cilium-master-k8s-1.24-kernel-4.19
+        - cilium-master-k8s-1.24-kernel-net-next
       Cilium-PR-K8s-GKE:
         correlate-with-stable-jobs:
         - cilium-master-gke

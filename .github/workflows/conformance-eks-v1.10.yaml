@@ -63,9 +63,9 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_cli_version: v0.10.6
+  cilium_cli_version: v0.10.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  eksctl_version: v0.94.0
+  eksctl_version: v0.101.0
   kubectl_version: v1.23.6
 
 jobs:
@@ -185,6 +185,14 @@ jobs:
           curl -LO "https://github.com/weaveworks/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
           sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
           rm eksctl_$(uname -s)_amd64.tar.gz
+
+      - name: Install helm
+        uses: azure/setup-helm@18bc76811624f360dbd7f18c2d4ecb32c7b87bab
+        with:
+          # Due to the below issue, v3.8.2 is pinned currently to avoid
+          # exec plugin: invalid apiVersion "client.authentication.k8s.io/v1alpha1"
+          # https://github.com/helm/helm/issues/10975
+          version: v3.8.2
 
       - name: Set up AWS CLI credentials
         uses: aws-actions/configure-aws-credentials@05b148adc31e091bafbaf404f745055d4d3bc9d2

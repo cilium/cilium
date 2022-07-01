@@ -315,6 +315,37 @@ Annotations:
 * The Cilium agent does not support the legacy ``nat46-range`` option as well
   as the per-endpoint ``NAT46`` configuration anymore. Both are replaced in
   favor of NAT46/64 handling for services.
+* The kube-proxy replacement in the tunneling mode (i.e., ``vxlan`` or
+  ``geneve``) will set the ``reserved:world`` security identity for all service
+  requests coming from outside the cluster. Previously, when a selected service
+  endpoint was on a different node, the security identity was set to the
+  ``reserved:remote-node``. The change might impact those who have a network policy
+  allowing access to the service from inside the cluster, and the policy was used
+  to allow access from outside.
+* The default metrics exporter ports have changed to reserved ports in the
+  `Prometheus project <https://github.com/prometheus/prometheus/wiki/Default-port-allocations>`__.
+
+  +-----------------------+-----------------------+-------------------------+
+  | Exporter              | Default port          | Default port            |
+  |                       | Cilium <= v1.11       | Cilium >= v1.12         |
+  +=======================+=======================+=========================+
+  | Cilium Agent          |  9090                 | 9962                    |
+  +-----------------------+-----------------------+-------------------------+
+  | Cilium Operator       |  6942                 | 9963                    |
+  +-----------------------+-----------------------+-------------------------+
+  | Cilium Proxy          |  9095                 | 9964                    |
+  +-----------------------+-----------------------+-------------------------+
+  | Hubble                |  9091                 | 9965                    |
+  +-----------------------+-----------------------+-------------------------+
+
+* In Azure IPAM mode, the default for ``--azure-use-primary-address`` has changed from
+  true to false. With this change pod interface's primary IP is no longer included in the
+  node's IP pool by default. The previous default required users to disable DHCP on the
+  pod's interface to avoid primary IP from interfering with host networking. Unless the
+  flag is explicitly set to true, ``--bypass-ip-availability-upon-restore`` also needs
+  to be set to ensure that pods using primary IP get a new IP address. This flag can be
+  removed once the upgrade is complete. Backward compatibility will be maintained when
+  ``upgradeCompatibility`` is set on the helm chart.
 
 New Options
 ~~~~~~~~~~~
@@ -377,6 +408,11 @@ Helm Options
 * ``tls.enabled`` has been removed as this attribute is not used at all.
 * Only one CA will be generated with either the helm or CronJob auto method, there will
   be a short disruption while the new CA is propagated to all nodes.
+* The ``nodeSelector`` of all components now default to
+  ``{"kubernetes.io/os":"linux"}`` to ensure these pods with Linux-based
+  container images are not scheduled on non-Linux nodes.
+* ``cluster.id`` cannot be empty and a value must be specified.
+  Use the ``0`` value to leave Cluster Mesh disabled.
 
 .. _1.11_upgrade_notes:
 

@@ -414,7 +414,8 @@ func findRoutesAndLinks() (map[int]netlink.Route, map[int]netlink.Link, error) {
 		for _, r := range routes {
 			link, err := netlink.LinkByIndex(r.LinkIndex)
 			if err != nil {
-				if strings.Contains(err.Error(), "Link not found") {
+				// when blackhole route is encountered, the LinkIndex will get 0.
+				if strings.Contains(err.Error(), "Link not found") || r.LinkIndex == 0 {
 					continue
 				}
 				return routesToRemove, linksToRemove, err

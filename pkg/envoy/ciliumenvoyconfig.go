@@ -42,6 +42,8 @@ import (
 	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/tcp/v3"
 )
 
+const anyPort = "*"
+
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
 type Resources struct {
 	Listeners []*envoy_config_listener.Listener
@@ -345,11 +347,11 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Do not wait for the addition of routes, clusters, endpoints, routes,
-	// or secrets as there are no quarantees that these additions will be
+	// or secrets as there are no guarantees that these additions will be
 	// acked. For example, if the listener referring to was already deleted
-	// earlier, there are no references to the deleted resources any more,
+	// earlier, there are no references to the deleted resources anymore,
 	// in which case we could wait forever for the ACKs. This could also
-	// happen if there is no listener referring to these other named
+	// happen if there is no listener referring to these named
 	// resources to begin with.
 	for _, r := range resources.Secrets {
 		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
@@ -619,11 +621,11 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 			}))
 	}
 	// Do not wait for the deletion of routes, clusters, or endpoints, as
-	// there are no quarantees that these deletions will be acked. For
+	// there are no guarantees that these deletions will be acked. For
 	// example, if the listener referring to was already deleted earlier,
-	// there are no references to the deleted resources any more, in which
+	// there are no references to the deleted resources anymore, in which
 	// case we could wait forever for the ACKs. This could also happen if
-	// there is no listener referring to these other named resources to
+	// there is no listener referring to other named resources to
 	// begin with.
 	for _, r := range resources.Routes {
 		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, nil, nil))
@@ -654,41 +656,55 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 	return nil
 }
 
-func (s *XDSServer) UpsertEnvoyEndpoints(serviceName service.Name, backends []lb.Backend) error {
+func (s *XDSServer) UpsertEnvoyEndpoints(serviceName service.Name, backendMap map[string][]lb.Backend) error {
+	var resources Resources
 	lbEndpoints := []*envoy_config_endpoint.LbEndpoint{}
-	for _, be := range backends {
-		if be.Protocol != lb.TCP {
-			// Only TCP services supported with Envoy for now
-			continue
-		}
-		lbEndpoints = append(lbEndpoints, &envoy_config_endpoint.LbEndpoint{
-			HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
-				Endpoint: &envoy_config_endpoint.Endpoint{
-					Address: &envoy_config_core.Address{
-						Address: &envoy_config_core.Address_SocketAddress{
-							SocketAddress: &envoy_config_core.SocketAddress{
-								Address: be.L3n4Addr.IP.String(),
-								PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
-									PortValue: uint32(be.L3n4Addr.L4Addr.Port),
+	for port, bes := range backendMap {
+		for _, be := range bes {
+			if be.Protocol != lb.TCP {
+				// Only TCP services supported with Envoy for now
+				continue
+			}
+			lbEndpoints = append(lbEndpoints, &envoy_config_endpoint.LbEndpoint{
+				HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
+					Endpoint: &envoy_config_endpoint.Endpoint{
+						Address: &envoy_config_core.Address{
+							Address: &envoy_config_core.Address_SocketAddress{
+								SocketAddress: &envoy_config_core.SocketAddress{
+									Address: be.L3n4Addr.IP.String(),
+									PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
+										PortValue: uint32(be.L3n4Addr.L4Addr.Port),
+									},
 								},
 							},
 						},
 					},
 				},
+			})
+		}
+		endpoint := &envoy_config_endpoint.ClusterLoadAssignment{
+			ClusterName: fmt.Sprintf("%s:%s", serviceName.String(), port),
+			Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
+				{
+					LbEndpoints: lbEndpoints,
+				},
 			},
-		})
-	}
-	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{
-		ClusterName: serviceName.String(),
-		Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
-			{
-				LbEndpoints: lbEndpoints,
-			},
-		},
-	}
-	var resources Resources
-	resources.Endpoints = append(resources.Endpoints, endpoint)
+		}
+		resources.Endpoints = append(resources.Endpoints, endpoint)
 
+		// for backward compatibility, if any port is allowed, publish one more
+		// endpoint having cluster name as service name.
+		if port == anyPort {
+			resources.Endpoints = append(resources.Endpoints, &envoy_config_endpoint.ClusterLoadAssignment{
+				ClusterName: serviceName.String(),
+				Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
+					{
+						LbEndpoints: lbEndpoints,
+					},
+				},
+			})
+		}
+	}
 	// Using context.TODO() is fine as we do not upsert listener resources here - the
 	// context ends up being used only if listener(s) are included in 'resources'.
 	return s.UpsertEnvoyResources(context.TODO(), resources, nil)

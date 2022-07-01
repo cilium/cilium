@@ -7,10 +7,9 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
-
-	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -173,6 +173,14 @@ func getEnvoyConfigForIngress(ingress *slim_networkingv1.Ingress, secretsNamespa
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getCECNameForIngress(ingress),
 			Namespace: ingress.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
+					Kind:       "Ingress",
+					Name:       ingress.Name,
+					UID:        ingress.UID,
+				},
+			},
 		},
 		Spec: v2.CiliumEnvoyConfigSpec{
 			Services: []*v2.ServiceListener{
@@ -190,14 +198,18 @@ func getEnvoyConfigForIngress(ingress *slim_networkingv1.Ingress, secretsNamespa
 
 func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2.Service {
 	var sortedServiceNames []string
-	if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
-		sortedServiceNames = append(sortedServiceNames, ingress.Spec.DefaultBackend.Service.Name)
-	}
 	// make sure that we will not have any duplicated service
-	serviceMap := map[string]struct{}{}
+	serviceMap := map[string][]string{}
+
+	if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
+		name := ingress.Spec.DefaultBackend.Service.Name
+		serviceMap[name] = append(serviceMap[name], getServiceFrontEndPort(ingress.Spec.DefaultBackend.Service))
+	}
+
 	for _, rule := range ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
-			serviceMap[path.Backend.Service.Name] = struct{}{}
+			name := path.Backend.Service.Name
+			serviceMap[name] = append(serviceMap[name], getServiceFrontEndPort(path.Backend.Service))
 		}
 	}
 
@@ -211,6 +223,7 @@ func getBackendServices(ingress *slim_networkingv1.Ingress) []*v2.Service {
 		backendServices = append(backendServices, &v2.Service{
 			Namespace: ingress.Namespace,
 			Name:      name,
+			Ports:     sortAndUnique(serviceMap[name]),
 		})
 	}
 	return backendServices
@@ -377,39 +390,41 @@ func getConnectionManager(name string, routeName string) (v2.XDSResource, error)
 func getClusterResources(backendServices []*v2.Service) ([]v2.XDSResource, error) {
 	var resources []v2.XDSResource
 	for _, service := range backendServices {
-		cluster := envoy_config_cluster_v3.Cluster{
-			Name:           fmt.Sprintf("%s/%s", service.Namespace, service.Name),
-			ConnectTimeout: &durationpb.Duration{Seconds: 5},
-			LbPolicy:       envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
-			TypedExtensionProtocolOptions: map[string]*anypb.Any{
-				"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
-					UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
-						UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{
-							// Empty HTTP/2 options has no effect, so this should not be needed
-							Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
+		for _, port := range service.Ports {
+			cluster := envoy_config_cluster_v3.Cluster{
+				Name:           fmt.Sprintf("%s/%s:%s", service.Namespace, service.Name, port),
+				ConnectTimeout: &durationpb.Duration{Seconds: 5},
+				LbPolicy:       envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
+				TypedExtensionProtocolOptions: map[string]*anypb.Any{
+					"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+						UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
+							UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{
+								// Empty HTTP/2 options has no effect, so this should not be needed
+								Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
+							},
 						},
-					},
-				}),
-			},
-			OutlierDetection: &envoy_config_cluster_v3.OutlierDetection{
-				SplitExternalLocalOriginErrors: true,
-				// The number of consecutive locally originated failures before ejection occurs.
-				ConsecutiveLocalOriginFailure: &wrapperspb.UInt32Value{Value: 2},
-			},
-			ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
-				Type: envoy_config_cluster_v3.Cluster_EDS,
-			},
+					}),
+				},
+				OutlierDetection: &envoy_config_cluster_v3.OutlierDetection{
+					SplitExternalLocalOriginErrors: true,
+					// The number of consecutive locally originated failures before ejection occurs.
+					ConsecutiveLocalOriginFailure: &wrapperspb.UInt32Value{Value: 2},
+				},
+				ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+					Type: envoy_config_cluster_v3.Cluster_EDS,
+				},
+			}
+			clusterBytes, err := proto.Marshal(&cluster)
+			if err != nil {
+				return nil, err
+			}
+			resources = append(resources, v2.XDSResource{
+				Any: &anypb.Any{
+					TypeUrl: envoy.ClusterTypeURL,
+					Value:   clusterBytes,
+				},
+			})
 		}
-		clusterBytes, err := proto.Marshal(&cluster)
-		if err != nil {
-			return nil, err
-		}
-		resources = append(resources, v2.XDSResource{
-			Any: &anypb.Any{
-				TypeUrl: envoy.ClusterTypeURL,
-				Value:   clusterBytes,
-			},
-		})
 	}
 	return resources, nil
 }
@@ -479,7 +494,7 @@ func getVirtualHost(ingress *slim_networkingv1.Ingress, rule slim_networkingv1.I
 			Action: &envoy_config_route_v3.Route_Route{
 				Route: &envoy_config_route_v3.RouteAction{
 					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-						Cluster: fmt.Sprintf("%s/%s", ingress.Namespace, path.Backend.Service.Name),
+						Cluster: getClusterNameWithPort(ingress.Namespace, path.Backend.Service),
 					},
 					MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
 						MaxStreamDuration: &durationpb.Duration{
@@ -530,7 +545,7 @@ func getRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (v2.XDSRe
 			Action: &envoy_config_route_v3.Route_Route{
 				Route: &envoy_config_route_v3.RouteAction{
 					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-						Cluster: fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Spec.DefaultBackend.Service.Name),
+						Cluster: getClusterNameWithPort(ingress.Namespace, ingress.Spec.DefaultBackend.Service),
 					},
 				},
 			},
@@ -652,4 +667,30 @@ func getSocketOptions(ingress *slim_networkingv1.Ingress) []*envoy_config_core_v
 
 func tlsEnabled(ingress *slim_networkingv1.Ingress) bool {
 	return len(ingress.Spec.TLS) > 0
+}
+
+func getServiceFrontEndPort(sbe *slim_networkingv1.IngressServiceBackend) string {
+	// As per Ingress spec, A port name or port number is required for a IngressServiceBackend.
+	if sbe.Port.Number != 0 {
+		return strconv.Itoa(int(sbe.Port.Number))
+	}
+	return sbe.Port.Name
+}
+
+func getClusterNameWithPort(namespace string, sbe *slim_networkingv1.IngressServiceBackend) string {
+	return fmt.Sprintf("%s/%s:%s", namespace, sbe.Name, getServiceFrontEndPort(sbe))
+}
+
+func sortAndUnique(arr []string) []string {
+	m := map[string]struct{}{}
+	for _, s := range arr {
+		m[s] = struct{}{}
+	}
+
+	var res []string
+	for k := range m {
+		res = append(res, k)
+	}
+	sort.Strings(res)
+	return res
 }

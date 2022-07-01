@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -210,7 +211,7 @@ const (
 	// K8sServiceCacheSize is service cache size for cilium k8s package.
 	K8sServiceCacheSize = "k8s-service-cache-size"
 
-	// K8sSyncTimeout is the timeout to synchronize all resources with k8s.
+	// K8sSyncTimeout is the timeout since last event was received to synchronize all resources with k8s.
 	K8sSyncTimeoutName = "k8s-sync-timeout"
 
 	// AllocatorListTimeout is the timeout to list initial allocator state.
@@ -555,12 +556,13 @@ const (
 	CTMapEntriesGlobalAnyName = "bpf-ct-global-any-max"
 
 	// CTMapEntriesTimeout* name option and default value mappings
-	CTMapEntriesTimeoutSYNName    = "bpf-ct-timeout-regular-tcp-syn"
-	CTMapEntriesTimeoutFINName    = "bpf-ct-timeout-regular-tcp-fin"
-	CTMapEntriesTimeoutTCPName    = "bpf-ct-timeout-regular-tcp"
-	CTMapEntriesTimeoutAnyName    = "bpf-ct-timeout-regular-any"
-	CTMapEntriesTimeoutSVCTCPName = "bpf-ct-timeout-service-tcp"
-	CTMapEntriesTimeoutSVCAnyName = "bpf-ct-timeout-service-any"
+	CTMapEntriesTimeoutSYNName         = "bpf-ct-timeout-regular-tcp-syn"
+	CTMapEntriesTimeoutFINName         = "bpf-ct-timeout-regular-tcp-fin"
+	CTMapEntriesTimeoutTCPName         = "bpf-ct-timeout-regular-tcp"
+	CTMapEntriesTimeoutAnyName         = "bpf-ct-timeout-regular-any"
+	CTMapEntriesTimeoutSVCTCPName      = "bpf-ct-timeout-service-tcp"
+	CTMapEntriesTimeoutSVCTCPGraceName = "bpf-ct-timeout-service-tcp-grace"
+	CTMapEntriesTimeoutSVCAnyName      = "bpf-ct-timeout-service-any"
 
 	// NATMapEntriesGlobalDefault holds the default size of the NAT map
 	// and is 2/3 of the full CT size as a heuristic
@@ -644,6 +646,10 @@ const (
 
 	// K8sNamespaceName is the name of the K8sNamespace option
 	K8sNamespaceName = "k8s-namespace"
+
+	// AgentNotReadyNodeTaintKeyName is the name of the option to set
+	// AgentNotReadyNodeTaintKey
+	AgentNotReadyNodeTaintKeyName = "agent-not-ready-taint-key"
 
 	// JoinClusterName is the name of the JoinCluster Option
 	JoinClusterName = "join-cluster"
@@ -1401,12 +1407,13 @@ type DaemonConfig struct {
 	CTMapEntriesGlobalAny int
 
 	// CTMapEntriesTimeout* values configured by the user.
-	CTMapEntriesTimeoutTCP    time.Duration
-	CTMapEntriesTimeoutAny    time.Duration
-	CTMapEntriesTimeoutSVCTCP time.Duration
-	CTMapEntriesTimeoutSVCAny time.Duration
-	CTMapEntriesTimeoutSYN    time.Duration
-	CTMapEntriesTimeoutFIN    time.Duration
+	CTMapEntriesTimeoutTCP         time.Duration
+	CTMapEntriesTimeoutAny         time.Duration
+	CTMapEntriesTimeoutSVCTCP      time.Duration
+	CTMapEntriesTimeoutSVCTCPGrace time.Duration
+	CTMapEntriesTimeoutSVCAny      time.Duration
+	CTMapEntriesTimeoutSYN         time.Duration
+	CTMapEntriesTimeoutFIN         time.Duration
 
 	// EnableMonitor enables the monitor unix domain socket server
 	EnableMonitor bool
@@ -1524,6 +1531,12 @@ type DaemonConfig struct {
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
 	K8sNamespace string
+
+	// AgentNotReadyNodeTaint is a node taint which prevents pods from being
+	// scheduled. Once cilium is setup it is removed from the node. Mostly
+	// used in cloud providers to prevent existing CNI plugins from managing
+	// pods.
+	AgentNotReadyNodeTaintKey string
 
 	// JoinCluster is 'true' if the agent should join a Cilium cluster via kvstore
 	// registration
@@ -2481,6 +2494,16 @@ func (c *DaemonConfig) CiliumNamespaceName() string {
 	return c.K8sNamespace
 }
 
+// AgentNotReadyNodeTaintValue returns the value of the taint key that cilium agents
+// will manage on their nodes
+func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
+	if c.AgentNotReadyNodeTaintKey != "" {
+		return c.AgentNotReadyNodeTaintKey
+	} else {
+		return defaults.AgentNotReadyNodeTaint
+	}
+}
+
 // K8sAPIDiscoveryEnabled returns true if API discovery of API groups and
 // resources is enabled
 func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
@@ -2593,6 +2616,10 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	if err := c.checkIPv6NativeRoutingCIDR(); err != nil {
+		return err
+	}
+
+	if err := c.checkIPAMDelegatedPlugin(); err != nil {
 		return err
 	}
 
@@ -2883,6 +2910,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesTimeoutTCP = viper.GetDuration(CTMapEntriesTimeoutTCPName)
 	c.CTMapEntriesTimeoutAny = viper.GetDuration(CTMapEntriesTimeoutAnyName)
 	c.CTMapEntriesTimeoutSVCTCP = viper.GetDuration(CTMapEntriesTimeoutSVCTCPName)
+	c.CTMapEntriesTimeoutSVCTCPGrace = viper.GetDuration(CTMapEntriesTimeoutSVCTCPGraceName)
 	c.CTMapEntriesTimeoutSVCAny = viper.GetDuration(CTMapEntriesTimeoutSVCAnyName)
 	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
@@ -3165,6 +3193,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTP403Message = viper.GetString(HTTP403Message)
 	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
 	c.K8sNamespace = viper.GetString(K8sNamespaceName)
+	c.AgentNotReadyNodeTaintKey = viper.GetString(AgentNotReadyNodeTaintKeyName)
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
 	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
@@ -3393,6 +3422,24 @@ func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
 			EnableIPv6Name)
 	}
 
+	return nil
+}
+
+func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {
+	if c.IPAM == ipamOption.IPAMDelegatedPlugin {
+		// When using IPAM delegated plugin, IP addresses are allocated by the CNI binary,
+		// not the daemon. Therefore, features which require the daemon to allocate IPs for itself
+		// must be disabled.
+		if c.EnableIPv4 && c.LocalRouterIPv4 == "" {
+			return fmt.Errorf("--%s must be provided when IPv4 is enabled with --%s=%s", LocalRouterIPv4, IPAM, ipamOption.IPAMDelegatedPlugin)
+		}
+		if c.EnableIPv6 && c.LocalRouterIPv6 == "" {
+			return fmt.Errorf("--%s must be provided when IPv6 is enabled with --%s=%s", LocalRouterIPv6, IPAM, ipamOption.IPAMDelegatedPlugin)
+		}
+		if c.EnableEndpointHealthChecking {
+			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEndpointHealthChecking, IPAM, ipamOption.IPAMDelegatedPlugin)
+		}
+	}
 	return nil
 }
 
@@ -3684,23 +3731,67 @@ func sanitizeIntParam(paramName string, paramDefault int) int {
 	return intParam
 }
 
-// validateConfigmap checks whether the flag exists and validate the value of flag
-func validateConfigmap(cmd *cobra.Command, m map[string]interface{}) (error, string) {
-	// validate the config-map
+// validateConfigMap checks whether the flag exists and validate its value
+func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
+	flags := cmd.Flags()
+
 	for key, value := range m {
-		if val := fmt.Sprintf("%v", value); val != "" {
-			flags := cmd.Flags()
-			// check whether the flag exists
-			if flag := flags.Lookup(key); flag != nil {
-				// validate the value of flag
-				if err := flag.Value.Set(val); err != nil {
-					return err, key
-				}
-			}
+		flag := flags.Lookup(key)
+		if flag == nil {
+			continue
+		}
+
+		var err error
+
+		switch t := flag.Value.Type(); t {
+		case "bool":
+			_, err = cast.ToBoolE(value)
+		case "duration":
+			_, err = cast.ToDurationE(value)
+		case "float32":
+			_, err = cast.ToFloat32E(value)
+		case "float64":
+			_, err = cast.ToFloat64E(value)
+		// remove this after PR https://github.com/cilium/cilium/pull/20282 is merged
+		case "intSlice":
+			_, err = cast.ToIntSliceE(value)
+		case "int":
+			_, err = cast.ToIntE(value)
+		case "int8":
+			_, err = cast.ToInt8E(value)
+		case "int16":
+			_, err = cast.ToInt16E(value)
+		case "int32":
+			_, err = cast.ToInt32E(value)
+		case "int64":
+			_, err = cast.ToInt64E(value)
+		case "map":
+			// custom type, see pkg/option/map_options.go
+			err = flag.Value.Set(fmt.Sprintf("%s", value))
+		case "stringSlice":
+			_, err = cast.ToStringSliceE(value)
+		case "string":
+			_, err = cast.ToStringE(value)
+		case "uint":
+			_, err = cast.ToUintE(value)
+		case "uint8":
+			_, err = cast.ToUint8E(value)
+		case "uint16":
+			_, err = cast.ToUint16E(value)
+		case "uint32":
+			_, err = cast.ToUint32E(value)
+		case "uint64":
+			_, err = cast.ToUint64E(value)
+		default:
+			log.Warnf("Unable to validate option %s value of type %s", key, t)
+		}
+
+		if err != nil {
+			return fmt.Errorf("option %s: %w", key, err)
 		}
 	}
 
-	return nil, ""
+	return nil
 }
 
 // InitConfig reads in config file and ENV variables if set.
@@ -3731,8 +3822,8 @@ func InitConfig(cmd *cobra.Command, programName, configName string) func() {
 				ReplaceDeprecatedFields(m)
 
 				// validate the config-map
-				if err, flag := validateConfigmap(cmd, m); err != nil {
-					log.WithError(err).Fatal("Incorrect config-map flag " + flag)
+				if err := validateConfigMap(cmd, m); err != nil {
+					log.WithError(err).Fatal("Incorrect config-map flag value")
 				}
 
 				if err := MergeConfig(m); err != nil {

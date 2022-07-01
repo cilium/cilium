@@ -83,6 +83,7 @@ type RunCommandRequest struct {
 	WindowsPasswordName  string                 `position:"Query" name:"WindowsPasswordName"`
 	KeepCommand          requests.Boolean       `position:"Query" name:"KeepCommand"`
 	Timed                requests.Boolean       `position:"Query" name:"Timed"`
+	DryRun               requests.Boolean       `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`

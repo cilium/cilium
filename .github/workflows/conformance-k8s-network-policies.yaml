@@ -8,6 +8,7 @@ on:
 permissions: read-all
 
 env:
+  cilium_cli_version: v0.11.9
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -63,7 +64,7 @@ jobs:
           until docker manifest inspect quay.io/${{ github.repository_owner }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
 
       - name: Create kind cluster
-        uses: helm/kind-action@94729529f85113b88f4f819c17ce61382e6d8478
+        uses: helm/kind-action@d08cf6ff1575077dee99962540d77ce91c62387d
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -107,8 +108,8 @@ jobs:
       - name: Capture cilium-sysdump
         if: ${{ failure() }}
         run: |
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          echo "=== Install Cilium CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
           sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
           rm cilium-linux-amd64.tar.gz{,.sha256sum}

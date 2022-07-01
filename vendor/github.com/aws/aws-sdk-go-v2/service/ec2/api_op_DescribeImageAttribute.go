@@ -89,6 +89,19 @@ type DescribeImageAttributeOutput struct {
 	// interface is enabled.
 	SriovNetSupport *types.AttributeValue
 
+	// If the image is configured for NitroTPM support, the value is v2.0.
+	TpmSupport *types.AttributeValue
+
+	// Base64 representation of the non-volatile UEFI variable store. To retrieve the
+	// UEFI data, use the GetInstanceUefiData
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceUefiData)
+	// command. You can inspect and modify the UEFI data by using the python-uefivars
+	// tool (https://github.com/awslabs/python-uefivars) on GitHub. For more
+	// information, see UEFI Secure Boot
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/uefi-secure-boot.html) in
+	// the Amazon Elastic Compute Cloud User Guide.
+	UefiData *types.AttributeValue
+
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
 

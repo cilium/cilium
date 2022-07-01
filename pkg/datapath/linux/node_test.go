@@ -100,7 +100,7 @@ func (s *linuxTestSuite) TestCreateNodeRouteSpecMtu(c *check.C) {
 
 func (s *linuxTestSuite) TestStoreLoadNeighLinks(c *check.C) {
 	tmpDir := c.MkDir()
-	devExpected := "dev1"
+	devExpected := []string{"dev1"}
 	err := storeNeighLink(tmpDir, devExpected)
 	c.Assert(err, check.IsNil)
 

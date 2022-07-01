@@ -14,10 +14,12 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient *k8s.K8sCiliumClient) {
+	apiGroup := k8sAPIGroupCiliumEgressGatewayPolicyV2
 	_, egpController := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
 			"ciliumegressgatewaypolicies", v1.NamespaceAll, fields.Everything()),
@@ -26,16 +28,16 @@ func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient *k8s.K8sCilium
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCEGP, metricCreate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCEGP, resources.MetricCreate, valid, equal) }()
 				if cegp := k8s.ObjToCEGP(obj); cegp != nil {
 					valid = true
 					err := k.addCiliumEgressGatewayPolicy(cegp)
-					k.K8sEventProcessed(metricCEGP, metricCreate, err == nil)
+					k.K8sEventProcessed(metricCEGP, resources.MetricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCEGP, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCEGP, resources.MetricUpdate, valid, equal) }()
 
 				newCegp := k8s.ObjToCEGP(newObj)
 				if newCegp == nil {
@@ -43,18 +45,18 @@ func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient *k8s.K8sCilium
 				}
 				valid = true
 				addErr := k.addCiliumEgressGatewayPolicy(newCegp)
-				k.K8sEventProcessed(metricCEGP, metricUpdate, addErr == nil)
+				k.K8sEventProcessed(metricCEGP, resources.MetricUpdate, addErr == nil)
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCEGP, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCEGP, resources.MetricDelete, valid, equal) }()
 				cegp := k8s.ObjToCEGP(obj)
 				if cegp == nil {
 					return
 				}
 				valid = true
 				k.deleteCiliumEgressGatewayPolicy(cegp)
-				k.K8sEventProcessed(metricCEGP, metricDelete, true)
+				k.K8sEventProcessed(metricCEGP, resources.MetricDelete, true)
 			},
 		},
 		k8s.ConvertToCiliumEgressGatewayPolicy,
@@ -94,6 +96,7 @@ func (k *K8sWatcher) deleteCiliumEgressGatewayPolicy(cegp *cilium_v2.CiliumEgres
 }
 
 func (k *K8sWatcher) ciliumEgressNATPolicyInit(ciliumNPClient *k8s.K8sCiliumClient) {
+	apiGroup := k8sAPIGroupCiliumEgressNATPolicyV2
 	_, egpController := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2alpha1().RESTClient(),
 			"ciliumegressnatpolicies", v1.NamespaceAll, fields.Everything()),
@@ -102,16 +105,16 @@ func (k *K8sWatcher) ciliumEgressNATPolicyInit(ciliumNPClient *k8s.K8sCiliumClie
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCENP, metricCreate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCENP, resources.MetricCreate, valid, equal) }()
 				if cenp := k8s.ObjToCENP(obj); cenp != nil {
 					valid = true
 					err := k.addCiliumEgressNATPolicy(cenp)
-					k.K8sEventProcessed(metricCENP, metricCreate, err == nil)
+					k.K8sEventProcessed(metricCENP, resources.MetricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCENP, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCENP, resources.MetricUpdate, valid, equal) }()
 
 				newCenp := k8s.ObjToCENP(newObj)
 				if newCenp == nil {
@@ -119,18 +122,18 @@ func (k *K8sWatcher) ciliumEgressNATPolicyInit(ciliumNPClient *k8s.K8sCiliumClie
 				}
 				valid = true
 				addErr := k.addCiliumEgressNATPolicy(newCenp)
-				k.K8sEventProcessed(metricCENP, metricUpdate, addErr == nil)
+				k.K8sEventProcessed(metricCENP, resources.MetricUpdate, addErr == nil)
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCENP, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCENP, resources.MetricDelete, valid, equal) }()
 				cenp := k8s.ObjToCENP(obj)
 				if cenp == nil {
 					return
 				}
 				valid = true
 				k.deleteCiliumEgressNATPolicy(cenp)
-				k.K8sEventProcessed(metricCENP, metricDelete, true)
+				k.K8sEventProcessed(metricCENP, resources.MetricDelete, true)
 			},
 		},
 		k8s.ConvertToCiliumEgressNATPolicy,

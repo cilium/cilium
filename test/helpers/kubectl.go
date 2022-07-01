@@ -1963,7 +1963,7 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 // ValidateKubernetesDNS validates that the Kubernetes DNS server has been
 // deployed correctly and can resolve DNS names. The following validations are
 // done:
-//  - The Kuberentes DNS deployment has at least one replica
+//  - The Kubernetes DNS deployment has at least one replica
 //  - All replicas are up-to-date and ready
 //  - All pods matching the deployment are represented by a CiliumEndpoint with an identity
 //  - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
@@ -4565,7 +4565,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"clusterrolebinding": "cilium cilium-operator hubble-relay",
 			"clusterrole":        "cilium cilium-operator hubble-relay hubble-ui",
 			"serviceaccount":     "cilium cilium-operator hubble-relay",
-			"service":            "cilium-agent hubble-metrics hubble-relay",
+			"service":            "cilium-agent hubble-metrics hubble-relay hubble-peer",
 			"secret":             "hubble-relay-client-certs hubble-server-certs hubble-ca-secret cilium-ca",
 			"resourcequota":      "cilium-resource-quota cilium-operator-resource-quota",
 		}

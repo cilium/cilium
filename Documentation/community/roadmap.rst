@@ -25,6 +25,8 @@ Major Feature Status
 ++----------------------------+------------------------------------------------------------+
 || Kube-proxy Replacement     | Stable                                                     |
 ++----------------------------+------------------------------------------------------------+
+|| Egress Gateway             | Stable                                                     |
+++----------------------------+------------------------------------------------------------+
 | Multi-Cluster (ClusterMesh) | Stable (:ref:`Roadmap Details<rm-clustermesh>`)            |
 +-----------------------------+------------------------------------------------------------+
 | Hubble Observability        | Stable (:ref:`Roadmap Details<rm-hubble-observability>`)   |
@@ -130,7 +132,6 @@ following features to graduate to stable:
 * :ref:`BGP<bgp>`
 * :ref:`bandwidth-manager`
 * :ref:`Local Redirect Policy<local-redirect-policy>`
-* :ref:`Egress Gateway<egress-gateway>`
 * :ref:`CiliumEndpointSlice<gsg_ces>`
 * :ref:`Maglev Consistent Hashing<maglev>`
 

@@ -63,9 +63,9 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_cli_version: v0.11.7
+  cilium_cli_version: v0.11.9
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  eksctl_version: v0.94.0
+  eksctl_version: v0.101.0
   kubectl_version: v1.23.6
 
 jobs:
@@ -136,6 +136,9 @@ jobs:
             OWNER=${{ github.sha }}
           fi
 
+          # Set ipam.mode=cluster-pool to overwrite the ipam value set by the
+          # cilium-cli which is setting it to 'eni' because it auto-detects
+          # the cluster as being EKS.
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
             --chart-directory=install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
@@ -152,20 +155,19 @@ jobs:
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=enableIPv4Masquerade=false \
             --helm-set=cni.chainingMode=aws-cni \
+            --helm-set=eni.enabled=false \
+            --helm-set=ipam.mode=cluster-pool \
             --helm-set=tunnel=disabled \
             --helm-set=bandwidthManager=false \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
-            --base-version=v1.11.5 \
             --version="
-          HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
+          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
-            --base-version=v1.11.5  \
             --relay-version=${SHA}"
           # L7 policies are not supported in chaining mode.
-          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.11.5 \
-            --flow-validation=disabled \
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled \
             --test '!fqdn,!l7'"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
@@ -245,7 +247,7 @@ jobs:
 
       - name: Update AWS VPC CNI plugin
         run: |
-          kubectl apply -f https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/v1.7/aws-k8s-cni.yaml
+          kubectl apply -f https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/release-1.11/config/master/aws-k8s-cni.yaml
 
       - name: Wait for images to be available
         timeout-minutes: 10

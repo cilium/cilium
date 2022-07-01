@@ -304,7 +304,7 @@ func setupMiddlewares(handler http.Handler) http.Handler {
 func setupGlobalMiddleware(handler http.Handler) http.Handler {
 	eventsHelper := &ciliumMetrics.APIEventTSHelper{
 		Next:      handler,
-		TSGauge:   ciliumMetrics.EventTSAPI,
+		TSGauge:   ciliumMetrics.EventTS,
 		Histogram: ciliumMetrics.APIInteractions,
 	}
 

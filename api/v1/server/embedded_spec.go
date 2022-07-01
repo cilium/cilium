@@ -518,7 +518,7 @@ func init() {
     },
     "/fqdn/cache": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by DNS name, CIDR IP range or source.\n",
         "tags": [
           "policy"
         ],
@@ -529,6 +529,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/cidr"
+          },
+          {
+            "$ref": "#/parameters/source"
           }
         ],
         "responses": {
@@ -578,7 +581,7 @@ func init() {
     },
     "/fqdn/cache/{id}": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from the specific endpoint,\noptionally filtered by endpoint id, DNS name, CIDR IP range or source.\n",
         "tags": [
           "policy"
         ],
@@ -592,6 +595,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/cidr"
+          },
+          {
+            "$ref": "#/parameters/source"
           }
         ],
         "responses": {
@@ -1605,6 +1611,10 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "preferred": {
+          "description": "Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based\non related annotation of global service. Applicable for active state only.",
+          "type": "boolean"
         },
         "state": {
           "description": "State of the backend for load-balancing service traffic",
@@ -4293,6 +4303,12 @@ func init() {
       "in": "path",
       "required": true
     },
+    "source": {
+      "type": "string",
+      "description": "Source from which FQDN entries come from",
+      "name": "source",
+      "in": "query"
+    },
     "trace-selector": {
       "description": "Context to provide policy evaluation on",
       "name": "trace-selector",
@@ -4859,7 +4875,7 @@ func init() {
     },
     "/fqdn/cache": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by DNS name, CIDR IP range or source.\n",
         "tags": [
           "policy"
         ],
@@ -4875,6 +4891,12 @@ func init() {
             "type": "string",
             "description": "A CIDR range of IPs",
             "name": "cidr",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Source from which FQDN entries come from",
+            "name": "source",
             "in": "query"
           }
         ],
@@ -4928,7 +4950,7 @@ func init() {
     },
     "/fqdn/cache/{id}": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from the specific endpoint,\noptionally filtered by endpoint id, DNS name, CIDR IP range or source.\n",
         "tags": [
           "policy"
         ],
@@ -4951,6 +4973,12 @@ func init() {
             "type": "string",
             "description": "A CIDR range of IPs",
             "name": "cidr",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Source from which FQDN entries come from",
+            "name": "source",
             "in": "query"
           }
         ],
@@ -6060,6 +6088,10 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "preferred": {
+          "description": "Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based\non related annotation of global service. Applicable for active state only.",
+          "type": "boolean"
         },
         "state": {
           "description": "State of the backend for load-balancing service traffic",
@@ -9134,6 +9166,12 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
+    },
+    "source": {
+      "type": "string",
+      "description": "Source from which FQDN entries come from",
+      "name": "source",
+      "in": "query"
     },
     "trace-selector": {
       "description": "Context to provide policy evaluation on",

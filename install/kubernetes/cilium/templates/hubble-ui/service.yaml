@@ -7,11 +7,14 @@ metadata:
   labels:
     k8s-app: hubble-ui
 spec:
-  type: ClusterIP
+  type: {{ .Values.hubble.ui.service.type | quote }}
   selector:
     k8s-app: hubble-ui
   ports:
     - name: http
       port: 80
       targetPort: 8081
+      {{- if and (eq "NodePort" .Values.hubble.ui.service.type) .Values.hubble.ui.service.nodePort }}
+      nodePort: {{ .Values.hubble.ui.service.nodePort }}
+      {{- end }}
 {{- end }}

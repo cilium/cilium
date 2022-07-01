@@ -33,17 +33,24 @@ manipulate Kubernetes's `taints <https://kubernetes.io/docs/concepts/scheduling-
 on a given node to help preventing pods from starting before Cilium runs on said
 node. The mechanism works as follows:
 
-1. The cluster administrator places a taint with key
-   ``node.cilium.io/agent-not-ready`` on a given uninitialized node. Depending on
-   the taint's effect (see below), this prevents pods that don't have a matching
-   toleration from either being scheduled or altogether running on the node until
-   the taint is removed.
+1. The cluster administrator places a specific taint (see below) on a given
+   uninitialized node. Depending on the taint's effect (see below), this prevents
+   pods that don't have a matching toleration from either being scheduled or
+   altogether running on the node until the taint is removed.
 
 2. Cilium runs on the node, initializes it and, once ready, removes the
-   ``node.cilium.io/agent-not-ready`` taint.
+   aforementioned taint.
 
 3. From this point on, pods will start being scheduled and running on the node,
    having their networking managed by Cilium.
+
+By default, the taint key is ``node.cilium.io/agent-not-ready``, but in some
+scenarios (such as when Cluster Autoscaler is being used but its flags cannot be
+configured) this key may need to be tweaked. This can be done using the
+``agent-not-ready-taint-key`` option. In the aforementioned example, users should
+specify a key starting with ``ignore-taint.cluster-autoscaler.kubernetes.io/``.
+When such a value is used, the Cluster Autoscaler will ignore it when simulating
+scheduling, allowing the cluster to scale up.
 
 The taint's effect should be chosen taking into account the following
 considerations:

@@ -26,8 +26,11 @@ var serviceListCmd = &cobra.Command{
 	},
 }
 
+var clustermeshAffinity bool
+
 func init() {
 	serviceCmd.AddCommand(serviceListCmd)
+	serviceListCmd.Flags().BoolVar(&clustermeshAffinity, "clustermesh-affinity", false, "Print clustermesh affinity if available")
 	command.AddOutputOption(serviceListCmd)
 }
 
@@ -78,7 +81,12 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 				fmt.Fprintf(os.Stderr, "error parsing backend %+v", be)
 				continue
 			}
-			str := fmt.Sprintf("%d => %s (%s)", i+1, beA.String(), be.State)
+			var str string
+			if clustermeshAffinity && be.Preferred {
+				str = fmt.Sprintf("%d => %s (%s) (preferred)", i+1, beA.String(), be.State)
+			} else {
+				str = fmt.Sprintf("%d => %s (%s)", i+1, beA.String(), be.State)
+			}
 			backendAddresses = append(backendAddresses, str)
 		}
 

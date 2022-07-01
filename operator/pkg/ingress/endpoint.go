@@ -62,22 +62,6 @@ func (em *endpointManager) getByKey(key string) (*slim_corev1.Endpoints, bool, e
 }
 
 func getEndpointsForIngress(ingress *slim_networkingv1.Ingress) *v1.Endpoints {
-	var ports []v1.EndpointPort
-
-	if len(ingress.Spec.Rules) > 0 && len(ingress.Spec.Rules[0].HTTP.Paths) > 0 &&
-		ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service != nil {
-		ports = append(ports, v1.EndpointPort{
-			Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Name,
-			Port: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number,
-		})
-	} else {
-		if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
-			ports = append(ports, v1.EndpointPort{
-				Name: ingress.Spec.DefaultBackend.Service.Port.Name,
-				Port: ingress.Spec.DefaultBackend.Service.Port.Number,
-			})
-		}
-	}
 	return &v1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getServiceNameForIngress(ingress),
@@ -98,7 +82,7 @@ func getEndpointsForIngress(ingress *slim_networkingv1.Ingress) *v1.Endpoints {
 				// to the lb map when the service has no backends.
 				// Related github issue https://github.com/cilium/cilium/issues/19262
 				Addresses: []v1.EndpointAddress{{IP: "192.192.192.192"}}, // dummy
-				Ports:     ports,
+				Ports:     []v1.EndpointPort{{Port: 9999}},               //dummy
 			},
 		},
 	}

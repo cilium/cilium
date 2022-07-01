@@ -6,9 +6,6 @@
 package ingress
 
 import (
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -74,27 +71,5 @@ var baseIngress = &slim_networkingv1.Ingress{
 				},
 			},
 		},
-	},
-}
-
-var verySecureTLS = &v1.Secret{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "tls-very-secure-server-com",
-		Namespace: "dummy-namespace",
-	},
-	Data: map[string][]byte{
-		"tls.key": []byte("very-secure-key"),
-		"tls.crt": []byte("very-secure-cert"),
-	},
-}
-
-var anotherVerySecureTLS = &v1.Secret{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "tls-another-very-secure-server-com",
-		Namespace: "dummy-namespace",
-	},
-	Data: map[string][]byte{
-		"tls.key": []byte("another-very-secure-key"),
-		"tls.crt": []byte("another-very-secure-cert"),
 	},
 }

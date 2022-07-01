@@ -90,8 +90,20 @@ Cluster Mesh
 
    clustermesh/clustermesh
    clustermesh/services
+   clustermesh/affinity
    clustermesh/policy
    external-workloads
+
+
+Service Mesh
+------------
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   servicemesh/ingress
+   servicemesh/l7-traffic-management
 
 Operations
 ----------

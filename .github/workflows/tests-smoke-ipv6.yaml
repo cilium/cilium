@@ -15,6 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  cilium_cli_version: v0.11.9
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
@@ -78,7 +79,7 @@ jobs:
           sudo systemctl restart docker
 
       - name: Create kind cluster
-        uses: helm/kind-action@94729529f85113b88f4f819c17ce61382e6d8478
+        uses: helm/kind-action@d08cf6ff1575077dee99962540d77ce91c62387d
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -136,8 +137,8 @@ jobs:
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          echo "=== Install Cilium CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
           sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
           rm cilium-linux-amd64.tar.gz{,.sha256sum}

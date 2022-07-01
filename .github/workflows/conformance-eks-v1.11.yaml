@@ -63,9 +63,9 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_cli_version: v0.11.7
+  cilium_cli_version: v0.11.9
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  eksctl_version: v0.94.0
+  eksctl_version: v0.101.0
   kubectl_version: v1.23.6
 
 jobs:
@@ -153,14 +153,11 @@ jobs:
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
-            --base-version=v1.11.5 \
             --version="
-          HUBBLE_ENABLE_DEFAULTS=" --chart-directory=install/kubernetes/cilium \
+          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
-            --base-version=v1.11.5 \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.11.5 \
-            --flow-validation=disabled"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
@@ -259,6 +256,8 @@ jobs:
       - name: Enable Relay
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          # NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
+          cilium status --wait
 
       - name: Port forward Relay
         run: |
@@ -292,6 +291,8 @@ jobs:
         if: ${{ false }} # see comment above for details
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          # NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
+          cilium status --wait
 
       - name: Port forward Relay
         if: ${{ false }} # see comment above for details

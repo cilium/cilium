@@ -13,7 +13,7 @@ cilium-operator-azure [flags]
 ```
       --azure-resource-group string               Resource group to use for Azure IPAM
       --azure-subscription-id string              Subscription ID to access Azure API
-      --azure-use-primary-address                 Use Azure IP address from interface's primary IPConfigurations (default true)
+      --azure-use-primary-address                 Use Azure IP address from interface's primary IPConfigurations
       --azure-user-assigned-identity-id string    ID of the user assigned identity used to auth with the Azure API
       --bgp-announce-lb-ip                        Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
@@ -45,7 +45,7 @@ cilium-operator-azure [flags]
       --identity-gc-rate-interval duration        Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration       Timeout after which identity expires on lack of heartbeat (default 30m0s)
-      --instance-tags-filter stringToString       EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag (default [])
+      --instance-tags-filter map                  EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                               Backend to use for IPAM (default "azure")
       --k8s-api-server string                     Kubernetes API server URL
       --k8s-client-burst int                      Burst value allowed for the K8s client
@@ -65,7 +65,7 @@ cilium-operator-azure [flags]
       --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
       --nodes-gc-interval duration                GC interval for CiliumNodes
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
-      --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":6942")
+      --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)
       --pprof                                     Enable pprof debugging endpoint
       --pprof-port int                            Port that the pprof listens on (default 6061)
@@ -73,7 +73,7 @@ cilium-operator-azure [flags]
       --set-cilium-is-up-condition                Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
       --skip-crd-creation                         When true, Kubernetes Custom Resource Definitions will not be created
       --subnet-ids-filter strings                 Subnets IDs (separated by commas)
-      --subnet-tags-filter stringToString         Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag (default [])
+      --subnet-tags-filter map                    Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --synchronize-k8s-nodes                     Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                  Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)

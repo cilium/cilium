@@ -1,0 +1,34 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideEnvoyConfig
+metadata:
+  name: envoy-prometheus-metrics-listener
+spec:
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: envoy-prometheus-metrics-listener
+    address:
+      socket_address:
+        address: "::"
+        ipv4_compat: true
+        port_value: 9090
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: envoy-prometheus-metrics-listener
+          rds:
+            route_config_name: prometheus_route
+          http_filters:
+          - name: envoy.filters.http.router
+  - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: prometheus_route
+    virtual_hosts:
+    - name: "prometheus_metrics_route"
+      domains: ["*"]
+      routes:
+      - match:
+          path: "/metrics"
+        route:
+          cluster: "envoy-admin"
+          prefix_rewrite: "/stats/prometheus"

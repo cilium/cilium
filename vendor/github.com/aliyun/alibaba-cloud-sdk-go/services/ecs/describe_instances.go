@@ -123,7 +123,7 @@ type DescribeInstancesRequest struct {
 
 // DescribeInstancesTag is a repeated param struct in DescribeInstancesRequest
 type DescribeInstancesTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

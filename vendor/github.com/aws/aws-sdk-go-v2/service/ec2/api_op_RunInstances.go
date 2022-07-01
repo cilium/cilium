@@ -149,6 +149,11 @@ type RunInstancesInput struct {
 	// supported.
 	CreditSpecification *types.CreditSpecificationRequest
 
+	// Indicates whether an instance is enabled for stop protection. For more
+	// information, see Stop Protection
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html#Using_StopProtection).
+	DisableApiStop *bool
+
 	// If you set this parameter to true, you can't terminate the instance using the
 	// Amazon EC2 console, CLI, or API; otherwise, you can. To change this attribute
 	// after launch, use ModifyInstanceAttribute

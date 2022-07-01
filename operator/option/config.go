@@ -22,7 +22,7 @@ const (
 	EndpointGCIntervalDefault = 5 * time.Minute
 
 	// PrometheusServeAddr is the default server address for operator metrics
-	PrometheusServeAddr = ":6942"
+	PrometheusServeAddr = ":9963"
 
 	// CESMaxCEPsInCESDefault is the maximum number of cilium endpoints allowed in a CES
 	CESMaxCEPsInCESDefault = 100
@@ -170,6 +170,10 @@ const (
 	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
 	EC2APIEndpoint = "ec2-api-endpoint"
 
+	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
+	// node
+	AWSUsePrimaryAddress = "aws-use-primary-address"
+
 	// Azure options
 
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
@@ -182,7 +186,7 @@ const (
 	// for retrieving Azure API credentials
 	AzureUserAssignedIdentityID = "azure-user-assigned-identity-id"
 
-	// AzureUsePrimaryAddress specify wether we should use or ignore the interface's
+	// AzureUsePrimaryAddress specifies whether we should use or ignore the interface's
 	// primary IPConfiguration
 	AzureUsePrimaryAddress = "azure-use-primary-address"
 
@@ -384,6 +388,10 @@ type OperatorConfig struct {
 	// IP addresses. Allows for increased pod density on nodes.
 	AWSEnablePrefixDelegation bool
 
+	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
+	// node
+	AWSUsePrimaryAddress bool
+
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the
 	// instancetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI bool
@@ -515,6 +523,7 @@ func (c *OperatorConfig) Populate() {
 
 	c.AWSReleaseExcessIPs = viper.GetBool(AWSReleaseExcessIPs)
 	c.AWSEnablePrefixDelegation = viper.GetBool(AWSEnablePrefixDelegation)
+	c.AWSUsePrimaryAddress = viper.GetBool(AWSUsePrimaryAddress)
 	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.EC2APIEndpoint = viper.GetString(EC2APIEndpoint)
 	c.ExcessIPReleaseDelay = viper.GetInt(ExcessIPReleaseDelay)

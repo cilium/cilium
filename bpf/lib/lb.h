@@ -81,7 +81,7 @@ struct {
 	/* Maglev inner map definition */
 	__array(values, struct {
 		__uint(type, BPF_MAP_TYPE_ARRAY);
-		__type(key, __u32);
+		__uint(key_size, sizeof(__u32));
 		__uint(value_size, sizeof(__u32) * LB_MAGLEV_LUT_SIZE);
 		__uint(max_entries, 1);
 	});
@@ -159,7 +159,7 @@ struct {
 	/* Maglev inner map definition */
 	__array(values, struct {
 		__uint(type, BPF_MAP_TYPE_ARRAY);
-		__type(key, __u32);
+		__uint(key_size, sizeof(__u32));
 		__uint(value_size, sizeof(__u32) * LB_MAGLEV_LUT_SIZE);
 		__uint(max_entries, 1);
 	});
@@ -652,7 +652,7 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 #endif /* LB_SELECTION */
 
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
-				     union v6addr *new_dst, __u8 nexthdr,
+				     const union v6addr *new_dst, __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
 				     const struct lb6_key *key,
@@ -1620,17 +1620,16 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
  * tuple->flags does not need to be restored, as it will be reinitialized from
  * the packet.
  */
-static __always_inline void lb4_ctx_restore_state(struct __ctx_buff *ctx,
-						  struct ct_state *state,
-						  const struct ipv4_ct_tuple *tuple  __maybe_unused,
-						 __u16 *proxy_port)
+static __always_inline void
+lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
+		      __u32 daddr __maybe_unused, __u16 *proxy_port)
 {
 	__u32 meta = ctx_load_meta(ctx, CB_CT_STATE);
 #ifndef DISABLE_LOOPBACK_LB
 	if (meta & 1) {
 		state->loopback = 1;
 		state->addr = IPV4_LOOPBACK;
-		state->svc_addr = tuple->daddr; /* backend address after xlate */
+		state->svc_addr = daddr; /* backend address after xlate */
 	}
 #endif
 	state->rev_nat_index = meta >> 16;

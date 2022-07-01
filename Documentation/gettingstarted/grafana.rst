@@ -46,8 +46,8 @@ Deploy Cilium and Hubble with metrics enabled
 =============================================
 
 *Cilium*, *Hubble*, and *Cilium Operator* do not expose metrics by
-default. Enabling metrics for these services will open ports ``9090``, ``9091``,
-and ``6942`` respectively on all nodes of your cluster where these components
+default. Enabling metrics for these services will open ports ``9962``, ``9965``,
+and ``9963`` respectively on all nodes of your cluster where these components
 are running.
 
 The metrics for Cilium, Hubble, and Cilium Operator can all be enabled
@@ -100,9 +100,9 @@ Expose the port on your local machine
 
 .. code-block:: shell-session
 
-    kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 --address :: 9090:9090
+    kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 --address :: 9962:9962
 
-Access it via your browser: http://localhost:9090
+Access it via your browser: http://localhost:9962
 
 Examples
 ========

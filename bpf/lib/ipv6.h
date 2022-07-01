@@ -182,8 +182,8 @@ static __always_inline int ipv6_load_daddr(struct __ctx_buff *ctx, int off,
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
-static __always_inline int ipv6_store_daddr(struct __ctx_buff *ctx, __u8 *addr,
-					    int off)
+static __always_inline int
+ipv6_store_daddr(struct __ctx_buff *ctx, const __u8 *addr, int off)
 {
 	return ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, daddr), addr, 16, 0);
 }

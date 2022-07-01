@@ -321,7 +321,7 @@ ctx_wire_len(const struct xdp_md *ctx)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, int);
+	__uint(key_size, sizeof(int));
 	__uint(value_size, META_PIVOT);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 1);

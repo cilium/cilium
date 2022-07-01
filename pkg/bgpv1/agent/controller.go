@@ -10,14 +10,13 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
-	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/bgpv1"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
@@ -28,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeaddr "github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -85,8 +85,8 @@ func (s Signaler) Event(_ interface{}) {
 // ControlPlaneState should be a point-in-time snapshot of Cilium's runtime
 // state and remain read-only to all sub systems its passed to.
 type ControlPlaneState struct {
-	// The Kubernetes Node resource at time of construction.
-	Node *corev1.Node
+	// A list of configured PodCIDRs for the current Node.
+	PodCIDRs []string
 	// Parsed 'cilium.io/bgp-virtual-router' annotations of the the node this
 	// control plane is running on.
 	Annotations bgpv1.AnnotationMap
@@ -101,17 +101,7 @@ type ControlPlaneState struct {
 // Controller listens for events and drives BGP related sub-systems
 // to maintain a desired state.
 type Controller struct {
-	// NOTE: Swap the usage of Node here to CiliumNode
-	// once #18609 merges
-	//
-	// NodeInformer is a shared informer for Node
-	// resources
-	NodeInformer cache.SharedIndexInformer
-	// NodeLister provides cached and indexed lookups for
-	// Node API objects.
-	NodeLister v1.NodeLister
-	// BGPPolicyInformer is a shared informer for CiliumBGPPeerinPolicy
-	BGPPolicyInformer cache.SharedIndexInformer
+	NodeSpec nodeSpecer
 	// PolicyLister provides cached and indexed lookups of
 	// for CilumBGPPeeringPolicy API objects.
 	PolicyLister v2alpha1.CiliumBGPPeeringPolicyLister
@@ -132,6 +122,50 @@ type Controller struct {
 // Controller
 type ControllerOpt func(*Controller)
 
+// configureForK8sIPAM will setup an informer which will trigger reconciliation
+// when the Kubernetes Node object has changed and returns a nodeSpecer abstraction
+// to retrieve the Node's PodCIDR prefixes.
+//
+// ensure the provided stop channel is closed to cancel the shared Informer's
+// go routine.
+func configureForK8sIPAM(k8sfactory informers.SharedInformerFactory, sig Signaler, stop chan struct{}) (nodeSpecer, error) {
+	name := nodetypes.GetName()
+	nodeLister := k8sfactory.Core().V1().Nodes().Lister()
+	nodeInformer := k8sfactory.Core().V1().Nodes().Informer()
+	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    sig.Event,
+		UpdateFunc: func(_ interface{}, _ interface{}) { sig.Event(struct{}{}) },
+		DeleteFunc: sig.Event,
+	})
+	go nodeInformer.Run(stop)
+	return &kubernetesNodeSpecer{
+		Name:       name,
+		NodeLister: nodeLister,
+	}, nil
+}
+
+// configureForK8sIPAM will setup an informer which will trigger reconciliation
+// when the CiliumNode object has changed and returns a nodeSpecer abstraction
+// to retrieve the Node's PodCIDR prefixes.
+//
+// ensure the provided stop channel is closed to cancel the shared Informer's
+// go routine.
+func configureForClusterPoolIPAM(factory externalversions.SharedInformerFactory, sig Signaler, stop chan struct{}) (nodeSpecer, error) {
+	name := nodetypes.GetName()
+	nodeLister := factory.Cilium().V2().CiliumNodes().Lister()
+	nodeInformer := factory.Cilium().V2().CiliumNodes().Informer()
+	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    sig.Event,
+		UpdateFunc: func(_ interface{}, _ interface{}) { sig.Event(struct{}{}) },
+		DeleteFunc: sig.Event,
+	})
+	go nodeInformer.Run(stop)
+	return &ciliumNodeSpecer{
+		Name:       name,
+		NodeLister: nodeLister,
+	}, nil
+}
+
 // NewController constructs a new BGP Control Plane Controller.
 //
 // When the constructor returns the Controller will be actively watching for
@@ -143,26 +177,50 @@ type ControllerOpt func(*Controller)
 //
 // Cancel the provided CTX to stop the Controller.
 func NewController(ctx context.Context, rtMgr BGPRouterManager, opts ...ControllerOpt) (*Controller, error) {
-	// create the signaler we will use
-	sig := NewSignaler()
+	var (
+		// signaler used to trigger Controller reconciliation.
+		sig = NewSignaler()
+		// stop channel used to cancel informers.
+		stop = make(chan struct{}, 1)
+		// we'll use to list and watch BGPPeeringPolicies
+		factory = externalversions.NewSharedInformerFactory(k8s.CiliumClient(), 0)
+		// an abtraction over obtaining Node Spec information depending on
+		// IPAM configuration.
+		nodeSpecer nodeSpecer
+	)
 
-	// informers setup
-	clientset := k8s.CiliumClient()
-	factory := externalversions.NewSharedInformerFactory(clientset, 0)
+	// setup is dictate by the type of IPAM being used. If Kubernetes IPAM is
+	// being used the BGP Control Plane must watch and retrieve PodCIDR ranges
+	// from the corev1 Kubernetes Node resource.
+	//
+	// if the ClusterPool (both v1 and v2) IPAM mode is in use, the control plane
+	// must watch and retrieve PodCIDR ranges from Cilium's v2 CiliumNode resource.
+	switch option.Config.IPAM {
+	case ipamOption.IPAMClusterPoolV2, ipamOption.IPAMClusterPool:
+		var err error
+		selfTweakList := externalversions.WithTweakListOptions(func(lo *metav1.ListOptions) {
+			lo.FieldSelector = "metadata.name=" + nodetypes.GetName()
+		})
+		factory := externalversions.NewSharedInformerFactoryWithOptions(k8s.CiliumClient(), 0, selfTweakList)
+		nodeSpecer, err = configureForClusterPoolIPAM(factory, sig, stop)
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure listers and informers for ClusterPool IPAM: %w", err)
+		}
+	case ipamOption.IPAMKubernetes:
+		var err error
+		selfTweakList := informers.WithTweakListOptions(func(lo *metav1.ListOptions) {
+			lo.FieldSelector = "metadata.name=" + nodetypes.GetName()
+		})
+		k8sfactory := informers.NewSharedInformerFactoryWithOptions(k8s.Client(), 0, selfTweakList)
+		nodeSpecer, err = configureForK8sIPAM(k8sfactory, sig, stop)
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure listers and informers for Kubernetes IPAM: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("failed to determine a compatible IPAM mode, cannot initialize BGP control plane")
+	}
 
-	selfTweakList := informers.WithTweakListOptions(func(lo *metav1.ListOptions) {
-		lo.FieldSelector = "metadata.name=" + nodetypes.GetName()
-	})
-	k8sfactory := informers.NewSharedInformerFactoryWithOptions(k8s.Client(), 0, selfTweakList)
-
-	nodeLister := k8sfactory.Core().V1().Nodes().Lister()
-	nodeInformer := k8sfactory.Core().V1().Nodes().Informer()
-	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    sig.Event,
-		UpdateFunc: func(_ interface{}, _ interface{}) { sig.Event(struct{}{}) },
-		DeleteFunc: sig.Event,
-	})
-
+	// setup policy lister and informer.
 	policyLister := factory.Cilium().V2alpha1().CiliumBGPPeeringPolicies().Lister()
 	policyInformer := factory.Cilium().V2alpha1().CiliumBGPPeeringPolicies().Informer()
 	policyInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -170,14 +228,13 @@ func NewController(ctx context.Context, rtMgr BGPRouterManager, opts ...Controll
 		UpdateFunc: func(_ interface{}, _ interface{}) { sig.Event(struct{}{}) },
 		DeleteFunc: sig.Event,
 	})
+	go policyInformer.Run(stop)
 
 	c := Controller{
-		Sig:               sig,
-		NodeInformer:      nodeInformer,
-		NodeLister:        nodeLister,
-		BGPPolicyInformer: policyInformer,
-		PolicyLister:      policyLister,
-		BGPMgr:            rtMgr,
+		NodeSpec:     nodeSpecer,
+		PolicyLister: policyLister,
+		Sig:          sig,
+		BGPMgr:       rtMgr,
 	}
 
 	// apply any options.
@@ -185,7 +242,9 @@ func NewController(ctx context.Context, rtMgr BGPRouterManager, opts ...Controll
 		opt(&c)
 	}
 
-	go c.Run(ctx)
+	// stop channel is passed here, if ctx is canceled the passed stop chan
+	// is closed as well.
+	go c.Run(ctx, stop)
 	return &c, nil
 }
 
@@ -198,7 +257,7 @@ func NewController(ctx context.Context, rtMgr BGPRouterManager, opts ...Controll
 //
 // A cancel of the provided ctx will kill the control loop along with the running
 // informers.
-func (c *Controller) Run(ctx context.Context) {
+func (c *Controller) Run(ctx context.Context, stop chan struct{}) {
 	var (
 		l = log.WithFields(logrus.Fields{
 			"component": "Controller.Run",
@@ -208,10 +267,6 @@ func (c *Controller) Run(ctx context.Context) {
 
 	// add an initial signal to kick things off
 	c.Sig.Event(struct{}{})
-
-	stop := make(chan struct{})
-	go c.NodeInformer.Run(stop)
-	go c.BGPPolicyInformer.Run(stop)
 
 	l.Info("Cilium BGP Control Plane Controller now running...")
 	for {
@@ -241,11 +296,11 @@ func (c *Controller) Run(ctx context.Context) {
 //
 // Policy selection follows the following rules:
 // - A policy matches a node if said policy's "nodeSelector" field matches
-//   the node's
+//   the node's labels
 // - If (N > 1) policies match the provided *corev1.Node an error is returned.
 //   only a single policy may apply to a node to avoid ambiguity at this stage
 //   of development.
-func PolicySelection(ctx context.Context, node *corev1.Node, policies []*v2alpha1api.CiliumBGPPeeringPolicy) (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+func PolicySelection(ctx context.Context, labels map[string]string, policies []*v2alpha1api.CiliumBGPPeeringPolicy) (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
 	var (
 		l = log.WithFields(logrus.Fields{
 			"component": "PolicySelection",
@@ -254,7 +309,7 @@ func PolicySelection(ctx context.Context, node *corev1.Node, policies []*v2alpha
 	// determine which policies match our node's labels.
 	var (
 		selected   *v2alpha1api.CiliumBGPPeeringPolicy
-		slimLabels = slimlabels.Set(node.Labels)
+		slimLabels = slimlabels.Set(labels)
 	)
 
 	// range over policies and see if any match this node's labels.
@@ -299,18 +354,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		l = log.WithFields(logrus.Fields{
 			"component": "Controller.Reconcile",
 		})
-		nodeName = nodetypes.GetName()
 	)
-
-	// retrieve Node structure.
-	node, err := c.NodeLister.Get(nodeName)
-	if err != nil {
-		return fmt.Errorf("failed to list Node with name %s: %v", nodeName, err)
-	}
-	if node == nil {
-		return fmt.Errorf("list for Node with %s returned nil", nodeName)
-	}
-	l.WithFields(logrus.Fields{"Labels": node.Labels, "Name": node.Name}).Debug("Successfully listed Node")
 
 	// retrieve all CiliumBGPPeeringPolicies
 	policies, err := c.PolicyLister.List(k8sLabels.NewSelector())
@@ -320,7 +364,11 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	l.WithField("count", len(policies)).Debug("Successfully listed CiliumBGPPeeringPolicies")
 
 	// perform policy selection based on node.
-	policy, err := PolicySelection(ctx, node, policies)
+	labels, err := c.NodeSpec.Labels()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve labels for Node: %w", err)
+	}
+	policy, err := PolicySelection(ctx, labels, policies)
 	if err != nil {
 		l.WithError(err).Error("Policy selection failed")
 		c.FullWithdrawal(ctx)
@@ -339,14 +387,24 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	//
 	// if we notice one or more malformed annotations report the errors up and
 	// fail reconciliation.
-	annoMap, err := bgpv1.NewAnnotationMap(node)
+	annotations, err := c.NodeSpec.Annotations()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve Node's annotations: %w", err)
+	}
+
+	annoMap, err := bgpv1.NewAnnotationMap(annotations)
 	if err != nil {
 		return fmt.Errorf("failed to parse annotations: %w", err)
 	}
 
+	podCIDRs, err := c.NodeSpec.PodCIDRs()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve Node's pod CIDR ranges: %w", err)
+	}
+
 	// define our current point-in-time control plane state.
 	state := &ControlPlaneState{
-		Node:        node,
+		PodCIDRs:    podCIDRs,
 		Annotations: annoMap,
 		IPv4:        nodeaddr.GetIPv4(),
 		IPv6:        nodeaddr.GetIPv6(),

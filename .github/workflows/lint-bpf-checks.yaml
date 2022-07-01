@@ -90,10 +90,10 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@b22fbbc2921299758641fab08929b4ac52b32923
         with:
-          go-version: 1.18.2
+          go-version: 1.18.3
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@48af2dc4a9e8278b89d7fa154b955c30c6aaab09
+        uses: actions/cache@c3f1317a9e7b1ef106c153ac8c0f00fed3ddbc0d
         with:
           path: $HOME/.clang
           key: llvm-10.0
@@ -115,7 +115,7 @@ jobs:
           make --quiet -C bpf build_all || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
       - name: Run BPF_PROG_TEST_RUN tests
         run: |
-          make -C bpf go_prog_test || (echo "Run 'make -C bpf go_prog_test' locally to investigate failures"; exit 1)
+          make -C test run_bpf_tests || (echo "Run 'make -C test run_bpf_tests' locally to investigate failures"; exit 1)
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af

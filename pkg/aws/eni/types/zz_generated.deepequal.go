@@ -307,6 +307,22 @@ func (in *ENISpec) DeepEqual(other *ENISpec) bool {
 		}
 	}
 
+	if (in.UsePrimaryAddress == nil) != (other.UsePrimaryAddress == nil) {
+		return false
+	} else if in.UsePrimaryAddress != nil {
+		if *in.UsePrimaryAddress != *other.UsePrimaryAddress {
+			return false
+		}
+	}
+
+	if (in.DisablePrefixDelegation == nil) != (other.DisablePrefixDelegation == nil) {
+		return false
+	} else if in.DisablePrefixDelegation != nil {
+		if *in.DisablePrefixDelegation != *other.DisablePrefixDelegation {
+			return false
+		}
+	}
+
 	return true
 }
 

@@ -57,6 +57,18 @@ Check the ``Error`` field in the ``Status.Operator`` field:
 .. code-block:: shell-session
 
     kubectl get ciliumnodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.operator.error}{"\n"}{end}'
+    
+Check for conflicting node CIDRs
+================================
+
+``10.0.0.0/8`` is the default pod CIDR. If your node network is in the same range
+you will lose connectivity to other nodes. All egress traffic will be assumed
+to target pods on a given node rather than other nodes.
+
+You can solve it in two ways:
+
+  - Explicitly set ``clusterPoolIPv4PodCIDRList`` to a non-conflicting CIDR
+  - Use a different CIDR for your nodes
 
 **********************
 Cluster Pool v2 (Beta)

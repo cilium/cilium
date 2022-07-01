@@ -512,7 +512,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 		if err := ip4tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
-			"-o", "cilium_host",
+			"-o", defaults.HostDevice,
 			"-m", "mark", "--mark", matchProxyReply,
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 			"-j", "CT", "--notrack"}); err != nil {
@@ -534,7 +534,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 		if err := ip4tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
-			"-o", "cilium_host",
+			"-o", defaults.HostDevice,
 			"-m", "mark", "--mark", matchL7ProxyUpstream,
 			"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
 			"-j", "CT", "--notrack"}); err != nil {
@@ -702,7 +702,7 @@ func (m *IptablesManager) addProxyRules(prog iptablesInterface, proxyPort uint16
 	scanner := bufio.NewScanner(strings.NewReader(rules))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || strings.Contains(rule, "cilium: TPROXY to host "+name) || !strings.Contains(rule, portMatch) {
+		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || !strings.Contains(rule, "cilium: TPROXY to host "+name) || strings.Contains(rule, portMatch) {
 			continue
 		}
 
@@ -995,9 +995,8 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 		return err
 	}
 	// Proxy return traffic to a remote source needs '-i cilium_net'.
-	// TODO: Make 'cilium_net' configurable if we ever support other than "cilium_host" as the Cilium host device.
-	if ifName == "cilium_host" {
-		ifPeerName := "cilium_net"
+	if ifName == defaults.HostDevice {
+		ifPeerName := defaults.SecondHostDevice
 		if err := prog.runProg([]string{
 			"-A", forwardChain,
 			"-i", ifPeerName,
@@ -1149,7 +1148,7 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 			"-A", ciliumPostNatChain,
 			"!", "-s", allocRange,
 			"!", "-d", allocRange,
-			"-o", "cilium_host",
+			"-o", defaults.HostDevice,
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", hostMasqueradeIP}); err != nil {
 			return err

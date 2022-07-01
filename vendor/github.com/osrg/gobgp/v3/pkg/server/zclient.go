@@ -179,11 +179,11 @@ func newIPRouteBody(dst []*table.Path, vrfID uint32, z *zebraClient) (body *zebr
 	plen, _ := strconv.ParseUint(l[1], 10, 8)
 	med, err := path.GetMed()
 	if err == nil {
-		msgFlags |= zebra.MessageMetric.ToEach(version)
+		msgFlags |= zebra.MessageMetric.ToEach(version, z.client.Software)
 	}
 	var flags zebra.Flag
 	if path.IsIBGP() {
-		flags = zebra.FlagIBGP.ToEach(z.client.Version, z.client.SoftwareName) | zebra.FlagAllowRecursion
+		flags = zebra.FlagIBGP.ToEach(z.client.Version, z.client.Software) | zebra.FlagAllowRecursion
 	} else if path.GetSource().MultihopTtl > 0 {
 		flags = zebra.FlagAllowRecursion // 0x01
 	}
@@ -250,7 +250,7 @@ func newNexthopUnregisterBody(family uint16, prefix net.IP) *zebra.NexthopRegist
 	}
 }
 
-func newPathFromIPRouteMessage(logger log.Logger, m *zebra.Message, version uint8, software string) *table.Path {
+func newPathFromIPRouteMessage(logger log.Logger, m *zebra.Message, version uint8, software zebra.Software) *table.Path {
 	header := m.Header
 	body := m.Body.(*zebra.IPRouteBody)
 	family := body.RouteFamily(logger, version, software)
@@ -378,7 +378,7 @@ func (z *zebraClient) loop() {
 			}
 			switch body := msg.Body.(type) {
 			case *zebra.IPRouteBody:
-				if path := newPathFromIPRouteMessage(z.server.logger, msg, z.client.Version, z.client.SoftwareName); path != nil {
+				if path := newPathFromIPRouteMessage(z.server.logger, msg, z.client.Version, z.client.Software); path != nil {
 					if err := z.server.addPathList("", []*table.Path{path}); err != nil {
 						z.server.logger.Error("failed to add path from zebra",
 							log.Fields{
@@ -463,7 +463,7 @@ func (z *zebraClient) loop() {
 	}
 }
 
-func newZebraClient(s *BgpServer, url string, protos []string, version uint8, nhtEnable bool, nhtDelay uint8, mplsLabelRangeSize uint32, softwareName string) (*zebraClient, error) {
+func newZebraClient(s *BgpServer, url string, protos []string, version uint8, nhtEnable bool, nhtDelay uint8, mplsLabelRangeSize uint32, software zebra.Software) (*zebraClient, error) {
 	l := strings.SplitN(url, ":", 2)
 	if len(l) != 2 {
 		return nil, fmt.Errorf("unsupported url: %s", url)
@@ -481,7 +481,7 @@ func newZebraClient(s *BgpServer, url string, protos []string, version uint8, nh
 		ver++
 	}
 	for elem, ver := range zapivers {
-		cli, err = zebra.NewClient(s.logger, l[0], l[1], zebra.RouteBGP, ver, softwareName, mplsLabelRangeSize)
+		cli, err = zebra.NewClient(s.logger, l[0], l[1], zebra.RouteBGP, ver, software, mplsLabelRangeSize)
 		if cli != nil && err == nil {
 			usingVersion = ver
 			break
@@ -512,7 +512,7 @@ func newZebraClient(s *BgpServer, url string, protos []string, version uint8, nh
 	// cli.SendRouterIDAdd()
 	cli.SendInterfaceAdd()
 	for _, typ := range protos {
-		t, err := zebra.RouteTypeFromString(typ, version, softwareName)
+		t, err := zebra.RouteTypeFromString(typ, version, software)
 		if err != nil {
 			return nil, err
 		}

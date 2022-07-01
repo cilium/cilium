@@ -1337,6 +1337,42 @@ attempting to keep them in REACHABLE state. The refresh interval can be changed 
 through a ``--arping-refresh-period=30s`` flag passed to the cilium-agent. The default
 period is ``30s`` which corresponds to the kernel's base reachable time.
 
+The neighbor discovery supports multi-device environments where each node has multiple devices
+and multiple next-hops to another node. The Cilium agent pushes neighbor entries for all target
+devices, including the direct routing device. Currently, it supports one next-hop per device.
+The following example illustrates how the neighbor discovery works in a multi-device environment.
+Each node has two devices connected to different L3 networks (10.69.0.64/26 and 10.69.0.128/26),
+and global scope addresses each (10.69.0.1/26 and 10.69.0.2/26). A next-hop from node1 to node2 is
+either ``10.69.0.66 dev eno1`` or ``10.69.0.130 dev eno2``. The Cilium agent pushes neighbor
+entries for both ``10.69.0.66 dev eno1`` and ``10.69.0.130 dev eno2`` in this case.
+
+::
+
+    +---------------+     +---------------+
+    |    node1      |     |    node2      |
+    | 10.69.0.1/26  |     | 10.69.0.2/26  |
+    |           eno1+-----+eno1           |
+    |           |   |     |   |           |
+    | 10.69.0.65/26 |     |10.69.0.66/26  |
+    |               |     |               |
+    |           eno2+-----+eno2           |
+    |           |   |     | |             |
+    | 10.69.0.129/26|     | 10.69.0.130/26|
+    +---------------+     +---------------+
+
+With, on node1:
+
+.. code-block:: shell-session
+
+    $ ip route show
+    10.69.0.2
+            nexthop via 10.69.0.66 dev eno1 weight 1
+            nexthop via 10.69.0.130 dev eno2 weight 1
+
+    $ ip neigh show
+    10.69.0.66 dev eno1 lladdr 96:eb:75:fd:89:fd extern_learn  REACHABLE
+    10.69.0.130 dev eno2 lladdr 52:54:00:a6:62:56 extern_learn  REACHABLE
+
 External Access To ClusterIP Services
 *************************************
 
@@ -1409,6 +1445,9 @@ Limitations
     * When deployed on kernels older than 5.7, Cilium is unable to distinguish between host and
       pod namespaces due to the lack of kernel support for network namespace cookies. As a result,
       Kubernetes services are reachable from all pods via the loopback address.
+    * The neighbor discovery in a multi-device environment doesn't work with the runtime device
+      detection which means that the target devices for the neighbor discovery doesn't follow the
+      device changes.
 
 Further Readings
 ################

@@ -111,7 +111,7 @@ type DescribeDisksRequest struct {
 
 // DescribeDisksTag is a repeated param struct in DescribeDisksRequest
 type DescribeDisksTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

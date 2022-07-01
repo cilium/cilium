@@ -37,10 +37,16 @@ function annotate_section_names {
 	    -e "s/\(section '2\/23'\)/\1 (tail_call IPV6_FROM_HOST)/" \
 	    -e "s/\(section '2\/24'\)/\1 (tail_call IPV6_ENCAP_NODEPORT_NAT)/" \
 	    -e "s/\(section '2\/25'\)/\1 (tail_call IPV4_FROM_LXC_CONT)/" \
-	    -e "s/\(section '2\/26'\)/\1 (tail_call IPV6_FROM_LXC_CONT)/"
+	    -e "s/\(section '2\/26'\)/\1 (tail_call IPV6_FROM_LXC_CONT)/" \
+	    -e "s/\(section '2\/27'\)/\1 (tail_call IPV4_CT_INGRESS)/" \
+	    -e "s/\(section '2\/28'\)/\1 (tail_call IPV4_CT_INGRESS_POLICY_ONLY)/" \
+	    -e "s/\(section '2\/29'\)/\1 (tail_call IPV4_CT_EGRESS)/" \
+	    -e "s/\(section '2\/30'\)/\1 (tail_call IPV6_CT_INGRESS)/" \
+	    -e "s/\(section '2\/31'\)/\1 (tail_call IPV6_CT_INGRESS_POLICY_ONLY)/" \
+	    -e "s/\(section '2\/32'\)/\1 (tail_call IPV6_CT_EGRESS)/"
 }
 
-if ! grep -q "CILIUM_CALL_SIZE.*27" "$BPFDIR/lib/common.h" ; then
+if ! grep -q "CILIUM_CALL_SIZE.*33" "$BPFDIR/lib/common.h" ; then
 	echo "This script is out of date compared to CILIUM_CALL_SIZE." 1>&2
 	exit 1
 fi

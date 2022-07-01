@@ -16,46 +16,49 @@ const (
 type AttachType int32
 
 const (
-	BPF_CGROUP_INET_INGRESS      AttachType = 0
-	BPF_CGROUP_INET_EGRESS       AttachType = 1
-	BPF_CGROUP_INET_SOCK_CREATE  AttachType = 2
-	BPF_CGROUP_SOCK_OPS          AttachType = 3
-	BPF_SK_SKB_STREAM_PARSER     AttachType = 4
-	BPF_SK_SKB_STREAM_VERDICT    AttachType = 5
-	BPF_CGROUP_DEVICE            AttachType = 6
-	BPF_SK_MSG_VERDICT           AttachType = 7
-	BPF_CGROUP_INET4_BIND        AttachType = 8
-	BPF_CGROUP_INET6_BIND        AttachType = 9
-	BPF_CGROUP_INET4_CONNECT     AttachType = 10
-	BPF_CGROUP_INET6_CONNECT     AttachType = 11
-	BPF_CGROUP_INET4_POST_BIND   AttachType = 12
-	BPF_CGROUP_INET6_POST_BIND   AttachType = 13
-	BPF_CGROUP_UDP4_SENDMSG      AttachType = 14
-	BPF_CGROUP_UDP6_SENDMSG      AttachType = 15
-	BPF_LIRC_MODE2               AttachType = 16
-	BPF_FLOW_DISSECTOR           AttachType = 17
-	BPF_CGROUP_SYSCTL            AttachType = 18
-	BPF_CGROUP_UDP4_RECVMSG      AttachType = 19
-	BPF_CGROUP_UDP6_RECVMSG      AttachType = 20
-	BPF_CGROUP_GETSOCKOPT        AttachType = 21
-	BPF_CGROUP_SETSOCKOPT        AttachType = 22
-	BPF_TRACE_RAW_TP             AttachType = 23
-	BPF_TRACE_FENTRY             AttachType = 24
-	BPF_TRACE_FEXIT              AttachType = 25
-	BPF_MODIFY_RETURN            AttachType = 26
-	BPF_LSM_MAC                  AttachType = 27
-	BPF_TRACE_ITER               AttachType = 28
-	BPF_CGROUP_INET4_GETPEERNAME AttachType = 29
-	BPF_CGROUP_INET6_GETPEERNAME AttachType = 30
-	BPF_CGROUP_INET4_GETSOCKNAME AttachType = 31
-	BPF_CGROUP_INET6_GETSOCKNAME AttachType = 32
-	BPF_XDP_DEVMAP               AttachType = 33
-	BPF_CGROUP_INET_SOCK_RELEASE AttachType = 34
-	BPF_XDP_CPUMAP               AttachType = 35
-	BPF_SK_LOOKUP                AttachType = 36
-	BPF_XDP                      AttachType = 37
-	BPF_SK_SKB_VERDICT           AttachType = 38
-	__MAX_BPF_ATTACH_TYPE        AttachType = 39
+	BPF_CGROUP_INET_INGRESS            AttachType = 0
+	BPF_CGROUP_INET_EGRESS             AttachType = 1
+	BPF_CGROUP_INET_SOCK_CREATE        AttachType = 2
+	BPF_CGROUP_SOCK_OPS                AttachType = 3
+	BPF_SK_SKB_STREAM_PARSER           AttachType = 4
+	BPF_SK_SKB_STREAM_VERDICT          AttachType = 5
+	BPF_CGROUP_DEVICE                  AttachType = 6
+	BPF_SK_MSG_VERDICT                 AttachType = 7
+	BPF_CGROUP_INET4_BIND              AttachType = 8
+	BPF_CGROUP_INET6_BIND              AttachType = 9
+	BPF_CGROUP_INET4_CONNECT           AttachType = 10
+	BPF_CGROUP_INET6_CONNECT           AttachType = 11
+	BPF_CGROUP_INET4_POST_BIND         AttachType = 12
+	BPF_CGROUP_INET6_POST_BIND         AttachType = 13
+	BPF_CGROUP_UDP4_SENDMSG            AttachType = 14
+	BPF_CGROUP_UDP6_SENDMSG            AttachType = 15
+	BPF_LIRC_MODE2                     AttachType = 16
+	BPF_FLOW_DISSECTOR                 AttachType = 17
+	BPF_CGROUP_SYSCTL                  AttachType = 18
+	BPF_CGROUP_UDP4_RECVMSG            AttachType = 19
+	BPF_CGROUP_UDP6_RECVMSG            AttachType = 20
+	BPF_CGROUP_GETSOCKOPT              AttachType = 21
+	BPF_CGROUP_SETSOCKOPT              AttachType = 22
+	BPF_TRACE_RAW_TP                   AttachType = 23
+	BPF_TRACE_FENTRY                   AttachType = 24
+	BPF_TRACE_FEXIT                    AttachType = 25
+	BPF_MODIFY_RETURN                  AttachType = 26
+	BPF_LSM_MAC                        AttachType = 27
+	BPF_TRACE_ITER                     AttachType = 28
+	BPF_CGROUP_INET4_GETPEERNAME       AttachType = 29
+	BPF_CGROUP_INET6_GETPEERNAME       AttachType = 30
+	BPF_CGROUP_INET4_GETSOCKNAME       AttachType = 31
+	BPF_CGROUP_INET6_GETSOCKNAME       AttachType = 32
+	BPF_XDP_DEVMAP                     AttachType = 33
+	BPF_CGROUP_INET_SOCK_RELEASE       AttachType = 34
+	BPF_XDP_CPUMAP                     AttachType = 35
+	BPF_SK_LOOKUP                      AttachType = 36
+	BPF_XDP                            AttachType = 37
+	BPF_SK_SKB_VERDICT                 AttachType = 38
+	BPF_SK_REUSEPORT_SELECT            AttachType = 39
+	BPF_SK_REUSEPORT_SELECT_OR_MIGRATE AttachType = 40
+	BPF_PERF_EVENT                     AttachType = 41
+	__MAX_BPF_ATTACH_TYPE              AttachType = 42
 )
 
 type Cmd int32
@@ -72,6 +75,7 @@ const (
 	BPF_PROG_ATTACH                 Cmd = 8
 	BPF_PROG_DETACH                 Cmd = 9
 	BPF_PROG_TEST_RUN               Cmd = 10
+	BPF_PROG_RUN                    Cmd = 10
 	BPF_PROG_GET_NEXT_ID            Cmd = 11
 	BPF_MAP_GET_NEXT_ID             Cmd = 12
 	BPF_PROG_GET_FD_BY_ID           Cmd = 13
@@ -268,7 +272,27 @@ const (
 	BPF_FUNC_check_mtu                      FunctionId = 163
 	BPF_FUNC_for_each_map_elem              FunctionId = 164
 	BPF_FUNC_snprintf                       FunctionId = 165
-	__BPF_FUNC_MAX_ID                       FunctionId = 166
+	BPF_FUNC_sys_bpf                        FunctionId = 166
+	BPF_FUNC_btf_find_by_name_kind          FunctionId = 167
+	BPF_FUNC_sys_close                      FunctionId = 168
+	BPF_FUNC_timer_init                     FunctionId = 169
+	BPF_FUNC_timer_set_callback             FunctionId = 170
+	BPF_FUNC_timer_start                    FunctionId = 171
+	BPF_FUNC_timer_cancel                   FunctionId = 172
+	BPF_FUNC_get_func_ip                    FunctionId = 173
+	BPF_FUNC_get_attach_cookie              FunctionId = 174
+	BPF_FUNC_task_pt_regs                   FunctionId = 175
+	BPF_FUNC_get_branch_snapshot            FunctionId = 176
+	BPF_FUNC_trace_vprintk                  FunctionId = 177
+	BPF_FUNC_skc_to_unix_sock               FunctionId = 178
+	BPF_FUNC_kallsyms_lookup_name           FunctionId = 179
+	BPF_FUNC_find_vma                       FunctionId = 180
+	BPF_FUNC_loop                           FunctionId = 181
+	BPF_FUNC_strncmp                        FunctionId = 182
+	BPF_FUNC_get_func_arg                   FunctionId = 183
+	BPF_FUNC_get_func_ret                   FunctionId = 184
+	BPF_FUNC_get_func_arg_cnt               FunctionId = 185
+	__BPF_FUNC_MAX_ID                       FunctionId = 186
 )
 
 type HdrStartOff int32
@@ -288,7 +312,8 @@ const (
 	BPF_LINK_TYPE_ITER           LinkType = 4
 	BPF_LINK_TYPE_NETNS          LinkType = 5
 	BPF_LINK_TYPE_XDP            LinkType = 6
-	MAX_BPF_LINK_TYPE            LinkType = 7
+	BPF_LINK_TYPE_PERF_EVENT     LinkType = 7
+	MAX_BPF_LINK_TYPE            LinkType = 8
 )
 
 type MapType int32
@@ -324,6 +349,7 @@ const (
 	BPF_MAP_TYPE_RINGBUF               MapType = 27
 	BPF_MAP_TYPE_INODE_STORAGE         MapType = 28
 	BPF_MAP_TYPE_TASK_STORAGE          MapType = 29
+	BPF_MAP_TYPE_BLOOM_FILTER          MapType = 30
 )
 
 type ProgType int32
@@ -360,6 +386,7 @@ const (
 	BPF_PROG_TYPE_EXT                     ProgType = 28
 	BPF_PROG_TYPE_LSM                     ProgType = 29
 	BPF_PROG_TYPE_SK_LOOKUP               ProgType = 30
+	BPF_PROG_TYPE_SYSCALL                 ProgType = 31
 )
 
 type RetCode int32
@@ -447,6 +474,7 @@ type MapInfo struct {
 	BtfKeyTypeId          uint32
 	BtfValueTypeId        uint32
 	_                     [4]byte
+	MapExtra              uint64
 }
 
 type ProgInfo struct {
@@ -485,6 +513,8 @@ type ProgInfo struct {
 	RunTimeNs            uint64
 	RunCnt               uint64
 	RecursionMisses      uint64
+	VerifiedInsns        uint32
+	_                    [4]byte
 }
 
 type BtfGetFdByIdAttr struct{ Id uint32 }
@@ -572,6 +602,23 @@ func LinkCreateIter(attr *LinkCreateIterAttr) (*FD, error) {
 	return NewFD(int(fd))
 }
 
+type LinkCreatePerfEventAttr struct {
+	ProgFd     uint32
+	TargetFd   uint32
+	AttachType AttachType
+	Flags      uint32
+	BpfCookie  uint64
+	_          [8]byte
+}
+
+func LinkCreatePerfEvent(attr *LinkCreatePerfEventAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
 type LinkUpdateAttr struct {
 	LinkFd    uint32
 	NewProgFd uint32
@@ -598,6 +645,7 @@ type MapCreateAttr struct {
 	BtfKeyTypeId          uint32
 	BtfValueTypeId        uint32
 	BtfVmlinuxValueTypeId uint32
+	MapExtra              uint64
 }
 
 func MapCreate(attr *MapCreateAttr) (*FD, error) {
@@ -876,6 +924,10 @@ type ProgLoadAttr struct {
 	LineInfoCnt        uint32
 	AttachBtfId        uint32
 	AttachProgFd       uint32
+	CoreReloCnt        uint32
+	FdArray            Pointer
+	CoreRelos          Pointer
+	CoreReloRecSize    uint32
 	_                  [4]byte
 }
 

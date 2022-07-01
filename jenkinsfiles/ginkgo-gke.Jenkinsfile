@@ -80,7 +80,7 @@ pipeline {
                         env.DOCKER_TAG = env.DOCKER_TAG + "-race"
                         env.RACE = 1
                         env.LOCKDEBUG = 1
-                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:1b3d0025051ac0a43cb13b00bc1e25e037b19eda@sha256:e9f05a26c78e4daff91dd3fbec29e1d4fd8e57ff1960178e2f510d72e01b98ee"
+                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:05ac87c6a2ef4f24e6ba9acf8b06e8c2362cab2f@sha256:8118de250b9f0a50e182c300b50fa9452d82f8351932d536e31c1ad745defc1f"
                     }
                 }
             }
@@ -94,9 +94,9 @@ pipeline {
                     steps {
                         retry(25) {
                             sleep(time: 60)
-                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/cilium-ci:${DOCKER_TAG}} &> /dev/null'
-                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/operator-generic-ci:${DOCKER_TAG}} &> /dev/null'
-                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/hubble-relay-ci:${DOCKER_TAG}} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/cilium-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/operator-generic-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/hubble-relay-ci:${DOCKER_TAG} &> /dev/null'
                         }
                     }
                 }

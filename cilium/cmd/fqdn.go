@@ -58,6 +58,7 @@ var fqdnListCacheCmd = &cobra.Command{
 
 var fqdnCacheMatchPattern string
 var fqdnEndpointID string
+var fqdnSource string
 
 func init() {
 	fqdnCacheCmd.AddCommand(fqdnListCacheCmd)
@@ -71,6 +72,7 @@ func init() {
 
 	fqdnListCacheCmd.Flags().StringVarP(&fqdnCacheMatchPattern, "matchpattern", "p", "", "List cache entries with FQDN that match matchpattern")
 	fqdnListCacheCmd.Flags().StringVarP(&fqdnEndpointID, "endpoint", "e", "", "List cache entries for a specific endpoint id")
+	fqdnListCacheCmd.Flags().StringVarP(&fqdnSource, "source", "s", "", "List cache entries from a specific source (lookup, connection)")
 	command.AddOutputOption(fqdnListCacheCmd)
 }
 
@@ -102,6 +104,10 @@ func listFQDNCache() {
 	if fqdnEndpointID != "" {
 		params := policy.NewGetFqdnCacheIDParams()
 
+		if fqdnSource != "" {
+			params.SetSource(&fqdnSource)
+		}
+
 		if fqdnCacheMatchPattern != "" {
 			params.SetMatchpattern(&fqdnCacheMatchPattern)
 		}
@@ -122,6 +128,10 @@ func listFQDNCache() {
 		}
 	} else {
 		params := policy.NewGetFqdnCacheParams()
+
+		if fqdnSource != "" {
+			params.SetSource(&fqdnSource)
+		}
 
 		if fqdnCacheMatchPattern != "" {
 			params.SetMatchpattern(&fqdnCacheMatchPattern)

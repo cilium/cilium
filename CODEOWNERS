@@ -28,6 +28,7 @@
 # @cilium/policy             Policy behaviour
 # @cilium/proxy              L7 proxy, Envoy
 # @cilium/sig-clustermesh    All code related with clustermesh
+# @cilium/sig-servicemesh    All code related with servicemesh
 # @cilium/vendor             Vendoring, dependency management
 # @cilium/wireguard          Wireguard integration
 
@@ -131,6 +132,7 @@ Makefile* @cilium/build
 /Documentation/gettingstarted/kind-configure.rst @cilium/docs-structure
 /Documentation/gettingstarted/kubeproxy-free.rst @cilium/loadbalancer @cilium/docs-structure
 /Documentation/gettingstarted/policy-creation.rst @cilium/policy @cilium/docs-structure
+/Documentation/gettingstarted/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure
 /Documentation/glossary.rst @cilium/docs-structure
 /Documentation/helm-values.rst
 /Documentation/images/re-request-review.png @cilium/contributing @cilium/docs-structure
@@ -201,7 +203,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
 /pkg/envoy/ @cilium/proxy
-/pkg/fqdn/ @cilium/agent
+/pkg/fqdn/ @cilium/agent @cilium/proxy
 /pkg/health/ @cilium/health
 /pkg/hubble/ @cilium/hubble
 /pkg/identity @cilium/policy
@@ -273,9 +275,7 @@ jenkinsfiles @cilium/ci-structure
 /test/runtime/benchmark.go @cilium/bpf @cilium/ci-structure
 /test/runtime/connectivity.go @cilium/bpf @cilium/ci-structure
 # Policy tests
-/test/k8s/net_policies_nightly.go @cilium/policy @cilium/ci-structure
 /test/k8s/net_policies.go @cilium/policy @cilium/ci-structure
-/test/k8s/stress_policy.go @cilium/policy @cilium/ci-structure
 /test/runtime/net_policies.go @cilium/policy @cilium/ci-structure
 # Hubble/monitoring tests
 /test/k8s/hubble.go @cilium/hubble @cilium/ci-structure
@@ -287,7 +287,6 @@ jenkinsfiles @cilium/ci-structure
 /test/runtime/cassandra.go @cilium/proxy @cilium/ci-structure
 /test/runtime/fqdn.go @cilium/proxy @cilium/ci-structure
 /test/runtime/kafka.go @cilium/proxy @cilium/ci-structure
-/test/runtime/memcache.go @cilium/proxy @cilium/ci-structure
 # Standalone L4LB tests
 /test/l4lb @cilium/loadbalancer @cilium/ci-structure
 /test/nat46x64 @cilium/loadbalancer @cilium/ci-structure

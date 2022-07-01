@@ -1,6 +1,6 @@
 # Maintainers
 
-See [Governance](Documentation/contributing/governance/commit_access.rst) for
+See [Governance](Documentation/community/governance/commit_access.rst) for
 governance, commit, and vote guidelines as well as maintainer responsibilities.
 Everybody listed in this file is a committer as per governance definition.
 
@@ -26,14 +26,16 @@ by the "janitor role" which is rotated between all committers.
  * [Aditi Ghag] (Isovalent)
  * [Alexandre Perrin] (Isovalent)
  * [Beatriz Martínez] (Isovalent)
+ * [Bruno M. Custódio] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
  * [Deepesh Pathak]
  * [Eloy Coto] (Red Hat)
  * [Gilberto Bertin] (Isovalent)
+ * [Hemanth Malla] (Datadog)
  * [Ian Vernon]
- * [Ilya Dmitrichenko] (Isovalent)
+ * [Ilya Dmitrichenko] (Docker)
  * [Jarno Rajahalme] (Isovalent)
  * [John Fastabend] (Isovalent)
  * [Kornilios Kourtis] (Isovalent)
@@ -69,6 +71,7 @@ project.
 [Alexandre Perrin]: https://github.com/kaworu
 [André Martins]: https://github.com/aanm
 [Beatriz Martínez]: https://github.com/b3a-dev
+[Bruno M. Custódio]: https://github.com/bmcustodio
 [Chris Tarazi]: https://github.com/christarazi
 [Daniel Borkmann]: https://github.com/borkmann
 [Dan Wendlandt]: https://github.com/danwent
@@ -76,6 +79,7 @@ project.
 [Eloy Coto]: https://github.com/eloycoto
 [Gilberto Bertin]: https://github.com/jibi
 [Glib Smaga]: https://github.com/glibsm
+[Hemanth Malla]: https://github.com/hemanthmalla
 [Ian Vernon]: https://github.com/ianvernon
 [Ilya Dmitrichenko]: https://github.com/errordeveloper
 [Jarno Rajahalme]: https://github.com/jrajahalme

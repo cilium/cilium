@@ -197,12 +197,10 @@ To replace cilium-ipsec-keys secret with a new key:
     data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
     kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
 
-Then restart Cilium agents to transition to the new key with
-``kubectl delete pod -n kube-system -l k8s-app=cilium``. During transition the
-new and old keys will be in use. The Cilium agent keeps per endpoint data on
-which key is used by each endpoint and will use the correct key if either side
-has not yet been updated. In this way encryption will work as new keys are
-rolled out.
+During transition the new and old keys will be in use. The Cilium agent keeps
+per endpoint data on which key is used by each endpoint and will use the correct
+key if either side has not yet been updated. In this way encryption will work as
+new keys are rolled out.
 
 The ``KEYID`` environment variable in the above example stores the current key
 ID used by Cilium. The key variable is a uint8 with value between 1 and 15
@@ -249,8 +247,8 @@ Troubleshooting
         local 10.60.0.0/24 dev cilium_vxlan proto 50 scope host
         10.60.1.0/24 via 10.60.0.1 dev cilium_host
 
-     In case of IPAM ENI mode, check if routing rules exist for the the IP
-     address of ``cilium_host`` interface..
+     In case of IPAM ENI mode, check if routing rules exist for the IP
+     address of the ``cilium_host`` interface.
 
      .. code-block:: shell-session
 

@@ -11,11 +11,12 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 )
 
 func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClient) {
 	ccnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-
+	apiGroup := k8sAPIGroupCiliumClusterwideNetworkPolicyV2
 	ciliumV2ClusterwidePolicyController := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
 			cilium_v2.CCNPPluralName, v1.NamespaceAll, fields.Everything()),
@@ -24,7 +25,9 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCCNP, metricCreate, valid, equal) }()
+				defer func() {
+					k.K8sEventReceived(apiGroup, resources.MetricCCNP, resources.MetricCreate, valid, equal)
+				}()
 				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
 					valid = true
 					if cnp.RequiresDerivative() {
@@ -37,12 +40,12 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 					cnpCpy := cnp.DeepCopy()
 
 					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpCpy)
-					k.K8sEventProcessed(metricCCNP, metricCreate, err == nil)
+					k.K8sEventProcessed(resources.MetricCCNP, resources.MetricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCCNP, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, resources.MetricCCNP, resources.MetricUpdate, valid, equal) }()
 				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
 					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
 						valid = true
@@ -62,20 +65,20 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 						newCNPCpy := newCNP.DeepCopy()
 
 						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, oldCNPCpy, newCNPCpy)
-						k.K8sEventProcessed(metricCCNP, metricUpdate, err == nil)
+						k.K8sEventProcessed(resources.MetricCCNP, resources.MetricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCCNP, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, resources.MetricCCNP, resources.MetricDelete, valid, equal) }()
 				cnp := k8s.ObjToSlimCNP(obj)
 				if cnp == nil {
 					return
 				}
 				valid = true
 				err := k.deleteCiliumNetworkPolicyV2(cnp)
-				k.K8sEventProcessed(metricCCNP, metricDelete, err == nil)
+				k.K8sEventProcessed(resources.MetricCCNP, resources.MetricDelete, err == nil)
 			},
 		},
 		k8s.ConvertToCCNP,
@@ -86,9 +89,9 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 		k.stop,
 		nil,
 		ciliumV2ClusterwidePolicyController.HasSynced,
-		k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
+		apiGroup,
 	)
 
 	go ciliumV2ClusterwidePolicyController.Run(k.stop)
-	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumClusterwideNetworkPolicyV2)
+	k.k8sAPIGroups.AddAPI(apiGroup)
 }

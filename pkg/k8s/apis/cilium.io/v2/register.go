@@ -23,7 +23,7 @@ const (
 	//
 	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
 	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.25.4"
+	CustomResourceDefinitionSchemaVersion = "1.25.5"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -191,7 +191,7 @@ var (
 	//
 	//   import (
 	//     "k8s.io/client-go/kubernetes"
-	//     clientsetscheme "k8s.io/client-go/kuberentes/scheme"
+	//     clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 	//     aggregatorclientsetscheme "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme"
 	//   )
 	//

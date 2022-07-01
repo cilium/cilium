@@ -10,19 +10,23 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
+	"sync"
+	"syscall"
 	"unsafe"
 
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
-
-	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // CreateMap creates a Map of type mapType, with key size keySize, a value size of
@@ -31,23 +35,62 @@ import (
 // When mapType is the type HASH_OF_MAPS an innerID is required to point at a
 // map fd which has the same type/keySize/valueSize/maxEntries as expected map
 // entries. For all other mapTypes innerID is ignored and should be zeroed.
-func CreateMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID uint32, path string) (int, error) {
-	// This struct must be in sync with union bpf_attr's anonymous struct
-	// used by the BPF_MAP_CREATE command
-	uba := struct {
-		mapType    uint32
-		keySize    uint32
-		valueSize  uint32
-		maxEntries uint32
-		mapFlags   uint32
-		innerID    uint32
-	}{
-		uint32(mapType),
-		keySize,
-		valueSize,
-		maxEntries,
-		flags,
-		innerID,
+func CreateMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID uint32, fullPath string) (int, error) {
+	ret, err := createMap(mapType, keySize, valueSize, maxEntries, flags, innerID, fullPath)
+	if err != 0 {
+		return 0, &os.PathError{
+			Op:   "Unable to create map",
+			Path: fullPath,
+			Err:  err,
+		}
+	}
+
+	return int(ret), nil
+}
+
+func createMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID uint32, fullPath string) (int, syscall.Errno) {
+	kernelVersionCheckOnce.Do(func() {
+		if k, err := version.GetKernelVersion(); err == nil {
+			hasMapNameSupport = isMinVersion(k)
+		}
+	})
+
+	var (
+		uba     unsafe.Pointer
+		ubaSize uintptr
+	)
+
+	if hasMapNameSupport {
+		var name [16]byte
+		if p := path.Base(fullPath); len(p) > 15 {
+			copy(name[:], p[:15]) // save last element for '\0'
+		} else {
+			copy(name[:], p)
+		}
+		u := ubaMapName{
+			ubaCommon: ubaCommon{
+				mapType:    uint32(mapType),
+				keySize:    keySize,
+				valueSize:  valueSize,
+				maxEntries: maxEntries,
+				mapFlags:   flags,
+				innerID:    innerID,
+			},
+			mapName: name,
+		}
+		uba = unsafe.Pointer(&u)
+		ubaSize = unsafe.Sizeof(u)
+	} else {
+		u := ubaCommon{
+			mapType:    uint32(mapType),
+			keySize:    keySize,
+			valueSize:  valueSize,
+			maxEntries: maxEntries,
+			mapFlags:   flags,
+			innerID:    innerID,
+		}
+		uba = unsafe.Pointer(&u)
+		ubaSize = unsafe.Sizeof(u)
 	}
 
 	var duration *spanstat.SpanStat
@@ -57,24 +100,42 @@ func CreateMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID u
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_CREATE,
-		uintptr(unsafe.Pointer(&uba)),
-		unsafe.Sizeof(uba),
+		uintptr(uba),
+		ubaSize,
 	)
 	runtime.KeepAlive(&uba)
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpCreate, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 	}
 
-	if err != 0 {
-		return 0, &os.PathError{
-			Op:   "Unable to create map",
-			Path: path,
-			Err:  err,
-		}
-	}
-
-	return int(ret), nil
+	return int(ret), err
 }
+
+// This struct must be in sync with union bpf_attr's anonymous struct
+// used by the BPF_MAP_CREATE command
+type ubaCommon struct {
+	mapType    uint32
+	keySize    uint32
+	valueSize  uint32
+	maxEntries uint32
+	mapFlags   uint32
+	innerID    uint32
+}
+
+// This struct must be in sync with union bpf_attr's anonymous struct
+// used by the BPF_MAP_CREATE command
+type ubaMapName struct {
+	ubaCommon
+	numaNode uint32
+	mapName  [16]byte
+}
+
+var (
+	kernelVersionCheckOnce sync.Once
+	hasMapNameSupport      bool
+
+	isMinVersion = versioncheck.MustCompile(">=4.15.0")
+)
 
 // This struct must be in sync with union bpf_attr's anonymous struct used by
 // BPF_MAP_*_ELEM commands

@@ -12,7 +12,7 @@ debug: all
 
 include Makefile.defs
 
-SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool tools/mount
+SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool tools/mount tools/sysctlfix
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-relay
 
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-cni
@@ -33,11 +33,9 @@ GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFIL
 SWAGGER_VERSION := v0.25.0
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
-COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "github.com/cilium/cilium/$(TESTPKGS)"; fi)
-COVERPKG ?= $(COVERPKG_EVAL)
 GOTEST_BASE := -test.v -timeout 600s
 GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
-GOTEST_COVER_OPTS += -coverprofile=coverage.out -coverpkg $(COVERPKG)
+GOTEST_COVER_OPTS += -coverprofile=coverage.out
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
 BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
@@ -56,17 +54,11 @@ GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)
 GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$2 "." z}' GO_VERSION)
 GO_INSTALLED_MAJOR_AND_MINOR_VERSION := $(shell $(GO) version | sed 's/go version go\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?.*/\1.\2/')
 
-DOCKER_FLAGS ?=
-
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
 	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 TEST_UNITTEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-
-define print_help_line
-	@printf "  \033[36m%-29s\033[0m %s.\n" $(1) $(2)
-endef
 
 define generate_k8s_api
 	cd "./vendor/k8s.io/code-generator" && \
@@ -131,16 +123,20 @@ build-container: ## Builds components required for cilium-agent container.
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
-PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $$pkg; done | xargs grep --include='*.go' -ril 'go:build [^!]*privileged_tests' | xargs dirname | sort | uniq)
+# If the developer provides TESTPKGS to filter the set of packages to use for testing, filter that to only packages with privileged tests.
+# The period at EOL ensures that if TESTPKGS becomes empty, we can still pass some paths to 'xargs dirname' to avoid errors.
+PRIV_TEST_PKGS_FILTER := $(shell for pkg in $(TESTPKGS); do echo $$pkg; done | xargs grep --include='*.go' -ril 'go:build [^!]*privileged_tests') .
+PRIV_TEST_PKGS_EVAL := $(shell echo $(PRIV_TEST_PKGS_FILTER) | xargs dirname | sort | uniq | grep -Ev '^\.$$')
 PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
 tests-privileged: GO_TAGS_FLAGS+=privileged_tests ## Run integration-tests for Cilium that requires elevated privileges.
 tests-privileged:
 	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
-		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) \
+		>&2 $(ECHO_TEST) $$pkg; \
+		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
-	done
+	done | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
 start-kvstores: ## Start running kvstores required for running Cilium integration-tests. More specifically this will run etcd and consul containers.
@@ -204,10 +200,11 @@ endif
 	# hence will trigger an error of too many arguments. As a workaround, we
 	# have to process these packages in different subshells.
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
+		>&2 $(ECHO_TEST) $$pkg; \
+		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
-	done
+	done | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
 
@@ -498,11 +495,15 @@ check-microk8s: ## Validate if microk8s is ready to install cilium.
 
 LOCAL_IMAGE_TAG=local
 microk8s: export DOCKER_REGISTRY=localhost:32000
-microk8s: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+microk8s: export LOCAL_AGENT_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+microk8s: export LOCAL_OPERATOR_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/operator:$(LOCAL_IMAGE_TAG)
 microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
-	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
+	@echo "  DEPLOY image to microk8s ($(LOCAL_AGENT_IMAGE))"
+	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_AGENT_IMAGE)
+	$(QUIET)$(MAKE) dev-docker-operator-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	@echo "  DEPLOY image to microk8s ($(LOCAL_OPERATOR_IMAGE))"
+	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
 
 kind: ## Create a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind.sh
@@ -511,14 +512,19 @@ kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
 
 kind-image: export DOCKER_REGISTRY=localhost:5000
-kind-image: export LOCAL_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+kind-image: export LOCAL_AGENT_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+kind-image: export LOCAL_OPERATOR_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/operator:$(LOCAL_IMAGE_TAG)
 kind-image: ## Build cilium-dev docker image and import it into kind.
 	@$(ECHO_CHECK) kind is ready...
 	@kind get clusters >/dev/null
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DEPLOY image to kind ($(LOCAL_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_IMAGE)
-	$(QUIET)kind load docker-image $(LOCAL_IMAGE)
+	@echo "  DEPLOY image to kind ($(LOCAL_AGENT_IMAGE))"
+	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_AGENT_IMAGE)
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
+	$(QUIET)$(MAKE) dev-docker-operator-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	@echo "  DEPLOY image to kind ($(LOCAL_OPERATOR_IMAGE))"
+	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE)
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE)
 
 precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
@@ -626,8 +632,8 @@ dev-doctor: ## Run Cilium dev-doctor to validate local development environment.
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
 	$(QUIET)$(GO) run ./tools/dev-doctor
 
-help: Makefile ## Display help for the Makefile, from https://www.thapaliya.com/en/writings/well-documented-makefiles/
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-28s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writings/well-documented-makefiles/.
+	$(call print_help_from_makefile)
 	@# There is also a list of target we have to manually put the information about.
 	@# These are templated targets.
 	$(call print_help_line,"docker-cilium-image","Build cilium-agent docker image")

@@ -963,6 +963,19 @@ func (n *Node) syncToAPIServer() (err error) {
 
 	origNode := node.DeepCopy()
 
+	// We create a snapshot of the IP pool before we update the status. This
+	// ensures that the pool in the spec is always older than the IPAM
+	// information in the status.
+	// This ordering is important, because otherwise a new IP could be added to
+	// the pool after we updated the status, thereby creating a situation where
+	// the agent does not have the necessary IPAM information to use the newly
+	// added IP.
+	// When an IP is removed, this is also safe. IP release is done via
+	// handshake, where the agent will never use any IP where it has
+	// acknowledged the release handshake. Therefore, having an already
+	// released IP in the pool is fine, as the agent will ignore it.
+	pool := n.Pool()
+
 	// Always update the status first to ensure that the IPAM information
 	// is synced for all addresses that are marked as available.
 	//
@@ -989,11 +1002,7 @@ func (n *Node) syncToAPIServer() (err error) {
 	}
 
 	for retry := 0; retry < 2; retry++ {
-		if node.Spec.IPAM.Pool == nil {
-			node.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
-		}
-
-		node.Spec.IPAM.Pool = n.Pool()
+		node.Spec.IPAM.Pool = pool
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
 		// The PreAllocate value is added here rather than where the CiliumNode

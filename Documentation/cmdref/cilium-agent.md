@@ -13,6 +13,7 @@ cilium-agent [flags]
 ```
       --agent-health-port int                                   TCP port for agent health status API (default 9879)
       --agent-labels strings                                    Additional labels to identify this agent
+      --agent-not-ready-taint-key string                        Key of the taint indicating that Cilium is not ready on the node (default "node.cilium.io/agent-not-ready")
       --allocator-list-timeout duration                         Timeout for listing allocator state before exiting (default 3m0s)
       --allow-icmp-frag-needed                                  Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU. (default true)
       --allow-localhost string                                  Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
@@ -32,6 +33,7 @@ cilium-agent [flags]
       --bpf-ct-timeout-regular-tcp-syn duration                 Establishment timeout for entries in TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-any duration                     Timeout for service entries in non-TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-tcp duration                     Timeout for established service entries in TCP CT table (default 6h0m0s)
+      --bpf-ct-timeout-service-tcp-grace duration               Timeout for graceful shutdown of service entries in TCP CT table (default 1m0s)
       --bpf-fragments-map-max int                               Maximum number of entries in fragments tracking map (default 8192)
       --bpf-lb-acceleration string                              BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                 BPF load balancing algorithm ("random", "maglev") (default "random")
@@ -230,7 +232,7 @@ cilium-agent [flags]
       --preallocate-bpf-maps                                    Enable BPF map pre-allocation (default true)
       --prepend-iptables-chains                                 Prepend custom iptables chains instead of appending (default true)
       --procfs string                                           Root's proc filesystem path (default "/proc")
-      --prometheus-serve-addr string                            IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
+      --prometheus-serve-addr string                            IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
       --proxy-connect-timeout uint                              Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 1)
       --proxy-gid uint                                          Group ID for proxy control plane sockets. (default 1337)
       --proxy-max-connection-duration-seconds int               Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)

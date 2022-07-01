@@ -92,8 +92,7 @@ func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 		Scope:  netlink.SCOPE_LINK,
 	}
 
-	_, err := route.Upsert(endpointRoute)
-	return err
+	return route.Upsert(endpointRoute)
 }
 
 func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
@@ -351,12 +350,12 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			logfields.Veth: ep.InterfaceName(),
 		})
 		if ip := ep.IPv4Address(); ip.IsSet() {
-			if err := upsertEndpointRoute(ep, *ip.IPNet(32)); err != nil {
+			if err := upsertEndpointRoute(ep, *ip.EndpointPrefix()); err != nil {
 				scopedLog.WithError(err).Warn("Failed to upsert route")
 			}
 		}
 		if ip := ep.IPv6Address(); ip.IsSet() {
-			if err := upsertEndpointRoute(ep, *ip.IPNet(128)); err != nil {
+			if err := upsertEndpointRoute(ep, *ip.EndpointPrefix()); err != nil {
 				scopedLog.WithError(err).Warn("Failed to upsert route")
 			}
 		}
@@ -495,11 +494,11 @@ func (l *Loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 func (l *Loader) Unload(ep datapath.Endpoint) {
 	if ep.RequireEndpointRoute() {
 		if ip := ep.IPv4Address(); ip.IsSet() {
-			removeEndpointRoute(ep, *ip.IPNet(32))
+			removeEndpointRoute(ep, *ip.EndpointPrefix())
 		}
 
 		if ip := ep.IPv6Address(); ip.IsSet() {
-			removeEndpointRoute(ep, *ip.IPNet(128))
+			removeEndpointRoute(ep, *ip.EndpointPrefix())
 		}
 	}
 }

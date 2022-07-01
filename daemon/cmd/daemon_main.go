@@ -51,7 +51,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -511,6 +511,9 @@ func initializeFlags() {
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
 	option.BindEnv(option.K8sNamespaceName)
 
+	flags.String(option.AgentNotReadyNodeTaintKeyName, defaults.AgentNotReadyNodeTaint, "Key of the taint indicating that Cilium is not ready on the node")
+	option.BindEnv(option.AgentNotReadyNodeTaintKeyName)
+
 	flags.Bool(option.JoinClusterName, false, "Join a Cilium cluster via kvstore registration")
 	option.BindEnv(option.JoinClusterName)
 
@@ -553,7 +556,7 @@ func initializeFlags() {
 		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	option.BindEnv(option.KVStoreOpt)
 
-	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout for synchronizing k8s resources before exiting")
+	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout after last K8s event for synchronizing k8s resources before exiting")
 	flags.MarkHidden(option.K8sSyncTimeoutName)
 	option.BindEnv(option.K8sSyncTimeoutName)
 
@@ -830,7 +833,7 @@ func initializeFlags() {
 	// The second environment variable (without the CILIUM_ prefix) is here to
 	// handle the case where someone uses a new image with an older spec, and the
 	// older spec used the older variable name.
-	flags.String(option.PrometheusServeAddr, "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
+	flags.String(option.PrometheusServeAddr, ":9962", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
 	option.BindEnvWithLegacyEnvFallback(option.PrometheusServeAddr, "PROMETHEUS_SERVE_ADDR")
 
 	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
@@ -850,6 +853,9 @@ func initializeFlags() {
 
 	flags.Duration(option.CTMapEntriesTimeoutSVCTCPName, 21600*time.Second, "Timeout for established service entries in TCP CT table")
 	option.BindEnv(option.CTMapEntriesTimeoutSVCTCPName)
+
+	flags.Duration(option.CTMapEntriesTimeoutSVCTCPGraceName, 60*time.Second, "Timeout for graceful shutdown of service entries in TCP CT table")
+	option.BindEnv(option.CTMapEntriesTimeoutSVCTCPGraceName)
 
 	flags.Duration(option.CTMapEntriesTimeoutSVCAnyName, 60*time.Second, "Timeout for service entries in non-TCP CT table")
 	option.BindEnv(option.CTMapEntriesTimeoutSVCAnyName)
@@ -1091,7 +1097,7 @@ func initializeFlags() {
 	flags.IntSlice(option.VLANBPFBypass, []int{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
 	option.BindEnv(option.VLANBPFBypass)
 
-	flags.Bool(option.EnableICMPRules, false, "Enable ICMP-based rule support for Cilium Network Policies")
+	flags.Bool(option.EnableICMPRules, true, "Enable ICMP-based rule support for Cilium Network Policies")
 	flags.MarkHidden(option.EnableICMPRules)
 	option.BindEnv(option.EnableICMPRules)
 
@@ -1584,7 +1590,7 @@ func initEnv(cmd *cobra.Command) {
 	// mode which support the bypass.
 	if option.Config.BypassIPAvailabilityUponRestore {
 		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMENI:
+		case ipamOption.IPAMENI, ipamOption.IPAMAzure:
 			log.Info(
 				"Running with bypass of IP not available errors upon endpoint " +
 					"restore. Be advised that this mode is intended to be " +
@@ -1630,10 +1636,10 @@ func (d *Daemon) initKVStore() {
 		// to the service IP as well perform the service -> backend IPs for
 		// that service IP.
 		d.k8sWatcher.WaitForCacheSync(
-			watchers.K8sAPIGroupServiceV1Core,
-			watchers.K8sAPIGroupEndpointV1Core,
-			watchers.K8sAPIGroupEndpointSliceV1Discovery,
-			watchers.K8sAPIGroupEndpointSliceV1Beta1Discovery,
+			resources.K8sAPIGroupServiceV1Core,
+			resources.K8sAPIGroupEndpointV1Core,
+			resources.K8sAPIGroupEndpointSliceV1Discovery,
+			resources.K8sAPIGroupEndpointSliceV1Beta1Discovery,
 		)
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
@@ -1727,7 +1733,8 @@ func runDaemon() {
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
 	gc.Enable(option.Config.EnableIPv4, option.Config.EnableIPv6,
-		restoredEndpoints.restored, d.endpointManager)
+		restoredEndpoints.restored, d.endpointManager,
+		d.datapath.LocalNodeAddressing())
 	bootstrapStats.enableConntrack.End(true)
 
 	bootstrapStats.k8sInit.Start()
@@ -1870,6 +1877,13 @@ func runDaemon() {
 	}
 
 	if option.Config.BGPControlPlaneEnabled() {
+		switch option.Config.IPAM {
+		case ipamOption.IPAMClusterPool:
+		case ipamOption.IPAMClusterPoolV2:
+		case ipamOption.IPAMKubernetes:
+		default:
+			log.Fatalf("BGP control plane cannot be utilized with IPAM mode: %v", option.Config.IPAM)
+		}
 		log.Info("Initializing BGP Control Plane")
 		if err := d.instantiateBGPControlPlane(d.ctx); err != nil {
 			log.WithError(err).Fatal("Error returned when instantiating BGP control plane")

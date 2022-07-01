@@ -21,7 +21,7 @@ spec:
     - {{ .Release.Namespace }}
   endpoints:
   - port: hubble-metrics
-    interval: 10s
+    interval: {{ .Values.hubble.metrics.serviceMonitor.interval | quote }}
     honorLabels: true
     path: /metrics
     relabelings:

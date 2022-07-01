@@ -567,15 +567,6 @@ func (e *Endpoint) HostInterface() string {
 	return e.ifName
 }
 
-// GetLabelsSHA returns the SHA of labels
-func (e *Endpoint) GetLabelsSHA() string {
-	if e.SecurityIdentity == nil {
-		return ""
-	}
-
-	return e.SecurityIdentity.GetLabelsSHA256()
-}
-
 // GetOpLabels returns the labels as slice
 func (e *Endpoint) GetOpLabels() []string {
 	e.unconditionalRLock()

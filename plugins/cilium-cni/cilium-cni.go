@@ -16,6 +16,7 @@ import (
 	"sort"
 
 	"github.com/cilium/ebpf"
+	cniInvoke "github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
@@ -107,12 +108,91 @@ func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
 	return true
 }
 
+func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfigurationStatus, error) {
+	configResult, err := client.ConfigGet()
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve configuration from cilium-agent: %w", err)
+	}
+
+	if configResult == nil || configResult.Status == nil {
+		return nil, fmt.Errorf("received empty configuration object from cilium-agent")
+	}
+
+	return configResult.Status, nil
+}
+
+func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (*models.IPAMResponse, func(context.Context), error) {
+	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
+	ipam, err := client.IPAMAllocate("", podName, true)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
+	}
+
+	if ipam.Address == nil {
+		return nil, nil, fmt.Errorf("Invalid IPAM response, missing addressing")
+	}
+
+	releaseFunc := func(context.Context) {
+		if ipam.Address != nil {
+			releaseIP(client, ipam.Address.IPV4)
+			releaseIP(client, ipam.Address.IPV6)
+		}
+	}
+
+	return ipam, releaseFunc, nil
+}
+
 func releaseIP(client *client.Client, ip string) {
 	if ip != "" {
 		if err := client.IPAMReleaseIP(ip); err != nil {
 			log.WithError(err).WithField(logfields.IPAddr, ip).Warn("Unable to release IP")
 		}
 	}
+}
+
+func allocateIPsWithDelegatedPlugin(
+	ctx context.Context,
+	conf *models.DaemonConfigurationStatus,
+	netConf *types.NetConf,
+	stdinData []byte,
+) (*models.IPAMResponse, func(context.Context), error) {
+	ipamRawResult, err := cniInvoke.DelegateAdd(ctx, netConf.IPAM.Type, stdinData, nil)
+	if err != nil {
+		// Since IP allocation failed, there are no IPs to clean up, so we don't need to return a releaseFunc.
+		return nil, nil, fmt.Errorf("failed to invoke delegated plugin ADD for IPAM: %w", err)
+	}
+
+	// CNI spec says if an error occurs, invoke DEL on the delegated plugin to release IPs.
+	releaseFunc := func(ctx context.Context) {
+		cniInvoke.DelegateDel(ctx, netConf.IPAM.Type, stdinData, nil)
+	}
+
+	ipamResult, err := cniTypesVer.NewResultFromResult(ipamRawResult)
+	if err != nil {
+		return nil, releaseFunc, fmt.Errorf("could not interpret delegated IPAM result for CNI version %s: %w", cniTypesVer.ImplementedSpecVersion, err)
+	}
+
+	// Translate the IPAM result into the same format as a response from Cilium agent.
+	ipam := &models.IPAMResponse{
+		HostAddressing: conf.Addressing,
+		Address:        &models.AddressPair{},
+	}
+
+	// Safe to assume at most one IP per family. The K8s API docs say:
+	// "Pods may be allocated at most 1 value for each of IPv4 and IPv6"
+	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/
+	for _, ipConfig := range ipamResult.IPs {
+		ipNet := ipConfig.Address
+		if ipv4 := ipNet.IP.To4(); ipv4 != nil {
+			ipam.Address.IPV4 = ipNet.String()
+			ipam.IPV4 = &models.IPAMAddressResponse{IP: ipv4.String()}
+		} else {
+			ipam.Address.IPV6 = ipNet.String()
+			ipam.IPV6 = &models.IPAMAddressResponse{IP: ipNet.IP.String()}
+		}
+	}
+
+	return ipam, releaseFunc, nil
 }
 
 func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlink.Link, ifName string) error {
@@ -287,6 +367,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		n        *types.NetConf
 		c        *client.Client
 		netNs    ns.NetNS
+		conf     *models.DaemonConfigurationStatus
 	)
 
 	n, err = types.LoadNetConf(args.StdinData)
@@ -371,38 +452,28 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	addLabels := models.Labels{}
 
-	configResult, err := c.ConfigGet()
+	conf, err = getConfigFromCiliumAgent(c)
 	if err != nil {
-		err = fmt.Errorf("unable to retrieve configuration from cilium-agent: %s", err)
 		return
 	}
 
-	if configResult == nil || configResult.Status == nil {
-		err = fmt.Errorf("did not receive configuration from cilium-agent")
-		return
-	}
-
-	conf := *configResult.Status
-
-	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-	ipam, err = c.IPAMAllocate("", podName, true)
-	if err != nil {
-		err = fmt.Errorf("unable to allocate IP via local cilium agent: %s", err)
-		return
-	}
-
-	if ipam.Address == nil {
-		err = fmt.Errorf("Invalid IPAM response, missing addressing")
-		return
+	var releaseIPsFunc func(context.Context)
+	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
+		ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
+	} else {
+		ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(c, cniArgs)
 	}
 
 	// release addresses on failure
 	defer func() {
-		if err != nil && ipam != nil && ipam.Address != nil {
-			releaseIP(c, ipam.Address.IPV4)
-			releaseIP(c, ipam.Address.IPV6)
+		if err != nil && releaseIPsFunc != nil {
+			releaseIPsFunc(context.TODO())
 		}
 	}()
+
+	if err != nil {
+		return
+	}
 
 	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
 		err = fmt.Errorf("IP allocation addressing in insufficient: %s", err)
@@ -410,19 +481,25 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	ep := &models.EndpointChangeRequest{
-		ContainerID:  args.ContainerID,
-		Labels:       addLabels,
-		State:        models.EndpointStateWaitingForIdentity,
-		Addressing:   &models.AddressPair{},
-		K8sPodName:   string(cniArgs.K8S_POD_NAME),
-		K8sNamespace: string(cniArgs.K8S_POD_NAMESPACE),
+		ContainerID:           args.ContainerID,
+		Labels:                addLabels,
+		State:                 models.EndpointStateWaitingForIdentity,
+		Addressing:            &models.AddressPair{},
+		K8sPodName:            string(cniArgs.K8S_POD_NAME),
+		K8sNamespace:          string(cniArgs.K8S_POD_NAMESPACE),
+		DatapathConfiguration: &models.EndpointDatapathConfiguration{},
+	}
+
+	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
+		// Prevent cilium agent from trying to release the IP when the endpoint is deleted.
+		ep.DatapathConfiguration.ExternalIpam = true
 	}
 
 	switch conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
 		var (
 			veth      *netlink.Veth
-			peer      *netlink.Link
+			peer      netlink.Link
 			tmpIfName string
 		)
 		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
@@ -438,7 +515,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			}
 		}()
 
-		if err = netlink.LinkSetNsFd(*peer, int(netNs.Fd())); err != nil {
+		if err = netlink.LinkSetNsFd(peer, int(netNs.Fd())); err != nil {
 			err = fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
 			return
 		}
@@ -594,6 +671,11 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 	}
 
+	conf, err := getConfigFromCiliumAgent(c)
+	if err != nil {
+		return err
+	}
+
 	if n.Name != chainingapi.DefaultConfigName {
 		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
 			var (
@@ -637,6 +719,13 @@ func cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		log.WithError(err).Warningf("Unable to delete interface %s in namespace %q, will not delete interface", args.IfName, args.Netns)
 		// We are not returning an error as this is very unlikely to be recoverable
+	}
+
+	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
+		err = cniInvoke.DelegateDel(context.TODO(), n.IPAM.Type, args.StdinData, nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

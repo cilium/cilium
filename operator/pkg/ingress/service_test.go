@@ -13,7 +13,6 @@ import (
 	"golang.org/x/time/rate"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/workqueue"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -152,10 +151,9 @@ func Test_getServiceForIngress(t *testing.T) {
 		assert.Equal(t, v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
-					Name:       "http",
-					Protocol:   "TCP",
-					Port:       80,
-					TargetPort: intstr.FromInt(8080),
+					Name:     "http",
+					Protocol: "TCP",
+					Port:     80,
 				},
 			},
 			Type: v1.ServiceTypeLoadBalancer,
@@ -186,16 +184,14 @@ func Test_getServiceForIngress(t *testing.T) {
 		assert.Equal(t, v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
-					Name:       "http",
-					Protocol:   "TCP",
-					Port:       80,
-					TargetPort: intstr.FromInt(8080),
+					Name:     "http",
+					Protocol: "TCP",
+					Port:     80,
 				},
 				{
-					Name:       "https",
-					Protocol:   "TCP",
-					Port:       443,
-					TargetPort: intstr.FromInt(8080),
+					Name:     "https",
+					Protocol: "TCP",
+					Port:     443,
 				},
 			},
 			Type: v1.ServiceTypeLoadBalancer,

@@ -521,6 +521,11 @@ DNS responses seen by Cilium on the node. Multiple selectors may be included in
 a single egress rule. See :ref:`DNS Obtaining Data` for information on
 collecting this IP data.
 
+.. note:: The DNS Proxy is provided in each Cilium agent.
+   As a result, DNS requests targeted by policies depend on the availability
+   of the Cilium agent pod.
+   This includes DNS policies as well as :ref:`proxy_visibility` annotations.
+
 ``toFQDNs`` egress rules cannot contain any other L3 rules, such as
 ``toEndpoints`` (under `Labels Based`_) and ``toCIDRs`` (under `CIDR Based`_).
 They may contain L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)
@@ -731,6 +736,61 @@ ports other than port 80.
 
         .. literalinclude:: ../../examples/policies/l4/cidr_l4_combined.json
 
+Limit ICMP/ICMPv6 types
+-----------------------
+
+ICMP policy can be specified in addition to layer 3 policies or independently.
+It restricts the ability of an endpoint to emit and/or receive packets on a
+particular ICMP/ICMPv6 type (currently ICMP/ICMPv6 code is not supported).
+If any ICMP policy is specified, layer 4 and ICMP communication will be blocked
+unless it's related to a connection that is otherwise allowed by the policy.
+
+ICMP policy can be specified at both ingress and egress using the
+``icmps`` field. The ``icmps`` field takes a ``ICMPField`` structure
+which is defined as follows:
+
+.. code-block:: go
+
+        // ICMPField is a ICMP field.
+        type ICMPField struct {
+        	// Family is a IP address version.
+        	// Currently, we support `IPv4` and `IPv6`.
+        	// `IPv4` is set as default.
+        	//
+        	// +default=IPv4
+        	// +optional
+        	Family string `json:"family,omitempty"`
+
+        	// Type is a ICMP-type.
+        	// It should be 0-255 (8bit).
+        	Type uint8 `json:"type"`
+        }
+
+Example (ICMP/ICMPv6)
+~~~~~~~~~~~~~~~~~~~~~
+
+The following rule limits all endpoints with the label ``app=myService`` to
+only be able to emit packets using ICMP with type 8 and ICMPv6 with type 128,
+to any layer 3 destination:
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l4/icmp.yaml
+           :language: yaml
+
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l4/icmp.json
+           :language: json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l4/icmp.json
+           :language: json
+
 
 
 .. _l7_policy:
@@ -789,6 +849,12 @@ latter rule will have no effect.
 
 .. note:: Layer 7 rules are not currently supported in `HostPolicies`, i.e.,
           policies that use :ref:`NodeSelector`.
+
+.. note:: Layer 7 policies --and pod annotations-- result in traffic being
+   proxied through an Envoy instance provided in each Cilium agent pod.
+   As a result, L7 traffic targeted by policies depend on the availability
+   of the Cilium agent pod.
+   This includes L7 policies as well as :ref:`proxy_visibility` annotations.
 
 HTTP
 ----

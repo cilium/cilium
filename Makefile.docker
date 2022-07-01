@@ -78,9 +78,10 @@ endif
 define DOCKER_IMAGE_TEMPLATE
 .PHONY: $(1)
 $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
+	$(ECHO_DOCKER)$(2) $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}:$(4)
 	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3)))
 	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(2)) \
-		$(DOCKER_FLAGS) \
+		$(DOCKER_BUILD_FLAGS) $(DOCKER_FLAGS) \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg NOSTRIP=$${NOSTRIP} \
 		--build-arg NOOPT=${NOOPT} \

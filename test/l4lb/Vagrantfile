@@ -35,7 +35,8 @@ Vagrant.configure("2") do |config|
     chmod +x ./get_helm.sh
     ./get_helm.sh
 
-    curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+    CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/master/stable.txt)
+    curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-amd64.tar.gz{,.sha256sum}
     sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
     sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
     rm cilium-linux-amd64.tar.gz{,.sha256sum}

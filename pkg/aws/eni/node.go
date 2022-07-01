@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/smithy-go"
 	"github.com/sirupsen/logrus"
 
@@ -218,13 +219,19 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 			continue
 		}
 
-		effectiveLimits := limits.IPv4
-		if n.node.Ops().IsPrefixDelegated() {
-			effectiveLimits = limits.IPv4 * option.ENIPDBlockSizeIPv4
-		}
 		// The limits include the primary IP, so we need to take it into account
-		// when computing the amount of available addresses on the ENI.
-		availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses)-1, 0)
+		// when computing the effective number of available addresses on the ENI.
+		effectiveLimits := limits.IPv4 - 1
+
+		// Include the primary IP when UsePrimaryAddress is set to true on ENI spec.
+		if n.k8sObj.Spec.ENI.UsePrimaryAddress != nil && *n.k8sObj.Spec.ENI.UsePrimaryAddress {
+			effectiveLimits++
+		}
+		if n.node.Ops().IsPrefixDelegated() {
+			effectiveLimits = effectiveLimits * option.ENIPDBlockSizeIPv4
+		}
+
+		availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
 		if availableOnENI <= 0 {
 			continue
 		} else {
@@ -667,6 +674,10 @@ func (n *Node) IsPrefixDelegated() bool {
 	if limits.HypervisorType != "nitro" {
 		return false
 	}
+	// Check if this node is allowed to use prefix delegation
+	if n.k8sObj.Spec.ENI.DisablePrefixDelegation != nil && aws.ToBool(n.k8sObj.Spec.ENI.DisablePrefixDelegation) {
+		return false
+	}
 	// Verify if all interfaces are prefix delegated. We don't want to enable prefix delegation on nodes that already
 	// use secondary IPs.
 	for _, eni := range n.enis {
@@ -674,6 +685,10 @@ func (n *Node) IsPrefixDelegated() bool {
 			continue
 		}
 		if len(eni.Prefixes) == 0 && len(eni.Addresses) > 0 {
+			// Ignore primary IP of the ENI
+			if len(eni.Addresses) == 1 && eni.Addresses[0] == eni.IP {
+				continue
+			}
 			return false
 		}
 	}

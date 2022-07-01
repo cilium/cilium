@@ -8,6 +8,7 @@ package policy
 import (
 	"bytes"
 	stdlog "log"
+	"testing"
 
 	. "gopkg.in/check.v1"
 
@@ -2574,4 +2575,41 @@ func (ds *PolicyTestSuite) TestMatches(c *C) {
 	c.Assert(hostRule.matches(hostIdentity), Equals, true)
 	c.Assert(hostRule.metadata.IdentitySelected, checker.DeepEquals,
 		map[identity.NumericIdentity]bool{selectedIdentity.ID: false, hostIdentity.ID: true})
+}
+
+func BenchmarkRuleString(b *testing.B) {
+	r := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "8080", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET", Path: "/"},
+							},
+						},
+					}},
+				},
+			},
+			Egress: []api.EgressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "3000", Protocol: api.ProtoAny},
+						},
+					}},
+				},
+			},
+		},
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = r.String()
+	}
 }

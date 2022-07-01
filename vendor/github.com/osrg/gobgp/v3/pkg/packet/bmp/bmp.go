@@ -51,8 +51,14 @@ const (
 	BMP_PEER_FLAG_IPV6        = 1 << 7
 	BMP_PEER_FLAG_POST_POLICY = 1 << 6
 	BMP_PEER_FLAG_TWO_AS      = 1 << 5
-	BMP_PEER_FLAG_FILTERED    = 1 << 6
+	BMP_PEER_FLAG_ADJ_RIB_TYP = 1 << 4
 )
+
+func makeIP(data []byte) net.IP {
+	ip := make(net.IP, len(data))
+	copy(ip, data)
+	return ip
+}
 
 func (h *BMPHeader) DecodeFromBytes(data []byte) error {
 	h.Version = data[0]
@@ -108,14 +114,18 @@ func (h *BMPPeerHeader) IsPostPolicy() bool {
 	}
 }
 
+func (h *BMPPeerHeader) IsAdjRIBOut() bool {
+	return h.Flags&BMP_PEER_FLAG_ADJ_RIB_TYP != 0
+}
+
 func (h *BMPPeerHeader) DecodeFromBytes(data []byte) error {
 	h.PeerType = data[0]
 	h.Flags = data[1]
 	h.PeerDistinguisher = binary.BigEndian.Uint64(data[2:10])
 	if h.Flags&BMP_PEER_FLAG_IPV6 != 0 {
-		h.PeerAddress = net.IP(data[10:26]).To16()
+		h.PeerAddress = makeIP(data[10:26]).To16()
 	} else {
-		h.PeerAddress = net.IP(data[22:26]).To4()
+		h.PeerAddress = makeIP(data[22:26]).To4()
 	}
 	h.PeerAS = binary.BigEndian.Uint32(data[26:30])
 	h.PeerBGPID = data[30:34]
@@ -193,6 +203,10 @@ const (
 	BMP_STAT_TYPE_WITHDRAW_UPDATE
 	BMP_STAT_TYPE_WITHDRAW_PREFIX
 	BMP_STAT_TYPE_DUPLICATE_UPDATE
+	BMP_STAT_TYPE_ADJ_RIB_OUT_PRE_POLICY
+	BMP_STAT_TYPE_ADJ_RIB_OUT_POST_POLICY
+	BMP_STAT_TYPE_PER_AFI_SAFI_ADJ_RIB_OUT_PRE_POLICY
+	BMP_STAT_TYPE_PER_AFI_SAFI_ADJ_RIB_OUT_POST_POLICY
 )
 
 type BMPStatsTLVInterface interface {
@@ -339,9 +353,11 @@ func (body *BMPStatisticsReport) ParseBody(msg *BMPMessage, data []byte) error {
 		}
 		var s BMPStatsTLVInterface
 		switch tl.Type {
-		case BMP_STAT_TYPE_ADJ_RIB_IN, BMP_STAT_TYPE_LOC_RIB:
+		case BMP_STAT_TYPE_ADJ_RIB_IN, BMP_STAT_TYPE_LOC_RIB, BMP_STAT_TYPE_ADJ_RIB_OUT_PRE_POLICY,
+			BMP_STAT_TYPE_ADJ_RIB_OUT_POST_POLICY:
 			s = &BMPStatsTLV64{BMPStatsTLV: tl}
-		case BMP_STAT_TYPE_PER_AFI_SAFI_ADJ_RIB_IN, BMP_STAT_TYPE_PER_AFI_SAFI_LOC_RIB:
+		case BMP_STAT_TYPE_PER_AFI_SAFI_ADJ_RIB_IN, BMP_STAT_TYPE_PER_AFI_SAFI_LOC_RIB,
+			BMP_STAT_TYPE_PER_AFI_SAFI_ADJ_RIB_OUT_PRE_POLICY, BMP_STAT_TYPE_PER_AFI_SAFI_ADJ_RIB_OUT_POST_POLICY:
 			s = &BMPStatsTLVPerAfiSafi64{BMPStatsTLV: tl}
 		case BMP_STAT_TYPE_REJECTED, BMP_STAT_TYPE_DUPLICATE_PREFIX,
 			BMP_STAT_TYPE_DUPLICATE_WITHDRAW, BMP_STAT_TYPE_INV_UPDATE_DUE_TO_CLUSTER_LIST_LOOP,
@@ -487,9 +503,9 @@ func NewBMPPeerUpNotification(p BMPPeerHeader, lAddr string, lPort, rPort uint16
 
 func (body *BMPPeerUpNotification) ParseBody(msg *BMPMessage, data []byte) error {
 	if msg.PeerHeader.Flags&BMP_PEER_FLAG_IPV6 != 0 {
-		body.LocalAddress = net.IP(data[:16]).To16()
+		body.LocalAddress = makeIP(data[:16]).To16()
 	} else {
-		body.LocalAddress = net.IP(data[12:16]).To4()
+		body.LocalAddress = makeIP(data[12:16]).To4()
 	}
 
 	body.LocalPort = binary.BigEndian.Uint16(data[16:18])
@@ -1078,12 +1094,12 @@ func SplitBMP(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 || len(data) < BMP_HEADER_SIZE {
 		return 0, nil, nil
 	}
-
-	msg := &BMPMessage{}
-	msg.Header.DecodeFromBytes(data)
-	if uint32(len(data)) < msg.Header.Length {
+	tmpHdr := &BMPHeader{}
+	if err = tmpHdr.DecodeFromBytes(data[:BMP_HEADER_SIZE]); err != nil {
 		return 0, nil, nil
 	}
-
-	return int(msg.Header.Length), data[0:msg.Header.Length], nil
+	if len(data) < int(tmpHdr.Length) {
+		return 0, nil, nil
+	}
+	return int(tmpHdr.Length), data[0:tmpHdr.Length], nil
 }

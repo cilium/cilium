@@ -15,6 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  cilium_cli_version: v0.11.9
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -60,31 +61,6 @@ jobs:
              cilium-agent/clusterrole.yaml \
              cilium-preflight/clusterrole.yaml
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-        with:
-          persist-credentials: false
-
-      - name: Run helm lint
-        run: |
-          make -C install/kubernetes lint
-
-  helm-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-        with:
-          persist-credentials: false
-
-      - name: Run helm-docs
-        run: |
-          make -C install/kubernetes docs
-          test -z "$(git status --porcelain)" || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
-
   helm-charts:
     runs-on: ubuntu-latest
     steps:
@@ -124,7 +100,7 @@ jobs:
           test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
 
       - name: Create kind cluster
-        uses: helm/kind-action@94729529f85113b88f4f819c17ce61382e6d8478
+        uses: helm/kind-action@d08cf6ff1575077dee99962540d77ce91c62387d
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -188,7 +164,7 @@ jobs:
           cd $HOME
           cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
           kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
-          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9090/metrics > metrics.prom
+          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9962/metrics > metrics.prom
           # Install promtool binary release. `go install` doesn't work due to
           # https://github.com/prometheus/prometheus/issues/8852 and related issues.
           curl -sSL --remote-name-all https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/{prometheus-${PROM_VERSION}.linux-amd64.tar.gz,sha256sums.txt}
@@ -204,8 +180,8 @@ jobs:
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          echo "=== Install Cilium CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
           sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
           rm cilium-linux-amd64.tar.gz{,.sha256sum}

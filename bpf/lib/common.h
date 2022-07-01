@@ -17,13 +17,6 @@
 #include "mono.h"
 #include "config.h"
 
-/* FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
- * #ifndef HAVE_LRU_HASH_MAP_TYPE
- * #define NEEDS_TIMEOUT 1
- * #endif
- */
-#define NEEDS_TIMEOUT 1
-
 #ifndef AF_INET
 #define AF_INET 2
 #endif
@@ -46,10 +39,6 @@
  */
 # define THIS_MTU MTU
 #endif
-
-#define PORT_UDP_VXLAN 4789
-#define PORT_UDP_GENEVE 6081
-#define PORT_UDP_VXLAN_LINUX 8472
 
 #ifdef PREALLOCATE_MAPS
 #define CONDITIONAL_PREALLOC 0
@@ -102,7 +91,13 @@
 #define CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT	24
 #define CILIUM_CALL_IPV4_FROM_LXC_CONT		25
 #define CILIUM_CALL_IPV6_FROM_LXC_CONT		26
-#define CILIUM_CALL_SIZE			27
+#define CILIUM_CALL_IPV4_CT_INGRESS		27
+#define CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY	28
+#define CILIUM_CALL_IPV4_CT_EGRESS		29
+#define CILIUM_CALL_IPV6_CT_INGRESS		30
+#define CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY	31
+#define CILIUM_CALL_IPV6_CT_EGRESS		32
+#define CILIUM_CALL_SIZE			33
 
 typedef __u64 mac_t;
 
@@ -449,6 +444,7 @@ enum {
 #define DROP_POLICY_DENY	-181
 #define DROP_VLAN_FILTERED	-182
 #define DROP_INVALID_VNI	-183
+#define DROP_INVALID_TC_BUFFER  -184
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define NAT_46X64_RECIRC	100

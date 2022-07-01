@@ -47,6 +47,10 @@ var _ = SkipDescribeIf(func() bool {
 		l7NamedPortPolicy        string
 		l7PolicyKafka            string
 		l7PolicyTLS              string
+		ICMPPolicy               string
+		ICMPPolicyDeny           string
+		ICMPv6Policy             string
+		ICMPv6PolicyDeny         string
 		TLSCaCerts               string
 		TLSArtiiCrt              string
 		TLSArtiiKey              string
@@ -83,6 +87,10 @@ var _ = SkipDescribeIf(func() bool {
 		l7NamedPortPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-named-port.yaml")
 		l7PolicyKafka = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-kafka.yaml")
 		l7PolicyTLS = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-TLS.yaml")
+		ICMPPolicy = helpers.ManifestGet(kubectl.BasePath(), "icmp-policy.yaml")
+		ICMPPolicyDeny = helpers.ManifestGet(kubectl.BasePath(), "icmp-policy-deny.yaml")
+		ICMPv6Policy = helpers.ManifestGet(kubectl.BasePath(), "icmp6-policy.yaml")
+		ICMPv6PolicyDeny = helpers.ManifestGet(kubectl.BasePath(), "icmp6-policy-deny.yaml")
 		TLSCaCerts = helpers.ManifestGet(kubectl.BasePath(), "testCA.crt")
 		TLSArtiiCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-artii.crt")
 		TLSArtiiKey = helpers.ManifestGet(kubectl.BasePath(), "internal-artii.key")
@@ -368,6 +376,147 @@ var _ = SkipDescribeIf(func() bool {
 				helpers.CurlFail("http://%s/private", clusterIP))
 			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
 				appPods[helpers.App3], clusterIP)
+		}, 500)
+
+		It("checks ICMP policies", func() {
+
+			By("Testing ICMP rules")
+
+			podIPs, err := kubectl.GetPodsIPs(namespaceForTest, "id=app1")
+			Expect(err).Should(BeNil(), "Cannot get pod IPs")
+			app1IP, ok := podIPs[appPods[helpers.App1]]
+			Expect(ok).Should(BeTrue(), "Cannot get app1 pod IP")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, ICMPPolicy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			trace := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 8/ICMP",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 8/ICMP",
+				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			res := kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.Ping(app1IP))
+			res.ExpectSuccess("%q cannot ping to %q", appPods[helpers.App2], appPods[helpers.App1])
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.Ping(appPods[helpers.App1]))
+			res.ExpectFail("%q can ping to %q", appPods[helpers.App3], appPods[helpers.App1])
+
+			By("Testing ICMP deny rules")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, ICMPPolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 8/ICMP",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 8/ICMP",
+				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.Ping(app1IP))
+			res.ExpectFail("%q can ping to %q", appPods[helpers.App2], appPods[helpers.App1])
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.Ping(appPods[helpers.App1]))
+			res.ExpectFail("%q can ping to %q", appPods[helpers.App3], appPods[helpers.App1])
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, ICMPPolicy,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete ICMP Policy")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, ICMPPolicyDeny,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete ICMP Policy Deny")
+
+			By("Testing ICMPv6 rules")
+
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "Cannot get pod IPs")
+			podIPs = kubectl.CiliumEndpointIPv6(ciliumPodK8s1, "-l k8s:id=app1")
+			Expect(err).Should(BeNil(), "Cannot get pod IPs")
+			app1IPKey := fmt.Sprintf("%s/%s", namespaceForTest, appPods[helpers.App1])
+			app1IP, ok = podIPs[app1IPKey]
+			Expect(ok).Should(BeTrue(), "Cannot get app1 pod IP")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, ICMPv6Policy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 128/ICMPv6",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 128/ICMPv6",
+				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.Ping6(app1IP))
+			res.ExpectSuccess("%q cannot ping to %q", appPods[helpers.App2], appPods[helpers.App1])
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.Ping6(appPods[helpers.App1]))
+			res.ExpectFail("%q can ping to %q", appPods[helpers.App3], appPods[helpers.App1])
+
+			By("Testing ICMPv6 deny rules")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, ICMPv6PolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 128/ICMPv6",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 128/ICMPv6",
+				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.Ping6(app1IP))
+			res.ExpectFail("%q can ping to %q", appPods[helpers.App2], appPods[helpers.App1])
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.Ping6(appPods[helpers.App1]))
+			res.ExpectFail("%q can ping to %q", appPods[helpers.App3], appPods[helpers.App1])
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, ICMPv6Policy,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete ICMPv6 Policy")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, ICMPv6PolicyDeny,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete ICMPv6 Policy Deny")
+
 		}, 500)
 
 		It("checks policies with named ports", func() {

@@ -126,6 +126,10 @@ spec:
                       is not set the default behavior is to delete the ENI on instance
                       termination.
                     type: boolean
+                  disable-prefix-delegation:
+                    description: DisablePrefixDelegation determines whether ENI prefix
+                      delegation should be disabled on this node.
+                    type: boolean
                   exclude-interface-tags:
                     additionalProperties:
                       type: string
@@ -200,6 +204,10 @@ spec:
                     description: SubnetTags is the list of tags to use when evaluating
                       what AWS subnets to use for ENI and IP allocation.
                     type: object
+                  use-primary-address:
+                    description: UsePrimaryAddress determines whether an ENI's primary
+                      address should be available for allocations on the node
+                    type: boolean
                   vpc-id:
                     description: VpcID is the VPC ID to use when allocating ENIs.
                     type: string

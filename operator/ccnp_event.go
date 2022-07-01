@@ -17,11 +17,16 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/groups"
 )
+
+func k8sEventMetric(scope, action string) {
+	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action).SetToCurrentTime()
+}
 
 // enableCCNPWatcher is similar to enableCNPWatcher but handles the watch events for
 // clusterwide policies. Since, internally Clusterwide policies are implemented
@@ -65,9 +70,8 @@ func enableCCNPWatcher() error {
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEventMetric(resources.MetricCCNP, resources.MetricCreate)
 				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
-
 					// We need to deepcopy this structure because we are writing
 					// fields.
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
@@ -80,7 +84,7 @@ func enableCCNPWatcher() error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEventMetric(resources.MetricCCNP, resources.MetricUpdate)
 				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
 					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
 						if oldCNP.DeepEqual(newCNP) {
@@ -98,7 +102,7 @@ func enableCCNPWatcher() error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEventMetric(resources.MetricCCNP, resources.MetricDelete)
 				cnp := k8s.ObjToSlimCNP(obj)
 				if cnp == nil {
 					return

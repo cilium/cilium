@@ -44,7 +44,7 @@ func (m *ruleMetadata) delete(identity *identity.Identity) {
 }
 
 func (r *rule) String() string {
-	return fmt.Sprintf("%v", r.EndpointSelector)
+	return r.EndpointSelector.String()
 }
 
 func (r *rule) getSelector() *api.EndpointSelector {

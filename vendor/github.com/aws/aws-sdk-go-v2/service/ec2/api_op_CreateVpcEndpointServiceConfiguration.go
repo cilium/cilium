@@ -71,6 +71,9 @@ type CreateVpcEndpointServiceConfigurationInput struct {
 	// endpoint service.
 	PrivateDnsName *string
 
+	// The supported IP address types. The possible values are ipv4 and ipv6.
+	SupportedIpAddressTypes []string
+
 	// The tags to associate with the service.
 	TagSpecifications []types.TagSpecification
 

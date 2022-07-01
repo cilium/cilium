@@ -137,16 +137,9 @@ func (cs configs) ResolveAWSConfig(ctx context.Context, resolvers []awsConfigRes
 
 	for _, fn := range resolvers {
 		if err := fn(ctx, &cfg, cs); err != nil {
-			// TODO provide better error?
 			return aws.Config{}, err
 		}
 	}
-
-	var sources []interface{}
-	for _, s := range cs {
-		sources = append(sources, s)
-	}
-	cfg.ConfigSources = sources
 
 	return cfg, nil
 }

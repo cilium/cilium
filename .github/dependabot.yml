@@ -16,9 +16,6 @@ updates:
       - dependency-name: "github.com/aliyun/alibaba-cloud-sdk-go"
       - dependency-name: "github.com/aws/*"
       - dependency-name: "github.com/Azure/*"
-        # Remove when https://github.com/prometheus/client_golang/issues/995
-        # has been solved and shipped in a release.
-      - dependency-name: "github.com/prometheus/client_golang"
     labels:
     - kind/enhancement
     - release-note/misc
@@ -111,6 +108,109 @@ updates:
     directory: ./images/runtime
     schedule:
       interval: daily
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+  
+  # # # # # # # # # # # # # # # #
+  # Docker images v1.12 branch  #
+  # # # # # # # # # # # # # # # #
+
+  - package-ecosystem: docker
+    directory: ./images/builder
+    schedule:
+      interval: daily
+    target-branch: "v1.12"
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+
+  - package-ecosystem: docker
+    directory: ./images/cache
+    schedule:
+      interval: daily
+    target-branch: "v1.12"
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+
+  - package-ecosystem: docker
+    directory: ./images/cilium
+    schedule:
+      interval: daily
+    target-branch: "v1.12"
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+
+  - package-ecosystem: docker
+    directory: ./images/cilium-docker-plugin
+    schedule:
+      interval: daily
+    target-branch: "v1.12"
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+
+  - package-ecosystem: docker
+    directory: ./images/cilium-test
+    schedule:
+      interval: daily
+    target-branch: "v1.12"
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+
+  - package-ecosystem: docker
+    directory: ./images/clustermesh-apiserver
+    schedule:
+      interval: daily
+    target-branch: "v1.12"
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+
+  - package-ecosystem: docker
+    directory: ./images/hubble-relay
+    schedule:
+      interval: daily
+    target-branch: "v1.12"
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+
+  - package-ecosystem: docker
+    directory: ./images/operator
+    schedule:
+      interval: daily
+    target-branch: "v1.12"
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+
+  - package-ecosystem: docker
+    directory: ./images/runtime
+    schedule:
+      interval: daily
+    target-branch: "v1.12"
     open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     labels:
@@ -324,98 +424,6 @@ updates:
       - release-note/misc
 
 # # # # # # # # # # # # # # # #
-#  Docker images v1.9 branch  #
-# # # # # # # # # # # # # # # #
-
-  - package-ecosystem: docker
-    directory: ./images/builder
-    schedule:
-      interval: daily
-    target-branch: "v1.9"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
-    directory: ./images/cache
-    schedule:
-      interval: daily
-    target-branch: "v1.9"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
-    directory: ./images/cilium
-    schedule:
-      interval: daily
-    target-branch: "v1.9"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
-    directory: ./images/cilium-docker-plugin
-    schedule:
-      interval: daily
-    target-branch: "v1.9"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
-    directory: ./images/cilium-test
-    schedule:
-      interval: daily
-    target-branch: "v1.9"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
-    directory: ./images/hubble-relay
-    schedule:
-      interval: daily
-    target-branch: "v1.9"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
-    directory: ./images/operator
-    schedule:
-      interval: daily
-    target-branch: "v1.9"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
-    directory: ./images/runtime
-    schedule:
-      interval: daily
-    target-branch: "v1.9"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-# # # # # # # # # # # # # # # #
 #        GitHub Actions       #
 # # # # # # # # # # # # # # # #
 
@@ -433,6 +441,17 @@ updates:
     directory: /
     schedule:
       interval: daily
+    target-branch: "v1.12"
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+      - kind/enhancement
+      - release-note/misc
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
     target-branch: "v1.11"
     open-pull-requests-limit: 5
     rebase-strategy: "disabled"
@@ -445,17 +464,6 @@ updates:
     schedule:
       interval: daily
     target-branch: "v1.10"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-    - kind/enhancement
-    - release-note/misc
-
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: daily
-    target-branch: "v1.9"
     open-pull-requests-limit: 5
     rebase-strategy: "disabled"
     labels:
