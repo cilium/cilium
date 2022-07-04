@@ -299,6 +299,11 @@ Users (Alphabetically)
       U: Networking (IPAM, CNI), Security (Network Policies), Visibility (hubble)
       L: https://nexxiot.com
 
+    * N: Nine Internet Solutions AG
+      D: Nine uses Cilium on all Nine Kubernetes Engine clusters
+      U: CNI, network policy, kube-proxy replacement, host firewall
+      L: https://www.nine.ch/en/kubernetes
+
     * N: Northflank
       D: Northflank is a PaaS and uses Cilium as the main CNI plugin across GCP, Azure, AWS and bare-metal
       U: Networking, network policy, hubble, packet monitoring and network visibility
