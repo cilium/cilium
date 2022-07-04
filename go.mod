@@ -84,6 +84,7 @@ require (
 	go.uber.org/multierr v1.8.0
 	go.universe.tf/metallb v0.11.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
+	golang.org/x/exp v0.0.0-20220602145555-4a0574d9293f
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
@@ -212,7 +213,6 @@ require (
 	go.mongodb.org/mongo-driver v1.10.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/zap v1.19.1 // indirect
-	golang.org/x/exp v0.0.0-20220602145555-4a0574d9293f // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
