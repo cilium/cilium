@@ -34,36 +34,36 @@ var (
 	}
 )
 
-type Opts struct {
+type ciliumCLIOpts struct {
 	Wait           bool
 	Namespace      string
 	ChartDirectory string
 	HelmOptions    map[string]string
 }
 
-type Option func(*Opts)
+type Option func(*ciliumCLIOpts)
 
 func WithWait(wait bool) Option {
-	return func(o *Opts) { o.Wait = wait }
+	return func(o *ciliumCLIOpts) { o.Wait = wait }
 }
 
 func WithNamespace(namespace string) Option {
-	return func(o *Opts) { o.Namespace = namespace }
+	return func(o *ciliumCLIOpts) { o.Namespace = namespace }
 }
 
 func WithChartDirectory(chartDirectory string) Option {
-	return func(o *Opts) { o.ChartDirectory = chartDirectory }
+	return func(o *ciliumCLIOpts) { o.ChartDirectory = chartDirectory }
 }
 
 func WithHelmOptions(helmOptions map[string]string) Option {
-	return func(o *Opts) {
+	return func(o *ciliumCLIOpts) {
 		// TODO: copy instead?
 		o.HelmOptions = helmOptions
 	}
 }
 
-func processOpts(opts ...Option) *Opts {
-	o := &Opts{}
+func processOpts(opts ...Option) *ciliumCLIOpts {
+	o := &ciliumCLIOpts{}
 	for _, op := range opts {
 		op(o)
 	}
@@ -72,11 +72,11 @@ func processOpts(opts ...Option) *Opts {
 
 type ciliumCLI struct {
 	cmd  string
-	opts *Opts
+	opts *ciliumCLIOpts
 	e    *gexe.Echo
 }
 
-func newCiliumCLI(opts *Opts) *ciliumCLI {
+func newCiliumCLI(opts *ciliumCLIOpts) *ciliumCLI {
 	return &ciliumCLI{
 		cmd:  "cilium",
 		opts: opts,
