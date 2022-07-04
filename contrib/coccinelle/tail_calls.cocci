@@ -14,16 +14,16 @@ cnt = 0
 
 // We whitelist two ep_tail_call cases:
 // - One used in invoke_tailcall_if as we'll check invoke_tailcall_if itself.
-// - One used in send_drop_notify() as we're already in the code that's
+// - One used in _send_drop_notify() as we're already in the code that's
 //   supposed to be called after tail calls.
 def whitelist_tailcalls(p):
-    return p.current_element != "send_drop_notify" and \
+    return p.current_element != "_send_drop_notify" and \
            not p.file.endswith("lib/tailcall.h")
 
 
 @rule forall@
 position p : script:python() { whitelist_tailcalls(p[0]) };
-expression e1, e2, e3, e4, x;
+expression e1, e2, e3, e4, e5, x;
 symbol ret;
 @@
 
@@ -31,13 +31,13 @@ symbol ret;
   // Classic cases of send_drop_notify_error with DROP_MISSED_TAIL_CALL.
   ep_tail_call(...);
   ... when != return ...;
-  return send_drop_notify_error(e1, e2, DROP_MISSED_TAIL_CALL, ...);
+  return \(send_drop_notify_error\|send_drop_notify_error_ext\)(e1, e2, DROP_MISSED_TAIL_CALL, ...);
 |
   ep_tail_call(...);
   <+... when != return ...;
   x = DROP_MISSED_TAIL_CALL;
   ...+>
-  return send_drop_notify_error(e1, e2, x, ...);
+  return \(send_drop_notify_error\|send_drop_notify_error_ext\)(e1, e2, x, ...);
 |
   // We also whitelist any function returning DROP_MISSED_TAIL_CALL, assuming
   // this will be caught afterwards and transformed in call to
@@ -60,7 +60,11 @@ symbol ret;
   \(
     return send_drop_notify(e1, e2, e3, e4, ret, CTX_ACT_DROP, ...);
   \|
+    return send_drop_notify_ext(e1, e2, e3, e4, ret, e5, CTX_ACT_DROP, ...);
+  \|
     return send_drop_notify_error(e1, e2, ret, CTX_ACT_DROP, ...);
+  \|
+    return send_drop_notify_error_ext(e1, e2, ret, e3, CTX_ACT_DROP, ...);
   \|
     // For invoke_tailcall_if(), it sets variable 'ret', so we need to check
     // that variable specifically.
@@ -74,7 +78,11 @@ symbol ret;
     \(
       return send_drop_notify(e1, e2, e3, e4, ret, CTX_ACT_DROP, ...);
     \|
+      return send_drop_notify_ext(e1, e2, e3, e4, ret, e5, CTX_ACT_DROP, ...);
+    \|
       return send_drop_notify_error(e1, e2, ret, CTX_ACT_DROP, ...);
+    \|
+      return send_drop_notify_error_ext(e1, e2, ret, e3, CTX_ACT_DROP, ...);
     \|
       // For invoke_tailcall_if(), it sets variable 'ret', so we need to check
       // that variable specifically.
