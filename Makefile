@@ -24,9 +24,10 @@ GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(GO_LIST) -find -e ./...))
 GOFILES ?= $(GOFILES_EVAL)
 TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 		sed 's/ /\n\//g' | \
-		grep -v '/api/v1\|/vendor\|/contrib\|/test' | \
+		grep -Pv '(/api/v1|/vendor|/contrib|/test$$|/test/(?!control-plane))' | \
 		sed 's/^\///g')) \
 	test/helpers/logutils
+
 TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 
@@ -466,6 +467,7 @@ govet: ## Run govet on Go source files in the repository.
     ./proxylib/... \
     ./test/. \
     ./test/config/... \
+    ./test/control-plane/... \
     ./test/ginkgo-ext/... \
     ./test/helpers/... \
     ./test/runtime/... \
