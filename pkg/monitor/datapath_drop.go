@@ -32,7 +32,7 @@ type DropNotify struct {
 	DstID    uint32
 	Line     uint16
 	File     uint8
-	Unused   uint8
+	ExtError int8
 	// data
 }
 
