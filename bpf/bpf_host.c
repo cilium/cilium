@@ -777,7 +777,8 @@ drop_err:
 static __always_inline int
 do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
 		      __u16 proto __maybe_unused,
-		      int *encrypt_iface __maybe_unused)
+		      int *encrypt_iface __maybe_unused,
+		      int *ext_err __maybe_unused)
 {
 	int ret = 0;
 	/* Only do FIB lookup if both the BPF helper is supported and we know
@@ -820,6 +821,7 @@ do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
 	err = fib_lookup(ctx, &fib_params, sizeof(fib_params),
 		    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
 	if (err != 0) {
+		*ext_err = err;
 		ret = DROP_NO_FIB;
 		goto drop_err_fib;
 	}
@@ -841,6 +843,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 					     __u32 src_id)
 {
 	int encrypt_iface = 0;
+	int ext_err = 0;
 	int ret = 0;
 #if defined(ENCRYPT_IFACE) && defined(BPF_HAVE_FIB_LOOKUP)
 	encrypt_iface = ENCRYPT_IFACE;
@@ -849,9 +852,10 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 	if (ret)
 		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	ret = do_netdev_encrypt_fib(ctx, proto, &encrypt_iface);
+	ret = do_netdev_encrypt_fib(ctx, proto, &encrypt_iface, &ext_err);
 	if (ret)
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 
 	bpf_clear_meta(ctx);
 #ifdef BPF_HAVE_FIB_LOOKUP
