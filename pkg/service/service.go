@@ -144,14 +144,31 @@ func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool
 }
 
 func (svc *svcInfo) useMaglev() bool {
-	return option.Config.NodePortAlg == option.NodePortAlgMaglev &&
-		((svc.svcType == lb.SVCTypeNodePort && !isWildcardAddr(svc.frontend)) ||
-			svc.svcType == lb.SVCTypeExternalIPs ||
-			svc.svcType == lb.SVCTypeLoadBalancer ||
-			// Provision the Maglev LUT for ClusterIP only if ExternalClusterIP is enabled
-			// because ClusterIP can also be accessed from outside with this setting.
-			// We don't do it unconditionally to avoid increasing memory footprint.
-			(option.Config.ExternalClusterIP && svc.svcType == lb.SVCTypeClusterIP))
+	if option.Config.NodePortAlg != option.NodePortAlgMaglev {
+		return false
+	}
+	// Provision the Maglev LUT for ClusterIP only if ExternalClusterIP is
+	// enabled because ClusterIP can also be accessed from outside with this
+	// setting. We don't do it unconditionally to avoid increasing memory
+	// footprint.
+	if svc.svcType == lb.SVCTypeClusterIP && !option.Config.ExternalClusterIP {
+		return false
+	}
+	// Wildcarded frontend is not exposed for external traffic.
+	if svc.svcType == lb.SVCTypeNodePort && isWildcardAddr(svc.frontend) {
+		return false
+	}
+	// Only provision the Maglev LUT for service types which are reachable
+	// from outside the node.
+	switch svc.svcType {
+	case lb.SVCTypeClusterIP,
+		lb.SVCTypeNodePort,
+		lb.SVCTypeLoadBalancer,
+		lb.SVCTypeHostPort,
+		lb.SVCTypeExternalIPs:
+		return true
+	}
+	return false
 }
 
 type L7LBInfo struct {
