@@ -390,6 +390,7 @@ externalIPs
 externalWorkloads
 extraArgs
 extraConfig
+extraContainers
 extraDnsNames
 extraEnv
 extraHostPathMounts
