@@ -1,6 +1,4 @@
-# Do not upgrade to alpine 3.13 as its nslookup tool returns 1, instead of 0
-# for domain name lookups.
-FROM docker.io/library/alpine:3.12.7@sha256:36553b10a4947067b9fbb7d532951066293a68eae893beba1d9235f7d11a20ad
+FROM docker.io/library/alpine:3.16.0@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c
 
 LABEL maintainer="maintainer@cilium.io"
 
