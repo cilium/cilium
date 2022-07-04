@@ -661,6 +661,10 @@
      - extraConfig allows you to specify additional configuration parameters to be included in the cilium-config configmap.
      - object
      - ``{}``
+   * - extraContainers
+     - Additional containers added to the cilium DaemonSet.
+     - list
+     - ``[]``
    * - extraEnv
      - Additional agent container environment variables.
      - list

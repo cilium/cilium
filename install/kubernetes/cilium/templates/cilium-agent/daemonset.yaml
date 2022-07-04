@@ -405,6 +405,9 @@ spec:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
       {{- end }}
+      {{- if .Values.extraContainers }}
+      {{- toYaml .Values.extraContainers | nindent 6 }}
+      {{- end }}
       initContainers:
       {{- if .Values.cgroup.autoMount.enabled }}
       # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
