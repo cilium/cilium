@@ -343,8 +343,10 @@ func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
 // filter.
 func doGC6(m *Map, filter *GCFilter) gcStats {
 	ctMap := mapInfo[m.mapType]
-	ctMap.natMapLock.Lock()
-	defer ctMap.natMapLock.Unlock()
+	if ctMap.natMapLock != nil {
+		ctMap.natMapLock.Lock()
+		defer ctMap.natMapLock.Unlock()
+	}
 	natMap := ctMap.natMap
 	stats := statStartGc(m)
 	defer stats.finish()
@@ -426,8 +428,10 @@ func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
 // filter.
 func doGC4(m *Map, filter *GCFilter) gcStats {
 	ctMap := mapInfo[m.mapType]
-	ctMap.natMapLock.Lock()
-	defer ctMap.natMapLock.Unlock()
+	if ctMap.natMapLock != nil {
+		ctMap.natMapLock.Lock()
+		defer ctMap.natMapLock.Unlock()
+	}
 	natMap := ctMap.natMap
 	stats := statStartGc(m)
 	defer stats.finish()
@@ -586,8 +590,10 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
 	ctMap := mapInfo[ctMapTCP.mapType]
-	ctMap.natMapLock.Lock()
-	defer ctMap.natMapLock.Unlock()
+	if ctMap.natMapLock != nil {
+		ctMap.natMapLock.Lock()
+		defer ctMap.natMapLock.Unlock()
+	}
 	natMap := ctMap.natMap
 	if natMap == nil {
 		return nil
