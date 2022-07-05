@@ -427,11 +427,15 @@ Cilium. The following situations result in unmanaged pods:
 
 * The pod is running in host networking and will use the host's IP address
   directly. Such pods have full network connectivity but Cilium will not
-  provide security policy enforcement for such pods.
+  provide security policy enforcement for such pods by default. To enforce
+  policy against these pods, either set ``hostNetwork`` to false or use
+  :ref:`HostPolicies`.
 
 * The pod was started before Cilium was deployed. Cilium only manages pods
   that have been deployed after Cilium itself was started. Cilium will not
-  provide security policy enforcement for such pods.
+  provide security policy enforcement for such pods. These pods should be
+  restarted in order to ensure that Cilium can provide security policy
+  enforcement.
 
 If pod networking is not managed by Cilium. Ingress and egress policy rules
 selecting the respective pods will not be applied. See the section
