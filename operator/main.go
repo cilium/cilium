@@ -508,6 +508,14 @@ func onOperatorStartLeading(ctx context.Context) {
 		log.WithError(err).Fatal("Unable to setup node watcher")
 	}
 
+	if option.Config.DisableCNPStatusUpdates {
+		// If CNP status updates are disabled, we clean up all the
+		// possible updates written when the option was enabled.
+		// This is done to avoid accumulating stale updates and thus
+		// hindering scalability for large clusters.
+		RunCNPStatusNodesCleaner(ctx, k8s.CiliumClient().CiliumV2())
+	}
+
 	if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
 		RunCNPNodeStatusGC(ciliumNodeStore)
 	}
