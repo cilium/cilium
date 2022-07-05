@@ -28,7 +28,7 @@ func (s *IdentityTestSuite) TestLocalIdentity(c *C) {
 func (s *IdentityTestSuite) TestClusterID(c *C) {
 	tbl := []struct {
 		identity  uint32
-		clusterID int
+		clusterID uint32
 	}{
 		{
 			identity:  0x000000,

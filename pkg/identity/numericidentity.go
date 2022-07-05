@@ -480,8 +480,8 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 }
 
 // ClusterID returns the cluster ID associated with the identity
-func (id NumericIdentity) ClusterID() int {
-	return int((uint32(id) >> 16) & 0xFF)
+func (id NumericIdentity) ClusterID() uint32 {
+	return (uint32(id) >> 16) & 0xFF
 }
 
 // GetAllReservedIdentities returns a list of all reserved numeric identities
