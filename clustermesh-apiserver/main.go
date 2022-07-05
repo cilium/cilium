@@ -98,7 +98,7 @@ var (
 	}
 
 	mockFile        string
-	clusterID       int
+	clusterID       uint32
 	ciliumK8sClient clientset.Interface
 	cfg             configuration
 
@@ -197,7 +197,7 @@ func runApiserver() error {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeCRD, "Method to use for identity allocation")
 	option.BindEnv(option.IdentityAllocationMode)
 
-	flags.IntVar(&clusterID, option.ClusterIDName, 0, "Cluster ID")
+	flags.Uint32Var(&clusterID, option.ClusterIDName, 0, "Cluster ID")
 	option.BindEnv(option.ClusterIDName)
 
 	flags.StringVar(&cfg.clusterName, option.ClusterName, "default", "Cluster name")

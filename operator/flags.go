@@ -44,7 +44,7 @@ func init() {
 	option.BindEnv(operatorOption.ParallelAllocWorkers)
 
 	// Clustermesh dedicated flags
-	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
+	flags.Uint32(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	option.BindEnv(option.ClusterIDName)
 
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")

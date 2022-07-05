@@ -1393,7 +1393,7 @@ type DaemonConfig struct {
 	ClusterName string
 
 	// ClusterID is the unique identifier of the cluster
-	ClusterID int
+	ClusterID uint32
 
 	// ClusterMeshConfig is the path to the clustermesh configuration directory
 	ClusterMeshConfig string
@@ -2768,7 +2768,7 @@ func (c *DaemonConfig) Populate() {
 	c.BPFRoot = viper.GetString(BPFRoot)
 	c.CertDirectory = viper.GetString(CertsDirectory)
 	c.CGroupRoot = viper.GetString(CGroupRoot)
-	c.ClusterID = viper.GetInt(ClusterIDName)
+	c.ClusterID = viper.GetUint32(ClusterIDName)
 	c.ClusterName = viper.GetString(ClusterName)
 	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
 	c.DatapathMode = viper.GetString(DatapathMode)

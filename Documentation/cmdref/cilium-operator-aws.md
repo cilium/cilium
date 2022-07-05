@@ -20,7 +20,7 @@ cilium-operator-aws [flags]
       --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 5m0s)
       --cilium-pod-labels string                  Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
       --cilium-pod-namespace string               Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace
-      --cluster-id int                            Unique identifier of the cluster
+      --cluster-id uint32                         Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")
       --cluster-pool-ipv4-cidr strings            IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv4=true'
       --cluster-pool-ipv4-mask-size int           Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv4=true' (default 24)
