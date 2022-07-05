@@ -105,6 +105,11 @@ func NewLocalServer(
 
 // Start implements GRPCServer.Start.
 func (s *LocalObserverServer) Start() {
+	// We use a cancellation context here so that any Go routines spawned in the
+	// OnMonitorEvent/OnDecodedFlow/OnDecodedEvent hooks have a signal for cancellation.
+	// When Start() returns, the deferred cancel() will run and we expect hooks
+	// to stop any Go routines that may have spawned by listening to the
+	// ctx.Done() channel for the stop signal.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
