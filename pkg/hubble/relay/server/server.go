@@ -54,7 +54,8 @@ type Server struct {
 
 // New creates a new Server.
 func New(options ...Option) (*Server, error) {
-	opts := defaultOptions
+	opts := defaultOptions // start with defaults
+	options = append(options, DefaultOptions...)
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
