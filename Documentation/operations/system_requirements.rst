@@ -247,6 +247,7 @@ BPF-based host routing                      		>= 5.10
 Socket-level LB bypass in pod netns         		>= 5.7
 :ref:`egress-gateway`                       		>= 5.2
 VXLAN Tunnel Endpoint (VTEP) Integration    		>= 5.2
+IPv6 BIG TCP support                                    >= 5.19
 ====================================================== 	===============================
 
 .. _req_kvstore:
