@@ -327,12 +327,12 @@ func (n *NodeDiscovery) UpdateLocalNode() {
 
 // LocalNode syncs the localNode object with the information stored in the node
 // package and then returns a copy of the localNode object
-func (n *NodeDiscovery) LocalNode() types.Node {
+func (n *NodeDiscovery) LocalNode() *types.Node {
 	n.localNodeLock.Lock()
 	defer n.localNodeLock.Unlock()
 
 	n.fillLocalNode()
-	return n.localNode
+	return n.localNode.DeepCopy()
 }
 
 // Close shuts down the node discovery engine
