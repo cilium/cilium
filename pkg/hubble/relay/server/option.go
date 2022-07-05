@@ -50,6 +50,10 @@ var defaultOptions = options{
 	log:           logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 }
 
+// DefaultOptions to include in the server. Other packages may extend this
+// in their init() function.
+var DefaultOptions []Option
+
 // Option customizes the configuration of the hubble-relay server.
 type Option func(o *options) error
 
