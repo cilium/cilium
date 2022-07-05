@@ -350,7 +350,7 @@ func (*LBBPFMap) UpdateBackendWithState(b loadbalancer.Backend) error {
 		return err
 	}
 	if err := updateBackend(backend); err != nil {
-		return fmt.Errorf("unable to update backend %+v: %s", b, err)
+		return fmt.Errorf("unable to update backend state %+v: %s", b, err)
 	}
 
 	return nil
