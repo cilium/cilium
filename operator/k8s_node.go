@@ -213,7 +213,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 							wg.Add(1)
 							cnpCpy := cnp.DeepCopy()
 							removeNodeFromCNP <- func() {
-								updateCNP(ciliumK8sClient.CiliumV2(), cnpCpy, nodesToDelete)
+								updateCNP(ctx, ciliumK8sClient.CiliumV2(), cnpCpy, nodesToDelete)
 								wg.Done()
 							}
 						}
@@ -228,10 +228,9 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 				return nil
 			},
 		})
-
 }
 
-func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPolicy, nodesToDelete map[string]v1.Time) {
+func updateCNP(ctx context.Context, ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPolicy, nodesToDelete map[string]v1.Time) {
 	if len(nodesToDelete) == 0 {
 		return
 	}
@@ -272,10 +271,10 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 		// If the namespace is empty the policy is the clusterwide policy
 		// and not the namespaced CiliumNetworkPolicy.
 		if ns == "" {
-			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(context.TODO(),
+			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(ctx,
 				cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
 		} else {
-			_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(context.TODO(),
+			_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(ctx,
 				cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
 		}
 		if err != nil {
