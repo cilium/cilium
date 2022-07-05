@@ -2075,10 +2075,10 @@ describe some of the differences for the BPF model:
 10. **Remove struct padding with aligning members by using #pragma pack.**
 
   In modern compilers, data structures are aligned by default to access memory
-  efficiently. Structure members are packed to memory addresses that fit their
-  size, and padding is added for the proper alignment with the processor word size
-  (e.g. 8-byte for 64-bit processors, 4-bytes for 32-bit processors).
-  Because of this, the size of struct may often grow larger than expected.
+  efficiently. Structure members are packed to memory addresses and padding is
+  added for the proper alignment with the processor word size (e.g. 8-byte for
+  64-bit processors, 4-byte for 32-bit processors). Because of this, the size of
+  struct may often grow larger than expected.
 
   .. code-block:: c
 
