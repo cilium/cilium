@@ -552,6 +552,14 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			log.WithError(err).Fatal("Unable to setup node watcher")
 		}
 
+		if option.Config.DisableCNPStatusUpdates {
+			// If CNP status updates are disabled, we clean up all the
+			// possible updates written when the option was enabled.
+			// This is done to avoid accumulating stale updates and thus
+			// hindering scalability for large clusters.
+			RunCNPStatusNodesCleaner(legacy.ctx, legacy.clientset)
+		}
+
 		if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
 			RunCNPNodeStatusGC(legacy.clientset, ciliumNodeStore)
 		}
