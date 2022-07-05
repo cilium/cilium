@@ -203,6 +203,29 @@ func (k *K8sHubble) generatePeerService() *corev1.Service {
 	return &svc
 }
 
+func (k *K8sHubble) generateMetricsService() *corev1.Service {
+	var svcFilename string
+	ciliumVer := k.helmState.Version
+	switch {
+	case versioncheck.MustCompile(">=1.11.0")(ciliumVer):
+		svcFilename = "templates/hubble/metrics-service.yaml"
+	case versioncheck.MustCompile(">=1.9.0")(ciliumVer):
+		svcFilename = "templates/hubble-metrics-service.yaml"
+	}
+	if svcFilename == "" {
+		return nil
+	}
+	svcFile, ok := k.manifests[svcFilename]
+	if !ok || len(strings.TrimSpace(svcFile)) == 0 {
+		return nil
+	}
+
+	var svc corev1.Service
+	utils.MustUnmarshalYAML([]byte(svcFile), &svc)
+	return &svc
+
+}
+
 func (k *K8sHubble) Validate(ctx context.Context) error {
 	var failures int
 	k.Log("✨ Validating cluster configuration...")
@@ -275,6 +298,11 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 	if peerSvc := k.generatePeerService(); peerSvc != nil {
 		k.Log("🔥 Deleting Peer Service...")
 		k.client.DeleteService(ctx, peerSvc.GetNamespace(), peerSvc.GetName(), metav1.DeleteOptions{})
+	}
+
+	if metricsSvc := k.generateMetricsService(); metricsSvc != nil {
+		k.Log("🔥 Deleting Metrics Service...")
+		k.client.DeleteService(ctx, metricsSvc.GetNamespace(), metricsSvc.GetName(), metav1.DeleteOptions{})
 	}
 
 	// Now that we have delete all UI and Relay's resource names then we can
@@ -524,6 +552,13 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 	if peerSvc := k.generatePeerService(); peerSvc != nil {
 		k.Log("🚀 Creating Peer Service...")
 		if _, err := k.client.CreateService(ctx, k.params.Namespace, peerSvc, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+	}
+
+	if metricsSvc := k.generateMetricsService(); metricsSvc != nil {
+		k.Log("🚀 Creating Metrics Service...")
+		if _, err := k.client.CreateService(ctx, k.params.Namespace, metricsSvc, metav1.CreateOptions{}); err != nil {
 			return err
 		}
 	}
