@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	core_v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
@@ -287,5 +288,103 @@ func updateCNP(ctx context.Context, ciliumClient v2.CiliumV2Interface, cnp *cili
 		if len(remainingStatusNode) == 0 {
 			return
 		}
+	}
+}
+
+func RunCNPStatusNodesCleaner(ctx context.Context, ciliumClient v2.CiliumV2Interface) {
+	go clearCNPStatusNodes(ctx, false, ciliumClient)
+	go clearCNPStatusNodes(ctx, true, ciliumClient)
+}
+
+func clearCNPStatusNodes(ctx context.Context, clusterwide bool, ciliumClient v2.CiliumV2Interface) {
+	body, err := json.Marshal([]k8s.JSONPatch{
+		{
+			OP:   "remove",
+			Path: "/status/nodes",
+		},
+	})
+	if err != nil {
+		log.WithError(err).Debug("Unable to json marshal")
+		return
+	}
+
+	continueID := ""
+	nCNPs, nGcCNPs := 0, 0
+	for {
+		if clusterwide {
+			ccnpList, err := ciliumClient.CiliumClusterwideNetworkPolicies().List(
+				ctx,
+				meta_v1.ListOptions{
+					Limit:    10,
+					Continue: continueID,
+				})
+			if err != nil {
+				log.WithError(err).Debug("Unable to list CCNPs")
+				return
+			}
+			nCNPs += len(ccnpList.Items)
+			continueID = ccnpList.Continue
+
+			for _, cnp := range ccnpList.Items {
+				if len(cnp.Status.Nodes) == 0 {
+					continue
+				}
+
+				_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(ctx,
+					cnp.Name, types.JSONPatchType, body, meta_v1.PatchOptions{}, "status")
+
+				if err != nil {
+					if errors.IsInvalid(err) {
+						// An "Invalid" error may be returned if /status/nodes path does not exist.
+						// In that case, we simply ignore it, since there are no updates to clean up.
+						continue
+					}
+					log.WithError(err).Debug("Unable to PATCH while clearing status nodes in CCNP")
+				}
+				nGcCNPs++
+			}
+		} else {
+			cnpList, err := ciliumClient.CiliumNetworkPolicies(core_v1.NamespaceAll).List(
+				ctx,
+				meta_v1.ListOptions{
+					Limit:    10,
+					Continue: continueID,
+				})
+			if err != nil {
+				log.WithError(err).Debug("Unable to list CNPs")
+				return
+			}
+			nCNPs += len(cnpList.Items)
+			continueID = cnpList.Continue
+
+			for _, cnp := range cnpList.Items {
+				if len(cnp.Status.Nodes) == 0 {
+					continue
+				}
+
+				namespace := utils.ExtractNamespace(&cnp.ObjectMeta)
+				_, err = ciliumClient.CiliumNetworkPolicies(namespace).Patch(ctx,
+					cnp.Name, types.JSONPatchType, body, meta_v1.PatchOptions{}, "status")
+				if err != nil {
+					if errors.IsInvalid(err) {
+						// An "Invalid" error may be returned if /status/nodes path does not exist.
+						// In that case, we simply ignore it, since there are no updates to clean up.
+						continue
+					}
+					log.WithError(err).Debug("Unable to PATCH while clearing status nodes in CNP")
+				}
+				nGcCNPs++
+			}
+		}
+
+		if continueID == "" {
+			break
+		}
+	}
+
+	if clusterwide {
+		log.Infof("Garbage collected status/nodes in Cilium Clusterwide Network Policies found=%d, gc=%d", nCNPs, nGcCNPs)
+	} else {
+		log.Infof("Garbage collected status/nodes in Cilium Network Policies found=%d, gc=%d", nCNPs, nGcCNPs)
 	}
 }
