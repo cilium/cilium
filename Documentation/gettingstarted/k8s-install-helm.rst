@@ -258,7 +258,7 @@ Install Cilium
 
           helm install cilium |CHART_RELEASE| \\
              --namespace $CILIUM_NAMESPACE \\
-             --operator.replicas=1 \\
+             --set operator.replicas=1 \\
              --set cni.binPath=/usr/libexec/cni
 
 .. include:: k8s-install-restart-pods.rst
