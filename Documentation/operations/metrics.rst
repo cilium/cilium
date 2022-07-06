@@ -362,13 +362,14 @@ Name                                     Labels                                 
 Kubernetes
 ~~~~~~~~~~
 
-======================================== ================================================== ========================================================
-Name                                     Labels                                             Description
-======================================== ================================================== ========================================================
-``kubernetes_events_received_total``     ``scope``, ``action``, ``validity``, ``equal``     Number of Kubernetes events received
-``kubernetes_events_total``              ``scope``, ``action``, ``outcome``                 Number of Kubernetes events processed
-``k8s_cnp_status_completion_seconds``    ``attempts``, ``outcome``                          Duration in seconds in how long it took to complete a CNP status update
-======================================== ================================================== ========================================================
+==========================================   ============================================== ========================================================
+Name                                         Labels                                         Description
+==========================================   ============================================== ========================================================
+``kubernetes_events_received_total``         ``scope``, ``action``, ``validity``, ``equal`` Number of Kubernetes events received
+``kubernetes_events_total``                  ``scope``, ``action``, ``outcome``             Number of Kubernetes events processed
+``k8s_cnp_status_completion_seconds``        ``attempts``, ``outcome``                      Duration in seconds in how long it took to complete a CNP status update
+``k8s_terminating_endpoints_events_total``   ``source_node_name``                           Number of terminating endpoint events received from Kubernetes
+==========================================   ============================================== ========================================================
 
 IPAM
 ~~~~
