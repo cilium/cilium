@@ -333,7 +333,7 @@ func (b *Backend) String() string {
 // SVC is a structure for storing service details.
 type SVC struct {
 	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID
-	Backends                  []Backend        // List of service backends
+	Backends                  []*Backend       // List of service backends
 	Type                      SVCType          // Service type
 	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy

@@ -321,7 +321,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 
 // AddBackend adds a backend into a BPF map. ipv6 indicates if the backend needs
 // to be added in the v4 or v6 backend map.
-func (*LBBPFMap) AddBackend(b loadbalancer.Backend, ipv6 bool) error {
+func (*LBBPFMap) AddBackend(b *loadbalancer.Backend, ipv6 bool) error {
 	var (
 		backend Backend
 		err     error
@@ -340,7 +340,7 @@ func (*LBBPFMap) AddBackend(b loadbalancer.Backend, ipv6 bool) error {
 // UpdateBackendWithState updates the state for the given backend.
 //
 // This function should only be called to update backend's state.
-func (*LBBPFMap) UpdateBackendWithState(b loadbalancer.Backend) error {
+func (*LBBPFMap) UpdateBackendWithState(b *loadbalancer.Backend) error {
 	var (
 		backend Backend
 		err     error
@@ -663,7 +663,7 @@ func deleteServiceLocked(key ServiceKey) error {
 	return key.Map().Delete(key.ToNetwork())
 }
 
-func getBackend(backend loadbalancer.Backend, ipv6 bool) (Backend, error) {
+func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 	var (
 		lbBackend Backend
 		err       error
@@ -747,29 +747,29 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backen
 	hash := fe.Hash()
 	lbsvc, ok := svcs[hash]
 	if !ok {
-		var bes []loadbalancer.Backend
+		var bes []*loadbalancer.Backend
 		if beIndex == 0 {
-			bes = make([]loadbalancer.Backend, 1)
-			bes[0] = *be
+			bes = make([]*loadbalancer.Backend, 1)
+			bes[0] = be
 		} else {
-			bes = make([]loadbalancer.Backend, beIndex)
-			bes[beIndex-1] = *be
+			bes = make([]*loadbalancer.Backend, beIndex)
+			bes[beIndex-1] = be
 		}
 		lbsvc = loadbalancer.SVC{
 			Frontend: *fe,
 			Backends: bes,
 		}
 	} else {
-		var bes []loadbalancer.Backend
+		var bes []*loadbalancer.Backend
 		if len(lbsvc.Backends) < beIndex {
-			bes = make([]loadbalancer.Backend, beIndex)
+			bes = make([]*loadbalancer.Backend, beIndex)
 			copy(bes, lbsvc.Backends)
 			lbsvc.Backends = bes
 		}
 		if beIndex == 0 {
-			lbsvc.Backends = append(lbsvc.Backends, *be)
+			lbsvc.Backends = append(lbsvc.Backends, be)
 		} else {
-			lbsvc.Backends[beIndex-1] = *be
+			lbsvc.Backends[beIndex-1] = be
 		}
 	}
 

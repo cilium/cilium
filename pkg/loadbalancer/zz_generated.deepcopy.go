@@ -92,9 +92,13 @@ func (in *SVC) DeepCopyInto(out *SVC) {
 	in.Frontend.DeepCopyInto(&out.Frontend)
 	if in.Backends != nil {
 		in, out := &in.Backends, &out.Backends
-		*out = make([]Backend, len(*in))
+		*out = make([]*Backend, len(*in))
 		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(Backend)
+				(*in).DeepCopyInto(*out)
+			}
 		}
 	}
 	if in.LoadBalancerSourceRanges != nil {
