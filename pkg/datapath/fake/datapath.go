@@ -16,7 +16,7 @@ import (
 var _ datapath.Datapath = (*FakeDatapath)(nil)
 
 type FakeDatapath struct {
-	node           datapath.NodeHandler
+	node           *FakeNodeHandler
 	nodeAddressing types.NodeAddressing
 	loader         datapath.Loader
 	lbmap          *mockmaps.LBMockMap
@@ -34,6 +34,10 @@ func NewDatapath() *FakeDatapath {
 
 // Node returns a fake handler for node events
 func (f *FakeDatapath) Node() datapath.NodeHandler {
+	return f.node
+}
+
+func (f *FakeDatapath) FakeNode() *FakeNodeHandler {
 	return f.node
 }
 
