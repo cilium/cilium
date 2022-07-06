@@ -19,6 +19,7 @@ import (
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
@@ -196,6 +197,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 				if option.Config.EnableK8sTerminatingEndpoint {
 					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
 						backend.Terminating = true
+						metrics.TerminatingEndpointsEvents.WithLabelValues(metrics.LabelSourceNodeName)
 					}
 				}
 			}
@@ -281,6 +283,7 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 				if option.Config.EnableK8sTerminatingEndpoint {
 					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
 						backend.Terminating = true
+						metrics.TerminatingEndpointsEvents.WithLabelValues(metrics.LabelSourceNodeName)
 					}
 				}
 			}
