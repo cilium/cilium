@@ -493,8 +493,8 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				continue
 			}
 
-			var bes4 []loadbalancer.Backend
-			var bes6 []loadbalancer.Backend
+			var bes4 []*loadbalancer.Backend
+			var bes6 []*loadbalancer.Backend
 
 			for _, podIP := range podIPs {
 				be := loadbalancer.Backend{
@@ -507,9 +507,9 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 					},
 				}
 				if be.L3n4Addr.IP.To4() != nil {
-					bes4 = append(bes4, be)
+					bes4 = append(bes4, &be)
 				} else {
-					bes6 = append(bes6, be)
+					bes6 = append(bes6, &be)
 				}
 			}
 
@@ -854,8 +854,8 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 // agent flag `option.Config.K8sEventHandover` this function might only return
 // local pods.
 // If `option.Config.K8sEventHandover` is:
-//  - true: returns only local pods received by the pod watcher.
-//  - false: returns any pod in the cluster received by the pod watcher.
+//   - true: returns only local pods received by the pod watcher.
+//   - false: returns any pod in the cluster received by the pod watcher.
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	<-k.controllersStarted
 	k.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
