@@ -55,7 +55,7 @@ independently of each other with the following Helm values:
 
  - ``prometheus.enabled=true``: Enables metrics for ``cilium-agent``.
  - ``operator.prometheus.enabled=true``: Enables metrics for ``cilium-operator``.
- - ``hubble.metrics.enabled``: Enables the provided list of Hubble metrics.
+ - ``hubble.metrics.enabled=true``: Enables the provided list of Hubble metrics.
    For Hubble metrics to work, Hubble itself needs to be enabled with
    ``hubble.enabled=true``. See
    :ref:`Hubble exported metrics<hubble_exported_metrics>` for the list of
