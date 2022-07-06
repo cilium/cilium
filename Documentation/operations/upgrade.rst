@@ -347,6 +347,11 @@ Annotations:
   removed once the upgrade is complete. Backward compatibility will be maintained when
   ``upgradeCompatibility`` is set on the helm chart.
 
+* The ``sessionAffinity`` has to be set to ``true`` in order to enable the
+  feature when running with the ``kubeProxyReplacement=partial``. Previously,
+  the feature was automatically enabled for the ``partial`` when
+  ``upgradeCompatibility`` was not set or it was set to ``>= 1.8``.
+
 New Options
 ~~~~~~~~~~~
 
