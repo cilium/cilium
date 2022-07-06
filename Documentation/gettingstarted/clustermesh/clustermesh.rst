@@ -39,9 +39,9 @@ Additional Requirements for Native-routed Datapath Modes
   is a case a native routing CIDR such as ``10.0.0.0/9`` should cover all
   clusters:
 
- * ConfigMap option ``native-routing-cidr=10.0.0.0/9``
- * Helm option ``--set nativeRoutingCIDR=10.0.0.0/9``
- * ``cilium install`` option ``--native-routing-cidr=10.0.0.0/9``
+ * ConfigMap option ``ipv4-native-routing-cidr=10.0.0.0/9``
+ * Helm option ``--set ipv4NativeRoutingCIDR=10.0.0.0/9``
+ * ``cilium install`` option ``--ipv4-native-routing-cidr=10.0.0.0/9``
 
 * In addition to nodes, pods in all clusters must have IP connectivity between each other. This
   requirement is typically met by establishing peering or VPN tunnels between
