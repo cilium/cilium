@@ -615,22 +615,14 @@ func DoesNotExistNodeWithoutCilium() bool {
 
 // HasSocketLB returns true if the given Cilium pod has TCP and/or
 // UDP host reachable services are enabled.
-func (kub *Kubectl) HasSocketLB(pod string, checkTCP, checkUDP bool) bool {
+func (kub *Kubectl) HasSocketLB(pod string) bool {
 	status := kub.CiliumExecContext(context.TODO(), pod,
 		"cilium status -o jsonpath='{.kube-proxy-replacement.features.socketLB}'")
 	status.ExpectSuccess("Failed to get status: %s", status.OutputPrettyPrint())
 	lines := status.ByLines()
 	Expect(len(lines)).ShouldNot(Equal(0), "Failed to get socketLB status")
 
-	// One-line result is e.g. "{true [TCP UDP]}" if host-reachable
-	// services are activated for both protocols.
-	if checkUDP && !strings.Contains(lines[0], "UDP") {
-		return false
-	}
-	if checkTCP && !strings.Contains(lines[0], "TCP") {
-		return false
-	}
-	return true
+	return strings.Contains(lines[0], "true")
 }
 
 // HasBPFNodePort returns true if the given Cilium pod has BPF NodePort enabled.
