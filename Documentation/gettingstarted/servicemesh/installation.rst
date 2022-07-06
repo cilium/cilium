@@ -18,6 +18,8 @@ set as true.
         --namespace kube-system \\
         --reuse-values \\
         --set ingressController.enabled=true
+    $ kubectl -n kube-system rollout restart deployment/cilium-operator
+    $ kubectl -n kube-system rollout restart ds/cilium
 
 If you only want to use envoy traffic management feature without Ingress support, you should only
 enable ``--enable-envoy-config`` flag.
@@ -28,6 +30,8 @@ enable ``--enable-envoy-config`` flag.
         --namespace kube-system \\
         --reuse-values \\
         --set-string extraConfig.enable-envoy-config=true
+    $ kubectl -n kube-system rollout restart deployment/cilium-operator
+    $ kubectl -n kube-system rollout restart ds/cilium
 
 Next you can check the status of the Cilium agent and operator:
 
