@@ -240,7 +240,8 @@ Install Cilium
        .. parsed-literal::
 
           helm install cilium |CHART_RELEASE| \\
-             --namespace $CILIUM_NAMESPACE
+             --namespace $CILIUM_NAMESPACE \\
+             --set operator.replicas=1
 
     .. group-tab:: Rancher Desktop
 
