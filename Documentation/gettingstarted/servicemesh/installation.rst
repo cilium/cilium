@@ -47,6 +47,34 @@ Installation
 
         .. include:: ../cli-download.rst
 
+    .. group-tab:: Cilium CLI
+
+        .. include:: ../cli-download.rst
+
+        Cilium Ingress Controller can be enabled with the below command
+
+        .. code-block:: shell-session
+
+            $ cilium install \\
+                --kube-proxy-replacement=strict \\
+                --helm-set ingressController.enabled=true
+
+
+        If you only want to use envoy traffic management feature without Ingress support, you should only
+        enable ``--enable-envoy-config`` flag.
+
+        .. code-block:: shell-session
+
+            $ cilium install \\
+                --kube-proxy-replacement=strict \\
+                --helm-set-string extraConfig.enable-envoy-config=true
+
+        Next you can check the status of the Cilium agent and operator:
+
+        .. code-block:: shell-session
+
+            $ cilium status
+
 Hubble CLI is also used to observe the traffic in later steps.
 
 .. include:: ../hubble-install.rst
