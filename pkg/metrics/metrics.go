@@ -30,7 +30,7 @@ const (
 	// ErrorProxy is the value used to notify errors on Proxy.
 	ErrorProxy = "proxy"
 
-	//L7DNS is the value used to report DNS label on metrics
+	// L7DNS is the value used to report DNS label on metrics
 	L7DNS = "dns"
 
 	// SubsystemBPF is the subsystem to scope metrics related to the bpf syscalls.
@@ -414,6 +414,9 @@ var (
 	// complete a CNP status update
 	KubernetesCNPStatusCompletion = NoOpObserverVec
 
+	// TerminatingEndpointsEvents is the number of terminating endpoint events received from kubernetes.
+	TerminatingEndpointsEvents = NoOpCounterVec
+
 	// IPAM events
 
 	// IpamEvent is the number of IPAM events received labeled by action and
@@ -554,6 +557,7 @@ type Configuration struct {
 	KubernetesAPIInteractionsEnabled        bool
 	KubernetesAPICallsEnabled               bool
 	KubernetesCNPStatusCompletionEnabled    bool
+	KubernetesTerminatingEndpointsEnabled   bool
 	IpamEventEnabled                        bool
 	KVStoreOperationsDurationEnabled        bool
 	KVStoreEventsQueueDurationEnabled       bool
@@ -624,6 +628,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemK8sClient + "_api_latency_time_seconds":           {},
 		Namespace + "_" + SubsystemK8sClient + "_api_calls_total":                    {},
 		Namespace + "_" + SubsystemK8s + "_cnp_status_completion_seconds":            {},
+		Namespace + "_" + SubsystemK8s + "_terminating_endpoints_events_total":       {},
 		Namespace + "_ipam_events_total":                                             {},
 		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":          {},
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":                 {},
@@ -1104,6 +1109,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, KubernetesCNPStatusCompletion)
 			c.KubernetesCNPStatusCompletionEnabled = true
+
+		case Namespace + "_terminating_endpoints_events_total":
+			TerminatingEndpointsEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemK8s,
+				Name:      "_terminating_endpoints_events_total",
+				Help:      "Number of terminating endpoint events received from Kubernetes",
+			}, []string{LabelSourceNodeName})
+
+			collectors = append(collectors, TerminatingEndpointsEvents)
+			c.KubernetesTerminatingEndpointsEnabled = true
 
 		case Namespace + "_ipam_events_total":
 			IpamEvent = prometheus.NewCounterVec(prometheus.CounterOpts{
