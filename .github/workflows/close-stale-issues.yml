@@ -16,6 +16,7 @@ jobs:
     - name: Close stale issues
       uses: actions/stale@3cc123766321e9f15a6676375c154ccffb12a358
       with:
+        operations-per-run: 250
         stale-issue-label: stale
         exempt-all-issue-assignees: true
         exempt-issue-labels: pinned,security,good-first-issue
@@ -28,7 +29,7 @@ jobs:
         close-issue-message: |
           This issue has not seen any activity since it was marked stale.
           Closing.
-          
+
         stale-pr-label: stale
         exempt-pr-labels: pinned,security,good-first-issue
 
@@ -41,4 +42,3 @@ jobs:
         close-pr-message: |
           This pull request has not seen any activity since it was marked stale.
           Closing.
-        
