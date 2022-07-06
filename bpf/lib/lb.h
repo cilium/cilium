@@ -887,7 +887,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	 * session we are likely to get a TCP RST.
 	 */
 	backend = lb6_lookup_backend(ctx, state->backend_id);
-	if (!backend) {
+	if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+		/* Drain existing connections, but redirect new ones to only
+		 * active backends.
+		 */
+		if (backend && !state->syn)
+			goto update_state;
 		key->backend_slot = 0;
 		svc = lb6_lookup_service(key, false);
 		if (!svc)
@@ -899,7 +904,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		ct_update6_backend_id(map, tuple, state);
 	}
-
 update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
@@ -908,7 +912,6 @@ update_state:
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 	addr = &tuple->daddr;
 	state->rev_nat_index = svc->rev_nat_index;
-
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id,
@@ -1543,7 +1546,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * session we are likely to get a TCP RST.
 	 */
 	backend = lb4_lookup_backend(ctx, state->backend_id);
-	if (!backend) {
+	if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+		/* Drain existing connections, but redirect new ones to only
+		 * active backends.
+		 */
+		if (backend && !state->syn)
+			goto update_state;
 		key->backend_slot = 0;
 		svc = lb4_lookup_service(key, false);
 		if (!svc)
@@ -1555,7 +1563,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		ct_update4_backend_id(map, tuple, state);
 	}
-
 update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
@@ -1563,13 +1570,11 @@ update_state:
 	tuple->flags = flags;
 	state->rev_nat_index = svc->rev_nat_index;
 	state->addr = new_daddr = backend->address;
-
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
-
 #ifndef DISABLE_LOOPBACK_LB
 	/* Special loopback case: The origin endpoint has transmitted to a
 	 * service which is being translated back to the source. This would
