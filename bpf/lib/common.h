@@ -710,6 +710,14 @@ enum {
 	SVC_FLAG_L7LOADBALANCER = (1 << 2),  /* tproxy redirect to local l7 loadbalancer */
 };
 
+/* Backend flags (lb{4,6}_backends->flags) */
+enum {
+	BE_STATE_ACTIVE		= 0,
+	BE_STATE_TERMINATING,
+	BE_STATE_QUARANTINED,
+	BE_STATE_MAINTENANCE,
+};
+
 struct ipv6_ct_tuple {
 	/* Address fields are reversed, i.e.,
 	 * these field names are correct for reply direction traffic.
@@ -935,10 +943,11 @@ struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
 	      node_port:1,
-	      proxy_redirect:1, /* Connection is redirected to a proxy */
 	      dsr:1,
-	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
-	      reserved:11;
+	      syn:1,
+	      proxy_redirect:1,	/* Connection is redirected to a proxy */
+	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
+	      reserved:10;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
