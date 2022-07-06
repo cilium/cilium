@@ -6,7 +6,6 @@
 {{- $defaultBpfClockProbe := "false" -}}
 {{- $defaultBpfTProxy := "false" -}}
 {{- $defaultIPAM := "cluster-pool" -}}
-{{- $defaultSessionAffinity := "false" -}}
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
 {{- $defaultBpfCtTcpMax := 524288 -}}
 {{- $defaultBpfCtAnyMax := 262144 -}}
@@ -23,7 +22,6 @@
   {{- $defaultBpfMasquerade = "true" -}}
   {{- $defaultBpfClockProbe = "true" -}}
   {{- $defaultIPAM = "cluster-pool" -}}
-  {{- $defaultSessionAffinity = "true" -}}
   {{- if .Values.ipv4.enabled }}
     {{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
   {{- else -}}
@@ -640,8 +638,6 @@ data:
 {{- end }}
 {{- if .Values.sessionAffinity }}
   enable-session-affinity: {{ .Values.sessionAffinity | quote }}
-{{- else if eq $defaultSessionAffinity "true" }}
-  enable-session-affinity: {{ $defaultSessionAffinity | quote }}
 {{- end }}
 {{- if .Values.svcSourceRangeCheck }}
   enable-svc-source-range-check: {{ .Values.svcSourceRangeCheck | quote }}
