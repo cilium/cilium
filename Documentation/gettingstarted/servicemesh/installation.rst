@@ -9,37 +9,43 @@ Prerequisites
 Installation
 ############
 
-Cilium Ingress Controller can be enabled with helm flag ``ingressController.enabled``
-set as true.
+.. tabs::
 
-.. parsed-literal::
+    .. group-tab:: Helm
 
-    $ helm upgrade cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --reuse-values \\
-        --set ingressController.enabled=true
-    $ kubectl -n kube-system rollout restart deployment/cilium-operator
-    $ kubectl -n kube-system rollout restart ds/cilium
+        Cilium Ingress Controller can be enabled with helm flag ``ingressController.enabled``
+        set as true. Please refer to :ref:`k8s_install_helm` for a fresh installation.
 
-If you only want to use envoy traffic management feature without Ingress support, you should only
-enable ``--enable-envoy-config`` flag.
+        .. parsed-literal::
 
-.. parsed-literal::
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --reuse-values \\
+                --set ingressController.enabled=true
+            $ kubectl -n kube-system rollout restart deployment/cilium-operator
+            $ kubectl -n kube-system rollout restart ds/cilium
 
-    $ helm upgrade cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --reuse-values \\
-        --set-string extraConfig.enable-envoy-config=true
-    $ kubectl -n kube-system rollout restart deployment/cilium-operator
-    $ kubectl -n kube-system rollout restart ds/cilium
 
-Next you can check the status of the Cilium agent and operator:
+        If you only want to use envoy traffic management feature without Ingress support, you should only
+        enable ``--enable-envoy-config`` flag.
 
-.. code-block:: shell-session
+        .. parsed-literal::
 
-    $ cilium status
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --reuse-values \\
+                --set-string extraConfig.enable-envoy-config=true
+            $ kubectl -n kube-system rollout restart deployment/cilium-operator
+            $ kubectl -n kube-system rollout restart ds/cilium
 
-.. include:: ../cli-download.rst
+
+        Next you can check the status of the Cilium agent and operator:
+
+        .. code-block:: shell-session
+
+            $ cilium status
+
+        .. include:: ../cli-download.rst
 
 Hubble CLI is also used to observe the traffic in later steps.
 
