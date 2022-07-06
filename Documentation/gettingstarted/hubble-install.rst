@@ -7,10 +7,12 @@
       .. code-block:: shell-session
 
          export HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
-         curl -L --fail --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-linux-amd64.tar.gz{,.sha256sum}
-         sha256sum --check hubble-linux-amd64.tar.gz.sha256sum
-         sudo tar xzvfC hubble-linux-amd64.tar.gz /usr/local/bin
-         rm hubble-linux-amd64.tar.gz{,.sha256sum}
+         HUBBLE_ARCH=amd64
+         if [ "$(uname -m)" = "aarch64" ]; then HUBBLE_ARCH=arm64; fi
+         curl -L --fail --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-linux-${HUBBLE_ARCH}.tar.gz{,.sha256sum}
+         sha256sum --check hubble-linux-${HUBBLE_ARCH}.tar.gz.sha256sum
+         sudo tar xzvfC hubble-linux-${HUBBLE_ARCH}.tar.gz /usr/local/bin
+         rm hubble-linux-${HUBBLE_ARCH}.tar.gz{,.sha256sum}
 
    .. group-tab:: MacOS
 
@@ -19,10 +21,12 @@
       .. code-block:: shell-session
 
          export HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
-         curl -L --fail --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-darwin-amd64.tar.gz{,.sha256sum}
-         shasum -a 256 -c hubble-darwin-amd64.tar.gz.sha256sum
-         sudo tar xzvfC hubble-darwin-amd64.tar.gz /usr/local/bin
-         rm hubble-darwin-amd64.tar.gz{,.sha256sum}
+         HUBBLE_ARCH=amd64
+         if [ "$(uname -m)" = "arm64" ]; then HUBBLE_ARCH=arm64; fi
+         curl -L --fail --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-darwin-${HUBBLE_ARCH}.tar.gz{,.sha256sum}
+         shasum -a 256 -c hubble-darwin-${HUBBLE_ARCH}.tar.gz.sha256sum
+         sudo tar xzvfC hubble-darwin-${HUBBLE_ARCH}.tar.gz /usr/local/bin
+         rm hubble-darwin-${HUBBLE_ARCH}.tar.gz{,.sha256sum}
 
    .. group-tab:: Windows
 
