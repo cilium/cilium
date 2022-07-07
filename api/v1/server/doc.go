@@ -9,7 +9,7 @@
 //	  unix
 //	Host: localhost
 //	BasePath: /v1
-//	Version: v1beta
+//	Version: v1beta1
 //
 //	Consumes:
 //	  - application/json

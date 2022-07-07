@@ -28,6 +28,7 @@
     - [LostEvent](#flow-LostEvent)
     - [NetworkInterface](#flow-NetworkInterface)
     - [PolicyUpdateNotification](#flow-PolicyUpdateNotification)
+    - [SCTP](#flow-SCTP)
     - [Service](#flow-Service)
     - [ServiceDeleteNotification](#flow-ServiceDeleteNotification)
     - [ServiceUpsertNotification](#flow-ServiceUpsertNotification)
@@ -471,6 +472,7 @@ L7 information for Kafka flows. It corresponds to Cilium&#39;s accesslog.LogReco
 | UDP | [UDP](#flow-UDP) |  |  |
 | ICMPv4 | [ICMPv4](#flow-ICMPv4) |  | ICMP is technically not L4, but mutually exclusive with the above |
 | ICMPv6 | [ICMPv6](#flow-ICMPv6) |  |  |
+| SCTP | [SCTP](#flow-SCTP) |  |  |
 
 
 
@@ -542,6 +544,22 @@ that happened before the events were captured by Hubble.
 | labels | [string](#string) | repeated |  |
 | revision | [uint64](#uint64) |  |  |
 | rule_count | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="flow-SCTP"></a>
+
+### SCTP
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| source_port | [uint32](#uint32) |  |  |
+| destination_port | [uint32](#uint32) |  |  |
 
 
 

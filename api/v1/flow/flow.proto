@@ -129,6 +129,7 @@ message Layer4 {
         // ICMP is technically not L4, but mutually exclusive with the above
         ICMPv4 ICMPv4 = 3;
         ICMPv6 ICMPv6 = 4;
+        SCTP SCTP = 5;
     }
 }
 
@@ -203,6 +204,11 @@ message TCPFlags {
 }
 
 message UDP {
+    uint32 source_port = 1;
+    uint32 destination_port = 2;
+}
+
+message SCTP {
     uint32 source_port = 1;
     uint32 destination_port = 2;
 }
