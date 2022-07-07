@@ -308,18 +308,16 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error
 		"target": compiler,
 		"args":   args,
 	}).Debug("Launching compiler")
-	if prog.OutputType == outputSource {
+	switch prog.OutputType {
+	case outputSource:
 		compileCmd := exec.CommandContext(ctx, compiler, args...)
 		_, err = compileCmd.CombinedOutput(log, true)
-	} else {
-		switch prog.OutputType {
-		case outputObject:
-			err = compileAndLink(ctx, prog, dir, true, args...)
-		case outputAssembly:
-			err = compileAndLink(ctx, prog, dir, false, args...)
-		default:
-			log.Fatalf("Unhandled progInfo.OutputType %s", prog.OutputType)
-		}
+	case outputObject:
+		err = compileAndLink(ctx, prog, dir, true, args...)
+	case outputAssembly:
+		err = compileAndLink(ctx, prog, dir, false, args...)
+	default:
+		log.Fatalf("Unhandled progInfo.OutputType %s", prog.OutputType)
 	}
 
 	return err
