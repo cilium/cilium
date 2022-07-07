@@ -1110,11 +1110,11 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, KubernetesCNPStatusCompletion)
 			c.KubernetesCNPStatusCompletionEnabled = true
 
-		case Namespace + "_terminating_endpoints_events_total":
+		case Namespace + "_" + SubsystemK8s + "_terminating_endpoints_events_total":
 			TerminatingEndpointsEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
 				Subsystem: SubsystemK8s,
-				Name:      "_terminating_endpoints_events_total",
+				Name:      "terminating_endpoints_events_total",
 				Help:      "Number of terminating endpoint events received from Kubernetes",
 			}, []string{LabelSourceNodeName})
 
