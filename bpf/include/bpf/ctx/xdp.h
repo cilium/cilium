@@ -309,8 +309,19 @@ ctx_redirect_peer(const struct xdp_md *ctx __maybe_unused,
 static __always_inline __maybe_unused __u64
 ctx_full_len(const struct xdp_md *ctx)
 {
-	/* No non-linear section in XDP. */
-	return ctx_data_end(ctx) - ctx_data(ctx);
+	__u64 len;
+	/* Compute the length using inline assembly as clang
+	 * sometimes reorganizes expressions involving this,
+	 * which leads to "pointer arithmetic on pkt_end prohibited"
+	 */
+	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
+		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
+		     "%[len] = r2\n\t"
+		     "%[len] -= r1\n\t"
+		     : [len]"=r"(len)
+		     : [ctx]"r"(ctx)
+		     : "r1", "r2");
+	return len;
 }
 
 static __always_inline __maybe_unused __u32
