@@ -10,6 +10,10 @@
 #include <bpf/loader.h>
 #include <bpf/section.h>
 
+#ifndef NELEMS
+#define NELEMS(arr) (sizeof(arr) / sizeof(arr[0]))
+#endif
+
 #ifndef ___bpf_concat
 #define ___bpf_concat(a, b) a ## b
 #endif
