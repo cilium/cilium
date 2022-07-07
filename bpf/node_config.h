@@ -186,6 +186,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #ifndef LB_SELECTION
 # define LB_SELECTION_RANDOM	1
 # define LB_SELECTION_MAGLEV	2
+# define LB_SELECTION_FIRST	3
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 

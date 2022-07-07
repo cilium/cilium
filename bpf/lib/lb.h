@@ -1268,6 +1268,17 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
         return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
+#elif LB_SELECTION == LB_SELECTION_FIRST
+/* Backend selection for tests that always chooses first slot. */
+static __always_inline __u32
+lb4_select_backend_id(struct __ctx_buff *ctx,
+		      struct lb4_key *key,
+		      const struct ipv4_ct_tuple *tuple __maybe_unused,
+		      const struct lb4_service *svc)
+{
+	struct lb4_service *be = lb4_lookup_backend_slot(ctx, key, 1);
+	return be ? be->backend_id : 0;
+}
 #else
 # error "Invalid load balancer backend selection algorithm!"
 #endif /* LB_SELECTION */
