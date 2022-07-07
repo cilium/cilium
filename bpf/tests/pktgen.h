@@ -32,27 +32,27 @@
  *  having to come up with custom ips.
  */
 
-#define IPv4(a, b, c, d) (((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
+#define IPV4(a, b, c, d) (((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
 
 /* IPv4 addresses for hosts, external to the cluster */
-#define v4_ext_one	IPv4(110, 0, 11, 1)
-#define v4_ext_two	IPv4(120, 0, 12, 2)
-#define v4_ext_three	IPv4(130, 0, 13, 3)
+#define v4_ext_one	IPV4(110, 0, 11, 1)
+#define v4_ext_two	IPV4(120, 0, 12, 2)
+#define v4_ext_three	IPV4(130, 0, 13, 3)
 
 /* IPv4 addresses for nodes in the cluster */
-#define v4_node_one	IPv4(10, 0, 10, 1)
-#define v4_node_two	IPv4(10, 0, 10, 2)
-#define v4_node_three	IPv4(10, 0, 10, 3)
+#define v4_node_one	IPV4(10, 0, 10, 1)
+#define v4_node_two	IPV4(10, 0, 10, 2)
+#define v4_node_three	IPV4(10, 0, 10, 3)
 
 /* IPv4 addresses for services in the cluster */
-#define v4_svc_one	IPv4(172, 16, 10, 1)
-#define v4_svc_two	IPv4(172, 16, 10, 2)
-#define v4_svc_three	IPv4(172, 16, 10, 3)
+#define v4_svc_one	IPV4(172, 16, 10, 1)
+#define v4_svc_two	IPV4(172, 16, 10, 2)
+#define v4_svc_three	IPV4(172, 16, 10, 3)
 
 /* IPv4 addresses for pods in the cluster */
-#define v4_pod_one	IPv4(192, 168, 0, 1)
-#define v4_pod_two	IPv4(192, 168, 0, 2)
-#define v4_pod_three	IPv4(192, 168, 0, 3)
+#define v4_pod_one	IPV4(192, 168, 0, 1)
+#define v4_pod_two	IPV4(192, 168, 0, 2)
+#define v4_pod_three	IPV4(192, 168, 0, 3)
 
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22334)
