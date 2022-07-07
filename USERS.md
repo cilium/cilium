@@ -319,6 +319,12 @@ Users (Alphabetically)
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
 
+    * N: Plaid Inc
+      D: Plaid is using Cilium as their CNI plugin in self-hosted Kubernetes on AWS.
+      U: CNI, network policies
+      L: [https://plaid.com](https://plaid.com/contact/)
+      Q: @diversario @jandersen-plaid
+
     * N: PlanetScale
       D: PlanetScale is using Cilium as the CNI for its serverless database platform.
       U: Networking (CNI, IPAM, kube-proxy replacement, native routing), Network Security, Cluster Mesh, Load Balancing
