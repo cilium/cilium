@@ -121,38 +121,6 @@ interface as follows:
 
            --set encryption.ipsec.interface=ethX
 
-.. _node_to_node_encryption:
-
-Node-to-node encryption (beta)
-------------------------------
-
-In order to enable node-to-node encryption, add:
-
-.. tabs::
-
-    .. group-tab:: Cilium CLI
-
-       .. code-block:: shell-session
-
-          cilium install --encryption ipsec --node-encryption
-
-    .. group-tab:: Helm
-
-       .. code-block:: shell-session
-
-           --set encryption.enabled=true \
-           --set encryption.nodeEncryption=true \
-
-.. note::
-
-    Node-to-node encryption is a beta feature. Please provide feedback and file
-    a GitHub issue if you experience any problems.
-
-    Node-to-node encryption is tested and supported with direct routing modes.
-    Using with encapsulation/tunneling is not currently tested or supported.
-
-    Support with tunneling mode is tracked with :gh-issue:`13663`.
-
 Validate the Setup
 ==================
 
