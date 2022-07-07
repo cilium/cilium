@@ -849,6 +849,10 @@ State Propagation
       services and will be correlated with services matching the same
       ``ServiceID``.
 
+.. _troubleshooting_servicemesh:
+
+.. include:: troubleshooting_servicemesh.rst
+
 Symptom Library
 ===============
 
