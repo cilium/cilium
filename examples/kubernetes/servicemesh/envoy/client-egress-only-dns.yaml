@@ -1,7 +1,6 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  namespace: cilium-test
   name: client-egress-only-dns
 spec:
   endpointSelector:
