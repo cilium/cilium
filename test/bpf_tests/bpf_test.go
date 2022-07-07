@@ -270,14 +270,6 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 			if prog.Type == ebpf.UnspecifiedProgram {
 				continue
 			}
-
-			t.Fatalf(
-				"File '%s' contains both '%s' and '%s' program types, "+
-					"only one program type per ELF file allowed:",
-				elfPath,
-				progTestType,
-				prog.Type,
-			)
 		}
 	}
 
@@ -285,9 +277,11 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 		t.Fatalf("File '%s' only contains unspecified program types", elfPath)
 	}
 
-	// Give all tail call programs the same program type as the test programs
+	// Give all untyped tail call programs the same program type as the test programs
 	for _, spec := range spec.Programs {
-		spec.Type = progTestType
+		if spec.Type == ebpf.UnspecifiedProgram {
+			spec.Type = progTestType
+		}
 	}
 
 	return spec
