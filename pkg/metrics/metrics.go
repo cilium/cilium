@@ -415,7 +415,7 @@ var (
 	KubernetesCNPStatusCompletion = NoOpObserverVec
 
 	// TerminatingEndpointsEvents is the number of terminating endpoint events received from kubernetes.
-	TerminatingEndpointsEvents = NoOpCounterVec
+	TerminatingEndpointsEvents = NoOpCounter
 
 	// IPAM events
 
@@ -1111,12 +1111,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			c.KubernetesCNPStatusCompletionEnabled = true
 
 		case Namespace + "_" + SubsystemK8s + "_terminating_endpoints_events_total":
-			TerminatingEndpointsEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
+			TerminatingEndpointsEvents = prometheus.NewCounter(prometheus.CounterOpts{
 				Namespace: Namespace,
 				Subsystem: SubsystemK8s,
 				Name:      "terminating_endpoints_events_total",
 				Help:      "Number of terminating endpoint events received from Kubernetes",
-			}, []string{LabelSourceNodeName})
+			})
 
 			collectors = append(collectors, TerminatingEndpointsEvents)
 			c.KubernetesTerminatingEndpointsEnabled = true
