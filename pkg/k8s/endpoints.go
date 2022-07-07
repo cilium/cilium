@@ -196,7 +196,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 				if option.Config.EnableK8sTerminatingEndpoint {
 					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
 						backend.Terminating = true
-						metrics.TerminatingEndpointsEvents.WithLabelValues(metrics.LabelSourceNodeName)
+						metrics.TerminatingEndpointsEvents.Inc()
 					}
 				}
 			}
@@ -282,7 +282,7 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 				if option.Config.EnableK8sTerminatingEndpoint {
 					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
 						backend.Terminating = true
-						metrics.TerminatingEndpointsEvents.WithLabelValues(metrics.LabelSourceNodeName)
+						metrics.TerminatingEndpointsEvents.Inc()
 					}
 				}
 			}
