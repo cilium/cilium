@@ -16,7 +16,7 @@ jobs:
     - name: Close stale issues
       uses: actions/stale@3cc123766321e9f15a6676375c154ccffb12a358
       with:
-        operations-per-run: 250
+        operations-per-run: 1000
         stale-issue-label: stale
         exempt-all-issue-assignees: true
         exempt-issue-labels: pinned,security,good-first-issue
