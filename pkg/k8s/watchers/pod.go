@@ -148,6 +148,13 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 		return isConnected
 	}
 
+	// Disable watching pods if we are in high-scale mode. We don't need to
+	// insert pod IPs into the ipcache.
+	if option.Config.EnableHighScaleIPcache {
+		asyncControllers.Done()
+		return
+	}
+
 	// We will watch for pods on th entire cluster to keep existing
 	// functionality untouched. If we are running with CiliumEndpoint CRD
 	// enabled then it means that we can simply watch for pods that are created
@@ -744,11 +751,6 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 
 	if newPod.Spec.HostNetwork {
 		logger.Debug("Pod is using host networking")
-		return nil
-	}
-
-	if option.Config.EnableHighScaleIPcache && nodeTypes.GetName() != newPod.Spec.NodeName {
-		logger.Debug("Pod is not local; skipping ipcache upsert")
 		return nil
 	}
 
