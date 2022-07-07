@@ -3,7 +3,7 @@ swagger: '2.0'
 info:
   title: Cilium API
   description: Cilium
-  version: v1beta
+  version: v1beta1
 x-schemes:
 - unix
 basePath: "/v1"
@@ -2393,6 +2393,7 @@ definitions:
         enum:
           - TCP
           - UDP
+          - SCTP
           - ICMP
           - ICMPV6
           - ANY
@@ -2666,6 +2667,7 @@ definitions:
         enum:
         - TCP
         - UDP
+        - SCTP
         - ANY
   RecorderSpec:
     description: Configuration of a recorder
