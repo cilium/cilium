@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.11.10
+  cilium_cli_version: v0.11.11
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action

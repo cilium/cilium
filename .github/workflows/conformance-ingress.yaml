@@ -22,7 +22,7 @@ concurrency:
 
 env:
   minikube_version: 1.25.2
-  cilium_cli_version: v0.11.10
+  cilium_cli_version: v0.11.11
   timeout: 5m
 
 jobs:
