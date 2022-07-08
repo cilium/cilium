@@ -3213,7 +3213,6 @@ func (c *DaemonConfig) Populate() {
 	c.CompilerFlags = viper.GetStringSlice(CompilerFlags)
 	c.ConfigFile = viper.GetString(ConfigFile)
 	c.HTTP403Message = viper.GetString(HTTP403Message)
-	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
 	c.K8sNamespace = viper.GetString(K8sNamespaceName)
 	c.AgentNotReadyNodeTaintKey = viper.GetString(AgentNotReadyNodeTaintKeyName)
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
@@ -3225,6 +3224,12 @@ func (c *DaemonConfig) Populate() {
 	c.EnableICMPRules = viper.GetBool(EnableICMPRules)
 	c.BypassIPAvailabilityUponRestore = viper.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = viper.GetBool(EnableK8sTerminatingEndpoint)
+
+	// Disable Envoy version check if L7 proxy is disabled.
+	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
+	if !c.EnableL7Proxy {
+		c.DisableEnvoyVersionCheck = true
+	}
 
 	// VTEP integration enable option
 	c.EnableVTEP = viper.GetBool(EnableVTEP)
