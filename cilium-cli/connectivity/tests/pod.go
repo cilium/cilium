@@ -13,23 +13,15 @@ import (
 // PodToPod generates one HTTP request from each client pod
 // to each echo (server) pod in the test context. The remote Pod is contacted
 // directly, no DNS is involved.
-func PodToPod(name string) check.Scenario {
-	return &podToPod{
-		name: name,
-	}
+func PodToPod() check.Scenario {
+	return &podToPod{}
 }
 
 // podToPod implements a Scenario.
-type podToPod struct {
-	name string
-}
+type podToPod struct{}
 
 func (s *podToPod) Name() string {
-	tn := "pod-to-pod"
-	if s.name == "" {
-		return tn
-	}
-	return fmt.Sprintf("%s:%s", tn, s.name)
+	return "pod-to-pod"
 }
 
 func (s *podToPod) Run(ctx context.Context, t *check.Test) {

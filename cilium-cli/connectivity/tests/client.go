@@ -12,23 +12,15 @@ import (
 
 // ClientToClient sends an ICMP packet from each client Pod
 // to each client Pod in the test context.
-func ClientToClient(name string) check.Scenario {
-	return &clientToClient{
-		name: name,
-	}
+func ClientToClient() check.Scenario {
+	return &clientToClient{}
 }
 
 // clientToClient implements a Scenario.
-type clientToClient struct {
-	name string
-}
+type clientToClient struct{}
 
 func (s *clientToClient) Name() string {
-	tn := "client-to-client"
-	if s.name == "" {
-		return tn
-	}
-	return fmt.Sprintf("%s:%s", tn, s.name)
+	return "client-to-client"
 }
 
 func (s *clientToClient) Run(ctx context.Context, t *check.Test) {

@@ -12,27 +12,18 @@ import (
 
 // PodToCIDR sends an ICMP packet from each client Pod
 // to 1.1.1.1 and 1.0.0.1.
-func PodToCIDR(name string) check.Scenario {
-	return &podToCIDR{
-		name: name,
-	}
+func PodToCIDR() check.Scenario {
+	return &podToCIDR{}
 }
 
 // podToCIDR implements a Scenario.
-type podToCIDR struct {
-	name string
-}
+type podToCIDR struct{}
 
 func (s *podToCIDR) Name() string {
-	tn := "pod-to-cidr"
-	if s.name == "" {
-		return tn
-	}
-	return fmt.Sprintf("%s:%s", tn, s.name)
+	return "pod-to-cidr"
 }
 
 func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
-
 	eps := []check.TestPeer{
 		check.HTTPEndpoint("cloudflare-1001", "http://1.0.0.1"),
 		check.HTTPEndpoint("cloudflare-1111", "http://1.1.1.1"),
