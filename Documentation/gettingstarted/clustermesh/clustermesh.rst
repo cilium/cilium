@@ -30,6 +30,12 @@ Cluster Addressing Requirements
 * The network between clusters must allow the inter-cluster communication. The
   exact ports are documented in the :ref:`firewall_requirements` section.
 
+.. note::
+  
+  If you intend to connect two AKS (Azure Kubernetes Service) clusters together
+  you can follow the :ref:`gs_clustermesh_aks_prep` guide for instruction on
+  how to meet the above requirements.
+
 Additional Requirements for Native-routed Datapath Modes
 --------------------------------------------------------
 

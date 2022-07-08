@@ -88,6 +88,7 @@ Cluster Mesh
    :glob:
 
    clustermesh/clustermesh
+   clustermesh/aks-clustermesh-prep
    clustermesh/services
    clustermesh/affinity
    clustermesh/policy

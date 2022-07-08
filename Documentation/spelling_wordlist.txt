@@ -132,6 +132,7 @@ Tu
 Twilio
 Uptime
 VM
+VNet
 VPC
 Vagrantcloud
 Vagrantfile
