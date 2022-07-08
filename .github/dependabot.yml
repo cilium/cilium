@@ -16,6 +16,8 @@ updates:
       - dependency-name: "github.com/aliyun/alibaba-cloud-sdk-go"
       - dependency-name: "github.com/aws/*"
       - dependency-name: "github.com/Azure/*"
+        # need to update the gops binary in the runtime image in lockstep
+      - dependency-name: "github.com/google/gops"
     labels:
     - kind/enhancement
     - release-note/misc
