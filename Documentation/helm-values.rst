@@ -1197,6 +1197,10 @@
      - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
      - bool
      - ``true``
+   * - operator.skipCNPStatusStartupClean
+     - Skip CNP node status clean up at operator startup.
+     - bool
+     - ``false``
    * - operator.skipCRDCreation
      - Skip CRDs creation for cilium-operator
      - bool
