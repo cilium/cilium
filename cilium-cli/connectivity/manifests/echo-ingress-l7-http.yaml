@@ -5,12 +5,13 @@ metadata:
   namespace: cilium-test
   name: echo-ingress-l7-http
 spec:
-  description: "Allow other client to GET / on echo"
+  description: "Allow other client to GET on echo"
   endpointSelector:
     matchLabels:
       kind: echo
   ingress:
-  # Only allow 'other' client to make a GET / request.
+  # Only allow 'other' client to make a GET /public requests.
+  # Allow GET /private' only if a particular HTTP header is set.
   # Disallow L3 traffic for now, flow matcher doesn't yet support L7 drops.
   - fromEndpoints:
     - matchLabels:
@@ -22,4 +23,10 @@ spec:
       rules:
         http:
         - method: "GET"
-          path: "/"
+          path: "/$"
+        - method: "GET"
+          path: "/public$"
+        - method: "GET"
+          path: "/private$"
+          headers:
+          - "X-Very-Secret-Token: 42"
