@@ -252,6 +252,9 @@ func initializeFlags() {
 	flags.MarkHidden(option.SRv6EncapModeName)
 	option.BindEnv(Vp, option.SRv6EncapModeName)
 
+	flags.Bool(option.EnableSCTPName, defaults.EnableSCTP, "Enable SCTP support (beta)")
+	option.BindEnv(Vp, option.EnableSCTPName)
+
 	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
 	option.BindEnv(Vp, option.IPv6MCastDevice)
 

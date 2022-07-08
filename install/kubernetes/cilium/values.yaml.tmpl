@@ -2176,3 +2176,8 @@ dnsProxy:
   proxyPort: 0
   # -- The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
   proxyResponseMaxDelay: 100ms
+
+# -- SCTP Configuration Values
+sctp:
+  # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
+  enabled: false
