@@ -526,7 +526,7 @@ github.com/google/go-cmp/cmp/internal/value
 ## explicit; go 1.12
 github.com/google/gofuzz
 github.com/google/gofuzz/bytesource
-# github.com/google/gops v0.3.24
+# github.com/google/gops v0.3.25
 ## explicit; go 1.13
 github.com/google/gops/agent
 github.com/google/gops/internal
