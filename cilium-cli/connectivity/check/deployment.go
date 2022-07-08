@@ -23,17 +23,14 @@ import (
 )
 
 const (
-	PerfClientName = "PerfClient"
-	PerfServerName = "PerfServer"
+	perfClientDeploymentName       = "perf-client"
+	perfClientAcrossDeploymentName = "perf-client-other-node"
+	perfServerDeploymentName       = "perf-server"
 
-	PerfClientDeploymentName       = "perf-client"
-	PerfClientAcrossDeploymentName = "perf-client-other-node"
-	PerfServerDeploymentName       = "perf-server"
+	perfHostNetNamingSuffix = "-host-net"
 
-	PerfHostNetNamingSuffix = "-host-net"
-
-	ClientDeploymentName  = "client"
-	Client2DeploymentName = "client2"
+	clientDeploymentName  = "client"
+	client2DeploymentName = "client2"
 
 	DNSTestServerContainerName = "dns-test-server"
 	DNSTestServerImage         = "coredns/coredns:1.9.3@sha256:8e352a029d304ca7431c6507b56800636c321cb52289686a581ab70aaa8a2e2a"
@@ -70,16 +67,15 @@ func (nm *perfDeploymentNameManager) ServerName() string {
 }
 
 func newPerfDeploymentNameManager(params *Parameters) *perfDeploymentNameManager {
-
 	suffix := ""
 	if params.PerfHostNet {
-		suffix = PerfHostNetNamingSuffix
+		suffix = perfHostNetNamingSuffix
 	}
 
 	return &perfDeploymentNameManager{
-		clientDeploymentName:       PerfClientDeploymentName + suffix,
-		clientAcrossDeploymentName: PerfClientAcrossDeploymentName + suffix,
-		serverDeploymentName:       PerfServerDeploymentName + suffix,
+		clientDeploymentName:       perfClientDeploymentName + suffix,
+		clientAcrossDeploymentName: perfClientAcrossDeploymentName + suffix,
+		serverDeploymentName:       perfServerDeploymentName + suffix,
 	}
 }
 
@@ -349,7 +345,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{ClientDeploymentName}},
+									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
 								},
 							},
 							TopologyKey: "kubernetes.io/hostname",
@@ -520,11 +516,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 	}
-	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, ClientDeploymentName, metav1.GetOptions{})
+
+	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying client deployment...", ct.clients.src.ClusterName())
 		clientDeployment := newDeployment(deploymentParameters{
-			Name:    ClientDeploymentName,
+			Name:    clientDeploymentName,
 			Kind:    kindClientName,
 			Port:    8080,
 			Image:   ct.params.CurlImage,
@@ -532,16 +529,16 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		})
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", ClientDeploymentName, err)
+			return fmt.Errorf("unable to create deployment %s: %s", clientDeploymentName, err)
 		}
 	}
 
 	// 2nd client with label other=client
-	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, Client2DeploymentName, metav1.GetOptions{})
+	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying client2 deployment...", ct.clients.src.ClusterName())
 		clientDeployment := newDeployment(deploymentParameters{
-			Name:    Client2DeploymentName,
+			Name:    client2DeploymentName,
 			Kind:    kindClientName,
 			Port:    8080,
 			Image:   ct.params.CurlImage,
@@ -553,7 +550,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{ClientDeploymentName}},
+									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
 								},
 							},
 							TopologyKey: "kubernetes.io/hostname",
@@ -564,7 +561,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		})
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", Client2DeploymentName, err)
+			return fmt.Errorf("unable to create deployment %s: %s", client2DeploymentName, err)
 		}
 	}
 
@@ -600,7 +597,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 							{
 								LabelSelector: &metav1.LabelSelector{
 									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{ClientDeploymentName}},
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
 									},
 								},
 								TopologyKey: "kubernetes.io/hostname",
@@ -623,7 +620,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 // deploymentList returns 2 lists of Deployments to be used for running tests with.
 func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
 	if !ct.params.Perf {
-		srcList = []string{ClientDeploymentName, Client2DeploymentName, echoSameNodeDeploymentName}
+		srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName}
 	} else {
 		perfDeploymentNameManager := newPerfDeploymentNameManager(&ct.params)
 		srcList = []string{perfDeploymentNameManager.ClientName()}
@@ -641,8 +638,8 @@ func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.C
 	ct.Logf("🔥 [%s] Deleting connectivity check deployments...", client.ClusterName())
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
-	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, ClientDeploymentName, metav1.DeleteOptions{})
-	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, Client2DeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.DeleteOptions{})
