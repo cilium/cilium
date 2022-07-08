@@ -12,23 +12,15 @@ import (
 
 // PodToService sends an HTTP request from all client Pods
 // to all Services in the test context.
-func PodToService(name string) check.Scenario {
-	return &podToService{
-		name: name,
-	}
+func PodToService() check.Scenario {
+	return &podToService{}
 }
 
 // podToService implements a Scenario.
-type podToService struct {
-	name string
-}
+type podToService struct{}
 
 func (s *podToService) Name() string {
-	tn := "pod-to-service"
-	if s.name == "" {
-		return tn
-	}
-	return fmt.Sprintf("%s:%s", tn, s.name)
+	return "pod-to-service"
 }
 
 func (s *podToService) Run(ctx context.Context, t *check.Test) {
@@ -54,23 +46,15 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 
 // PodToRemoteNodePort sends an HTTP request from all client Pods
 // to all echo Services' NodePorts, but only to other nodes.
-func PodToRemoteNodePort(name string) check.Scenario {
-	return &podToRemoteNodePort{
-		name: name,
-	}
+func PodToRemoteNodePort() check.Scenario {
+	return &podToRemoteNodePort{}
 }
 
 // podToRemoteNodePort implements a Scenario.
-type podToRemoteNodePort struct {
-	name string
-}
+type podToRemoteNodePort struct{}
 
 func (s *podToRemoteNodePort) Name() string {
-	tn := "pod-to-remote-nodeport"
-	if s.name == "" {
-		return tn
-	}
-	return fmt.Sprintf("%s:%s", tn, s.name)
+	return "pod-to-remote-nodeport"
 }
 
 func (s *podToRemoteNodePort) Run(ctx context.Context, t *check.Test) {
@@ -99,23 +83,15 @@ func (s *podToRemoteNodePort) Run(ctx context.Context, t *check.Test) {
 // PodToLocalNodePort sends an HTTP request from all client Pods
 // to all echo Services' NodePorts, but only on the same node as
 // the client Pods.
-func PodToLocalNodePort(name string) check.Scenario {
-	return &podToLocalNodePort{
-		name: name,
-	}
+func PodToLocalNodePort() check.Scenario {
+	return &podToLocalNodePort{}
 }
 
 // podToLocalNodePort implements a Scenario.
-type podToLocalNodePort struct {
-	name string
-}
+type podToLocalNodePort struct{}
 
 func (s *podToLocalNodePort) Name() string {
-	tn := "pod-to-local-nodeport"
-	if s.name == "" {
-		return tn
-	}
-	return fmt.Sprintf("%s:%s", tn, s.name)
+	return "pod-to-local-nodeport"
 }
 
 func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {

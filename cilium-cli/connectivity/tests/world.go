@@ -12,23 +12,15 @@ import (
 
 // PodToWorld sends multiple HTTP(S) requests to one.one.one.one
 // from random client Pods.
-func PodToWorld(name string) check.Scenario {
-	return &podToWorld{
-		name: name,
-	}
+func PodToWorld() check.Scenario {
+	return &podToWorld{}
 }
 
 // podToWorld implements a Scenario.
-type podToWorld struct {
-	name string
-}
+type podToWorld struct{}
 
 func (s *podToWorld) Name() string {
-	tn := "pod-to-world"
-	if s.name == "" {
-		return tn
-	}
-	return fmt.Sprintf("%s:%s", tn, s.name)
+	return "pod-to-world"
 }
 
 func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
