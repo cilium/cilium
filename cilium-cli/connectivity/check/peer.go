@@ -219,14 +219,19 @@ func (ie icmpEndpoint) HasLabel(name, value string) bool {
 // HTTPEndpoint returns a new endpoint with the given name and raw URL.
 // Panics if rawurl cannot be parsed.
 func HTTPEndpoint(name, rawurl string) TestPeer {
+	return HTTPEndpointWithLabels(name, rawurl, nil)
+}
+
+func HTTPEndpointWithLabels(name, rawurl string, labels map[string]string) TestPeer {
 	u, err := url.Parse(rawurl)
 	if err != nil {
 		panic(err)
 	}
 
 	return httpEndpoint{
-		name: name,
-		url:  u,
+		name:   name,
+		url:    u,
+		labels: &labels,
 	}
 }
 
@@ -238,6 +243,10 @@ type httpEndpoint struct {
 
 	// URL of the endpoint.
 	url *url.URL
+
+	// Labels associated with the endpoint. These are used to match whether a policy drop should
+	// have happened or not based on HTTP headers.
+	labels *map[string]string
 }
 
 func (he httpEndpoint) Name() string {
@@ -278,5 +287,8 @@ func (he httpEndpoint) Port() uint32 {
 }
 
 func (he httpEndpoint) HasLabel(name, value string) bool {
-	return false
+	if he.labels == nil {
+		return false
+	}
+	return (*he.labels)[name] == value
 }
