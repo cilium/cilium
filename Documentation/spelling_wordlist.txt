@@ -900,6 +900,7 @@ sid
 sidecarImageRegex
 sig
 skb
+skipCNPStatusStartupClean
 skipCRDCreation
 skipUnknownCGroupIDs
 skipteardown
