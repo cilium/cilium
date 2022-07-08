@@ -56,7 +56,6 @@ func newCmdConnectivityTest() *cobra.Command {
 					}
 					params.SkipTests = append(params.SkipTests, rgx)
 				} else {
-
 					rgx, err := regexp.Compile(test)
 					if err != nil {
 						return fmt.Errorf("test filter: %w", err)
@@ -67,7 +66,6 @@ func newCmdConnectivityTest() *cobra.Command {
 
 			// Instantiate the test harness.
 			cc, err := check.NewConnectivityTest(k8sClient, params)
-
 			if err != nil {
 				return err
 			}

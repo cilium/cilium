@@ -275,7 +275,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 	_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
 	if err != nil {
-		ct.Logf("✨ [%s] Deploying echo-same-node service...", ct.clients.src.ClusterName())
+		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoSameNodeDeploymentName)
 		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080)
 		_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
 		if err != nil {
@@ -286,7 +286,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	if ct.params.MultiCluster != "" {
 		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Deploying echo-other-node service...", ct.clients.src.ClusterName())
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoOtherNodeDeploymentName)
 			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
 			svc.ObjectMeta.Annotations = map[string]string{}
 			svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
@@ -395,7 +395,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		// Need to capture the IP of the Server Deployment, and pass to the client to execute benchmark
 		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, nm.ClientName(), metav1.GetOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Deploying Perf Client deployment...", ct.clients.src.ClusterName())
+			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), nm.ClientName())
 			perfClientDeployment := newDeployment(deploymentParameters{
 				Name:  nm.ClientName(),
 				Kind:  kindPerfName,
@@ -429,7 +429,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, nm.ServerName(), metav1.GetOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Deploying Perf Server deployment...", ct.clients.src.ClusterName())
+			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), nm.ServerName())
 			perfServerDeployment := newDeployment(deploymentParameters{
 				Name: nm.ServerName(),
 				Kind: kindPerfName,
@@ -519,7 +519,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.GetOptions{})
 	if err != nil {
-		ct.Logf("✨ [%s] Deploying client deployment...", ct.clients.src.ClusterName())
+		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), clientDeploymentName)
 		clientDeployment := newDeployment(deploymentParameters{
 			Name:    clientDeploymentName,
 			Kind:    kindClientName,
@@ -536,7 +536,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	// 2nd client with label other=client
 	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.GetOptions{})
 	if err != nil {
-		ct.Logf("✨ [%s] Deploying client2 deployment...", ct.clients.src.ClusterName())
+		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), client2DeploymentName)
 		clientDeployment := newDeployment(deploymentParameters{
 			Name:    client2DeploymentName,
 			Kind:    kindClientName,
