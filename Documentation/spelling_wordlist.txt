@@ -871,6 +871,7 @@ sha
 sidecarImageRegex
 sig
 skb
+skipCNPStatusStartupClean
 skipCRDCreation
 skipteardown
 sleepAfterInit
