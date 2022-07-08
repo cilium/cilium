@@ -254,7 +254,10 @@ func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 	case DbgEncap:
 		return fmt.Sprintf("Encapsulating to node %d (%#x) from seclabel %d", n.Arg1, n.Arg1, n.Arg2)
 	case DbgLxcFound:
-		ifname := linkMonitor.Name(n.Arg1)
+		var ifname string
+		if linkMonitor != nil {
+			ifname = linkMonitor.Name(n.Arg1)
+		}
 		return fmt.Sprintf("Local container found ifindex %s seclabel %d", ifname, byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgPolicyDenied:
 		return fmt.Sprintf("Policy evaluation would deny packet from %d to %d", n.Arg1, n.Arg2)
