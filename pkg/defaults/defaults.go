@@ -176,6 +176,9 @@ const (
 	// SRv6EncapMode is the encapsulation mode for SRv6.
 	SRv6EncapMode = "reduced"
 
+	// EnableSCTP is the default value for SCTP support enablement
+	EnableSCTP = false
+
 	// EnableL7Proxy is the default value for L7 proxy enablement
 	EnableL7Proxy = true
 

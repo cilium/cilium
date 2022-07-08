@@ -676,6 +676,9 @@ const (
 	// SRv6EncapModeName is the name of the option to specify the SRv6 encapsulation mode
 	SRv6EncapModeName = "srv6-encap-mode"
 
+	// EnableSCTPName is the name of the option to enable SCTP support
+	EnableSCTPName = "enable-sctp"
+
 	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
 	IPv6MCastDevice = "ipv6-mcast-device"
 
@@ -1547,6 +1550,9 @@ type DaemonConfig struct {
 	// SRv6EncapMode is the encapsulation mode for SRv6
 	SRv6EncapMode string
 
+	// EnableSCTP is true when SCTP support is enabled.
+	EnableSCTP bool
+
 	// IPv6MCastDevice is the name of device that joins IPv6's solicitation multicast group
 	IPv6MCastDevice string
 
@@ -2253,6 +2259,7 @@ var (
 		EnableIPv4:                   defaults.EnableIPv4,
 		EnableIPv6:                   defaults.EnableIPv6,
 		EnableIPv6NDP:                defaults.EnableIPv6NDP,
+		EnableSCTP:                   defaults.EnableSCTP,
 		EnableL7Proxy:                defaults.EnableL7Proxy,
 		EndpointStatus:               make(map[string]struct{}),
 		DNSMaxIPsPerRestoredRule:     defaults.DNSMaxIPsPerRestoredRule,
@@ -2451,6 +2458,11 @@ func (c *DaemonConfig) IPv6Enabled() bool {
 // IPv6NDPEnabled returns true if IPv6 NDP support is enabled
 func (c *DaemonConfig) IPv6NDPEnabled() bool {
 	return c.EnableIPv6NDP
+}
+
+// SCTPEnabled returns true if SCTP support is enabled
+func (c *DaemonConfig) SCTPEnabled() bool {
+	return c.EnableSCTP
 }
 
 // HealthCheckingEnabled returns true if health checking is enabled
@@ -2786,6 +2798,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPv6BIGTCP = vp.GetBool(EnableIPv6BIGTCP)
 	c.EnableSRv6 = vp.GetBool(EnableSRv6)
 	c.SRv6EncapMode = vp.GetString(SRv6EncapModeName)
+	c.EnableSCTP = vp.GetBool(EnableSCTPName)
 	c.IPv6MCastDevice = vp.GetString(IPv6MCastDevice)
 	c.EnableIPSec = vp.GetBool(EnableIPSecName)
 	c.EnableWireguard = vp.GetBool(EnableWireguard)

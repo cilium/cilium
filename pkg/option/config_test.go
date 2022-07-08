@@ -216,12 +216,19 @@ func (s *OptionSuite) TestEnabledFunctions(c *C) {
 	d := &DaemonConfig{}
 	c.Assert(d.IPv4Enabled(), Equals, false)
 	c.Assert(d.IPv6Enabled(), Equals, false)
+	c.Assert(d.SCTPEnabled(), Equals, false)
 	d = &DaemonConfig{EnableIPv4: true}
 	c.Assert(d.IPv4Enabled(), Equals, true)
 	c.Assert(d.IPv6Enabled(), Equals, false)
+	c.Assert(d.SCTPEnabled(), Equals, false)
 	d = &DaemonConfig{EnableIPv6: true}
 	c.Assert(d.IPv4Enabled(), Equals, false)
 	c.Assert(d.IPv6Enabled(), Equals, true)
+	c.Assert(d.SCTPEnabled(), Equals, false)
+	d = &DaemonConfig{EnableSCTP: true}
+	c.Assert(d.IPv4Enabled(), Equals, false)
+	c.Assert(d.IPv6Enabled(), Equals, false)
+	c.Assert(d.SCTPEnabled(), Equals, true)
 	d = &DaemonConfig{}
 	c.Assert(d.IPAMMode(), Equals, "")
 	d = &DaemonConfig{IPAM: ipamOption.IPAMENI}

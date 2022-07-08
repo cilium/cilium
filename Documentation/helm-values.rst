@@ -1633,6 +1633,14 @@
      - Roll out cilium agent pods automatically when configmap is updated.
      - bool
      - ``false``
+   * - sctp
+     - SCTP Configuration Values
+     - object
+     - ``{"enabled":false}``
+   * - sctp.enabled
+     - Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
+     - bool
+     - ``false``
    * - securityContext
      - Security context to be added to agent pods
      - object
