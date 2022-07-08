@@ -479,10 +479,7 @@ else
 	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:v$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) golangci-lint run
 endif
 
-bpf-mock-lint: ## Check if the helper headers in bpf/mock are up-to-date.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf/mock/ check_helper_headers
-
-lint: golangci-lint bpf-mock-lint ## Run golangci-lint and bpf-mock linters.
+lint: golangci-lint ## Run golangci-lint and bpf-mock linters.
 
 logging-subsys-field: ## Validate logrus subsystem field for logs in Go source code.
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
