@@ -79,52 +79,52 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// Run all tests without any policies in place.
 	ct.NewTest("no-policies").WithScenarios(
-		tests.PodToPod(""),
-		tests.ClientToClient(""),
-		tests.PodToService(""),
-		tests.PodToRemoteNodePort(""),
-		tests.PodToLocalNodePort(""),
-		tests.PodToWorld(""),
-		tests.PodToHost(""),
-		tests.PodToExternalWorkload(""),
-		tests.PodToCIDR(""),
+		tests.PodToPod(),
+		tests.ClientToClient(),
+		tests.PodToService(),
+		tests.PodToRemoteNodePort(),
+		tests.PodToLocalNodePort(),
+		tests.PodToWorld(),
+		tests.PodToHost(),
+		tests.PodToExternalWorkload(),
+		tests.PodToCIDR(),
 	)
 
 	// Test with an allow-all-except-world (and unmanaged) policy.
 	if v.GTE(versioncheck.MustVersion("1.11.0")) {
 		ct.NewTest("allow-all-except-world").WithPolicy(allowAllExceptWorldPolicyYAML).
 			WithScenarios(
-				tests.PodToPod(""),
-				tests.ClientToClient(""),
-				tests.PodToService(""),
+				tests.PodToPod(),
+				tests.ClientToClient(),
+				tests.PodToService(),
 				// We are skipping the following checks because NodePort is
 				// intended to be used for N-S traffic, which conflicts with
 				// policies. See GH-17144.
-				// tests.PodToRemoteNodePort(""),
-				// tests.PodToLocalNodePort(""),
-				tests.PodToHost(""),
-				tests.PodToExternalWorkload(""),
+				// tests.PodToRemoteNodePort(),
+				// tests.PodToLocalNodePort(),
+				tests.PodToHost(),
+				tests.PodToExternalWorkload(),
 			)
 	} else {
 		ct.NewTest("allow-all-except-world").WithPolicy(allowAllExceptWorldPolicyPre1_11YAML).
 			WithScenarios(
-				tests.PodToPod(""),
-				tests.ClientToClient(""),
-				tests.PodToService(""),
+				tests.PodToPod(),
+				tests.ClientToClient(),
+				tests.PodToService(),
 				// We are skipping the following checks because NodePort is
 				// intended to be used for N-S traffic, which conflicts with
 				// policies. See GH-17144.
-				// tests.PodToRemoteNodePort(""),
-				// tests.PodToLocalNodePort(""),
-				tests.PodToHost(""),
-				tests.PodToExternalWorkload(""),
+				// tests.PodToRemoteNodePort(),
+				// tests.PodToLocalNodePort(),
+				tests.PodToHost(),
+				tests.PodToExternalWorkload(),
 			)
 	}
 
 	// This policy only allows ingress into client from client2.
 	ct.NewTest("client-ingress").WithPolicy(clientIngressFromClient2PolicyYAML).
 		WithScenarios(
-			tests.ClientToClient(""),
+			tests.ClientToClient(),
 		).WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 		if a.Source().HasLabel("other", "client") {
 			return check.ResultOK, check.ResultOK
@@ -135,7 +135,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This policy allows ingress to echo only from client with a label 'other:client'.
 	ct.NewTest("echo-ingress").WithPolicy(echoIngressFromOtherClientPolicyYAML).
 		WithScenarios(
-			tests.PodToPod(""),
+			tests.PodToPod(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {
@@ -149,14 +149,14 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This policy allows port 8080 from client to echo, so this should succeed
 	ct.NewTest("client-egress").WithPolicy(clientEgressToEchoPolicyYAML).
 		WithScenarios(
-			tests.PodToPod(""),
+			tests.PodToPod(),
 		)
 
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
 	ct.NewTest("to-entities-world").
 		WithPolicy(clientEgressToEntitiesWorldPolicyYAML).
 		WithScenarios(
-			tests.PodToWorld(""),
+			tests.PodToWorld(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 80 {
@@ -171,7 +171,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("to-cidr-1111").
 		WithPolicy(clientEgressToCIDR1111PolicyYAML).
 		WithScenarios(
-			tests.PodToCIDR(""),
+			tests.PodToCIDR(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address() == "1.0.0.1" {
@@ -185,7 +185,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("echo-ingress-l7").
 		WithPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(
-			tests.PodToPod(""),
+			tests.PodToPod(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
@@ -206,8 +206,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
 		WithPolicy(clientEgressL7HTTPPolicyYAML).  // L7 allow policy with HTTP introspection
 		WithScenarios(
-			tests.PodToPod(""),
-			tests.PodToWorld(""),
+			tests.PodToPod(),
+			tests.PodToWorld(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
@@ -231,8 +231,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
 	ct.NewTest("dns-only").WithPolicy(clientEgressOnlyDNSPolicyYAML).
 		WithScenarios(
-			tests.PodToPod(""),   // connects to other Pods directly, no DNS
-			tests.PodToWorld(""), // resolves one.one.one.one
+			tests.PodToPod(),   // connects to other Pods directly, no DNS
+			tests.PodToWorld(), // resolves one.one.one.one
 		).
 		WithExpectations(
 			func(a *check.Action) (egress check.Result, ingress check.Result) {
@@ -242,7 +242,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This policy only allows port 80 to "one.one.one.one". DNS proxy enabled.
 	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsCiliumIOPolicyYAML).
 		WithScenarios(
-			tests.PodToWorld(""),
+			tests.PodToWorld(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 80 && a.Destination().Address() == "one.one.one.one" {

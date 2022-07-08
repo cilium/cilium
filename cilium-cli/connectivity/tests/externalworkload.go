@@ -10,22 +10,14 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-func PodToExternalWorkload(name string) check.Scenario {
-	return &podToExternalWorkload{
-		name: name,
-	}
+func PodToExternalWorkload() check.Scenario {
+	return &podToExternalWorkload{}
 }
 
-type podToExternalWorkload struct {
-	name string
-}
+type podToExternalWorkload struct{}
 
 func (s *podToExternalWorkload) Name() string {
-	tn := "pod-to-external-workload"
-	if s.name == "" {
-		return tn
-	}
-	return fmt.Sprintf("%s:%s", tn, s.name)
+	return "pod-to-external-workload"
 }
 
 func (s *podToExternalWorkload) Run(ctx context.Context, t *check.Test) {

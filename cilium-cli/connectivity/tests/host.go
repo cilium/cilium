@@ -12,23 +12,15 @@ import (
 
 // PodToHost sends an ICMP ping from all client Pods to all nodes
 // in the test context.
-func PodToHost(name string) check.Scenario {
-	return &podToHost{
-		name: name,
-	}
+func PodToHost() check.Scenario {
+	return &podToHost{}
 }
 
 // podToHost implements a Scenario.
-type podToHost struct {
-	name string
-}
+type podToHost struct{}
 
 func (s *podToHost) Name() string {
-	tn := "pod-to-host"
-	if s.name == "" {
-		return tn
-	}
-	return fmt.Sprintf("%s:%s", tn, s.name)
+	return "pod-to-host"
 }
 
 func (s *podToHost) Run(ctx context.Context, t *check.Test) {
