@@ -585,8 +585,8 @@ github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/
 github.com/google/gofuzz v1.1.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/gofuzz v1.2.0 h1:xRy4A+RhZaiKjJ1bPfwQ8sedCA+YS2YcCHW6ec7JMi0=
 github.com/google/gofuzz v1.2.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
-github.com/google/gops v0.3.24 h1:JwwsSS4AFp0l9+AH6pLD8FIHIH3x313zLDxfJFs9aGI=
-github.com/google/gops v0.3.24/go.mod h1:8A7ebAm0id9K3H0uOggeRVGxszSvnlURun9mg3GdYDw=
+github.com/google/gops v0.3.25 h1:Pf6uw+cO6pDhc7HJ71NiG0x8dyQTeQcmg3HQFF39qVw=
+github.com/google/gops v0.3.25/go.mod h1:8A7ebAm0id9K3H0uOggeRVGxszSvnlURun9mg3GdYDw=
 github.com/google/licenseclassifier v0.0.0-20210325184830-bb04aff29e72/go.mod h1:qsqn2hxC+vURpyBRygGUuinTO42MFRLcsmQ/P8v94+M=
 github.com/google/martian v2.1.0+incompatible/go.mod h1:9I4somxYTbIHy5NJKHRl3wXiIaQGbYVAs8BPL6v8lEs=
 github.com/google/martian v2.1.1-0.20190517191504-25dcb96d9e51+incompatible/go.mod h1:9I4somxYTbIHy5NJKHRl3wXiIaQGbYVAs8BPL6v8lEs=
