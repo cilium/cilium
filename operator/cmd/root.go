@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	xrate "golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -559,7 +560,14 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			// possible updates written when the option was enabled.
 			// This is done to avoid accumulating stale updates and thus
 			// hindering scalability for large clusters.
-			RunCNPStatusNodesCleaner(legacy.ctx, legacy.clientset)
+			RunCNPStatusNodesCleaner(
+				legacy.ctx,
+				legacy.clientset,
+				xrate.NewLimiter(
+					xrate.Limit(operatorOption.Config.CNPStatusCleanupQPS),
+					operatorOption.Config.CNPStatusCleanupBurst,
+				),
+			)
 		}
 
 		if operatorOption.Config.CNPNodeStatusGCInterval != 0 {

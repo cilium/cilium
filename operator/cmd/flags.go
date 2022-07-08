@@ -69,6 +69,14 @@ func init() {
 	flags.Bool(operatorOption.SkipCNPStatusStartupClean, false, `If set to true, the operator will not clean up CNP node status updates at startup`)
 	option.BindEnv(Vp, operatorOption.SkipCNPStatusStartupClean)
 
+	flags.Float64(operatorOption.CNPStatusCleanupQPS, operatorOption.CNPStatusCleanupQPSDefault,
+		"Rate used for limiting the clean up of the status nodes updates in CNP, expressed as qps")
+	option.BindEnv(Vp, operatorOption.CNPStatusCleanupQPS)
+
+	flags.Int(operatorOption.CNPStatusCleanupBurst, operatorOption.CNPStatusCleanupBurstDefault,
+		"Maximum burst of requests to clean up status nodes updates in CNPs")
+	option.BindEnv(Vp, operatorOption.CNPStatusCleanupBurst)
+
 	flags.Duration(operatorOption.CNPStatusUpdateInterval, 1*time.Second, "Interval between CNP status updates sent to the k8s-apiserver per-CNP")
 	option.BindEnv(Vp, operatorOption.CNPStatusUpdateInterval)
 

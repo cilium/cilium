@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/time/rate"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -513,12 +514,12 @@ func updateCNP(ctx context.Context, ciliumClient v2.CiliumV2Interface, cnp *cili
 	}
 }
 
-func RunCNPStatusNodesCleaner(ctx context.Context, clientset k8sClient.Clientset) {
-	go clearCNPStatusNodes(ctx, false, clientset)
-	go clearCNPStatusNodes(ctx, true, clientset)
+func RunCNPStatusNodesCleaner(ctx context.Context, clientset k8sClient.Clientset, rateLimit *rate.Limiter) {
+	go clearCNPStatusNodes(ctx, false, clientset, rateLimit)
+	go clearCNPStatusNodes(ctx, true, clientset, rateLimit)
 }
 
-func clearCNPStatusNodes(ctx context.Context, clusterwide bool, clientset k8sClient.Clientset) {
+func clearCNPStatusNodes(ctx context.Context, clusterwide bool, clientset k8sClient.Clientset, rateLimit *rate.Limiter) {
 	body, err := json.Marshal([]k8s.JSONPatch{
 		{
 			OP:   "remove",
@@ -534,6 +535,11 @@ func clearCNPStatusNodes(ctx context.Context, clusterwide bool, clientset k8sCli
 	nCNPs, nGcCNPs := 0, 0
 	for {
 		if clusterwide {
+			if err := rateLimit.Wait(ctx); err != nil {
+				log.WithError(err).Debug("Error while rate limiting CCNP List requests")
+				return
+			}
+
 			ccnpList, err := clientset.CiliumV2().CiliumClusterwideNetworkPolicies().List(
 				ctx,
 				meta_v1.ListOptions{
@@ -552,6 +558,11 @@ func clearCNPStatusNodes(ctx context.Context, clusterwide bool, clientset k8sCli
 					continue
 				}
 
+				if err := rateLimit.Wait(ctx); err != nil {
+					log.WithError(err).Debug("Error while rate limiting CCNP PATCH requests")
+					return
+				}
+
 				_, err = clientset.CiliumV2().CiliumClusterwideNetworkPolicies().Patch(ctx,
 					cnp.Name, types.JSONPatchType, body, meta_v1.PatchOptions{}, "status")
 
@@ -566,6 +577,11 @@ func clearCNPStatusNodes(ctx context.Context, clusterwide bool, clientset k8sCli
 				nGcCNPs++
 			}
 		} else {
+			if err := rateLimit.Wait(ctx); err != nil {
+				log.WithError(err).Debug("Error while rate limiting CNP List requests")
+				return
+			}
+
 			cnpList, err := clientset.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(
 				ctx,
 				meta_v1.ListOptions{
@@ -585,6 +601,12 @@ func clearCNPStatusNodes(ctx context.Context, clusterwide bool, clientset k8sCli
 				}
 
 				namespace := utils.ExtractNamespace(&cnp.ObjectMeta)
+
+				if err := rateLimit.Wait(ctx); err != nil {
+					log.WithError(err).Debug("Error while rate limiting CNP PATCH requests")
+					return
+				}
+
 				_, err = clientset.CiliumV2().CiliumNetworkPolicies(namespace).Patch(ctx,
 					cnp.Name, types.JSONPatchType, body, meta_v1.PatchOptions{}, "status")
 				if err != nil {
