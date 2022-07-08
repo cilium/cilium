@@ -186,10 +186,15 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("echo-ingress-l7").
 		WithPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(
-			tests.PodToPod(),
+			tests.PodToPodWithEndpoints(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
+				// Trying to access private endpoint without "secret" header set
+				// should lead to a drop.
+				if a.Destination().Path() == "/private" && !a.Destination().HasLabel("X-Very-Secret-Token", "42") {
+					return check.ResultDropCurlHTTPError, check.ResultNone
+				}
 				egress = check.ResultOK
 				// Expect all curls from client2 to be proxied and to be GET calls.
 				egress.HTTP = check.HTTP{
