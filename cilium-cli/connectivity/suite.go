@@ -125,12 +125,13 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("client-ingress").WithPolicy(clientIngressFromClient2PolicyYAML).
 		WithScenarios(
 			tests.ClientToClient(),
-		).WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-		if a.Source().HasLabel("other", "client") {
-			return check.ResultOK, check.ResultOK
-		}
-		return check.ResultOK, check.ResultDrop
-	})
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") {
+				return check.ResultOK, check.ResultOK
+			}
+			return check.ResultOK, check.ResultDrop
+		})
 
 	// This policy allows ingress to echo only from client with a label 'other:client'.
 	ct.NewTest("echo-ingress").WithPolicy(echoIngressFromOtherClientPolicyYAML).
@@ -234,10 +235,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPod(),   // connects to other Pods directly, no DNS
 			tests.PodToWorld(), // resolves one.one.one.one
 		).
-		WithExpectations(
-			func(a *check.Action) (egress check.Result, ingress check.Result) {
-				return check.ResultDropCurlTimeout, check.ResultNone
-			})
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			return check.ResultDropCurlTimeout, check.ResultNone
+		})
 
 	// This policy only allows port 80 to "one.one.one.one". DNS proxy enabled.
 	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsCiliumIOPolicyYAML).
