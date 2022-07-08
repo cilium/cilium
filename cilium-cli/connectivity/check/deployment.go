@@ -253,7 +253,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 	_, err := ct.clients.src.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
 	if err != nil {
-		ct.Logf("✨ [%s] Creating namespace for connectivity check...", ct.clients.src.ClusterName())
+		ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", ct.clients.src.ClusterName(), ct.params.TestNamespace)
 		_, err = ct.clients.src.CreateNamespace(ctx, ct.params.TestNamespace, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create namespace %s: %s", ct.params.TestNamespace, err)
@@ -269,7 +269,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 		_, err = ct.clients.dst.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Creating namespace for connectivity check...", ct.clients.dst.ClusterName())
+			ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", ct.clients.dst.ClusterName(), ct.params.TestNamespace)
 			_, err = ct.clients.dst.CreateNamespace(ctx, ct.params.TestNamespace, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create namespace %s: %s", ct.params.TestNamespace, err)
