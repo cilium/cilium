@@ -34,6 +34,12 @@ const (
 
 	// PrometheusServeAddr is the default server address for operator metrics
 	PrometheusServeAddr = ":6942"
+
+	// CNPStatusCleanupQPSDefault is the default rate for the CNP NodeStatus updates GC.
+	CNPStatusCleanupQPSDefault = 10
+
+	// CNPStatusCleanupBurstDefault is the default maximum burst for the CNP NodeStatus updates GC.
+	CNPStatusCleanupBurstDefault = 20
 )
 
 const (
@@ -60,6 +66,15 @@ const (
 	// SkipCNPStatusStartupClean specifies if the cleanup of all the CNP
 	// NodeStatus updates at startup must be skipped.
 	SkipCNPStatusStartupClean = "skip-cnp-status-startup-clean"
+
+	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
+	// nodes updates in CNPs is carried out. It is expressed as queries per second,
+	// and for each query a single CNP status update will be deleted.
+	CNPStatusCleanupQPS = "cnp-status-cleanup-qps"
+
+	// CNPStatusCleanupBurst is the maximum burst of queries allowed for the cleanup
+	// operation of the status nodes updates in CNPs.
+	CNPStatusCleanupBurst = "cnp-status-cleanup-burst"
 
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics = "enable-metrics"
@@ -243,6 +258,15 @@ type OperatorConfig struct {
 	// NodeStatus updates at startup.
 	SkipCNPStatusStartupClean bool
 
+	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
+	// nodes updates in CNPs is carried out. It is expressed as queries per second,
+	// and for each query a single CNP status update will be deleted.
+	CNPStatusCleanupQPS float64
+
+	// CNPStatusCleanupBurst is the maximum burst of queries allowed for the cleanup
+	// operation of the status nodes updates in CNPs.
+	CNPStatusCleanupBurst int
+
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
 
@@ -419,6 +443,8 @@ func (c *OperatorConfig) Populate() {
 	c.CNPNodeStatusGCInterval = viper.GetDuration(CNPNodeStatusGCInterval)
 	c.CNPStatusUpdateInterval = viper.GetDuration(CNPStatusUpdateInterval)
 	c.SkipCNPStatusStartupClean = viper.GetBool(SkipCNPStatusStartupClean)
+	c.CNPStatusCleanupQPS = viper.GetFloat64(CNPStatusCleanupQPS)
+	c.CNPStatusCleanupBurst = viper.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = viper.GetBool(EnableMetrics)
 	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
 	c.IdentityGCInterval = viper.GetDuration(IdentityGCInterval)
