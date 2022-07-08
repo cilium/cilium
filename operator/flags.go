@@ -63,6 +63,9 @@ func init() {
 	flags.Duration(operatorOption.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
 	option.BindEnv(operatorOption.CNPNodeStatusGCInterval)
 
+	flags.Bool(operatorOption.SkipCNPStatusStartupClean, false, `If set to true, the operator will not clean up CNP node status updates at startup`)
+	option.BindEnv(operatorOption.SkipCNPStatusStartupClean)
+
 	flags.Duration(operatorOption.CNPStatusUpdateInterval, 1*time.Second, "Interval between CNP status updates sent to the k8s-apiserver per-CNP")
 	option.BindEnv(operatorOption.CNPStatusUpdateInterval)
 

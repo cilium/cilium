@@ -52,6 +52,10 @@ const (
 	// being sent to the K8s apiserver for a given CNP.
 	CNPStatusUpdateInterval = "cnp-status-update-interval"
 
+	// SkipCNPStatusStartupClean specifies if the cleanup of all the CNP
+	// NodeStatus updates at startup must be skipped.
+	SkipCNPStatusStartupClean = "skip-cnp-status-startup-clean"
+
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics = "enable-metrics"
 
@@ -240,6 +244,10 @@ type OperatorConfig struct {
 	// NodeGCInterval is the GC interval for CiliumNodes
 	NodeGCInterval time.Duration
 
+	// SkipCNPStatusStartupClean disables the cleanup of all the CNP
+	// NodeStatus updates at startup.
+	SkipCNPStatusStartupClean bool
+
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
 
@@ -424,6 +432,7 @@ func (c *OperatorConfig) Populate() {
 	c.CNPNodeStatusGCInterval = viper.GetDuration(CNPNodeStatusGCInterval)
 	c.CNPStatusUpdateInterval = viper.GetDuration(CNPStatusUpdateInterval)
 	c.NodeGCInterval = viper.GetDuration(NodesGCInterval)
+	c.SkipCNPStatusStartupClean = viper.GetBool(SkipCNPStatusStartupClean)
 	c.EnableMetrics = viper.GetBool(EnableMetrics)
 	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
 	c.IdentityGCInterval = viper.GetDuration(IdentityGCInterval)
