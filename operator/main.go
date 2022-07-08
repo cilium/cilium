@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
+	xrate "golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -515,7 +516,13 @@ func onOperatorStartLeading(ctx context.Context) {
 		// possible updates written when the option was enabled.
 		// This is done to avoid accumulating stale updates and thus
 		// hindering scalability for large clusters.
-		RunCNPStatusNodesCleaner(ctx, k8s.CiliumClient().CiliumV2())
+		RunCNPStatusNodesCleaner(ctx,
+			k8s.CiliumClient().CiliumV2(),
+			xrate.NewLimiter(
+				xrate.Limit(operatorOption.Config.CNPStatusCleanupQPS),
+				operatorOption.Config.CNPStatusCleanupBurst,
+			),
+		)
 	}
 
 	if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
