@@ -36,7 +36,7 @@ const (
 	Client2DeploymentName = "client2"
 
 	DNSTestServerContainerName = "dns-test-server"
-	DNSTestServerImage         = "coredns/coredns:1.9.3@sha256:bdb36ee882c13135669cfc2bb91c808a33926ad1a411fee07bd2dc344bb8f782"
+	DNSTestServerImage         = "coredns/coredns:1.9.3@sha256:8e352a029d304ca7431c6507b56800636c321cb52289686a581ab70aaa8a2e2a"
 
 	echoSameNodeDeploymentName  = "echo-same-node"
 	echoOtherNodeDeploymentName = "echo-other-node"
