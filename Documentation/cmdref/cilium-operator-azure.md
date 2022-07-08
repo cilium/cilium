@@ -27,6 +27,8 @@ cilium-operator-azure [flags]
       --cluster-pool-ipv6-cidr strings            IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv6=true'
       --cluster-pool-ipv6-mask-size int           Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv6=true' (default 112)
       --cnp-node-status-gc-interval duration      GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
+      --cnp-status-cleanup-burst int              Maximum burst of requests to clean up status nodes updates in CNPs (default 20)
+      --cnp-status-cleanup-qps float              Rate used for limiting the clean up of the status nodes updates in CNP, expressed as qps (default 10)
       --cnp-status-update-interval duration       Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                             Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                         Configuration directory that contains a file for each option

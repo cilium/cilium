@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/version"
+	xrate "golang.org/x/time/rate"
 
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -515,7 +516,13 @@ func onOperatorStartLeading(ctx context.Context) {
 		// possible updates written when the option was enabled.
 		// This is done to avoid accumulating stale updates and thus
 		// hindering scalability for large clusters.
-		RunCNPStatusNodesCleaner(ctx, k8s.CiliumClient().CiliumV2())
+		RunCNPStatusNodesCleaner(ctx,
+			k8s.CiliumClient().CiliumV2(),
+			xrate.NewLimiter(
+				xrate.Limit(operatorOption.Config.CNPStatusCleanupQPS),
+				operatorOption.Config.CNPStatusCleanupBurst,
+			),
+		)
 	}
 
 	if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
