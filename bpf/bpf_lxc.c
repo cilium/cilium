@@ -516,8 +516,14 @@ ct_recreate6:
 			return ret;
 	}
 #endif
-	if (is_defined(ENABLE_HOST_ROUTING))
-		return redirect_direct_v6(ctx, ETH_HLEN, ip6);
+	if (is_defined(ENABLE_HOST_ROUTING)) {
+		ret = redirect_direct_v6(ctx, ETH_HLEN, ip6);
+		if (likely(ret > 0))
+			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
+					  *dst_id, 0, ret,
+					  trace.reason, trace.monitor);
+		return ret > 0 ? CTX_ACT_REDIRECT : -ret;
+	}
 
 	goto pass_to_stack;
 
@@ -1097,8 +1103,14 @@ skip_vtep:
 			return ret;
 	}
 #endif /* TUNNEL_MODE */
-	if (is_defined(ENABLE_HOST_ROUTING))
-		return redirect_direct_v4(ctx, ETH_HLEN, ip4);
+	if (is_defined(ENABLE_HOST_ROUTING)) {
+		ret = redirect_direct_v4(ctx, ETH_HLEN, ip4);
+		if (likely(ret > 0))
+			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
+					  *dst_id, 0, ret,
+					  trace.reason, trace.monitor);
+		return ret > 0 ? CTX_ACT_REDIRECT : -ret;
+	}
 
 	goto pass_to_stack;
 
