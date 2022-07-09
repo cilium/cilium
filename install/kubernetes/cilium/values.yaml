@@ -1441,7 +1441,13 @@ tls:
 #   - disabled
 #   - vxlan (default)
 #   - geneve
-tunnel: "vxlan"
+tunnel: ""
+
+# -- Tunneling protocol to use in tunneling mode and for ad-hoc tunnels.
+tunnelProtocol: "vxlan"
+
+# -- Enable native-routing mode or tunneling mode.
+routingMode: "tunnel"
 
 # -- Disable the usage of CiliumEndpoint CRD.
 disableEndpointCRD: "false"

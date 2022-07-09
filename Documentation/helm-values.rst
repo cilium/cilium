@@ -1605,6 +1605,10 @@
      - Roll out cilium agent pods automatically when configmap is updated.
      - bool
      - ``false``
+   * - routingMode
+     - Enable native-routing mode or tunneling mode.
+     - string
+     - ``"tunnel"``
    * - securityContext
      - Security context to be added to agent pods
      - object
@@ -1687,6 +1691,10 @@
      - ``[{"operator":"Exists"}]``
    * - tunnel
      - Configure the encapsulation configuration for communication between nodes. Possible values:   - disabled   - vxlan (default)   - geneve
+     - string
+     - ``""``
+   * - tunnelProtocol
+     - Tunneling protocol to use in tunneling mode and for ad-hoc tunnels.
      - string
      - ``"vxlan"``
    * - updateStrategy

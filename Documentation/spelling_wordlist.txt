@@ -816,6 +816,7 @@ rollOutCiliumPods
 rollOutPods
 rollout
 routable
+routingMode
 rst
 rsync
 runPath
@@ -947,6 +948,7 @@ tracepoints
 transpiling
 triaged
 ttlSecondsAfterFinished
+tunnelProtocol
 tuples
 ubuntu
 udp
