@@ -418,7 +418,7 @@ static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 }
 
 static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
-					   struct ipv6hdr *ip6 __maybe_unused,
+					   const struct ipv6hdr *ip6 __maybe_unused,
 					   int code, int ohead __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
