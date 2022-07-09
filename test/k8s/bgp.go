@@ -85,7 +85,7 @@ var _ = SkipDescribeIf(
 						"bgp.announce.loadbalancerIP": "true",
 
 						"debug.verbose":        "datapath", // https://github.com/cilium/cilium/issues/16399
-						"tunnel":               "disabled",
+						"routingMode":          "native",
 						"autoDirectNodeRoutes": "true",
 					})
 

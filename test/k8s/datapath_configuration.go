@@ -143,7 +143,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Encapsulation", func() {
 		enableVXLANTunneling := func(options map[string]string) {
-			options["tunnel"] = "vxlan"
+			options["tunnelProtocol"] = "vxlan"
 			if helpers.RunsOnGKE() {
 				// We need to disable gke.enabled as it disables tunneling.
 				options["gke.enabled"] = "false"
@@ -197,7 +197,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		BeforeAll(func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                "disabled",
+				"routingMode":           "native",
 				"autoDirectNodeRoutes":  "true",
 				"ipv6NativeRoutingCIDR": helpers.IPv6NativeRoutingCIDR,
 			}, DeployCiliumOptionsAndDNS)
@@ -315,7 +315,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("DirectRouting", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"ipMasqAgent.enabled":                   "true",
-				"tunnel":                                "disabled",
+				"routingMode":                           "native",
 				"autoDirectNodeRoutes":                  "true",
 				"ipMasqAgent.config.nonMasqueradeCIDRs": fmt.Sprintf("{%s/32}", nodeIP),
 			}, DeployCiliumOptionsAndDNS)
@@ -326,7 +326,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("VXLAN", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"ipMasqAgent.enabled":                   "true",
-				"tunnel":                                "vxlan",
+				"tunnelProtocol":                        "vxlan",
 				"ipMasqAgent.config.nonMasqueradeCIDRs": fmt.Sprintf("{%s/32}", nodeIP),
 			}, DeployCiliumOptionsAndDNS)
 
@@ -353,7 +353,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                     "disabled",
+				"routingMode":                "native",
 				"autoDirectNodeRoutes":       "true",
 				"encryption.enabled":         "true",
 				"encryption.ipsec.interface": privateIface,
@@ -423,7 +423,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			if helpers.RunsOnGKE() {
 				options["gke.enabled"] = "false"
-				options["tunnel"] = "vxlan"
+				options["tunnelProtocol"] = "vxlan"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
@@ -438,7 +438,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			if helpers.RunsOnGKE() {
 				options["gke.enabled"] = "false"
-				options["tunnel"] = "vxlan"
+				options["tunnelProtocol"] = "vxlan"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
@@ -447,7 +447,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("With native routing", func() {
 			options := map[string]string{
 				"hostFirewall.enabled": "true",
-				"tunnel":               "disabled",
+				"routingMode":          "native",
 			}
 			// We don't want to run with per-endpoint routes (enabled by
 			// gke.enabled) for this test.
@@ -463,7 +463,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("With native routing and endpoint routes", func() {
 			options := map[string]string{
 				"hostFirewall.enabled":   "true",
-				"tunnel":                 "disabled",
+				"routingMode":            "native",
 				"endpointRoutes.enabled": "true",
 			}
 			if !helpers.RunsOnGKE() {
@@ -479,7 +479,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.SkipQuarantined()
 		}, "Skip conntrack for pod traffic", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                          "disabled",
+				"routingMode":                     "native",
 				"autoDirectNodeRoutes":            "true",
 				"installNoConntrackIptablesRules": "true",
 			}, DeployCiliumOptionsAndDNS)
