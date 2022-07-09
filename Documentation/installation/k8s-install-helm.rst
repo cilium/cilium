@@ -150,7 +150,7 @@ Install Cilium
                   --set azure.tenantID=$AZURE_TENANT_ID \\
                   --set azure.clientID=$AZURE_CLIENT_ID \\
                   --set azure.clientSecret=$AZURE_CLIENT_SECRET \\
-                  --set tunnel=disabled \\
+                  --set routingMode=native \\
                   --set ipam.mode=azure \\
                   --set enableIPv4Masquerade=false \\
                   --set nodeinit.enabled=true
@@ -179,11 +179,11 @@ Install Cilium
             --set eni.enabled=true \\
             --set ipam.mode=eni \\
             --set egressMasqueradeInterfaces=eth0 \\
-            --set tunnel=disabled
+            --set routingMode=native
 
        .. note::
 
-          This helm command sets ``eni.enabled=true`` and ``tunnel=disabled``,
+          This helm command sets ``eni.enabled=true`` and ``routingMode=native``,
           meaning that Cilium will allocate a fully-routable AWS ENI IP address
           for each pod, similar to the behavior of the `Amazon VPC CNI plugin
           <https://docs.aws.amazon.com/eks/latest/userguide/pod-networking.html>`_.
@@ -199,7 +199,7 @@ Install Cilium
           overlay mode, follow the steps below:
 
             1. Excluding the lines for ``eni.enabled=true``, ``ipam.mode=eni`` and 
-               ``tunnel=disabled`` from the helm command will configure Cilium to use 
+               ``routingMode=native`` from the helm command will configure Cilium to use
                overlay routing mode (which is the helm default).
             2. Flush iptables rules added by VPC CNI
 

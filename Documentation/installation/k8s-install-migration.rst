@@ -167,7 +167,8 @@ Preparation
         operator:
           unmanagedPodWatcher:
             restart: false # Migration: Don't restart unmigrated pods
-        tunnel: vxlan # Migration: Optional: default is vxlan, configure as needed
+        routingMode: tunnel # Migration: Optional: default is tunneling, configure as needed
+        tunnelProtocol: vxlan # Migration: Optional: default is VXLAN, configure as needed
         tunnelPort: 8473 # Migration: Optional, change only if both networks use the same port by default
         cni:
           customConf: true # Migration: Don't install a CNI configuration file
