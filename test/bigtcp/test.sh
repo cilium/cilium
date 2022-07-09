@@ -31,7 +31,7 @@ helm install cilium ${HELM_CHART_DIR} \
     --set devices='{eth0}' \
     --set ipv4.enabled=true \
     --set ipv6.enabled=true \
-    --set tunnel='disabled' \
+    --set routingMode='native' \
     --set enableIPv6Masquerade=false \
     --set bpf.masquerade=true \
     --set kubeProxyReplacement=strict \

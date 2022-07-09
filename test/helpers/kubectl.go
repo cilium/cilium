@@ -127,7 +127,7 @@ var (
 		"k8s.requireIPv4PodCIDR": "false",
 		"cni.chainingMode":       "aws-cni",
 		"masquerade":             "false",
-		"tunnel":                 "disabled",
+		"routingMode":            "native",
 		"nodeinit.enabled":       "true",
 	}
 
@@ -138,7 +138,7 @@ var (
 		"ipv6.enabled":               "false",
 		"k8s.requireIPv4PodCIDR":     "false",
 		"nodeinit.enabled":           "true",
-		"tunnel":                     "disabled",
+		"routingMode":                "native",
 	}
 
 	gkeHelmOverrides = map[string]string{
@@ -158,7 +158,7 @@ var (
 
 	aksHelmOverrides = map[string]string{
 		"ipam.mode":                           "delegated-plugin",
-		"tunnel":                              "disabled",
+		"routingMode":                         "native",
 		"endpointRoutes.enabled":              "true",
 		"extraArgs":                           "{--local-router-ipv4=169.254.23.0}",
 		"k8s.requireIPv4PodCIDR":              "false",
@@ -238,7 +238,8 @@ func HelmOverride(option string) string {
 // NativeRoutingEnabled returns true when native routing is enabled for a
 // particular CNI_INTEGRATION
 func NativeRoutingEnabled() bool {
-	tunnelDisabled := HelmOverride("tunnel") == "disabled"
+	tunnelDisabled := HelmOverride("tunnel") == "disabled" ||
+		HelmOverride("routingMode") == "native"
 	gkeEnabled := HelmOverride("gke.enabled") == "true"
 	return tunnelDisabled || gkeEnabled
 }
