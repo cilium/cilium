@@ -52,11 +52,11 @@ Functionality Overview
 Protect and secure APIs transparently
 -------------------------------------
 
-Ability to secure modern application protocols such as REST/HTTP, gRPC and
-Kafka. Traditional firewalls operates at Layer 3 and 4. A protocol running on a
-particular port is either completely trusted or blocked entirely. Cilium
-provides the ability to filter on individual application protocol requests such
-as:
+Cilium has the Ability to secure modern application protocols such as REST/HTTP,
+gRPC and Kafka. Traditional firewalls operates at Layer 3 and 4. A protocol 
+running on a particular port is either completely trusted or blocked entirely.
+Cilium provides the ability to filter on individual application protocol requests
+such as:
 
 - Allow all HTTP requests with method ``GET`` and path ``/public/.*``. Deny all
   other requests.
