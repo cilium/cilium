@@ -81,7 +81,7 @@ MTU Overhead
 Native-Routing
 ==============
 
-The native routing datapath is enabled with ``tunnel: disabled`` and enables
+The native routing datapath is enabled with ``routing-mode: native`` and enables
 the native packet forwarding mode. The native packet forwarding mode leverages
 the routing capabilities of the network Cilium runs on instead of performing
 encapsulation.
@@ -130,7 +130,7 @@ Configuration
 The following configuration options must be set to run the datapath in native
 routing mode:
 
-* ``tunnel: disabled``: Enable native routing mode.
+* ``routing-mode: native``: Enable native routing mode.
 * ``ipv4-native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
   can be performed.
 
@@ -292,7 +292,7 @@ The following configuration options must be set to run the datapath on GKE:
   Setting this to ``true`` will enable the following options:
 
   * ``ipam: kubernetes``: Enable :ref:`k8s_hostscope` IPAM
-  * ``tunnel: disabled``: Enable native routing mode
+  * ``routing-mode: native``: Enable native routing mode
   * ``enable-endpoint-routes: true``: Enable per-endpoint routing on the node
   * ``enable-local-node-route: false``: Disable installation of the local node route
 

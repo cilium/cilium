@@ -471,7 +471,7 @@ enabled would look as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set tunnel=disabled \\
+        --set routingMode=native \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=dsr \\
@@ -500,7 +500,7 @@ mode would look as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set tunnel=disabled \\
+        --set routingMode=native \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=hybrid \\
@@ -536,7 +536,7 @@ looks as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set tunnel=disabled \\
+        --set routingMode=native \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set socketLB.hostNamespaceOnly=true
@@ -573,7 +573,7 @@ modes and can be enabled as follows for ``loadBalancer.mode=hybrid`` in this exa
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set tunnel=disabled \\
+        --set routingMode=native \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.acceleration=native \\
@@ -807,7 +807,7 @@ In order to run XDP, large receive offload (LRO) needs to be disabled on the
 
    $ ethtool -K eth0 lro off
 
-NodePort XDP requires Cilium to run in direct routing mode (``tunnel=disabled``).
+NodePort XDP requires Cilium to run in direct routing mode (``routingMode=native``).
 It is recommended to use Azure IPAM for the pod IP address allocation, which
 will automatically configure your virtual network to route pod traffic correctly:
 
@@ -822,7 +822,7 @@ will automatically configure your virtual network to route pod traffic correctly
      --set azure.tenantID=$AZURE_TENANT_ID \\
      --set azure.clientID=$AZURE_CLIENT_ID \\
      --set azure.clientSecret=$AZURE_CLIENT_SECRET \\
-     --set tunnel=disabled \\
+     --set routingMode=native \\
      --set enableIPv4Masquerade=false \\
      --set devices=eth0 \\
      --set kubeProxyReplacement=strict \\

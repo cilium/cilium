@@ -16,10 +16,10 @@ Security Identity for N/S Service Traffic
 When accessing a Kubernetes service from outside the cluster, the
 :ref:`arch_id_security` assignment depends on the routing mode.
 
-In the tunneling mode (i.e., ``--tunnel=vxlan`` or ``--tunnel=geneve``), the request
+In the tunneling mode (i.e., ``--tunnel-protocol=vxlan`` or ``--tunnel-protocol=geneve``), the request
 to the service will have the ``reserved:world`` security identity.
 
-In the direct-routing mode (i.e., ``--tunnel=disabled``), the security identity
+In the native-routing mode (i.e., ``--routing-mode=native``), the security identity
 will be set to the ``reserved:world`` if the request was sent to the node which runs the
 selected endpoint by the LB. If not, i.e., the request needs to be forwarded to
 another node after the service endpoint selection, then it will have the ``reserved:remote-node``.

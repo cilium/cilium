@@ -72,10 +72,10 @@ clustermesh enable`` after ``cilium install``:
 
 .. code-block:: shell-session
 
-    cilium install --config tunnel=vxlan
+    cilium install --config tunnel-protocol=vxlan
     cilium clustermesh enable
 
-Config option ``tunnel=vxlan`` overrides any default that could
+Config option ``tunnel-protocol=vxlan`` overrides any default that could
 otherwise be auto-detected for your k8s cluster. This is currently a
 requirement for external workload support.
 
