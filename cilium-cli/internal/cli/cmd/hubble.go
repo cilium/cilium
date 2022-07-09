@@ -141,11 +141,7 @@ func newCmdPortForwardCommand() *cobra.Command {
 			params.Namespace = namespace
 			ctx := context.Background()
 
-			h, err := hubble.NewK8sHubble(ctx, k8sClient, params)
-			if err != nil {
-				fatalf("Unable to port forward: %s", err)
-			}
-			if err := h.PortForwardCommand(ctx); err != nil {
+			if err := params.RelayPortForwardCommand(ctx, k8sClient); err != nil {
 				fatalf("Unable to port forward: %s", err)
 			}
 			return nil
