@@ -396,13 +396,30 @@ data:
   #   - vxlan (default)
   #   - geneve
 {{- if .Values.gke.enabled }}
-  tunnel: "disabled"
+  routing-mode: "native"
   enable-endpoint-routes: "true"
   enable-local-node-route: "false"
 {{- else if .Values.aksbyocni.enabled }}
-  tunnel: "vxlan"
-{{- else }}
-  tunnel: {{ .Values.tunnel | quote }}
+  routing-mode: "tunnel"
+  tunnel-protocol: "vxlan"
+{{- end }}
+
+{{- if eq .Values.tunnel "disabled" }}
+  routing-mode: "native"
+{{- else if eq .Values.tunnel "vxlan" }}
+  routing-mode: "tunnel"
+  tunnel-protocol: "vxlan"
+{{- else if eq .Values.tunnel "geneve" }}
+  routing-mode: "tunnel"
+  tunnel-protocol: "geneve"
+{{- end }}
+
+{{- if .Values.routingMode }}
+  routing-mode: "{{ .Values.routingMode }}"
+{{- end }}
+
+{{- if .Values.tunnelProtocol }}
+  tunnel-protocol: "{{ .Values.tunnelProtocol }}"
 {{- end }}
 
 {{- if .Values.tunnelPort }}
