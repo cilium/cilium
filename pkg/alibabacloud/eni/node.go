@@ -116,6 +116,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 				resource.Spec.AlibabaCloud.VSwitchTags,
 			)
 	}
+	allocation.PoolID = ipamTypes.PoolID(bestSubnet.ID)
 
 	securityGroupIDs, err := n.getSecurityGroupIDs(ctx, resource.Spec.AlibabaCloud)
 	if err != nil {

@@ -408,6 +408,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 				resource.Spec.ENI.SubnetTags,
 			)
 	}
+	allocation.PoolID = ipamTypes.PoolID(bestSubnet.ID)
 
 	securityGroupIDs, err := n.getSecurityGroupIDs(ctx, resource.Spec.ENI)
 	if err != nil {
