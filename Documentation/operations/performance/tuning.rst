@@ -77,7 +77,7 @@ To enable IPv6 BIG TCP:
 
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
-             --set tunnel=disabled \\
+             --set routingMode=native \\
              --set bpf.masquerade=true \\
              --set ipv6.enabled=true \\
              --set enableIPv6Masquerade=false \\
