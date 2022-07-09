@@ -895,6 +895,7 @@ rollOutCiliumPods
 rollOutPods
 rollout
 routable
+routingMode
 rst
 rsync
 runPath
@@ -1043,6 +1044,7 @@ transpiling
 triaged
 ttlSecondsAfterFinished
 tunnelPort
+tunnelProtocol
 tuples
 ubuntu
 udp

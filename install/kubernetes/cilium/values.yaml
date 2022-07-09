@@ -1782,7 +1782,15 @@ tls:
 #   - disabled
 #   - vxlan (default)
 #   - geneve
-tunnel: "vxlan"
+tunnel: ""
+
+# -- Tunneling protocol to use in tunneling mode and for ad-hoc tunnels.
+# @default -- `"vxlan"`
+tunnelProtocol: ""
+
+# -- Enable native-routing mode or tunneling mode.
+# @default -- `"tunnel"`
+routingMode: ""
 
 # -- Configure VXLAN and Geneve tunnel port.
 # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
