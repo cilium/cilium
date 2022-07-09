@@ -251,24 +251,24 @@ func (k *K8sHubble) generateRelayCertificate(name string) (corev1.Secret, error)
 	return secret, nil
 }
 
-func (k *K8sHubble) PortForwardCommand(ctx context.Context) error {
-	relaySvc, err := k.client.GetService(ctx, k.params.Namespace, "hubble-relay", metav1.GetOptions{})
+func (p *Parameters) RelayPortForwardCommand(ctx context.Context, client k8sHubbleImplementation) error {
+	relaySvc, err := client.GetService(ctx, p.Namespace, "hubble-relay", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
 	args := []string{
 		"port-forward",
-		"-n", k.params.Namespace,
+		"-n", p.Namespace,
 		"svc/hubble-relay",
 		"--address", "0.0.0.0",
 		"--address", "::",
-		fmt.Sprintf("%d:%d", k.params.PortForward, relaySvc.Spec.Ports[0].Port)}
+		fmt.Sprintf("%d:%d", p.PortForward, relaySvc.Spec.Ports[0].Port)}
 
-	if k.params.Context != "" {
-		args = append([]string{"--context", k.params.Context}, args...)
+	if p.Context != "" {
+		args = append([]string{"--context", p.Context}, args...)
 	}
 
-	_, err = utils.Exec(k, "kubectl", args...)
+	_, err = utils.Exec(p, "kubectl", args...)
 	return err
 }
