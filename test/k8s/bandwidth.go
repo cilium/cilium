@@ -116,7 +116,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOnNetNextKernel, "K8sBandwidthTest", fu
 		It("Checks Pod to Pod bandwidth, vxlan tunneling", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"bandwidthManager": "true",
-				"tunnel":           "vxlan",
+				"tunnelProtocol":   "vxlan",
 			})
 			waitForTestPods()
 			testNetperf(podLabels, testClientPod)
@@ -125,7 +125,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOnNetNextKernel, "K8sBandwidthTest", fu
 		It("Checks Pod to Pod bandwidth, geneve tunneling", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"bandwidthManager": "true",
-				"tunnel":           "geneve",
+				"tunnelProtocol":   "geneve",
 			})
 			waitForTestPods()
 			testNetperf(podLabels, testClientPod)
@@ -134,7 +134,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOnNetNextKernel, "K8sBandwidthTest", fu
 		It("Checks Pod to Pod bandwidth, direct routing", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"bandwidthManager":     "true",
-				"tunnel":               "disabled",
+				"routingMode":          "native",
 				"autoDirectNodeRoutes": "true",
 			})
 			waitForTestPods()

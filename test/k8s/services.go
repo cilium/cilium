@@ -607,7 +607,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 		It("Tests with direct routing and DSR", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"loadBalancer.mode":    "dsr",
-				"tunnel":               "disabled",
+				"routingMode":          "native",
 				"autoDirectNodeRoutes": "true",
 			})
 
@@ -620,7 +620,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"loadBalancer.acceleration": "testing-only",
 				"loadBalancer.mode":         "snat",
 				"loadBalancer.algorithm":    "random",
-				"tunnel":                    "disabled",
+				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 			})
@@ -633,7 +633,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"loadBalancer.mode":         "snat",
 				"loadBalancer.algorithm":    "maglev",
 				"maglev.tableSize":          "251",
-				"tunnel":                    "disabled",
+				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 				// Support for host firewall + Maglev is currently broken,
@@ -650,7 +650,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"loadBalancer.acceleration": "testing-only",
 				"loadBalancer.mode":         "hybrid",
 				"loadBalancer.algorithm":    "random",
-				"tunnel":                    "disabled",
+				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 			})
@@ -663,7 +663,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"loadBalancer.mode":         "hybrid",
 				"loadBalancer.algorithm":    "maglev",
 				"maglev.tableSize":          "251",
-				"tunnel":                    "disabled",
+				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 				// Support for host firewall + Maglev is currently broken,
@@ -678,7 +678,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"loadBalancer.acceleration": "testing-only",
 				"loadBalancer.mode":         "dsr",
 				"loadBalancer.algorithm":    "random",
-				"tunnel":                    "disabled",
+				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 			})
@@ -691,7 +691,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"loadBalancer.mode":         "dsr",
 				"loadBalancer.algorithm":    "maglev",
 				"maglev.tableSize":          "251",
-				"tunnel":                    "disabled",
+				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
 				// Support for host firewall + Maglev is currently broken,
@@ -706,7 +706,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"loadBalancer.acceleration": "disabled",
 				"loadBalancer.mode":         "hybrid",
 				"loadBalancer.algorithm":    "random",
-				"tunnel":                    "disabled",
+				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
 				"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
 			})
@@ -724,7 +724,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			// isn't compatible with that options. See #15958.
 			if helpers.RunsOnGKE() {
 				options["gke.enabled"] = "false"
-				options["tunnel"] = "disabled"
+				options["routingMode"] = "native"
 			}
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 			testIPv4FragmentSupport(kubectl, ni)

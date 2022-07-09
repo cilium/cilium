@@ -1489,7 +1489,7 @@ var _ = SkipDescribeIf(func() bool {
 			BeforeAll(func() {
 				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 					map[string]string{
-						"tunnel":               "disabled",
+						"routingMode":          "native",
 						"autoDirectNodeRoutes": "true",
 
 						"hostFirewall.enabled": "true",
@@ -2672,7 +2672,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 					// The following are needed because of
 					// https://github.com/cilium/cilium/issues/17962 &&
 					// https://github.com/cilium/cilium/issues/16197.
-					"tunnel":               "disabled",
+					"routingMode":          "native",
 					"autoDirectNodeRoutes": "true",
 					"kubeProxyReplacement": "strict",
 				})

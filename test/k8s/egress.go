@@ -172,7 +172,7 @@ var _ = SkipDescribeIf(func() bool {
 			res.ExpectSuccess()
 			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideNodeIP))
 
-			if ciliumOpts["tunnel"] == "disabled" {
+			if ciliumOpts["routingMode"] == "native" {
 				// When connecting from outside the cluster directly to a pod which is
 				// selected by an egress policy, the reply traffic should not be SNATed with
 				// the egress IP (only connections originating from these pods should go
@@ -302,7 +302,7 @@ var _ = SkipDescribeIf(func() bool {
 		map[string]string{
 			"egressGateway.enabled":     "true",
 			"bpf.masquerade":            "true",
-			"tunnel":                    "disabled",
+			"routingMode":               "native",
 			"autoDirectNodeRoutes":      "true",
 			"endpointRoutes.enabled":    "true",
 			"enableCiliumEndpointSlice": "false",
@@ -314,7 +314,7 @@ var _ = SkipDescribeIf(func() bool {
 		map[string]string{
 			"egressGateway.enabled":     "true",
 			"bpf.masquerade":            "true",
-			"tunnel":                    "disabled",
+			"routingMode":               "native",
 			"autoDirectNodeRoutes":      "true",
 			"endpointRoutes.enabled":    "false",
 			"enableCiliumEndpointSlice": "false",
@@ -326,7 +326,7 @@ var _ = SkipDescribeIf(func() bool {
 		map[string]string{
 			"egressGateway.enabled":     "true",
 			"bpf.masquerade":            "true",
-			"tunnel":                    "vxlan",
+			"tunnelProtocol":            "vxlan",
 			"autoDirectNodeRoutes":      "false",
 			"endpointRoutes.enabled":    "true",
 			"enableCiliumEndpointSlice": "false",
@@ -338,7 +338,7 @@ var _ = SkipDescribeIf(func() bool {
 		map[string]string{
 			"egressGateway.enabled":     "true",
 			"bpf.masquerade":            "true",
-			"tunnel":                    "vxlan",
+			"tunnelProtocol":            "vxlan",
 			"autoDirectNodeRoutes":      "false",
 			"endpointRoutes.enabled":    "false",
 			"enableCiliumEndpointSlice": "false",
