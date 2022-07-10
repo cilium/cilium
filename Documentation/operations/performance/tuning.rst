@@ -12,6 +12,8 @@ Tuning Guide
 
 This guide helps you optimize a Cilium installation for optimal performance.
 
+.. _eBPF_Host_Routing:
+
 eBPF Host-Routing
 =================
 
