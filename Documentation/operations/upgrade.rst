@@ -369,6 +369,8 @@ New Options
 Removed Options
 ~~~~~~~~~~~~~~~
 
+* IPVLAN support has been removed following the deprecation in v1.11.
+  :ref:`eBPF_Host_Routing` should provide the same performance benefits.
 * The endpoint config option ``Conntrack`` was removed. The option was used
   to disable the stateful connection tracking for the endpoint. However, many
   Cilium features depend on the tracking. Therefore the option to disable the
