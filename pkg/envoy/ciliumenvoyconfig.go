@@ -6,6 +6,7 @@ package envoy
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -14,6 +15,7 @@ import (
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -106,7 +108,16 @@ func ParseResources(namePrefix string, anySlice []cilium_v2.XDSResource, validat
 				}
 			}
 			if !found {
-				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* not ingress */, false, true))
+				// TODO: Fix hack of inspecting filter name here.
+				//
+				// This condition should be 'true' for listeners not used for L7 LB,
+				// but for L7 policy redirection, so that this listener can be used
+				// in place of the normal cilium-proxylib-egress listener.
+				if strings.HasPrefix(listener.Name, "tcp_proxy_test") {
+					listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* not ingress */, true, false))
+				} else {
+					listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* not ingress */, false, true))
+				}
 			}
 			// Inject listener socket option for Cilium datapath
 			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* not ingress */))
@@ -120,54 +131,71 @@ func ParseResources(namePrefix string, anySlice []cilium_v2.XDSResource, validat
 						foundCiliumNetworkFilter = true
 					}
 					tc := filter.GetTypedConfig()
-					if tc == nil || tc.GetTypeUrl() != HttpConnectionManagerTypeURL {
+					if tc == nil {
 						continue
 					}
-					any, err := tc.UnmarshalNew()
-					if err != nil {
-						continue
-					}
-					hcmConfig, ok := any.(*envoy_config_http.HttpConnectionManager)
-					if !ok {
-						continue
-					}
-					updated := false
-					if rds := hcmConfig.GetRds(); rds != nil {
-						if rds.ConfigSource == nil {
-							rds.ConfigSource = ciliumXDS
-							updated = true
+					switch tc.GetTypeUrl() {
+					case HttpConnectionManagerTypeURL:
+						any, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
 						}
+						hcmConfig, ok := any.(*envoy_config_http.HttpConnectionManager)
+						if !ok {
+							continue
+						}
+						updated := false
+						if rds := hcmConfig.GetRds(); rds != nil {
+							if rds.ConfigSource == nil {
+								rds.ConfigSource = ciliumXDS
+								updated = true
+							}
+						}
+						if listener.GetAddress() == nil {
+							foundCiliumL7Filter := false
+						loop:
+							for j, httpFilter := range hcmConfig.HttpFilters {
+								switch httpFilter.Name {
+								case "cilium.l7policy":
+									foundCiliumL7Filter = true
+								case "envoy.filters.http.router":
+									if !foundCiliumL7Filter {
+										// Inject Cilium HTTP filter just before the HTTP Router filter
+										hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
+										hcmConfig.HttpFilters[j] = getCiliumHttpFilter()
+										updated = true
+									}
+									break loop
+								}
+							}
+						}
+						if updated {
+							filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+								TypedConfig: toAny(hcmConfig),
+							}
+						}
+					case TCPProxyTypeURL:
+						any, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
+						}
+						_, ok := any.(*envoy_config_tcp.TcpProxy)
+						if !ok {
+							continue
+						}
+					default:
+						continue
 					}
 					// Only inject Cilium policy enforcement filters for
 					// listeners for which Cilium agent allocates address
 					// for (see below)
 					if listener.GetAddress() == nil {
 						if !foundCiliumNetworkFilter {
-							// Inject Cilium network filter just before the HTTP Connection Manager filter
+							// Inject Cilium network filter just before the HTTP Connection Manager or TCPProxy filter
 							fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
 							fc.Filters[i] = &envoy_config_listener.Filter{
 								Name: "cilium.network",
 							}
-						}
-						foundCiliumL7Filter := false
-						for j, httpFilter := range hcmConfig.HttpFilters {
-							switch httpFilter.Name {
-							case "cilium.l7policy":
-								foundCiliumL7Filter = true
-							case "envoy.filters.http.router":
-								if !foundCiliumL7Filter {
-									// Inject Cilium HTTP filter just before the HTTP Router filter
-									hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
-									hcmConfig.HttpFilters[j] = getCiliumHttpFilter()
-									updated = true
-								}
-								break
-							}
-						}
-					}
-					if updated {
-						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
-							TypedConfig: toAny(hcmConfig),
 						}
 					}
 					break // Done with this filter chain
@@ -350,6 +378,10 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 		log.Debugf("UpsertEnvoyResources: Upserting %s...", msg)
 	}
 	var wg *completion.WaitGroup
+	// Wait before new Listeners are added if clusters were also added above.
+	if len(resources.Listeners) > 0 && len(resources.Clusters) > 0 {
+		wg = completion.NewWaitGroup(ctx)
+	}
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Do not wait for the addition of routes, clusters, endpoints, routes,
 	// or secrets as there are no guarantees that these additions will be
@@ -368,11 +400,26 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	}
 	for _, r := range resources.Clusters {
 		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
 	}
 	for _, r := range resources.Routes {
 		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+	}
+	// Wait before new Listeners are added if clusters were also added above.
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpsertEnvoyResources: Waiting for cluster updates to complete...")
+		err := wg.Wait()
+		log.Debugf("UpsertEnvoyResources: Wait time for cluster updates %v (err: %s)", time.Since(start), err)
+
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
+			return err
+		}
+		wg = nil
 	}
 	// Wait only if new Listeners are added, as they will always be acked.
 	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
@@ -565,11 +612,22 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	// Add new Clusters
 	for _, r := range new.Clusters {
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
 	}
 	// Add new Routes
 	for _, r := range new.Routes {
 		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+	}
+	if wg != nil && len(new.Clusters) > 0 {
+		start := time.Now()
+		log.Debug("UpdateEnvoyResources: Waiting for cluster updates to complete...")
+		err := wg.Wait()
+		if err != nil {
+			log.Debug("UpdateEnvoyResources: cluster update failed: ", err)
+		}
+		log.Debug("UpdateEnvoyResources: Wait time for cluster updates: ", time.Since(start))
+		// new wait group for adds
+		wg = completion.NewWaitGroup(ctx)
 	}
 	// Add new Listeners
 	for _, r := range new.Listeners {

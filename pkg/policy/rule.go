@@ -106,6 +106,15 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 		return err
 	}
 
+	if existingFilter.Listener == "" || filterToMerge.Listener == "" {
+		if filterToMerge.Listener != "" {
+			existingFilter.Listener = filterToMerge.Listener
+		}
+	} else if filterToMerge.Listener != existingFilter.Listener {
+		ctx.PolicyTrace("   Merge conflict: mismatching CiliumEnvoyConfig listeners %v/%v\n", filterToMerge.Listener, existingFilter.Listener)
+		return fmt.Errorf("cannot merge conflicting CiliumEnvoyConfig Listeners (%v/%v)", filterToMerge.Listener, existingFilter.Listener)
+	}
+
 	for cs, newL7Rules := range filterToMerge.L7RulesPerSelector {
 		// 'cs' will be merged or moved (see below), either way it needs
 		// to be removed from the map it is in now.

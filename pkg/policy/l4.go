@@ -374,6 +374,9 @@ type L4Filter struct {
 	// L7Parser specifies the L7 protocol parser (optional). If specified as
 	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
+	// Listener is an optional name of a CiliumEnvoyConfig defined Envoy Listner that should be
+	// used for this traffic instead of the default listener
+	Listener string `json:"listener,omitempty"`
 	// Ingress is true if filter applies at ingress; false if it applies at egress.
 	Ingress bool `json:"-"`
 	// The rule labels of this Filter
@@ -414,6 +417,11 @@ func (l4 *L4Filter) GetIngress() bool {
 // GetPort returns the port at which the L4Filter applies as a uint16.
 func (l4 *L4Filter) GetPort() uint16 {
 	return uint16(l4.Port)
+}
+
+// GetListener returns the optional listener name.
+func (l4 *L4Filter) GetListener() string {
+	return l4.Listener
 }
 
 // ToMapState converts filter into a MapState with two possible values:
@@ -723,8 +731,16 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 			}
 		}
 
+		// Override the parser type to CRD is applicable.
+		forceRedirect := false
+		if pr.Listener != "" {
+			l4.L7Parser = ParserTypeCRD
+			l4.Listener = pr.Listener
+			forceRedirect = true
+		}
+
 		if l4.L7Parser != ParserTypeNone {
-			l4.L7RulesPerSelector.addRulesForEndpoints(pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny(), pr.ServerNames, false)
+			l4.L7RulesPerSelector.addRulesForEndpoints(pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny(), pr.ServerNames, forceRedirect)
 		}
 	}
 
@@ -1180,4 +1196,5 @@ type ProxyPolicy interface {
 	GetL7Parser() L7ParserType
 	GetIngress() bool
 	GetPort() uint16
+	GetListener() string
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/revert"
@@ -146,7 +147,7 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 
 	envoy.StartAccessLogServer(stateDir, xdsServer)
 
-	return &Proxy{
+	p := &Proxy{
 		XDSServer:                   xdsServer,
 		stateDir:                    stateDir,
 		rangeMin:                    minPort,
@@ -156,6 +157,9 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 		ipcache:                     ipcache,
 		defaultEndpointInfoRegistry: eir,
 	}
+	api.SetProxyPortGetter(p)
+
+	return p
 }
 
 // Overload XDSServer.UpsertEnvoyResources to start Envoy on demand
@@ -331,14 +335,22 @@ func (p *Proxy) releaseProxyPort(name string) error {
 // This is mainly useful for getting a statically defined proxy port. Dynamic types
 // may have multiple instances and any one of them can be returned.
 // Must be called with proxyPortsMutex held!
-func findProxyPortByType(l7Type ProxyType, ingress bool) (string, *ProxyPort) {
+func findProxyPortByType(l7Type ProxyType, listener string, ingress bool) (string, *ProxyPort) {
 	portType := l7Type
 	switch l7Type {
-	case ProxyTypeDNS, ProxyTypeHTTP, ProxyTypeCRD:
+	case ProxyTypeCRD:
+		// Look up CRD by name
+		if pp, ok := proxyPorts[listener]; ok {
+			return listener, pp
+		}
+		return "", nil
+	case ProxyTypeDNS, ProxyTypeHTTP:
+		// Look by the given type
 	default:
 		// "Unknown" parsers are assumed to be Proxylib (TCP) parsers, which
 		// is registered with an empty string.
-		// This works also for explicit TCP and TLS parser types.
+		// This works also for explicit TCP and TLS parser types, which are backed by the
+		// TCP Procy filter chain.
 		portType = ProxyTypeAny
 	}
 	// proxyPorts is small enough to not bother indexing it.
@@ -365,7 +377,7 @@ func proxyNotFoundError(name string) error {
 // Exported API
 
 // GetProxyPort() returns the fixed listen port for a proxy, if any.
-func GetProxyPort(name string) (uint16, error) {
+func (p *Proxy) GetProxyPort(name string) (uint16, error) {
 	// Accessing pp.proxyPort requires the lock
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
@@ -522,7 +534,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
-	ppName, pp := findProxyPortByType(ProxyType(l4.GetL7Parser()), l4.GetIngress())
+	ppName, pp := findProxyPortByType(ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
 	if pp == nil {
 		err = proxyTypeNotFoundError(ProxyType(l4.GetL7Parser()), l4.GetIngress())
 		revertFunc()
@@ -553,7 +565,13 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		case policy.ParserTypeDNS:
 			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, p.defaultEndpointInfoRegistry)
 		default:
-			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
+			if pp.proxyType == ProxyTypeCRD {
+				// CRD redirects already exist
+				redir.implementation = &CRDRedirect{}
+				err = nil
+			} else {
+				redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
+			}
 		}
 
 		if err == nil {
@@ -599,7 +617,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 	}
 
 	// an error occurred, and we have no more retries
-	scopedLog.WithError(err).Error("Unable to create ", l4.GetL7Parser(), " proxy")
+	scopedLog.WithError(err).Errorf("Unable to create %s proxy %s", l4.GetL7Parser(), l4.GetListener())
 	revertFunc() // Ignore errors while reverting. This is best-effort.
 	return 0, err, nil, nil
 }

@@ -331,7 +331,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	port, err := proxy.GetProxyPort(proxy.DNSProxyName)
+	port, err := d.l7Proxy.GetProxyPort(proxy.DNSProxyName)
 	if option.Config.ToFQDNsProxyPort != 0 {
 		port = uint16(option.Config.ToFQDNsProxyPort)
 	} else if port == 0 {

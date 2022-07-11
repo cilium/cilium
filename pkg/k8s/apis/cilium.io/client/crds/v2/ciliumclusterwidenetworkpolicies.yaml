@@ -338,6 +338,11 @@ spec:
                         description: PortRule is a list of ports/protocol combinations
                           with optional Layer 7 rules which must be met.
                         properties:
+                          listener:
+                            description: listener specifies the name of a custom Envoy
+                              listener to which this traffic should be redirected
+                              to.
+                            type: string
                           originatingTLS:
                             description: OriginatingTLS is the TLS context for the
                               connections originated by the L7 proxy.  For egress
@@ -1618,6 +1623,11 @@ spec:
                         description: PortRule is a list of ports/protocol combinations
                           with optional Layer 7 rules which must be met.
                         properties:
+                          listener:
+                            description: listener specifies the name of a custom Envoy
+                              listener to which this traffic should be redirected
+                              to.
+                            type: string
                           originatingTLS:
                             description: OriginatingTLS is the TLS context for the
                               connections originated by the L7 proxy.  For egress
@@ -2702,6 +2712,11 @@ spec:
                           description: PortRule is a list of ports/protocol combinations
                             with optional Layer 7 rules which must be met.
                           properties:
+                            listener:
+                              description: listener specifies the name of a custom
+                                Envoy listener to which this traffic should be redirected
+                                to.
+                              type: string
                             originatingTLS:
                               description: OriginatingTLS is the TLS context for the
                                 connections originated by the L7 proxy.  For egress
@@ -4002,6 +4017,11 @@ spec:
                           description: PortRule is a list of ports/protocol combinations
                             with optional Layer 7 rules which must be met.
                           properties:
+                            listener:
+                              description: listener specifies the name of a custom
+                                Envoy listener to which this traffic should be redirected
+                                to.
+                              type: string
                             originatingTLS:
                               description: OriginatingTLS is the TLS context for the
                                 connections originated by the L7 proxy.  For egress

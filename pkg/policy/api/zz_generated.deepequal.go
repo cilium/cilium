@@ -974,6 +974,9 @@ func (in *PortRule) DeepEqual(other *PortRule) bool {
 		}
 	}
 
+	if in.Listener != other.Listener {
+		return false
+	}
 	if (in.Rules == nil) != (other.Rules == nil) {
 		return false
 	} else if in.Rules != nil {

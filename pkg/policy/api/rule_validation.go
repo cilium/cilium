@@ -22,6 +22,18 @@ const (
 
 type exists struct{}
 
+type ProxyPortGetter interface {
+	GetProxyPort(string) (uint16, error)
+}
+
+var proxyPortGetter ProxyPortGetter
+
+// SetProxyPortGetter must be called before rule validations are performed so that locking is not
+// required here.
+func SetProxyPortGetter(getter ProxyPortGetter) {
+	proxyPortGetter = getter
+}
+
 // Sanitize validates and sanitizes a policy rule. Minor edits such as
 // capitalization of the protocol name are automatically fixed up. More
 // fundamental violations will cause an error to be returned.
@@ -390,6 +402,20 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	for _, sn := range pr.ServerNames {
 		if sn == "" {
 			return fmt.Errorf("Empty server name is not allowed")
+		}
+	}
+
+	listener := pr.Listener
+	if listener != "" {
+		if ingress {
+			return fmt.Errorf("CRD listeners are not allowed on ingress (%s)", listener)
+		}
+		if proxyPortGetter == nil {
+			return fmt.Errorf("CRD listeners are not supported (%s)", listener)
+		}
+		proxyPort, err := proxyPortGetter.GetProxyPort(listener)
+		if err != nil || proxyPort == 0 {
+			return fmt.Errorf("CRD listener %s not configured: %s", listener, err)
 		}
 	}
 
