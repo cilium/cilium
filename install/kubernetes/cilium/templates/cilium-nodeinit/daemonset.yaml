@@ -7,6 +7,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: cilium-node-init
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-node-init
 spec:
   selector:
     matchLabels:
@@ -29,6 +31,8 @@ spec:
         {{- end }}
       labels:
         app: cilium-node-init
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: cilium-node-init
         {{- with .Values.nodeinit.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

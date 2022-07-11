@@ -313,10 +313,14 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:name=cilium-operator
 	//   k8s:io.cilium/app=operator
+	//   k8s:app.kubernetes.io/part-of=cilium
+	//   k8s:app.kubernetes.io/name=cilium-operator
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	ciliumOperatorLabels := []string{
 		"k8s:name=cilium-operator",
 		"k8s:io.cilium/app=operator",
+		"k8s:app.kubernetes.io/part-of=cilium",
+		"k8s:app.kubernetes.io/name=cilium-operator",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=cilium-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
@@ -329,11 +333,15 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-operator
 	//   k8s:io.cilium/app=etcd-operator
+	//   k8s:app.kubernetes.io/name: cilium-etcd-operator
+	//   k8s:app.kubernetes.io/part-of: cilium
 	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:name=cilium-etcd-operator
 	ciliumEtcdOperatorLabels := []string{
 		"k8s:name=cilium-etcd-operator",
 		"k8s:io.cilium/app=etcd-operator",
+		"k8s:app.kubernetes.io/name: cilium-etcd-operator",
+		"k8s:app.kubernetes.io/part-of: cilium",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=cilium-etcd-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),

@@ -8,6 +8,8 @@ metadata:
   labels:
     io.cilium/app: operator
     name: cilium-operator
+    app.kubernetes.io/name: cilium-operator
+    app.kubernetes.io/part-of: cilium
 spec:
   {{- with $component.maxUnavailable }}
   maxUnavailable: {{ . }}

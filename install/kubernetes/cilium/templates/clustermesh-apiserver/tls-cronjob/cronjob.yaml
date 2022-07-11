@@ -6,6 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: clustermesh-apiserver-generate-certs
+    app.kubernetes.io/part-of: cilium
 spec:
   schedule: {{ .Values.clustermesh.apiserver.tls.auto.schedule | quote }}
   concurrencyPolicy: Forbid
