@@ -112,7 +112,7 @@ func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientse
 			UseSingleClusterRoute:   option.Config.UseSingleClusterRoute,
 			EnableIPv4:              option.Config.EnableIPv4,
 			EnableIPv6:              option.Config.EnableIPv6,
-			EnableEncapsulation:     option.Config.Tunnel != option.TunnelDisabled,
+			EnableEncapsulation:     option.Config.TunnelingEnabled(),
 			EnableAutoDirectRouting: option.Config.EnableAutoDirectRouting,
 			EnableLocalNodeRoute:    enableLocalNodeRoute(),
 			AuxiliaryPrefixes:       auxPrefixes,
