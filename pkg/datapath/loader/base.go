@@ -356,9 +356,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	var mode baseDeviceMode
 	args[initArgTunnelMode] = "<nil>"
 	switch {
-	case option.Config.Tunnel != option.TunnelDisabled:
+	case option.Config.TunnelingEnabled():
 		mode = tunnelMode
-		args[initArgTunnelMode] = option.Config.Tunnel
+		args[initArgTunnelMode] = option.Config.TunnelProtocol
 	case option.Config.EnableHealthDatapath:
 		mode = option.DSRDispatchIPIP
 		sysSettings = append(sysSettings,
@@ -369,10 +369,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 	args[initArgMode] = string(mode)
 
-	if option.Config.Tunnel == option.TunnelDisabled && option.Config.EnableIPv4EgressGateway {
+	if !option.Config.TunnelingEnabled() && option.Config.EnableIPv4EgressGateway {
 		// Enable tunnel mode to vxlan if egress gateway is configured
 		// Tunnel is required for egress traffic under this config
-		args[initArgTunnelMode] = option.TunnelVXLAN
+		args[initArgTunnelMode] = option.Config.TunnelProtocol
 	}
 
 	args[initArgTunnelPort] = "<nil>"

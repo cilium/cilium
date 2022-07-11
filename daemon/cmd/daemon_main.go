@@ -1360,9 +1360,6 @@ func initEnv(cmd *cobra.Command) {
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		if option.Config.Tunnel == "" {
-			option.Config.Tunnel = option.TunnelVXLAN
-		}
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")
 		option.Config.LoadBalancerPMTUDiscovery =
@@ -1372,7 +1369,7 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
-		option.Config.Tunnel = option.TunnelDisabled
+		option.Config.RoutingMode = option.RoutingModeNative
 		option.Config.EnableHealthChecking = false
 		option.Config.EnableIPv4Masquerade = false
 		option.Config.EnableIPv6Masquerade = false
