@@ -13,6 +13,12 @@ WireGuard Transparent Encryption
 This guide explains how to configure Cilium with transparent encryption of
 traffic between Cilium-managed endpoints using `WireGuard® <https://www.wireguard.com/>`_.
 
+.. admonition:: Video
+  :class: attention
+
+  Aside from this guide, you can also watch `eCHO episode 3: WireGuard <https://www.youtube.com/watch?v=-awkPi3D60E&t=475s>`__ on how
+  WireGuard can encrypt network traffic.
+
 When WireGuard is enabled in Cilium, the agent running on each cluster node
 will establish a secure WireGuard tunnel between it and all other known nodes
 in the cluster. Each node automatically creates its own encryption key-pair and
