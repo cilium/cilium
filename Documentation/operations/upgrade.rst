@@ -307,6 +307,34 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.13_upgrade_notes:
+
+1.13 Upgrade Notes
+------------------
+
+New Options
+~~~~~~~~~~~
+
+* ``routing-mode=native``: This option enables native-routing mode, in place of
+  ``tunnel=disabled``, now deprecated.
+* ``tunnel-protocol``: This option allows setting the tunneling protocol, in place
+  of e.g., ``tunnel=vxlan``.
+
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``tunnel`` option was deprecated and will be removed in v1.14. To enable
+  native-routing mode, you can set ``routing-mode=native`` (previously
+  ``tunnel=disabled``). To configure the tunneling protocol, you can set
+  ``tunnel-protocol=geneve`` (previously ``tunnel=geneve``).
+
+Helm Options
+~~~~~~~~~~~~
+
+* Following the deprecation of the ``tunnel`` agent flag, ``tunnel`` as been
+  deprecated in favor of ``routingMode`` and ``tunnelProtocol`` and will be
+  removed in v1.14.
+
 .. _1.12_upgrade_notes:
 
 1.12 Upgrade Notes
