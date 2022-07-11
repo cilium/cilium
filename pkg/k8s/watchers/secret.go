@@ -25,13 +25,14 @@ const (
 	tlsCrtAttribute = "tls.crt"
 	tlsKeyAttribute = "tls.key"
 
-	tlsFieldSelector = "type=kubernetes.io/tls"
+	// Key for CA certificate is fixed as 'ca.crt' even though is not as "standard"
+	// as 'tls.crt' and 'tls.key' are via k8s tls secret type.
+	caCrtAttribute = "ca.crt"
 )
 
 func (k *K8sWatcher) tlsSecretInit(k8sClient kubernetes.Interface, namespace string, swgSecrets *lock.StoppableWaitGroup) {
-	secretOptsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = tlsFieldSelector
-	}
+	// Watch for all Secret types
+	secretOptsModifier := func(options *metav1.ListOptions) {}
 
 	apiGroup := resources.K8sAPIGroupSecretV1Core
 	_, secretController := informer.NewInformer(
@@ -126,9 +127,12 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_entensions_tls_v3.Secre
 	if secret == nil {
 		return nil
 	}
-	return &envoy_entensions_tls_v3.Secret{
+	envoySecret := &envoy_entensions_tls_v3.Secret{
 		Name: getEnvoySecretName(secret.GetNamespace(), secret.GetName()),
-		Type: &envoy_entensions_tls_v3.Secret_TlsCertificate{
+	}
+
+	if len(secret.Data[tlsCrtAttribute]) > 0 || len(secret.Data[tlsKeyAttribute]) > 0 {
+		envoySecret.Type = &envoy_entensions_tls_v3.Secret_TlsCertificate{
 			TlsCertificate: &envoy_entensions_tls_v3.TlsCertificate{
 				CertificateChain: &envoy_config_core_v3.DataSource{
 					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
@@ -141,8 +145,21 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_entensions_tls_v3.Secre
 					},
 				},
 			},
-		},
+		}
+	} else if len(secret.Data[caCrtAttribute]) > 0 {
+		envoySecret.Type = &envoy_entensions_tls_v3.Secret_ValidationContext{
+			ValidationContext: &envoy_entensions_tls_v3.CertificateValidationContext{
+				TrustedCa: &envoy_config_core_v3.DataSource{
+					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
+						InlineBytes: secret.Data[caCrtAttribute],
+					},
+				},
+				// TODO: Consider support for other ValidationContext config.
+			},
+		}
 	}
+
+	return envoySecret
 }
 
 func getEnvoySecretName(namespace, name string) string {
