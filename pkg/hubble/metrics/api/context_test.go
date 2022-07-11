@@ -152,3 +152,20 @@ func TestShortenPodName(t *testing.T) {
 	assert.EqualValues(t, shortenPodName("pod-0000"), "pod")
 	assert.EqualValues(t, shortenPodName("pod-pod-pod-1-1"), "pod-pod-pod")
 }
+
+func Test_reservedIdentityContext(t *testing.T) {
+	opts, err := ParseContextOptions(Options{"sourceContext": "reserved-identity", "destinationContext": "reserved-identity"})
+	assert.NoError(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+		Source:      &pb.Endpoint{Labels: []string{"a", "b"}},
+		Destination: &pb.Endpoint{Labels: []string{"c", "d"}},
+	}), []string{"", ""})
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+		Source:      &pb.Endpoint{Labels: []string{"reserved:world", "reserved:kube-apiserver", "cidr:1.2.3.4/32"}},
+		Destination: &pb.Endpoint{Labels: []string{"reserved:world", "cidr:1.2.3.4/32"}},
+	}), []string{"reserved:kube-apiserver", "reserved:world"})
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+		Source:      &pb.Endpoint{Labels: []string{"a", "b", "reserved:host"}},
+		Destination: &pb.Endpoint{Labels: []string{"c", "d", "reserved:remote-node"}},
+	}), []string{"reserved:host", "reserved:remote-node"})
+}
