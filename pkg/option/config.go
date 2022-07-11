@@ -509,6 +509,13 @@ const (
 
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
+
+	// RoutingMode is the name of the option to choose between native routing and tunneling mode
+	RoutingMode = "routing-mode"
+
+	// TunnelProtocol is the name of the option to select the tunneling protocol
+	TunnelProtocol = "tunnel-protocol"
+
 	// TunnelPortName is the name of the TunnelPort option
 	TunnelPortName = "tunnel-port"
 
@@ -1112,6 +1119,15 @@ const (
 	TunnelDisabled = "disabled"
 )
 
+// Available options for DaemonConfig.RoutingMode
+const (
+	// RoutingModeNative specifies native routing mode
+	RoutingModeNative = "native"
+
+	// RoutingModeTunnel specifies tunneling mode
+	RoutingModeTunnel = "tunnel"
+)
+
 // Envoy option names
 const (
 	// HTTPNormalizePath switches on Envoy HTTP path normalization options, which currently
@@ -1314,9 +1330,11 @@ type DaemonConfig struct {
 	// devices.
 	EnableRuntimeDeviceDetection bool
 
-	DatapathMode string // Datapath mode
-	Tunnel       string // Tunnel mode
-	TunnelPort   int    // Tunnel port
+	DatapathMode   string // Datapath mode
+	Tunnel         string // Tunnel mode
+	RoutingMode    string // Routing mode
+	TunnelProtocol string // Tunneling protocol
+	TunnelPort     int    // Tunnel port
 
 	DryMode bool // Do not create BPF maps, devices, ..
 
@@ -2594,6 +2612,18 @@ func (c *DaemonConfig) Validate() error {
 		}
 	}
 
+	switch c.RoutingMode {
+	case RoutingModeNative, RoutingModeTunnel:
+	default:
+		return fmt.Errorf("invalid routing mode %q", c.RoutingMode)
+	}
+
+	switch c.TunnelProtocol {
+	case TunnelVXLAN, TunnelGeneve:
+	default:
+		return fmt.Errorf("invalid tunnel protocol %q", c.TunnelProtocol)
+	}
+
 	switch c.Tunnel {
 	case TunnelVXLAN, TunnelGeneve, "":
 	case TunnelDisabled:
@@ -2963,7 +2993,13 @@ func (c *DaemonConfig) Populate() {
 	}
 
 	c.Tunnel = viper.GetString(TunnelName)
+	c.RoutingMode = viper.GetString(RoutingMode)
+	c.TunnelProtocol = viper.GetString(TunnelProtocol)
 	c.TunnelPort = viper.GetInt(TunnelPortName)
+
+	if c.Tunnel != "" && c.RoutingMode != defaults.RoutingMode {
+		log.Fatalf("Option --%s cannot be used in combination with --%s", RoutingMode, TunnelName)
+	}
 
 	if c.TunnelPort == 0 {
 		switch c.Tunnel {

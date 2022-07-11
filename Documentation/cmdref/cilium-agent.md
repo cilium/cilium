@@ -242,6 +242,7 @@ cilium-agent [flags]
       --read-cni-conf string                                    Read to the CNI configuration at specified path to extract per node configuration
       --restore                                                 Restores state, if possible, from previous daemon (default true)
       --route-metric int                                        Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
+      --routing-mode string                                     Routing mode ("native" or "tunnel") (default "tunnel")
       --sidecar-istio-proxy-image string                        Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                                    Use a single cluster route instead of per node routes
       --socket-path string                                      Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
@@ -259,6 +260,7 @@ cilium-agent [flags]
       --trace-payloadlen int                                    Length of payload to capture when tracing (default 128)
   -t, --tunnel string                                           Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
       --tunnel-port int                                         Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
+      --tunnel-protocol string                                  Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --version                                                 Print version information
       --vlan-bpf-bypass strings                                 List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs
       --vtep-cidr strings                                       List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress
