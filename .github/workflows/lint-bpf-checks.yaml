@@ -68,7 +68,7 @@ jobs:
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           persist-credentials: false
-      - uses: docker://cilium/coccicheck:2.1@sha256:34f2f781a95e6dbfaf03a8b552b51300991d1500c61acece8a8ec886f68ac8bc
+      - uses: docker://cilium/coccicheck:2.3@sha256:56c7445e3d0cc37de49750f5dfd154786082c4be6bc17683c231c0445862233a
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
       - name: Send slack notification
