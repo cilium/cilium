@@ -515,7 +515,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "without native routing cidr and tunnel enabled",
+			name: "without native routing cidr and tunnel disabled",
 			d: &DaemonConfig{
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
