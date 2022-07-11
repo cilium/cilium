@@ -18,6 +18,12 @@ All tests are performed between containers running on two different bare metal
 nodes connected back-to-back by a 100Gbit/s network interface. Upon popular
 request we have included performance numbers for Calico for comparison.
 
+.. admonition:: Video
+  :class: attention
+
+  You can also watch Thomas Graf, Co-founder of Cilium, dive deep into this chapter
+  in `eCHO episode 5: Network performance benchmarking <https://www.youtube.com/watch?v=2lGag_j4dIw&t=377s>`__.
+
 .. tip::
 
    To achieve these performance results, follow the :ref:`performance_tuning`.
