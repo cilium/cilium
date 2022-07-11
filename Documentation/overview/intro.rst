@@ -23,6 +23,11 @@ within Linux itself.  Because eBPF runs inside the Linux kernel, Cilium
 security policies can be applied and updated without any changes to the
 application code or container configuration.
 
+.. admonition:: Video
+  :class: attention
+
+  If you'd like a video introduction to Cilium, check out this `explanation by Thomas Graf, Co-founder of Cilium <https://www.youtube.com/watch?v=80OYrzS1dCA&t=405s>`__.
+
 What is Hubble?
 ===============
 
@@ -73,6 +78,11 @@ Security observability
 * Which services had connections blocked due to network policy? What services
   have been accessed from outside the cluster? Which services have resolved a
   particular DNS name?
+
+.. admonition:: Video
+  :class: attention
+
+  If you'd like a video introduction to Hubble, check out `eCHO episode 2: Introduction to Hubble <https://www.youtube.com/watch?v=hD2iJUyIXQw&t=187s>`__.
 
 Why Cilium & Hubble?
 ====================
