@@ -150,9 +150,6 @@ var _ = Describe("K8sVerifier", func() {
 	})
 
 	It("Runs the kernel verifier against Cilium's BPF datapath", func() {
-		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C tools/maptool/")
-		res.ExpectSuccess("Expected compilation of maptool to succeed")
-
 		for _, bpfProgram := range bpfPrograms {
 			file, err := os.Open(getDatapathConfigFile(bpfProgram.name))
 			Expect(err).Should(BeNil(), fmt.Sprintf("Unable to open list of datapath configurations for %s", bpfProgram.name))
