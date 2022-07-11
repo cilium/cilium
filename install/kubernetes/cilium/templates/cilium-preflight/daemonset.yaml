@@ -16,7 +16,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
+        app.kubernetes.io/part-of: cilium
         k8s-app: cilium-pre-flight-check
+        app.kubernetes.io/name: cilium-pre-flight-check
         kubernetes.io/cluster-service: "true"
         {{- with .Values.preflight.podLabels }}
         {{- toYaml . | nindent 8 }}

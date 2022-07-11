@@ -5,6 +5,8 @@ metadata:
   labels:
     io.cilium/app: etcd-operator
     name: cilium-etcd-operator
+    app.kubernetes.io/name: cilium-etcd-operator
+    app.kubernetes.io/part-of: cilium
   name: cilium-etcd-operator
   namespace: {{ .Release.Namespace }}
 spec:
@@ -25,6 +27,8 @@ spec:
 {{- end }}
       labels:
         io.cilium/app: etcd-operator
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: cilium-etcd-operator
         name: cilium-etcd-operator
 {{- with .Values.etcd.podLabels }}
         {{- toYaml . | nindent 8 }}
