@@ -338,6 +338,140 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 	}
 	err = validPortRule.Sanitize()
 	c.Assert(err, IsNil)
+
+	// Rule is valid because Listener is allowed on egress, default Kind
+	validPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "443", Protocol: ProtoTCP},
+					},
+					Listener: &Listener{
+						EnvoyConfig: &EnvoyConfig{
+							Name: "test-config",
+						},
+						Name: "myCustomListener",
+					},
+				}},
+			},
+		},
+	}
+	err = validPortRule.Sanitize()
+	c.Assert(err, IsNil)
+
+	// Rule is valid because Listener is allowed on egress, Kind CiliumClusterwideEnvoyConfig
+	validPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "443", Protocol: ProtoTCP},
+					},
+					Listener: &Listener{
+						EnvoyConfig: &EnvoyConfig{
+							Kind: "CiliumClusterwideEnvoyConfig",
+							Name: "shared-config",
+						},
+						Name: "myCustomListener",
+					},
+				}},
+			},
+		},
+	}
+	err = validPortRule.Sanitize()
+	c.Assert(err, IsNil)
+
+	// Rule is valid because Listener is allowed on egress, Kind CiliumEnvoyConfig
+	validPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "443", Protocol: ProtoTCP},
+					},
+					Listener: &Listener{
+						EnvoyConfig: &EnvoyConfig{
+							Kind: "CiliumEnvoyConfig",
+							Name: "shared-config",
+						},
+						Name: "myCustomListener",
+					},
+				}},
+			},
+		},
+	}
+	err = validPortRule.Sanitize()
+	c.Assert(err, IsNil)
+
+	// Rule is invalid because Listener is not allowed on ingress (yet)
+	invalidPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "443", Protocol: ProtoTCP},
+					},
+					Listener: &Listener{
+						EnvoyConfig: &EnvoyConfig{
+							Name: "test-config",
+						},
+						Name: "myCustomListener",
+					},
+				}},
+			},
+		},
+	}
+	err = invalidPortRule.Sanitize()
+	c.Assert(err, Not(IsNil))
+	c.Assert(err.Error(), Equals, "Listener is not allowed on ingress (myCustomListener)")
+
+	// Rule is invalid because Listener is not allowed with L7 rules
+	invalidPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "443", Protocol: ProtoTCP},
+					},
+					Listener: &Listener{
+						EnvoyConfig: &EnvoyConfig{
+							Name: "test-config",
+						},
+						Name: "myCustomListener",
+					},
+					Rules: &L7Rules{
+						HTTP: []PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
+			},
+		},
+	}
+	err = invalidPortRule.Sanitize()
+	c.Assert(err, Not(IsNil))
+	c.Assert(err.Error(), Equals, "Listener is not allowed with L7 rules (myCustomListener)")
 }
 
 // This test ensures that L7 rules reject unspecified ports.

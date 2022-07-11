@@ -52,6 +52,11 @@ var (
 
 type testPolicyContextType struct {
 	isDeny bool
+	ns     string
+}
+
+func (p *testPolicyContextType) GetNamespace() string {
+	return p.ns
 }
 
 func (p *testPolicyContextType) GetSelectorCache() *SelectorCache {
@@ -1006,6 +1011,298 @@ func (ds *PolicyTestSuite) TestMergeTLSSNIPolicy(c *C) {
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
 	c.Assert(l4Filter.L7Parser, Equals, ParserTypeHTTP)
+	log.Infof("res: %v", res)
+}
+
+func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
+	policyContext := &testPolicyContextType{}
+
+	//
+	// no namespace in policyContext (Clusterwide policy): Can not refer to EnvoyConfig
+	//
+	egressRule := &rule{
+		Rule: api.Rule{
+			EndpointSelector: fooSelector,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "443", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "443", Protocol: api.ProtoTCP},
+						},
+						Listener: &api.Listener{
+							EnvoyConfig: &api.EnvoyConfig{
+								Kind: "CiliumEnvoyConfig",
+								Name: "test-cec",
+							},
+							Name: "test",
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer := new(bytes.Buffer)
+	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
+	c.Log(buffer)
+
+	err := egressRule.Sanitize()
+	c.Assert(err, IsNil)
+
+	state := traceState{}
+	res, err := egressRule.resolveEgressPolicy(policyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	c.Log(buffer)
+	c.Assert(err, ErrorMatches, "Listener \"test\" in CCNP can not use Kind CiliumEnvoyConfig")
+	c.Assert(res, IsNil)
+
+	//
+	// no namespace in policyContext (Clusterwide policy): Must to ClusterwideEnvoyConfig
+	//
+	egressRule = &rule{
+		Rule: api.Rule{
+			EndpointSelector: fooSelector,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "443", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "443", Protocol: api.ProtoTCP},
+						},
+						Listener: &api.Listener{
+							EnvoyConfig: &api.EnvoyConfig{
+								Kind: "CiliumClusterwideEnvoyConfig",
+								Name: "shared-cec",
+							},
+							Name: "test",
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer = new(bytes.Buffer)
+	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
+	c.Log(buffer)
+
+	err = egressRule.Sanitize()
+	c.Assert(err, IsNil)
+
+	state = traceState{}
+	res, err = egressRule.resolveEgressPolicy(policyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	c.Log(buffer)
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+
+	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
+	expected := L4PolicyMap{"443/TCP": &L4Filter{
+		Port:     443,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		wildcard: nil,
+		L7Parser: ParserTypeCRD,
+		L7RulesPerSelector: L7DataMap{
+			cachedSelectorA: nil, // no proxy redirect
+			cachedSelectorC: &PerSelectorPolicy{
+				EnvoyHTTPRules:  nil,
+				CanShortCircuit: false,
+				isRedirect:      true,
+			},
+		},
+		Listener:         "shared-cec/test",
+		Ingress:          false,
+		DerivedFromRules: labels.LabelArrayList{nil},
+	}}
+
+	c.Assert(res, checker.Equals, expected)
+
+	l4Filter := res["443/TCP"]
+	c.Assert(l4Filter, Not(IsNil))
+	c.Assert(l4Filter.L7Parser, Equals, ParserTypeCRD)
+	log.Infof("res: %v", res)
+
+	//
+	// namespace in policyContext (Namespaced policy): Can refer to EnvoyConfig
+	//
+	egressRule = &rule{
+		Rule: api.Rule{
+			EndpointSelector: fooSelector,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "443", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "443", Protocol: api.ProtoTCP},
+						},
+						Listener: &api.Listener{
+							EnvoyConfig: &api.EnvoyConfig{
+								Kind: "CiliumEnvoyConfig",
+								Name: "test-cec",
+							},
+							Name: "test",
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer = new(bytes.Buffer)
+	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
+	c.Log(buffer)
+
+	err = egressRule.Sanitize()
+	c.Assert(err, IsNil)
+
+	state = traceState{}
+	policyContext.ns = "default"
+	res, err = egressRule.resolveEgressPolicy(policyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	c.Log(buffer)
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+
+	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
+	expected = L4PolicyMap{"443/TCP": &L4Filter{
+		Port:     443,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		wildcard: nil,
+		L7Parser: ParserTypeCRD,
+		L7RulesPerSelector: L7DataMap{
+			cachedSelectorA: nil, // no proxy redirect
+			cachedSelectorC: &PerSelectorPolicy{
+				EnvoyHTTPRules:  nil,
+				CanShortCircuit: false,
+				isRedirect:      true,
+			},
+		},
+		Listener:         "default/test-cec/test",
+		Ingress:          false,
+		DerivedFromRules: labels.LabelArrayList{nil},
+	}}
+
+	c.Assert(res, checker.Equals, expected)
+
+	l4Filter = res["443/TCP"]
+	c.Assert(l4Filter, Not(IsNil))
+	c.Assert(l4Filter.L7Parser, Equals, ParserTypeCRD)
+	log.Infof("res: %v", res)
+
+	//
+	// namespace in policyContext (Namespaced policy): Can refer to Cluster-socoped
+	// CiliumClusterwideEnvoyConfig
+	//
+	egressRule = &rule{
+		Rule: api.Rule{
+			EndpointSelector: fooSelector,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "443", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "443", Protocol: api.ProtoTCP},
+						},
+						Listener: &api.Listener{
+							EnvoyConfig: &api.EnvoyConfig{
+								Kind: "CiliumClusterwideEnvoyConfig",
+								Name: "shared-cec",
+							},
+							Name: "test",
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer = new(bytes.Buffer)
+	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
+	c.Log(buffer)
+
+	err = egressRule.Sanitize()
+	c.Assert(err, IsNil)
+
+	state = traceState{}
+	policyContext.ns = "default"
+	res, err = egressRule.resolveEgressPolicy(policyContext, &ctxFromFoo, &state, L4PolicyMap{}, nil, nil)
+	c.Log(buffer)
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+
+	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
+	expected = L4PolicyMap{"443/TCP": &L4Filter{
+		Port:     443,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		wildcard: nil,
+		L7Parser: ParserTypeCRD,
+		L7RulesPerSelector: L7DataMap{
+			cachedSelectorA: nil, // no proxy redirect
+			cachedSelectorC: &PerSelectorPolicy{
+				EnvoyHTTPRules:  nil,
+				CanShortCircuit: false,
+				isRedirect:      true,
+			},
+		},
+		Listener:         "shared-cec/test",
+		Ingress:          false,
+		DerivedFromRules: labels.LabelArrayList{nil},
+	}}
+
+	c.Assert(res, checker.Equals, expected)
+
+	l4Filter = res["443/TCP"]
+	c.Assert(l4Filter, Not(IsNil))
+	c.Assert(l4Filter.L7Parser, Equals, ParserTypeCRD)
 	log.Infof("res: %v", res)
 }
 
