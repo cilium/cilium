@@ -117,6 +117,14 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 		return err
 	}
 
+	if len(resources.Listeners) > 0 {
+		// TODO: Policy does not need to be recomputed for this, but if we do not 'force'
+		// the bpf maps are not updated with the new proxy ports either. Move from the
+		// simple boolean to an enum that can more selectively skip regeneration steps (like
+		// we do for the datapath recompilations already?)
+		k.policyManager.TriggerPolicyUpdates(true, "Envoy Listeners added")
+	}
+
 	scopedLog.Debug("Added CiliumEnvoyConfig")
 	return err
 }
@@ -229,6 +237,10 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		return err
 	}
 
+	if oldResources.ListenersAddedOrDeleted(&newResources) {
+		k.policyManager.TriggerPolicyUpdates(true, "Envoy Listeners added or deleted")
+	}
+
 	scopedLog.Debug("Updated CiliumEnvoyConfig")
 	return nil
 }
@@ -323,6 +335,10 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 	if err := k.envoyConfigManager.DeleteEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete Envoy resources")
 		return err
+	}
+
+	if len(resources.Listeners) > 0 {
+		k.policyManager.TriggerPolicyUpdates(true, "Envoy Listeners deleted")
 	}
 
 	scopedLog.Debug("Deleted CiliumEnvoyConfig")

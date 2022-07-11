@@ -64,8 +64,41 @@ type PortAllocator interface {
 	ReleaseProxyPort(name string) error
 }
 
-// ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources type
-// cecNamespace and cecName parameters, if not empty, will be prepended to the Envoy resource names.
+// ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'
+// to 'new'
+func (old *Resources) ListenersAddedOrDeleted(new *Resources) bool {
+	// Typically the number of listeners in a CEC is small (e.g, one), so it should be OK to
+	// scan the slices like here
+	for _, nl := range new.Listeners {
+		found := false
+		for _, ol := range old.Listeners {
+			if ol.Name == nl.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true // a listener was added
+		}
+	}
+	for _, ol := range old.Listeners {
+		found := false
+		for _, nl := range new.Listeners {
+			if nl.Name == ol.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true // a listener was removed
+		}
+	}
+	return false
+}
+
+// ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources
+// type cecNamespace and cecName parameters, if not empty, will be prepended to the Envoy resource
+// names.
 func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator, isL7LB bool) (Resources, error) {
 	resources := Resources{}
 	for _, r := range anySlice {

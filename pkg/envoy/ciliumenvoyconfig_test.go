@@ -12,6 +12,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
@@ -814,4 +815,62 @@ func checkCiliumXDS(c *C, cs *envoy_config_core.ConfigSource) {
 	eg := acs.GrpcServices[0].GetEnvoyGrpc()
 	c.Assert(eg, Not(IsNil))
 	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
+}
+
+func (s *JSONSuite) TestListenersAddedOrDeleted(c *C) {
+	var old Resources
+	var new Resources
+
+	// Both empty
+	res := old.ListenersAddedOrDeleted(&new)
+	c.Assert(res, Equals, false)
+
+	// new adds a listener
+	new.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
+	res = old.ListenersAddedOrDeleted(&new)
+	c.Assert(res, Equals, true)
+	res = new.ListenersAddedOrDeleted(&old)
+	c.Assert(res, Equals, true)
+
+	// Now both have 'foo'
+	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
+	res = old.ListenersAddedOrDeleted(&new)
+	c.Assert(res, Equals, false)
+	res = new.ListenersAddedOrDeleted(&old)
+	c.Assert(res, Equals, false)
+
+	// New has no listeners
+	new.Listeners = nil
+	res = old.ListenersAddedOrDeleted(&new)
+	c.Assert(res, Equals, true)
+	res = new.ListenersAddedOrDeleted(&old)
+	c.Assert(res, Equals, true)
+
+	// New has a different listener
+	new.Listeners = append(new.Listeners, &envoy_config_listener.Listener{Name: "bar"})
+	res = old.ListenersAddedOrDeleted(&new)
+	c.Assert(res, Equals, true)
+	res = new.ListenersAddedOrDeleted(&old)
+	c.Assert(res, Equals, true)
+
+	// New adds the listener in old, but still has the other listener
+	new.Listeners = append(new.Listeners, &envoy_config_listener.Listener{Name: "foo"})
+	res = old.ListenersAddedOrDeleted(&new)
+	c.Assert(res, Equals, true)
+	res = new.ListenersAddedOrDeleted(&old)
+	c.Assert(res, Equals, true)
+
+	// Same listeners but in different order
+	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "bar"})
+	res = old.ListenersAddedOrDeleted(&new)
+	c.Assert(res, Equals, false)
+	res = new.ListenersAddedOrDeleted(&old)
+	c.Assert(res, Equals, false)
+
+	// Old has no listeners
+	old.Listeners = nil
+	res = old.ListenersAddedOrDeleted(&new)
+	c.Assert(res, Equals, true)
+	res = new.ListenersAddedOrDeleted(&old)
+	c.Assert(res, Equals, true)
 }

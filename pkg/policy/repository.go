@@ -34,6 +34,9 @@ type CertificateManager interface {
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
+	// return the namespace in which the policy rule is being resolved
+	GetNamespace() string
+
 	// return the SelectorCache
 	GetSelectorCache() *SelectorCache
 
@@ -66,6 +69,11 @@ type policyContext struct {
 	// isDeny this field is set to true if the given policy computation should
 	// be done for the policy deny.
 	isDeny bool
+}
+
+// GetNamespace() returns the namespace for the policy rule being resolved
+func (p *policyContext) GetNamespace() string {
+	return p.ns
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
