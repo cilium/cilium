@@ -348,10 +348,16 @@ function write_cilium_cfg() {
 cat <<EOF >> "$filename"
 sleep 2s
 if [ -n "\${K8S}" ]; then
+
+    # It is expected and wanted to have CILIUM_OPTS and
+    # CILIUM_OPERATOR_OPTS defined two times, for with and without
+    # kvstore. Developers can switch between them and restart services.
+
     echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
     echo '# Cilium configuration with kvstore.' >> /etc/sysconfig/cilium
     echo 'CILIUM_OPTS="${cilium_options_with_kvstore}"' >> /etc/sysconfig/cilium
     echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options_with_kvstore}"' >> /etc/sysconfig/cilium
+    echo '' >> /etc/sysconfig/cilium
     echo '# Cilium configuration without kvstore.' >> /etc/sysconfig/cilium
 fi
 echo 'CILIUM_OPTS="${cilium_options}"' >> /etc/sysconfig/cilium
