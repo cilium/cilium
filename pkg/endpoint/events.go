@@ -366,6 +366,12 @@ func (e *Endpoint) Stop() {
 	// closed elsewhere.
 	e.eventQueue.Stop()
 
+	// Cancel active controllers for the endpoint tied to e.aliveCtx.
+	// Needs to be performed before draining the event queue to allow
+	// in-flight functions to act before the Endpoint's underlying resources
+	// are removed by the container runtime.
+	e.aliveCancel()
+
 	// Wait for the queue to be drained in case an event which is currently
 	// running for the endpoint tries to acquire the lock - we cannot be sure
 	// what types of events will be pushed onto the EventQueue for an endpoint
@@ -379,7 +385,4 @@ func (e *Endpoint) Stop() {
 	// if anything is blocking on it. If a delete request has already been
 	// enqueued for this endpoint, this is a no-op.
 	e.closeBPFProgramChannel()
-
-	// Cancel active controllers for the endpoint tied to e.aliveCtx.
-	e.aliveCancel()
 }
