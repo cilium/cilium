@@ -316,6 +316,9 @@ const (
 	// CiliumEnvoyConfigName is the name of a CiliumEnvoyConfig
 	CiliumEnvoyConfigName = "ciliumEnvoyConfigName"
 
+	// Listener is the name of an Envoy Listener defined in CEC or CCEC
+	Listener = "listener"
+
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
 

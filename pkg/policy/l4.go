@@ -368,6 +368,9 @@ type L4Filter struct {
 	// L7Parser specifies the L7 protocol parser (optional). If specified as
 	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
+	// Listener is an optional fully qualified name of a Envoy Listner defined in a CiliumEnvoyConfig CRD that should be
+	// used for this traffic instead of the default listener
+	Listener string `json:"listener,omitempty"`
 	// Ingress is true if filter applies at ingress; false if it applies at egress.
 	Ingress bool `json:"-"`
 	// The rule labels of this Filter
@@ -412,7 +415,7 @@ func (l4 *L4Filter) GetPort() uint16 {
 
 // GetListener returns the optional listener name.
 func (l4 *L4Filter) GetListener() string {
-	return ""
+	return l4.Listener
 }
 
 // ToMapState converts filter into a MapState with two possible values:
@@ -724,8 +727,34 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 			}
 		}
 
+		// Override the parser type to CRD is applicable.
+		forceRedirect := false
+		if pr.Listener != nil {
+			l4.L7Parser = ParserTypeCRD
+			ns := policyCtx.GetNamespace()
+			resource := pr.Listener.EnvoyConfig
+			switch resource.Kind {
+			case "CiliumEnvoyConfig":
+				if ns == "" {
+					// Cluster-scoped CCNP tries to use namespaced
+					// CiliumEnvoyConfig
+					//
+					// TODO: Catch this in rule validation once we have a
+					// validation context in there so that we can differentiate
+					// between CNP and CCNP at validation time.
+					return nil, fmt.Errorf("Listener %q in CCNP can not use Kind CiliumEnvoyConfig", pr.Listener.Name)
+				}
+			case "CiliumClusterwideEnvoyConfig":
+				// CNP refers to a cluster-scoped listener
+				ns = ""
+			default:
+			}
+			l4.Listener = api.ResourceQualifiedName(ns, resource.Name, pr.Listener.Name)
+			forceRedirect = true
+		}
+
 		if l4.L7Parser != ParserTypeNone {
-			l4.L7RulesPerSelector.addRulesForEndpoints(pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny(), pr.ServerNames, false)
+			l4.L7RulesPerSelector.addRulesForEndpoints(pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny(), pr.ServerNames, forceRedirect)
 		}
 	}
 
