@@ -1197,6 +1197,11 @@ a Kubernetes delete event for the endpoint. The `Kubernetes
 pod termination <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>`_
 documentation contains more background on the behavior and configuration using ``terminationGracePeriodSeconds``.
 
+.. admonition:: Video
+  :class: attention
+
+  To learn more about Cilium's graceful termination support, check out `eCHO Episode 49: Graceful Termination Support with Cilium 1.11 <https://www.youtube.com/watch?v=9GBxJMp6UkI&t=980s>`__.
+
 .. _session-affinity:
 
 Session Affinity
