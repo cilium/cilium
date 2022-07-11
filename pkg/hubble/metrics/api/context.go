@@ -9,7 +9,10 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/utils/strings/slices"
+
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 // ContextIdentifier describes the identification method of a transmission or
@@ -32,16 +35,23 @@ const (
 	ContextDNS
 	// ContextIP uses the IP address for identification purposes
 	ContextIP
+	// ContextReservedIdentity uses reserved labels in the identity label list for identification
+	// purpose. It uses "reserved:kube-apiserver" label if it's present in the identity label list.
+	// Otherwise, it uses the first label in the identity label list with "reserved:" prefix.
+	ContextReservedIdentity
 )
 
 // ContextOptionsHelp is the help text for context options
 const ContextOptionsHelp = `
  sourceContext          := identifier , { "|", identifier }
  destinationContext     := identifier , { "|", identifier }
- identifier             := identity | namespace | pod | pod-short | dns | ip
+ identifier             := identity | namespace | pod | pod-short | dns | ip | reserved-identity
 `
 
-var shortPodPattern = regexp.MustCompile("^(.+?)(-[a-z0-9]+){1,2}$")
+var (
+	shortPodPattern    = regexp.MustCompile("^(.+?)(-[a-z0-9]+){1,2}$")
+	kubeAPIServerLabel = labels.LabelKubeAPIServer.String()
+)
 
 // String return the context identifier as string
 func (c ContextIdentifier) String() string {
@@ -60,6 +70,9 @@ func (c ContextIdentifier) String() string {
 		return "dns"
 	case ContextIP:
 		return "ip"
+	case ContextReservedIdentity:
+		return "reserved-identity"
+
 	}
 	return fmt.Sprintf("%d", c)
 }
@@ -97,6 +110,8 @@ func parseContextIdentifier(s string) (ContextIdentifier, error) {
 		return ContextDNS, nil
 	case "ip":
 		return ContextIP, nil
+	case "reserved-identity":
+		return ContextReservedIdentity, nil
 	default:
 		return ContextDisabled, fmt.Errorf("unknown context '%s'", s)
 	}
@@ -152,6 +167,13 @@ func sourceIdentityContext(flow *pb.Flow) (context string) {
 	return
 }
 
+func sourceReservedIdentityContext(flow *pb.Flow) (context string) {
+	if flow.GetSource() != nil {
+		context = handleReservedIdentityLabels(flow.GetSource().Labels)
+	}
+	return
+}
+
 func sourcePodContext(flow *pb.Flow) (context string) {
 	if flow.GetSource() != nil {
 		context = flow.GetSource().PodName
@@ -197,9 +219,30 @@ func destinationNamespaceContext(flow *pb.Flow) (context string) {
 	return
 }
 
+func handleReservedIdentityLabels(lbls []string) string {
+	// if reserved:kube-apiserver label is present, return it (instead of reserved:world, etc..)
+	if slices.Contains(lbls, kubeAPIServerLabel) {
+		return kubeAPIServerLabel
+	}
+	// else return the first reserved label.
+	for _, label := range lbls {
+		if strings.HasPrefix(label, labels.LabelSourceReserved+":") {
+			return label
+		}
+	}
+	return ""
+}
+
 func destinationIdentityContext(flow *pb.Flow) (context string) {
 	if flow.GetDestination() != nil {
 		context = strings.Join(flow.GetDestination().Labels, ",")
+	}
+	return
+}
+
+func destinationReservedIdentityContext(flow *pb.Flow) (context string) {
+	if flow.GetDestination() != nil {
+		context = handleReservedIdentityLabels(flow.GetDestination().Labels)
 	}
 	return
 }
@@ -258,6 +301,8 @@ func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
 				context = sourceDNSContext(flow)
 			case ContextIP:
 				context = sourceIPContext(flow)
+			case ContextReservedIdentity:
+				context = sourceReservedIdentityContext(flow)
 			}
 			// always use first non-empty context
 			if context != "" {
@@ -283,6 +328,8 @@ func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
 				context = destinationDNSContext(flow)
 			case ContextIP:
 				context = destinationIPContext(flow)
+			case ContextReservedIdentity:
+				context = destinationReservedIdentityContext(flow)
 			}
 			// always use first non-empty context
 			if context != "" {

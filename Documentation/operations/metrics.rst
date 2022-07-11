@@ -489,16 +489,17 @@ Most Hubble metrics can be configured to add the source and/or destination
 context as a label. The options are called ``sourceContext`` and
 ``destinationContext``. The possible values are:
 
-============== ====================================================================================
-Option Value   Description
-============== ====================================================================================
-``identity``   All Cilium security identity labels
-``namespace``  Kubernetes namespace name
-``pod``        Kubernetes pod name
-``pod-short``  Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
-``dns``        All known DNS names of the source or destination (comma-separated)
-``ip``         The IPv4 or IPv6 address
-============== ====================================================================================
+===================== ===================================================================================
+Option Value          Description
+===================== ===================================================================================
+``identity``          All Cilium security identity labels
+``namespace``         Kubernetes namespace name
+``pod``               Kubernetes pod name
+``pod-short``         Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+``dns``               All known DNS names of the source or destination (comma-separated)
+``ip``                The IPv4 or IPv6 address
+``reserved-identity`` Reserved identity label.
+===================== ===================================================================================
 
 When specifying the source and/or destination context, multiple contexts can be
 specified by separating them via the ``|`` symbol.
@@ -507,6 +508,16 @@ metric as a label. For example, a metric configuration of
 ``flow:destinationContext=dns|ip`` will first try to use the DNS name of the
 target for the label. If no DNS name is known for the target, it will fall back
 and use the IP address of the target instead.
+
+.. note::
+
+   There are 3 cases in which the identity label list contains multiple reserved labels:
+
+   1. ``reserved:kube-apiserver`` and ``reserved:host``
+   2. ``reserved:kube-apiserver`` and ``reserved:remote-node``
+   3. ``reserved:kube-apiserver`` and ``reserved:world``
+
+   In all of these 3 cases, ``reserved-identity`` context returns ``reserved:kube-apiserver``.
 
 .. _hubble_exported_metrics:
 
