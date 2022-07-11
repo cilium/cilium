@@ -8,6 +8,15 @@
 Life of a Packet
 ################
 
+This documentation page overviews the life of a packet from an eBPF datapath perspective
+by explaining three different scenarios.
+
+.. admonition:: Video
+  :class: attention
+
+  You can also watch a video explanation of this topic that also explores the tools available within Cilium to help
+  you understand the life of a packet in `eCHO Episode 51: Life of a Packet with Cilium <https://www.youtube.com/watch?v=0BKU6avwS98&t=494s>`__.
+
 Endpoint to Endpoint
 ====================
 
