@@ -320,6 +320,22 @@ Removed Options
 
 The ``sockops-enable`` option is removed
 
+New Options
+~~~~~~~~~~~
+
+* ``routing-mode=native``: This option enables native-routing mode, in place of
+  ``tunnel=disabled``, now deprecated.
+* ``tunnel-protocol``: This option allows setting the tunneling protocol, in place
+  of e.g., ``tunnel=vxlan``.
+
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``tunnel`` option is deprecated and will be removed in v1.15. To enable
+  native-routing mode, set ``routing-mode=native`` (previously
+  ``tunnel=disabled``). To configure the tunneling protocol, set
+  ``tunnel-protocol=geneve`` (previously ``tunnel=geneve``).
+
 Added Metrics
 ~~~~~~~~~~~~~
 
@@ -343,6 +359,9 @@ Helm Options
 * The ``securityContext`` for Hubble Relay now defaults to drop all
   capabilities and run as non-root user.
 * The ``containerRuntime.integration`` value is being deprecated in favor of ``bpf.autoMount.enabled``.
+* Following the deprecation of the ``tunnel`` agent flag, ``tunnel`` is being
+  deprecated in favor of ``routingMode`` and ``tunnelProtocol`` and will be
+  removed in v1.15.
 
 .. _earlier_upgrade_notes:
 
