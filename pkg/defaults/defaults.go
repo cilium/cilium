@@ -498,6 +498,12 @@ const (
 	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
 	EnableICMPRules = true
 
+	// RoutingMode enables choosing between native routing mode or tunneling mode.
+	RoutingMode = "tunnel"
+
+	// TunnelProtocol is the default tunneling protocol
+	TunnelProtocol = "vxlan"
+
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN = 8472
 	// TunnelPortGeneve is the default Geneve port
