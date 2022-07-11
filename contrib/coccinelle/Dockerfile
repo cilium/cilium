@@ -2,7 +2,7 @@ FROM docker.io/library/alpine:3.16.0@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eea
 
 LABEL maintainer="maintainer@cilium.io"
 
-ENV COCCINELLE_VERSION 1.0.8
+ENV COCCINELLE_VERSION 1.1.1
 
 RUN apk add -t .build_apks curl autoconf automake gcc libc-dev ocaml ocaml-dev ocaml-ocamldoc ocaml-findlib && \
     apk add make python3 bash && \
