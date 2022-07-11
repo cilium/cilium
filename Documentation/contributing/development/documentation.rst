@@ -192,7 +192,7 @@ Links
 
   .. code-block:: rst
 
-    See the `documentation for Cilium <https://docs.cilium.io/en/latest/>__`.
+    See the `documentation for Cilium <https://docs.cilium.io/en/latest/>`__.
 
 - If using embedded URIs, use anonymous hyperlinks (```... <...>`__`` with two
   underscores, see the documentation for `embedded URIs`_) instead of named
@@ -202,13 +202,13 @@ Links
 
   .. code-block:: rst
 
-    See the `documentation for Cilium <https://docs.cilium.io/en/latest/>__`.
+    See the `documentation for Cilium <https://docs.cilium.io/en/latest/>`__.
 
   Avoid:
 
   .. code-block:: rst
 
-    See the `documentation for Cilium <https://docs.cilium.io/en/latest/>_`.
+    See the `documentation for Cilium <https://docs.cilium.io/en/latest/>`_.
 
 .. _embedded URIs: https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#embedded-uris-and-aliases
 .. _block-level hyperlink targets: https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-targets
