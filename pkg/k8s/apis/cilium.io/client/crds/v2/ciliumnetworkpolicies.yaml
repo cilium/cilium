@@ -342,6 +342,45 @@ spec:
                         description: PortRule is a list of ports/protocol combinations
                           with optional Layer 7 rules which must be met.
                         properties:
+                          listener:
+                            description: listener specifies the name of a custom Envoy
+                              listener to which this traffic should be redirected
+                              to.
+                            properties:
+                              envoyConfig:
+                                description: EnvoyConfig is a reference to the CEC
+                                  or CCNP resource in which the listener is defined.
+                                properties:
+                                  kind:
+                                    description: Kind is the resource type being referred
+                                      to. Defaults to CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                      for CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy,
+                                      respectively. The only case this is currently
+                                      explicitly needed is when referring to a CiliumClusterwideEnvoyConfig
+                                      from CiliumNetworkPolicy, as using a namespaced
+                                      listener from a cluster scoped policy is not
+                                      allowed.
+                                    enum:
+                                    - CiliumEnvoyConfig
+                                    - CiliumClusterwideEnvoyConfig
+                                    type: string
+                                  name:
+                                    description: Name is the resource name of the
+                                      CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                      where the listener is defined in.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              name:
+                                description: Name is the name of the listener.
+                                minLength: 1
+                                type: string
+                            required:
+                            - envoyConfig
+                            - name
+                            type: object
                           originatingTLS:
                             description: OriginatingTLS is the TLS context for the
                               connections originated by the L7 proxy.  For egress
@@ -1625,6 +1664,45 @@ spec:
                         description: PortRule is a list of ports/protocol combinations
                           with optional Layer 7 rules which must be met.
                         properties:
+                          listener:
+                            description: listener specifies the name of a custom Envoy
+                              listener to which this traffic should be redirected
+                              to.
+                            properties:
+                              envoyConfig:
+                                description: EnvoyConfig is a reference to the CEC
+                                  or CCNP resource in which the listener is defined.
+                                properties:
+                                  kind:
+                                    description: Kind is the resource type being referred
+                                      to. Defaults to CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                      for CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy,
+                                      respectively. The only case this is currently
+                                      explicitly needed is when referring to a CiliumClusterwideEnvoyConfig
+                                      from CiliumNetworkPolicy, as using a namespaced
+                                      listener from a cluster scoped policy is not
+                                      allowed.
+                                    enum:
+                                    - CiliumEnvoyConfig
+                                    - CiliumClusterwideEnvoyConfig
+                                    type: string
+                                  name:
+                                    description: Name is the resource name of the
+                                      CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                      where the listener is defined in.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              name:
+                                description: Name is the name of the listener.
+                                minLength: 1
+                                type: string
+                            required:
+                            - envoyConfig
+                            - name
+                            type: object
                           originatingTLS:
                             description: OriginatingTLS is the TLS context for the
                               connections originated by the L7 proxy.  For egress
@@ -2713,6 +2791,46 @@ spec:
                           description: PortRule is a list of ports/protocol combinations
                             with optional Layer 7 rules which must be met.
                           properties:
+                            listener:
+                              description: listener specifies the name of a custom
+                                Envoy listener to which this traffic should be redirected
+                                to.
+                              properties:
+                                envoyConfig:
+                                  description: EnvoyConfig is a reference to the CEC
+                                    or CCNP resource in which the listener is defined.
+                                  properties:
+                                    kind:
+                                      description: Kind is the resource type being
+                                        referred to. Defaults to CiliumEnvoyConfig
+                                        or CiliumClusterwideEnvoyConfig for CiliumNetworkPolicy
+                                        and CiliumClusterwideNetworkPolicy, respectively.
+                                        The only case this is currently explicitly
+                                        needed is when referring to a CiliumClusterwideEnvoyConfig
+                                        from CiliumNetworkPolicy, as using a namespaced
+                                        listener from a cluster scoped policy is not
+                                        allowed.
+                                      enum:
+                                      - CiliumEnvoyConfig
+                                      - CiliumClusterwideEnvoyConfig
+                                      type: string
+                                    name:
+                                      description: Name is the resource name of the
+                                        CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                        where the listener is defined in.
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                name:
+                                  description: Name is the name of the listener.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - envoyConfig
+                              - name
+                              type: object
                             originatingTLS:
                               description: OriginatingTLS is the TLS context for the
                                 connections originated by the L7 proxy.  For egress
@@ -4016,6 +4134,46 @@ spec:
                           description: PortRule is a list of ports/protocol combinations
                             with optional Layer 7 rules which must be met.
                           properties:
+                            listener:
+                              description: listener specifies the name of a custom
+                                Envoy listener to which this traffic should be redirected
+                                to.
+                              properties:
+                                envoyConfig:
+                                  description: EnvoyConfig is a reference to the CEC
+                                    or CCNP resource in which the listener is defined.
+                                  properties:
+                                    kind:
+                                      description: Kind is the resource type being
+                                        referred to. Defaults to CiliumEnvoyConfig
+                                        or CiliumClusterwideEnvoyConfig for CiliumNetworkPolicy
+                                        and CiliumClusterwideNetworkPolicy, respectively.
+                                        The only case this is currently explicitly
+                                        needed is when referring to a CiliumClusterwideEnvoyConfig
+                                        from CiliumNetworkPolicy, as using a namespaced
+                                        listener from a cluster scoped policy is not
+                                        allowed.
+                                      enum:
+                                      - CiliumEnvoyConfig
+                                      - CiliumClusterwideEnvoyConfig
+                                      type: string
+                                    name:
+                                      description: Name is the resource name of the
+                                        CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                        where the listener is defined in.
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                name:
+                                  description: Name is the name of the listener.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - envoyConfig
+                              - name
+                              type: object
                             originatingTLS:
                               description: OriginatingTLS is the TLS context for the
                                 connections originated by the L7 proxy.  For egress

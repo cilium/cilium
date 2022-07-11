@@ -112,6 +112,41 @@ type TLSContext struct {
 	PrivateKey string `json:"privateKey,omitempty"`
 }
 
+// EnvoyConfig defines a reference to a CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+type EnvoyConfig struct {
+	// Kind is the resource type being referred to. Defaults to CiliumEnvoyConfig or
+	// CiliumClusterwideEnvoyConfig for CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy,
+	// respectively. The only case this is currently explicitly needed is when referring to a
+	// CiliumClusterwideEnvoyConfig from CiliumNetworkPolicy, as using a namespaced listener
+	// from a cluster scoped policy is not allowed.
+	//
+	// +kubebuilder:validation:Enum=CiliumEnvoyConfig;CiliumClusterwideEnvoyConfig
+	// +kubebuilder:validation:Optional
+	Kind string `json:"kind"`
+
+	// Name is the resource name of the CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig where
+	// the listener is defined in.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+// Listener defines a reference to an Envoy listener specified in a CEC or CCEC resource.
+type Listener struct {
+	// EnvoyConfig is a reference to the CEC or CCNP resource in which
+	// the listener is defined.
+	//
+	// +kubebuilder:validation:Required
+	EnvoyConfig *EnvoyConfig `json:"envoyConfig"`
+
+	// Name is the name of the listener.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
 // PortRule is a list of ports/protocol combinations with optional Layer 7
 // rules which must be met.
 type PortRule struct {
@@ -146,6 +181,12 @@ type PortRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ServerNames []string `json:"serverNames,omitempty"`
+
+	// listener specifies the name of a custom Envoy listener to which this traffic should be
+	// redirected to.
+	//
+	// +kubebuilder:validation:Optional
+	Listener *Listener `json:"listener,omitempty"`
 
 	// Rules is a list of additional port level rules which must be met in
 	// order for the PortRule to allow the traffic. If omitted or empty,
