@@ -2463,15 +2463,19 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	}
 }
 
-// TunnelingEnabled returns true if tunneling is enabled, i.e. not set to "disabled".
+// TunnelingEnabled returns true if tunneling is enabled.
 func (c *DaemonConfig) TunnelingEnabled() bool {
-	return c.Tunnel != TunnelDisabled
+	// We check if routing mode is not native rather than checking if it's
+	// tunneling because, in unit tests, RoutingMode is usually not set and we
+	// would like for TunnelingEnabled to default to the actual default
+	// (tunneling is enabled) in that case.
+	return c.RoutingMode != RoutingModeNative
 }
 
 // TunnelDevice returns cilium_{vxlan,geneve} depending on the config or "" if disabled.
 func (c *DaemonConfig) TunnelDevice() string {
 	if c.TunnelingEnabled() {
-		return fmt.Sprintf("cilium_%s", c.Tunnel)
+		return fmt.Sprintf("cilium_%s", c.TunnelProtocol)
 	} else {
 		return ""
 	}
@@ -2520,7 +2524,7 @@ func (c *DaemonConfig) IptablesMasqueradingEnabled() bool {
 // NodeIpsetNeeded returns true if a node ipsets should be used to skip
 // masquerading for traffic to cluster nodes.
 func (c *DaemonConfig) NodeIpsetNeeded() bool {
-	return c.Tunnel == TunnelDisabled && c.IptablesMasqueradingEnabled()
+	return !c.TunnelingEnabled() && c.IptablesMasqueradingEnabled()
 }
 
 // RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
@@ -2718,15 +2722,9 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 		return fmt.Errorf("invalid tunnel protocol %q", c.TunnelProtocol)
 	}
 
-	switch c.Tunnel {
-	case TunnelVXLAN, TunnelGeneve, "":
-	case TunnelDisabled:
-		if c.UseSingleClusterRoute {
-			return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",
-				SingleClusterRouteName, TunnelName, TunnelDisabled)
-		}
-	default:
-		return fmt.Errorf("invalid tunnel mode '%s', valid modes = {%s}", c.Tunnel, GetTunnelModes())
+	if c.RoutingMode == RoutingModeNative && c.UseSingleClusterRoute {
+		return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",
+			SingleClusterRouteName, RoutingMode, RoutingModeNative)
 	}
 
 	if c.ClusterID < clustermeshTypes.ClusterIDMin || c.ClusterID > clustermeshTypes.ClusterIDMax {
@@ -3086,8 +3084,15 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.Fatalf("Option --%s cannot be used in combination with --%s", RoutingMode, TunnelName)
 	}
 
+	if c.Tunnel == "disabled" {
+		c.RoutingMode = RoutingModeNative
+	} else if c.Tunnel != "" {
+		c.TunnelProtocol = c.Tunnel
+	}
+	c.Tunnel = ""
+
 	if c.TunnelPort == 0 {
-		switch c.Tunnel {
+		switch c.TunnelProtocol {
 		case TunnelDisabled:
 			// tunnel might still be used by eg. DSR with Geneve dispatch or EgressGW
 			if (c.EnableNodePort || c.KubeProxyReplacement == KubeProxyReplacementStrict) &&
@@ -3590,12 +3595,12 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 }
 
 func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
-	if c.GetIPv4NativeRoutingCIDR() == nil && c.EnableIPv4Masquerade && c.Tunnel == TunnelDisabled &&
+	if c.GetIPv4NativeRoutingCIDR() == nil && c.EnableIPv4Masquerade && !c.TunnelingEnabled() &&
 		c.IPAMMode() != ipamOption.IPAMENI && c.EnableIPv4 && c.IPAMMode() != ipamOption.IPAMAlibabaCloud {
 		return fmt.Errorf(
 			"native routing cidr must be configured with option --%s "+
 				"in combination with --%s --%s=%s --%s=%s --%s=true",
-			IPv4NativeRoutingCIDR, EnableIPv4Masquerade, TunnelName, c.Tunnel,
+			IPv4NativeRoutingCIDR, EnableIPv4Masquerade, RoutingMode, RoutingModeNative,
 			IPAM, c.IPAMMode(), EnableIPv4Name)
 	}
 
@@ -3603,12 +3608,12 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 }
 
 func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
-	if c.GetIPv6NativeRoutingCIDR() == nil && c.EnableIPv6Masquerade && c.Tunnel == TunnelDisabled &&
+	if c.GetIPv6NativeRoutingCIDR() == nil && c.EnableIPv6Masquerade && !c.TunnelingEnabled() &&
 		c.EnableIPv6 {
 		return fmt.Errorf(
 			"native routing cidr must be configured with option --%s "+
 				"in combination with --%s --%s=%s --%s=true",
-			IPv6NativeRoutingCIDR, EnableIPv6Masquerade, TunnelName, c.Tunnel,
+			IPv6NativeRoutingCIDR, EnableIPv6Masquerade, RoutingMode, RoutingModeNative,
 			EnableIPv6Name)
 	}
 

@@ -186,16 +186,16 @@ func initKubeProxyReplacementOptions() error {
 	}
 
 	if option.Config.EnableNodePort {
-		if option.Config.Tunnel == option.TunnelVXLAN &&
+		if option.Config.TunnelingEnabled() && option.Config.TunnelProtocol == option.TunnelVXLAN &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
-			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, option.Config.Tunnel)
+			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, option.Config.TunnelProtocol)
 		}
 
-		if option.Config.Tunnel == option.TunnelGeneve &&
+		if option.Config.TunnelingEnabled() && option.Config.TunnelProtocol == option.TunnelGeneve &&
 			option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
 			return fmt.Errorf("Node Port %q mode with %s dispatch cannot be used with %s tunneling.",
-				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.Config.Tunnel)
+				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.Config.TunnelProtocol)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&

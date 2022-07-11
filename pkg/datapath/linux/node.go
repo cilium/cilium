@@ -1319,7 +1319,7 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	var device string
 
-	if option.Config.Tunnel == option.TunnelDisabled {
+	if !option.Config.TunnelingEnabled() {
 		device = option.Config.EncryptInterface[0]
 	} else {
 		device = option.Config.TunnelDevice()
@@ -1521,8 +1521,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 				return err
 			}
 			n.enableNeighDiscovery = len(ifaceNames) != 0 // No need to arping for L2-less devices
-		case n.nodeConfig.EnableIPSec &&
-			option.Config.Tunnel == option.TunnelDisabled &&
+		case n.nodeConfig.EnableIPSec && !option.Config.TunnelingEnabled() &&
 			len(option.Config.EncryptInterface) != 0:
 			// When FIB lookup is not supported we need to pick an
 			// interface so pick first interface in the list. On

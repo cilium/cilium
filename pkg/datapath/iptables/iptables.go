@@ -326,7 +326,7 @@ func (m *IptablesManager) Init() {
 	m.haveIp6tables = haveIp6tables
 
 	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
-		if option.Config.Tunnel == option.TunnelDisabled {
+		if !option.Config.TunnelingEnabled() {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
 			// logic for packets for which a local socket is found by ip early
 			// demux. xt_socket performs a local socket match and sets an skb mark on
@@ -377,7 +377,7 @@ func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 	// Original source address use works if xt_socket match is supported, or if ip early demux
 	// is disabled, but it is not needed when tunneling is used as the tunnel header carries
 	// the source security ID.
-	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && option.Config.Tunnel == option.TunnelDisabled
+	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && !option.Config.TunnelingEnabled()
 }
 
 // removeRules removes iptables rules installed by Cilium.
@@ -1247,7 +1247,7 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 		return err
 	}
 
-	if option.Config.Tunnel != option.TunnelDisabled {
+	if option.Config.TunnelingEnabled() {
 		// Masquerade all traffic from the host into the ifName
 		// interface if the source is not in the node's pod CIDR.
 		//
