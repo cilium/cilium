@@ -91,7 +91,8 @@ The egress gateway feature and all the requirements can be enabled as follow:
                --set egressGateway.enabled=true \\
                --set bpf.masquerade=true \\
                --set kubeProxyReplacement=strict \\
-               --set l7Proxy=false
+               --set l7Proxy=false \\
+               --set rollOutCiliumPods=true
 
     .. group-tab:: ConfigMap
 
