@@ -10,6 +10,12 @@ connecting them together, enable pod-to-pod connectivity across all clusters,
 define global services to load-balance between clusters and enforce security
 policies to restrict access.
 
+.. admonition:: Video
+  :class: attention
+
+  Aside from this step-by-step guide, if you would like to watch how Cilium's
+  Clustermesh feature works, check out `eCHO Episode 41: Cilium Clustermesh <https://www.youtube.com/watch?v=VBOONHW65NU&t=342s>`__.
+
 Prerequisites
 #############
 
