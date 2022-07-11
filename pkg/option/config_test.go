@@ -543,6 +543,8 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			err := tt.d.checkIPv4NativeRoutingCIDR()
 			if tt.wantErr && err == nil {
 				t.Error("expected error, but got nil")
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, but got %q", err)
 			}
 		})
 	}
