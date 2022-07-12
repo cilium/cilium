@@ -29,6 +29,8 @@ permissions:
   pull-requests: read
   # So that Sibz/github-status-action can write into the status API
   statuses: write
+  # Required to generate OIDC tokens for `az` authentication
+  id-token: write
 
 concurrency:
   # Structure:
@@ -185,7 +187,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
         with:
-          creds: ${{ secrets.AZURE_PR_SP_CREDS }}
+          client-id: ${{ secrets.AZURE_PR_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_PR_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_PR_SUBSCRIPTION_ID }}
 
       - name: Display az version
         run: |
