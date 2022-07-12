@@ -261,3 +261,8 @@ Delete the cluster
 .. code-block:: shell-session
 
    openshift-install destroy cluster --dir="${CLUSTER_NAME}"
+
+.. admonition:: Video
+  :class: attention
+
+  To learn more about OpenShift and Cilium, check out `eCHO episode 31: OpenShift Test Environment with Cilium <https://www.youtube.com/watch?v=4jwIBS5IzYg&t=945s>`__.
