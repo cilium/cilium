@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -68,14 +69,7 @@ func TestGetPodMetadata(t *testing.T) {
 			_, labels, _, err := GetPodMetadata(ns, pod)
 
 			require.NoError(t, err)
-			require.Equal(t, map[string]string{
-				"app":                          "test",
-				"io.cilium.k8s.policy.cluster": "",
-				"io.kubernetes.pod.namespace":  "default",
-				"io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "default",
-				"io.cilium.k8s.namespace.labels.namespace-level-key":         "namespace-level-value",
-				"io.cilium.k8s.namespace.labels.another-namespace-key":       "another-namespace-level-value",
-			}, labels)
+			require.Equal(t, expectedLabels, labels)
 		})
 	})
 
@@ -125,4 +119,69 @@ func TestGetPodMetadata(t *testing.T) {
 			}, labels)
 		})
 	})
+}
+
+func Test_filterPodLabels(t *testing.T) {
+	expectedLabels := map[string]string{
+		"app":                         "test",
+		"io.kubernetes.pod.namespace": "default",
+	}
+	type args struct {
+		labels map[string]string
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]string
+	}{
+		{
+			name: "normal scenario",
+			args: args{
+				labels: map[string]string{
+					"app":                         "test",
+					"io.kubernetes.pod.namespace": "default",
+				},
+			},
+			want: expectedLabels,
+		},
+		{
+			name: "having cilium owned namespace labels",
+			args: args{
+				labels: map[string]string{
+					"app":                         "test",
+					"io.kubernetes.pod.namespace": "default",
+					"io.cilium.k8s.namespace.labels.foo.bar/baz":                 "malicious-pod-level-override",
+					"io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "kube-system",
+				},
+			},
+			want: expectedLabels,
+		},
+		{
+			name: "having cilium owned policy labels",
+			args: args{
+				labels: map[string]string{
+					"app":                                    "test",
+					"io.kubernetes.pod.namespace":            "default",
+					"io.cilium.k8s.policy.name":              "admin",
+					"io.cilium.k8s.policy.cluster":           "admin-cluster",
+					"io.cilium.k8s.policy.derived-from":      "admin",
+					"io.cilium.k8s.policy.namespace":         "kube-system",
+					"io.cilium.k8s.policy.istiosidecarproxy": "false",
+					"io.cilium.k8s.policy.serviceaccount":    "admin-serviceaccount",
+					"io.cilium.k8s.policy.uuid":              "6eadee3e-0121-11ed-b58d-fc3497a92ef6",
+				},
+			},
+			want: map[string]string{
+				"app":                         "test",
+				"io.kubernetes.pod.namespace": "default",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := filterPodLabels(tt.args.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("filterPodLabels() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
