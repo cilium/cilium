@@ -493,6 +493,9 @@ const (
 	// EnableSocketLB is the name for the option to enable the socket LB
 	EnableSocketLB = "bpf-lb-sock"
 
+	// EnableSocketLBTracing is the name for the option to enable the socket LB tracing
+	EnableSocketLBTracing = "trace-sock"
+
 	// EnableHostReachableServices is the name of the EnableHostReachableServices option
 	EnableHostReachableServices = "enable-host-reachable-services"
 
@@ -1582,6 +1585,7 @@ type DaemonConfig struct {
 	Debug                         bool
 	DebugVerbose                  []string
 	EnableSocketLB                bool
+	EnableSocketLBTracing         bool
 	EnableHostServicesTCP         bool
 	EnableHostServicesUDP         bool
 	EnableHostServicesPeer        bool
@@ -2768,6 +2772,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EgressMasqueradeInterfaces = vp.GetString(EgressMasqueradeInterfaces)
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLB = vp.GetBool(EnableHostReachableServices) || vp.GetBool(EnableSocketLB)
+	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.EnableRemoteNodeIdentity = vp.GetBool(EnableRemoteNodeIdentity)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)

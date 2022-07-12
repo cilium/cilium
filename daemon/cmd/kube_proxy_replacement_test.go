@@ -6,6 +6,8 @@
 package cmd
 
 import (
+	"strings"
+
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/option"
@@ -31,6 +33,7 @@ type kprConfig struct {
 	installNoConntrackIptRules                   bool
 	enableBPFMasquerade                          bool
 	enableIPv4Masquerade                         bool
+	enableSocketLBTracing                        bool
 
 	expectedStrict     bool
 	expectedErrorRegex string
@@ -50,6 +53,7 @@ func (cfg *kprConfig) set() {
 	option.Config.InstallNoConntrackIptRules = cfg.installNoConntrackIptRules
 	option.Config.EnableBPFMasquerade = cfg.enableBPFMasquerade
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
+	option.Config.EnableSocketLBTracing = true
 }
 
 func (cfg *kprConfig) read() {
@@ -66,6 +70,7 @@ func (cfg *kprConfig) read() {
 	cfg.installNoConntrackIptRules = option.Config.InstallNoConntrackIptRules
 	cfg.enableBPFMasquerade = option.Config.EnableBPFMasquerade
 	cfg.enableIPv4Masquerade = option.Config.EnableIPv4Masquerade
+	cfg.enableSocketLBTracing = option.Config.EnableSocketLBTracing
 }
 
 func (cfg *kprConfig) verify(c *C) {
@@ -73,6 +78,9 @@ func (cfg *kprConfig) verify(c *C) {
 
 	if err != nil || cfg.expectedErrorRegex != "" {
 		c.Assert(err, ErrorMatches, cfg.expectedErrorRegex)
+		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {
+			return
+		}
 	}
 	c.Assert(strict, Equals, cfg.expectedStrict)
 
@@ -88,6 +96,7 @@ func (cfg *kprConfig) verify(c *C) {
 	c.Assert(option.Config.InstallNoConntrackIptRules, Equals, cfg.installNoConntrackIptRules)
 	c.Assert(option.Config.EnableBPFMasquerade, Equals, cfg.enableBPFMasquerade)
 	c.Assert(option.Config.EnableIPv4Masquerade, Equals, cfg.enableIPv4Masquerade)
+	c.Assert(option.Config.EnableSocketLBTracing, Equals, cfg.enableSocketLBTracing)
 }
 
 func (s *KPRSuite) SetUpTest(c *C) {
@@ -132,6 +141,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableSessionAffinity:   false,
 				enableIPSec:             false,
 				enableHostLegacyRouting: true,
+				enableSocketLBTracing:   false,
 				expectedStrict:          false,
 				expectedErrorRegex:      "",
 			},
@@ -153,6 +163,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableHostServicesUDP:   true,
 				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
 			},
 		},
 
@@ -175,6 +186,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableIPSec:             true,
+				enableSocketLBTracing:   true,
 			},
 		},
 
@@ -195,6 +207,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableSessionAffinity:   true,
 				enableHostLegacyRouting: true,
 				enableIPSec:             true,
+				enableSocketLBTracing:   true,
 			},
 		},
 
@@ -220,6 +233,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableBPFMasquerade:        true,
 				enableIPv4Masquerade:       true,
 				installNoConntrackIptRules: true,
+				enableSocketLBTracing:      true,
 			},
 		},
 
@@ -243,6 +257,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableHostLegacyRouting:    false,
 				installNoConntrackIptRules: true,
 				enableIPv4Masquerade:       true,
+				enableSocketLBTracing:      true,
 			},
 		},
 		// KPR partial + no conntrack ipt rules: error, needs KPR
@@ -264,6 +279,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableSessionAffinity:      false,
 				enableHostLegacyRouting:    false,
 				installNoConntrackIptRules: true,
+				enableSocketLBTracing:      true,
 			},
 		},
 	}
