@@ -21,6 +21,16 @@ on:
   schedule:
     - cron:  '0 0/6 * * *'
 
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # Required to generate OIDC tokens for `az` authentication
+  id-token: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'scheduled' }}
   cancel-in-progress: true
@@ -52,7 +62,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@24848bc889cfc0a8313c2b3e378ac0d625b9bc16
         with:
-          creds: ${{ secrets.AZURE_PR_SP_CREDS }}
+          client-id: ${{ secrets.AZURE_PR_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_PR_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_PR_SUBSCRIPTION_ID }}
 
       - name: Install aks-preview CLI extension
         run: |
