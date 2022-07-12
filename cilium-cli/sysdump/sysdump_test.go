@@ -6,9 +6,12 @@ package sysdump
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,7 +25,9 @@ import (
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
 )
 
@@ -142,8 +147,57 @@ func (b *SysdumpSuite) TestExtractGopsPID(c *check.C) {
 
 }
 
+func TestKVStoreTask(t *testing.T) {
+	assert := assert.New(t)
+	client := &fakeClient{
+		nodeList: &corev1.NodeList{
+			Items: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}}},
+		},
+		execs: make(map[execRequest]execResult),
+	}
+	addKVStoreGet := func(c *fakeClient, ciliumPaths ...string) {
+		for _, path := range ciliumPaths {
+			c.expectExec("ns0", "pod0", defaults.AgentContainerName,
+				[]string{"cilium", "kvstore", "get", "cilium/" + path, "--recursive", "-o", "json"},
+				[]byte("{}"), nil, nil)
+		}
+	}
+	addKVStoreGet(client, "state/identities", "state/ip", "state/nodes", "state/cnpstatuses", ".heartbeat", "state/services")
+	options := Options{
+		OutputFileName: "my-sysdump-<ts>",
+		Writer:         io.Discard,
+	}
+	collector, err := NewCollector(client, options, time.Now(), "cilium-cli-version")
+	assert.NoError(err)
+	collector.submitKVStoreTasks(context.Background(), &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod0",
+			Namespace: "ns0",
+		},
+	})
+	fd, err := os.Open(path.Join(collector.sysdumpDir, "kvstore-heartbeat.json"))
+	assert.NoError(err)
+	data, err := ioutil.ReadAll(fd)
+	assert.NoError(err)
+	assert.Equal([]byte("{}"), data)
+}
+
+type execRequest struct {
+	namespace string
+	pod       string
+	container string
+	command   string
+}
+
+type execResult struct {
+	stderr []byte
+	stdout []byte
+	err    error
+}
+
 type fakeClient struct {
 	nodeList *corev1.NodeList
+	execs    map[execRequest]execResult
 }
 
 func (c *fakeClient) ListCiliumClusterwideEnvoyConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error) {
@@ -178,12 +232,27 @@ func (c *fakeClient) DeletePod(ctx context.Context, namespace, name string, opts
 	panic("implement me")
 }
 
+func (c *fakeClient) expectExec(namespace, pod, container string, command []string, expectedStdout []byte, expectedStderr []byte, expectedErr error) {
+	r := execRequest{namespace, pod, container, strings.Join(command, " ")}
+	c.execs[r] = execResult{
+		stdout: expectedStdout,
+		stderr: expectedStderr,
+		err:    expectedErr,
+	}
+}
+
 func (c *fakeClient) ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
-	panic("implement me")
+	stdout, _, err := c.ExecInPodWithStderr(ctx, namespace, pod, container, command)
+	return stdout, err
 }
 
 func (c *fakeClient) ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {
-	panic("implement me")
+	r := execRequest{namespace, pod, container, strings.Join(command, " ")}
+	out, ok := c.execs[r]
+	if !ok {
+		panic(fmt.Sprintf("unexpected exec: %v", r))
+	}
+	return *bytes.NewBuffer(out.stdout), *bytes.NewBuffer(out.stderr), out.err
 }
 
 func (c *fakeClient) GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error) {
