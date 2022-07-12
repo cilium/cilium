@@ -52,7 +52,11 @@ describe_spelling_errors() {
     find "${spelldir}" -type f -print0 | xargs -0 sed 's/^/* Documentation\//'
 
     # Print a hint on how to add new correct words to the list of good words
-    new_words="$(sed -E "s/^([^:]+:){2} \(([^ ]+)\).*/\2/g" "${spelldir}"/* | sort -u | tr '\r\n' ' ' | sed "s/'/\\\\\\\\'/g")"
+    new_words="$(find "${spelldir}" -type f -print0 | \
+        xargs -0 sed -E "s/^([^:]+:){2} \(([^ ]+)\).*/\2/g" | \
+        sort -u | \
+        tr '\r\n' ' ' | \
+        sed "s/'/\\\\\\\\'/g")"
     printf "\nIf the words are not misspelled, run:\n%s %s\n" \
         "Documentation/update-spelling_wordlist.sh" "${new_words}"
 }
