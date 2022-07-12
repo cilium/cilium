@@ -405,6 +405,11 @@ Users (Alphabetically)
       D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
       U: ENI Networking, Network policies, Service load-balancing, Hubble
       Q: @mvisonneau
+      
+    * N: Spherity 
+      D: Spherity  is using Cilium on AWS EKS 
+      U: CNI/ENI Networking, Network policies, Hubble
+      Q: @solidnerd
 
     * N: Sportradar
       D: Sportradar is using Cilium as their main CNI plugin in AWS (using kops)
