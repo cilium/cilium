@@ -284,6 +284,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
 		}
+		if option.Config.EnableSocketLBTracing {
+			cDefinesMap["TRACE_SOCK_NOTIFY"] = "1"
+		}
 
 		if cookie, err := netns.GetNetNSCookie(); err == nil {
 			// When running in nested environments (e.g. Kind), cilium-agent does

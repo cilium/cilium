@@ -67,6 +67,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		option.Config.EnableSocketLB = false
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
+		option.Config.EnableSocketLBTracing = false
 
 		if option.Config.EnableSessionAffinity {
 			if err := disableSessionAffinityIfNeeded(true); err != nil {
@@ -260,6 +261,9 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				option.InstallNoConntrackIptRules, option.EnableBPFMasquerade)
 		}
 	}
+	if option.Config.BPFSocketLBHostnsOnly {
+		option.Config.EnableSocketLBTracing = false
+	}
 
 	if option.Config.DryMode {
 		return strict, nil
@@ -360,10 +364,16 @@ func probeKubeProxyReplacementOptions(strict bool) (bool, error) {
 		}
 		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
 			option.Config.EnableSocketLB = false
+			option.Config.EnableSocketLBTracing = false
+		}
+		if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
+			option.Config.EnableSocketLBTracing = false
+			log.Warn("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
 		}
 	} else {
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
+		option.Config.EnableSocketLBTracing = false
 	}
 
 	if err := disableSessionAffinityIfNeeded(strict); err != nil {

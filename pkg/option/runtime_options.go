@@ -12,6 +12,7 @@ const (
 	DebugPolicy         = "DebugPolicy"
 	DropNotify          = "DropNotification"
 	TraceNotify         = "TraceNotification"
+	TraceSockNotify     = "TraceSockNotification"
 	PolicyVerdictNotify = "PolicyVerdictNotification"
 	PolicyAuditMode     = "PolicyAuditMode"
 	MonitorAggregation  = "MonitorAggregationLevel"

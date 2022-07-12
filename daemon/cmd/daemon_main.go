@@ -296,6 +296,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableSocketLB, false, "Enable socket-based LB for E/W traffic")
 	option.BindEnv(Vp, option.EnableSocketLB)
 
+	flags.Bool(option.EnableSocketLBTracing, true, "Enable tracing for socket-based LB")
+	option.BindEnv(Vp, option.EnableSocketLBTracing)
+
 	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
 	option.BindEnv(Vp, option.EnableHostReachableServices)
 	flags.MarkDeprecated(option.EnableHostReachableServices,
@@ -1293,6 +1296,8 @@ func initEnv() {
 			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementPartial
 		option.Config.EnableSocketLB = true
+		// Socket-LB tracing relies on metadata that's retrieved from Kubernetes.
+		option.Config.EnableSocketLBTracing = false
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
