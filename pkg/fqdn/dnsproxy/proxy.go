@@ -344,33 +344,33 @@ type LookupIPsBySecIDFunc func(nid identity.NumericIdentity) []string
 // See DNSProxy.LookupEndpointIDByIP for usage.
 type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error
 
-// errFailedAcquireSemaphore is an an error representing the DNS proxy's
+// ErrFailedAcquireSemaphore is an an error representing the DNS proxy's
 // failure to acquire the semaphore. This is error is treated like a timeout.
-type errFailedAcquireSemaphore struct {
+type ErrFailedAcquireSemaphore struct {
 	parallel int
 }
 
-func (e errFailedAcquireSemaphore) Timeout() bool { return true }
+func (e ErrFailedAcquireSemaphore) Timeout() bool { return true }
 
 // Temporary is deprecated. Return false.
-func (e errFailedAcquireSemaphore) Temporary() bool { return false }
-func (e errFailedAcquireSemaphore) Error() string {
+func (e ErrFailedAcquireSemaphore) Temporary() bool { return false }
+func (e ErrFailedAcquireSemaphore) Error() string {
 	return fmt.Sprintf(
 		"failed to acquire DNS proxy semaphore, %d parallel requests already in-flight",
 		e.parallel,
 	)
 }
 
-// errTimedOutAcquireSemaphore is an an error representing the DNS proxy timing
+// ErrTimedOutAcquireSemaphore is an an error representing the DNS proxy timing
 // out when acquiring the semaphore. It is treated the same as
-// errTimedOutAcquireSemaphore.
-type errTimedOutAcquireSemaphore struct {
-	errFailedAcquireSemaphore
+// ErrTimedOutAcquireSemaphore.
+type ErrTimedOutAcquireSemaphore struct {
+	ErrFailedAcquireSemaphore
 
 	gracePeriod time.Duration
 }
 
-func (e errTimedOutAcquireSemaphore) Error() string {
+func (e ErrTimedOutAcquireSemaphore) Error() string {
 	return fmt.Sprintf(
 		"timed out after %v acquiring DNS proxy semaphore, %d parallel requests already in-flight",
 		e.gracePeriod,
@@ -739,7 +739,7 @@ func (p *DNSProxy) enforceConcurrencyLimit(ctx context.Context) error {
 		// No grace time configured. Failing to acquire semaphore means
 		// immediately give up.
 		if !p.ConcurrencyLimit.TryAcquire(1) {
-			return errFailedAcquireSemaphore{
+			return ErrFailedAcquireSemaphore{
 				parallel: option.Config.DNSProxyConcurrencyLimit,
 			}
 		}
@@ -747,8 +747,8 @@ func (p *DNSProxy) enforceConcurrencyLimit(ctx context.Context) error {
 		// We ignore err because errTimedOutAcquireSemaphore implements the
 		// net.Error interface deeming it a timeout error which will be
 		// treated the same as context.DeadlineExceeded.
-		return errTimedOutAcquireSemaphore{
-			errFailedAcquireSemaphore: errFailedAcquireSemaphore{
+		return ErrTimedOutAcquireSemaphore{
+			ErrFailedAcquireSemaphore: ErrFailedAcquireSemaphore{
 				parallel: option.Config.DNSProxyConcurrencyLimit,
 			},
 			gracePeriod: p.ConcurrencyGracePeriod,
