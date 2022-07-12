@@ -2895,7 +2895,8 @@ func (c *DaemonConfig) Populate() {
 
 	// Metrics Setup
 	defaultMetrics := metrics.DefaultMetrics()
-	for _, metric := range viper.GetStringSlice(Metrics) {
+	flagMetrics := append(viper.GetStringSlice(Metrics), c.additionalMetrics()...)
+	for _, metric := range flagMetrics {
 		switch metric[0] {
 		case '+':
 			defaultMetrics[metric[1:]] = struct{}{}
@@ -2998,6 +2999,17 @@ func (c *DaemonConfig) Populate() {
 	if !c.EnableL7Proxy {
 		c.DisableEnvoyVersionCheck = true
 	}
+}
+
+func (c *DaemonConfig) additionalMetrics() []string {
+	addMetric := func(name string) string {
+		return "+" + metrics.Namespace + name
+	}
+	var m []string
+	if c.DNSProxyConcurrencyLimit > 0 {
+		m = append(m, addMetric(metrics.SubsystemFQDN+"_sempaphore_rejected_total"))
+	}
+	return m
 }
 
 func (c *DaemonConfig) populateDevices() {
