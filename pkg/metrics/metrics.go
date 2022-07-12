@@ -453,6 +453,11 @@ var (
 	// connection (aka zombie), per endpoint.
 	FQDNAliveZombieConnections = NoOpGaugeVec
 
+	// FQDNSemaphoreRejectedTotal is the total number of DNS requests rejected
+	// by the DNS proxy because too many requests were in flight, as enforced by
+	// the admission semaphore.
+	FQDNSemaphoreRejectedTotal = NoOpCounter
+
 	// BPFSyscallDuration is the metric for bpf syscalls duration.
 	BPFSyscallDuration = NoOpObserverVec
 
@@ -566,6 +571,7 @@ type Configuration struct {
 	FQDNActiveNames                         bool
 	FQDNActiveIPs                           bool
 	FQDNActiveZombiesConnections            bool
+	FQDNSemaphoreRejectedTotal              bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
 	BPFMapPressure                          bool
@@ -1208,6 +1214,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, FQDNAliveZombieConnections)
 			c.FQDNActiveZombiesConnections = true
+
+		case metricName + "_" + SubsystemFQDN + "_sempaphore_rejected_total":
+			FQDNSemaphoreRejectedTotal = prometheus.NewCounter(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemFQDN,
+				Name:      "semaphore_rejected_total",
+				Help:      "Number of DNS request rejected by the DNS Proxy's admission semaphore",
+			})
+
+			collectors = append(collectors, FQDNSemaphoreRejectedTotal)
+			c.FQDNSemaphoreRejectedTotal = true
 
 		case Namespace + "_" + SubsystemBPF + "_syscall_duration_seconds":
 			BPFSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
