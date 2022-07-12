@@ -173,7 +173,7 @@ func newClient(namespace, k8sVersion string) (*action.Install, error) {
 	return helmClient, nil
 }
 
-func newChartFromCiliumVersion(ciliumVersion string) (*chart.Chart, error) {
+func newChartFromCiliumVersion(ciliumVersion semver2.Version) (*chart.Chart, error) {
 	helmTgz, err := helm.HelmFS.ReadFile(fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
 	if err != nil {
 		return nil, fmt.Errorf("cilium version not found: %s", err)
@@ -189,7 +189,13 @@ func newChartFromDirectory(directory string) (*chart.Chart, error) {
 
 // GenManifests returns the generated manifests in a map that maps the manifest
 // name to its contents.
-func GenManifests(ctx context.Context, helmChartDirectory, k8sVersion, ciliumVer, namespace string, helmValues map[string]interface{}) (map[string]string, error) {
+func GenManifests(
+	ctx context.Context,
+	helmChartDirectory, k8sVersion string,
+	ciliumVer semver2.Version,
+	namespace string,
+	helmValues map[string]interface{},
+) (map[string]string, error) {
 	var (
 		helmChart *chart.Chart
 		err       error
@@ -235,7 +241,9 @@ func MergeVals(
 	helmMapOpts map[string]string,
 	helmValues,
 	extraConfigMapOpts chartutil.Values,
-	helmChartDirectory, ciliumVer, namespace string,
+	helmChartDirectory string,
+	ciliumVer semver2.Version,
+	namespace string,
 ) (map[string]interface{}, error) {
 
 	// Create helm values from helmMapOpts
@@ -314,7 +322,7 @@ func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag string) (semver2.Ve
 		if err != nil {
 			return semver2.Version{}, err
 		}
-		if _, err = newChartFromCiliumVersion(version.String()); err != nil {
+		if _, err = newChartFromCiliumVersion(version); err != nil {
 			return semver2.Version{}, err
 		}
 		return version, nil
