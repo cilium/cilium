@@ -21,3 +21,6 @@
 # Outputs of 'cilium sysdump'.
 cilium-sysdump-*/
 cilium-sysdump-*.zip
+
+# Editor metas
+.vscode/
