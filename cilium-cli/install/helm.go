@@ -257,7 +257,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		extraConfigMap[k] = v
 	}
 
-	vals, err := helm.MergeVals(k, true, k.params.HelmOpts, helmMapOpts, nil, extraConfigMap, k.params.HelmChartDirectory, k.chartVersion.String(), k.params.Namespace)
+	vals, err := helm.MergeVals(k, true, k.params.HelmOpts, helmMapOpts, nil, extraConfigMap, k.params.HelmChartDirectory, k.chartVersion, k.params.Namespace)
 	if err != nil {
 		return err
 	}
@@ -280,7 +280,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		k8sVersionStr = k8sVersion.String()
 	}
 
-	manifests, err := helm.GenManifests(ctx, k.params.HelmChartDirectory, k8sVersionStr, k.chartVersion.String(), k.params.Namespace, vals)
+	manifests, err := helm.GenManifests(ctx, k.params.HelmChartDirectory, k8sVersionStr, k.chartVersion, k.params.Namespace, vals)
 	if err != nil {
 		return err
 	}
