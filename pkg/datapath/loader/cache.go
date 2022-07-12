@@ -5,6 +5,7 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -292,28 +293,33 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 	if !compiled {
 		fq.Enqueue(func() error {
 			defer fq.Stop()
+
 			templateCfg := wrap(cfg, stats)
-			err := o.build(ctx, templateCfg, hash)
-			if err != nil {
-				scopedLog.WithError(err).Error("BPF template object creation failed")
+			if err := o.build(ctx, templateCfg, hash); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					scopedLog.WithError(err).Error("BPF template object creation failed")
+				}
+
 				o.Lock()
 				delete(o.compileQueue, hash)
 				o.Unlock()
+
+				return err
 			}
-			return err
+
+			return nil
 		}, serializer.NoRetry)
 	}
 
 	// Wait until the build completes.
 	if err = fq.Wait(ctx); err != nil {
-		scopedLog.WithError(err).Warning("Error while waiting for BPF template compilation")
-		return "", false, fmt.Errorf("BPF template compilation failed: %s", err)
+		return "", false, fmt.Errorf("BPF template compilation failed: %w", err)
 	}
 
 	// Fetch the result of the compilation.
 	path, ok := o.lookup(hash)
 	if !ok {
-		err := fmt.Errorf("Could not locate previously compiled BPF template")
+		err := errors.New("Could not locate previously compiled BPF template")
 		scopedLog.WithError(err).Warning("BPF template compilation unsuccessful")
 		return "", false, err
 	}

@@ -84,7 +84,7 @@ func (fq *FunctionQueue) Wait(ctx context.Context) error {
 	case <-ctx.Done():
 	}
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("serializer %s", err)
+		return fmt.Errorf("serializer: %w", err)
 	}
 	return nil
 }

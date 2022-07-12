@@ -398,9 +398,10 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	revision, stateDirComplete, err = e.regenerateBPF(ctx)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.Path: failDir,
-		}).Warn("generating BPF for endpoint failed, keeping stale directory.")
+		if !errors.Is(err, context.Canceled) {
+			e.getLogger().WithError(err).WithFields(logrus.Fields{logfields.Path: failDir}).
+				Info("generating BPF for endpoint failed, keeping stale directory")
+		}
 
 		// Remove an eventual existing previous failure directory
 		e.removeDirectory(failDir)
@@ -482,7 +483,9 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 	scopedLog := e.getLogger().WithFields(fields)
 
 	if err != nil {
-		scopedLog.WithError(err).Warn("Regeneration of endpoint failed")
+		if !errors.Is(err, context.Canceled) {
+			scopedLog.WithError(err).Warn("Regeneration of endpoint failed")
+		}
 		e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
 		return
 	}
@@ -602,7 +605,7 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 				regenError = regenResult.err
 				buildSuccess = regenError == nil
 
-				if regenError != nil {
+				if regenError != nil && !errors.Is(regenError, context.Canceled) {
 					e.getLogger().WithError(regenError).Error("endpoint regeneration failed")
 				}
 			} else {

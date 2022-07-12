@@ -76,7 +76,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 				logfields.EndpointID: epDirName,
 			})
 			fullDirName := filepath.Join(basePath, epDirName)
-			scopedLog.Warning(fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName))
+			scopedLog.Info(fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName))
 			if err := os.RemoveAll(epDirName); err != nil {
 				scopedLog.WithError(err).Warn(fmt.Sprintf("Error while removing directory %s. Ignoring it...", fullDirName))
 			}
@@ -212,7 +212,6 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
 	}
 	if buildSuccess := <-e.Regenerate(regenerationMetadata); !buildSuccess {
-		scopedLog.Warn("Failed while regenerating endpoint")
 		return fmt.Errorf("failed while regenerating endpoint")
 	}
 

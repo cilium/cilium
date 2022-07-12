@@ -692,7 +692,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 			err = e.owner.Datapath().Loader().CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Rewrote endpoint BPF program")
-			} else {
+			} else if !errors.Is(err, context.Canceled) {
 				e.getLogger().WithError(err).Error("Error while rewriting endpoint BPF program")
 			}
 			compilationExecuted = true
