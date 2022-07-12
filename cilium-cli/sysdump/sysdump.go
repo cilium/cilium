@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 )
@@ -870,6 +871,37 @@ func (c *Collector) Run() error {
 				return nil
 			},
 		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting kvstore data",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				cm, err := c.Client.GetConfigMap(ctx, c.Options.CiliumNamespace, ciliumConfigMapName, metav1.GetOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to get cilium-config ConfigMap: %w", err)
+				}
+				// Check if kvstore is enabled, if not skip this dump.
+				if v, ok := cm.Data["kvstore"]; !ok || v != "etcd" {
+					c.logDebug("KVStore not enabled, skipping kvstore dump")
+					return nil
+				}
+				ps, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to list Pods for gathering kvstore data: %w", err)
+				}
+				if len(ps.Items) == 0 {
+					return fmt.Errorf("could not find Cilium Agent Pod to run kvstore get, Cilium Pod list was empty")
+				}
+				for _, pod := range ps.Items {
+					if pod.Status.Phase == "Running" {
+						return c.submitKVStoreTasks(ctx, pod.DeepCopy())
+					}
+				}
+				return fmt.Errorf("could not find running Cilium Pod")
+			},
+		},
 	}
 	for _, selector := range c.Options.ExtraLabelSelectors {
 		tasks = append(tasks, Task{
@@ -1297,6 +1329,51 @@ func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor)
 		c.logDebug("No flavor-specific data to collect for %q", f.Kind.String())
 		return nil
 	}
+}
+
+func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) error {
+	for _, dump := range []struct {
+		name   string
+		prefix string
+	}{
+		{
+			name:   "identities",
+			prefix: "state/identities",
+		},
+		{
+			name:   "ips",
+			prefix: "state/ip",
+		},
+		{
+			name:   "nodes",
+			prefix: "state/nodes",
+		},
+		{
+			name:   "cnpstatuses",
+			prefix: "state/cnpstatuses",
+		},
+		{
+			name:   "heartbeat",
+			prefix: ".heartbeat",
+		},
+		{
+			name:   "services",
+			prefix: "state/services",
+		},
+	} {
+		stdout, stderr, err := c.Client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, []string{
+			"cilium", "kvstore", "get", "cilium/" + dump.prefix, "--recursive", "-o", "json",
+		})
+		if err != nil {
+			return fmt.Errorf("failed to collect kvstore data in %q in namespace %q: %w: %s", pod.Name, pod.Namespace, err, stderr.String())
+		}
+		filename := "kvstore-" + dump.name + ".json"
+		if err := c.WriteString(filename, stdout.String()); err != nil {
+			return fmt.Errorf("failed writing kvstore dump for prefix %q to file %q: %w", dump.prefix, filename, err)
+		}
+	}
+
+	return nil
 }
 
 func buildNodeNameList(nodes *corev1.NodeList, filter string) ([]string, error) {
