@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -35,8 +36,10 @@ scan:
 func combinedOutput(ctx context.Context, cmd *exec.Cmd, filters []string, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() != nil {
-		scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
-		return nil, fmt.Errorf("Command execution failed for %s: %s", cmd.Args, ctx.Err())
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
+		}
+		return nil, fmt.Errorf("Command execution failed for %s: %w", cmd.Args, ctx.Err())
 	}
 	if err != nil && verbose {
 		warnToLog(cmd, filters, out, scopedLog, err)
@@ -48,8 +51,10 @@ func combinedOutput(ctx context.Context, cmd *exec.Cmd, filters []string, scoped
 func output(ctx context.Context, cmd *exec.Cmd, filters []string, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
 	out, err := cmd.Output()
 	if ctx.Err() != nil {
-		scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
-		return nil, fmt.Errorf("Command execution failed for %s: %s", cmd.Args, ctx.Err())
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
+		}
+		return nil, fmt.Errorf("Command execution failed for %s: %w", cmd.Args, ctx.Err())
 	}
 	if err != nil && verbose {
 		warnToLog(cmd, filters, out, scopedLog, err)
