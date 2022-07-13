@@ -1401,6 +1401,10 @@
      - Cilium agent update strategy
      - object
      - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
+   * - waitForKubeProxy
+     - Wait for KUBE-PROXY-CANARY iptables rule to appear in "wait-for-kube-proxy" init container before launching cilium-agent. More context can be found in the commit message of below PR https://github.com/cilium/cilium/pull/20123
+     - bool
+     - ``false``
    * - wellKnownIdentities.enabled
      - Enable the use of well-known identities.
      - bool
