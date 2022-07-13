@@ -234,6 +234,7 @@ func (c *Collector) WriteTable(filename string, value *metav1.Table) error {
 func (c *Collector) Run() error {
 	// tasks is the list of base tasks to be run.
 	tasks := []Task{
+
 		{
 			Description: "Collect Kubernetes nodes",
 			Quick:       true,
@@ -748,7 +749,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.submitBugtoolTasks(ctx, FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+				if err := c.submitBugtoolTasks(ctx, FilterPods(p, c.NodeList)); err != nil {
 					return fmt.Errorf("failed to collect 'cilium-bugtool': %w", err)
 				}
 				return nil
@@ -1019,12 +1020,24 @@ func (c *Collector) shouldSkipTask(t Task) bool {
 	return c.Options.Quick && !t.Quick
 }
 
-func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, containerName string) error {
+func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod) error {
 	for _, p := range pods {
 		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("cilium-bugtool-"+p.Name), func(ctx context.Context) error {
+			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, ciliumAgentContainerName)
+			if err != nil {
+				return fmt.Errorf("failed to pick exec target: %w", err)
+			}
+			defer func() {
+				err := cleanupFunc(ctx)
+				if err != nil {
+					c.logWarn("Failed to clean up exec target: %v", err)
+				}
+			}()
+
 			// Run 'cilium-bugtool' in the pod.
 			command := append([]string{ciliumBugtoolCommand, "--archiveType=gz"}, c.Options.CiliumBugtoolFlags...)
+
 			c.logDebug("Executing cilium-bugtool command: %v", command)
 			o, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, command)
 			if err != nil {
