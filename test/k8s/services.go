@@ -114,14 +114,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				serviceNames = append(serviceNames, appServiceNameIPv6)
 			}
 
-			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-			monitorRes, monitorCancel := kubectl.MonitorStart(ciliumPodK8s1)
-			defer func() {
-				monitorCancel()
-				helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), "cluster-ip-same-node.log")
-			}()
-
 			ciliumPods, err := kubectl.GetCiliumPods()
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
 
@@ -395,14 +387,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				if DNSProxyPort2 == DNSProxyPort1 {
 					Skip(fmt.Sprintf("TFTP source port test can not be done when both nodes have the same proxy port (%d == %d)", DNSProxyPort1, DNSProxyPort2))
 				}
-				monitorRes1, monitorCancel1 := kubectl.MonitorStart(ciliumPodK8s1)
-				monitorRes2, monitorCancel2 := kubectl.MonitorStart(ciliumPodK8s2)
-				defer func() {
-					monitorCancel1()
-					monitorCancel2()
-					helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "tftp-with-l4-policy-monitor-k8s1.log")
-					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "tftp-with-l4-policy-monitor-k8s2.log")
-				}()
 
 				applyPolicy(kubectl, demoPolicy)
 
@@ -458,19 +442,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			})
 
 			It("Tests NodePort with L4 Policy", func() {
-				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-				monitorRes1, monitorCancel1 := kubectl.MonitorStart(ciliumPodK8s1)
-				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
-				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
-				monitorRes2, monitorCancel2 := kubectl.MonitorStart(ciliumPodK8s2)
-				defer func() {
-					monitorCancel1()
-					monitorCancel2()
-					helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "nodeport-with-l4-policy-monitor-k8s1.log")
-					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "nodeport-with-l4-policy-monitor-k8s2.log")
-				}()
-
 				applyPolicy(kubectl, demoPolicy)
 				testNodePort(kubectl, ni, false, false, 0)
 			})
@@ -493,19 +464,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			})
 
 			It("Tests NodePort with L7 Policy", func() {
-				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-				monitorRes1, monitorCancel1 := kubectl.MonitorStart(ciliumPodK8s1)
-				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
-				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
-				monitorRes2, monitorCancel2 := kubectl.MonitorStart(ciliumPodK8s2)
-				defer func() {
-					monitorCancel1()
-					monitorCancel2()
-					helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "nodeport-with-l7-policy-monitor-k8s1.log")
-					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "nodeport-with-l7-policy-monitor-k8s2.log")
-				}()
-
 				applyPolicy(kubectl, demoPolicyL7)
 				testNodePort(kubectl, ni, false, false, 0)
 			})
