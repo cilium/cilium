@@ -21,6 +21,8 @@ import (
 	"errors"
 	"fmt"
 
+	v2corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/grpc/xds/internal/xdsclient/bootstrap"
 	"google.golang.org/grpc/xds/internal/xdsclient/load"
 	"google.golang.org/grpc/xds/internal/xdsclient/pubsub"
@@ -102,7 +104,13 @@ func (c *clientImpl) newAuthorityLocked(config *bootstrap.ServerConfig) (_ *auth
 	}
 
 	// Make a new authority since there's no existing authority for this config.
-	ret := &authority{config: config, pubsub: pubsub.New(c.watchExpiryTimeout, c.config.XDSServer.NodeProto, c.logger)}
+	nodeID := ""
+	if v3, ok := c.config.XDSServer.NodeProto.(*v3corepb.Node); ok {
+		nodeID = v3.GetId()
+	} else if v2, ok := c.config.XDSServer.NodeProto.(*v2corepb.Node); ok {
+		nodeID = v2.GetId()
+	}
+	ret := &authority{config: config, pubsub: pubsub.New(c.watchExpiryTimeout, nodeID, c.logger)}
 	defer func() {
 		if retErr != nil {
 			ret.close()

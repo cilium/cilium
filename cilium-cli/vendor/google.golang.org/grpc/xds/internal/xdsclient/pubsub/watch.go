@@ -115,9 +115,9 @@ func (wi *watchInfo) sendErrorLocked(err error) {
 	errMsg := err.Error()
 	errTyp := xdsresource.ErrType(err)
 	if errTyp == xdsresource.ErrorTypeUnknown {
-		err = fmt.Errorf("%v, xDS client nodeID: %s", errMsg, wi.c.nodeIDJSON)
+		err = fmt.Errorf("%v, xDS client nodeID: %s", errMsg, wi.c.nodeID)
 	} else {
-		err = xdsresource.NewErrorf(errTyp, "%v, xDS client nodeID: %s", errMsg, wi.c.nodeIDJSON)
+		err = xdsresource.NewErrorf(errTyp, "%v, xDS client nodeID: %s", errMsg, wi.c.nodeID)
 	}
 
 	wi.c.scheduleCallback(wi, u, err)
