@@ -1175,7 +1175,8 @@ Graceful Termination
 Cilium's eBPF kube-proxy replacement supports graceful termination of service
 endpoint pods. The feature requires at least Kubernetes version 1.20, and
 the feature gate ``EndpointSliceTerminatingCondition`` needs to be enabled.
-By default, the Cilium agent then detects such terminating Pod state. If needed,
+By default, the Cilium agent then detects such terminating Pod events, and
+increments the metric ``k8s_terminating_endpoints_events_total``. If needed,
 the feature can be disabled with the configuration option ``enable-k8s-terminating-endpoint``.
 
 The cilium agent feature flag can be probed by running ``cilium status`` command:
