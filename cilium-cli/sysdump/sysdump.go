@@ -1024,7 +1024,7 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("cilium-bugtool-"+p.Name), func(ctx context.Context) error {
 			// Run 'cilium-bugtool' in the pod.
-			command := append([]string{ciliumBugtoolCommand}, c.Options.CiliumBugtoolFlags...)
+			command := append([]string{ciliumBugtoolCommand, "--archiveType=gz"}, c.Options.CiliumBugtoolFlags...)
 			c.logDebug("Executing cilium-bugtool command: %v", command)
 			o, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, command)
 			if err != nil {
@@ -1036,13 +1036,7 @@ func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod, 
 			if len(m) != 2 || len(m[1]) == 0 {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q in namespace %q: output doesn't contain archive name: %s", p.Name, p.Namespace, outString)
 			}
-
-			// Gzip bugtool tar file to reduce the size of transferred file
-			o, e, err = c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, []string{"gzip", m[1]})
-			if err != nil {
-				return fmt.Errorf("failed to compress 'cilium-bugtool' output for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
-			}
-			tarGzFile := m[1] + ".gz"
+			tarGzFile := m[1]
 
 			// Dump the resulting file's contents to the temporary directory.
 			f := c.AbsoluteTempPath(fmt.Sprintf(ciliumBugtoolFileName, p.Name))
