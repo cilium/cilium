@@ -212,6 +212,10 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 	if err := ct.initClients(ctx); err != nil {
 		return err
 	}
+	if err := ct.initCiliumPods(ctx); err != nil {
+		return err
+	}
+
 	if err := ct.deploy(ctx); err != nil {
 		return err
 	}
@@ -481,6 +485,25 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 	}
 
 	ct.clients = c
+
+	return nil
+}
+
+// initCiliumPods fetches the Cilium agent pod information from all clients
+func (ct *ConnectivityTest) initCiliumPods(ctx context.Context) error {
+	for _, client := range ct.clients.clients() {
+		ciliumPods, err := client.ListPods(ctx, ct.params.CiliumNamespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+		if err != nil {
+			return fmt.Errorf("unable to list Cilium pods: %w", err)
+		}
+		for _, ciliumPod := range ciliumPods.Items {
+			// TODO: Can Cilium pod names collide across clusters?
+			ct.ciliumPods[ciliumPod.Name] = Pod{
+				K8sClient: client,
+				Pod:       ciliumPod.DeepCopy(),
+			}
+		}
+	}
 
 	return nil
 }
