@@ -1,11 +1,11 @@
+// Copyright Authors of Cilium
+// SPDX-License-Identifier: Apache-2.0
+
 package ginkgoext
 
 /*
-
 JUnit XML Reporter for Ginkgo
-
 For usage instructions: http://onsi.github.io/ginkgo/#generating_junit_xml_output
-
 Reference file:
 https://github.com/onsi/ginkgo/blob/39febac9157b63aeba74d843d6b1c30990f3d7ed/reporters/junit_reporter.go
 Junit Reference:

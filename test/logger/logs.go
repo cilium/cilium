@@ -1,3 +1,6 @@
+// Copyright Authors of Cilium
+// SPDX-License-Identifier: Apache-2.0
+
 package logger
 
 import (
@@ -5,9 +8,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
-
 	ginkgo "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/sirupsen/logrus"
 )
 
 var (
