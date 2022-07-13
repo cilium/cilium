@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/internal"
 	"google.golang.org/grpc/internal/grpclog"
 	"google.golang.org/grpc/internal/grpcsync"
 	"google.golang.org/grpc/internal/pretty"
@@ -37,10 +38,10 @@ import (
 
 const xdsScheme = "xds"
 
-// NewBuilderForTesting creates a new xds resolver builder using a specific xds
+// newBuilderForTesting creates a new xds resolver builder using a specific xds
 // bootstrap config, so tests can use multiple xds clients in different
 // ClientConns at the same time.
-func NewBuilderForTesting(config []byte) (resolver.Builder, error) {
+func newBuilderForTesting(config []byte) (resolver.Builder, error) {
 	return &xdsResolverBuilder{
 		newXDSClient: func() (xdsclient.XDSClient, error) {
 			return xdsclient.NewWithBootstrapContentsForTesting(config)
@@ -53,6 +54,7 @@ var newXDSClient = func() (xdsclient.XDSClient, error) { return xdsclient.New() 
 
 func init() {
 	resolver.Register(&xdsResolverBuilder{})
+	internal.NewXDSResolverWithConfigForTesting = newBuilderForTesting
 }
 
 type xdsResolverBuilder struct {
