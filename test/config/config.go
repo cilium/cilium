@@ -40,7 +40,6 @@ type CiliumTestConfigType struct {
 	Kubeconfig           string
 	KubectlPath          string
 	RegistryCredentials  string
-	Benchmarks           bool
 	// Multinode enables the running of tests that involve more than one
 	// node. If false, some tests will silently skip multinode checks.
 	Multinode      bool
@@ -93,8 +92,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Path that holds version-specific kubectl binaries")
 	flagset.StringVar(&c.RegistryCredentials, "cilium.registryCredentials", "",
 		"Registry credentials to be used to download images")
-	flagset.BoolVar(&c.Benchmarks, "cilium.benchmarks", false,
-		"Specifies benchmark tests should be run which may increase test time")
 	flagset.BoolVar(&c.Multinode, "cilium.multinode", true,
 		"Enable tests across multiple nodes. If disabled, such tests may silently pass")
 	flagset.BoolVar(&c.RunQuarantined, "cilium.runQuarantined", false,
