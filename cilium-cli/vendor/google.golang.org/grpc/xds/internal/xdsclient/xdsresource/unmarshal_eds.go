@@ -57,7 +57,7 @@ func unmarshalEndpointsResource(r *anypb.Any, logger *grpclog.PrefixLogger) (str
 	}
 	logger.Infof("Resource with name: %v, type: %T, contains: %v", cla.GetClusterName(), cla, pretty.ToJSON(cla))
 
-	u, err := parseEDSRespProto(cla)
+	u, err := parseEDSRespProto(cla, logger)
 	if err != nil {
 		return cla.GetClusterName(), EndpointsUpdate{}, err
 	}
@@ -102,7 +102,7 @@ func parseEndpoints(lbEndpoints []*v3endpointpb.LbEndpoint) []Endpoint {
 	return endpoints
 }
 
-func parseEDSRespProto(m *v3endpointpb.ClusterLoadAssignment) (EndpointsUpdate, error) {
+func parseEDSRespProto(m *v3endpointpb.ClusterLoadAssignment, logger *grpclog.PrefixLogger) (EndpointsUpdate, error) {
 	ret := EndpointsUpdate{}
 	for _, dropPolicy := range m.GetPolicy().GetDropOverloads() {
 		ret.Drops = append(ret.Drops, parseDropPolicy(dropPolicy))
@@ -112,6 +112,11 @@ func parseEDSRespProto(m *v3endpointpb.ClusterLoadAssignment) (EndpointsUpdate, 
 		l := locality.GetLocality()
 		if l == nil {
 			return EndpointsUpdate{}, fmt.Errorf("EDS response contains a locality without ID, locality: %+v", locality)
+		}
+		weight := locality.GetLoadBalancingWeight().GetValue()
+		if weight == 0 {
+			logger.Warningf("Ignoring locality %s with weight 0", pretty.ToJSON(l))
+			continue
 		}
 		lid := internal.LocalityID{
 			Region:  l.Region,

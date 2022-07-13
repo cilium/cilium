@@ -44,7 +44,8 @@ type childBalancer struct {
 	// will be restarted if the child has not reported TF more recently than it
 	// reported Ready or Idle.
 	reportedTF bool
-	state      balancer.State
+	// The latest state the child balancer provided.
+	state balancer.State
 	// The timer to give a priority some time to connect. And if the priority
 	// doesn't go into Ready/Failure, the next priority will be started.
 	initTimer *timerWrapper
@@ -74,11 +75,14 @@ func (cb *childBalancer) updateBuilder(bb balancer.Builder) {
 }
 
 // updateConfig sets childBalancer's config and state, but doesn't send update to
-// the child balancer.
+// the child balancer unless it is started.
 func (cb *childBalancer) updateConfig(child *Child, rState resolver.State) {
 	cb.ignoreReresolutionRequests = child.IgnoreReresolutionRequests
 	cb.config = child.Config.Config
 	cb.rState = rState
+	if cb.started {
+		cb.sendUpdate()
+	}
 }
 
 // start builds the child balancer if it's not already started.
@@ -91,6 +95,7 @@ func (cb *childBalancer) start() {
 	cb.started = true
 	cb.parent.bg.Add(cb.name, cb.bb)
 	cb.startInitTimer()
+	cb.sendUpdate()
 }
 
 // sendUpdate sends the addresses and config to the child balancer.
@@ -145,7 +150,7 @@ func (cb *childBalancer) startInitTimer() {
 		// Re-sync the priority. This will switch to the next priority if
 		// there's any. Note that it's important sync() is called after setting
 		// initTimer to nil.
-		cb.parent.syncPriority(false)
+		cb.parent.syncPriority("")
 	})
 }
 
