@@ -3,13 +3,8 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-<<<<<<< HEAD
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:973c8f17515846a7356a7c52c1c351fb7491dcb6@sha256:704e19b6aac2460df97c060659646832a30da1ceea151a3701700edc63e6ef3b
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:46fd60f1576f8c9ff74395bed6fecd3e50e83153@sha256:0e7ec6ff0474dce02936ac72a90d0594c1ff922b81aeb0b193302f84845e4b0e
-=======
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:6374e67f6da44ce7dc24d0ac297c70e8a9ca2cad@sha256:bba6eb43fab04c8e429b53874da0cff7854cc8e56bb6b3d676b3cab1d16ed82f
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:792797926a11b142ed1bb866c6dbf89d1251efeb@sha256:640c398051bd56c3a03986410930ed7cbc4383cadafc1459ebcaf46c93ce1591
->>>>>>> images/runtime: update gops to v0.3.25
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:311716f2ea9a047d441ddf81954c5cc8eae54296@sha256:e428a803f40523a6c30c63d7bc26858b2b129fa7122d95e89d922828002a2927
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:746d45df71d16c45bcb83b9a60ccba7b04c8ccdc@sha256:d1966e133dcf5943334be8abd4d9dabb756a768e7678bc35763d86689baee2bc
 
 # cilium-envoy from github.com/cilium/proxy
 #
