@@ -911,6 +911,7 @@ virtualization
 vlan
 vmlinux
 vxlan
+waitForKubeProxy
 waitForMount
 waker
 wakeup
