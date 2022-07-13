@@ -571,10 +571,48 @@ drop_err:
 }
 #endif /* ENABLE_DSR */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
-int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
+int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
-	enum nat_dir dir = (enum nat_dir)ctx_load_meta(ctx, CB_NAT);
+	const bool nat_46x64 = ctx_load_meta(ctx, CB_NAT_46X64);
+	union v6addr tmp = IPV6_DIRECT_ROUTING;
+	struct ipv6_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+		.src_from_world = true,
+	};
+	int ret;
+
+	if (nat_46x64)
+		build_v4_in_v6(&tmp, IPV4_DIRECT_ROUTING);
+	target.addr = tmp;
+
+	ret = snat_v6_process(ctx, NAT_DIR_INGRESS, &target);
+	if (IS_ERR(ret)) {
+		/* In case of no mapping, recircle back to main path. SNAT is very
+		 * expensive in terms of instructions (since we don't have BPF to
+		 * BPF calls as we use tail calls) and complexity, hence this is
+		 * done inside a tail call here.
+		 */
+		bpf_skip_nodeport_set(ctx);
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
+		ret = DROP_MISSED_TAIL_CALL;
+		goto drop_err;
+	}
+
+	bpf_mark_snat_done(ctx);
+
+	ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
+	ret = DROP_MISSED_TAIL_CALL;
+	goto drop_err;
+
+ drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
+int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
+{
 	const bool nat_46x64 = ctx_load_meta(ctx, CB_NAT_46X64);
 	union v6addr tmp = IPV6_DIRECT_ROUTING;
 	struct bpf_fib_lookup_padded fib_params = {
@@ -593,69 +631,52 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	int ret, ext_err = 0;
 
+#ifdef TUNNEL_MODE
+	struct remote_endpoint_info *info;
+	union v6addr *dst;
+#endif
+
 	if (nat_46x64)
 		build_v4_in_v6(&tmp, IPV4_DIRECT_ROUTING);
 	target.addr = tmp;
-#ifdef TUNNEL_MODE
-	if (dir == NAT_DIR_EGRESS) {
-		struct remote_endpoint_info *info;
-		union v6addr *dst;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
-			ret = DROP_INVALID;
+#ifdef TUNNEL_MODE
+	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+
+	dst = (union v6addr *)&ip6->daddr;
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+	if (info && info->tunnel_endpoint != 0) {
+		ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
+					  WORLD_ID,
+					  NOT_VTEP_DST,
+					  (enum trace_reason)CT_NEW,
+					  TRACE_PAYLOAD_LEN);
+		if (ret)
+			goto drop_err;
+
+		BPF_V6(target.addr, ROUTER_IP);
+		fib_params.l.ifindex = ENCAP_IFINDEX;
+
+		/* fib lookup not necessary when going over tunnel. */
+		if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
 			goto drop_err;
 		}
-
-		dst = (union v6addr *)&ip6->daddr;
-		info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
-		if (info != NULL && info->tunnel_endpoint != 0) {
-			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  WORLD_ID,
-						  NOT_VTEP_DST,
-						  (enum trace_reason)CT_NEW,
-						  TRACE_PAYLOAD_LEN);
-			if (ret)
-				goto drop_err;
-
-			BPF_V6(target.addr, ROUTER_IP);
-			fib_params.l.ifindex = ENCAP_IFINDEX;
-
-			/* fib lookup not necessary when going over tunnel. */
-			if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
-				ret = DROP_WRITE_ERROR;
-				goto drop_err;
-			}
-			if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
-				ret = DROP_WRITE_ERROR;
-				goto drop_err;
-			}
+		if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
 		}
 	}
 #endif
-	ret = snat_v6_process(ctx, dir, &target);
-	if (IS_ERR(ret)) {
-		/* In case of no mapping, recircle back to main path. SNAT is very
-		 * expensive in terms of instructions (since we don't have BPF to
-		 * BPF calls as we use tail calls) and complexity, hence this is
-		 * done inside a tail call here.
-		 */
-		if (dir == NAT_DIR_INGRESS) {
-			bpf_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-			ret = DROP_MISSED_TAIL_CALL;
-			goto drop_err;
-		}
-		if (ret != NAT_PUNT_TO_STACK)
-			goto drop_err;
-	}
+	ret = snat_v6_process(ctx, NAT_DIR_EGRESS, &target);
+	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
+		goto drop_err;
 
 	bpf_mark_snat_done(ctx);
 
-	if (dir == NAT_DIR_INGRESS) {
-		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
-		ret = DROP_MISSED_TAIL_CALL;
-		goto drop_err;
-	}
 #ifdef TUNNEL_MODE
 	if (fib_params.l.ifindex == ENCAP_IFINDEX)
 		goto out_send;
@@ -709,9 +730,7 @@ out_send:
 	cilium_capture_out(ctx);
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
-	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
-				      dir == NAT_DIR_INGRESS ?
-				      METRIC_INGRESS : METRIC_EGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
 
 /* See nodeport_lb4(). */
@@ -788,10 +807,9 @@ skip_service_lookup:
 		if (nodeport_uses_dsr6(&tuple))
 			return CTX_ACT_OK;
 
-		ctx_store_meta(ctx, CB_NAT, NAT_DIR_INGRESS);
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
 		ctx_store_meta(ctx, CB_SRC_IDENTITY, src_identity);
-		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
 		return DROP_MISSED_TAIL_CALL;
 	}
 
@@ -859,7 +877,6 @@ redo:
 #endif /* DSR_ENCAP_MODE */
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR);
 		} else {
-			ctx_store_meta(ctx, CB_NAT, NAT_DIR_EGRESS);
 			/* This code path is not only hit for NAT64, but also
 			 * for NAT46. For the latter we initially hit the IPv4
 			 * NodePort path, then migrate the request to IPv6 and
@@ -870,7 +887,7 @@ redo:
 			ctx_store_meta(ctx, CB_NAT_46X64,
 				       !is_v4_in_v6(&key.address) &&
 				       lb6_to_lb4_service(svc));
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS);
 		}
 		return DROP_MISSED_TAIL_CALL;
 	}
@@ -1877,7 +1894,7 @@ skip_service_lookup:
 			ret = lb4_to_lb6(ctx, ip4, l3_off);
 			if (ret)
 				return ret;
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
 		} else {
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS);
 		}

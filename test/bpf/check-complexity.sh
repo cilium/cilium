@@ -27,7 +27,7 @@ function annotate_section_names {
 	    -e "s/\(section '2\/13'\)/\1 (tail_call IPV4_TO_ENDPOINT)/" \
 	    -e "s/\(section '2\/14'\)/\1 (tail_call IPV6_TO_ENDPOINT)/" \
 	    -e "s/\(section '2\/15'\)/\1 (tail_call IPV4_NODEPORT_NAT_EGRESS)/" \
-	    -e "s/\(section '2\/16'\)/\1 (tail_call IPV6_NODEPORT_NAT)/" \
+	    -e "s/\(section '2\/16'\)/\1 (tail_call IPV6_NODEPORT_NAT_EGRESS)/" \
 	    -e "s/\(section '2\/17'\)/\1 (tail_call IPV4_NODEPORT_REVNAT)/" \
 	    -e "s/\(section '2\/18'\)/\1 (tail_call IPV6_NODEPORT_REVNAT)/" \
 	    -e "s/\(section '2\/19'\)/\1 (tail_call IPV4_ENCAP_NODEPORT_NAT)/" \
@@ -48,9 +48,10 @@ function annotate_section_names {
 	    -e "s/\(section '2\/34'\)/\1 (tail_call SRV6_DECAP)/" \
 	    -e "s/\(section '2\/35'\)/\1 (tail_call SRV6_REPLY)/"
 	    -e "s/\(section '2\/36'\)/\1 (tail_call IPV4_NODEPORT_NAT_INGRESS)/" \
+	    -e "s/\(section '2\/37'\)/\1 (tail_call IPV6_NODEPORT_NAT_INGRESS)/" \
 }
 
-if ! grep -q "CILIUM_CALL_SIZE.*37" "$BPFDIR/lib/common.h" ; then
+if ! grep -q "CILIUM_CALL_SIZE.*38" "$BPFDIR/lib/common.h" ; then
 	echo "This script is out of date compared to CILIUM_CALL_SIZE." 1>&2
 	exit 1
 fi
