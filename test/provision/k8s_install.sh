@@ -409,7 +409,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.21.9"
+        K8S_FULL_VERSION="1.21.14"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -423,7 +423,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.22.6"
+        K8S_FULL_VERSION="1.22.11"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -437,7 +437,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.23.3"
+        K8S_FULL_VERSION="1.23.8"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -451,7 +451,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="1.1.1"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.24.0"
+        K8S_FULL_VERSION="1.24.2"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--config=/tmp/config.yaml"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
