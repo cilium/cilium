@@ -166,6 +166,18 @@ func (c *fakeClient) AutodetectFlavor(ctx context.Context) k8s.Flavor {
 	panic("implement me")
 }
 
+func (c *fakeClient) GetPod(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Pod, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) CreatePod(ctx context.Context, namespace string, pod *corev1.Pod, opts metav1.CreateOptions) (*corev1.Pod, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) DeletePod(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	panic("implement me")
+}
+
 func (c *fakeClient) ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
 	panic("implement me")
 }
@@ -263,5 +275,9 @@ func (c *fakeClient) ListServices(ctx context.Context, namespace string, options
 }
 
 func (c *fakeClient) ListUnstructured(ctx context.Context, gvr schema.GroupVersionResource, namespace *string, o metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, container *corev1.EphemeralContainer) (*corev1.Pod, error) {
 	panic("implement me")
 }

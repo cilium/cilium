@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
@@ -264,6 +265,14 @@ func (c *Client) GetNamespace(ctx context.Context, namespace string, options met
 
 func (c *Client) DeleteNamespace(ctx context.Context, namespace string, opts metav1.DeleteOptions) error {
 	return c.Clientset.CoreV1().Namespaces().Delete(ctx, namespace, opts)
+}
+
+func (c *Client) GetPod(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Pod, error) {
+	return c.Clientset.CoreV1().Pods(namespace).Get(ctx, name, opts)
+}
+
+func (c *Client) CreatePod(ctx context.Context, namespace string, pod *corev1.Pod, opts metav1.CreateOptions) (*corev1.Pod, error) {
+	return c.Clientset.CoreV1().Pods(namespace).Create(ctx, pod, opts)
 }
 
 func (c *Client) DeletePod(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
@@ -870,4 +879,36 @@ func (c *Client) GetHelmState(ctx context.Context, namespace string, secretName 
 		Version: version,
 		Values:  values,
 	}, nil
+}
+
+// CreateEphemeralContainer will create a EphemeralContainer (debug container) in the specified pod.
+// EphemeralContainers are special containers which can be added after-the-fact in running pods. They're
+// useful for debugging, either when the target container image doesn't have necessary tools, or because
+// the pod has no running containers due to a crash.
+//
+// see https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/
+//
+// EphemeralContainers were added in there current form (behind a feature gate) in 1.22. They are scheduled for GA in v1.25.
+func (c *Client) CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, ec *corev1.EphemeralContainer) (*corev1.Pod, error) {
+	oldJS, err := json.Marshal(pod)
+	if err != nil {
+		return nil, err // unlikely
+	}
+
+	newPod := pod.DeepCopy()
+	newPod.Spec.EphemeralContainers = append(newPod.Spec.EphemeralContainers, *ec)
+
+	newJS, err := json.Marshal(newPod)
+	if err != nil {
+		return nil, err // unlikely
+	}
+
+	patch, err := strategicpatch.CreateTwoWayMergePatch(oldJS, newJS, pod)
+	if err != nil {
+		return nil, fmt.Errorf("could not create patch: %w", err) // unlikely
+	}
+
+	return c.Clientset.CoreV1().Pods(pod.Namespace).Patch(
+		ctx, pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}, "ephemeralcontainers",
+	)
 }
