@@ -43,6 +43,10 @@ const (
 	// which corresponds to capture_msg defined in bpf/lib/pcap.h
 	MessageTypeRecCapture
 
+	// MessageTypeTraceSock is a BPF datapath notification carrying a TraceNotifySock
+	// which corresponds to trace_sock_notify defined in bpf/lib/trace_sock.h
+	MessageTypeTraceSock
+
 	// 129-255 are reserved for agent level events
 
 	// MessageTypeAccessLog contains a pkg/proxy/accesslog.LogRecord
@@ -61,6 +65,7 @@ const (
 	MessageTypeNameAgent         = "agent"
 	MessageTypeNamePolicyVerdict = "policy-verdict"
 	MessageTypeNameRecCapture    = "recorder"
+	MessageTypeNameTraceSock     = "trace-sock"
 )
 
 type MessageTypeFilter []int
@@ -76,6 +81,7 @@ var (
 		MessageTypeNameAgent:         MessageTypeAgent,
 		MessageTypeNamePolicyVerdict: MessageTypePolicyVerdict,
 		MessageTypeNameRecCapture:    MessageTypeRecCapture,
+		MessageTypeNameTraceSock:     MessageTypeTraceSock,
 	}
 )
 
