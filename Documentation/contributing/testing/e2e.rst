@@ -197,8 +197,6 @@ framework in the ``test/`` directory and interact with ginkgo directly:
     $ ginkgo . -- -cilium.help
       -cilium.SSHConfig string
             Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')
-      -cilium.benchmarks
-            Specifies benchmark tests should be run which may increase test time
       -cilium.help
             Display this help message.
       -cilium.holdEnvironment
