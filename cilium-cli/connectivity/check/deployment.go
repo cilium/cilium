@@ -672,20 +672,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		return err
 	}
 
-	for _, client := range ct.clients.clients() {
-		ciliumPods, err := client.ListPods(ctx, ct.params.CiliumNamespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
-		if err != nil {
-			return fmt.Errorf("unable to list Cilium pods: %w", err)
-		}
-		for _, ciliumPod := range ciliumPods.Items {
-			// TODO: Can Cilium pod names collide across clusters?
-			ct.ciliumPods[ciliumPod.Name] = Pod{
-				K8sClient: client,
-				Pod:       ciliumPod.DeepCopy(),
-			}
-		}
-	}
-
 	clientPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
 	if err != nil {
 		return fmt.Errorf("unable to list client pods: %s", err)
