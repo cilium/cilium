@@ -89,36 +89,6 @@ ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 }
 
 static __always_inline __maybe_unused
-__sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
-{
-#ifdef BPF_HAVE_SOCKET_COOKIE
-	/* prandom() breaks down on UDP, hence preference is on
-	 * socket cookie as built-in selector. On older kernels,
-	 * get_socket_cookie() provides a unique per netns cookie
-	 * for the life-time of the socket. For newer kernels this
-	 * is fixed to be a unique system _global_ cookie. Older
-	 * kernels could have a cookie collision when two pods with
-	 * different netns talk to same service backend, but that
-	 * is fine since we always reverse translate to the same
-	 * service IP/port pair. The only case that could happen
-	 * for older kernels is that we have a cookie collision
-	 * where one pod talks to the service IP/port and the
-	 * other pod talks to that same specific backend IP/port
-	 * directly _w/o_ going over service IP/port. Then the
-	 * reverse sock addr is translated to the service IP/port.
-	 * With a global socket cookie this collision cannot take
-	 * place. There, only the even more unlikely case could
-	 * happen where the same UDP socket talks first to the
-	 * service and then to the same selected backend IP/port
-	 * directly which can be considered negligible.
-	 */
-	return get_socket_cookie(ctx);
-#else
-	return ctx->protocol == IPPROTO_TCP ? get_prandom_u32() : 0;
-#endif
-}
-
-static __always_inline __maybe_unused
 bool sock_is_health_check(struct bpf_sock_addr *ctx __maybe_unused)
 {
 #ifdef ENABLE_HEALTH_CHECK
@@ -328,9 +298,11 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	const bool in_hostns = ctx_in_hostns(ctx_full, &id.client_cookie);
 	struct lb4_backend *backend;
 	struct lb4_service *svc;
+	__u16 dst_port = ctx_dst_port(ctx);
+	__u32 dst_ip = ctx->user_ip4;
 	struct lb4_key key = {
-		.address	= ctx->user_ip4,
-		.dport		= ctx_dst_port(ctx),
+		.address	= dst_ip,
+		.dport		= dst_port,
 	}, orig_key = key;
 	struct lb4_service *backend_slot;
 	bool backend_from_affinity = false;
@@ -578,10 +550,12 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
 {
 	struct ipv4_revnat_entry *val;
+	__u16 dst_port = ctx_dst_port(ctx);
+	__u32 dst_ip = ctx->user_ip4;
 	struct ipv4_revnat_tuple key = {
 		.cookie		= sock_local_cookie(ctx_full),
-		.address	= ctx->user_ip4,
-		.port		= ctx_dst_port(ctx),
+		.address	= dst_ip,
+		.port		= dst_port,
 	};
 
 	val = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
@@ -966,8 +940,9 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	const bool in_hostns = ctx_in_hostns(ctx, &id.client_cookie);
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
+	__u16 dst_port = ctx_dst_port(ctx);
 	struct lb6_key key = {
-		.dport		= ctx_dst_port(ctx),
+		.dport		= dst_port,
 	}, orig_key;
 	struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
@@ -1134,9 +1109,10 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 #ifdef ENABLE_IPV6
 	struct ipv6_revnat_tuple key = {};
 	struct ipv6_revnat_entry *val;
+	__u16 dst_port = ctx_dst_port(ctx);
 
 	key.cookie = sock_local_cookie(ctx);
-	key.port = ctx_dst_port(ctx);
+	key.port = dst_port;
 	ctx_get_v6_address(ctx, &key.address);
 
 	val = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
