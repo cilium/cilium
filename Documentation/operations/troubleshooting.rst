@@ -404,7 +404,10 @@ default. The default starting interval is 5 minutes. Alternatively, the value
 for ``bpf-ct-global-any-max`` and ``bpf-ct-global-tcp-max`` can be increased.
 Setting both of these options will be a trade-off of CPU for ``conntrack-gc-interval``, and for
 ``bpf-ct-global-any-max`` and ``bpf-ct-global-tcp-max`` the amount of memory
-consumed.
+consumed. You can track conntrack garbage collection related metrics such as
+``datapath_conntrack_gc_runs_total`` and ``datapath_conntrack_gc_entries`` to
+get visibility into garbage collection runs. Refer to :ref:`metrics` for more
+details.
 
 Enabling datapath debug messages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
