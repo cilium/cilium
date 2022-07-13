@@ -23,11 +23,9 @@
 package pubsub
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/internal/buffer"
 	"google.golang.org/grpc/internal/grpclog"
 	"google.golang.org/grpc/internal/grpcsync"
@@ -43,7 +41,7 @@ type Pubsub struct {
 	done               *grpcsync.Event
 	logger             *grpclog.PrefixLogger
 	watchExpiryTimeout time.Duration
-	nodeIDJSON         string
+	nodeID             string
 
 	updateCh *buffer.Unbounded // chan *watcherInfoWithUpdate
 	// All the following maps are to keep the updates/metadata in a cache.
@@ -65,12 +63,12 @@ type Pubsub struct {
 // New creates a new Pubsub.
 //
 // The passed in nodeID will be attached to all errors sent to the watchers.
-func New(watchExpiryTimeout time.Duration, nodeID proto.Message, logger *grpclog.PrefixLogger) *Pubsub {
+func New(watchExpiryTimeout time.Duration, nodeID string, logger *grpclog.PrefixLogger) *Pubsub {
 	pb := &Pubsub{
 		done:               grpcsync.NewEvent(),
 		logger:             logger,
 		watchExpiryTimeout: watchExpiryTimeout,
-		nodeIDJSON:         fmt.Sprint(nodeID),
+		nodeID:             nodeID,
 
 		updateCh:    buffer.NewUnbounded(),
 		ldsWatchers: make(map[string]map[*watchInfo]bool),
