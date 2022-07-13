@@ -990,6 +990,7 @@ vmlinux
 volumeMounts
 vtep
 vxlan
+waitForKubeProxy
 waitForMount
 waker
 wakeup
