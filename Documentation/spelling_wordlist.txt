@@ -997,6 +997,7 @@ volumeMounts
 vrf
 vtep
 vxlan
+waitForKubeProxy
 waitForMount
 waker
 wakeup

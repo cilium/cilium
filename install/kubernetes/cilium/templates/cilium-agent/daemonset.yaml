@@ -7,6 +7,9 @@
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
   {{- $defaultKeepDeprecatedProbes = false -}}
 {{- end -}}
+
+{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "disabled") -}}
+
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -629,6 +632,38 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
+      {{- if and .Values.waitForKubeProxy (ne $kubeProxyReplacement "strict") }}
+      - name: wait-for-kube-proxy
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          privileged: true
+        command:
+          - bash
+          - -c
+          - |
+            while true
+            do
+              if iptables-nft-save -t mangle | grep -E '^:(KUBE-IPTABLES-HINT|KUBE-PROXY-CANARY)'; then
+                echo "Found KUBE-IPTABLES-HINT or KUBE-PROXY-CANARY iptables rule in 'iptables-nft-save -t mangle'"
+                exit 0
+              fi
+              if ip6tables-nft-save -t mangle | grep -E '^:(KUBE-IPTABLES-HINT|KUBE-PROXY-CANARY)'; then
+                echo "Found KUBE-IPTABLES-HINT or KUBE-PROXY-CANARY iptables rule in 'ip6tables-nft-save -t mangle'"
+                exit 0
+              fi
+              if iptables-legacy-save | grep -E '^:KUBE-PROXY-CANARY'; then
+                echo "Found KUBE-PROXY-CANARY iptables rule in 'iptables-legacy-save"
+                exit 0
+              fi
+              if ip6tables-legacy-save | grep -E '^:KUBE-PROXY-CANARY'; then
+                echo "KUBE-PROXY-CANARY iptables rule in 'ip6tables-legacy-save'"
+                exit 0
+              fi
+              echo "Waiting for kube-proxy to create iptables rules...";
+              sleep 1;
+            done
+      {{- end }} # wait-for-kube-proxy
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
