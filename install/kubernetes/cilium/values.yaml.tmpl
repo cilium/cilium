@@ -345,6 +345,12 @@ cleanBpfState: false
 # WARNING: Use with care!
 cleanState: false
 
+# -- Wait for KUBE-PROXY-CANARY iptables rule to appear in "wait-for-kube-proxy"
+# init container before launching cilium-agent.
+# More context can be found in the commit message of below PR
+# https://github.com/cilium/cilium/pull/20123
+waitForKubeProxy: false
+
 cni:
   # -- Install the CNI configuration and binary files into the filesystem.
   install: true
