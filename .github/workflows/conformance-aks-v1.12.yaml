@@ -185,14 +185,16 @@ jobs:
           cilium version
 
       - name: Login to Azure
-        uses: azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
+        uses: azure/login@24848bc889cfc0a8313c2b3e378ac0d625b9bc16
         with:
           client-id: ${{ secrets.AZURE_PR_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_PR_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_PR_SUBSCRIPTION_ID }}
 
-      - name: Display az version
+      - name: Install aks-preview CLI extension
         run: |
+            az extension add --name aks-preview
+            az extension update --name aks-preview
             az version
 
       - name: Create AKS cluster
@@ -208,7 +210,7 @@ jobs:
             --resource-group ${{ env.name }} \
             --name ${{ env.name }} \
             --location ${{ env.location }} \
-            --network-plugin azure \
+            --network-plugin none \
             --node-count 2 \
             ${{ env.cost_reduction }} \
             --generate-ssh-keys
