@@ -91,8 +91,7 @@ The egress gateway feature and all the requirements can be enabled as follow:
                --set egressGateway.enabled=true \\
                --set bpf.masquerade=true \\
                --set kubeProxyReplacement=strict \\
-               --set l7Proxy=false \\
-               --set rollOutCiliumPods=true
+               --set l7Proxy=false
 
     .. group-tab:: ConfigMap
 
@@ -102,6 +101,13 @@ The egress gateway feature and all the requirements can be enabled as follow:
             enable-ipv4-egress-gateway: true
             enable-l7-proxy: false
             kube-proxy-replacement: strict
+
+Rollout both the agent pods and the operator pods to make the changes effective:
+
+.. code-block:: shell-session
+
+    $ kubectl rollout restart ds cilium -n kube-system
+    $ kubectl rollout restart deploy cilium-operator -n kube-system
 
 Compatibility with cloud environments
 -------------------------------------
