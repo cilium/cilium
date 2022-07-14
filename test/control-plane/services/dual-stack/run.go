@@ -9,13 +9,14 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
+	controlplane "github.com/cilium/cilium/test/control-plane"
 	. "github.com/cilium/cilium/test/control-plane/services"
 )
 
 func RunDualStackTestWithVersion(t *testing.T, version string) {
 	testCase := NewGoldenServicesTest(t, "dual-stack-worker")
 
-	testCase.Steps[0].AddValidationFunc(func(datapath *fakeDatapath.FakeDatapath) error {
+	testCase.Steps[0].AddValidationFunc(func(datapath *fakeDatapath.FakeDatapath, proxy *controlplane.K8sObjsProxy) error {
 		assert := NewLBMapAssert(datapath.LBMockMap())
 
 		// Verify that default/echo-dualstack service exists

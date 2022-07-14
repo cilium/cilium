@@ -4,6 +4,7 @@
 package controlplane
 
 import (
+	"errors"
 	"flag"
 	"os"
 	"path"
@@ -91,22 +92,22 @@ func (t *ControlPlaneTestStep) AddValidation(newValidator Validator) *ControlPla
 	return t
 }
 
-func (t *ControlPlaneTestStep) AddValidationFunc(validate func(*fakeDatapath.FakeDatapath) error) *ControlPlaneTestStep {
+func (t *ControlPlaneTestStep) AddValidationFunc(validate func(*fakeDatapath.FakeDatapath, *K8sObjsProxy) error) *ControlPlaneTestStep {
 	return t.AddValidation(funcValidator{validate})
 }
 
 type Validator interface {
 	// Validate is called on each test case step to validate the state
 	// of the datapath.
-	Validate(datapath *fakeDatapath.FakeDatapath) error
+	Validate(datapath *fakeDatapath.FakeDatapath, proxy *K8sObjsProxy) error
 }
 
 type funcValidator struct {
-	validate func(*fakeDatapath.FakeDatapath) error
+	validate func(*fakeDatapath.FakeDatapath, *K8sObjsProxy) error
 }
 
-func (fv funcValidator) Validate(datapath *fakeDatapath.FakeDatapath) error {
-	return fv.validate(datapath)
+func (fv funcValidator) Validate(datapath *fakeDatapath.FakeDatapath, proxy *K8sObjsProxy) error {
+	return fv.validate(datapath, proxy)
 }
 
 type multiValidator struct {
@@ -114,11 +115,44 @@ type multiValidator struct {
 	tail Validator
 }
 
-func (mv multiValidator) Validate(datapath *fakeDatapath.FakeDatapath) error {
-	if err := mv.head.Validate(datapath); err != nil {
+func (mv multiValidator) Validate(datapath *fakeDatapath.FakeDatapath, proxy *K8sObjsProxy) error {
+	if err := mv.head.Validate(datapath, proxy); err != nil {
 		return err
 	}
-	return mv.tail.Validate(datapath)
+	return mv.tail.Validate(datapath, proxy)
+}
+
+// K8sObjsProxy exposes the API to access the current status
+// of the mocked k8s objects during the test steps.
+type K8sObjsProxy struct {
+	coreTracker   k8sTesting.ObjectTracker
+	slimTracker   k8sTesting.ObjectTracker
+	ciliumTracker k8sTesting.ObjectTracker
+}
+
+func newK8sObjectsProxy(coreTracker, slimTracker, ciliumTracker k8sTesting.ObjectTracker) *K8sObjsProxy {
+	return &K8sObjsProxy{coreTracker, slimTracker, ciliumTracker}
+}
+
+// Get retrieves a k8s object given its group-version-resource, namespace and name.
+// All the mocked control plane trackers will be queried in the search:
+// - core
+// - slim
+// - cilium
+// The first match will be returned.
+// If the object cannot be found, a non nil error is returned.
+func (op *K8sObjsProxy) Get(gvr schema.GroupVersionResource, ns, name string) (k8sRuntime.Object, error) {
+	if obj, err := op.coreTracker.Get(gvr, ns, name); err == nil {
+		return obj, nil
+	}
+	if obj, err := op.slimTracker.Get(gvr, ns, name); err == nil {
+		return obj, nil
+	}
+	if obj, err := op.ciliumTracker.Get(gvr, ns, name); err == nil {
+		return obj, nil
+	}
+
+	return nil, errors.New("k8s object not found")
 }
 
 // ControlPlaneTestCase is a collection of test steps for testing the service
@@ -205,6 +239,10 @@ func (testCase *ControlPlaneTestCase) Run(t *testing.T, k8sVersion string, modCo
 	// at that point in time.
 	objCache := newK8sObjectCache()
 
+	// objProxy will be passed to the validation callbacks to expose
+	// the objects status to the test case steps.
+	objProxy := newK8sObjectsProxy(coreTracker, slimTracker, ciliumTracker)
+
 	datapath, agentHandle, err := startCiliumAgent(testCase.NodeName, clients, modConfig)
 	if err != nil {
 		t.Fatalf("Failed to start cilium agent: %s", err)
@@ -249,14 +287,14 @@ func (testCase *ControlPlaneTestCase) Run(t *testing.T, k8sVersion string, modCo
 			// and there is no obvious way to synchronize with datapath (yet), so we'll
 			// try a few times and wait a bit.
 			err := retryUptoDuration(
-				func() error { return step.Validator.Validate(datapath) },
+				func() error { return step.Validator.Validate(datapath, objProxy) },
 				testCase.ValidationTimeout)
 
 			// Check that the state stays correct and consistent over a short period of time
 			// after the initial match.
 			for retries := 3; err == nil && retries > 0; retries-- {
 				time.Sleep(100 * time.Millisecond)
-				err = step.Validator.Validate(datapath)
+				err = step.Validator.Validate(datapath, objProxy)
 			}
 			if err != nil {
 				t.Fatalf("Test failed: %s", err)
