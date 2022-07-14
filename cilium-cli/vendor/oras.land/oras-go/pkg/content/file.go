@@ -312,7 +312,10 @@ func (s *File) Close() error {
 		}
 		return true
 	})
-	return errors.New(strings.Join(errs, "; "))
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
+	}
+	return nil
 }
 
 func (s *File) resolveWritePath(name string) (string, error) {

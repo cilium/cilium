@@ -70,7 +70,7 @@ func (f *fetcherReaderAt) ReadAt(p []byte, off int64) (n int, err error) {
 		f.rc = rc
 	}
 
-	n, err = f.rc.Read(p)
+	n, err = io.ReadFull(f.rc, p)
 	if err != nil {
 		return n, err
 	}

@@ -878,9 +878,10 @@ func structOnlyError(t reflect.Type) error {
 }
 
 // scanAll scans all rows into a destination, which must be a slice of any
-// type.  If the destination slice type is a Struct, then StructScan will be
-// used on each row.  If the destination is some other kind of base type, then
-// each row must only have one column which can scan into that type.  This
+// type.  It resets the slice length to zero before appending each element to
+// the slice.  If the destination slice type is a Struct, then StructScan will
+// be used on each row.  If the destination is some other kind of base type,
+// then each row must only have one column which can scan into that type.  This
 // allows you to do something like:
 //
 //    rows, _ := db.Query("select id from people;")
@@ -910,6 +911,7 @@ func scanAll(rows rowsi, dest interface{}, structOnly bool) error {
 	if err != nil {
 		return err
 	}
+	direct.SetLen(0)
 
 	isPtr := slice.Elem().Kind() == reflect.Ptr
 	base := reflectx.Deref(slice.Elem())

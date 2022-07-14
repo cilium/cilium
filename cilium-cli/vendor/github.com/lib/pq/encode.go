@@ -422,7 +422,7 @@ func ParseTimestamp(currentLocation *time.Location, str string) (time.Time, erro
 
 	if remainderIdx < len(str) && str[remainderIdx] == '.' {
 		fracStart := remainderIdx + 1
-		fracOff := strings.IndexAny(str[fracStart:], "-+ ")
+		fracOff := strings.IndexAny(str[fracStart:], "-+Z ")
 		if fracOff < 0 {
 			fracOff = len(str) - fracStart
 		}
@@ -432,7 +432,7 @@ func ParseTimestamp(currentLocation *time.Location, str string) (time.Time, erro
 		remainderIdx += fracOff + 1
 	}
 	if tzStart := remainderIdx; tzStart < len(str) && (str[tzStart] == '-' || str[tzStart] == '+') {
-		// time zone separator is always '-' or '+' (UTC is +00)
+		// time zone separator is always '-' or '+' or 'Z' (UTC is +00)
 		var tzSign int
 		switch c := str[tzStart]; c {
 		case '-':
@@ -454,7 +454,11 @@ func ParseTimestamp(currentLocation *time.Location, str string) (time.Time, erro
 			remainderIdx += 3
 		}
 		tzOff = tzSign * ((tzHours * 60 * 60) + (tzMin * 60) + tzSec)
+	} else if tzStart < len(str) && str[tzStart] == 'Z' {
+		// time zone Z separator indicates UTC is +00
+		remainderIdx += 1
 	}
+
 	var isoYear int
 
 	if isBC {
