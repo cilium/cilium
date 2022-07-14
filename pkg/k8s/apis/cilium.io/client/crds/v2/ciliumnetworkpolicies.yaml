@@ -242,6 +242,7 @@ spec:
                         - cluster
                         - host
                         - init
+                        - ingress
                         - unmanaged
                         - remote-node
                         - health
@@ -1058,6 +1059,7 @@ spec:
                         - cluster
                         - host
                         - init
+                        - ingress
                         - unmanaged
                         - remote-node
                         - health
@@ -1496,6 +1498,7 @@ spec:
                         - cluster
                         - host
                         - init
+                        - ingress
                         - unmanaged
                         - remote-node
                         - health
@@ -2145,6 +2148,7 @@ spec:
                         - cluster
                         - host
                         - init
+                        - ingress
                         - unmanaged
                         - remote-node
                         - health
@@ -2582,6 +2586,7 @@ spec:
                           - cluster
                           - host
                           - init
+                          - ingress
                           - unmanaged
                           - remote-node
                           - health
@@ -3413,6 +3418,7 @@ spec:
                           - cluster
                           - host
                           - init
+                          - ingress
                           - unmanaged
                           - remote-node
                           - health
@@ -3857,6 +3863,7 @@ spec:
                           - cluster
                           - host
                           - init
+                          - ingress
                           - unmanaged
                           - remote-node
                           - health
@@ -4515,6 +4522,7 @@ spec:
                           - cluster
                           - host
                           - init
+                          - ingress
                           - unmanaged
                           - remote-node
                           - health
