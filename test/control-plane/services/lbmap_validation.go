@@ -148,14 +148,14 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 		} else if services[i].Type > services[j].Type {
 			return false
 		}
-		if services[i].Namespace < services[j].Namespace {
+		if services[i].Name.Namespace < services[j].Name.Namespace {
 			return true
-		} else if services[i].Namespace > services[j].Namespace {
+		} else if services[i].Name.Namespace > services[j].Name.Namespace {
 			return false
 		}
-		if services[i].Name < services[j].Name {
+		if services[i].Name.Name < services[j].Name.Name {
 			return true
-		} else if services[i].Name > services[j].Name {
+		} else if services[i].Name.Name > services[j].Name.Name {
 			return false
 		}
 		return services[i].Frontend.L3n4Addr.StringWithProtocol() <
@@ -173,7 +173,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 		}
 		tw.AddRow(
 			strconv.FormatInt(int64(i), 10),
-			svc.Namespace+"/"+svc.Name,
+			svc.Name.String(),
 			string(svc.Type),
 			svc.Frontend.StringWithProtocol(),
 			showBackendIDs(newBackendIds, svc.Backends),
@@ -198,7 +198,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 
 }
 
-func showBackendIDs(idMap map[lb.BackendID]int, bes []lb.Backend) string {
+func showBackendIDs(idMap map[lb.BackendID]int, bes []*lb.Backend) string {
 	var ids []int
 	for _, be := range bes {
 		ids = append(ids, idMap[be.ID])

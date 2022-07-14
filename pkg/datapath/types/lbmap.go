@@ -46,9 +46,8 @@ type UpsertServiceParams struct {
 	SessionAffinityTimeoutSec uint32
 	CheckSourceRange          bool
 	UseMaglev                 bool
-	L7LBProxyPort             uint16 // Non-zero for L7 LB services
-	Name                      string // Name of the k8s Service
-	Namespace                 string // Namespace of the k8s Service
+	L7LBProxyPort             uint16                   // Non-zero for L7 LB services
+	Name                      loadbalancer.ServiceName // Fully qualified name of the service
 }
 
 // GetOrderedBackends returns an ordered list of backends with all the sorted

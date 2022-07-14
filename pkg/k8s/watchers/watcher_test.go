@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/service"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -173,15 +172,15 @@ func (f *fakeSvcManager) UpsertService(p *loadbalancer.SVC) (bool, loadbalancer.
 	panic("OnUpsertService() was called and is not set!")
 }
 
-func (f *fakeSvcManager) RegisterL7LBService(serviceName, resourceName service.Name, ports []string, proxyPort uint16) error {
+func (f *fakeSvcManager) RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error {
 	return nil
 }
 
-func (f *fakeSvcManager) RegisterL7LBServiceBackendSync(serviceName, resourceName service.Name, ports []string) error {
+func (f *fakeSvcManager) RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error {
 	return nil
 }
 
-func (f *fakeSvcManager) RemoveL7LBService(serviceName, resourceName service.Name) error {
+func (f *fakeSvcManager) RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error {
 	return nil
 }
 

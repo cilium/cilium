@@ -23,10 +23,9 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 
 	// Imports for Envoy extensions not used directly from Cilium Agent, but that we want to
-	// be registered for use in Cilium Encoy Config CRDs:
+	// be registered for use in Cilium Enco Config CRDs:
 	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3"
@@ -662,7 +661,7 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 	return nil
 }
 
-func (s *XDSServer) UpsertEnvoyEndpoints(serviceName service.Name, backendMap map[string][]*lb.Backend) error {
+func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) error {
 	var resources Resources
 	lbEndpoints := []*envoy_config_endpoint.LbEndpoint{}
 	for port, bes := range backendMap {

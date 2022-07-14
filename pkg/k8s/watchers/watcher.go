@@ -51,7 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
-	"github.com/cilium/cilium/pkg/service"
 )
 
 const (
@@ -138,9 +137,9 @@ type policyRepository interface {
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
-	RegisterL7LBService(serviceName, resourceName service.Name, ports []string, proxyPort uint16) error
-	RegisterL7LBServiceBackendSync(serviceName, resourceName service.Name, ports []string) error
-	RemoveL7LBService(serviceName, resourceName service.Name) error
+	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
+	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
+	RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error
 }
 
 type redirectPolicyManager interface {
@@ -890,8 +889,10 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			SessionAffinityTimeoutSec: dpSvc.SessionAffinityTimeoutSec,
 			HealthCheckNodePort:       dpSvc.HealthCheckNodePort,
 			LoadBalancerSourceRanges:  dpSvc.LoadBalancerSourceRanges,
-			Name:                      svcID.Name,
-			Namespace:                 svcID.Namespace,
+			Name: loadbalancer.ServiceName{
+				Name:      svcID.Name,
+				Namespace: svcID.Namespace,
+			},
 		}
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
 			scopedLog.WithError(err).Error("Error while inserting service in LB map")

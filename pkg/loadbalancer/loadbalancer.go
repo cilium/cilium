@@ -294,6 +294,17 @@ type FEPortName string
 // ServiceID is the service's ID.
 type ServiceID uint16
 
+// ServiceName represents the fully-qualified reference to the service by name,
+// including both the namespace and name of the service.
+type ServiceName struct {
+	Namespace string
+	Name      string
+}
+
+func (n ServiceName) String() string {
+	return n.Namespace + "/" + n.Name
+}
+
 // BackendID is the backend's ID.
 type BackendID uint32
 
@@ -339,9 +350,8 @@ type SVC struct {
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
-	HealthCheckNodePort       uint16 // Service health check node port
-	Name                      string // Service name
-	Namespace                 string // Service namespace
+	HealthCheckNodePort       uint16      // Service health check node port
+	Name                      ServiceName // Fully qualified service name
 	LoadBalancerSourceRanges  []*cidr.CIDR
 	L7LBProxyPort             uint16   // Non-zero for L7 LB services
 	L7LBFrontendPorts         []string // Non-zero for L7 LB frontend service ports
@@ -372,8 +382,8 @@ func (s *SVC) GetModel() *models.Service {
 			NatPolicy:           natPolicy,
 			HealthCheckNodePort: s.HealthCheckNodePort,
 
-			Name:      s.Name,
-			Namespace: s.Namespace,
+			Name:      s.Name.Name,
+			Namespace: s.Name.Namespace,
 		},
 	}
 
