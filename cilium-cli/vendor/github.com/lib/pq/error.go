@@ -402,6 +402,11 @@ func (err *Error) Fatal() bool {
 	return err.Severity == Efatal
 }
 
+// SQLState returns the SQLState of the error.
+func (err *Error) SQLState() string {
+	return string(err.Code)
+}
+
 // Get implements the legacy PGError interface. New code should use the fields
 // of the Error struct directly.
 func (err *Error) Get(k byte) (v string) {
