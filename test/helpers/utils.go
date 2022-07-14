@@ -521,6 +521,11 @@ func DoesNotRunOn419Kernel() bool {
 	return !RunsOn419Kernel()
 }
 
+// DoesNotRunOn49Kernel returns true if a test case is not running on 4.9 kernel.
+func DoesNotRunOn49Kernel() bool {
+	return os.Getenv("KERNEL") != "49"
+}
+
 // RunsOn419OrLaterKernel checks whether a test case is running on 4.19.x (x > 57) or later kernel
 func RunsOn419OrLaterKernel() bool {
 	return RunsOnNetNextKernel() || RunsOn419Kernel() || RunsOn54Kernel()

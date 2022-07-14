@@ -14,7 +14,7 @@ import (
 
 var _ = Describe("K8sIdentity", func() {
 	SkipContextIf(func() bool {
-		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS()
+		return helpers.DoesNotRunOn419Kernel()
 	}, "Identity expiration", func() {
 		var (
 			kubectl        *helpers.Kubectl
