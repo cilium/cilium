@@ -43,6 +43,7 @@ type Parameters struct {
 	CurlImage             string
 	PerformanceImage      string
 	JSONMockImage         string
+	AgentDaemonSetName    string
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
