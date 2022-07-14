@@ -163,17 +163,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		enableVXLANTunneling := func(options map[string]string) {
 			options["tunnel"] = "vxlan"
-			if helpers.RunsOnGKE() {
-				// We need to disable gke.enabled as it disables tunneling.
-				options["gke.enabled"] = "false"
-				options["endpointRoutes.enabled"] = "true"
-			}
 		}
 
 		SkipItIf(func() bool {
 			// IPsec + encapsulation requires Linux 4.19.
-			// We also can't disable KPR on GKE at the moment (cf. #16597).
-			return helpers.RunsWithoutKubeProxy() || helpers.DoesNotRunOn419OrLaterKernel() || helpers.RunsOnGKE()
+			return helpers.RunsWithoutKubeProxy() || helpers.DoesNotRunOn419OrLaterKernel()
 		}, "Check connectivity with transparent encryption and VXLAN encapsulation", func() {
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 			options := map[string]string{
@@ -194,8 +188,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		}, 600)
 
-		// Geneve is currently not supported on GKE
-		SkipItIf(helpers.RunsOnGKE, "Check connectivity with Geneve encapsulation", func() {
+		It("Check connectivity with Geneve encapsulation", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel": "geneve",
 			}, DeployCiliumOptionsAndDNS)
@@ -252,34 +245,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	// DirectRouting without AutoDirectNodeRoutes not supported outside of GKE.
-	SkipContextIf(helpers.DoesNotRunOnGKE, "DirectRouting", func() {
-		It("Check connectivity with direct routing", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "disabled",
-				"k8s.requireIPv4PodCIDR": "true",
-				"endpointRoutes.enabled": "false",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-
-		It("Check connectivity with direct routing and endpointRoutes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "disabled",
-				"k8s.requireIPv4PodCIDR": "true",
-				"endpointRoutes.enabled": "true",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-	})
-
 	Context("AutoDirectNodeRoutes", func() {
-		BeforeEach(func() {
-			SkipIfIntegration(helpers.CIIntegrationGKE)
-		})
-
 		It("Check connectivity with automatic direct nodes routes", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":               "disabled",
@@ -630,7 +596,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	SkipContextIf(func() bool {
-		return helpers.RunsOnGKE() || helpers.RunsWithoutKubeProxy()
+		return helpers.RunsWithoutKubeProxy()
 	}, "Transparent encryption DirectRouting", func() {
 		var privateIface string
 		BeforeAll(func() {
@@ -722,24 +688,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			kubectl.Exec(fmt.Sprintf("%s delete --all ccnp", helpers.KubectlCmd))
 		})
 
-		SkipItIf(func() bool {
-			return !helpers.IsIntegration(helpers.CIIntegrationGKE)
-		}, "Check connectivity with IPv6 disabled", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"ipv4.enabled":         "true",
-				"ipv6.enabled":         "false",
-				"hostFirewall.enabled": "true",
-			}, DeployCiliumOptionsAndDNS)
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-
 		It("With VXLAN", func() {
 			options := map[string]string{
 				"hostFirewall.enabled": "true",
-			}
-			if helpers.RunsOnGKE() {
-				options["gke.enabled"] = "false"
-				options["tunnel"] = "vxlan"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
@@ -750,10 +701,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"hostFirewall.enabled":   "true",
 				"endpointRoutes.enabled": "true",
 			}
-			if helpers.RunsOnGKE() {
-				options["gke.enabled"] = "false"
-				options["tunnel"] = "vxlan"
-			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
@@ -762,13 +709,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			options := map[string]string{
 				"hostFirewall.enabled": "true",
 				"tunnel":               "disabled",
-			}
-			// We don't want to run with per-endpoint routes (enabled by
-			// gke.enabled) for this test.
-			if helpers.RunsOnGKE() {
-				options["gke.enabled"] = "false"
-			} else {
-				options["autoDirectNodeRoutes"] = "true"
+				"autoDirectNodeRoutes": "true",
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
@@ -779,9 +720,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"hostFirewall.enabled":   "true",
 				"tunnel":                 "disabled",
 				"endpointRoutes.enabled": "true",
-			}
-			if !helpers.RunsOnGKE() {
-				options["autoDirectNodeRoutes"] = "true"
+				"autoDirectNodeRoutes":   "true",
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
@@ -790,7 +729,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Iptables", func() {
 		SkipItIf(func() bool {
-			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.DoesNotRunWithKubeProxyReplacement()
+			return helpers.DoesNotRunWithKubeProxyReplacement()
 		}, "Skip conntrack for pod traffic", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":                          "disabled",

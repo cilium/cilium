@@ -210,22 +210,9 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 	forceDNSRedeploy := optionChangeRequiresPodRedeploy(prevOptions, options)
 	vm.RedeployKubernetesDnsIfNecessary(forceDNSRedeploy)
 
-	switch helpers.GetCurrentIntegration() {
-	case helpers.CIIntegrationGKE:
-		if helpers.LogGathererNamespace != helpers.KubeSystemNamespace {
-			vm.RestartUnmanagedPodsInNamespace(helpers.KubeSystemNamespace)
-		}
-	}
-
 	err := vm.CiliumPreFlightCheck()
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 	ExpectCiliumOperatorReady(vm)
-
-	switch helpers.GetCurrentIntegration() {
-	case helpers.CIIntegrationGKE:
-		err := vm.WaitforPods(helpers.KubeSystemNamespace, "", longTimeout)
-		ExpectWithOffset(1, err).Should(BeNil(), "kube-system pods were not able to get into ready state after restart")
-	}
 }
 
 // SkipIfIntegration will skip a test if it's running with any of the specified

@@ -25,13 +25,7 @@ var _ = SkipDescribeIf(func() bool {
 	//
 	// This leaves us with 4.19 and net-next. Coverage should be
 	// identical on the two versions, so just run on net-next.
-	//
-	// Also skip on GKE because we do not have the source of the
-	// custom program available on a node, for the compiler pod to
-	// pick up (although technically, skipping 4.19 kernels already
-	// skips GKE).
-	return helpers.DoesNotRunOnNetNextKernel() ||
-		helpers.RunsOnGKE()
+	return helpers.DoesNotRunOnNetNextKernel()
 }, "K8sCustomCalls", func() {
 
 	var (

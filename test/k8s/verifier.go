@@ -110,8 +110,6 @@ var _ = Describe("K8sVerifier", func() {
 	}
 
 	BeforeAll(func() {
-		SkipIfIntegration(helpers.CIIntegrationGKE)
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		// We don't check the returned error because Cilium could
 		// already be removed (e.g., first test to run).

@@ -512,10 +512,6 @@ func RunsOn419Kernel() bool {
 	return os.Getenv("KERNEL") == "419"
 }
 
-func GKENativeRoutingCIDR() string {
-	return os.Getenv("NATIVE_CIDR")
-}
-
 // DoesNotRunOn419Kernel is the complement function of RunsOn419Kernel.
 func DoesNotRunOn419Kernel() bool {
 	return !RunsOn419Kernel()
@@ -547,16 +543,6 @@ func DoesNotRunOn54OrLaterKernel() bool {
 	return !RunsOn54OrLaterKernel()
 }
 
-// RunsOnGKE returns true if the tests are running on GKE.
-func RunsOnGKE() bool {
-	return GetCurrentIntegration() == CIIntegrationGKE
-}
-
-// DoesNotRunOnGKE is the complement function of DoesNotRunOnGKE.
-func DoesNotRunOnGKE() bool {
-	return !RunsOnGKE()
-}
-
 // RunsOnEKS returns true if the tests are running on EKS.
 func RunsOnEKS() bool {
 	return GetCurrentIntegration() == CIIntegrationEKS
@@ -571,7 +557,7 @@ func DoesNotRunOnEKS() bool {
 // kube-proxy replacement. Note that kube-proxy may still be running
 // alongside Cilium.
 func RunsWithKubeProxyReplacement() bool {
-	return RunsOnGKE() || RunsOn419OrLaterKernel()
+	return RunsOn419OrLaterKernel()
 }
 
 // DoesNotRunWithKubeProxyReplacement is the complement function of
@@ -699,11 +685,6 @@ func GetLatestImageVersion() string {
 // SkipQuarantined returns whether test under quarantine should be skipped
 func SkipQuarantined() bool {
 	return !config.CiliumTestConfig.RunQuarantined
-}
-
-// SkipGKEQuarantined returns whether test under quarantine on GKE should be skipped
-func SkipGKEQuarantined() bool {
-	return SkipQuarantined() && IsIntegration(CIIntegrationGKE)
 }
 
 // SkipRaceDetectorEnabled returns whether tests failing with race detector
