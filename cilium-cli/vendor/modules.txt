@@ -40,7 +40,7 @@ github.com/Masterminds/semver/v3
 # github.com/Masterminds/sprig/v3 v3.2.2
 ## explicit; go 1.13
 github.com/Masterminds/sprig/v3
-# github.com/Masterminds/squirrel v1.5.2
+# github.com/Masterminds/squirrel v1.5.3
 ## explicit; go 1.14
 github.com/Masterminds/squirrel
 # github.com/andybalholm/brotli v1.0.1
@@ -208,7 +208,7 @@ github.com/cncf/xds/go/xds/core/v3
 github.com/cncf/xds/go/xds/data/orca/v3
 github.com/cncf/xds/go/xds/type/matcher/v3
 github.com/cncf/xds/go/xds/type/v3
-# github.com/containerd/containerd v1.6.3
+# github.com/containerd/containerd v1.6.6
 ## explicit; go 1.17
 github.com/containerd/containerd/archive/compression
 github.com/containerd/containerd/content
@@ -244,7 +244,7 @@ github.com/davecgh/go-spew/spew
 # github.com/distribution/distribution v2.8.1+incompatible
 ## explicit
 github.com/distribution/distribution/reference
-# github.com/docker/cli v20.10.11+incompatible
+# github.com/docker/cli v20.10.17+incompatible
 ## explicit
 github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
@@ -598,7 +598,7 @@ github.com/jhump/protoreflect/dynamic/grpcdynamic
 github.com/jhump/protoreflect/grpcreflect
 github.com/jhump/protoreflect/internal
 github.com/jhump/protoreflect/internal/codec
-# github.com/jmoiron/sqlx v1.3.4
+# github.com/jmoiron/sqlx v1.3.5
 ## explicit; go 1.10
 github.com/jmoiron/sqlx
 github.com/jmoiron/sqlx/reflectx
@@ -638,7 +638,7 @@ github.com/lann/builder
 # github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0
 ## explicit
 github.com/lann/ps
-# github.com/lib/pq v1.10.4
+# github.com/lib/pq v1.10.6
 ## explicit; go 1.13
 github.com/lib/pq
 github.com/lib/pq/oid
@@ -1121,7 +1121,7 @@ go.uber.org/zap/internal/ztest
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
 go.uber.org/zap/zaptest
-# golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+# golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
@@ -1168,7 +1168,7 @@ golang.org/x/oauth2/google/internal/externalaccount
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+# golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
@@ -1411,7 +1411,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# helm.sh/helm/v3 v3.9.0
+# helm.sh/helm/v3 v3.9.1
 ## explicit; go 1.17
 helm.sh/helm/v3/internal/fileutil
 helm.sh/helm/v3/internal/ignore
@@ -1451,7 +1451,7 @@ helm.sh/helm/v3/pkg/storage/driver
 helm.sh/helm/v3/pkg/strvals
 helm.sh/helm/v3/pkg/time
 helm.sh/helm/v3/pkg/uploader
-# k8s.io/api v0.24.0
+# k8s.io/api v0.24.2
 ## explicit; go 1.16
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -1501,12 +1501,12 @@ k8s.io/api/scheduling/v1beta1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.24.0
+# k8s.io/apiextensions-apiserver v0.24.2
 ## explicit; go 1.16
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
-# k8s.io/apimachinery v0.24.0
+# k8s.io/apimachinery v0.24.2
 ## explicit; go 1.16
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -1560,15 +1560,15 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.24.0
+# k8s.io/apiserver v0.24.2
 ## explicit; go 1.16
 k8s.io/apiserver/pkg/endpoints/deprecation
-# k8s.io/cli-runtime v0.24.0
+# k8s.io/cli-runtime v0.24.2
 ## explicit; go 1.16
 k8s.io/cli-runtime/pkg/genericclioptions
 k8s.io/cli-runtime/pkg/printers
 k8s.io/cli-runtime/pkg/resource
-# k8s.io/client-go v0.24.0
+# k8s.io/client-go v0.24.2
 ## explicit; go 1.16
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
 k8s.io/client-go/applyconfigurations/admissionregistration/v1beta1
@@ -1709,7 +1709,7 @@ k8s.io/client-go/util/homedir
 k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/workqueue
-# k8s.io/component-base v0.24.0
+# k8s.io/component-base v0.24.2
 ## explicit; go 1.16
 k8s.io/component-base/version
 # k8s.io/klog/v2 v2.60.1
@@ -1732,7 +1732,7 @@ k8s.io/kube-openapi/pkg/spec3
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/proto/validation
 k8s.io/kube-openapi/pkg/validation/spec
-# k8s.io/kubectl v0.24.0
+# k8s.io/kubectl v0.24.2
 ## explicit; go 1.16
 k8s.io/kubectl/pkg/cmd/util
 k8s.io/kubectl/pkg/scheme
@@ -1755,7 +1755,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# oras.land/oras-go v1.1.0
+# oras.land/oras-go v1.2.0
 ## explicit; go 1.17
 oras.land/oras-go/pkg/artifact
 oras.land/oras-go/pkg/auth
