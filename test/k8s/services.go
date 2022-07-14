@@ -592,21 +592,13 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 		// Run on net-next and 4.19 but not on old versions, because of
 		// LRU requirement.
 		SkipItIf(func() bool {
-			return helpers.DoesNotRunOn419OrLaterKernel() ||
-				(helpers.SkipQuarantined() && helpers.RunsOnGKE())
+			return helpers.DoesNotRunOn419OrLaterKernel()
 		}, "Supports IPv4 fragments", func() {
-			options := map[string]string{}
-			// On GKE we need to disable endpoint routes as fragment tracking
-			// isn't compatible with that options. See #15958.
-			if helpers.RunsOnGKE() {
-				options["gke.enabled"] = "false"
-				options["tunnel"] = "disabled"
-			}
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, nil)
 			testIPv4FragmentSupport(kubectl, ni)
 		})
 
-		SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
+		SkipContextIf(func() bool { return helpers.SkipQuarantined() }, "With host policy", func() {
 			var ccnpHostPolicy string
 
 			BeforeAll(func() {

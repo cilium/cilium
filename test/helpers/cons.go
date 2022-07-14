@@ -207,8 +207,7 @@ const (
 	// communicate between nodes. The iface is used to attach bpf_netdev.o
 	// to test NodePort with multiple devices.
 	// Because the name is hardcoded, it cannot be used in tests which run on
-	// on EKS/GKE or any other env which hasn't been provisioned with
-	// test/Vagrantfile.
+	// on an env which hasn't been provisioned with test/Vagrantfile.
 	SecondaryIface = "enp0s9"
 
 	// Logs messages that should not be in the cilium logs...

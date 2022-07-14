@@ -27,9 +27,7 @@ var _ = SkipDescribeIf(func() bool {
 	// We only need to run on 4.9 with kube-proxy and net-next with KPR
 	// and the third node. Other CI jobs are not expected to increase
 	// code coverage.
-	//
-	// For GKE coverage, see the K8sPolicyTestExtended Describe block below.
-	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
+	return helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
 }, "K8sAgentPolicyTest", func() {
 
 	var (
@@ -1464,11 +1462,6 @@ var _ = SkipDescribeIf(func() bool {
 	})
 })
 
-// This Describe block is needed to run some tests in GKE. For example, the
-// kube-apiserver policy matching feature needs coverage on GKE as there are
-// two cases for that feature:
-//   - kube-apiserver running within the cluster (Vagrant VMs)
-//   - kube-apiserver running outside of the cluster (GKE)
 var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 	"K8sPolicyTestExtended", func() {
 		var (
@@ -1580,7 +1573,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 					defer GinkgoRecover()
 					defer wg.Done()
 					switch helpers.GetCurrentIntegration() {
-					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining, helpers.CIIntegrationGKE:
+					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining:
 						By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
 					default:
 						// We need to bypass this check as in a non-managed
@@ -1602,7 +1595,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 					defer GinkgoRecover()
 					defer wg.Done()
 					switch helpers.GetCurrentIntegration() {
-					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining, helpers.CIIntegrationGKE:
+					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining:
 						By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
 					default:
 						// We need to bypass this check as in a two node

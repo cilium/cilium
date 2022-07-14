@@ -53,9 +53,6 @@ const (
 	// CIIntegrationEKS contains the constants to be used when running tests on EKS in ENI mode.
 	CIIntegrationEKS = "eks"
 
-	// CIIntegrationGKE contains the constants to be used when running tests on GKE.
-	CIIntegrationGKE = "gke"
-
 	// CIIntegrationAKS contains the constants to be used when running tests on AKS.
 	CIIntegrationAKS = "aks"
 
@@ -141,21 +138,6 @@ var (
 		"tunnel":                     "disabled",
 	}
 
-	gkeHelmOverrides = map[string]string{
-		"ipv6.enabled":                "false",
-		"nodeinit.enabled":            "true",
-		"nodeinit.reconfigureKubelet": "true",
-		"nodeinit.removeCbrBridge":    "true",
-		"nodeinit.restartPods":        "true",
-		"cni.binPath":                 "/home/kubernetes/bin",
-		"gke.enabled":                 "true",
-		"loadBalancer.mode":           "snat",
-		"ipv4NativeRoutingCIDR":       NativeRoutingCIDR(),
-		"hostFirewall.enabled":        "false",
-		"ipam.mode":                   "kubernetes",
-		"devices":                     "", // Override "eth0 eth0\neth0"
-	}
-
 	aksHelmOverrides = map[string]string{
 		"ipam.mode":                           "delegated-plugin",
 		"tunnel":                              "disabled",
@@ -201,7 +183,6 @@ var (
 	helmOverrides = map[string]map[string]string{
 		CIIntegrationEKSChaining: eksChainingHelmOverrides,
 		CIIntegrationEKS:         eksHelmOverrides,
-		CIIntegrationGKE:         gkeHelmOverrides,
 		CIIntegrationAKS:         aksHelmOverrides,
 		CIIntegrationKind:        kindHelmOverrides,
 		CIIntegrationMicrok8s:    microk8sHelmOverrides,
@@ -240,8 +221,7 @@ func HelmOverride(option string) string {
 // particular CNI_INTEGRATION
 func NativeRoutingEnabled() bool {
 	tunnelDisabled := HelmOverride("tunnel") == "disabled"
-	gkeEnabled := HelmOverride("gke.enabled") == "true"
-	return tunnelDisabled || gkeEnabled
+	return tunnelDisabled
 }
 
 func Init() {
@@ -2465,14 +2445,12 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			opts["nodePort.enableHealthCheck"] = "false"
 		}
 
-		if DoesNotRunOnGKE() {
-			nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
-			if err != nil {
-				return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
-			}
-			opts["k8sServiceHost"] = nodeIP
-			opts["k8sServicePort"] = "6443"
+		nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
+		if err != nil {
+			return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
 		}
+		opts["k8sServiceHost"] = nodeIP
+		opts["k8sServicePort"] = "6443"
 
 		if RunsOn419OrLaterKernel() {
 			opts["bpf.masquerade"] = "true"
