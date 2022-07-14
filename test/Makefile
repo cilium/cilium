@@ -20,7 +20,7 @@ GINKGO = $(QUIET) ginkgo
 
 REGISTRY_CREDENTIALS ?= "${DOCKER_LOGIN}:${DOCKER_PASSWORD}"
 
-.PHONY = all build test run k8s-test k8s-kind nightly clean run_bpf_tests
+.PHONY = all build test run k8s-test k8s-kind clean run_bpf_tests
 
 all: build
 
@@ -59,9 +59,6 @@ k8s-kind:
 			-cilium.operator-image="quay.io/cilium/operator" \
 			-cilium.operator-suffix="-ci" \
 			-cilium.holdEnvironment=$(HOLD_ENVIRONMENT)
-
-nightly:
-	ginkgo --focus "Nightly" -v --tags integration_tests -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 clean:
 	@$(ECHO_CLEAN)

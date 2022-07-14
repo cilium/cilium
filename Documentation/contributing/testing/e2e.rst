@@ -33,7 +33,6 @@ determine which VMs are necessary to run particular tests. All test names
 * ``Runtime``: Test cilium in a runtime environment running on a single node.
 * ``K8s``: Create a small multi-node kubernetes environment for testing
   features beyond a single host, and for testing kubernetes-specific features.
-* ``Nightly``: sets up a multinode Kubernetes cluster to run scale, performance, and chaos testing for Cilium.
 
 .. _Ginkgo: https://onsi.github.io/ginkgo/
 .. _focus: `Focused Specs`_
@@ -171,20 +170,6 @@ supported version of Kubernetes, run the test suite with the following format:
         end
       end
 
-Running Nightly Tests
-^^^^^^^^^^^^^^^^^^^^^
-
-To run all of the Nightly tests, run the following command from the ``test`` directory:
-
-.. code-block:: shell-session
-
-    ginkgo --focus="Nightly" --tags=integration_tests
-
-Similar to the other test suites, Ginkgo searches for all tests in all
-subdirectories that are "named" beginning with the string "Nightly" and contain
-any characters after it. The default version of running Nightly test are 1.8,
-but can be changed using the environment variable ``K8S_VERSION``.
-
 Available CLI Options
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -230,7 +215,7 @@ framework in the ``test/`` directory and interact with ginkgo directly:
       -cilium.tag string
             Specifies which tag of cilium to use during tests
       -cilium.testScope string
-            Specifies scope of test to be ran (k8s, Nightly, runtime)
+            Specifies scope of test to be ran (k8s, runtime)
       -cilium.timeout duration
             Specifies timeout for test run (default 24h0m0s)
 
