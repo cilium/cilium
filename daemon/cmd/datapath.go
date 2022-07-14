@@ -534,9 +534,6 @@ func setupRouteToVtepCidr() error {
 		return fmt.Errorf("failed to list routes: %w", err)
 	}
 	for _, rt := range routes {
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr: rt.Dst.String(),
-		}).Info("VTEP route")
 		rtCIDR, err := cidr.ParseCIDR(rt.Dst.String())
 		if err != nil {
 			return fmt.Errorf("Invalid VTEP Route CIDR: %w", err)
