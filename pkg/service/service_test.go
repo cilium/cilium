@@ -123,8 +123,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(c *C) {
 		Backends:      backends3,
 		Type:          lb.SVCTypeNodePort,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "svc1",
-		Namespace:     "ns1",
+		Name:          lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	created, id1, err := m.svc.UpsertService(p)
 	c.Assert(err, IsNil)
@@ -132,8 +131,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(c *C) {
 	c.Assert(id1, Equals, lb.ID(1))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
-	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByID[id1].svcNatPolicy, Equals, lb.SVCNatPolicyNat46)
 
 	// Should delete both backends of service
@@ -144,8 +143,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(c *C) {
 	c.Assert(id2, Equals, id1)
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
-	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id2].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id2].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByID[id2].svcNatPolicy, Equals, lb.SVCNatPolicyNone)
 
 	// Should delete the remaining service
@@ -163,8 +162,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(c *C) {
 		Backends:      backends1,
 		Type:          lb.SVCTypeNodePort,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "svc1",
-		Namespace:     "ns1",
+		Name:          lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	created, id1, err := m.svc.UpsertService(p)
 	c.Assert(err, IsNil)
@@ -172,8 +170,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(c *C) {
 	c.Assert(id1, Equals, lb.ID(1))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
-	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByID[id1].svcNatPolicy, Equals, lb.SVCNatPolicyNat64)
 
 	// Should delete both backends of service
@@ -184,8 +182,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(c *C) {
 	c.Assert(id2, Equals, id1)
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
-	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id2].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id2].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByID[id2].svcNatPolicy, Equals, lb.SVCNatPolicyNone)
 
 	// Should delete the remaining service
@@ -205,8 +203,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 100,
-		Name:                      "svc1",
-		Namespace:                 "ns1",
+		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	created, id1, err := m.svc.UpsertService(p)
 	c.Assert(err, IsNil)
@@ -214,8 +211,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(id1, Equals, lb.ID(1))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
-	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByID[id1].sessionAffinity, Equals, true)
 	c.Assert(m.svc.svcByID[id1].sessionAffinityTimeoutSec, Equals, uint32(100))
 	c.Assert(m.lbmap.ServiceByID[uint16(id1)].SessionAffinity, Equals, true)
@@ -233,8 +230,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(id1, Equals, lb.ID(1))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
-	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
 	c.Assert(m.svc.svcByID[id1].sessionAffinity, Equals, false)
 	c.Assert(m.lbmap.ServiceByID[uint16(id1)].SessionAffinity, Equals, false)
@@ -251,8 +248,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(id1, Equals, lb.ID(1))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 1)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
-	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByID[id1].sessionAffinity, Equals, true)
 	c.Assert(m.svc.svcByID[id1].sessionAffinityTimeoutSec, Equals, uint32(200))
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 1)
@@ -273,8 +270,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 300,
-		Name:                      "svc2",
-		Namespace:                 "ns2",
+		Name:                      lb.ServiceName{Name: "svc2", Namespace: "ns2"},
 		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
 	}
 	created, id2, err := m.svc.UpsertService(p2)
@@ -283,8 +279,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(id2, Equals, lb.ID(2))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
-	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
-	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
+	c.Assert(m.svc.svcByID[id2].svcName.Name, Equals, "svc2")
+	c.Assert(m.svc.svcByID[id2].svcName.Namespace, Equals, "ns2")
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 2)
 	c.Assert(len(m.lbmap.SourceRanges[uint16(id2)]), Equals, 2)
 
@@ -299,8 +295,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 300,
-		Name:                      "svc3",
-		Namespace:                 "ns3",
+		Name:                      lb.ServiceName{Name: "svc3", Namespace: "ns3"},
 		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1},
 	}
 	created, id3, err := m.svc.UpsertService(p3)
@@ -310,8 +305,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 		c.Assert(id3, Equals, lb.ID(3))
 		c.Assert(len(m.lbmap.ServiceByID[uint16(id3)].Backends), Equals, 2)
 		c.Assert(len(m.lbmap.BackendByID), Equals, 4)
-		c.Assert(m.svc.svcByID[id3].svcName, Equals, "svc3")
-		c.Assert(m.svc.svcByID[id3].svcNamespace, Equals, "ns3")
+		c.Assert(m.svc.svcByID[id3].svcName.Name, Equals, "svc3")
+		c.Assert(m.svc.svcByID[id3].svcName.Namespace, Equals, "ns3")
 		c.Assert(len(m.lbmap.AffinityMatch[uint16(id3)]), Equals, 2)
 		c.Assert(len(m.lbmap.SourceRanges[uint16(id3)]), Equals, 1)
 
@@ -344,8 +339,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(id2, Equals, lb.ID(2))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
-	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
-	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
+	c.Assert(m.svc.svcByID[id2].svcName.Name, Equals, "svc2")
+	c.Assert(m.svc.svcByID[id2].svcName.Namespace, Equals, "ns2")
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 0)
 	c.Assert(len(m.lbmap.SourceRanges[uint16(id2)]), Equals, 1)
 
@@ -446,8 +441,7 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 		Backends:      backends2,
 		Type:          lb.SVCTypeClusterIP,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "svc2",
-		Namespace:     "ns2",
+		Name:          lb.ServiceName{Name: "svc2", Namespace: "ns2"},
 	}
 	_, _, err = m.svc.UpsertService(p2)
 	c.Assert(err, IsNil)
@@ -487,8 +481,8 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	c.Assert(found, Equals, true)
 	_, found = m.svc.svcByID[id1]
 	c.Assert(found, Equals, false)
-	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
-	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
+	c.Assert(m.svc.svcByID[id2].svcName.Name, Equals, "svc2")
+	c.Assert(m.svc.svcByID[id2].svcName.Namespace, Equals, "ns2")
 	c.Assert(len(m.lbmap.AffinityMatch), Equals, 1)
 	// Check that the non-existing affinity matches were removed
 	matches, _ := lbmap.DumpAffinityMatches()
@@ -531,8 +525,7 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 		Type:                lb.SVCTypeLoadBalancer,
 		TrafficPolicy:       lb.SVCTrafficPolicyLocal,
 		HealthCheckNodePort: 32001,
-		Name:                "svc1",
-		Namespace:           "ns1",
+		Name:                lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	_, id1, err := m.svc.UpsertService(p1)
 	c.Assert(err, IsNil)
@@ -547,8 +540,7 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 		Type:                lb.SVCTypeClusterIP,
 		TrafficPolicy:       lb.SVCTrafficPolicyLocal,
 		HealthCheckNodePort: 32001,
-		Name:                "svc1",
-		Namespace:           "ns1",
+		Name:                lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	_, id2, err := m.svc.UpsertService(p2)
 	c.Assert(err, IsNil)
@@ -671,8 +663,7 @@ func (m *ManagerTestSuite) TestGetServiceNameByAddr(c *C) {
 		Type:                lb.SVCTypeNodePort,
 		TrafficPolicy:       lb.SVCTrafficPolicyCluster,
 		HealthCheckNodePort: hcport,
-		Name:                name,
-		Namespace:           namespace,
+		Name:                lb.ServiceName{Name: name, Namespace: namespace},
 	}
 	created, id1, err := m.svc.UpsertService(p)
 	c.Assert(err, IsNil)
@@ -708,8 +699,7 @@ func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
 		Backends:      allBackends,
 		Type:          lb.SVCTypeLocalRedirect,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "svc1",
-		Namespace:     "ns1",
+		Name:          lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	// Insert the service entry of type Local Redirect.
 	created, id, err := m.svc.UpsertService(p1)
@@ -719,8 +709,8 @@ func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
 
 	svc, ok := m.svc.svcByID[id]
 	c.Assert(ok, Equals, true)
-	c.Assert(svc.svcNamespace, Equals, "ns1")
-	c.Assert(svc.svcName, Equals, "svc1")
+	c.Assert(svc.svcName.Namespace, Equals, "ns1")
+	c.Assert(svc.svcName.Name, Equals, "svc1")
 	// Only node-local backends are selected
 	c.Assert(len(svc.backends), Equals, len(localBackends))
 
@@ -752,8 +742,7 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 		Backends:      allBackends,
 		Type:          lb.SVCTypeClusterIP,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "svc1",
-		Namespace:     "ns1",
+		Name:          lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 
 	// Insert the service entry of type ClusterIP.
@@ -790,8 +779,7 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 		Backends:      allBackends,
 		Type:          lb.SVCTypeNodePort,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "svc2",
-		Namespace:     "ns1",
+		Name:          lb.ServiceName{Name: "svc2", Namespace: "ns1"},
 	}
 
 	// Insert the service entry of type NodePort.
@@ -826,8 +814,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 100,
-		Name:                      "svc1",
-		Namespace:                 "ns1",
+		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 
 	created, id1, err := m.svc.UpsertService(p)
@@ -850,8 +837,8 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[1].ID, Equals, lb.BackendID(3))
 	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[2].ID, Equals, lb.BackendID(1))
 	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
-	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 3)
 	for bID := range m.lbmap.BackendByID {
 		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
@@ -868,8 +855,8 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 	c.Assert(id1, Equals, lb.ID(1))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
-	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
 }
 
@@ -883,8 +870,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithExternalClusterIP(c *C) {
 		Backends:      backends1,
 		Type:          lb.SVCTypeClusterIP,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "svc1",
-		Namespace:     "ns1",
+		Name:          lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 
 	created, id1, err := m.svc.UpsertService(p)
@@ -894,8 +880,8 @@ func (m *ManagerTestSuite) TestUpsertServiceWithExternalClusterIP(c *C) {
 	c.Assert(id1, Equals, lb.ID(1))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
-	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
 }
 
@@ -908,8 +894,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOutExternalClusterIP(c *C) {
 		Backends:      backends1,
 		Type:          lb.SVCTypeClusterIP,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "svc1",
-		Namespace:     "ns1",
+		Name:          lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 
 	created, id1, err := m.svc.UpsertService(p)
@@ -919,8 +904,8 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOutExternalClusterIP(c *C) {
 	c.Assert(id1, Equals, lb.ID(1))
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
-	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
-	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 0)
 }
 
@@ -935,8 +920,7 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 100,
-		Name:                      "svc1",
-		Namespace:                 "ns1",
+		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 
 	created, id1, err := m.svc.UpsertService(p)
@@ -999,8 +983,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 		Backends:      allBackends,
 		Type:          lb.SVCTypeClusterIP,
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:          "echo-other-node",
-		Namespace:     "cilium-test",
+		Name:          lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
 	}
 
 	// Insert the service entry of type ClusterIP.
@@ -1015,8 +998,8 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 
 	// registering without redirecting
-	echoOtherNode := Name{Name: "echo-other-node", Namespace: "cilium-test"}
-	resource1 := Name{Name: "testOwner1", Namespace: "cilium-test"}
+	echoOtherNode := lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"}
+	resource1 := lb.ServiceName{Name: "testOwner1", Namespace: "cilium-test"}
 	err = m.svc.RegisterL7LBServiceBackendSync(echoOtherNode, resource1, nil)
 	c.Assert(err, IsNil)
 
@@ -1026,7 +1009,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 
 	// registering with redirection stores the proxy port
-	resource2 := Name{Name: "testOwner2", Namespace: "cilium-test"}
+	resource2 := lb.ServiceName{Name: "testOwner2", Namespace: "cilium-test"}
 	err = m.svc.RegisterL7LBService(echoOtherNode, resource2, nil, uint16(9090))
 	c.Assert(err, IsNil)
 
@@ -1036,7 +1019,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
 
 	// Remove with an unregistered owner name does not remove
-	resource3 := Name{Name: "testOwner3", Namespace: "cilium-test"}
+	resource3 := lb.ServiceName{Name: "testOwner3", Namespace: "cilium-test"}
 	err = m.svc.RemoveL7LBService(echoOtherNode, resource3)
 	c.Assert(err, IsNil)
 
@@ -1069,18 +1052,16 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 	backends := backends1
 	p1 := &lb.SVC{
-		Frontend:  frontend1,
-		Backends:  backends,
-		Type:      lb.SVCTypeClusterIP,
-		Name:      "svc1",
-		Namespace: "ns1",
+		Frontend: frontend1,
+		Backends: backends,
+		Type:     lb.SVCTypeClusterIP,
+		Name:     lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	p2 := &lb.SVC{
-		Frontend:  frontend2,
-		Backends:  backends,
-		Type:      lb.SVCTypeClusterIP,
-		Name:      "svc2",
-		Namespace: "ns1",
+		Frontend: frontend2,
+		Backends: backends,
+		Type:     lb.SVCTypeClusterIP,
+		Name:     lb.ServiceName{Name: "svc2", Namespace: "ns1"},
 	}
 
 	_, id1, err1 := m.svc.UpsertService(p1)

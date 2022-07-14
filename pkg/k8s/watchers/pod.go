@@ -631,8 +631,10 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 			Type:                dpSvc.Type,
 			TrafficPolicy:       dpSvc.TrafficPolicy,
 			HealthCheckNodePort: dpSvc.HealthCheckNodePort,
-			Name:                fmt.Sprintf("%s/host-port/%d", newPod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
-			Namespace:           newPod.ObjectMeta.Namespace,
+			Name: loadbalancer.ServiceName{
+				Name:      fmt.Sprintf("%s/host-port/%d", newPod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
+				Namespace: newPod.ObjectMeta.Namespace,
+			},
 		}
 
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {

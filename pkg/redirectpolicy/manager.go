@@ -540,8 +540,10 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 		})
 	}
 	p := &lb.SVC{
-		Name:          config.id.Name + localRedirectSvcStr,
-		Namespace:     config.id.Namespace,
+		Name: lb.ServiceName{
+			Name:      config.id.Name + localRedirectSvcStr,
+			Namespace: config.id.Namespace,
+		},
 		Type:          lb.SVCTypeLocalRedirect,
 		Frontend:      frontendAddr,
 		Backends:      backendAddrs,

@@ -12,9 +12,9 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -101,7 +101,7 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 		return err
 	}
 
-	name := service.Name{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
+	name := loadbalancer.ServiceName{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
 	if err := k.addK8sServiceRedirects(name, &ccec.Spec, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to redirect K8s services to Envoy")
 		return err
@@ -128,7 +128,7 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed new Envoy config")
 		return err
 	}
-	name := service.Name{Name: oldCCEC.ObjectMeta.Name, Namespace: oldCCEC.ObjectMeta.Namespace}
+	name := loadbalancer.ServiceName{Name: oldCCEC.ObjectMeta.Name, Namespace: oldCCEC.ObjectMeta.Namespace}
 	if err = k.removeK8sServiceRedirects(name, &oldCCEC.Spec, &newCCEC.Spec, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update K8s service redirections")
 		return err
@@ -163,7 +163,7 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumCl
 		return err
 	}
 
-	name := service.Name{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
+	name := loadbalancer.ServiceName{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
 	if err = k.deleteK8sServiceRedirects(name, &ccec.Spec); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete K8s service redirections")
 		return err
