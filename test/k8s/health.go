@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("K8sAgentHealthTest", func() {
 	SkipContextIf(func() bool {
-		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS()
+		return helpers.DoesNotRunOn419Kernel()
 	}, "cilium-health", func() {
 		var (
 			kubectl        *helpers.Kubectl
