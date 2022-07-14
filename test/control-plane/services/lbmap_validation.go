@@ -66,7 +66,7 @@ func (v *goldenLBMapValidator) diffStrings(expected, actual string) (string, boo
 	return "", true
 }
 
-func (v *goldenLBMapValidator) Validate(datapath *fakeDatapath.FakeDatapath) error {
+func (v *goldenLBMapValidator) Validate(datapath *fakeDatapath.FakeDatapath, proxy *controlplane.K8sObjsProxy) error {
 	lbmap := datapath.LBMockMap()
 	writeLBMap := func() error {
 		f, err := os.OpenFile(v.expectedFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)

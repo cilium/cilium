@@ -55,7 +55,7 @@ var (
 	}
 )
 
-func validateNodes(dp *fakeDatapath.FakeDatapath) error {
+func validateNodes(dp *fakeDatapath.FakeDatapath, proxy *controlplane.K8sObjsProxy) error {
 	nodes := dp.FakeNode().Nodes
 
 	if len(nodes) != 1 {
