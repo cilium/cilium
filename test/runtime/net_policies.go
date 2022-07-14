@@ -36,7 +36,6 @@ const (
 
 	// Policy files
 	policyJSON                      = "policy.json"
-	invalidJSON                     = "invalid.json"
 	multL7PoliciesJSON              = "Policies-l7-multiple.json"
 	policiesL7JSON                  = "Policies-l7-simple.json"
 	imposePoliciesL7JSON            = "Policies-l7-impose.json"
@@ -1792,27 +1791,6 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 	AfterAll(func() {
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
-	})
-
-	It("Invalid Policies", func() {
-
-		testInvalidPolicy := func(data string) {
-			err := vm.RenderTemplateToFile(invalidJSON, data, 0777)
-			Expect(err).Should(BeNil())
-
-			path := vm.GetFilePath(invalidJSON)
-			_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
-			Expect(err).Should(HaveOccurred())
-			defer os.Remove(invalidJSON)
-		}
-		By("Invalid Json")
-
-		invalidJSON := `
-		[{
-			"endpointSelector": {
-				"matchLabels":{"id.httpd1":""}
-			},`
-		testInvalidPolicy(invalidJSON)
 	})
 
 	Context("Policy command", func() {
