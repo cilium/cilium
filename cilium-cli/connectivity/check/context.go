@@ -428,7 +428,7 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 	// environment so we can skip deploying tests which depend on multiple
 	// nodes.
 	if ct.params.MultiCluster == "" && !ct.params.SingleNode {
-		daemonSet, err := ct.client.GetDaemonSet(ctx, ct.params.CiliumNamespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
+		daemonSet, err := ct.client.GetDaemonSet(ctx, ct.params.CiliumNamespace, ct.params.AgentDaemonSetName, metav1.GetOptions{})
 		if err != nil {
 			ct.Fatal("Unable to determine status of Cilium DaemonSet. Run \"cilium status\" for more details")
 			return fmt.Errorf("unable to determine status of Cilium DaemonSet: %w", err)
