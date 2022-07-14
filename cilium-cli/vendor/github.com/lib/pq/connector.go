@@ -27,6 +27,11 @@ func (c *Connector) Connect(ctx context.Context) (driver.Conn, error) {
 	return c.open(ctx)
 }
 
+// Dialer allows change the dialer used to open connections.
+func (c *Connector) Dialer(dialer Dialer) {
+	c.dialer = dialer
+}
+
 // Driver returns the underlying driver of this Connector.
 func (c *Connector) Driver() driver.Driver {
 	return &Driver{}
