@@ -717,9 +717,9 @@ func (l4 *L4Filter) IsProxylibRedirect() bool {
 	return l4.IsEnvoyRedirect() && l4.L7Parser != ParserTypeHTTP
 }
 
-// MarshalIndent returns the `L4Filter` in indented JSON string.
-func (l4 *L4Filter) MarshalIndent() string {
-	b, err := json.MarshalIndent(l4, "", "  ")
+// Marshal returns the `L4Filter` in a JSON string.
+func (l4 *L4Filter) Marshal() string {
+	b, err := json.Marshal(l4)
 	if err != nil {
 		b = []byte("\"L4Filter error: " + err.Error() + "\"")
 	}
@@ -1067,7 +1067,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	ingress := []*models.PolicyRule{}
 	for _, v := range l4.Ingress {
 		ingress = append(ingress, &models.PolicyRule{
-			Rule:             v.MarshalIndent(),
+			Rule:             v.Marshal(),
 			DerivedFromRules: v.DerivedFromRules.GetModel(),
 		})
 	}
@@ -1075,7 +1075,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	egress := []*models.PolicyRule{}
 	for _, v := range l4.Egress {
 		egress = append(egress, &models.PolicyRule{
-			Rule:             v.MarshalIndent(),
+			Rule:             v.Marshal(),
 			DerivedFromRules: v.DerivedFromRules.GetModel(),
 		})
 	}
