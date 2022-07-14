@@ -1,6 +1,7 @@
 package pq
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/binary"
 	"errors"
@@ -262,6 +263,43 @@ func (ci *copyin) Exec(v []driver.Value) (r driver.Result, err error) {
 		}
 	}
 
+	ci.buffer = append(ci.buffer, '\n')
+
+	if len(ci.buffer) > ciBufferFlushSize {
+		ci.flush(ci.buffer)
+		// reset buffer, keep bytes for message identifier and length
+		ci.buffer = ci.buffer[:5]
+	}
+
+	return driver.RowsAffected(0), nil
+}
+
+// CopyData inserts a raw string into the COPY stream. The insert is
+// asynchronous and CopyData can return errors from previous CopyData calls to
+// the same COPY stmt.
+//
+// You need to call Exec(nil) to sync the COPY stream and to get any
+// errors from pending data, since Stmt.Close() doesn't return errors
+// to the user.
+func (ci *copyin) CopyData(ctx context.Context, line string) (r driver.Result, err error) {
+	if ci.closed {
+		return nil, errCopyInClosed
+	}
+
+	if finish := ci.cn.watchCancel(ctx); finish != nil {
+		defer finish()
+	}
+
+	if err := ci.getBad(); err != nil {
+		return nil, err
+	}
+	defer ci.cn.errRecover(&err)
+
+	if err := ci.err(); err != nil {
+		return nil, err
+	}
+
+	ci.buffer = append(ci.buffer, []byte(line)...)
 	ci.buffer = append(ci.buffer, '\n')
 
 	if len(ci.buffer) > ciBufferFlushSize {

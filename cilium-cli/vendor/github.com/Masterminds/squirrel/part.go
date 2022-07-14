@@ -19,7 +19,7 @@ func (p part) ToSql() (sql string, args []interface{}, err error) {
 	case nil:
 		// no-op
 	case Sqlizer:
-		sql, args, err = pred.ToSql()
+		sql, args, err = nestedToSql(pred)
 	case string:
 		sql = pred
 		args = p.args
