@@ -1,5 +1,60 @@
 # Changelog
 
+## v1.10.13
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* add support for AKS BYOCNI (Backport PR #20509, Upstream PR #19379, @nbusseneau)
+
+**Minor Changes:**
+* Add metric on datapath update latency due to FQDN IP updates (Backport PR #20330, Upstream PR #19992, @rahulkjoshi)
+* IPSec key rotation without agent restart (Backport PR #20127, Upstream PR #19814, @jibi)
+* v1.10:  helm: disable the peer service by default (#20290, @rolinh)
+
+**Bugfixes:**
+* `node-init` now takes `enableIPv4Masquerade` into account on GKE. (Backport PR #20509, Upstream PR #19533, @bmcustodio)
+* bpf: Fix typo in host firewall tail call (Commit https://github.com/cilium/cilium/commit/a8d84ac032c570c53c86150a54ecd5b3e96cefd7, @pchaigno)
+* bug: Fixed a rare CiliumIdentity race deletion. (Backport PR #20330, Upstream PR #19936, @nathanjsweet)
+* cilium: fix conflicting iptables-legacy and iptables-nft rules (Backport PR #20139, Upstream PR #20123, @jrfastab)
+* Consider VPC's secondary CIDRs during cilium_host IP restoration (Backport PR #20395, Upstream PR #19341, @hemanthmalla)
+* daemon: Fix issue where stale router IPs were not cleaned up (Backport PR #20509, Upstream PR #20389, @gandro)
+* datapath: Fix security ID propagation in tunnel header for NodePort BPF forwarded requests (Backport PR #20327, Upstream PR #19061, @brb)
+* Fix agent panic in some cases when service matcher local redirect policy was deployed prior to the selected service. (Backport PR #20179, Upstream PR #19522, @aditighag)
+* Fix Azure IPAM 403 errors for Azure instances using Azure Compute Gallery images (Backport PR #20330, Upstream PR #19697, @andrew-bulford-form3)
+* Fixed SystemD >=245 sysctl(`rp_filter`) config incompatibility (Backport PR #20232, Upstream PR #20072, @dylandreimerink)
+* helm: Fix cluster-id arguments in clustermesh deployment (Backport PR #20330, Upstream PR #20312, @sayboras)
+* ipsec: fix stale keys reclaim logic (Backport PR #20127, Upstream PR #19932, @jibi)
+* iptables: ensure all rules are installed consistently (Backport PR #19914, Upstream PR #19693, @jibi)
+* iptables: fix typo in addProxyRule condition (Backport PR #19914, Upstream PR #20109, @jibi)
+* nodediscovery: ensure we cache the nodeResource correctly to avoid null pointer dereferencing (Backport PR #20330, Upstream PR #20158, @odinuge)
+* nodediscovery: make LocalNode return a deep copy of localNode (Backport PR #20127, Upstream PR #20392, @jibi)
+
+**CI Changes:**
+* ci: provide CI images with unstripped binaries (Backport PR #20330, Upstream PR #20238, @tklauser)
+* docs: Bump up Netlify Python version to 3.8 (Backport PR #20509, Upstream PR #20486, @michi-covalent)
+* jenkinsfiles: fix docker manifest inspect commands in GKE pipeline (Backport PR #20330, Upstream PR #20325, @tklauser)
+
+**Misc Changes:**
+* [docs] Add training and support information to Getting Help (Backport PR #20330, Upstream PR #20194, @lizrice)
+* Add a note about conflicting node CIDRs #20204 (Backport PR #20330, Upstream PR #20208, @wokalski)
+* Add ESP to firewall requirements in documentation for IPSec enabled C… (Backport PR #20330, Upstream PR #20314, @Kikiodazie)
+* Add Peer Service to Cilium DS Port List (Backport PR #20509, Upstream PR #20296, @nathanjsweet)
+* build(deps): bump actions/cache from 3.0.4 to 3.0.5 (#20496, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.2.0 to 3.2.1 (#20464, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.2.0 to 1.3.0 (#20200, @dependabot[bot])
+* ctmap: Do not use nil locks (Backport PR #20509, Upstream PR #20388, @jrajahalme)
+* datapath: Always use of wait argument on iptables commands. (Backport PR #19914, Upstream PR #17593, @jrajahalme)
+* docs(policy): add notes on DNS/L7 policies & Cilium agent availability (Backport PR #20330, Upstream PR #20289, @raphink)
+* docs: Document clustermesh datapath configuration for non-tunneled modes (Backport PR #20509, Upstream PR #16499, @jrajahalme)
+* docs: Improve policy troubleshooting guide (Backport PR #20509, Upstream PR #20399, @joestringer)
+
+**Other Changes:**
+* install: Update image digests for v1.10.12 (#20222, @joestringer)
+* update k8s versions to the latest releases (#20514, @aanm)
+* v1.10: update cilium-{runtime,builder} (#20541, @joestringer)
+
 ## v1.10.12
 
 Summary of Changes
