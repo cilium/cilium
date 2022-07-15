@@ -156,7 +156,7 @@ jobs:
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
-            --config tunnel=vxlan \
+            --config tunnelProtocol=vxlan \
             --kube-proxy-replacement=strict \
             --version="
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
