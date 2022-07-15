@@ -1,5 +1,78 @@
 # Changelog
 
+## v1.11.7
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* add support for AKS BYOCNI (Backport PR #20364, Upstream PR #19379, @nbusseneau)
+
+**Minor Changes:**
+* Add metric on datapath update latency due to FQDN IP updates (Backport PR #20263, Upstream PR #19992, @rahulkjoshi)
+* IPSec key rotation without agent restart (Backport PR #20157, Upstream PR #19814, @jibi)
+* metrics: Add extra clustermesh metrics (Backport PR #20229, Upstream PR #18348, @sayboras)
+* Speed up identity lookup in Hubble and L7 proxy by no longer calculating SHA256 over labels. (Backport PR #20364, Upstream PR #20104, @tklauser)
+* Use DeleteOnMetadataMatch instead of Delete for endpointUpdated (Backport PR #20263, Upstream PR #19996, @kvaster)
+* v1.11: helm: disable the peer service by default (#20291, @rolinh)
+
+**Bugfixes:**
+* `node-init` now takes `enableIPv4Masquerade` into account on GKE. (Backport PR #20412, Upstream PR #19533, @bmcustodio)
+* bpf: Fix typo in host firewall tail call (Commit https://github.com/cilium/cilium/commit/0f6513399d66b7302f3fd11613430f47118e6b42, @pchaigno)
+* bpf: Use tunnel port flag instead of hardcoded value (Backport PR #20263, Upstream PR #20115, @pchaigno)
+* bug: Fixed a rare CiliumIdentity race deletion. (Backport PR #20364, Upstream PR #19936, @nathanjsweet)
+* cilium: fix conflicting iptables-legacy and iptables-nft rules (Backport PR #20364, Upstream PR #20123, @jrfastab)
+* Consider VPC's secondary CIDRs during cilium_host IP restoration (Backport PR #20364, Upstream PR #19341, @hemanthmalla)
+* daemon, option: Fix vlan bpf bypass ids loading (Backport PR #20412, Upstream PR #20282, @pippolo84)
+* daemon: Fix issue where stale router IPs were not cleaned up (Backport PR #20412, Upstream PR #20389, @gandro)
+* datapath: Fix security ID propagation in tunnel header for NodePort BPF forwarded requests (Backport PR #20301, Upstream PR #19061, @brb)
+* Fix agent panic in some cases when service matcher local redirect policy was deployed prior to the selected service. (Backport PR #20263, Upstream PR #19522, @aditighag)
+* Fix Azure IPAM 403 errors for Azure instances using Azure Compute Gallery images (Backport PR #20364, Upstream PR #19697, @andrew-bulford-form3)
+* Fix Cilium bootstrapping regression with etcd without relying on DNS (Backport PR #20263, Upstream PR #20106, @aanm)
+* Fix Cilium initialization for clusters with etcd-operator (Backport PR #20263, Upstream PR #20131, @aanm)
+* Fix drop of large packets redirected through an egress gateway node when running in native routing mode. (Backport PR #20412, Upstream PR #20269, @pchaigno)
+* fix identity gc  to return correct  max/min id (Backport PR #20412, Upstream PR #20361, @dkhachyan)
+* Fixed SystemD >=245 sysctl(`rp_filter`) config incompatibility (Backport PR #20364, Upstream PR #20072, @dylandreimerink)
+* helm: Fix cluster-id arguments in clustermesh deployment (Backport PR #20364, Upstream PR #20312, @sayboras)
+* ipsec: fix stale keys reclaim logic (Backport PR #20157, Upstream PR #19932, @jibi)
+* iptables: ensure all rules are installed consistently (Backport PR #20178, Upstream PR #19693, @jibi)
+* iptables: fix typo in addProxyRule condition (Backport PR #20178, Upstream PR #20109, @jibi)
+* nodediscovery: ensure we cache the nodeResource correctly to avoid null pointer dereferencing (Backport PR #20263, Upstream PR #20158, @odinuge)
+* nodediscovery: make LocalNode return a deep copy of localNode (Backport PR #20157, Upstream PR #20392, @jibi)
+* nodemanager: Fix bug where Cilium tried to reach stale health endpoints on kubeapi-server nodes (Backport PR #20263, Upstream PR #20210, @gandro)
+
+**CI Changes:**
+* ci: provide CI images with unstripped binaries (Backport PR #20263, Upstream PR #20238, @tklauser)
+* jenkinsfiles: fix docker manifest inspect commands in GKE pipeline (Backport PR #20364, Upstream PR #20325, @tklauser)
+* runtime: Bump privileged test timeout (Backport PR #20263, Upstream PR #19487, @joestringer)
+
+**Misc Changes:**
+* [docs] Add training and support information to Getting Help (Backport PR #20364, Upstream PR #20194, @lizrice)
+* Add a note about conflicting node CIDRs #20204 (Backport PR #20263, Upstream PR #20208, @wokalski)
+* Add ESP to firewall requirements in documentation for IPSec enabled C… (Backport PR #20364, Upstream PR #20314, @Kikiodazie)
+* api: re-sync bpf drop reasons (Backport PR #20412, Upstream PR #20149, @julianwiedmann)
+* build(deps): bump actions/cache from 3.0.4 to 3.0.5 (#20495, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.2.0 to 3.2.1 (#20465, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.12 to 2.1.13 (#20261, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.13 to 2.1.14 (#20293, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.14 to 2.1.15 (#20344, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.15 to 2.1.16 (#20504, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.2.0 to 1.3.0 (#20201, @dependabot[bot])
+* ctmap: Do not use nil locks (Backport PR #20412, Upstream PR #20388, @jrajahalme)
+* docs(policy): add notes on DNS/L7 policies & Cilium agent availability (Backport PR #20364, Upstream PR #20289, @raphink)
+* docs: Document clustermesh datapath configuration for non-tunneled modes (Backport PR #20412, Upstream PR #16499, @jrajahalme)
+* docs: Fix reference to upgrade guide (Backport PR #20263, Upstream PR #20184, @joestringer)
+* docs: Improve policy troubleshooting guide (Backport PR #20412, Upstream PR #20399, @joestringer)
+* docs: remove stale EgressGW limitation with CES (Backport PR #20263, Upstream PR #20195, @julianwiedmann)
+* helm: Templatize preflight and clustermesh-apiserver repos (Backport PR #20263, Upstream PR #20206, @michi-covalent)
+* operator: start the event queue in a dedicated go routine (Backport PR #20493, Upstream PR #20353, @aanm)
+* update-docs : add details for how to enable/disable Policy Audit Mode by endpoint (Backport PR #20263, Upstream PR #19876, @BryanStenson-okta)
+* v1.11: Update Go to 1.17.12 (#20503, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.11.6 (#20223, @joestringer)
+* update k8s versions to the latest releases (#20513, @aanm)
+
 ## v1.11.6
 
 Summary of Changes
