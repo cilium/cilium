@@ -16,6 +16,11 @@ or Kubernetes service to be redirected locally to backend pod(s) within a node,
 using eBPF. The namespace of backend pod(s) need to match with that of the policy.
 The CiliumLocalRedirectPolicy is configured as a ``CustomResourceDefinition``.
 
+.. admonition:: Video
+  :class: attention
+
+  Aside from this document, you can watch a video explanation of Cilium's Local Redirect Policy on `eCHO episode 39: Local Redirect Policy <https://www.youtube.com/watch?v=BT_gdlhjiQc&t=176s>`__.
+
 There are two types of Local Redirect Policies supported. When traffic for a
 Kubernetes service needs to be redirected, use the `ServiceMatcher` type. The
 service needs to be of type ``clusterIP``.
