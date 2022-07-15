@@ -42,7 +42,7 @@ func NewTestHostEndpoint() TestEndpoint {
 	opts := option.NewIntOptions(&option.OptionLibrary{})
 	opts.SetBool("TEST_OPTION", true)
 	return TestEndpoint{
-		Id:       uint64(identity.ReservedIdentityHost),
+		Id:       65535,
 		Identity: hostIdentity,
 		MAC:      mac.MAC([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
 		Opts:     opts,
