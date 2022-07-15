@@ -179,6 +179,19 @@ func (s *LoaderTestSuite) TestCompileAndLoadDefaultEndpoint(c *C) {
 // TestCompileAndLoadHostEndpoint is the same as
 // TestCompileAndLoadDefaultEndpoint, but for the host endpoint.
 func (s *LoaderTestSuite) TestCompileAndLoadHostEndpoint(c *C) {
+	elfMapPrefixes = []string{
+		fmt.Sprintf("test_%s", policymap.MapName),
+		fmt.Sprintf("test_%s", callsmap.MapName),
+	}
+
+	callsmap.HostMapName = fmt.Sprintf("test_%s", callsmap.MapName)
+	callsmap.NetdevMapName = fmt.Sprintf("test_%s", callsmap.MapName)
+
+	epDir := ep.StateDir()
+	err := os.MkdirAll(epDir, 0755)
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(epDir)
+
 	s.testCompileAndLoad(c, &hostEp)
 }
 
