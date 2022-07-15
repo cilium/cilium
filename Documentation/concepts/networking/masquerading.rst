@@ -53,9 +53,9 @@ The current implementation depends on :ref:`the BPF NodePort feature <kubeproxy-
 The dependency will be removed in the future (:gh-issue:`13732`).
 
 Masquerading can take place only on those devices which run the eBPF masquerading
-program. This means that a packet sent from a pod to an outside will be masqueraded
-(to an output device IPv4 address), if the output device runs the program. If not
-specified, the program will be automatically attached to the devices selected by
+program. This means that a packet sent from a pod to an outside address will be
+masqueraded (to an output device IPv4 address), if the output device runs the program.
+If not specified, the program will be automatically attached to the devices selected by
 :ref:`the BPF NodePort device detection metchanism <Nodeport Devices>`.
 To manually change this, use the ``devices`` helm option. Use ``cilium status``
 to determine which devices the program is running on:
