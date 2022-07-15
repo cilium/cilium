@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.9.18
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* ui: v0.9.0 images and drop envoy proxy container (Backport PR #20365, Upstream PR #19565, @geakstr)
+
+**Bugfixes:**
+* Fix agent panic in some cases when service matcher local redirect policy was deployed prior to the selected service. (Backport PR #20180, Upstream PR #19522, @aditighag)
+* Fix memory leak in the DNS cache when a long-lived endpoint makes many unique DNS lookups over time (Backport PR #20180, Upstream PR #19925, @christarazi)
+* nodediscovery: ensure we cache the nodeResource correctly to avoid null pointer dereferencing (Backport PR #20365, Upstream PR #20158, @odinuge)
+
+**Misc Changes:**
+* [docs] Add training and support information to Getting Help (Backport PR #20365, Upstream PR #20194, @lizrice)
+* Add ESP to firewall requirements in documentation for IPSec enabled C… (Backport PR #20365, Upstream PR #20314, @Kikiodazie)
+* build(deps): bump helm/kind-action from 1.2.0 to 1.3.0 (#20199, @dependabot[bot])
+
+**Other Changes:**
+* install: Update image digests for v1.9.17 (#20221, @joestringer)
+* v1.9: update cilium-{runtime,builder} (#20543, @joestringer)
+
 ## v1.9.17
 
 Summary of Changes
