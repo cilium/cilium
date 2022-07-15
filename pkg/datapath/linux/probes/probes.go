@@ -16,6 +16,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/features"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -127,20 +130,10 @@ type MapTypes struct {
 	HaveStackMapType               bool `json:"have_stack_map_type"`
 }
 
-// Kernel support for miscellaneous BPF features.
-type Misc struct {
-	HaveLargeInsnLimit bool `json:"have_large_insn_limit"`
-	HaveBoundedLoops   bool `json:"have_bounded_loops"`
-	HaveV2ISAExtension bool `json:"have_v2_isa_extension"`
-	HaveV3ISAExtension bool `json:"have_v3_isa_extension"`
-}
-
 // Features contains BPF feature checks returned by bpftool.
 type Features struct {
 	SystemConfig `json:"system_config"`
 	MapTypes     `json:"map_types"`
-	Helpers      map[string][]string `json:"helpers"`
-	Misc         `json:"misc"`
 }
 
 // ProbeManager is a manager of BPF feature checks.
@@ -311,32 +304,6 @@ func (p *ProbeManager) GetOptionalConfig() map[KernelParam]kernelOption {
 	return kernelParams
 }
 
-// GetMapTypes returns information about supported BPF map types.
-func (p *ProbeManager) GetMapTypes() *MapTypes {
-	return &p.features.MapTypes
-}
-
-// GetMisc returns information about kernel misc.
-func (p *ProbeManager) GetMisc() Misc {
-	return p.features.Misc
-}
-
-// GetHelpers returns information about available BPF helpers for the given
-// program type.
-// If program type is not found, returns nil.
-func (p *ProbeManager) GetHelpers(prog string) map[string]struct{} {
-	for p, helpers := range p.features.Helpers {
-		if prog+"_available_helpers" == p {
-			ret := map[string]struct{}{}
-			for _, h := range helpers {
-				ret[h] = struct{}{}
-			}
-			return ret
-		}
-	}
-	return nil
-}
-
 // writeHeaders executes bpftool to generate BPF feature C macros and then
 // writes them to the given writer.
 func (p *ProbeManager) writeHeaders(featuresFile io.Writer) error {
@@ -421,4 +388,102 @@ func (p *ProbeManager) KernelConfigAvailable() bool {
 	}
 
 	return true
+}
+
+// HaveMapType is a wrapper around features.HaveMapType() to check if a certain
+// BPF map type is supported by the kernel.
+// On unexpected probe results this function will terminate with log.Fatal().
+func HaveMapType(mt ebpf.MapType) error {
+	err := features.HaveMapType(mt)
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).WithField("maptype", mt).Fatal("failed to probe MapType")
+	}
+	return nil
+}
+
+// HaveProgramType is a wrapper around features.HaveProgramType() to check
+// if a certain BPF program type is supported by the kernel.
+// On unexpected probe results this function will terminate with log.Fatal().
+func HaveProgramType(pt ebpf.ProgramType) error {
+	err := features.HaveProgramType(pt)
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).WithField("programtype", pt).Fatal("failed to probe ProgramType")
+	}
+	return nil
+}
+
+// HaveProgramHelper is a wrapper around features.HaveProgramHelper() to
+// check if a certain BPF program/helper copmbination is supported by the kernel.
+// On unexpected probe results this function will terminate with log.Fatal().
+func HaveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
+	err := features.HaveProgramHelper(pt, helper)
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).WithField("programtype", pt).WithField("helper", helper).Fatal("failed to probe helper")
+	}
+	return nil
+}
+
+// HaveLargeInstructionLimit is a wrapper around features.HaveLargeInstructions()
+// to check if the kernel supports the 1 Million instruction limit.
+// On unexpected probe results this function will terminate with log.Fatal().
+func HaveLargeInstructionLimit() error {
+	err := features.HaveLargeInstructions()
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).Fatal("failed to probe large instruction limit")
+	}
+	return nil
+}
+
+// HaveBoundedLoops is a wrapper around features.HaveBoundedLoops()
+// to check if the kernel supports bounded loops in BPF programs.
+// On unexpected probe results this function will terminate with log.Fatal().
+func HaveBoundedLoops() error {
+	err := features.HaveBoundedLoops()
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).Fatal("failed to probe bounded loops")
+	}
+	return nil
+}
+
+// HaveV2ISA is a wrapper around features.HaveV2ISA() to check if the kernel
+// supports the V2 ISA.
+// On unexpected probe results this function will terminate with log.Fatal().
+func HaveV2ISA() error {
+	err := features.HaveV2ISA()
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).Fatal("failed to probe V2 ISA")
+	}
+	return nil
+}
+
+// HaveV3ISA is a wrapper around features.HaveV3ISA() to check if the kernel
+// supports the V3 ISA.
+// On unexpected probe results this function will terminate with log.Fatal().
+func HaveV3ISA() error {
+	err := features.HaveV3ISA()
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).Fatal("failed to probe V3 ISA")
+	}
+	return nil
 }

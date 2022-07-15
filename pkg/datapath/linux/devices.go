@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
@@ -501,12 +503,7 @@ func findK8SNodeIPLink() (netlink.Link, error) {
 // supportL3Dev returns true if the kernel is new enough to support BPF host routing of
 // packets coming from L3 devices using bpf_skb_redirect_peer.
 func supportL3Dev() bool {
-	probesManager := probes.NewProbeManager()
-	if h := probesManager.GetHelpers("sched_cls"); h != nil {
-		_, found := h["bpf_skb_change_head"]
-		return found
-	}
-	return false
+	return probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbChangeHead) == nil
 }
 
 type deviceFilter []string

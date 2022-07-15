@@ -4,11 +4,12 @@
 package bigtcp
 
 import (
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
-
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -90,11 +91,7 @@ func InitBIGTCP(bigTCPConfig *Configuration) {
 		return
 	}
 
-	kernelGood := false
-	if h := probes.NewProbeManager().GetHelpers("sched_cls"); h != nil {
-		_, kernelGood = h["bpf_dynptr_data"]
-	}
-	if !kernelGood {
+	if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnDynptrData) != nil {
 		if option.Config.EnableIPv6BIGTCP {
 			log.Warnf("Cannot enable --%s, needs kernel 5.19 or newer",
 				option.EnableIPv6BIGTCP)

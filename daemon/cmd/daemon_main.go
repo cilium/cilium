@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/go-openapi/loads"
 	"github.com/sirupsen/logrus"
@@ -1348,7 +1350,7 @@ func initEnv() {
 		if !option.Config.EnableIPv6 {
 			log.Fatalf("SRv6 requires IPv6.")
 		}
-		if !probes.NewProbeManager().GetMapTypes().HaveLruHashMapType {
+		if probes.HaveMapType(ebpf.LRUHash) != nil {
 			log.Fatalf("SRv6 requires support for BPF LRU maps (Linux 4.10 or later).")
 		}
 	}
@@ -1406,8 +1408,7 @@ func initEnv() {
 		if !option.Config.EnableIPv4 {
 			option.Config.EnableIPv4FragmentsTracking = false
 		} else {
-			supportedMapTypes := probes.NewProbeManager().GetMapTypes()
-			if !supportedMapTypes.HaveLruHashMapType {
+			if probes.HaveMapType(ebpf.LRUHash) != nil {
 				option.Config.EnableIPv4FragmentsTracking = false
 				log.Info("Disabled support for IPv4 fragments due to missing kernel support for BPF LRU maps")
 			}
@@ -1415,11 +1416,9 @@ func initEnv() {
 	}
 
 	if option.Config.EnableBPFTProxy {
-		if h := probes.NewProbeManager().GetHelpers("sched_act"); h != nil {
-			if _, ok := h["bpf_sk_assign"]; !ok {
-				option.Config.EnableBPFTProxy = false
-				log.Info("Disabled support for BPF TProxy due to missing kernel support for socket assign (Linux 5.7 or later)")
-			}
+		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkAssign) != nil {
+			option.Config.EnableBPFTProxy = false
+			log.Info("Disabled support for BPF TProxy due to missing kernel support for socket assign (Linux 5.7 or later)")
 		}
 	}
 
@@ -1993,12 +1992,10 @@ func initSockmapOption() {
 	if !option.Config.SockopsEnable {
 		return
 	}
-	if probes.NewProbeManager().GetMapTypes().HaveSockhashMapType {
-		k := probes.NewProbeManager().GetHelpers("sock_ops")
-		h := probes.NewProbeManager().GetHelpers("sk_msg")
-		if h != nil && k != nil {
-			return
-		}
+	if probes.HaveMapType(ebpf.SockHash) == nil &&
+		probes.HaveProgramType(ebpf.SockOps) == nil &&
+		probes.HaveProgramType(ebpf.SkMsg) == nil {
+		return
 	}
 	log.Warn("BPF Sock ops not supported by kernel. Disabling '--sockops-enable' feature.")
 	option.Config.SockopsEnable = false
@@ -2018,12 +2015,10 @@ func initClockSourceOption() {
 		}
 
 		if option.Config.EnableBPFClockProbe {
-			if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
-				if _, ok := h["bpf_jiffies64"]; ok {
-					t, err := bpf.GetJtime()
-					if err == nil && t > 0 {
-						option.Config.ClockSource = option.ClockSourceJiffies
-					}
+			if probes.HaveProgramHelper(ebpf.XDP, asm.FnJiffies64) == nil {
+				t, err := bpf.GetJtime()
+				if err == nil && t > 0 {
+					option.Config.ClockSource = option.ClockSourceJiffies
 				}
 			}
 		}
