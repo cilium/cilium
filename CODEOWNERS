@@ -272,7 +272,6 @@ jenkinsfiles @cilium/ci-structure
 /test/k8s/chaos.go @cilium/bpf @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/bpf @cilium/ci-structure
 /test/k8s/verifier.go @cilium/loader @cilium/ci-structure
-/test/runtime/benchmark.go @cilium/bpf @cilium/ci-structure
 /test/runtime/connectivity.go @cilium/bpf @cilium/ci-structure
 # Policy tests
 /test/k8s/net_policies.go @cilium/policy @cilium/ci-structure
