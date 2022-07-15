@@ -8,6 +8,8 @@ import (
 	"net"
 	"sync"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
 
@@ -104,15 +106,8 @@ func (rpm *Manager) RegisterGetStores(sg StoreGetter) {
 // internal state with the config fields.
 func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 	rpm.warnOnce.Do(func() {
-		found := false
-		if h := probes.NewProbeManager().GetHelpers("cgroup_sock_addr"); h != nil {
-			if _, ok := h["bpf_sk_lookup_tcp"]; ok {
-				if _, ok = h["bpf_sk_lookup_udp"]; ok {
-					found = true
-				}
-			}
-		}
-		if !found {
+		if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnSkLookupTcp) != nil ||
+			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnSkLookupUdp) != nil {
 			log.Warn("Without socket lookup kernel functionality, BPF " +
 				"datapath cannot prevent potential loop caused by local-redirect" +
 				"service translation. Needs kernel version >= 5.1")

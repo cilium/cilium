@@ -944,7 +944,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 		}
 	}
 	if option.Config.EnableIPv4EgressGateway {
-		if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
+		if probes.HaveLargeInstructionLimit() != nil {
 			log.WithError(err).Error("egress gateway needs kernel 5.2 or newer")
 			return nil, nil, fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 		}

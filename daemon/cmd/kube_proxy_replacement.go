@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -43,12 +45,6 @@ import (
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
 func initKubeProxyReplacementOptions() (bool, error) {
-
-	var probesManager *probes.ProbeManager
-	if !option.Config.DryMode {
-		probesManager = probes.NewProbeManager()
-	}
-
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementPartial &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe &&
@@ -73,7 +69,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		option.Config.EnableHostServicesUDP = false
 
 		if option.Config.EnableSessionAffinity {
-			if err := disableSessionAffinityIfNeeded(probesManager, true); err != nil {
+			if err := disableSessionAffinityIfNeeded(true); err != nil {
 				return false, err
 			}
 		}
@@ -219,22 +215,13 @@ func initKubeProxyReplacementOptions() (bool, error) {
 	}
 
 	if option.Config.EnableNodePort {
-		if !option.Config.DryMode {
-			found := false
-			if h := probesManager.GetHelpers("sched_act"); h != nil {
-				if _, ok := h["bpf_fib_lookup"]; ok {
-					found = true
-				}
-			}
-
-			if !found {
-				msg := "BPF NodePort services needs kernel 4.17.0 or newer."
-				if strict {
-					return false, fmt.Errorf(msg)
-				} else {
-					disableNodePort()
-					log.Warn(msg + " Disabling BPF NodePort.")
-				}
+		if !option.Config.DryMode && probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnFibLookup) != nil {
+			msg := "BPF NodePort services needs kernel 4.17.0 or newer."
+			if strict {
+				return false, fmt.Errorf(msg)
+			} else {
+				disableNodePort()
+				log.Warn(msg + " Disabling BPF NodePort.")
 			}
 		}
 
@@ -254,17 +241,8 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		probe.HaveIPv6Support()
 
 		if option.Config.EnableMKE && !option.Config.DryMode {
-			foundClassid := false
-			foundCookie := false
-			if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
-				if _, ok := h["bpf_get_cgroup_classid"]; ok {
-					foundClassid = true
-				}
-				if _, ok := h["bpf_get_netns_cookie"]; ok {
-					foundCookie = true
-				}
-			}
-			if !foundClassid || !foundCookie {
+			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
+				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				if strict {
 					log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
 				} else {
@@ -318,19 +296,13 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		option.Config.EnableHostServicesUDP = false
 	}
 
-	if err := disableSessionAffinityIfNeeded(probesManager, strict); err != nil {
+	if err := disableSessionAffinityIfNeeded(strict); err != nil {
 		return false, err
 	}
 
 	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB && !option.Config.DryMode {
-		found1, found2 := false, false
-		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
-			_, found1 = h["bpf_get_netns_cookie"]
-		}
-		if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
-			_, found2 = h["bpf_get_netns_cookie"]
-		}
-		if !(found1 && found2) {
+		if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
+			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
 				"to work properly when accessed from inside cluster: the same service endpoint " +
 				"will be selected from all network namespaces on the host.")
@@ -364,13 +336,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		}
 
 		if option.Config.EnableRecorder && !option.Config.DryMode {
-			found := false
-			if h := probesManager.GetHelpers("xdp"); h != nil {
-				if _, ok := h["bpf_ktime_get_boot_ns"]; ok {
-					found = true
-				}
-			}
-			if !found {
+			if probes.HaveProgramHelper(ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
 				return false, fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
 			}
 		}
@@ -380,13 +346,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				option.Config.NodePortMode == option.NodePortModeDSR &&
 				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
 		if option.Config.EnableHealthDatapath && !option.Config.DryMode {
-			found := false
-			if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
-				if _, ok := h["bpf_getsockopt"]; ok {
-					found = true
-				}
-			}
-			if !found {
+			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
 				option.Config.EnableHealthDatapath = false
 				log.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
 			}
@@ -413,13 +373,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			option.Config.BPFSocketLBHostnsOnly = false
 			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB)
 		} else if !option.Config.DryMode {
-			found := false
-			if helpers := probesManager.GetHelpers("cgroup_sock_addr"); helpers != nil {
-				if _, ok := helpers["bpf_get_netns_cookie"]; ok {
-					found = true
-				}
-			}
-			if !found {
+			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				option.Config.BPFSocketLBHostnsOnly = false
 				log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
 					"cannot distinguish root and non-root namespace, skipping socket-level " +
@@ -437,19 +391,12 @@ func probeManagedNeighborSupport() {
 		return
 	}
 
-	probesManager := probes.NewProbeManager()
-	found := false
 	// Probes for kernel commit:
 	//   856c02dbce4f ("bpf: Introduce helper bpf_get_branch_snapshot")
 	// This is a bit of a workaround given feature probing for netlink
 	// neighboring subsystem is cumbersome. The commit was added in the
 	// same release as managed neighbors, that is, 5.16+.
-	if h := probesManager.GetHelpers("kprobe"); h != nil {
-		if _, ok := h["bpf_get_branch_snapshot"]; ok {
-			found = true
-		}
-	}
-	if found {
+	if probes.HaveProgramHelper(ebpf.Kprobe, asm.FnGetBranchSnapshot) == nil {
 		log.Info("Using Managed Neighbor Kernel support")
 		option.Config.ARPPingKernelManaged = true
 	}
@@ -515,10 +462,6 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
-	var probeMan *probes.ProbeManager
-	if !option.Config.DryMode {
-		probeMan = probes.NewProbeManager()
-	}
 	if option.Config.EnableNodePort {
 		if err := node.InitNodePortAddrs(option.Config.GetDevices(), option.Config.LBDevInheritIPAddr); err != nil {
 			msg := "failed to initialize NodePort addrs."
@@ -575,14 +518,8 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 		case option.Config.EnableWireguard:
 			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
 		default:
-			probesManager := probes.NewProbeManager()
-			foundNeigh := false
-			foundPeer := false
-			if h := probesManager.GetHelpers("sched_cls"); h != nil {
-				_, foundNeigh = h["bpf_redirect_neigh"]
-				_, foundPeer = h["bpf_redirect_peer"]
-			}
-			if !foundNeigh || !foundPeer {
+			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
+				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
 				msg = fmt.Sprintf("BPF host routing requires kernel 5.10 or newer.")
 			}
 		}
@@ -600,7 +537,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 
 	option.Config.NodePortNat46X64 = option.Config.EnableIPv4 && option.Config.EnableIPv6 &&
 		option.Config.NodePortMode == option.NodePortModeSNAT &&
-		(probeMan == nil || probeMan.GetMisc().HaveLargeInsnLimit)
+		(option.Config.DryMode || probes.HaveLargeInstructionLimit() == nil)
 
 	for _, iface := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(iface)
@@ -821,9 +758,9 @@ func hasFullHostReachableServices() bool {
 		option.Config.EnableHostServicesUDP
 }
 
-func disableSessionAffinityIfNeeded(probesManager *probes.ProbeManager, strict bool) error {
+func disableSessionAffinityIfNeeded(strict bool) error {
 	if option.Config.EnableSessionAffinity && !option.Config.DryMode {
-		if !probesManager.GetMapTypes().HaveLruHashMapType {
+		if probes.HaveMapType(ebpf.LRUHash) != nil {
 			msg := "SessionAffinity feature requires BPF LRU maps"
 			if strict {
 				return fmt.Errorf(msg)

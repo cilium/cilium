@@ -30,18 +30,6 @@ func (s *ProbesPrivTestSuite) TestSystemConfigProbes(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *ProbesPrivTestSuite) TestMapTypes(c *C) {
-	pm := NewProbeManager()
-	mapTypes := pm.GetMapTypes()
-	c.Assert(mapTypes, NotNil)
-}
-
-func (s *ProbesPrivTestSuite) TestHelpers(c *C) {
-	pm := NewProbeManager()
-	_, ok := pm.GetHelpers("sched_act")["bpf_map_lookup_elem"]
-	c.Assert(ok, Equals, true)
-}
-
 func (s *ProbesPrivTestSuite) TestWriteHeaders(c *C) {
 	var buf bytes.Buffer
 

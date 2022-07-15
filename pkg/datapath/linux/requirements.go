@@ -138,8 +138,7 @@ func CheckMinRequirements() {
 
 		// VTEP integration feature requires kernel 1m large instruction support
 		if option.Config.EnableVTEP {
-			supportedMisc := probeManager.GetMisc()
-			if !supportedMisc.HaveLargeInsnLimit {
+			if probes.HaveLargeInstructionLimit() != nil {
 				log.Fatalf("VXLAN Tunnel Endpoint (VTEP) Integration: requires support for large programs (Linux 5.2.0 or newer)")
 			}
 		}
