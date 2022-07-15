@@ -13,6 +13,12 @@ Host Firewall
 This document serves as an introduction to Cilium's host firewall, to enforce
 security policies for Kubernetes nodes.
 
+.. admonition:: Video
+  :class: attention
+  
+  You can also watch a video of Cilium's host firewall in action on
+  `eCHO Episode 40: Cilium Host Firewall <https://www.youtube.com/watch?v=GLLLcz398K0&t=288s>`__.
+
 Enable the Host Firewall in Cilium
 ==================================
 
