@@ -320,9 +320,9 @@ jobs:
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }} \
             --helm-set=bpf.masquerade=true \
             --helm-set=enableIPv6Masquerade=false"
-          TUNNEL="--helm-set-string=tunnel=${{ matrix.tunnel }}"
+          TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-            TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
+            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
             TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
           fi
           LB_MODE=""
