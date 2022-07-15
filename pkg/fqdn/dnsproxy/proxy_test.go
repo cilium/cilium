@@ -997,9 +997,9 @@ func (s *DNSProxyTestSuite) TestProxyRequestContext_IsTimeout(c *C) {
 	p.Err = fmt.Errorf("sample err: %s", context.DeadlineExceeded)
 	c.Assert(p.IsTimeout(), Equals, false)
 
-	p.Err = errFailedAcquireSemaphore{}
+	p.Err = ErrFailedAcquireSemaphore{}
 	c.Assert(p.IsTimeout(), Equals, true)
-	p.Err = errTimedOutAcquireSemaphore{
+	p.Err = ErrTimedOutAcquireSemaphore{
 		gracePeriod: 1 * time.Second,
 	}
 	c.Assert(p.IsTimeout(), Equals, true)
