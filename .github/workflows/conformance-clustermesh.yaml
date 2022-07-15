@@ -275,7 +275,7 @@ jobs:
 
         CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
         if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-          CILIUM_INSTALL_TUNNEL="--helm-set-string=tunnel=disabled \
+          CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
             --helm-set=autoDirectNodeRoutes=true \
             --helm-set=ipv4NativeRoutingCIDR=10.240.0.0/12 \
             --helm-set=ipv6NativeRoutingCIDR=fd00:10:240::/44"

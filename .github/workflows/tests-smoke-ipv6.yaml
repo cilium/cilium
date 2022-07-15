@@ -128,7 +128,7 @@ jobs:
             --set operator.image.useDigest=false \
             --set ipv6.enabled=true \
             --set ipv4.enabled=false \
-            --set tunnel=disabled \
+            --set routingMode=native \
             --set autoDirectNodeRoutes=true \
             --set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
             --set ingressController.enabled=true \

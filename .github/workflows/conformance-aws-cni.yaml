@@ -169,7 +169,7 @@ jobs:
             --helm-set=cni.chainingMode=aws-cni \
             --helm-set=eni.enabled=false \
             --helm-set=ipam.mode=cluster-pool \
-            --helm-set=tunnel=disabled \
+            --helm-set=routingMode=native \
             --helm-set=bandwidthManager.enabled=false \
             --wait=false \
             --rollback=false \
