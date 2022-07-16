@@ -53,7 +53,7 @@ With your Kubernetes cluster ready, you can now proceed to deploy Cilium.
 Deploy Cilium
 =============
 
-.. include:: k8s-install-download-release.rst
+.. include:: ../../installation/k8s-install-download-release.rst
 
 Deploy Cilium release via Helm:
 
@@ -87,7 +87,7 @@ Deploy Cilium release via Helm:
    kernel. For kube-proxy replacement, this limitation is tracked with
    :gh-issue:`15437`.
 
-.. include:: k8s-install-validate.rst
+.. include:: ../../installation/k8s-install-validate.rst
 
 Run Kata Containers with Cilium CNI
 ===================================

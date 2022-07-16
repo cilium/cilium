@@ -87,34 +87,8 @@ Advanced Networking
    :glob:
 
    alibabacloud-eni
-   kube-router
-   bird
    encryption
    kubeproxy-free
-   bandwidth-manager
-   kata
-   ipam
-   local-redirect-policy
-   bgp
-   bgp-control-plane
-   egress-gateway
-   ciliumendpointslice
-   vtep
-
-Cluster Mesh
-------------
-
-.. toctree::
-   :maxdepth: 1
-   :glob:
-
-   clustermesh/clustermesh
-   clustermesh/aks-clustermesh-prep
-   clustermesh/services
-   clustermesh/affinity
-   clustermesh/policy
-   external-workloads
-
 
 Service Mesh
 ------------
@@ -135,14 +109,6 @@ Operations
 
    grafana
 
-Istio
------
-
-.. toctree::
-   :maxdepth: 1
-   :glob:
-
-   istio
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors

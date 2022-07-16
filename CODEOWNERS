@@ -104,14 +104,9 @@ Makefile* @cilium/build
 /Documentation/community/governance/ @cilium/contributing
 /Documentation/community/governance/commit_access.rst @cilium/contributing @cilium/docs-structure
 /Documentation/community/roadmap.rst @cilium/contributing @cilium/docs-structure
-/Documentation/concepts/clustermesh @cilium/sig-clustermesh @cilium/docs-structure
-/Documentation/concepts/ebpf/ @cilium/sig-datapath @cilium/docs-structure
 /Documentation/concepts/index.rst @cilium/docs-structure
-/Documentation/concepts/kubernetes/ @cilium/sig-k8s @cilium/docs-structure
-/Documentation/concepts/networking/ipam/ @cilium/sig-ipam @cilium/docs-structure
-/Documentation/concepts/networking/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
-/Documentation/concepts/networking/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
 /Documentation/concepts/security/proxy/ @cilium/proxy @cilium/docs-structure
+/Documentation/contributing/ @cilium/contributing @cilium/docs-structure
 /Documentation/conf.py @cilium/docs-structure
 /Documentation/configuration/index.rst @cilium/docs-structure
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
@@ -125,14 +120,10 @@ Makefile* @cilium/build
 /Documentation/index.rst @cilium/docs-structure
 /Documentation/installation/alibabacloud* @cilium/alibabacloud @cilium/docs-structure
 /Documentation/installation/aws* @cilium/aws @cilium/docs-structure
-/Documentation/installation/bandwidth-manager.rst @cilium/sig-datapath @cilium/docs-structure
-/Documentation/installation/clustermesh/ @cilium/sig-clustermesh @cilium/docs-structure
 /Documentation/installation/cni-chaining-aws-cni.rst @cilium/aws @cilium/docs-structure
 /Documentation/installation/cni-chaining-azure-cni.rst @cilium/azure @cilium/docs-structure
 /Documentation/installation/http.rst @cilium/sig-policy @cilium/docs-structure
-/Documentation/installation/ipam.rst @cilium/sig-ipam @cilium/docs-structure
 /Documentation/installation/kind-configure.rst @cilium/docs-structure
-/Documentation/installation/kubeproxy-free.rst @cilium/sig-lb @cilium/docs-structure
 /Documentation/installation/policy-creation.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/installation/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure
 /Documentation/installation/index.rst @cilium/docs-structure
@@ -142,6 +133,15 @@ Makefile* @cilium/build
 /Documentation/images/bpf* @cilium/sig-datapath @cilium/docs-structure
 /Documentation/images/hubble_getflows.png @cilium/sig-hubble @cilium/docs-structure
 /Documentation/Makefile @cilium/docs-structure
+/Documentation/network/clustermesh/ @cilium/sig-clustermesh @cilium/docs-structure
+/Documentation/network/concepts/ipam/ @cilium/sig-ipam @cilium/docs-structure
+/Documentation/network/concepts/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
+/Documentation/network/concepts/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
+/Documentation/network/ebpf/ @cilium/sig-datapath @cilium/docs-structure
+/Documentation/network/kubernetes/ @cilium/sig-k8s @cilium/docs-structure
+/Documentation/network/kubernetes/bandwidth-manager.rst @cilium/sig-datapath @cilium/docs-structure
+/Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
+/Documentation/network/kubernetes/kubeproxy-free.rst @cilium/sig-lb @cilium/docs-structure
 /Documentation/operations/performance/ @cilium/sig-datapath @cilium/docs-structure
 /Documentation/operations/system_requirements.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/overview/component-overview.rst @cilium/docs-structure

@@ -10,7 +10,7 @@
 CiliumEndpointSlice (beta)
 ***************************
 
-.. include:: ../beta.rst
+.. include:: ../../beta.rst
 
 This document describes CiliumEndpointSlice (CES), which enables batching of
 CiliumEndpoint (CEP) objects in the cluster to achieve better scalability.
@@ -20,7 +20,7 @@ The concept of CiliumEndpointSlice is described in:
    :maxdepth: 1
    :glob:
 
-   ../concepts/kubernetes/ciliumendpointslice
+   ciliumendpointslice
 
 When enabled, Cilium operator watches CEP objects and group/batch slim versions
 of them into CES objects. Cilium agent watches CES objects to learn about

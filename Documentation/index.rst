@@ -65,10 +65,23 @@ get started and experiment with Cilium.
    gettingstarted/gettinghelp
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Advanced Installation
 
    installation/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Networking
+
+   network/concepts/index
+   network/kubernetes/index
+   network/bgp-toc
+   network/ebpf/index
+   network/clustermesh/index
+   network/external-toc
+   network/istio
+   network/vtep
 
 
 .. toctree::
@@ -95,13 +108,13 @@ get started and experiment with Cilium.
    community/roadmap
 
 .. toctree::
-   :maxdepth: 3
-   :caption: For Developers
+   :maxdepth: 2
+   :caption: Contributor Guide
 
    contributing/development/index
    contributing/release/index
    contributing/testing/index
-   bpf
+   contributing/docs/index
    api
    grpcapi
    internals/index
@@ -112,7 +125,19 @@ get started and experiment with Cilium.
 
    cheatsheet
    cmdref/index
+   helm-reference
    kvstore
    further_reading
    glossary
-   helm-reference
+
+.. toctree::
+   :maxdepth: 2
+   :caption: BPF and XDP Reference Guide
+
+   bpf
+
+.. toctree::
+   :maxdepth: 2
+   :caption: BPF and XDP Reference Guide
+
+   bpf

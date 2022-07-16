@@ -36,7 +36,7 @@ configurations can be used such that application developers can not escape
 the redirection.
 
 
-.. include:: ../beta.rst
+.. include:: ../../beta.rst
 
 Prerequisites
 =============
@@ -45,7 +45,7 @@ Prerequisites
 
    Local Redirect Policy feature requires a v4.19.x or more recent Linux kernel.
 
-.. include:: k8s-install-download-release.rst
+.. include:: ../../installation/k8s-install-download-release.rst
 
 The Cilium Local Redirect Policy feature relies on :ref:`kubeproxy-free`,
 follow the guide to create a new deployment. The beta feature is disabled by default.
@@ -83,7 +83,7 @@ labels and container port and protocol respectively match with the labels,
 port and protocol fields specified in the CiliumLocalRedirectPolicy custom
 resources that will be created in the next step.
 
-.. literalinclude:: ../../examples/kubernetes-local-redirect/backend-pod.yaml
+.. literalinclude:: ../../../examples/kubernetes-local-redirect/backend-pod.yaml
 
 .. parsed-literal::
 
@@ -132,7 +132,7 @@ the backend pods where traffic is redirected to.
 Create a custom resource of type CiliumLocalRedirectPolicy with ``addressMatcher``
 configuration.
 
-.. literalinclude:: ../../examples/kubernetes-local-redirect/lrp-addrmatcher.yaml
+.. literalinclude:: ../../../examples/kubernetes-local-redirect/lrp-addrmatcher.yaml
 
 .. parsed-literal::
 
@@ -222,7 +222,7 @@ policy is used to select the backend pods where traffic is redirected to.
 
 Deploy the Kubernetes service for which traffic needs to be redirected.
 
-.. literalinclude:: ../../examples/kubernetes-local-redirect/k8s-svc.yaml
+.. literalinclude:: ../../../examples/kubernetes-local-redirect/k8s-svc.yaml
 
 .. parsed-literal::
 
@@ -248,7 +248,7 @@ service entry.
 Create a custom resource of type CiliumLocalRedirectPolicy with ``serviceMatcher``
 configuration.
 
-.. literalinclude:: ../../examples/kubernetes-local-redirect/lrp-svcmatcher.yaml
+.. literalinclude:: ../../../examples/kubernetes-local-redirect/lrp-svcmatcher.yaml
 
 .. parsed-literal::
 

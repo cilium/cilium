@@ -43,7 +43,7 @@ by Cilium's bandwidth manager.
 
    Bandwidth Manager requires a v5.1.x or more recent Linux kernel.
 
-.. include:: k8s-install-download-release.rst
+.. include:: ../../installation/k8s-install-download-release.rst
 
 Cilium's bandwidth manager is disabled by default on new installations.
 To install Cilium with the bandwidth manager enabled, run

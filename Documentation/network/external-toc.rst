@@ -4,19 +4,14 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _arch_ip_connectivity:
-.. _multi host networking:
+.. _external_network_root:
 
-**********
-Networking
-**********
+External networking
+-------------------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :glob:
 
-   routing
-   ipam/index
-   masquerading
-   fragmentation
-
+   external-workloads
+   egress-gateway
