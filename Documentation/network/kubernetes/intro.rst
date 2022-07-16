@@ -17,7 +17,7 @@ The following functionality is provided as you run Cilium in your Kubernetes
 cluster:
 
 * :term:`CNI` plugin support to provide pod_connectivity_ with
-  `multi host networking`.
+  `multi_host_networking`.
 * Identity based implementation of the `NetworkPolicy` resource to isolate :term:`pod<Pod>`
   to pod connectivity on Layer 3 and 4.
 * An extension to NetworkPolicy in the form of a :term:`CustomResourceDefinition`

@@ -67,7 +67,7 @@ Additional Requirements for Native-routed Datapath Modes
 Install the Cilium CLI
 ======================
 
-.. include:: ../cli-download.rst
+.. include:: ../../installation/cli-download.rst
 
 Prepare the Clusters
 ####################

@@ -4,16 +4,12 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _kubernetes:
+.. _k8s_network_root:
 
-**********************
-Kubernetes Integration
-**********************
-
-The following sections describe the Kubernetes integration in detail:
-
+Kubernetes Networking
+---------------------
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :glob:
 
    intro
@@ -23,5 +19,10 @@ The following sections describe the Kubernetes integration in detail:
    policy
    ciliumendpoint
    ciliumendpointslice
+   ciliumendpointslice_beta
    compatibility
    troubleshooting
+   bandwidth-manager
+   kata
+   ipam
+   local-redirect-policy

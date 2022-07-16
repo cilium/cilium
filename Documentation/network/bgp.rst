@@ -30,7 +30,7 @@ Agents will announce via BGP depending on the ``Service``'s
 Deploy Cilium
 =============
 
-.. include:: k8s-install-download-release.rst
+.. include:: ../installation/k8s-install-download-release.rst
 
 BGP support is enabled by providing the BGP configuration via a ConfigMap and
 by setting a few Helm values. Otherwise, BGP is disabled by default.

@@ -4,17 +4,16 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _ebpf_datapath:
+.. _network_concept_root:
+.. _network_root:
 
-*************
-eBPF Datapath
-*************
-
+Networking Concepts
+-------------------
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :glob:
 
-   intro
-   lifeofapacket
-   maps
-   iptables
+   routing
+   ipam/index
+   masquerading
+   fragmentation

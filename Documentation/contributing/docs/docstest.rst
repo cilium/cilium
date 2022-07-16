@@ -6,8 +6,8 @@
 
 .. _testing-documentation:
 
-Documentation
-=============
+Documentation Testing
+=====================
 
 First, start a local document server that automatically refreshes when you save files for
 real-time preview. It relies on the ``cilium/docs-builder`` Docker container.
