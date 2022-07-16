@@ -5,11 +5,11 @@ Validate the Installation
 
   .. tab:: Cilium CLI
 
-    .. include:: cli-download.rst
-    .. include:: cli-status.rst
-    .. include:: cli-connectivity-test.rst
+    .. include:: /installation/cli-download.rst
+    .. include:: /installation/cli-status.rst
+    .. include:: /installation/cli-connectivity-test.rst
 
   .. tab:: Manually
 
-    .. include:: kubectl-status.rst
-    .. include:: kubectl-connectivity-test.rst
+    .. include:: /installation/kubectl-status.rst
+    .. include:: /installation/kubectl-connectivity-test.rst

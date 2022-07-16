@@ -40,7 +40,7 @@ Prerequisites
 
    Local Redirect Policy feature requires a v4.19.x or more recent Linux kernel.
 
-.. include:: k8s-install-download-release.rst
+.. include:: ../installation/k8s-install-download-release.rst
 
 The Cilium Local Redirect Policy feature relies on :ref:`kubeproxy-free`,
 follow the guide to create a new deployment. The beta feature is disabled by default.

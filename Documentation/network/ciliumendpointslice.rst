@@ -20,7 +20,7 @@ The concept of CiliumEndpointSlice is described in:
    :maxdepth: 1
    :glob:
 
-   ../concepts/kubernetes/ciliumendpointslice
+   kubernetes/ciliumendpointslice
 
 When enabled, Cilium operator watches CEP objects and group/batch slim versions
 of them into CES objects. Cilium agent watches CES objects to learn about
