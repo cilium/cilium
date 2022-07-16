@@ -905,6 +905,14 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 			aiLocal.ClusterName, aiLocal.ClusterID)
 	}
 
+	cid, err := strconv.Atoi(aiRemote.ClusterID)
+	if err != nil {
+		return fmt.Errorf("remote cluster has non-numeric cluster ID %s. Only numeric values 1-255 are allowed", aiRemote.ClusterID)
+	}
+	if cid < 1 || cid > 255 {
+		return fmt.Errorf("remote cluster has cluster ID %d out of acceptable range (1-255)", cid)
+	}
+
 	if aiRemote.ClusterName == aiLocal.ClusterName {
 		return fmt.Errorf("remote and local cluster have the same, non-unique name: %s", aiLocal.ClusterName)
 	}
