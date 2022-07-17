@@ -433,7 +433,6 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_DEV="cilium_${TUNNEL_MODE}"
 
 	ip link show $ENCAP_DEV || create_encap_dev
-	ip link set $ENCAP_DEV mtu $MTU || encap_fail
 
 	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
 		ip -details link show $ENCAP_DEV | grep "dstport $TUNNEL_PORT" || {
@@ -442,6 +441,7 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 		}
 	fi
 
+	ip link set $ENCAP_DEV mtu $MTU || encap_fail
 	setup_dev $ENCAP_DEV || encap_fail
 
 	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
