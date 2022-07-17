@@ -1,3 +1,177 @@
+# Release (2022-06-29)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2`: v1.16.6
+  * **Bug Fix**: Fix aws/signer/v4 to not double sign Content-Length header. Fixes [#1728](https://github.com/aws/aws-sdk-go-v2/issues/1728). Thanks to @matelang for creating the issue and PR.
+* `github.com/aws/aws-sdk-go-v2/service/appstream`: [v1.17.0](service/appstream/CHANGELOG.md#v1170-2022-06-29)
+  * **Feature**: Includes support for StreamingExperienceSettings in CreateStack and UpdateStack APIs
+* `github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2`: [v1.18.7](service/elasticloadbalancingv2/CHANGELOG.md#v1187-2022-06-29)
+  * **Documentation**: This release adds two attributes for ALB. One, helps to preserve the host header and the other helps to modify, preserve, or remove the X-Forwarded-For header in the HTTP request.
+* `github.com/aws/aws-sdk-go-v2/service/emr`: [v1.19.0](service/emr/CHANGELOG.md#v1190-2022-06-29)
+  * **Feature**: This release introduces additional optional parameter "Throughput" to VolumeSpecification to enable user to configure throughput for gp3 ebs volumes.
+* `github.com/aws/aws-sdk-go-v2/service/medialive`: [v1.21.0](service/medialive/CHANGELOG.md#v1210-2022-06-29)
+  * **Feature**: This release adds support for automatic renewal of MediaLive reservations at the end of each reservation term. Automatic renewal is optional. This release also adds support for labelling accessibility-focused audio and caption tracks in HLS outputs.
+* `github.com/aws/aws-sdk-go-v2/service/redshiftserverless`: [v1.2.0](service/redshiftserverless/CHANGELOG.md#v120-2022-06-29)
+  * **Feature**: Add new API operations for Amazon Redshift Serverless, a new way of using Amazon Redshift without needing to manually manage provisioned clusters. The new operations let you interact with Redshift Serverless resources, such as create snapshots, list VPC endpoints, delete resource policies, and more.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.34.0](service/sagemaker/CHANGELOG.md#v1340-2022-06-29)
+  * **Feature**: This release adds: UpdateFeatureGroup, UpdateFeatureMetadata, DescribeFeatureMetadata APIs; FeatureMetadata type in Search API; LastModifiedTime, LastUpdateStatus, OnlineStoreTotalSizeBytes in DescribeFeatureGroup API.
+* `github.com/aws/aws-sdk-go-v2/service/translate`: [v1.14.0](service/translate/CHANGELOG.md#v1140-2022-06-29)
+  * **Feature**: Added ListLanguages API which can be used to list the languages supported by Translate.
+
+# Release (2022-06-28)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/datasync`: [v1.18.0](service/datasync/CHANGELOG.md#v1180-2022-06-28)
+  * **Feature**: AWS DataSync now supports Amazon FSx for NetApp ONTAP locations.
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.47.0](service/ec2/CHANGELOG.md#v1470-2022-06-28)
+  * **Feature**: This release adds a new spread placement group to EC2 Placement Groups: host level spread, which spread instances between physical hosts, available to Outpost customers only. CreatePlacementGroup and DescribePlacementGroups APIs were updated with a new parameter: SpreadLevel to support this feature.
+* `github.com/aws/aws-sdk-go-v2/service/finspacedata`: [v1.12.0](service/finspacedata/CHANGELOG.md#v1120-2022-06-28)
+  * **Feature**: Release new API GetExternalDataViewAccessDetails
+* `github.com/aws/aws-sdk-go-v2/service/polly`: [v1.16.0](service/polly/CHANGELOG.md#v1160-2022-06-28)
+  * **Feature**: Add 4 new neural voices - Pedro (es-US), Liam (fr-CA), Daniel (de-DE) and Arthur (en-GB).
+
+# Release (2022-06-24.2)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/emrcontainers`: [v1.13.7](service/emrcontainers/CHANGELOG.md#v1137-2022-06-242)
+  * **Bug Fix**: Fixes bug with incorrect modeled timestamp format
+
+# Release (2022-06-23)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/lookoutequipment`: [v1.14.0](service/lookoutequipment/CHANGELOG.md#v1140-2022-06-23)
+  * **Feature**: This release adds visualizations to the scheduled inference results. Users will be able to see interference results, including diagnostic results from their running inference schedulers.
+* `github.com/aws/aws-sdk-go-v2/service/mediaconvert`: [v1.25.1](service/mediaconvert/CHANGELOG.md#v1251-2022-06-23)
+  * **Documentation**: AWS Elemental MediaConvert SDK has released support for automatic DolbyVision metadata generation when converting HDR10 to DolbyVision.
+* `github.com/aws/aws-sdk-go-v2/service/mgn`: [v1.15.0](service/mgn/CHANGELOG.md#v1150-2022-06-23)
+  * **Feature**: New and modified APIs for the Post-Migration Framework
+* `github.com/aws/aws-sdk-go-v2/service/migrationhubrefactorspaces`: [v1.6.0](service/migrationhubrefactorspaces/CHANGELOG.md#v160-2022-06-23)
+  * **Feature**: This release adds the new API UpdateRoute that allows route to be updated to ACTIVE/INACTIVE state. In addition, CreateRoute API will now allow users to create route in ACTIVE/INACTIVE state.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.33.0](service/sagemaker/CHANGELOG.md#v1330-2022-06-23)
+  * **Feature**: SageMaker Ground Truth now supports Virtual Private Cloud. Customers can launch labeling jobs and access to their private workforce in VPC mode.
+
+# Release (2022-06-22)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/apigateway`: [v1.15.8](service/apigateway/CHANGELOG.md#v1158-2022-06-22)
+  * **Documentation**: Documentation updates for Amazon API Gateway
+* `github.com/aws/aws-sdk-go-v2/service/pricing`: [v1.15.0](service/pricing/CHANGELOG.md#v1150-2022-06-22)
+  * **Feature**: This release introduces 1 update to the GetProducts API. The serviceCode attribute is now required when you use the GetProductsRequest.
+* `github.com/aws/aws-sdk-go-v2/service/transfer`: [v1.20.0](service/transfer/CHANGELOG.md#v1200-2022-06-22)
+  * **Feature**: Until today, the service supported only RSA host keys and user keys. Now with this launch, Transfer Family has expanded the support for ECDSA and ED25519 host keys and user keys, enabling customers to support a broader set of clients by choosing RSA, ECDSA, and ED25519 host and user keys.
+
+# Release (2022-06-21)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.46.0](service/ec2/CHANGELOG.md#v1460-2022-06-21)
+  * **Feature**: This release adds support for Private IP VPNs, a new feature allowing S2S VPN connections to use private ip addresses as the tunnel outside ip address over Direct Connect as transport.
+* `github.com/aws/aws-sdk-go-v2/service/ecs`: [v1.18.9](service/ecs/CHANGELOG.md#v1189-2022-06-21)
+  * **Documentation**: Amazon ECS UpdateService now supports the following parameters: PlacementStrategies, PlacementConstraints and CapacityProviderStrategy.
+* `github.com/aws/aws-sdk-go-v2/service/wellarchitected`: [v1.15.0](service/wellarchitected/CHANGELOG.md#v1150-2022-06-21)
+  * **Feature**: Adds support for lens tagging, Adds support for multiple helpful-resource urls and multiple improvement-plan urls.
+
+# Release (2022-06-20)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/directoryservice`: [v1.14.0](service/directoryservice/CHANGELOG.md#v1140-2022-06-20)
+  * **Feature**: This release adds support for describing and updating AWS Managed Microsoft AD settings
+* `github.com/aws/aws-sdk-go-v2/service/kafka`: [v1.17.7](service/kafka/CHANGELOG.md#v1177-2022-06-20)
+  * **Documentation**: Documentation updates to use Az Id during cluster creation.
+* `github.com/aws/aws-sdk-go-v2/service/outposts`: [v1.21.0](service/outposts/CHANGELOG.md#v1210-2022-06-20)
+  * **Feature**: This release adds the AssetLocation structure to the ListAssets response. AssetLocation includes the RackElevation for an Asset.
+
+# Release (2022-06-17)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/connect`: [v1.27.0](service/connect/CHANGELOG.md#v1270-2022-06-17)
+  * **Feature**: This release updates these APIs: UpdateInstanceAttribute, DescribeInstanceAttribute and ListInstanceAttributes. You can use it to programmatically enable/disable High volume outbound communications using attribute type HIGH_VOLUME_OUTBOUND on the specified Amazon Connect instance.
+* `github.com/aws/aws-sdk-go-v2/service/connectcampaigns`: [v1.0.0](service/connectcampaigns/CHANGELOG.md#v100-2022-06-17)
+  * **Release**: New AWS service client module
+  * **Feature**: Added Amazon Connect high volume outbound communications SDK.
+* `github.com/aws/aws-sdk-go-v2/service/dynamodb`: [v1.15.7](service/dynamodb/CHANGELOG.md#v1157-2022-06-17)
+  * **Documentation**: Doc only update for DynamoDB service
+* `github.com/aws/aws-sdk-go-v2/service/dynamodbstreams`: [v1.13.7](service/dynamodbstreams/CHANGELOG.md#v1137-2022-06-17)
+  * **Documentation**: Doc only update for DynamoDB service
+
+# Release (2022-06-16)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/redshiftdata`: [v1.16.0](service/redshiftdata/CHANGELOG.md#v1160-2022-06-16)
+  * **Feature**: This release adds a new --workgroup-name field to operations that connect to an endpoint. Customers can now execute queries against their serverless workgroups.
+* `github.com/aws/aws-sdk-go-v2/service/redshiftserverless`: [v1.1.0](service/redshiftserverless/CHANGELOG.md#v110-2022-06-16)
+  * **Feature**: Add new API operations for Amazon Redshift Serverless, a new way of using Amazon Redshift without needing to manually manage provisioned clusters. The new operations let you interact with Redshift Serverless resources, such as create snapshots, list VPC endpoints, delete resource policies, and more.
+* `github.com/aws/aws-sdk-go-v2/service/secretsmanager`: [v1.15.11](service/secretsmanager/CHANGELOG.md#v11511-2022-06-16)
+  * **Documentation**: Documentation updates for Secrets Manager
+* `github.com/aws/aws-sdk-go-v2/service/securityhub`: [v1.22.0](service/securityhub/CHANGELOG.md#v1220-2022-06-16)
+  * **Feature**: Added Threats field for security findings. Added new resource details for ECS Container, ECS Task, RDS SecurityGroup, Kinesis Stream, EC2 TransitGateway, EFS AccessPoint, CloudFormation Stack, CloudWatch Alarm, VPC Peering Connection and WAF Rules
+
+# Release (2022-06-15)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/finspacedata`: [v1.11.0](service/finspacedata/CHANGELOG.md#v1110-2022-06-15)
+  * **Feature**: This release adds a new set of APIs, GetPermissionGroup, DisassociateUserFromPermissionGroup, AssociateUserToPermissionGroup, ListPermissionGroupsByUser, ListUsersByPermissionGroup.
+* `github.com/aws/aws-sdk-go-v2/service/guardduty`: [v1.14.0](service/guardduty/CHANGELOG.md#v1140-2022-06-15)
+  * **Feature**: Adds finding fields available from GuardDuty Console. Adds FreeTrial related operations. Deprecates the use of various APIs related to Master Accounts and Replace them with Administrator Accounts.
+* `github.com/aws/aws-sdk-go-v2/service/servicecatalogappregistry`: [v1.13.0](service/servicecatalogappregistry/CHANGELOG.md#v1130-2022-06-15)
+  * **Feature**: This release adds a new API ListAttributeGroupsForApplication that returns associated attribute groups of an application. In addition, the UpdateApplication and UpdateAttributeGroup APIs will not allow users to update the 'Name' attribute.
+* `github.com/aws/aws-sdk-go-v2/service/workspaces`: [v1.19.0](service/workspaces/CHANGELOG.md#v1190-2022-06-15)
+  * **Feature**: Added new field "reason" to OperationNotSupportedException. Receiving this exception in the DeregisterWorkspaceDirectory API will now return a reason giving more context on the failure.
+
+# Release (2022-06-14)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/budgets`: [v1.13.0](service/budgets/CHANGELOG.md#v1130-2022-06-14)
+  * **Feature**: Add a budgets ThrottlingException. Update the CostFilters value pattern.
+* `github.com/aws/aws-sdk-go-v2/service/lookoutmetrics`: [v1.16.0](service/lookoutmetrics/CHANGELOG.md#v1160-2022-06-14)
+  * **Feature**: Adding filters to Alert and adding new UpdateAlert API.
+* `github.com/aws/aws-sdk-go-v2/service/mediaconvert`: [v1.25.0](service/mediaconvert/CHANGELOG.md#v1250-2022-06-14)
+  * **Feature**: AWS Elemental MediaConvert SDK has added support for rules that constrain Automatic-ABR rendition selection when generating ABR package ladders.
+
+# Release (2022-06-13)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/outposts`: [v1.20.0](service/outposts/CHANGELOG.md#v1200-2022-06-13)
+  * **Feature**: This release adds API operations AWS uses to install Outpost servers.
+
+# Release (2022-06-10)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/frauddetector`: [v1.19.7](service/frauddetector/CHANGELOG.md#v1197-2022-06-10)
+  * **Documentation**: Documentation updates for Amazon Fraud Detector (AWSHawksNest)
+
+# Release (2022-06-09)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkmeetings`: [v1.11.0](service/chimesdkmeetings/CHANGELOG.md#v1110-2022-06-09)
+  * **Feature**: Adds support for live transcription in AWS GovCloud (US) Regions.
+
+# Release (2022-06-08)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/databasemigrationservice`: [v1.19.0](service/databasemigrationservice/CHANGELOG.md#v1190-2022-06-08)
+  * **Feature**: This release adds DMS Fleet Advisor APIs and exposes functionality for DMS Fleet Advisor. It adds functionality to create and modify fleet advisor instances, and to collect and analyze information about the local data infrastructure.
+* `github.com/aws/aws-sdk-go-v2/service/iam`: [v1.18.7](service/iam/CHANGELOG.md#v1187-2022-06-08)
+  * **Documentation**: Documentation updates for AWS Identity and Access Management (IAM).
+* `github.com/aws/aws-sdk-go-v2/service/m2`: [v1.0.0](service/m2/CHANGELOG.md#v100-2022-06-08)
+  * **Release**: New AWS service client module
+  * **Feature**: AWS Mainframe Modernization service is a managed mainframe service and set of tools for planning, migrating, modernizing, and running mainframe workloads on AWS
+* `github.com/aws/aws-sdk-go-v2/service/neptune`: [v1.17.0](service/neptune/CHANGELOG.md#v1170-2022-06-08)
+  * **Feature**: This release adds support for Neptune to be configured as a global database, with a primary DB cluster in one region, and up to five secondary DB clusters in other regions.
+* `github.com/aws/aws-sdk-go-v2/service/redshift`: [v1.25.0](service/redshift/CHANGELOG.md#v1250-2022-06-08)
+  * **Feature**: Adds new API GetClusterCredentialsWithIAM to return temporary credentials.
+* `github.com/aws/aws-sdk-go-v2/service/redshiftserverless`: [v1.0.0](service/redshiftserverless/CHANGELOG.md#v100-2022-06-08)
+  * **Release**: New AWS service client module
+  * **Feature**: Add new API operations for Amazon Redshift Serverless, a new way of using Amazon Redshift without needing to manually manage provisioned clusters. The new operations let you interact with Redshift Serverless resources, such as create snapshots, list VPC endpoints, delete resource policies, and more.
+
 # Release (2022-06-07)
 
 ## General Highlights

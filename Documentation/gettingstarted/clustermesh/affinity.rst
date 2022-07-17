@@ -76,7 +76,7 @@ remote endpoints if and only if all of local backends are not available or unhea
 
    .. code-block:: shell-session
 
-      kubectl exec -ti ds/cilium -- cilium service list --clustermesh-affinity
+      kubectl exec -n kube-system -ti ds/cilium -- cilium service list --clustermesh-affinity
 
       ID   Frontend            Service Type   Backend
       1    10.96.0.1:443       ClusterIP      1 => 172.18.0.3:6443 (active)
@@ -109,7 +109,7 @@ remote endpoints if and only if all of local backends are not available or unhea
 
    .. code-block:: shell-session
 
-      kubectl exec -ti ds/cilium -- cilium service list --clustermesh-affinity
+      kubectl exec -n kube-system -ti ds/cilium -- cilium service list --clustermesh-affinity
 
       ID   Frontend            Service Type   Backend
       1    10.96.0.1:443       ClusterIP      1 => 172.18.0.3:6443 (active)

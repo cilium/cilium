@@ -106,7 +106,7 @@ echo "Restarting the kubelet..."
 systemctl restart kubelet
 {{- end }}
 
-{{- if (and .Values.gke.enabled (or .Values.masquerade .Values.gke.disableDefaultSnat))}}
+{{- if (and .Values.gke.enabled (or .Values.enableIPv4Masquerade .Values.gke.disableDefaultSnat))}}
 # If Cilium is configured to manage masquerading of traffic leaving the node,
 # we need to disable the IP-MASQ chain because even if ip-masq-agent
 # is not installed, the node init script installs some default rules into

@@ -6,14 +6,13 @@
 {{- $defaultBpfClockProbe := "false" -}}
 {{- $defaultBpfTProxy := "false" -}}
 {{- $defaultIPAM := "cluster-pool" -}}
-{{- $defaultSessionAffinity := "false" -}}
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
 {{- $defaultBpfCtTcpMax := 524288 -}}
 {{- $defaultBpfCtAnyMax := 262144 -}}
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
 {{- $crdWaitTimeout := "5m" -}}
-{{- $defaultKubeProxyReplacement := "probe" -}}
+{{- $defaultKubeProxyReplacement := "disabled" -}}
 {{- $azureUsePrimaryAddress := "true" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
@@ -23,7 +22,6 @@
   {{- $defaultBpfMasquerade = "true" -}}
   {{- $defaultBpfClockProbe = "true" -}}
   {{- $defaultIPAM = "cluster-pool" -}}
-  {{- $defaultSessionAffinity = "true" -}}
   {{- if .Values.ipv4.enabled }}
     {{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
   {{- else -}}
@@ -31,11 +29,16 @@
   {{- end }}
   {{- $defaultBpfCtTcpMax = 0 -}}
   {{- $defaultBpfCtAnyMax = 0 -}}
+  {{- $defaultKubeProxyReplacement = "probe" -}}
+{{- end -}}
+
+{{- /* Default values when 1.9 was initially deployed */ -}}
+{{- if semverCompare ">=1.9" (default "1.9" .Values.upgradeCompatibility) -}}
+  {{- $defaultKubeProxyReplacement = "probe" -}}
 {{- end -}}
 
 {{- /* Default values when 1.10 was initially deployed */ -}}
 {{- if semverCompare ">=1.10" (default "1.10" .Values.upgradeCompatibility) -}}
-  {{- $defaultKubeProxyReplacement = "disabled" -}}
   {{- /* Needs to be explicitly disabled because it was enabled on all versions >=v1.8 above. */ -}}
   {{- $defaultBpfMasquerade = "false" -}}
 {{- end -}}
@@ -51,7 +54,8 @@
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
-{{- $azureUsePrimaryAddress := (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
+{{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
+{{- $socketLB := (coalesce .Values.socketLB .Values.hostServices) -}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -454,6 +458,7 @@ data:
 {{- end }}
 
   enable-ipv4-masquerade: {{ .Values.enableIPv4Masquerade | quote }}
+  enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
   enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
 
 {{- if hasKey .Values.bpf "masquerade" }}
@@ -569,15 +574,18 @@ data:
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
 
-{{- if hasKey .Values "hostServices" }}
-{{- if .Values.hostServices.enabled }}
-  enable-host-reachable-services: {{ .Values.hostServices.enabled | quote }}
+{{- if $socketLB }}
+{{- if hasKey $socketLB "enabled" }}
+  bpf-lb-sock: {{ $socketLB.enabled | quote }}
 {{- end }}
+{{- if hasKey $socketLB "hostNamespaceOnly" }}
+  bpf-lb-sock-hostns-only: {{ $socketLB.hostNamespaceOnly | quote }}
+{{- end }}
+{{- end }}
+
+{{- if hasKey .Values "hostServices" }}
 {{- if ne .Values.hostServices.protocols "tcp,udp" }}
   host-reachable-services-protos: {{ .Values.hostServices.protocols }}
-{{- end }}
-{{- if hasKey .Values.hostServices "hostNamespaceOnly" }}
-  bpf-lb-sock-hostns-only: {{ .Values.hostServices.hostNamespaceOnly | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "hostPort" }}
@@ -635,8 +643,6 @@ data:
 {{- end }}
 {{- if .Values.sessionAffinity }}
   enable-session-affinity: {{ .Values.sessionAffinity | quote }}
-{{- else if eq $defaultSessionAffinity "true" }}
-  enable-session-affinity: {{ $defaultSessionAffinity | quote }}
 {{- end }}
 {{- if .Values.svcSourceRangeCheck }}
   enable-svc-source-range-check: {{ .Values.svcSourceRangeCheck | quote }}

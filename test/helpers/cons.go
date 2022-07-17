@@ -266,13 +266,6 @@ const (
 	ReservedIdentityHost = 1
 )
 
-// NightlyStableUpgradesFrom maps the cilium image versions to the helm charts
-// that will be used to run update tests in the Nightly test.
-var NightlyStableUpgradesFrom = map[string]string{
-	"v1.8": "1.8-dev",
-	"v1.9": "1.9-dev",
-}
-
 var (
 	IsCiliumV1_8  = versioncheck.MustCompile(">=1.7.90 <1.9.0")
 	IsCiliumV1_9  = versioncheck.MustCompile(">=1.8.90 <1.10.0")

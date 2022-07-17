@@ -19,6 +19,10 @@
  */
 #define SKIP_ICMPV6_ECHO_HANDLING
 
+/* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
+ */
+#define SKIP_SRV6_HANDLING
+
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/edt.h"
@@ -378,6 +382,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (info->tunnel_endpoint)
 		return __encap_and_redirect_with_nodeid(ctx,
 							info->tunnel_endpoint,
+							SECLABEL,
 							WORLD_ID,
 							&trace);
 

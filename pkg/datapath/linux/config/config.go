@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
+	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/netns"
@@ -151,6 +152,17 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
 	cDefinesMap["EGRESS_POLICY_MAP"] = egressmap.PolicyMapName
 	cDefinesMap["EGRESS_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", egressmap.MaxPolicyEntries)
+	cDefinesMap["SRV6_VRF_MAP4"] = srv6map.VRFMapName4
+	cDefinesMap["SRV6_VRF_MAP6"] = srv6map.VRFMapName6
+	cDefinesMap["SRV6_POLICY_MAP4"] = srv6map.PolicyMapName4
+	cDefinesMap["SRV6_POLICY_MAP6"] = srv6map.PolicyMapName6
+	cDefinesMap["SRV6_SID_MAP"] = srv6map.SIDMapName
+	cDefinesMap["SRV6_STATE_MAP4"] = srv6map.StateMapName4
+	cDefinesMap["SRV6_STATE_MAP6"] = srv6map.StateMapName6
+	cDefinesMap["SRV6_VRF_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxVRFEntries)
+	cDefinesMap["SRV6_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxPolicyEntries)
+	cDefinesMap["SRV6_SID_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxSIDEntries)
+	cDefinesMap["SRV6_STATE_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxStateEntries)
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
 	cDefinesMap["SOCKOPS_MAP_SIZE"] = fmt.Sprintf("%d", sockmap.MaxEntries)
 	cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName
@@ -214,6 +226,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IPV6"] = "1"
 	}
 
+	if option.Config.EnableSRv6 {
+		cDefinesMap["ENABLE_SRV6"] = "1"
+	}
+
 	if option.Config.EnableIPSec {
 		cDefinesMap["ENABLE_IPSEC"] = "1"
 	}
@@ -250,18 +266,18 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_L7_LB"] = "1"
 	}
 
-	if option.Config.EnableHostReachableServices {
+	if option.Config.EnableSocketLB {
 		if option.Config.EnableHostServicesTCP {
-			cDefinesMap["ENABLE_HOST_SERVICES_TCP"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_TCP"] = "1"
 		}
 		if option.Config.EnableHostServicesUDP {
-			cDefinesMap["ENABLE_HOST_SERVICES_UDP"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_UDP"] = "1"
 		}
 		if option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP && !option.Config.BPFSocketLBHostnsOnly {
-			cDefinesMap["ENABLE_HOST_SERVICES_FULL"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_FULL"] = "1"
 		}
 		if option.Config.EnableHostServicesPeer {
-			cDefinesMap["ENABLE_HOST_SERVICES_PEER"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
 		}
 		if option.Config.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
@@ -285,7 +301,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
-		if option.Config.EnableMKE && option.Config.EnableHostReachableServices {
+		if option.Config.EnableMKE && option.Config.EnableSocketLB {
 			cDefinesMap["ENABLE_MKE"] = "1"
 			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
 		}
@@ -577,6 +593,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.EnableL7Proxy {
 		cDefinesMap["ENABLE_L7_PROXY"] = "1"
 	}
+
+	cDefinesMap["CIDR_IDENTITY_RANGE_START"] = fmt.Sprintf("%d", identity.MinLocalIdentity)
+	cDefinesMap["CIDR_IDENTITY_RANGE_END"] = fmt.Sprintf("%d", identity.MaxLocalIdentity)
 
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent written format to the writer. This maintains

@@ -522,7 +522,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.initEndpointsOrSlices(k8s.WatcherClient(), serviceOptModifier)
 		case resources.K8sAPIGroupSecretV1Core:
 			swgSecret := lock.NewStoppableWaitGroup()
-			// only watch tls secret
+			// only watch secrets in cilium-secrets namespace
 			k.tlsSecretInit(k8s.WatcherClient(), option.Config.EnvoySecretNamespace, swgSecret)
 		// Custom resource definitions
 		case k8sAPIGroupCiliumNetworkPolicyV2:
@@ -715,7 +715,7 @@ func genCartesianProduct(
 	feFamilyIPv6 := ip.IsIPv6(fe)
 
 	for fePortName, fePort := range ports {
-		var besValues []loadbalancer.Backend
+		var besValues []*loadbalancer.Backend
 		for netIP, backend := range bes.Backends {
 			parsedIP := net.ParseIP(netIP)
 
@@ -724,7 +724,7 @@ func genCartesianProduct(
 				if backend.Terminating {
 					backendState = loadbalancer.BackendStateTerminating
 				}
-				besValues = append(besValues, loadbalancer.Backend{
+				besValues = append(besValues, &loadbalancer.Backend{
 					FEPortName: string(fePortName),
 					NodeName:   backend.NodeName,
 					L3n4Addr: loadbalancer.L3n4Addr{

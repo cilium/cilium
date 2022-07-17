@@ -143,10 +143,7 @@ type CreateInstanceRequest struct {
 
 // CreateInstanceSystemDisk is a repeated param struct in CreateInstanceRequest
 type CreateInstanceSystemDisk struct {
-	Encrypted        string `name:"Encrypted"`
-	EncryptAlgorithm string `name:"EncryptAlgorithm"`
 	StorageClusterId string `name:"StorageClusterId"`
-	KMSKeyId         string `name:"KMSKeyId"`
 }
 
 // CreateInstanceTag is a repeated param struct in CreateInstanceRequest

@@ -6,6 +6,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: hubble
+    app.kubernetes.io/name: hubble
+    app.kubernetes.io/part-of: cilium
   annotations:
     {{- with .Values.hubble.metrics.serviceAnnotations }}
     {{- toYaml . | nindent 4 }}

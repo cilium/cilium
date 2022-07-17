@@ -115,9 +115,9 @@ define generate_k8s_protobuf
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 endef
 
-build: $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
+build: check-sources $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
 
-build-container: ## Builds components required for cilium-agent container.
+build-container: check-sources ## Builds components required for cilium-agent container.
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i all; done
 
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
@@ -407,6 +407,7 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	maps:policymap\
 	maps:signalmap\
 	maps:sockmap\
+	maps:srv6map\
 	maps:tunnel\
 	maps:vtep\
 	node:types\
@@ -479,10 +480,7 @@ else
 	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:v$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) golangci-lint run
 endif
 
-bpf-mock-lint: ## Check if the helper headers in bpf/mock are up-to-date.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf/mock/ check_helper_headers
-
-lint: golangci-lint bpf-mock-lint ## Run golangci-lint and bpf-mock linters.
+lint: golangci-lint ## Run golangci-lint and bpf-mock linters.
 
 logging-subsys-field: ## Validate logrus subsystem field for logs in Go source code.
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
@@ -541,14 +539,18 @@ endif
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
-	@$(ECHO_CHECK) contrib/scripts/check-viper-get-string-map-string.sh
-	$(QUIET) contrib/scripts/check-viper-get-string-map-string.sh
+	@$(ECHO_CHECK) contrib/scripts/check-viper-unusable-api.sh
+	$(QUIET) contrib/scripts/check-viper-unusable-api.sh
 ifeq ($(SKIP_CUSTOMVET_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/custom-vet-check.sh
 	$(QUIET) contrib/scripts/custom-vet-check.sh
 endif
 	@$(ECHO_CHECK) contrib/scripts/rand-check.sh
 	$(QUIET) contrib/scripts/rand-check.sh
+
+check-sources:
+	@$(ECHO_CHECK) pkg/datapath/loader/check-sources.sh
+	$(QUIET) pkg/datapath/loader/check-sources.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
@@ -645,5 +647,5 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-operator-*-image","Build platform specific cilium-operator images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean check-sources
 force :;

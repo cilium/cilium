@@ -55,6 +55,7 @@
 #include "lib/nodeport.h"
 #include "lib/eps.h"
 #include "lib/host_firewall.h"
+#include "lib/egress_policies.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
 
@@ -249,6 +250,18 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		return CTX_ACT_OK;
 
 skip_host_firewall:
+#ifdef ENABLE_SRV6
+	if (!from_host) {
+		if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
+			/* This packet is destined to an SID so we need to decapsulate it
+			 * and forward it.
+			 */
+			ep_tail_call(ctx, CILIUM_CALL_SRV6_DECAP);
+			return DROP_MISSED_TAIL_CALL;
+		}
+	}
+#endif /* ENABLE_SRV6 */
+
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination MAC address to the MAC of cilium_net.
@@ -596,7 +609,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
-								WORLD_ID, &trace);
+								secctx, WORLD_ID, &trace);
 		}
 	}
 skip_vtep:
@@ -777,7 +790,8 @@ drop_err:
 static __always_inline int
 do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
 		      __u16 proto __maybe_unused,
-		      int *encrypt_iface __maybe_unused)
+		      int *encrypt_iface __maybe_unused,
+		      int *ext_err __maybe_unused)
 {
 	int ret = 0;
 	/* Only do FIB lookup if both the BPF helper is supported and we know
@@ -820,6 +834,7 @@ do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
 	err = fib_lookup(ctx, &fib_params, sizeof(fib_params),
 		    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
 	if (err != 0) {
+		*ext_err = err;
 		ret = DROP_NO_FIB;
 		goto drop_err_fib;
 	}
@@ -841,6 +856,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 					     __u32 src_id)
 {
 	int encrypt_iface = 0;
+	int ext_err = 0;
 	int ret = 0;
 #if defined(ENCRYPT_IFACE) && defined(BPF_HAVE_FIB_LOOKUP)
 	encrypt_iface = ENCRYPT_IFACE;
@@ -849,9 +865,10 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 	if (ret)
 		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	ret = do_netdev_encrypt_fib(ctx, proto, &encrypt_iface);
+	ret = do_netdev_encrypt_fib(ctx, proto, &encrypt_iface, &ext_err);
 	if (ret)
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 
 	bpf_clear_meta(ctx);
 #ifdef BPF_HAVE_FIB_LOOKUP
@@ -881,7 +898,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 
 	bpf_clear_meta(ctx);
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, src_id,
-						&trace);
+						NOT_VTEP_DST, &trace);
 }
 
 static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused,
@@ -1033,6 +1050,98 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 	return do_netdev(ctx, proto, from_host);
 }
 
+#ifdef ENABLE_SRV6
+static __always_inline
+handle_srv6(struct __ctx_buff *ctx)
+{
+	__u32 *vrf_id, dst_id, tunnel_ep = 0;
+	struct srv6_ipv6_2tuple *outer_ips;
+	struct iphdr *ip4 __maybe_unused;
+	struct remote_endpoint_info *ep;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	union v6addr *sid;
+	__u16 proto;
+
+	if (!validate_ethertype(ctx, &proto))
+		return DROP_UNSUPPORTED_L2;
+
+	switch (proto) {
+	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		outer_ips = srv6_lookup_state_entry6(ip6);
+		if (outer_ips) {
+			ep_tail_call(ctx, CILIUM_CALL_SRV6_REPLY);
+			return DROP_MISSED_TAIL_CALL;
+		}
+
+		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr);
+		if (ep) {
+			tunnel_ep = ep->tunnel_endpoint;
+			dst_id = ep->sec_label;
+		} else {
+			dst_id = WORLD_ID;
+		}
+
+		if (identity_is_cluster(dst_id))
+			return CTX_ACT_OK;
+
+		vrf_id = srv6_lookup_vrf6(&ip6->saddr, &ip6->daddr);
+		if (!vrf_id)
+			return CTX_ACT_OK;
+
+		sid = srv6_lookup_policy6(*vrf_id, &ip6->daddr);
+		if (!sid)
+			return CTX_ACT_OK;
+
+		srv6_store_meta_sid(ctx, sid);
+		ctx_store_meta(ctx, CB_SRV6_VRF_ID, *vrf_id);
+		ep_tail_call(ctx, CILIUM_CALL_SRV6_ENCAP);
+		return DROP_MISSED_TAIL_CALL;
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		outer_ips = srv6_lookup_state_entry4(ip4);
+		if (outer_ips) {
+			ep_tail_call(ctx, CILIUM_CALL_SRV6_REPLY);
+			return DROP_MISSED_TAIL_CALL;
+		}
+
+		ep = lookup_ip4_remote_endpoint(ip4->daddr);
+		if (ep) {
+			tunnel_ep = ep->tunnel_endpoint;
+			dst_id = ep->sec_label;
+		} else {
+			dst_id = WORLD_ID;
+		}
+
+		if (identity_is_cluster(dst_id))
+			return CTX_ACT_OK;
+
+		vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);
+		if (!vrf_id)
+			return CTX_ACT_OK;
+
+		sid = srv6_lookup_policy4(*vrf_id, ip4->daddr);
+		if (!sid)
+			return CTX_ACT_OK;
+
+		srv6_store_meta_sid(ctx, sid);
+		ctx_store_meta(ctx, CB_SRV6_VRF_ID, *vrf_id);
+		ep_tail_call(ctx, CILIUM_CALL_SRV6_ENCAP);
+		return DROP_MISSED_TAIL_CALL;
+		break;
+# endif
+	}
+
+	return CTX_ACT_OK;
+}
+#endif /* ENABLE_SRV6 */
+
 /*
  * from-netdev is attached as a tc ingress filter to one or more physical devices
  * managed by Cilium (e.g., eth0). This program is only attached when:
@@ -1163,6 +1272,13 @@ out:
 		return ret;
 	}
 #endif
+
+#ifdef ENABLE_SRV6
+	ret = handle_srv6(ctx);
+	if (ret != CTX_ACT_OK)
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
+					      METRIC_EGRESS);
+#endif /* ENABLE_SRV6 */
 
 #if defined(ENABLE_NODEPORT) && \
 	(!defined(ENABLE_DSR) || \
@@ -1364,7 +1480,7 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
 					      is_defined(ENABLE_IPV6)),
 					is_defined(DEBUG)),
-				   CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
+				   CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
 				   tail_ipv4_host_policy_ingress);
 		break;
 # endif

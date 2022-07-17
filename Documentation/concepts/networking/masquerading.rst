@@ -53,10 +53,10 @@ The current implementation depends on :ref:`the BPF NodePort feature <kubeproxy-
 The dependency will be removed in the future (:gh-issue:`13732`).
 
 Masquerading can take place only on those devices which run the eBPF masquerading
-program. This means that a packet sent from a pod to an outside will be masqueraded
-(to an output device IPv4 address), if the output device runs the program. If not
-specified, the program will be automatically attached to the devices selected by
-:ref:`the BPF NodePort device detection metchanism <Nodeport Devices>`.
+program. This means that a packet sent from a pod to an outside address will be
+masqueraded (to an output device IPv4 address), if the output device runs the program.
+If not specified, the program will be automatically attached to the devices selected by
+:ref:`the BPF NodePort device detection mechanism <Nodeport Devices>`.
 To manually change this, use the ``devices`` helm option. Use ``cilium status``
 to determine which devices the program is running on:
 
@@ -116,23 +116,17 @@ The agent uses Fsnotify to track updates to the configuration file, so the origi
 
 The example below shows how to configure the agent via :term:`ConfigMap` and to verify it:
 
-.. code-block:: shell-session
+.. literalinclude:: ../../../examples/kubernetes-ip-masq-agent/rfc1918.yaml
 
-    $ cat agent-config/config
-    nonMasqueradeCIDRs:
-    - 10.0.0.0/8
-    - 172.16.0.0/12
-    - 192.168.0.0/16
-    masqLinkLocal: false
+.. parsed-literal::
 
-    $ kubectl create configmap ip-masq-agent --from-file=agent-config --namespace=kube-system
+    $ kubectl create -n kube-system -f \ |SCM_WEB|\/examples/kubernetes-ip-masq-agent/rfc1918.yaml
 
-    $ # Wait ~60s until the ConfigMap is mounted into a cilium pod
+    $ # Wait ~60s until the ConfigMap is propagated into the configuration file
 
     $ kubectl -n kube-system exec ds/cilium -- cilium bpf ipmasq list
     IP PREFIX/ADDRESS
     10.0.0.0/8
-    169.254.0.0/16
     172.16.0.0/12
     192.168.0.0/16
 

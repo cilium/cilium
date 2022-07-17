@@ -7,7 +7,9 @@ import (
 	"crypto/tls"
 	"time"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
@@ -22,17 +24,21 @@ const MinTLSVersion = tls.VersionTLS13
 
 // options stores all the configuration values for the hubble-relay server.
 type options struct {
-	peerTarget      string
-	dialTimeout     time.Duration
-	retryTimeout    time.Duration
-	listenAddress   string
-	log             logrus.FieldLogger
-	serverTLSConfig certloader.ServerConfigBuilder
-	insecureServer  bool
-	clientTLSConfig certloader.ClientConfigBuilder
-	clusterName     string
-	insecureClient  bool
-	observerOptions []observer.Option
+	peerTarget             string
+	dialTimeout            time.Duration
+	retryTimeout           time.Duration
+	listenAddress          string
+	metricsListenAddress   string
+	log                    logrus.FieldLogger
+	serverTLSConfig        certloader.ServerConfigBuilder
+	insecureServer         bool
+	clientTLSConfig        certloader.ClientConfigBuilder
+	clusterName            string
+	insecureClient         bool
+	observerOptions        []observer.Option
+	grpcMetrics            *grpc_prometheus.ServerMetrics
+	grpcUnaryInterceptors  []grpc.UnaryServerInterceptor
+	grpcStreamInterceptors []grpc.StreamServerInterceptor
 }
 
 // defaultOptions is the reference point for default values.
@@ -43,6 +49,10 @@ var defaultOptions = options{
 	listenAddress: defaults.ListenAddress,
 	log:           logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 }
+
+// DefaultOptions to include in the server. Other packages may extend this
+// in their init() function.
+var DefaultOptions []Option
 
 // Option customizes the configuration of the hubble-relay server.
 type Option func(o *options) error
@@ -77,6 +87,14 @@ func WithRetryTimeout(t time.Duration) Option {
 func WithListenAddress(a string) Option {
 	return func(o *options) error {
 		o.listenAddress = a
+		return nil
+	}
+}
+
+// WithMetricsListenAddress sets the listen address for the hubble-relay server.
+func WithMetricsListenAddress(a string) Option {
+	return func(o *options) error {
+		o.metricsListenAddress = a
 		return nil
 	}
 }
@@ -168,6 +186,31 @@ func WithInsecureClient() Option {
 func WithLocalClusterName(clusterName string) Option {
 	return func(o *options) error {
 		o.clusterName = clusterName
+		return nil
+	}
+}
+
+// WithGRPCMetrics configures the server with the specified prometheus gPRC
+// ServerMetrics.
+func WithGRPCMetrics(grpcMetrics *grpc_prometheus.ServerMetrics) Option {
+	return func(o *options) error {
+		o.grpcMetrics = grpcMetrics
+		return nil
+	}
+}
+
+// WithGRPCStreamInterceptor configures the server with the given gRPC server stream interceptors
+func WithGRPCStreamInterceptor(interceptors ...grpc.StreamServerInterceptor) Option {
+	return func(o *options) error {
+		o.grpcStreamInterceptors = append(o.grpcStreamInterceptors, interceptors...)
+		return nil
+	}
+}
+
+// WithGRPCUnaryInterceptor configures the server with the given gRPC server stream interceptors
+func WithGRPCUnaryInterceptor(interceptors ...grpc.UnaryServerInterceptor) Option {
+	return func(o *options) error {
+		o.grpcUnaryInterceptors = append(o.grpcUnaryInterceptors, interceptors...)
 		return nil
 	}
 }

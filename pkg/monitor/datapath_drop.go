@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -29,7 +30,9 @@ type DropNotify struct {
 	SrcLabel identity.NumericIdentity
 	DstLabel identity.NumericIdentity
 	DstID    uint32
-	Unused   uint32
+	Line     uint16
+	File     uint8
+	ExtError int8
 	// data
 }
 
@@ -46,8 +49,8 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
-	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ",
-		api.DropReason(n.SubType), n.Hash, n.DstID)
+	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, file %s line %d, ",
+		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, loader.DecodeSourceName(int(n.File)), int(n.Line))
 	n.dumpIdentity(buf, numeric)
 	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[DropNotifyLen:]))
 	buf.Flush()
@@ -57,7 +60,7 @@ func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d DROP: %d bytes, reason %s",
-		prefix, n.Hash, n.Source, n.OrigLen, api.DropReason(n.SubType))
+		prefix, n.Hash, n.Source, n.OrigLen, api.DropReasonExt(n.SubType, n.ExtError))
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		n.dumpIdentity(buf, numeric)
@@ -107,6 +110,8 @@ type DropNotifyVerbose struct {
 	SrcLabel identity.NumericIdentity `json:"srcLabel"`
 	DstLabel identity.NumericIdentity `json:"dstLabel"`
 	DstID    uint32                   `json:"dstID"`
+	Line     uint16                   `json:"Line"`
+	File     uint8                    `json:"File"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }
@@ -116,11 +121,13 @@ func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
 	return DropNotifyVerbose{
 		Type:     "drop",
 		Mark:     fmt.Sprintf("%#x", n.Hash),
-		Reason:   api.DropReason(n.SubType),
+		Reason:   api.DropReasonExt(n.SubType, n.ExtError),
 		Source:   n.Source,
 		Bytes:    n.OrigLen,
 		SrcLabel: n.SrcLabel,
 		DstLabel: n.DstLabel,
 		DstID:    n.DstID,
+		Line:     n.Line,
+		File:     n.File,
 	}
 }

@@ -97,7 +97,10 @@
 #define CILIUM_CALL_IPV6_CT_INGRESS		30
 #define CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY	31
 #define CILIUM_CALL_IPV6_CT_EGRESS		32
-#define CILIUM_CALL_SIZE			33
+#define CILIUM_CALL_SRV6_ENCAP			33
+#define CILIUM_CALL_SRV6_DECAP			34
+#define CILIUM_CALL_SRV6_REPLY			35
+#define CILIUM_CALL_SIZE			36
 
 typedef __u64 mac_t;
 
@@ -302,6 +305,40 @@ struct egress_gw_policy_entry {
 	__u32 gateway_ip;
 };
 
+struct srv6_vrf_key4 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 src_ip;
+	__u32 dst_cidr;
+};
+
+struct srv6_vrf_key6 {
+	struct bpf_lpm_trie_key lpm;
+	union v6addr src_ip;
+	union v6addr dst_cidr;
+};
+
+struct srv6_policy_key4 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 vrf_id;
+	__u32 dst_cidr;
+};
+
+struct srv6_policy_key6 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 vrf_id;
+	union v6addr dst_cidr;
+};
+
+struct srv6_ipv4_2tuple {
+	__u32 src;
+	__u32 dst;
+};
+
+struct srv6_ipv6_2tuple {
+	union v6addr src;
+	union v6addr dst;
+};
+
 struct vtep_key {
 	__u32 vtep_ip;
 };
@@ -445,6 +482,8 @@ enum {
 #define DROP_VLAN_FILTERED	-182
 #define DROP_INVALID_VNI	-183
 #define DROP_INVALID_TC_BUFFER  -184
+#define DROP_NO_SID		-185
+#define DROP_MISSING_SRV6_STATE	-186
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define NAT_46X64_RECIRC	100
@@ -597,23 +636,28 @@ enum {
 #define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
+#define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_IFINDEX,
 #define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
+#define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
+#define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT,
 #define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
+#define CB_SRV6_SID_4		CB_NAT		/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
+#define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* Magic values for CB_FROM_HOST.
@@ -664,6 +708,14 @@ enum {
 	SVC_FLAG_LOCALREDIRECT  = (1 << 0),  /* local redirect */
 	SVC_FLAG_NAT_46X64      = (1 << 1),  /* NAT-46/64 entry */
 	SVC_FLAG_L7LOADBALANCER = (1 << 2),  /* tproxy redirect to local l7 loadbalancer */
+};
+
+/* Backend flags (lb{4,6}_backends->flags) */
+enum {
+	BE_STATE_ACTIVE		= 0,
+	BE_STATE_TERMINATING,
+	BE_STATE_QUARANTINED,
+	BE_STATE_MAINTENANCE,
 };
 
 struct ipv6_ct_tuple {
@@ -891,10 +943,11 @@ struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
 	      node_port:1,
-	      proxy_redirect:1, /* Connection is redirected to a proxy */
 	      dsr:1,
-	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
-	      reserved:11;
+	      syn:1,
+	      proxy_redirect:1,	/* Connection is redirected to a proxy */
+	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
+	      reserved:10;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;

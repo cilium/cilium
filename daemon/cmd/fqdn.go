@@ -398,15 +398,16 @@ func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
 	return d.ipcache.LookupByIdentity(nid)
 }
 
-// NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor
+// notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 // events, proxy metrics and storing DNS data in the DNS cache. This may
 // result in rule generation.
 // It will:
-// - Report a monitor error event and proxy metrics when the proxy sees an
-//   error, and when it can't process something in this function
-// - Report the verdict in a monitor event and emit proxy metrics
-// - Insert the DNS data into the cache when msg is a DNS response and we
-//   can lookup the endpoint related to it
+//   - Report a monitor error event and proxy metrics when the proxy sees an
+//     error, and when it can't process something in this function
+//   - Report the verdict in a monitor event and emit proxy metrics
+//   - Insert the DNS data into the cache when msg is a DNS response and we
+//     can lookup the endpoint related to it
+//
 // epIPPort and serverAddr should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
@@ -420,6 +421,9 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	endMetric := func() {
 		stat.DataplaneTime.End(true)
 		stat.ProcessingTime.End(true)
+		if errors.Is(stat.Err, dnsproxy.ErrFailedAcquireSemaphore{}) || errors.Is(stat.Err, dnsproxy.ErrTimedOutAcquireSemaphore{}) {
+			metrics.FQDNSemaphoreRejectedTotal.Add(1)
+		}
 		metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorTimeout, metrics.L7DNS, upstream).Observe(
 			stat.UpstreamTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(

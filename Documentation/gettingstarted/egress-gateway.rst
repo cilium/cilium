@@ -102,6 +102,13 @@ The egress gateway feature and all the requirements can be enabled as follow:
             enable-l7-proxy: false
             kube-proxy-replacement: strict
 
+Rollout both the agent pods and the operator pods to make the changes effective:
+
+.. code-block:: shell-session
+
+    $ kubectl rollout restart ds cilium -n kube-system
+    $ kubectl rollout restart deploy cilium-operator -n kube-system
+
 Compatibility with cloud environments
 -------------------------------------
 
@@ -257,16 +264,16 @@ There are 3 different ways this can be achieved:
 3. By omitting both ``egressIP`` and ``interface`` properties, which will make
    the agent use the first IPv4 assigned to the interface for the default route.
 
-   Regardless of which way the egress IP is configured, the user must ensure that
-   Cilium is running on the device that has the egress IP assigned to it, by
-   setting the ``--devices`` agent option accordingly.
-
    .. code-block:: yaml
 
      egressGateway:
        nodeSelector:
          matchLabels:
            testLabel: testVal
+
+Regardless of which way the egress IP is configured, the user must ensure that
+Cilium is running on the device that has the egress IP assigned to it, by
+setting the ``--devices`` agent option accordingly.
 
 Example policy
 --------------
@@ -378,12 +385,36 @@ cluster with the IP of the node.
 Apply egress gateway policy
 ---------------------------
 
-Apply the ``egress-sample`` egress gateway Policy, which will cause all traffic
-from the mediabot pod to leave the cluster with the ``10.168.60.100`` IP:
+Download the ``egress-sample`` Egress Gateway Policy yaml:
 
 .. parsed-literal::
 
-    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-egress-gateway/egress-nat-policy-egress-gateway.yaml
+    $ wget \ |SCM_WEB|\/examples/kubernetes-egress-gateway/egress-nat-policy-egress-gateway.yaml
+
+Modify the ``destinationCIDRs`` to include the IP of the host where your
+designated external service is running on.
+
+Specifying an IP address in the ``egressIP`` field is optional.
+To make things easier in this example, it is possible to comment out that line.
+This way, the agent will use the first IPv4 assigned to the interface for the
+default route.
+
+To let the policy select the node designated to be the Egress Gateway, apply the
+label ``egress-node: test`` to it:
+
+.. code-block:: shell-session
+
+    $ kubectl label nodes <egress-gateway-node> egress-node=true
+
+Note that the Egress Gateway node should be a different node from the one where
+the ``mediabot`` pod is running on.
+
+Apply the ``egress-sample`` egress gateway Policy, which will cause all traffic
+from the mediabot pod to leave the cluster with the IP of the Egress Gateway node:
+
+.. code-block:: shell-session
+
+    $ kubectl apply -f egress-nat-policy-egress-gateway.yaml
 
 Verify the setup
 ----------------
@@ -396,8 +427,8 @@ We can now verify with the client pod that the policy is working correctly:
     <HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">
     [...]
 
-The access log from Nginx should show that the request is coming from the egress
-IP (``192.168.60.100``) rather than one of the nodes in the Kubernetes cluster:
+The access log from Nginx should show that the request is coming from the
+selected Egress IP rather than the one of the node where the pod is running:
 
 .. code-block:: shell-session
 

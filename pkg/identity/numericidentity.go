@@ -25,6 +25,32 @@ const (
 	// a numeric identity to have local scope
 	LocalIdentityFlag = NumericIdentity(1 << 24)
 
+	// MinAllocatorLocalIdentity represents the minimal numeric identity
+	// that the localIdentityCache allocator can allocate for a local (CIDR)
+	// identity.
+	//
+	// Note that this does not represents the minimal value for a local
+	// identity, as the allocated ID will then be bitwise OR'ed with
+	// LocalIdentityFlag.
+	MinAllocatorLocalIdentity = 1
+
+	// MinLocalIdentity represents the actual minimal numeric identity value
+	// for a local (CIDR) identity.
+	MinLocalIdentity = MinAllocatorLocalIdentity | LocalIdentityFlag
+
+	// MaxAllocatorLocalIdentity represents the maximal numeric identity
+	// that the localIdentityCache allocator can allocate for a local (CIDR)
+	// identity.
+	//
+	// Note that this does not represents the maximal value for a local
+	// identity, as the allocated ID will then be bitwise OR'ed with
+	// LocalIdentityFlag.
+	MaxAllocatorLocalIdentity = 0xFFFFFF
+
+	// MaxLocalIdentity represents the actual maximal numeric identity value
+	// for a local (CIDR) identity.
+	MaxLocalIdentity = MaxAllocatorLocalIdentity | LocalIdentityFlag
+
 	// MinimalNumericIdentity represents the minimal numeric identity not
 	// used for reserved purposes.
 	MinimalNumericIdentity = NumericIdentity(256)
@@ -287,10 +313,14 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:name=cilium-operator
 	//   k8s:io.cilium/app=operator
+	//   k8s:app.kubernetes.io/part-of=cilium
+	//   k8s:app.kubernetes.io/name=cilium-operator
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	ciliumOperatorLabels := []string{
 		"k8s:name=cilium-operator",
 		"k8s:io.cilium/app=operator",
+		"k8s:app.kubernetes.io/part-of=cilium",
+		"k8s:app.kubernetes.io/name=cilium-operator",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=cilium-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
@@ -303,11 +333,15 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-operator
 	//   k8s:io.cilium/app=etcd-operator
+	//   k8s:app.kubernetes.io/name: cilium-etcd-operator
+	//   k8s:app.kubernetes.io/part-of: cilium
 	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:name=cilium-etcd-operator
 	ciliumEtcdOperatorLabels := []string{
 		"k8s:name=cilium-etcd-operator",
 		"k8s:io.cilium/app=etcd-operator",
+		"k8s:app.kubernetes.io/name: cilium-etcd-operator",
+		"k8s:app.kubernetes.io/part-of: cilium",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=cilium-etcd-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
@@ -480,8 +514,8 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 }
 
 // ClusterID returns the cluster ID associated with the identity
-func (id NumericIdentity) ClusterID() int {
-	return int((uint32(id) >> 16) & 0xFF)
+func (id NumericIdentity) ClusterID() uint32 {
+	return (uint32(id) >> 16) & 0xFF
 }
 
 // GetAllReservedIdentities returns a list of all reserved numeric identities

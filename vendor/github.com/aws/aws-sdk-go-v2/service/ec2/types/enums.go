@@ -5732,6 +5732,24 @@ func (SpotInstanceType) Values() []SpotInstanceType {
 	}
 }
 
+type SpreadLevel string
+
+// Enum values for SpreadLevel
+const (
+	SpreadLevelHost SpreadLevel = "host"
+	SpreadLevelRack SpreadLevel = "rack"
+)
+
+// Values returns all known values for SpreadLevel. Note that this can be expanded
+// in the future, and so it is only as up to date as the client. The ordering of
+// this slice is not guaranteed to be stable across updates.
+func (SpreadLevel) Values() []SpreadLevel {
+	return []SpreadLevel{
+		"host",
+		"rack",
+	}
+}
+
 type State string
 
 // Enum values for State

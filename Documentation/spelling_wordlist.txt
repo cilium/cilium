@@ -5,6 +5,7 @@ AdapterLimitViaAPI
 Alemayhu
 Alibaba
 Anthos
+BIGTCP
 BPF
 Bertin
 Blanco
@@ -112,6 +113,7 @@ Redis
 RuleParser
 SIG
 SR-IOV
+SRv
 Sharma
 Shirokov
 Shortnames
@@ -130,6 +132,7 @@ Tu
 Twilio
 Uptime
 VM
+VNet
 VPC
 Vagrantcloud
 Vagrantfile
@@ -331,6 +334,7 @@ discoverable
 distro
 distros
 dns
+dnsPolicy
 dnsProxy
 dnsRejectResponseCode
 dockerhub
@@ -388,6 +392,7 @@ externalIPs
 externalWorkloads
 extraArgs
 extraConfig
+extraContainers
 extraDnsNames
 extraEnv
 extraHostPathMounts
@@ -460,7 +465,6 @@ hostNetwork
 hostPath
 hostPort
 hostRoot
-hostServices
 hostname
 hostns
 hostonlyif
@@ -851,6 +855,7 @@ setupiptables
 sfc
 sg
 sha
+sid
 sidecarImageRegex
 sig
 skb
@@ -858,6 +863,7 @@ skipCRDCreation
 skipteardown
 sleepAfterInit
 snat
+socketLB
 socketPath
 sockmap
 sockops
@@ -865,6 +871,7 @@ sortBufferDrainTimeout
 sortBufferLenMax
 sourceContext
 src
+srv
 ssl
 stacktrace
 stap
@@ -933,6 +940,7 @@ tofqdns
 tofqdnsPreCache
 tolerations
 toolchain
+topologySpreadConstraints
 tproxy
 tracepoint
 tracepoints
@@ -986,8 +994,10 @@ virtualization
 vlan
 vmlinux
 volumeMounts
+vrf
 vtep
 vxlan
+waitForKubeProxy
 waitForMount
 waker
 wakeup

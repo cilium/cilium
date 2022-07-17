@@ -70,7 +70,7 @@
      - bool
      - ``false``
    * - bgpControlPlane
-     - This feature set enables virtual BGP routers to be created via  CiliumBGPPeeringPolicy CRDs.
+     - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
      - ``{"enabled":false}``
    * - bgpControlPlane.enabled
@@ -277,6 +277,10 @@
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
      - ``[]``
+   * - clustermesh.apiserver.topologySpreadConstraints
+     - Pod topology spread constraints for clustermesh-apiserver
+     - list
+     - ``[]``
    * - clustermesh.apiserver.updateStrategy
      - clustermesh-apiserver update strategy
      - object
@@ -373,6 +377,10 @@
      - Disable the usage of CiliumEndpoint CRD.
      - string
      - ``"false"``
+   * - dnsPolicy
+     - DNS policy for Cilium agent pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+     - string
+     - ``""``
    * - dnsProxy.dnsRejectResponseCode
      - DNS response code for rejecting DNS requests, available options are '[nameError refused]'.
      - string
@@ -433,6 +441,10 @@
      - Enables masquerading of IPv4 traffic leaving the node from endpoints.
      - bool
      - ``true``
+   * - enableIPv6BIGTCP
+     - Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
+     - bool
+     - ``false``
    * - enableIPv6Masquerade
      - Enables masquerading of IPv6 traffic leaving the node from endpoints.
      - bool
@@ -621,6 +633,10 @@
      - Node tolerations for cilium-etcd-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
      - ``[{"operator":"Exists"}]``
+   * - etcd.topologySpreadConstraints
+     - Pod topology spread constraints for cilium-etcd-operator
+     - list
+     - ``[]``
    * - etcd.updateStrategy
      - cilium-etcd-operator update strategy
      - object
@@ -645,6 +661,10 @@
      - extraConfig allows you to specify additional configuration parameters to be included in the cilium-config configmap.
      - object
      - ``{}``
+   * - extraContainers
+     - Additional containers added to the cilium DaemonSet.
+     - list
+     - ``[]``
    * - extraEnv
      - Additional agent container environment variables.
      - list
@@ -685,18 +705,6 @@
      - Enable hostPort service support.
      - bool
      - ``false``
-   * - hostServices
-     - Configure ClusterIP service handling in the host namespace (the node).
-     - object
-     - ``{"enabled":false,"protocols":"tcp,udp"}``
-   * - hostServices.enabled
-     - Enable host reachable services.
-     - bool
-     - ``false``
-   * - hostServices.protocols
-     - Supported list of protocols to apply ClusterIP translation to.
-     - string
-     - ``"tcp,udp"``
    * - hubble.enabled
      - Enable Hubble (true by default).
      - bool
@@ -805,6 +813,26 @@
      - The priority class to use for hubble-relay
      - string
      - ``""``
+   * - hubble.relay.prometheus
+     - Enable prometheus metrics for hubble-relay on the configured port at /metrics
+     - object
+     - ``{"enabled":false,"port":9966,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{}}}``
+   * - hubble.relay.prometheus.serviceMonitor.annotations
+     - Annotations to add to ServiceMonitor hubble-relay
+     - object
+     - ``{}``
+   * - hubble.relay.prometheus.serviceMonitor.enabled
+     - Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+     - bool
+     - ``false``
+   * - hubble.relay.prometheus.serviceMonitor.interval
+     - Interval for scrape metrics.
+     - string
+     - ``"10s"``
+   * - hubble.relay.prometheus.serviceMonitor.labels
+     - Labels to add to ServiceMonitor hubble-relay
+     - object
+     - ``{}``
    * - hubble.relay.replicas
      - Number of replicas run for the hubble-relay deployment.
      - int
@@ -871,6 +899,10 @@
      - ``[]``
    * - hubble.relay.tolerations
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+     - list
+     - ``[]``
+   * - hubble.relay.topologySpreadConstraints
+     - Pod topology spread constraints for hubble-relay
      - list
      - ``[]``
    * - hubble.relay.updateStrategy
@@ -1043,6 +1075,10 @@
      - ``{"cert":"","key":""}``
    * - hubble.ui.tolerations
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+     - list
+     - ``[]``
+   * - hubble.ui.topologySpreadConstraints
+     - Pod topology spread constraints for hubble-ui
      - list
      - ``[]``
    * - hubble.ui.updateStrategy
@@ -1277,6 +1313,10 @@
      - Affinity for cilium-operator
      - object
      - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"io.cilium/app":"operator"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - operator.dnsPolicy
+     - DNS policy for Cilium operator pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+     - string
+     - ``""``
    * - operator.enabled
      - Enable the cilium-operator component (required).
      - bool
@@ -1401,6 +1441,10 @@
      - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
      - ``[{"operator":"Exists"}]``
+   * - operator.topologySpreadConstraints
+     - Pod topology spread constraints for cilium-operator
+     - list
+     - ``[]``
    * - operator.unmanagedPodWatcher.intervalSeconds
      - Interval, in seconds, to check if there are any pods that are not managed by Cilium.
      - int
@@ -1585,6 +1629,14 @@
      - Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node.
      - bool
      - ``false``
+   * - socketLB
+     - Configure socket LB
+     - object
+     - ``{"enabled":false}``
+   * - socketLB.enabled
+     - Enable socket LB
+     - bool
+     - ``false``
    * - sockops
      - Configure BPF socket operations configuration
      - object
@@ -1665,6 +1717,10 @@
      - VTEP CIDRs Mask that applies to all VTEP CIDRs, for example "255.255.255.0"
      - string
      - ``""``
+   * - waitForKubeProxy
+     - Wait for KUBE-PROXY-CANARY iptables rule to appear in "wait-for-kube-proxy" init container before launching cilium-agent. More context can be found in the commit message of below PR https://github.com/cilium/cilium/pull/20123
+     - bool
+     - ``false``
    * - wellKnownIdentities.enabled
      - Enable the use of well-known identities.
      - bool

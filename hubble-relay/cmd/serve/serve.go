@@ -9,6 +9,7 @@ import (
 	"os/signal"
 
 	"github.com/google/gops/agent"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
@@ -30,6 +31,7 @@ const (
 	keyDialTimeout            = "dial-timeout"
 	keyRetryTimeout           = "retry-timeout"
 	keyListenAddress          = "listen-address"
+	keyMetricsListenAddress   = "metrics-listen-address"
 	keyPeerService            = "peer-service"
 	keySortBufferMaxLen       = "sort-buffer-len-max"
 	keySortBufferDrainTimeout = "sort-buffer-drain-timeout"
@@ -82,6 +84,10 @@ func New(vp *viper.Viper) *cobra.Command {
 		keyListenAddress,
 		defaults.ListenAddress,
 		"Address on which to listen")
+	flags.String(
+		keyMetricsListenAddress,
+		"",
+		"Address on which to listen for metrics")
 	flags.String(
 		keyPeerService,
 		defaults.PeerTarget,
@@ -149,6 +155,18 @@ func runServe(vp *viper.Viper) error {
 		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
 		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),
 		server.WithLogger(logger),
+	}
+
+	metricsListenAddress := vp.GetString(keyMetricsListenAddress)
+	if metricsListenAddress != "" {
+		grpcMetrics := grpc_prometheus.NewServerMetrics()
+		opts = append(
+			opts,
+			server.WithMetricsListenAddress(metricsListenAddress),
+			server.WithGRPCMetrics(grpcMetrics),
+			server.WithGRPCStreamInterceptor(grpcMetrics.StreamServerInterceptor()),
+			server.WithGRPCUnaryInterceptor(grpcMetrics.UnaryServerInterceptor()),
+		)
 	}
 
 	// Relay to Hubble TLS/mTLS setup.

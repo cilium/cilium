@@ -387,4 +387,7 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium recorder delete 1
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium recorder delete 2
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium recorder list
 
+# cleanup
+kind delete cluster
+
 echo "YAY!"

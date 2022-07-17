@@ -216,7 +216,7 @@ type Node struct {
 	IPv6IngressIP net.IP
 
 	// ClusterID is the unique identifier of the cluster
-	ClusterID int
+	ClusterID uint32
 
 	// Source is the source where the node configuration was generated / created.
 	Source source.Source

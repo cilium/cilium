@@ -331,6 +331,10 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPv6NDPName, defaults.EnableIPv6NDP, "Enable IPv6 NDP support")
 	option.BindEnv(option.EnableIPv6NDPName)
 
+	flags.Bool(option.EnableSRv6, defaults.EnableSRv6, "Enable SRv6 support (beta)")
+	flags.MarkHidden(option.EnableSRv6)
+	option.BindEnv(option.EnableSRv6)
+
 	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
 	option.BindEnv(option.IPv6MCastDevice)
 
@@ -365,8 +369,13 @@ func initializeFlags() {
 	flags.Bool(option.BPFSocketLBHostnsOnly, false, "Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
 	option.BindEnv(option.BPFSocketLBHostnsOnly)
 
+	flags.Bool(option.EnableSocketLB, false, "Enable socket-based LB for E/W traffic")
+	option.BindEnv(option.EnableSocketLB)
+
 	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
 	option.BindEnv(option.EnableHostReachableServices)
+	flags.MarkDeprecated(option.EnableHostReachableServices,
+		fmt.Sprintf("This option will be removed in v1.13. Use --%s instead", option.EnableSocketLB))
 
 	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
 	option.BindEnv(option.HostReachableServicesProtos)
@@ -570,12 +579,11 @@ func initializeFlags() {
 	option.BindEnv(option.Labels)
 
 	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementPartial, fmt.Sprintf(
-		"auto-enable available features for kube-proxy replacement (%q), "+
-			"or enable only selected features (will panic if any selected feature cannot be enabled) (%q) "+
+		"enable only selected features (will panic if any selected feature cannot be enabled) (%q), "+
 			"or enable all features (will panic if any feature cannot be enabled) (%q), "+
 			"or completely disable it (ignores any selected feature) (%q)",
-		option.KubeProxyReplacementProbe, option.KubeProxyReplacementPartial,
-		option.KubeProxyReplacementStrict, option.KubeProxyReplacementDisabled))
+		option.KubeProxyReplacementPartial, option.KubeProxyReplacementStrict,
+		option.KubeProxyReplacementDisabled))
 	option.BindEnv(option.KubeProxyReplacement)
 
 	flags.String(option.KubeProxyReplacementHealthzBindAddr, defaults.KubeProxyReplacementHealthzBindAddr, "The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.")
@@ -724,6 +732,9 @@ func initializeFlags() {
 
 	flags.Bool(option.EnableIPMasqAgent, false, "Enable BPF ip-masq-agent")
 	option.BindEnv(option.EnableIPMasqAgent)
+
+	flags.Bool(option.EnableIPv6BIGTCP, false, "Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits")
+	option.BindEnv(option.EnableIPv6BIGTCP)
 
 	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
 	option.BindEnv(option.EnableIPv4EgressGateway)
@@ -1094,7 +1105,9 @@ func initializeFlags() {
 	flags.Bool(option.ExternalClusterIPName, false, "Enable external access to ClusterIP services (default false)")
 	option.BindEnv(option.ExternalClusterIPName)
 
-	flags.IntSlice(option.VLANBPFBypass, []int{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
+	// flags.IntSlice cannot be used due to missing support for appropriate conversion in Viper.
+	// See https://github.com/cilium/cilium/pull/20282 for more information.
+	flags.StringSlice(option.VLANBPFBypass, []string{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
 	option.BindEnv(option.VLANBPFBypass)
 
 	flags.Bool(option.EnableICMPRules, true, "Enable ICMP-based rule support for Cilium Network Policies")
@@ -1415,7 +1428,7 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.LoadBalancerPMTUDiscovery =
 			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementPartial
-		option.Config.EnableHostReachableServices = true
+		option.Config.EnableSocketLB = true
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
@@ -1458,6 +1471,15 @@ func initEnv(cmd *cobra.Command) {
 
 	initClockSourceOption()
 	initSockmapOption()
+
+	if option.Config.EnableSRv6 {
+		if !option.Config.EnableIPv6 {
+			log.Fatalf("SRv6 requires IPv6.")
+		}
+		if !probes.NewProbeManager().GetMapTypes().HaveLruHashMapType {
+			log.Fatalf("SRv6 requires support for BPF LRU maps (Linux 4.10 or later).")
+		}
+	}
 
 	if option.Config.EnableHostFirewall {
 		if option.Config.EnableIPSec {

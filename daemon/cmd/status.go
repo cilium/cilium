@@ -148,6 +148,14 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	return s
 }
 
+func (d *Daemon) getIPV6BigTCPStatus() *models.IPV6BigTCP {
+	s := &models.IPV6BigTCP{
+		Enabled: option.Config.EnableIPv6BIGTCP,
+	}
+
+	return s
+}
+
 func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 	s := &models.BandwidthManager{
 		Enabled: option.Config.EnableBandwidthManager,
@@ -241,6 +249,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		HostPort:              &models.KubeProxyReplacementFeaturesHostPort{},
 		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
 		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
+		SocketLB:              &models.KubeProxyReplacementFeaturesSocketLB{},
 		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 		GracefulTermination:   &models.KubeProxyReplacementFeaturesGracefulTermination{},
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
@@ -270,8 +279,11 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableExternalIPs {
 		features.ExternalIPs.Enabled = true
 	}
-	if option.Config.EnableHostServicesTCP {
+	if option.Config.EnableSocketLB {
+		features.SocketLB.Enabled = true
+
 		features.HostReachableServices.Enabled = true
+
 		protocols := []string{}
 		if option.Config.EnableHostServicesTCP {
 			protocols = append(protocols, "TCP")
@@ -1013,6 +1025,7 @@ func (d *Daemon) startStatusCollector() {
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
+	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()

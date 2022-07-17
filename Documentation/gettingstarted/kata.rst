@@ -77,9 +77,9 @@ Deploy Cilium release via Helm:
 
 .. warning::
 
-   Kata containers do not work with :ref:`host-services`, or with
+   Kata containers do not work with the socket-level loadbalancer, or with
    :ref:`kube-proxy replacement <kubeproxy-free>` in strict mode. These
-   features should be disabled with ``--set hostServices.enabled=false``
+   features should be disabled with ``--set socketLB.enabled=false``
    (default) and ``--set kubeProxyReplacement=disabled`` (or ``partial``).
 
    Both features rely on socket-based load-balancing, which is not possible

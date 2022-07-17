@@ -532,9 +532,9 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 		L3n4Addr: *frontendMapping.feAddr,
 		ID:       lb.ID(0),
 	}
-	backendAddrs := make([]lb.Backend, 0, len(frontendMapping.podBackends))
+	backendAddrs := make([]*lb.Backend, 0, len(frontendMapping.podBackends))
 	for _, be := range frontendMapping.podBackends {
-		backendAddrs = append(backendAddrs, lb.Backend{
+		backendAddrs = append(backendAddrs, &lb.Backend{
 			NodeName: nodeTypes.GetName(),
 			L3n4Addr: be.L3n4Addr,
 		})

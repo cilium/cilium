@@ -664,9 +664,12 @@ func (p *Parser) decodeNetworkInterface(tn *monitor.TraceNotify, dbg *monitor.De
 		return nil
 	}
 
-	// if the interface is not found, `name` will be an empty string and thus
-	// omitted in the protobuf message
-	name, _ := p.linkGetter.GetIfNameCached(int(ifIndex))
+	var name string
+	if p.linkGetter != nil {
+		// if the interface is not found, `name` will be an empty string and thus
+		// omitted in the protobuf message
+		name, _ = p.linkGetter.GetIfNameCached(int(ifIndex))
+	}
 	return &pb.NetworkInterface{
 		Index: ifIndex,
 		Name:  name,

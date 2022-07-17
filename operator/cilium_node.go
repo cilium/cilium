@@ -208,11 +208,15 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced)
 		close(k8sCiliumNodesCacheSynced)
+		log.Info("CiliumNodes caches synced with Kubernetes")
 		// Only handle events if nodeManagerSyncHandler is not nil. If it is nil
 		// then there isn't any event handler set for CiliumNodes events.
 		if nodeManagerSyncHandler != nil {
-			for processNextWorkItem(nodeManagerQueue, nodeManagerSyncHandler) {
-			}
+			go func() {
+				// infinite loop. run in a go routine to unblock code execution
+				for processNextWorkItem(nodeManagerQueue, nodeManagerSyncHandler) {
+				}
+			}()
 		}
 		// Start handling events for KVStore **after** nodeManagerSyncHandler
 		// otherwise Cilium Operator will block until the KVStore is available.
@@ -223,6 +227,8 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 		// then there isn't any event handler set for CiliumNodes events.
 		if withKVStore && kvStoreSyncHandler != nil {
 			<-connectedToKVStore
+			log.Info("Connected to the KVStore, syncing CiliumNodes to the KVStore")
+			// infinite loop it will block code execution
 			for processNextWorkItem(kvStoreQueue, kvStoreSyncHandler) {
 			}
 		}

@@ -120,7 +120,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{"version"},
 			versionRegexp: regexp.MustCompile(`Version:"v(\d+\.\d+\.\d+)"`),
-			minVersion:    &semver.Version{Major: 3, Minor: 0, Patch: 0},
+			minVersion:    &semver.Version{Major: 3, Minor: 6, Patch: 0},
 		},
 		&binaryCheck{
 			name:          "llc",

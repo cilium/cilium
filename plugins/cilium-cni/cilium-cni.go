@@ -3,7 +3,7 @@
 
 // Ensure build fails on versions of Go that are not supported by Cilium.
 // This build tag should be kept in sync with the version specified in go.mod.
-//go:build go1.17
+//go:build go1.18
 
 package main
 
@@ -502,7 +502,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			peer      netlink.Link
 			tmpIfName string
 		)
-		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
+		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), int(conf.GROMaxSize), int(conf.GSOMaxSize), ep)
 		if err != nil {
 			err = fmt.Errorf("unable to set up veth on host side: %s", err)
 			return err

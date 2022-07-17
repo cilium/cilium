@@ -46,7 +46,7 @@ echo "Restarting the kubelet"
 systemctl restart kubelet
 {{- end }}
 
-{{- if (and .Values.gke.enabled (or .Values.masquerade .Values.gke.disableDefaultSnat))}}
+{{- if (and .Values.gke.enabled (or .Values.enableIPv4Masquerade .Values.gke.disableDefaultSnat))}}
 # If the IP-MASQ chain exists, add back default jump rule from the GKE instance configure script
 if iptables -w -t nat -L IP-MASQ > /dev/null; then
   iptables -w -t nat -A POSTROUTING -m comment --comment "ip-masq: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom IP-MASQ chain" -m addrtype ! --dst-type LOCAL -j IP-MASQ

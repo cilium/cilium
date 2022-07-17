@@ -299,6 +299,11 @@ Users (Alphabetically)
       U: Networking (IPAM, CNI), Security (Network Policies), Visibility (hubble)
       L: https://nexxiot.com
 
+    * N: Nine Internet Solutions AG
+      D: Nine uses Cilium on all Nine Kubernetes Engine clusters
+      U: CNI, network policy, kube-proxy replacement, host firewall
+      L: https://www.nine.ch/en/kubernetes
+
     * N: Northflank
       D: Northflank is a PaaS and uses Cilium as the main CNI plugin across GCP, Azure, AWS and bare-metal
       U: Networking, network policy, hubble, packet monitoring and network visibility
@@ -313,6 +318,12 @@ Users (Alphabetically)
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
+
+    * N: Plaid Inc
+      D: Plaid is using Cilium as their CNI plugin in self-hosted Kubernetes on AWS.
+      U: CNI, network policies
+      L: [https://plaid.com](https://plaid.com/contact/)
+      Q: @diversario @jandersen-plaid
 
     * N: PlanetScale
       D: PlanetScale is using Cilium as the CNI for its serverless database platform.

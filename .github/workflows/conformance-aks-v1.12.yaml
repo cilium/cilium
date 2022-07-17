@@ -29,6 +29,8 @@ permissions:
   pull-requests: read
   # So that Sibz/github-status-action can write into the status API
   statuses: write
+  # Required to generate OIDC tokens for `az` authentication
+  id-token: write
 
 concurrency:
   # Structure:
@@ -64,7 +66,7 @@ env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   location: westeurope
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
-  cilium_cli_version: v0.11.9
+  cilium_cli_version: v0.11.11
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -183,12 +185,16 @@ jobs:
           cilium version
 
       - name: Login to Azure
-        uses: azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
+        uses: azure/login@24848bc889cfc0a8313c2b3e378ac0d625b9bc16
         with:
-          creds: ${{ secrets.AZURE_PR_SP_CREDS }}
+          client-id: ${{ secrets.AZURE_PR_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_PR_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_PR_SUBSCRIPTION_ID }}
 
-      - name: Display az version
+      - name: Install aks-preview CLI extension
         run: |
+            az extension add --name aks-preview
+            az extension update --name aks-preview
             az version
 
       - name: Create AKS cluster
@@ -204,7 +210,7 @@ jobs:
             --resource-group ${{ env.name }} \
             --name ${{ env.name }} \
             --location ${{ env.location }} \
-            --network-plugin azure \
+            --network-plugin none \
             --node-count 2 \
             ${{ env.cost_reduction }} \
             --generate-ssh-keys

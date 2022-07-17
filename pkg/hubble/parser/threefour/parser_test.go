@@ -180,6 +180,11 @@ func TestL34Decode(t *testing.T) {
 
 	assert.Equal(t, flowpb.TraceObservationPoint_FROM_HOST, f.GetTraceObservationPoint())
 
+	nilParser, err := New(log, nil, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+	err = nilParser.Decode(d, f)
+	require.NoError(t, err)
+
 	// ICMP packet so no ports until that support is merged into master
 	//
 	//SOURCE              DESTINATION          TYPE   SUMMARY
@@ -240,6 +245,9 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, (*flowpb.TCPFlags)(nil), f.L4.GetTCP().GetFlags())
 
 	assert.Equal(t, flowpb.TraceObservationPoint_FROM_ENDPOINT, f.GetTraceObservationPoint())
+
+	err = nilParser.Decode(d, f)
+	require.NoError(t, err)
 }
 
 func BenchmarkL34Decode(b *testing.B) {
@@ -979,6 +987,11 @@ func TestDebugCapture(t *testing.T) {
 		Name:  loIfName,
 	}, f.Interface)
 
+	nilParser, err := New(log, nil, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+	err = nilParser.Decode(data, f)
+	require.NoError(t, err)
+
 	dbg = monitor.DebugCapture{
 		Type:    api.MessageTypeCapture,
 		SubType: monitor.DbgCaptureProxyPost,
@@ -994,6 +1007,9 @@ func TestDebugCapture(t *testing.T) {
 	assert.Equal(t, int32(dbg.SubType), f.EventType.SubType)
 	assert.Equal(t, flowpb.DebugCapturePoint_DBG_CAPTURE_PROXY_POST, f.DebugCapturePoint)
 	assert.Equal(t, uint32(1234), f.ProxyPort)
+
+	err = nilParser.Decode(data, f)
+	require.NoError(t, err)
 }
 
 func TestTraceNotifyProxyPort(t *testing.T) {

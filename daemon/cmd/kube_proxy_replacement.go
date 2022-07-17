@@ -50,17 +50,28 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		return false, fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
+	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe {
+		log.Warnf("The option --%s=%s is deprecated and it will be removed in v1.13",
+			option.KubeProxyReplacement, option.KubeProxyReplacementProbe)
+	}
+
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
-		log.Infof("Auto-disabling %q, %q, %q, %q, %q features and falling back to %q",
+		log.Infof("Auto-disabling %q, %q, %q, %q features and falling back to %q",
 			option.EnableNodePort, option.EnableExternalIPs,
-			option.EnableHostReachableServices, option.EnableHostPort,
-			option.EnableSessionAffinity, option.EnableHostLegacyRouting)
+			option.EnableSocketLB, option.EnableHostPort,
+			option.EnableHostLegacyRouting)
 
 		disableNodePort()
-		option.Config.EnableHostReachableServices = false
+		option.Config.EnableSocketLB = false
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
-		option.Config.EnableSessionAffinity = false
+
+		if option.Config.EnableSessionAffinity {
+			probesManager := probes.NewProbeManager()
+			if err := disableSessionAffinityIfNeeded(probesManager, true); err != nil {
+				return false, err
+			}
+		}
 
 		return false, nil
 	}
@@ -75,13 +86,13 @@ func initKubeProxyReplacementOptions() (bool, error) {
 
 		log.Infof("Trying to auto-enable %q, %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
-			option.EnableHostReachableServices, option.EnableHostPort,
+			option.EnableSocketLB, option.EnableHostPort,
 			option.EnableSessionAffinity)
 
 		option.Config.EnableHostPort = true
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
-		option.Config.EnableHostReachableServices = true
+		option.Config.EnableSocketLB = true
 		option.Config.EnableHostServicesTCP = true
 		option.Config.EnableHostServicesUDP = true
 		option.Config.EnableSessionAffinity = true
@@ -231,7 +242,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		}
 	}
 
-	if option.Config.EnableHostReachableServices {
+	if option.Config.EnableSocketLB {
 		// Try to auto-load IPv6 module if it hasn't been done yet as there can
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probe.HaveIPv6Support()
@@ -294,26 +305,18 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			}
 		}
 		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
-			option.Config.EnableHostReachableServices = false
+			option.Config.EnableSocketLB = false
 		}
 	} else {
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
 	}
 
-	if option.Config.EnableSessionAffinity {
-		if !probesManager.GetMapTypes().HaveLruHashMapType {
-			msg := "SessionAffinity feature requires BPF LRU maps"
-			if strict {
-				return false, fmt.Errorf(msg)
-			} else {
-				log.Warnf("%s. Disabling the feature.", msg)
-				option.Config.EnableSessionAffinity = false
-			}
-
-		}
+	if err := disableSessionAffinityIfNeeded(probesManager, strict); err != nil {
+		return false, err
 	}
-	if option.Config.EnableSessionAffinity && option.Config.EnableHostReachableServices {
+
+	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
 		found1, found2 := false, false
 		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
 			_, found1 = h["bpf_get_netns_cookie"]
@@ -400,9 +403,9 @@ func initKubeProxyReplacementOptions() (bool, error) {
 	}
 
 	if option.Config.BPFSocketLBHostnsOnly {
-		if !option.Config.EnableHostReachableServices {
+		if !option.Config.EnableSocketLB {
 			option.Config.BPFSocketLBHostnsOnly = false
-			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableHostReachableServices)
+			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB)
 		} else {
 			found := false
 			if helpers := probesManager.GetHelpers("cgroup_sock_addr"); helpers != nil {
@@ -533,7 +536,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
-	if option.Config.EnableMKE && option.Config.EnableHostReachableServices {
+	if option.Config.EnableMKE && option.Config.EnableSocketLB {
 		markHostExtension()
 	}
 
@@ -795,7 +798,22 @@ func checkNodePortAndEphemeralPortRanges() error {
 }
 
 func hasFullHostReachableServices() bool {
-	return option.Config.EnableHostReachableServices &&
+	return option.Config.EnableSocketLB &&
 		option.Config.EnableHostServicesTCP &&
 		option.Config.EnableHostServicesUDP
+}
+
+func disableSessionAffinityIfNeeded(probesManager *probes.ProbeManager, strict bool) error {
+	if option.Config.EnableSessionAffinity {
+		if !probesManager.GetMapTypes().HaveLruHashMapType {
+			msg := "SessionAffinity feature requires BPF LRU maps"
+			if strict {
+				return fmt.Errorf(msg)
+			} else {
+				log.Warnf("%s. Disabling the feature.", msg)
+				option.Config.EnableSessionAffinity = false
+			}
+		}
+	}
+	return nil
 }

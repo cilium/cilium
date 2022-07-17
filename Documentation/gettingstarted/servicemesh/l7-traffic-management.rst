@@ -41,14 +41,28 @@ Only the extensions that have not been commented out with ``#`` are
 built in to the Cilium Envoy image. Currently this contains the
 following extensions:
 
+- ``envoy.clusters.dynamic_forward_proxy``
+- ``envoy.filters.http.dynamic_forward_proxy``
+- ``envoy.filters.http.ext_authz``
+- ``envoy.filters.http.local_ratelimit``
+- ``envoy.filters.http.ratelimit``
 - ``envoy.filters.http.router``
+- ``envoy.filters.http.set_metadata``
 - ``envoy.filters.listener.tls_inspector``
+- ``envoy.filters.network.connection_limit``
+- ``envoy.filters.network.ext_authz``
 - ``envoy.filters.network.http_connection_manager``
+- ``envoy.filters.network.local_ratelimit``
 - ``envoy.filters.network.mongo_proxy``
 - ``envoy.filters.network.mysql_proxy``
+- ``envoy.filters.network.ratelimit``
 - ``envoy.filters.network.tcp_proxy``
+- ``envoy.filters.network.sni_cluster``
+- ``envoy.filters.network.sni_dynamic_forward_proxy``
 - ``envoy.stat_sinks.metrics_service``
 - ``envoy.transport_sockets.raw_buffer``
+- ``envoy.upstreams.http.http``
+- ``envoy.upstreams.http.tcp``
 
 We will evolve the list of built-in extensions based on user
 feedback.

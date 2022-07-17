@@ -22,6 +22,12 @@ import (
 // swagger:model DaemonConfigurationStatus
 type DaemonConfigurationStatus struct {
 
+	// Maximum GRO size on workload facing devices
+	GROMaxSize int64 `json:"GROMaxSize,omitempty"`
+
+	// Maximum GSO size on workload facing devices
+	GSOMaxSize int64 `json:"GSOMaxSize,omitempty"`
+
 	// addressing
 	Addressing *NodeAddressing `json:"addressing,omitempty"`
 

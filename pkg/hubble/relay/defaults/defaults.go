@@ -41,6 +41,6 @@ const (
 
 var (
 	// ListenAddress is the address on which the Hubble Relay server listens
-	// for incoming requests.
+	// for incoming gRPC requests.
 	ListenAddress = fmt.Sprintf(":%d", hubbledefaults.RelayPort)
 )

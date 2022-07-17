@@ -121,6 +121,13 @@ tolerations:
 # -- The priority class to use for cilium-agent.
 priorityClassName: ""
 
+# -- DNS policy for Cilium agent pods.
+# Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+dnsPolicy: ""
+
+# -- Additional containers added to the cilium DaemonSet.
+extraContainers: []
+
 # -- Additional agent container arguments.
 extraArgs: []
 
@@ -245,10 +252,10 @@ bgp:
     # -- Enable announcement of node pod CIDR
     podCIDR: false
 
-# -- This feature set enables virtual BGP routers to be created via 
+# -- This feature set enables virtual BGP routers to be created via
 # CiliumBGPPeeringPolicy CRDs.
 bgpControlPlane:
-  # -- Enables the BGP control plane. 
+  # -- Enables the BGP control plane.
   enabled: false
 
 bpf:
@@ -327,7 +334,7 @@ bpf:
 
   # -- Configure explicitly allowed VLAN id's for bpf logic bypass.
   # [0] will allow all VLAN id's without any filtering.
-  # vlan-bpf-bypass: []
+  # vlanBypass: []
 
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
 # DaemonSet.
@@ -340,6 +347,12 @@ cleanBpfState: false
 #
 # WARNING: Use with care!
 cleanState: false
+
+# -- Wait for KUBE-PROXY-CANARY iptables rule to appear in "wait-for-kube-proxy"
+# init container before launching cilium-agent.
+# More context can be found in the commit message of below PR
+# https://github.com/cilium/cilium/pull/20123
+waitForKubeProxy: false
 
 cni:
   # -- Install the CNI configuration and binary files into the filesystem.
@@ -610,13 +623,10 @@ hostPort:
   # -- Enable hostPort service support.
   enabled: false
 
-# -- Configure ClusterIP service handling in the host namespace (the node).
-hostServices:
-  # -- Enable host reachable services.
+# -- Configure socket LB
+socketLB:
+  # -- Enable socket LB
   enabled: false
-
-  # -- Supported list of protocols to apply ClusterIP translation to.
-  protocols: tcp,udp
 
   # -- Disable socket lb for non-root ns. This is used to enable Istio routing rules.
   # hostNamespaceOnly: false
@@ -802,6 +812,12 @@ hubble:
             matchLabels:
               k8s-app: cilium
 
+    # -- Pod topology spread constraints for hubble-relay
+    topologySpreadConstraints: []
+      # - maxSkew: 1
+      #   topologyKey: topology.kubernetes.io/zone
+      #   whenUnsatisfiable: DoNotSchedule
+
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
     nodeSelector:
@@ -849,7 +865,7 @@ hubble:
 
     # -- hubble-relay service configuration.
     service:
-      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort. 
+      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31234
@@ -900,6 +916,25 @@ hubble:
     # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
     # port 80 if not.
     # servicePort: 80
+
+    # -- Enable prometheus metrics for hubble-relay on the configured port at
+    # /metrics
+    prometheus:
+      enabled: false
+      port: 9966
+      serviceMonitor:
+        # -- Enable service monitors.
+        # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+        enabled: false
+        # -- Labels to add to ServiceMonitor hubble-relay
+        labels: {}
+        # -- Annotations to add to ServiceMonitor hubble-relay
+        annotations: {}
+        # -- Interval for scrape metrics.
+        interval: "10s"
+        # -- Specify the Kubernetes namespace where Prometheus expects to find
+        # service monitors configured.
+        # namespace: ""
 
   ui:
     # -- Whether to enable the Hubble UI.
@@ -1004,6 +1039,12 @@ hubble:
     # -- Affinity for hubble-ui
     affinity: {}
 
+    # -- Pod topology spread constraints for hubble-ui
+    topologySpreadConstraints: []
+      # - maxSkew: 1
+      #   topologyKey: topology.kubernetes.io/zone
+      #   whenUnsatisfiable: DoNotSchedule
+
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
     nodeSelector:
@@ -1034,7 +1075,7 @@ hubble:
 
     # -- hubble-ui service configuration.
     service:
-      # --- The type of service used for Hubble UI access, either ClusterIP or NodePort. 
+      # --- The type of service used for Hubble UI access, either ClusterIP or NodePort.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31235
@@ -1155,7 +1196,7 @@ readinessProbe:
   periodSeconds: 30
 
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
-# Valid options are "disabled", "probe", "partial", "strict".
+# Valid options are "disabled", "partial", "strict".
 # ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
 #kubeProxyReplacement: "disabled"
 
@@ -1199,6 +1240,9 @@ maglev: {}
 
 # -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
 enableIPv4Masquerade: true
+
+# -- Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
+enableIPv6BIGTCP: false
 
 # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
 enableIPv6Masquerade: true
@@ -1440,6 +1484,12 @@ etcd:
     #   value: "value"
     #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
+  # -- Pod topology spread constraints for cilium-etcd-operator
+  topologySpreadConstraints: []
+    # - maxSkew: 1
+    #   topologyKey: topology.kubernetes.io/zone
+    #   whenUnsatisfiable: DoNotSchedule
+
   # -- Node labels for cilium-etcd-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
   nodeSelector:
@@ -1529,6 +1579,10 @@ operator:
   # -- The priority class to use for cilium-operator
   priorityClassName: ""
 
+  # -- DNS policy for Cilium operator pods.
+  # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+  dnsPolicy: ""
+
   # -- cilium-operator update strategy
   updateStrategy:
     type: RollingUpdate
@@ -1544,6 +1598,12 @@ operator:
         labelSelector:
           matchLabels:
             io.cilium/app: operator
+
+  # -- Pod topology spread constraints for cilium-operator
+  topologySpreadConstraints: []
+    # - maxSkew: 1
+    #   topologyKey: topology.kubernetes.io/zone
+    #   whenUnsatisfiable: DoNotSchedule
 
   # -- Node labels for cilium-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1953,6 +2013,12 @@ clustermesh:
           labelSelector:
             matchLabels:
               k8s-app: clustermesh-apiserver
+
+    # -- Pod topology spread constraints for clustermesh-apiserver
+    topologySpreadConstraints: []
+      # - maxSkew: 1
+      #   topologyKey: topology.kubernetes.io/zone
+      #   whenUnsatisfiable: DoNotSchedule
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/

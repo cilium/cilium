@@ -381,6 +381,14 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 	}
 
+	if sr.IPV6BigTCP != nil {
+		status := "Enabled"
+		if !sr.IPV6BigTCP.Enabled {
+			status = "Disabled"
+		}
+		fmt.Fprintf(w, "IPv6 BIG TCP:\t%s\n", status)
+	}
+
 	if sr.BandwidthManager != nil {
 		var status string
 		if !sr.BandwidthManager.Enabled {
@@ -581,6 +589,11 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			eIP = "Enabled"
 		}
 
+		socketLB := "Disabled"
+		if slb := sr.KubeProxyReplacement.Features.SocketLB; slb.Enabled {
+			socketLB = "Enabled"
+		}
+
 		protocols := ""
 		if hs := sr.KubeProxyReplacement.Features.HostReachableServices; hs.Enabled {
 			protocols = strings.Join(hs.Protocols, ", ")
@@ -599,6 +612,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "KubeProxyReplacement Details:\n")
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
+		fmt.Fprintf(tab, "  Socket LB:\t%s\n", socketLB)
 		if protocols != "" {
 			fmt.Fprintf(tab, "  Socket LB Protocols:\t%s\n", protocols)
 		}

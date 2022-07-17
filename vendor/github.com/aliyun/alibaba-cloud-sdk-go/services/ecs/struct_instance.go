@@ -81,7 +81,6 @@ type Instance struct {
 	SpotStrategy                    string                               `json:"SpotStrategy" xml:"SpotStrategy"`
 	SpotDuration                    int                                  `json:"SpotDuration" xml:"SpotDuration"`
 	DeletionProtection              bool                                 `json:"DeletionProtection" xml:"DeletionProtection"`
-	SpotInterruptionBehavior        string                               `json:"SpotInterruptionBehavior" xml:"SpotInterruptionBehavior"`
 	SecurityGroupIds                SecurityGroupIdsInDescribeInstances  `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	InnerIpAddress                  InnerIpAddressInDescribeInstances    `json:"InnerIpAddress" xml:"InnerIpAddress"`
 	PublicIpAddress                 PublicIpAddressInDescribeInstances   `json:"PublicIpAddress" xml:"PublicIpAddress"`

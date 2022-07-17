@@ -188,6 +188,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 					bool is_tcp, union tcp_flags seen_flags,
 					__u32 *monitor)
 {
+	bool syn = seen_flags.value & TCP_FLAG_SYN;
 	struct ct_entry *entry;
 	int reopen;
 
@@ -197,8 +198,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 	if (entry) {
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 #ifdef HAVE_LARGE_INSN_LIMIT
-		if (dir == CT_SERVICE &&
-		    (seen_flags.value & TCP_FLAG_SYN) &&
+		if (dir == CT_SERVICE && syn &&
 		    ct_entry_closing(entry) &&
 		    ct_entry_expired_rebalance(entry))
 			goto ct_new;
@@ -213,8 +213,10 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			ct_state->dsr = entry->dsr;
 			ct_state->proxy_redirect = entry->proxy_redirect;
 			ct_state->from_l7lb = entry->from_l7lb;
-			if (dir == CT_SERVICE)
+			if (dir == CT_SERVICE) {
 				ct_state->backend_id = entry->backend_id;
+				ct_state->syn = syn;
+			}
 		}
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */

@@ -31,13 +31,13 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		if !params.Config.UpdateServices {
 			return api.Error(PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
 		}
-		backends := []loadbalancer.Backend{}
+		backends := []*loadbalancer.Backend{}
 		for _, v := range params.Config.BackendAddresses {
 			b, err := loadbalancer.NewBackendFromBackendModel(v)
 			if err != nil {
 				return api.Error(PutServiceIDInvalidBackendCode, err)
 			}
-			backends = append(backends, *b)
+			backends = append(backends, b)
 		}
 		if err := h.svc.UpdateBackendsState(backends); err != nil {
 			return api.Error(PutServiceIDUpdateBackendFailureCode, err)
@@ -54,13 +54,13 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		L3n4Addr: *f,
 		ID:       loadbalancer.ID(params.Config.ID),
 	}
-	backends := []loadbalancer.Backend{}
+	backends := []*loadbalancer.Backend{}
 	for _, v := range params.Config.BackendAddresses {
 		b, err := loadbalancer.NewBackendFromBackendModel(v)
 		if err != nil {
 			return api.Error(PutServiceIDInvalidBackendCode, err)
 		}
-		backends = append(backends, *b)
+		backends = append(backends, b)
 	}
 
 	var svcType loadbalancer.SVCType

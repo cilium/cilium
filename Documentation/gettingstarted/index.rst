@@ -69,14 +69,13 @@ Advanced Networking
    kube-router
    bird
    encryption
-   host-services
    kubeproxy-free
    bandwidth-manager
    kata
    ipam
    local-redirect-policy
    bgp
-   bgp-control-plane 
+   bgp-control-plane
    egress-gateway
    ciliumendpointslice
    vtep
@@ -89,6 +88,7 @@ Cluster Mesh
    :glob:
 
    clustermesh/clustermesh
+   clustermesh/aks-clustermesh-prep
    clustermesh/services
    clustermesh/affinity
    clustermesh/policy

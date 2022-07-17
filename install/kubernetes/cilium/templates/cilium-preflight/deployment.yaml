@@ -4,6 +4,9 @@ kind: Deployment
 metadata:
   name: cilium-pre-flight-check
   namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-pre-flight-check
 spec:
   selector:
     matchLabels:
@@ -16,8 +19,10 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
+        app.kubernetes.io/part-of: cilium
         k8s-app: cilium-pre-flight-check-deployment
         kubernetes.io/cluster-service: "true"
+        app.kubernetes.io/name: cilium-pre-flight-check
         {{- with .Values.preflight.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

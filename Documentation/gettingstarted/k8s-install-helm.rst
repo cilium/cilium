@@ -240,7 +240,8 @@ Install Cilium
        .. parsed-literal::
 
           helm install cilium |CHART_RELEASE| \\
-             --namespace $CILIUM_NAMESPACE
+             --namespace $CILIUM_NAMESPACE \\
+             --set operator.replicas=1
 
     .. group-tab:: Rancher Desktop
 
@@ -257,7 +258,7 @@ Install Cilium
 
           helm install cilium |CHART_RELEASE| \\
              --namespace $CILIUM_NAMESPACE \\
-             --operator.replicas=1 \\
+             --set operator.replicas=1 \\
              --set cni.binPath=/usr/libexec/cni
 
 .. include:: k8s-install-restart-pods.rst

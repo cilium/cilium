@@ -22,6 +22,9 @@ import (
 // an AuthFailure error if the address is already allocated to another Amazon Web
 // Services account. [EC2-VPC] After you release an Elastic IP address for use in a
 // VPC, you might be able to recover it. For more information, see AllocateAddress.
+// For more information, see Elastic IP Addresses
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) ReleaseAddress(ctx context.Context, params *ReleaseAddressInput, optFns ...func(*Options)) (*ReleaseAddressOutput, error) {
 	if params == nil {
 		params = &ReleaseAddressInput{}

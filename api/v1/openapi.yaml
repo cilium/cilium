@@ -1760,6 +1760,9 @@ definitions:
       identity-range:
         description: Status of identity range of the cluster
         "$ref": "#/definitions/IdentityRange"
+      ipv6-big-tcp:
+        description: Status of IPv6 BIG TCP
+        "$ref": "#/definitions/IPV6BigTCP"
       bandwidth-manager:
         description: Status of bandwidth manager
         "$ref": "#/definitions/BandwidthManager"
@@ -2013,6 +2016,15 @@ definitions:
                 type: array
                 items:
                   type: string
+          socketLB:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
+            type: object
+            properties:
+              enabled:
+                type: boolean
           sessionAffinity:
             description: |-
 
@@ -2258,6 +2270,12 @@ definitions:
         description: Config map which contains all the active daemon configurations
         additionalProperties:
           type: object
+      GSOMaxSize:
+        description: Maximum GSO size on workload facing devices
+        type: integer
+      GROMaxSize:
+        description: Maximum GRO size on workload facing devices
+        type: integer
   DatapathMode:
     description: Datapath mode
     type: string
@@ -2821,6 +2839,16 @@ definitions:
       forwarded:
         description: Number of messages forwarded
         type: integer
+  IPV6BigTCP:
+    description: |-
+      Status of IPv6 BIG TCP
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      enabled:
+        description: Is IPv6 BIG TCP enabled
+        type: boolean
   BandwidthManager:
     description: |-
       Status of bandwidth manager

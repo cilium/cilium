@@ -31,10 +31,10 @@ var (
 	allList  bool
 )
 
-// bpfPolicyListCmd represents the bpf_policy_list command
-var bpfPolicyListCmd = &cobra.Command{
+// bpfPolicyGetCmd represents the bpf_policy_get command
+var bpfPolicyGetCmd = &cobra.Command{
 	Use:   "get",
-	Short: "List contents of a policy BPF map",
+	Short: "Get contents of a policy BPF map",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy get")
 		if allList {
@@ -47,10 +47,10 @@ var bpfPolicyListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfPolicyCmd.AddCommand(bpfPolicyListCmd)
-	bpfPolicyListCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
-	bpfPolicyListCmd.Flags().BoolVarP(&allList, "all", "", false, "Dump all policy maps")
-	command.AddOutputOption(bpfPolicyListCmd)
+	bpfPolicyCmd.AddCommand(bpfPolicyGetCmd)
+	bpfPolicyGetCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
+	bpfPolicyGetCmd.Flags().BoolVarP(&allList, "all", "", false, "Dump all policy maps")
+	command.AddOutputOption(bpfPolicyGetCmd)
 }
 
 func listAllMaps() {

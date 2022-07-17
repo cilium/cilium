@@ -4,10 +4,10 @@ metadata:
   name: envoy-lb-listener
 spec:
   services:
-    - name: echo-other-node
-      namespace: cilium-test
-    - name: echo-same-node
-      namespace: cilium-test
+    - name: echo-service-1
+      namespace: default
+    - name: echo-service-2
+      namespace: default
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       name: envoy-lb-listener
@@ -32,9 +32,9 @@ spec:
               route:
                 weighted_clusters:
                   clusters:
-                    - name: "cilium-test/echo-same-node"
+                    - name: "default/echo-service-1"
                       weight: 50
-                    - name: "cilium-test/echo-other-node"
+                    - name: "default/echo-service-2"
                       weight: 50
                 retry_policy:
                   retry_on: 5xx
@@ -46,7 +46,7 @@ spec:
                     regex: "^/foo.*$"
                   substitution: "/"
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
-      name: "cilium-test/echo-same-node"
+      name: "default/echo-service-1"
       connect_timeout: 5s
       lb_policy: ROUND_ROBIN
       type: EDS
@@ -54,7 +54,7 @@ spec:
         split_external_local_origin_errors: true
         consecutive_local_origin_failure: 2
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
-      name: "cilium-test/echo-other-node"
+      name: "default/echo-service-2"
       connect_timeout: 3s
       lb_policy: ROUND_ROBIN
       type: EDS

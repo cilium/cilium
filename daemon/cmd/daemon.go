@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -195,6 +196,9 @@ type Daemon struct {
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
+
+	// BIG-TCP config values
+	bigTCPConfig bigtcp.Configuration
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -307,7 +311,7 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 	}
 
 	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
-	if err := removeOldRouterState(restoredIP); err != nil {
+	if err := removeOldRouterState(ipv6, restoredIP); err != nil {
 		log.WithError(err).Warnf(
 			"Failed to remove old router IPs (restored IP: %s) from cilium_host. Manual intervention is required to remove all other old IPs.",
 			restoredIP,
@@ -318,27 +322,33 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 // removeOldRouterState will try to ensure that the only IP assigned to the
 // `cilium_host` interface is the given restored IP. If the given IP is nil,
 // then it attempts to clear all IPs from the interface.
-func removeOldRouterState(restoredIP net.IP) error {
+func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	l, err := netlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return err
 	}
 
-	family := netlink.FAMILY_V6
-	if restoredIP.To4() != nil {
-		family = netlink.FAMILY_V4
+	family := netlink.FAMILY_V4
+	if ipv6 {
+		family = netlink.FAMILY_V6
 	}
 	addrs, err := netlink.AddrList(l, family)
 	if err != nil {
 		return err
 	}
-	if len(addrs) > 1 {
-		log.Info("More than one router IP was found on the cilium_host device after restoration, cleaning up old router IPs.")
+
+	isRestoredIP := func(a netlink.Addr) bool {
+		return restoredIP != nil && restoredIP.Equal(a.IP)
 	}
+	if len(addrs) == 0 || (len(addrs) == 1 && isRestoredIP(addrs[0])) {
+		return nil // nothing to clean up
+	}
+
+	log.Info("More than one stale router IP was found on the cilium_host device after restoration, cleaning up old router IPs.")
 
 	var errs []error
 	for _, a := range addrs {
-		if restoredIP != nil && restoredIP.Equal(a.IP) {
+		if isRestoredIP(a) {
 			continue
 		}
 		if err := netlink.AddrDel(l, &a); err != nil {
@@ -464,7 +474,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	mtuConfig = mtu.NewConfiguration(
 		authKeySize,
 		option.Config.EnableIPSec,
-		option.Config.TunnelingEnabled(),
+		option.Config.TunnelExists(),
 		option.Config.EnableWireguard,
 		configuredMTU,
 		externalIP,
@@ -992,6 +1002,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		log.WithError(err).Errorf(msg, option.Devices)
 		return nil, nil, fmt.Errorf(msg, option.Devices)
 	}
+
+	bigtcp.InitBIGTCP(&d.bigTCPConfig)
 
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
