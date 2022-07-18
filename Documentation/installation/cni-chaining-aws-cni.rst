@@ -20,6 +20,13 @@ and provide encryption.
 
 .. include:: cni-chaining-limitations.rst
 
+.. admonition:: Video
+  :class: attention
+
+  If you require advanced features of Cilium, consider migrating fully to Cilium.
+  To help you with the process, you can watch two Principal Engineers at Meltwater talk about `how they migrated
+  Meltwater's production Kubernetes clusters - from the AWS VPC CNI plugin to Cilium <https://www.youtube.com/watch?v=w6S6baRHHu8&list=PLDg_GiBbAx-kDXqDYimwytMLh2kAHyMPd&t=182s>`__.
+
 .. important::
 
    Please ensure that you are running version `1.11.2 <https://github.com/aws/amazon-vpc-cni-k8s/releases/tag/v1.11.2>`_
