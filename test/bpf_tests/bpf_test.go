@@ -19,6 +19,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/coverbee"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/dylandreimerink/gocovmerge"
 	"github.com/golang/protobuf/proto"
 	"github.com/vishvananda/netlink/nl"
@@ -44,6 +46,8 @@ var (
 	testCoverageReport     = flag.String("coverage-report", "", "Specify a path for the coverage report")
 	testInstrumentationLog = flag.String("instrumentation-log", "", "Path to a log file containing details about"+
 		" code coverage instrumentation, needed if code coverage breaks the verifier")
+
+	dumpCtx = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
 )
 
 func TestBPF(t *testing.T) {
@@ -203,8 +207,16 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 		}()
 	}
 
-	for name, progs := range testNameToPrograms {
-		t.Run(name, subTest(progs, coll.Maps[suiteResultMap]))
+	// Make sure sub-tests are executed in alphabetic order, to make test results repeatable if programs rely on
+	// the order of execution.
+	testNames := make([]string, 0, len(testNameToPrograms))
+	for name := range testNameToPrograms {
+		testNames = append(testNames, name)
+	}
+	sort.Strings(testNames)
+
+	for _, name := range testNames {
+		t.Run(name, subTest(testNameToPrograms[name], coll.Maps[suiteResultMap]))
 	}
 
 	if globalLogReader != nil {
@@ -337,15 +349,29 @@ func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
 				t.Fatalf("error while running setup prog: %s", err)
 			}
 
+			if *dumpCtx {
+				t.Log("Setup returned status: ")
+				t.Log(statusCode)
+				t.Log("Ctx after setup: ")
+				t.Log(spew.Sdump(result))
+			}
+
 			ctx = make([]byte, len(result)+4)
 			nl.NativeEndian().PutUint32(ctx, statusCode)
 			copy(ctx[4:], result)
 		}
 
 		// Run test, input a
-		statusCode, _, err := progSet.checkProg.Test(ctx)
+		statusCode, ctxOut, err := progSet.checkProg.Test(ctx)
 		if err != nil {
 			t.Fatal("error while running check program:", err)
+		}
+
+		if *dumpCtx {
+			t.Log("Check returned status: ")
+			t.Log(statusCode)
+			t.Log("Ctx after check: ")
+			t.Log(spew.Sdump(ctxOut))
 		}
 
 		// Clear map value after each test

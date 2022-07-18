@@ -7,9 +7,16 @@
  */
 #include "lib/utils.h"
 
+#ifndef ___EP_CONFIG____
+#define ___EP_CONFIG____
+
 DEFINE_IPV6(LXC_IP, 0xbe, 0xef, 0, 0, 0, 0, 0, 0x1, 0, 0, 0, 0x1, 0x01, 0x65, 0x82, 0xbc);
+
+#ifndef LXC_IPV4
 DEFINE_U32(LXC_IPV4, 0x10203040);
 #define LXC_IPV4 fetch_u32(LXC_IPV4)
+#endif /* LXC_IPV4 */
+
 /*
  * Both the LXC_ID and the HOST_EP_ID are defined here to ease compile testing,
  * but in the actual header files, only one of them will be present.
@@ -44,3 +51,5 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK_ACCOUNTING
 #define DIRECT_ROUTING_DEV_IFINDEX 0
+
+#endif
