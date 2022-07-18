@@ -45,10 +45,7 @@ position p;
       when != WRITE_ONCE(x->z, ...)
       when != WRITE_ONCE(x->z[...], ...)
       when != f(..., x, ...)
-      // Special case for a few fields that are arrays in several structures.
-      when != f(..., x->addr, ...)
-      when != f(..., x->smac, ...)
-      when != f(..., x->dmac, ...)
+      when != f(..., x->z, ...)
   }
 )
 
