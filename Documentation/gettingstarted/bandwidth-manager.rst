@@ -248,3 +248,8 @@ Limitations
     * Bandwidth enforcement doesn't work with nested network namespace environments like Kind. This is because
       they typically don't have access to the global sysctl under ``/proc/sys/net/core`` and the
       bandwidth enforcement depends on them.
+
+.. admonition:: Video
+  :class: attention
+
+  For more insights on Cilium's bandwidth manager, check out this `KubeCon talk on Better Bandwidth Management with eBPF <https://www.youtube.com/watch?v=QTSS6ktK8hY>`__.
