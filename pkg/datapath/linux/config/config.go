@@ -905,8 +905,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
 	}
 
-	fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
-
 	if e.ConntrackLocalLocked() {
 		ctmap.WriteBPFMacros(fw, e)
 	} else {

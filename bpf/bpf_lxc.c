@@ -157,7 +157,7 @@ int NAME(struct __ctx_buff *ctx)						\
 static __always_inline bool
 redirect_to_proxy(int verdict, enum ct_status status)
 {
-	return is_defined(ENABLE_HOST_REDIRECT) && verdict > 0 &&
+	return verdict > 0 &&
 	       (status == CT_NEW || status == CT_ESTABLISHED ||  status == CT_REOPENED);
 }
 #endif

@@ -985,16 +985,11 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 				       int ifindex __maybe_unused,
 				       bool needs_backlog __maybe_unused)
 {
-	/* If our datapath has proper redirect support, we make use
-	 * of it here, otherwise we terminate tc processing by letting
-	 * stack handle forwarding.
-	 *
-	 * Going via CPU backlog queue (aka needs_backlog) is required
+	/* Going via CPU backlog queue (aka needs_backlog) is required
 	 * whenever we cannot do a fast ingress -> ingress switch but
 	 * instead need an ingress -> egress netns traversal or vice
 	 * versa.
 	 */
-#ifdef ENABLE_HOST_REDIRECT
 	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING)) {
 		return ctx_redirect(ctx, ifindex, 0);
 	} else {
@@ -1006,9 +1001,6 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 # endif /* ENCAP_IFINDEX */
 		return ctx_redirect_peer(ctx, ifindex, 0);
 	}
-#else
-	return CTX_ACT_OK;
-#endif /* ENABLE_HOST_REDIRECT */
 }
 
 struct lpm_v4_key {
