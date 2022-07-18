@@ -50,7 +50,6 @@ func NewTestHostEndpoint() TestEndpoint {
 	}
 }
 
-func (e *TestEndpoint) HasIpvlanDataPath() bool                     { return false }
 func (e *TestEndpoint) ConntrackLocalLocked() bool                  { return false }
 func (e *TestEndpoint) RequireARPPassthrough() bool                 { return false }
 func (e *TestEndpoint) RequireEgressProg() bool                     { return false }
@@ -90,8 +89,4 @@ func (e *TestEndpoint) SetIdentity(secID int64, newEndpoint bool) {
 
 func (e *TestEndpoint) StateDir() string {
 	return "test_loader"
-}
-
-func (e *TestEndpoint) MapPath() string {
-	return "map_path"
 }
