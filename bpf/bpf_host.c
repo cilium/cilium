@@ -443,14 +443,8 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 				 * the host. So we can ignore the ipcache if it
 				 * reports the source as HOST_ID.
 				 */
-#ifndef ENABLE_EXTRA_HOST_DEV
 				if (*sec_label != HOST_ID)
 					srcid_from_ipcache = *sec_label;
-#else
-				if ((*sec_label != HOST_ID &&
-				     !from_host) || from_host)
-					srcid_from_ipcache = *sec_label;
-#endif /* ENABLE_EXTRA_HOST_DEV */
 			}
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
