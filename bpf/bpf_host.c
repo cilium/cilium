@@ -1054,7 +1054,7 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 static __always_inline int
 handle_srv6(struct __ctx_buff *ctx)
 {
-	__u32 *vrf_id, dst_id, tunnel_ep = 0;
+	__u32 *vrf_id, dst_id;
 	struct srv6_ipv6_2tuple *outer_ips;
 	struct iphdr *ip4 __maybe_unused;
 	struct remote_endpoint_info *ep;
@@ -1079,7 +1079,6 @@ handle_srv6(struct __ctx_buff *ctx)
 
 		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr);
 		if (ep) {
-			tunnel_ep = ep->tunnel_endpoint;
 			dst_id = ep->sec_label;
 		} else {
 			dst_id = WORLD_ID;
@@ -1113,7 +1112,6 @@ handle_srv6(struct __ctx_buff *ctx)
 
 		ep = lookup_ip4_remote_endpoint(ip4->daddr);
 		if (ep) {
-			tunnel_ep = ep->tunnel_endpoint;
 			dst_id = ep->sec_label;
 		} else {
 			dst_id = WORLD_ID;
