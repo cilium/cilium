@@ -1051,7 +1051,7 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 }
 
 #ifdef ENABLE_SRV6
-static __always_inline
+static __always_inline int
 handle_srv6(struct __ctx_buff *ctx)
 {
 	__u32 *vrf_id, dst_id, tunnel_ep = 0;
