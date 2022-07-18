@@ -27,7 +27,6 @@ type epInfoCache struct {
 	epdir  string
 	id     uint64
 	ifName string
-	ipvlan bool
 
 	// For datapath.EndpointConfiguration
 	identity                               identity.NumericIdentity
@@ -65,7 +64,6 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		epdir:                  epdir,
 		id:                     e.GetID(),
 		ifName:                 e.ifName,
-		ipvlan:                 e.HasIpvlanDataPath(),
 		identity:               e.getIdentity(),
 		mac:                    e.GetNodeMAC(),
 		ipv4:                   e.IPv4Address(),
@@ -102,11 +100,6 @@ func (ep *epInfoCache) InterfaceName() string {
 	return ep.ifName
 }
 
-// MapPath returns tail call map path
-func (ep *epInfoCache) MapPath() string {
-	return ep.endpoint.BPFIpvlanMapPath()
-}
-
 // GetID returns the endpoint's ID.
 func (ep *epInfoCache) GetID() uint64 {
 	return ep.id
@@ -130,11 +123,6 @@ func (ep *epInfoCache) GetIdentityLocked() identity.NumericIdentity {
 // Logger returns the logger for the endpoint that is being cached.
 func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
 	return ep.endpoint.Logger(subsystem)
-}
-
-// HasIpvlanDataPath returns whether the endpoint's datapath is implemented via ipvlan.
-func (ep *epInfoCache) HasIpvlanDataPath() bool {
-	return ep.ipvlan
 }
 
 // IPv4Address returns the cached IPv4 address for the endpoint.

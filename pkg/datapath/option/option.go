@@ -9,9 +9,6 @@ const (
 	// attached to a network via veth pairs).
 	DatapathModeVeth = "veth"
 
-	// DatapathModeIpvlan specifies ipvlan datapath mode.
-	DatapathModeIpvlan = "ipvlan"
-
 	// DatapathModeLBOnly specifies lb-only datapath mode.
 	DatapathModeLBOnly = "lb-only"
 )

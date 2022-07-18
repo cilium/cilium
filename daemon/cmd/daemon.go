@@ -966,11 +966,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 	}
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
-		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-			log.WithError(err).Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
-			return nil, nil, fmt.Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
-		}
+		// TODO(brb) nodeport constraints will be lifted once the SNAT BPF code has been refactored
 		if err := node.InitBPFMasqueradeAddrs(option.Config.GetDevices()); err != nil {
 			log.WithError(err).Error("failed to determine BPF masquerade IPv4 addrs")
 			return nil, nil, fmt.Errorf("failed to determine BPF masquerade IPv4 addrs: %w", err)

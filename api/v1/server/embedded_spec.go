@@ -1990,9 +1990,6 @@ func init() {
           "description": "Configured IPAM mode",
           "type": "string"
         },
-        "ipvlanConfiguration": {
-          "$ref": "#/definitions/IpvlanConfiguration"
-        },
         "k8s-configuration": {
           "type": "string"
         },
@@ -2037,8 +2034,7 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth",
-        "ipvlan"
+        "veth"
       ]
     },
     "DebugInfo": {
@@ -2895,24 +2891,6 @@ func init() {
         "min-identity": {
           "description": "Minimum identity of the cluster",
           "type": "integer"
-        }
-      }
-    },
-    "IpvlanConfiguration": {
-      "description": "Setup for datapath when operating in ipvlan mode.",
-      "type": "object",
-      "properties": {
-        "masterDeviceIndex": {
-          "description": "Workload facing ipvlan master device ifindex.",
-          "type": "integer"
-        },
-        "operationMode": {
-          "description": "Mode in which ipvlan setup operates.",
-          "type": "string",
-          "enum": [
-            "L3",
-            "L3S"
-          ]
         }
       }
     },
@@ -6550,9 +6528,6 @@ func init() {
           "description": "Configured IPAM mode",
           "type": "string"
         },
-        "ipvlanConfiguration": {
-          "$ref": "#/definitions/IpvlanConfiguration"
-        },
         "k8s-configuration": {
           "type": "string"
         },
@@ -6611,8 +6586,7 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth",
-        "ipvlan"
+        "veth"
       ]
     },
     "DebugInfo": {
@@ -7517,24 +7491,6 @@ func init() {
         "min-identity": {
           "description": "Minimum identity of the cluster",
           "type": "integer"
-        }
-      }
-    },
-    "IpvlanConfiguration": {
-      "description": "Setup for datapath when operating in ipvlan mode.",
-      "type": "object",
-      "properties": {
-        "masterDeviceIndex": {
-          "description": "Workload facing ipvlan master device ifindex.",
-          "type": "integer"
-        },
-        "operationMode": {
-          "description": "Mode in which ipvlan setup operates.",
-          "type": "string",
-          "enum": [
-            "L3",
-            "L3S"
-          ]
         }
       }
     },

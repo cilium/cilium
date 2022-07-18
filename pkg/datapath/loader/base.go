@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -360,8 +359,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	case option.Config.Tunnel != option.TunnelDisabled:
 		mode = tunnelMode
 		args[initArgTunnelMode] = option.Config.Tunnel
-	case option.Config.DatapathMode == datapathOption.DatapathModeIpvlan:
-		mode = ipvlanMode
 	case option.Config.EnableHealthDatapath:
 		mode = option.DSRDispatchIPIP
 		sysSettings = append(sysSettings,

@@ -343,7 +343,6 @@ contributors across the globe, there is almost always someone available to help.
 | ipam.operator.clusterPoolIPv6PodCIDRList | list | `[]` | IPv6 CIDR list range to delegate to individual nodes for IPAM. |
 | ipv4.enabled | bool | `true` | Enable IPv4 support. |
 | ipv6.enabled | bool | `false` | Enable IPv6 support. |
-| ipvlan.enabled | bool | `false` | Enable the IPVLAN datapath (deprecated) |
 | k8s | object | `{}` | Configure Kubernetes specific configuration |
 | keepDeprecatedLabels | bool | `false` | Keep the deprecated selector labels when deploying Cilium DaemonSet. |
 | keepDeprecatedProbes | bool | `false` | Keep the deprecated probes when deploying Cilium DaemonSet |

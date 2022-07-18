@@ -87,9 +87,7 @@ redirect_self(const struct __sk_buff *ctx)
 {
 	/* Looping back the packet into the originating netns. In
 	 * case of veth, it's xmit'ing into the hosts' veth device
-	 * such that we end up on ingress in the peer. For ipvlan
-	 * slave it's redirect to ingress as we are attached on the
-	 * slave in netns already.
+	 * such that we end up on ingress in the peer.
 	 */
 #ifdef ENABLE_HOST_REDIRECT
 	return ctx_redirect(ctx, ctx->ifindex, 0);

@@ -399,14 +399,6 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		var veth *netlink.Veth
 		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), int(driver.conf.GROMaxSize), int(driver.conf.GSOMaxSize), endpoint)
 		defer removeLinkOnErr(veth)
-	case datapathOption.DatapathModeIpvlan:
-		var ipvlan *netlink.IPVlan
-		ipvlan, _, _, err = connector.CreateIpvlanSlave(
-			create.EndpointID, int(driver.conf.DeviceMTU),
-			int(driver.conf.IpvlanConfiguration.MasterDeviceIndex),
-			driver.conf.IpvlanConfiguration.OperationMode, endpoint,
-		)
-		defer removeLinkOnErr(ipvlan)
 	}
 	if err != nil {
 		sendError(w,
@@ -450,8 +442,6 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	switch driver.conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
 		ifName = connector.Endpoint2IfName(del.EndpointID)
-	case datapathOption.DatapathModeIpvlan:
-		ifName = connector.Endpoint2TempIfName(del.EndpointID)
 	}
 
 	if err := link.DeleteByName(ifName); err != nil {

@@ -12,5 +12,4 @@ type Endpoint interface {
 	InterfaceName() string
 	Logger(subsystem string) *logrus.Entry
 	StateDir() string
-	MapPath() string
 }

@@ -203,11 +203,6 @@ func CleanupEndpoint() {
 				scopedLog.WithError(err).Debug("Didn't find existing device")
 			}
 		}
-	case datapathOption.DatapathModeIpvlan:
-		if err := netns.RemoveIfFromNetNSWithNameIfBothExist(netNSName, epIfaceName); err != nil {
-			log.WithError(err).WithField(logfields.Ipvlan, epIfaceName).
-				Info("Couldn't delete cilium-health ipvlan slave device")
-		}
 	}
 
 	if err := netns.RemoveNetNSWithName(netNSName); err != nil {
@@ -282,20 +277,6 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		if err = netlink.LinkSetNsFd(epLink, int(netNS.Fd())); err != nil {
 			return nil, fmt.Errorf("failed to move device %q to health namespace: %s", epIfaceName, err)
 		}
-
-	case datapathOption.DatapathModeIpvlan:
-		m, err := connector.CreateAndSetupIpvlanSlave("",
-			epIfaceName, netNS, mtuConfig.GetDeviceMTU(),
-			option.Config.Ipvlan.MasterDeviceIndex,
-			option.Config.Ipvlan.OperationMode, info)
-		if err != nil {
-			if errDel := netns.RemoveNetNSWithName(netNSName); errDel != nil {
-				log.WithError(errDel).WithField(logfields.NetNSName, netNSName).
-					Warning("Unable to remove network namespace")
-			}
-			return nil, err
-		}
-		defer m.Close()
 	}
 
 	if err = configureHealthInterface(netNS, epIfaceName, ip4Address, ip6Address); err != nil {
@@ -350,10 +331,6 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	if err := epMgr.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
 		return nil, fmt.Errorf("Error while adding endpoint: %s", err)
-	}
-
-	if err := ep.PinDatapathMap(); err != nil {
-		return nil, err
 	}
 
 	// Give the endpoint a security identity
