@@ -12,7 +12,7 @@ MODE=${7}
 TUNNEL_MODE=${8}
 # Only set if TUNNEL_MODE = "vxlan", "geneve"
 TUNNEL_PORT=${9}
-# Only set if MODE = "direct", "ipvlan"
+# Only set if MODE = "direct"
 NATIVE_DEVS=${10}
 HOST_DEV1=${11}
 HOST_DEV2=${12}
@@ -110,10 +110,6 @@ function move_local_rules()
 
 function setup_proxy_rules()
 {
-	if [ "$MODE" = "ipvlan" ]; then
-		return
-	fi
-
 	# Any packet from an ingress proxy uses a separate routing table that routes
 	# the packet back to the cilium host device.
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
@@ -457,7 +453,7 @@ else
 	ip link del cilium_geneve 2> /dev/null || true
 fi
 
-if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$NODE_PORT" = "true" ] ; then
+if [ "$MODE" = "direct" ] || [ "$NODE_PORT" = "true" ] ; then
 	if [ "$NATIVE_DEVS" == "<nil>" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else

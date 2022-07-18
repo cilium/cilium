@@ -19,7 +19,6 @@ import (
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -27,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bandwidth"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -98,9 +96,6 @@ const (
 	// StateInvalid is used when an endpoint failed during creation due to
 	// invalid data.
 	StateInvalid = State(models.EndpointStateInvalid)
-
-	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
-	IpvlanMapName = "cilium_lxc_ipve_"
 )
 
 // compile time interface check
@@ -144,9 +139,6 @@ type Endpoint struct {
 	// dockerEndpointID is the Docker network endpoint ID if managed by
 	// libnetwork
 	dockerEndpointID string
-
-	// Corresponding BPF map identifier for tail call map of ipvlan datapath
-	datapathMapID int
 
 	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
@@ -413,14 +405,6 @@ func (e *Endpoint) bpfProgramInstalled() bool {
 	}
 }
 
-// HasIpvlanDataPath returns whether the daemon is running in ipvlan mode.
-func (e *Endpoint) HasIpvlanDataPath() bool {
-	if e.datapathMapID > 0 {
-		return true
-	}
-	return false
-}
-
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held.
 func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
@@ -561,9 +545,6 @@ func (e *Endpoint) GetID16() uint16 {
 // In some datapath modes, it may return an empty string as there is no unique
 // host netns network interface for this endpoint.
 func (e *Endpoint) HostInterface() string {
-	if e.HasIpvlanDataPath() {
-		return ""
-	}
 	return e.ifName
 }
 
@@ -2116,32 +2097,6 @@ func (e *Endpoint) IPs() []net.IP {
 // endpoint.mutex must be held in read mode at least
 func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
-}
-
-// PinDatapathMap retrieves a file descriptor from the map ID from the API call
-// and pins the corresponding map into the BPF file system.
-func (e *Endpoint) PinDatapathMap() error {
-	if err := e.lockAlive(); err != nil {
-		return err
-	}
-	defer e.unlock()
-	return e.pinDatapathMap()
-}
-
-// PinDatapathMap retrieves a file descriptor from the map ID from the API call
-// and pins the corresponding map into the BPF file system.
-func (e *Endpoint) pinDatapathMap() error {
-	if e.datapathMapID == 0 {
-		return nil
-	}
-
-	mapFd, err := bpf.MapFdFromID(e.datapathMapID)
-	if err != nil {
-		return err
-	}
-	defer unix.Close(mapFd)
-
-	return bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
 }
 
 func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
