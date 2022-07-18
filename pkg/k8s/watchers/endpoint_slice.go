@@ -162,6 +162,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 
 	// K8s is not running with endpoint slices enabled, stop the endpoint slice
 	// controller to avoid watching for unnecessary stuff in k8s.
+	k.cancelWaitGroupToSyncResources(apiGroup)
 	k.k8sAPIGroups.RemoveAPI(apiGroup)
 	close(ecr)
 	return false
