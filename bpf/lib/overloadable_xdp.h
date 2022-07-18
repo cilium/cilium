@@ -45,11 +45,7 @@ set_encrypt_key_meta(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused)
 static __always_inline __maybe_unused int
 redirect_self(struct xdp_md *ctx __maybe_unused)
 {
-#ifdef ENABLE_HOST_REDIRECT
 	return XDP_TX;
-#else
-	return -ENOTSUP;
-#endif
 }
 
 #define RECIRC_MARKER	5 /* tail call recirculation */
