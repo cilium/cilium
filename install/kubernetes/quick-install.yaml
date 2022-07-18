@@ -465,7 +465,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.9.18"
+        image: "quay.io/cilium/cilium:v1.9.18@sha256:725a6c6e11b5c30daa0731c8846a26a5b331a0e293eb29b45cf1202dcbad7bc2"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -527,7 +527,7 @@ spec:
           # same directory where we install cilium cni plugin so that exec permissions
           # are available.
           - 'cp /usr/bin/cilium-mount /hostbin/cilium-mount && nsenter --cgroup=/hostproc/1/ns/cgroup --mount=/hostproc/1/ns/mnt "${BIN_PATH}/cilium-mount" $CGROUP_ROOT; rm /hostbin/cilium-mount'
-        image: "quay.io/cilium/cilium:v1.9.18"
+        image: "quay.io/cilium/cilium:v1.9.18@sha256:725a6c6e11b5c30daa0731c8846a26a5b331a0e293eb29b45cf1202dcbad7bc2"
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - mountPath: /hostproc
@@ -557,7 +557,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.9.18"
+        image: "quay.io/cilium/cilium:v1.9.18@sha256:725a6c6e11b5c30daa0731c8846a26a5b331a0e293eb29b45cf1202dcbad7bc2"
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -719,7 +719,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/operator-generic:v1.9.18"
+        image: "quay.io/cilium/operator-generic:v1.9.18@sha256:d1cd7f32b74a35082f27cd64706d02550145cda083a295322bacf02be01daf0c"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
