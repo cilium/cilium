@@ -69,6 +69,7 @@ main() {
     old_proj=$(grep "projects" $ACTS_YAML | sed "$PROJECTS_REGEX")
     sed -i 's/\(projects\/\)[0-9]\+/\1'$new_proj'/g' $ACTS_YAML
 
+    $DIR/../../Documentation/check-crd-compat-table.sh "$branch"
     $DIR/prep-changelog.sh "$old_version" "$version"
 
     logecho "Next steps:"
