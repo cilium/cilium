@@ -193,12 +193,8 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		DeviceMTU:              int64(d.mtuConfig.GetDeviceMTU()),
 		RouteMTU:               int64(d.mtuConfig.GetRouteMTU()),
 		DatapathMode:           models.DatapathMode(option.Config.DatapathMode),
-		IpvlanConfiguration: &models.IpvlanConfiguration{
-			MasterDeviceIndex: int64(option.Config.Ipvlan.MasterDeviceIndex),
-			OperationMode:     option.Config.Ipvlan.OperationMode,
-		},
-		IpamMode:   option.Config.IPAM,
-		Masquerade: option.Config.MasqueradingEnabled(),
+		IpamMode:               option.Config.IPAM,
+		Masquerade:             option.Config.MasqueradingEnabled(),
 		MasqueradeProtocols: &models.DaemonConfigurationStatusMasqueradeProtocols{
 			IPV4: option.Config.EnableIPv4Masquerade,
 			IPV6: option.Config.EnableIPv6Masquerade,

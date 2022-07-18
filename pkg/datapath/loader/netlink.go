@@ -9,13 +9,11 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -24,7 +22,6 @@ import (
 type baseDeviceMode string
 
 const (
-	ipvlanMode = baseDeviceMode("ipvlan")
 	directMode = baseDeviceMode("direct")
 	tunnelMode = baseDeviceMode("tunnel")
 
@@ -125,34 +122,6 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirectio
 	return finalize, nil
 }
 
-// graftDatapath replaces obj in tail call map
-func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error {
-	if err := bpf.StartBPFFSMigration(bpf.MapPrefixPath(), objPath); err != nil {
-		return fmt.Errorf("Failed to start bpffs map migration: %w", err)
-	}
-
-	var revert bool
-	defer func() {
-		if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), objPath, revert); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{logfields.BPFMapPath: mapPath, "objPath": objPath}).
-				Error("Could not finalize bpffs map migration")
-		}
-	}()
-
-	// FIXME: replace exec with native call
-	// FIXME: only key 0 right now, could be made more flexible
-	args := []string{"exec", "bpf", "graft", mapPath, "key", "0",
-		"obj", objPath, "sec", progSec,
-	}
-	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
-	if _, err := cmd.CombinedOutput(log, true); err != nil {
-		revert = true
-		return fmt.Errorf("Failed to graft tc object: %s", err)
-	}
-
-	return nil
-}
-
 // RemoveTCFilters removes all tc filters from the given interface.
 // Direction is passed as netlink.HANDLE_MIN_{INGRESS,EGRESS} via tcDir.
 func RemoveTCFilters(ifName string, tcDir uint32) error {
@@ -247,78 +216,37 @@ func setupVethPair(name, peerName string) error {
 	return nil
 }
 
-func setupIpvlan(name string, nativeLink netlink.Link) (*netlink.IPVlan, error) {
-	hostLink, err := netlink.LinkByName(name)
-	if err == nil {
-		// Ignore the error.
-		netlink.LinkDel(hostLink)
-	}
-
-	ipvlan := &netlink.IPVlan{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:        name,
-			ParentIndex: nativeLink.Attrs().Index,
-			TxQLen:      1000,
-		},
-		Mode: netlink.IPVLAN_MODE_L3,
-	}
-	if err := netlink.LinkAdd(ipvlan); err != nil {
-		return nil, err
-	}
-
-	if err := setupDev(ipvlan); err != nil {
-		return nil, err
-	}
-
-	return ipvlan, nil
-}
-
 // setupBaseDevice decides which and what kind of interfaces should be set up as
 // the first step of datapath initialization, then performs the setup (and
 // creation, if needed) of those interfaces. It returns two links and an error.
 // By default, it sets up the veth pair - cilium_host and cilium_net.
-// In ipvlan mode, it creates the cilium_host ipvlan with the native device as a
-// parent.
 func setupBaseDevice(nativeDevs []netlink.Link, mode baseDeviceMode, mtu int) (netlink.Link, netlink.Link, error) {
-	switch mode {
-	case ipvlanMode:
-		ipvlan, err := setupIpvlan(defaults.HostDevice, nativeDevs[0])
-		if err != nil {
-			return nil, nil, err
-		}
-		if err := netlink.LinkSetMTU(ipvlan, mtu); err != nil {
-			return nil, nil, err
-		}
-
-		return ipvlan, ipvlan, nil
-	default:
-		if err := setupVethPair(defaults.HostDevice, defaults.SecondHostDevice); err != nil {
-			return nil, nil, err
-		}
-
-		linkHost, err := netlink.LinkByName(defaults.HostDevice)
-		if err != nil {
-			return nil, nil, err
-		}
-		linkNet, err := netlink.LinkByName(defaults.SecondHostDevice)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if err := netlink.LinkSetARPOff(linkHost); err != nil {
-			return nil, nil, err
-		}
-		if err := netlink.LinkSetARPOff(linkNet); err != nil {
-			return nil, nil, err
-		}
-
-		if err := netlink.LinkSetMTU(linkHost, mtu); err != nil {
-			return nil, nil, err
-		}
-		if err := netlink.LinkSetMTU(linkNet, mtu); err != nil {
-			return nil, nil, err
-		}
-
-		return linkHost, linkNet, nil
+	if err := setupVethPair(defaults.HostDevice, defaults.SecondHostDevice); err != nil {
+		return nil, nil, err
 	}
+
+	linkHost, err := netlink.LinkByName(defaults.HostDevice)
+	if err != nil {
+		return nil, nil, err
+	}
+	linkNet, err := netlink.LinkByName(defaults.SecondHostDevice)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := netlink.LinkSetARPOff(linkHost); err != nil {
+		return nil, nil, err
+	}
+	if err := netlink.LinkSetARPOff(linkNet); err != nil {
+		return nil, nil, err
+	}
+
+	if err := netlink.LinkSetMTU(linkHost, mtu); err != nil {
+		return nil, nil, err
+	}
+	if err := netlink.LinkSetMTU(linkNet, mtu); err != nil {
+		return nil, nil, err
+	}
+
+	return linkHost, linkNet, nil
 }

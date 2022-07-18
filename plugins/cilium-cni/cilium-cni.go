@@ -15,7 +15,6 @@ import (
 	"runtime"
 	"sort"
 
-	"github.com/cilium/ebpf"
 	cniInvoke "github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -525,20 +524,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			err = fmt.Errorf("unable to set up veth on container side: %s", err)
 			return
 		}
-	case datapathOption.DatapathModeIpvlan:
-		ipvlanConf := *conf.IpvlanConfiguration
-		index := int(ipvlanConf.MasterDeviceIndex)
-
-		var m *ebpf.Map
-		m, err = connector.CreateAndSetupIpvlanSlave(
-			ep.ContainerID, args.IfName, netNs,
-			int(conf.DeviceMTU), index, ipvlanConf.OperationMode, ep,
-		)
-		if err != nil {
-			err = fmt.Errorf("unable to setup ipvlan datapath: %s", err)
-			return
-		}
-		defer m.Close()
 	}
 
 	state := CmdState{

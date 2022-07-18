@@ -2246,8 +2246,6 @@ definitions:
         type: integer
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
-      ipvlanConfiguration:
-        "$ref": "#/definitions/IpvlanConfiguration"
       ipam-mode:
         description: Configured IPAM mode
         type: string
@@ -2281,20 +2279,6 @@ definitions:
     type: string
     enum:
       - veth
-      - ipvlan
-  IpvlanConfiguration:
-    description: Setup for datapath when operating in ipvlan mode.
-    type: object
-    properties:
-      masterDeviceIndex:
-        description: Workload facing ipvlan master device ifindex.
-        type: integer
-      operationMode:
-        description: Mode in which ipvlan setup operates.
-        type: string
-        enum:
-          - L3
-          - L3S
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object

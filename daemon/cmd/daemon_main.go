@@ -19,7 +19,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/server"
@@ -32,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -294,10 +292,6 @@ func initializeFlags() {
 
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
 	option.BindEnv(option.DatapathMode)
-
-	flags.StringP(option.IpvlanMasterDevice, "", "undefined", "Device facing external network acting as ipvlan master")
-	option.BindEnv(option.IpvlanMasterDevice)
-	flags.MarkDeprecated(option.IpvlanMasterDevice, "This option will be removed in v1.12")
 
 	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
 	option.BindEnv(option.DisableConntrack)
@@ -1374,54 +1368,8 @@ func initEnv(cmd *cobra.Command) {
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		if name := option.Config.IpvlanMasterDevice; name != "undefined" {
-			log.WithField(logfields.IpvlanMasterDevice, name).
-				Fatal("ipvlan master device cannot be set in the 'veth' datapath mode")
-		}
 		if option.Config.Tunnel == "" {
 			option.Config.Tunnel = option.TunnelVXLAN
-		}
-	case datapathOption.DatapathModeIpvlan:
-		if option.Config.Tunnel != "" && option.Config.TunnelingEnabled() {
-			log.WithField(logfields.Tunnel, option.Config.Tunnel).
-				Fatal("tunnel cannot be set in the 'ipvlan' datapath mode")
-		}
-		if len(option.Config.GetDevices()) != 0 {
-			log.WithField(logfields.Devices, option.Config.GetDevices()).
-				Fatal("devices cannot be set in the 'ipvlan' datapath mode")
-		}
-		if option.Config.EnableIPSec {
-			log.Fatal("Currently ipsec cannot be used in the 'ipvlan' datapath mode.")
-		}
-
-		option.Config.Tunnel = option.TunnelDisabled
-		// We disallow earlier command line combination of --device with
-		// --datapath-mode ipvlan. But given all the remaining logic is
-		// shared with option.Config.Devices, override it here internally
-		// with the specified ipvlan master device. Reason to have a
-		// separate, more specific command line parameter here and in
-		// the swagger API is that in future we might deprecate --device
-		// parameter with e.g. some auto-detection mechanism, thus for
-		// ipvlan it is desired to have a separate one, see PR #6608.
-		iface := option.Config.IpvlanMasterDevice
-		if iface == "undefined" {
-			log.WithField(logfields.IpvlanMasterDevice, iface).
-				Fatal("ipvlan master device must be specified in the 'ipvlan' datapath mode")
-		}
-		option.Config.SetDevices([]string{iface})
-		link, err := netlink.LinkByName(iface)
-		if err != nil {
-			log.WithError(err).WithField(logfields.IpvlanMasterDevice, iface).
-				Fatal("Cannot find device interface")
-		}
-		option.Config.Ipvlan.MasterDeviceIndex = link.Attrs().Index
-		option.Config.Ipvlan.OperationMode = connector.OperationModeL3
-		if option.Config.InstallIptRules {
-			option.Config.Ipvlan.OperationMode = connector.OperationModeL3S
-		} else {
-			log.WithFields(logrus.Fields{
-				logfields.URL: "https://github.com/cilium/cilium/issues/12879",
-			}).Warn("IPtables rule configuration has been disabled. This may affect policy and forwarding, see the URL for more details.")
 		}
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")

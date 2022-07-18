@@ -75,11 +75,6 @@ func (e *Endpoint) customCallsMapPath() string {
 	return e.owner.Datapath().Loader().CustomCallsMapPath(e.ID)
 }
 
-// BPFIpvlanMapPath returns the path to the ipvlan tail call map of an endpoint.
-func (e *Endpoint) BPFIpvlanMapPath() string {
-	return bpf.LocalMapPath(IpvlanMapName, e.ID)
-}
-
 // writeInformationalComments writes annotations to the specified writer,
 // including a base64 encoding of the endpoint object, and human-readable
 // strings describing the configuration of the datapath.
@@ -959,7 +954,6 @@ func (e *Endpoint) deleteMaps() []error {
 	maps := map[string]string{
 		"policy": e.policyMapPath(),
 		"calls":  e.callsMapPath(),
-		"egress": e.BPFIpvlanMapPath(),
 	}
 	if !e.isHost {
 		maps["custom"] = e.customCallsMapPath()
@@ -1500,25 +1494,14 @@ func (e *Endpoint) GetPolicyVerdictLogFilter() uint32 {
 
 type linkCheckerFunc func(string) error
 
-// ValidateConnectorPlumbing checks whether the endpoint is correctly plumbed
-// depending on if it is connected via veth or IPVLAN.
+// ValidateConnectorPlumbing checks whether the endpoint is correctly plumbed.
 func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error {
-	if e.HasIpvlanDataPath() {
-		// FIXME: We cannot check whether ipvlan slave netdev exists,
-		// because it requires entering container netns which is not
-		// always accessible (e.g. in k8s case "/proc" has to be bind
-		// mounted). Instead, we check whether the tail call map exists.
-		if _, err := os.Stat(e.BPFIpvlanMapPath()); err != nil {
-			return fmt.Errorf("tail call map for IPvlan unavailable: %s", err)
-		}
-	} else {
-		if linkChecker == nil {
-			return fmt.Errorf("cannot check state of datapath; link checker is nil")
-		}
-		err := linkChecker(e.ifName)
-		if err != nil {
-			return fmt.Errorf("interface %s could not be found", e.ifName)
-		}
+	if linkChecker == nil {
+		return fmt.Errorf("cannot check state of datapath; link checker is nil")
+	}
+	err := linkChecker(e.ifName)
+	if err != nil {
+		return fmt.Errorf("interface %s could not be found", e.ifName)
 	}
 	return nil
 }

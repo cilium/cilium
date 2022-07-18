@@ -987,7 +987,7 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 {
 	/* If our datapath has proper redirect support, we make use
 	 * of it here, otherwise we terminate tc processing by letting
-	 * stack handle forwarding e.g. in ipvlan case.
+	 * stack handle forwarding.
 	 *
 	 * Going via CPU backlog queue (aka needs_backlog) is required
 	 * whenever we cannot do a fast ingress -> ingress switch but

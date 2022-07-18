@@ -1301,7 +1301,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 #endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
 
-/* Attachment/entry point is ingress for veth, egress for ipvlan.
+/* Attachment/entry point is ingress for veth.
  * It corresponds to packets leaving the container.
  */
 __section("from-container")

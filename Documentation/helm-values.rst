@@ -1169,10 +1169,6 @@
      - Enable IPv6 support.
      - bool
      - ``false``
-   * - ipvlan.enabled
-     - Enable the IPVLAN datapath (deprecated)
-     - bool
-     - ``false``
    * - k8s
      - Configure Kubernetes specific configuration
      - object

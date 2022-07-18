@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -177,10 +176,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CT_REPORT_FLAGS"] = fmt.Sprintf("%#04x", int64(option.Config.MonitorAggregationFlags))
 	cDefinesMap["CT_TAIL_CALL_BUFFER4"] = "cilium_tail_call_buffer4"
 	cDefinesMap["CT_TAIL_CALL_BUFFER6"] = "cilium_tail_call_buffer6"
-
-	if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-		cDefinesMap["ENABLE_EXTRA_HOST_DEV"] = "1"
-	}
 
 	if option.Config.PreAllocateMaps {
 		cDefinesMap["PREALLOCATE_MAPS"] = "1"
@@ -904,15 +899,13 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 
 	fmt.Fprintf(fw, "#define HOST_EP_ID %d\n", uint32(node.GetEndpointID()))
 
-	if !e.HasIpvlanDataPath() {
-		if e.RequireARPPassthrough() {
-			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
-		} else {
-			fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
-		}
-
-		fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
+	if e.RequireARPPassthrough() {
+		fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
+	} else {
+		fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
 	}
+
+	fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
 
 	if e.ConntrackLocalLocked() {
 		ctmap.WriteBPFMacros(fw, e)
