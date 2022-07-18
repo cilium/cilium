@@ -67,16 +67,6 @@ updates:
       - release-note/misc
 
   - package-ecosystem: docker
-    directory: ./images/cilium-test
-    schedule:
-      interval: daily
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
     directory: ./images/clustermesh-apiserver
     schedule:
       interval: daily
@@ -155,17 +145,6 @@ updates:
 
   - package-ecosystem: docker
     directory: ./images/cilium-docker-plugin
-    schedule:
-      interval: daily
-    target-branch: "v1.12"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
-    directory: ./images/cilium-test
     schedule:
       interval: daily
     target-branch: "v1.12"
@@ -268,17 +247,6 @@ updates:
       - release-note/misc
 
   - package-ecosystem: docker
-    directory: ./images/cilium-test
-    schedule:
-      interval: daily
-    target-branch: "v1.11"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
     directory: ./images/clustermesh-apiserver
     schedule:
       interval: daily
@@ -361,17 +329,6 @@ updates:
 
   - package-ecosystem: docker
     directory: ./images/cilium-docker-plugin
-    schedule:
-      interval: daily
-    target-branch: "v1.10"
-    open-pull-requests-limit: 5
-    rebase-strategy: "disabled"
-    labels:
-      - kind/enhancement
-      - release-note/misc
-
-  - package-ecosystem: docker
-    directory: ./images/cilium-test
     schedule:
       interval: daily
     target-branch: "v1.10"
