@@ -85,15 +85,10 @@ set_encrypt_mark(struct __sk_buff *ctx)
 static __always_inline __maybe_unused int
 redirect_self(const struct __sk_buff *ctx)
 {
-	/* Looping back the packet into the originating netns. In
-	 * case of veth, it's xmit'ing into the hosts' veth device
-	 * such that we end up on ingress in the peer.
+	/* Looping back the packet into the originating netns. We xmit into the
+	 * hosts' veth device such that we end up on ingress in the peer.
 	 */
-#ifdef ENABLE_HOST_REDIRECT
 	return ctx_redirect(ctx, ctx->ifindex, 0);
-#else
-	return ctx_redirect(ctx, ctx->ifindex, BPF_F_INGRESS);
-#endif
 }
 
 static __always_inline __maybe_unused void
