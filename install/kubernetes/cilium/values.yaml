@@ -74,7 +74,7 @@ image:
   tag: v1.9.18
   pullPolicy: IfNotPresent
   # cilium-digest
-  digest: ""
+  digest: "sha256:725a6c6e11b5c30daa0731c8846a26a5b331a0e293eb29b45cf1202dcbad7bc2"
   useDigest: false
 
 # -- Pod affinity for cilium-agent.
@@ -559,7 +559,7 @@ hubble:
       tag: v1.9.18
       pullPolicy: IfNotPresent
        # hubble-relay-digest
-      digest: ""
+      digest: "sha256:2b4d1a7a530de8f48a555b42d3f4d834249d37e668e5ecd2351c5e24f3bb2b25"
       useDigest: false
 
     # -- Specifies the resources for the hubble-relay pods
@@ -1074,11 +1074,11 @@ operator:
     pullPolicy: IfNotPresent
     suffix: ""
     # operator-generic-digest
-    genericDigest: ""
+    genericDigest: "sha256:d1cd7f32b74a35082f27cd64706d02550145cda083a295322bacf02be01daf0c"
     # operator-azure-digest
-    azureDigest: ""
+    azureDigest: "sha256:8c6c053f83d0e5eb0abf223d45eacd6cb3b563a84f5ecbadcfeecd54202cc7b7"
     # operator-aws-digest
-    awsDigest: ""
+    awsDigest: "sha256:64c96a7c5108a9075e9f8cd183ae0e799ca494854345fb1052144284e3d58598"
     useDigest: false
 
   # -- Number of replicas to run for the cilium-operator deployment
@@ -1304,7 +1304,7 @@ preflight:
     tag: v1.9.18
     pullPolicy: IfNotPresent
     # cilium-digest
-    digest: ""
+    digest: "sha256:725a6c6e11b5c30daa0731c8846a26a5b331a0e293eb29b45cf1202dcbad7bc2"
     useDigest: false
 
   # -- The priority class to use for the preflight pod.
@@ -1419,7 +1419,7 @@ clustermesh:
       tag: v1.9.18
       pullPolicy: IfNotPresent
       # clustermesh-apiserver-digest
-      digest: ""
+      digest: "sha256:707b11a188a4bacf3c9cb54da6bb712e6794371d5689dae1cc483a65fb0e07eb"
       useDigest: false
 
     etcd:
