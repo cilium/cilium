@@ -75,6 +75,9 @@ endif
 ifeq ($(INSTRLOG),1)
     BPF_TEST_FLAGS += -instrumentation-log $(ROOT_DIR)/test/bpf-instrumentation.log
 endif
+ifdef RUN
+    BPF_TEST_FLAGS += -run $(RUN)
+endif
 
 run_bpf_tests:
 	$(QUIET)$(MAKE) -C ../bpf/tests all
