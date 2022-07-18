@@ -19,9 +19,6 @@
 /* Enable code paths under test*/
 #define ENABLE_IPV4
 
-/* Enable redirecting from veth to veth within the host */
-#define ENABLE_HOST_REDIRECT
-
 /* Skip ingress policy checks, not needed to validate hairpin flow */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
