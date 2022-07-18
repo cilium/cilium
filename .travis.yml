@@ -8,10 +8,9 @@ go: "1.18.4"
 jobs:
   include:
     - arch: amd64
-# disabled until https://github.com/cilium/cilium/issues/20337 is resolved
-#    - arch: arm64-graviton2
-#      virt: vm
-#      group: edge
+    - arch: arm64-graviton2
+      virt: vm
+      group: edge
 
 if: branch = master OR type = pull_request
 
