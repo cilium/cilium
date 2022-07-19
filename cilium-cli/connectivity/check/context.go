@@ -77,6 +77,11 @@ func (ct *ConnectivityTest) debug() bool {
 	return ct.params.Debug
 }
 
+// timestamp returns the value of the user-provided timestamp flag.
+func (ct *ConnectivityTest) timestamp() bool {
+	return ct.params.Timestamp
+}
+
 // actions returns a list of all Actions registered under the test context.
 func (ct *ConnectivityTest) actions() []*Action {
 	var out []*Action
