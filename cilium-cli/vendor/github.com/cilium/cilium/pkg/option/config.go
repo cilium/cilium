@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -487,6 +488,9 @@ const (
 
 	// IpvlanMasterDevice is the name of the IpvlanMasterDevice option
 	IpvlanMasterDevice = "ipvlan-master-device"
+
+	// EnableSocketLB is the name for the option to enable the socket LB
+	EnableSocketLB = "bpf-lb-sock"
 
 	// EnableHostReachableServices is the name of the EnableHostReachableServices option
 	EnableHostReachableServices = "enable-host-reachable-services"
@@ -1582,7 +1586,7 @@ type DaemonConfig struct {
 	ConfigDir                     string
 	Debug                         bool
 	DebugVerbose                  []string
-	EnableHostReachableServices   bool
+	EnableSocketLB                bool
 	EnableHostServicesTCP         bool
 	EnableHostServicesUDP         bool
 	EnableHostServicesPeer        bool
@@ -2387,6 +2391,13 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
 
+// TunnelExists returns true if some traffic may go through a tunnel, including
+// if the primary mode is native routing. For example, in the egress gateway,
+// we may send such traffic to a gateway node via a tunnel.
+func (c *DaemonConfig) TunnelExists() bool {
+	return c.TunnelingEnabled() || c.EnableIPv4EgressGateway
+}
+
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
 func (c *DaemonConfig) MasqueradingEnabled() bool {
 	return c.EnableIPv4Masquerade || c.EnableIPv6Masquerade
@@ -2633,7 +2644,7 @@ func (c *DaemonConfig) Validate() error {
 		return fmt.Errorf("%s must be set when using %s", ReadCNIConfiguration, WriteCNIConfigurationWhenReady)
 	}
 
-	if c.EnableHostReachableServices && !c.EnableHostServicesUDP && !c.EnableHostServicesTCP {
+	if c.EnableSocketLB && !c.EnableHostServicesUDP && !c.EnableHostServicesTCP {
 		return fmt.Errorf("%s must be at minimum one of [%s,%s]",
 			HostReachableServicesProtos, HostServicesTCP, HostServicesUDP)
 	}
@@ -2780,7 +2791,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.BPFSocketLBHostnsOnly = viper.GetBool(BPFSocketLBHostnsOnly)
-	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
+	c.EnableSocketLB = viper.GetBool(EnableHostReachableServices) || viper.GetBool(EnableSocketLB)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.K8sHeartbeatTimeout = viper.GetDuration(K8sHeartbeatTimeout)
 	c.EnableBPFTProxy = viper.GetBool(EnableBPFTProxy)
@@ -2940,7 +2951,15 @@ func (c *DaemonConfig) Populate() {
 	c.EnableRuntimeDeviceDetection = viper.GetBool(EnableRuntimeDeviceDetection)
 	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
 
-	c.VLANBPFBypass = viper.GetIntSlice(VLANBPFBypass)
+	vlanBPFBypassIDs := viper.GetStringSlice(VLANBPFBypass)
+	c.VLANBPFBypass = make([]int, 0, len(vlanBPFBypassIDs))
+	for _, vlanIDStr := range vlanBPFBypassIDs {
+		vlanID, err := strconv.Atoi(vlanIDStr)
+		if err != nil {
+			log.WithError(err).Fatalf("Cannot parse vlan ID integer from --%s option", VLANBPFBypass)
+		}
+		c.VLANBPFBypass = append(c.VLANBPFBypass, vlanID)
+	}
 
 	c.Tunnel = viper.GetString(TunnelName)
 	c.TunnelPort = viper.GetInt(TunnelPortName)
@@ -3104,7 +3123,8 @@ func (c *DaemonConfig) Populate() {
 
 	// Metrics Setup
 	defaultMetrics := metrics.DefaultMetrics()
-	for _, metric := range viper.GetStringSlice(Metrics) {
+	flagMetrics := append(viper.GetStringSlice(Metrics), c.additionalMetrics()...)
+	for _, metric := range flagMetrics {
 		switch metric[0] {
 		case '+':
 			defaultMetrics[metric[1:]] = struct{}{}
@@ -3190,7 +3210,6 @@ func (c *DaemonConfig) Populate() {
 	c.CompilerFlags = viper.GetStringSlice(CompilerFlags)
 	c.ConfigFile = viper.GetString(ConfigFile)
 	c.HTTP403Message = viper.GetString(HTTP403Message)
-	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
 	c.K8sNamespace = viper.GetString(K8sNamespaceName)
 	c.AgentNotReadyNodeTaintKey = viper.GetString(AgentNotReadyNodeTaintKeyName)
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
@@ -3203,6 +3222,12 @@ func (c *DaemonConfig) Populate() {
 	c.BypassIPAvailabilityUponRestore = viper.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = viper.GetBool(EnableK8sTerminatingEndpoint)
 
+	// Disable Envoy version check if L7 proxy is disabled.
+	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
+	if !c.EnableL7Proxy {
+		c.DisableEnvoyVersionCheck = true
+	}
+
 	// VTEP integration enable option
 	c.EnableVTEP = viper.GetBool(EnableVTEP)
 
@@ -3211,6 +3236,17 @@ func (c *DaemonConfig) Populate() {
 
 	// Envoy secrets namespace to watch
 	c.EnvoySecretNamespace = viper.GetString(IngressSecretsNamespace)
+}
+
+func (c *DaemonConfig) additionalMetrics() []string {
+	addMetric := func(name string) string {
+		return "+" + metrics.Namespace + name
+	}
+	var m []string
+	if c.DNSProxyConcurrencyLimit > 0 {
+		m = append(m, addMetric(metrics.SubsystemFQDN+"_sempaphore_rejected_total"))
+	}
+	return m
 }
 
 func (c *DaemonConfig) populateDevices() {
@@ -3653,7 +3689,7 @@ func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 	return c.EnableHostPort &&
 		c.EnableNodePort &&
 		c.EnableExternalIPs &&
-		c.EnableHostReachableServices &&
+		c.EnableSocketLB &&
 		c.EnableHostServicesTCP &&
 		c.EnableHostServicesUDP &&
 		c.EnableSessionAffinity
@@ -3730,23 +3766,67 @@ func sanitizeIntParam(paramName string, paramDefault int) int {
 	return intParam
 }
 
-// validateConfigmap checks whether the flag exists and validate the value of flag
-func validateConfigmap(cmd *cobra.Command, m map[string]interface{}) (error, string) {
-	// validate the config-map
+// validateConfigMap checks whether the flag exists and validate its value
+func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
+	flags := cmd.Flags()
+
 	for key, value := range m {
-		if val := fmt.Sprintf("%v", value); val != "" {
-			flags := cmd.Flags()
-			// check whether the flag exists
-			if flag := flags.Lookup(key); flag != nil {
-				// validate the value of flag
-				if err := flag.Value.Set(val); err != nil {
-					return err, key
-				}
-			}
+		flag := flags.Lookup(key)
+		if flag == nil {
+			continue
+		}
+
+		var err error
+
+		switch t := flag.Value.Type(); t {
+		case "bool":
+			_, err = cast.ToBoolE(value)
+		case "duration":
+			_, err = cast.ToDurationE(value)
+		case "float32":
+			_, err = cast.ToFloat32E(value)
+		case "float64":
+			_, err = cast.ToFloat64E(value)
+		// remove this after PR https://github.com/cilium/cilium/pull/20282 is merged
+		case "intSlice":
+			_, err = cast.ToIntSliceE(value)
+		case "int":
+			_, err = cast.ToIntE(value)
+		case "int8":
+			_, err = cast.ToInt8E(value)
+		case "int16":
+			_, err = cast.ToInt16E(value)
+		case "int32":
+			_, err = cast.ToInt32E(value)
+		case "int64":
+			_, err = cast.ToInt64E(value)
+		case "map":
+			// custom type, see pkg/option/map_options.go
+			err = flag.Value.Set(fmt.Sprintf("%s", value))
+		case "stringSlice":
+			_, err = cast.ToStringSliceE(value)
+		case "string":
+			_, err = cast.ToStringE(value)
+		case "uint":
+			_, err = cast.ToUintE(value)
+		case "uint8":
+			_, err = cast.ToUint8E(value)
+		case "uint16":
+			_, err = cast.ToUint16E(value)
+		case "uint32":
+			_, err = cast.ToUint32E(value)
+		case "uint64":
+			_, err = cast.ToUint64E(value)
+		default:
+			log.Warnf("Unable to validate option %s value of type %s", key, t)
+		}
+
+		if err != nil {
+			return fmt.Errorf("option %s: %w", key, err)
 		}
 	}
 
-	return nil, ""
+	return nil
 }
 
 // InitConfig reads in config file and ENV variables if set.
@@ -3777,8 +3857,8 @@ func InitConfig(cmd *cobra.Command, programName, configName string) func() {
 				ReplaceDeprecatedFields(m)
 
 				// validate the config-map
-				if err, flag := validateConfigmap(cmd, m); err != nil {
-					log.WithError(err).Fatal("Incorrect config-map flag " + flag)
+				if err := validateConfigMap(cmd, m); err != nil {
+					log.WithError(err).Fatal("Incorrect config-map flag value")
 				}
 
 				if err := MergeConfig(m); err != nil {

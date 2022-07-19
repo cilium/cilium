@@ -79,12 +79,28 @@ var errors = map[uint8]string{
 	181: "Policy denied by denylist",
 	182: "VLAN traffic disallowed by VLAN filter",
 	183: "Incorrect VNI from VTEP",
+	184: "Failed to update or lookup TC buffer",
+}
+
+func extendedReason(reason uint8, extError int8) string {
+	if extError == int8(0) {
+		return ""
+	}
+	return fmt.Sprintf("%d", extError)
+}
+
+func DropReasonExt(reason uint8, extError int8) string {
+	if err, ok := errors[reason]; ok {
+		if ext := extendedReason(reason, extError); ext == "" {
+			return err
+		} else {
+			return err + ", " + ext
+		}
+	}
+	return fmt.Sprintf("%d, %d", reason, extError)
 }
 
 // DropReason prints the drop reason in a human readable string
 func DropReason(reason uint8) string {
-	if err, ok := errors[reason]; ok {
-		return err
-	}
-	return fmt.Sprintf("%d", reason)
+	return DropReasonExt(reason, int8(0))
 }
