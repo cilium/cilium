@@ -315,6 +315,14 @@ func (in *ENISpec) DeepEqual(other *ENISpec) bool {
 		}
 	}
 
+	if (in.DisablePrefixDelegation == nil) != (other.DisablePrefixDelegation == nil) {
+		return false
+	} else if in.DisablePrefixDelegation != nil {
+		if *in.DisablePrefixDelegation != *other.DisablePrefixDelegation {
+			return false
+		}
+	}
+
 	return true
 }
 
