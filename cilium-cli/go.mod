@@ -12,8 +12,8 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20220622102039-f2829ebc337c
-	github.com/cilium/cilium v1.12.0-rc3
+	github.com/cilium/charts v0.0.0-20220718140239-a5ecfc8efa5c
+	github.com/cilium/cilium v1.12.0
 	github.com/cilium/hubble v0.9.0
 	github.com/cilium/proxy v0.0.0-20220525133153-3b70fad0b951
 	github.com/cilium/workerpool v1.1.3

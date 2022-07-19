@@ -353,6 +353,10 @@ const (
 	// CiliumNode.Spec.ENI.UsePrimaryAddress if no value is set.
 	UseENIPrimaryAddress = false
 
+	// ENIDisableNodeLevelPD  is the default value for
+	// CiliumNode.Spec.ENI.DisablePrefixDelegation if no value is set.
+	ENIDisableNodeLevelPD = false
+
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
 

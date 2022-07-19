@@ -12,7 +12,7 @@ import (
 // individual identities.  Entities are used to describe "outside of cluster",
 // "host", etc.
 //
-// +kubebuilder:validation:Enum=all;world;cluster;host;init;unmanaged;remote-node;health;none;kube-apiserver
+// +kubebuilder:validation:Enum=all;world;cluster;host;init;ingress;unmanaged;remote-node;health;none;kube-apiserver
 type Entity string
 
 const (
@@ -32,6 +32,9 @@ const (
 
 	// EntityInit is an entity that represents an initializing endpoint
 	EntityInit Entity = "init"
+
+	// EntityIngress is an entity that represents envoy proxy
+	EntityIngress Entity = "ingress"
 
 	// EntityUnmanaged is an entity that represents unamanaged endpoints.
 	EntityUnmanaged Entity = "unmanaged"
@@ -56,6 +59,8 @@ var (
 
 	endpointSelectorInit = NewESFromLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
 
+	endpointSelectorIngress = NewESFromLabels(labels.NewLabel(labels.IDNameIngress, "", labels.LabelSourceReserved))
+
 	endpointSelectorRemoteNode = NewESFromLabels(labels.NewLabel(labels.IDNameRemoteNode, "", labels.LabelSourceReserved))
 
 	endpointSelectorHealth = NewESFromLabels(labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved))
@@ -73,6 +78,7 @@ var (
 		EntityWorld:         {endpointSelectorWorld},
 		EntityHost:          {endpointSelectorHost},
 		EntityInit:          {endpointSelectorInit},
+		EntityIngress:       {endpointSelectorIngress},
 		EntityRemoteNode:    {endpointSelectorRemoteNode},
 		EntityHealth:        {endpointSelectorHealth},
 		EntityUnmanaged:     {endpointSelectorUnmanaged},
@@ -113,6 +119,7 @@ func InitEntities(clusterName string, treatRemoteNodeAsHost bool) {
 		endpointSelectorHost,
 		endpointSelectorRemoteNode,
 		endpointSelectorInit,
+		endpointSelectorIngress,
 		endpointSelectorHealth,
 		endpointSelectorUnmanaged,
 		endpointSelectorKubeAPIServer,
