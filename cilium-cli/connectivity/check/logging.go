@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"time"
 )
 
 const (
@@ -38,76 +39,112 @@ func (ct *ConnectivityTest) Headerf(format string, a ...interface{}) {
 
 // Log logs a message.
 func (ct *ConnectivityTest) Log(a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Logf logs a formatted message.
 func (ct *ConnectivityTest) Logf(format string, a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Debug logs a debug message.
 func (ct *ConnectivityTest) Debug(a ...interface{}) {
 	if ct.debug() {
+		if ct.timestamp() {
+			fmt.Fprint(ct.params.Writer, timestamp())
+		}
 		fmt.Fprint(ct.params.Writer, debug+" ")
-		ct.Log(a...)
+		fmt.Fprintln(ct.params.Writer, a...)
 	}
 }
 
 // Debugf logs a formatted debug message.
 func (ct *ConnectivityTest) Debugf(format string, a ...interface{}) {
 	if ct.debug() {
+		if ct.timestamp() {
+			fmt.Fprint(ct.params.Writer, timestamp())
+		}
 		fmt.Fprint(ct.params.Writer, debug+" ")
-		ct.Logf(format, a...)
+		fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 	}
 }
 
 // Info logs an informational message.
 func (ct *ConnectivityTest) Info(a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprint(ct.params.Writer, info+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Infof logs a formatted informational message.
 func (ct *ConnectivityTest) Infof(format string, a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprint(ct.params.Writer, info+" ")
-	ct.Logf(format, a...)
+	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Warn logs a warning message.
 func (ct *ConnectivityTest) Warn(a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprint(ct.params.Writer, warn+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Warnf logs a formatted warning message.
 func (ct *ConnectivityTest) Warnf(format string, a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprint(ct.params.Writer, warn+" ")
-	ct.Logf(format, a...)
+	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Fail logs a failure message.
 func (ct *ConnectivityTest) Fail(a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprint(ct.params.Writer, fail+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Failf logs a formatted failure message.
 func (ct *ConnectivityTest) Failf(format string, a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprint(ct.params.Writer, fail+" ")
-	ct.Logf(format, a...)
+	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Fatal logs an error.
 func (ct *ConnectivityTest) Fatal(a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprint(ct.params.Writer, fatal+" ")
-	ct.Log(a...)
+	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Fatalf logs a formatted error.
 func (ct *ConnectivityTest) Fatalf(format string, a ...interface{}) {
+	if ct.timestamp() {
+		fmt.Fprint(ct.params.Writer, timestamp())
+	}
 	fmt.Fprint(ct.params.Writer, fatal+" ")
-	ct.Logf(format, a...)
+	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 //
@@ -142,6 +179,10 @@ func (t *Test) log(prefix string, a ...interface{}) {
 		b = t.ctx.params.Writer
 	}
 
+	if t.ctx.timestamp() {
+		fmt.Fprint(b, timestamp())
+	}
+
 	// Test-level output is indented.
 	fmt.Fprint(b, testPrefix)
 
@@ -163,6 +204,10 @@ func (t *Test) logf(format string, a ...interface{}) {
 	b := t.logBuf
 	if b == nil {
 		b = t.ctx.params.Writer
+	}
+
+	if t.ctx.timestamp() {
+		fmt.Fprint(b, timestamp())
 	}
 
 	fmt.Fprintf(b, testPrefix+format+"\n", a...)
@@ -328,4 +373,8 @@ func (a *Action) Fatal(s ...interface{}) {
 func (a *Action) Fatalf(format string, s ...interface{}) {
 	a.fail()
 	a.test.Fatalf(format, s...)
+}
+
+func timestamp() string {
+	return fmt.Sprintf("[%s] ", time.Now().Format(time.RFC3339))
 }
