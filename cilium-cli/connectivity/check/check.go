@@ -17,6 +17,7 @@ import (
 )
 
 type Parameters struct {
+	AssumeCiliumVersion   string
 	CiliumNamespace       string
 	TestNamespace         string
 	SingleNode            bool
