@@ -34,6 +34,7 @@ type Parameters struct {
 	Writer                io.ReadWriter
 	Verbose               bool
 	Debug                 bool
+	Timestamp             bool
 	PauseOnFail           bool
 	SkipIPCacheCheck      bool
 	Perf                  bool
