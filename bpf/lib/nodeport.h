@@ -659,16 +659,6 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 
 		BPF_V6(target.addr, ROUTER_IP);
 		fib_params.l.ifindex = ENCAP_IFINDEX;
-
-		/* fib lookup not necessary when going over tunnel. */
-		if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
-			ret = DROP_WRITE_ERROR;
-			goto drop_err;
-		}
-		if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
-			ret = DROP_WRITE_ERROR;
-			goto drop_err;
-		}
 	}
 #endif
 	ret = snat_v6_process(ctx, NAT_DIR_EGRESS, &target);
@@ -956,12 +946,6 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 					return ret;
 
 				*ifindex = ENCAP_IFINDEX;
-
-				/* fib lookup not necessary when going over tunnel. */
-				if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-					return DROP_WRITE_ERROR;
-				if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-					return DROP_WRITE_ERROR;
 
 				return CTX_ACT_OK;
 			}
@@ -1742,16 +1726,6 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 		target.addr = IPV4_GATEWAY;
 		fib_params.l.ifindex = ENCAP_IFINDEX;
-
-		/* fib lookup not necessary when going over tunnel. */
-		if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
-			ret = DROP_WRITE_ERROR;
-			goto drop_err;
-		}
-		if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
-			ret = DROP_WRITE_ERROR;
-			goto drop_err;
-		}
 	}
 #endif
 	ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target, false);
@@ -2148,12 +2122,6 @@ encap_redirect:
 		return ret;
 
 	*ifindex = ENCAP_IFINDEX;
-
-	/* fib lookup not necessary when going over tunnel. */
-	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-		return DROP_WRITE_ERROR;
 
 	return CTX_ACT_OK;
 #endif
