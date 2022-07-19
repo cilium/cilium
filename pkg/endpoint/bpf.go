@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -990,13 +989,6 @@ func (e *Endpoint) deleteMaps() []error {
 	}
 
 	return errors
-}
-
-// DeleteBPFProgramLocked delete the BPF program associated with the endpoint's
-// veth interface.
-func (e *Endpoint) DeleteBPFProgramLocked() error {
-	e.getLogger().Debug("deleting bpf program from endpoint")
-	return loader.RemoveTCFilters(e.ifName, netlink.HANDLE_MIN_INGRESS)
 }
 
 // garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
