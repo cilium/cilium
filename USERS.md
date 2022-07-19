@@ -212,6 +212,12 @@ Users (Alphabetically)
       U: Networking, CiliumNetworkPolicy at L7, kube-proxy replacement, encryption
       L: https://www.cloud-migration.ch/
       Q: @fakod
+      
+     * N: Isovalent
+       D: Cilium is the platform that powers Isovalent’s enterprise networking, observability, and security solutions
+       U: Networking, network policy, observability, cluster mesh, kube-proxy replacement, security, egress gateway, service load balancing, CNI
+       L: https://isovalent.com/product/
+       Q: @BillMulligan
 
     * N: JUMO
       D: JUMO is using Cilium as their CNI plugin for all of their AWS-hosted EKS clusters
