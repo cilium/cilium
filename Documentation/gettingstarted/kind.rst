@@ -54,13 +54,29 @@ Then, install Cilium release via Helm:
 
 .. note::
 
-   To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), cgroup v2
-   needs to be enabled by setting the kernel ``systemd.unified_cgroup_hierarchy=1`` parameter.
+   To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), kind nodes
+   need to have their own cgroup namespaces, and are different from the cgroup namespace
+   of the underlying host so that Cilium can attach BPF programs at the right
+   cgroup hierarchy. To verify this, run the following commands inside
+   respective kind nodes, and ensure that the cgroup values are different.
+
+   .. code-block:: shell-session
+
+      $ docker exec -it kind-control-plane bash
+      $ ls -al /proc/self/ns/cgroup
+      lrwxrwxrwx 1 root root 0 Jul 20 19:20 /proc/self/ns/cgroup -> 'cgroup:[4026532461]'
+
+      $ docker exec -it kind-worker bash
+      $ ls -al /proc/self/ns/cgroup
+      lrwxrwxrwx 1 root root 0 Jul 20 19:20 /proc/self/ns/cgroup -> 'cgroup:[4026532543]'
+
+   If you've deployed a kind cluster on an environment where kind nodes don't
+   have their own cgroup namespaces, then cgroup v2 needs to be enabled by
+   setting the kernel ``systemd.unified_cgroup_hierarchy=1`` parameter.
    Also, cgroup v1 controllers ``net_cls`` and ``net_prio`` have to be disabled, or
    cgroup v1 has to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
-   This ensures that Kind nodes have their own cgroup namespace, and Cilium can
-   attach BPF programs at the right cgroup hierarchy. To verify this, run the
-   following commands on the host, and check that the output values are different.
+   To verify this, run the following commands on the host, and check that the
+   output values are different.
 
    .. code-block:: shell-session
 
