@@ -151,17 +151,22 @@ func (p *Pointer) copy() Type {
 
 // Array is an array with a fixed number of elements.
 type Array struct {
+	Index  Type
 	Type   Type
 	Nelems uint32
 }
 
 func (arr *Array) Format(fs fmt.State, verb rune) {
-	formatType(fs, verb, arr, "type=", arr.Type, "n=", arr.Nelems)
+	formatType(fs, verb, arr, "index=", arr.Index, "type=", arr.Type, "n=", arr.Nelems)
 }
 
 func (arr *Array) TypeName() string { return "" }
 
-func (arr *Array) walk(tdq *typeDeque) { tdq.push(&arr.Type) }
+func (arr *Array) walk(tdq *typeDeque) {
+	tdq.push(&arr.Index)
+	tdq.push(&arr.Type)
+}
+
 func (arr *Array) copy() Type {
 	cpy := *arr
 	return &cpy
@@ -266,12 +271,14 @@ type Member struct {
 
 // Enum lists possible values.
 type Enum struct {
-	Name   string
+	Name string
+	// Size of the enum value in bytes.
+	Size   uint32
 	Values []EnumValue
 }
 
 func (e *Enum) Format(fs fmt.State, verb rune) {
-	formatType(fs, verb, e, "values=", len(e.Values))
+	formatType(fs, verb, e, "size=", e.Size, "values=", len(e.Values))
 }
 
 func (e *Enum) TypeName() string { return e.Name }
@@ -284,7 +291,7 @@ type EnumValue struct {
 	Value int32
 }
 
-func (e *Enum) size() uint32    { return 4 }
+func (e *Enum) size() uint32    { return e.Size }
 func (e *Enum) walk(*typeDeque) {}
 func (e *Enum) copy() Type {
 	cpy := *e
@@ -771,12 +778,24 @@ func (dq *typeDeque) all() []*Type {
 // inflateRawTypes takes a list of raw btf types linked via type IDs, and turns
 // it into a graph of Types connected via pointers.
 //
-// Returns a map of named types (so, where NameOff is non-zero) and a slice of types
-// indexed by TypeID. Since BTF ignores compilation units, multiple types may share
-// the same name. A Type may form a cyclic graph by pointing at itself.
-func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable) ([]Type, error) {
-	types := make([]Type, 0, len(rawTypes)+1)
-	types = append(types, (*Void)(nil))
+// If baseTypes are provided, then the raw types are
+// considered to be of a split BTF (e.g., a kernel module).
+//
+// Returns  a slice of types indexed by TypeID. Since BTF ignores compilation
+// units, multiple types may share the same name. A Type may form a cyclic graph
+// by pointing at itself.
+func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTable) ([]Type, error) {
+	types := make([]Type, 0, len(rawTypes)+1) // +1 for Void added to base types
+
+	typeIDOffset := TypeID(1) // Void is TypeID(0), so the rest starts from TypeID(1)
+
+	if baseTypes == nil {
+		// Void is defined to always be type ID 0, and is thus omitted from BTF.
+		types = append(types, (*Void)(nil))
+	} else {
+		// For split BTF, the next ID is max base BTF type ID + 1
+		typeIDOffset = TypeID(len(baseTypes))
+	}
 
 	type fixupDef struct {
 		id  TypeID
@@ -785,9 +804,18 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable) ([]Type, error
 
 	var fixups []fixupDef
 	fixup := func(id TypeID, typ *Type) {
-		if id < TypeID(len(types)) {
+		if id < TypeID(len(baseTypes)) {
+			*typ = baseTypes[id]
+			return
+		}
+
+		idx := id
+		if baseTypes != nil {
+			idx = id - TypeID(len(baseTypes))
+		}
+		if idx < TypeID(len(types)) {
 			// We've already inflated this type, fix it up immediately.
-			*typ = types[id]
+			*typ = types[idx]
 			return
 		}
 		fixups = append(fixups, fixupDef{id, typ})
@@ -877,9 +905,7 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable) ([]Type, error
 
 	for i, raw := range rawTypes {
 		var (
-			// Void is defined to always be type ID 0, and is thus
-			// omitted from BTF.
-			id  = TypeID(i + 1)
+			id  = typeIDOffset + TypeID(i)
 			typ Type
 		)
 
@@ -891,11 +917,11 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable) ([]Type, error
 		switch raw.Kind() {
 		case kindInt:
 			size := raw.Size()
-			encoding, offset, bits := intEncoding(*raw.data.(*uint32))
-			if offset > 0 || bits.Bytes() != size {
-				legacyBitfields[id] = [2]Bits{offset, bits}
+			bi := raw.data.(*btfInt)
+			if bi.Offset() > 0 || bi.Bits().Bytes() != size {
+				legacyBitfields[id] = [2]Bits{bi.Offset(), bi.Bits()}
 			}
-			typ = &Int{name, size, encoding}
+			typ = &Int{name, raw.Size(), bi.Encoding()}
 
 		case kindPointer:
 			ptr := &Pointer{nil}
@@ -904,10 +930,8 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable) ([]Type, error
 
 		case kindArray:
 			btfArr := raw.data.(*btfArray)
-
-			// IndexType is unused according to btf.rst.
-			// Don't make it available right now.
-			arr := &Array{nil, btfArr.Nelems}
+			arr := &Array{nil, nil, btfArr.Nelems}
+			fixup(btfArr.IndexType, &arr.Index)
 			fixup(btfArr.Type, &arr.Type)
 			typ = arr
 
@@ -938,7 +962,7 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable) ([]Type, error
 					Value: btfVal.Val,
 				})
 			}
-			typ = &Enum{name, vals}
+			typ = &Enum{name, raw.Size(), vals}
 
 		case kindForward:
 			if raw.KindFlag() {
@@ -1030,14 +1054,21 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable) ([]Type, error
 
 	for _, fixup := range fixups {
 		i := int(fixup.id)
-		if i >= len(types) {
+		if i >= len(types)+len(baseTypes) {
 			return nil, fmt.Errorf("reference to invalid type id: %d", fixup.id)
 		}
+		if i < len(baseTypes) {
+			return nil, fmt.Errorf("fixup for base type id %d is not expected", i)
+		}
 
-		*fixup.typ = types[i]
+		*fixup.typ = types[i-len(baseTypes)]
 	}
 
 	for _, bitfieldFixup := range bitfieldFixups {
+		if bitfieldFixup.id < TypeID(len(baseTypes)) {
+			return nil, fmt.Errorf("bitfield fixup from split to base types is not expected")
+		}
+
 		data, ok := legacyBitfields[bitfieldFixup.id]
 		if ok {
 			// This is indeed a legacy bitfield, fix it up.

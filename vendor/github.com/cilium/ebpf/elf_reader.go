@@ -283,6 +283,7 @@ func (ec *elfCode) loadProgramSections() (map[string]*ProgramSpec, error) {
 	progs := make(map[string]*ProgramSpec)
 
 	// Generate a ProgramSpec for each function found in each program section.
+	var export []string
 	for _, sec := range ec.sections {
 		if sec.kind != programSection {
 			continue
@@ -319,13 +320,14 @@ func (ec *elfCode) loadProgramSections() (map[string]*ProgramSpec, error) {
 				return nil, fmt.Errorf("duplicate program name %s", name)
 			}
 			progs[name] = spec
+
+			if spec.SectionName != ".text" {
+				export = append(export, name)
+			}
 		}
 	}
 
-	// Populate each prog's references with pointers to all of its callees.
-	if err := populateReferences(progs); err != nil {
-		return nil, fmt.Errorf("populating references: %w", err)
-	}
+	flattenPrograms(progs, export)
 
 	// Hide programs (e.g. library functions) that were not explicitly emitted
 	// to an ELF section. These could be exposed in a separate CollectionSpec

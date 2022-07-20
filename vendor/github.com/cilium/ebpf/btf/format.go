@@ -65,7 +65,20 @@ func (gf *GoFormatter) writeTypeDecl(name string, typ Type) error {
 
 	switch v := skipQualifiers(typ).(type) {
 	case *Enum:
-		fmt.Fprintf(&gf.w, "type %s int32", name)
+		fmt.Fprintf(&gf.w, "type %s ", name)
+		switch v.Size {
+		case 1:
+			gf.w.WriteString("int8")
+		case 2:
+			gf.w.WriteString("int16")
+		case 4:
+			gf.w.WriteString("int32")
+		case 8:
+			gf.w.WriteString("int64")
+		default:
+			return fmt.Errorf("%s: invalid enum size %d", typ, v.Size)
+		}
+
 		if len(v.Values) == 0 {
 			return nil
 		}

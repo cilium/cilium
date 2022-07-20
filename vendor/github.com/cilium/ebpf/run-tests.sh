@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Test the current package under a different kernel.
 # Requires virtme and qemu to be installed.
 # Examples:
@@ -61,7 +61,7 @@ if [[ "${1:-}" = "--exec-vm" ]]; then
     if [[ -e "${output}/status" ]]; then
       break
     fi
-    
+
     if [[ -v CI ]]; then
       echo "Retrying test run due to qemu crash"
       continue
@@ -81,6 +81,10 @@ elif [[ "${1:-}" = "--exec-test" ]]; then
 
   if [[ -d "/run/input/bpf" ]]; then
     export KERNEL_SELFTESTS="/run/input/bpf"
+  fi
+
+  if [[ -f "/run/input/bpf/bpf_testmod/bpf_testmod.ko" ]]; then
+    insmod "/run/input/bpf/bpf_testmod/bpf_testmod.ko"
   fi
 
   dmesg --clear

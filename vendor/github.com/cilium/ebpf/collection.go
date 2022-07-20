@@ -264,14 +264,17 @@ func (cs *CollectionSpec) LoadAndAssign(to interface{}, opts *CollectionOptions)
 	if err != nil {
 		return err
 	}
-	defer loader.cleanup()
+	defer loader.close()
 
 	// Support assigning Programs and Maps, lazy-loading the required objects.
 	assignedMaps := make(map[string]bool)
+	assignedProgs := make(map[string]bool)
+
 	getValue := func(typ reflect.Type, name string) (interface{}, error) {
 		switch typ {
 
 		case reflect.TypeOf((*Program)(nil)):
+			assignedProgs[name] = true
 			return loader.loadProgram(name)
 
 		case reflect.TypeOf((*Map)(nil)):
@@ -311,7 +314,13 @@ func (cs *CollectionSpec) LoadAndAssign(to interface{}, opts *CollectionOptions)
 		}
 	}
 
-	loader.finalize()
+	// Prevent loader.cleanup() from closing assigned Maps and Programs.
+	for m := range assignedMaps {
+		delete(loader.maps, m)
+	}
+	for p := range assignedProgs {
+		delete(loader.programs, p)
+	}
 
 	return nil
 }
@@ -342,7 +351,7 @@ func NewCollectionWithOptions(spec *CollectionSpec, opts CollectionOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
-	defer loader.cleanup()
+	defer loader.close()
 
 	// Create maps first, as their fds need to be linked into programs.
 	for mapName := range spec.Maps {
@@ -367,9 +376,9 @@ func NewCollectionWithOptions(spec *CollectionSpec, opts CollectionOptions) (*Co
 		return nil, err
 	}
 
+	// Prevent loader.cleanup from closing maps and programs.
 	maps, progs := loader.maps, loader.programs
-
-	loader.finalize()
+	loader.maps, loader.programs = nil, nil
 
 	return &Collection{
 		progs,
@@ -441,16 +450,8 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 	}, nil
 }
 
-// finalize should be called when all the collectionLoader's resources
-// have been successfully loaded into the kernel and populated with values.
-func (cl *collectionLoader) finalize() {
-	cl.maps, cl.programs = nil, nil
-}
-
-// cleanup cleans up all resources left over in the collectionLoader.
-// Call finalize() when Map and Program creation/population is successful
-// to prevent them from getting closed.
-func (cl *collectionLoader) cleanup() {
+// close all resources left over in the collectionLoader.
+func (cl *collectionLoader) close() {
 	cl.handles.close()
 	for _, m := range cl.maps {
 		m.Close()

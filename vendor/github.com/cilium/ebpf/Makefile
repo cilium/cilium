@@ -3,7 +3,10 @@
 # Pin the default clang to a stable version.
 CLANG ?= clang-14
 STRIP ?= llvm-strip-14
+OBJCOPY ?= llvm-objcopy-14
 CFLAGS := -O2 -g -Wall -Werror $(CFLAGS)
+
+CI_KERNEL_URL ?= https://github.com/cilium/ci-kernels/raw/master/
 
 # Obtain an absolute path to the directory of the Makefile.
 # Assume the Makefile is in the root of the repository.
@@ -17,6 +20,7 @@ CONTAINER_RUN_ARGS ?= $(if $(filter ${CONTAINER_ENGINE}, podman), --log-driver=n
 
 IMAGE := $(shell cat ${REPODIR}/testdata/docker/IMAGE)
 VERSION := $(shell cat ${REPODIR}/testdata/docker/VERSION)
+
 
 # clang <8 doesn't tag relocs properly (STT_NOTYPE)
 # clang 9 is the first version emitting BTF
@@ -93,8 +97,14 @@ testdata/loader-%-eb.elf: testdata/loader.c
 	$(CLANG) $(CFLAGS) -target bpfeb -c $< -o $@
 	$(STRIP) -g $@
 
-# Usage: make VMLINUX=/path/to/vmlinux vmlinux-btf
-.PHONY: vmlinux-btf
-vmlinux-btf: btf/testdata/vmlinux-btf.gz
-btf/testdata/vmlinux-btf.gz: $(VMLINUX)
-	objcopy --dump-section .BTF=/dev/stdout "$<" /dev/null | gzip > "$@"
+.PHONY: generate-btf
+generate-btf: KERNEL_VERSION?=5.18
+generate-btf:
+	$(eval TMP := $(shell mktemp -d))
+	curl -fL "$(CI_KERNEL_URL)/linux-$(KERNEL_VERSION).bz" -o "$(TMP)/bzImage"
+	./testdata/extract-vmlinux "$(TMP)/bzImage" > "$(TMP)/vmlinux"
+	$(OBJCOPY) --dump-section .BTF=/dev/stdout "$(TMP)/vmlinux" /dev/null | gzip > "btf/testdata/vmlinux.btf.gz"
+	curl -fL "$(CI_KERNEL_URL)/linux-$(KERNEL_VERSION)-selftests-bpf.tgz" -o "$(TMP)/selftests.tgz"
+	tar -xf "$(TMP)/selftests.tgz" --to-stdout tools/testing/selftests/bpf/bpf_testmod/bpf_testmod.ko | \
+		$(OBJCOPY) --dump-section .BTF="btf/testdata/btf_testmod.btf" - /dev/null
+	$(RM) -r "$(TMP)"
