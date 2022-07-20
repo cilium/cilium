@@ -823,7 +823,12 @@ func (e *Endpoint) UpdateNoTrackRules(annoCB AnnotationsResolverCB) {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint notrack event")
 		return
 	}
-	<-ch
+
+	updateRes := <-ch
+	regenResult := updateRes.(*EndpointRegenerationResult)
+	if regenResult.err != nil {
+		e.getLogger().WithError(regenResult.err).Error("EndpointNoTrackEvent event failed")
+	}
 }
 
 // UpdateVisibilityPolicy updates the visibility policy of this endpoint to
@@ -840,7 +845,12 @@ func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy visibility event")
 		return
 	}
-	<-ch
+
+	updateRes := <-ch
+	regenResult := updateRes.(*EndpointRegenerationResult)
+	if regenResult.err != nil {
+		e.getLogger().WithError(regenResult.err).Error("EndpointPolicyVisibilityEvent event failed")
+	}
 }
 
 // UpdateBandwidthPolicy updates the egress bandwidth of this endpoint to
@@ -854,7 +864,12 @@ func (e *Endpoint) UpdateBandwidthPolicy(annoCB AnnotationsResolverCB) {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy bandwidth event")
 		return
 	}
-	<-ch
+
+	updateRes := <-ch
+	regenResult := updateRes.(*EndpointRegenerationResult)
+	if regenResult.err != nil {
+		e.getLogger().WithError(regenResult.err).Error("EndpointPolicyBandwidthEvent event failed")
+	}
 }
 
 // GetRealizedPolicyRuleLabelsForKey returns the list of policy rule labels
