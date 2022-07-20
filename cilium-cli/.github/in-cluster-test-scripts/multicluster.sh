@@ -30,6 +30,11 @@ cilium install \
 cilium --context "${CONTEXT1}" hubble enable
 cilium --context "${CONTEXT2}" hubble enable --relay=false
 
+# Wait for cilium and hubble relay to be ready
+# NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
+cilium --context "${CONTEXT1}" status --wait
+cilium --context "${CONTEXT2}" status --wait
+
 # Enable cluster mesh
 cilium --context "${CONTEXT1}" clustermesh enable
 cilium --context "${CONTEXT2}" clustermesh enable
