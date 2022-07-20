@@ -42,7 +42,7 @@ jobs:
 
   analyze:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.go-changes == 'true' || github.event_name != 'pull_request' }}
+    if: ${{ github.repository == 'cilium/cilium' && (needs.check_changes.outputs.go-changes == 'true' || github.event_name != 'pull_request') }}
     runs-on: ubuntu-18.04
     permissions:
       security-events: write
