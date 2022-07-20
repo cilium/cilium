@@ -177,6 +177,7 @@ func (pi *ProgramInfo) ID() (ProgramID, bool) {
 
 // BTFID returns the BTF ID associated with the program.
 //
+// The ID is only valid as long as the associated program is kept alive.
 // Available from 5.0.
 //
 // The bool return value indicates whether this optional field is available and

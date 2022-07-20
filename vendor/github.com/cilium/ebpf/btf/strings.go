@@ -9,6 +9,7 @@ import (
 )
 
 type stringTable struct {
+	base    *stringTable
 	offsets []uint32
 	strings []string
 }
@@ -19,7 +20,15 @@ type sizedReader interface {
 	Size() int64
 }
 
-func readStringTable(r sizedReader) (*stringTable, error) {
+func readStringTable(r sizedReader, base *stringTable) (*stringTable, error) {
+	// When parsing split BTF's string table, the first entry offset is derived
+	// from the last entry offset of the base BTF.
+	firstStringOffset := uint32(0)
+	if base != nil {
+		idx := len(base.offsets) - 1
+		firstStringOffset = base.offsets[idx] + uint32(len(base.strings[idx])) + 1
+	}
+
 	// Derived from vmlinux BTF.
 	const averageStringLength = 16
 
@@ -27,7 +36,7 @@ func readStringTable(r sizedReader) (*stringTable, error) {
 	offsets := make([]uint32, 0, n)
 	strings := make([]string, 0, n)
 
-	offset := uint32(0)
+	offset := firstStringOffset
 	scanner := bufio.NewScanner(r)
 	scanner.Split(splitNull)
 	for scanner.Scan() {
@@ -44,11 +53,11 @@ func readStringTable(r sizedReader) (*stringTable, error) {
 		return nil, errors.New("string table is empty")
 	}
 
-	if strings[0] != "" {
+	if firstStringOffset == 0 && strings[0] != "" {
 		return nil, errors.New("first item in string table is non-empty")
 	}
 
-	return &stringTable{offsets, strings}, nil
+	return &stringTable{base, offsets, strings}, nil
 }
 
 func splitNull(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -64,6 +73,13 @@ func splitNull(data []byte, atEOF bool) (advance int, token []byte, err error) {
 }
 
 func (st *stringTable) Lookup(offset uint32) (string, error) {
+	if st.base != nil && offset <= st.base.offsets[len(st.base.offsets)-1] {
+		return st.base.lookup(offset)
+	}
+	return st.lookup(offset)
+}
+
+func (st *stringTable) lookup(offset uint32) (string, error) {
 	i := search(st.offsets, offset)
 	if i == len(st.offsets) || st.offsets[i] != offset {
 		return "", fmt.Errorf("offset %d isn't start of a string", offset)

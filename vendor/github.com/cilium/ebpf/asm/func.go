@@ -201,6 +201,34 @@ const (
 	FnGetFuncIp
 	FnGetAttachCookie
 	FnTaskPtRegs
+	FnGetBranchSnapshot
+	FnTraceVprintk
+	FnSkcToUnixSock
+	FnKallsymsLookupName
+	FnFindVma
+	FnLoop
+	FnStrncmp
+	FnGetFuncArg
+	FnGetFuncRet
+	FnGetFuncArgCnt
+	FnGetRetval
+	FnSetRetval
+	FnXdpGetBuffLen
+	FnXdpLoadBytes
+	FnXdpStoreBytes
+	FnCopyFromUserTask
+	FnSkbSetTstamp
+	FnImaFileHash
+	FnKptrXchg
+	FnMapLookupPercpuElem
+	FnSkcToMptcpSock
+	FnDynptrFromMem
+	FnRingbufReserveDynptr
+	FnRingbufSubmitDynptr
+	FnRingbufDiscardDynptr
+	FnDynptrRead
+	FnDynptrWrite
+	FnDynptrData
 
 	maxBuiltinFunc
 )

@@ -93,6 +93,9 @@ func NewObjName(name string) ObjName {
 // LinkID uniquely identifies a bpf_link.
 type LinkID uint32
 
+// BTFID uniquely identifies a BTF blob loaded into the kernel.
+type BTFID uint32
+
 // wrappedErrno wraps syscall.Errno to prevent direct comparisons with
 // syscall.E* or unix.E* constants.
 //
