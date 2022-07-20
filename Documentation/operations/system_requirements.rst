@@ -82,7 +82,7 @@ RancherOS_                 >= 1.5.5
 .. _RancherOS: https://rancher.com/rancher-os/
 
 .. [#centos_foot] CentOS 7 requires a third-party kernel provided by `ElRepo <http://elrepo.org/tiki/tiki-index.php>`_
-    whereas CentOS 8 ships with a supported kernel.
+    whereas CentOS 8 ships with a supported kernel. Note that some more advanced features may not be available on CentOS 7 even with a third-party kernel. For full details on which kernel config options must be enabled in order to use various features, see the section on :ref:`admin_kernel_version` requirements below.
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
