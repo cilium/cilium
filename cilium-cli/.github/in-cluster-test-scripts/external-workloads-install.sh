@@ -15,6 +15,10 @@ cilium install \
 # Enable Relay
 cilium hubble enable
 
+# Wait for cilium and hubble relay to be ready
+# NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
+cilium status --wait
+
 # Enable cluster mesh
 cilium clustermesh enable
 
