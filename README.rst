@@ -37,7 +37,7 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2022-07-19 | ``quay.io/cilium/cilium:v1.12.0``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.0>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__ |
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2022-07-19 | ``quay.io/cilium/cilium:v1.12.0``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.0>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 | `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-07-15 | ``quay.io/cilium/cilium:v1.11.7``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.7>`__  | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
