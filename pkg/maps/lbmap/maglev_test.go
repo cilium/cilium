@@ -4,6 +4,7 @@
 package lbmap
 
 import (
+	"fmt"
 	"net"
 	"testing"
 
@@ -103,6 +104,18 @@ func (s *MaglevSuite) TestInitMaps(c *C) {
 	}
 	err = lbm.UpsertService(params)
 	c.Assert(err, IsNil)
+
+	params.ActiveBackends = nil
+	err = lbm.UpsertService(params)
+	c.Assert(err, IsNil)
+
+	err = deleteMaglevTable(false, 1)
+	c.Assert(err, IsNil)
+
+	svc, err := maglevOuter4Map.GetService(1)
+	fmt.Println(svc)
+	c.Assert(err, IsNil)
+
 	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
 	c.Assert(deleted, Equals, false)

@@ -212,7 +212,7 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 		}
 	}
 
-	if useMaglev {
+	if useMaglev && backendCount > 0 {
 		if err := deleteMaglevTable(ipv6, uint16(svc.ID)); err != nil {
 			return fmt.Errorf("Unable to delete maglev lookup table %d: %s", svc.ID, err)
 		}
