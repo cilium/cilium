@@ -43,18 +43,12 @@ Then, install Cilium release via Helm:
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set kubeProxyReplacement=partial \\
-      --set socketLB.enabled=false \\
-      --set externalIPs.enabled=true \\
-      --set nodePort.enabled=true \\
-      --set hostPort.enabled=true \\
-      --set bpf.masquerade=false \\
       --set image.pullPolicy=IfNotPresent \\
       --set ipam.mode=kubernetes
 
 .. note::
 
-   To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), kind nodes
+   To enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), kind nodes
    need to have their own cgroup namespaces, and are different from the cgroup namespace
    of the underlying host so that Cilium can attach BPF programs at the right
    cgroup hierarchy. To verify this, run the following commands inside
