@@ -338,16 +338,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgHostReachableServicesPeer] = "false"
 	}
 
-	devices := make([]netlink.Link, 0, len(option.Config.GetDevices()))
 	if len(option.Config.GetDevices()) != 0 {
-		for _, device := range option.Config.GetDevices() {
-			link, err := netlink.LinkByName(device)
-			if err != nil {
-				log.WithError(err).WithField("device", device).Warn("Link does not exist")
-				return err
-			}
-			devices = append(devices, link)
-		}
 		args[initArgDevices] = strings.Join(option.Config.GetDevices(), ";")
 	} else {
 		args[initArgDevices] = "<nil>"
@@ -418,7 +409,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	sysctl.ApplySettings(sysSettings)
 
 	// Datapath initialization
-	hostDev1, hostDev2, err := setupBaseDevice(devices, mode, deviceMTU)
+	hostDev1, hostDev2, err := setupBaseDevice(deviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
 	}
