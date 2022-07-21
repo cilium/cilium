@@ -836,7 +836,7 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 	}
 
 	err = n.createInterface(ctx, a.allocation)
-	return err != nil, err
+	return err == nil, err
 }
 
 // maintainIPPool attempts to allocate or release all required IPs to fulfill the needed gap.
@@ -914,7 +914,7 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	}
 	n.poolMaintenanceComplete()
 	n.recalculate()
-	if instanceMutated || err != nil {
+	if instanceMutated {
 		n.manager.resyncTrigger.Trigger()
 	}
 	return err
