@@ -219,8 +219,18 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 			 * return to stack immediately here with
 			 * TC_ACT_REDIRECT.
 			 */
-			if (ret < 0 || ret == TC_ACT_REDIRECT)
+#ifdef ENABLE_HOST_FIREWALL
+            if (ret == TC_ACT_REDIRECT) {
+                /* We're on the ingress path of the native device. */
+                int ret2 = ipv6_host_policy_ingress(ctx, &remote_id, &trace);
+
+                if (IS_ERR(ret2))
+                    return ret2;
+            }
+#endif
+			if (ret < 0 || ret == TC_ACT_REDIRECT) {
 				return ret;
+			}
 		}
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -511,8 +521,18 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			 * return to stack immediately here with
 			 * TC_ACT_REDIRECT.
 			 */
-			if (ret < 0 || ret == TC_ACT_REDIRECT)
+#ifdef ENABLE_HOST_FIREWALL
+            if (ret == TC_ACT_REDIRECT) {
+                /* We're on the ingress path of the native device. */
+                int ret2 = ipv4_host_policy_ingress(ctx, &remote_id, &trace);
+
+                if (IS_ERR(ret2))
+                    return ret2;
+            }
+#endif
+			if (ret < 0 || ret == TC_ACT_REDIRECT) {
 				return ret;
+			}
 		}
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
