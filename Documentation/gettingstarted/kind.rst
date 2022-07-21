@@ -43,18 +43,12 @@ Then, install Cilium release via Helm:
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set kubeProxyReplacement=partial \\
-      --set socketLB.enabled=false \\
-      --set externalIPs.enabled=true \\
-      --set nodePort.enabled=true \\
-      --set hostPort.enabled=true \\
-      --set bpf.masquerade=false \\
       --set image.pullPolicy=IfNotPresent \\
       --set ipam.mode=kubernetes
 
 .. note::
 
-   To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), cgroup v2
+   To enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), cgroup v2
    needs to be enabled by setting the kernel ``systemd.unified_cgroup_hierarchy=1`` parameter.
    Also, cgroup v1 controllers ``net_cls`` and ``net_prio`` have to be disabled, or
    cgroup v1 has to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
