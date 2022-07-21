@@ -29,6 +29,7 @@ type ConnectivityTest struct {
 	client       *k8s.Client
 	hubbleClient observer.ObserverClient
 
+	features        FeatureSet
 	flowAggregation bool
 
 	// Parameters to the test suite, specified by the CLI user.
@@ -213,6 +214,9 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 		return err
 	}
 	if err := ct.initCiliumPods(ctx); err != nil {
+		return err
+	}
+	if err := ct.detectFeatures(ctx); err != nil {
 		return err
 	}
 
