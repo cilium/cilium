@@ -8,7 +8,7 @@ on:
 permissions: read-all
 
 env:
-  cilium_cli_version: v0.11.11
+  cilium_cli_version: v0.12.0
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
