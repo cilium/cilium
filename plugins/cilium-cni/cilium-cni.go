@@ -692,6 +692,16 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.WithError(err).Warning("Errors encountered while deleting endpoint")
 	}
 
+	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
+		// If using a delegated plugin for IPAM, attempt to release the IP.
+		// We do this *before* entering the network namespace, because the ns may
+		// have already been deleted, and we want to avoid leaking IPs.
+		err = cniInvoke.DelegateDel(context.TODO(), n.IPAM.Type, args.StdinData, nil)
+		if err != nil {
+			return err
+		}
+	}
+
 	netNs, err := ns.GetNS(args.Netns)
 	if err != nil {
 		log.WithError(err).Warningf("Unable to enter namespace %q, will not delete interface", args.Netns)
@@ -704,13 +714,6 @@ func cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		log.WithError(err).Warningf("Unable to delete interface %s in namespace %q, will not delete interface", args.IfName, args.Netns)
 		// We are not returning an error as this is very unlikely to be recoverable
-	}
-
-	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
-		err = cniInvoke.DelegateDel(context.TODO(), n.IPAM.Type, args.StdinData, nil)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
