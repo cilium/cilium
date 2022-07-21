@@ -469,7 +469,7 @@ func (n *Node) ResourceCopy() *v2.CiliumNode {
 // attaches it to the instance as specified by the CiliumNode. neededAddresses
 // of secondary IPs are assigned to the interface up to the maximum number of
 // addresses as allowed by the instance.
-func (n *Node) createInterface(ctx context.Context, a *AllocationAction) error {
+func (n *Node) createInterface(ctx context.Context, a *AllocationAction) (created bool, err error) {
 	if a.AvailableInterfaces == 0 {
 		// This is not a failure scenario, warn once per hour but do
 		// not track as interface allocation failure. There is a
@@ -480,7 +480,7 @@ func (n *Node) createInterface(ctx context.Context, a *AllocationAction) error {
 			n.lastMaxAdapterWarning = time.Now()
 		}
 		n.mutex.Unlock()
-		return nil
+		return false, nil
 	}
 
 	scopedLog := n.logger()
@@ -488,13 +488,13 @@ func (n *Node) createInterface(ctx context.Context, a *AllocationAction) error {
 	if err != nil {
 		scopedLog.Warningf("Unable to create interface on instance: %s", err)
 		n.manager.metricsAPI.IncAllocationAttempt(errCondition, string(a.PoolID))
-		return err
+		return false, err
 	}
 
 	n.manager.metricsAPI.IncAllocationAttempt("success", string(a.PoolID))
 	n.manager.metricsAPI.AddIPAllocation(string(a.PoolID), int64(toAllocate))
 
-	return nil
+	return true, nil
 }
 
 // AllocationAction is the action to be taken to resolve allocation deficits
@@ -835,8 +835,7 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 		}).WithError(err).Warning("Unable to assign additional IPs to interface, will create new interface")
 	}
 
-	err = n.createInterface(ctx, a.allocation)
-	return err != nil, err
+	return n.createInterface(ctx, a.allocation)
 }
 
 // maintainIPPool attempts to allocate or release all required IPs to fulfill the needed gap.
