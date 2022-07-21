@@ -796,8 +796,8 @@ The cilium preflight manifest requires etcd support and can be built with:
       --set agent.enabled=false \
       --set config.enabled=false \
       --set operator.enabled=false \
-      --set global.etcd.enabled=true \
-      --set global.etcd.ssl=true \
+      --set etcd.enabled=true \
+      --set etcd.ssl=true \
       > cilium-preflight.yaml
     kubectl create -f cilium-preflight.yaml
 
@@ -807,7 +807,7 @@ Example migration
 
 .. code-block:: shell-session
 
-      $ kubectl exec -n kube-system cilium-preflight-1234 -- cilium preflight migrate-identity
+      $ kubectl exec -n kube-system cilium-pre-flight-check-1234 -- cilium preflight migrate-identity
       INFO[0000] Setting up kvstore client
       INFO[0000] Connecting to etcd server...                  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.60.11:2379]" subsys=kvstore
       INFO[0000] Setting up kubernetes client
@@ -843,6 +843,13 @@ Example migration
   .. code-block:: shell-session
 
         cilium preflight migrate-identity --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml
+
+Once the migration is complete, confirm the endpoint identities match by listing the endpoints stored in CRDs and in etcd:
+
+.. code-block:: shell-session
+
+      $ kubectl get ciliumendpoints -A # new CRD-backed endpoints
+      $ kubectl exec -n kube-system cilium-1234 -- cilium endpoint list # existing etcd-backed endpoints
 
 Clearing CRD identities
 ~~~~~~~~~~~~~~~~~~~~~~~
