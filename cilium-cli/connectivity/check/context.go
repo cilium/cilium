@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/observer"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"google.golang.org/grpc"
@@ -482,6 +483,29 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 	ct.clients = c
 
 	return nil
+}
+
+// DetectMinimumCiliumVersion returns the smallest Cilium version running in
+// the cluster(s)
+func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*semver.Version, error) {
+	var minVersion *semver.Version
+	for name, ciliumPod := range ct.ciliumPods {
+		stdout, err := ciliumPod.K8sClient.ExecInPodWithTTY(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
+			defaults.AgentContainerName, []string{"cilium", "version", "-o", "jsonpath={$.Daemon.Version}"})
+		if err != nil {
+			return nil, fmt.Errorf("unable to fetch cilium version on pod %q: %w", name, err)
+		}
+		v, _, _ := strings.Cut(stdout.String(), "-") // strips proprietary -releaseX suffix
+		podVersion, err := semver.Parse(v)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse cilium version on pod %q: %w", name, err)
+		}
+		if minVersion == nil || podVersion.LT(*minVersion) {
+			minVersion = &podVersion
+		}
+	}
+
+	return minVersion, nil
 }
 
 func (ct *ConnectivityTest) RandomClientPod() *Pod {
