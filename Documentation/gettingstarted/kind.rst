@@ -74,7 +74,9 @@ Then, install Cilium release via Helm:
    have their own cgroup namespaces, then cgroup v2 needs to be enabled by
    setting the kernel ``systemd.unified_cgroup_hierarchy=1`` parameter.
    Also, cgroup v1 controllers ``net_cls`` and ``net_prio`` have to be disabled, or
-   cgroup v1 has to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
+   cgroup v1 has to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter)
+   on older kernels (< 5.14). This is the `kernel fix <https://github.com/torvalds/linux/commit/8520e224f547cd070c7c8f97b1fc6d58cff7ccaa>`__
+   that's available since kernel 5.14.
    To verify this, run the following commands on the host, and check that the
    output values are different.
 
