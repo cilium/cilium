@@ -1440,6 +1440,9 @@ tls:
 #   - geneve
 tunnel: "vxlan"
 
+# -- Configure the underlying network MTU to overwrite auto-detected MTU.
+MTU: 0
+
 # -- Disable the usage of CiliumEndpoint CRD.
 disableEndpointCRD: "false"
 

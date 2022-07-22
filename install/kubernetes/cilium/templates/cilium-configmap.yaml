@@ -395,6 +395,10 @@ data:
   tunnel-port: "{{ .Values.tunnelPort }}"
 {{- end }}
 
+{{- if .Values.MTU }}
+  mtu: "{{ .Values.MTU }}"
+{{- end }}
+
 {{- if .Values.eni.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
