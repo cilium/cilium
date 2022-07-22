@@ -511,16 +511,17 @@ enum {
  * These are shared with pkg/monitor/api/drop.go.
  * When modifying any of the below, those files should also be updated.
  */
-#define REASON_FORWARDED		0
-#define REASON_PLAINTEXT		3
-#define REASON_DECRYPT			4
-#define REASON_LB_NO_BACKEND_SLOT	5
-#define REASON_LB_NO_BACKEND		6
-#define REASON_LB_REVNAT_UPDATE		7
-#define REASON_LB_REVNAT_STALE		8
-#define REASON_FRAG_PACKET		9
-#define REASON_FRAG_PACKET_UPDATE	10
-#define REASON_MISSED_CUSTOM_CALL	11
+#define REASON_FORWARDED			0
+#define REASON_PLAINTEXT			3
+#define REASON_DECRYPT				4
+#define REASON_LB_NO_BACKEND_SLOT		5
+#define REASON_LB_NO_BACKEND			6
+#define REASON_LB_REVNAT_UPDATE			7
+#define REASON_LB_REVNAT_STALE			8
+#define REASON_FRAG_PACKET			9
+#define REASON_FRAG_PACKET_UPDATE		10
+#define REASON_MISSED_CUSTOM_CALL		11
+#define REASON_LB_NO_ACTIVE_BACKEND_SLOT	12
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0
