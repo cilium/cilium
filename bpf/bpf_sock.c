@@ -369,6 +369,12 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	}
 #endif /* ENABLE_L7_LB */
 
+	/* The service count is set to number of active backends. */
+	if (svc->count == 0) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_ACTIVE_BACKEND_SLOT);
+		return -ENOENT;
+	}
+
 	if (lb4_svc_is_affinity(svc)) {
 		/* Note, for newly created affinity entries there is a
 		 * small race window. Two processes on two different
@@ -1000,6 +1006,11 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		return 0;
 	}
 #endif /* ENABLE_L7_LB */
+
+	if (svc->count == 0) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_ACTIVE_BACKEND_SLOT);
+		return -ENOENT;
+	}
 
 	if (lb6_svc_is_affinity(svc)) {
 		backend_id = lb6_affinity_backend_id_by_netns(svc, &id);
