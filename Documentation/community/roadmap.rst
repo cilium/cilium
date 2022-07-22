@@ -81,13 +81,6 @@ capabilities. We released a beta at the end of 2021 and had very valuable
 feedback from our user community. The next steps we'd like to take for Cilium
 Service Mesh (in no particular order) are: 
 
-* Integration of service mesh branch into mainline Cilium
-* Graduating Ingress to stable
-  
-  * 100% upstream conformant
-  * Visibility via Hubble
-  * Support for additional annotations
- 
 * Graduating Prometheus metrics and OpenTelemetry collector to stable
 * Using Kubernetes as service mesh control plane 
  
