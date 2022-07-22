@@ -9,6 +9,10 @@
      - Description
      - Type
      - Default
+   * - MTU
+     - Configure the underlying network MTU to overwrite auto-detected MTU.
+     - int
+     - ``0``
    * - affinity
      - Affinity for cilium-agent.
      - object
