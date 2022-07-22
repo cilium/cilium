@@ -3774,9 +3774,6 @@ func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
 			_, err = cast.ToFloat32E(value)
 		case "float64":
 			_, err = cast.ToFloat64E(value)
-		// remove this after PR https://github.com/cilium/cilium/pull/20282 is merged
-		case "intSlice":
-			_, err = cast.ToIntSliceE(value)
 		case "int":
 			_, err = cast.ToIntE(value)
 		case "int8":
