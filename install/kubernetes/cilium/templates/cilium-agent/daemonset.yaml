@@ -378,7 +378,6 @@ spec:
           mountPath: /hostbin
         securityContext:
           privileged: true
-      {{- end }}
       - name: apply-sysctl-overwrites
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -404,6 +403,7 @@ spec:
           mountPath: /hostbin
         securityContext:
           privileged: true
+      {{- end }}
       {{- if and .Values.nodeinit.enabled .Values.nodeinit.bootstrapFile }}
       - name: wait-for-node-init
         image: {{ include "cilium.image" .Values.image | quote }}
