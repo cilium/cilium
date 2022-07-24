@@ -470,7 +470,6 @@ spec:
               - SYS_CHROOT
               - SYS_PTRACE
           {{- end}}
-      {{- end }}
       - name: apply-sysctl-overwrites
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -514,6 +513,7 @@ spec:
               - SYS_CHROOT
               - SYS_PTRACE
           {{- end}}
+      {{- end }}
       {{- if not .Values.securityContext.privileged }}
       # Mount the bpf fs if it is not mounted. We will perform this task
       # from a privileged container because the mount propagation bidirectional
