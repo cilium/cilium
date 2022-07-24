@@ -411,7 +411,6 @@ spec:
             name: cni-path
         securityContext:
           privileged: true
-{{- end }}
       - name: apply-sysctl-overwrites
         image: "{{ if .Values.image.override }}{{ .Values.image.override }}{{ else }}{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -437,6 +436,7 @@ spec:
           mountPath: /hostbin
         securityContext:
           privileged: true
+{{- end }}
 {{- if and .Values.nodeinit.enabled (not (eq .Values.nodeinit.bootstrapFile "")) }}
       - name: wait-for-node-init
         command: ['sh', '-c', 'until test -s {{ (print "/tmp/cilium-bootstrap.d/" (.Values.nodeinit.bootstrapFile | base)) | quote }}; do echo "Waiting on node-init to run..."; sleep 1; done']
