@@ -76,7 +76,9 @@ var (
 	frontend1   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, lb.ScopeExternal, 0)
 	frontend2   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, lb.ScopeExternal, 0)
 	frontend3   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("f00d::1"), 80, lb.ScopeExternal, 0)
-	backends1   = []*lb.Backend{
+	frontend5   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.3"), 80, lb.ScopeExternal, 0)
+
+	backends1 = []*lb.Backend{
 		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
 		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
 	}
@@ -90,6 +92,10 @@ var (
 	}
 	backends4 = []*lb.Backend{
 		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080),
+	}
+	samebackends = []*lb.Backend{
+		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.5"), 8080),
+		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.5"), 8080),
 	}
 )
 
@@ -377,6 +383,15 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	_, id2, err := m.svc.UpsertService(p2)
 	c.Assert(err, IsNil)
 
+	p3 := &lb.SVC{
+		Frontend:      frontend5,
+		Backends:      samebackends,
+		Type:          lb.SVCTypeLoadBalancer,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+	}
+	_, id3, err := m.svc.UpsertService(p3)
+	c.Assert(err, IsNil)
+
 	// Restart service, but keep the lbmap to restore services from
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	option.Config.DatapathMode = datapathOpt.DatapathModeLBOnly
@@ -388,24 +403,32 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(err, IsNil)
 
 	// Backends have been restored
-	c.Assert(len(m.svc.backendByHash), Equals, 3)
+	c.Assert(len(m.svc.backendByHash), Equals, 4)
 	backends := append(backends1, backends2...)
+	backends = append(backends, samebackends...)
 	for _, b := range backends {
 		_, found := m.svc.backendByHash[b.Hash()]
 		c.Assert(found, Equals, true)
 	}
 
 	// Services have been restored too
-	c.Assert(len(m.svc.svcByID), Equals, 2)
+	c.Assert(len(m.svc.svcByID), Equals, 3)
 	c.Assert(m.svc.svcByID[id1].frontend, checker.DeepEquals, lbmap.ServiceByID[uint16(id1)].Frontend)
 	c.Assert(m.svc.svcByID[id1].backends, checker.DeepEquals, lbmap.ServiceByID[uint16(id1)].Backends)
 	c.Assert(m.svc.svcByID[id2].frontend, checker.DeepEquals, lbmap.ServiceByID[uint16(id2)].Frontend)
 	c.Assert(m.svc.svcByID[id2].backends, checker.DeepEquals, lbmap.ServiceByID[uint16(id2)].Backends)
+	c.Assert(m.svc.svcByID[id3].frontend, checker.DeepEquals, lbmap.ServiceByID[uint16(id3)].Frontend)
+	c.Assert(m.svc.svcByID[id3].backends, checker.DeepEquals, lbmap.ServiceByID[uint16(id3)].Backends)
+
+	for _, b := range samebackends {
+		c.Assert(m.svc.backendRefCount[b.Hash()], Equals, 1)
+	}
 
 	// Session affinity too
 	c.Assert(m.svc.svcByID[id1].sessionAffinity, Equals, false)
 	c.Assert(m.svc.svcByID[id2].sessionAffinity, Equals, true)
 	c.Assert(m.svc.svcByID[id2].sessionAffinityTimeoutSec, Equals, uint32(200))
+	c.Assert(m.svc.svcByID[id3].sessionAffinity, Equals, false)
 
 	// LoadBalancer source ranges too
 	c.Assert(len(m.svc.svcByID[id2].loadBalancerSourceRanges), Equals, 2)
