@@ -132,3 +132,13 @@ and `commonCASecretName` variables.
     {{- $_ := set (set . "commonCA" $ca) "commonCASecretName" $secretName -}}
   {{- end -}}
 {{- end -}}
+
+{{/*
+Check if duration is non zero value, return duration, empty when zero.
+*/}}
+{{- define "hasDuration" }}
+{{- $now := now }}
+{{- if ne $now ($now | dateModify (toString .)) }}
+{{- . }}
+{{- end }}
+{{- end }}
