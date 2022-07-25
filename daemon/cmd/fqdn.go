@@ -461,7 +461,9 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
 		err := errors.New("DNS request cannot be associated with an existing endpoint")
-		log.WithError(err).Error("cannot find matching endpoint")
+		log.WithFields(logrus.Fields{
+			logfields.L3n4Addr: epIPPort,
+		}).WithError(err).Error("cannot find matching endpoint")
 		endMetric()
 		return err
 	}
