@@ -142,3 +142,15 @@ Check if duration is non zero value, return duration, empty when zero.
 {{- . }}
 {{- end }}
 {{- end }}
+
+{{/*
+Validate duration field, return validated duration, 0s when provided duration is empty.
+*/}}
+{{- define "validateDuration" }}
+{{- if . }}
+{{- $_ := now | mustDateModify (toString .) }}
+{{- . }}
+{{- else -}}
+0s
+{{- end }}
+{{- end }}
