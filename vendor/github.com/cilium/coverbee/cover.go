@@ -12,6 +12,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"sort"
 	"strings"
 
 	"golang.org/x/tools/cover"
@@ -316,4 +317,62 @@ func BlockListToHTML(blockList [][]CoverBlock, out io.Writer, mode string) error
 	}
 
 	return nil
+}
+
+// BlockListFilePaths returns a sorted and deduplicateed list of file paths included in the block list
+func BlockListFilePaths(blockList [][]CoverBlock) []string {
+	var uniqueFiles []string
+	for _, blocks := range blockList {
+		for _, block := range blocks {
+			i := sort.SearchStrings(uniqueFiles, block.Filename)
+			if i < len(uniqueFiles) && uniqueFiles[i] == block.Filename {
+				continue
+			}
+
+			// Insert sorted
+			uniqueFiles = append(uniqueFiles, "")
+			copy(uniqueFiles[i+1:], uniqueFiles[i:])
+			uniqueFiles[i] = block.Filename
+		}
+	}
+	return uniqueFiles
+}
+
+// Check for:
+// aaaaa
+//   bbbbb
+// -----
+//    aaaa
+// bbbb
+// -----
+//   aaa
+// bbbbbbb
+// -----
+// aaaaaaa
+//   bbb
+func blocksOverlap(a, b cover.ProfileBlock) bool {
+	return (blockLTE(a.StartLine, a.StartCol, b.EndLine, b.EndCol) &&
+		blockGTE(a.EndLine, a.EndCol, b.EndLine, b.EndCol)) ||
+		(blockLTE(a.StartLine, a.StartCol, b.StartLine, b.StartCol) &&
+			blockGTE(a.EndLine, a.EndCol, b.StartLine, b.StartCol)) ||
+		(blockGTE(a.StartLine, a.StartCol, b.StartLine, b.StartCol) &&
+			blockLTE(a.EndLine, a.EndCol, b.EndLine, b.EndCol))
+}
+
+// a <= b
+func blockLTE(aLine, aCol, bLine, bCol int) bool {
+	if aLine == bLine {
+		return aCol <= bCol
+	}
+
+	return aLine < bLine
+}
+
+// a >= b
+func blockGTE(aLine, aCol, bLine, bCol int) bool {
+	if aLine == bLine {
+		return aCol >= bCol
+	}
+
+	return aLine > bLine
 }

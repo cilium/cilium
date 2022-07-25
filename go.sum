@@ -96,6 +96,10 @@ github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMo
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.1.1/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
+github.com/alecthomas/assert/v2 v2.0.3 h1:WKqJODfOiQG0nEJKFKzDIG3E29CN2/4zR9XGJzKIkbg=
+github.com/alecthomas/participle/v2 v2.0.0-beta.4 h1:ublfGBm+x+p2j7KotHhrUMbKtejT7M0Gv1Mt1u3absw=
+github.com/alecthomas/participle/v2 v2.0.0-beta.4/go.mod h1:RC764t6n4L8D8ITAJv0qdokritYSNR3wV5cVwmIEaMM=
+github.com/alecthomas/repr v0.1.0 h1:ENn2e1+J3k09gyj2shc0dHr/yjaWSHRlrJ4DPMevDqE=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
@@ -170,8 +174,8 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/cilium/controller-tools v0.6.2 h1:oIkqAzqncKsm+lQFJVP6n+bqHOVs9nUZ06hgZ4PxlMM=
 github.com/cilium/controller-tools v0.6.2/go.mod h1:oaeGpjXn6+ZSEIQkUe/+3I40PNiDYp9aeawbt3xTgJ8=
-github.com/cilium/coverbee v0.1.5 h1:sKTs5vKXKSdRq0Ac9mzkewQWlLf6/w4yPOD0TJanIbs=
-github.com/cilium/coverbee v0.1.5/go.mod h1:RsgnEQEwiSVMJwnT7+8KSBlk2wRUu6lBozi2lWFCt5s=
+github.com/cilium/coverbee v0.2.0 h1:Vyx3anzzX7o/n25pe7HnKuW0STD6XcZkvNkRVy1DTaA=
+github.com/cilium/coverbee v0.2.0/go.mod h1:YdE11eOqnvImtn6F7benUTK2dDvNwsSxCs7ndyVbYas=
 github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4 h1:aqrS+g/6xLKJjcKcl4/THW+C2Y4O+2zEETSwhIUuEDs=
 github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4/go.mod h1:MEn5V1CejgUNFP3Y1JKmBC6Mb9TuK53ecHG9lffctFg=
 github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e h1:VZolEtS7AlGDu3IH368iqkvfQQSGPgOnPjNaUx4dS7M=
@@ -578,6 +582,7 @@ github.com/hashicorp/serf v0.8.2/go.mod h1:6hOLApaqBFA1NXqRQAsxw9QxuDEvNxSQRwA/J
 github.com/hashicorp/serf v0.9.6/go.mod h1:TXZNMjZQijwlDvp+r0b63xZ45H7JmCmgg4gpTwn9UV4=
 github.com/hashicorp/serf v0.9.7 h1:hkdgbqizGQHuU5IPqYM1JdSMV8nKfpuOnZYXssk9muY=
 github.com/hashicorp/serf v0.9.7/go.mod h1:TXZNMjZQijwlDvp+r0b63xZ45H7JmCmgg4gpTwn9UV4=
+github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/iancoleman/strcase v0.2.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
