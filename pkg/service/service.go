@@ -1345,6 +1345,7 @@ func (s *Service) restoreServicesLocked() error {
 			if _, found := backendSet[hash]; found {
 				continue
 			}
+			backendSet[hash] = struct{}{}
 			s.backendRefCount.Add(hash)
 			newSVC.backendByHash[hash] = svc.Backends[j]
 		}
