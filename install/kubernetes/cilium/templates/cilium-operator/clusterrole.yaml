@@ -138,11 +138,9 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.operator.nodeGCInterval }}
-{{- if ne .Values.operator.nodeGCInterval "0s" }}
+{{- if include "hasDuration" .Values.operator.nodeGCInterval }}
     # To perform CiliumNode garbage collector
   - delete
-{{- end }}
 {{- end }}
 - apiGroups:
   - cilium.io
