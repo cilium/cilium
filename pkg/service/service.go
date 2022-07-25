@@ -1337,8 +1337,14 @@ func (s *Service) restoreServicesLocked() error {
 			restoredFromDatapath: true,
 		}
 
+		backendSet := map[string]struct{}{}
 		for j, backend := range svc.Backends {
 			hash := backend.L3n4Addr.Hash()
+
+			// skip when same port and ip address exist.
+			if _, found := backendSet[hash]; found {
+				continue
+			}
 			s.backendRefCount.Add(hash)
 			newSVC.backendByHash[hash] = svc.Backends[j]
 		}
