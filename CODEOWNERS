@@ -24,3 +24,62 @@
 /pkg/monitor/payload @cilium/api
 /pkg/policy/api/ @cilium/api
 /pkg/proxy/accesslog @cilium/api
+/pkg/redirectpolicy @cilium/sig-lb
+/pkg/serializer @cilium/sig-agent
+/pkg/service @cilium/sig-lb
+/pkg/sysctl @cilium/sig-datapath
+/pkg/testutils/ @cilium/ci-structure
+/pkg/tuple @cilium/sig-datapath
+/pkg/wireguard @cilium/wireguard
+/plugins/cilium-cni/ @cilium/sig-k8s
+/plugins/cilium-docker/ @cilium/docker
+/proxylib/ @cilium/proxy
+/README.rst @cilium/docs-structure
+/SECURITY.md @cilium/contributing
+/stable.txt @cilium/tophat
+/test/ @cilium/ci-structure
+/test/Makefile* @cilium/ci-structure @cilium/build
+# Service handling tests
+/test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
+/test/runtime/lb.go @cilium/sig-lb @cilium/ci-structure
+# Datapath tests
+/test/bpf/ @cilium/sig-datapath
+/test/bpf/check-complexity.sh @cilium/loader
+/test/bpf/verifier-test.sh @cilium/loader
+/test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
+/test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure
+/test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
+/test/k8s/verifier.go @cilium/loader @cilium/ci-structure
+/test/runtime/connectivity.go @cilium/sig-datapath @cilium/ci-structure
+# Policy tests
+/test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
+/test/runtime/net_policies.go @cilium/sig-policy @cilium/ci-structure
+# Hubble/monitoring tests
+/test/k8s/hubble.go @cilium/sig-hubble @cilium/ci-structure
+/test/runtime/monitor.go @cilium/sig-hubble @cilium/ci-structure
+# L7 proxy tests
+/test/k8s/fqdn.go @cilium/proxy @cilium/ci-structure
+/test/k8s/kafka_policies.go @cilium/proxy @cilium/ci-structure
+/test/runtime/cassandra.go @cilium/proxy @cilium/ci-structure
+/test/runtime/fqdn.go @cilium/proxy @cilium/ci-structure
+/test/runtime/kafka.go @cilium/proxy @cilium/ci-structure
+# Standalone L4LB tests
+/test/l4lb @cilium/sig-lb @cilium/ci-structure
+/test/nat46x64 @cilium/sig-lb @cilium/ci-structure
+# Misc. tests
+/test/k8s/cli.go @cilium/cli @cilium/ci-structure
+/test/k8s/health.go @cilium/health @cilium/ci-structure
+/test/k8s/identity.go @cilium/sig-agent @cilium/ci-structure
+/test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
+/test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
+/test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
+/test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure
+/tools/ @cilium/contributing
+/USERS.md @cilium/tophat
+Vagrantfile @cilium/ci-structure
+/Vagrantfile @cilium/contributing
+/go.sum @cilium/vendor
+/go.mod @cilium/vendor
+/vagrant_box_defaults.rb @cilium/ci-structure
+/vendor/ @cilium/vendor
+/VERSION @cilium/tophat
