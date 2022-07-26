@@ -113,16 +113,9 @@ data:
   #   the kvstore by commenting out the identity-allocation-mode below, or
   #   setting it to "kvstore".
   identity-allocation-mode: {{ .Values.identityAllocationMode }}
-{{- if hasKey .Values "identityHeartbeatTimeout" }}
-  identity-heartbeat-timeout: "{{ .Values.identityHeartbeatTimeout }}"
-{{- end }}
-{{- if hasKey .Values "identityGCInterval" }}
-  identity-gc-interval: "{{ .Values.identityGCInterval }}"
-{{- end }}
-{{- if hasKey .Values.operator "endpointGCInterval" }}
-  cilium-endpoint-gc-interval: "{{ .Values.operator.endpointGCInterval }}"
-{{- end }}
-
+  identity-heartbeat-timeout: {{ include "validateDuration" .Values.operator.identityHeartbeatTimeout | quote }}
+  identity-gc-interval: {{ include "validateDuration" .Values.operator.identityGCInterval | quote }}
+  cilium-endpoint-gc-interval: {{ include "validateDuration" .Values.operator.endpointGCInterval | quote }}
   nodes-gc-interval: {{ include "validateDuration" .Values.operator.nodeGCInterval | quote }}
 
 {{- if hasKey .Values "disableEndpointCRD" }}
@@ -268,7 +261,7 @@ data:
   # notification events for each allowed connection.
   #
   # Only effective when monitor aggregation is set to "medium" or higher.
-  monitor-aggregation-interval: {{ .Values.bpf.monitorInterval }}
+  monitor-aggregation-interval: {{ include "validateDuration" .Values.bpf.monitorInterval | quote }}
 
   # The monitor aggregation flags determine which TCP flags which, upon the
   # first observation, cause monitor notifications to be generated.
@@ -649,9 +642,7 @@ data:
 {{- if hasKey .Values.l2NeighDiscovery "enabled" }}
   enable-l2-neigh-discovery: {{ .Values.l2NeighDiscovery.enabled | quote }}
 {{- end }}
-{{- if hasKey .Values.l2NeighDiscovery "refreshPeriod" }}
-  arping-refresh-period: {{ .Values.l2NeighDiscovery.refreshPeriod | quote }}
-{{- end }}
+  arping-refresh-period: {{ include "validateDuration" .Values.l2NeighDiscovery.refreshPeriod | quote }}
 {{- end }}
 
 {{- if and .Values.pprof .Values.pprof.enabled }}

@@ -21,7 +21,7 @@ rules:
 {{- end }}
 {{- end }}
 {{- end }}
-{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus .Values.operator.endpointGCInterval }}
+{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus (include "hasDuration" .Values.operator.endpointGCInterval) }}
 - apiGroups:
   - ""
   resources:
