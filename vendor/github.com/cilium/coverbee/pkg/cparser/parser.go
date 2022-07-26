@@ -30,7 +30,7 @@ var cLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: tokenOctalNumber, Pattern: `0[0-7]+`},
 	{Name: tokenNumber, Pattern: `[-+]?(\d*\.)?\d+`},
 	{Name: tokenIdent, Pattern: `[a-zA-Z_]\w*`},
-	{Name: tokenPunct, Pattern: `[-[!@#$%^&*()+_={}\|:;"'<,>.?/~]|]`},
+	{Name: tokenPunct, Pattern: `[-[!@#$%^&*()+_={}\|:;"'<,>.?\\/~]|]`},
 	{Name: tokenEscapedEOL, Pattern: `\\[\n\r]+`},
 	{Name: tokenEOL, Pattern: `[\n\r]+`},
 	{Name: tokenWhitespace, Pattern: `[ \t]+`},
@@ -78,6 +78,9 @@ func (tl *TokenList) Peek() *lexer.Token {
 // Peek a token `n` positions forward without advancing the internal cursor
 func (tl *TokenList) PeekN(n int) *lexer.Token {
 	if len(*tl) <= n {
+		return nil
+	}
+	if n < 0 {
 		return nil
 	}
 
@@ -372,6 +375,11 @@ func (p *Parser) parseExternalDeclaration(tokens TokenList) (*ExternalDeclaratio
 	last := tokens.PeekTail()
 	if last == nil {
 		return nil, fmt.Errorf("no last token")
+	}
+
+	// Discard trailing tokens.
+	if last.EOF() {
+		return nil, nil
 	}
 
 	var extDecl ExternalDeclaration

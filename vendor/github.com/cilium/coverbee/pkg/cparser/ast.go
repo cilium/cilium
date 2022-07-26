@@ -32,7 +32,9 @@ func (n *BaseNode) GetHead() lexer.Position {
 
 // BaseNode sets the positions of the first character, it takes the position from the given token
 func (n *BaseNode) SetHead(token *lexer.Token) {
-	n.Head = token.Pos
+	if token != nil {
+		n.Head = token.Pos
+	}
 }
 
 // GetTail returns the position of the last character of a node
@@ -42,8 +44,10 @@ func (n *BaseNode) GetTail() lexer.Position {
 
 // BaseNode sets the positions of the last character, it takes the position from the given token and adds its length
 func (n *BaseNode) SetTail(token *lexer.Token) {
-	n.Tail = token.Pos
-	n.Tail.Advance(token.Value)
+	if token != nil {
+		n.Tail = token.Pos
+		n.Tail.Advance(token.Value)
+	}
 }
 
 // TranslationUnit is a full file containing C code.

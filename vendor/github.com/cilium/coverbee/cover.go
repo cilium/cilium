@@ -303,6 +303,26 @@ func BlockListToGoCover(blockList [][]CoverBlock, out io.Writer, mode string) {
 	}
 }
 
+// ProfilesToGoCover convert a profile list into a go-cover file which can be interpreted by `go tool cover`.
+// `mode` value can be `set` or `count`, see `go tool cover -h` for details.
+func ProfilesToGoCover(profiles []*cover.Profile, out io.Writer, mode string) {
+	fmt.Fprintln(out, "mode:", mode)
+	for _, profile := range profiles {
+		for _, block := range profile.Blocks {
+			fmt.Fprintf(out,
+				"%s:%d.%d,%d.%d %d %d\n",
+				profile.FileName,
+				block.StartLine,
+				block.StartCol,
+				block.EndLine,
+				block.EndCol,
+				block.NumStmt,
+				block.Count,
+			)
+		}
+	}
+}
+
 // BlockListToHTML converts a block-list into a HTML coverage report.
 func BlockListToHTML(blockList [][]CoverBlock, out io.Writer, mode string) error {
 	var buf bytes.Buffer
