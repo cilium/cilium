@@ -92,13 +92,29 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 		}
 	}
 
+	clustermeshAPIServerDeployment, err := k.client.GetDeployment(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName, metav1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("unable to retrieve Deployment of %s: %w", defaults.ClusterMeshDeploymentName, err)
+	}
+
+	if err == nil { // only update clustermesh-apiserver if deployment was found on the cluster
+		if err = upgradeDeployment(ctx, k, upgradeDeploymentParams{
+			deployment:         clustermeshAPIServerDeployment,
+			imageIncludeDigest: k.fqClusterMeshAPIImage(utils.ImagePathIncludeDigest),
+			imageExcludeDigest: k.fqClusterMeshAPIImage(utils.ImagePathExcludeDigest),
+			containerName:      defaults.ClusterMeshContainerName,
+		}, &patched); err != nil {
+			return err
+		}
+	}
+
 	if patched > 0 && k.params.Wait {
 		k.Log("⌛ Waiting for Cilium to be upgraded...")
 		collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
 			Namespace:       k.params.Namespace,
 			Wait:            true,
 			WaitDuration:    k.params.WaitDuration,
-			WarningFreePods: []string{defaults.AgentDaemonSetName, defaults.OperatorDeploymentName, defaults.RelayDeploymentName},
+			WarningFreePods: []string{defaults.AgentDaemonSetName, defaults.OperatorDeploymentName, defaults.RelayDeploymentName, defaults.ClusterMeshDeploymentName},
 		})
 		if err != nil {
 			return err
