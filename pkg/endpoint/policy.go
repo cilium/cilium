@@ -294,23 +294,23 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 }
 
 // Called with e.mutex UNlocked
-func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
+func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	var revision uint64
 	var stateDirComplete bool
 	var err error
 
-	context.Stats = regenerationStatistics{}
-	stats := &context.Stats
+	ctx.Stats = regenerationStatistics{}
+	stats := &ctx.Stats
 	stats.totalTime.Start()
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.StartTime: time.Now(),
-		logfields.Reason:    context.Reason,
+		logfields.Reason:    ctx.Reason,
 	}).Debug("Regenerating endpoint")
 
 	defer func() {
 		// This has to be within a func(), not deferred directly, so that the
 		// value of retErr is passed in from when regenerate returns.
-		e.updateRegenerationStatistics(context, retErr)
+		e.updateRegenerationStatistics(ctx, retErr)
 	}()
 
 	e.buildMutex.Lock()
@@ -329,7 +329,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	//
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
 	if e.getState() != StateWaitingForIdentity &&
-		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
+		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+ctx.Reason) {
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.unlock()
 
@@ -338,8 +338,8 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 
 	// Bump priority if higher priority event was skipped.
 	// This must be done in the same critical section as the state transition above.
-	if e.skippedRegenerationLevel > context.datapathRegenerationContext.regenerationLevel {
-		context.datapathRegenerationContext.regenerationLevel = e.skippedRegenerationLevel
+	if e.skippedRegenerationLevel > ctx.datapathRegenerationContext.regenerationLevel {
+		ctx.datapathRegenerationContext.regenerationLevel = e.skippedRegenerationLevel
 	}
 	// reset to the default lowest level
 	e.skippedRegenerationLevel = regeneration.Invalid
@@ -348,13 +348,13 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 
 	stats.prepareBuild.Start()
 	origDir := e.StateDirectoryPath()
-	context.datapathRegenerationContext.currentDir = origDir
+	ctx.datapathRegenerationContext.currentDir = origDir
 
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
 	// entire generation process has succeeded.
 	tmpDir := e.NextDirectoryPath()
-	context.datapathRegenerationContext.nextDir = tmpDir
+	ctx.datapathRegenerationContext.nextDir = tmpDir
 
 	// Remove an eventual existing temporary directory that has been left
 	// over to make sure we can start the build from scratch
@@ -395,7 +395,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		e.unlock()
 	}()
 
-	revision, stateDirComplete, err = e.regenerateBPF(context)
+	revision, stateDirComplete, err = e.regenerateBPF(ctx)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		e.getLogger().WithFields(logrus.Fields{
@@ -457,9 +457,9 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	return nil
 }
 
-func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, err error) {
+func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err error) {
 	success := err == nil
-	stats := &context.Stats
+	stats := &ctx.Stats
 
 	stats.totalTime.End(success)
 	stats.success = success
@@ -471,7 +471,7 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 	stats.SendMetrics()
 
 	fields := logrus.Fields{
-		logfields.Reason: context.Reason,
+		logfields.Reason: ctx.Reason,
 	}
 	for field, stat := range stats.GetMap() {
 		fields[field] = stat.Total()
@@ -488,7 +488,7 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 	}
 
 	scopedLog.Debug("Completed endpoint regeneration")
-	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
+	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+ctx.Reason+")")
 }
 
 // SetRegenerateStateIfAlive tries to change the state of the endpoint for pending regeneration.
