@@ -258,7 +258,7 @@ func init() {
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
 	regOpts.BindEnv(option.K8sKubeConfigPath)
 
-	flags.Duration(operatorOption.NodesGCInterval, 0*time.Second, "GC interval for CiliumNodes")
+	flags.Duration(operatorOption.NodesGCInterval, 5*time.Minute, "GC interval for CiliumNodes")
 	regOpts.BindEnv(operatorOption.NodesGCInterval)
 
 	flags.String(operatorOption.OperatorPrometheusServeAddr, operatorOption.PrometheusServeAddr, "Address to serve Prometheus metrics")
