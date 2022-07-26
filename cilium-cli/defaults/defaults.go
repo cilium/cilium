@@ -52,6 +52,7 @@ const (
 	HubbleUIBackendImage       = "quay.io/cilium/hubble-ui-backend"
 
 	ClusterMeshDeploymentName             = "clustermesh-apiserver"
+	ClusterMeshContainerName              = "apiserver"
 	ClusterMeshServiceAccountName         = "clustermesh-apiserver"
 	ClusterMeshClusterRoleName            = "clustermesh-apiserver"
 	ClusterMeshApiserverImage             = "quay.io/cilium/clustermesh-apiserver"
