@@ -166,7 +166,7 @@ func (o *objectCache) serialize(hash string) (fq *serializer.FunctionQueue, foun
 
 	fq, compiled := o.compileQueue[hash]
 	if !compiled {
-		fq = serializer.NewFunctionQueue(1)
+		fq = serializer.NewFunctionQueue()
 		o.compileQueue[hash] = fq
 	}
 	return fq, compiled
@@ -289,11 +289,10 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 	scopedLog := log.WithField(logfields.BPFHeaderfileHash, hash)
 
 	// Serializes attempts to compile this cfg.
+	// TODO(tb): replace with sync.Once.
 	fq, compiled := o.serialize(hash)
 	if !compiled {
 		fq.Enqueue(func() error {
-			defer fq.Stop()
-
 			templateCfg := wrap(cfg, stats)
 			if err := o.build(ctx, templateCfg, hash); err != nil {
 				if !errors.Is(err, context.Canceled) {
@@ -308,7 +307,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 			}
 
 			return nil
-		}, serializer.NoRetry)
+		})
 	}
 
 	// Wait until the build completes.
