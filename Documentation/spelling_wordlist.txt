@@ -32,6 +32,7 @@ DNS
 DSR
 DTrace
 Dangaard
+Datadog
 Datapath
 Dataplane
 Deathstar
@@ -74,6 +75,7 @@ KV
 KVstore
 Kata
 Kicinski
+Klusters
 Kops
 KubeVersion
 Kubernetes
@@ -103,6 +105,8 @@ Netronome
 NewProto
 Nic
 O'Reilly
+PaaS
+Palantir
 Pepelnjak
 Pfaff
 PodCIDR
@@ -128,6 +132,7 @@ Suchakra
 Suricata
 TCP
 TLS
+Telco
 Terraform
 Tierney
 Tu
@@ -756,6 +761,7 @@ prepend
 prepended
 prepulls
 prerequirement
+printf
 priori
 priorityClassName
 procfs

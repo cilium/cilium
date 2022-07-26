@@ -17,8 +17,28 @@ Related Material
 Presentations
 -------------
 
+* Kubernetes on Edge Day, Europe 2022 - Connecting Klusters on the Edge with Deep Dive into Cilium Cluster Mesh:
+  `Video <https://www.youtube.com/watch?v=UcsEVnFtrLY>`__
+* Cloud Native Telco Day, Europe 2022 - Leveraging Cilium and SRv6 for Telco Networking:
+  `Video <https://www.youtube.com/watch?v=vJaOKGWiyvU>`__
+* KubeCon, Europe 2022 - A Guided Tour of Cilium Service Mesh:
+  `Video <https://www.youtube.com/watch?v=e10kDBEsZw4>`__
+* eBPF Day, Europe, 2022 - IKEA Private Cloud, eBPF Based Networking, Load Balancing, and Observability with Cilium:
+  `Video <https://www.youtube.com/watch?v=sg-F_R-ZVNc>`__
+* KubeCon, North America 2021 - Beyond printf & tcpdump: Debugging Kubernetes Networking with eBPF:
+  `Video <https://www.youtube.com/watch?v=vqx-hLYfCYE>`__
+* eBPF Summit, Virtual 2020 - Our eBPF Journey at Datadog:
+  `Video <https://www.youtube.com/watch?v=6mTVuZUHLBg>`__
+* eBPF Summit, Virtual 2020 - Building a Secure and Maintainable PaaS Leveraging Cilium:
+  `Video <https://www.youtube.com/watch?v=hwOpCKBaJ-w>`__
+* eBPF Summit, Virtual 2020 - The Past, Present and Future of Cilium and Hubble at Palantir:
+  `Video <https://www.youtube.com/watch?v=3K5WJ_h5PhI>`__
+* KubeCon, Europe 2020 - Hubble - eBPF Based Observability for Kubernetes:
+  `Video <https://www.youtube.com/watch?v=8WCbGSCyDSo>`__
 * Fosdem, Brussels, 2020 - BPF as a revolutionary technology for the container landscape:
   `Slides <https://docs.google.com/presentation/d/1VOUcoIxgM_c6M_zAV1dLlRCjyYCMdR3tJv6CEdfLMh8/edit#slide=id.g7055f48ba8_0_0>`__, `Video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__
+* KubeCon, North America 2019 - Understanding and Troubleshooting the eBPF Datapath in Cilium:
+  `Video <https://www.youtube.com/watch?v=Kmm8Hl57WDU>`__
 * KubeCon, North America 2019 - Liberating Kubernetes from kube-proxy and iptables:
   `Slides <https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit#slide=id.g7055f48ba8_0_0>`__, `Video <https://www.youtube.com/watch?v=bIRwSIwNHC0>`__
 * KubeCon, Europe 2019 - Using eBPF to Bring Kubernetes-Aware Security to the Linux Kernel:
