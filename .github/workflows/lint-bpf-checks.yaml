@@ -21,6 +21,7 @@ jobs:
     outputs:
       bpf-tree: ${{ steps.changes.outputs.bpf-tree }}
       coccinelle: ${{ steps.changes.outputs.coccinelle }}
+      bpf-tests-runner: ${{ steps.changes.outputs.bpf-tests-runner }}
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
@@ -39,6 +40,8 @@ jobs:
               - 'bpf/**'
             coccinelle:
               - 'contrib/coccinelle/**'
+            bpf-tests-runner:
+              - 'test/bpf_tests/**'
 
   checkpatch:
     name: checkpatch
@@ -116,9 +119,50 @@ jobs:
           V: 0
         run: |
           make --quiet -C bpf build_all || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
-      - name: Run BPF_PROG_TEST_RUN tests
+      - name: Send slack notification
+        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  bpf_tests:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.bpf-tests-runner == 'true' }}
+    name: BPF unit/integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@84cbf8094393cdc5fe1fe1671ff2647332956b1a
+        with:
+          go-version: 1.18.4
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@0865c47f36e68161719c5b124609996bb5c40129
+        with:
+          path: $HOME/.clang
+          key: llvm-10.0
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@c538b5e281d5fc40848a3a62636a3a2b6f5a1cfa
+        with:
+          version: "10.0"
+          directory: $HOME/.clang
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: Checkout code
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Run BPF tests with code coverage reporting
         run: |
-          make -C test run_bpf_tests || (echo "Run 'make -C test run_bpf_tests' locally to investigate failures"; exit 1)
+          make -C test run_bpf_tests COVER=1 || (echo "Run 'make -C test run_bpf_tests COVER=1' locally to investigate failures"; exit 1)
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v3
+        with:
+          name: bpf-code-coverage-report
+          path: bpf-coverage.html
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af

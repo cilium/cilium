@@ -71,7 +71,10 @@ ifeq ($(V),1)
     BPF_TEST_FLAGS += -test.v
 endif
 ifeq ($(COVER),1)
-    BPF_TEST_FLAGS += -coverage-report $(ROOT_DIR)/bpf-coverage.html
+	ifndef COVERFORMAT
+		COVERFORMAT:=html
+	endif
+    BPF_TEST_FLAGS += -coverage-report $(ROOT_DIR)/bpf-coverage.$(COVERFORMAT) -coverage-format $(COVERFORMAT)
 endif
 ifeq ($(INSTRLOG),1)
     BPF_TEST_FLAGS += -instrumentation-log $(ROOT_DIR)/test/bpf-instrumentation.log
