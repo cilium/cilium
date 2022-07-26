@@ -23,19 +23,12 @@ Update the *Releases* section of the `README.md` which lists all currently
 supported releases in a table. The version in this table needs to be updated to
 match the new release `$RELEASE`.
 
-### (Optional) Update stable.txt
-
-The CLI installation instructions in the Cilium documentation use the version
-specified in `stable.txt` in the `master` branch. Update `stable.txt` whenever
-Cilium users should pick up this new release for installation:
-
-    echo $RELEASE > stable.txt
-
 ### Create release preparation branch and open PR
 
     git checkout -b pr/prepare-$RELEASE
-    git add README.md stable.txt
+    git add README.md
     git commit -s -m "Prepare for $RELEASE release"
+    git push origin HEAD
 
 Then open a pull request against `master` branch. Wait for the PR to be reviewed and merged.
 
@@ -64,3 +57,18 @@ When a tag is pushed, a GitHub Action job takes care of creating a new GitHub
 draft release, building artifacts and attaching them to the draft release. Once
 the draft is ready, use the "Auto-generate release notes" button to generate
 the release notes from PR titles, review them and publish the release.
+
+### Update stable.txt
+
+The CLI installation instructions in the Cilium documentation use the version
+specified in `stable.txt` in the `master` branch. Update `stable.txt` after the
+release, whenever Cilium users should pick up this new release for
+installation:
+
+    echo $RELEASE > stable.txt
+    git checkout -b pr/update-stable-$RELEASE
+    git add stable.txt
+    git commit -s -m "Update stable release to $RELEASE"
+    git push origin HEAD
+
+Then open a pull request against `master` branch.
