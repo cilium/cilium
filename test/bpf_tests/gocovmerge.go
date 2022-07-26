@@ -1,8 +1,36 @@
-package gocovmerge
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+//go:build privileged_tests
+
+// Copyright (c) 2015, Wade Simmons
+// All rights reserved.
+
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+
+// 1. Redistributions of source code must retain the above copyright notice, this
+//    list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright notice,
+//    this list of conditions and the following disclaimer in the documentation
+//    and/or other materials provided with the distribution.
+
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+// ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+// https://github.com/wadey/gocovmerge
+
+package bpftests
 
 import (
-	"fmt"
-	"io"
 	"log"
 	"sort"
 
@@ -69,7 +97,7 @@ func mergeProfileBlock(p *cover.Profile, pb cover.ProfileBlock, startIndex int) 
 	return i + 1
 }
 
-func AddProfile(profiles []*cover.Profile, p *cover.Profile) []*cover.Profile {
+func addProfile(profiles []*cover.Profile, p *cover.Profile) []*cover.Profile {
 	i := sort.Search(len(profiles), func(i int) bool { return profiles[i].FileName >= p.FileName })
 	if i < len(profiles) && profiles[i].FileName == p.FileName {
 		mergeProfiles(profiles[i], p)
@@ -79,16 +107,4 @@ func AddProfile(profiles []*cover.Profile, p *cover.Profile) []*cover.Profile {
 		profiles[i] = p
 	}
 	return profiles
-}
-
-func DumpProfiles(profiles []*cover.Profile, out io.Writer) {
-	if len(profiles) == 0 {
-		return
-	}
-	fmt.Fprintf(out, "mode: %s\n", profiles[0].Mode)
-	for _, p := range profiles {
-		for _, b := range p.Blocks {
-			fmt.Fprintf(out, "%s:%d.%d,%d.%d %d %d\n", p.FileName, b.StartLine, b.StartCol, b.EndLine, b.EndCol, b.NumStmt, b.Count)
-		}
-	}
 }
