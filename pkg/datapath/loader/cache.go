@@ -312,7 +312,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 	}
 
 	// Wait until the build completes.
-	if err = fq.Wait(ctx); err != nil {
+	if err := fq.Wait(); err != nil {
 		return "", false, fmt.Errorf("BPF template compilation failed: %w", err)
 	}
 
