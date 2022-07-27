@@ -3,11 +3,6 @@
 
 package serializer
 
-import (
-	"context"
-	"fmt"
-)
-
 var (
 	// NoRetry always returns false independently of the number of retries.
 	NoRetry = func(int) bool { return false }
@@ -27,6 +22,7 @@ type queuedFunction struct {
 type FunctionQueue struct {
 	queue  chan queuedFunction
 	stopCh chan struct{}
+	err    error
 }
 
 // NewFunctionQueue returns a FunctionQueue that will be used to execute
@@ -56,7 +52,8 @@ func (fq *FunctionQueue) run() {
 				default:
 				}
 				retries++
-				if err := f.f(); err != nil {
+				fq.err = f.f()
+				if fq.err != nil {
 					if !f.waitFunc(retries) {
 						break
 					}
@@ -78,15 +75,9 @@ func (fq *FunctionQueue) Stop() {
 // Wait until the FunctionQueue is stopped, or the specified context deadline
 // expires. Returns the error from the context, or nil if the FunctionQueue
 // was completed before the context deadline.
-func (fq *FunctionQueue) Wait(ctx context.Context) error {
-	select {
-	case <-fq.stopCh:
-	case <-ctx.Done():
-	}
-	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("serializer: %w", err)
-	}
-	return nil
+func (fq *FunctionQueue) Wait() error {
+	<-fq.stopCh
+	return fq.err
 }
 
 // Enqueue enqueues the receiving function `f` to be executed by the function
