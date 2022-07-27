@@ -24,21 +24,21 @@ import (
 //   L4:    Matches at L4.
 //   Notes: Extra information about the test.
 //
-// +-----+-----------------+----------+------------------------------------------------------+
-// |Case | L3 (1, 2) match | L4 match | Notes                                                |
-// +=====+=================+==========+======================================================+
-// |  1A |      *, *       |  80/TCP  | Deny all communication on the specified port         |
-// |  1B |      *, *       |  80/TCP  | Same as 1A, with implicit L3 wildcards               |
-// |  2A |   "id=a", *     |  80/TCP  | Rule 2 is a superset of rule 1                       |
-// |  2B |   *, "id=a"     |  80/TCP  | Same as 2A, but import in reverse order              |
-// |  3  | "id=a", "id=c"  |  80/TCP  | Deny at L4 for two distinct labels (disjoint set)    |
-// |  4A |      *, *       |  80/TCP  | Allow all communication on the specified port        |
-// |     |                 |          | and deny one endpoint selector                       |
-// |  4B |      *, *       |  80/TCP  | Same as 4A, but import in reverse order              |
-// |  5A |      *, *       |  80/TCP  | Deny all communication on a specified endpoint        |
-// |     |                 |          | except while wildcarding all L7 policy.              |
-// |  5B |      *, *       |  80/TCP  | Same as 5A, but import in reverse order              |
-// +-----+-----------------+----------+------------------------------------------------------+
+// +-----+-----------------+------------------+------------------------------------------------------+
+// |Case | L3 (1, 2) match | L4 match         | Notes                                                |
+// +=====+=================+==================+======================================================+
+// |  1A |      *, *       | {http-80,80}/TCP | Deny all communication on the specified port         |
+// |  1B |      *, *       | {http-80,80}/TCP | Same as 1A, with implicit L3 wildcards               |
+// |  2A |   "id=a", *     | {http-80,80}/TCP | Rule 2 is a superset of rule 1                       |
+// |  2B |   *, "id=a"     | {http-80,80}/TCP | Same as 2A, but import in reverse order              |
+// |  3  | "id=a", "id=c"  | {http-80,80}/TCP | Deny at L4 for two distinct labels (disjoint set)    |
+// |  4A |      *, *       | {http-80,80}/TCP | Allow all communication on the specified port        |
+// |     |                 |                  | and deny one endpoint selector                       |
+// |  4B |      *, *       | {http-80,80}/TCP | Same as 4A, but import in reverse order              |
+// |  5A |      *, *       | {http-80,80}/TCP | Deny all communication on a specified endpoint       |
+// |     |                 |                  | except while wildcarding all L7 policy.              |
+// |  5B |      *, *       | {http-80,80}/TCP | Same as 5A, but import in reverse order              |
+// +-----+-----------------+------------------+------------------------------------------------------+
 
 // Case 1: deny all at L3 in both rules.
 func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
@@ -53,6 +53,7 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 				ToPorts: []api.PortDenyRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
+						{Port: "http-80", Protocol: api.ProtoTCP},
 					},
 				}},
 			},
@@ -78,18 +79,31 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 
 	c.Log(buffer)
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: "",
-		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+	expected := L4PolicyMap{
+		"80/TCP": &L4Filter{
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: "",
+			L7RulesPerSelector: L7DataMap{
+				wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-	}}
+		"http-80/TCP": &L4Filter{
+			PortName: "http-80",
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: "",
+			L7RulesPerSelector: L7DataMap{
+				wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		}}
 
 	c.Assert(l4IngressDenyPolicy, checker.DeepEquals, expected)
 	expected.Detach(testSelectorCache)
@@ -103,6 +117,16 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
 	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+
+	namedPortFilter, ok := l4IngressDenyPolicy["http-80/TCP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(namedPortFilter.PortName, Equals, "http-80")
+	c.Assert(namedPortFilter.Ingress, Equals, true)
+
+	c.Assert(namedPortFilter.SelectsAllEndpoints(), Equals, true)
+
+	c.Assert(namedPortFilter.L7Parser, Equals, ParserTypeNone)
+	c.Assert(len(namedPortFilter.L7RulesPerSelector), Equals, 1)
 	l4IngressDenyPolicy.Detach(repo.GetSelectorCache())
 
 	// Case1B: implicitly deny all endpoints.
@@ -116,6 +140,7 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 				ToPorts: []api.PortDenyRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
+						{Port: "http-80", Protocol: api.ProtoTCP},
 					},
 				}},
 			},
@@ -152,6 +177,19 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
 	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+
+	namedPortFilter, ok = l4IngressDenyPolicy["http-80/TCP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(namedPortFilter.PortName, Equals, "http-80")
+	c.Assert(namedPortFilter.Ingress, Equals, true)
+
+	c.Assert(namedPortFilter.SelectsAllEndpoints(), Equals, true)
+	c.Assert(namedPortFilter.wildcard, Not(IsNil))
+	c.Assert(namedPortFilter.L7RulesPerSelector[filter.wildcard].IsDeny, Equals, true)
+
+	c.Assert(namedPortFilter.L7Parser, Equals, ParserTypeNone)
+	c.Assert(len(namedPortFilter.L7RulesPerSelector), Equals, 1)
+
 	l4IngressDenyPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -171,6 +209,7 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 					ToPorts: []api.PortDenyRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "http-80", Protocol: api.ProtoTCP},
 						},
 					}},
 				},
@@ -192,19 +231,32 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
-			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
-			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+	expected := L4PolicyMap{
+		"80/TCP": &L4Filter{
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: ParserTypeNone,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+				wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-	}}
+		"http-80/TCP": &L4Filter{
+			PortName: "http-80",
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			L7Parser: ParserTypeNone,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		},
+	}
 
 	state := traceState{}
 	resDeny, err := shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
@@ -247,6 +299,7 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 					ToPorts: []api.PortDenyRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "http-80", Protocol: api.ProtoTCP},
 						},
 					}},
 				},
@@ -258,19 +311,32 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	c.Log(buffer)
 
-	expected = L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
-			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+	expected = L4PolicyMap{
+		"80/TCP": &L4Filter{
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: ParserTypeNone,
+			L7RulesPerSelector: L7DataMap{
+				wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+				cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-	}}
+		"http-80/TCP": &L4Filter{
+			PortName: "http-80",
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			L7Parser: ParserTypeNone,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		},
+	}
 
 	state = traceState{}
 	resDeny, err = shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
@@ -293,6 +359,7 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 }
 
 // Case 3: deny all on L4 in both rules, but select different endpoints in each rule.
+// Named port is also having different endpoint selector.
 func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedDenyAllL7(c *C) {
 
 	selectDifferentEndpointsDenyAllL7 := &rule{
@@ -316,6 +383,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedDenyAllL7(c *
 					ToPorts: []api.PortDenyRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "http-80", Protocol: api.ProtoTCP},
 						},
 					}},
 				},
@@ -327,19 +395,32 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedDenyAllL7(c *
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: nil,
-		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
-			cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
-			cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
+	expected := L4PolicyMap{
+		"80/TCP": &L4Filter{
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: nil,
+			L7Parser: ParserTypeNone,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+				cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-	}}
+		"http-80/TCP": &L4Filter{
+			PortName: "http-80",
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: nil,
+			L7Parser: ParserTypeNone,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		}}
 
 	state := traceState{}
 	resDeny, err := selectDifferentEndpointsDenyAllL7.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
@@ -382,6 +463,7 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 					ToPorts: []api.PortDenyRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "http-80", Protocol: api.ProtoTCP},
 						},
 					}},
 				},
@@ -405,19 +487,31 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	c.Log(buffer)
 
-	expectedDeny := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
-			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
-			wildcardCachedSelector: nil,
+	expectedDeny := L4PolicyMap{
+		"80/TCP": &L4Filter{
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: ParserTypeNone,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+				wildcardCachedSelector: nil,
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-	}}
+		"http-80/TCP": &L4Filter{
+			PortName: "http-80",
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			L7Parser: ParserTypeNone,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		}}
 
 	state := traceState{}
 	resDeny, err := shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
@@ -450,6 +544,7 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "http-80", Protocol: api.ProtoTCP},
 						},
 					}},
 				},
@@ -485,7 +580,19 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil},
-	}}
+	},
+		"http-80/TCP": &L4Filter{
+			PortName: "http-80",
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: ParserTypeNone,
+			L7RulesPerSelector: L7DataMap{
+				wildcardCachedSelector: nil,
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		}}
 
 	state = traceState{}
 	resDeny, err = shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
@@ -507,9 +614,9 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 	c.Assert(state.matchedDenyRules, Equals, 0)
 }
 
-// Case 5: allow L4/L7 in all endpoints in one rule, and deny a selected an
-// endpoint in another rule. Should resolve to just allowing all on L3/L7 and
-// denying that particular endpoint.
+// Case 5: allow L4/L7 in all endpoints in one rule for each port and named port,
+// and deny a selected an endpoint in another rule. Should resolve to just
+// allowing all on L3/L7 and denying that particular endpoint.
 func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 	// Case 5A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := &rule{
@@ -523,6 +630,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 					ToPorts: []api.PortDenyRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "http-80", Protocol: api.ProtoTCP},
 						},
 					}},
 				},
@@ -535,6 +643,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "http-80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
@@ -551,23 +660,41 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
-			cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
-			wildcardCachedSelector: &PerSelectorPolicy{
-				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+	expected := L4PolicyMap{
+		"80/TCP": &L4Filter{
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: ParserTypeHTTP,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+				wildcardCachedSelector: &PerSelectorPolicy{
+					L7Rules: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					},
 				},
 			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-	}}
+		"http-80/TCP": &L4Filter{
+			PortName: "http-80",
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: ParserTypeHTTP,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+				wildcardCachedSelector: &PerSelectorPolicy{
+					L7Rules: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					},
+				},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		}}
 
 	state := traceState{}
 	resDeny, err := shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
@@ -600,6 +727,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "http-80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
@@ -617,6 +745,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 					ToPorts: []api.PortDenyRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "http-80", Protocol: api.ProtoTCP},
 						},
 					}},
 				},
@@ -628,23 +757,41 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 	c.Log(buffer)
 
-	expected = L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
-			cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
-			wildcardCachedSelector: &PerSelectorPolicy{
-				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+	expected = L4PolicyMap{
+		"80/TCP": &L4Filter{
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: ParserTypeHTTP,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+				wildcardCachedSelector: &PerSelectorPolicy{
+					L7Rules: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					},
 				},
 			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-	}}
+		"http-80/TCP": &L4Filter{
+			PortName: "http-80",
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: wildcardCachedSelector,
+			L7Parser: ParserTypeHTTP,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+				wildcardCachedSelector: &PerSelectorPolicy{
+					L7Rules: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					},
+				},
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		}}
 
 	state = traceState{}
 	resDeny, err = shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)

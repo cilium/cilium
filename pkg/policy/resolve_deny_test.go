@@ -45,68 +45,6 @@ func GenerateL3IngressDenyRules(numRules int) api.Rules {
 	return rules
 }
 
-func GenerateL3EgressDenyRules(numRules int) api.Rules {
-	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
-	fooSelector := api.NewESFromLabels(parseFooLabel)
-	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
-
-	// Change ingRule and rule in the for-loop below to change what type of rules
-	// are added into the policy repository.
-	egDenyRule := api.EgressDenyRule{
-		EgressCommonRule: api.EgressCommonRule{
-			ToEndpoints: []api.EndpointSelector{barSelector},
-		},
-	}
-
-	rules := make(api.Rules, 0, numRules)
-	for i := 1; i <= numRules; i++ {
-		rule := api.Rule{
-			EndpointSelector: fooSelector,
-			EgressDeny:       []api.EgressDenyRule{egDenyRule},
-		}
-		rule.Sanitize()
-		rules = append(rules, &rule)
-	}
-	return rules
-}
-
-func GenerateCIDRDenyRules(numRules int) api.Rules {
-	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
-	fooSelector := api.NewESFromLabels(parseFooLabel)
-	//barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
-
-	// Change ingRule and rule in the for-loop below to change what type of rules
-	// are added into the policy repository.
-	egDenyRule := api.EgressDenyRule{
-		EgressCommonRule: api.EgressCommonRule{
-			ToCIDR: []api.CIDR{api.CIDR("10.2.3.0/24"), api.CIDR("ff02::/64")},
-		},
-		/*ToRequires:  []api.EndpointSelector{barSelector},
-		ToPorts: []api.PortRule{
-			{
-				Ports: []api.PortProtocol{
-					{
-						Port:     "8080",
-						Protocol: api.ProtoTCP,
-					},
-				},
-			},
-		},*/
-	}
-
-	var rules api.Rules
-	for i := 1; i <= numRules; i++ {
-
-		rule := api.Rule{
-			EndpointSelector: fooSelector,
-			EgressDeny:       []api.EgressDenyRule{egDenyRule},
-		}
-		rule.Sanitize()
-		rules = append(rules, &rule)
-	}
-	return rules
-}
-
 func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 	repo := bootstrapRepo(GenerateL3IngressDenyRules, 1000, c)
 
@@ -125,14 +63,17 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 				ToPorts: []api.PortDenyRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
+						{Port: "http-80", Protocol: api.ProtoTCP},
 					},
 				}},
 			},
 		},
 	}
 
-	rule1.Sanitize()
-	_, _, err := repo.Add(rule1)
+	err := rule1.Sanitize()
+	c.Assert(err, IsNil)
+
+	_, _, err = repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -160,13 +101,25 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
 					},
+					"http-80/TCP": {
+						PortName: "http-80",
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						wildcard: wildcardCachedSelector,
+						L7Parser: ParserTypeNone,
+						Ingress:  true,
+						L7RulesPerSelector: L7DataMap{
+							wildcardCachedSelector: &PerSelectorPolicy{CanShortCircuit: true, IsDeny: true},
+						},
+						DerivedFromRules: labels.LabelArrayList{nil},
+					},
 				},
 				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		// inherit this from the result as it is outside of the scope
+		// inherit this from the result as it is outside the scope
 		// of this test
 		PolicyMapState: policy.PolicyMapState,
 	}
@@ -180,7 +133,7 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }
 
-func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
+func (ds *PolicyTestSuite) TestL3WithLocalHostWildcard(c *C) {
 	repo := bootstrapRepo(GenerateL3IngressDenyRules, 1000, c)
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
@@ -204,14 +157,17 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 				ToPorts: []api.PortDenyRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
+						{Port: "http-80", Protocol: api.ProtoTCP},
 					},
 				}},
 			},
 		},
 	}
 
-	rule1.Sanitize()
-	_, _, err := repo.Add(rule1)
+	err := rule1.Sanitize()
+	c.Assert(err, IsNil)
+
+	_, _, err = repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -243,13 +199,25 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
 					},
+					"http-80/TCP": {
+						PortName: "http-80",
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						wildcard: wildcardCachedSelector,
+						L7Parser: ParserTypeNone,
+						Ingress:  true,
+						L7RulesPerSelector: L7DataMap{
+							wildcardCachedSelector: &PerSelectorPolicy{CanShortCircuit: true, IsDeny: true},
+						},
+						DerivedFromRules: labels.LabelArrayList{nil},
+					},
 				},
 				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		// inherit this from the result as it is outside of the scope
+		// inherit this from the result as it is outside the scope
 		// of this test
 		PolicyMapState: policy.PolicyMapState,
 	}
@@ -287,14 +255,17 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 				ToPorts: []api.PortDenyRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
+						{Port: "http-80", Protocol: api.ProtoTCP},
 					},
 				}},
 			},
 		},
 	}
 
-	rule1.Sanitize()
-	_, _, err := repo.Add(rule1)
+	err := rule1.Sanitize()
+	c.Assert(err, IsNil)
+
+	_, _, err = repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -315,6 +286,18 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 				Ingress: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						wildcard: wildcardCachedSelector,
+						L7Parser: ParserTypeNone,
+						Ingress:  true,
+						L7RulesPerSelector: L7DataMap{
+							wildcardCachedSelector: &PerSelectorPolicy{CanShortCircuit: true, IsDeny: true},
+						},
+						DerivedFromRules: labels.LabelArrayList{ruleLabel},
+					},
+					"http-80/TCP": {
+						PortName: "http-80",
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: wildcardCachedSelector,
@@ -386,6 +369,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 				ToPorts: []api.PortDenyRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
+						{Port: "http-80", Protocol: api.ProtoTCP},
 					},
 				}},
 			},
@@ -404,8 +388,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 		},
 	}
 
-	rule1.Sanitize()
-	_, _, err := repo.Add(rule1)
+	err := rule1.Sanitize()
+	c.Assert(err, IsNil)
+
+	_, _, err = repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -460,6 +446,17 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 						L7RulesPerSelector: L7DataMap{
 							cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
 							cachedSelectorTest:  &PerSelectorPolicy{IsDeny: true},
+						},
+						DerivedFromRules: labels.LabelArrayList{ruleLabel},
+					},
+					"http-80/TCP": {
+						PortName: "http-80",
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						L7Parser: ParserTypeNone,
+						Ingress:  true,
+						L7RulesPerSelector: L7DataMap{
+							cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
 						},
 						DerivedFromRules: labels.LabelArrayList{ruleLabel},
 					},
