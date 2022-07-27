@@ -113,10 +113,11 @@ func TestGetStringMapString(t *testing.T) {
 			name: "another valid kv format with comma in value",
 			args: args{
 				key:   "AWS_INSTANCE_LIMIT_MAPPING",
-				value: "c6a.2xlarge=4,15,15",
+				value: "c6a.2xlarge=4,15,15,m4.large=1,5,10",
 			},
 			want: map[string]string{
 				"c6a.2xlarge": "4,15,15",
+				"m4.large":    "1,5,10",
 			},
 			wantErr: assert.NoError,
 		},
@@ -140,6 +141,20 @@ func TestGetStringMapString(t *testing.T) {
 			},
 			want: map[string]string{
 				"cluster": "my-cluster",
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "valid kv format from issue #20666",
+			args: args{
+				key:   "FOO_BAR",
+				value: "a=b,c=d,E=F,G=h",
+			},
+			want: map[string]string{
+				"a": "b",
+				"c": "d",
+				"E": "F",
+				"G": "h",
 			},
 			wantErr: assert.NoError,
 		},
@@ -255,7 +270,6 @@ func Test_isValidKeyValuePair(t *testing.T) {
 			},
 			want: true,
 		},
-
 		{
 			name: "valid format with multiple pairs",
 			args: args{
