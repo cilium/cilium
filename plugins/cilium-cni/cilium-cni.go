@@ -209,12 +209,6 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlin
 		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
 	}
 
-	// ipvlan needs to be UP before we add routes, and can only be UPed after
-	// we added an IP address.
-	if err := netlink.LinkSetUp(link); err != nil {
-		return fmt.Errorf("failed to set %q UP: %v", ifName, err)
-	}
-
 	// Sort provided routes to make sure we apply any more specific
 	// routes first which may be used as nexthops in wider routes
 	sort.Sort(route.ByMask(routes))
