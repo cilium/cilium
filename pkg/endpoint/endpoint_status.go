@@ -20,6 +20,13 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
+// StatusNA is value of fields in the output of 'kubectl get cep' in case of disabled "--endpoint-status"
+const (
+	EndpointPolicyStateEnforcing    cilium_v2.EndpointPolicyState = "enforcing"
+	EndpointPolicyStateNonEnforcing cilium_v2.EndpointPolicyState = "non-enforcing"
+	EndpointPolicyStateDisabled     cilium_v2.EndpointPolicyState = "disabled"
+)
+
 func getEndpointStatusControllers(mdlControllers models.ControllerStatuses) (controllers cilium_v2.ControllerList) {
 	for _, c := range mdlControllers {
 		if c.Status == nil {
@@ -227,6 +234,16 @@ func (e *Endpoint) getEndpointPolicy() (ep *cilium_v2.EndpointPolicy) {
 				e.desiredPolicy.EgressPolicyEnabled,
 		},
 	}
+	if ep.Ingress.Enforcing {
+		ep.Ingress.State = EndpointPolicyStateEnforcing
+	} else {
+		ep.Ingress.State = EndpointPolicyStateNonEnforcing
+	}
+	if ep.Egress.Enforcing {
+		ep.Egress.State = EndpointPolicyStateEnforcing
+	} else {
+		ep.Egress.State = EndpointPolicyStateNonEnforcing
+	}
 
 	// Handle allow-all cases
 	allowsAllIngress, allowsAllEgress := e.desiredPolicy.AllowsIdentity(identity.IdentityUnknown)
@@ -279,6 +296,19 @@ func (e *Endpoint) getEndpointPolicy() (ep *cilium_v2.EndpointPolicy) {
 	return
 }
 
+func (e *Endpoint) getEndpointPolicyStateDisabled() (ep *cilium_v2.EndpointPolicy) {
+	ep = &cilium_v2.EndpointPolicy{
+		Ingress: &cilium_v2.EndpointPolicyDirection{
+			State: EndpointPolicyStateDisabled,
+		},
+		Egress: &cilium_v2.EndpointPolicyDirection{
+			State: EndpointPolicyStateDisabled,
+		},
+	}
+
+	return
+}
+
 func (e *Endpoint) getEndpointVisibilityPolicyStatus() *string {
 	if e.visibilityPolicy == nil {
 		return nil
@@ -290,6 +320,11 @@ func (e *Endpoint) getEndpointVisibilityPolicyStatus() *string {
 		str = e.visibilityPolicy.Error.Error()
 	}
 	return &str
+}
+
+func (e *Endpoint) getEndpointVisibilityPolicyStatusDisabled() *string {
+	str := EndpointPolicyStateDisabled
+	return (*string)(&str)
 }
 
 // EndpointStatusConfiguration is the configuration interface that a caller of
@@ -335,6 +370,9 @@ func (e *Endpoint) GetCiliumEndpointStatus(conf EndpointStatusConfiguration) *ci
 	if conf.EndpointStatusIsEnabled(option.EndpointStatusPolicy) {
 		status.Policy = e.getEndpointPolicy()
 		status.VisibilityPolicyStatus = e.getEndpointVisibilityPolicyStatus()
+	} else {
+		status.Policy = e.getEndpointPolicyStateDisabled()
+		status.VisibilityPolicyStatus = e.getEndpointVisibilityPolicyStatusDisabled()
 	}
 
 	if conf.EndpointStatusIsEnabled(option.EndpointStatusHealth) {
