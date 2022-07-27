@@ -212,7 +212,7 @@ Users (Alphabetically)
       U: Networking, CiliumNetworkPolicy at L7, kube-proxy replacement, encryption
       L: https://www.cloud-migration.ch/
       Q: @fakod
-      
+
      * N: Isovalent
        D: Cilium is the platform that powers Isovalent’s enterprise networking, observability, and security solutions
        U: Networking, network policy, observability, cluster mesh, kube-proxy replacement, security, egress gateway, service load balancing, CNI
@@ -277,7 +277,7 @@ Users (Alphabetically)
       D: Meltwater is using Cilium in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
       U: ENI Networking, Encryption, Monitoring via Prometheus metrics & Hubble
       Q: @recollir, @dezmodue
-      
+
     * N: Mobilab
       D: Mobilab uses Cilium as the CNI for its internal cloud
       U: CNI
@@ -379,9 +379,9 @@ Users (Alphabetically)
       D: Scaleway uses Cilium as the default CNI for Kubernetes Kapsule
       U: Networking, NetworkPolicy, Services
       L: @jtherin @remyleone
-      
+
     * N: Schuberg Philis
-      D: Schuberg Philis uses Cilium as CNI for mission critical kubernetes clusters we run for our customers. 
+      D: Schuberg Philis uses Cilium as CNI for mission critical kubernetes clusters we run for our customers.
       U: CNI (instead of amazon-vpc-cni-k8s), DefaultDeny(Zero Trust), Hubble, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy, EKS
       L: https://schubergphilis.com/en
       Q: @stimmerman @shoekstra @mbaumann
@@ -405,9 +405,9 @@ Users (Alphabetically)
       D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
       U: ENI Networking, Network policies, Service load-balancing, Hubble
       Q: @mvisonneau
-      
-    * N: Spherity 
-      D: Spherity  is using Cilium on AWS EKS 
+
+    * N: Spherity
+      D: Spherity  is using Cilium on AWS EKS
       U: CNI/ENI Networking, Network policies, Hubble
       Q: @solidnerd
 
@@ -464,6 +464,11 @@ Users (Alphabetically)
       D: Tailor Brands is using Cilium in their production, staging, and development clusters (AWS EKS)
       U: CNI (instead of amazon-vpc-cni-k8s), Hubble, Datadog Integration for Prometheus metrics
       Q: @liorrozen
+
+    * N: ungleich
+      D: ungleich is using cilium as part of IPv6 only kubernetes deployments.
+      U: CNI, IPv6 only networking, BGP, eBPF
+      Q: @Nico Schottelius, @nico:ungleich.ch (Matrix)
 
     * N: Wildlife Studios
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
