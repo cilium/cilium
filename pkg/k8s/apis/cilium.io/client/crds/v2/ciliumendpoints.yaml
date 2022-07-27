@@ -31,13 +31,13 @@ spec:
       name: Identity ID
       type: integer
     - description: Ingress enforcement in the endpoint
-      jsonPath: .status.policy.ingress.enforcing
+      jsonPath: .status.policy.ingress.state
       name: Ingress Enforcement
-      type: boolean
+      type: string
     - description: Egress enforcement in the endpoint
-      jsonPath: .status.policy.egress.enforcing
+      jsonPath: .status.policy.egress.state
       name: Egress Enforcement
-      type: boolean
+      type: string
     - description: Status of visibility policy in the endpoint
       jsonPath: .status.visibility-policy-status
       name: Visibility Policy
@@ -343,6 +343,10 @@ spec:
                               type: integer
                           type: object
                         type: array
+                      state:
+                        description: 'EndpointPolicyState defines the state of the
+                          Policy mode: "enforcing", "non-enforcing", "disabled"'
+                        type: string
                     required:
                     - enforcing
                     type: object
@@ -430,6 +434,10 @@ spec:
                               type: integer
                           type: object
                         type: array
+                      state:
+                        description: 'EndpointPolicyState defines the state of the
+                          Policy mode: "enforcing", "non-enforcing", "disabled"'
+                        type: string
                     required:
                     - enforcing
                     type: object
