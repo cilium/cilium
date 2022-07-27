@@ -184,6 +184,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/cgroups/ @cilium/sig-datapath
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh
+/pkg/command/ @cilium/cli
 /pkg/completion/ @cilium/proxy
 /pkg/components/ @cilium/sig-agent
 /pkg/controller @cilium/sig-agent
