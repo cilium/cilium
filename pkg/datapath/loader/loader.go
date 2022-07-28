@@ -11,6 +11,8 @@ import (
 	"path"
 	"sync"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -278,6 +280,27 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	return nil
 }
 
+func replaceDatapathRunner(ctx context.Context, ep datapath.Endpoint, objPath, progSec, progDirection string, finalizeChan chan func()) func() error {
+	return func() error {
+		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progSec, progDirection, "")
+		if err != nil {
+			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+				logfields.Path: objPath,
+				logfields.Veth: ep.InterfaceName(),
+			})
+			// Don't log an error here if the context was canceled or timed out;
+			// this log message should only represent failures with respect to
+			// loading the program.
+			if ctx.Err() == nil {
+				scopedLog.WithError(err).Warnf("JoinEP: Failed to attach %s program", progDirection)
+			}
+			return err
+		}
+		finalizeChan <- finalize
+		return nil
+	}
+}
+
 func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo) error {
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
@@ -288,43 +311,28 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			return err
 		}
 	} else {
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, "")
-		if err != nil {
-			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-				logfields.Path: objPath,
-				logfields.Veth: ep.InterfaceName(),
-			})
-			// Don't log an error here if the context was canceled or timed out;
-			// this log message should only represent failures with respect to
-			// loading the program.
-			if ctx.Err() == nil {
-				scopedLog.WithError(err).Warn("JoinEP: Failed to attach ingress program")
-			}
-			return err
-		}
-		defer finalize()
+		finalizers := make(chan func(), 2)
+		wg := &errgroup.Group{}
+		wg.Go(replaceDatapathRunner(ctx, ep, objPath, symbolFromEndpoint, dirIngress, finalizers))
 
 		if ep.RequireEgressProg() {
-			finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress, "")
-			if err != nil {
-				scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-					logfields.Path: objPath,
-					logfields.Veth: ep.InterfaceName(),
-				})
-				// Don't log an error here if the context was canceled or timed out;
-				// this log message should only represent failures with respect to
-				// loading the program.
-				if ctx.Err() == nil {
-					scopedLog.WithError(err).Warn("JoinEP: Failed to attach egress program")
-				}
-				return err
-			}
-			defer finalize()
+			wg.Go(replaceDatapathRunner(ctx, ep, objPath, symbolToEndpoint, dirEgress, finalizers))
 		} else {
 			err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
 			if err != nil {
 				log.WithField("device", ep.InterfaceName()).Error(err)
 			}
+		}
+
+		err := wg.Wait()
+
+		close(finalizers)
+		for finalize := range finalizers {
+			defer finalize()
+		}
+
+		if err != nil {
+			return err
 		}
 	}
 
