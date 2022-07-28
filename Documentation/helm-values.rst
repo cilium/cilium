@@ -1693,6 +1693,10 @@
      - Configure the encapsulation configuration for communication between nodes. Possible values:   - disabled   - vxlan (default)   - geneve
      - string
      - ``"vxlan"``
+   * - tunnelPort
+     - Configure VXLAN and Geneve tunnel port.
+     - int
+     - Port 8472 for VXLAN, Port 6081 for Geneve
    * - updateStrategy
      - Cilium agent update strategy
      - object

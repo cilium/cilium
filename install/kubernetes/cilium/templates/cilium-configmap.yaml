@@ -391,7 +391,7 @@ data:
   tunnel: {{ .Values.tunnel | quote }}
 {{- end }}
 
-{{- if hasKey .Values "tunnelPort" }}
+{{- if .Values.tunnelPort }}
   tunnel-port: "{{ .Values.tunnelPort }}"
 {{- end }}
 

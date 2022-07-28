@@ -1440,6 +1440,10 @@ tls:
 #   - geneve
 tunnel: "vxlan"
 
+# -- Configure VXLAN and Geneve tunnel port.
+# @default -- Port 8472 for VXLAN, Port 6081 for Geneve
+tunnelPort: 0
+
 # -- Configure the underlying network MTU to overwrite auto-detected MTU.
 MTU: 0
 
