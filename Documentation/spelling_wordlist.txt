@@ -84,6 +84,7 @@ Leblond
 Leia
 Lund
 Lx
+MTU
 Maglev
 Majkowski
 Marek
@@ -275,7 +276,6 @@ configMap
 configMapKey
 configmap
 configs
-MTU
 conformant
 conntrack
 conntrackGCInterval
@@ -948,6 +948,7 @@ tracepoints
 transpiling
 triaged
 ttlSecondsAfterFinished
+tunnelPort
 tuples
 ubuntu
 udp
