@@ -22,17 +22,10 @@ jobs:
     outputs:
       go-changes: ${{ steps.go-changes.outputs.src }}
     steps:
-      - name: Checkout code
-        if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-        with:
-          persist-credentials: false
       - name: Check code changes
         uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
         id: go-changes
         with:
-          base: ${{ github.event.pull_request.base.sha }}
-          ref: ${{ github.event.pull_request.head.sha }}
           filters: |
             src:
               - .github/workflows/lint-codeql.yaml
