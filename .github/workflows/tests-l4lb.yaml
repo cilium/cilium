@@ -157,15 +157,17 @@ jobs:
           persist-credentials: false
           path: pull-request
 
-      - name: Wait for image to be available
-        timeout-minutes: 10
-        shell: bash
-        run: |
-          until docker manifest inspect quay.io/${{ github.repository_owner }}/cilium-ci:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            #- name: Wait for image to be available
+            #  timeout-minutes: 10
+            #  shell: bash
+            #  run: |
+            #    until docker manifest inspect quay.io/${{ github.repository_owner }}/cilium-ci:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
 
       - name: Run tests
         run: |
-          cd test/l4lb && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib  libbpf-dev
+          cd ${{ github.workspace }}/pull-request/test/l4lb && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
