@@ -947,6 +947,12 @@ spec:
         k8s:k8s-app: kube-dns
   - toPorts:
     - ports:
+      - port: "53"
+        protocol: UDP
+    toEntities:
+    - world
+  - toPorts:
+    - ports:
       - port: "5353"
         protocol: UDP
     toEndpoints:
@@ -987,6 +993,12 @@ spec:
         k8s:k8s-app: kube-dns
   - toPorts:
     - ports:
+      - port: "53"
+        protocol: UDP
+    toEntities:
+    - world
+  - toPorts:
+    - ports:
       - port: "5353"
         protocol: UDP
     toEndpoints:
@@ -1023,6 +1035,15 @@ spec:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: kube-dns
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      rules:
+        dns:
+        - matchPattern: '*'
+    toEntities:
+    - world
   - toPorts:
     - ports:
       - port: "5353"

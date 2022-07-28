@@ -237,6 +237,21 @@ egressCNP: [ID=_]: _cnp & {
 				}]
 			},
 			{
+				// Allows connectivity to NodeLocal DNSCache when deployed with local IP.
+				toEntities: [
+					"world",
+				]
+				toPorts: [{
+					ports: [{
+						port:     "53"
+						protocol: "UDP"
+					}]
+					if _enableDNSVisibility {
+						rules: dns: [{matchPattern: "*"}]
+					}
+				}]
+			},
+			{
 				toEndpoints: [{
 					matchLabels: {
 						"k8s:io.kubernetes.pod.namespace":             "openshift-dns"
