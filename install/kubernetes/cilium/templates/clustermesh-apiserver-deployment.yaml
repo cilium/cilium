@@ -129,6 +129,12 @@ spec:
             configMapKeyRef:
               key: identity-allocation-mode
               name: cilium-config
+        - name: ENABLE_K8S_ENDPOINT_SLICE
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: enable-k8s-endpoint-slice
+              optional: true
 {{- with .Values.clustermesh.apiserver.resources }}
         resources: {{- toYaml . | nindent 10 }}
 {{- end }}

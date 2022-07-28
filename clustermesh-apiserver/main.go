@@ -233,6 +233,9 @@ func runApiserver() error {
 	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
 	option.BindEnv(option.AllocatorListTimeoutName)
 
+	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enable support of Kubernetes EndpointSlice")
+	option.BindEnv(option.K8sEnableEndpointSlice)
+
 	viper.BindPFlags(flags)
 
 	if err := rootCmd.Execute(); err != nil {
