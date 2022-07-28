@@ -27,9 +27,6 @@ const (
 	// BuxyboxImage is a space efficient-image used for basic testing.
 	BusyboxImage = "docker.io/library/busybox:1.31.1"
 
-	// AlpineCurlImage is the image used for invoking curl with a small base image.
-	AlpineCurlImage = "quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76"
-
 	// CassandraImage is the image used for testing of the cassandra proxy
 	// functionality in Cilium.
 	CassandraImage = "docker.io/library/cassandra:3.11.3"
@@ -49,7 +46,6 @@ var AllImages = map[string]struct{}{
 	KafkaClientImage:     {},
 	ZookeeperImage:       {},
 	BusyboxImage:         {},
-	AlpineCurlImage:      {},
 	CassandraImage:       {},
 	KafkaImage:           {},
 }
