@@ -39,6 +39,9 @@ jobs:
         uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
         id: tested-tree
         with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
           filters: |
             src:
               - '!(test|Documentation)/**'
