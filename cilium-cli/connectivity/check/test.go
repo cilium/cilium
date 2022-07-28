@@ -37,6 +37,10 @@ type Test struct {
 	// True if the Test is marked as failed.
 	failed bool
 
+	// requirements is a list of required Cilium features which need to match
+	// for this test to be run
+	requirements []FeatureRequirement
+
 	// Scenarios registered to this test.
 	scenarios map[Scenario][]*Action
 
@@ -103,9 +107,14 @@ func (t *Test) skip(s Scenario) {
 	t.Logf("[-] Skipping Scenario [%s]", t.scenarioName(s))
 }
 
-// willRun returns false if all of the Test's Scenarios will be skipped.
+// willRun returns false if all of the Test's Scenarios will be skipped, or
+// if any of its FeatureRequirements does not match
 func (t *Test) willRun() bool {
 	var sc int
+
+	if !t.Context().features.MatchRequirements(t.requirements...) {
+		return false
+	}
 
 	for s := range t.scenarios {
 		if !t.Context().params.testEnabled(t.scenarioName(s)) {
@@ -235,6 +244,13 @@ func (t *Test) WithScenarios(sl ...Scenario) *Test {
 		t.scenarios[s] = make([]*Action, 0)
 	}
 
+	return t
+}
+
+// WithFeatureRequirements adds FeatureRequirements to Test, all of which
+// must be satisfied in order for the test to be run
+func (t *Test) WithFeatureRequirements(reqs ...FeatureRequirement) *Test {
+	t.requirements = append(t.requirements, reqs...)
 	return t
 }
 

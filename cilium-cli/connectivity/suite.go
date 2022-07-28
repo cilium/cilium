@@ -190,6 +190,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// Test L7 HTTP introspection using an ingress policy on echo pods.
 	ct.NewTest("echo-ingress-l7").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPodWithEndpoints(),
@@ -215,6 +216,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// Test L7 HTTP introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
 		WithPolicy(clientEgressL7HTTPPolicyYAML).  // L7 allow policy with HTTP introspection
 		WithScenarios(
@@ -242,6 +244,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
 	ct.NewTest("dns-only").WithPolicy(clientEgressOnlyDNSPolicyYAML).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithScenarios(
 			tests.PodToPod(),   // connects to other Pods directly, no DNS
 			tests.PodToWorld(), // resolves one.one.one.one
@@ -252,6 +255,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy only allows port 80 to "one.one.one.one". DNS proxy enabled.
 	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsCiliumIOPolicyYAML).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithScenarios(
 			tests.PodToWorld(),
 		).
