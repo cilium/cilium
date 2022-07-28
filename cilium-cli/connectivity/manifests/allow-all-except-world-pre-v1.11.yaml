@@ -13,6 +13,16 @@ spec:
     - health
   - toEndpoints:
     - {}
+  # When node-local-dns is deployed with local IP,
+  # Cilium labels its ip as world.
+  # This change prevents failing the connectivity
+  # test for such environments.
+  - toPorts:
+      - ports:
+          - port: "53"
+            protocol: UDP
+    toEntities:
+      - world
   ingress:
   - fromEntities:
     - host
