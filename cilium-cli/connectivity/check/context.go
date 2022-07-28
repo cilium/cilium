@@ -29,8 +29,7 @@ type ConnectivityTest struct {
 	client       *k8s.Client
 	hubbleClient observer.ObserverClient
 
-	features        FeatureSet
-	flowAggregation bool
+	features FeatureSet
 
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
@@ -220,6 +219,10 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 		return err
 	}
 
+	if ct.FlowAggregation() {
+		ct.Info("Monitor aggregation detected, will skip some flow validation steps")
+	}
+
 	if err := ct.deploy(ctx); err != nil {
 		return err
 	}
@@ -376,26 +379,6 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	return nil
 }
 
-func (ct *ConnectivityTest) logAggregationMode(ctx context.Context, client *k8s.Client) (string, error) {
-	cm, err := client.GetConfigMap(ctx, ct.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
-	}
-
-	if cm.Data == nil {
-		return "", fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
-	}
-
-	// Monitor aggregation level defaults to none.
-	v, ok := cm.Data[defaults.ConfigMapKeyMonitorAggregation]
-	if !ok {
-		return "none", nil
-	}
-
-	// Comparisons will be in lower case.
-	return strings.ToLower(v), nil
-}
-
 // FetchCiliumPodImageTag fetches the first Cilium pod's image's tag (e.g.
 // v1.11.1 from quay.io/cilium/cilium:v1.11.1).
 func (ct *ConnectivityTest) FetchCiliumPodImageTag() string {
@@ -423,10 +406,6 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 	c := &deploymentClients{
 		src: ct.client,
 		dst: ct.client,
-	}
-
-	if a, _ := ct.logAggregationMode(ctx, c.src); a != defaults.ConfigMapValueMonitorAggregatonNone {
-		ct.flowAggregation = true
 	}
 
 	if ct.params.MultiCluster != "" && ct.params.SingleNode {
@@ -479,13 +458,6 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 
 		c.dst = dst
 
-		if a, _ := ct.logAggregationMode(ctx, c.dst); a != defaults.ConfigMapValueMonitorAggregatonNone {
-			ct.flowAggregation = true
-		}
-	}
-
-	if ct.flowAggregation {
-		ct.Info("Monitor aggregation detected, will skip some flow validation steps")
 	}
 
 	ct.clients = c
@@ -587,7 +559,7 @@ func (ct *ConnectivityTest) AllFlows() bool {
 }
 
 func (ct *ConnectivityTest) FlowAggregation() bool {
-	return ct.flowAggregation
+	return ct.features[FeatureMonitorAggregation].Enabled
 }
 
 func (ct *ConnectivityTest) PostTestSleepDuration() time.Duration {
