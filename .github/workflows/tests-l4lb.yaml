@@ -168,12 +168,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-multilib  libbpf-dev
           cd ${{ github.workspace }}/pull-request/test/l4lb && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
+          cd ${{ github.workspace }}/pull-request/test/nat46x64 && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
+          cd ${{ github.workspace }}/pull-request/test/bigtcp && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
         run: |
-          ssh default "sudo /bin/sh -c 'cilium sysdump --output-filename cilium-sysdump-out; mv cilium-sysdump-out.zip /tmp'"
-          scp default:/tmp/cilium-sysdump-out.zip .
+          sudo cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Upload cilium-sysdump
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
