@@ -456,6 +456,10 @@ If release excess IP enabled:
 
  * ``UnassignPrivateIpAddresses``
 
+If ``--instance-tags-filter`` is used:
+
+ * ``DescribeInstances``
+
 *****************************
 EC2 instance types ENI limits
 *****************************
