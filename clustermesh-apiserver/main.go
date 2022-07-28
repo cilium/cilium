@@ -234,6 +234,9 @@ func runApiserver() error {
 	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
 	option.BindEnv(option.EnableWellKnownIdentities)
 
+	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enable support of Kubernetes EndpointSlice")
+	option.BindEnv(option.K8sEnableEndpointSlice)
+
 	viper.BindPFlags(flags)
 
 	if err := rootCmd.Execute(); err != nil {
