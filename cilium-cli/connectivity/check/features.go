@@ -53,6 +53,54 @@ func (s FeatureStatus) String() string {
 // FeatureSet contains the status
 type FeatureSet map[Feature]FeatureStatus
 
+// MatchRequirements returns true if the FeatureSet fs satisfies all the
+// requirements in reqs. Returns true for empty requirements list.
+func (fs FeatureSet) MatchRequirements(reqs ...FeatureRequirement) bool {
+	for _, req := range reqs {
+		status := fs[req.feature]
+		if req.requiresEnabled && (req.enabled != status.Enabled) {
+			return false
+		}
+		if req.requiresMode && (req.mode != status.Mode) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// FeatureRequirement defines a test requirement. A given FeatureSet may or
+// may not satisfy this requirement
+type FeatureRequirement struct {
+	feature Feature
+
+	requiresEnabled bool
+	enabled         bool
+
+	requiresMode bool
+	mode         string
+}
+
+// RequireFeatureEnabled constructs a FeatureRequirement which expects the
+// feature to be enabled
+func RequireFeatureEnabled(feature Feature) FeatureRequirement {
+	return FeatureRequirement{
+		feature:         feature,
+		requiresEnabled: true,
+		enabled:         true,
+	}
+}
+
+// RequireFeatureMode constructs a FeatureRequirement which expects the feature
+// to be in the given mode
+func RequireFeatureMode(feature Feature, mode string) FeatureRequirement {
+	return FeatureRequirement{
+		feature:      feature,
+		requiresMode: true,
+		mode:         mode,
+	}
+}
+
 func parseBoolStatus(s string) bool {
 	switch s {
 	case "Enabled", "enabled", "True", "true":
