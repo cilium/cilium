@@ -11,11 +11,14 @@ HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
 #  SETUP  #
 ###########
 
+
 # bpf_xdp_veth_host is a dummy XDP program which is going to be attached to LB
 # node's veth pair end in the host netns. When bpf_xdp, which is attached in
 # the container netns, forwards a LB request with XDP_TX, the request needs to
 # be picked in the host netns by a NAPI handler. To register the handler, we
 # attach the dummy program.
+apt-get update
+apt-get install -y gcc-multilib libbpf-dev
 clang -O2 -Wall -target bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
 
 # The worker (aka backend node) will receive IPIP packets from the LB node.
