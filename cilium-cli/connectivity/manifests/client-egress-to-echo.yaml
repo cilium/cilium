@@ -21,5 +21,15 @@ spec:
         protocol: ANY
     toEndpoints:
     - matchExpressions:
-      - { key: 'k8s-app', operator: In, values: [ "kube-dns", "coredns", "node-local-dns" ] }
+      - { key: 'k8s-app', operator: In, values: [ "kube-dns", "coredns", "node-local-dns", "nodelocaldns" ] }
       - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "kube-system" ] }
+  # When node-local-dns is deployed with local IP,
+  # Cilium labels its ip as world.
+  # This change prevents failing the connectivity
+  # test for such environments.
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+    toEntities:
+    - world
