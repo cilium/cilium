@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -297,6 +298,22 @@ func (m *IptablesManager) Init() {
 			"ip6tables kernel modules could not be loaded, so IPv6 cannot be used")
 		haveIp6tables = false
 	}
+
+	ipv6Disabled, err := os.ReadFile("/sys/module/ipv6/parameters/disable")
+	if err != nil {
+		if option.Config.EnableIPv6 {
+			log.WithError(err).Fatal(
+				"IPv6 is enabled but IPv6 kernel support could not be probed")
+		}
+		log.WithError(err).Warning(
+			"Unable to read /sys/module/ipv6/parameters/disable, disabling IPv6 iptables support")
+		haveIp6tables = false
+	} else if strings.TrimSuffix(string(ipv6Disabled), "\n") == "1" {
+		log.Debug(
+			"Kernel does not support IPv6, disabling IPv6 iptables support")
+		haveIp6tables = false
+	}
+
 	m.haveIp6tables = haveIp6tables
 
 	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
