@@ -44,4 +44,3 @@ unit-tests: $(ALL_TESTS)
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f $(TARGETS)
-	$(MAKE) -C $(ROOT_DIR)/bpf/mock clean
