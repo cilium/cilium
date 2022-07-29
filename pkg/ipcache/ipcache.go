@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
@@ -272,6 +273,9 @@ func (ipc *IPCache) upsertLocked(
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if found {
 		if !force && !source.AllowOverwrite(cachedIdentity.Source, newIdentity.Source) {
+			metrics.IPCacheErrorsTotal.WithLabelValues(
+				metricTypeUpsert, metricErrorOverwrite,
+			).Inc()
 			return false, NewErrOverwrite(cachedIdentity.Source, newIdentity.Source)
 		}
 
@@ -279,6 +283,9 @@ func (ipc *IPCache) upsertLocked(
 		// and the host IP hasn't changed.
 		if cachedIdentity == newIdentity && oldHostIP.Equal(hostIP) &&
 			hostKey == oldHostKey && metaEqual {
+			metrics.IPCacheErrorsTotal.WithLabelValues(
+				metricTypeUpsert, metricErrorIdempotent,
+			).Inc()
 			return false, nil
 		}
 
@@ -326,6 +333,9 @@ func (ipc *IPCache) upsertLocked(
 			logfields.Identity: newIdentity,
 			logfields.Key:      hostKey,
 		}).Error("Attempt to upsert invalid IP into ipcache layer")
+		metrics.IPCacheErrorsTotal.WithLabelValues(
+			metricTypeUpsert, metricErrorInvalid,
+		).Inc()
 		return false, NewErrInvalidIP(ip)
 	}
 
@@ -387,6 +397,9 @@ func (ipc *IPCache) upsertLocked(
 		}
 	}
 
+	metrics.IPCacheEventsTotal.WithLabelValues(
+		metricTypeUpsert,
+	).Inc()
 	return namedPortsChanged, nil
 }
 
@@ -418,12 +431,18 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if !found {
 		scopedLog.Debug("Attempt to remove non-existing IP from ipcache layer")
+		metrics.IPCacheErrorsTotal.WithLabelValues(
+			metricTypeDelete, metricErrorNoExist,
+		).Inc()
 		return false
 	}
 
 	if cachedIdentity.Source != source {
 		scopedLog.WithField("source", cachedIdentity.Source).
 			Debugf("Skipping delete of identity from source %s", source)
+		metrics.IPCacheErrorsTotal.WithLabelValues(
+			metricTypeDelete, metricErrorOverwrite,
+		).Inc()
 		return false
 	}
 
@@ -469,6 +488,9 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		}
 	} else {
 		scopedLog.Error("Attempt to delete invalid IP from ipcache layer")
+		metrics.IPCacheErrorsTotal.WithLabelValues(
+			metricTypeDelete, metricErrorInvalid,
+		).Inc()
 		return false
 	}
 
@@ -495,6 +517,9 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		}
 	}
 
+	metrics.IPCacheEventsTotal.WithLabelValues(
+		metricTypeDelete,
+	).Inc()
 	return namedPortsChanged
 }
 
