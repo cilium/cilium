@@ -602,7 +602,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	// Upsert restored CIDRs after the new ipcache has been opened above
 	if len(restoredCIDRidentities) > 0 {
-		ipcache.UpsertGeneratedIdentities(restoredCIDRidentities)
+		ipcache.UpsertGeneratedIdentities(restoredCIDRidentities, nil)
 	}
 
 	// Read the service IDs of existing services from the BPF map and
