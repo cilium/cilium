@@ -176,6 +176,10 @@ func (f *sessionUDPFactory) ReadRequest(conn *net.UDPConn) ([]byte, dns.SessionU
 	return s.m, s, err
 }
 
+func (f *sessionUDPFactory) ReadRequestConn(conn net.PacketConn) ([]byte, net.Addr, error) {
+	return []byte{}, nil, fmt.Errorf("ReadRequestConn is not supported")
+}
+
 // Discard returns 's' to the factory pool
 func (s *sessionUDP) Discard() {
 	s.conn = nil
