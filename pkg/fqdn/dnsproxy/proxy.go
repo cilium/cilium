@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -560,6 +562,33 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 	return false, nil
 }
 
+func configureConnection(conn *net.Conn, secId identity.NumericIdentity) error {
+	var file *os.File
+	var err error
+
+	switch l4conn := (*conn).(type) {
+	case *net.UDPConn:
+		if file, err = l4conn.File(); err != nil {
+			return fmt.Errorf("can't get file from %v: %w", l4conn, err)
+		}
+	case *net.TCPConn:
+		if file, err = l4conn.File(); err != nil {
+			return fmt.Errorf("can't get file from %v: %w", l4conn, err)
+		}
+	default:
+		return fmt.Errorf("unsupported type %T", l4conn)
+	}
+
+	defer file.Close()
+
+	mark := int(uint32(secId)<<16 | uint32(linux_defaults.MagicMarkIdentity))
+	err = unix.SetsockoptInt(int(file.Fd()), unix.SOL_SOCKET, unix.SO_MARK, mark)
+	if err != nil {
+		return fmt.Errorf("error setting SO_MARK: %w", err)
+	}
+	return nil
+}
+
 // ServeDNS handles individual DNS requests forwarded to the proxy, and meets
 // the dns.Handler interface.
 // It will:
@@ -694,8 +723,28 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.ProcessingTime.End(true)
 	stat.UpstreamTime.Start()
 
+	conn, err := client.Dial(targetServerAddr)
+	if err != nil {
+		err := fmt.Errorf("failed to dial connection to %v: %w", targetServerAddr, err)
+		stat.Err = err
+		scopedLog.WithError(err).Error("Failed to dial connection to the upstream DNS server, cannot service DNS request")
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
+	defer conn.Close()
+
+	if err = configureConnection(&conn.Conn, ep.GetIdentity()); err != nil {
+		err := fmt.Errorf("failed to set socket options: %w", err)
+		stat.Err = err
+		scopedLog.WithError(err).Error("Failed to configure connection to the upstream DNS server, cannot service DNS request")
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
+
 	request.Id = dns.Id() // force a random new ID for this request
-	response, _, err := client.Exchange(request, targetServerAddr)
+	response, _, err := client.ExchangeWithConn(request, conn)
 	stat.UpstreamTime.End(err == nil)
 	if err != nil {
 		stat.Err = err
