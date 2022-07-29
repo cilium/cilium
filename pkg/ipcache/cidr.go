@@ -56,6 +56,7 @@ func AllocateCIDRs(
 		newlyAllocatedIdentities = map[string]*identity.Identity{}
 	}
 
+	IPIdentityCache.Lock()
 	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
 	for i, p := range prefixes {
 		if p == nil {
@@ -70,6 +71,7 @@ func AllocateCIDRs(
 		}
 		id, isNew, err := allocate(p, lbls, oldNID)
 		if err != nil {
+			IPIdentityCache.Unlock()
 			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, err
 		}
@@ -81,6 +83,7 @@ func AllocateCIDRs(
 			newlyAllocatedIdentities[prefixStr] = id
 		}
 	}
+	IPIdentityCache.Unlock()
 
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
@@ -150,6 +153,21 @@ func allocate(prefix *net.IPNet, lbls labels.Labels, oldNID identity.NumericIden
 }
 
 func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
+	// Create a critical section for identity release + removal from ipcache.
+	// Otherwise, it's possible to trigger the following race condition:
+	//
+	// Goroutine 1                | Goroutine 2
+	// releaseCIDRIdentities()    | AllocateCIDRs()
+	// -> Release(..., id, ...)   |
+	//                            | -> allocate(...)
+	//                            | -> ipc.UpsertGeneratedIdentities(...)
+	// -> ipc.deleteLocked(...)   |
+	//
+	// In this case, the expectation from Goroutine 2 is that an identity
+	// is allocated and that identity is in the ipcache, but the result
+	// is that the identity is allocated but the ipcache entry is missing.
+	IPIdentityCache.Lock()
+	defer IPIdentityCache.Unlock()
 	for prefix, id := range identities {
 		released, err := IdentityAllocator.Release(ctx, id, false)
 		if err != nil {
@@ -160,7 +178,7 @@ func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.
 		}
 
 		if released {
-			IPIdentityCache.Delete(prefix, source.Generated)
+			IPIdentityCache.deleteLocked(prefix, source.Generated)
 		}
 	}
 }
