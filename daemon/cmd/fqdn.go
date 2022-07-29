@@ -56,7 +56,7 @@ const (
 	dnsSourceConnection = "connection"
 )
 
-func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator secIDCache.IdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, map[string]*identity.Identity, error) {
+func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator secIDCache.IdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, []*identity.Identity, map[string]*identity.Identity, error) {
 	var err error
 
 	// Used to track identities which are allocated in calls to
@@ -105,13 +105,13 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 			identityAllocator.ReleaseSlice(context.TODO(), nil, usedIdentities)
 			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 				"failed to allocate identities for IPs")
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		usedIdentities = append(usedIdentities, currentlyAllocatedIdentities...)
 		selectorIdentitySliceMapping[selector] = currentlyAllocatedIdentities
 	}
 
-	return selectorIdentitySliceMapping, newlyAllocatedIdentities, nil
+	return selectorIdentitySliceMapping, usedIdentities, newlyAllocatedIdentities, nil
 }
 
 func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) *sync.WaitGroup {
@@ -372,16 +372,16 @@ func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well
 // as the set of FQDNSelectors which have no IPs which correspond to them
 // (usually due to TTL expiry), down to policy layer managed by this daemon.
-func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
+func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
 	// Convert set of selectors with IPs to update to set of selectors
 	// with identities corresponding to said IPs.
-	selectorsIdentities, newlyAllocatedIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
+	selectorsIdentities, usedIdentities, newlyAllocatedIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
 	if err != nil {
-		return &sync.WaitGroup{}, nil, err
+		return &sync.WaitGroup{}, nil, nil, err
 	}
 
 	// Update mapping in selector cache with new identities.
-	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), newlyAllocatedIdentities, nil
+	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), usedIdentities, newlyAllocatedIdentities, nil
 }
 
 // lookupEPByIP returns the endpoint that this IP belongs to
@@ -546,7 +546,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		defer updateCancel()
 		updateStart := time.Now()
 
-		wg, newlyAllocatedIdentities, err := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
+		wg, usedIdentities, newlyAllocatedIdentities, err := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
@@ -575,7 +575,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}).Debug("Waited for endpoints to regenerate due to a DNS response")
 
 		// Add new identities to the ipcache after the wait for the policy updates above
-		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
+		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
 
 		endMetric()
 	}

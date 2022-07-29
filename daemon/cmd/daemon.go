@@ -713,7 +713,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	// Upsert restored CIDRs after the new ipcache has been opened above
 	if len(restoredCIDRidentities) > 0 {
-		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities)
+		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities, nil)
 	}
 	// Upsert restored local Ingress IPs
 	restoredIngressIPs := []string{}
