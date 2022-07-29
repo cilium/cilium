@@ -4,12 +4,23 @@ package dns
 // size by removing records that exceed the requested size.
 //
 // It will first check if the reply fits without compression and then with
-// compression. If it won't fit with compression, Scrub then walks the
+// compression. If it won't fit with compression, Truncate then walks the
 // record adding as many records as possible without exceeding the
 // requested buffer size.
 //
-// The TC bit will be set if any answer records were excluded from the
-// message. This indicates to that the client should retry over TCP.
+// If the message fits within the requested size without compression,
+// Truncate will set the message's Compress attribute to false. It is
+// the caller's responsibility to set it back to true if they wish to
+// compress the payload regardless of size.
+//
+// The TC bit will be set if any records were excluded from the message.
+// If the TC bit is already set on the message it will be retained.
+// TC indicates that the client should retry over TCP.
+//
+// According to RFC 2181, the TC bit should only be set if not all of the
+// "required" RRs can be included in the response. Unfortunately, we have
+// no way of knowing which RRs are required so we set the TC bit if any RR
+// had to be omitted from the response.
 //
 // The appropriate buffer size can be retrieved from the requests OPT
 // record, if present, and is transport specific otherwise. dns.MinMsgSize
@@ -23,11 +34,11 @@ func (dns *Msg) Truncate(size int) {
 	}
 
 	// RFC 6891 mandates that the payload size in an OPT record
-	// less than 512 bytes must be treated as equal to 512 bytes.
+	// less than 512 (MinMsgSize) bytes must be treated as equal to 512 bytes.
 	//
 	// For ease of use, we impose that restriction here.
-	if size < 512 {
-		size = 512
+	if size < MinMsgSize {
+		size = MinMsgSize
 	}
 
 	l := msgLenWithCompressionMap(dns, nil) // uncompressed length
@@ -68,12 +79,12 @@ func (dns *Msg) Truncate(size int) {
 
 	var numExtra int
 	if l < size {
-		l, numExtra = truncateLoop(dns.Extra, size, l, compression)
+		_, numExtra = truncateLoop(dns.Extra, size, l, compression)
 	}
 
-	// According to RFC 2181, the TC bit should only be set if not all
-	// of the answer RRs can be included in the response.
-	dns.Truncated = len(dns.Answer) > numAnswer
+	// See the function documentation for when we set this.
+	dns.Truncated = dns.Truncated || len(dns.Answer) > numAnswer ||
+		len(dns.Ns) > numNS || len(dns.Extra) > numExtra
 
 	dns.Answer = dns.Answer[:numAnswer]
 	dns.Ns = dns.Ns[:numNS]
