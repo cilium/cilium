@@ -433,7 +433,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		// TODO: Remove 'enable-selective-regeneration' agent option.  Without selective
 		// regeneration we retain the old behavior of upserting new identities to ipcache
 		// before endpoint policy maps have been updated.
-		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
+		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities, nil)
 	}
 
 	return
@@ -508,7 +508,7 @@ func (d *Daemon) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.Endpoi
 	// policy maps are ready to classify packets using the newly allocated identities before
 	// they are upserted to the ipcache here.
 	if upsertIdentities != nil {
-		d.ipcache.UpsertGeneratedIdentities(upsertIdentities)
+		d.ipcache.UpsertGeneratedIdentities(upsertIdentities, nil)
 	}
 }
 
