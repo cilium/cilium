@@ -43,6 +43,9 @@ const (
 	// SubsystemAgent is the subsystem to scope metrics related to the cilium agent itself.
 	SubsystemAgent = "agent"
 
+	// SubsystemFQDN is the subsystem to scope metrics related to the FQDN proxy.
+	SubsystemIPCache = "ipcache"
+
 	// SubsystemK8s is the subsystem to scope metrics related to Kubernetes
 	SubsystemK8s = "k8s"
 
@@ -458,6 +461,14 @@ var (
 	// the admission semaphore.
 	FQDNSemaphoreRejectedTotal = NoOpCounter
 
+	// IPCacheErrorsTotal is the total number of IPCache events handled in
+	// the IPCache subsystem that resulted in errors.
+	IPCacheErrorsTotal = NoOpCounterVec
+
+	// IPCacheEventsTotal is the total number of IPCache events handled in
+	// the IPCache subsystem.
+	IPCacheEventsTotal = NoOpCounterVec
+
 	// BPFSyscallDuration is the metric for bpf syscalls duration.
 	BPFSyscallDuration = NoOpObserverVec
 
@@ -564,6 +575,8 @@ type Configuration struct {
 	KubernetesCNPStatusCompletionEnabled    bool
 	KubernetesTerminatingEndpointsEnabled   bool
 	IpamEventEnabled                        bool
+	IPCacheErrorsTotalEnabled               bool
+	IPCacheEventsTotalEnabled               bool
 	KVStoreOperationsDurationEnabled        bool
 	KVStoreEventsQueueDurationEnabled       bool
 	KVStoreQuorumErrorsEnabled              bool
@@ -639,6 +652,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":          {},
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":                 {},
 		Namespace + "_" + SubsystemKVStore + "_quorum_errors_total":                  {},
+		Namespace + "_" + SubsystemIPCache + "_errors_total":                         {},
 		Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":                      {},
 		Namespace + "_" + SubsystemBPF + "_map_ops_total":                            {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_total":                 {},
@@ -1170,6 +1184,28 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, KVStoreQuorumErrors)
 			c.KVStoreQuorumErrorsEnabled = true
+
+		case Namespace + "_" + SubsystemIPCache + "_errors_total":
+			IPCacheErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemIPCache,
+				Name:      "errors_total",
+				Help:      "Number of errors interacting with the IP to Identity cache",
+			}, []string{LabelType, LabelError})
+
+			collectors = append(collectors, IPCacheErrorsTotal)
+			c.IPCacheErrorsTotalEnabled = true
+
+		case Namespace + "_" + SubsystemIPCache + "_events_total":
+			IPCacheEventsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemIPCache,
+				Name:      "events_total",
+				Help:      "Number of events interacting with the IP to Identity cache",
+			}, []string{LabelType})
+
+			collectors = append(collectors, IPCacheEventsTotal)
+			c.IPCacheEventsTotalEnabled = true
 
 		case Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":
 			FQDNGarbageCollectorCleanedTotal = prometheus.NewCounter(prometheus.CounterOpts{
