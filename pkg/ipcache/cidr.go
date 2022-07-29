@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
@@ -88,7 +89,7 @@ func AllocateCIDRs(
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
 	if upsert {
-		UpsertGeneratedIdentities(newlyAllocatedIdentities)
+		UpsertGeneratedIdentities(newlyAllocatedIdentities, nil)
 	}
 
 	identities := make([]*identity.Identity, 0, len(allocatedIdentities))
@@ -109,9 +110,51 @@ func AllocateCIDRsForIPs(
 	return AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), nil, newlyAllocatedIdentities)
 }
 
-func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity) {
+func cidrLabelToPrefix(label string) (string, bool) {
+	if !strings.HasPrefix(label, labels.LabelSourceCIDR) {
+		return "", false
+	}
+	return strings.TrimPrefix(label, labels.LabelSourceCIDR+":"), true
+}
+
+// UpsertGeneratedIdentities unconditionally upserts 'newlyAllocatedIdentities'
+// into the ipcache, then also upserts any CIDR identities in 'usedIdentities'
+// that were not already upserted. If any 'usedIdentities' are upserted, these
+// are counted separately as they may provide an indication of another logic
+// error elsewhere in the codebase that is causing premature ipcache deletions.
+func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity, usedIdentities []*identity.Identity) {
 	for prefixString, id := range newlyAllocatedIdentities {
 		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
+			ID:     id.ID,
+			Source: source.Generated,
+		})
+	}
+	if len(usedIdentities) == 0 {
+		return
+	}
+
+	toUpsert := make(map[string]*identity.Identity)
+	IPIdentityCache.mutex.RLock()
+	for _, id := range usedIdentities {
+		prefix, ok := cidrLabelToPrefix(id.CIDRLabel.String())
+		if !ok {
+			log.WithFields(logrus.Fields{
+				logfields.Identity: id.ID,
+			}).Warning("BUG: Attempting to upsert non-CIDR identity")
+			continue
+		}
+		if _, ok := IPIdentityCache.LookupByIPRLocked(prefix); ok {
+			// Already there; continue
+			continue
+		}
+		toUpsert[prefix] = id
+	}
+	IPIdentityCache.mutex.RUnlock()
+	for prefix, id := range toUpsert {
+		metrics.IPCacheErrorsTotal.WithLabelValues(
+			metricTypeRecover, metricErrorUnexpected,
+		).Inc()
+		IPIdentityCache.Upsert(prefix, nil, 0, nil, Identity{
 			ID:     id.ID,
 			Source: source.Generated,
 		})
@@ -212,15 +255,15 @@ func ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.Numeri
 	fullIdentities := make(map[string]*identity.Identity, len(identities))
 	for _, nid := range identities {
 		if id := IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
-			cidr := id.CIDRLabel.String()
-			if !strings.HasPrefix(cidr, labels.LabelSourceCIDR) {
+			cidr, ok := cidrLabelToPrefix(id.CIDRLabel.String())
+			if !ok {
 				log.WithFields(logrus.Fields{
 					logfields.Identity: nid,
 					logfields.Labels:   id.Labels,
 				}).Warn("Unexpected release of non-CIDR identity, will leak this identity. Please report this issue to the developers.")
 				continue
 			}
-			fullIdentities[strings.TrimPrefix(cidr, labels.LabelSourceCIDR+":")] = id
+			fullIdentities[cidr] = id
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: nid,
