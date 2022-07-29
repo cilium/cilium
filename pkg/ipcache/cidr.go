@@ -92,6 +92,7 @@ func allocateCIDRs(prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, ne
 		newlyAllocatedIdentities = map[string]*identity.Identity{}
 	}
 
+	IPIdentityCache.Lock()
 	for i, prefix := range prefixes {
 		if prefix == nil {
 			continue
@@ -104,6 +105,7 @@ func allocateCIDRs(prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, ne
 		defer cancel()
 
 		if IdentityAllocator == nil {
+			IPIdentityCache.Unlock()
 			return nil, fmt.Errorf("IdentityAllocator not initialized!")
 		}
 		oldNID := identity.InvalidIdentity
@@ -113,6 +115,7 @@ func allocateCIDRs(prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, ne
 		id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false, oldNID)
 		if err != nil {
 			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
+			IPIdentityCache.Unlock()
 			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefixStr, err)
 		}
 
@@ -124,6 +127,7 @@ func allocateCIDRs(prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, ne
 			newlyAllocatedIdentities[prefixStr] = id
 		}
 	}
+	IPIdentityCache.Unlock()
 
 	allocatedIdentitiesSlice := make([]*identity.Identity, 0, len(allocatedIdentities))
 
@@ -141,6 +145,21 @@ func allocateCIDRs(prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, ne
 }
 
 func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
+	// Create a critical section for identity release + removal from ipcache.
+	// Otherwise, it's possible to trigger the following race condition:
+	//
+	// Goroutine 1                | Goroutine 2
+	// releaseCIDRIdentities()    | AllocateCIDRs()
+	// -> Release(..., id, ...)   |
+	//                            | -> allocate(...)
+	//                            | -> ipc.UpsertGeneratedIdentities(...)
+	// -> ipc.deleteLocked(...)   |
+	//
+	// In this case, the expectation from Goroutine 2 is that an identity
+	// is allocated and that identity is in the ipcache, but the result
+	// is that the identity is allocated but the ipcache entry is missing.
+	IPIdentityCache.Lock()
+	defer IPIdentityCache.Unlock()
 	for prefix, id := range identities {
 		released, err := IdentityAllocator.Release(ctx, id, false)
 		if err != nil {
@@ -151,7 +170,7 @@ func releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.
 		}
 
 		if released {
-			IPIdentityCache.Delete(prefix, source.Generated)
+			IPIdentityCache.deleteLocked(prefix, source.Generated)
 		}
 	}
 }
