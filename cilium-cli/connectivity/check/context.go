@@ -13,6 +13,7 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/observer"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -217,6 +218,18 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 	}
 	if err := ct.detectFeatures(ctx); err != nil {
 		return err
+	}
+
+	if ct.debug() {
+		fs := make([]Feature, 0, len(ct.features))
+		for f := range ct.features {
+			fs = append(fs, f)
+		}
+		slices.Sort(fs)
+		ct.Debug("Detected features:")
+		for _, f := range fs {
+			ct.Debugf("  %s: %s", f, ct.features[f])
+		}
 	}
 
 	if ct.FlowAggregation() {
