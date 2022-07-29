@@ -188,10 +188,6 @@ jobs:
         run: |
           cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
 
-      - name: Run BIG TCP test
-        run: |
-          cd ${{ github.workspace }}/test/bigtcp && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
-
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
         run: |
