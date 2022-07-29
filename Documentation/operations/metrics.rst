@@ -329,6 +329,8 @@ Identity
 Name                                     Labels                                             Description
 ======================================== ================================================== ========================================================
 ``identity``                             ``type``                                           Number of identities currently allocated
+``ipcache_errors_total``                 ``type``, ``error``                                Number of errors interacting with the ipcache
+``ipcache_events_total``                 ``type``                                           Number of events interacting with the ipcache
 ======================================== ================================================== ========================================================
 
 Events external to Cilium
