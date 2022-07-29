@@ -64,6 +64,7 @@ clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET) rm -rf $(TEST_ARTIFACTS)
 	-$(QUIET) rm -f .vagrant/*.box
+	-$(QUIET)$(MAKE) -C bpf/ clean
 
 BPF_TEST_FLAGS:=
 ifeq ($(V),1)
