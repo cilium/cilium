@@ -311,6 +311,15 @@ func PathExists(filename string) bool {
 	return false
 }
 
+// PathExistsWithContents returns the filename exists and it is not empty
+func PathExistsWithContents(filename string) bool {
+	info, err := os.Stat(filename)
+	if err != nil {
+		return false
+	}
+	return info.Size() > 4 // at least 4 bytes
+}
+
 // GetEnv retrieves the environment variable key. If it does not exist it returns the default.
 func GetEnv(key string, dfault string, combineWith ...string) string {
 	value := os.Getenv(key)
