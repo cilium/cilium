@@ -206,13 +206,14 @@ func InstrumentAndLoadCollection(
 					// 5. Lookup map value
 					asm.FnMapLookupElem.Call(),
 					// 6. Null check (exit on R0 = null)
+					//    Note: Exit with code 1, some program types have restrictions on return values.
 					asm.Instruction{
 						OpCode:   asm.OpCode(asm.JumpClass).SetJumpOp(asm.JNE).SetSource(asm.ImmSource),
 						Dst:      asm.R0,
 						Offset:   2,
 						Constant: 0,
 					},
-					asm.Mov.Imm(asm.R0, -1),
+					asm.Mov.Imm(asm.R0, 1),
 					asm.Return(),
 					// 7. Store map value on in coverMapFPOff
 					asm.StoreMem(asm.R10, -int16(coverMapPFOff), asm.R0, asm.DWord),
