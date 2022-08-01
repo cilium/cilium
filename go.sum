@@ -174,8 +174,8 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/cilium/controller-tools v0.6.2 h1:oIkqAzqncKsm+lQFJVP6n+bqHOVs9nUZ06hgZ4PxlMM=
 github.com/cilium/controller-tools v0.6.2/go.mod h1:oaeGpjXn6+ZSEIQkUe/+3I40PNiDYp9aeawbt3xTgJ8=
-github.com/cilium/coverbee v0.2.1 h1:GYH2OgNAlFYzMW/YeIdlRq/4gLFeg0kiL10p6gUa3mw=
-github.com/cilium/coverbee v0.2.1/go.mod h1:YdE11eOqnvImtn6F7benUTK2dDvNwsSxCs7ndyVbYas=
+github.com/cilium/coverbee v0.2.2 h1:rwBA+UqUXsAyeM8fTaactJd7bFjCV2F1VOfXYGq9kr0=
+github.com/cilium/coverbee v0.2.2/go.mod h1:YdE11eOqnvImtn6F7benUTK2dDvNwsSxCs7ndyVbYas=
 github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4 h1:aqrS+g/6xLKJjcKcl4/THW+C2Y4O+2zEETSwhIUuEDs=
 github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4/go.mod h1:MEn5V1CejgUNFP3Y1JKmBC6Mb9TuK53ecHG9lffctFg=
 github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e h1:VZolEtS7AlGDu3IH368iqkvfQQSGPgOnPjNaUx4dS7M=
