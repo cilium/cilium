@@ -5,6 +5,7 @@ package fake
 
 import (
 	"context"
+	"net"
 
 	"github.com/cilium/cilium/pkg/datapath"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -47,4 +48,8 @@ func (n *fakeNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeType
 
 func (n *fakeNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	return
+}
+
+func (n *fakeNodeHandler) AllocateNodeID(_ net.IP) uint16 {
+	return 0
 }
