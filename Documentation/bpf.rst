@@ -14,8 +14,8 @@ BPF and XDP Reference Guide
           want to understand BPF and XDP in great technical depth. While
           reading this reference guide may help broaden your understanding of
           Cilium, it is not a requirement to use Cilium. Please refer to the
-          :ref:`gs_guide` and :ref:`ebpf_datapath` for a higher level
-          introduction.
+          :ref:`getting_started` guide and :ref:`ebpf_datapath` for a higher
+          level introduction.
 
 BPF is a highly flexible and efficient virtual machine-like construct in the
 Linux kernel allowing to execute bytecode at various hook points in a safe

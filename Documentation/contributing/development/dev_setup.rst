@@ -67,17 +67,11 @@ Finally, in order to run Cilium locally on VMs, you need:
 | `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_  | >= 5.2                | N/A (OS-specific)                                                              |
 +------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 
-You should start with the `gs_guide`, which walks you through the set-up, such
-as installing Vagrant, getting the Cilium sources, and going through some
-Cilium basics.
-
-
 Vagrant Setup
 ~~~~~~~~~~~~~
 
-While the `gs_guide` uses a Vagrantfile tuned for the basic walk through, the
-setup for the Vagrantfile in the root of the Cilium tree depends on a number of
-environment variables and network setup that are managed via
+The setup for the Vagrantfile in the root of the Cilium tree depends on a
+number of environment variables and network setup that are managed via
 ``contrib/vagrant/start.sh``.
 
 Option 1 - Using the Provided Vagrantfiles (Recommended)
