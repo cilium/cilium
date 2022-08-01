@@ -4,8 +4,6 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _gs_guide:
-
 Advanced Installation Guides
 ============================
 
@@ -14,8 +12,6 @@ guides cover the advanced installation and then dive into more detailed topics s
 securing clusters, connecting multiple clusters, monitoring, and
 troubleshooting. If you are new to Cilium it is recommended to read the
 :ref:`intro` section first to learn about the basic concepts and motivation.
-
-.. _gs_install:
 
 .. toctree::
    :maxdepth: 1

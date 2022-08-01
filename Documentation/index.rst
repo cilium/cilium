@@ -18,7 +18,7 @@ The documentation is divided into the following sections:
   understanding required to run a full Cilium deployment and understand its
   behavior.
 
-* :ref:`gs_guide` :  Details instructions for installing, configuring, and
+* :ref:`getting_started` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
 
 * :ref:`network_policy` : Detailed walkthrough of the policy language structure
@@ -48,6 +48,8 @@ get started and experiment with Cilium.
 
    overview/intro
    overview/component-overview
+
+.. _getting_started:
 
 .. toctree::
    :maxdepth: 2
