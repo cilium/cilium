@@ -101,6 +101,11 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 
 // LoadCollection loads the given spec into the kernel with the specified opts.
 //
+// The value given in ProgramOptions.LogSize is used as the starting point for
+// sizing the verifier's log buffer and defaults to 4MiB. On each retry, the
+// log buffer quadruples in size, for a total of 5 attempts. If that proves
+// insufficient, a truncated ebpf.VerifierError is returned.
+//
 // Any maps marked as pinned in the spec are automatically loaded from the path
 // given in opts.Maps.PinPath and will be used instead of creating new ones.
 // MapSpecs that differ (type/key/value/max/flags) from their pinned versions
@@ -111,10 +116,6 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 		return nil, errors.New("can't load nil CollectionSpec")
 	}
 
-	if opts.Programs.LogSize == 0 {
-		opts.Programs.LogSize = 10_000_000
-	}
-
 	// Copy spec so the modifications below don't affect the input parameter,
 	// allowing the spec to be safely re-used by the caller.
 	spec = spec.Copy()
@@ -123,12 +124,40 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 		return nil, fmt.Errorf("inlining global data: %w", err)
 	}
 
-	coll, err := ebpf.NewCollectionWithOptions(spec, opts)
-	if err != nil {
-		return nil, err
+	// Set initial size of verifier log buffer.
+	if opts.Programs.LogSize == 0 {
+		opts.Programs.LogSize = 4_194_304
 	}
 
-	return coll, nil
+	attempt := 1
+	for {
+		coll, err := ebpf.NewCollectionWithOptions(spec, opts)
+		if err == nil {
+			return coll, nil
+		}
+
+		// Bump LogSize and retry if there's a truncated VerifierError.
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) && ve.Truncated {
+			if attempt >= 5 {
+				return nil, fmt.Errorf("%d-byte truncated verifier log after %d attempts: %w", opts.Programs.LogSize, attempt, err)
+			}
+
+			// Retry with non-zero log level to avoid retrying with log disabled.
+			if opts.Programs.LogLevel == 0 {
+				opts.Programs.LogLevel = ebpf.LogLevelBranch
+			}
+
+			opts.Programs.LogSize *= 4
+
+			attempt++
+
+			continue
+		}
+
+		// Not a truncated VerifierError.
+		return nil, err
+	}
 }
 
 // classifyProgramTypes sets the type of ProgramSpecs which the library cannot
