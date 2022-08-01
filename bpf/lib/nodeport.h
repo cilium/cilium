@@ -214,7 +214,7 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&target.addr, addr);
 
 	ret = snat_v6_needed(ctx, addr) ?
-	      snat_v6_process(ctx, NAT_DIR_EGRESS, &target) : CTX_ACT_OK;
+	      snat_v6_nat(ctx, &target) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 	return ret;
@@ -587,7 +587,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		build_v4_in_v6(&tmp, IPV4_DIRECT_ROUTING);
 	target.addr = tmp;
 
-	ret = snat_v6_process(ctx, NAT_DIR_INGRESS, &target);
+	ret = snat_v6_rev_nat(ctx, &target);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
 		 * expensive in terms of instructions (since we don't have BPF to
@@ -664,7 +664,7 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 		use_tunnel = true;
 	}
 #endif
-	ret = snat_v6_process(ctx, NAT_DIR_EGRESS, &target);
+	ret = snat_v6_nat(ctx, &target);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 

@@ -1075,8 +1075,7 @@ static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *
 }
 
 static __always_inline __maybe_unused int
-snat_v6_process(struct __ctx_buff *ctx, enum nat_dir dir,
-		const struct ipv6_nat_target *target)
+snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 {
 	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_nat_entry *state, tmp;
@@ -1105,7 +1104,7 @@ snat_v6_process(struct __ctx_buff *ctx, enum nat_dir dir,
 	tuple.nexthdr = nexthdr;
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
-	tuple.flags = dir;
+	tuple.flags = NAT_DIR_EGRESS;
 	off = ((void *)ip6 - data) + hdrlen;
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
@@ -1141,22 +1140,103 @@ snat_v6_process(struct __ctx_buff *ctx, enum nat_dir dir,
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v6_can_skip(target, &tuple, dir, icmp_echoreply))
+	if (snat_v6_can_skip(target, &tuple, NAT_DIR_EGRESS, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
-	ret = snat_v6_handle_mapping(ctx, &tuple, &state, &tmp, dir, off, target);
+	ret = snat_v6_handle_mapping(ctx, &tuple, &state, &tmp, NAT_DIR_EGRESS, off, target);
 	if (ret > 0)
 		return CTX_ACT_OK;
 	if (ret < 0)
 		return ret;
 
-	return dir == NAT_DIR_EGRESS ?
-	       snat_v6_rewrite_egress(ctx, &tuple, state, off) :
-	       snat_v6_rewrite_ingress(ctx, &tuple, state, off);
+	return snat_v6_rewrite_egress(ctx, &tuple, state, off);
+}
+
+static __always_inline __maybe_unused int
+snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
+{
+	struct icmp6hdr icmp6hdr __align_stack_8;
+	struct ipv6_nat_entry *state, tmp;
+	struct ipv6_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	int ret, hdrlen;
+	struct {
+		__be16 sport;
+		__be16 dport;
+	} l4hdr;
+	__u8 nexthdr;
+	__u32 off;
+	bool icmp_echoreply = false;
+
+	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	tuple.nexthdr = nexthdr;
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+	tuple.flags = NAT_DIR_INGRESS;
+	off = ((void *)ip6 - data) + hdrlen;
+	switch (tuple.nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
+		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
+			return DROP_INVALID;
+		tuple.dport = l4hdr.dport;
+		tuple.sport = l4hdr.sport;
+		break;
+	case IPPROTO_ICMPV6:
+		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
+			return DROP_INVALID;
+		/* Letting neighbor solicitation / advertisement pass through. */
+		if (icmp6hdr.icmp6_type == ICMP6_NS_MSG_TYPE ||
+		    icmp6hdr.icmp6_type == ICMP6_NA_MSG_TYPE)
+			return CTX_ACT_OK;
+		if (icmp6hdr.icmp6_type != ICMPV6_ECHO_REQUEST &&
+		    icmp6hdr.icmp6_type != ICMPV6_ECHO_REPLY)
+			return DROP_NAT_UNSUPP_PROTO;
+		if (icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+			tuple.dport = 0;
+			tuple.sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
+		} else {
+			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
+			tuple.sport = 0;
+			icmp_echoreply = true;
+		}
+		break;
+	default:
+		return NAT_PUNT_TO_STACK;
+	};
+
+	if (snat_v6_can_skip(target, &tuple, NAT_DIR_INGRESS, icmp_echoreply))
+		return NAT_PUNT_TO_STACK;
+	ret = snat_v6_handle_mapping(ctx, &tuple, &state, &tmp, NAT_DIR_INGRESS, off, target);
+	if (ret > 0)
+		return CTX_ACT_OK;
+	if (ret < 0)
+		return ret;
+
+	return snat_v6_rewrite_ingress(ctx, &tuple, state, off);
 }
 #else
 static __always_inline __maybe_unused
-int snat_v6_process(struct __ctx_buff *ctx __maybe_unused,
-		    enum nat_dir dir __maybe_unused,
+int snat_v6_nat(struct __ctx_buff *ctx __maybe_unused,
+		const struct ipv6_nat_target *target __maybe_unused)
+{
+	return CTX_ACT_OK;
+}
+
+static __always_inline __maybe_unused
+int snat_v6_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 		    const struct ipv6_nat_target *target __maybe_unused)
 {
 	return CTX_ACT_OK;
