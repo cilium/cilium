@@ -39,7 +39,7 @@ static __always_inline void sk_msg_extract4_key(const struct sk_msg_md *msg,
 }
 
 __section("sk_msg")
-int bpf_redir_proxy(struct sk_msg_md *msg)
+int cil_redir_proxy(struct sk_msg_md *msg)
 {
 	struct remote_endpoint_info *info;
 	__u64 flags = BPF_F_INGRESS;

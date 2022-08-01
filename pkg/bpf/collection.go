@@ -143,17 +143,17 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) {
 	for name := range spec.Programs {
 		switch name {
 		// bpf_xdp.c
-		case "bpf_xdp_entry":
+		case "cil_xdp_entry":
 			t = ebpf.XDP
 		case
 			// bpf_lxc.c
-			"handle_xgress", "handle_to_container",
+			"cil_from_container", "cil_to_container",
 			// bpf_host.c
-			"from_netdev", "from_host", "to_netdev", "to_host",
+			"cil_from_netdev", "cil_from_host", "cil_to_netdev", "cil_to_host",
 			// bpf_network.c
-			"from_network",
+			"cil_from_network",
 			// bpf_overlay.c
-			"to_overlay", "from_overlay":
+			"cil_to_overlay", "cil_from_overlay":
 			t = ebpf.SchedCLS
 		default:
 			continue

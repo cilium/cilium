@@ -32,16 +32,16 @@ import (
 const (
 	Subsystem = "datapath-loader"
 
-	symbolFromEndpoint = "handle_xgress"
-	symbolToEndpoint   = "handle_to_container"
-	symbolFromNetwork  = "from_network"
+	symbolFromEndpoint = "cil_from_container"
+	symbolToEndpoint   = "cil_to_container"
+	symbolFromNetwork  = "cil_from_network"
 
-	symbolFromHostNetdevEp = "from_netdev"
-	symbolToHostNetdevEp   = "to_netdev"
-	symbolFromHostEp       = "from_host"
-	symbolToHostEp         = "to_host"
+	symbolFromHostNetdevEp = "cil_from_netdev"
+	symbolToHostNetdevEp   = "cil_to_netdev"
+	symbolFromHostEp       = "cil_from_host"
+	symbolToHostEp         = "cil_to_host"
 
-	symbolFromHostNetdevXDP = "bpf_xdp_entry"
+	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
 	dirIngress = "ingress"
 	dirEgress  = "egress"

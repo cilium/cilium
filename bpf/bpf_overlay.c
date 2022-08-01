@@ -432,7 +432,7 @@ static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
  * entering the node via the tunnel.
  */
 __section("from-overlay")
-int from_overlay(struct __ctx_buff *ctx)
+int cil_from_overlay(struct __ctx_buff *ctx)
 {
 	__u16 proto;
 	int ret;
@@ -530,7 +530,7 @@ out:
  * leaving the node via the tunnel.
  */
 __section("to-overlay")
-int to_overlay(struct __ctx_buff *ctx)
+int cil_to_overlay(struct __ctx_buff *ctx)
 {
 	int ret;
 
