@@ -55,6 +55,36 @@ func NewGoldenCiliumNodesValidator(stateFile string, update bool) controlplane.V
 				"kubernetes.io/os":        "linux",
 			},
 		}
+	case 3:
+		// step 3: added label "another-test-label" -> "another-test-value"
+		return &goldenCiliumNodesValidator{
+			step: step,
+			expectedLabels: map[string]string{
+				"beta.kubernetes.io/arch": "amd64",
+				"beta.kubernetes.io/os":   "linux",
+				"cilium.io/ci-node":       "k8s1",
+				"kubernetes.io/arch":      "amd64",
+				"kubernetes.io/hostname":  "cilium-nodes-worker",
+				"kubernetes.io/os":        "linux",
+
+				"another-test-label": "another-test-value",
+			},
+		}
+	case 4:
+		// step 4: overwritten label "another-test-label" -> "changed-test-value"
+		return &goldenCiliumNodesValidator{
+			step: step,
+			expectedLabels: map[string]string{
+				"beta.kubernetes.io/arch": "amd64",
+				"beta.kubernetes.io/os":   "linux",
+				"cilium.io/ci-node":       "k8s1",
+				"kubernetes.io/arch":      "amd64",
+				"kubernetes.io/hostname":  "cilium-nodes-worker",
+				"kubernetes.io/os":        "linux",
+
+				"another-test-label": "changed-test-value",
+			},
+		}
 	}
 
 	return nil

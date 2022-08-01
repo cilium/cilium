@@ -4,13 +4,13 @@ items:
   kind: Node
   metadata:
     annotations:
-      io.cilium.network.ipv4-cilium-host: 10.244.0.179
-      io.cilium.network.ipv4-health-ip: 10.244.0.202
+      io.cilium.network.ipv4-cilium-host: 10.244.0.22
+      io.cilium.network.ipv4-health-ip: 10.244.0.206
       io.cilium.network.ipv4-pod-cidr: 10.244.0.0/24
       kubeadm.alpha.kubernetes.io/cri-socket: unix:///run/containerd/containerd.sock
       node.alpha.kubernetes.io/ttl: "0"
       volumes.kubernetes.io/controller-managed-attach-detach: "true"
-    creationTimestamp: "2022-08-01T08:56:24Z"
+    creationTimestamp: "2022-08-01T09:25:00Z"
     labels:
       beta.kubernetes.io/arch: amd64
       beta.kubernetes.io/os: linux
@@ -21,8 +21,8 @@ items:
       node-role.kubernetes.io/master: ""
       node.kubernetes.io/exclude-from-external-load-balancers: ""
     name: cilium-nodes-control-plane
-    resourceVersion: "777"
-    uid: e9f9d3e4-85c8-4931-b561-f827cd682839
+    resourceVersion: "753"
+    uid: 5ae0722a-32ca-44df-8304-429015ad564d
   spec:
     podCIDR: 10.244.0.0/24
     podCIDRs:
@@ -33,7 +33,7 @@ items:
       key: node-role.kubernetes.io/master
   status:
     addresses:
-    - address: 172.18.0.2
+    - address: 172.18.0.3
       type: InternalIP
     - address: cilium-nodes-control-plane
       type: Hostname
@@ -52,32 +52,32 @@ items:
       memory: 32594916Ki
       pods: "110"
     conditions:
-    - lastHeartbeatTime: "2022-08-01T08:58:01Z"
-      lastTransitionTime: "2022-08-01T08:58:01Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:21Z"
+      lastTransitionTime: "2022-08-01T09:26:21Z"
       message: Cilium is running on this node
       reason: CiliumIsUp
       status: "False"
       type: NetworkUnavailable
-    - lastHeartbeatTime: "2022-08-01T08:57:57Z"
-      lastTransitionTime: "2022-08-01T08:56:19Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:23Z"
+      lastTransitionTime: "2022-08-01T09:24:56Z"
       message: kubelet has sufficient memory available
       reason: KubeletHasSufficientMemory
       status: "False"
       type: MemoryPressure
-    - lastHeartbeatTime: "2022-08-01T08:57:57Z"
-      lastTransitionTime: "2022-08-01T08:56:19Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:23Z"
+      lastTransitionTime: "2022-08-01T09:24:56Z"
       message: kubelet has no disk pressure
       reason: KubeletHasNoDiskPressure
       status: "False"
       type: DiskPressure
-    - lastHeartbeatTime: "2022-08-01T08:57:57Z"
-      lastTransitionTime: "2022-08-01T08:56:19Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:23Z"
+      lastTransitionTime: "2022-08-01T09:24:56Z"
       message: kubelet has sufficient PID available
       reason: KubeletHasSufficientPID
       status: "False"
       type: PIDPressure
-    - lastHeartbeatTime: "2022-08-01T08:57:57Z"
-      lastTransitionTime: "2022-08-01T08:57:57Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:23Z"
+      lastTransitionTime: "2022-08-01T09:26:23Z"
       message: kubelet is posting ready status
       reason: KubeletReady
       status: "True"
@@ -86,9 +86,6 @@ items:
       kubeletEndpoint:
         Port: 10250
     images:
-    - names:
-      - quay.io/cilium/cilium@sha256:f7f93c26739b6641a3fa3d76b1e1605b15989f25d06625260099e01c8243f54c
-      sizeBytes: 159114031
     - names:
       - docker.io/library/import-2022-05-19@sha256:c363d7be64b689eaa72045ed44383a5fc7123459efc8dd7a6bb9dda64dc6d78c
       - k8s.gcr.io/kube-proxy:v1.22.9
@@ -130,21 +127,21 @@ items:
       kernelVersion: 5.18.0-2-amd64
       kubeProxyVersion: v1.22.9
       kubeletVersion: v1.22.9
-      machineID: 4533f85284bc43c48f4412f0159db856
+      machineID: 05c20a6e57a04683bccad029da748960
       operatingSystem: linux
       osImage: Ubuntu 21.10
-      systemUUID: 30c25c57-858a-4bc8-9812-a3ace4f85cf3
+      systemUUID: f609f045-ad30-41c2-b4e4-ed7dd2448f05
 - apiVersion: v1
   kind: Node
   metadata:
     annotations:
-      io.cilium.network.ipv4-cilium-host: 10.244.1.237
-      io.cilium.network.ipv4-health-ip: 10.244.1.203
+      io.cilium.network.ipv4-cilium-host: 10.244.1.240
+      io.cilium.network.ipv4-health-ip: 10.244.1.148
       io.cilium.network.ipv4-pod-cidr: 10.244.1.0/24
       kubeadm.alpha.kubernetes.io/cri-socket: unix:///run/containerd/containerd.sock
       node.alpha.kubernetes.io/ttl: "0"
       volumes.kubernetes.io/controller-managed-attach-detach: "true"
-    creationTimestamp: "2022-08-01T08:56:48Z"
+    creationTimestamp: "2022-08-01T09:25:23Z"
     labels:
       beta.kubernetes.io/arch: amd64
       beta.kubernetes.io/os: linux
@@ -154,8 +151,8 @@ items:
       kubernetes.io/os: linux
       test-label: test-value
     name: cilium-nodes-worker
-    resourceVersion: "794"
-    uid: 0c2046ed-23f1-43ed-bd72-72672c2f8f11
+    resourceVersion: "768"
+    uid: 39ea5b1a-6eab-4285-a309-d4cc55bfbf12
   spec:
     podCIDR: 10.244.1.0/24
     podCIDRs:
@@ -163,7 +160,7 @@ items:
     providerID: kind://docker/cilium-nodes/cilium-nodes-worker
   status:
     addresses:
-    - address: 172.18.0.3
+    - address: 172.18.0.2
       type: InternalIP
     - address: cilium-nodes-worker
       type: Hostname
@@ -182,32 +179,32 @@ items:
       memory: 32594916Ki
       pods: "110"
     conditions:
-    - lastHeartbeatTime: "2022-08-01T08:57:57Z"
-      lastTransitionTime: "2022-08-01T08:57:57Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:23Z"
+      lastTransitionTime: "2022-08-01T09:26:23Z"
       message: Cilium is running on this node
       reason: CiliumIsUp
       status: "False"
       type: NetworkUnavailable
-    - lastHeartbeatTime: "2022-08-01T08:57:58Z"
-      lastTransitionTime: "2022-08-01T08:56:47Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:23Z"
+      lastTransitionTime: "2022-08-01T09:25:23Z"
       message: kubelet has sufficient memory available
       reason: KubeletHasSufficientMemory
       status: "False"
       type: MemoryPressure
-    - lastHeartbeatTime: "2022-08-01T08:57:58Z"
-      lastTransitionTime: "2022-08-01T08:56:47Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:23Z"
+      lastTransitionTime: "2022-08-01T09:25:23Z"
       message: kubelet has no disk pressure
       reason: KubeletHasNoDiskPressure
       status: "False"
       type: DiskPressure
-    - lastHeartbeatTime: "2022-08-01T08:57:58Z"
-      lastTransitionTime: "2022-08-01T08:56:47Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:23Z"
+      lastTransitionTime: "2022-08-01T09:25:23Z"
       message: kubelet has sufficient PID available
       reason: KubeletHasSufficientPID
       status: "False"
       type: PIDPressure
-    - lastHeartbeatTime: "2022-08-01T08:57:58Z"
-      lastTransitionTime: "2022-08-01T08:57:58Z"
+    - lastHeartbeatTime: "2022-08-01T09:26:23Z"
+      lastTransitionTime: "2022-08-01T09:26:23Z"
       message: kubelet is posting ready status
       reason: KubeletReady
       status: "True"
@@ -216,6 +213,9 @@ items:
       kubeletEndpoint:
         Port: 10250
     images:
+    - names:
+      - quay.io/cilium/cilium@sha256:f7f93c26739b6641a3fa3d76b1e1605b15989f25d06625260099e01c8243f54c
+      sizeBytes: 159114031
     - names:
       - docker.io/library/import-2022-05-19@sha256:c363d7be64b689eaa72045ed44383a5fc7123459efc8dd7a6bb9dda64dc6d78c
       - k8s.gcr.io/kube-proxy:v1.22.9
@@ -260,10 +260,10 @@ items:
       kernelVersion: 5.18.0-2-amd64
       kubeProxyVersion: v1.22.9
       kubeletVersion: v1.22.9
-      machineID: d740c053b51c440891063a05c8c73c98
+      machineID: 0cae0478f49e429987f2af4fa94d8cc5
       operatingSystem: linux
       osImage: Ubuntu 21.10
-      systemUUID: 98981dce-4e53-42a9-ba19-762d096cd75e
+      systemUUID: b5a94831-3b2d-4b6a-9ff5-da2332cdd018
 kind: List
 metadata:
   resourceVersion: ""

@@ -145,15 +145,15 @@ items:
       volumes.kubernetes.io/controller-managed-attach-detach: "true"
     creationTimestamp: "2022-08-01T09:23:31Z"
     labels:
+      another-test-label: another-test-value
       beta.kubernetes.io/arch: amd64
       beta.kubernetes.io/os: linux
       cilium.io/ci-node: k8s1
       kubernetes.io/arch: amd64
       kubernetes.io/hostname: cilium-nodes-worker
       kubernetes.io/os: linux
-      test-label: test-value
     name: cilium-nodes-worker
-    resourceVersion: "777"
+    resourceVersion: "783"
     uid: fcc34a1a-86cd-4045-b26d-628d224198d1
   spec:
     podCIDR: 10.244.1.0/24
