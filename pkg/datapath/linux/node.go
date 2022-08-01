@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,9 +42,7 @@ import (
 const (
 	wildcardIPv4 = "0.0.0.0"
 	wildcardIPv6 = "0::0"
-)
 
-const (
 	neighFileName = "neigh-link.json"
 )
 
@@ -70,6 +69,11 @@ type linuxNodeHandler struct {
 	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
 	wgAgent                datapath.WireguardAgent
 
+	// Pool of available IDs for nodes.
+	nodeIDs idpool.IDPool
+	// Node-scoped unique IDs for the nodes.
+	nodeIDsByIPs map[string]uint16
+
 	ipsecMetricCollector prometheus.Collector
 }
 
@@ -86,6 +90,8 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing types.N
 		neighByNextHop:         map[string]*netlink.Neigh{},
 		neighLastPingByNextHop: map[string]time.Time{},
 		wgAgent:                wgAgent,
+		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
+		nodeIDsByIPs:           map[string]uint16{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 	}
 }
@@ -1234,6 +1240,8 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 			return err
 		}
 	}
+
+	n.deallocateIDForNode(oldNode)
 
 	return nil
 }
