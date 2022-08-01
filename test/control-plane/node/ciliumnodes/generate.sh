@@ -39,6 +39,24 @@ for version in ${versions[*]}; do
     : Dump the nodes
     kubectl get nodes -o yaml > v${version}/state2.yaml
 
+    : Apply another label to worker node
+    kubectl label nodes cilium-nodes-worker another-test-label=another-test-value
+
+    : Wait for all nodes to be ready
+    kubectl wait --for=condition=ready --timeout=60s --all nodes
+
+    : Dump the nodes
+    kubectl get nodes -o yaml > v${version}/state3.yaml
+
+    : Overwrite the value of the label
+    kubectl label nodes --overwrite cilium-nodes-worker another-test-label=changed-test-value
+
+    : Wait for all nodes to be ready
+    kubectl wait --for=condition=ready --timeout=60s --all nodes
+
+    : Dump the nodes
+    kubectl get nodes -o yaml > v${version}/state4.yaml
+
     : Tear down the cluster
     kind delete clusters cilium-nodes
     rm -f kubeconfig
