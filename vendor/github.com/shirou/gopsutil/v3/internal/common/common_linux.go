@@ -274,6 +274,12 @@ func GetOSRelease() (platform string, version string, err error) {
 			version = trimQuotes(field[1])
 		}
 	}
+
+	// cleanup amazon ID
+	if platform == "amzn" {
+		platform = "amazon"
+	}
+
 	return platform, version, nil
 }
 
