@@ -66,3 +66,10 @@ func Delete(Id uint16) error {
 	return ThrottleMap.Delete(
 		&EdtId{Id: uint64(Id)})
 }
+
+func SilentDelete(Id uint16) error {
+	_, err := ThrottleMap.SilentDelete(
+		&EdtId{Id: uint64(Id)})
+
+	return err
+}

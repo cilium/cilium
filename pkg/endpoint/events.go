@@ -288,7 +288,7 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
 			err = bwmap.Update(e.ID, bps)
 		}
 	} else {
-		err = bwmap.Delete(e.ID)
+		err = bwmap.SilentDelete(e.ID)
 	}
 	if err != nil {
 		res <- &EndpointRegenerationResult{
