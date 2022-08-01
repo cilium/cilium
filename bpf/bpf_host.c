@@ -1141,7 +1141,7 @@ handle_srv6(struct __ctx_buff *ctx)
  * - BPF NodePort is enabled
  */
 __section("from-netdev")
-int from_netdev(struct __ctx_buff *ctx)
+int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	__u32 __maybe_unused vlan_id;
 
@@ -1166,7 +1166,7 @@ int from_netdev(struct __ctx_buff *ctx)
  * interface if present.
  */
 __section("from-host")
-int from_host(struct __ctx_buff *ctx)
+int cil_from_host(struct __ctx_buff *ctx)
 {
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
@@ -1182,7 +1182,7 @@ int from_host(struct __ctx_buff *ctx)
  * - BPF NodePort is enabled
  */
 __section("to-netdev")
-int to_netdev(struct __ctx_buff *ctx __maybe_unused)
+int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1315,7 +1315,7 @@ out:
  * 'cilium_net' devices if present.
  */
 __section("to-host")
-int to_host(struct __ctx_buff *ctx)
+int cil_to_host(struct __ctx_buff *ctx)
 {
 	__u32 magic = ctx_load_meta(ctx, ENCRYPT_OR_PROXY_MAGIC);
 	__u16 __maybe_unused proto = 0;
