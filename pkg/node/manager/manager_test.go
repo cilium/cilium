@@ -152,6 +152,10 @@ func (n *signalNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	return
 }
 
+func (n *signalNodeHandler) AllocateNodeID(_ net.IP) uint16 {
+	return 0
+}
+
 func (s *managerTestSuite) SetUpSuite(c *check.C) {
 }
 
