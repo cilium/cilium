@@ -1978,7 +1978,7 @@ redo:
 /* Reverse NAT handling of node-port traffic for the case where the
  * backend i) was a local EP and bpf_lxc redirected to us, ii) was
  * a remote backend and we got here after reverse SNAT from the
- * tail_nodeport_nat_ipv4().
+ * tail_nodeport_nat_ingress_ipv4().
  *
  * Also, reverse NAT handling return path egress-gw traffic.
  *
