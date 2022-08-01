@@ -230,6 +230,7 @@ const (
 	missingIptablesWait = "Missing iptables wait arg (-w):"
 	localIDRestoreFail  = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
 	routerIPMismatch    = "Mismatch of router IPs found during restoration"
+	emptyIPNodeIDAlloc  = "Attempt to allocate a node ID for an empty node IP address"
 
 	// ...and their exceptions.
 	opCantBeFulfilled            = "Operation cannot be fulfilled on leases.coordination.k8s.io"        // cf. https://github.com/cilium/cilium/issues/16402
@@ -298,6 +299,7 @@ var badLogMessages = map[string][]string{
 	missingIptablesWait: nil,
 	localIDRestoreFail:  nil,
 	routerIPMismatch:    nil,
+	emptyIPNodeIDAlloc:  nil,
 	"DATA RACE":         nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
