@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -323,7 +324,11 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 // then it attempts to clear all IPs from the interface.
 func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	l, err := netlink.LinkByName(defaults.HostDevice)
-	if err != nil {
+	if errors.As(err, &netlink.LinkNotFoundError{}) && restoredIP == nil {
+		// There's no old state remove as the host device doesn't exist and
+		// there's no restored IP anyway.
+		return nil
+	} else if err != nil {
 		return err
 	}
 
