@@ -651,6 +651,7 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 	if (info && info->tunnel_endpoint != 0) {
 		ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 					  WORLD_ID,
+					  info->sec_label,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN);
@@ -949,6 +950,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 			if (info != NULL && info->tunnel_endpoint != 0) {
 				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 							  SECLABEL,
+							  info->sec_label,
 							  NOT_VTEP_DST,
 							  TRACE_REASON_CT_REPLY,
 							  TRACE_PAYLOAD_LEN);
@@ -1734,6 +1736,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		 */
 		ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 					  WORLD_ID,
+					  info->sec_label,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN);
@@ -1999,6 +2002,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	__u32 monitor = TRACE_PAYLOAD_LEN;
 	bool l2_hdr_required = true;
 	__u32 tunnel_endpoint __maybe_unused = 0;
+	__u32 dst_id __maybe_unused = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -2035,6 +2039,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 			if (info && info->tunnel_endpoint != 0) {
 				tunnel_endpoint = info->tunnel_endpoint;
+				dst_id = info->sec_label;
 				goto encap_redirect;
 			}
 		}
@@ -2064,6 +2069,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 			if (info != NULL && info->tunnel_endpoint != 0) {
 				tunnel_endpoint = info->tunnel_endpoint;
+				dst_id = info->sec_label;
 				goto encap_redirect;
 			}
 		}
@@ -2141,8 +2147,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 #if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)) && \
 	__ctx_is != __ctx_xdp
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, NOT_VTEP_DST,
-				  reason, monitor);
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
+				  NOT_VTEP_DST, reason, monitor);
 	if (ret)
 		return ret;
 

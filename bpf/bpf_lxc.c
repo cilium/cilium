@@ -509,7 +509,7 @@ ct_recreate6:
 		 * (c) packet was redirected to tunnel device so return.
 		 */
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, SECLABEL, &trace);
+					     &key, SECLABEL, *dst_id, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -1034,7 +1034,7 @@ ct_recreate4:
 		 * node through a tunnel.
 		 */
 		ret = encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
-					     &key, SECLABEL, &trace);
+					     &key, SECLABEL, *dst_id, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else
@@ -1062,7 +1062,8 @@ skip_egress_gateway:
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
-								SECLABEL, WORLD_ID, &trace);
+								SECLABEL, WORLD_ID,
+								WORLD_ID, &trace);
 		}
 	}
 skip_vtep:
@@ -1082,7 +1083,7 @@ skip_vtep:
 		key.family = ENDPOINT_KEY_IPV4;
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, SECLABEL, &trace);
+					     &key, SECLABEL, *dst_id, &trace);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack

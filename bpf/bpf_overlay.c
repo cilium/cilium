@@ -382,7 +382,8 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (info->tunnel_endpoint)
 		return __encap_and_redirect_with_nodeid(ctx,
 							info->tunnel_endpoint,
-							SECLABEL,
+							LOCAL_NODE_ID,
+							WORLD_ID,
 							WORLD_ID,
 							&trace);
 
