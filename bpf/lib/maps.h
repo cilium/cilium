@@ -75,15 +75,21 @@ struct {
 } EP_POLICY_MAP __section_maps_btf;
 #endif
 
+#ifdef HAVE_LPM_TRIE_MAP_TYPE
+#define LPM_MAP_TYPE BPF_MAP_TYPE_LPM_TRIE
+#else
+#define LPM_MAP_TYPE BPF_MAP_TYPE_HASH
+#endif
+
 #ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
 struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(type, LPM_MAP_TYPE);
 	__type(key, struct policy_key);
 	__type(value, struct policy_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, POLICY_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } POLICY_MAP __section_maps_btf;
 #endif
 
@@ -132,12 +138,6 @@ struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
 #define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
 #define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
 #endif /* ENABLE_CUSTOM_CALLS && CUSTOM_CALLS_MAP */
-
-#ifdef HAVE_LPM_TRIE_MAP_TYPE
-#define LPM_MAP_TYPE BPF_MAP_TYPE_LPM_TRIE
-#else
-#define LPM_MAP_TYPE BPF_MAP_TYPE_HASH
-#endif
 
 #ifndef HAVE_LPM_TRIE_MAP_TYPE
 /* Define a function with the following NAME which iterates through PREFIXES

@@ -11,6 +11,10 @@
 #include "eps.h"
 #include "maps.h"
 
+/* POLICY_FULL_PREFIX gets full prefix length of policy_key */
+#define POLICY_FULL_PREFIX						\
+  (8 * (sizeof(struct policy_key) - sizeof(struct bpf_lpm_trie_key)))
+
 #ifdef SOCKMAP
 static __always_inline int
 policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
@@ -18,61 +22,61 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	void *map = lookup_ip4_endpoint_policy_map(ip);
 	int dir = CT_EGRESS;
 	__u8 proto = IPPROTO_TCP;
-	struct policy_entry *policy;
+	struct policy_entry *l3policy, *l4policy;
 	struct policy_key key = {
+		.lpm_key = { POLICY_FULL_PREFIX, {} }, /* always look up with unwildcarded data */
 		.sec_label = identity,
-		.dport = dport,
-		.protocol = proto,
 		.egress = !dir,
 		.pad = 0,
+		.protocol = proto,
+		.dport = dport,
 	};
 
 	if (!map)
 		return CTX_ACT_OK;
 
 	/* Start with L3/L4 lookup. */
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
+	l3policy = map_lookup_elem(map, &key);
+	/* If the found port fully wildcards the port, we need to check for L4-only policy first. */
+	if (likely(l3policy) && !l3policy->wildcarded_port) {
 		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
+		__sync_fetch_and_add(&l3policy->packets, 1);
+		if (unlikely(l3policy->deny))
 			return DROP_POLICY_DENY;
-		return policy->proxy_port;
+		return l3policy->proxy_port;
 	}
 
 	/* L4-only lookup. */
 	key.sec_label = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
+	l4policy = map_lookup_elem(map, &key);
+	if (likely(l4policy) && !l4policy->wildcarded_port) {
 		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
+		__sync_fetch_and_add(&l4policy->packets, 1);
+		if (unlikely(l4policy->deny))
 			return DROP_POLICY_DENY;
-		return policy->proxy_port;
+		return l4policy->proxy_port;
 	}
-	key.sec_label = identity;
 
 	/* If L4 policy check misses, fall back to L3. */
-	key.dport = 0;
-	key.protocol = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
+	/* L3/L4 policy with port fully wildcarded, if any. */
+	if (likely(l3policy)) {
 		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
+		__sync_fetch_and_add(&l3policy->packets, 1);
+		if (unlikely(l3policy->deny))
 			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+		/* returning proxy port here allows redirecting all ports */
+		return l3policy->proxy_port;
 	}
 
 	/* Final fallback if allow-all policy is in place. */
-	key.sec_label = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
+	/* L4 policy with port fully wildcarded, if any. */
+	if (likely(l4policy)) {
 		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
+		__sync_fetch_and_add(&l4policy->packets, 1);
+		if (unlikely(l4policy->deny))
 			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+		/* returning proxy port here allows redirecting all ports */
+		return l4policy->proxy_port;
 	}
 
 	return DROP_POLICY;
@@ -91,13 +95,14 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		    __u32 remote_id, __u16 dport, __u8 proto, int dir,
 		    bool is_untracked_fragment, __u8 *match_type)
 {
-	struct policy_entry *policy;
+	struct policy_entry *l3policy, *l4policy;
 	struct policy_key key = {
+		.lpm_key = { POLICY_FULL_PREFIX, {} }, /* always look up with unwildcarded data */
 		.sec_label = remote_id,
-		.dport = dport,
-		.protocol = proto,
 		.egress = !dir,
 		.pad = 0,
+		.protocol = proto,
+		.dport = dport,
 	};
 
 #ifdef ALLOW_ICMP_FRAG_NEEDED
@@ -162,54 +167,48 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 #endif /* ENABLE_ICMP_RULE */
 
 	/* L4 lookup can't be done on untracked fragments. */
-	if (!is_untracked_fragment) {
-		/* Start with L3/L4 lookup. */
-		policy = map_lookup_elem(map, &key);
-		if (likely(policy)) {
-			cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
-				    dport << 16 | proto);
 
-			account(ctx, policy);
-			*match_type = POLICY_MATCH_L3_L4;
-			if (unlikely(policy->deny))
-				return DROP_POLICY_DENY;
-			return policy->proxy_port;
-		}
+	/* Start with L3/L4 lookup. */
+	l3policy = map_lookup_elem(map, &key);
+	if (likely(!is_untracked_fragment && l3policy && !l3policy->wildcarded_port)) {
+		cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
+			    dport << 16 | proto);
 
-		/* L4-only lookup. */
-		key.sec_label = 0;
-		policy = map_lookup_elem(map, &key);
-		if (likely(policy)) {
-			account(ctx, policy);
-			*match_type = POLICY_MATCH_L4_ONLY;
-			if (unlikely(policy->deny))
-				return DROP_POLICY_DENY;
-			return policy->proxy_port;
-		}
-		key.sec_label = remote_id;
+		account(ctx, l3policy);
+		*match_type = POLICY_MATCH_L3_L4;
+		if (unlikely(l3policy->deny))
+			return DROP_POLICY_DENY;
+		return l3policy->proxy_port;
+	}
+	/* L4-only lookup. */
+	key.sec_label = 0;
+	l4policy = map_lookup_elem(map, &key);
+	if (likely(!is_untracked_fragment && l4policy && !l4policy->wildcarded_port)) {
+		account(ctx, l4policy);
+		*match_type = POLICY_MATCH_L4_ONLY;
+		if (unlikely(l4policy->deny))
+			return DROP_POLICY_DENY;
+		return l4policy->proxy_port;
 	}
 
 	/* If L4 policy check misses, fall back to L3. */
-	key.dport = 0;
-	key.protocol = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		account(ctx, policy);
+	if (likely(l3policy && l3policy->wildcarded_port)) {
+		account(ctx, l3policy);
 		*match_type = POLICY_MATCH_L3_ONLY;
-		if (unlikely(policy->deny))
+		if (unlikely(l3policy->deny))
 			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+		/* returning proxy port here allows redirecting all ports */
+		return l3policy->proxy_port;
 	}
 
 	/* Final fallback if allow-all policy is in place. */
-	key.sec_label = 0;
-	policy = map_lookup_elem(map, &key);
-	if (policy) {
-		account(ctx, policy);
+	if (l4policy && l4policy->wildcarded_port) {
+		account(ctx, l4policy);
 		*match_type = POLICY_MATCH_ALL;
-		if (unlikely(policy->deny))
+		if (unlikely(l4policy->deny))
 			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+		/* returning proxy port here allows redirecting all ports */
+		return l4policy->proxy_port;
 	}
 
 	if (ctx_load_meta(ctx, CB_POLICY))

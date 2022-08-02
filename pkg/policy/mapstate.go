@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
@@ -74,6 +75,22 @@ func (k Key) IsIngress() bool {
 // IsEgress returns true if the key refers to an egress policy key
 func (k Key) IsEgress() bool {
 	return k.TrafficDirection == trafficdirection.Egress.Uint8()
+}
+
+// IsEgress returns true if the key refers to an egress policy key
+func (k Key) ToBPFKey() policymap.PolicyKey {
+	// Convert from policy.Key to policymap.Key
+	prefixLen := uint16(16)
+	if k.DestPort == 0 {
+		prefixLen = 0
+	}
+	return policymap.PolicyKey{
+		Prefixlen:        policymap.GetPrefixLen(prefixLen),
+		Identity:         k.Identity,
+		TrafficDirection: k.TrafficDirection,
+		Nexthdr:          k.Nexthdr,
+		DestPort:         k.DestPort,
+	}
 }
 
 type Keys map[Key]struct{}
