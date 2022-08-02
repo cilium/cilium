@@ -24,6 +24,15 @@ const (
 	FeatureMonitorAggregation Feature = "monitor-aggregation"
 	FeatureL7Proxy            Feature = "l7-proxy"
 	FeatureHostFirewall       Feature = "host-firewall"
+
+	FeatureKPRMode                  Feature = "kpr-mode"
+	FeatureKPRExternalIPs           Feature = "kpr-external-ips"
+	FeatureKPRGracefulTermination   Feature = "kpr-graceful-termination"
+	FeatureKPRHostPort              Feature = "kpr-hostport"
+	FeatureKPRHostReachableServices Feature = "kpr-host-reachable-services"
+	FeatureKPRNodePort              Feature = "kpr-nodeport"
+	FeatureKPRSessionAffinity       Feature = "kpr-session-affinity"
+	FeatureKPRSocketLB              Feature = "kpr-socket-lb"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -166,6 +175,39 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	}
 	result[FeatureHostFirewall] = FeatureStatus{
 		Enabled: status,
+	}
+
+	// Kube-Proxy Replacement
+	mode = "Disabled"
+	if kpr := st.KubeProxyReplacement; kpr != nil {
+		mode = kpr.Mode
+		if f := kpr.Features; f != nil {
+			if f.ExternalIPs != nil {
+				result[FeatureKPRExternalIPs] = FeatureStatus{Enabled: f.ExternalIPs.Enabled}
+			}
+			if f.HostPort != nil {
+				result[FeatureKPRHostPort] = FeatureStatus{Enabled: f.HostPort.Enabled}
+			}
+			if f.GracefulTermination != nil {
+				result[FeatureKPRGracefulTermination] = FeatureStatus{Enabled: f.GracefulTermination.Enabled}
+			}
+			if f.HostReachableServices != nil {
+				result[FeatureKPRHostReachableServices] = FeatureStatus{Enabled: f.HostReachableServices.Enabled}
+			}
+			if f.NodePort != nil {
+				result[FeatureKPRNodePort] = FeatureStatus{Enabled: f.NodePort.Enabled}
+			}
+			if f.SessionAffinity != nil {
+				result[FeatureKPRSessionAffinity] = FeatureStatus{Enabled: f.SessionAffinity.Enabled}
+			}
+			if f.SocketLB != nil {
+				result[FeatureKPRSocketLB] = FeatureStatus{Enabled: f.SocketLB.Enabled}
+			}
+		}
+	}
+	result[FeatureKPRMode] = FeatureStatus{
+		Enabled: mode != "Disabled",
+		Mode:    mode,
 	}
 
 	return nil
