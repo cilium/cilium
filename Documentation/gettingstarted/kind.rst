@@ -48,18 +48,35 @@ Then, install Cilium release via Helm:
 
 .. note::
 
-   To enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), cgroup v2
-   needs to be enabled by setting the kernel ``systemd.unified_cgroup_hierarchy=1`` parameter.
-   Also, cgroup v1 controllers ``net_cls`` and ``net_prio`` have to be disabled, or
-   cgroup v1 has to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
-   This ensures that Kind nodes have their own cgroup namespace, and Cilium can
-   attach BPF programs at the right cgroup hierarchy. To verify this, run the
-   following commands on the host, and check that the output values are different.
+   To enable Cilium's Socket LB (:ref:`kubeproxy-free`), cgroup v2 needs to be
+   enabled, and Kind nodes need to run in separate `cgroup namespaces
+   <https://man7.org/linux/man-pages/man7/cgroup_namespaces.7.html>`__,
+   and these namespaces need to be different from the cgroup namespace
+   of the underlying host so that Cilium can attach BPF programs at the right
+   cgroup hierarchy. To verify this, run the following commands, and ensure
+   that the cgroup values are different:
 
    .. code-block:: shell-session
 
-      $ sudo ls -al /proc/$(docker inspect -f '{{.State.Pid}}' kind-control-plane)/ns/cgroup
-      $ sudo ls -al /proc/self/ns/cgroup
+      $ docker exec kind-control-plane ls -al /proc/self/ns/cgroup
+      lrwxrwxrwx 1 root root 0 Jul 20 19:20 /proc/self/ns/cgroup -> 'cgroup:[4026532461]'
+
+      $ docker exec kind-worker ls -al /proc/self/ns/cgroup
+      lrwxrwxrwx 1 root root 0 Jul 20 19:20 /proc/self/ns/cgroup -> 'cgroup:[4026532543]'
+
+      $ ls -al /proc/self/ns/cgroup
+      lrwxrwxrwx 1 root root 0 Jul 19 09:38 /proc/self/ns/cgroup -> 'cgroup:[4026531835]'
+
+   One way to enable cgroup v2 is to set the kernel parameter
+   ``systemd.unified_cgroup_hierarchy=1``. To enable cgroup namespaces, a container
+   runtime needs to configured accordingly. For example in Docker,
+   dockerd's ``--default-cgroupns-mode`` has to be set to ``private``.
+
+   Another requirement for the Socket LB on Kind to properly function is that either cgroup v1
+   controllers ``net_cls`` and ``net_prio`` are disabled (or cgroup v1 altogether is disabled
+   e.g., by setting the kernel parameter ``cgroup_no_v1="all"``), or the host kernel
+   should be 5.14 or more recent to include this `fix
+   <https://github.com/torvalds/linux/commit/8520e224f547cd070c7c8f97b1fc6d58cff7ccaa>`__.
 
    See the `Pull Request <https://github.com/cilium/cilium/pull/16259>`__ for more details.
 
