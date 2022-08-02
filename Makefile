@@ -188,7 +188,6 @@ init-coverage: ## Initialize converage report for Cilium integration-tests.
 
 integration-tests: GO_TAGS_FLAGS+=integration_tests
 integration-tests: start-kvstores ## Runs all integration-tests for Cilium.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tools/maptool/
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
