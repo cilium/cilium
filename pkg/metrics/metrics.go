@@ -323,6 +323,10 @@ var (
 	// by error, protocol and span time
 	ProxyUpstreamTime = NoOpObserverVec
 
+	// ProxyProcessingTime is how long Cilium took to process a reply labeled
+	// by error, protocol and span time
+	ProxyProcessingTime = NoOpObserverVec
+
 	// ProxyDatapathUpdateTimeout is a count of all the timeouts encountered while
 	// updating the datapath due to an FQDN IP update
 	ProxyDatapathUpdateTimeout = NoOpCounter
@@ -610,6 +614,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_policy_l7_forwarded_total":                                     {},
 		Namespace + "_policy_l7_denied_total":                                        {},
 		Namespace + "_policy_l7_received_total":                                      {},
+		Namespace + "_proxy_processing_duration_seconds":                             {},
 		Namespace + "_proxy_upstream_reply_seconds":                                  {},
 		Namespace + "_drop_count_total":                                              {},
 		Namespace + "_drop_bytes_total":                                              {},
@@ -869,12 +874,22 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, ProxyReceived)
 			c.ProxyReceivedEnabled = true
 
+		case Namespace + "_proxy_processing_duration_seconds":
+			ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Name:      "proxy_processing_duration_seconds",
+				Help:      "Seconds spent processing Layer 7 traffic",
+			}, []string{"error", LabelProtocolL7, LabelScope})
+
+			collectors = append(collectors, ProxyUpstreamTime)
+			c.NoOpObserverVecEnabled = true
+
 		case Namespace + "_proxy_upstream_reply_seconds":
 			ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 				Namespace: Namespace,
 				Name:      "proxy_upstream_reply_seconds",
 				Help:      "Seconds waited to get a reply from a upstream server",
-			}, []string{"error", LabelProtocolL7, LabelScope})
+			}, []string{"error", LabelProtocolL7})
 
 			collectors = append(collectors, ProxyUpstreamTime)
 			c.NoOpObserverVecEnabled = true

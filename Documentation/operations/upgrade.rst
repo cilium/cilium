@@ -307,6 +307,16 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.13_upgrade_notes:
+
+1.13 Upgrade Notes
+------------------
+
+Metrics/Labels
+~~~~~~~~~~~~~~
+
+* ``proxy_upstream_reply_seconds`` no longer has the ``scope`` label. All scopes unrelated to upstream responses are moved to a new metric ``proxy_processing_duration_seconds``.
+
 .. _1.12_upgrade_notes:
 
 1.12 Upgrade Notes

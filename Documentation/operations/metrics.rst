@@ -310,14 +310,15 @@ Name                                       Labels                               
 ``policy_endpoint_enforcement_status``                                                        Number of endpoints labeled by policy enforcement status
 ========================================== ================================================== ========================================================
 
-Policy L7 (HTTP/Kafka)
-~~~~~~~~~~~~~~~~~~~~~~
+Policy L7 (DNS/HTTP/Kafka)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ======================================== ================================================== ========================================================
 Name                                     Labels                                             Description
 ======================================== ================================================== ========================================================
 ``proxy_redirects``                      ``protocol``                                       Number of redirects installed for endpoints
-``proxy_upstream_reply_seconds``                                                            Seconds waited for upstream server to reply to a request
+``proxy_processing_duration_seconds``    ``error``, ``protocol_l7``, ``scope``              Seconds spent processing Layer 7 traffic
+``proxy_upstream_reply_seconds``         ``error``, ``protocol_l7``                         Seconds waited for upstream server to reply to a request
 ``proxy_datapath_update_timeout_total``                                                     Number of total datapath update timeouts due to FQDN IP updates
 ``policy_l7_total``                      ``type``                                           Number of total L7 requests/responses
 ======================================== ================================================== ========================================================
