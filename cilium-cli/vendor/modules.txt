@@ -115,6 +115,7 @@ github.com/cilium/cilium/pkg/fqdn/re
 github.com/cilium/cilium/pkg/health/client
 github.com/cilium/cilium/pkg/health/defaults
 github.com/cilium/cilium/pkg/iana
+github.com/cilium/cilium/pkg/identity
 github.com/cilium/cilium/pkg/ip
 github.com/cilium/cilium/pkg/ipam/option
 github.com/cilium/cilium/pkg/ipam/types
@@ -150,8 +151,8 @@ github.com/cilium/cilium/pkg/safetime
 github.com/cilium/cilium/pkg/spanstat
 github.com/cilium/cilium/pkg/version
 github.com/cilium/cilium/pkg/versioncheck
-# github.com/cilium/hubble v0.9.0
-## explicit; go 1.17
+# github.com/cilium/hubble v0.10.0
+## explicit; go 1.18
 github.com/cilium/hubble/pkg/printer
 # github.com/cilium/proxy v0.0.0-20220525133153-3b70fad0b951
 ## explicit; go 1.13

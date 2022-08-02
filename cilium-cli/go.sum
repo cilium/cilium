@@ -221,8 +221,8 @@ github.com/cilium/charts v0.0.0-20220719130934-ee1eb2c22755/go.mod h1:M3C9VOlFvR
 github.com/cilium/cilium v1.12.0 h1:n5v34BpYyx/ui8b70S+AESlDUvYaYNUs6EJ5fvGwGvs=
 github.com/cilium/cilium v1.12.0/go.mod h1:AsODlfqv7KAR7D4tC43P3Txc2IwTAspNlvDz0LpqlO4=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
-github.com/cilium/hubble v0.9.0 h1:rjGVKm8HkgfyFXH9gaBpDFWHRCJLw2MPnxdZtI0L958=
-github.com/cilium/hubble v0.9.0/go.mod h1:I+1Hn2grfMo/xKyiXQ9BjQiDChaxX00jY5NOIpR6WMo=
+github.com/cilium/hubble v0.10.0 h1:xfpd0pvs8Fx6aPiCWCDfMPmYiK7if6lBRLdV3IJ6aHI=
+github.com/cilium/hubble v0.10.0/go.mod h1:pDbTf1h/Pw8kZ7PR8qbPyT3nDiSAqmVz9rL0TmfmQ38=
 github.com/cilium/proxy v0.0.0-20220525133153-3b70fad0b951 h1:PpsSavy+lbfzVnMhJe2E+cuBniKqnW0BGl3Sdd3Uc88=
 github.com/cilium/proxy v0.0.0-20220525133153-3b70fad0b951/go.mod h1:ontBl/RX7G0GwcR38YQVp6d75MjIsL1FbBidVpn+F8I=
 github.com/cilium/workerpool v1.1.3 h1:GB5H495r6AXg8kYklLAOn7N4PDR/djeE4WYPbq8U+yY=
