@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package services
+package helpers
 
 import (
 	"bytes"
@@ -10,11 +10,9 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"path"
 	"sort"
 	"strconv"
 	"strings"
-	"testing"
 
 	"github.com/pmezard/go-difflib/difflib"
 	"golang.org/x/exp/constraints"
@@ -24,52 +22,13 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
-	"github.com/cilium/cilium/test/controlplane"
+	"github.com/cilium/cilium/test/controlplane/suite"
 )
 
-func NewGoldenServicesTest(t *testing.T, nodeName string) *controlplane.ControlPlaneTestCase {
-	return controlplane.NewGoldenTest(t, nodeName, newGoldenLBMapValidator)
-}
-
-type goldenLBMapValidator struct {
-	expectedFile string
-	update       bool
-}
-
-func newGoldenLBMapValidator(stateFile string, update bool) controlplane.Validator {
-	var v goldenLBMapValidator
-	var stepNum int
-	n, err := fmt.Sscanf(path.Base(stateFile), "state%d.yaml", &stepNum)
-	if n != 1 || err != nil {
-		panic(fmt.Sprintf("newGoldenLBMapValidator: failed to parse %q, did not match pattern 'state%%d.yaml' (n=%d, err=%s)", stateFile, n, err))
-	}
-	v.expectedFile = path.Join(path.Dir(stateFile), fmt.Sprintf("lbmap%d.golden", stepNum))
-	v.update = update
-	return &v
-}
-
-func (v *goldenLBMapValidator) diffStrings(expected, actual string) (string, bool) {
-	diff := difflib.UnifiedDiff{
-		A:        difflib.SplitLines(expected),
-		B:        difflib.SplitLines(actual),
-		FromFile: v.expectedFile,
-		ToFile:   "<actual>",
-		Context:  10,
-	}
-	out, err := difflib.GetUnifiedDiffString(diff)
-	if err != nil {
-		return err.Error(), false
-	}
-	if out != "" {
-		return out, false
-	}
-	return "", true
-}
-
-func (v *goldenLBMapValidator) Validate(datapath *fakeDatapath.FakeDatapath, proxy *controlplane.K8sObjsProxy) error {
+func ValidateLBMapGoldenFile(file string, datapath *fakeDatapath.FakeDatapath) error {
 	lbmap := datapath.LBMockMap()
 	writeLBMap := func() error {
-		f, err := os.OpenFile(v.expectedFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+		f, err := os.OpenFile(file, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
@@ -78,15 +37,15 @@ func (v *goldenLBMapValidator) Validate(datapath *fakeDatapath.FakeDatapath, pro
 		return nil
 	}
 
-	if _, err := os.Stat(v.expectedFile); err == nil {
-		bs, err := os.ReadFile(v.expectedFile)
+	if _, err := os.Stat(file); err == nil {
+		bs, err := os.ReadFile(file)
 		if err != nil {
 			return err
 		}
 		var buf bytes.Buffer
 		writeLBMapAsTable(&buf, lbmap)
-		if diff, ok := v.diffStrings(string(bs), buf.String()); !ok {
-			if v.update {
+		if diff, ok := diffStrings(file, string(bs), buf.String()); !ok {
+			if *suite.FlagUpdate {
 				return writeLBMap()
 			} else {
 				return fmt.Errorf("lbmap mismatch:\n%s", diff)
@@ -98,6 +57,24 @@ func (v *goldenLBMapValidator) Validate(datapath *fakeDatapath.FakeDatapath, pro
 		// continue with the rest of the steps.
 		return writeLBMap()
 	}
+}
+
+func diffStrings(file string, expected, actual string) (string, bool) {
+	diff := difflib.UnifiedDiff{
+		A:        difflib.SplitLines(expected),
+		B:        difflib.SplitLines(actual),
+		FromFile: file,
+		ToFile:   "<actual>",
+		Context:  10,
+	}
+	out, err := difflib.GetUnifiedDiffString(diff)
+	if err != nil {
+		return err.Error(), false
+	}
+	if out != "" {
+		return out, false
+	}
+	return "", true
 }
 
 func ipLess(a, b net.IP) bool {
@@ -165,7 +142,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	// Map for linking backend to services that refer to it.
 	backendToServiceId := make(map[int][]string)
 
-	tw := controlplane.NewEmptyTable("Services", "ID", "Name", "Type", "Frontend", "Backend IDs")
+	tw := suite.NewEmptyTable("Services", "ID", "Name", "Type", "Frontend", "Backend IDs")
 	for i, svc := range services {
 		for _, be := range svc.Backends {
 			id := newBackendIds[be.ID]
@@ -181,7 +158,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	}
 	tw.Write(w)
 
-	tw = controlplane.NewEmptyTable("Backends", "ID", "L3n4Addr", "State", "Linked Services")
+	tw = suite.NewEmptyTable("Backends", "ID", "L3n4Addr", "State", "Linked Services")
 	for i, be := range backends {
 		stateStr, err := be.State.String()
 		if err != nil {
