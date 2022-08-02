@@ -41,6 +41,8 @@ const (
 	kindEchoName                = "echo"
 	kindClientName              = "client"
 	kindPerfName                = "perf"
+
+	EchoServerHostPort = 40000
 )
 
 // perfDeploymentNameManager provides methods for building deployment names
@@ -84,6 +86,7 @@ type deploymentParameters struct {
 	Image          string
 	Replicas       int
 	Port           int
+	HostPort       int
 	Command        []string
 	Affinity       *corev1.Affinity
 	ReadinessProbe *corev1.Probe
@@ -121,7 +124,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 								{Name: "PORT", Value: fmt.Sprintf("%d", p.Port)},
 							},
 							Ports: []corev1.ContainerPort{
-								{ContainerPort: int32(p.Port)},
+								{ContainerPort: int32(p.Port), HostPort: int32(p.HostPort)},
 							},
 							Image:           p.Image,
 							ImagePullPolicy: corev1.PullIfNotPresent,
@@ -297,6 +300,10 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
+	hostPort := 0
+	if ct.features[FeatureHostPort].Enabled {
+		hostPort = EchoServerHostPort
+	}
 	dnsConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: corednsConfigMapName,
@@ -333,11 +340,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		ct.Logf("✨ [%s] Deploying same-node deployment...", ct.clients.src.ClusterName())
 		containerPort := 8080
 		echoDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
-			Name:   echoSameNodeDeploymentName,
-			Kind:   kindEchoName,
-			Port:   containerPort,
-			Image:  ct.params.JSONMockImage,
-			Labels: map[string]string{"other": "echo"},
+			Name:     echoSameNodeDeploymentName,
+			Kind:     kindEchoName,
+			Port:     containerPort,
+			HostPort: hostPort,
+			Image:    ct.params.JSONMockImage,
+			Labels:   map[string]string{"other": "echo"},
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -586,10 +594,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			ct.Logf("✨ [%s] Deploying other-node deployment...", ct.clients.dst.ClusterName())
 			containerPort := 8080
 			echoOtherNodeDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
-				Name:  echoOtherNodeDeploymentName,
-				Kind:  kindEchoName,
-				Port:  containerPort,
-				Image: ct.params.JSONMockImage,
+				Name:     echoOtherNodeDeploymentName,
+				Kind:     kindEchoName,
+				Port:     containerPort,
+				HostPort: hostPort,
+				Image:    ct.params.JSONMockImage,
 				Affinity: &corev1.Affinity{
 					PodAntiAffinity: &corev1.PodAntiAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
