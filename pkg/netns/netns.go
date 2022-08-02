@@ -47,9 +47,22 @@ func RemoveIfFromNetNSWithNameIfBothExist(netNSName, ifName string) error {
 	return RemoveIfFromNetNSIfExists(netNS, ifName)
 }
 
-// ReplaceNetNSWithName creates a network namespace with the given name.
-// If such netns already exists from a previous run, it will be removed
-// and then re-created to avoid any previous state of the netns.
+// ReplaceNetNSWithName creates a network namespace with the given name and
+// returns a handle to it. If such netns already exists from a previous run, it
+// will be removed and then re-created to avoid any previous state of the
+// netns.
+//
+// Example usage of this function:
+//
+//   netns0, err := netns.ReplaceNetNSWithName(netnsName)
+//   if err != nil {
+//     return err
+//   }
+//   defer netns.RemoveNetNSWithName(netnsName)
+//
+//   netns0.Do(func(_ ns.NetNS) error {
+//     <logic to be executed within the new netns>
+//   })
 //
 // FIXME: replace "ip-netns" invocations with native Go code
 func ReplaceNetNSWithName(netNSName string) (ns.NetNS, error) {
