@@ -149,8 +149,10 @@ type FlowParameters struct {
 	// RSTAllowed is true if TCP connection may end with either RST or FIN
 	RSTAllowed bool
 
-	// NodePort, if non-zero, indicates an alternative port number for the DstPort to be matched
-	NodePort uint32
+	// AltDstPort, if non-zero, indicates an alternative port number for the
+	// DstPort to be matched. This is useful if the destination port is NATed,
+	// which is for example the case for service ports, NodePort or HostPort
+	AltDstPort uint32
 }
 
 type flowsSet []*observer.GetFlowsResponse_Flow
