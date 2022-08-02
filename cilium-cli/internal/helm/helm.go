@@ -154,6 +154,16 @@ func sliceValuesToString(prevKey string, b []interface{}) string {
 		case []interface{}:
 			out = append(out, sliceValuesToString(fmt.Sprintf("%s[%d]", prevKey, i), v))
 			continue
+		case string:
+			out = append(out, fmt.Sprintf("%s[%d]=%s", prevKey, i, v))
+			continue
+		case int, int8, int16, int32, int64,
+			uint, uint8, uint16, uint32, uint64:
+			out = append(out, fmt.Sprintf("%s[%d]=%d", prevKey, i, v))
+			continue
+		case float32, float64:
+			out = append(out, fmt.Sprintf("%s[%d]=%f", prevKey, i, v))
+			continue
 		}
 	}
 	sort.Strings(out)
