@@ -81,6 +81,12 @@ ip l set dev l4lb-veth0 xdp obj bpf_xdp_veth_host.o
 ethtool -K $LB_VETH_HOST rx off tx off
 ethtool -K l4lb-veth0 rx off tx off
 
+cat /proc/self/cgroup
+docker exec kind-control-plane ls -al /proc/self/ns/cgroup
+docker exec kind-worker ls -al /proc/self/ns/cgroup
+ls -al /proc/$(docker inspect -f '{{.State.Pid}}' kind-control-plane)/ns/cgroup
+ls -al /proc/self/ns/cgroup
+
 docker exec kind-worker /bin/sh -c 'apt-get update && apt-get install -y nginx && systemctl start nginx'
 WORKER_IP=$(docker exec kind-worker ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1)
 nsenter -t $(docker inspect kind-worker -f '{{ .State.Pid }}') -n /bin/sh -c \
