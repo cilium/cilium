@@ -152,14 +152,14 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 	c.Assert(egr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
 
-	_, _, err := repo.Add(fooIngressDenyRule1, []Endpoint{})
+	_, _, err := repo.Add(fooIngressDenyRule1)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, genCommentf(true, true))
 	c.Assert(egr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressDenyRule1, Commentf("returned matching rules did not match"))
 
-	_, _, err = repo.Add(fooIngressDenyRule2, []Endpoint{})
+	_, _, err = repo.Add(fooIngressDenyRule2)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, genCommentf(true, true))
@@ -182,7 +182,7 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 	c.Assert(egr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
 
-	_, _, err = repo.Add(fooEgressDenyRule1, []Endpoint{})
+	_, _, err = repo.Add(fooEgressDenyRule1)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, genCommentf(true, false))
@@ -191,7 +191,7 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressDenyRule1Label})
 	c.Assert(numDeleted, Equals, 1)
 
-	_, _, err = repo.Add(fooEgressDenyRule2, []Endpoint{})
+	_, _, err = repo.Add(fooEgressDenyRule2)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, genCommentf(true, false))
@@ -201,7 +201,7 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressDenyRule2Label})
 	c.Assert(numDeleted, Equals, 1)
 
-	_, _, err = repo.Add(combinedRule, []Endpoint{})
+	_, _, err = repo.Add(combinedRule)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, genCommentf(true, true))
@@ -218,7 +218,7 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
 
 	SetPolicyEnabled(option.NeverEnforce)
-	_, _, err = repo.Add(combinedRule, []Endpoint{})
+	_, _, err = repo.Add(combinedRule)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, genCommentf(true, false))
@@ -300,7 +300,7 @@ func (ds *PolicyTestSuite) TestGetRulesMatching(c *C) {
 	c.Assert(egressMatch, Equals, false)
 
 	// When ingress deny policy is applied.
-	_, _, err := repo.Add(ingressDenyRule, []Endpoint{})
+	_, _, err := repo.Add(ingressDenyRule)
 	c.Assert(err, IsNil)
 	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
 	c.Assert(ingressMatch, Equals, true)
@@ -310,7 +310,7 @@ func (ds *PolicyTestSuite) TestGetRulesMatching(c *C) {
 	repo.DeleteByLabels(tag)
 
 	// When egress deny policy is applied.
-	_, _, err = repo.Add(egressDenyRule, []Endpoint{})
+	_, _, err = repo.Add(egressDenyRule)
 	c.Assert(err, IsNil)
 	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
 	c.Assert(ingressMatch, Equals, false)
@@ -375,11 +375,11 @@ func (ds *PolicyTestSuite) TestDeniesIngress(c *C) {
 		Labels: tag1,
 	}
 
-	_, _, err := repo.Add(rule1, []Endpoint{})
+	_, _, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
-	_, _, err = repo.Add(rule2, []Endpoint{})
+	_, _, err = repo.Add(rule2)
 	c.Assert(err, IsNil)
-	_, _, err = repo.Add(rule3, []Endpoint{})
+	_, _, err = repo.Add(rule3)
 	c.Assert(err, IsNil)
 
 	// foo=>bar is not OK
@@ -473,11 +473,11 @@ func (ds *PolicyTestSuite) TestDeniesEgress(c *C) {
 		},
 		Labels: tag1,
 	}
-	_, _, err := repo.Add(rule1, []Endpoint{})
+	_, _, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
-	_, _, err = repo.Add(rule2, []Endpoint{})
+	_, _, err = repo.Add(rule2)
 	c.Assert(err, IsNil)
-	_, _, err = repo.Add(rule3, []Endpoint{})
+	_, _, err = repo.Add(rule3)
 	c.Assert(err, IsNil)
 
 	// foo=>bar is not OK
@@ -542,7 +542,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDeny(c *C) {
 		Labels: labelsL3,
 	}
 	l3Rule.Sanitize()
-	_, _, err := repo.Add(l3Rule, []Endpoint{})
+	_, _, err := repo.Add(l3Rule)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -598,7 +598,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngressDeny(c *C) {
 		Labels: labelsL4Kafka,
 	}
 	l49092Rule.Sanitize()
-	_, _, err := repo.Add(l49092Rule, []Endpoint{})
+	_, _, err := repo.Add(l49092Rule)
 	c.Assert(err, IsNil)
 
 	l480Rule := api.Rule{
@@ -618,7 +618,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngressDeny(c *C) {
 		Labels: labelsL4HTTP,
 	}
 	l480Rule.Sanitize()
-	_, _, err = repo.Add(l480Rule, []Endpoint{})
+	_, _, err = repo.Add(l480Rule)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -690,7 +690,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressDenyFromRequires(c *C) {
 		},
 	}
 	l480Rule.Sanitize()
-	_, _, err := repo.Add(l480Rule, []Endpoint{})
+	_, _, err := repo.Add(l480Rule)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -762,7 +762,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressDenyFromRequires(c *C) {
 		},
 	}
 	l480Rule.Sanitize()
-	_, _, err := repo.Add(l480Rule, []Endpoint{})
+	_, _, err := repo.Add(l480Rule)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -840,7 +840,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 		Labels: labelsL4,
 	}
 	l3Rule.Sanitize()
-	_, _, err := repo.Add(l3Rule, []Endpoint{})
+	_, _, err := repo.Add(l3Rule)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -904,7 +904,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgressDeny(c *C) {
 		Labels: labelsL3DNS,
 	}
 	l453Rule.Sanitize()
-	_, _, err := repo.Add(l453Rule, []Endpoint{})
+	_, _, err := repo.Add(l453Rule)
 	c.Assert(err, IsNil)
 
 	l480Rule := api.Rule{
@@ -924,7 +924,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgressDeny(c *C) {
 		Labels: labelsL3HTTP,
 	}
 	l480Rule.Sanitize()
-	_, _, err = repo.Add(l480Rule, []Endpoint{})
+	_, _, err = repo.Add(l480Rule)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -1008,7 +1008,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgressDeny(c *C) {
 		Labels: labelsHTTP,
 	}
 	l480Get.Sanitize()
-	_, _, err := repo.Add(l480Get, []Endpoint{})
+	_, _, err := repo.Add(l480Get)
 	c.Assert(err, IsNil)
 
 	l3Rule := api.Rule{
@@ -1023,7 +1023,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgressDeny(c *C) {
 		Labels: labelsL3,
 	}
 	l3Rule.Sanitize()
-	_, _, err = repo.Add(l3Rule, []Endpoint{})
+	_, _, err = repo.Add(l3Rule)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -1089,7 +1089,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDenyFromEntities(c *C) {
 		Labels: labelsL3,
 	}
 	l3Rule.Sanitize()
-	_, _, err := repo.Add(l3Rule, []Endpoint{})
+	_, _, err := repo.Add(l3Rule)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -1144,7 +1144,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDenyToEntities(c *C) {
 		Labels: labelsL3,
 	}
 	l3Rule.Sanitize()
-	_, _, err := repo.Add(l3Rule, []Endpoint{})
+	_, _, err := repo.Add(l3Rule)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -1226,7 +1226,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStartedDeny(c *C) {
 				}},
 			},
 		},
-	}, []Endpoint{})
+	})
 	c.Assert(err, IsNil)
 
 	_, _, err = repo.Add(api.Rule{
@@ -1243,7 +1243,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStartedDeny(c *C) {
 				}},
 			},
 		},
-	}, []Endpoint{})
+	})
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -1357,7 +1357,7 @@ Ingress verdict: denied
 
 	// Now, add extra rules to allow specifically baz=>bar on port 80
 	l4rule := buildDenyRule("baz", "bar", "80")
-	_, _, err := repo.Add(l4rule, []Endpoint{})
+	_, _, err := repo.Add(l4rule)
 	c.Assert(err, IsNil)
 
 	// baz=>bar:80 is OK
@@ -1410,7 +1410,7 @@ Ingress verdict: denied
 			},
 		}},
 	}
-	_, _, err = repo.Add(l3rule, []Endpoint{})
+	_, _, err = repo.Add(l3rule)
 	c.Assert(err, IsNil)
 
 	// foo=>bar is now denied due to the FromRequires
