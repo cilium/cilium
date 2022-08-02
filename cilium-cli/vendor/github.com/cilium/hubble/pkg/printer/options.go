@@ -15,7 +15,9 @@
 package printer
 
 import (
+	"fmt"
 	"io"
+	"os"
 )
 
 // Output enum of the printer.
@@ -52,6 +54,7 @@ type Option func(*Options)
 
 // JSON encoded output from the printer.
 func JSON() Option {
+	fmt.Fprintln(os.Stderr, "WARNING: The --output=json option has been deprecated. Use --output=jsonpb instead")
 	return func(opts *Options) {
 		opts.output = JSONOutput
 	}
