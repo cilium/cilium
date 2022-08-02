@@ -41,8 +41,6 @@ BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
 BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
 BENCHFLAGS ?= $(BENCHFLAGS_EVAL)
-# Level of logs emitted to console during unit test runs
-LOGLEVEL ?= "error"
 SKIP_VET ?= "false"
 SKIP_KVSTORES ?= "false"
 SKIP_K8S_CODE_GEN_CHECK ?= "true"
