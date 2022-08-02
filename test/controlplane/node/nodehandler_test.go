@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/option"
-	controlplane "github.com/cilium/cilium/test/control-plane"
+	"github.com/cilium/cilium/test/controlplane"
 )
 
 var (

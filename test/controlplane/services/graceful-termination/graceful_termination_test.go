@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/option"
-	. "github.com/cilium/cilium/test/control-plane/services"
+	. "github.com/cilium/cilium/test/controlplane/services"
 )
 
 func TestGracefulTermination(t *testing.T) {
