@@ -41,25 +41,19 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      volumes:
-      # To access iptables concurrently with other processes (e.g. kube-proxy)
-      - hostPath:
-          path: /run/xtables.lock
-          type: FileOrCreate
-        name: xtables-lock
       containers:
         - name: node-init
           image: {{ include "cilium.image" .Values.nodeinit.image | quote }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
-          volumeMounts:
-            # To access iptables concurrently with other processes (e.g. kube-proxy)
-            - mountPath: /run/xtables.lock
-              name: xtables-lock
           lifecycle:
             {{- if .Values.eni.enabled }}
             postStart:
               exec:
                 command:
+                  - nsenter
+                  - --target=1
+                  - --mount
+                  - --
                   - "/bin/sh"
                   - "-c"
                   - |
