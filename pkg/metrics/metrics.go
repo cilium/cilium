@@ -1495,10 +1495,19 @@ func NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThresho
 }
 
 func init() {
+	ResetMetrics()
+}
+
+func registerDefaultMetrics() {
 	MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
 	MustRegister(collectors.NewGoCollector())
 	MustRegister(newStatusCollector())
 	MustRegister(newbpfCollector())
+}
+
+func ResetMetrics() {
+	registry = prometheus.NewPedanticRegistry()
+	registerDefaultMetrics()
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
