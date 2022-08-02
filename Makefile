@@ -455,6 +455,7 @@ govet: ## Run govet on Go source files in the repository.
     ./api/... \
     ./bugtool/... \
     ./cilium/... \
+    ./clustermesh-apiserver/... \
     ./cilium-health/... \
     ./daemon/... \
     ./hubble-relay/... \
@@ -463,6 +464,7 @@ govet: ## Run govet on Go source files in the repository.
     ./plugins/... \
     ./proxylib/... \
     ./test/. \
+    ./test/bpf_tests/... \
     ./test/config/... \
     ./test/control-plane/... \
     ./test/ginkgo-ext/... \
