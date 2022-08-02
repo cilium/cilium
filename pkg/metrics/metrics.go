@@ -215,6 +215,12 @@ const (
 var (
 	registry = prometheus.NewPedanticRegistry()
 
+	defaultSummaryObjectives = map[float64]float64{
+		0.5:  0.05,  // 50th percentile +/- 5%
+		0.9:  0.01,  // 90th percentile +/- 1%
+		0.99: 0.001, // 99th percentile +/- 0.1%
+	}
+
 	// APIInteractions is the total time taken to process an API call made
 	// to the cilium-agent
 	APIInteractions = NoOpObserverVec
@@ -875,20 +881,22 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			c.ProxyReceivedEnabled = true
 
 		case Namespace + "_proxy_processing_duration_seconds":
-			ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Name:      "proxy_processing_duration_seconds",
-				Help:      "Seconds spent processing Layer 7 traffic",
+			ProxyUpstreamTime = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+				Namespace:  Namespace,
+				Name:       "proxy_processing_duration_seconds",
+				Help:       "Seconds spent processing Layer 7 traffic",
+				Objectives: defaultSummaryObjectives,
 			}, []string{"error", LabelProtocolL7, LabelScope})
 
 			collectors = append(collectors, ProxyUpstreamTime)
 			c.NoOpObserverVecEnabled = true
 
 		case Namespace + "_proxy_upstream_reply_seconds":
-			ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Name:      "proxy_upstream_reply_seconds",
-				Help:      "Seconds waited to get a reply from a upstream server",
+			ProxyUpstreamTime = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+				Namespace:  Namespace,
+				Name:       "proxy_upstream_reply_seconds",
+				Help:       "Seconds waited to get a reply from a upstream server",
+				Objectives: defaultSummaryObjectives,
 			}, []string{"error", LabelProtocolL7})
 
 			collectors = append(collectors, ProxyUpstreamTime)

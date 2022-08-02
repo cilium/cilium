@@ -316,6 +316,7 @@ Metrics/Labels
 ~~~~~~~~~~~~~~
 
 * ``proxy_upstream_reply_seconds`` no longer has the ``scope`` label. All scopes unrelated to upstream responses are moved to a new metric ``proxy_processing_duration_seconds``.
+* ``proxy_upstream_reply_seconds`` is now a Summary type with 50th, 90th and 99th percentile buckets.
 
 .. _1.12_upgrade_notes:
 
