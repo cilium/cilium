@@ -83,6 +83,19 @@ func (t *Test) scenarioName(s Scenario) string {
 	return fmt.Sprintf("%s/%s", t.Name(), s.Name())
 }
 
+// scenarioEnabled returns true if the given scenario is enabled based on the
+// set of enabled tests, and if the given scenario also meets the feature
+// requirements of the deployed cilium installation
+func (t *Test) scenarioEnabled(s Scenario) bool {
+	var reqs []FeatureRequirement
+	if cs, ok := s.(ConditionalScenario); ok {
+		reqs = cs.Requirements()
+	}
+
+	return t.Context().params.testEnabled(t.scenarioName(s)) &&
+		t.Context().features.MatchRequirements(reqs...)
+}
+
 // Context returns the enclosing context of the Test.
 func (t *Test) Context() *ConnectivityTest {
 	return t.ctx
@@ -176,14 +189,12 @@ func (t *Test) Run(ctx context.Context) error {
 			return err
 		}
 
-		sn := t.scenarioName(s)
-
-		if !t.Context().params.testEnabled(sn) {
+		if !t.scenarioEnabled(s) {
 			t.skip(s)
 			continue
 		}
 
-		t.Logf("[-] Scenario [%s]", sn)
+		t.Logf("[-] Scenario [%s]", t.scenarioName(s))
 
 		s.Run(ctx, t)
 	}
