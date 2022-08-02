@@ -96,6 +96,10 @@ func (c colorer) host(a interface{}) string {
 	return c.cyan.Sprint(a)
 }
 
+func (c colorer) identity(a interface{}) string {
+	return c.magenta.Sprint(a)
+}
+
 func (c colorer) verdictForwarded(a interface{}) string {
 	return c.green.Sprint(a)
 }
