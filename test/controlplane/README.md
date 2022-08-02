@@ -22,16 +22,16 @@ caters towards:
 
 The tests can be run as usual with Go test:
 
-  $ go test ./test/control-plane/...
+  $ go test ./test/controlplane/...
 
 If the test case is a golden test, the golden output files can be updated
 with the '-update' flag:
 
-  $ go test ./test/control-plane/services/dual-stack -test.v -update
+  $ go test ./test/controlplane/services/dual-stack -test.v -update
 
 For debug log output, run with '-debug' flag:
 
-  $ go test ./test/control-plane/services/... -test.v -debug
+  $ go test ./test/controlplane/services/... -test.v -debug
 
 ## Writing tests
 
@@ -45,7 +45,7 @@ Tests can be written either by manually defining the objects and the validation
 of each step or as a golden test case where the input objects are unmarshalled
 from YAML files.
 
-For a working example see test/control-plane/services/dual-stack/dualstack_test.go
+For a working example see test/controlplane/services/dual-stack/dualstack_test.go
 and follow references up from NewGoldenServicesTest to see how it's constructed
 and validated.
 

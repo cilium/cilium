@@ -6,7 +6,7 @@ package v1_22
 import (
 	"testing"
 
-	dualstack "github.com/cilium/cilium/test/control-plane/services/dual-stack"
+	dualstack "github.com/cilium/cilium/test/controlplane/services/dual-stack"
 )
 
 func TestDualStack1_22(t *testing.T) {

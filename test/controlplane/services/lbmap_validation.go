@@ -24,7 +24,7 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
-	controlplane "github.com/cilium/cilium/test/control-plane"
+	"github.com/cilium/cilium/test/controlplane"
 )
 
 func NewGoldenServicesTest(t *testing.T, nodeName string) *controlplane.ControlPlaneTestCase {
