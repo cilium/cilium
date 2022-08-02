@@ -31,6 +31,7 @@ import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -173,6 +174,28 @@ func (p *Printer) GetHostNames(f *pb.Flow) (string, string) {
 	return p.color.host(src), p.color.host(dst)
 }
 
+func (p *Printer) fmtIdentity(i uint32) string {
+	numeric := identity.NumericIdentity(i)
+	if numeric.IsReservedIdentity() {
+		return p.color.identity(fmt.Sprintf("(%s)", numeric))
+	}
+
+	return p.color.identity(fmt.Sprintf("(ID:%d)", i))
+}
+
+// GetSecurityIdentities returns the source and destination numeric security
+// identity formatted as a string.
+func (p *Printer) GetSecurityIdentities(f *pb.Flow) (srcIdentity, dstIdentity string) {
+	if f == nil {
+		return "", ""
+	}
+
+	srcIdentity = p.fmtIdentity(f.GetSource().GetIdentity())
+	dstIdentity = p.fmtIdentity(f.GetDestination().GetIdentity())
+
+	return srcIdentity, dstIdentity
+}
+
 func fmtTimestamp(layout string, ts *timestamppb.Timestamp) string {
 	if !ts.IsValid() {
 		return "N/A"
@@ -202,14 +225,7 @@ func GetFlowType(f *pb.Flow) string {
 	case api.MessageTypeDrop:
 		return api.DropReason(uint8(f.GetEventType().GetSubType()))
 	case api.MessageTypePolicyVerdict:
-		switch f.GetVerdict() {
-		case pb.Verdict_FORWARDED, pb.Verdict_AUDIT, pb.Verdict_REDIRECTED:
-			return api.PolicyMatchType(f.GetPolicyMatchType()).String()
-		case pb.Verdict_DROPPED:
-			return api.DropReason(uint8(f.GetDropReason()))
-		case pb.Verdict_ERROR:
-			// ERROR should only happen for L7 events.
-		}
+		return api.MessageTypeNamePolicyVerdict + ":" + api.PolicyMatchType(f.GetPolicyMatchType()).String()
 	case api.MessageTypeCapture:
 		return f.GetDebugCapturePoint().String()
 	}
@@ -219,15 +235,25 @@ func GetFlowType(f *pb.Flow) string {
 
 func (p Printer) getVerdict(f *pb.Flow) string {
 	verdict := f.GetVerdict()
+	msg := verdict.String()
 	switch verdict {
 	case pb.Verdict_FORWARDED, pb.Verdict_REDIRECTED:
-		return p.color.verdictForwarded(verdict.String())
+		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
+			msg = "ALLOWED"
+		}
+		return p.color.verdictForwarded(msg)
 	case pb.Verdict_DROPPED, pb.Verdict_ERROR:
-		return p.color.verdictDropped(verdict.String())
+		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
+			msg = "DENIED"
+		}
+		return p.color.verdictDropped(msg)
 	case pb.Verdict_AUDIT:
-		return p.color.verdictAudit(verdict.String())
+		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
+			msg = "AUDITED"
+		}
+		return p.color.verdictAudit(msg)
 	default:
-		return verdict.String()
+		return msg
 	}
 }
 
@@ -295,6 +321,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 	case CompactOutput:
 		var node string
 		src, dst := p.GetHostNames(f)
+		srcIdentity, dstIdentity := p.GetSecurityIdentities(f)
 
 		if p.opts.nodeName {
 			node = fmt.Sprintf(" [%s]", f.GetNodeName())
@@ -306,15 +333,18 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 		} else if f.GetIsReply().Value {
 			// flip the arrow and src/dst for reply packets.
 			src, dst = dst, src
+			srcIdentity, dstIdentity = dstIdentity, srcIdentity
 			arrow = "<-"
 		}
 		_, err := fmt.Fprintf(p.opts.w,
-			"%s%s: %s %s %s %s %s (%s)\n",
+			"%s%s: %s %s %s %s %s %s %s (%s)\n",
 			fmtTimestamp(p.opts.timeFormat, f.GetTime()),
 			node,
 			src,
+			srcIdentity,
 			arrow,
 			dst,
+			dstIdentity,
 			GetFlowType(f),
 			p.getVerdict(f),
 			f.GetSummary())
