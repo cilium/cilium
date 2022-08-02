@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,12 +30,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-)
-
-var (
-	// onceNodeInitStart is used to guarantee that only one function call of
-	// NodesInit is executed.
-	onceNodeInitStart sync.Once
 )
 
 // RegisterNodeSubscriber allows registration of subscriber.Node implementations.
@@ -63,7 +56,7 @@ func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
 
 func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 	apiGroup := k8sAPIGroupNodeV1Core
-	onceNodeInitStart.Do(func() {
+	k.nodesInitOnce.Do(func() {
 		swg := lock.NewStoppableWaitGroup()
 
 		nodeStore, nodeController := informer.NewInformer(
