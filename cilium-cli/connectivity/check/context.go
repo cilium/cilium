@@ -392,26 +392,6 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	return nil
 }
 
-// FetchCiliumPodImageTag fetches the first Cilium pod's image's tag (e.g.
-// v1.11.1 from quay.io/cilium/cilium:v1.11.1).
-func (ct *ConnectivityTest) FetchCiliumPodImageTag() string {
-	var img string
-	for _, pod := range ct.ciliumPods {
-		cntrs := pod.Pod.Spec.Containers
-		for _, c := range cntrs {
-			if strings.Contains(c.Name, defaults.AgentContainerName) && c.Image != "" {
-				img = c.Image
-				break
-			}
-		}
-	}
-	spl := strings.Split(img, ":")
-	if len(spl) > 1 {
-		return strings.TrimSuffix(spl[1], "@sha256")
-	}
-	return ""
-}
-
 // initClients checks if Cilium is installed on the cluster, whether the cluster
 // has multiple nodes, and whether or not monitor aggregation is enabled.
 // TODO(timo): Split this up, it does a lot.
