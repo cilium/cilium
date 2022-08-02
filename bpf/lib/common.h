@@ -318,17 +318,20 @@ struct remote_endpoint_info {
 };
 
 struct policy_key {
+	struct bpf_lpm_trie_key lpm_key;
 	__u32		sec_label;
-	__u16		dport;
-	__u8		protocol;
 	__u8		egress:1,
 			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__u16		dport; /* can be wildcarded with CIDR-like prefix */
 };
 
 struct policy_entry {
 	__be16		proxy_port;
 	__u8		deny:1,
-			pad:7;
+			wildcarded_port:1, /* port is fully wildcarded */
+			wildcarded_proto:1, /* proto is fully wildcarded */
+			pad:5;
 	__u8		auth_type;
 	__u16		pad1;
 	__u16		pad2;

@@ -13,10 +13,18 @@ import (
 )
 
 var (
-	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy")
-	mutex        lock.RWMutex // Protects enablePolicy
-	enablePolicy string       // Whether policy enforcement is enabled.
+	log              = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy")
+	mutex            lock.RWMutex // Protects enablePolicy
+	enablePolicy     string       // Whether policy enforcement is enabled.
+	useLPMPolicyMaps bool         // Whether should use LPM maps for policy
+
 )
+
+// SetUseLPMPolicyMaps is called on init time to inform policy package if LPM maps are to be
+// used. This affects how policy map keys are created.
+func SetUseLPMPolicyMaps(haveLPMPolicyMaps bool) {
+	useLPMPolicyMaps = haveLPMPolicyMaps
+}
 
 // SetPolicyEnabled sets the policy enablement configuration. Valid values are:
 // - endpoint.AlwaysEnforce

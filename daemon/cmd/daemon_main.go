@@ -1258,7 +1258,11 @@ func initEnv() {
 	if err := rlimit.RemoveMemlock(); err != nil {
 		log.WithError(err).Fatal("unable to set memory resource limits")
 	}
-	linuxdatapath.CheckMinRequirements()
+	f := linuxdatapath.CheckMinRequirements()
+	// Inform policy package about LPM map support
+	useLPMPolicyMaps := f != nil && f.Maps[ebpf.LPMTrie]
+	policymap.SetUseLPMPolicyMaps(useLPMPolicyMaps)
+	policy.SetUseLPMPolicyMaps(useLPMPolicyMaps)
 
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {
 		log.WithField(logfields.Path, defaults.PidFilePath).WithError(err).Fatal("Failed to create Pidfile")

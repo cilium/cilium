@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
@@ -95,6 +96,28 @@ func (k Key) PortProtoIsBroader(c Key) bool {
 // two keys are exactly equal.
 func (k Key) PortProtoIsEqual(c Key) bool {
 	return k.DestPort == c.DestPort && k.Nexthdr == c.Nexthdr
+}
+
+// ToBPFKey returns a bpf policymap key for the Key
+func (k Key) ToBPFKey() policymap.PolicyKey {
+	// Convert from policy.Key to policymap.Key
+	prefixLen := uint16(8 + 16)
+	// Keep using the full prefix length if LPM maps are not in use so that lookups with full
+	// prefix succeed on the hash map.
+	if useLPMPolicyMaps {
+		if k.DestPort == 0 && k.Nexthdr == 0 {
+			prefixLen = 0
+		} else if k.DestPort == 0 {
+			prefixLen = 8
+		}
+	}
+	return policymap.PolicyKey{
+		Prefixlen:        policymap.GetPrefixLen(prefixLen),
+		Identity:         k.Identity,
+		TrafficDirection: k.TrafficDirection,
+		Nexthdr:          k.Nexthdr,
+		DestPort:         k.DestPort,
+	}
 }
 
 type Keys map[Key]struct{}

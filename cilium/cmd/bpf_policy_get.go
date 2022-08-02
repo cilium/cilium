@@ -124,6 +124,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		proxyPortTitle        = "PROXY PORT"
 		bytesTitle            = "BYTES"
 		packetsTitle          = "PACKETS"
+		prefixTitle           = "PREFIX"
 	)
 
 	labelsID := map[identity.NumericIdentity]*identity.Identity{}
@@ -141,21 +142,30 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	}
 
 	if printIDs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			policyTitle, trafficDirectionTitle, labelsIDTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			policyTitle, trafficDirectionTitle, labelsIDTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle, prefixTitle)
 	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			policyTitle, trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			policyTitle, trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle, prefixTitle)
 	}
 	for _, stat := range statsMap {
+		prefix := stat.Key.Prefixlen - policymap.GetStaticPrefixBits()
 		id := identity.NumericIdentity(stat.Key.Identity)
 		trafficDirection := trafficdirection.TrafficDirection(stat.Key.TrafficDirection)
 		trafficDirectionString := trafficDirection.String()
 		port := models.PortProtocolANY
-		if stat.Key.DestPort != 0 || stat.Key.Nexthdr == uint8(u8proto.ICMP) || stat.Key.Nexthdr == uint8(u8proto.ICMPv6) {
+		if prefix > 0 {
 			dport := byteorder.NetworkToHost16(stat.Key.DestPort)
 			proto := u8proto.U8proto(stat.Key.Nexthdr)
-			port = fmt.Sprintf("%d/%s", dport, proto.String())
+			if prefix == 24 {
+				port = fmt.Sprintf("%d/%s", dport, proto.String())
+			} else if prefix == 8 {
+				port = fmt.Sprintf("*/%s", proto.String())
+			} else if prefix > 8 {
+				port = fmt.Sprintf("0x%x/%d/%s", dport, prefix-8, proto.String())
+			} else {
+				port = fmt.Sprintf("<INVALID PORT PREFIX LENGTH: %d>", prefix)
+			}
 		}
 		proxyPort := "NONE"
 		if stat.ProxyPort != 0 {
@@ -168,22 +178,22 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 			policyStr = "Allow"
 		}
 		if printIDs {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%d\t%d\t\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%d\t%d\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets, prefix)
 		} else if lbls := labelsID[id]; lbls != nil && len(lbls.Labels) > 0 {
 			first := true
 			for _, lbl := range lbls.Labels.GetPrintableModel() {
 				if first {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t\n",
-						policyStr, trafficDirectionString, lbl, port, proxyPort, stat.Bytes, stat.Packets)
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
+						policyStr, trafficDirectionString, lbl, port, proxyPort, stat.Bytes, stat.Packets, prefix)
 					first = false
 				} else {
 					fmt.Fprintf(w, "\t\t%s\t\t\t\t\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%d\t%d\t\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%d\t%d\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets, prefix)
 		}
 	}
 }

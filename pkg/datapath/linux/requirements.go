@@ -63,7 +63,9 @@ func getClangVersion(filePath string) (semver.Version, error) {
 
 // CheckMinRequirements checks that minimum kernel requirements are met for
 // configuring the BPF datapath. If not, fatally exits.
-func CheckMinRequirements() {
+func CheckMinRequirements() *probes.FeatureProbes {
+	var probedFeatures *probes.FeatureProbes
+
 	kernelVersion, err := version.GetKernelVersion()
 	if err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
@@ -130,6 +132,7 @@ func CheckMinRequirements() {
 
 	// bpftool checks
 	if !option.Config.DryMode {
+		probedFeatures = probes.ExecuteHeaderProbes()
 		probeManager := probes.NewProbeManager()
 
 		// VTEP integration feature requires kernel 1m large instruction support
@@ -144,8 +147,10 @@ func CheckMinRequirements() {
 			// Warn missing required kernel config option
 			log.WithError(err).Warn(errMsg)
 		}
-		if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes()); err != nil {
+		if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probedFeatures); err != nil {
 			log.WithError(err).Fatal("failed to create header files with feature macros")
 		}
 	}
+
+	return probedFeatures
 }

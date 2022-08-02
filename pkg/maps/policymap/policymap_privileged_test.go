@@ -69,7 +69,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TearDownTest(c *C) {
 func (pm *PolicyMapPrivilegedTestSuite) TestPolicyMapDumpToSlice(c *C) {
 	c.Assert(testMap, NotNil)
 
-	fooEntry := newKey(1, 1, 1, 1)
+	fooEntry := newKey(0, 1, 1, 1, 1)
 	err := testMap.AllowKey(fooEntry, 0, 0)
 	c.Assert(err, IsNil)
 
@@ -83,7 +83,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TestPolicyMapDumpToSlice(c *C) {
 	c.Assert(dump[0].Key, checker.DeepEquals, fooEntry)
 
 	// Special case: allow-all entry
-	barEntry := newKey(0, 0, 0, 0)
+	barEntry := newKey(0, 0, 0, 0, 0)
 	err = testMap.AllowKey(barEntry, 0, 0)
 	c.Assert(err, IsNil)
 
@@ -93,7 +93,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TestPolicyMapDumpToSlice(c *C) {
 }
 
 func (pm *PolicyMapPrivilegedTestSuite) TestDeleteNonexistentKey(c *C) {
-	key := newKey(27, 80, u8proto.ANY, trafficdirection.Ingress)
+	key := newKey(0, 27, 80, u8proto.TCP, trafficdirection.Ingress)
 	err := testMap.Map.Delete(&key)
 	c.Assert(err, Not(IsNil))
 	var errno unix.Errno
@@ -104,7 +104,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TestDeleteNonexistentKey(c *C) {
 func (pm *PolicyMapPrivilegedTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
 	c.Assert(testMap, NotNil)
 
-	fooEntry := newKey(1, 1, 1, 1)
+	fooEntry := newKey(0, 1, 1, 1, 1)
 	fooValue := newEntry(0, 0, NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true}))
 	err := testMap.DenyKey(fooEntry)
 	c.Assert(err, IsNil)
@@ -120,7 +120,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
 	c.Assert(dump[0].PolicyEntry, checker.DeepEquals, fooValue)
 
 	// Special case: deny-all entry
-	barEntry := newKey(0, 0, 0, 0)
+	barEntry := newKey(0, 0, 0, 0, 0)
 	err = testMap.DenyKey(barEntry)
 	c.Assert(err, IsNil)
 
