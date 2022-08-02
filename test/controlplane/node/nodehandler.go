@@ -6,16 +6,14 @@ package node
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/test/controlplane"
+	"github.com/cilium/cilium/test/controlplane/suite"
 )
 
 var (
@@ -36,26 +34,9 @@ var (
 			},
 		},
 	}
-
-	initialObjects = []k8sRuntime.Object{
-		minimalNode,
-	}
-
-	steps = []*controlplane.ControlPlaneTestStep{
-		controlplane.
-			NewStep("validate node").
-			AddValidationFunc(validateNodes),
-	}
-
-	testCase = controlplane.ControlPlaneTestCase{
-		NodeName:          "minimal",
-		InitialObjects:    initialObjects,
-		Steps:             steps,
-		ValidationTimeout: time.Second,
-	}
 )
 
-func validateNodes(dp *fakeDatapath.FakeDatapath, proxy *controlplane.K8sObjsProxy) error {
+func validateNodes(dp *fakeDatapath.FakeDatapath) error {
 	nodes := dp.FakeNode().Nodes
 
 	if len(nodes) != 1 {
@@ -78,6 +59,14 @@ func validateNodes(dp *fakeDatapath.FakeDatapath, proxy *controlplane.K8sObjsPro
 	return nil
 }
 
-func TestNodeHander(t *testing.T) {
-	testCase.Run(t, "1.21", func(*option.DaemonConfig) {})
+func init() {
+	suite.AddTestCase("NodeHandler", func(t *testing.T) {
+		test := suite.NewControlPlaneTest(t, "minimal", "1.21")
+
+		test.
+			UpdateObjects(minimalNode).
+			StartAgent(func(*option.DaemonConfig) {}).
+			Eventually(func() error { return validateNodes(test.Datapath) }).
+			StopAgent()
+	})
 }

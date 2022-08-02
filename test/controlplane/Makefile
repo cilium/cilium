@@ -1,9 +1,9 @@
-.PHONY: all tests update-tests
+.PHONY: all test update-golden
 
-all: tests
+all: test
 
-tests:
-	go test ./...
+test:
+	go test .
 
-update-tests:
-	go test ./... -test.v -update
+update-golden:
+	go test . -test.v -update
