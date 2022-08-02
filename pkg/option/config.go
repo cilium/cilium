@@ -3129,6 +3129,7 @@ func (c *DaemonConfig) Populate() {
 	}
 
 	// Metrics Setup
+	metrics.ResetMetrics()
 	defaultMetrics := metrics.DefaultMetrics()
 	flagMetrics := append(viper.GetStringSlice(Metrics), c.additionalMetrics()...)
 	for _, metric := range flagMetrics {
