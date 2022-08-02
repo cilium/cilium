@@ -13,3 +13,11 @@ type Scenario interface {
 	// Run is invoked by the testing framework to execute the Scenario.
 	Run(ctx context.Context, t *Test)
 }
+
+// ConditionalScenario is a test scenario which requires certain feature
+// requirements to be enabled. If the requirements are not met, the test
+// scenario is skipped
+type ConditionalScenario interface {
+	Scenario
+	Requirements() []FeatureRequirement
+}
