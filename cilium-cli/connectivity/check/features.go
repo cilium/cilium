@@ -33,6 +33,8 @@ const (
 	FeatureKPRNodePort              Feature = "kpr-nodeport"
 	FeatureKPRSessionAffinity       Feature = "kpr-session-affinity"
 	FeatureKPRSocketLB              Feature = "kpr-socket-lb"
+
+	FeatureHostPort Feature = "host-port"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -76,6 +78,19 @@ func (fs FeatureSet) MatchRequirements(reqs ...FeatureRequirement) bool {
 	}
 
 	return true
+}
+
+// deriveFeatures derives additional features based on the status of other features
+func (fs FeatureSet) deriveFeatures() error {
+	fs[FeatureHostPort] = FeatureStatus{
+		// HostPort support can either be enabled via KPR, or via CNI chaining with portmap plugin
+		Enabled: (fs[FeatureCNIChaining].Enabled && fs[FeatureCNIChaining].Mode == "portmap" &&
+			// cilium/cilium#12541: Host firewall doesn't work with portmap CNI chaining
+			!fs[FeatureHostFirewall].Enabled) ||
+			fs[FeatureKPRHostPort].Enabled,
+	}
+
+	return nil
 }
 
 // FeatureRequirement defines a test requirement. A given FeatureSet may or
@@ -242,6 +257,10 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 			return err
 		}
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
+		if err != nil {
+			return err
+		}
+		err = features.deriveFeatures()
 		if err != nil {
 			return err
 		}
