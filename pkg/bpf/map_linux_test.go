@@ -10,19 +10,20 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"testing"
 	"unsafe"
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/ebpf/rlimit"
-
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/testutils"
+
+	"github.com/cilium/ebpf/rlimit"
 )
 
-type BPFPrivilegedTestSuite struct{}
+type BPFPrivilegedTestSuite struct {
+	teardown func() error
+}
 
 type TestKey struct {
 	Key uint32
@@ -44,6 +45,36 @@ var _ = Suite(&BPFPrivilegedTestSuite{})
 
 func (s *BPFPrivilegedTestSuite) SetUpSuite(c *C) {
 	testutils.PrivilegedCheck(c)
+
+	CheckOrMountFS("")
+
+	if err := rlimit.RemoveMemlock(); err != nil {
+		c.Fatal(err)
+	}
+
+	_, err := testMap.OpenOrCreate()
+	if err != nil {
+		c.Fatal("Failed to create map:", err)
+	}
+
+	s.teardown = func() error {
+		testMap.Close()
+
+		path, err := testMap.Path()
+		if err != nil {
+			return err
+		}
+
+		return os.Remove(path)
+	}
+}
+
+func (s *BPFPrivilegedTestSuite) TearDownSuite(c *C) {
+	if s.teardown != nil {
+		if err := s.teardown(); err != nil {
+			c.Fatal(err)
+		}
+	}
 }
 
 var (
@@ -61,33 +92,6 @@ var (
 		ConvertKeyValue,
 	).WithCache()
 )
-
-func runTests(m *testing.M) (int, error) {
-	CheckOrMountFS("")
-	if err := rlimit.RemoveMemlock(); err != nil {
-		return 1, fmt.Errorf("Failed to configure rlimit")
-	}
-
-	_, err := testMap.OpenOrCreate()
-	if err != nil {
-		return 1, fmt.Errorf("Failed to create map")
-	}
-	defer func() {
-		path, _ := testMap.Path()
-		os.Remove(path)
-	}()
-	defer testMap.Close()
-
-	return m.Run(), nil
-}
-
-func TestMain(m *testing.M) {
-	exitCode, err := runTests(m)
-	if err != nil {
-		log.Fatal(err)
-	}
-	os.Exit(exitCode)
-}
 
 func mapsEqual(a, b *Map) bool {
 	return a.name == b.name &&

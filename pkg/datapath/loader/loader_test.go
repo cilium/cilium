@@ -28,7 +28,9 @@ import (
 )
 
 // Hook up gocheck into the "go test" runner.
-type LoaderTestSuite struct{}
+type LoaderTestSuite struct {
+	teardown func() error
+}
 
 var (
 	_              = Suite(&LoaderTestSuite{})
@@ -53,26 +55,52 @@ func Test(t *testing.T) {
 func (s *LoaderTestSuite) SetUpSuite(c *C) {
 	testutils.PrivilegedCheck(c)
 
+	tmpDir, err := os.MkdirTemp("/tmp/", "cilium_")
+	if err != nil {
+		c.Fatalf("Failed to create temporary directory: %s", err)
+	}
+	dirInfo = getDirs(tmpDir)
+
+	cleanup, err := prepareEnv(&ep)
+	if err != nil {
+		SetTestIncludes(nil)
+		os.RemoveAll(tmpDir)
+		c.Fatalf("Failed to prepare environment: %s", err)
+	}
+
+	s.teardown = func() error {
+		if err := cleanup(); err != nil {
+			return err
+		}
+		return os.RemoveAll(tmpDir)
+	}
+
 	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
+
 	SetTestIncludes([]string{
 		fmt.Sprintf("-I%s", bpfDir),
 		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
 	})
 
-	err := rlimit.RemoveMemlock()
-	c.Assert(err, IsNil)
+	c.Assert(rlimit.RemoveMemlock(), IsNil)
+
 	sourceFile := filepath.Join(bpfDir, endpointProg)
-	err = os.Symlink(sourceFile, endpointProg)
-	c.Assert(err, IsNil)
+	c.Assert(os.Symlink(sourceFile, endpointProg), IsNil)
+
 	sourceFile = filepath.Join(bpfDir, hostEndpointProg)
-	err = os.Symlink(sourceFile, hostEndpointProg)
-	c.Assert(err, IsNil)
+	c.Assert(os.Symlink(sourceFile, hostEndpointProg), IsNil)
 }
 
 func (s *LoaderTestSuite) TearDownSuite(c *C) {
 	SetTestIncludes(nil)
 	os.RemoveAll(endpointProg)
 	os.RemoveAll(hostEndpointProg)
+
+	if s.teardown != nil {
+		if err := s.teardown(); err != nil {
+			c.Fatal(err)
+		}
+	}
 }
 
 func (s *LoaderTestSuite) TearDownTest(c *C) {
@@ -85,42 +113,6 @@ func (s *LoaderTestSuite) TearDownTest(c *C) {
 			panic(err)
 		}
 	}
-}
-
-// runTests configures devices for running the whole testsuite, and runs the
-// tests. It is kept separate from TestMain() so that this function can defer
-// cleanups and pass the exit code of the test run to the caller which can run
-// os.Exit() with the result.
-func runTests(m *testing.M) (int, error) {
-	SetTestIncludes([]string{"-I/usr/include/x86_64-linux-gnu/"})
-	defer SetTestIncludes(nil)
-
-	tmpDir, err := os.MkdirTemp("/tmp/", "cilium_")
-	if err != nil {
-		return 1, fmt.Errorf("Failed to create temporary directory: %s", err)
-	}
-	defer os.RemoveAll(tmpDir)
-	dirInfo = getDirs(tmpDir)
-
-	cleanup, err := prepareEnv(&ep)
-	if err != nil {
-		return 1, fmt.Errorf("Failed to prepare environment: %s", err)
-	}
-	defer func() {
-		if err := cleanup(); err != nil {
-			log.Error(err.Error())
-		}
-	}()
-
-	return m.Run(), nil
-}
-
-func TestMain(m *testing.M) {
-	exitCode, err := runTests(m)
-	if err != nil {
-		log.Fatal(err)
-	}
-	os.Exit(exitCode)
 }
 
 func prepareEnv(ep *testutils.TestEndpoint) (func() error, error) {
