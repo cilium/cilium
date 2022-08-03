@@ -108,11 +108,8 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 		return nil, errors.New("can't load nil CollectionSpec")
 	}
 
-	// By default, allocate a 1MiB verifier log buffer if first load attempt
-	// fails. This was adjusted around Cilium 1.11 for fitting bpf_lxc insn
-	// limit messages.
 	if opts.Programs.LogSize == 0 {
-		opts.Programs.LogSize = 1 << 20
+		opts.Programs.LogSize = 10_000_000
 	}
 
 	// Copy spec so the modifications below don't affect the input parameter,
