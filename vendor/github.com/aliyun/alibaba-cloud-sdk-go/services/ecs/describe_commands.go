@@ -71,18 +71,26 @@ func (client *Client) DescribeCommandsWithCallback(request *DescribeCommandsRequ
 // DescribeCommandsRequest is the request struct for api DescribeCommands
 type DescribeCommandsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Description          string           `position:"Query" name:"Description"`
-	Type                 string           `position:"Query" name:"Type"`
-	CommandId            string           `position:"Query" name:"CommandId"`
-	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
-	Provider             string           `position:"Query" name:"Provider"`
-	ContentEncoding      string           `position:"Query" name:"ContentEncoding"`
-	PageSize             requests.Integer `position:"Query" name:"PageSize"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	Name                 string           `position:"Query" name:"Name"`
+	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
+	Description          string                 `position:"Query" name:"Description"`
+	Type                 string                 `position:"Query" name:"Type"`
+	CommandId            string                 `position:"Query" name:"CommandId"`
+	PageNumber           requests.Integer       `position:"Query" name:"PageNumber"`
+	Provider             string                 `position:"Query" name:"Provider"`
+	ContentEncoding      string                 `position:"Query" name:"ContentEncoding"`
+	PageSize             requests.Integer       `position:"Query" name:"PageSize"`
+	Tag                  *[]DescribeCommandsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	Latest               requests.Boolean       `position:"Query" name:"Latest"`
+	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`
+	Name                 string                 `position:"Query" name:"Name"`
+}
+
+// DescribeCommandsTag is a repeated param struct in DescribeCommandsRequest
+type DescribeCommandsTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeCommandsResponse is the response struct for api DescribeCommands

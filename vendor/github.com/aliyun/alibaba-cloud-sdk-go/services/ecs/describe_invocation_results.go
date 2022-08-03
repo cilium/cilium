@@ -71,18 +71,25 @@ func (client *Client) DescribeInvocationResultsWithCallback(request *DescribeInv
 // DescribeInvocationResultsRequest is the request struct for api DescribeInvocationResults
 type DescribeInvocationResultsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	CommandId            string           `position:"Query" name:"CommandId"`
-	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
-	ContentEncoding      string           `position:"Query" name:"ContentEncoding"`
-	PageSize             requests.Integer `position:"Query" name:"PageSize"`
-	InvokeId             string           `position:"Query" name:"InvokeId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId           string           `position:"Query" name:"InstanceId"`
-	InvokeRecordStatus   string           `position:"Query" name:"InvokeRecordStatus"`
-	IncludeHistory       requests.Boolean `position:"Query" name:"IncludeHistory"`
+	ResourceOwnerId      requests.Integer                `position:"Query" name:"ResourceOwnerId"`
+	CommandId            string                          `position:"Query" name:"CommandId"`
+	PageNumber           requests.Integer                `position:"Query" name:"PageNumber"`
+	ContentEncoding      string                          `position:"Query" name:"ContentEncoding"`
+	PageSize             requests.Integer                `position:"Query" name:"PageSize"`
+	Tag                  *[]DescribeInvocationResultsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	InvokeId             string                          `position:"Query" name:"InvokeId"`
+	ResourceOwnerAccount string                          `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                          `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer                `position:"Query" name:"OwnerId"`
+	InstanceId           string                          `position:"Query" name:"InstanceId"`
+	InvokeRecordStatus   string                          `position:"Query" name:"InvokeRecordStatus"`
+	IncludeHistory       requests.Boolean                `position:"Query" name:"IncludeHistory"`
+}
+
+// DescribeInvocationResultsTag is a repeated param struct in DescribeInvocationResultsRequest
+type DescribeInvocationResultsTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeInvocationResultsResponse is the response struct for api DescribeInvocationResults

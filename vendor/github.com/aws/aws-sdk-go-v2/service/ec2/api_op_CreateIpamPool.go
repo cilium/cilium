@@ -17,7 +17,9 @@ import (
 // organize your IP addresses according to your routing and security needs. For
 // example, if you have separate routing and security needs for development and
 // production applications, you can create a pool for each. For more information,
-// see Create a top-level pool in the Amazon VPC IPAM User Guide.
+// see Create a top-level pool
+// (https://docs.aws.amazon.com/vpc/latest/ipam/create-top-ipam.html) in the Amazon
+// VPC IPAM User Guide.
 func (c *Client) CreateIpamPool(ctx context.Context, params *CreateIpamPoolInput, optFns ...func(*Options)) (*CreateIpamPoolOutput, error) {
 	if params == nil {
 		params = &CreateIpamPoolInput{}

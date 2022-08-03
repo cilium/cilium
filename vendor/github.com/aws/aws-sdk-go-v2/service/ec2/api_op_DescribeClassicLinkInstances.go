@@ -15,7 +15,11 @@ import (
 // Describes one or more of your linked EC2-Classic instances. This request only
 // returns information about EC2-Classic instances linked to a VPC through
 // ClassicLink. You cannot use this request to return information about other
-// instances.
+// instances. We are retiring EC2-Classic on August 15, 2022. We recommend that you
+// migrate from EC2-Classic to a VPC. For more information, see Migrate from
+// EC2-Classic to a VPC
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
+// Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeClassicLinkInstances(ctx context.Context, params *DescribeClassicLinkInstancesInput, optFns ...func(*Options)) (*DescribeClassicLinkInstancesOutput, error) {
 	if params == nil {
 		params = &DescribeClassicLinkInstancesInput{}

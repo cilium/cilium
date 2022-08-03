@@ -15,7 +15,11 @@ import (
 // instances in the VPC to which it's linked. For more information, see ClassicLink
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-classiclink.html) in
 // the Amazon Elastic Compute Cloud User Guide. You must specify a VPC ID in the
-// request.
+// request. We are retiring EC2-Classic on August 15, 2022. We recommend that you
+// migrate from EC2-Classic to a VPC. For more information, see Migrate from
+// EC2-Classic to a VPC
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
+// Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DisableVpcClassicLinkDnsSupport(ctx context.Context, params *DisableVpcClassicLinkDnsSupportInput, optFns ...func(*Options)) (*DisableVpcClassicLinkDnsSupportOutput, error) {
 	if params == nil {
 		params = &DisableVpcClassicLinkDnsSupportInput{}

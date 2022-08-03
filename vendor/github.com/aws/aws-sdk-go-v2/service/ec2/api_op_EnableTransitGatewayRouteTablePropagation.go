@@ -30,11 +30,6 @@ func (c *Client) EnableTransitGatewayRouteTablePropagation(ctx context.Context, 
 
 type EnableTransitGatewayRouteTablePropagationInput struct {
 
-	// The ID of the attachment.
-	//
-	// This member is required.
-	TransitGatewayAttachmentId *string
-
 	// The ID of the propagation route table.
 	//
 	// This member is required.
@@ -45,6 +40,12 @@ type EnableTransitGatewayRouteTablePropagationInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string
+
+	// The ID of the transit gateway route table announcement.
+	TransitGatewayRouteTableAnnouncementId *string
 
 	noSmithyDocumentSerde
 }

@@ -81,6 +81,7 @@ type ImportImageRequest struct {
 	Tag                  *[]ImportImageTag               `position:"Query" name:"Tag"  type:"Repeated"`
 	Architecture         string                          `position:"Query" name:"Architecture"`
 	LicenseType          string                          `position:"Query" name:"LicenseType"`
+	DetectionStrategy    string                          `position:"Query" name:"DetectionStrategy"`
 	ResourceOwnerAccount string                          `position:"Query" name:"ResourceOwnerAccount"`
 	RoleName             string                          `position:"Query" name:"RoleName"`
 	OSType               string                          `position:"Query" name:"OSType"`
