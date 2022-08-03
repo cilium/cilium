@@ -2,6 +2,8 @@
 go.sum linguist-generated
 examples/kubernetes/connectivity-check/connectivity-*.yaml linguist-generated
 pkg/k8s/apis/cilium.io/v2/client/crds/*.yaml linguist-generated
+test/control-plane/**/v1.[0-9][0-9]/*.yaml linguist-generated
+test/control-plane/services/graceful-termination/*.yaml linguist-generated
 Documentation/cmdref/** linguist-generated
 Documentation/helm-values.rst linguist-generated
 Documentation/_static/* -diff
