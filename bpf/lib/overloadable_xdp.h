@@ -78,7 +78,7 @@ ctx_skip_nodeport(struct xdp_md *ctx __maybe_unused)
 }
 
 static __always_inline __maybe_unused __u32
-ctx_get_xfer(struct xdp_md *ctx __maybe_unused)
+ctx_get_xfer(struct xdp_md *ctx __maybe_unused, __u32 off __maybe_unused)
 {
 	return 0; /* Only intended for SKB context. */
 }
@@ -87,6 +87,24 @@ static __always_inline __maybe_unused void ctx_set_xfer(struct xdp_md *ctx,
 							__u32 meta)
 {
 	ctx_store_meta(ctx, XFER_MARKER, meta);
+}
+
+static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
+{
+	__u32 meta_xfer = ctx_load_meta(ctx, XFER_MARKER);
+
+	/* We transfer data from XFER_MARKER. This specifically
+	 * does not break packet trains in GRO.
+	 */
+	if (meta_xfer) {
+		if (!ctx_adjust_meta(ctx, -(int)sizeof(meta_xfer))) {
+			__u32 *data_meta = ctx_data_meta(ctx);
+			__u32 *data = ctx_data(ctx);
+
+			if (!ctx_no_room(data_meta + 1, data))
+				data_meta[XFER_FLAGS] = meta_xfer;
+		}
+	}
 }
 
 static __always_inline __maybe_unused int

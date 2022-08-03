@@ -210,7 +210,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
-		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
+		if (ctx_get_xfer(ctx, XFER_FLAGS) != XFER_PKT_NO_SVC &&
 		    !bpf_skip_nodeport(ctx)) {
 			ret = nodeport_lb6(ctx, secctx);
 			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
@@ -487,7 +487,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
-		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
+		if (ctx_get_xfer(ctx, XFER_FLAGS) != XFER_PKT_NO_SVC &&
 		    !bpf_skip_nodeport(ctx)) {
 			ret = nodeport_lb4(ctx, secctx);
 			if (ret == NAT_46X64_RECIRC) {

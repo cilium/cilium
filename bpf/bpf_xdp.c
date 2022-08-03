@@ -96,22 +96,8 @@ struct {
 static __always_inline __maybe_unused int
 bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 {
-	if (verdict == CTX_ACT_OK) {
-		__u32 meta_xfer = ctx_load_meta(ctx, XFER_MARKER);
-
-		/* We transfer data from XFER_MARKER. This specifically
-		 * does not break packet trains in GRO.
-		 */
-		if (meta_xfer) {
-			if (!ctx_adjust_meta(ctx, -(int)sizeof(meta_xfer))) {
-				__u32 *data_meta = ctx_data_meta(ctx);
-				__u32 *data = ctx_data(ctx);
-
-				if (!ctx_no_room(data_meta + 1, data))
-					data_meta[0] = meta_xfer;
-			}
-		}
-	}
+	if (verdict == CTX_ACT_OK)
+		ctx_move_xfer(ctx);
 
 	return verdict;
 }
