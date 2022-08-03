@@ -576,6 +576,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
+	labelsICMP := labels.LabelArray{labels.ParseLabel("icmp")}
+	labelsICMPv6 := labels.LabelArray{labels.ParseLabel("icmpv6")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 	labelsL7 := labels.LabelArray{labels.ParseLabel("l7")}
 
@@ -666,6 +668,45 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	_, _, err = repo.Add(l7Rule, []Endpoint{})
 	c.Assert(err, IsNil)
 
+	icmpRule := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{selBar2},
+				},
+				ICMPs: api.ICMPRules{{
+					Fields: []api.ICMPField{{
+						Type: 8,
+					}},
+				}},
+			},
+		},
+		Labels: labelsICMP,
+	}
+	_, _, err = repo.Add(icmpRule, nil)
+	c.Assert(err, IsNil)
+
+	icmpV6Rule := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{selBar2},
+				},
+				ICMPs: api.ICMPRules{{
+					Fields: []api.ICMPField{{
+						Type:   128,
+						Family: api.IPv6Family,
+					}},
+				}},
+			},
+		},
+		Labels: labelsICMPv6,
+	}
+	_, _, err = repo.Add(icmpV6Rule, nil)
+	c.Assert(err, IsNil)
+
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
 	}
@@ -686,6 +727,26 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			},
 			Ingress:          true,
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
+		},
+		"8/ICMP": {
+			Port:     8,
+			Protocol: api.ProtoICMP,
+			U8Proto:  0x1,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorBar2: nil,
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{labelsICMP},
+		},
+		"128/ICMPV6": {
+			Port:     128,
+			Protocol: api.ProtoICMPv6,
+			U8Proto:  0x3A,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorBar2: nil,
+			},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{labelsICMPv6},
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -1059,6 +1120,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
 	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
+	labelsICMP := labels.LabelArray{labels.ParseLabel("icmp")}
+	labelsICMPv6 := labels.LabelArray{labels.ParseLabel("icmpv6")}
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1124,6 +1187,45 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	_, _, err = repo.Add(httpRule, []Endpoint{})
 	c.Assert(err, IsNil)
 
+	icmpRule := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{selBar2},
+				},
+				ICMPs: api.ICMPRules{{
+					Fields: []api.ICMPField{{
+						Type: 8,
+					}},
+				}},
+			},
+		},
+		Labels: labelsICMP,
+	}
+	_, _, err = repo.Add(icmpRule, nil)
+	c.Assert(err, IsNil)
+
+	icmpV6Rule := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{selBar2},
+				},
+				ICMPs: api.ICMPRules{{
+					Fields: []api.ICMPField{{
+						Type:   128,
+						Family: "IPv6",
+					}},
+				}},
+			},
+		},
+		Labels: labelsICMPv6,
+	}
+	_, _, err = repo.Add(icmpV6Rule, nil)
+	c.Assert(err, IsNil)
+
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
 	}
@@ -1168,6 +1270,26 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
+		},
+		"8/ICMP": {
+			Port:     8,
+			Protocol: api.ProtoICMP,
+			U8Proto:  0x1,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorBar2: nil,
+			},
+			Ingress:          false,
+			DerivedFromRules: labels.LabelArrayList{labelsICMP},
+		},
+		"128/ICMPV6": {
+			Port:     128,
+			Protocol: api.ProtoICMPv6,
+			U8Proto:  0x3A,
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorBar2: nil,
+			},
+			Ingress:          false,
+			DerivedFromRules: labels.LabelArrayList{labelsICMPv6},
 		},
 		"0/ANY": {
 			Port:     0,

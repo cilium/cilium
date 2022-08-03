@@ -827,6 +827,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 
 	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
+	labelsICMP := labels.LabelArray{labels.ParseLabel("icmp")}
+	labelsICMPv6 := labels.LabelArray{labels.ParseLabel("icmpv6")}
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -841,6 +843,51 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.Add(l3Rule, []Endpoint{})
+	c.Assert(err, IsNil)
+
+	icmpRule := api.Rule{
+		EndpointSelector: selFoo,
+		EgressDeny: []api.EgressDenyRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{selBar1},
+				},
+				ICMPs: api.ICMPRules{{
+					Fields: []api.ICMPField{{
+						Type: 8,
+					}},
+				}},
+			},
+		},
+		Labels: labelsICMP,
+	}
+	err = icmpRule.Sanitize()
+	c.Assert(err, IsNil)
+
+	_, _, err = repo.Add(icmpRule, nil)
+	c.Assert(err, IsNil)
+
+	icmpV6Rule := api.Rule{
+		EndpointSelector: selFoo,
+		EgressDeny: []api.EgressDenyRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{selBar1},
+				},
+				ICMPs: api.ICMPRules{{
+					Fields: []api.ICMPField{{
+						Family: api.IPv6Family,
+						Type:   128,
+					}},
+				}},
+			},
+		},
+		Labels: labelsICMPv6,
+	}
+	err = icmpV6Rule.Sanitize()
+	c.Assert(err, IsNil)
+
+	_, _, err = repo.Add(icmpV6Rule, nil)
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
@@ -869,11 +916,30 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 			Ingress:          false,
 			DerivedFromRules: labels.LabelArrayList{labelsL4},
 		},
+		"8/ICMP": {
+			Port:     8,
+			Protocol: api.ProtoICMP,
+			U8Proto:  0x1,
+			L7Parser: "",
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          false,
+			DerivedFromRules: labels.LabelArrayList{labelsICMP},
+		},
+		"128/ICMPV6": {
+			Port:     128,
+			Protocol: api.ProtoICMPv6,
+			U8Proto:  0x3A,
+			L7Parser: "",
+			L7RulesPerSelector: L7DataMap{
+				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+			},
+			Ingress:          false,
+			DerivedFromRules: labels.LabelArrayList{labelsICMPv6},
+		},
 	}
-	if equal, err := checker.Equal(policyDeny, expectedDenyPolicy); !equal {
-		c.Logf("%s", logBuffer.String())
-		c.Errorf("Resolved policy did not match expected: \n%s", err)
-	}
+	c.Assert(policyDeny, checker.Equals, expectedDenyPolicy, Commentf("Resolved policy did not match expected:\n%s", logBuffer.String()))
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
