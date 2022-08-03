@@ -27,10 +27,6 @@ const (
 	// BuxyboxImage is a space efficient-image used for basic testing.
 	BusyboxImage = "docker.io/library/busybox:1.31.1"
 
-	// CassandraImage is the image used for testing of the cassandra proxy
-	// functionality in Cilium.
-	CassandraImage = "docker.io/library/cassandra:3.11.3"
-
 	// KafkaImage is the image used for setting up a multi-broker Kafka container.
 	KafkaImage = "docker.io/wurstmeister/kafka:2.11-0.11.0.3"
 )
@@ -46,6 +42,5 @@ var AllImages = map[string]struct{}{
 	KafkaClientImage:     {},
 	ZookeeperImage:       {},
 	BusyboxImage:         {},
-	CassandraImage:       {},
 	KafkaImage:           {},
 }
