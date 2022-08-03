@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package cmd
 
 import (
@@ -16,9 +14,12 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func Test_removeOldRouterState(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
 	const netnsName = "test-daemon-priv-0"
 
 	t.Run("test-1", func(t *testing.T) {

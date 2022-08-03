@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package bpf
 
 import (
@@ -21,10 +19,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/testutils"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
 
 type BPFPrivilegedTestSuite struct{}
 
@@ -45,6 +41,10 @@ func (v *TestValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *TestValue) DeepCopyMapValue() MapValue  { return &TestValue{v.Value} }
 
 var _ = Suite(&BPFPrivilegedTestSuite{})
+
+func (s *BPFPrivilegedTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+}
 
 var (
 	maxEntries = 16

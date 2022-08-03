@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package ipsec
 
 import (
@@ -17,6 +15,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -25,6 +24,10 @@ func Test(t *testing.T) { TestingT(t) }
 type IPSecSuitePrivileged struct{}
 
 var _ = Suite(&IPSecSuitePrivileged{})
+
+func (s *IPSecSuitePrivileged) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+}
 
 var (
 	path           = "ipsec_keys_test"

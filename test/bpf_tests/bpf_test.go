@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 //go:generate protoc --go_out=. trf.proto
 package bpftests
 
@@ -38,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 var (
@@ -51,6 +50,8 @@ var (
 )
 
 func TestBPF(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
 	if testPath == nil || *testPath == "" {
 		t.Fatal("-bpf-test-path is a required flag")
 	}

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package ipam
 
 import (
@@ -13,14 +11,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func Test_cleanupUnreachableRoutes(t *testing.T) {
-	check.TestingT(t)
+	testutils.PrivilegedTest(t)
+
 	RegisterTestingT(t)
 
 	// temporary network namespace to ensure routes don't interfere with test system

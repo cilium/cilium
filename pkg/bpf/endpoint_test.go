@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package bpf
 
 import (
 	"net"
-	"testing"
 
 	. "gopkg.in/check.v1"
 )
@@ -16,10 +13,6 @@ import (
 type BPFTestSuite struct{}
 
 var _ = Suite(&BPFTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 func (s *BPFTestSuite) TestEndpointKeyToString(c *C) {
 	tests := []struct {

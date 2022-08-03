@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package eppolicymap
 
 import (
@@ -20,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -32,6 +31,8 @@ type EPPolicyMapTestSuite struct{}
 var _ = Suite(&EPPolicyMapTestSuite{})
 
 func (e *EPPolicyMapTestSuite) SetUpTest(c *C) {
+	testutils.PrivilegedCheck(c)
+
 	MapName = "unit_test_ep_to_policy"
 	innerMapName = "unit_test_ep_policy_inner_map"
 	err := rlimit.RemoveMemlock()

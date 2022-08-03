@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package redirectpolicy
 
 import (
@@ -19,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -31,6 +30,10 @@ type ManagerSuite struct {
 }
 
 var _ = Suite(&ManagerSuite{})
+
+func (s *ManagerSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+}
 
 type fakeSvcManager struct {
 }

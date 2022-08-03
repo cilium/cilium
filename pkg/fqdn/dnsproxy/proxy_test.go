@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-// +build privileged_tests
-
 package dnsproxy
 
 import (
@@ -42,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
@@ -56,6 +54,10 @@ type DNSProxyTestSuite struct {
 	dnsServer    *dns.Server
 	proxy        *DNSProxy
 	restoring    bool
+}
+
+func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
 }
 
 func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {

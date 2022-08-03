@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package lbmap
 
 import (
@@ -15,6 +13,7 @@ import (
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -31,6 +30,8 @@ type MaglevSuite struct {
 var _ = Suite(&MaglevSuite{})
 
 func (s *MaglevSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+
 	vsn, err := version.GetKernelVersion()
 	c.Assert(err, IsNil)
 	constraint, err := versioncheck.Compile(">=4.11.0")

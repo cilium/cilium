@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package ctmap
 
 import (
-	"testing"
 	"unsafe"
 
 	. "gopkg.in/check.v1"
@@ -16,31 +13,30 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // Hook up gocheck into the "go test" runner.
-type CTMapTestSuite struct{}
+type CTMapPrivilegedTestSuite struct{}
 
-var _ = Suite(&CTMapTestSuite{})
+var _ = Suite(&CTMapPrivilegedTestSuite{})
 
 func init() {
 	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 }
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
+func (k *CTMapPrivilegedTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
 
-func (k *CTMapTestSuite) SetUpSuite(c *C) {
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 }
 
-func (k *CTMapTestSuite) Benchmark_MapUpdate(c *C) {
+func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 	m := newMap(MapNameTCP4Global+"_test", mapTypeIPv4TCPGlobal)
 	_, err := m.OpenOrCreate()
 	defer m.Map.Unpin()
@@ -99,7 +95,7 @@ func (k *CTMapTestSuite) Benchmark_MapUpdate(c *C) {
 
 // TestCtGcIcmp tests whether ICMP NAT entries are removed upon a removal of
 // their CT entry (GH#12625).
-func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
+func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
 	_, err := natMap.OpenOrCreate()
@@ -211,7 +207,7 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 }
 
 // TestOrphanNat checks whether dangling NAT entries are GC'd (GH#12686)
-func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
+func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
 	_, err := natMap.OpenOrCreate()

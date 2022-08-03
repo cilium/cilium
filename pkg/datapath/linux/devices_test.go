@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build linux && privileged_tests
+//go:build linux
 
 package linux
 
@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type DevicesSuite struct {
@@ -38,6 +39,8 @@ type DevicesSuite struct {
 var _ = Suite(&DevicesSuite{})
 
 func (s *DevicesSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+
 	var err error
 
 	s.prevConfigDevices = option.Config.GetDevices()

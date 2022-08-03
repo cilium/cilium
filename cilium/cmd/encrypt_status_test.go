@@ -1,25 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package cmd
 
 import (
 	"encoding/hex"
 	"net"
 	"runtime"
-	"testing"
+
+	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	. "gopkg.in/check.v1"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 type EncryptStatusSuite struct {
 	currentNetNS netns.NsHandle
@@ -28,6 +22,8 @@ type EncryptStatusSuite struct {
 var _ = Suite(&EncryptStatusSuite{})
 
 func (s *EncryptStatusSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+
 	var err error
 	s.currentNetNS, err = netns.Get()
 	c.Assert(err, IsNil)
