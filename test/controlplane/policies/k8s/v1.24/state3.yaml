@@ -1,0 +1,23 @@
+apiVersion: v1
+items:
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"knp-default-deny-egress","namespace":"policy3"},"spec":{"podSelector":{},"policyTypes":["Egress"]}}
+    creationTimestamp: "2022-08-03T14:36:06Z"
+    generation: 1
+    name: knp-default-deny-egress
+    namespace: policy3
+    resourceVersion: "660"
+    uid: 4234973e-2ce6-44c3-a9f2-d1a98995836e
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Egress
+  status: {}
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""

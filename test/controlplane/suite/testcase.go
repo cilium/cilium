@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8sTesting "k8s.io/client-go/testing"
 
+	"github.com/cilium/cilium/daemon/cmd"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	fakeCilium "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
@@ -90,6 +91,10 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*option.DaemonConfig)) *C
 	cpt.agentHandle = &agentHandle
 	cpt.Datapath = datapath
 	return cpt
+}
+
+func (cpt *ControlPlaneTest) GetAgent() *cmd.Daemon {
+	return cpt.agentHandle.d
 }
 
 func (cpt *ControlPlaneTest) StopAgent() {
