@@ -8,8 +8,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -23,6 +21,7 @@ import (
 	csv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	csv2a1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -304,8 +303,8 @@ func (c *CiliumEndpointSliceController) syncCES(key string) error {
 func ciliumEndpointSliceInit(client csv2a1.CiliumV2alpha1Interface, stopCh <-chan struct{}) cache.Store {
 	cesStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	cesController := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(client.RESTClient(),
-			capi_v2a1.CESPluralName, v1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*capi_v2a1.CiliumEndpointSliceList](
+			client.CiliumEndpointSlices()),
 		&capi_v2a1.CiliumEndpointSlice{},
 		0,
 		cache.ResourceEventHandlerFuncs{},

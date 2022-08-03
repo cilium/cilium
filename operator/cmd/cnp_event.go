@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -16,8 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/option"
@@ -70,8 +68,7 @@ func enableCNPWatcher() error {
 	}
 
 	ciliumV2Controller := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
-			v2.CNPPluralName, v1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNetworkPolicyList](ciliumK8sClient.CiliumV2().CiliumNetworkPolicies("")),
 		&cilium_v2.CiliumNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{

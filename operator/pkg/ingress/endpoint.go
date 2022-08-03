@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
 type endpointManager struct {
@@ -30,8 +31,9 @@ func newEndpointManager(maxRetries int) (*endpointManager, error) {
 
 	// setup store and informer only for endpoints having label cilium.io/ingress
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(), "endpoints",
-			v1.NamespaceAll, func(options *metav1.ListOptions) {
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](k8s.WatcherClient().CoreV1().Endpoints("")),
+			func(options *metav1.ListOptions) {
 				options.LabelSelector = ciliumIngressLabelKey
 			}),
 		&slim_corev1.Endpoints{},

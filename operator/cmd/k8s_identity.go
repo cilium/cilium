@@ -8,9 +8,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
@@ -22,6 +20,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -183,8 +182,7 @@ func startManagingK8sIdentities() {
 
 	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	identityInformer := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumK8sClient.CiliumV2().RESTClient(),
-			v2.CIDPluralName, v1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*v2.CiliumIdentityList](ciliumK8sClient.CiliumV2().CiliumIdentities()),
 		&v2.CiliumIdentity{},
 		0,
 		cache.ResourceEventHandlerFuncs{

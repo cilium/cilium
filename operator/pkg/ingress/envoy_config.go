@@ -25,7 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
@@ -35,6 +34,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
 const (
@@ -55,7 +55,7 @@ func newEnvoyConfigManager(maxRetries int) (*envoyConfigManager, error) {
 
 	// setup store and informer only for endpoints having label cilium.io/ingress
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(), v2.CECPluralName, corev1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*v2.CiliumEnvoyConfigList](k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(corev1.NamespaceAll)),
 		&v2.CiliumEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{},
