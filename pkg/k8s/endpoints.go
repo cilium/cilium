@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -36,7 +37,7 @@ type Endpoints struct {
 	// Backends is a map containing all backend IPs and ports. The key to
 	// the map is the backend IP in string form. The value defines the list
 	// of ports for that backend IP, plus an additional optional node name.
-	Backends map[string]*Backend
+	Backends map[cmtypes.IPCluster]*Backend
 }
 
 // DeepEqual returns true if both endpoints are deep equal.
@@ -70,9 +71,9 @@ func (e *Endpoints) String() string {
 	}
 
 	backends := []string{}
-	for ip, be := range e.Backends {
+	for ipCluster, be := range e.Backends {
 		for _, port := range be.Ports {
-			backends = append(backends, fmt.Sprintf("%s/%s", net.JoinHostPort(ip, strconv.Itoa(int(port.Port))), port.Protocol))
+			backends = append(backends, fmt.Sprintf("%s/%s", net.JoinHostPort(ipCluster.IPString(), strconv.Itoa(int(port.Port))), port.Protocol))
 		}
 	}
 
@@ -84,7 +85,7 @@ func (e *Endpoints) String() string {
 // newEndpoints returns a new Endpoints
 func newEndpoints() *Endpoints {
 	return &Endpoints{
-		Backends: map[string]*Backend{},
+		Backends: map[cmtypes.IPCluster]*Backend{},
 	}
 }
 
@@ -92,8 +93,8 @@ func newEndpoints() *Endpoints {
 func (e *Endpoints) CIDRPrefixes() ([]*net.IPNet, error) {
 	prefixes := make([]string, len(e.Backends))
 	index := 0
-	for ip := range e.Backends {
-		prefixes[index] = ip
+	for ipCluster := range e.Backends {
+		prefixes[index] = ipCluster.IPString()
 		index++
 	}
 
@@ -119,10 +120,10 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
 
 	for _, sub := range ep.Subsets {
 		for _, addr := range sub.Addresses {
-			backend, ok := endpoints.Backends[addr.IP]
+			backend, ok := endpoints.Backends[cmtypes.NewIPCluster(addr.IP, 0)]
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[addr.IP] = backend
+				endpoints.Backends[cmtypes.NewIPCluster(addr.IP, 0)] = backend
 			}
 
 			if addr.NodeName != nil {
@@ -187,10 +188,10 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 			continue
 		}
 		for _, addr := range sub.Addresses {
-			backend, ok := endpoints.Backends[addr]
+			backend, ok := endpoints.Backends[cmtypes.NewIPCluster(addr, 0)]
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[addr] = backend
+				endpoints.Backends[cmtypes.NewIPCluster(addr, 0)] = backend
 				if nodeName, ok := sub.Topology["kubernetes.io/hostname"]; ok {
 					backend.NodeName = nodeName
 				}
@@ -269,10 +270,10 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 			continue
 		}
 		for _, addr := range sub.Addresses {
-			backend, ok := endpoints.Backends[addr]
+			backend, ok := endpoints.Backends[cmtypes.NewIPCluster(addr, 0)]
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[addr] = backend
+				endpoints.Backends[cmtypes.NewIPCluster(addr, 0)] = backend
 				if sub.NodeName != nil {
 					backend.NodeName = *sub.NodeName
 				} else {

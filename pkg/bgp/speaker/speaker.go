@@ -382,9 +382,9 @@ func convertInternalEndpoints(in *k8s.Endpoints) *metallbspr.Endpoints {
 		return nil
 	}
 	out := new(metallbspr.Endpoints)
-	for ip, be := range in.Backends {
+	for ipCluster, be := range in.Backends {
 		ep := metallbspr.Endpoint{
-			IP:       ip,
+			IP:       ipCluster.IPString(),
 			NodeName: &be.NodeName,
 		}
 		out.Ready = append(out.Ready, ep)

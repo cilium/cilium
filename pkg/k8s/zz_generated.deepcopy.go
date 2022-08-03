@@ -12,6 +12,7 @@ import (
 	net "net"
 
 	cidr "github.com/cilium/cilium/pkg/cidr"
+	types "github.com/cilium/cilium/pkg/clustermesh/types"
 	loadbalancer "github.com/cilium/cilium/pkg/loadbalancer"
 	store "github.com/cilium/cilium/pkg/service/store"
 )
@@ -57,7 +58,7 @@ func (in *Endpoints) DeepCopyInto(out *Endpoints) {
 	*out = *in
 	if in.Backends != nil {
 		in, out := &in.Backends, &out.Backends
-		*out = make(map[string]*Backend, len(*in))
+		*out = make(map[types.IPCluster]*Backend, len(*in))
 		for key, val := range *in {
 			var outVal *Backend
 			if val == nil {
