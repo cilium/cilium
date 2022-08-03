@@ -186,7 +186,7 @@ github.com/cilium/ipam/service/ipallocator
 # github.com/cilium/lumberjack/v2 v2.2.2
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20220525133153-3b70fad0b951
+# github.com/cilium/proxy v0.0.0-20220803100640-5739e4be8ae7
 ## explicit; go 1.13
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3
