@@ -3,7 +3,7 @@
 
 //go:build ipam_provider_aws
 
-package main
+package cmd
 
 import (
 	"github.com/spf13/viper"

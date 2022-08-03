@@ -3,7 +3,7 @@
 
 //go:build ipam_provider_azure
 
-package main
+package cmd
 
 import (
 	// These dependencies should be included only when this file is included in the build.

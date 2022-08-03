@@ -3,7 +3,7 @@
 
 //go:build !privileged_tests
 
-package main
+package cmd
 
 import (
 	"reflect"
