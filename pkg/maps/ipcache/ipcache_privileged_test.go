@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package ipcache
 
 import (
@@ -14,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -31,6 +30,8 @@ func Test(t *testing.T) {
 }
 
 func (k *IPCacheMapTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+
 	logging.SetLogLevelToDebug()
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()

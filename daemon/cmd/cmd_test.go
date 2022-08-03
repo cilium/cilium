@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package eni
+package cmd
 
 import (
 	"testing"
@@ -9,10 +9,4 @@ import (
 	"gopkg.in/check.v1"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type ENISuite struct{}
-
-var _ = check.Suite(&ENISuite{})
+func Test(t *testing.T) { check.TestingT(t) }

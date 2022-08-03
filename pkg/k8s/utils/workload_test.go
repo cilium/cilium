@@ -7,8 +7,6 @@
 // https://github.com/istio/istio/blob/1aca7a67afd7b3e1d24fafb2fbfbeaf1e41534c0/pkg/kube/util_test.go
 // and have been modified to work with our version of GetWorkloadMetaFromPod.
 
-//go:build !privileged_tests
-
 package utils
 
 import (

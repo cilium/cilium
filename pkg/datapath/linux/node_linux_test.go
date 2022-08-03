@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package linux
 
 import (
@@ -12,7 +10,6 @@ import (
 	"net"
 	"runtime"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -36,10 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
 type linuxPrivilegedBaseTestSuite struct {
 	nodeAddressing types.NodeAddressing
 	mtuConfig      mtu.Configuration
@@ -53,17 +46,29 @@ type linuxPrivilegedIPv6OnlyTestSuite struct {
 
 var _ = check.Suite(&linuxPrivilegedIPv6OnlyTestSuite{})
 
+func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpSuite(c *check.C) {
+	testutils.PrivilegedCheck(c)
+}
+
 type linuxPrivilegedIPv4OnlyTestSuite struct {
 	linuxPrivilegedBaseTestSuite
 }
 
 var _ = check.Suite(&linuxPrivilegedIPv4OnlyTestSuite{})
 
+func (s *linuxPrivilegedIPv4OnlyTestSuite) SetUpSuite(c *check.C) {
+	testutils.PrivilegedCheck(c)
+}
+
 type linuxPrivilegedIPv4AndIPv6TestSuite struct {
 	linuxPrivilegedBaseTestSuite
 }
 
 var _ = check.Suite(&linuxPrivilegedIPv4AndIPv6TestSuite{})
+
+func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpSuite(c *check.C) {
+	testutils.PrivilegedCheck(c)
+}
 
 const (
 	dummyHostDeviceName     = "dummy_host"

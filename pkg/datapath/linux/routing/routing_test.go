@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package linuxrouting
 
 import (
@@ -19,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func Test(t *testing.T) {
@@ -28,6 +27,10 @@ func Test(t *testing.T) {
 type LinuxRoutingSuite struct{}
 
 var _ = Suite(&LinuxRoutingSuite{})
+
+func (s *LinuxRoutingSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+}
 
 func (e *LinuxRoutingSuite) TestConfigure(c *C) {
 	ip, ri := getFakes(c)

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package config
 
 import (
@@ -44,6 +42,8 @@ var (
 )
 
 func (s *ConfigSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+
 	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 }
 

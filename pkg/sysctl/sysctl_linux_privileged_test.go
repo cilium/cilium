@@ -1,24 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build linux && privileged_tests
+//go:build linux
 
 package sysctl
 
 import (
-	"testing"
+	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
 type SysctlLinuxPrivilegedTestSuite struct{}
 
 var _ = Suite(&SysctlLinuxPrivilegedTestSuite{})
+
+func (s *SysctlLinuxPrivilegedTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+}
 
 func (s *SysctlLinuxPrivilegedTestSuite) TestWriteSysctl(c *C) {
 	testCases := []struct {

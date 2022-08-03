@@ -12,10 +12,6 @@ run:
   # include test files or not, default is true
   tests: true
 
-  # list of build tags, all linters use it. Default is empty list.
-  build-tags:
-    - !privileged_tests
-
   # default is true. Enables skipping of directories:
   #   vendor$, third_party$, testdata$, examples$, Godeps$, builtin$
   skip-dirs-use-default: true

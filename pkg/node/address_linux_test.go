@@ -1,29 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !darwin && privileged_tests
+//go:build !darwin
 
 package node
 
 import (
 	"fmt"
 	"net"
-	"testing"
+
+	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
 )
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
 type NodePrivilegedSuite struct{}
 
 var _ = Suite(&NodePrivilegedSuite{})
 
-func (s *NodePrivilegedSuite) SetUpTest(c *C) {
-
+func (s *NodePrivilegedSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
 }
 
 func (s *NodePrivilegedSuite) Test_firstGlobalV4Addr(c *C) {

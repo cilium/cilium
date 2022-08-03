@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package policymap
 
 import (
@@ -21,22 +19,21 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-policy")
 
-func Test(t *testing.T) {
-	TestingT(t)
+type PolicyMapPrivilegedTestSuite struct{}
+
+var _ = Suite(&PolicyMapPrivilegedTestSuite{})
+
+func (s *PolicyMapPrivilegedTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
 }
 
-type PolicyMapTestSuite struct{}
-
-var (
-	_ = Suite(&PolicyMapTestSuite{})
-
-	testMap = newMap("cilium_policy_test")
-)
+var testMap = newMap("cilium_policy_test")
 
 func runTests(m *testing.M) (int, error) {
 	bpf.CheckOrMountFS("")
@@ -66,11 +63,11 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-func (pm *PolicyMapTestSuite) TearDownTest(c *C) {
+func (pm *PolicyMapPrivilegedTestSuite) TearDownTest(c *C) {
 	testMap.DeleteAll()
 }
 
-func (pm *PolicyMapTestSuite) TestPolicyMapDumpToSlice(c *C) {
+func (pm *PolicyMapPrivilegedTestSuite) TestPolicyMapDumpToSlice(c *C) {
 	c.Assert(testMap, NotNil)
 
 	fooEntry := newKey(1, 1, 1, 1)
@@ -96,7 +93,7 @@ func (pm *PolicyMapTestSuite) TestPolicyMapDumpToSlice(c *C) {
 	c.Assert(len(dump), Equals, 2)
 }
 
-func (pm *PolicyMapTestSuite) TestDeleteNonexistentKey(c *C) {
+func (pm *PolicyMapPrivilegedTestSuite) TestDeleteNonexistentKey(c *C) {
 	key := newKey(27, 80, u8proto.ANY, trafficdirection.Ingress)
 	err := testMap.Map.Delete(&key)
 	c.Assert(err, Not(IsNil))
@@ -105,7 +102,7 @@ func (pm *PolicyMapTestSuite) TestDeleteNonexistentKey(c *C) {
 	c.Assert(errno, Equals, unix.ENOENT)
 }
 
-func (pm *PolicyMapTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
+func (pm *PolicyMapPrivilegedTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
 	c.Assert(testMap, NotNil)
 
 	fooEntry := newKey(1, 1, 1, 1)
