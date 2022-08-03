@@ -90,6 +90,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		tests.PodToService(),
 		tests.PodToRemoteNodePort(),
 		tests.PodToLocalNodePort(),
+		tests.PodToHostPort(),
 		tests.PodToWorld(),
 		tests.PodToHost(),
 		tests.PodToExternalWorkload(),
