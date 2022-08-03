@@ -5,62 +5,61 @@ package policymap
 
 import (
 	"errors"
-	"fmt"
 	"os"
-	"testing"
 
 	"golang.org/x/sys/unix"
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/ebpf/rlimit"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
+
+	"github.com/cilium/ebpf/rlimit"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-policy")
-
-type PolicyMapPrivilegedTestSuite struct{}
-
-var _ = Suite(&PolicyMapPrivilegedTestSuite{})
-
-func (s *PolicyMapPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
-}
 
 var testMap = newMap("cilium_policy_test")
 
-func runTests(m *testing.M) (int, error) {
+type PolicyMapPrivilegedTestSuite struct {
+	teardown func() error
+}
+
+var _ = Suite(&PolicyMapPrivilegedTestSuite{})
+
+func (pm *PolicyMapPrivilegedTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+
 	bpf.CheckOrMountFS("")
+
 	if err := rlimit.RemoveMemlock(); err != nil {
-		return 1, fmt.Errorf("Failed to configure rlimit")
+		c.Fatal(err)
 	}
 
 	_ = os.RemoveAll(bpf.MapPath("cilium_policy_test"))
 	_, err := testMap.OpenOrCreate()
 	if err != nil {
-		return 1, fmt.Errorf("Failed to create map")
+		c.Fatal("Failed to create map:", err)
 	}
-	defer func() {
-		path, _ := testMap.Path()
-		os.Remove(path)
-	}()
-	defer testMap.Close()
 
-	return m.Run(), nil
+	pm.teardown = func() error {
+		testMap.Close()
+
+		path, err := testMap.Path()
+		if err != nil {
+			return err
+		}
+
+		return os.Remove(path)
+	}
 }
 
-func TestMain(m *testing.M) {
-	exitCode, err := runTests(m)
-	if err != nil {
-		log.Fatal(err)
+func (pm *PolicyMapPrivilegedTestSuite) TearDownSuite(c *C) {
+	if pm.teardown != nil {
+		if err := pm.teardown(); err != nil {
+			c.Fatal(err)
+		}
 	}
-	os.Exit(exitCode)
 }
 
 func (pm *PolicyMapPrivilegedTestSuite) TearDownTest(c *C) {
