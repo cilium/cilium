@@ -605,8 +605,8 @@ endif
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
 	$(QUIET) contrib/scripts/check-log-newlines.sh
-	@$(ECHO_CHECK) contrib/scripts/check-missing-tags-in-tests.sh
-	$(QUIET) contrib/scripts/check-missing-tags-in-tests.sh
+	@$(ECHO_CHECK) contrib/scripts/check-privileged-tests-tags.sh
+	$(QUIET) contrib/scripts/check-privileged-tests-tags.sh
 	@$(ECHO_CHECK) contrib/scripts/check-assert-deep-equals.sh
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
