@@ -32,7 +32,11 @@ import (
 // rare case where an Availability Zone is experiencing a service disruption and
 // you specify instance IDs that are in the affected zone, or do not specify any
 // instance IDs at all, the call fails. If you describe instances and specify only
-// instance IDs that are in an unaffected zone, the call works normally.
+// instance IDs that are in an unaffected zone, the call works normally. We are
+// retiring EC2-Classic on August 15, 2022. We recommend that you migrate from
+// EC2-Classic to a VPC. For more information, see Migrate from EC2-Classic to a
+// VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in
+// the Amazon EC2 User Guide.
 func (c *Client) DescribeInstances(ctx context.Context, params *DescribeInstancesInput, optFns ...func(*Options)) (*DescribeInstancesOutput, error) {
 	if params == nil {
 		params = &DescribeInstancesInput{}

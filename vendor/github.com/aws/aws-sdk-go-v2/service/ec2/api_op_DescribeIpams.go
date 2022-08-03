@@ -13,7 +13,8 @@ import (
 )
 
 // Get information about your IPAM pools. For more information, see What is IPAM?
-// in the Amazon VPC IPAM User Guide.
+// (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html) in the Amazon
+// VPC IPAM User Guide.
 func (c *Client) DescribeIpams(ctx context.Context, params *DescribeIpamsInput, optFns ...func(*Options)) (*DescribeIpamsOutput, error) {
 	if params == nil {
 		params = &DescribeIpamsInput{}

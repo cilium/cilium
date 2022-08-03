@@ -59,6 +59,9 @@ type CreateTransitGatewayPeeringAttachmentInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
+	// Requests a transit gateway peering attachment.
+	Options *types.CreateTransitGatewayPeeringAttachmentRequestOptions
+
 	// The tags to apply to the transit gateway peering attachment.
 	TagSpecifications []types.TagSpecification
 

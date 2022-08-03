@@ -16,7 +16,9 @@ import (
 // can use to automate your IP address management workflows including assigning,
 // tracking, troubleshooting, and auditing IP addresses across Amazon Web Services
 // Regions and accounts throughout your Amazon Web Services Organization. For more
-// information, see Create an IPAM in the Amazon VPC IPAM User Guide.
+// information, see Create an IPAM
+// (https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html) in the Amazon VPC
+// IPAM User Guide.
 func (c *Client) CreateIpam(ctx context.Context, params *CreateIpamInput, optFns ...func(*Options)) (*CreateIpamOutput, error) {
 	if params == nil {
 		params = &CreateIpamInput{}
@@ -52,7 +54,8 @@ type CreateIpamInput struct {
 	// Regions where the IPAM is allowed to manage IP address CIDRs. IPAM only
 	// discovers and monitors resources in the Amazon Web Services Regions you select
 	// as operating Regions. For more information about operating Regions, see Create
-	// an IPAM in the Amazon VPC IPAM User Guide.
+	// an IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html) in the
+	// Amazon VPC IPAM User Guide.
 	OperatingRegions []types.AddIpamOperatingRegion
 
 	// The key/value combination of a tag assigned to the resource. Use the tag key in

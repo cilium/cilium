@@ -15,8 +15,9 @@ import (
 // deleting the resource, set its monitored state to false using
 // ModifyIpamResourceCidr
 // (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyIpamResourceCidr.html).
-// For more information, see Release an allocation in the Amazon VPC IPAM User
-// Guide.
+// For more information, see Release an allocation
+// (https://docs.aws.amazon.com/vpc/latest/ipam/release-pool-alloc-ipam.html) in
+// the Amazon VPC IPAM User Guide.
 func (c *Client) ReleaseIpamPoolAllocation(ctx context.Context, params *ReleaseIpamPoolAllocationInput, optFns ...func(*Options)) (*ReleaseIpamPoolAllocationOutput, error) {
 	if params == nil {
 		params = &ReleaseIpamPoolAllocationInput{}
