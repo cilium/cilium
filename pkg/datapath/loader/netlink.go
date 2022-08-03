@@ -119,6 +119,11 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progName, direction s
 		l.Debug("Retrying loading Collection into kernel after map migration")
 		coll, err = bpf.LoadCollection(spec, opts)
 	}
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		//TODO: Write this to a file in endpoint directory instead.
+		l.Debugf("Got verifier error: %+v", ve)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error loading eBPF collection into the kernel: %w", err)
 	}
