@@ -166,10 +166,10 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	}
 #endif /* ENABLE_ICMP_RULE */
 
-	/* L4 lookup can't be done on untracked fragments. */
-
 	/* Start with L3/L4 lookup. */
 	l3policy = map_lookup_elem(map, &key);
+
+	/* L4 lookup can't be done on untracked fragments. */
 	if (likely(!is_untracked_fragment && l3policy && !l3policy->wildcarded_port)) {
 		cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
 			    dport << 16 | proto);
@@ -180,9 +180,12 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 			return DROP_POLICY_DENY;
 		return l3policy->proxy_port;
 	}
+
 	/* L4-only lookup. */
 	key.sec_label = 0;
 	l4policy = map_lookup_elem(map, &key);
+
+	/* L4 lookup can't be done on untracked fragments. */
 	if (likely(!is_untracked_fragment && l4policy && !l4policy->wildcarded_port)) {
 		account(ctx, l4policy);
 		*match_type = POLICY_MATCH_L4_ONLY;

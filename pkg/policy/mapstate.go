@@ -80,9 +80,11 @@ func (k Key) IsEgress() bool {
 // IsEgress returns true if the key refers to an egress policy key
 func (k Key) ToBPFKey() policymap.PolicyKey {
 	// Convert from policy.Key to policymap.Key
-	prefixLen := uint16(16)
-	if k.DestPort == 0 {
+	prefixLen := uint16(8 + 16)
+	if k.DestPort == 0 && k.Nexthdr == 0 {
 		prefixLen = 0
+	} else if k.DestPort == 0 {
+		prefixLen = 8
 	}
 	return policymap.PolicyKey{
 		Prefixlen:        policymap.GetPrefixLen(prefixLen),

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+CILIUM_BIN=${CILIUM:-/usr/bin/cilium}
 CILIUM_FILES="cilium-files"
 DUMP_FILE=$(mktemp)
 MONITOR_PID=""
@@ -81,7 +82,7 @@ function monitor_start {
   local save=$-
   set +e
   log "starting monitor and dumping contents to $DUMP_FILE"
-  cilium monitor -v $@ > $DUMP_FILE &
+  ${CILIUM_BIN} monitor --debug -vv $@ > $DUMP_FILE &
   MONITOR_PID=$!
   restore_flag $save "e"
 }
@@ -90,7 +91,7 @@ function monitor_resume {
   local save=$-
   set +e
   log "resuming monitor and dumping contents to $DUMP_FILE"
-  cilium monitor -v $@ >> $DUMP_FILE &
+  ${CILIUM_BIN} monitor -v $@ >> $DUMP_FILE &
   MONITOR_PID=$!
   restore_flag $save "e"
 }
@@ -134,9 +135,9 @@ function abort {
   echo "------------------------------------------------------------------------"
 
   if [ ! -z "$DEBUG" ]; then
-    cilium status
-    cilium endpoint list
-    cilium policy get
+    ${CILIUM_BIN} status
+    ${CILIUM_BIN} endpoint list
+    ${CILIUM_BIN} policy get
     read -n 1 -p "Press any key to continue..."
   fi
 
@@ -188,8 +189,8 @@ function wait_for_endpoints {
   set +e
   check_num_params "$#" "1"
   local NUM_DESIRED="$1"
-  local CMD="cilium endpoint list | grep -v -e \"not-ready\" -e \"reserved\" | grep ready -c || true"
-  local INFO_CMD="cilium endpoint list"
+  local CMD="${CILIUM_BIN} endpoint list | grep -v -e \"not-ready\" -e \"reserved\" | grep ready -c || true"
+  local INFO_CMD="${CILIUM_BIN} endpoint list"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for $NUM_DESIRED endpoints"
   log "waiting for up to ${MAX_MINS} mins for ${NUM_DESIRED} endpoints to be in \"ready\" state"
@@ -202,8 +203,8 @@ function wait_for_endpoints_deletion {
   local save=$-
   set +e
   local NUM_DESIRED="2" # When no endpoints are present there should be two lines only.
-  local CMD="cilium endpoint list | grep -v \"reserved\" | wc -l || true"
-  local INFO_CMD="cilium endpoint list"
+  local CMD="${CILIUM_BIN} endpoint list | grep -v \"reserved\" | wc -l || true"
+  local INFO_CMD="${CILIUM_BIN} endpoint list"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for endpoint removal"
   log "waiting for up to ${MAX_MINS} mins for all endpoints to be removed"
@@ -265,7 +266,7 @@ function wait_for_k8s_endpoints {
 
 function wait_for_cilium_status {
   local NUM_DESIRED="1"
-  local CMD="cilium status | grep 'Cilium:' | grep -c OK || true"
+  local CMD="${CILIUM_BIN} status | grep 'Cilium:' | grep -c OK || true"
   local INFO_CMD="true"
   local MAX_MINS="1"
   local ERROR_OUTPUT="Timeout while waiting for Cilium to be ready"
@@ -303,8 +304,8 @@ function wait_for_cilium_ep_gen {
     CMD="kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | grep -c regenerat"
     INFO_CMD="kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list"
   else
-    CMD="cilium endpoint list | grep -c regenerat"
-    INFO_CMD="cilium endpoint list"
+    CMD="${CILIUM_BIN} endpoint list | grep -c regenerat"
+    INFO_CMD="${CILIUM_BIN} endpoint list"
   fi
 
   local NUM_DESIRED="0"
@@ -375,8 +376,8 @@ function wait_for_daemon_set_not_ready {
 function wait_for_policy_enforcement {
   check_num_params "$#" "1"
   local NUM_DESIRED="$1"
-  local CMD="cilium endpoint list | grep -c Disabled"
-  local INFO_CMD="cilium endpoint list"
+  local CMD="${CILIUM_BIN} endpoint list | grep -c Disabled"
+  local INFO_CMD="${CILIUM_BIN} endpoint list"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for policy to be enabled for all endpoints"
   wait_for_desired_state "$NUM_DESIRED" "$CMD" "$INFO_CMD" "$MAX_MINS" "$ERROR_OUTPUT"
@@ -570,28 +571,28 @@ function gather_files {
 function dump_cli_output {
   check_num_params "$#" "1"
   local DIR=$1
-  cilium endpoint list > ${DIR}/endpoint_list.txt
-  local EPS=$(cilium endpoint list | tail -n+3 | grep '^[0-9]' | awk '{print $1}')
+  ${CILIUM_BIN} endpoint list > ${DIR}/endpoint_list.txt
+  local EPS=$(${CILIUM_BIN} endpoint list | tail -n+3 | grep '^[0-9]' | awk '{print $1}')
   for ep in ${EPS} ; do
-    cilium endpoint get ${ep} > ${DIR}/endpoint_get_${ep}.txt
-    cilium bpf policy get ${ep} > ${DIR}/bpf_policy_list_${ep}.txt
+    ${CILIUM_BIN} endpoint get ${ep} > ${DIR}/endpoint_get_${ep}.txt
+    ${CILIUM_BIN} bpf policy get ${ep} > ${DIR}/bpf_policy_list_${ep}.txt
   done
-  cilium service list > ${DIR}/service_list.txt
-  local SVCS=$(cilium service list | tail -n+2 | awk '{print $1}')
+  ${CILIUM_BIN} service list > ${DIR}/service_list.txt
+  local SVCS=$(${CILIUM_BIN} service list | tail -n+2 | awk '{print $1}')
   for svc in ${SVCS} ; do
-    cilium service get ${svc} > ${DIR}/service_get_${svc}.txt
+    ${CILIUM_BIN} service get ${svc} > ${DIR}/service_get_${svc}.txt
   done
-  local IDS=$(cilium endpoint list | tail -n+3 | awk '{print $4}' | grep -o '[0-9]*')
+  local IDS=$(${CILIUM_BIN} endpoint list | tail -n+3 | awk '{print $4}' | grep -o '[0-9]*')
   for id in ${IDS} ; do
-    cilium identity get ${id} > ${DIR}/identity_get_${id}.txt
+    ${CILIUM_BIN} identity get ${id} > ${DIR}/identity_get_${id}.txt
   done
-  cilium config > ${DIR}/config.txt
-  cilium bpf lb list > ${DIR}/bpf_lb_list.txt
-  cilium bpf ct list global > ${DIR}/bpf_ct_list_global.txt
-  cilium bpf tunnel list > ${DIR}/bpf_tunnel_list.txt
-  cilium policy get > ${DIR}/policy_get.txt
-  cilium status > ${DIR}/status.txt
-  cilium debuginfo -f ${DIR}/debuginfo.txt
+  ${CILIUM_BIN} config > ${DIR}/config.txt
+  ${CILIUM_BIN} bpf lb list > ${DIR}/bpf_lb_list.txt
+  ${CILIUM_BIN} bpf ct list global > ${DIR}/bpf_ct_list_global.txt
+  ${CILIUM_BIN} bpf tunnel list > ${DIR}/bpf_tunnel_list.txt
+  ${CILIUM_BIN} policy get > ${DIR}/policy_get.txt
+  ${CILIUM_BIN} status > ${DIR}/status.txt
+  ${CILIUM_BIN} debuginfo -f ${DIR}/debuginfo.txt
   cilium-bugtool -t ${DIR}
 }
 
@@ -790,14 +791,14 @@ function k8s_apply_policy {
 
 function policy_delete_and_wait {
   log "deleting policy $* and waiting up to 120 seconds to complete"
-  rev=$(cilium policy delete $* | grep Revision: | awk '{print $2}')
-  timeout 120s cilium policy wait $rev
+  rev=$(${CILIUM_BIN} policy delete $* | grep Revision: | awk '{print $2}')
+  timeout 120s ${CILIUM_BIN} policy wait $rev
 }
 
 function policy_import_and_wait {
   log "importing policy $* and waiting up to 120 seconds to complete"
-  rev=$(cilium policy import $* | grep Revision: | awk '{print $2}')
-  timeout 120s cilium policy wait $rev
+  rev=$(${CILIUM_BIN} policy import $* | grep Revision: | awk '{print $2}')
+  timeout 120s ${CILIUM_BIN} policy wait $rev
 }
 
 function get_vm_identity_file {
