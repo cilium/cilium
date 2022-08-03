@@ -283,9 +283,7 @@ jenkinsfiles @cilium/ci-structure
 # L7 proxy tests
 /test/k8s/fqdn.go @cilium/proxy @cilium/ci-structure
 /test/k8s/kafka_policies.go @cilium/proxy @cilium/ci-structure
-/test/runtime/cassandra.go @cilium/proxy @cilium/ci-structure
 /test/runtime/fqdn.go @cilium/proxy @cilium/ci-structure
-/test/runtime/kafka.go @cilium/proxy @cilium/ci-structure
 # Standalone L4LB tests
 /test/l4lb @cilium/sig-lb @cilium/ci-structure
 /test/nat46x64 @cilium/sig-lb @cilium/ci-structure
