@@ -55,3 +55,50 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 }
+
+// PodToHostPort sends an HTTP request from all client Pods
+// to all echo Services' HostPorts.
+func PodToHostPort() check.Scenario {
+	return &podToHostPort{}
+}
+
+// podToHostPort implements a ConditionalScenario.
+type podToHostPort struct{}
+
+func (s *podToHostPort) Name() string {
+	return "pod-to-hostport"
+}
+
+func (s *podToHostPort) Requirements() []check.FeatureRequirement {
+	return []check.FeatureRequirement{
+		check.RequireFeatureEnabled(check.FeatureHostPort),
+	}
+}
+
+func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
+	var i int
+
+	for _, client := range t.Context().ClientPods() {
+		client := client // copy to avoid memory aliasing when using reference
+
+		for _, echo := range t.Context().EchoPods() {
+			echo := echo // copy to avoid memory aliasing when using reference
+
+			baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), echo.Pod.Status.HostIP, check.EchoServerHostPort, echo.Path())
+			ep := check.HTTPEndpoint(echo.Name(), baseURL)
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, curl(ep))
+
+				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
+					// Because the HostPort request is NATed, we might only
+					// observe flows after DNAT has been applied (e.g. by
+					// HostReachableServices),
+					AltDstIP:   echo.Address(),
+					AltDstPort: echo.Port(),
+				}))
+			})
+
+			i++
+		}
+	}
+}
