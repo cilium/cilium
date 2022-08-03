@@ -36,7 +36,7 @@ encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	ctx_store_meta(ctx, CB_ENCRYPT_MAGIC, or_encrypt_key(key));
 	ctx_store_meta(ctx, CB_ENCRYPT_IDENTITY, seclabel);
 	ctx_store_meta(ctx, CB_ENCRYPT_DST, tunnel_endpoint);
-	return IPSEC_ENDPOINT;
+	return CTX_ACT_OK;
 }
 
 static __always_inline int
@@ -53,7 +53,7 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	set_encrypt_key_mark(ctx, key);
 	set_identity_mark(ctx, seclabel);
 	ctx_store_meta(ctx, CB_ENCRYPT_DST, tunnel_endpoint);
-	return IPSEC_ENDPOINT;
+	return CTX_ACT_OK;
 }
 #endif /* ENABLE_IPSEC */
 
@@ -166,9 +166,9 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	return ctx_redirect(ctx, ENCAP_IFINDEX, 0);
 }
 
-/* encap_and_redirect_with_nodeid returns IPSEC_ENDPOINT after ctx meta-data is
- * set when IPSec is enabled. Caller should pass the ctx to the stack at this
- * point. Otherwise returns CTX_ACT_TX on successful redirect to tunnel device.
+/* encap_and_redirect_with_nodeid returns CTX_ACT_OK after ctx meta-data is
+ * set (eg. when IPSec is enabled). Caller should pass the ctx to the stack at this
+ * point. Otherwise returns CTX_ACT_REDIRECT on successful redirect to tunnel device.
  * On error returns CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR.
  */
 static __always_inline int
@@ -190,9 +190,9 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  * packet is redirected to output tunnel device and ctx will not be seen by
  * IP stack.
  *
- * Returns IPSEC_ENDPOINT when ctx needs to be handed to IP stack for IPSec
- * handling, CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR on error,
- * and finally on successful redirect returns CTX_ACT_TX.
+ * Returns CTX_ACT_OK when ctx needs to be handed to IP stack (eg. for IPSec
+ * handling), CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR on error,
+ * and finally on successful redirect returns CTX_ACT_REDIRECT.
  */
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,

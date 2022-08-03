@@ -510,7 +510,7 @@ ct_recreate6:
 		 */
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
 					     &key, SECLABEL, *dst_id, &trace);
-		if (ret == IPSEC_ENDPOINT)
+		if (ret == CTX_ACT_OK)
 			goto encrypt_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
@@ -1043,7 +1043,7 @@ ct_recreate4:
 		 */
 		ret = encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
 					     &key, SECLABEL, *dst_id, &trace);
-		if (ret == IPSEC_ENDPOINT)
+		if (ret == CTX_ACT_OK)
 			goto encrypt_to_stack;
 		else
 			return ret;
@@ -1097,7 +1097,7 @@ skip_vtep:
 		/* If not redirected noteably due to IPSEC then pass up to stack
 		 * for further processing.
 		 */
-		else if (ret == IPSEC_ENDPOINT)
+		else if (ret == CTX_ACT_OK)
 			goto encrypt_to_stack;
 		/* This is either redirect by encap code or an error has
 		 * occurred either way return and stack will consume ctx.
