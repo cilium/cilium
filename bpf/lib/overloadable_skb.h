@@ -138,16 +138,23 @@ ctx_skip_host_fw(struct __sk_buff *ctx)
 }
 #endif /* ENABLE_HOST_FIREWALL */
 
-static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx)
+static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
+							 __u32 off)
 {
 	__u32 *data_meta = ctx_data_meta(ctx);
 	void *data = ctx_data(ctx);
 
-	return !ctx_no_room(data_meta + 1, data) ? data_meta[0] : 0;
+	return !ctx_no_room(data_meta + off + 1, data) ? data_meta[off] : 0;
 }
 
 static __always_inline __maybe_unused void
 ctx_set_xfer(struct __sk_buff *ctx __maybe_unused, __u32 meta __maybe_unused)
+{
+	/* Only possible from XDP -> SKB. */
+}
+
+static __always_inline __maybe_unused void
+ctx_move_xfer(struct __sk_buff *ctx __maybe_unused)
 {
 	/* Only possible from XDP -> SKB. */
 }

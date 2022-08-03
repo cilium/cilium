@@ -65,6 +65,11 @@
 /* XDP to SKB transferred meta data. */
 #define XFER_PKT_NO_SVC		1 /* Skip upper service handling. */
 
+/* For use in ctx_get_xfer(), after XDP called ctx_move_xfer(). */
+enum {
+	XFER_FLAGS = 0,		/* XFER_PKT_* */
+};
+
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
  * the below, that script should also be updated.
  */
