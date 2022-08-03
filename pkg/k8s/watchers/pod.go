@@ -245,10 +245,10 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		logfields.K8sNamespace: newK8sPod.ObjectMeta.Namespace,
 		"new-podIP":            newK8sPod.Status.PodIP,
 		"new-podIPs":           newK8sPod.Status.PodIPs,
-		"new-hostIP":           newK8sPod.Status.PodIP,
+		"new-hostIP":           newK8sPod.Status.HostIP,
 		"old-podIP":            oldK8sPod.Status.PodIP,
 		"old-podIPs":           oldK8sPod.Status.PodIPs,
-		"old-hostIP":           oldK8sPod.Status.PodIP,
+		"old-hostIP":           oldK8sPod.Status.HostIP,
 	})
 
 	// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
