@@ -53,12 +53,14 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
+      # Install Cilium with HostPort support for extended connectivity test.
       - name: Install Cilium
         run: |
           cilium install \
             --version=${{ env.cilium_version }} \
             --wait=false \
-            --config monitor-aggregation=none
+            --config monitor-aggregation=none \
+            --helm-set cni.chainingMode=portmap
 
       - name: Enable Relay
         run: |
