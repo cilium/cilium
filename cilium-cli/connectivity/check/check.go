@@ -149,6 +149,12 @@ type FlowParameters struct {
 	// RSTAllowed is true if TCP connection may end with either RST or FIN
 	RSTAllowed bool
 
+	// AltDstIP, if non-empty, indicates an alternative destination address
+	// for the DstAddr to be matched. This is useful if the destination address
+	// is NATed before Hubble can observe the packet, which for example is the
+	// case with HostReachableServices
+	AltDstIP string
+
 	// AltDstPort, if non-zero, indicates an alternative port number for the
 	// DstPort to be matched. This is useful if the destination port is NATed,
 	// which is for example the case for service ports, NodePort or HostPort
