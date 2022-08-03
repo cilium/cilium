@@ -419,6 +419,10 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 
 	ipRequest := filters.IP(srcIP, dstIP)
 	ipResponse := filters.IP(dstIP, srcIP)
+	if len(p.AltDstIP) != 0 && p.AltDstIP != dstIP {
+		ipRequest = filters.Or(filters.IP(srcIP, p.AltDstIP), ipRequest)
+		ipResponse = filters.Or(filters.IP(p.AltDstIP, srcIP), ipResponse)
+	}
 
 	var egress filters.FlowSetRequirement
 	var http filters.FlowSetRequirement
@@ -560,6 +564,10 @@ func (a *Action) GetIngressRequirements(p FlowParameters) []filters.FlowSetRequi
 
 	ipResponse := filters.IP(dstIP, srcIP)
 	ipRequest := filters.IP(srcIP, dstIP)
+	if len(p.AltDstIP) != 0 && p.AltDstIP != dstIP {
+		ipResponse = filters.Or(filters.IP(p.AltDstIP, srcIP), ipResponse)
+		ipRequest = filters.Or(filters.IP(srcIP, p.AltDstIP), ipRequest)
+	}
 
 	tcpRequest := filters.TCP(0, a.dst.Port())
 	tcpResponse := filters.TCP(a.dst.Port(), 0)
