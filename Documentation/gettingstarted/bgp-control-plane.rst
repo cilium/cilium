@@ -16,7 +16,7 @@ instantiated and will begin listening for ``CiliumBGPPeeringPolicy``
 events.
 
 Currently, the ``BGP Control Plane`` will only work when IPAM mode is set to
-"cluster-pool", "cluster-pool-v2", and "kubernetes"
+"cluster-pool", "cluster-pool-v2beta", and "kubernetes"
 
 CiliumBGPPeeringPolicy CRD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,18 +62,18 @@ Fields
 ::
 
    nodeSelector: Nodes which are selected by this label selector will apply the given policy
-    
+
     virtualRouters: One or more peering configurations outlined below. Each peering configuration can be thought of as a BGP router instance.
-       
+
        virtualRouters[*].localASN: The local ASN for this peering configuration
-       
+
        virtualRouters[*].exportPodCIDR: Whether to export the private pod CIDR block to the listed neighbors
-       
+
        virtualRouters[*].neighbors: A list of neighbors to peer with
            neighbors[*].peerAddress: The address of the peer neighbor
-           neighbors[*].peerASN: The ASN of the peer   
+           neighbors[*].peerASN: The ASN of the peer
 
-.. note:: 
+.. note::
 
    Setting unique configuration details of a particular
    instantiated virtual router on a particular Cilium node is explained
@@ -173,14 +173,14 @@ ASN you wish to apply these configuration attributes to.
 
 The following sections outline the currently supported attributes.
 
-.. note:: 
-   
+.. note::
+
    Each following section describes the syntax of applying a
    single attribute, however the annotation's value supports a comma
    separated lists of attributes and applying multiple attributes in a
    single annotation is supported.
 
-.. note:: 
+.. note::
 
    When duplicate ``key=value`` attributes are defined the last
    one will be selected.
@@ -297,7 +297,7 @@ error is logged and the ``BGPRouterManager`` will continue to the next
 ``CiliumBGPVirtualRouter``, utilizing the aforementioned logic.
 
 GoBGP BGPRouterManager Architecture
-                                   
+
 
 It's worth expanding on how the ``gobgp`` implementation of the
 ``BGPRouterManager`` works internally.
