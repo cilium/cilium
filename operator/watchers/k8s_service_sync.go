@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -194,8 +193,9 @@ func InitServiceWatcher(
 	serviceInitOnce.Do(func() {
 		// Watch for v1.Service changes and push changes into ServiceCache.
 		serviceIndexer, serviceController = informer.NewInformer(
-			cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(),
-				"services", v1.NamespaceAll, optsModifier),
+			utils.ListerWatcherWithModifier(
+				utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](k8s.WatcherClient().CoreV1().Services("")),
+				optsModifier),
 			&slim_corev1.Service{},
 			0,
 			cache.ResourceEventHandlerFuncs{

@@ -12,7 +12,6 @@ import (
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -197,8 +196,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 	// introducing a slim version of it.
 	var ciliumNodeInformer cache.Controller
 	ciliumNodeStore, ciliumNodeInformer = informer.NewInformer(
-		cache.NewListWatchFromClient(ciliumK8sClient.CiliumV2().RESTClient(),
-			cilium_v2.CNPluralName, v1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNodeList](ciliumK8sClient.CiliumV2().CiliumNodes()),
 		&cilium_v2.CiliumNode{},
 		0,
 		resourceEventHandler,

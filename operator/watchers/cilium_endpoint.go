@@ -9,9 +9,7 @@ import (
 	"strconv"
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
@@ -20,6 +18,7 @@ import (
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_cli "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -105,8 +104,7 @@ func CiliumEndpointsInit(ciliumNPClient cilium_cli.CiliumV2Interface, stopCh <-c
 		}
 
 		ciliumEndpointInformer := informer.NewInformerWithStore(
-			cache.NewListWatchFromClient(ciliumNPClient.RESTClient(),
-				cilium_api_v2.CEPPluralName, v1.NamespaceAll, fields.Everything()),
+			utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](k8s.CiliumClient().CiliumV2().CiliumEndpoints("")),
 			&cilium_api_v2.CiliumEndpoint{},
 			0,
 			cacheResourceHandler,

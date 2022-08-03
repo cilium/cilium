@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -86,9 +87,10 @@ func newSyncSecretsManager(namespace string, maxRetries int) (secretManager, err
 	}
 
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(), "secrets",
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.SecretList](k8s.WatcherClient().CoreV1().Secrets(corev1.NamespaceAll)),
 			// only watch TLS secret
-			corev1.NamespaceAll, func(options *metav1.ListOptions) {
+			func(options *metav1.ListOptions) {
 				options.FieldSelector = tlsFieldSelector
 			}),
 		&slim_corev1.Secret{},
