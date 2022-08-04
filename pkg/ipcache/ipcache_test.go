@@ -43,6 +43,7 @@ func (s *IPCacheTestSuite) SetUpTest(c *C) {
 		IdentityAllocator: allocator,
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
+		NodeHandler:       &mockNodeHandler{},
 	})
 
 	s.cleanup = func() {
@@ -564,7 +565,7 @@ func newDummyListener(ipc *IPCache) *dummyListener {
 
 func (dl *dummyListener) OnIPIdentityCacheChange(modType CacheModification,
 	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *Identity,
-	newID Identity, encryptKey uint8, k8sMeta *K8sMetadata) {
+	newID Identity, encryptKey uint8, _ uint16, k8sMeta *K8sMetadata) {
 
 	switch modType {
 	case Upsert:
@@ -633,4 +634,10 @@ func (s *IPCacheTestSuite) TestIPCacheShadowing(c *C) {
 	ipc.Delete(endpointIP, source.KVStore)
 	_, exists := ipc.LookupByPrefix(cidrOverlap)
 	c.Assert(exists, Equals, false)
+}
+
+type mockNodeHandler struct{}
+
+func (m *mockNodeHandler) AllocateNodeID(_ net.IP) uint16 {
+	return 0
 }

@@ -98,7 +98,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 // different ID before, as this function does not search for conflicting IP/ID mappings.
 func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
-	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	encryptKey uint8, nodeID uint16, k8sMeta *ipcache.K8sMetadata) {
 	cidrStr := cidr.String()
 	resourceName := newID.ID.StringID()
 
@@ -126,7 +126,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 		// but only if the old ID is different.
 		if oldID != nil && oldID.ID != newID.ID {
 			// Recursive call to delete the 'cidr' from the 'oldID'
-			cache.OnIPIdentityCacheChange(ipcache.Delete, cidr, nil, nil, nil, *oldID, encryptKey, k8sMeta)
+			cache.OnIPIdentityCacheChange(ipcache.Delete, cidr, nil, nil, nil, *oldID, encryptKey, nodeID, k8sMeta)
 		}
 		err := cache.handleIPUpsert(npHost, resourceName, cidrStr, newID.ID)
 		if err != nil {
