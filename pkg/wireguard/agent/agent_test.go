@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/fake"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/source"
@@ -27,6 +28,10 @@ var _ = Suite(&AgentSuite{})
 
 func Test(t *testing.T) {
 	TestingT(t)
+}
+
+func setupAgentTest() {
+	ipcache.SetNodeHandler(&fake.FakeNodeHandler{})
 }
 
 type fakeWgClient struct{}
@@ -82,6 +87,8 @@ func containsIP(allowedIPs []net.IPNet, ipnet *net.IPNet) bool {
 }
 
 func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
+	setupAgentTest()
+
 	ipCache := ipcache.NewIPCache()
 	wgAgent := &Agent{
 		wgClient:         &fakeWgClient{},

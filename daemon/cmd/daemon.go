@@ -512,6 +512,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	ipcache.IdentityAllocator = d.identityAllocator
 	proxy.Allocator = d.identityAllocator
 
+	ipcache.NodeHandler = dp.Node()
+
 	// Preallocate IDs for old CIDRs. This must be done before any Identity allocations are
 	// possible so that the old IDs are still available. That is why we do this ASAP after the
 	// new (userspace) ipcache is created above.
