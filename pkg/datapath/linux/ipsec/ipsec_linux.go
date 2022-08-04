@@ -153,7 +153,7 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
-func ipSecReplaceStateOut(localIP, remoteIP net.IP) (uint8, error) {
+func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16) (uint8, error) {
 	key := getIPSecKeys(localIP)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
@@ -162,10 +162,7 @@ func ipSecReplaceStateOut(localIP, remoteIP net.IP) (uint8, error) {
 	ipSecJoinState(state, key)
 	state.Src = localIP
 	state.Dst = remoteIP
-	state.Mark = &netlink.XfrmMark{
-		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, key.Spi),
-		Mask:  linux_defaults.IPsecMarkMask,
-	}
+	state.Mark = generateEncryptMark(key.Spi, nodeID)
 	state.OutputMark = &netlink.XfrmMark{
 		Value: linux_defaults.RouteMarkEncrypt,
 		Mask:  linux_defaults.RouteMarkMask,
@@ -250,7 +247,16 @@ func getSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
 	return ipSecXfrmMarkGetSPI(policy.Mark.Value)
 }
 
-func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir IPSecDir) error {
+func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
+	val := ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, spi)
+	val |= uint32(nodeID) << 16
+	return &netlink.XfrmMark{
+		Value: val,
+		Mask:  linux_defaults.IPsecMarkMaskOut,
+	}
+}
+
+func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID uint16, dir IPSecDir) error {
 	// TODO: Remove old policy pointing to target net
 
 	key := getIPSecKeys(dst.IP)
@@ -268,10 +274,7 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir IPS
 	}
 	policy.Dst = dst
 	policy.Dir = netlink.XFRM_DIR_OUT
-	policy.Mark = &netlink.XfrmMark{
-		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, key.Spi),
-		Mask:  linux_defaults.IPsecMarkMask,
-	}
+	policy.Mark = generateEncryptMark(key.Spi, nodeID)
 	ipSecAttachPolicyTempl(policy, key, tmplSrc, tmplDst, true, 0)
 	return netlink.XfrmPolicyUpdate(policy)
 }
@@ -353,7 +356,7 @@ func ipsecDeleteXfrmPolicy(ip net.IP) {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.IP, dir IPSecDir, outputMark bool) (uint8, error) {
+func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.IP, remoteNodeID uint16, dir IPSecDir, outputMark bool) (uint8, error) {
 	var spi uint8
 	var err error
 
@@ -385,13 +388,13 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 		}
 
 		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote); err != nil {
+			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote, remoteNodeID); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace remote state: %s", err)
 				}
 			}
 
-			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, dir); err != nil {
+			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, remoteNodeID, dir); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy out: %s", err)
 				}
@@ -403,8 +406,8 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 
 // UpsertIPsecEndpointPolicy adds a policy to the xfrm rules. Used to add a policy when the state
 // rule is already available.
-func UpsertIPsecEndpointPolicy(local, remote *net.IPNet, localTmpl, remoteTmpl net.IP, dir IPSecDir) error {
-	if err := ipSecReplacePolicyOut(local, remote, localTmpl, remoteTmpl, dir); err != nil {
+func UpsertIPsecEndpointPolicy(local, remote *net.IPNet, localTmpl, remoteTmpl net.IP, remoteNodeID uint16, dir IPSecDir) error {
+	if err := ipSecReplacePolicyOut(local, remote, localTmpl, remoteTmpl, remoteNodeID, dir); err != nil {
 		if !os.IsExist(err) {
 			return fmt.Errorf("unable to replace templated policy out: %s", err)
 		}
