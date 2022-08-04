@@ -81,7 +81,8 @@ func containsIP(allowedIPs []net.IPNet, ipnet *net.IPNet) bool {
 
 func newTestAgent(ctx context.Context) (*Agent, *ipcache.IPCache) {
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
-		Context: ctx,
+		Context:     ctx,
+		NodeHandler: &mockNodeHandler{},
 	})
 	wgAgent := &Agent{
 		wgClient:         &fakeWgClient{},
@@ -229,4 +230,10 @@ func (a *AgentSuite) TestAgent_PeerConfig_WithEncryptNode(c *C) {
 	c.Assert(containsIP(k8s1.allowedIPs, pod2IPv4), Equals, true)
 	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv4)), Equals, true)
 	c.Assert(containsIP(k8s1.allowedIPs, iputil.IPToPrefix(k8s1NodeIPv6)), Equals, true)
+}
+
+type mockNodeHandler struct{}
+
+func (m *mockNodeHandler) AllocateNodeID(_ net.IP) uint16 {
+	return 0
 }

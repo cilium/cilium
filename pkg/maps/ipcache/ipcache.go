@@ -164,12 +164,13 @@ func NewKey(ip net.IP, mask net.IPMask, clusterID uint8) Key {
 type RemoteEndpointInfo struct {
 	SecurityIdentity uint32     `align:"sec_label"`
 	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
+	NodeID           uint16     `align:"node_id"`
 	Key              uint8      `align:"key"`
 }
 
 func (v *RemoteEndpointInfo) String() string {
-	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s",
-		v.SecurityIdentity, v.Key, v.TunnelEndpoint)
+	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s nodeid=%d",
+		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.NodeID)
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
