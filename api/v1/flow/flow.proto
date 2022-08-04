@@ -91,6 +91,18 @@ message Flow {
     // any.
     TraceContext trace_context = 30;
 
+    // sock_xlate_point is the socket translation point.
+    // Only applicable to TraceSock notifications, blank for other types
+    SocketTranslationPoint sock_xlate_point = 31;
+
+    // socket_cookie is the Linux kernel socket cookie for this flow.
+    // Only applicable to TraceSock notifications, zero for other types
+    uint64 socket_cookie = 32;
+
+    // cgroup_id of the process which emitted this event.
+    // Only applicable to TraceSock notifications, zero for other types
+    uint64 cgroup_id = 33;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
@@ -101,6 +113,7 @@ enum FlowType {
     UNKNOWN_TYPE = 0;
     L3_L4 = 1; // not sure about the underscore here, but `L34` also reads strange
     L7 = 2;
+    SOCK = 3;
 }
 
 enum TraceObservationPoint {
@@ -250,12 +263,28 @@ enum IPVersion {
 }
 
 enum Verdict {
+    // UNKNOWN is used if there is no verdict for this flow event
     VERDICT_UNKNOWN = 0;
+    // FORWARDED is used for flow events where the trace point has forwarded
+    // this packet or connection to the next processing entity.
     FORWARDED = 1;
+    // DROPPED is used for flow events where the connection or packet has
+    // been dropped (e.g. due to a malformed packet, it being rejected by a
+    // network policy etc). The exact drop reason may be found in drop_reason_desc.
     DROPPED = 2;
+    // ERROR is used for flow events where an error occurred during processing
     ERROR = 3;
+    // AUDIT is used on policy verdict events in policy audit mode, to
+    // denominate flows that would have been dropped by policy if audit mode
+    // was turned off
     AUDIT = 4;
+    // REDIRECTED is used for flow events which have been redirected to the proxy
     REDIRECTED = 5;
+    // TRACED is used for flow events which have been observed at a trace point,
+    // but no particular verdict has been reached yet
+    TRACED = 6;
+    // TRANSLATED is used for flow events where an address has been translated
+    TRANSLATED = 7;
 }
 
 // These values are shared with pkg/monitor/api/drop.go and bpf/lib/common.h.
@@ -644,6 +673,15 @@ message ServiceDeleteNotification {
 message NetworkInterface {
     uint32 index = 1;
     string name = 2;
+}
+
+// This mirrors enum xlate_point in bpf/lib/trace_sock.h
+enum SocketTranslationPoint {
+    SOCK_XLATE_POINT_UNKNOWN = 0;
+    SOCK_XLATE_POINT_PRE_DIRECTION_FWD = 1; // Pre service translation
+    SOCK_XLATE_POINT_POST_DIRECTION_FWD = 2; // Post service translation
+    SOCK_XLATE_POINT_PRE_DIRECTION_REV = 3;   // Pre reverse service translation
+    SOCK_XLATE_POINT_POST_DIRECTION_REV = 4; // Post reverse service translation
 }
 
 message DebugEvent {
