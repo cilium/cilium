@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
+	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
@@ -465,4 +466,24 @@ func (e *FakeEndpointInfo) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
 ) {
 	derivedFrom, ok = e.PolicyMap[key]
 	return derivedFrom, e.PolicyRevision, ok
+}
+
+// FakePodMetadataGetter is used for unit tests that need a PodMetadataGetter.
+type FakePodMetadataGetter struct {
+	OnGetPodMetadataForContainer func(cgroupId uint64) *cgroupManager.PodMetadata
+}
+
+// GetPodMetadataForContainer implements PodMetadataGetter.GetPodMetadataForContainer.
+func (f *FakePodMetadataGetter) GetPodMetadataForContainer(cgroupId uint64) *cgroupManager.PodMetadata {
+	if f.OnGetPodMetadataForContainer != nil {
+		return f.OnGetPodMetadataForContainer(cgroupId)
+	}
+	panic("GetPodMetadataForContainer not set")
+}
+
+// NoopPodMetadataGetter always returns an empty response.
+var NoopPodMetadataGetter = FakePodMetadataGetter{
+	OnGetPodMetadataForContainer: func(cgroupId uint64) *cgroupManager.PodMetadata {
+		return nil
+	},
 }
