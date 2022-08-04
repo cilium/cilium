@@ -119,7 +119,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 
 	ctKey := &CtKey4Global{
 		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+			TupleKey4: tuple.TupleKey4{
 				SourceAddr: types.IPv4{192, 168, 61, 12},
 				DestAddr:   types.IPv4{192, 168, 61, 11},
 				SourcePort: 0x3195,
@@ -139,8 +139,8 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 	c.Assert(err, IsNil)
 
 	natKey := &nat.NatKey4{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				DestAddr:   types.IPv4{192, 168, 61, 12},
 				SourceAddr: types.IPv4{192, 168, 61, 11},
 				DestPort:   0,
@@ -160,8 +160,8 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 		unsafe.Pointer(natVal), 0)
 	c.Assert(err, IsNil)
 	natKey = &nat.NatKey4{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				SourceAddr: types.IPv4{192, 168, 61, 12},
 				DestAddr:   types.IPv4{192, 168, 61, 11},
 				SourcePort: 0,
@@ -254,8 +254,8 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	//				TCP OUT 10.0.1.99:34520 -> 1.1.1.1:80 XLATE_SRC 10.0.2.15:34520
 
 	ctKey := &CtKey4Global{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				DestAddr:   types.IPv4{10, 23, 32, 45},
 				SourceAddr: types.IPv4{10, 23, 53, 48},
 				SourcePort: 0x50d6,
@@ -275,8 +275,8 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(err, IsNil)
 
 	natKey := &nat.NatKey4{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				SourceAddr: types.IPv4{10, 23, 32, 45},
 				DestAddr:   types.IPv4{10, 23, 53, 48},
 				SourcePort: 0x50d6,
@@ -296,8 +296,8 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		unsafe.Pointer(natVal), 0)
 	c.Assert(err, IsNil)
 	natKey = &nat.NatKey4{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				DestAddr:   types.IPv4{10, 23, 32, 45},
 				SourceAddr: types.IPv4{10, 23, 53, 48},
 				DestPort:   0x51d6,
@@ -379,8 +379,8 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	defer ctMapTCPV6.Map.Unpin()
 
 	natKeyV6 := &nat.NatKey6{
-		tuple.TupleKey6Global{
-			tuple.TupleKey6{
+		TupleKey6Global: tuple.TupleKey6Global{
+			TupleKey6: tuple.TupleKey6{
 				SourceAddr: types.IPv6{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				DestAddr:   types.IPv6{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 				SourcePort: 0x50d6,

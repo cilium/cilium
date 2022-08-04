@@ -488,10 +488,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// alloc range v1 should fail
-	underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
+	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
+	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
@@ -513,7 +513,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	if s.enableIPv6 {
 		// alloc range v2 should map to underlay1
-		underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
+		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
@@ -539,10 +539,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// alloc range v2 should fail
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
+	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
+	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
@@ -606,17 +606,17 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// alloc range v1 should fail
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
+	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
+	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
 	// alloc range v2 should fail
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
+	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
+	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
@@ -1112,7 +1112,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	veth1, err := netlink.LinkByName("veth1")
 	c.Assert(err, check.IsNil)
-	_, ipnet, err := net.ParseCIDR("f00d::/96")
+	_, ipnet, _ := net.ParseCIDR("f00d::/96")
 	ip0 := net.ParseIP("f00d::249")
 	ip1 := net.ParseIP("f00d::250")
 	ipG := net.ParseIP("f00d::251")
@@ -1194,8 +1194,11 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	}
 
 	nodev1 := nodeTypes.Node{
-		Name:        "node1",
-		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, ip1}},
+		Name: "node1",
+		IPAddresses: []nodeTypes.Address{{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   ip1,
+		}},
 	}
 	now := time.Now()
 	err = linuxNodeHandler.NodeAdd(nodev1)
@@ -1501,8 +1504,10 @@ refetch2:
 
 	node2IP := net.ParseIP("f00a::250")
 	nodev2 := nodeTypes.Node{
-		Name:        "node2",
-		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node2IP}},
+		Name: "node2",
+		IPAddresses: []nodeTypes.Address{{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   node2IP}},
 	}
 	now = time.Now()
 	c.Assert(linuxNodeHandler.NodeAdd(nodev2), check.IsNil)
@@ -1510,8 +1515,11 @@ refetch2:
 
 	node3IP := net.ParseIP("f00b::250")
 	nodev3 := nodeTypes.Node{
-		Name:        "node3",
-		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node3IP}},
+		Name: "node3",
+		IPAddresses: []nodeTypes.Address{{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   node3IP,
+		}},
 	}
 	c.Assert(linuxNodeHandler.NodeAdd(nodev3), check.IsNil)
 	wait(nodev3.Identity(), "veth0", &now, false)
@@ -1923,7 +1931,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	veth1, err := netlink.LinkByName("veth1")
 	c.Assert(err, check.IsNil)
-	_, ipnet, err := net.ParseCIDR("f00d::/96")
+	_, ipnet, _ := net.ParseCIDR("f00d::/96")
 	v1IP0 := net.ParseIP("f00d::249")
 	v1IP1 := net.ParseIP("f00d::250")
 	v1IPG := net.ParseIP("f00d::251")
@@ -1975,7 +1983,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	veth3, err := netlink.LinkByName("veth3")
 	c.Assert(err, check.IsNil)
-	_, ipnet, err = net.ParseCIDR("f00a::/96")
+	_, ipnet, _ = net.ParseCIDR("f00a::/96")
 	v2IP0 := net.ParseIP("f00a::249")
 	v2IP1 := net.ParseIP("f00a::250")
 	v2IPG := net.ParseIP("f00a::251")
@@ -2075,8 +2083,11 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	}
 
 	nodev1 := nodeTypes.Node{
-		Name:        "node1",
-		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, net.ParseIP("fe80::1")}},
+		Name: "node1",
+		IPAddresses: []nodeTypes.Address{{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   net.ParseIP("fe80::1"),
+		}},
 	}
 	now := time.Now()
 	err = linuxNodeHandler.NodeAdd(nodev1)
@@ -2271,7 +2282,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	veth1, err := netlink.LinkByName("veth1")
 	c.Assert(err, check.IsNil)
-	_, ipnet, err := net.ParseCIDR("9.9.9.252/29")
+	_, ipnet, _ := net.ParseCIDR("9.9.9.252/29")
 	ip0 := net.ParseIP("9.9.9.249")
 	ip1 := net.ParseIP("9.9.9.250")
 	ipG := net.ParseIP("9.9.9.251")
@@ -2353,8 +2364,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	}
 
 	nodev1 := nodeTypes.Node{
-		Name:        "node1",
-		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, ip1}},
+		Name: "node1",
+		IPAddresses: []nodeTypes.Address{{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   ip1,
+		}},
 	}
 	now := time.Now()
 	err = linuxNodeHandler.NodeAdd(nodev1)
@@ -2660,8 +2674,11 @@ refetch2:
 
 	node2IP := net.ParseIP("8.8.8.250")
 	nodev2 := nodeTypes.Node{
-		Name:        "node2",
-		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node2IP}},
+		Name: "node2",
+		IPAddresses: []nodeTypes.Address{{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   node2IP,
+		}},
 	}
 	now = time.Now()
 	c.Assert(linuxNodeHandler.NodeAdd(nodev2), check.IsNil)
@@ -2669,8 +2686,11 @@ refetch2:
 
 	node3IP := net.ParseIP("7.7.7.250")
 	nodev3 := nodeTypes.Node{
-		Name:        "node3",
-		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node3IP}},
+		Name: "node3",
+		IPAddresses: []nodeTypes.Address{{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   node3IP,
+		}},
 	}
 	c.Assert(linuxNodeHandler.NodeAdd(nodev3), check.IsNil)
 	wait(nodev3.Identity(), "veth0", &now, false)
@@ -3082,7 +3102,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	veth1, err := netlink.LinkByName("veth1")
 	c.Assert(err, check.IsNil)
-	_, ipnet, err := net.ParseCIDR("9.9.9.252/29")
+	_, ipnet, _ := net.ParseCIDR("9.9.9.252/29")
 	v1IP0 := net.ParseIP("9.9.9.249")
 	v1IP1 := net.ParseIP("9.9.9.250")
 	v1IPG := net.ParseIP("9.9.9.251")
@@ -3135,7 +3155,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	veth3, err := netlink.LinkByName("veth3")
 	c.Assert(err, check.IsNil)
-	_, ipnet, err = net.ParseCIDR("8.8.8.252/29")
+	_, ipnet, _ = net.ParseCIDR("8.8.8.252/29")
 	v2IP0 := net.ParseIP("8.8.8.249")
 	v2IP1 := net.ParseIP("8.8.8.250")
 	v2IPG := net.ParseIP("8.8.8.251")
@@ -3234,8 +3254,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	}
 
 	nodev1 := nodeTypes.Node{
-		Name:        "node1",
-		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, net.ParseIP("10.0.0.1")}},
+		Name: "node1",
+		IPAddresses: []nodeTypes.Address{{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.1"),
+		}},
 	}
 	now := time.Now()
 	err = linuxNodeHandler.NodeAdd(nodev1)

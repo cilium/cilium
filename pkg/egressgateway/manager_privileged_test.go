@@ -34,7 +34,6 @@ import (
 
 const (
 	testInterface1 = "cilium_egw1"
-	testInterface2 = "cilium_egw2"
 
 	node1 = "k8s1"
 	node2 = "k8s2"
@@ -50,8 +49,7 @@ const (
 	egressIP1   = "192.168.101.1"
 	egressCIDR1 = "192.168.101.1/24"
 
-	egressIP2   = "192.168.102.1"
-	egressCIDR2 = "192.168.102.1/24"
+	egressIP2 = "192.168.102.1"
 
 	zeroIP4 = "0.0.0.0"
 )
@@ -287,7 +285,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	// Update the endpoint labels in order for it to not be a match
-	id1 = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
+	_ = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
 	assertEgressRules(c, []egressRule{

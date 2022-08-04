@@ -7,6 +7,7 @@ package cmd
 
 import (
 	"github.com/cilium/cilium/pkg/testutils"
+
 	. "gopkg.in/check.v1"
 )
 

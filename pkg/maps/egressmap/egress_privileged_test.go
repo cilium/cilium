@@ -77,6 +77,6 @@ func (k *EgressMapTestSuite) TestEgressMap(c *C) {
 	c.Assert(val.EgressIP.IP().Equal(egressIP1), Equals, true)
 	c.Assert(val.GatewayIP.IP().Equal(egressIP1), Equals, true)
 
-	val, err = EgressPolicyMap.Lookup(sourceIP2, *destCIDR2)
+	_, err = EgressPolicyMap.Lookup(sourceIP2, *destCIDR2)
 	c.Assert(errors.Is(err, ebpf.ErrKeyNotExist), Equals, true)
 }
