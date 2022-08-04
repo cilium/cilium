@@ -825,8 +825,8 @@ func (e *Endpoint) UpdateNoTrackRules(annoCB AnnotationsResolverCB) {
 	}
 
 	updateRes := <-ch
-	regenResult := updateRes.(*EndpointRegenerationResult)
-	if regenResult.err != nil {
+	regenResult, ok := updateRes.(*EndpointRegenerationResult)
+	if ok && regenResult.err != nil {
 		e.getLogger().WithError(regenResult.err).Error("EndpointNoTrackEvent event failed")
 	}
 }
@@ -847,8 +847,8 @@ func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
 	}
 
 	updateRes := <-ch
-	regenResult := updateRes.(*EndpointRegenerationResult)
-	if regenResult.err != nil {
+	regenResult, ok := updateRes.(*EndpointRegenerationResult)
+	if ok && regenResult.err != nil {
 		e.getLogger().WithError(regenResult.err).Error("EndpointPolicyVisibilityEvent event failed")
 	}
 }
@@ -866,8 +866,8 @@ func (e *Endpoint) UpdateBandwidthPolicy(annoCB AnnotationsResolverCB) {
 	}
 
 	updateRes := <-ch
-	regenResult := updateRes.(*EndpointRegenerationResult)
-	if regenResult.err != nil {
+	regenResult, ok := updateRes.(*EndpointRegenerationResult)
+	if ok && regenResult.err != nil {
 		e.getLogger().WithError(regenResult.err).Error("EndpointPolicyBandwidthEvent event failed")
 	}
 }
