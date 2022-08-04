@@ -75,12 +75,12 @@ type Container struct {
 	// container images in workload controllers like Deployments and StatefulSets.
 	// +optional
 	Image string `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
-	// List of ports to expose from the container. Not specifying a port here
+	// List of ports to expose from the container. Exposing a port here gives
+	// the system additional information about the network connections a
+	// container uses, but is primarily informational. Not specifying a port here
 	// DOES NOT prevent that port from being exposed. Any port which is
 	// listening on the default "0.0.0.0" address inside a container will be
 	// accessible from the network.
-	// Modifying this array with strategic merge patch may corrupt the data.
-	// For more information See https://github.com/kubernetes/kubernetes/issues/108255.
 	// Cannot be updated.
 	// +optional
 	// +patchMergeKey=containerPort
@@ -179,6 +179,45 @@ type PodCondition struct {
 	// +optional
 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 }
+
+// ContainerStateRunning is a running state of a container.
+type ContainerStateRunning struct {
+	// Time at which the container was last (re-)started
+	// +optional
+	StartedAt slim_metav1.Time `json:"startedAt,omitempty" protobuf:"bytes,1,opt,name=startedAt"`
+}
+
+// ContainerState holds a possible state of container.
+// Only one of its members may be specified.
+// If none of them is specified, the default one is ContainerStateWaiting.
+type ContainerState struct {
+	// Details about a running container
+	// +optional
+	Running *ContainerStateRunning `json:"running,omitempty" protobuf:"bytes,2,opt,name=running"`
+}
+
+// ContainerStatus represents the status of a container
+type ContainerStatus struct {
+	// Details about the container's current condition.
+	// +optional
+	State ContainerState `json:"state,omitempty" protobuf:"bytes,2,opt,name=state"`
+	// Container's ID in the format '<type>://<container_id>'.
+	// +optional
+	ContainerID string `json:"containerID,omitempty" protobuf:"bytes,8,opt,name=containerID"`
+}
+
+// PodQOSClass defines the supported qos classes of Pods.
+// +enum
+type PodQOSClass string
+
+const (
+	// PodQOSGuaranteed is the Guaranteed qos class.
+	PodQOSGuaranteed PodQOSClass = "Guaranteed"
+	// PodQOSBurstable is the Burstable qos class.
+	PodQOSBurstable PodQOSClass = "Burstable"
+	// PodQOSBestEffort is the BestEffort qos class.
+	PodQOSBestEffort PodQOSClass = "BestEffort"
+)
 
 // The node this Taint is attached to has the "effect" on
 // any pod that does not tolerate the Taint.
@@ -323,6 +362,18 @@ type PodStatus struct {
 	// This is before the Kubelet pulled the container image(s) for the pod.
 	// +optional
 	StartTime *slim_metav1.Time `json:"startTime,omitempty" protobuf:"bytes,7,opt,name=startTime"`
+
+	// The list has one entry per container in the manifest.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	ContainerStatuses []ContainerStatus `json:"statuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
+
+	// The Quality of Service (QOS) classification assigned to the pod based on resource requirements
+	// See PodQOSClass type for available QOS classes
+	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
+	// +optional
+	QOSClass PodQOSClass `json:"qosClass,omitempty" protobuf:"bytes,9,rep,name=qosClass"`
 }
 
 // +genclient
@@ -421,34 +472,15 @@ const (
 	ServiceTypeExternalName ServiceType = "ExternalName"
 )
 
-// ServiceInternalTrafficPolicyType describes how nodes distribute service traffic they
-// receive on the ClusterIP.
-// +enum
-type ServiceInternalTrafficPolicyType string
-
-const (
-	// ServiceInternalTrafficPolicyCluster routes traffic to all endpoints.
-	ServiceInternalTrafficPolicyCluster ServiceInternalTrafficPolicyType = "Cluster"
-
-	// ServiceInternalTrafficPolicyLocal routes traffic only to endpoints on the same
-	// node as the client pod (dropping the traffic if there are no local endpoints).
-	ServiceInternalTrafficPolicyLocal ServiceInternalTrafficPolicyType = "Local"
-)
-
-// ServiceExternalTrafficPolicyType describes how nodes distribute service traffic they
-// receive on one of the Service's "externally-facing" addresses (NodePorts, ExternalIPs,
-// and LoadBalancer IPs).
+// Service External Traffic Policy Type string
 // +enum
 type ServiceExternalTrafficPolicyType string
 
 const (
-	// ServiceExternalTrafficPolicyTypeCluster routes traffic to all endpoints.
-	ServiceExternalTrafficPolicyTypeCluster ServiceExternalTrafficPolicyType = "Cluster"
-
-	// ServiceExternalTrafficPolicyTypeLocal preserves the source IP of the traffic by
-	// routing only to endpoints on the same node as the traffic was received on
-	// (dropping the traffic if there are no local endpoints).
+	// ServiceExternalTrafficPolicyTypeLocal specifies node-local endpoints behavior.
 	ServiceExternalTrafficPolicyTypeLocal ServiceExternalTrafficPolicyType = "Local"
+	// ServiceExternalTrafficPolicyTypeCluster specifies node-global (legacy) behavior.
+	ServiceExternalTrafficPolicyTypeCluster ServiceExternalTrafficPolicyType = "Cluster"
 )
 
 // ServiceStatus represents the current status of a service.
@@ -618,19 +650,12 @@ type ServiceSpec struct {
 	// +optional
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty" protobuf:"bytes,9,opt,name=loadBalancerSourceRanges"`
 
-	// externalTrafficPolicy describes how nodes distribute service traffic they
-	// receive on one of the Service's "externally-facing" addresses (NodePorts,
-	// ExternalIPs, and LoadBalancer IPs). If set to "Local", the proxy will configure
-	// the service in a way that assumes that external load balancers will take care
-	// of balancing the service traffic between nodes, and so each node will deliver
-	// traffic only to the node-local endpoints of the service, without masquerading
-	// the client source IP. (Traffic mistakenly sent to a node with no endpoints will
-	// be dropped.) The default value, "Cluster", uses the standard behavior of
-	// routing to all endpoints evenly (possibly modified by topology and other
-	// features). Note that traffic sent to an External IP or LoadBalancer IP from
-	// within the cluster will always get "Cluster" semantics, but clients sending to
-	// a NodePort from within the cluster may need to take traffic policy into account
-	// when picking a node.
+	// externalTrafficPolicy denotes if this Service desires to route external
+	// traffic to node-local or cluster-wide endpoints. "Local" preserves the
+	// client source IP and avoids a second hop for LoadBalancer and Nodeport
+	// type services, but risks potentially imbalanced traffic spreading.
+	// "Cluster" obscures the client source IP and may cause a second hop to
+	// another node, but should have good overall load-spreading.
 	// +optional
 	ExternalTrafficPolicy ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty" protobuf:"bytes,11,opt,name=externalTrafficPolicy"`
 
@@ -643,7 +668,6 @@ type ServiceSpec struct {
 	// service or not.  If this field is specified when creating a Service
 	// which does not need it, creation will fail. This field will be wiped
 	// when updating a Service to no longer need it (e.g. changing type).
-	// This field cannot be updated once set.
 	// +optional
 	HealthCheckNodePort int32 `json:"healthCheckNodePort,omitempty" protobuf:"bytes,12,opt,name=healthCheckNodePort"`
 
@@ -902,10 +926,11 @@ const (
 	NodeTerminated NodePhase = "Terminated"
 )
 
+// +enum
 type NodeConditionType string
 
-// These are valid but not exhaustive conditions of node. A cloud provider may set a condition not listed here.
-// The built-in set of conditions are:
+// These are valid conditions of node. Currently, we don't have enough information to decide
+// node condition. In the future, we will add more. The proposed set of conditions are:
 // NodeReachable, NodeLive, NodeReady, NodeSchedulable, NodeRunnable.
 const (
 	// NodeReady means kubelet is healthy and ready to accept pods.
@@ -931,6 +956,7 @@ type NodeCondition struct {
 	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
 }
 
+// +enum
 type NodeAddressType string
 
 // These are built-in addresses type of node. A cloud provider may set a type not listed here.
@@ -1051,6 +1077,19 @@ type NamespaceList struct {
 	// Items is the list of Namespace objects in the list.
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
 	Items []Namespace `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+// TypedLocalObjectReference contains enough information to let you locate the
+// typed referenced object inside the same namespace.
+type TypedLocalObjectReference struct {
+	// APIGroup is the group for the resource being referenced.
+	// If APIGroup is not specified, the specified Kind must be in the core API group.
+	// For any other third-party types, APIGroup is required.
+	APIGroup *string `json:"apiGroup" protobuf:"bytes,1,opt,name=apiGroup"`
+	// Kind is the type of resource being referenced
+	Kind string `json:"kind" protobuf:"bytes,2,opt,name=kind"`
+	// Name is the name of resource being referenced
+	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
 }
 
 // Bytes type is used to avoid issue with deepequal
