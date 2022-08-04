@@ -1,3 +1,5 @@
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcilium%2Fcilium.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fcilium%2Fcilium?ref=badge_shield)
+
 .. raw:: html
 
    <picture>
@@ -337,3 +339,6 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. |artifacthub| image:: https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/cilium
     :alt: Artifact Hub
     :target: https://artifacthub.io/packages/helm/cilium/cilium
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcilium%2Fcilium.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fcilium%2Fcilium?ref=badge_large)
