@@ -378,7 +378,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 	bootstrapStats.daemonInit.Start()
 
 	// Validate the daemon-specific global options.
-	if err := option.Config.Validate(); err != nil {
+	if err := option.Config.Validate(Vp); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
 

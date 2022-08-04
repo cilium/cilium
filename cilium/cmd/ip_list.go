@@ -10,7 +10,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	ipApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
@@ -39,7 +38,7 @@ func init() {
 	flags := ipListCmd.Flags()
 	flags.BoolVarP(&numeric, "numeric", "n", false, "Print numeric identities")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "Print all fields of ipcache")
-	viper.BindPFlags(flags)
+	vp.BindPFlags(flags)
 }
 
 func listIPs() {

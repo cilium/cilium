@@ -107,6 +107,7 @@ func TestGetEnvName(t *testing.T) {
 }
 
 func (s *OptionSuite) TestReadDirConfig(c *C) {
+	ro := NewRegisteredOptions(viper.GetViper())
 	var dirName string
 	type args struct {
 		dirName string
@@ -160,7 +161,7 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 				c.Assert(err, IsNil)
 				fs := flag.NewFlagSet("single file configuration", flag.ContinueOnError)
 				fs.String("test", "", "")
-				BindEnv("test")
+				ro.BindEnv("test")
 				viper.BindPFlags(fs)
 
 				fmt.Println(fullPath)
@@ -189,7 +190,7 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 		want := tt.setupWant()
 		m, err := ReadDirConfig(args.dirName)
 		c.Assert(err, want.errChecker, want.err, Commentf("Test Name: %s", tt.name))
-		err = MergeConfig(m)
+		err = MergeConfig(viper.GetViper(), m)
 		c.Assert(err, IsNil)
 		c.Assert(viper.AllSettings(), want.allSettingsChecker, want.allSettings, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
@@ -197,14 +198,15 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 }
 
 func (s *OptionSuite) TestBindEnv(c *C) {
+	ro := NewRegisteredOptions(viper.GetViper())
 	optName1 := "foo-bar"
 	os.Setenv("LEGACY_FOO_BAR", "legacy")
 	os.Setenv(getEnvName(optName1), "new")
-	BindEnvWithLegacyEnvFallback(optName1, "LEGACY_FOO_BAR")
+	ro.BindEnvWithLegacyEnvFallback(optName1, "LEGACY_FOO_BAR")
 	c.Assert(viper.GetString(optName1), Equals, "new")
 
 	optName2 := "bar-foo"
-	BindEnvWithLegacyEnvFallback(optName2, "LEGACY_FOO_BAR")
+	ro.BindEnvWithLegacyEnvFallback(optName2, "LEGACY_FOO_BAR")
 	c.Assert(viper.GetString(optName2), Equals, "legacy")
 
 	viper.Reset()
@@ -679,6 +681,7 @@ func TestCheckIPAMDelegatedPlugin(t *testing.T) {
 }
 
 func Test_populateNodePortRange(t *testing.T) {
+	ro := NewRegisteredOptions(viper.GetViper())
 	type want struct {
 		wantMin int
 		wantMax int
@@ -720,7 +723,7 @@ func Test_populateNodePortRange(t *testing.T) {
 					},
 					"")
 
-				BindEnv(NodePortRange)
+				ro.BindEnv(NodePortRange)
 				viper.BindPFlags(fs)
 			},
 		},
@@ -782,7 +785,7 @@ func Test_populateNodePortRange(t *testing.T) {
 			preTestRun: func() {
 				viper.Reset()
 
-				delete(RegisteredOptions, NodePortRange)
+				ro.RemoveEnv(NodePortRange)
 
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
@@ -793,7 +796,7 @@ func Test_populateNodePortRange(t *testing.T) {
 					},
 					"")
 
-				BindEnv(NodePortRange)
+				ro.BindEnv(NodePortRange)
 				viper.BindPFlags(fs)
 
 				viper.Set(NodePortRange, []string{"1024"})
@@ -810,7 +813,7 @@ func Test_populateNodePortRange(t *testing.T) {
 			preTestRun: func() {
 				viper.Reset()
 
-				delete(RegisteredOptions, NodePortRange)
+				ro.RemoveEnv(NodePortRange)
 
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
@@ -818,7 +821,7 @@ func Test_populateNodePortRange(t *testing.T) {
 					[]string{}, // Explicitly has no defaults.
 					"")
 
-				BindEnv(NodePortRange)
+				ro.BindEnv(NodePortRange)
 				viper.BindPFlags(fs)
 
 				viper.Set(NodePortRange, []string{})
@@ -830,7 +833,7 @@ func Test_populateNodePortRange(t *testing.T) {
 			tt.preTestRun()
 
 			d := &DaemonConfig{}
-			err := d.populateNodePortRange()
+			err := d.populateNodePortRange(viper.GetViper())
 
 			got := want{
 				wantMin: d.NodePortMin,
@@ -1086,7 +1089,7 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			)
 
 			if tt.totalMemory > 0 && tt.ratio > 0.0 {
-				d.calculateDynamicBPFMapSizes(tt.totalMemory, tt.ratio)
+				d.calculateDynamicBPFMapSizes(viper.GetViper(), tt.totalMemory, tt.ratio)
 			}
 
 			got := sizes{
