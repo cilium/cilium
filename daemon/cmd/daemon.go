@@ -656,6 +656,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 		option.Config,
 		d.ipcache,
 	)
+	// cri.GetPodCgroupMetadata("936de1c706107729a4b876ba4a3849924bb1b0048db9b1c852848305852d2b46")
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
 	d.ipcache.RegisterK8sSyncedChecker(&d)
 
