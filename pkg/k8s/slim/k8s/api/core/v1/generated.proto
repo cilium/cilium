@@ -91,6 +91,12 @@ message ContainerPort {
   optional string hostIP = 5;
 }
 
+// ContainerStatus represents the status of a container
+message ContainerStatus {
+  // +optional
+  optional string containerID = 8;
+}
+
 // EndpointAddress is a tuple that describes single IP address.
 // +structType=atomic
 message EndpointAddress {
@@ -504,6 +510,18 @@ message PodStatus {
   // This is before the Kubelet pulled the container image(s) for the pod.
   // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
+
+  // The list has one entry per container in the manifest.
+  // +optional
+  // +patchMergeKey=type
+  // +patchStrategy=merge
+  repeated ContainerStatus containerStatuses = 8;
+
+  // The Quality of Service (QOS) classification assigned to the pod based on resource requirements
+  // See PodQOSClass type for available QOS classes
+  // More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
+  // +optional
+  optional string qosClass = 9;
 }
 
 message PortStatus {
