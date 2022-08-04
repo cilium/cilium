@@ -48,8 +48,10 @@ func startCiliumAgent(nodeName string, clients fakeClients, modConfig func(*opti
 	version.Update(clients.core, &k8sConfig{})
 	k8s.SetClients(clients.core, clients.slim, clients.cilium, clients.apiext)
 
+	var handle agentHandle
+
 	proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
-	option.Config.Populate()
+	option.Config.Populate(cmd.Vp)
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
 	option.Config.DryMode = true
 	option.Config.IPAM = ipamOption.IPAMKubernetes
@@ -71,7 +73,6 @@ func startCiliumAgent(nodeName string, clients fakeClients, modConfig func(*opti
 	// Apply the test specific configuration
 	modConfig(option.Config)
 
-	var handle agentHandle
 	handle.tempDir = setupTestDirectories()
 
 	fdp := fakeDatapath.NewDatapath()

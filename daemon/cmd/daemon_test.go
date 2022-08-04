@@ -80,7 +80,7 @@ func TestMain(m *testing.M) {
 
 	// Set up all configuration options which are global to the entire test
 	// run.
-	option.Config.Populate()
+	option.Config.Populate(Vp)
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)

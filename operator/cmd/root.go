@@ -33,7 +33,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,14 +59,14 @@ var (
 		Use:   binaryName,
 		Short: "Run " + binaryName,
 		Run: func(cobraCmd *cobra.Command, args []string) {
-			cmdRefDir := viper.GetString(option.CMDRef)
+			cmdRefDir := Vp.GetString(option.CMDRef)
 			if cmdRefDir != "" {
 				genMarkdown(cobraCmd, cmdRefDir)
 				os.Exit(0)
 			}
 
 			// Open socket for using gops to get stacktraces of the agent.
-			addr := fmt.Sprintf("127.0.0.1:%d", viper.GetInt(option.GopsPort))
+			addr := fmt.Sprintf("127.0.0.1:%d", Vp.GetInt(option.GopsPort))
 			addrField := logrus.Fields{"address": addr}
 			if err := gops.Listen(gops.Options{
 				Addr:                   addr,
@@ -135,8 +134,8 @@ func init() {
 
 func initEnv() {
 	// Prepopulate option.Config with options from CLI.
-	option.Config.Populate()
-	operatorOption.Config.Populate()
+	option.Config.Populate(Vp)
+	operatorOption.Config.Populate(Vp)
 
 	// add hooks after setting up metrics in the option.Confog
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
@@ -146,7 +145,7 @@ func initEnv() {
 		log.Fatal(err)
 	}
 
-	option.LogRegisteredOptions(log)
+	regOpts.LogRegisteredOptions(log)
 	// Enable fallback to direct API probing to check for support of Leases in
 	// case Discovery API fails.
 	option.Config.EnableK8sLeasesFallbackDiscovery()
@@ -344,7 +343,7 @@ func onOperatorStart(ctx context.Context) {
 
 // Populate options required by cilium-operator command line only.
 func Populate() {
-	operatorAddr = viper.GetString(operatorOption.OperatorAPIServeAddr)
+	operatorAddr = Vp.GetString(operatorOption.OperatorAPIServeAddr)
 }
 
 func kvstoreEnabled() bool {

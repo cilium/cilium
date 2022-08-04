@@ -11,7 +11,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -181,8 +180,8 @@ func migrateIdentities() {
 func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
 
-	k8sClientQPSLimit := viper.GetFloat64(option.K8sClientQPSLimit)
-	k8sClientBurst := viper.GetInt(option.K8sClientBurst)
+	k8sClientQPSLimit := vp.GetFloat64(option.K8sClientQPSLimit)
+	k8sClientBurst := vp.GetInt(option.K8sClientBurst)
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
 
