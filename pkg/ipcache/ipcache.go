@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -23,6 +24,8 @@ var (
 	// security identities across the entire cluster in which this instance of
 	// Cilium is running.
 	IPIdentityCache = NewIPCache()
+	// NodeHandler includes the methods to manage node IDs.
+	NodeHandler datapath.NodeHandler
 )
 
 // Identity is the identity representation of an IP<->Identity cache.
@@ -136,6 +139,11 @@ func (ipc *IPCache) SetListeners(listeners []IPIdentityMappingListener) {
 	ipc.mutex.Lock()
 	ipc.listeners = listeners
 	ipc.mutex.Unlock()
+}
+
+// Only used for testing.
+func SetNodeHandler(nh datapath.NodeHandler) {
+	NodeHandler = nh
 }
 
 // AddListener adds a listener for this IPCache.
@@ -272,6 +280,7 @@ func (ipc *IPCache) upsertLocked(
 
 	var cidr *net.IPNet
 	var oldIdentity *Identity
+	var hostID uint16
 	callbackListeners := true
 
 	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
@@ -399,9 +408,13 @@ func (ipc *IPCache) upsertLocked(
 		}
 	}
 
+	if hostIP != nil {
+		hostID = NodeHandler.AllocateNodeID(hostIP)
+	}
+
 	if callbackListeners && !newIdentity.shadowed {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, k8sMeta)
+			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, hostID, k8sMeta)
 		}
 	}
 
@@ -425,7 +438,11 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 			endpointIP := net.ParseIP(ip)
 			cidr = endpointIPToCIDR(endpointIP)
 		}
-		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity, encryptKey, k8sMeta)
+		nodeID := uint16(0)
+		if hostIP != nil {
+			nodeID = NodeHandler.AllocateNodeID(hostIP)
+		}
+		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity, encryptKey, nodeID, k8sMeta)
 	}
 }
 
@@ -462,6 +479,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	var oldIdentity *Identity
 	newIdentity := cachedIdentity
 	callbackListeners := true
+	var nodeID uint16
 
 	var err error
 	if _, cidr, err = net.ParseCIDR(ip); err == nil {
@@ -518,10 +536,14 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		namedPortsChanged = ipc.updateNamedPorts()
 	}
 
+	if newHostIP != nil {
+		nodeID = NodeHandler.AllocateNodeID(newHostIP)
+	}
+
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP,
-				oldIdentity, newIdentity, encryptKey, oldK8sMeta)
+				oldIdentity, newIdentity, encryptKey, nodeID, oldK8sMeta)
 		}
 	}
 
