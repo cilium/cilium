@@ -87,8 +87,11 @@ const (
 	// IPSec offset value for node rules
 	IPsecMaxKeyVersion = 15
 
-	// IPsecMarkMask is the mask required for the IPsec SPI and encrypt/decrypt bits
-	IPsecMarkMask = 0xFF00
+	// IPsecMarkMaskNodeID is the mask used for the node ID.
+	IPsecMarkMaskNodeID = 0xFFFF0000
+
+	// IPsecMarkMask is the mask required for the IPsec SPI, node ID, and encrypt/decrypt bits
+	IPsecMarkMaskOut = 0xFF00 | IPsecMarkMaskNodeID
 
 	// IPsecMarkMaskIn is the mask required for IPsec to lookup encrypt/decrypt bits
 	IPsecMarkMaskIn = 0x0F00
