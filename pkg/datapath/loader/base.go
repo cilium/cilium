@@ -409,7 +409,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	sysctl.ApplySettings(sysSettings)
 
 	// Datapath initialization
-	hostDev1, hostDev2, err := setupBaseDevice(deviceMTU)
+	hostDev1, hostDev2, err := SetupBaseDevice(deviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
 	}

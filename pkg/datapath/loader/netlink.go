@@ -280,11 +280,11 @@ func setupVethPair(name, peerName string) error {
 	return nil
 }
 
-// setupBaseDevice decides which and what kind of interfaces should be set up as
+// SetupBaseDevice decides which and what kind of interfaces should be set up as
 // the first step of datapath initialization, then performs the setup (and
 // creation, if needed) of those interfaces. It returns two links and an error.
 // By default, it sets up the veth pair - cilium_host and cilium_net.
-func setupBaseDevice(mtu int) (netlink.Link, netlink.Link, error) {
+func SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error) {
 	if err := setupVethPair(defaults.HostDevice, defaults.SecondHostDevice); err != nil {
 		return nil, nil, err
 	}
