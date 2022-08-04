@@ -91,6 +91,88 @@ message ContainerPort {
   optional string hostIP = 5;
 }
 
+// ContainerState holds a possible state of container.
+// Only one of its members may be specified.
+// If none of them is specified, the default one is ContainerStateWaiting.
+message ContainerState {
+  // +optional
+  optional ContainerStateWaiting waiting = 1;
+
+  // +optional
+  optional ContainerStateRunning running = 2;
+
+  // +optional
+  optional ContainerStateTerminated terminated = 3;
+}
+
+// ContainerStateRunning represents the running state of a container
+message ContainerStateRunning {
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startedAt = 1;
+}
+
+// ContainerStateTerminated represents the terminated state of a container
+message ContainerStateTerminated {
+  optional int32 exitCode = 1;
+
+  // +optional
+  optional int32 signal = 2;
+
+  // +optional
+  optional string reason = 3;
+
+  // +optional
+  optional string message = 4;
+
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startedAt = 5;
+
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time finishedAt = 6;
+
+  // +optional
+  optional string containerID = 7;
+}
+
+// ContainerStateWaiting represents the waiting state of a container
+message ContainerStateWaiting {
+  // A brief CamelCase string indicating details about why the container is in waiting state.
+  // +optional
+  optional string reason = 1;
+
+  // A human-readable message indicating details about why the container is in waiting state.
+  // +optional
+  optional string message = 2;
+}
+
+// ContainerStatus represents the status of a container
+message ContainerStatus {
+  // Each container in a pod must have a unique name.
+  optional string name = 1;
+
+  // +optional
+  optional ContainerState state = 2;
+
+  // +optional
+  optional ContainerState lastTerminationState = 3;
+
+  // Ready specifies whether the container has passed its readiness check.
+  optional bool ready = 4;
+
+  // Note that this is calculated from dead containers.  But those containers are subject to
+  // garbage collection.  This value will get capped at 5 by GC.
+  optional int32 restartCount = 5;
+
+  optional string image = 6;
+
+  optional string imageID = 7;
+
+  // +optional
+  optional string containerID = 8;
+
+  optional bool started = 9;
+}
+
 // EndpointAddress is a tuple that describes single IP address.
 // +structType=atomic
 message EndpointAddress {
@@ -499,6 +581,12 @@ message PodStatus {
   // This is before the Kubelet pulled the container image(s) for the pod.
   // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
+
+  // The list has one entry per container in the manifest.
+  // +optional
+  // +patchMergeKey=type
+  // +patchStrategy=merge
+  repeated ContainerStatus containerStatuses = 8;
 }
 
 message PortStatus {

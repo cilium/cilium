@@ -180,6 +180,71 @@ type PodCondition struct {
 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 }
 
+// ContainerStateWaiting represents the waiting state of a container
+type ContainerStateWaiting struct {
+	// A brief CamelCase string indicating details about why the container is in waiting state.
+	// +optional
+	Reason string `protobuf:"bytes,1,opt,name=reason"`
+	// A human-readable message indicating details about why the container is in waiting state.
+	// +optional
+	Message string `protobuf:"bytes,2,opt,name=message"`
+}
+
+// ContainerStateRunning represents the running state of a container
+type ContainerStateRunning struct {
+	// +optional
+	StartedAt slim_metav1.Time `protobuf:"bytes,1,opt,name=startedAt"`
+}
+
+// ContainerStateTerminated represents the terminated state of a container
+type ContainerStateTerminated struct {
+	ExitCode int32 `protobuf:"varint,1,opt,name=exitCode"`
+	// +optional
+	Signal int32 `protobuf:"varint,2,opt,name=signal"`
+	// +optional
+	Reason string `protobuf:"bytes,3,opt,name=reason"`
+	// +optional
+	Message string `protobuf:"bytes,4,opt,name=message"`
+	// +optional
+	StartedAt slim_metav1.Time `protobuf:"bytes,5,opt,name=startedAt"`
+	// +optional
+	FinishedAt slim_metav1.Time `protobuf:"bytes,6,opt,name=finishedAt"`
+	// +optional
+	ContainerID string `protobuf:"bytes,7,opt,name=containerID"`
+}
+
+// ContainerState holds a possible state of container.
+// Only one of its members may be specified.
+// If none of them is specified, the default one is ContainerStateWaiting.
+type ContainerState struct {
+	// +optional
+	Waiting *ContainerStateWaiting `protobuf:"bytes,1,opt,name=waiting"`
+	// +optional
+	Running *ContainerStateRunning `protobuf:"bytes,2,opt,name=running"`
+	// +optional
+	Terminated *ContainerStateTerminated `protobuf:"bytes,3,opt,name=terminated"`
+}
+
+// ContainerStatus represents the status of a container
+type ContainerStatus struct {
+	// Each container in a pod must have a unique name.
+	Name string `protobuf:"bytes,1,opt,name=name"`
+	// +optional
+	State ContainerState `protobuf:"bytes,2,opt,name=state"`
+	// +optional
+	LastTerminationState ContainerState `protobuf:"bytes,3,opt,name=lastTerminationState"`
+	// Ready specifies whether the container has passed its readiness check.
+	Ready bool `protobuf:"varint,4,opt,name=ready"`
+	// Note that this is calculated from dead containers.  But those containers are subject to
+	// garbage collection.  This value will get capped at 5 by GC.
+	RestartCount int32  `protobuf:"varint,5,opt,name=restartCount"`
+	Image        string `protobuf:"bytes,6,opt,name=image"`
+	ImageID      string `protobuf:"bytes,7,opt,name=imageID"`
+	// +optional
+	ContainerID string `protobuf:"bytes,8,opt,name=containerID"`
+	Started     *bool  `protobuf:"varint,9,opt,name=started"`
+}
+
 // The node this Taint is attached to has the "effect" on
 // any pod that does not tolerate the Taint.
 type Taint struct {
@@ -322,6 +387,12 @@ type PodStatus struct {
 	// This is before the Kubelet pulled the container image(s) for the pod.
 	// +optional
 	StartTime *slim_metav1.Time `json:"startTime,omitempty" protobuf:"bytes,7,opt,name=startTime"`
+
+	// The list has one entry per container in the manifest.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	ContainerStatuses []ContainerStatus `json:"statuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
 }
 
 // +genclient
