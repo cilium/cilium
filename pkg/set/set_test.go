@@ -71,6 +71,30 @@ func (s *SetTestSuite) TestSliceSubsetOf(c *C) {
 			isSubset:     false,
 			expectedDiff: nil,
 		},
+		{
+			sub:          []string{"foo"},
+			main:         []string{},
+			isSubset:     false,
+			expectedDiff: []string{"foo"},
+		},
+		{
+			sub:          []string{},
+			main:         []string{"foo"},
+			isSubset:     true,
+			expectedDiff: nil,
+		},
+		{
+			sub:          []string{},
+			main:         []string{},
+			isSubset:     true,
+			expectedDiff: nil,
+		},
+		{
+			sub:          nil,
+			main:         nil,
+			isSubset:     true,
+			expectedDiff: nil,
+		},
 	}
 	for _, tc := range testCases {
 		isSubset, diff := SliceSubsetOf(tc.sub, tc.main)
