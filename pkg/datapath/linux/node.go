@@ -548,7 +548,7 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 		}
 
 		n.replaceNodeIPSecOutRoute(cidr)
-		spi, err = ipsec.UpsertIPsecEndpoint(ipsecIPv4Wildcard, cidr, wildcardIP, cidr.IP, ipsec.IPSecDirOut, zeroMark)
+		spi, err = ipsec.UpsertIPsecEndpoint(ipsecIPv4Wildcard, cidr, wildcardIP, cidr.IP, 0, ipsec.IPSecDirOut, zeroMark)
 		upsertIPsecLog(err, "CNI Out IPv4", ipsecIPv4Wildcard, cidr, spi)
 
 		if n.nodeConfig.EncryptNode {
@@ -558,7 +558,7 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 			if err != nil {
 				upsertIPsecLog(err, "getV4LinkLocalIP failed", ipsecIPv4Wildcard, cidr, spi)
 			}
-			spi, err := ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv4Wildcard, linkAddr.IP, wildcardIP, ipsec.IPSecDirIn, zeroMark)
+			spi, err := ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv4Wildcard, linkAddr.IP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
 			upsertIPsecLog(err, "CNI In IPv4", cidr, ipsecIPv4Wildcard, spi)
 		}
 	}
@@ -570,7 +570,7 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 		n.replaceNodeIPSecInRoute(cidr)
 
 		n.replaceNodeIPSecOutRoute(cidr)
-		spi, err := ipsec.UpsertIPsecEndpoint(ipsecIPv6Wildcard, cidr, wildcardIP, cidr.IP, ipsec.IPSecDirOut, zeroMark)
+		spi, err := ipsec.UpsertIPsecEndpoint(ipsecIPv6Wildcard, cidr, wildcardIP, cidr.IP, 0, ipsec.IPSecDirOut, zeroMark)
 		upsertIPsecLog(err, "CNI Out IPv6", cidr, ipsecIPv6Wildcard, spi)
 
 		if n.nodeConfig.EncryptNode {
@@ -580,7 +580,7 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 			if err != nil {
 				upsertIPsecLog(err, "getV6LinkLocalIP failed", ipsecIPv6Wildcard, cidr, spi)
 			}
-			spi, err := ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv6Wildcard, linkAddr.IP, wildcardIP, ipsec.IPSecDirIn, zeroMark)
+			spi, err := ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv6Wildcard, linkAddr.IP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
 			upsertIPsecLog(err, "CNI In IPv6", cidr, ipsecIPv6Wildcard, spi)
 		}
 	}
@@ -600,13 +600,13 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 			wildcardIP := net.ParseIP(wildcardIPv4)
 			ipsecIPv4Wildcard := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
 			n.replaceNodeIPSecInRoute(ipsecLocal)
-			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv4Wildcard, internalIPv4, wildcardIP, ipsec.IPSecDirIn, false)
+			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv4Wildcard, internalIPv4, wildcardIP, 0, ipsec.IPSecDirIn, false)
 			upsertIPsecLog(err, "EncryptNode local IPv4", ipsecLocal, ipsecIPv4Wildcard, spi)
 		} else {
 			if remoteIPv4 := newNode.GetNodeIP(false); remoteIPv4 != nil {
 				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv4, remoteIPv4, ipsec.IPSecDirOutNode, false)
+				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv4, remoteIPv4, 0, ipsec.IPSecDirOutNode, false)
 				upsertIPsecLog(err, "EncryptNode IPv4", ipsecLocal, ipsecRemote, spi)
 			}
 			remoteIPv4 := newNode.GetCiliumInternalIP(false)
@@ -618,7 +618,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
 				if remoteIPv4T := newNode.GetNodeIP(false); remoteIPv4T != nil {
-					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv4, remoteIPv4T, ipsec.IPSecDirOutNode)
+					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv4, remoteIPv4T, 0, ipsec.IPSecDirOutNode)
 				}
 				upsertIPsecLog(err, "EncryptNode Cilium IPv4", ipsecWildcard, ipsecRemote, spi)
 			}
@@ -633,13 +633,13 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 			wildcardIP := net.ParseIP(wildcardIPv6)
 			ipsecIPv6Wildcard := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 0)}
 			n.replaceNodeIPSecInRoute(ipsecLocal)
-			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv6Wildcard, internalIPv6, wildcardIP, ipsec.IPSecDirIn, false)
+			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv6Wildcard, internalIPv6, wildcardIP, 0, ipsec.IPSecDirIn, false)
 			upsertIPsecLog(err, "EncryptNode local IPv6", ipsecLocal, ipsecIPv6Wildcard, spi)
 		} else {
 			if remoteIPv6 := newNode.GetNodeIP(true); remoteIPv6 != nil {
 				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: exactMask}
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv6, remoteIPv6, ipsec.IPSecDirOut, false)
+				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv6, remoteIPv6, 0, ipsec.IPSecDirOut, false)
 				upsertIPsecLog(err, "EncryptNode IPv6", ipsecLocal, ipsecRemote, spi)
 			}
 			remoteIPv6 := newNode.GetCiliumInternalIP(true)
@@ -651,7 +651,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
 				if remoteIPv6T := newNode.GetNodeIP(true); remoteIPv6T != nil {
-					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv6, remoteIPv6T, ipsec.IPSecDirOutNode)
+					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv6, remoteIPv6T, 0, ipsec.IPSecDirOutNode)
 				}
 				upsertIPsecLog(err, "EncryptNode Cilium IPv6", ipsecWildcard, ipsecRemote, spi)
 			}
@@ -1016,7 +1016,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 			n.replaceNodeIPSecInRoute(new4Net)
 			if localIP := newNode.GetCiliumInternalIP(false); localIP != nil {
 				localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
-				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, ipsec.IPSecDirIn, false)
+				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, 0, ipsec.IPSecDirIn, false)
 				upsertIPsecLog(err, "local IPv4", localCIDR, wildcardCIDR, spi)
 			}
 		} else {
@@ -1024,8 +1024,9 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 				localIP := n.nodeAddressing.IPv4().Router()
 				localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
 				remoteCIDR := newNode.IPv4AllocCIDR.IPNet
+				remoteNodeID := n.allocateIDForNode(newNode)
 				n.replaceNodeIPSecOutRoute(new4Net)
-				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, ipsec.IPSecDirOut, false)
+				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
 				upsertIPsecLog(err, "IPv4", localCIDR, remoteCIDR, spi)
 			}
 		}
@@ -1040,7 +1041,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 			n.replaceNodeIPSecInRoute(new6Net)
 			if localIP := newNode.GetCiliumInternalIP(true); localIP != nil {
 				localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
-				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, ipsec.IPSecDirIn, false)
+				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, 0, ipsec.IPSecDirIn, false)
 				upsertIPsecLog(err, "local IPv6", localCIDR, wildcardCIDR, spi)
 			}
 		} else {
@@ -1048,8 +1049,9 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 				localIP := n.nodeAddressing.IPv6().Router()
 				localCIDR := &net.IPNet{IP: localIP, Mask: net.CIDRMask(0, 0)}
 				remoteCIDR := newNode.IPv6AllocCIDR.IPNet
+				remoteNodeID := n.allocateIDForNode(newNode)
 				n.replaceNodeIPSecOutRoute(new6Net)
-				spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, ipsec.IPSecDirOut, false)
+				spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
 				upsertIPsecLog(err, "IPv6", localCIDR, remoteCIDR, spi)
 			}
 		}
