@@ -2958,6 +2958,9 @@ func (c *DaemonConfig) Populate() {
 
 	if c.TunnelPort == 0 {
 		switch c.Tunnel {
+		case TunnelDisabled:
+			// tunnel might still be used by eg. EgressGW
+			c.TunnelPort = defaults.TunnelPortVXLAN
 		case TunnelVXLAN:
 			c.TunnelPort = defaults.TunnelPortVXLAN
 		case TunnelGeneve:
