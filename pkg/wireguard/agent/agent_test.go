@@ -83,7 +83,8 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
-		Context: ctx,
+		Context:     ctx,
+		NodeHandler: &mockNodeHandler{},
 	})
 	defer ipCache.Shutdown()
 	wgAgent := &Agent{
@@ -199,4 +200,10 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	c.Assert(wgAgent.peerByNodeName, HasLen, 0)
 	c.Assert(wgAgent.nodeNameByNodeIP, HasLen, 0)
 	c.Assert(wgAgent.nodeNameByPubKey, HasLen, 0)
+}
+
+type mockNodeHandler struct{}
+
+func (m *mockNodeHandler) AllocateNodeID(_ net.IP) uint16 {
+	return 0
 }
