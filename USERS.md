@@ -244,6 +244,12 @@ Users (Alphabetically)
       U: CNI-Chaining, Hubble, kube-proxy replacement
       L: https://github.com/kubeovn/kube-ovn/blob/master/docs/IntegrateCiliumIntoKubeOVN.md
       Q: @oilbeater
+      
+    * N: Kube-Hetzner
+      D: Kube-Hetzner is a open-source Terraform project that uses Cilium as an possible CNI in its cluster deployment on Hetzner Cloud.
+      U: Networking, Hubble, kube-proxy replacement
+      L: https://github.com/kube-hetzner/terraform-hcloud-kube-hetzner#cni
+      Q: @MysticalTech
 
     * N: Kubermatic
       D: Kubermatic Kubernetes Platform is using Cilium as a one of the supported CNIs.
