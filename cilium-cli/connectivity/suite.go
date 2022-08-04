@@ -48,6 +48,9 @@ var (
 
 	//go:embed manifests/echo-ingress-l7-http.yaml
 	echoIngressL7HTTPPolicyYAML string
+
+	//go:embed manifests/echo-ingress-icmp.yaml
+	echoIngressICMPPolicyYAML string
 )
 
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -152,6 +155,19 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				return check.ResultDropCurlTimeout, check.ResultDropCurlTimeout
 			}
 			return check.ResultOK, check.ResultOK
+		})
+
+	// This policy allows ingress to echo only from client with a label 'other:client'.
+	ct.NewTest("client-ingress-icmp").WithPolicy(echoIngressICMPPolicyYAML).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureICMPPolicy)).
+		WithScenarios(
+			tests.ClientToClient(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") {
+				return check.ResultOK, check.ResultOK
+			}
+			return check.ResultOK, check.ResultDrop
 		})
 
 	// This policy allows port 8080 from client to echo, so this should succeed
