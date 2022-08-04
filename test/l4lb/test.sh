@@ -48,6 +48,7 @@ nsenter -t $CONTROL_PLANE_PID -n /bin/sh -c "\
     ip a a "${SECOND_LB_NODE_IP}/24" dev l4lb-veth1 && \
     ip l s dev l4lb-veth1 up"
 
+
 # Install Cilium as standalone L4LB
 helm install cilium ${HELM_CHART_DIR} \
     --wait \
