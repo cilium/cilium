@@ -61,15 +61,11 @@ type Loader struct {
 
 	// templateCache is the cache of pre-compiled datapaths.
 	templateCache *objectCache
-
-	canDisableDwarfRelocations bool
 }
 
 // NewLoader returns a new loader.
-func NewLoader(canDisableDwarfRelocations bool) *Loader {
-	return &Loader{
-		canDisableDwarfRelocations: canDisableDwarfRelocations,
-	}
+func NewLoader() *Loader {
+	return &Loader{}
 }
 
 // Init initializes the datapath cache with base program hashes derived from

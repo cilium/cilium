@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -445,15 +444,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	cmd.Env = bpf.Environment()
 	if _, err := cmd.CombinedOutput(log, true); err != nil {
 		return err
-	}
-
-	if l.canDisableDwarfRelocations {
-		// Validate alignments of C and Go equivalent structs
-		if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
-			log.WithError(err).Fatal("C and Go structs alignment check failed")
-		}
-	} else {
-		log.Warning("Cannot check matching of C and Go common struct alignments due to old LLVM/clang version")
 	}
 
 	if err := l.reinitializeIPSec(ctx); err != nil {

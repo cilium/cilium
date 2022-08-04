@@ -217,7 +217,7 @@ function bpf_compile()
 	      -DENABLE_ARP_RESPONDER=1				\
 	      $EXTRA_OPTS					\
 	      -c $LIB/$IN -o - |				\
-	llc -march=bpf -mcpu=$MCPU -mattr=dwarfris -filetype=$TYPE -o $OUT
+	llc -march=bpf -mcpu=$MCPU -filetype=$TYPE -o $OUT
 }
 
 function bpf_unload()
@@ -568,7 +568,3 @@ fi
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 	bpf_unload $HOST_DEV2 "egress"
 fi
-
-# Compile dummy BPF file containing all shared struct definitions used by
-# pkg/alignchecker to validate C and Go equivalent struct alignments
-bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj ""
