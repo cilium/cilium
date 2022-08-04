@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -24,6 +25,7 @@ const (
 	FeatureMonitorAggregation Feature = "monitor-aggregation"
 	FeatureL7Proxy            Feature = "l7-proxy"
 	FeatureHostFirewall       Feature = "host-firewall"
+	FeatureICMPPolicy         Feature = "icmp-policy"
 
 	FeatureKPRMode                  Feature = "kpr-mode"
 	FeatureKPRExternalIPs           Feature = "kpr-external-ips"
@@ -165,6 +167,26 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 	result[FeatureCNIChaining] = FeatureStatus{
 		Enabled: mode != "",
 		Mode:    mode,
+	}
+
+	// ICMP policy
+	if v, ok := cm.Data["enable-icmp-rules"]; ok {
+		if v == "true" {
+			result[FeatureICMPPolicy] = FeatureStatus{
+				Enabled: true,
+			}
+		}
+	} else {
+		ciliumVersion, err := ct.DetectMinimumCiliumVersion(ctx)
+		if err != nil {
+			return err
+		}
+		// ICMP policy is enabled by default in Cilium >= 1.12.0
+		if ciliumVersion.GTE(semver.MustParse("1.12.0")) {
+			result[FeatureICMPPolicy] = FeatureStatus{
+				Enabled: true,
+			}
+		}
 	}
 
 	return nil
