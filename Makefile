@@ -424,6 +424,9 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	pkg:tuple\
 	pkg:recorder")
 
+check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
+	./contrib/scripts/check-preflight-clusterrole.sh
+
 ##@ Development
 vps: ## List all the running vagrant VMs.
 	VBoxManage list runningvms
