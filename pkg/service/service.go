@@ -1584,10 +1584,10 @@ func isWildcardAddr(frontend lb.L3n4AddrID) bool {
 	return net.IPv4zero.Equal(frontend.IP)
 }
 
-func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]lb.Backend,
-	activeBackends map[string]lb.Backend, nonActiveBackends []lb.BackendID) {
-	preferredBackends = make(map[string]lb.Backend)
-	activeBackends = make(map[string]lb.Backend, len(backends))
+func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb.Backend,
+	activeBackends map[string]*lb.Backend, nonActiveBackends []lb.BackendID) {
+	preferredBackends = make(map[string]*lb.Backend)
+	activeBackends = make(map[string]*lb.Backend, len(backends))
 
 	for _, b := range backends {
 		// Separate active from non-active backends so that they won't be selected
@@ -1596,16 +1596,15 @@ func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]lb.
 		// are able to terminate gracefully. Such backends would either be cleaned-up
 		// when the backends are deleted, or they could transition to active state.
 		if b.State == lb.BackendStateActive {
-			activeBackends[b.String()] = *b
+			activeBackends[b.String()] = b
 			// keep another list of preferred backends if available
 			if b.Preferred {
-				preferredBackends[b.String()] = *b
+				preferredBackends[b.String()] = b
 			}
 		} else {
 			nonActiveBackends = append(nonActiveBackends, b.ID)
 		}
 	}
-
 	return preferredBackends, activeBackends, nonActiveBackends
 }
 

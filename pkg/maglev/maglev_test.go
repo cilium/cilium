@@ -59,7 +59,7 @@ func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
 	m := uint64(1021) // 3 (backends) * 100 should be less than M
 	changesInExistingBackends := 0
 
-	backendsMap := map[string]loadbalancer.Backend{
+	backendsMap := map[string]*loadbalancer.Backend{
 		"one":   {Weight: 1, ID: 0},
 		"three": {Weight: 1, ID: 1},
 		"two":   {Weight: 1, ID: 2},
@@ -91,7 +91,7 @@ func (s *MaglevTestSuite) TestWeightedBackendWithRemoval(c *C) {
 	// using following formula we can get the approximate number of times
 	// the backendID is found in the computed lut
 	// m / len(weightSum) * backend.Weight
-	backendsMap := map[string]loadbalancer.Backend{
+	backendsMap := map[string]*loadbalancer.Backend{
 		"one":   {Weight: 2, ID: 0},   // approx. 15x times
 		"three": {Weight: 13, ID: 1},  // approx. 97.5x times
 		"two":   {Weight: 111, ID: 2}, // approx. 833x times
@@ -138,9 +138,9 @@ func (s *MaglevTestSuite) BenchmarkGetMaglevTable(c *C) {
 		c.Fatal(err)
 	}
 
-	backends := make(map[string]loadbalancer.Backend, backendCount)
+	backends := make(map[string]*loadbalancer.Backend, backendCount)
 	for i := 0; i < backendCount; i++ {
-		backends[fmt.Sprintf("backend-%d", i)] = loadbalancer.Backend{Weight: 1}
+		backends[fmt.Sprintf("backend-%d", i)] = &loadbalancer.Backend{Weight: 1}
 	}
 
 	c.ResetTimer()

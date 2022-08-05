@@ -129,7 +129,7 @@ func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
 // backend's weight / number of backends, so that each backend is selected at least once). If this is lower
 // than weightCntr[backendName], another backend has a turn (and weightCntr[backendName]
 // is incremented). This way we honor the weights.
-func GetLookupTable(backendsMap map[string]loadbalancer.Backend, m uint64) []int {
+func GetLookupTable(backendsMap map[string]*loadbalancer.Backend, m uint64) []int {
 	if len(backendsMap) == 0 {
 		return nil
 	}
