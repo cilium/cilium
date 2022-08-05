@@ -64,6 +64,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
+	"github.com/cilium/cilium/pkg/metadata"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -181,6 +182,8 @@ type Daemon struct {
 	bgpSpeaker *speaker.MetalLBSpeaker
 
 	egressGatewayManager *egressgateway.Manager
+
+	metadataManager *metadata.Manager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -638,6 +641,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 		}
 	}
 
+	d.metadataManager = metadata.NewManager()
+
 	if option.Config.EnableIPv4EgressGateway {
 		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(&d, d.identityAllocator)
 	}
@@ -655,8 +660,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 		d.l7Proxy,
 		option.Config,
 		d.ipcache,
+		d.metadataManager,
 	)
-	// cri.GetPodCgroupMetadata("936de1c706107729a4b876ba4a3849924bb1b0048db9b1c852848305852d2b46")
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
 	d.ipcache.RegisterK8sSyncedChecker(&d)
 

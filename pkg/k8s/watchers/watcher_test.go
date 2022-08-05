@@ -251,6 +251,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		nil,
 		&fakeWatcherConfiguration{},
 		ipcache.NewIPCache(nil),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -565,6 +566,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		nil,
 		&fakeWatcherConfiguration{},
 		ipcache.NewIPCache(nil),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -712,6 +714,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		nil,
 		&fakeWatcherConfiguration{},
 		ipcache.NewIPCache(nil),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1175,6 +1178,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		nil,
 		&fakeWatcherConfiguration{},
 		ipcache.NewIPCache(nil),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1479,6 +1483,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		nil,
 		&fakeWatcherConfiguration{},
 		ipcache.NewIPCache(nil),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1776,6 +1781,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		nil,
 		&fakeWatcherConfiguration{},
 		ipcache.NewIPCache(nil),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2662,6 +2668,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		nil,
 		&fakeWatcherConfiguration{},
 		ipcache.NewIPCache(nil),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
