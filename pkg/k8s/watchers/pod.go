@@ -227,6 +227,9 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		}
 	}
 
+	log.Infof("aditi-debug-add %s %+v", pod.ObjectMeta.UID, pod.Status.ContainerStatuses)
+	k.metadataManager.OnAddPod(pod)
+
 	if err != nil {
 		logger.WithError(err).Warning("Unable to update ipcache map entry on pod add")
 		return err
@@ -260,6 +263,9 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	if !k8sUtils.IsPodRunning(newK8sPod.Status) {
 		return k.deleteK8sPodV1(newK8sPod)
 	}
+
+	log.Infof("aditi-debug-update %s %+v", newK8sPod.ObjectMeta.UID, newK8sPod.Status.ContainerStatuses)
+	k.metadataManager.OnUpdatePod(newK8sPod)
 
 	if newK8sPod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy {
 		logger.Debug("Skip pod event using host networking")
@@ -448,6 +454,8 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	if option.Config.EnableLocalRedirectPolicy {
 		k.redirectPolicyManager.OnDeletePod(pod)
 	}
+	log.Infof("aditi-debug-delete %s", pod.ObjectMeta.UID)
+	k.metadataManager.OnDeletePod(pod)
 
 	skipped, err := k.deletePodHostData(pod)
 	switch {
