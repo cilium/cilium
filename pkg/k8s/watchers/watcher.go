@@ -181,6 +181,12 @@ type envoyConfigManager interface {
 	ReleaseProxyPort(name string) error
 }
 
+type cgroupManager interface {
+	OnAddPod(pod *slim_corev1.Pod)
+	OnUpdatePod(oldPod, newPod *slim_corev1.Pod)
+	OnDeletePod(pod *slim_corev1.Pod)
+}
+
 type K8sWatcher struct {
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -217,6 +223,7 @@ type K8sWatcher struct {
 	egressGatewayManager  egressGatewayManager
 	ipcache               *ipcache.IPCache
 	envoyConfigManager    envoyConfigManager
+	cgroupManager         cgroupManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -260,6 +267,7 @@ func NewK8sWatcher(
 	envoyConfigManager envoyConfigManager,
 	cfg WatcherConfiguration,
 	ipcache *ipcache.IPCache,
+	cgroupManager cgroupManager,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
@@ -276,6 +284,7 @@ func NewK8sWatcher(
 		redirectPolicyManager: redirectPolicyManager,
 		bgpSpeakerManager:     bgpSpeakerManager,
 		egressGatewayManager:  egressGatewayManager,
+		cgroupManager:         cgroupManager,
 		NodeChain:             subscriber.NewNodeChain(),
 		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
 		envoyConfigManager:    envoyConfigManager,
