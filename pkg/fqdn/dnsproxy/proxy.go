@@ -454,6 +454,12 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		EnableIPv4, EnableIPv6 = option.Config.EnableIPv4, option.Config.EnableIPv6
 	)
 
+	// Bind the DNS forwarding clients on UDP and TCP
+	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
+	// retries into the previous lookup, suppressing them.
+	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
+	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
+
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
 		UDPConn, TCPListener, err = bindToAddr(address, port, EnableIPv4, EnableIPv6)
@@ -489,12 +495,6 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 			log.Fatalf("Failed to start %s DNS Proxy on %s", server.Net, server.Addr)
 		}(s)
 	}
-
-	// Bind the DNS forwarding clients on UDP and TCP
-	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
-	// retries into the previous lookup, suppressing them.
-	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
-	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 
 	return p, nil
 }
