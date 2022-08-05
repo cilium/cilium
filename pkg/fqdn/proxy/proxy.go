@@ -16,6 +16,7 @@ type DNSProxier interface {
 	GetBindPort() uint16
 	SetRejectReply(string)
 	RestoreRules(op *endpoint.Endpoint)
+	Cleanup()
 }
 
 type MockFQDNProxy struct{}
@@ -41,5 +42,9 @@ func (m MockFQDNProxy) SetRejectReply(s string) {
 }
 
 func (m MockFQDNProxy) RestoreRules(op *endpoint.Endpoint) {
+	return
+}
+
+func (m MockFQDNProxy) Cleanup() {
 	return
 }
