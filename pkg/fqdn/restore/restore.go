@@ -9,6 +9,7 @@
 package restore
 
 import (
+	"encoding/json"
 	"regexp"
 	"sort"
 )
@@ -35,7 +36,13 @@ type RuleRegex struct {
 // Sorts in place, but returns IPRules for convenience
 func (r IPRules) Sort() IPRules {
 	sort.SliceStable(r, func(i, j int) bool {
-		return r[i].Re.String() < r[j].Re.String()
+		if r[i].Re.Regexp != nil {
+			return false
+		}
+		if r[j].Re.Regexp != nil {
+			return true
+		}
+		return r[i].Re.Regexp.String() < r[j].Re.String()
 	})
 	return r
 }
@@ -63,10 +70,10 @@ func (r *RuleRegex) UnmarshalText(b []byte) error {
 	return nil
 }
 
-// MarshalText marshals RuleRegex as string
-func (r RuleRegex) MarshalText() ([]byte, error) {
-	if r.Regexp != nil {
-		return []byte(r.Regexp.String()), nil
+// MarshalJSON marshals RuleRegex as nullable string
+func (r RuleRegex) MarshalJSON() ([]byte, error) {
+	if r.Regexp == nil {
+		return json.Marshal(nil)
 	}
-	return nil, nil
+	return json.Marshal(r.Regexp.String())
 }

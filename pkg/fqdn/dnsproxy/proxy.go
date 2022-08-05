@@ -134,7 +134,6 @@ type DNSProxy struct {
 	// allowed tracks all allowed L7 DNS rules by endpointID, destination port,
 	// and L3 Selector. All must match for a query to be allowed.
 	//
-	// matchNames with no regexp wildcards are still compiled, internally.
 	// Note: Simple DNS names, e.g. bar.foo.com, will treat the "." as a literal.
 	allowed perEPAllow
 
@@ -142,6 +141,11 @@ type DNSProxy struct {
 	// used until 'allowed' rules for an endpoint are first initialized after
 	// a restart
 	restored perEPRestored
+
+	// cache is an internal structure to keep track of all the in use DNS rules. We do that
+	// so that we avoid storing multiple similar versions of the same rules, so that we can improve
+	// performance and reduce memory consumption when multiple endpoints or ports have similar rules.
+	cache *matcherCache
 
 	// mapping restored endpoint IP (both IPv4 and IPv6) to *Endpoint
 	restoredEPs restoredEPs
@@ -151,55 +155,53 @@ type DNSProxy struct {
 	rejectReply int32
 }
 
+// matchNameMatcher contains a map whose keys are the FQDNs that it matches.
 type matchNameMatcher struct {
 	mapping map[string]struct{}
-	key     *string
+	// key is the key that this specific matcher lives under in the matcherCache,
+	// and is used when releasing the matcher from the cache in case it is no longer in use.
+	// See matcherCache for more information about how its generated.
+	key *string
 }
 
 // patternMatcherEntry is a lookup entry used to cache a compiled regex
-// and how many policies it is being used by
+// and how many references it has
 type patternMatcherEntry struct {
 	matcher        *regexp.Regexp
 	referenceCount int
 }
 
 // nameMatcherEntry is a lookup entry used to cache a fqdn mapping
-// and how many policies it is being used by
+// and how many references it has
 type nameMatcherEntry struct {
 	matcher        *matchNameMatcher
 	referenceCount int
 }
 
-// perEPAllow maps EndpointIDs to ports + selectors + rules
-// It also contains indexes of all the regexps and the unique
-// fqdn maps in used, as well as how many rules refer to them.
-type perEPAllow struct {
-	allowMap map[uint64]portToSelectorAllow
-
-	// mapping from regexp pattern to regexp and reference count
-	patternMatchersByPattern map[string]*patternMatcherEntry
+// matcherCache is a reference counted cache used for reusing already compiled regex and lookup maps
+// that both match against FQDNs.
+type matcherCache struct {
+	// mapping from regexp pattern to an actual regexp used for matchPatterns
+	patternMatcherCache map[string]*patternMatcherEntry
 
 	// mapping from list of matchNames concatenated with a "|" separator to
 	// map where matchNames can be looked up.
-	nameMatcherBySignature map[string]*nameMatcherEntry
+	nameMatcherCache map[string]*nameMatcherEntry
 }
 
-func newPerEPAllow() perEPAllow {
-	return perEPAllow{
-		allowMap:                 make(map[uint64]portToSelectorAllow),
-		patternMatchersByPattern: make(map[string]*patternMatcherEntry),
-		nameMatcherBySignature:   make(map[string]*nameMatcherEntry),
-	}
-}
+// perEPAllow maps EndpointIDs to ports + selectors + rules
+type perEPAllow map[uint64]portToSelectorAllow
 
 // portToSelectorAllow maps port numbers to selectors + rules
 type portToSelectorAllow map[uint16]CachedSelectorEntry
 
-// fqdnMatcher contain both a regexp used to match matcher to policy matchPatterns and
-// a map of matchNames to match against those.
+// fqdnMatcher is used to match an FQDN to see if the ruleset allows it or not.
+// In case either the pattern- or the nameMatcher is nil, it means that the respective matcher doesn't match any FQDNs
 type fqdnMatcher struct {
+	// patternMatcher is used to match an FQDN to the matchPatterns from a DNS policy
 	patternMatcher *regexp.Regexp
-	nameMatcher    *matchNameMatcher
+	// nameMatcher is used to match an FQDN to the matchNames from a DNS policy
+	nameMatcher *matchNameMatcher
 }
 
 // CachedSelectorEntry maps port numbers to selectors to rules, mirroring
@@ -207,32 +209,50 @@ type fqdnMatcher struct {
 // for the matchPatterns
 type CachedSelectorEntry map[policy.CachedSelector]fqdnMatcher
 
+type CachedSelectorREEntry map[policy.CachedSelector]*regexp.Regexp
+
 // structure for restored rules that can be used while Cilium agent is restoring endpoints
 type perEPRestored map[uint64]restore.DNSRules
 
 // map from EP IPs to *Endpoint
 type restoredEPs map[string]*endpoint.Endpoint
 
+func newMatcherCache() *matcherCache {
+	return &matcherCache{
+		patternMatcherCache: make(map[string]*patternMatcherEntry),
+		nameMatcherCache:    make(map[string]*nameMatcherEntry),
+	}
+}
+
 // matchFQDN checks if the fqdn is present in the internal map, and returns true
 // if it is.
-func (f *matchNameMatcher) matchFQDN(fqdn string) bool {
+func (f matchNameMatcher) matchFQDN(fqdn string) bool {
 	_, found := f.mapping[fqdn]
 	return found
 }
 
-// asNewMap returns a copy of the internal matchName map
-func (f *matchNameMatcher) asNewMap() map[string]struct{} {
-	fqdns := make(map[string]struct{}, len(f.mapping))
-	for fqdn := range f.mapping {
-		fqdns[fqdn] = struct{}{}
-	}
-	return fqdns
-}
-
 // matchFQDN checks if the given fqdn is matched by the underlying policy. It first checks if the fqdn is
 // present as a matchName in the policy, and then if it matches a provided matchPattern
-func (rule *fqdnMatcher) matchFQDN(fqdn string) bool {
-	return rule.nameMatcher.matchFQDN(fqdn) || rule.patternMatcher.MatchString(fqdn)
+func (rule fqdnMatcher) matchFQDN(fqdn string) bool {
+	if rule.nameMatcher != nil && rule.nameMatcher.matchFQDN(fqdn) {
+		return true
+	}
+	if rule.patternMatcher != nil && rule.patternMatcher.MatchString(fqdn) {
+		return true
+	}
+	return false
+}
+
+// asIPRule returns a new restore.IPRule representing the matcher, including the provided IP map.
+func (rule fqdnMatcher) asIPRule(IPs map[string]struct{}) restore.IPRule {
+	var fqdns map[string]struct{}
+	if rule.nameMatcher != nil {
+		fqdns = make(map[string]struct{}, len(rule.nameMatcher.mapping))
+		for fqdn := range rule.nameMatcher.mapping {
+			fqdns[fqdn] = struct{}{}
+		}
+	}
+	return restore.IPRule{IPs: IPs, FQDNs: fqdns, Re: restore.RuleRegex{Regexp: rule.patternMatcher}}
 }
 
 // CheckRestored checks endpointID, destPort, destIP, and name against the restored rules,
@@ -244,9 +264,15 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPort uint16, destIP stri
 	}
 
 	for i := range ipRules {
-		if _, exists := ipRules[i].IPs[destIP]; exists || ipRules[i].IPs == nil {
-			_, ok := ipRules[i].FQDNs[name]
-			if ok || ipRules[i].Re.MatchString(name) {
+		ipRule := ipRules[i]
+		if _, exists := ipRule.IPs[destIP]; exists || ipRule.IPs == nil {
+			if ipRule.FQDNs != nil {
+				_, ok := ipRules[i].FQDNs[name]
+				if ok {
+					return true
+				}
+			}
+			if ipRules[i].Re.Regexp != nil && ipRules[i].Re.MatchString(name) {
 				return true
 			}
 		}
@@ -261,9 +287,9 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	defer p.RUnlock()
 
 	restored := make(restore.DNSRules)
-	for port, entries := range p.allowed.allowMap[uint64(endpointID)] {
+	for port, entries := range p.allowed[uint64(endpointID)] {
 		var ipRules restore.IPRules
-		for cs, regexAndFqdns := range entries {
+		for cs, matcher := range entries {
 			var IPs map[string]struct{}
 			if !cs.IsWildcard() {
 				IPs = make(map[string]struct{})
@@ -294,7 +320,7 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 					}
 				}
 			}
-			ipRules = append(ipRules, restore.IPRule{IPs: IPs, FQDNs: regexAndFqdns.nameMatcher.asNewMap(), Re: restore.RuleRegex{Regexp: regexAndFqdns.patternMatcher}})
+			ipRules = append(ipRules, matcher.asIPRule(IPs))
 		}
 		restored[port] = ipRules
 	}
@@ -314,7 +340,21 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	if ep.IPv6.IsSet() {
 		p.restoredEPs[ep.IPv6.String()] = ep
 	}
-	p.restored[uint64(ep.ID)] = ep.DNSRules
+	restoredRules := make(restore.DNSRules, len(ep.DNSRules))
+	for port, dnsRule := range ep.DNSRules {
+		ipRules := make(restore.IPRules, 0, len(dnsRule))
+		for _, ipRule := range dnsRule {
+			// Add regex to cache so that we can reuse it later
+			regex := p.cache.lookupOrInsertPatternMatcher(ipRule.Re.Regexp)
+			ipRules = append(ipRules, restore.IPRule{
+				IPs:   ipRule.IPs,
+				FQDNs: ipRule.FQDNs,
+				Re:    restore.RuleRegex{Regexp: regex},
+			})
+		}
+		restoredRules[port] = ipRules
+	}
+	p.restored[uint64(ep.ID)] = restoredRules
 
 	log.Debugf("Restored rules for endpoint %d: %v", ep.ID, ep.DNSRules)
 }
@@ -328,6 +368,11 @@ func (p *DNSProxy) removeRestoredRulesLocked(endpointID uint64) {
 				delete(p.restoredEPs, ip)
 			}
 		}
+		for _, rule := range p.restored[endpointID] {
+			for _, r := range rule {
+				p.cache.releasePatternMatcher(r.Re.Regexp)
+			}
+		}
 		delete(p.restored, endpointID)
 	}
 }
@@ -339,12 +384,15 @@ func (p *DNSProxy) RemoveRestoredRules(endpointID uint16) {
 	p.removeRestoredRulesLocked(uint64(endpointID))
 }
 
-// lookupOrCompilePatternMatcher will check if the regex is already compiled and present in another policy, and
+// lookupOrCompilePatternMatcher will check if the pattern is already compiled and present in another policy, and
 // will reuse it in order to reduce memory consumption. The usage is reference counted, so all calls where
-// lookupOrCompilePatternMatcher returns no error, has to release it via releasePatternMatcher when its no longer being used
-// by the policy.
-func (allow perEPAllow) lookupOrCompilePatternMatcher(pattern string) (*regexp.Regexp, error) {
-	if entry, ok := allow.patternMatchersByPattern[pattern]; ok {
+// lookupOrCompilePatternMatcher returns no error, a subsequent call to release it via releasePatternMatcher has to
+// be tone when its no longer being used by the policy.
+func (c *matcherCache) lookupOrCompilePatternMatcher(pattern string) (*regexp.Regexp, error) {
+	if pattern == "" {
+		return nil, nil
+	}
+	if entry, ok := c.patternMatcherCache[pattern]; ok {
 		entry.referenceCount += 1
 		return entry.matcher, nil
 	}
@@ -352,17 +400,37 @@ func (allow perEPAllow) lookupOrCompilePatternMatcher(pattern string) (*regexp.R
 	if err != nil {
 		return nil, err
 	}
-	allow.patternMatchersByPattern[pattern] = &patternMatcherEntry{matcher: regex, referenceCount: 1}
+	c.patternMatcherCache[pattern] = &patternMatcherEntry{matcher: regex, referenceCount: 1}
 	return regex, nil
 }
 
+// lookupOrInsertPatternMatcher is equivalent to lookupOrCompilePatternMatcher, but where a compiled regex is provided
+// instead of the pattern. In case a compiled regex with the same pattern as the provided regex is already present in
+// the cache, the already present regex will be returned. By doing that, the duplicate can be garbage collected in case
+// there are no other references to it. Trying to insert a nil value is a noop and will return nil
+func (c *matcherCache) lookupOrInsertPatternMatcher(regex *regexp.Regexp) *regexp.Regexp {
+	if regex == nil {
+		return nil
+	}
+	pattern := regex.String()
+	if entry, ok := c.patternMatcherCache[pattern]; ok {
+		entry.referenceCount += 1
+		return entry.matcher
+	}
+	c.patternMatcherCache[pattern] = &patternMatcherEntry{matcher: regex, referenceCount: 1}
+	return regex
+}
+
 // releasePatternMatcher releases the pattern matcher. In case there are no longer any references to it,
-// it will be freed.
-func (allow perEPAllow) releasePatternMatcher(patternMatcher *regexp.Regexp) {
-	if indexEntry, ok := allow.patternMatchersByPattern[patternMatcher.String()]; ok {
+// it will be freed. Running release on a nil value is a noop.
+func (c *matcherCache) releasePatternMatcher(patternMatcher *regexp.Regexp) {
+	if patternMatcher == nil {
+		return
+	}
+	if indexEntry, ok := c.patternMatcherCache[patternMatcher.String()]; ok {
 		switch indexEntry.referenceCount {
 		case 1:
-			delete(allow.patternMatchersByPattern, patternMatcher.String())
+			delete(c.patternMatcherCache, patternMatcher.String())
 		default:
 			indexEntry.referenceCount -= 1
 		}
@@ -370,18 +438,21 @@ func (allow perEPAllow) releasePatternMatcher(patternMatcher *regexp.Regexp) {
 }
 
 // releaseMatchers releases both the pattern and the name matchers for toe provided matcher
-func (allow perEPAllow) releaseMatchers(matcher fqdnMatcher) {
-	allow.releasePatternMatcher(matcher.patternMatcher)
-	allow.releaseNameMatcher(matcher.nameMatcher)
+func (c *matcherCache) releaseMatchers(matcher fqdnMatcher) {
+	c.releasePatternMatcher(matcher.patternMatcher)
+	c.releaseNameMatcher(matcher.nameMatcher)
 }
 
 // lookupOrCreateNameMatcher will check if a map with the same list of matchNames is already compiled and present in another
 // policy, and will reuse it in order to reduce memory consumption. The usage is reference counted, so all calls to
 // lookupOrCreateNameMatcher, has to release it via releaseNameMatcher when its no longer being used
 // by the policy.
-func (allow perEPAllow) lookupOrCreateNameMatcher(fqdnList []string) *matchNameMatcher {
+func (c *matcherCache) lookupOrCreateNameMatcher(fqdnList []string) *matchNameMatcher {
+	if len(fqdnList) == 0 {
+		return nil
+	}
 	fqdnKey := strings.Join(fqdnList, "|")
-	if entry, ok := allow.nameMatcherBySignature[fqdnKey]; ok {
+	if entry, ok := c.nameMatcherCache[fqdnKey]; ok {
 		entry.referenceCount += 1
 		return entry.matcher
 	}
@@ -392,17 +463,20 @@ func (allow perEPAllow) lookupOrCreateNameMatcher(fqdnList []string) *matchNameM
 	for _, fqdn := range fqdnList {
 		f.mapping[fqdn] = struct{}{}
 	}
-	allow.nameMatcherBySignature[fqdnKey] = &nameMatcherEntry{matcher: f, referenceCount: 1}
+	c.nameMatcherCache[fqdnKey] = &nameMatcherEntry{matcher: f, referenceCount: 1}
 	return f
 }
 
-// releaseNameMatcher releases the name matcher. In case there are no longer any references to
+// releaseNameMatcher releases the entry from the name matcher map. In case there are no longer any references to
 // it, it will be freed.
-func (allow perEPAllow) releaseNameMatcher(entry *matchNameMatcher) {
-	if indexEntry, ok := allow.nameMatcherBySignature[*entry.key]; ok {
+func (c *matcherCache) releaseNameMatcher(entry *matchNameMatcher) {
+	if entry == nil {
+		return
+	}
+	if indexEntry, ok := c.nameMatcherCache[*entry.key]; ok {
 		switch indexEntry.referenceCount {
 		case 1:
-			delete(allow.nameMatcherBySignature, *entry.key)
+			delete(c.nameMatcherCache, *entry.key)
 			for k := range entry.mapping {
 				delete(entry.mapping, k)
 			}
@@ -414,90 +488,98 @@ func (allow perEPAllow) releaseNameMatcher(entry *matchNameMatcher) {
 
 // removeAndReleasePortRulesForID removes the old port rules for the given destPort on the given endpointID. It also
 // releases the matchers so that unused matchers can be freed from memory.
-func (allow perEPAllow) removeAndReleasePortRulesForID(endpointID uint64, destPort uint16) {
-	epPorts, hasEpPorts := allow.allowMap[endpointID]
+func (allow perEPAllow) removeAndReleasePortRulesForID(cache *matcherCache, endpointID uint64, destPort uint16) {
+	epPorts, hasEpPorts := allow[endpointID]
 	if !hasEpPorts {
 		return
 	}
 	for _, m := range epPorts[destPort] {
-		allow.releaseMatchers(m)
+		cache.releaseMatchers(m)
 	}
 	delete(epPorts, destPort)
 	if len(epPorts) == 0 {
-		delete(allow.allowMap, endpointID)
+		delete(allow, endpointID)
 	}
 }
 
 // setPortRulesForID sets the matching rules for endpointID and destPort for
-// later lookups. It converts newRules into a regex for the matchPatterns and a lookup map for the matchNames.
-func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
+// later lookups. It converts newRules into a compiled regex for the matchPatterns and a lookup map for the matchNames.
+func (allow perEPAllow) setPortRulesForID(cache *matcherCache, endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
 	if len(newRules) == 0 {
-		allow.removeAndReleasePortRulesForID(endpointID, destPort)
+		allow.removeAndReleasePortRulesForID(cache, endpointID, destPort)
 		return nil
 	}
 	cse := make(CachedSelectorEntry, len(newRules))
 	var err error
 	for selector, newRuleset := range newRules {
-		regexPattern, fqdnsList := GenerateRegexpAndFqdns(newRuleset)
+		pattern, fqdnsList := GeneratePatternAndFQDNs(newRuleset)
 
-		regex, err := allow.lookupOrCompilePatternMatcher(regexPattern)
+		var regex *regexp.Regexp
+		regex, err = cache.lookupOrCompilePatternMatcher(pattern)
 		if err != nil {
 			break
 		}
 
-		fqdnMapping := allow.lookupOrCreateNameMatcher(fqdnsList)
+		fqdnMapping := cache.lookupOrCreateNameMatcher(fqdnsList)
 		cse[selector] = fqdnMatcher{
 			patternMatcher: regex,
 			nameMatcher:    fqdnMapping,
 		}
 	}
 	if err != nil {
-		// Unregister all the registered regexps and fqdn mappings before exiting
+		// Unregister all the registered matchers before returning the error to avoid
+		// leaving unused references in the cache
 		for k, matcher := range cse {
-			allow.releaseMatchers(matcher)
+			cache.releaseMatchers(matcher)
 			delete(cse, k)
 		}
 		return err
 
 	}
-	allow.removeAndReleasePortRulesForID(endpointID, destPort)
-	epPorts, exist := allow.allowMap[endpointID]
+	allow.removeAndReleasePortRulesForID(cache, endpointID, destPort)
+	epPorts, exist := allow[endpointID]
 	if !exist {
 		epPorts = make(portToSelectorAllow)
-		allow.allowMap[endpointID] = epPorts
+		allow[endpointID] = epPorts
 	}
 	epPorts[destPort] = cse
 	return nil
 }
 
 // setPortRulesForIDFromUnifiedFormat sets the matching rules for endpointID and destPort for
-// later lookups.
-func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(endpointID uint64, destPort uint16, newRules CachedSelectorEntry) error {
-	// TODO this is unused. Should it be removed?
-	// This is the delete case
+// later lookups. It does not guarantee it will reuse all the provided regexes, since it will reuse
+// already existing regexes with the same pattern in case they are already in use.
+func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(cache *matcherCache, endpointID uint64, destPort uint16, newRules CachedSelectorREEntry) error {
 	if len(newRules) == 0 {
-		epPorts := allow.allowMap[endpointID]
-		delete(epPorts, destPort)
-		if len(epPorts) == 0 {
-			delete(allow.allowMap, endpointID)
-		}
+		allow.removeAndReleasePortRulesForID(cache, endpointID, destPort)
 		return nil
 	}
+	cse := make(CachedSelectorEntry, len(newRules))
+	for selector, providedRegex := range newRules {
+		// In case the regex is already compiled and in use in another matcher, lookupOrInsertPatternMatcher
+		// will return a ref. to the existing regex, and use that one.
+		regex := cache.lookupOrInsertPatternMatcher(providedRegex)
 
-	epPorts, exist := allow.allowMap[endpointID]
-	if !exist {
-		epPorts = make(portToSelectorAllow)
-		allow.allowMap[endpointID] = epPorts
+		cse[selector] = fqdnMatcher{
+			patternMatcher: regex,
+			nameMatcher:    nil,
+		}
 	}
 
-	epPorts[destPort] = newRules
+	allow.removeAndReleasePortRulesForID(cache, endpointID, destPort)
+	epPorts, exist := allow[endpointID]
+	if !exist {
+		epPorts = make(portToSelectorAllow)
+		allow[endpointID] = epPorts
+	}
+	epPorts[destPort] = cse
 	return nil
 }
 
 // getPortRulesForID returns a precompiled regex representing DNS rules for the
 // passed-in endpointID and destPort with setPortRulesForID
 func (allow perEPAllow) getPortRulesForID(endpointID uint64, destPort uint16) (rules CachedSelectorEntry, exists bool) {
-	rules, exists = allow.allowMap[endpointID][destPort]
+	rules, exists = allow[endpointID][destPort]
 	return rules, exists
 }
 
@@ -605,9 +687,10 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		logLimiter:               logging.NewLimiter(10*time.Second, 1),
 		lookupTargetDNSServer:    lookupTargetDNSServer,
 		usedServers:              make(map[string]struct{}),
-		allowed:                  newPerEPAllow(),
+		allowed:                  make(perEPAllow),
 		restored:                 make(perEPRestored),
 		restoredEPs:              make(restoredEPs),
+		cache:                    newMatcherCache(),
 		EnableDNSCompression:     enableDNSCompression,
 		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
 	}
@@ -690,7 +773,7 @@ func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules po
 	p.Lock()
 	defer p.Unlock()
 
-	err := p.allowed.setPortRulesForID(endpointID, destPort, newRules)
+	err := p.allowed.setPortRulesForID(p.cache, endpointID, destPort, newRules)
 	if err == nil {
 		// Rules were updated based on policy, remove restored rules
 		p.removeRestoredRulesLocked(endpointID)
@@ -699,11 +782,11 @@ func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules po
 }
 
 // UpdateAllowedFromSelectorRegexes sets newRules for endpointID and destPort.
-func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPort uint16, newRules CachedSelectorEntry) error {
+func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPort uint16, newRules CachedSelectorREEntry) error {
 	p.Lock()
 	defer p.Unlock()
 
-	err := p.allowed.setPortRulesForIDFromUnifiedFormat(endpointID, destPort, newRules)
+	err := p.allowed.setPortRulesForIDFromUnifiedFormat(p.cache, endpointID, destPort, newRules)
 	if err == nil {
 		// Rules were updated based on policy, remove restored rules
 		p.removeRestoredRulesLocked(endpointID)
@@ -1075,10 +1158,10 @@ func shouldCompressResponse(request, response *dns.Msg) bool {
 	return false
 }
 
-// GenerateRegexpAndFqdns takes a set of l7Rules and returns a regex for matching the matchPatterns
-// and a list of the provided match names, all of them as FQDNs. In case a domain is present in the list of FQDNs
-// or match the returned regex, the domain is allowed by the policy.
-func GenerateRegexpAndFqdns(l7Rules *policy.PerSelectorPolicy) (regex string, fqdns []string) {
+// GeneratePatternAndFQDNs takes a set of l7Rules and returns a regular expression pattern for matching the
+// matchPatterns and a list of the provided matchNames, all of them as FQDNs. In case an FQDN is present in the
+// list of FQDNs or match the returned pattern, the FQDN is allowed by the policy.
+func GeneratePatternAndFQDNs(l7Rules *policy.PerSelectorPolicy) (pattern string, fqdns []string) {
 	if l7Rules == nil {
 		l7Rules = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}}
 	}
@@ -1095,15 +1178,11 @@ func GenerateRegexpAndFqdns(l7Rules *policy.PerSelectorPolicy) (regex string, fq
 				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
 				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
 			} else {
+				// In case the matchPattern does not contain any wildcards, we treat it as
+				// a matchName under the hood.
 				fqdnStrings = append(fqdnStrings, dnsPattern)
 			}
 		}
 	}
-	if len(reStrings) == 0 {
-		// Short circuit to very fast non-matching regexp in case of no matchPatterns, where
-		// we do have some matchNames.
-		reStrings = append(reStrings, "a^")
-	}
-
 	return strings.Join(reStrings, "|"), fqdnStrings
 }
