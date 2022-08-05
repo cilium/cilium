@@ -122,6 +122,7 @@ type DNSProxy struct {
 	// ConcurrencyGracePeriod is the grace period for waiting on
 	// ConcurrencyLimit before timing out
 	ConcurrencyGracePeriod time.Duration
+
 	// logLimiter limits log msgs that could be bursty and too verbose.
 	// Currently used when ConcurrencyLimit is set.
 	logLimiter logging.Limiter
@@ -165,6 +166,9 @@ type DNSProxy struct {
 	// Keeping an LRU cache avoids excessive memory allocations when compiling
 	// regex strings via regex.Compile.
 	regexCompileLRU *lru.Cache
+
+	// UnbindAddress unbinds dns servers from socket in order to stop serving DNS traffic before proxy shutdown
+	unbindAddress func()
 }
 
 // perEPAllow maps EndpointIDs to ports + selectors + rules
@@ -506,6 +510,12 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		}(s)
 	}
 
+	// This function is called in proxy.Cleanup, which is added to Daemon cleanup module in bootstrapFQDN
+	p.unbindAddress = func() {
+		UDPConn.Close()
+		TCPListener.Close()
+	}
+
 	return p, nil
 }
 
@@ -575,14 +585,14 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 // ServeDNS handles individual DNS requests forwarded to the proxy, and meets
 // the dns.Handler interface.
 // It will:
-//  - Look up the endpoint that sent the request by IP, via LookupEndpointByIP.
-//  - Look up the Sec ID of the destination server, via LookupSecIDByIP.
-//  - Check that the endpoint ID, destination Sec ID, destination port and the
-//  qname all match a rule. If not, the request is dropped.
-//  - The allowed request is forwarded to the originally intended DNS server IP
-//  - The response is shared via NotifyOnDNSMsg (this will go to a
-//  fqdn/NameManager instance).
-//  - Write the response to the endpoint.
+//   - Look up the endpoint that sent the request by IP, via LookupEndpointByIP.
+//   - Look up the Sec ID of the destination server, via LookupSecIDByIP.
+//   - Check that the endpoint ID, destination Sec ID, destination port and the
+//     qname all match a rule. If not, the request is dropped.
+//   - The allowed request is forwarded to the originally intended DNS server IP
+//   - The response is shared via NotifyOnDNSMsg (this will go to a
+//     fqdn/NameManager instance).
+//   - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	requestID := request.Id // keep the original request ID
 	qname := string(request.Question[0].Name)
@@ -948,4 +958,10 @@ func GetSelectorRegexMap(l7 policy.L7DataMap, lru *lru.Cache) (CachedSelectorREE
 	}
 
 	return newRE, nil
+}
+
+func (p *DNSProxy) Cleanup() {
+	if p.unbindAddress != nil {
+		p.unbindAddress()
+	}
 }
