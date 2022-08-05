@@ -492,7 +492,7 @@ func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*se
 		if err != nil {
 			return nil, fmt.Errorf("unable to fetch cilium version on pod %q: %w", name, err)
 		}
-		v, _, _ := strings.Cut(stdout.String(), "-") // strips proprietary -releaseX suffix
+		v, _, _ := strings.Cut(strings.TrimSpace(stdout.String()), "-") // strips proprietary -releaseX suffix
 		podVersion, err := semver.Parse(v)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse cilium version on pod %q: %w", name, err)
