@@ -15,7 +15,7 @@ env:
   KIND_CONFIG: .github/kind-config.yaml
   TIMEOUT: 2m
   LOG_TIME: 30m
-  cilium_version: v1.11.6
+  cilium_version: v1.12.0
   kubectl_version: v1.23.6
 
 jobs:
