@@ -111,6 +111,7 @@ type DNSProxy struct {
 	// ConcurrencyGracePeriod is the grace period for waiting on
 	// ConcurrencyLimit before timing out
 	ConcurrencyGracePeriod time.Duration
+
 	// logLimiter limits log msgs that could be bursty and too verbose.
 	// Currently used when ConcurrencyLimit is set.
 	logLimiter logging.Limiter
@@ -149,6 +150,9 @@ type DNSProxy struct {
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
 	rejectReply int32
+
+	// UnbindAddress unbinds dns servers from socket in order to stop serving DNS traffic before proxy shutdown
+	unbindAddress func()
 }
 
 // perEPAllow maps EndpointIDs to ports + selectors + rules
@@ -492,6 +496,12 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 			}
 			log.Fatalf("Failed to start %s DNS Proxy on %s", server.Net, server.Addr)
 		}(s)
+	}
+
+	// This function is called in proxy.Cleanup, which is added to Daemon cleanup module in bootstrapFQDN
+	p.unbindAddress = func() {
+		UDPConn.Close()
+		TCPListener.Close()
 	}
 
 	return p, nil
@@ -929,4 +939,10 @@ func GetSelectorRegexMap(l7 policy.L7DataMap) (CachedSelectorREEntry, error) {
 	}
 
 	return newRE, nil
+}
+
+func (p *DNSProxy) Cleanup() {
+	if p.unbindAddress != nil {
+		p.unbindAddress()
+	}
 }
