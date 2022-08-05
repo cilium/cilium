@@ -37,6 +37,8 @@ const (
 	FeatureHostPort Feature = "host-port"
 
 	FeatureNodeWithoutCilium Feature = "node-without-cilium"
+
+	FeatureHealthChecking Feature = "health-checking"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -179,6 +181,10 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 
 	result[FeatureICMPPolicy] = FeatureStatus{
 		Enabled: cfg.EnableICMPRules,
+	}
+
+	result[FeatureHealthChecking] = FeatureStatus{
+		Enabled: cfg.EnableHealthChecking && cfg.EnableEndpointHealthChecking,
 	}
 
 	return nil
