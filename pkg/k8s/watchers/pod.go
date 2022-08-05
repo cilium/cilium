@@ -229,6 +229,8 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		}
 	}
 
+	k.cgroupManager.OnAddPod(pod)
+
 	if err != nil {
 		logger.WithError(err).Warning("Unable to update ipcache map entry on pod add")
 		return err
@@ -263,10 +265,13 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		return k.deleteK8sPodV1(newK8sPod)
 	}
 
-	if newK8sPod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy {
+	if newK8sPod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy &&
+		!option.Config.EnableSocketLBTracing {
 		logger.Debug("Skip pod event using host networking")
 		return nil
 	}
+
+	k.cgroupManager.OnUpdatePod(oldK8sPod, newK8sPod)
 
 	oldPodIPs := k8sUtils.ValidIPs(oldK8sPod.Status)
 	newPodIPs := k8sUtils.ValidIPs(newK8sPod.Status)
@@ -460,6 +465,7 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	if option.Config.EnableLocalRedirectPolicy {
 		k.redirectPolicyManager.OnDeletePod(pod)
 	}
+	k.cgroupManager.OnDeletePod(pod)
 
 	skipped, err := k.deletePodHostData(pod)
 	switch {
