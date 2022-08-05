@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
@@ -185,6 +186,8 @@ type Daemon struct {
 	bgpSpeaker *speaker.MetalLBSpeaker
 
 	egressGatewayManager *egressgateway.Manager
+
+	cgroupManager *manager.CgroupManager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -647,6 +650,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		}
 	}
 
+	d.cgroupManager = manager.NewCgroupManager()
+
 	if option.Config.EnableIPv4EgressGateway {
 		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(&d, d.identityAllocator)
 	}
@@ -664,6 +669,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		d.l7Proxy,
 		option.Config,
 		d.ipcache,
+		d.cgroupManager,
 	)
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
 	d.ipcache.RegisterK8sSyncedChecker(&d)
@@ -1362,6 +1368,7 @@ func (d *Daemon) Close() {
 		d.datapathRegenTrigger.Shutdown()
 	}
 	d.nodeDiscovery.Close()
+	d.cgroupManager.Close()
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
