@@ -93,7 +93,7 @@ func (s *MaglevSuite) TestInitMaps(c *C) {
 		ID:   1,
 		IP:   net.ParseIP("1.1.1.1"),
 		Port: 8080,
-		ActiveBackends: map[string]loadbalancer.Backend{"backend-1": {
+		ActiveBackends: map[string]*loadbalancer.Backend{"backend-1": {
 			ID:     1,
 			Weight: 1,
 		}},

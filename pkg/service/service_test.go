@@ -822,6 +822,11 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 
+	// Reset state as backends are pointers to lb.Backend
+	p.Backends[0].State = lb.BackendStateActive
+	p.Backends[1].State = lb.BackendStateActive
+	p.Backends[2].State = lb.BackendStateActive
+
 	created, id1, err := m.svc.UpsertService(p)
 
 	c.Assert(err, IsNil)
@@ -928,8 +933,14 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 
+	// Reset state as backends are pointers to lb.Backend
+	p.Backends[0].State = lb.BackendStateActive
+	p.Backends[1].State = lb.BackendStateActive
+	p.Backends[2].State = lb.BackendStateActive
+
 	created, id1, err := m.svc.UpsertService(p)
 
+	c.Log(m.lbmap.ServiceByID[0])
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))

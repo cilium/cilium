@@ -11,7 +11,7 @@ import (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(*UpsertServiceParams) error
-	UpsertMaglevLookupTable(uint16, map[string]loadbalancer.Backend, bool) error
+	UpsertMaglevLookupTable(uint16, map[string]*loadbalancer.Backend, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(loadbalancer.L3n4AddrID, int, bool, loadbalancer.SVCNatPolicy) error
 	AddBackend(*loadbalancer.Backend, bool) error
@@ -33,8 +33,8 @@ type UpsertServiceParams struct {
 
 	// PreferredBackends is a subset of ActiveBackends
 	// Note: this is only used in clustermesh with service affinity annotation.
-	PreferredBackends         map[string]loadbalancer.Backend
-	ActiveBackends            map[string]loadbalancer.Backend
+	PreferredBackends         map[string]*loadbalancer.Backend
+	ActiveBackends            map[string]*loadbalancer.Backend
 	NonActiveBackends         []loadbalancer.BackendID
 	PrevBackendsCount         int
 	IPv6                      bool
