@@ -8,6 +8,7 @@ import (
 	_ "embed"
 
 	"github.com/blang/semver/v4"
+
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
@@ -437,6 +438,11 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			}
 			return check.ResultDrop, check.ResultDrop
 		})
+
+	// Health check tests.
+	ct.NewTest("health").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureHealthChecking)).
+		WithScenarios(tests.CiliumHealth())
 
 	// The following tests have DNS redirect policies. They should be executed last.
 
