@@ -196,12 +196,15 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			}
 
 		case DatapathAKSBYOCNI:
-			// TODO: replace with `helmMapOpts["aksbyocni.enabled"] = true` once the
-			// new `aksbyocni` mode has made it to Helm charts on stable releases.
-			// Until then, we manually configure the same ConfigMap options as the new
-			// `aksbyocni` mode does, so that it works transparently.
-			helmMapOpts["ipam.mode"] = ipamClusterPool
-			helmMapOpts["tunnel"] = tunnelVxlan
+			switch {
+			case versioncheck.MustCompile(">=1.12.0")(k.chartVersion):
+				helmMapOpts["aksbyocni.enabled"] = "true"
+			case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
+				// Manually configure the same ConfigMap options as the new
+				// `aksbyocni` mode does, so that it works transparently.
+				helmMapOpts["ipam.mode"] = ipamClusterPool
+				helmMapOpts["tunnel"] = tunnelVxlan
+			}
 		}
 
 		// TODO: remove when removing "cluster-name" flag (marked as deprecated),
