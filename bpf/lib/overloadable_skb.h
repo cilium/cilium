@@ -37,7 +37,7 @@ get_epid(const struct __sk_buff *ctx)
 static __always_inline __maybe_unused void
 set_encrypt_dip(struct __sk_buff *ctx, __u32 ip_endpoint)
 {
-	ctx->cb[4] = ip_endpoint;
+	ctx->cb[CB_ENCRYPT_DST] = ip_endpoint;
 }
 
 /**
@@ -53,7 +53,7 @@ set_identity_mark(struct __sk_buff *ctx, __u32 identity)
 static __always_inline __maybe_unused void
 set_identity_meta(struct __sk_buff *ctx, __u32 identity)
 {
-	ctx->cb[1] = identity;
+	ctx->cb[CB_ENCRYPT_IDENTITY] = identity;
 }
 
 /**
@@ -68,7 +68,7 @@ set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key)
 static __always_inline __maybe_unused void
 set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key)
 {
-	ctx->cb[0] = or_encrypt_key(key);
+	ctx->cb[CB_ENCRYPT_MAGIC] = or_encrypt_key(key);
 }
 
 /**
