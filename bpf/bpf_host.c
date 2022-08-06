@@ -748,9 +748,10 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 	 * affinity we can not use IP address to assign the
 	 * destination IP. Instead rewrite it here from cb[].
 	 */
-	sum = csum_diff(&iphdr->daddr, 4, &tunnel_endpoint, 4, 0);
+	sum = csum_diff(&iphdr->daddr, sizeof(__u32), &tunnel_endpoint,
+			sizeof(tunnel_endpoint), 0);
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
-	    &tunnel_endpoint, 4, 0) < 0) {
+	    &tunnel_endpoint, sizeof(tunnel_endpoint), 0) < 0) {
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
@@ -765,9 +766,10 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 		goto drop_err;
 	}
 
-	sum = csum_diff(&iphdr->saddr, 4, &tunnel_source, 4, 0);
+	sum = csum_diff(&iphdr->saddr, sizeof(__u32), &tunnel_source,
+			sizeof(tunnel_source), 0);
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
-	    &tunnel_source, 4, 0) < 0) {
+	    &tunnel_source, sizeof(tunnel_source), 0) < 0) {
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
