@@ -31,8 +31,7 @@ import (
 // CheckStructAlignments checks whether size and offsets of the C and Go
 // structs for the datapath match.
 //
-// C struct size info is extracted from the given ELF object file debug section
-// encoded in DWARF.
+// C struct layout is extracted from the given ELF object file's BTF info.
 //
 // To find a matching C struct field, a Go field has to be tagged with
 // `align:"field_name_in_c_struct". In the case of unnamed union field, such
