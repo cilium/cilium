@@ -47,7 +47,7 @@ set_identity_mark(struct __sk_buff *ctx, __u32 identity)
 static __always_inline __maybe_unused void
 set_identity_meta(struct __sk_buff *ctx, __u32 identity)
 {
-	ctx->cb[1] = identity;
+	ctx->cb[CB_ENCRYPT_IDENTITY] = identity;
 }
 
 /**
