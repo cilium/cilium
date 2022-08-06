@@ -969,7 +969,6 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
 	/* No loopback support for IPv6, see lb6_local() above. */
 
 	state->backend_id = ctx_load_meta(ctx, CB_BACKEND_ID);
-	/* Must clear to avoid policy bypass as CB_BACKEND_ID aliases CB_POLICY. */
 	ctx_store_meta(ctx, CB_BACKEND_ID, 0);
 
 	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
@@ -1667,7 +1666,6 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 	ctx_store_meta(ctx, CB_CT_STATE, 0);
 
 	state->backend_id = ctx_load_meta(ctx, CB_BACKEND_ID);
-	/* must clear to avoid policy bypass as CB_BACKEND_ID aliases CB_POLICY. */
 	ctx_store_meta(ctx, CB_BACKEND_ID, 0);
 
 	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;

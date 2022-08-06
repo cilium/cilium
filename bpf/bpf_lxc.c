@@ -378,8 +378,6 @@ ct_recreate6:
 
 	case CT_RELATED:
 	case CT_REPLY:
-		policy_mark_skip(ctx);
-
 		hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
 		if (hdrlen < 0)
 			return hdrlen;
@@ -413,12 +411,6 @@ ct_recreate6:
 					  ct_state->rev_nat_index, tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
-
-			/* A reverse translate packet is always allowed except
-			 * for delivery on the local node in which case this
-			 * marking is cleared again.
-			 */
-			policy_mark_skip(ctx);
 		}
 		break;
 
@@ -464,7 +456,6 @@ ct_recreate6:
 #endif
 			}
 #endif /* ENABLE_ROUTING */
-			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL, ep,
 						   METRIC_EGRESS, from_l7lb);
@@ -902,8 +893,6 @@ ct_recreate4:
 
 	case CT_RELATED:
 	case CT_REPLY:
-		policy_mark_skip(ctx);
-
 #ifdef ENABLE_NODEPORT
 # ifdef ENABLE_DSR
 		if (ct_state->dsr) {
@@ -986,7 +975,6 @@ ct_recreate4:
 #endif
 			}
 #endif /* ENABLE_ROUTING */
-			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL, ip4,
 						   ep, METRIC_EGRESS, from_l7lb);
@@ -1396,8 +1384,6 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	policy_clear_mark(ctx);
-
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 
 	/* If packet is coming from the ingress proxy we have to skip
@@ -1706,8 +1692,6 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
-
-	policy_clear_mark(ctx);
 
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever.

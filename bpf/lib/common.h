@@ -645,10 +645,9 @@ enum {
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
-	CB_POLICY,
-#define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
-#define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
-#define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
+	CB_ADDR_V6_2,
+#define	CB_BACKEND_ID		CB_ADDR_V6_2	/* Alias, non-overlapping */
+#define CB_SRV6_SID_3		CB_ADDR_V6_2	/* Alias, non-overlapping */
 	CB_NAT,
 #define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */

@@ -212,9 +212,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		return CTX_ACT_OK;
 	}
 
-	if (ctx_load_meta(ctx, CB_POLICY))
-		return CTX_ACT_OK;
-
 	if (is_untracked_fragment)
 		return DROP_FRAG_NOSUPPORT;
 
@@ -311,23 +308,6 @@ static __always_inline int policy_can_egress4(struct __ctx_buff *ctx,
 {
 	return policy_can_egress(ctx, src_id, dst_id, tuple->dport,
 				 tuple->nexthdr, match_type, audited);
-}
-
-/**
- * Mark ctx to skip policy enforcement
- * @arg ctx	packet
- *
- * Will cause the packet to ignore the policy enforcement verdict for allow rules and
- * be considered accepted despite of the policy outcome. Has no effect on deny rules.
- */
-static __always_inline void policy_mark_skip(struct __ctx_buff *ctx)
-{
-	ctx_store_meta(ctx, CB_POLICY, 1);
-}
-
-static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
-{
-	ctx_store_meta(ctx, CB_POLICY, 0);
 }
 #endif /* SOCKMAP */
 #endif

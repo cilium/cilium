@@ -1226,8 +1226,6 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		goto out;
 	}
 
-	policy_clear_mark(ctx);
-
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
@@ -1358,8 +1356,6 @@ int cil_to_host(struct __ctx_buff *ctx)
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
-
-	policy_clear_mark(ctx);
 
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
