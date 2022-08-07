@@ -45,11 +45,11 @@ Installation
 
             $ cilium status
 
-        .. include:: ../cli-download.rst
+        .. include:: ../../installation/cli-download.rst
 
     .. group-tab:: Cilium CLI
 
-        .. include:: ../cli-download.rst
+        .. include:: ../../installation/cli-download.rst
 
         Cilium Ingress Controller can be enabled with the below command
 
@@ -77,4 +77,4 @@ Installation
 
 Hubble CLI is also used to observe the traffic in later steps.
 
-.. include:: /gettingstarted/hubble-install.rst
+.. include:: ../../gettingstarted/hubble-install.rst

@@ -6,9 +6,9 @@
 
 .. _gs_kind:
 
-**************************
-Getting Started Using Kind
-**************************
+***********************
+Installation Using Kind
+***********************
 
 This guide uses `kind <https://kind.sigs.k8s.io/>`_ to demonstrate deployment
 and operation of Cilium in a multi-node Kubernetes cluster running locally on

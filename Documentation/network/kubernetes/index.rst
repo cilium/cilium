@@ -17,6 +17,7 @@ Kubernetes Networking
    requirements
    configuration
    policy
+   kubeproxy-free
    ciliumendpoint
    ciliumendpointslice
    ciliumendpointslice_beta

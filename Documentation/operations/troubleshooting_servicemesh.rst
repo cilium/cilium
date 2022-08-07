@@ -69,7 +69,7 @@ Internally, the Cilium Ingress controller will create one Load Balancer service,
     the ``CiliumEnvoyConfig`` resource. This is unlikely to happen for CEC resources
     originating from the Cilium Ingress controller.
 
-    .. include:: /installation/servicemesh/warning.rst
+    .. include:: /network/servicemesh/warning.rst
 
 
 Connectivity Troubleshooting

@@ -6,9 +6,9 @@
 
 .. _gs_cassandra:
 
-**********************************
-How to Secure a Cassandra Database
-**********************************
+*****************************
+Securing a Cassandra Database
+*****************************
 
 This document serves as an introduction to using Cilium to enforce Cassandra-aware
 security policies.  It is a detailed walk-through of getting a single-node

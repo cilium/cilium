@@ -6,9 +6,9 @@
 
 .. _k3s_install:
 
-*************************
-Getting Started Using K3s
-*************************
+**********************
+Installation Using K3s
+**********************
 
 This guide walks you through installation of Cilium on `K3s <https://k3s.io/>`_,
 a highly available, certified Kubernetes distribution designed for production

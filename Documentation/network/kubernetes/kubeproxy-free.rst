@@ -77,7 +77,7 @@ Cilium replacement has been installed:
     $ # Run on each node with root permissions:
     $ iptables-save | grep -v KUBE | iptables-restore
 
-.. include:: k8s-install-download-release.rst
+.. include:: ../../installation/k8s-install-download-release.rst
 
 Next, generate the required YAML files and deploy them. **Important:** Make sure you correctly set your
 ``API_SERVER_IP`` and ``API_SERVER_PORT`` below with the control-plane node IP address and the kube-apiserver port number reported by ``kubeadm init`` (Kubeadm will use port ``6443`` by default).

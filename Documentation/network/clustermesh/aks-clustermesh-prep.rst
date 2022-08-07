@@ -1,7 +1,7 @@
 .. _gs_clustermesh_aks_prep:
 
 **********************************
-AKS-to-AKS clustermesh preparation
+AKS-to-AKS Clustermesh Preparation
 **********************************
 
 This is a step-by-step guide on how to install and prepare 

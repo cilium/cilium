@@ -7,7 +7,7 @@
 .. _gsg_ipam_crd_cluster_pool:
 
 **************************************
-CRD-backed by Cilium cluster-pool IPAM
+CRD-Backed by Cilium Cluster-Pool IPAM
 **************************************
 
 This is a quick tutorial walking through how to enable CRD-backed by Cilium

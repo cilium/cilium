@@ -63,7 +63,7 @@ independently of each other with the following Helm values:
 
 Refer to :ref:`metrics` for more details about the individual metrics.
 
-.. include:: k8s-install-download-release.rst
+.. include:: ../installation/k8s-install-download-release.rst
 
 Deploy Cilium via Helm as follows to enable all metrics:
 

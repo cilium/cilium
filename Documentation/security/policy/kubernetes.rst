@@ -4,7 +4,7 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-Using Kubernetes constructs in policy
+Using Kubernetes Constructs in Policy
 =====================================
 
 This section covers Kubernetes specific network policy aspects.
@@ -56,14 +56,14 @@ namespace.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespaces.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/namespace/isolate-namespaces.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespaces.json
+        .. literalinclude:: ../../../examples/policies/kubernetes/namespace/isolate-namespaces.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespaces.json
+        .. literalinclude:: ../../../examples/policies/kubernetes/namespace/isolate-namespaces.json
 
 Example: Expose pods across namespaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -80,14 +80,14 @@ for a fully functional example including pods deployed to different namespaces.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/namespace/namespace-policy.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.json
+        .. literalinclude:: ../../../examples/policies/kubernetes/namespace/namespace-policy.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.json
+        .. literalinclude:: ../../../examples/policies/kubernetes/namespace/namespace-policy.json
 
 Example: Allow egress to kube-dns in kube-system namespace
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -101,14 +101,14 @@ namespace.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/kubedns-policy.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/namespace/kubedns-policy.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/kubedns-policy.json
+        .. literalinclude:: ../../../examples/policies/kubernetes/namespace/kubedns-policy.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/kubedns-policy.json
+        .. literalinclude:: ../../../examples/policies/kubernetes/namespace/kubedns-policy.json
 
 
 ServiceAccounts
@@ -154,14 +154,14 @@ resources.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
+        .. literalinclude:: ../../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
+        .. literalinclude:: ../../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
 
 Multi-Cluster
 -------------
@@ -175,11 +175,11 @@ policies to a particular cluster.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/kubernetes/clustermesh/cross-cluster-policy.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/clustermesh/cross-cluster-policy.yaml
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/kubernetes/clustermesh/cross-cluster-policy.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/clustermesh/cross-cluster-policy.yaml
 
 Note the ``io.kubernetes.pod.namespace: default`` in the policy
 rule. It makes sure the policy applies to ``rebel-base`` in the
@@ -205,11 +205,11 @@ namespace to pods matching the labels ``name=leia`` in any namespace.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
 
 Example: Allow all ingress to kube-dns
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -222,11 +222,11 @@ with kube-dns on port 53/UDP in the ``kube-system`` namespace.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
 
 .. _health_endpoint:
 
@@ -241,8 +241,8 @@ cluster connectivity health.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/health.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/health.yaml
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/health.yaml
+        .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/health.yaml

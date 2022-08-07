@@ -6,9 +6,9 @@
 
 .. _rancher_desktop_install:
 
-*************************************
-Getting Started Using Rancher Desktop
-*************************************
+**********************************
+Installation Using Rancher Desktop
+**********************************
 
 This guide walks you through installation of Cilium on `Rancher Desktop <https://rancherdesktop.io>`_,
 an open-source desktop application for Mac, Windows and Linux.

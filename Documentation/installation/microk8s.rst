@@ -6,9 +6,9 @@
 
 .. _gs_microk8s:
 
-******************************
-Getting Started Using MicroK8s
-******************************
+***************************
+Installation Using MicroK8s
+***************************
 
 This guide uses `microk8s <https://microk8s.io/>`_ to demonstrate deployment
 and operation of Cilium in a single-node Kubernetes cluster. To run Cilium

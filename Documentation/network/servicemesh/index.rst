@@ -4,15 +4,14 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _gsg_ipam:
+.. _servicemesh_root:
 
-**********************
-Configuring IPAM Modes
-**********************
+Service Mesh
+------------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :glob:
 
-   ipam-crd
-   ipam-cluster-pool
+   ingress
+   l7-traffic-management

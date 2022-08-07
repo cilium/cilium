@@ -7,7 +7,7 @@
 .. _taint_effects:
 
 #####################################################
-Considerations on node pool taints and unmanaged pods
+Considerations on Node Pool Taints and Unmanaged Pods
 #####################################################
 
 Depending on the environment or cloud provider being used, a CNI plugin and/or

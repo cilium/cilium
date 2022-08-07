@@ -75,14 +75,14 @@ the label ``role=backend``.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/simple/l3.yaml
+        .. literalinclude:: ../../../examples/policies/l3/simple/l3.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/simple/l3.json
+        .. literalinclude:: ../../../examples/policies/l3/simple/l3.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/simple/l3.json
+        .. literalinclude:: ../../../examples/policies/l3/simple/l3.json
 
 
 Ingress Allow All Endpoints
@@ -96,14 +96,14 @@ all ingress traffic to an endpoint may be done as follows:
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/ingress-allow-all/ingress-allow-all.yaml
+        .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
+        .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
+        .. literalinclude:: ../../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
 
 Note that while the above examples allow all ingress traffic to an endpoint, this does not
 mean that all endpoints are allowed to send traffic to this endpoint per their policies.
@@ -130,14 +130,14 @@ the label ``role=frontend``.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/simple/l3_egress.yaml
+        .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/simple/l3_egress.json
+        .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/simple/l3_egress.json
+        .. literalinclude:: ../../../examples/policies/l3/simple/l3_egress.json
 
 
 Egress Allow All Endpoints
@@ -153,14 +153,14 @@ following rule allows all egress traffic from endpoints with the label
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/egress-allow-all/egress-allow-all.yaml
+        .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/egress-allow-all/egress-allow-all.json
+        .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/egress-allow-all/egress-allow-all.json
+        .. literalinclude:: ../../../examples/policies/l3/egress-allow-all/egress-allow-all.json
 
 
 Note that while the above examples allow all egress traffic from an endpoint, the receivers
@@ -183,14 +183,14 @@ egress.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/egress-default-deny/egress-default-deny.yaml
+        .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/egress-default-deny/egress-default-deny.json
+        .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/egress-default-deny/egress-default-deny.json
+        .. literalinclude:: ../../../examples/policies/l3/egress-default-deny/egress-default-deny.json
 
 Additional Label Requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -219,14 +219,14 @@ be only accessible if the source endpoint also has the label ``env=prod``.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/requires/requires.yaml
+        .. literalinclude:: ../../../examples/policies/l3/requires/requires.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/requires/requires.json
+        .. literalinclude:: ../../../examples/policies/l3/requires/requires.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/requires/requires.json
+        .. literalinclude:: ../../../examples/policies/l3/requires/requires.json
 
 This ``fromRequires`` rule doesn't allow anything on its own and needs to be
 combined with other rules to allow traffic. For example, when combined with the
@@ -239,14 +239,14 @@ accessible from endpoints that have both labels ``env=prod`` and
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/requires/endpoints.yaml
+        .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/requires/endpoints.json
+        .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/requires/endpoints.json
+        .. literalinclude:: ../../../examples/policies/l3/requires/endpoints.json
 
 .. _Services based:
 
@@ -274,14 +274,14 @@ namespace ``default``.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/service/service.yaml
+        .. literalinclude:: ../../../examples/policies/l3/service/service.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/service/service.json
+        .. literalinclude:: ../../../examples/policies/l3/service/service.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/service/service.json
+        .. literalinclude:: ../../../examples/policies/l3/service/service.json
 
 This example shows how to allow all endpoints with the label ``id=app2``
 to talk to all endpoints of all kubernetes headless services which
@@ -292,14 +292,14 @@ have ``head:none`` set as the label.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/service/service-labels.yaml
+        .. literalinclude:: ../../../examples/policies/l3/service/service-labels.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/service/service-labels.json
+        .. literalinclude:: ../../../examples/policies/l3/service/service-labels.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/service/service-labels.json
+        .. literalinclude:: ../../../examples/policies/l3/service/service-labels.json
 
 Limitations
 ~~~~~~~~~~~
@@ -376,14 +376,14 @@ serving the particular endpoint.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/entities/host.yaml
+        .. literalinclude:: ../../../examples/policies/l3/entities/host.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/entities/host.json
+        .. literalinclude:: ../../../examples/policies/l3/entities/host.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/entities/host.json
+        .. literalinclude:: ../../../examples/policies/l3/entities/host.json
 
 .. _policy-remote-node:
 
@@ -398,14 +398,14 @@ in the cluster that Cilium is running on.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/entities/nodes.yaml
+        .. literalinclude:: ../../../examples/policies/l3/entities/nodes.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/entities/nodes.json
+        .. literalinclude:: ../../../examples/policies/l3/entities/nodes.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/entities/nodes.json
+        .. literalinclude:: ../../../examples/policies/l3/entities/nodes.json
 
 Access to/from outside cluster
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -418,14 +418,14 @@ endpoints that have the label ``role=public``.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/entities/world.yaml
+        .. literalinclude:: ../../../examples/policies/l3/entities/world.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/entities/world.json
+        .. literalinclude:: ../../../examples/policies/l3/entities/world.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/entities/world.json
+        .. literalinclude:: ../../../examples/policies/l3/entities/world.json
 
 .. _policy_cidr:
 .. _CIDR based:
@@ -497,14 +497,14 @@ but not CIDR prefix ``10.96.0.0/12``
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/cidr/cidr.yaml
+        .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
+        .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
+        .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.json
 
 .. _DNS based:
 
@@ -576,14 +576,14 @@ Example
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.yaml
+        .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.json
+        .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.json
+        .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.json
 
 
 .. _DNS and Long-Lived Connections:
@@ -683,14 +683,14 @@ only be able to emit packets using TCP on port 80, to any layer 3 destination:
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l4/l4.yaml
+        .. literalinclude:: ../../../examples/policies/l4/l4.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l4/l4.json
+        .. literalinclude:: ../../../examples/policies/l4/l4.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l4/l4.json
+        .. literalinclude:: ../../../examples/policies/l4/l4.json
 
 Labels-dependent Layer 4 rule
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -707,14 +707,14 @@ endpoints with the label ``role=frontend`` will not be able to communicate with
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l4/l3_l4_combined.yaml
+        .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l4/l3_l4_combined.json
+        .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l4/l3_l4_combined.json
+        .. literalinclude:: ../../../examples/policies/l4/l3_l4_combined.json
 
 CIDR-dependent Layer 4 Rule
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -732,14 +732,14 @@ ports other than port 80.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l4/cidr_l4_combined.yaml
+        .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l4/cidr_l4_combined.json
+        .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l4/cidr_l4_combined.json
+        .. literalinclude:: ../../../examples/policies/l4/cidr_l4_combined.json
 
 Limit ICMP/ICMPv6 types
 -----------------------
@@ -783,17 +783,17 @@ to any layer 3 destination:
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l4/icmp.yaml
+        .. literalinclude:: ../../../examples/policies/l4/icmp.yaml
            :language: yaml
 
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l4/icmp.json
+        .. literalinclude:: ../../../examples/policies/l4/icmp.json
            :language: json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l4/icmp.json
+        .. literalinclude:: ../../../examples/policies/l4/icmp.json
            :language: json
 
 
@@ -899,14 +899,14 @@ port 80 will be dropped.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l7/http/simple/l7.yaml
+        .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l7/http/simple/l7.json
+        .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l7/http/simple/l7.json
+        .. literalinclude:: ../../../examples/policies/l7/http/simple/l7.json
 
 All GET /path1 and PUT /path2 when header set
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -922,21 +922,21 @@ While communicating on this port, the only API endpoints allowed will be ``GET
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l7/http/http.yaml
+        .. literalinclude:: ../../../examples/policies/l7/http/http.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l7/http/http.json
+        .. literalinclude:: ../../../examples/policies/l7/http/http.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l7/http/http.json
+        .. literalinclude:: ../../../examples/policies/l7/http/http.json
 
 .. _kafka_policy:
 
 Kafka (beta)
 ------------
 
-.. include:: ../beta.rst
+.. include:: ../../beta.rst
 
 PortRuleKafka is a list of Kafka protocol constraints. All fields are optional,
 if all fields are empty or missing, the rule will match all Kafka messages.
@@ -1006,14 +1006,14 @@ Allow producing to topic empire-announce using Role
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.yaml
+        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.json
+        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.json
+        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka-role.json
 
 Allow producing to topic empire-announce using apiKeys
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1023,14 +1023,14 @@ Allow producing to topic empire-announce using apiKeys
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l7/kafka/kafka.yaml
+        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l7/kafka/kafka.json
+        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l7/kafka/kafka.json
+        .. literalinclude:: ../../../examples/policies/l7/kafka/kafka.json
 
 
 .. _dns_discovery:
@@ -1086,14 +1086,14 @@ allowed but connections to the returned IPs are not, as there is no L3
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l7/dns/dns.yaml
+        .. literalinclude:: ../../../examples/policies/l7/dns/dns.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l7/dns/dns.json
+        .. literalinclude:: ../../../examples/policies/l7/dns/dns.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l7/dns/dns.json
+        .. literalinclude:: ../../../examples/policies/l7/dns/dns.json
 
 
 .. note:: When applying DNS policy in kubernetes, queries for
@@ -1142,14 +1142,14 @@ DNS Proxy
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.yaml
+        .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.json
+        .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.json
+        .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.json
 
 Alpine/musl deployments and DNS Refused
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1178,7 +1178,7 @@ for instructions.
 Deny Policies
 =============
 
-.. include:: ../beta.rst
+.. include:: ../../beta.rst
 
 Deny policies, available and enabled by default since Cilium 1.9, allows to
 explicitly restrict certain traffic to and from a Pod.
@@ -1235,11 +1235,11 @@ as this policy is allowing traffic from everywhere except from "world".
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l3/entities/from_world_deny.yaml
+        .. literalinclude:: ../../../examples/policies/l3/entities/from_world_deny.yaml
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l3/entities/from_world_deny.yaml
+        .. literalinclude:: ../../../examples/policies/l3/entities/from_world_deny.yaml
 
 Deny policies do not support: policy enforcement at L7, i.e., specifically
 denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
@@ -1314,11 +1314,11 @@ Replace the ``port:`` value with ports used in your environment.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/host/lock-down-ingress.yaml
+        .. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/host/lock-down-ingress.yaml
+        .. literalinclude:: ../../../examples/policies/host/lock-down-ingress.yaml
 
 Troubleshooting Host Policies
 -----------------------------

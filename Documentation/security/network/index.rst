@@ -4,15 +4,18 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _gsg_ipam:
+.. _concepts_security:
+.. _security_root:
 
-**********************
-Configuring IPAM Modes
-**********************
+Network Security
+----------------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :glob:
 
-   ipam-crd
-   ipam-cluster-pool
+   intro
+   identity
+   policyenforcement
+   proxy/index
+   encryption

@@ -27,7 +27,7 @@ Every endpoint in Cilium is in one of the following states:
 * ``disconnecting``: The endpoint is being deleted.
 * ``disconnected``: The endpoint has been deleted.
 
-.. image:: ../images/cilium-endpoint-lifecycle.png
+.. image:: ../../images/cilium-endpoint-lifecycle.png
    :scale: 50 %
    :align: center
 
@@ -77,14 +77,14 @@ done as follows:
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l4/init.yaml
+        .. literalinclude:: ../../../examples/policies/l4/init.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l4/init.json
+        .. literalinclude:: ../../../examples/policies/l4/init.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l4/init.json
+        .. literalinclude:: ../../../examples/policies/l4/init.json
 
 Likewise, writing a rule that allows an endpoint to receive DNS
 queries from initializing endpoints may be done as follows:
@@ -94,14 +94,14 @@ queries from initializing endpoints may be done as follows:
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l4/from_init.yaml
+        .. literalinclude:: ../../../examples/policies/l4/from_init.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l4/from_init.json
+        .. literalinclude:: ../../../examples/policies/l4/from_init.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l4/from_init.json
+        .. literalinclude:: ../../../examples/policies/l4/from_init.json
 
 If any ingress (resp. egress) policy rules selects the
 ``reserved:init`` label, all ingress (resp. egress) traffic to

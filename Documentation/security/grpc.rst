@@ -4,9 +4,9 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-******************
-How to secure gRPC
-******************
+*************
+Securing gRPC
+*************
 
 This document serves as an introduction to using Cilium to enforce gRPC-aware
 security policies.  It is a detailed walk-through of getting a single-node

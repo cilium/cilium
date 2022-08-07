@@ -7,7 +7,7 @@
 .. _bpf_testing:
 
 ********************************
-BPF unit and integration testing
+BPF Unit and Integration Testing
 ********************************
 
 Our BPF datapath has its own test framework, which allows us to write unit and integration tests that 

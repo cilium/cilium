@@ -4,9 +4,9 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-******************
+********
 Concepts
-******************
+********
 
 .. _k8s_concepts_deployment:
 

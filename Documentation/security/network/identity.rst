@@ -7,7 +7,7 @@
 .. _arch_id_security:
 
 **************
-Identity-based
+Identity-Based
 **************
 
 Container management systems such as Kubernetes deploy a networking model which

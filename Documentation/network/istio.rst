@@ -22,7 +22,7 @@ integration by running a standard version of ``istioctl``.  In that
 case Cilium will enforce HTTP L7 policies outside of the Istio sidecar
 proxy, but that will only work if mTLS is not used.
 
-.. include:: ../installation/gsg_requirements.rst
+.. include:: ../security/gsg_requirements.rst
 
 .. note::
 
