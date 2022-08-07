@@ -7,7 +7,7 @@
 .. _gs_kafka:
 
 ************************
-Securing a Kafka cluster
+Securing a Kafka Cluster
 ************************
 
 This document serves as an introduction to using Cilium to enforce Kafka-aware

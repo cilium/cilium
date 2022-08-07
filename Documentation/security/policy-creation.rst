@@ -7,7 +7,7 @@
 .. _policy_verdicts:
 
 *******************************
-Creating policies from verdicts
+Creating Policies from Verdicts
 *******************************
 
 Policy Audit Mode configures Cilium to allow all traffic while logging all

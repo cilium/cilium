@@ -7,7 +7,7 @@
 .. _kube-router:
 
 ****************************
-Using kube-router to run BGP
+Using Kube-Router to Run BGP
 ****************************
 
 This guide explains how to configure Cilium and kube-router to co-operate to

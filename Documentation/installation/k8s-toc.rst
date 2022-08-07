@@ -4,15 +4,17 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _gsg_ipam:
+.. _k8s_install_root:
 
-**********************
-Configuring IPAM Modes
-**********************
-
+Installation with K8s distributions
+-----------------------------------
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :glob:
 
-   ipam-crd
-   ipam-cluster-pool
+   k8s-install-external-etcd
+   k8s-install-openshift-okd
+   k3s
+   kind
+   cni-chaining
+

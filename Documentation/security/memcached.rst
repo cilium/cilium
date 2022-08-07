@@ -4,9 +4,9 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-**********************************
-Getting Started Securing Memcached
-**********************************
+******************
+Securing Memcached
+******************
 
 This document serves as an introduction to using Cilium to enforce memcached-aware
 security policies. It walks through a single-node

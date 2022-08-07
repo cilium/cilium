@@ -7,7 +7,7 @@
 .. _gs_dns:
 
 ****************************************************
-Locking down external access with DNS-based policies
+Locking Down External Access with DNS-Based Policies
 ****************************************************
 
 This document serves as an introduction for using Cilium to enforce DNS-based

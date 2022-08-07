@@ -13,11 +13,6 @@ The documentation is divided into the following sections:
   setup on your laptop.  Intended as an easy way to get your hands dirty
   applying Cilium security policies between containers.
 
-* :ref:`concepts`: Describes the components of Cilium,
-  and the different models for deploying Cilium.  Provides the high-level
-  understanding required to run a full Cilium deployment and understand its
-  behavior.
-
 * :ref:`getting_started` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
 
@@ -65,10 +60,15 @@ get started and experiment with Cilium.
    gettingstarted/gettinghelp
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
    :caption: Advanced Installation
 
-   installation/index
+   installation/taints
+   installation/k8s-install-helm
+   installation/k8s-toc
+   installation/external-toc
+   installation/provider-toc
+   installation/microk8s
 
 .. toctree::
    :maxdepth: 2
@@ -80,9 +80,25 @@ get started and experiment with Cilium.
    network/ebpf/index
    network/clustermesh/index
    network/external-toc
+   network/servicemesh/index
    network/istio
    network/vtep
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Security
+
+   security/network/index
+   security/policy/index
+   security/tutorial-toc
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Observability
+
+   observability/grafana
+   observability/metrics
+   observability/visibility
 
 .. toctree::
    :maxdepth: 2
@@ -91,20 +107,15 @@ get started and experiment with Cilium.
    operations/system_requirements
    operations/upgrade
    configuration/index
-   policy/index
-   operations/metrics
    operations/performance/index
    operations/troubleshooting
-   concepts/index
-   installation/microk8s
-
 
 .. toctree::
    :maxdepth: 2
    :caption: Community
 
-   community/community
    community/governance/index
+   community/community
    community/roadmap
 
 .. toctree::
@@ -136,8 +147,3 @@ get started and experiment with Cilium.
 
    bpf
 
-.. toctree::
-   :maxdepth: 2
-   :caption: BPF and XDP Reference Guide
-
-   bpf

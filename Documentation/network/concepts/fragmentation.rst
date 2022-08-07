@@ -6,7 +6,7 @@
 
 .. _concepts_fragmentation:
 
-IPv4 fragment handling
+IPv4 Fragment Handling
 ======================
 
 By default, Cilium configures the eBPF datapath to perform IP fragment tracking

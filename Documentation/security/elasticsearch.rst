@@ -4,9 +4,9 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-**************************************
-Getting Started Securing Elasticsearch
-**************************************
+**********************
+Securing Elasticsearch
+**********************
 
 This document serves as an introduction for using Cilium to enforce Elasticsearch-aware
 security policies.  It is a detailed walk-through of getting a single-node

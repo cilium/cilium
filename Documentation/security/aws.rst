@@ -7,7 +7,7 @@
 .. _aws_metadata_with_policy:
 
 ***********************************************
-Locking down external access using AWS metadata
+Locking Down External Access Using AWS Metadata
 ***********************************************
 
 This document serves as an introduction to using Cilium to enforce policies

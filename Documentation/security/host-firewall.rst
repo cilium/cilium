@@ -22,7 +22,7 @@ security policies for Kubernetes nodes.
 Enable the Host Firewall in Cilium
 ==================================
 
-.. include:: k8s-install-download-release.rst
+.. include:: /installation/k8s-install-download-release.rst
 
 Deploy Cilium release via Helm:
 

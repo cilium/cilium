@@ -9,7 +9,7 @@
 .. _Network Policy:
 
 Network Policy
-==============
+--------------
 
 This chapter documents the policy language used to configure network policies
 in Cilium. Security policies can be specified and imported via the following
@@ -24,12 +24,11 @@ mechanisms:
   responsibility of the user to import the policy in all required agents.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :glob:
 
    intro
    language
-   visibility
    kubernetes
    lifecycle
    troubleshooting

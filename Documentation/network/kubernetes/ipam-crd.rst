@@ -7,7 +7,7 @@
 .. _gsg_ipam_crd:
 
 ***************
-CRD-backed IPAM
+CRD-Backed IPAM
 ***************
 
 This is a quick tutorial walking through how to enable CRD-backed IPAM. The
