@@ -53,7 +53,8 @@ Overall, the following represents the different ranges:
 
 ::
 
-   0x00000001 - 0x0000FFFF (1           to 2^16 - 1)        => cluster-local identities
+   0x00000001 - 0x000000FF (1           to 2^8  - 1)        => reserved identities
+   0x00000100 - 0x0000FFFF (2^8         to 2^16 - 1)        => cluster-local identities
    0x00010000 - 0x00FFFFFF (2^16        to 2^24 - 1)        => identities for remote clusters
    0x01000000 - 0x0100FFFF (2^24        to 2^24 + 2^16 - 1) => identities for CIDRs (node-local)
    0x01010000 - 0xFFFFFFFF (2^24 + 2^16 to 2^32 - 1)        => reserved for future use
