@@ -261,7 +261,7 @@ func getResources(ingress *slim_networkingv1.Ingress, backendServices []*v2.Serv
 
 func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace string, enforcedHTTPS bool) (v2.XDSResource, error) {
 	cecName := getCECNameForIngress(ingress)
-	defaultHttpConnectionManager, err := getConnectionManager(cecName, fmt.Sprintf("%s_route", cecName))
+	defaultHttpConnectionManager, err := getConnectionManager(ingress, cecName, fmt.Sprintf("%s_route", cecName))
 	if err != nil {
 		return v2.XDSResource{}, nil
 	}
@@ -286,7 +286,7 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 	} else {
 		insecureHttpConnectionManager := defaultHttpConnectionManager
 		if enforcedHTTPS {
-			insecureHttpConnectionManager, err = getConnectionManager(cecName, fmt.Sprintf("%s_redirect", cecName))
+			insecureHttpConnectionManager, err = getConnectionManager(ingress, cecName, fmt.Sprintf("%s_redirect", cecName))
 			if err != nil {
 				return v2.XDSResource{}, nil
 			}
@@ -360,8 +360,16 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 	}, nil
 }
 
-func getConnectionManager(name string, routeName string) (v2.XDSResource, error) {
+func getConnectionManager(ingress *slim_networkingv1.Ingress, name string, routeName string) (v2.XDSResource, error) {
 	var connectionManager envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager
+	var upgradeConfigs []*envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_UpgradeConfig
+
+	if annotations.GetAnnotationWebsocketEnabled(ingress) == 1 {
+		upgradeConfigs = []*envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
+			{UpgradeType: "websocket"},
+		}
+	}
+
 	connectionManager = envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{
 		StatPrefix: name,
 		RouteSpecifier: &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_Rds{
@@ -372,6 +380,7 @@ func getConnectionManager(name string, routeName string) (v2.XDSResource, error)
 		HttpFilters: []*envoy_extensions_filters_network_http_connection_manager_v3.HttpFilter{
 			{Name: "envoy.filters.http.router"},
 		},
+		UpgradeConfigs: upgradeConfigs,
 	}
 
 	connectionManagerBytes, err := proto.Marshal(&connectionManager)
