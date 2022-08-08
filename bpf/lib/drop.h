@@ -29,6 +29,7 @@ struct drop_notify {
 	__u16		line;
 	__u8		file;
 	__s8		ext_error;
+	__u32		ifindex;
 };
 
 /*
@@ -70,6 +71,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		.line           = line,
 		.file           = file,
 		.ext_error      = (__s8)(__u8)(error >> 8),
+		.ifindex        = ctx_get_ifindex(ctx),
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,
