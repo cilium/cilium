@@ -60,7 +60,8 @@ func NewPutEndpointIDParamsWithHTTPClient(client *http.Client) *PutEndpointIDPar
 	}
 }
 
-/*PutEndpointIDParams contains all the parameters to send to the API endpoint
+/*
+PutEndpointIDParams contains all the parameters to send to the API endpoint
 for the put endpoint ID operation typically these are written to a http.Request
 */
 type PutEndpointIDParams struct {

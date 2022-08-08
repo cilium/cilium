@@ -48,12 +48,13 @@ func (b *CmdStreamBuffer) ByLines() []string {
 // KVOutput returns a map of the stdout of res split based on
 // the separator '='.
 // For example, the following strings would be split as follows:
-//             a=1
-//             b=2
-//             c=3
-//             a=1
-//             b=2
-//             c=3
+//
+//	a=1
+//	b=2
+//	c=3
+//	a=1
+//	b=2
+//	c=3
 func (b *CmdStreamBuffer) KVOutput() map[string]string {
 	result := make(map[string]string)
 	for _, line := range b.ByLines() {
@@ -376,9 +377,10 @@ func (res *CmdRes) ByLines() []string {
 // KVOutput returns a map of the stdout of res split based on
 // the separator '='.
 // For example, the following strings would be split as follows:
-//		a=1
-//		b=2
-//		c=3
+//
+//	a=1
+//	b=2
+//	c=3
 func (res *CmdRes) KVOutput() map[string]string {
 	return res.GetStdOut().KVOutput()
 }

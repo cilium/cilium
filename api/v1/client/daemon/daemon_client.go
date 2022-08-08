@@ -48,7 +48,7 @@ type ClientService interface {
 }
 
 /*
-  GetClusterNodes gets nodes information stored in the cilium agent
+GetClusterNodes gets nodes information stored in the cilium agent
 */
 func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNodesOK, error) {
 	// TODO: Validate the params before sending
@@ -82,10 +82,9 @@ func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNode
 }
 
 /*
-  GetConfig gets configuration of cilium daemon
+GetConfig gets configuration of cilium daemon
 
-  Returns the configuration of the Cilium daemon.
-
+Returns the configuration of the Cilium daemon.
 */
 func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 	// TODO: Validate the params before sending
@@ -119,7 +118,7 @@ func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 }
 
 /*
-  GetDebuginfo retrieves information about the agent and evironment for debugging
+GetDebuginfo retrieves information about the agent and evironment for debugging
 */
 func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, error) {
 	// TODO: Validate the params before sending
@@ -153,12 +152,12 @@ func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, erro
 }
 
 /*
-  GetHealthz gets health of cilium daemon
+	GetHealthz gets health of cilium daemon
 
-  Returns health and status information of the Cilium daemon and related
+	Returns health and status information of the Cilium daemon and related
+
 components such as the local container runtime, connected datastore,
 Kubernetes integration and Hubble.
-
 */
 func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 	// TODO: Validate the params before sending
@@ -192,7 +191,7 @@ func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 }
 
 /*
-  GetMap lists all open maps
+GetMap lists all open maps
 */
 func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
 	// TODO: Validate the params before sending
@@ -226,7 +225,7 @@ func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
 }
 
 /*
-  GetMapName retrieves contents of b p f map
+GetMapName retrieves contents of b p f map
 */
 func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 	// TODO: Validate the params before sending
@@ -260,12 +259,12 @@ func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 }
 
 /*
-  PatchConfig modifies daemon configuration
+	PatchConfig modifies daemon configuration
 
-  Updates the daemon configuration by applying the provided
+	Updates the daemon configuration by applying the provided
+
 ConfigurationMap and regenerates & recompiles all required datapath
 components.
-
 */
 func (a *Client) PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error) {
 	// TODO: Validate the params before sending

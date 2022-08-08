@@ -49,13 +49,11 @@ func getLine(data [][]byte) ([]byte, bool) {
 	return line.Bytes(), false
 }
 
-//
 // Parses individual lines that must start with one of:
 // "PASS" the line is passed
 // "DROP" the line is dropped
 // "INJECT" the line is injected in reverse direction
 // "INSERT" the line is injected in current direction
-//
 func (p *LineParser) OnData(reply, endStream bool, data [][]byte) (OpType, int) {
 	line, ok := getLine(data)
 	line_len := len(line)

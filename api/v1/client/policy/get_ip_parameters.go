@@ -58,7 +58,8 @@ func NewGetIPParamsWithHTTPClient(client *http.Client) *GetIPParams {
 	}
 }
 
-/*GetIPParams contains all the parameters to send to the API endpoint
+/*
+GetIPParams contains all the parameters to send to the API endpoint
 for the get IP operation typically these are written to a http.Request
 */
 type GetIPParams struct {

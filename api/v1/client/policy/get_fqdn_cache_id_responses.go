@@ -55,7 +55,8 @@ func NewGetFqdnCacheIDOK() *GetFqdnCacheIDOK {
 	return &GetFqdnCacheIDOK{}
 }
 
-/*GetFqdnCacheIDOK handles this case with default header values.
+/*
+GetFqdnCacheIDOK handles this case with default header values.
 
 Success
 */
@@ -86,7 +87,8 @@ func NewGetFqdnCacheIDBadRequest() *GetFqdnCacheIDBadRequest {
 	return &GetFqdnCacheIDBadRequest{}
 }
 
-/*GetFqdnCacheIDBadRequest handles this case with default header values.
+/*
+GetFqdnCacheIDBadRequest handles this case with default header values.
 
 Invalid request (error parsing parameters)
 */
@@ -117,7 +119,8 @@ func NewGetFqdnCacheIDNotFound() *GetFqdnCacheIDNotFound {
 	return &GetFqdnCacheIDNotFound{}
 }
 
-/*GetFqdnCacheIDNotFound handles this case with default header values.
+/*
+GetFqdnCacheIDNotFound handles this case with default header values.
 
 No DNS data with provided parameters found
 */

@@ -19,7 +19,8 @@ import (
 // DeleteIpamIPOKCode is the HTTP code returned for type DeleteIpamIPOK
 const DeleteIpamIPOKCode int = 200
 
-/*DeleteIpamIPOK Success
+/*
+DeleteIpamIPOK Success
 
 swagger:response deleteIpamIpOK
 */
@@ -43,7 +44,8 @@ func (o *DeleteIpamIPOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // DeleteIpamIPInvalidCode is the HTTP code returned for type DeleteIpamIPInvalid
 const DeleteIpamIPInvalidCode int = 400
 
-/*DeleteIpamIPInvalid Invalid IP address
+/*
+DeleteIpamIPInvalid Invalid IP address
 
 swagger:response deleteIpamIpInvalid
 */
@@ -67,7 +69,8 @@ func (o *DeleteIpamIPInvalid) WriteResponse(rw http.ResponseWriter, producer run
 // DeleteIpamIPNotFoundCode is the HTTP code returned for type DeleteIpamIPNotFound
 const DeleteIpamIPNotFoundCode int = 404
 
-/*DeleteIpamIPNotFound IP address not found
+/*
+DeleteIpamIPNotFound IP address not found
 
 swagger:response deleteIpamIpNotFound
 */
@@ -91,7 +94,8 @@ func (o *DeleteIpamIPNotFound) WriteResponse(rw http.ResponseWriter, producer ru
 // DeleteIpamIPFailureCode is the HTTP code returned for type DeleteIpamIPFailure
 const DeleteIpamIPFailureCode int = 500
 
-/*DeleteIpamIPFailure Address release failure
+/*
+DeleteIpamIPFailure Address release failure
 
 swagger:response deleteIpamIpFailure
 */
@@ -133,7 +137,8 @@ func (o *DeleteIpamIPFailure) WriteResponse(rw http.ResponseWriter, producer run
 // DeleteIpamIPDisabledCode is the HTTP code returned for type DeleteIpamIPDisabled
 const DeleteIpamIPDisabledCode int = 501
 
-/*DeleteIpamIPDisabled Allocation for address family disabled
+/*
+DeleteIpamIPDisabled Allocation for address family disabled
 
 swagger:response deleteIpamIpDisabled
 */

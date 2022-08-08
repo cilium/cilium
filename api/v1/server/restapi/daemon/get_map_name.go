@@ -32,10 +32,10 @@ func NewGetMapName(ctx *middleware.Context, handler GetMapNameHandler) *GetMapNa
 	return &GetMapName{Context: ctx, Handler: handler}
 }
 
-/*GetMapName swagger:route GET /map/{name} daemon getMapName
+/*
+GetMapName swagger:route GET /map/{name} daemon getMapName
 
 Retrieve contents of BPF map
-
 */
 type GetMapName struct {
 	Context *middleware.Context

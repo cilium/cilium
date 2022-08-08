@@ -109,7 +109,7 @@ func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	}
 }
 
-/// EndpointNoTrackEvent contains all fields necessary to update the NOTRACK rules.
+// EndpointNoTrackEvent contains all fields necessary to update the NOTRACK rules.
 type EndpointNoTrackEvent struct {
 	ep     *Endpoint
 	annoCB AnnotationsResolverCB

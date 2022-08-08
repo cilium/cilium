@@ -61,7 +61,8 @@ func NewPutPolicyOK() *PutPolicyOK {
 	return &PutPolicyOK{}
 }
 
-/*PutPolicyOK handles this case with default header values.
+/*
+PutPolicyOK handles this case with default header values.
 
 Success
 */
@@ -94,7 +95,8 @@ func NewPutPolicyInvalidPolicy() *PutPolicyInvalidPolicy {
 	return &PutPolicyInvalidPolicy{}
 }
 
-/*PutPolicyInvalidPolicy handles this case with default header values.
+/*
+PutPolicyInvalidPolicy handles this case with default header values.
 
 Invalid policy
 */
@@ -125,7 +127,8 @@ func NewPutPolicyInvalidPath() *PutPolicyInvalidPath {
 	return &PutPolicyInvalidPath{}
 }
 
-/*PutPolicyInvalidPath handles this case with default header values.
+/*
+PutPolicyInvalidPath handles this case with default header values.
 
 Invalid path
 */
@@ -156,7 +159,8 @@ func NewPutPolicyFailure() *PutPolicyFailure {
 	return &PutPolicyFailure{}
 }
 
-/*PutPolicyFailure handles this case with default header values.
+/*
+PutPolicyFailure handles this case with default header values.
 
 Policy import failed
 */

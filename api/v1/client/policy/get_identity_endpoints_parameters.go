@@ -58,7 +58,8 @@ func NewGetIdentityEndpointsParamsWithHTTPClient(client *http.Client) *GetIdenti
 	}
 }
 
-/*GetIdentityEndpointsParams contains all the parameters to send to the API endpoint
+/*
+GetIdentityEndpointsParams contains all the parameters to send to the API endpoint
 for the get identity endpoints operation typically these are written to a http.Request
 */
 type GetIdentityEndpointsParams struct {

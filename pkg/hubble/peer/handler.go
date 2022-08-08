@@ -164,12 +164,12 @@ func nodeAddress(n types.Node) string {
 // TLSServerName constructs a server name to be used as the TLS server name.
 // The server name is of the following form:
 //
-//     <nodeName>.<clusterName>.<hubble-grpc-svc-name>.<domain>
+//	<nodeName>.<clusterName>.<hubble-grpc-svc-name>.<domain>
 //
 // For example, with nodeName=moseisley and clusterName=tatooine, the following
 // server name is returned:
 //
-//     moseisley.tatooine.hubble-grpc.cilium.io
+//	moseisley.tatooine.hubble-grpc.cilium.io
 //
 // When nodeName is not provided, an empty string is returned. All Dot (.) in
 // nodeName are replaced by Hyphen (-). When clusterName is not provided, it

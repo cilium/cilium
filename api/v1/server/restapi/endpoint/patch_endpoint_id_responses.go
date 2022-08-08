@@ -19,7 +19,8 @@ import (
 // PatchEndpointIDOKCode is the HTTP code returned for type PatchEndpointIDOK
 const PatchEndpointIDOKCode int = 200
 
-/*PatchEndpointIDOK Success
+/*
+PatchEndpointIDOK Success
 
 swagger:response patchEndpointIdOK
 */
@@ -43,7 +44,8 @@ func (o *PatchEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runti
 // PatchEndpointIDInvalidCode is the HTTP code returned for type PatchEndpointIDInvalid
 const PatchEndpointIDInvalidCode int = 400
 
-/*PatchEndpointIDInvalid Invalid modify endpoint request
+/*
+PatchEndpointIDInvalid Invalid modify endpoint request
 
 swagger:response patchEndpointIdInvalid
 */
@@ -85,7 +87,8 @@ func (o *PatchEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer 
 // PatchEndpointIDNotFoundCode is the HTTP code returned for type PatchEndpointIDNotFound
 const PatchEndpointIDNotFoundCode int = 404
 
-/*PatchEndpointIDNotFound Endpoint does not exist
+/*
+PatchEndpointIDNotFound Endpoint does not exist
 
 swagger:response patchEndpointIdNotFound
 */
@@ -109,7 +112,8 @@ func (o *PatchEndpointIDNotFound) WriteResponse(rw http.ResponseWriter, producer
 // PatchEndpointIDTooManyRequestsCode is the HTTP code returned for type PatchEndpointIDTooManyRequests
 const PatchEndpointIDTooManyRequestsCode int = 429
 
-/*PatchEndpointIDTooManyRequests Rate-limiting too many requests in the given time frame
+/*
+PatchEndpointIDTooManyRequests Rate-limiting too many requests in the given time frame
 
 swagger:response patchEndpointIdTooManyRequests
 */
@@ -133,7 +137,8 @@ func (o *PatchEndpointIDTooManyRequests) WriteResponse(rw http.ResponseWriter, p
 // PatchEndpointIDFailedCode is the HTTP code returned for type PatchEndpointIDFailed
 const PatchEndpointIDFailedCode int = 500
 
-/*PatchEndpointIDFailed Endpoint update failed
+/*
+PatchEndpointIDFailed Endpoint update failed
 
 swagger:response patchEndpointIdFailed
 */

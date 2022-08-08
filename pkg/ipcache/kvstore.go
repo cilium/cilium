@@ -369,7 +369,7 @@ func (iw *IPIdentityWatcher) Close() {
 	})
 }
 
-//closeSynced the IPIdentityWathcer and case panic
+// closeSynced the IPIdentityWathcer and case panic
 func (iw *IPIdentityWatcher) closeSynced() {
 	iw.syncedOnce.Do(func() {
 		close(iw.synced)

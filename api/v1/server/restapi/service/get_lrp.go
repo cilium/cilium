@@ -32,10 +32,10 @@ func NewGetLrp(ctx *middleware.Context, handler GetLrpHandler) *GetLrp {
 	return &GetLrp{Context: ctx, Handler: handler}
 }
 
-/*GetLrp swagger:route GET /lrp service getLrp
+/*
+GetLrp swagger:route GET /lrp service getLrp
 
 Retrieve list of all local redirect policies
-
 */
 type GetLrp struct {
 	Context *middleware.Context

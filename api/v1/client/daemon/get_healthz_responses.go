@@ -43,7 +43,8 @@ func NewGetHealthzOK() *GetHealthzOK {
 	return &GetHealthzOK{}
 }
 
-/*GetHealthzOK handles this case with default header values.
+/*
+GetHealthzOK handles this case with default header values.
 
 Success
 */

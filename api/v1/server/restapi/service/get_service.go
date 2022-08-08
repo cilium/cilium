@@ -32,10 +32,10 @@ func NewGetService(ctx *middleware.Context, handler GetServiceHandler) *GetServi
 	return &GetService{Context: ctx, Handler: handler}
 }
 
-/*GetService swagger:route GET /service service getService
+/*
+GetService swagger:route GET /service service getService
 
 Retrieve list of all services
-
 */
 type GetService struct {
 	Context *middleware.Context

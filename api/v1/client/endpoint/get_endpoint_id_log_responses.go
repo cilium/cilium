@@ -61,7 +61,8 @@ func NewGetEndpointIDLogOK() *GetEndpointIDLogOK {
 	return &GetEndpointIDLogOK{}
 }
 
-/*GetEndpointIDLogOK handles this case with default header values.
+/*
+GetEndpointIDLogOK handles this case with default header values.
 
 Success
 */
@@ -92,7 +93,8 @@ func NewGetEndpointIDLogInvalid() *GetEndpointIDLogInvalid {
 	return &GetEndpointIDLogInvalid{}
 }
 
-/*GetEndpointIDLogInvalid handles this case with default header values.
+/*
+GetEndpointIDLogInvalid handles this case with default header values.
 
 Invalid identity provided
 */
@@ -113,7 +115,8 @@ func NewGetEndpointIDLogNotFound() *GetEndpointIDLogNotFound {
 	return &GetEndpointIDLogNotFound{}
 }
 
-/*GetEndpointIDLogNotFound handles this case with default header values.
+/*
+GetEndpointIDLogNotFound handles this case with default header values.
 
 Endpoint not found
 */
@@ -134,7 +137,8 @@ func NewGetEndpointIDLogTooManyRequests() *GetEndpointIDLogTooManyRequests {
 	return &GetEndpointIDLogTooManyRequests{}
 }
 
-/*GetEndpointIDLogTooManyRequests handles this case with default header values.
+/*
+GetEndpointIDLogTooManyRequests handles this case with default header values.
 
 Rate-limiting too many requests in the given time frame
 */

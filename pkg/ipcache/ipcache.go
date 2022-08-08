@@ -60,9 +60,9 @@ type Configuration struct {
 }
 
 // IPCache is a collection of mappings:
-// - mapping of endpoint IP or CIDR to security identities of all endpoints
-//   which are part of the same cluster, and vice-versa
-// - mapping of endpoint IP or CIDR to host IP (maybe nil)
+//   - mapping of endpoint IP or CIDR to security identities of all endpoints
+//     which are part of the same cluster, and vice-versa
+//   - mapping of endpoint IP or CIDR to host IP (maybe nil)
 type IPCache struct {
 	mutex             lock.SemaphoredMutex
 	ipToIdentityCache map[string]Identity

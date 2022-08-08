@@ -32,14 +32,13 @@ func NewPatchEndpointIDLabels(ctx *middleware.Context, handler PatchEndpointIDLa
 	return &PatchEndpointIDLabels{Context: ctx, Handler: handler}
 }
 
-/*PatchEndpointIDLabels swagger:route PATCH /endpoint/{id}/labels endpoint patchEndpointIdLabels
+/*
+PatchEndpointIDLabels swagger:route PATCH /endpoint/{id}/labels endpoint patchEndpointIdLabels
 
-Set label configuration of endpoint
+# Set label configuration of endpoint
 
 Sets labels associated with an endpoint. These can be user provided or
 derived from the orchestration system.
-
-
 */
 type PatchEndpointIDLabels struct {
 	Context *middleware.Context

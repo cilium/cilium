@@ -32,10 +32,10 @@ func NewPatchPrefilter(ctx *middleware.Context, handler PatchPrefilterHandler) *
 	return &PatchPrefilter{Context: ctx, Handler: handler}
 }
 
-/*PatchPrefilter swagger:route PATCH /prefilter prefilter patchPrefilter
+/*
+PatchPrefilter swagger:route PATCH /prefilter prefilter patchPrefilter
 
 Update list of CIDRs
-
 */
 type PatchPrefilter struct {
 	Context *middleware.Context

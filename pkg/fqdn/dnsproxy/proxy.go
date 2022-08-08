@@ -592,14 +592,14 @@ func configureConnection(conn *net.Conn, secId identity.NumericIdentity) error {
 // ServeDNS handles individual DNS requests forwarded to the proxy, and meets
 // the dns.Handler interface.
 // It will:
-//  - Look up the endpoint that sent the request by IP, via LookupEndpointByIP.
-//  - Look up the Sec ID of the destination server, via LookupSecIDByIP.
-//  - Check that the endpoint ID, destination Sec ID, destination port and the
-//  qname all match a rule. If not, the request is dropped.
-//  - The allowed request is forwarded to the originally intended DNS server IP
-//  - The response is shared via NotifyOnDNSMsg (this will go to a
-//  fqdn/NameManager instance).
-//  - Write the response to the endpoint.
+//   - Look up the endpoint that sent the request by IP, via LookupEndpointByIP.
+//   - Look up the Sec ID of the destination server, via LookupSecIDByIP.
+//   - Check that the endpoint ID, destination Sec ID, destination port and the
+//     qname all match a rule. If not, the request is dropped.
+//   - The allowed request is forwarded to the originally intended DNS server IP
+//   - The response is shared via NotifyOnDNSMsg (this will go to a
+//     fqdn/NameManager instance).
+//   - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	requestID := request.Id // keep the original request ID
 	qname := string(request.Question[0].Name)

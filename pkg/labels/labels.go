@@ -354,7 +354,8 @@ func GetExtendedKeyFrom(str string) string {
 // Example:
 // l := Map2Labels(map[string]string{"k8s:foo": "bar"}, "cilium")
 // fmt.Printf("%+v\n", l)
-//   map[string]Label{"foo":Label{Key:"foo", Value:"bar", Source:"cilium"}}
+//
+//	map[string]Label{"foo":Label{Key:"foo", Value:"bar", Source:"cilium"}}
 func Map2Labels(m map[string]string, source string) Labels {
 	o := make(Labels, len(m))
 	for k, v := range m {
@@ -430,7 +431,8 @@ func (l Labels) GetModel() []string {
 // from := Labels{Label{key1, value3, source4}}
 // to.MergeLabels(from)
 // fmt.Printf("%+v\n", to)
-//   Labels{Label{key1, value3, source4}, Label{key2, value3, source4}}
+//
+//	Labels{Label{key1, value3, source4}, Label{key2, value3, source4}}
 func (l Labels) MergeLabels(from Labels) {
 	for k, v := range from {
 		l[k] = v
@@ -549,7 +551,9 @@ func (l Labels) Has(label Label) bool {
 // parseSource returns the parsed source of the given str. It also returns the next piece
 // of text that is after the source.
 // Example:
-//  src, next := parseSource("foo:bar==value")
+//
+//	src, next := parseSource("foo:bar==value")
+//
 // Println(src) // foo
 // Println(next) // bar==value
 // For Cilium format 'delim' must be passed in as ':'

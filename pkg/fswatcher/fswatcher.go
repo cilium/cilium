@@ -25,25 +25,25 @@ type Event fsnotify.Event
 // Watcher is a wrapper around fsnotify.Watcher which can track non-existing
 // files and emit creation events for them. All files which are supposed to be
 // tracked need to passed to the New constructor.
-//   1) If the file already exists, the watcher will emit write, chmod, remove
-//      and rename events for the file (same as fsnotify).
-//   2) If the file does not yet exist, then the Watcher makes sure to watch
-//      the appropriate parent folder instead. Once the file is created, this
-//      watcher will emit a creation event for the tracked file and enter
-//      case 1.
-//   3) If the file already exists, but is removed, then a remove event is
-//      emitted and we enter case 2.
+//  1. If the file already exists, the watcher will emit write, chmod, remove
+//     and rename events for the file (same as fsnotify).
+//  2. If the file does not yet exist, then the Watcher makes sure to watch
+//     the appropriate parent folder instead. Once the file is created, this
+//     watcher will emit a creation event for the tracked file and enter
+//     case 1.
+//  3. If the file already exists, but is removed, then a remove event is
+//     emitted and we enter case 2.
 //
 // Special care has to be taken around symlinks. Support for symlink is
 // limited, but it supports the following cases in order to support
 // Kubernetes volume mounts:
-//   1) If the tracked file is a symlink, then the watcher will emit write,
-//      chmod, remove and rename events for the *target* of the symlink.
-//   2) If a tracked file is a symlink and the symlink target is removed,
-//      then the remove event is emitted and the watcher tries to re-resolve
-//      the symlink target. If the new target exists, a creation event is
-//      emitted and we enter case 1). If the new target does not exist, an
-//      error is emitted and the path will not be watched anymore.
+//  1. If the tracked file is a symlink, then the watcher will emit write,
+//     chmod, remove and rename events for the *target* of the symlink.
+//  2. If a tracked file is a symlink and the symlink target is removed,
+//     then the remove event is emitted and the watcher tries to re-resolve
+//     the symlink target. If the new target exists, a creation event is
+//     emitted and we enter case 1). If the new target does not exist, an
+//     error is emitted and the path will not be watched anymore.
 //
 // Most notably, if a tracked file is a symlink, any update of the symlink
 // itself does not emit an event. Only if the target of the symlink observes

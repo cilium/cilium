@@ -265,8 +265,7 @@ type hasKeyChecker struct {
 //
 // For example:
 //
-//     c.Assert(myMap, HasKey, "five")
-//
+//	c.Assert(myMap, HasKey, "five")
 var HasKey check.Checker = &hasKeyChecker{
 	&check.CheckerInfo{Name: "HasKey", Params: []string{"map", "key"}},
 }

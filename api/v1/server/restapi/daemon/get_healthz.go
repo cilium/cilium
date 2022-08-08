@@ -32,15 +32,14 @@ func NewGetHealthz(ctx *middleware.Context, handler GetHealthzHandler) *GetHealt
 	return &GetHealthz{Context: ctx, Handler: handler}
 }
 
-/*GetHealthz swagger:route GET /healthz daemon getHealthz
+/*
+GetHealthz swagger:route GET /healthz daemon getHealthz
 
-Get health of Cilium daemon
+# Get health of Cilium daemon
 
 Returns health and status information of the Cilium daemon and related
 components such as the local container runtime, connected datastore,
 Kubernetes integration and Hubble.
-
-
 */
 type GetHealthz struct {
 	Context *middleware.Context

@@ -116,7 +116,7 @@ type DropNotifyVerbose struct {
 	Summary *DissectSummary `json:"summary,omitempty"`
 }
 
-//DropNotifyToVerbose creates verbose notification from DropNotify
+// DropNotifyToVerbose creates verbose notification from DropNotify
 func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
 	return DropNotifyVerbose{
 		Type:     "drop",

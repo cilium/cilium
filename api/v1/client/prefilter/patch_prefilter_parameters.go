@@ -60,7 +60,8 @@ func NewPatchPrefilterParamsWithHTTPClient(client *http.Client) *PatchPrefilterP
 	}
 }
 
-/*PatchPrefilterParams contains all the parameters to send to the API endpoint
+/*
+PatchPrefilterParams contains all the parameters to send to the API endpoint
 for the patch prefilter operation typically these are written to a http.Request
 */
 type PatchPrefilterParams struct {

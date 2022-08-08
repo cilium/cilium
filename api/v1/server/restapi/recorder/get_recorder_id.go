@@ -32,10 +32,10 @@ func NewGetRecorderID(ctx *middleware.Context, handler GetRecorderIDHandler) *Ge
 	return &GetRecorderID{Context: ctx, Handler: handler}
 }
 
-/*GetRecorderID swagger:route GET /recorder/{id} recorder getRecorderId
+/*
+GetRecorderID swagger:route GET /recorder/{id} recorder getRecorderId
 
 Retrieve configuration of a recorder
-
 */
 type GetRecorderID struct {
 	Context *middleware.Context

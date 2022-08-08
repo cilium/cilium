@@ -613,6 +613,7 @@ type GetFlowsResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to ResponseTypes:
+	//
 	//	*GetFlowsResponse_Flow
 	//	*GetFlowsResponse_NodeStatus
 	//	*GetFlowsResponse_LostEvents
@@ -1306,6 +1307,7 @@ type ExportEvent struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to ResponseTypes:
+	//
 	//	*ExportEvent_Flow
 	//	*ExportEvent_NodeStatus
 	//	*ExportEvent_LostEvents

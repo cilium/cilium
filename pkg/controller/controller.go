@@ -101,29 +101,29 @@ func NoopFunc(ctx context.Context) error {
 // Controllers have a name and are tied to a Manager. The manager is typically
 // bound to higher level objects such as endpoint. These higher level objects
 // can then run multiple controllers to perform async tasks such as:
-//  - Annotating k8s resources with values
-//  - Synchronizing an object with the kvstore
-//  - Any other async operation to may fail and require retries
+//   - Annotating k8s resources with values
+//   - Synchronizing an object with the kvstore
+//   - Any other async operation to may fail and require retries
 //
 // Embedding the Manager into higher level resources allows to bind controllers
 // to the lifetime of that object. Controllers also have a UUID to allow
 // correlating all log messages of a controller instance.
 //
 // Guidelines to writing controllers:
-// * Make sure that the task the controller performs is done in an atomic
-//   fashion, e.g. if a controller modifies a resource in multiple steps, an
-//   intermediate manipulation operation failing should not leave behind
-//   an inconsistent state. This can typically be achieved by locking the
-//   resource and rolling back or by using transactions.
-// * Controllers typically act on behalf of a higher level object such as an
-//   endpoint. The controller must ensure that the higher level object is
-//   properly locked when accessing any fields.
-// * Controllers run asynchronously in the background, it is the responsibility
-//   of the controller to be aware of the lifecycle of the owning higher level
-//   object. This is typically achieved by removing all controllers when the
-//   owner dies. It is the responsibility of the owner to either lock the owner
-//   in a way that will delay destruction throughout the controller run or to
-//   check for the destruction throughout the run.
+//   - Make sure that the task the controller performs is done in an atomic
+//     fashion, e.g. if a controller modifies a resource in multiple steps, an
+//     intermediate manipulation operation failing should not leave behind
+//     an inconsistent state. This can typically be achieved by locking the
+//     resource and rolling back or by using transactions.
+//   - Controllers typically act on behalf of a higher level object such as an
+//     endpoint. The controller must ensure that the higher level object is
+//     properly locked when accessing any fields.
+//   - Controllers run asynchronously in the background, it is the responsibility
+//     of the controller to be aware of the lifecycle of the owning higher level
+//     object. This is typically achieved by removing all controllers when the
+//     owner dies. It is the responsibility of the owner to either lock the owner
+//     in a way that will delay destruction throughout the controller run or to
+//     check for the destruction throughout the run.
 type Controller struct {
 	mutex             lock.RWMutex
 	name              string

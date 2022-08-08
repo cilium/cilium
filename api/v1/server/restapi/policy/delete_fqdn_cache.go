@@ -32,15 +32,14 @@ func NewDeleteFqdnCache(ctx *middleware.Context, handler DeleteFqdnCacheHandler)
 	return &DeleteFqdnCache{Context: ctx, Handler: handler}
 }
 
-/*DeleteFqdnCache swagger:route DELETE /fqdn/cache policy deleteFqdnCache
+/*
+DeleteFqdnCache swagger:route DELETE /fqdn/cache policy deleteFqdnCache
 
 Deletes matching DNS lookups from the policy-generation cache.
 
 Deletes matching DNS lookups from the cache, optionally restricted by
 DNS name. The removed IP data will no longer be used in generated
 policies.
-
-
 */
 type DeleteFqdnCache struct {
 	Context *middleware.Context

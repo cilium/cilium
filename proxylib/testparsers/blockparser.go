@@ -95,13 +95,11 @@ func getBlock(data [][]byte) ([]byte, int, int, error) {
 	return block.Bytes(), blockLen, missing, nil
 }
 
-//
 // Parses individual blocks that must start with one of:
 // "PASS" the block is passed
 // "DROP" the block is dropped
 // "INJECT" the block is injected in reverse direction
 // "INSERT" the block is injected in current direction
-//
 func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int) {
 	block, block_len, missing, err := getBlock(data)
 	if err != nil {

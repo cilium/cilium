@@ -381,10 +381,11 @@ func (m *MigrateSuite) TestMigrateENIDatapathPartial(c *C) {
 // setUpRoutingTable initializes the routing table for this test suite. The
 // starting ifindex, tableID, and the priority are passed in to give contron to
 // the caller on the setup. The two return values are:
-//   1) Map of string to int, representing a mapping from MAC addrs to
-//      interface numbers.
-//   2) Map of string to string, representing a mapping from device name to MAC
-//      addrs.
+//  1. Map of string to int, representing a mapping from MAC addrs to
+//     interface numbers.
+//  2. Map of string to string, representing a mapping from device name to MAC
+//     addrs.
+//
 // (1) is used for the upgrade test cases where the GetInterfaceNumberByMAC
 // mock is used. (2) is used for the downgrade test cases where the
 // GetMACByInterfaceNumber mock is used. These maps are used in their

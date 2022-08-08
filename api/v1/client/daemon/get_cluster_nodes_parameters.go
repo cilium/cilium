@@ -59,7 +59,8 @@ func NewGetClusterNodesParamsWithHTTPClient(client *http.Client) *GetClusterNode
 	}
 }
 
-/*GetClusterNodesParams contains all the parameters to send to the API endpoint
+/*
+GetClusterNodesParams contains all the parameters to send to the API endpoint
 for the get cluster nodes operation typically these are written to a http.Request
 */
 type GetClusterNodesParams struct {

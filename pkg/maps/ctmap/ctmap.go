@@ -568,13 +568,13 @@ func GC(m *Map, filter *GCFilter) int {
 // The consumer of the buffer invokes the function.
 //
 // The SNAT is being used for the following cases:
-// 1. By NodePort BPF on an intermediate node before fwd'ing request from outside
+//  1. By NodePort BPF on an intermediate node before fwd'ing request from outside
 //     to a destination node.
-// 2. A packet from local endpoint sent to outside (BPF-masq).
-// 3. A packet from a host local application (i.e. running in the host netns)
-//    This is needed to prevent SNAT from hijacking such connections.
-// 4. By DSR on a backend node to SNAT responses with service IP+port before
-//    sending to a client.
+//  2. A packet from local endpoint sent to outside (BPF-masq).
+//  3. A packet from a host local application (i.e. running in the host netns)
+//     This is needed to prevent SNAT from hijacking such connections.
+//  4. By DSR on a backend node to SNAT responses with service IP+port before
+//     sending to a client.
 //
 // In the case of 1-3, we always create a CT_EGRESS CT entry. This allows the
 // CT GC to remove corresponding SNAT entries. In the case of 4, will create

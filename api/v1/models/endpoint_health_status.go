@@ -16,8 +16,7 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// EndpointHealthStatus A common set of statuses for endpoint health * ``OK`` = All components operational * ``Bootstrap`` = This component is being created * ``Pending`` = A change is being processed to be applied * ``Warning`` = This component is not applying up-to-date policies (but is still applying the previous version) * ``Failure`` = An error has occurred and no policy is being applied * ``Disabled`` = This endpoint is disabled and will not handle traffic
-//
+// EndpointHealthStatus A common set of statuses for endpoint health * “OK“ = All components operational * “Bootstrap“ = This component is being created * “Pending“ = A change is being processed to be applied * “Warning“ = This component is not applying up-to-date policies (but is still applying the previous version) * “Failure“ = An error has occurred and no policy is being applied * “Disabled“ = This endpoint is disabled and will not handle traffic
 //
 // swagger:model EndpointHealthStatus
 type EndpointHealthStatus string

@@ -19,7 +19,8 @@ import (
 // PatchConfigOKCode is the HTTP code returned for type PatchConfigOK
 const PatchConfigOKCode int = 200
 
-/*PatchConfigOK Success
+/*
+PatchConfigOK Success
 
 swagger:response patchConfigOK
 */
@@ -43,7 +44,8 @@ func (o *PatchConfigOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 // PatchConfigBadRequestCode is the HTTP code returned for type PatchConfigBadRequest
 const PatchConfigBadRequestCode int = 400
 
-/*PatchConfigBadRequest Bad configuration parameters
+/*
+PatchConfigBadRequest Bad configuration parameters
 
 swagger:response patchConfigBadRequest
 */
@@ -85,7 +87,8 @@ func (o *PatchConfigBadRequest) WriteResponse(rw http.ResponseWriter, producer r
 // PatchConfigFailureCode is the HTTP code returned for type PatchConfigFailure
 const PatchConfigFailureCode int = 500
 
-/*PatchConfigFailure Recompilation failed
+/*
+PatchConfigFailure Recompilation failed
 
 swagger:response patchConfigFailure
 */

@@ -19,7 +19,8 @@ import (
 // GetServiceIDOKCode is the HTTP code returned for type GetServiceIDOK
 const GetServiceIDOKCode int = 200
 
-/*GetServiceIDOK Success
+/*
+GetServiceIDOK Success
 
 swagger:response getServiceIdOK
 */
@@ -63,7 +64,8 @@ func (o *GetServiceIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // GetServiceIDNotFoundCode is the HTTP code returned for type GetServiceIDNotFound
 const GetServiceIDNotFoundCode int = 404
 
-/*GetServiceIDNotFound Service not found
+/*
+GetServiceIDNotFound Service not found
 
 swagger:response getServiceIdNotFound
 */

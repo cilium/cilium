@@ -49,7 +49,8 @@ func NewDeleteFqdnCacheOK() *DeleteFqdnCacheOK {
 	return &DeleteFqdnCacheOK{}
 }
 
-/*DeleteFqdnCacheOK handles this case with default header values.
+/*
+DeleteFqdnCacheOK handles this case with default header values.
 
 Success
 */
@@ -70,7 +71,8 @@ func NewDeleteFqdnCacheBadRequest() *DeleteFqdnCacheBadRequest {
 	return &DeleteFqdnCacheBadRequest{}
 }
 
-/*DeleteFqdnCacheBadRequest handles this case with default header values.
+/*
+DeleteFqdnCacheBadRequest handles this case with default header values.
 
 Invalid request (error parsing parameters)
 */
