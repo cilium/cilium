@@ -23,7 +23,7 @@ import (
 //
 // For instance:
 //
-//    "sidecar~10.1.1.0~v0.default~default.svc.cluster.local"
+//	"sidecar~10.1.1.0~v0.default~default.svc.cluster.local"
 func IstioNodeToIP(nodeId string) (string, error) {
 	if nodeId == "" {
 		return "", errors.New("nodeId is empty")

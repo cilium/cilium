@@ -59,7 +59,8 @@ func NewPostIpamParamsWithHTTPClient(client *http.Client) *PostIpamParams {
 	}
 }
 
-/*PostIpamParams contains all the parameters to send to the API endpoint
+/*
+PostIpamParams contains all the parameters to send to the API endpoint
 for the post ipam operation typically these are written to a http.Request
 */
 type PostIpamParams struct {

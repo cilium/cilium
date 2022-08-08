@@ -436,8 +436,9 @@ func (ipc *IPCache) removeLabelsFromIPs(
 // leftover labels are returned, if any. If there are leftover labels, the
 // caller must allocate a new identity and do the following *in order* to avoid
 // drops:
-//   1) policy recalculation must be implemented into the datapath and
-//   2) new identity must have a new entry upserted into the IPCache
+//  1. policy recalculation must be implemented into the datapath and
+//  2. new identity must have a new entry upserted into the IPCache
+//
 // Note: GH-17962, triggering policy recalculation doesn't actually *implement*
 // the changes into datapath (because it's an async call), this is a known
 // issue. There's a very small window for drops when two policies select the
@@ -540,29 +541,29 @@ func sourceByLabels(d source.Source, lbls labels.Labels) source.Source {
 // The following diagram describes the relationship between the label injector
 // triggered here and the callers/callees.
 //
-//      +------------+  (1)        (1)  +-----------------------------+
-//      | EP Watcher +-----+      +-----+ CN Watcher / Node Discovery |
-//      +-----+------+   W |      | W   +------+----------------------+
-//            |            |      |            |
-//            |            v      v            |
-//            |            +------+            |
-//            |            | IDMD |            |
-//            |            +------+            |
-//            |               ^                |
-//            |               |                |
-//            |           (3) |R               |
-//            | (2)    +------+--------+   (2) |
-//            +------->|Label Injector |<------+
-//           Trigger   +-------+-------+ Trigger
-//                         (4) |W
-//                             |
-//                             v
-//                           +---+
-//                           |IPC|
-//                           +---+
-//      legend:
-//      * W means write
-//      * R means read
+//	+------------+  (1)        (1)  +-----------------------------+
+//	| EP Watcher +-----+      +-----+ CN Watcher / Node Discovery |
+//	+-----+------+   W |      | W   +------+----------------------+
+//	      |            |      |            |
+//	      |            v      v            |
+//	      |            +------+            |
+//	      |            | IDMD |            |
+//	      |            +------+            |
+//	      |               ^                |
+//	      |               |                |
+//	      |           (3) |R               |
+//	      | (2)    +------+--------+   (2) |
+//	      +------->|Label Injector |<------+
+//	     Trigger   +-------+-------+ Trigger
+//	                   (4) |W
+//	                       |
+//	                       v
+//	                     +---+
+//	                     |IPC|
+//	                     +---+
+//	legend:
+//	* W means write
+//	* R means read
 func (ipc *IPCache) TriggerLabelInjection(src source.Source) {
 	// GH-17829: Would also be nice to have an end-to-end test to validate
 	//           on upgrade that there are no connectivity drops when this

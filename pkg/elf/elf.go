@@ -200,9 +200,9 @@ processSymbols:
 
 // Write the received ELF to a new file at the specified location, with the
 // specified options (indexed by name) substituted:
-// - intOptions: 32-bit values substituted in the data section.
-// - strOptions: strings susbtituted in the string table. For each key/value
-//               pair, both key and value must be same length.
+//   - intOptions: 32-bit values substituted in the data section.
+//   - strOptions: strings susbtituted in the string table. For each key/value
+//     pair, both key and value must be same length.
 //
 // Only one goroutine may Write() the same *ELF concurrently.
 //

@@ -32,13 +32,12 @@ func NewGetPolicy(ctx *middleware.Context, handler GetPolicyHandler) *GetPolicy 
 	return &GetPolicy{Context: ctx, Handler: handler}
 }
 
-/*GetPolicy swagger:route GET /policy policy getPolicy
+/*
+GetPolicy swagger:route GET /policy policy getPolicy
 
-Retrieve entire policy tree
+# Retrieve entire policy tree
 
 Returns the entire policy tree with all children.
-
-
 */
 type GetPolicy struct {
 	Context *middleware.Context

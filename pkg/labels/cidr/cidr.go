@@ -79,9 +79,10 @@ func IPStringToLabel(ip string) (labels.Label, error) {
 // GetCIDRLabels turns a CIDR into a set of labels representing the cidr itself
 // and all broader CIDRS which include the specified CIDR in them. For example:
 // CIDR: 10.0.0.0/8 =>
-//     "cidr:10.0.0.0/8", "cidr:10.0.0.0/7", "cidr:8.0.0.0/6",
-//     "cidr:8.0.0.0/5", "cidr:0.0.0.0/4, "cidr:0.0.0.0/3",
-//     "cidr:0.0.0.0/2",  "cidr:0.0.0.0/1",  "cidr:0.0.0.0/0"
+//
+//	"cidr:10.0.0.0/8", "cidr:10.0.0.0/7", "cidr:8.0.0.0/6",
+//	"cidr:8.0.0.0/5", "cidr:0.0.0.0/4, "cidr:0.0.0.0/3",
+//	"cidr:0.0.0.0/2",  "cidr:0.0.0.0/1",  "cidr:0.0.0.0/0"
 //
 // The identity reserved:world is always added as it includes any CIDR.
 func GetCIDRLabels(cidr *net.IPNet) labels.Labels {

@@ -47,7 +47,8 @@ func NewGetHealthzOK() *GetHealthzOK {
 	return &GetHealthzOK{}
 }
 
-/*GetHealthzOK handles this case with default header values.
+/*
+GetHealthzOK handles this case with default header values.
 
 Cilium operator is healthy
 */
@@ -78,7 +79,8 @@ func NewGetHealthzInternalServerError() *GetHealthzInternalServerError {
 	return &GetHealthzInternalServerError{}
 }
 
-/*GetHealthzInternalServerError handles this case with default header values.
+/*
+GetHealthzInternalServerError handles this case with default header values.
 
 Cilium operator is not healthy
 */

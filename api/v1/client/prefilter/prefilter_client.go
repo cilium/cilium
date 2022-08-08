@@ -40,7 +40,7 @@ type ClientService interface {
 }
 
 /*
-  DeletePrefilter deletes list of c ID rs
+DeletePrefilter deletes list of c ID rs
 */
 func (a *Client) DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilterOK, error) {
 	// TODO: Validate the params before sending
@@ -74,7 +74,7 @@ func (a *Client) DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilte
 }
 
 /*
-  GetPrefilter retrieves list of c ID rs
+GetPrefilter retrieves list of c ID rs
 */
 func (a *Client) GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, error) {
 	// TODO: Validate the params before sending
@@ -108,7 +108,7 @@ func (a *Client) GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, erro
 }
 
 /*
-  PatchPrefilter updates list of c ID rs
+PatchPrefilter updates list of c ID rs
 */
 func (a *Client) PatchPrefilter(params *PatchPrefilterParams) (*PatchPrefilterOK, error) {
 	// TODO: Validate the params before sending

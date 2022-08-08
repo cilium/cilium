@@ -107,10 +107,14 @@ func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 // We need this function when patching an object file for which symbols were
 // already substituted. During the first symbol substitutions, string symbols
 // were replaced such that:
-//   template_string -> string_for_endpoint
+//
+//	template_string -> string_for_endpoint
+//
 // Since we only want to replace one int symbol, we can nullify string
 // substitutions with:
-//   string_for_endpoint -> string_for_endpoint
+//
+//	string_for_endpoint -> string_for_endpoint
+//
 // We cannot simply pass an empty map as the agent would complain that some
 // symbol had no corresponding values.
 func nullifyStringSubstitutions(strings map[string]string) map[string]string {

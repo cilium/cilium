@@ -618,8 +618,8 @@ func getRedirectRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (
 // Currently, only TPC keep-alive related options are specified.
 //
 // Related references:
-//  - https://man7.org/linux/man-pages/man7/tcp.7.html
-//  - https://github.com/envoyproxy/envoy/issues/3634
+//   - https://man7.org/linux/man-pages/man7/tcp.7.html
+//   - https://github.com/envoyproxy/envoy/issues/3634
 func getSocketOptions(ingress *slim_networkingv1.Ingress) []*envoy_config_core_v3.SocketOption {
 	tcpKeepAliveEnabled := annotations.GetAnnotationTCPKeepAliveEnabled(ingress)
 	if tcpKeepAliveEnabled == 0 {

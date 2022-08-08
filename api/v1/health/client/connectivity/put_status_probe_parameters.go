@@ -58,7 +58,8 @@ func NewPutStatusProbeParamsWithHTTPClient(client *http.Client) *PutStatusProbeP
 	}
 }
 
-/*PutStatusProbeParams contains all the parameters to send to the API endpoint
+/*
+PutStatusProbeParams contains all the parameters to send to the API endpoint
 for the put status probe operation typically these are written to a http.Request
 */
 type PutStatusProbeParams struct {

@@ -478,7 +478,9 @@ func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) 
 // returns a boolean that indicates whether the service is ready to be plumbed,
 // this is true if:
 // A local endpoints resource is present. Regardless whether the
-//    endpoints resource contains actual backends or not.
+//
+//	endpoints resource contains actual backends or not.
+//
 // OR Remote endpoints exist which correlate to the service.
 func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	endpoints := newEndpoints()

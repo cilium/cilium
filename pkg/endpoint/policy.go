@@ -176,7 +176,8 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 // while it fails for other endpoints.
 //
 // Returns:
-//  - err: any error in obtaining information for computing policy, or if
+//   - err: any error in obtaining information for computing policy, or if
+//
 // policy could not be generated given the current set of rules in the
 // repository.
 // Must be called with endpoint mutex held.
@@ -534,9 +535,9 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 // RegenerateIfAlive queue a regeneration of this endpoint into the build queue
 // of the endpoint and returns a channel that is closed when the regeneration of
 // the endpoint is complete. The channel returns:
-//  - false if the regeneration failed
-//  - true if the regeneration succeed
-//  - nothing and the channel is closed if the regeneration did not happen
+//   - false if the regeneration failed
+//   - true if the regeneration succeed
+//   - nothing and the channel is closed if the regeneration did not happen
 func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	regen, err := e.SetRegenerateStateIfAlive(regenMetadata)
 	if err != nil {

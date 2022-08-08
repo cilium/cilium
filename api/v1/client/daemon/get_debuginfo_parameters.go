@@ -58,7 +58,8 @@ func NewGetDebuginfoParamsWithHTTPClient(client *http.Client) *GetDebuginfoParam
 	}
 }
 
-/*GetDebuginfoParams contains all the parameters to send to the API endpoint
+/*
+GetDebuginfoParams contains all the parameters to send to the API endpoint
 for the get debuginfo operation typically these are written to a http.Request
 */
 type GetDebuginfoParams struct {

@@ -41,7 +41,7 @@ func GetAnnotationTCPKeepAliveEnabled(ingress *slim_networkingv1.Ingress) int64 
 // GetAnnotationTCPKeepAliveIdle returns the time (in seconds) the connection needs to
 // remain idle before TCP starts sending keepalive probes. Defaults to 10s.
 // Related references:
-// 	- https://man7.org/linux/man-pages/man7/tcp.7.html
+//   - https://man7.org/linux/man-pages/man7/tcp.7.html
 func GetAnnotationTCPKeepAliveIdle(ingress *slim_networkingv1.Ingress) int64 {
 	val, exists := ingress.GetAnnotations()[TCPKeepAliveIdleAnnotation]
 	if !exists {
@@ -57,7 +57,7 @@ func GetAnnotationTCPKeepAliveIdle(ingress *slim_networkingv1.Ingress) int64 {
 // GetAnnotationTCPKeepAliveProbeInterval returns the time (in seconds) between individual
 // keepalive probes. Defaults to 5s.
 // Related references:
-// 	- https://man7.org/linux/man-pages/man7/tcp.7.html
+//   - https://man7.org/linux/man-pages/man7/tcp.7.html
 func GetAnnotationTCPKeepAliveProbeInterval(ingress *slim_networkingv1.Ingress) int64 {
 	val, exists := ingress.GetAnnotations()[TCPKeepAliveProbeIntervalAnnotation]
 	if !exists {
@@ -73,7 +73,7 @@ func GetAnnotationTCPKeepAliveProbeInterval(ingress *slim_networkingv1.Ingress) 
 // GetAnnotationTCPKeepAliveProbeMaxFailures return he maximum number of keepalive probes TCP
 // should send before dropping the connection. Defaults to 10.
 // Related references:
-// 	- https://man7.org/linux/man-pages/man7/tcp.7.html
+//   - https://man7.org/linux/man-pages/man7/tcp.7.html
 func GetAnnotationTCPKeepAliveProbeMaxFailures(ingress *slim_networkingv1.Ingress) int64 {
 	val, exists := ingress.GetAnnotations()[TCPKeepAliveProbeMaxFailuresAnnotation]
 	if !exists {

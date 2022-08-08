@@ -1033,9 +1033,9 @@ func (n *Node) syncToAPIServer() (err error) {
 // Note that the `origNode` and `node` pointers will have their underlying
 // values modified in this function! The following is an outline of when
 // `origNode` and `node` pointers are updated:
-//  * `node` is updated when we succeed in updating to update the resource to
+//   - `node` is updated when we succeed in updating to update the resource to
 //     the apiserver.
-//  * `origNode` and `node` are updated when we fail to update the resource,
+//   - `origNode` and `node` are updated when we fail to update the resource,
 //     but we succeed in retrieving the latest version of it from the
 //     apiserver.
 func (n *Node) update(origNode, node *v2.CiliumNode, attempts int, status bool) error {

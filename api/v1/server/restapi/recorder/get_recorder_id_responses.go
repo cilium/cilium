@@ -19,7 +19,8 @@ import (
 // GetRecorderIDOKCode is the HTTP code returned for type GetRecorderIDOK
 const GetRecorderIDOKCode int = 200
 
-/*GetRecorderIDOK Success
+/*
+GetRecorderIDOK Success
 
 swagger:response getRecorderIdOK
 */
@@ -63,7 +64,8 @@ func (o *GetRecorderIDOK) WriteResponse(rw http.ResponseWriter, producer runtime
 // GetRecorderIDNotFoundCode is the HTTP code returned for type GetRecorderIDNotFound
 const GetRecorderIDNotFoundCode int = 404
 
-/*GetRecorderIDNotFound Recorder not found
+/*
+GetRecorderIDNotFound Recorder not found
 
 swagger:response getRecorderIdNotFound
 */

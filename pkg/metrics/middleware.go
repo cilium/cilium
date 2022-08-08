@@ -34,9 +34,10 @@ func (rw *responderWrapper) WriteHeader(code int) {
 
 // getShortPath returns the API path trimmed after the 3rd slash.
 // examples:
-//  "/v1/config" -> "/v1/config"
-//  "/v1/endpoint/cilium-local:0" -> "/v1/endpoint"
-//  "/v1/endpoint/container-id:597.." -> "/v1/endpoint"
+//
+//	"/v1/config" -> "/v1/config"
+//	"/v1/endpoint/cilium-local:0" -> "/v1/endpoint"
+//	"/v1/endpoint/container-id:597.." -> "/v1/endpoint"
 func getShortPath(s string) string {
 	var idxSum int
 	for nThSlash := 0; nThSlash < 3; nThSlash++ {

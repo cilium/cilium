@@ -61,7 +61,8 @@ func NewGetIdentityOK() *GetIdentityOK {
 	return &GetIdentityOK{}
 }
 
-/*GetIdentityOK handles this case with default header values.
+/*
+GetIdentityOK handles this case with default header values.
 
 Success
 */
@@ -92,7 +93,8 @@ func NewGetIdentityNotFound() *GetIdentityNotFound {
 	return &GetIdentityNotFound{}
 }
 
-/*GetIdentityNotFound handles this case with default header values.
+/*
+GetIdentityNotFound handles this case with default header values.
 
 Identities with provided parameters not found
 */
@@ -113,7 +115,8 @@ func NewGetIdentityUnreachable() *GetIdentityUnreachable {
 	return &GetIdentityUnreachable{}
 }
 
-/*GetIdentityUnreachable handles this case with default header values.
+/*
+GetIdentityUnreachable handles this case with default header values.
 
 Identity storage unreachable. Likely a network problem.
 */
@@ -144,7 +147,8 @@ func NewGetIdentityInvalidStorageFormat() *GetIdentityInvalidStorageFormat {
 	return &GetIdentityInvalidStorageFormat{}
 }
 
-/*GetIdentityInvalidStorageFormat handles this case with default header values.
+/*
+GetIdentityInvalidStorageFormat handles this case with default header values.
 
 Invalid identity format in storage
 */

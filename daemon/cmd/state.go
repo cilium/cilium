@@ -105,13 +105,14 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 // ready. In summary:
 //
 // 1. fetchOldEndpoints(): Unmarshal old endpoints
-//    - used to start DNS proxy with restored DNS history and rules
-// 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
-//    - IP allocation
-//    - some endpoints may be rejected and not regnerated in the 3rd step
-// 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
-//    - recreate endpoint's policy, as well as bpf programs and maps
+//   - used to start DNS proxy with restored DNS history and rules
 //
+// 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
+//   - IP allocation
+//   - some endpoints may be rejected and not regnerated in the 3rd step
+//
+// 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
+//   - recreate endpoint's policy, as well as bpf programs and maps
 func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	state := &endpointRestoreState{
 		possible: nil,

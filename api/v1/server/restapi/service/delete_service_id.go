@@ -32,10 +32,10 @@ func NewDeleteServiceID(ctx *middleware.Context, handler DeleteServiceIDHandler)
 	return &DeleteServiceID{Context: ctx, Handler: handler}
 }
 
-/*DeleteServiceID swagger:route DELETE /service/{id} service deleteServiceId
+/*
+DeleteServiceID swagger:route DELETE /service/{id} service deleteServiceId
 
 Delete a service
-
 */
 type DeleteServiceID struct {
 	Context *middleware.Context

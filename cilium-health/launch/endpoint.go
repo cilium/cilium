@@ -163,10 +163,10 @@ func (c *Client) PingEndpoint() error {
 // exists.
 //
 // This is intended to be invoked in multiple situations:
-// * The health endpoint has never been run before
-// * The health endpoint was run during a previous run of the Cilium agent
-// * The health endpoint crashed during the current run of the Cilium agent
-//   and needs to be cleaned up before it is restarted.
+//   - The health endpoint has never been run before
+//   - The health endpoint was run during a previous run of the Cilium agent
+//   - The health endpoint crashed during the current run of the Cilium agent
+//     and needs to be cleaned up before it is restarted.
 func KillEndpoint() {
 	path := filepath.Join(option.Config.StateDir, PidfilePath)
 	scopedLog := log.WithField(logfields.PIDFile, path)

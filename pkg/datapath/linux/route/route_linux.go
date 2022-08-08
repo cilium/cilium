@@ -115,10 +115,10 @@ func Lookup(route Route) (*Route, error) {
 
 // lookup finds a particular route as specified by the filter which points
 // to the specified device. The filter route can have the following fields set:
-//  - Dst
-//  - LinkIndex
-//  - Scope
-//  - Gw
+//   - Dst
+//   - LinkIndex
+//   - Scope
+//   - Gw
 func lookup(route *netlink.Route) *netlink.Route {
 	var filter uint64
 	if route.Dst != nil {
@@ -210,17 +210,19 @@ func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) er
 // the following two forms:
 //
 // direct:
-//   prefix dev foo
+//
+//	prefix dev foo
 //
 // nexthop:
-//   prefix via nexthop dev foo
+//
+//	prefix via nexthop dev foo
 //
 // If a nexthop route is specified, this function will check whether a direct
 // route to the nexthop exists and add if required. This means that the
 // following two routes will exist afterwards:
 //
-//   nexthop dev foo
-//   prefix via nexthop dev foo
+//	nexthop dev foo
+//	prefix via nexthop dev foo
 //
 // Due to a bug in the Linux kernel, the prefix route is attempted to be
 // updated RouteReplaceMaxTries with an interval of RouteReplaceRetryInterval.

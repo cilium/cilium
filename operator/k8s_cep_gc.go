@@ -29,7 +29,8 @@ import (
 // The general steps are:
 //   - list all CEPs in the cluster
 //   - for each CEP
-//       delete CEP if the corresponding pod does not exist
+//     delete CEP if the corresponding pod does not exist
+//
 // CiliumEndpoint objects have the same name as the pod they represent
 func enableCiliumEndpointSyncGC(once bool) {
 	var (

@@ -316,10 +316,12 @@ func (l4 *L4Filter) GetPort() uint16 {
 }
 
 // ToMapState converts filter into a MapState with two possible values:
-// - Entry with ProxyPort = 0: No proxy redirection is needed for this key
-// - Entry with any other port #: Proxy redirection is required for this key,
-//                                caller must replace the ProxyPort with the actual
-//                                listening port number.
+//
+//	Entry with ProxyPort = 0: No proxy redirection is needed for this key
+//	Entry with any other port #: Proxy redirection is required for this key,
+//	                             caller must replace the ProxyPort with the actual
+//	                             listening port number.
+//
 // Note: It is possible for two selectors to select the same security ID.
 // To give priority for deny and L7 redirection (e.g., for visibility purposes), we use
 // DenyPreferredInsert() instead of directly inserting the value to the map.
@@ -851,10 +853,11 @@ func (l4 L4PolicyMap) HasProxylibRedirect() bool {
 // determine whether the policy allows L4 communication between the corresponding
 // endpoints.
 // Returns api.Denied in the following conditions:
-// * If a single port is not present in the `L4PolicyMap` and is not allowed
-//   by the distilled L3 policy
-// * If a port is present in the `L4PolicyMap`, but it applies ToEndpoints or
-//   FromEndpoints constraints that require labels not present in `labels`.
+//   - If a single port is not present in the `L4PolicyMap` and is not allowed
+//     by the distilled L3 policy
+//   - If a port is present in the `L4PolicyMap`, but it applies ToEndpoints or
+//     FromEndpoints constraints that require labels not present in `labels`.
+//
 // Otherwise, returns api.Allowed.
 //
 // Note: Only used for policy tracing

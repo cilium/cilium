@@ -19,7 +19,8 @@ import (
 // GetMetricsOKCode is the HTTP code returned for type GetMetricsOK
 const GetMetricsOKCode int = 200
 
-/*GetMetricsOK Success
+/*
+GetMetricsOK Success
 
 swagger:response getMetricsOK
 */
@@ -66,7 +67,8 @@ func (o *GetMetricsOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 // GetMetricsFailedCode is the HTTP code returned for type GetMetricsFailed
 const GetMetricsFailedCode int = 500
 
-/*GetMetricsFailed Metrics cannot be retrieved
+/*
+GetMetricsFailed Metrics cannot be retrieved
 
 swagger:response getMetricsFailed
 */

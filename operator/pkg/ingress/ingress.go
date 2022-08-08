@@ -50,13 +50,13 @@ type ingressServiceUpdatedEvent struct {
 
 // IngressController is a simple pattern that allows to perform the following
 // tasks:
-//   - Watch cilium Ingress object
-//   - Manage related child resources for this Ingress
-//   	- Service
-//      - Endpoint
-//      - CiliumEnvoyConfig
-//   - Manage synced TLS secrets in given namespace
-//		- TLS secrets
+//  1. Watch cilium Ingress object
+//  2. Manage related child resources for this Ingress
+//     - Service
+//     - Endpoint
+//     - CiliumEnvoyConfig
+//  3. Manage synced TLS secrets in given namespace
+//     - TLS secrets
 type IngressController struct {
 	ingressInformer cache.Controller
 	ingressStore    cache.Store

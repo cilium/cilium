@@ -32,14 +32,13 @@ func NewGetStatus(ctx *middleware.Context, handler GetStatusHandler) *GetStatus 
 	return &GetStatus{Context: ctx, Handler: handler}
 }
 
-/*GetStatus swagger:route GET /status connectivity getStatus
+/*
+GetStatus swagger:route GET /status connectivity getStatus
 
-Get connectivity status of the Cilium cluster
+# Get connectivity status of the Cilium cluster
 
 Returns the connectivity status to all other cilium-health instances
 using interval-based probing.
-
-
 */
 type GetStatus struct {
 	Context *middleware.Context

@@ -21,7 +21,6 @@ import (
 // behave as if protocol any is specified. To restrict to a particular
 // protocol, use policy.
 //
-//
 // swagger:model FrontendAddress
 type FrontendAddress struct {
 

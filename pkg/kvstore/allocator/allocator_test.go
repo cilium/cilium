@@ -67,7 +67,7 @@ func (e *AllocatorConsulSuite) TearDownTest(c *C) {
 	kvstore.Client().Close()
 }
 
-//FIXME: this should be named better, it implements pkg/allocator.Backend
+// FIXME: this should be named better, it implements pkg/allocator.Backend
 type TestAllocatorKey string
 
 func (t TestAllocatorKey) GetKey() string { return string(t) }

@@ -118,10 +118,10 @@ func NewDispatch(sinkQueueSize int) (*Dispatch, error) {
 // The provided p.Header is written to the pcap sink during initialization.
 // The sink is unregistered automatically when it stops. A sink is stopped for
 // one of the following four reasons. In all cases, Handle.Done will be closed.
-//  - Explicitly via Handle.Stop (Handle.Err() == nil)
-//  - When one of the p.StopCondition is hit (Handle.Err() == nil)
-//  - When the context ctx is cancelled (Handle.Err() != nil)
-//  - When an error occurred (Handle.Err() != nil)
+//   - Explicitly via Handle.Stop (Handle.Err() == nil)
+//   - When one of the p.StopCondition is hit (Handle.Err() == nil)
+//   - When the context ctx is cancelled (Handle.Err() != nil)
+//   - When an error occurred (Handle.Err() != nil)
 func (d *Dispatch) StartSink(ctx context.Context, p PcapSink) (*Handle, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()

@@ -19,7 +19,8 @@ import (
 // PutStatusProbeOKCode is the HTTP code returned for type PutStatusProbeOK
 const PutStatusProbeOKCode int = 200
 
-/*PutStatusProbeOK Success
+/*
+PutStatusProbeOK Success
 
 swagger:response putStatusProbeOK
 */
@@ -63,7 +64,8 @@ func (o *PutStatusProbeOK) WriteResponse(rw http.ResponseWriter, producer runtim
 // PutStatusProbeFailedCode is the HTTP code returned for type PutStatusProbeFailed
 const PutStatusProbeFailedCode int = 500
 
-/*PutStatusProbeFailed Internal error occurred while conducting connectivity probe
+/*
+PutStatusProbeFailed Internal error occurred while conducting connectivity probe
 
 swagger:response putStatusProbeFailed
 */

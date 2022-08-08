@@ -6,38 +6,38 @@
 //
 // A WaitGroup is created by calling NewWaitGroup with the context:
 //
-//    wg := completion.NewWaitGroup(ctx)
+//	wg := completion.NewWaitGroup(ctx)
 //
 // For each concurrent computation to wait for, a Completion is created by
 // calling AddCompletion and then passing it to the concurrent computation:
 //
-//    comp1 := wg.AddCompletion()
-//    DoSomethingConcurrently(..., comp1)
-//    comp2 := wg.AddCompletion()
-//    DoSomethingElse(..., comp2)
+//	comp1 := wg.AddCompletion()
+//	DoSomethingConcurrently(..., comp1)
+//	comp2 := wg.AddCompletion()
+//	DoSomethingElse(..., comp2)
 //
 // The Completion type provides the Complete and Completed() methods:
 //
-//    func (c *Completion) Complete()
-//    func (c *Completion) Completed() <-chan struct{}
+//	func (c *Completion) Complete()
+//	func (c *Completion) Completed() <-chan struct{}
 //
 // The Complete method must be called when the concurrent computation is
 // completed, for instance:
 //
-//    func DoSomethingConcurrently(..., comp Completion) {
-//        ...
-//        go func() {
-//            ...
-//            // Computation is completed successfully.
-//            comp.Complete(nil)
-//        }()
-//        ...
-//    }
+//	func DoSomethingConcurrently(..., comp Completion) {
+//	    ...
+//	    go func() {
+//	        ...
+//	        // Computation is completed successfully.
+//	        comp.Complete(nil)
+//	    }()
+//	    ...
+//	}
 //
 // Once all Completions are created, one can wait for the completion of all
 // of the Completions by calling Wait:
 //
-//    err := wg.Wait()
+//	err := wg.Wait()
 //
 // Wait blocks until either all Completions are completed, or the context is
 // canceled, times out, or any of the concurrent operations associated with
@@ -48,11 +48,11 @@
 // A Completion can also be created with a callback, which is called at most
 // once when the Completion is completed before the context is canceled:
 //
-//    comp := wg.AddCompletionWithCallback(func(err error) {
-//        if err == nil {
-//            fmt.Println("completed')
-//        }
-//    })
+//	comp := wg.AddCompletionWithCallback(func(err error) {
+//	    if err == nil {
+//	        fmt.Println("completed')
+//	    }
+//	})
 //
 // The callback is called in the goroutine which calls Complete the first time.
 // The callback is called with an non-nil error if the associated concurrent

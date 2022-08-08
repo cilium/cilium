@@ -19,7 +19,6 @@ import (
 // HostStatus Connectivity status to host cilium-health instance via different paths,
 // probing via all known IP addresses
 //
-//
 // swagger:model HostStatus
 type HostStatus struct {
 

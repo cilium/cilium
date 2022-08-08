@@ -28,10 +28,10 @@ type sink struct {
 
 // startSink creates a queue and go routine for the sink. The spawned go
 // routine will run until one of the following happens:
-//  - sink.stop is called
-//  - a p.StopCondition is reached
-//  - ctx is cancelled
-//  - an error occurred
+//   - sink.stop is called
+//   - a p.StopCondition is reached
+//   - ctx is cancelled
+//   - an error occurred
 func startSink(ctx context.Context, p PcapSink, queueSize int) *sink {
 	s := &sink{
 		queue:     make(chan record, queueSize),

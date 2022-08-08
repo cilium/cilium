@@ -61,7 +61,8 @@ func NewPutServiceIDParamsWithHTTPClient(client *http.Client) *PutServiceIDParam
 	}
 }
 
-/*PutServiceIDParams contains all the parameters to send to the API endpoint
+/*
+PutServiceIDParams contains all the parameters to send to the API endpoint
 for the put service ID operation typically these are written to a http.Request
 */
 type PutServiceIDParams struct {

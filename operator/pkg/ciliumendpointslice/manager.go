@@ -192,11 +192,11 @@ func uniqueCESliceName(desiredCESs *CESToCEPMapping) string {
 }
 
 // This function create a new ces and capacity to hold maximum ceps in a CES.
-//  called on 2 different scenarios.
-// 1) During runtime, when ces manager decides to create a new ces, it calls
-//    with an empty name, it generates a random unique name and assign it to the CES.
-// 2) During operator warm boot [after crash or software upgrade], slicing manager
-//    creates a CES, by passing unique name.
+// This is called in 2 different scenarios:
+//  1. During runtime, when ces manager decides to create a new ces, it calls
+//     with an empty name, it generates a random unique name and assign it to the CES.
+//  2. During operator warm boot [after crash or software upgrade], slicing manager
+//     creates a CES, by passing unique name.
 func (c *cesMgr) createCES(name string) *cesTracker {
 	var cesName string = name
 	if name == "" {

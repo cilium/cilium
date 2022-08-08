@@ -5,6 +5,7 @@
 // datapath components.
 //
 // Current datapath implementations:
-//   pkg/datapath/linux
-//   pkg/datapath/fake
+//
+//	pkg/datapath/linux
+//	pkg/datapath/fake
 package datapath

@@ -49,7 +49,8 @@ func NewGetServiceIDOK() *GetServiceIDOK {
 	return &GetServiceIDOK{}
 }
 
-/*GetServiceIDOK handles this case with default header values.
+/*
+GetServiceIDOK handles this case with default header values.
 
 Success
 */
@@ -82,7 +83,8 @@ func NewGetServiceIDNotFound() *GetServiceIDNotFound {
 	return &GetServiceIDNotFound{}
 }
 
-/*GetServiceIDNotFound handles this case with default header values.
+/*
+GetServiceIDNotFound handles this case with default header values.
 
 Service not found
 */

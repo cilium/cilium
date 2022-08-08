@@ -32,14 +32,13 @@ func NewGetFqdnCache(ctx *middleware.Context, handler GetFqdnCacheHandler) *GetF
 	return &GetFqdnCache{Context: ctx, Handler: handler}
 }
 
-/*GetFqdnCache swagger:route GET /fqdn/cache policy getFqdnCache
+/*
+GetFqdnCache swagger:route GET /fqdn/cache policy getFqdnCache
 
 Retrieves the list of DNS lookups intercepted from all endpoints.
 
 Retrieves the list of DNS lookups intercepted from endpoints,
 optionally filtered by DNS name, CIDR IP range or source.
-
-
 */
 type GetFqdnCache struct {
 	Context *middleware.Context

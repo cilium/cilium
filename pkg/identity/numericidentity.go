@@ -447,9 +447,10 @@ func DelReservedNumericIdentity(identity NumericIdentity) error {
 // NumericIdentity is the numeric representation of a security identity.
 //
 // Bits:
-//    0-15: identity identifier
-//   16-23: cluster identifier
-//      24: LocalIdentityFlag: Indicates that the identity has a local scope
+//
+//	 0-15: identity identifier
+//	16-23: cluster identifier
+//	   24: LocalIdentityFlag: Indicates that the identity has a local scope
 type NumericIdentity uint32
 
 // MaxNumericIdentity is the maximum value of a NumericIdentity.

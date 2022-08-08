@@ -44,6 +44,7 @@ func strcpy(str string) string {
 // OnNewConnection is used to register a new connection of protocol 'proto'.
 // Note that the 'origBuf' and replyBuf' type '*[]byte' corresponds to 'InjectBuf' type, but due to
 // cgo export restrictions we can't use the go type in the prototype.
+//
 //export OnNewConnection
 func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) C.FilterResult {
 	instance := FindInstance(instanceId)
@@ -99,6 +100,7 @@ func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOp
 }
 
 // Make this more general connection event callback
+//
 //export Close
 func Close(connectionId uint64) {
 	mutex.Lock()
@@ -111,6 +113,7 @@ func Close(connectionId uint64) {
 // Returns a library instance ID that must be passed to all other API calls.
 // Calls with the same parameters will return the same instance.
 // Zero return value indicates an error.
+//
 //export OpenModule
 func OpenModule(params [][2]string, debug bool) uint64 {
 	var accessLogPath, xdsPath, nodeID string

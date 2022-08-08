@@ -40,7 +40,7 @@ type ClientService interface {
 }
 
 /*
-  DeleteIpamIP releases an allocated IP address
+DeleteIpamIP releases an allocated IP address
 */
 func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, error) {
 	// TODO: Validate the params before sending
@@ -74,7 +74,7 @@ func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, erro
 }
 
 /*
-  PostIpam allocates an IP address
+PostIpam allocates an IP address
 */
 func (a *Client) PostIpam(params *PostIpamParams) (*PostIpamCreated, error) {
 	// TODO: Validate the params before sending
@@ -108,7 +108,7 @@ func (a *Client) PostIpam(params *PostIpamParams) (*PostIpamCreated, error) {
 }
 
 /*
-  PostIpamIP allocates an IP address
+PostIpamIP allocates an IP address
 */
 func (a *Client) PostIpamIP(params *PostIpamIPParams) (*PostIpamIPOK, error) {
 	// TODO: Validate the params before sending

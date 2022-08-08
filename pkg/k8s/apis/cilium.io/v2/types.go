@@ -229,7 +229,9 @@ type EndpointIdentity struct {
 // The labels under metav1.ObjectMeta can be used when searching for
 // CiliumIdentity instances that include particular labels. This can be done
 // with invocations such as:
-//   kubectl get ciliumid -l 'foo=bar'
+//
+//	kubectl get ciliumid -l 'foo=bar'
+//
 // Each node using a ciliumidentity updates the status field with it's name and
 // a timestamp when it first allocates or uses an identity, and periodically
 // after that. It deletes its entry when no longer using this identity.
