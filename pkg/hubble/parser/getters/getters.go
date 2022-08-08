@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -75,4 +76,12 @@ type LinkGetter interface {
 	// Name returns the name of an interface, or returns a string
 	// containing the ifindex if the link name cannot be determined.
 	Name(ifIndex uint32) string
+}
+
+// PodMetadataGetter returns pod metadata based on identifiers received from
+// datapath trace events.
+type PodMetadataGetter interface {
+	// GetPodMetadataForContainer returns the pod metadata for the given container
+	// cgroup id.
+	GetPodMetadataForContainer(cgroupId uint64) *cgroupManager.PodMetadata
 }
