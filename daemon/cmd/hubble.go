@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metadata"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -419,4 +420,8 @@ func (d *Daemon) GetK8sStore(name string) k8scache.Store {
 // Hubble's events buffer.
 func getHubbleEventBufferCapacity(logger logrus.FieldLogger) (container.Capacity, error) {
 	return container.NewCapacity(option.Config.HubbleEventBufferCapacity)
+}
+
+func (d *Daemon) GetParentPodMetadata(cgroupId uint64) *metadata.PodMetadata {
+	return d.metadataManager.GetParentPodMetadata(cgroupId)
 }

@@ -12,6 +12,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/metadata"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -75,4 +76,11 @@ type LinkGetter interface {
 	// Name returns the name of an interface, or returns a string
 	// containing the ifindex if the link name cannot be determined.
 	Name(ifIndex uint32) string
+}
+
+// PodMetadataGetter ...
+type PodMetadataGetter interface {
+	// GetParentPodMetadata returns the parent pod metadata for the given container
+	// cgroup id.
+	GetParentPodMetadata(cgroupId uint64) *metadata.PodMetadata
 }
