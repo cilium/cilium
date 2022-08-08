@@ -132,6 +132,8 @@ func newCmdConnectivityTest() *cobra.Command {
 	cmd.Flags().StringVar(&params.PerformanceImage, "performance-image", defaults.ConnectivityPerformanceImage, "Image path to use for performance")
 	cmd.Flags().StringVar(&params.JSONMockImage, "json-mock-image", defaults.ConnectivityCheckJSONMockImage, "Image path to use for json mock")
 	cmd.Flags().StringVar(&params.DNSTestServerImage, "dns-test-server-image", defaults.ConnectivityDNSTestServerImage, "Image path to use for CoreDNS")
+	cmd.Flags().BoolVar(&params.Datapath, "datapath", false, "Run datapath conformance tests")
+	cmd.Flags().MarkHidden("datapath")
 
 	return cmd
 }
