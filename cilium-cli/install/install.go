@@ -614,6 +614,12 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if k.params.HelmGenValuesFile != "" {
+		k.Log("ℹ️  Generated helm values file %q successfully written", k.params.HelmGenValuesFile)
+		return nil
+	}
+
 	k.Log("ℹ️  Storing helm values file in %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
 
 	helmSecret := k8s.NewSecret(k.params.HelmValuesSecretName, k.params.Namespace,
@@ -631,11 +637,6 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 			k.Log("❌ Unable to store helm values file %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
 			return err
 		}
-	}
-
-	if k.params.HelmGenValuesFile != "" {
-		k.Log("ℹ️  Generated helm values file %q successfully written", k.params.HelmGenValuesFile)
-		return nil
 	}
 
 	switch k.flavor.Kind {
