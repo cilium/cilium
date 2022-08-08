@@ -110,6 +110,7 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().StringVar(&params.ImageSuffix, "image-suffix", "", "Set all generated images with this suffix")
 	cmd.Flags().StringVar(&params.ImageTag, "image-tag", "", "Set all images with this tag")
 	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
+	cmd.Flags().StringSliceVar(&params.NodesWithoutCilium, "nodes-without-cilium", []string{}, "List of node names on which Cilium will not be installed")
 
 	for flagName := range install.FlagsToHelmOpts {
 		// TODO(aanm) Do not mark the flags has deprecated for now.

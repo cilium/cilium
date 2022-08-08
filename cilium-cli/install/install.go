@@ -145,6 +145,7 @@ func (k *K8sInstaller) getSecretNamespace() string {
 type k8sInstallerImplementation interface {
 	ClusterName() string
 	ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error)
+	PatchNode(ctx context.Context, nodeName string, pt types.PatchType, data []byte) (*corev1.Node, error)
 	GetCiliumExternalWorkload(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumExternalWorkload, error)
 	CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2.CiliumExternalWorkload, opts metav1.CreateOptions) (*ciliumv2.CiliumExternalWorkload, error)
 	DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error
@@ -303,6 +304,9 @@ type Parameters struct {
 
 	// ListVersions lists all the available versions for install without actually installing.
 	ListVersions bool
+
+	// NodesWithoutCilium lists all nodes on which Cilium is not installed.
+	NodesWithoutCilium []string
 }
 
 type rollbackStep func(context.Context)
@@ -675,6 +679,17 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 	if err := k.installCerts(ctx); err != nil {
 		return err
+	}
+
+	for _, nodeName := range k.params.NodesWithoutCilium {
+		k.Log("🚀 Setting \"cilium.io/no-schedule=true\" label for %q node to prevent from scheduling Cilium on it...",
+			nodeName)
+		// "~1" is the json patch escape symbol for "/"
+		labelPatch := `[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]`
+		_, err = k.client.PatchNode(ctx, nodeName, types.JSONPatchType, []byte(labelPatch))
+		if err != nil {
+			return err
+		}
 	}
 
 	k.Log("🚀 Creating Service accounts...")
