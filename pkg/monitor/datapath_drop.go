@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -50,8 +49,8 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
-	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %s line %d, ",
-		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, loader.DecodeSourceName(int(n.File)), int(n.Line))
+	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %d:%d, ",
+		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, int(n.File), int(n.Line))
 	n.dumpIdentity(buf, numeric)
 	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[DropNotifyLen:]))
 	buf.Flush()

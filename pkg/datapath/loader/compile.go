@@ -293,44 +293,6 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 	)
 }
 
-// We need to map all bpf/*.c files to ids (an id value doesn't matter, but
-// should be a unique non-zero __u8 number).  A build will fail if there is
-// a file found for which there is no a corresponding id.
-var sourceNameToId map[string]int = map[string]int{
-	"bpf_network.c":            1,
-	"bpf_sock.c":               2,
-	"bpf_host.c":               3,
-	"bpf_overlay.c":            4,
-	"bpf_xdp.c":                5,
-	"bpf_alignchecker.c":       6,
-	"cilium-probe-kernel-hz.c": 7,
-	"bpf_lxc.c":                8,
-}
-
-var idToSourceName map[int]string
-
-func encodeSourceName(sourceName string) int {
-	if id, ok := sourceNameToId[sourceName]; ok {
-		return id
-	}
-	return 0
-}
-
-func DecodeSourceName(id int) string {
-	// auto-generate idToSourceName to simplify updates of the list
-	if idToSourceName == nil {
-		idToSourceName = make(map[int]string)
-		for sourceName, id := range sourceNameToId {
-			idToSourceName[id] = sourceName
-		}
-	}
-
-	if sourceName, ok := idToSourceName[id]; ok {
-		return sourceName
-	}
-	return "unknown"
-}
-
 // compile and link a program.
 func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error) {
 	args := make([]string, 0, 16)
@@ -343,7 +305,6 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error
 
 	args = append(args, standardCFlags...)
 	args = append(args, prog.Options...)
-	args = append(args, fmt.Sprintf("-D__MAGIC_FILE__=%d", encodeSourceName(prog.Source)))
 	args = append(args, progCFlags(prog, dir)...)
 
 	// Compilation is split between two exec calls. First clang generates
