@@ -112,6 +112,7 @@ type DropNotifyVerbose struct {
 	DstID    uint32                   `json:"dstID"`
 	Line     uint16                   `json:"Line"`
 	File     uint8                    `json:"File"`
+	ExtError int8                     `json:"ExtError"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }
@@ -129,5 +130,6 @@ func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
 		DstID:    n.DstID,
 		Line:     n.Line,
 		File:     n.File,
+		ExtError: n.ExtError,
 	}
 }
