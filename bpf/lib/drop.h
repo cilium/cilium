@@ -135,10 +135,6 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
  * original error returned by fib_lookup (if reason == DROP_NO_FIB).
  */
 
-#ifndef __MAGIC_FILE__
-#define __MAGIC_FILE__ 0
-#endif
-
 /*
  * Cilium errors are greater than absolute errno values, so we just pass
  * a positive value here
@@ -159,6 +155,10 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 	typeof(ext_err) __ext_err = (ext_err); \
 	__DROP_REASON(err) | ((__u8)(__ext_err < -128 ? 0 : __ext_err) << 8); \
 })
+
+#include "../source_names_to_ids.h"
+
+#define __MAGIC_FILE__ (__u8)__source_file_name_to_id(__FILE_NAME__)
 
 #define send_drop_notify(ctx, src, dst, dst_id, reason, exitcode, direction) \
 	_send_drop_notify(__MAGIC_FILE__, __LINE__, ctx, src, dst, dst_id, \
