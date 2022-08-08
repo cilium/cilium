@@ -64,7 +64,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.0
+  cilium_cli_version: v0.12.1
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
