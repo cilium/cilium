@@ -65,7 +65,6 @@ helm install cilium ${HELM_CHART_DIR} \
     --set loadBalancer.dsrDispatch=ipip \
     --set devices='{eth0,l4lb-veth1}' \
     --set nodePort.directRoutingDevice=eth0 \
-    --set ipv6.enabled=false \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key="kubernetes.io/hostname" \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator=In \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]=kind-control-plane
