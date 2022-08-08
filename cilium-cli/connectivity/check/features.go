@@ -7,10 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/option"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -145,16 +144,6 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 		return fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
 	}
 
-	// Monitor aggregation level defaults to none.
-	mode := "none"
-	if v, ok := cm.Data["monitor-aggregation"]; ok {
-		mode = strings.ToLower(v)
-	}
-	result[FeatureMonitorAggregation] = FeatureStatus{
-		Enabled: mode != "none",
-		Mode:    mode,
-	}
-
 	// CNI chaining.
 	// Note: This value might be overwritten by extractFeaturesFromCiliumStatus
 	// if this information is present in `cilium status`
@@ -169,24 +158,28 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 		Mode:    mode,
 	}
 
-	// ICMP policy
-	if v, ok := cm.Data["enable-icmp-rules"]; ok {
-		if v == "true" {
-			result[FeatureICMPPolicy] = FeatureStatus{
-				Enabled: true,
-			}
-		}
-	} else {
-		ciliumVersion, err := ct.DetectMinimumCiliumVersion(ctx)
-		if err != nil {
-			return err
-		}
-		// ICMP policy is enabled by default in Cilium >= 1.12.0
-		if ciliumVersion.GTE(semver.MustParse("1.12.0")) {
-			result[FeatureICMPPolicy] = FeatureStatus{
-				Enabled: true,
-			}
-		}
+	return nil
+}
+
+func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context, ciliumPod Pod, result FeatureSet) error {
+	stdout, err := ciliumPod.K8sClient.ExecInPodWithTTY(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
+		defaults.AgentContainerName, []string{"cat", "/var/run/cilium/state/agent-runtime-config.json"})
+	if err != nil {
+		return fmt.Errorf("failed to fetch cilium runtime config: %w", err)
+	}
+
+	cfg := &option.DaemonConfig{}
+	if err := json.Unmarshal(stdout.Bytes(), cfg); err != nil {
+		return fmt.Errorf("unmarshaling cilium runtime config json: %w", err)
+	}
+
+	result[FeatureMonitorAggregation] = FeatureStatus{
+		Enabled: cfg.MonitorAggregation != "none",
+		Mode:    cfg.MonitorAggregation,
+	}
+
+	result[FeatureICMPPolicy] = FeatureStatus{
+		Enabled: cfg.EnableICMPRules,
 	}
 
 	return nil
@@ -295,6 +288,10 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 		features := FeatureSet{}
 
 		err := ct.extractFeaturesFromConfigMap(ctx, ciliumPod.K8sClient, features)
+		if err != nil {
+			return err
+		}
+		err = ct.extractFeaturesFromRuntimeConfig(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}
