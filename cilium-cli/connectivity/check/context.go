@@ -47,6 +47,8 @@ type ConnectivityTest struct {
 	echoServices      map[string]Service
 	externalWorkloads map[string]ExternalWorkload
 
+	hostNetNSPodsByNode map[string]Pod
+
 	tests     []*Test
 	testNames map[string]struct{}
 
@@ -156,19 +158,20 @@ func NewConnectivityTest(client *k8s.Client, p Parameters) (*ConnectivityTest, e
 	}
 
 	k := &ConnectivityTest{
-		client:             client,
-		params:             p,
-		ciliumPods:         make(map[string]Pod),
-		echoPods:           make(map[string]Pod),
-		clientPods:         make(map[string]Pod),
-		perfClientPods:     make(map[string]Pod),
-		perfServerPod:      make(map[string]Pod),
-		PerfResults:        make(map[PerfTests]PerfResult),
-		echoServices:       make(map[string]Service),
-		externalWorkloads:  make(map[string]ExternalWorkload),
-		tests:              []*Test{},
-		testNames:          make(map[string]struct{}),
-		lastFlowTimestamps: make(map[string]time.Time),
+		client:              client,
+		params:              p,
+		ciliumPods:          make(map[string]Pod),
+		echoPods:            make(map[string]Pod),
+		clientPods:          make(map[string]Pod),
+		perfClientPods:      make(map[string]Pod),
+		perfServerPod:       make(map[string]Pod),
+		PerfResults:         make(map[PerfTests]PerfResult),
+		echoServices:        make(map[string]Service),
+		externalWorkloads:   make(map[string]ExternalWorkload),
+		hostNetNSPodsByNode: make(map[string]Pod),
+		tests:               []*Test{},
+		testNames:           make(map[string]struct{}),
+		lastFlowTimestamps:  make(map[string]time.Time),
 	}
 
 	return k, nil
@@ -524,6 +527,10 @@ func (ct *ConnectivityTest) CiliumPods() map[string]Pod {
 
 func (ct *ConnectivityTest) ClientPods() map[string]Pod {
 	return ct.clientPods
+}
+
+func (ct *ConnectivityTest) HostNetNSPodsByNode() map[string]Pod {
+	return ct.hostNetNSPodsByNode
 }
 
 func (ct *ConnectivityTest) PerfServerPod() map[string]Pod {

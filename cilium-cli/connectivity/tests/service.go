@@ -140,3 +140,30 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 		}))
 	})
 }
+
+// OutsideToNodePort sends an HTTP request from client pod running on a node w/o
+// Cilium to NodePort services.
+func OutsideToNodePort() check.Scenario {
+	return &outsideToNodePort{}
+}
+
+type outsideToNodePort struct{}
+
+func (s *outsideToNodePort) Name() string {
+	return "outside-to-nodeport"
+}
+
+func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
+	clientPod := t.Context().HostNetNSPodsByNode()[t.NodesWithoutCilium()[0]]
+	i := 0
+
+	for _, svc := range t.Context().EchoServices() {
+		for _, node := range t.Context().CiliumPods() {
+			node := node // copy to avoid memory aliasing when using reference
+
+			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &clientPod, svc, &node)
+			i++
+		}
+	}
+
+}

@@ -47,6 +47,7 @@ type Parameters struct {
 	JSONMockImage         string
 	AgentDaemonSetName    string
 	DNSTestServerImage    string
+	Datapath              bool
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
