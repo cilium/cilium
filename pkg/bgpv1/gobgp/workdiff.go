@@ -5,6 +5,8 @@ package gobgp
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -61,11 +63,41 @@ func (wd *reconcileDiff) diff(m LocalASNMap, policy *v2alpha1api.CiliumBGPPeerin
 
 // String provides a string representation of the reconcileDiff.
 func (wd *reconcileDiff) String() string {
-	return fmt.Sprintf("Registering: %v Withdrawing: %v Reconciling: %v",
-		wd.register,
-		wd.withdraw,
-		wd.reconcile,
-	)
+	var register, withdraw, reconcile strings.Builder
+	// The length of register will be len(wd.register) + 2 + len(wd.register) - 1
+	// e.g wd.register := []int{1,2,3,4}, then the length of register will be
+	// len([]int{1,2,3,4}) + len("[]") + len("[]string{" ", " ", " "}") like "[1 2 3 4]"
+	register.Grow(1 + 2*len(wd.register))
+	register.WriteRune('[')
+	for i, r := range wd.register {
+		if i != 0 {
+			register.WriteRune(' ')
+		}
+		register.WriteString(strconv.Itoa(r))
+	}
+	register.WriteRune(']')
+
+	withdraw.Grow(1 + 2*len(wd.withdraw))
+	withdraw.WriteRune('[')
+	for i, r := range wd.withdraw {
+		if i != 0 {
+			withdraw.WriteRune(' ')
+		}
+		withdraw.WriteString(strconv.Itoa(r))
+	}
+	withdraw.WriteRune(']')
+
+	reconcile.Grow(1 + 2*len(wd.reconcile))
+	reconcile.WriteRune('[')
+	for i, r := range wd.reconcile {
+		if i != 0 {
+			reconcile.WriteRune(' ')
+		}
+		reconcile.WriteString(strconv.Itoa(r))
+	}
+	reconcile.WriteRune(']')
+
+	return "Registering: " + register.String() + " Withdrawing: " + withdraw.String() + " Reconciling: " + reconcile.String()
 }
 
 // empty informs the caller whether the reconcileDiff contains any work to undertake.
