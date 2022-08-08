@@ -876,10 +876,12 @@ go.uber.org/dig/internal/graph
 ## explicit; go 1.17
 go.uber.org/fx
 go.uber.org/fx/fxevent
+go.uber.org/fx/fxtest
 go.uber.org/fx/internal/fxclock
 go.uber.org/fx/internal/fxlog
 go.uber.org/fx/internal/fxreflect
 go.uber.org/fx/internal/lifecycle
+go.uber.org/fx/internal/testutil
 # go.uber.org/goleak v1.1.12
 ## explicit; go 1.13
 go.uber.org/goleak

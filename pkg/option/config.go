@@ -23,6 +23,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -3775,9 +3776,7 @@ func sanitizeIntParam(paramName string, paramDefault int) int {
 }
 
 // validateConfigMap checks whether the flag exists and validate its value
-func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
-	flags := cmd.Flags()
-
+func validateConfigMap(flags *pflag.FlagSet, m map[string]interface{}) error {
 	for key, value := range m {
 		flag := flags.Lookup(key)
 		if flag == nil {
@@ -3862,7 +3861,7 @@ func InitConfig(cmd *cobra.Command, programName, configName string) func() {
 				ReplaceDeprecatedFields(m)
 
 				// validate the config-map
-				if err := validateConfigMap(cmd, m); err != nil {
+				if err := validateConfigMap(cmd.Flags(), m); err != nil {
 					log.WithError(err).Fatal("Incorrect config-map flag value")
 				}
 
