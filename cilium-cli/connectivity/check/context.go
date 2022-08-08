@@ -51,6 +51,8 @@ type ConnectivityTest struct {
 	testNames map[string]struct{}
 
 	lastFlowTimestamps map[string]time.Time
+
+	nodesWithoutCilium []string
 }
 
 type PerfTests struct {
@@ -566,4 +568,10 @@ func (ct *ConnectivityTest) PostTestSleepDuration() time.Duration {
 
 func (ct *ConnectivityTest) K8sClient() *k8s.Client {
 	return ct.client
+}
+
+func (ct *ConnectivityTest) NodesWithoutCilium() []string {
+	out := make([]string, len(ct.nodesWithoutCilium))
+	copy(out, ct.nodesWithoutCilium)
+	return out
 }
