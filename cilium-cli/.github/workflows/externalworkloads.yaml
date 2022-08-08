@@ -80,7 +80,7 @@ jobs:
           echo ::set-output name=owner::${OWNER}
 
       - name: Create GCP VM
-        uses: nick-invision/retry@616fa81820c9b34fd44f4a0cfeda436b4b8338d3
+        uses: nick-invision/retry@b4fa57557dda8c2f30bcb2d19372cc3237190f7f
         with:
           retry_on: error
           timeout_minutes: 1
