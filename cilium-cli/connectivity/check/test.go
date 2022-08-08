@@ -295,3 +295,7 @@ func (t *Test) failedActions() []*Action {
 
 	return out
 }
+
+func (t *Test) NodesWithoutCilium() []string {
+	return t.ctx.NodesWithoutCilium()
+}
