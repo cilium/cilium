@@ -577,6 +577,10 @@ func (c *Client) ListNodes(ctx context.Context, options metav1.ListOptions) (*co
 	return c.Clientset.CoreV1().Nodes().List(ctx, options)
 }
 
+func (c *Client) PatchNode(ctx context.Context, nodeName string, pt types.PatchType, data []byte) (*corev1.Node, error) {
+	return c.Clientset.CoreV1().Nodes().Patch(ctx, nodeName, pt, data, metav1.PatchOptions{})
+}
+
 func (c *Client) ListCiliumExternalWorkloads(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumExternalWorkloads().List(ctx, opts)
 }
