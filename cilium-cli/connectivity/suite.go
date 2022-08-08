@@ -86,6 +86,17 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		return ct.Run(ctx)
 	}
 
+	// Datapath Conformance Tests
+	if ct.Params().Datapath {
+		ct.NewTest("north-south-loadbalancing").
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithScenarios(
+				tests.OutsideToNodePort(),
+			)
+
+		return ct.Run(ctx)
+	}
+
 	// Run all tests without any policies in place.
 	ct.NewTest("no-policies").WithScenarios(
 		tests.PodToPod(),
