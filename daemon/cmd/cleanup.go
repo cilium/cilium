@@ -4,32 +4,11 @@
 package cmd
 
 import (
-	"context"
-
 	gops "github.com/google/gops/agent"
-	"go.uber.org/fx"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/pidfile"
 )
-
-// cleanerModule exposes the cleaner as a fx module and runs
-// the cleanup functions on stop.
-var cleanerModule = fx.Module(
-	"cleaner",
-	fx.Provide(newCleaner),
-)
-
-func newCleaner(lc fx.Lifecycle) *daemonCleanup {
-	cleaner := NewDaemonCleanup()
-	lc.Append(fx.Hook{
-		OnStop: func(context.Context) error {
-			cleaner.Clean()
-			return nil
-		},
-	})
-	return cleaner
-}
 
 type daemonCleanup struct {
 	preCleanupFuncs *cleanupFuncList

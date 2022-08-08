@@ -142,7 +142,7 @@ func (log appLogger) LogEvent(event fxevent.Event) {
 			log.WithError(e.Err).Error("Custom logger initialization failed")
 		} else {
 			log.WithField("function", e.ConstructorName).
-				Info("Initialized custom fxevent.Logger")
+				Debug("Initialized custom fxevent.Logger")
 		}
 	}
 }
