@@ -42,6 +42,9 @@ const (
 	kindClientName              = "client"
 	kindPerfName                = "perf"
 
+	hostNetNSDeploymentName = "host-netns"
+	kindHostNetNS           = "host-netns"
+
 	EchoServerHostPort = 40000
 )
 
@@ -202,6 +205,74 @@ func newDeploymentWithDNSTestServer(p deploymentParameters, DNSTestServerImage s
 	}
 
 	return dep
+}
+
+type daemonSetParameters struct {
+	Name           string
+	Kind           string
+	Image          string
+	Replicas       int
+	Port           int
+	Command        []string
+	Affinity       *corev1.Affinity
+	ReadinessProbe *corev1.Probe
+	Labels         map[string]string
+	HostNetwork    bool
+	Tolerations    []corev1.Toleration
+}
+
+func newDaemonSet(p daemonSetParameters) *appsv1.DaemonSet {
+	ds := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: p.Name,
+			Labels: map[string]string{
+				"name": p.Name,
+				"kind": p.Kind,
+			},
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: p.Name,
+					Labels: map[string]string{
+						"name": p.Name,
+						"kind": p.Kind,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            p.Name,
+							Image:           p.Image,
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Command:         p.Command,
+							ReadinessProbe:  p.ReadinessProbe,
+							SecurityContext: &corev1.SecurityContext{
+								Capabilities: &corev1.Capabilities{
+									Add: []corev1.Capability{"NET_RAW"},
+								},
+							},
+						},
+					},
+					Affinity:    p.Affinity,
+					HostNetwork: p.HostNetwork,
+					Tolerations: p.Tolerations,
+				},
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"name": p.Name,
+					"kind": p.Kind,
+				},
+			},
+		},
+	}
+
+	for k, v := range p.Labels {
+		ds.Spec.Template.ObjectMeta.Labels[k] = v
+	}
+
+	return ds
 }
 
 var serviceLabels = map[string]string{
@@ -620,6 +691,29 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				return fmt.Errorf("unable to create deployment %s: %w", echoOtherNodeDeploymentName, err)
 			}
 		}
+
+		if ct.params.Datapath {
+			_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentName, metav1.GetOptions{})
+			if err != nil {
+				ct.Logf("✨ [%s] Deploying host-netns daemonset...", ct.clients.src.ClusterName())
+				ds := newDaemonSet(daemonSetParameters{
+					Name:        hostNetNSDeploymentName,
+					Kind:        kindHostNetNS,
+					Image:       ct.params.CurlImage,
+					Port:        8080,
+					Labels:      map[string]string{"other": "host-netns"},
+					Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+					HostNetwork: true,
+					Tolerations: []corev1.Toleration{
+						{Operator: corev1.TolerationOpExists},
+					},
+				})
+				_, err = ct.clients.src.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create daemonset %s: %w", hostNetNSDeploymentName, err)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -841,6 +935,18 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 					return err
 				}
 			}
+		}
+	}
+
+	hostNetNSPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindHostNetNS})
+	if err != nil {
+		return fmt.Errorf("unable to list host netns pods: %w", err)
+	}
+
+	for _, pod := range hostNetNSPods.Items {
+		ct.hostNetNSPodsByNode[pod.Spec.NodeName] = Pod{
+			K8sClient: ct.client,
+			Pod:       pod.DeepCopy(),
 		}
 	}
 
