@@ -235,6 +235,8 @@ replace (
 
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220713202445-9066eee9e0be
 
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20220808211112-706606a736d5
+
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
 	sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
