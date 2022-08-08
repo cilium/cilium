@@ -36,6 +36,8 @@ const (
 	FeatureKPRSocketLB              Feature = "kpr-socket-lb"
 
 	FeatureHostPort Feature = "host-port"
+
+	FeatureNodeWithoutCilium Feature = "node-without-cilium"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -183,6 +185,25 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 	return nil
 }
 
+func (ct *ConnectivityTest) extractFeaturesFromNodes(ctx context.Context, client *k8s.Client, result FeatureSet) error {
+	nodeList, err := client.ListNodes(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	nodes := []string{}
+	for _, node := range nodeList.Items {
+		if val, ok := node.ObjectMeta.Labels["cilium.io/no-schedule"]; ok && val == "true" {
+			nodes = append(nodes, node.ObjectMeta.Name)
+		}
+	}
+
+	result[FeatureNodeWithoutCilium] = FeatureStatus{Enabled: len(nodes) != 0}
+	ct.nodesWithoutCilium = nodes
+
+	return nil
+}
+
 func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context, ciliumPod Pod, result FeatureSet) error {
 	stdout, err := ciliumPod.K8sClient.ExecInPodWithTTY(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
 		defaults.AgentContainerName, []string{"cilium", "status", "-o", "json"})
@@ -290,6 +311,10 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 			return err
 		}
 		err = ct.extractFeaturesFromRuntimeConfig(ctx, ciliumPod, features)
+		if err != nil {
+			return err
+		}
+		err = ct.extractFeaturesFromNodes(ctx, ciliumPod.K8sClient, features)
 		if err != nil {
 			return err
 		}
