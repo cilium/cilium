@@ -5,7 +5,9 @@
 
 package bgpv1
 
-import "testing"
+import (
+	"testing"
+)
 
 // TestAnnotation performs a series of unit tests ensuring the parsing of
 // annotations works correctly.
@@ -49,5 +51,40 @@ func TestAnnotation(t *testing.T) {
 				t.Fatalf("got: %v, want: %v", err, tt.error)
 			}
 		})
+	}
+}
+
+func BenchmarkErrNotVRouterAnnoError(b *testing.B) {
+	e := &ErrNotVRouterAnno{
+		a: "foo error",
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = e.Error()
+	}
+}
+
+func BenchmarkErrErrNoASNAnno(b *testing.B) {
+	e := &ErrNoASNAnno{
+		a: "foo error",
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = e.Error()
+	}
+}
+
+func BenchmarkErrASNAnno(b *testing.B) {
+	e := &ErrASNAnno{
+		err:  "foo error",
+		asn:  "foo asn",
+		anno: "foo anno",
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = e.Error()
 	}
 }
