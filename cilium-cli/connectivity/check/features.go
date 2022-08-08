@@ -147,14 +147,12 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 	// CNI chaining.
 	// Note: This value might be overwritten by extractFeaturesFromCiliumStatus
 	// if this information is present in `cilium status`
-	mode = ""
+	mode := "none"
 	if v, ok := cm.Data["cni-chaining-mode"]; ok {
-		if v != "none" {
-			mode = v
-		}
+		mode = v
 	}
 	result[FeatureCNIChaining] = FeatureStatus{
-		Enabled: mode != "",
+		Enabled: mode != "none",
 		Mode:    mode,
 	}
 
@@ -209,7 +207,7 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	}
 
 	result[FeatureCNIChaining] = FeatureStatus{
-		Enabled: mode != "",
+		Enabled: len(mode) > 0 && mode != "none",
 		Mode:    mode,
 	}
 
