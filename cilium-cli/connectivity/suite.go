@@ -17,6 +17,12 @@ import (
 )
 
 var (
+	//go:embed manifests/allow-all-egress.yaml
+	allowAllEgressPolicyYAML string
+
+	//go:embed manifests/allow-all-ingress.yaml
+	allowAllIngressPolicyYAML string
+
 	//go:embed manifests/allow-all-except-world.yaml
 	allowAllExceptWorldPolicyYAML string
 	//go:embed manifests/allow-all-except-world-pre-v1.11.yaml
@@ -28,6 +34,9 @@ var (
 	//go:embed manifests/client-egress-to-echo.yaml
 	clientEgressToEchoPolicyYAML string
 
+	//go:embed manifests/client-egress-to-echo-deny.yaml
+	clientEgressToEchoDenyPolicyYAML string
+
 	//go:embed manifests/client-ingress-from-client2.yaml
 	clientIngressFromClient2PolicyYAML string
 
@@ -37,11 +46,17 @@ var (
 	//go:embed manifests/echo-ingress-from-other-client.yaml
 	echoIngressFromOtherClientPolicyYAML string
 
+	//go:embed manifests/echo-ingress-from-other-client-deny.yaml
+	echoIngressFromOtherClientDenyPolicyYAML string
+
 	//go:embed manifests/client-egress-to-entities-world.yaml
 	clientEgressToEntitiesWorldPolicyYAML string
 
 	//go:embed manifests/client-egress-to-cidr-1111.yaml
 	clientEgressToCIDR1111PolicyYAML string
+
+	//go:embed manifests/client-egress-to-cidr-1111-deny.yaml
+	clientEgressToCIDR1111DenyPolicyYAML string
 
 	//go:embed manifests/client-egress-l7-http.yaml
 	clientEgressL7HTTPPolicyYAML string
@@ -51,6 +66,9 @@ var (
 
 	//go:embed manifests/echo-ingress-icmp.yaml
 	echoIngressICMPPolicyYAML string
+
+	//go:embed manifests/echo-ingress-icmp-deny.yaml
+	echoIngressICMPDenyPolicyYAML string
 )
 
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -238,6 +256,77 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				return egress, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultNone
+		})
+
+	// Tests with deny policy
+	ct.NewTest("echo-ingress-from-other-client-deny").
+		WithPolicy(allowAllEgressPolicyYAML).                 // Allow all egress traffic
+		WithPolicy(allowAllIngressPolicyYAML).                // Allow all ingress traffic
+		WithPolicy(echoIngressFromOtherClientDenyPolicyYAML). // Deny other client contact echo
+		WithScenarios(
+			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client"})),  // Client to echo should be allowed
+			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client2"})), // Client2 to echo should be denied
+			tests.ClientToClient(), // Client to client should be allowed
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") &&
+				a.Destination().HasLabel("kind", "echo") {
+				return check.ResultDrop, check.ResultNone
+			}
+			return check.ResultOK, check.ResultOK
+		})
+
+	// This policy denies ICMP ingress to client only from other client
+	ct.NewTest("client-ingress-from-other-client-icmp-deny").
+		WithPolicy(allowAllEgressPolicyYAML).      // Allow all egress traffic
+		WithPolicy(allowAllIngressPolicyYAML).     // Allow all ingress traffic
+		WithPolicy(echoIngressICMPDenyPolicyYAML). // Deny ICMP traffic from client to another client
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureICMPPolicy)).
+		WithScenarios(
+			tests.PodToPod(),       // Client to echo traffic should be allowed
+			tests.ClientToClient(), // Client to client traffic should be denied
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") &&
+				a.Destination().HasLabel("kind", "client") {
+				return check.ResultDrop, check.ResultNone
+			}
+			return check.ResultOK, check.ResultNone
+		})
+
+	// This policy denies port 8080 from client to echo
+	ct.NewTest("client-egress-to-echo-deny").
+		WithPolicy(allowAllEgressPolicyYAML).         // Allow all egress traffic
+		WithPolicy(allowAllIngressPolicyYAML).        // Allow all ingress traffic
+		WithPolicy(clientEgressToEchoDenyPolicyYAML). // Deny client to echo traffic via port 8080
+		WithScenarios(
+			tests.ClientToClient(), // Client to client traffic should be allowed
+			tests.PodToPod(),       // Client to echo traffic should be denied
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("kind", "client") &&
+				a.Destination().HasLabel("kind", "echo") &&
+				a.Destination().Port() == 8080 {
+				return check.ResultDrop, check.ResultNone
+			}
+			return check.ResultOK, check.ResultNone
+		})
+
+	//     This policy denies L3 traffic to 1.0.0.1/8 CIDR except 1.1.1.1/32
+	ct.NewTest("client-egress-to-cidr-deny").
+		WithPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
+		WithPolicy(clientEgressToCIDR1111DenyPolicyYAML).
+		WithScenarios(
+			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Address() == "1.0.0.1" {
+				return check.ResultDrop, check.ResultNone
+			}
+			if a.Destination().Address() == "1.1.1.1" {
+				return check.ResultOK, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultDrop
 		})
 
 	// The following tests have DNS redirect policies. They should be executed last.
