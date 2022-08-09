@@ -14,19 +14,19 @@ spec:
         protocol: TCP
     toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: cilium-test
-        k8s:kind: echo
+        io.kubernetes.pod.namespace: cilium-test
+        kind: echo
   - toPorts:
     - ports:
       - port: "53"
         protocol: ANY
     toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
-        k8s:k8s-app: kube-dns
+        io.kubernetes.pod.namespace: kube-system
+        k8s-app: kube-dns
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
-        k8s:k8s-app: coredns
+        io.kubernetes.pod.namespace: kube-system
+        k8s-app: coredns
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
-        k8s:k8s-app: node-local-dns
+        io.kubernetes.pod.namespace: kube-system
+        k8s-app: node-local-dns
