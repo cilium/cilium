@@ -103,7 +103,7 @@ ctx_set_encap_info(struct xdp_md *ctx __maybe_unused,
 		   __u32 node_id __maybe_unused,
 		   __u32 seclabel __maybe_unused,
 		   __u32 dstid __maybe_unused,
-		   __u32 vni __maybe_unused)
+		   __u32 vni __maybe_unused, __u32 *ifindex __maybe_unused)
 {
 	return DROP_INVALID;
 }

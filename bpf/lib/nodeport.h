@@ -633,6 +633,7 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
+	bool use_tunnel = false;
 	union v6addr *dst;
 #endif
 
@@ -654,12 +655,13 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 					  info->sec_label,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN);
+					  TRACE_PAYLOAD_LEN,
+					  &fib_params.l.ifindex);
 		if (ret)
 			goto drop_err;
 
 		BPF_V6(target.addr, ROUTER_IP);
-		fib_params.l.ifindex = ENCAP_IFINDEX;
+		use_tunnel = true;
 	}
 #endif
 	ret = snat_v6_process(ctx, NAT_DIR_EGRESS, &target);
@@ -669,7 +671,7 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 	bpf_mark_snat_done(ctx);
 
 #ifdef TUNNEL_MODE
-	if (fib_params.l.ifindex == ENCAP_IFINDEX)
+	if (use_tunnel)
 		goto out_send;
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -889,7 +891,7 @@ redo:
 }
 
 /* See comment in tail_rev_nodeport_lb4(). */
-static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex,
+static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifindex,
 					    int *ext_err)
 {
 	int ret, fib_ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
@@ -943,11 +945,10 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 							  info->sec_label,
 							  NOT_VTEP_DST,
 							  TRACE_REASON_CT_REPLY,
-							  TRACE_PAYLOAD_LEN);
+							  TRACE_PAYLOAD_LEN,
+							  ifindex);
 				if (ret)
 					return ret;
-
-				*ifindex = ENCAP_IFINDEX;
 
 				return CTX_ACT_OK;
 			}
@@ -1011,10 +1012,10 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 {
-	int ifindex = 0, ret = 0;
+	int ext_err = 0, ret = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ext_err = 0;
+	__u32 ifindex = 0;
 
 #if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	/* We only enforce the host policies if nodeport.h is included from
@@ -1692,6 +1693,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
+	bool use_tunnel = false;
 #endif
 
 	/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
@@ -1723,12 +1725,13 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 					  info->sec_label,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN);
+					  TRACE_PAYLOAD_LEN,
+					  &fib_params.l.ifindex);
 		if (ret)
 			goto drop_err;
 
 		target.addr = IPV4_GATEWAY;
-		fib_params.l.ifindex = ENCAP_IFINDEX;
+		use_tunnel = true;
 	}
 #endif
 	ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target, false);
@@ -1738,7 +1741,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	bpf_mark_snat_done(ctx);
 
 #ifdef TUNNEL_MODE
-	if (fib_params.l.ifindex == ENCAP_IFINDEX)
+	if (use_tunnel)
 		goto out_send;
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -1962,7 +1965,7 @@ redo:
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
  * of the bpf_host, bpf_overlay and of the bpf_lxc.
  */
-static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex,
+static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifindex,
 					    int *ext_err)
 {
 	struct ipv4_ct_tuple tuple = {};
@@ -2123,11 +2126,9 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	__ctx_is != __ctx_xdp
 encap_redirect:
 	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
-				  NOT_VTEP_DST, reason, monitor);
+				  NOT_VTEP_DST, reason, monitor, ifindex);
 	if (ret)
 		return ret;
-
-	*ifindex = ENCAP_IFINDEX;
 
 	return CTX_ACT_OK;
 #endif
@@ -2136,7 +2137,7 @@ encap_redirect:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 {
-	int ifindex = 0;
+	__u32 ifindex = 0;
 	int ext_err = 0;
 	int ret = 0;
 #if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
