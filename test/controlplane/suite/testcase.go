@@ -278,6 +278,13 @@ func (cpt *ControlPlaneTest) Eventually(check func() error) *ControlPlaneTest {
 	return cpt
 }
 
+func (cpt *ControlPlaneTest) Execute(task func() error) *ControlPlaneTest {
+	if err := task(); err != nil {
+		cpt.t.Fatal(err)
+	}
+	return cpt
+}
+
 func retryUptoDuration(act func() error, maxDuration time.Duration) error {
 	wait := 50 * time.Millisecond
 	end := time.Now().Add(maxDuration)
