@@ -287,7 +287,7 @@ func NewK8sWatcher(
 type k8sMetrics struct{}
 
 func (*k8sMetrics) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
-	metrics.KubernetesAPIInteractions.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
+	metrics.KubernetesAPIInteractions.WithLabelValues(u.Host, verb).Observe(latency.Seconds())
 }
 
 func (*k8sMetrics) Increment(_ context.Context, code string, method string, host string) {
