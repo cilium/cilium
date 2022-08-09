@@ -9,9 +9,10 @@ import (
 	"path"
 	"testing"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/option"
+	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane/services/helpers"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
@@ -23,7 +24,9 @@ func init() {
 			t.Fatal(err)
 		}
 
-		modConfig := func(c *option.DaemonConfig) { c.EnableNodePort = true }
+		modConfig := func(daemonCfg *agentOption.DaemonConfig, _ *operatorOption.OperatorConfig) {
+			daemonCfg.EnableNodePort = true
+		}
 
 		for _, version := range []string{"1.20", "1.22", "1.24"} {
 			abs := func(f string) string { return path.Join(cwd, "services", "nodeport", "v"+version, f) }
@@ -34,7 +37,8 @@ func init() {
 				// Feed in initial state and start the agent.
 				test.
 					UpdateObjectsFromFile(abs("init.yaml")).
-					StartAgent(modConfig).
+					SetupEnvironment(modConfig).
+					StartAgent().
 					UpdateObjectsFromFile(abs("state1.yaml")).
 					Eventually(func() error { return validate(test, abs("lbmap1.golden")) }).
 					StopAgent()

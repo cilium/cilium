@@ -14,8 +14,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/option"
+	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
 
@@ -86,7 +87,9 @@ func init() {
 			t.Fatal(err)
 		}
 
-		modConfig := func(c *option.DaemonConfig) { c.EnableNodePort = true }
+		modConfig := func(daemonCfg *agentOption.DaemonConfig, _ *operatorOption.OperatorConfig) {
+			daemonCfg.EnableNodePort = true
+		}
 		for _, version := range []string{"1.20", "1.22", "1.24"} {
 			abs := func(f string) string { return path.Join(cwd, "node", "ciliumnodes", "v"+version, f) }
 
@@ -96,7 +99,8 @@ func init() {
 				// Feed in initial state and start the agent.
 				test.
 					UpdateObjectsFromFile(abs("init.yaml")).
-					StartAgent(modConfig)
+					SetupEnvironment(modConfig).
+					StartAgent()
 
 				// Run through the test steps
 				for _, step := range steps {
