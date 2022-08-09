@@ -1,0 +1,19 @@
+# This policy denies packets towards 1.0.0.1, but not 1.1.1.1
+# Please note that if there is no other allowed rule, the policy
+# will be automatically denied 1.1.1.1 as well.
+#
+# Both addresses are owned by CloudFlare/APNIC.
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: client-egress-to-cidr-deny
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egressDeny:
+  - toCIDRSet:
+    - cidr: 1.0.0.0/8
+      except:
+        - 1.1.1.1/32

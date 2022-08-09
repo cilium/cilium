@@ -1,0 +1,14 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: echo-ingress-from-other-client-deny
+spec:
+  description: "Deny other client to contact echo"
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingressDeny:
+  - fromEndpoints:
+    - matchLabels:
+        other: client
