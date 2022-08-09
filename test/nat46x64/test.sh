@@ -53,6 +53,8 @@ kubectl -n kube-system rollout status ds/cilium --timeout=5m
 # NAT 4->6 test suite
 #####################
 
+echo "nat 4->6"
+
 LB_VIP="10.0.0.4"
 
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
@@ -180,6 +182,8 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 2
 
 # NAT 6->4 test suite
 #####################
+
+echo "nat 6->4"
 
 LB_VIP="fd00:cafe::1"
 
