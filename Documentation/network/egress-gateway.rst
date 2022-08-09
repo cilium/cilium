@@ -67,14 +67,6 @@ endpoint, traffic from that endpoint will not go through egress gateway, even if
 the policy allows it. Full support will be added in an upcoming release once
 :gh-issue:`19642` is resolved.
 
-LB acceleration
----------------
-
-When the egress gateway feature is used in combination with XDP-based LB
-acceleration (``--bpf-lb-acceleration=native``), the user must ensure that the
-host Iptables configuration allows packets through the ``FORWARD`` chain. Full
-support will be added in an upcoming release once :gh-issue:`19717` is resolved.
-
 Enable egress gateway
 =====================
 

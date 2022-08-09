@@ -1135,6 +1135,20 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	__u32 __maybe_unused vlan_id;
 
+#if defined(ENABLE_NODEPORT_ACCELERATION) && defined(ENABLE_EGRESS_GATEWAY)
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
+
+	if (ctx_get_xfer(ctx, XFER_FLAGS) == XFER_PKT_ENCAP) {
+		return __encap_and_redirect_with_nodeid(ctx, ctx_get_xfer(ctx, XFER_ENCAP_NODEID),
+							ctx_get_xfer(ctx, XFER_ENCAP_SECLABEL),
+							ctx_get_xfer(ctx, XFER_ENCAP_DSTID),
+							NOT_VTEP_DST, &trace);
+	}
+#endif
+
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
 	if (ctx->vlan_present) {

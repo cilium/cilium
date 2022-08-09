@@ -64,10 +64,14 @@
 
 /* XDP to SKB transferred meta data. */
 #define XFER_PKT_NO_SVC		1 /* Skip upper service handling. */
+#define XFER_PKT_ENCAP		2 /* needs encap, tunnel info is in metadata. */
 
 /* For use in ctx_get_xfer(), after XDP called ctx_move_xfer(). */
 enum {
 	XFER_FLAGS = 0,		/* XFER_PKT_* */
+	XFER_ENCAP_NODEID = 1,
+	XFER_ENCAP_SECLABEL = 2,
+	XFER_ENCAP_DSTID = 3,
 };
 
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
@@ -631,7 +635,8 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
 
 /*
- * For use in ctx_{load,store}_meta(), which operates on sk_buff->cb.
+ * For use in ctx_{load,store}_meta(), which operates on sk_buff->cb or
+ * the cilium_xdp_scratch pad.
  * The verifier only exposes the first 5 slots in cb[], so this enum
  * only contains 5 entries. Aliases are added to the slots to re-use
  * them under different names in different parts of the datapath.
@@ -648,16 +653,19 @@ enum {
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
 #define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
+#define CB_ENCAP_NODEID		CB_SRC_LABEL	/* XDP */
 	CB_IFINDEX,
 #define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
+#define CB_ENCAP_SECLABEL	CB_IFINDEX	/* XDP */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
 #define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
+#define CB_ENCAP_DSTID		CB_POLICY	/* XDP */
 	CB_NAT,
 #define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
