@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -177,7 +176,7 @@ func TestKVStoreTask(t *testing.T) {
 	})
 	fd, err := os.Open(path.Join(collector.sysdumpDir, "kvstore-heartbeat.json"))
 	assert.NoError(err)
-	data, err := ioutil.ReadAll(fd)
+	data, err := io.ReadAll(fd)
 	assert.NoError(err)
 	assert.Equal([]byte("{}"), data)
 }
