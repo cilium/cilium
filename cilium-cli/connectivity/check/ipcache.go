@@ -5,7 +5,7 @@ package check
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 )
@@ -21,15 +21,15 @@ type ipCache map[string][]string
 // findPodID checks the ipCache for the presence of the given Pod's IP address.
 func (ic ipCache) findPodID(p Pod) (int, error) {
 	podIP := p.Pod.Status.PodIP
-	ip := net.ParseIP(podIP)
-	if ip.To4() == nil && ip.To16() == nil {
-		return 0, fmt.Errorf("PodIP %s is not a valid IPv4 or IPv6", podIP)
+	ip, err := netip.ParseAddr(podIP)
+	if err != nil {
+		return 0, fmt.Errorf("PodIP %s is not a valid IPv4 or IPv6: %w", podIP, err)
 	}
 
 	// We assume these prefixes, but this might not be true forever or
 	// on all deployments.
 	mask := "/32"
-	if ip.To4() == nil {
+	if ip.Is6() {
 		mask = "/128"
 	}
 
