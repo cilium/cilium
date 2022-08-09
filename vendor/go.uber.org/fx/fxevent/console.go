@@ -47,7 +47,7 @@ func (l *ConsoleLogger) LogEvent(event Event) {
 		l.logf("HOOK OnStart\t\t%s executing (caller: %s)", e.FunctionName, e.CallerName)
 	case *OnStartExecuted:
 		if e.Err != nil {
-			l.logf("HOOK OnStart\t\t%s called by %s failed in %s: %v", e.FunctionName, e.CallerName, e.Runtime, e.Err)
+			l.logf("HOOK OnStart\t\t%s called by %s failed in %s: %+v", e.FunctionName, e.CallerName, e.Runtime, e.Err)
 		} else {
 			l.logf("HOOK OnStart\t\t%s called by %s ran successfully in %s", e.FunctionName, e.CallerName, e.Runtime)
 		}
@@ -55,17 +55,17 @@ func (l *ConsoleLogger) LogEvent(event Event) {
 		l.logf("HOOK OnStop\t\t%s executing (caller: %s)", e.FunctionName, e.CallerName)
 	case *OnStopExecuted:
 		if e.Err != nil {
-			l.logf("HOOK OnStop\t\t%s called by %s failed in %s: %v", e.FunctionName, e.CallerName, e.Runtime, e.Err)
+			l.logf("HOOK OnStop\t\t%s called by %s failed in %s: %+v", e.FunctionName, e.CallerName, e.Runtime, e.Err)
 		} else {
 			l.logf("HOOK OnStop\t\t%s called by %s ran successfully in %s", e.FunctionName, e.CallerName, e.Runtime)
 		}
 	case *Supplied:
 		if e.Err != nil {
-			l.logf("ERROR\tFailed to supply %v: %v", e.TypeName, e.Err)
+			l.logf("ERROR\tFailed to supply %v: %+v", e.TypeName, e.Err)
 		} else if e.ModuleName != "" {
 			l.logf("SUPPLY\t%v from module %q", e.TypeName, e.ModuleName)
 		} else {
-			l.logf("SUPPLY\t%v", e.TypeName, e.ModuleName)
+			l.logf("SUPPLY\t%v", e.TypeName)
 		}
 	case *Provided:
 		for _, rtype := range e.OutputTypeNames {
@@ -76,7 +76,19 @@ func (l *ConsoleLogger) LogEvent(event Event) {
 			}
 		}
 		if e.Err != nil {
-			l.logf("Error after options were applied: %v", e.Err)
+			l.logf("Error after options were applied: %+v", e.Err)
+		}
+
+	case *Replaced:
+		for _, rtype := range e.OutputTypeNames {
+			if e.ModuleName != "" {
+				l.logf("REPLACE\t%v from module %q", rtype, e.ModuleName)
+			} else {
+				l.logf("REPLACE\t%v", rtype)
+			}
+		}
+		if e.Err != nil {
+			l.logf("ERROR\tFailed to replace: %+v", e.Err)
 		}
 	case *Decorated:
 		for _, rtype := range e.OutputTypeNames {
@@ -87,7 +99,7 @@ func (l *ConsoleLogger) LogEvent(event Event) {
 			}
 		}
 		if e.Err != nil {
-			l.logf("Error after options were applied: %v", e.Err)
+			l.logf("Error after options were applied: %+v", e.Err)
 		}
 	case *Invoking:
 		if e.ModuleName != "" {
@@ -97,23 +109,23 @@ func (l *ConsoleLogger) LogEvent(event Event) {
 		}
 	case *Invoked:
 		if e.Err != nil {
-			l.logf("ERROR\t\tfx.Invoke(%v) called from:\n%+vFailed: %v", e.FunctionName, e.Trace, e.Err)
+			l.logf("ERROR\t\tfx.Invoke(%v) called from:\n%+vFailed: %+v", e.FunctionName, e.Trace, e.Err)
 		}
 	case *Stopping:
 		l.logf("%v", strings.ToUpper(e.Signal.String()))
 	case *Stopped:
 		if e.Err != nil {
-			l.logf("ERROR\t\tFailed to stop cleanly: %v", e.Err)
+			l.logf("ERROR\t\tFailed to stop cleanly: %+v", e.Err)
 		}
 	case *RollingBack:
-		l.logf("ERROR\t\tStart failed, rolling back: %v", e.StartErr)
+		l.logf("ERROR\t\tStart failed, rolling back: %+v", e.StartErr)
 	case *RolledBack:
 		if e.Err != nil {
-			l.logf("ERROR\t\tCouldn't roll back cleanly: %v", e.Err)
+			l.logf("ERROR\t\tCouldn't roll back cleanly: %+v", e.Err)
 		}
 	case *Started:
 		if e.Err != nil {
-			l.logf("ERROR\t\tFailed to start: %v", e.Err)
+			l.logf("ERROR\t\tFailed to start: %+v", e.Err)
 		} else {
 			l.logf("RUNNING")
 		}

@@ -92,6 +92,18 @@ func (l *ZapLogger) LogEvent(event Event) {
 				moduleField(e.ModuleName),
 				zap.Error(e.Err))
 		}
+	case *Replaced:
+		for _, rtype := range e.OutputTypeNames {
+			l.Logger.Info("replaced",
+				moduleField(e.ModuleName),
+				zap.String("type", rtype),
+			)
+		}
+		if e.Err != nil {
+			l.Logger.Error("error encountered while replacing",
+				moduleField(e.ModuleName),
+				zap.Error(e.Err))
+		}
 	case *Decorated:
 		for _, rtype := range e.OutputTypeNames {
 			l.Logger.Info("decorated",

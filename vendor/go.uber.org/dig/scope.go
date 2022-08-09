@@ -47,8 +47,8 @@ type Scope struct {
 	// key.
 	providers map[key][]*constructorNode
 
-	// Mapping from key to all decorator nodes that decorates a value for that key.
-	decorators map[key][]*decoratorNode
+	// Mapping from key to the decorator that decorates a value for that key.
+	decorators map[key]*decoratorNode
 
 	// constructorNodes provided directly to this Scope. i.e. it does not include
 	// any nodes that were provided to the parent Scope this inherited from.
@@ -92,7 +92,7 @@ type Scope struct {
 func newScope() *Scope {
 	s := &Scope{
 		providers:       make(map[key][]*constructorNode),
-		decorators:      make(map[key][]*decoratorNode),
+		decorators:      make(map[key]*decoratorNode),
 		values:          make(map[key]reflect.Value),
 		decoratedValues: make(map[key]reflect.Value),
 		groups:          make(map[key][]reflect.Value),
@@ -215,24 +215,17 @@ func (s *Scope) getGroupProviders(name string, t reflect.Type) []provider {
 	return s.getProviders(key{group: name, t: t})
 }
 
-func (s *Scope) getValueDecorators(name string, t reflect.Type) []decorator {
+func (s *Scope) getValueDecorator(name string, t reflect.Type) (decorator, bool) {
 	return s.getDecorators(key{name: name, t: t})
 }
 
-func (s *Scope) getGroupDecorators(name string, t reflect.Type) []decorator {
+func (s *Scope) getGroupDecorator(name string, t reflect.Type) (decorator, bool) {
 	return s.getDecorators(key{group: name, t: t})
 }
 
-func (s *Scope) getDecorators(k key) []decorator {
-	nodes, ok := s.decorators[k]
-	if !ok {
-		return nil
-	}
-	decorators := make([]decorator, len(nodes))
-	for i, n := range nodes {
-		decorators[i] = n
-	}
-	return decorators
+func (s *Scope) getDecorators(k key) (decorator, bool) {
+	d, found := s.decorators[k]
+	return d, found
 }
 
 func (s *Scope) getProviders(k key) []provider {

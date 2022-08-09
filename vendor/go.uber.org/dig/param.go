@@ -49,7 +49,7 @@ type param interface {
 	// Container.
 	//
 	// This MAY panic if the param does not produce a single value.
-	Build(store containerStore, decorating bool) (reflect.Value, error)
+	Build(store containerStore) (reflect.Value, error)
 
 	// DotParam returns a slice of dot.Param(s).
 	DotParam() []*dot.Param
@@ -137,18 +137,18 @@ func newParamList(ctype reflect.Type, c containerStore) (paramList, error) {
 	return pl, nil
 }
 
-func (pl paramList) Build(containerStore, bool) (reflect.Value, error) {
+func (pl paramList) Build(containerStore) (reflect.Value, error) {
 	digerror.BugPanicf("paramList.Build() must never be called")
 	panic("") // Unreachable, as BugPanicf above will panic.
 }
 
 // BuildList returns an ordered list of values which may be passed directly
 // to the underlying constructor.
-func (pl paramList) BuildList(c containerStore, decorating bool) ([]reflect.Value, error) {
+func (pl paramList) BuildList(c containerStore) ([]reflect.Value, error) {
 	args := make([]reflect.Value, len(pl.Params))
 	for i, p := range pl.Params {
 		var err error
-		args[i], err = p.Build(c, decorating)
+		args[i], err = p.Build(c)
 		if err != nil {
 			return nil, err
 		}
@@ -207,50 +207,34 @@ func (ps paramSingle) getDecoratedValue(c containerStore) (reflect.Value, bool) 
 	return _noValue, false
 }
 
-// search the given container and its ancestors for a matching value.
-func (ps paramSingle) getValue(c containerStore) (reflect.Value, bool) {
-	for _, c := range c.storesToRoot() {
-		if v, ok := c.getValue(ps.Name, ps.Type); ok {
-			return v, ok
-		}
-	}
-	return _noValue, false
-}
-
 // builds the parameter using decorators in all scopes that affect the
 // current scope, if there are any. If there are multiple Scopes that decorates
 // this parameter, the closest one to the Scope that invoked this will be used.
 // If there are no decorators associated with this parameter, _noValue is returned.
-func (ps paramSingle) buildWithDecorators(c containerStore, decorating bool) (v reflect.Value, found bool, err error) {
+func (ps paramSingle) buildWithDecorators(c containerStore) (v reflect.Value, found bool, err error) {
 	var (
-		decorators      []decorator
+		d               decorator
 		decoratingScope containerStore
 	)
 	stores := c.storesToRoot()
-	// If we are already in a decorating stack,
-	// skip the current Scope to avoid infinite
-	// recursion.
-	if decorating {
-		stores = stores[1:]
-	}
+
 	for _, s := range stores {
-		if decorators = s.getValueDecorators(ps.Name, ps.Type); len(decorators) > 0 {
-			decoratingScope = s
-			break
+		if d, found = s.getValueDecorator(ps.Name, ps.Type); !found {
+			continue
 		}
+		if d.State() == decoratorOnStack {
+			// This decorator is already being run.
+			// Avoid a cycle and look further.
+			d = nil
+			continue
+		}
+		decoratingScope = s
+		break
 	}
-	if len(decorators) == 0 {
+	if !found || d == nil {
 		return _noValue, false, nil
 	}
-	found = true
-	for _, d := range decorators {
-		err := d.Call(decoratingScope)
-		if err == nil {
-			continue
-		}
-		if _, ok := err.(errMissingDependencies); ok && ps.Optional {
-			continue
-		}
+	if err = d.Call(decoratingScope); err != nil {
 		v, err = _noValue, errParamSingleFailed{
 			CtorID: 1,
 			Key:    key{t: ps.Type, name: ps.Name},
@@ -262,18 +246,14 @@ func (ps paramSingle) buildWithDecorators(c containerStore, decorating bool) (v 
 	return
 }
 
-func (ps paramSingle) Build(c containerStore, decorating bool) (reflect.Value, error) {
-	v, found, err := ps.buildWithDecorators(c, decorating)
+func (ps paramSingle) Build(c containerStore) (reflect.Value, error) {
+	v, found, err := ps.buildWithDecorators(c)
 	if found {
 		return v, err
 	}
 
 	// Check whether the value is a decorated value first.
 	if v, ok := ps.getDecoratedValue(c); ok {
-		return v, nil
-	}
-
-	if v, ok := ps.getValue(c); ok {
 		return v, nil
 	}
 
@@ -284,9 +264,15 @@ func (ps paramSingle) Build(c containerStore, decorating bool) (reflect.Value, e
 	// Dependencies of this type will begin searching at that container,
 	// rather than starting at base.
 	var providers []provider
+	var providingContainer containerStore
 	for _, container := range c.storesToRoot() {
+		// first check if the scope already has cached a value for the type.
+		if v, ok := container.getValue(ps.Name, ps.Type); ok {
+			return v, nil
+		}
 		providers = container.getValueProviders(ps.Name, ps.Type)
 		if len(providers) > 0 {
+			providingContainer = container
 			break
 		}
 	}
@@ -319,7 +305,7 @@ func (ps paramSingle) Build(c containerStore, decorating bool) (reflect.Value, e
 
 	// If we get here, it's impossible for the value to be absent from the
 	// container.
-	v, _ = ps.getValue(c)
+	v, _ = providingContainer.getValue(ps.Name, ps.Type)
 	return v, nil
 }
 
@@ -407,10 +393,23 @@ func newParamObject(t reflect.Type, c containerStore) (paramObject, error) {
 	return po, nil
 }
 
-func (po paramObject) Build(c containerStore, decorating bool) (reflect.Value, error) {
+func (po paramObject) Build(c containerStore) (reflect.Value, error) {
 	dest := reflect.New(po.Type).Elem()
+	// We have to build soft groups after all other fields, to avoid cases
+	// when a field calls a provider for a soft value group, but the value is
+	// not provided to it because the value group is declared before the field
+	var softGroupsQueue []paramObjectField
+	var fields []paramObjectField
 	for _, f := range po.Fields {
-		v, err := f.Build(c, decorating)
+		if p, ok := f.Param.(paramGroupedSlice); ok && p.Soft {
+			softGroupsQueue = append(softGroupsQueue, f)
+			continue
+		}
+		fields = append(fields, f)
+	}
+	fields = append(fields, softGroupsQueue...)
+	for _, f := range fields {
+		v, err := f.Build(c)
 		if err != nil {
 			return dest, err
 		}
@@ -482,8 +481,8 @@ func newParamObjectField(idx int, f reflect.StructField, c containerStore) (para
 	return pof, nil
 }
 
-func (pof paramObjectField) Build(c containerStore, decorating bool) (reflect.Value, error) {
-	v, err := pof.Param.Build(c, decorating)
+func (pof paramObjectField) Build(c containerStore) (reflect.Value, error) {
+	v, err := pof.Param.Build(c)
 	if err != nil {
 		return v, err
 	}
@@ -498,6 +497,11 @@ type paramGroupedSlice struct {
 
 	// Type of the slice.
 	Type reflect.Type
+
+	// Soft is used to denote a soft dependency between this param and its
+	// constructors, if it's true its constructors are only called if they
+	// provide another value requested in the graph
+	Soft bool
 
 	orders map[*Scope]int
 }
@@ -527,7 +531,12 @@ func newParamGroupedSlice(f reflect.StructField, c containerStore) (paramGrouped
 	if err != nil {
 		return paramGroupedSlice{}, err
 	}
-	pg := paramGroupedSlice{Group: g.Name, Type: f.Type, orders: make(map[*Scope]int)}
+	pg := paramGroupedSlice{
+		Group:  g.Name,
+		Type:   f.Type,
+		orders: make(map[*Scope]int),
+		Soft:   g.Soft,
+	}
 
 	name := f.Tag.Get(_nameTag)
 	optional, _ := isFieldOptional(f)
@@ -573,7 +582,12 @@ func (pt paramGroupedSlice) callGroupDecorators(c containerStore) error {
 	stores := c.storesToRoot()
 	for i := len(stores) - 1; i >= 0; i-- {
 		c := stores[i]
-		for _, d := range c.getGroupDecorators(pt.Group, pt.Type.Elem()) {
+		if d, found := c.getGroupDecorator(pt.Group, pt.Type.Elem()); found {
+			if d.State() == decoratorOnStack {
+				// This decorator is already being run. Avoid cycle
+				// and look further.
+				continue
+			}
 			if err := d.Call(c); err != nil {
 				return errParamGroupFailed{
 					CtorID: d.ID(),
@@ -607,14 +621,12 @@ func (pt paramGroupedSlice) callGroupProviders(c containerStore) (int, error) {
 	return itemCount, nil
 }
 
-func (pt paramGroupedSlice) Build(c containerStore, decorating bool) (reflect.Value, error) {
+func (pt paramGroupedSlice) Build(c containerStore) (reflect.Value, error) {
 	// do not call this if we are already inside a decorator since
 	// it will result in an infinite recursion. (i.e. decorate -> params.BuildList() -> Decorate -> params.BuildList...)
 	// this is safe since a value can be decorated at most once in a given scope.
-	if !decorating {
-		if err := pt.callGroupDecorators(c); err != nil {
-			return _noValue, err
-		}
+	if err := pt.callGroupDecorators(c); err != nil {
+		return _noValue, err
 	}
 
 	// Check if we have decorated values
@@ -622,11 +634,15 @@ func (pt paramGroupedSlice) Build(c containerStore, decorating bool) (reflect.Va
 		return decoratedItems, nil
 	}
 
-	// If we do not have any decorated values, find the
-	// providers and call them.
-	itemCount, err := pt.callGroupProviders(c)
-	if err != nil {
-		return _noValue, err
+	// If we do not have any decorated values and the group isn't soft,
+	// find the providers and call them.
+	itemCount := 0
+	if !pt.Soft {
+		var err error
+		itemCount, err = pt.callGroupProviders(c)
+		if err != nil {
+			return _noValue, err
+		}
 	}
 
 	stores := c.storesToRoot()

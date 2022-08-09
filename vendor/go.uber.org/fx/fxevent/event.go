@@ -37,6 +37,7 @@ func (*OnStopExecuting) event()   {}
 func (*OnStopExecuted) event()    {}
 func (*Supplied) event()          {}
 func (*Provided) event()          {}
+func (*Replaced) event()          {}
 func (*Decorated) event()         {}
 func (*Invoking) event()          {}
 func (*Invoked) event()           {}
@@ -133,7 +134,19 @@ type Provided struct {
 	Err error
 }
 
-// Decorated is emitted when a decorator is provided to Fx.
+// Replaced is emitted when a value replaces a type in Fx.
+type Replaced struct {
+	// OutputTypeNames is a list of names of types that were replaced.
+	OutputTypeNames []string
+
+	// ModuleName is the name of the module in which the value was added to.
+	ModuleName string
+
+	// Err is non-nil if we failed to supply the value.
+	Err error
+}
+
+// Decorated is emitted when a decorator is executed in Fx.
 type Decorated struct {
 	// DecoratorName is the name of the decorator function that was
 	// provided to Fx.
@@ -146,7 +159,7 @@ type Decorated struct {
 	// this decorator.
 	OutputTypeNames []string
 
-	// Err is non-nil if we failed to provide this decorator.
+	// Err is non-nil if we failed to run this decorator.
 	Err error
 }
 
@@ -160,7 +173,7 @@ type Invoking struct {
 }
 
 // Invoked is emitted after we invoke a function specified with fx.Invoke,
-// whether it succeded or failed.
+// whether it succeeded or failed.
 type Invoked struct {
 	// Functionname is the name of the function that was invoked.
 	FunctionName string
@@ -206,7 +219,7 @@ type RollingBack struct {
 }
 
 // RolledBack is emitted after a service has been rolled back, whether it
-// succeded or not.
+// succeeded or not.
 type RolledBack struct {
 	// Err is non-nil if the rollback failed.
 	Err error

@@ -80,30 +80,30 @@ func (errs errorOption) String() string {
 // packages to bundle sophisticated functionality into easy-to-use Fx modules.
 // For example, a logging package might export a simple option like this:
 //
-//  package logging
+//	package logging
 //
-//  var Module = fx.Provide(func() *log.Logger {
-//    return log.New(os.Stdout, "", 0)
-//  })
+//	var Module = fx.Provide(func() *log.Logger {
+//	  return log.New(os.Stdout, "", 0)
+//	})
 //
 // A shared all-in-one microservice package could then use Options to bundle
 // logging with similar metrics, tracing, and gRPC modules:
 //
-//  package server
+//	package server
 //
-//  var Module = fx.Options(
-//    logging.Module,
-//    metrics.Module,
-//    tracing.Module,
-//    grpc.Module,
-//  )
+//	var Module = fx.Options(
+//	  logging.Module,
+//	  metrics.Module,
+//	  tracing.Module,
+//	  grpc.Module,
+//	)
 //
 // Since this all-in-one module has a minimal API surface, it's easy to add
 // new functionality to it without breaking existing users. Individual
 // applications can take advantage of all this functionality with only one
 // line of code:
 //
-//  app := fx.New(server.Module)
+//	app := fx.New(server.Module)
 //
 // Use this pattern sparingly, since it limits the user's ability to customize
 // their application.
@@ -171,15 +171,14 @@ func (t stopTimeoutOption) String() string {
 // to. The argument must be a constructor with one of the following return
 // types.
 //
-//   fxevent.Logger
-//   (fxevent.Logger, error)
+//	fxevent.Logger
+//	(fxevent.Logger, error)
 //
 // For example,
 //
-//   WithLogger(func(logger *zap.Logger) fxevent.Logger {
-//     return &fxevent.ZapLogger{Logger: logger}
-//   })
-//
+//	WithLogger(func(logger *zap.Logger) fxevent.Logger {
+//	  return &fxevent.ZapLogger{Logger: logger}
+//	})
 func WithLogger(constructor interface{}) Option {
 	return withLoggerOption{
 		constructor: constructor,
@@ -404,7 +403,7 @@ func (app *App) constructCustomLogger(buffer *logBuffer) (err error) {
 		})
 	}()
 
-	if err := app.container.Provide(p.Target); err != nil {
+	if err := app.root.scope.Provide(p.Target); err != nil {
 		return fmt.Errorf("fx.WithLogger(%v) from:\n%+vFailed: %v",
 			fname, p.Stack, err)
 	}
@@ -412,7 +411,7 @@ func (app *App) constructCustomLogger(buffer *logBuffer) (err error) {
 	// TODO: Use dig.FillProvideInfo to inspect the provided constructor
 	// and fail the application if its signature didn't match.
 
-	return app.container.Invoke(func(log fxevent.Logger) {
+	return app.root.scope.Invoke(func(log fxevent.Logger) {
 		app.log = log
 		buffer.Connect(log)
 	})
@@ -501,6 +500,10 @@ func New(opts ...Option) *App {
 	app.root.provide(provide{Target: app.shutdowner, Stack: frames})
 	app.root.provide(provide{Target: app.dotGraph, Stack: frames})
 
+	// Run decorators before executing any Invokes -- including the one
+	// inside constructCustomLogger.
+	app.err = multierr.Append(app.err, app.root.decorate())
+
 	// If you are thinking about returning here after provides: do not (just yet)!
 	// If a custom logger was being used, we're still buffering messages.
 	// We'll want to flush them to the logger.
@@ -516,13 +519,6 @@ func New(opts ...Option) *App {
 			bufferLogger.Connect(fallbackLogger)
 			return app
 		}
-	}
-
-	// Run decorators before executing any Invokes.
-	if err := app.root.decorate(); err != nil {
-		app.err = err
-
-		return app
 	}
 
 	// This error might have come from the provide loop above. We've
@@ -768,9 +764,26 @@ type withTimeoutParams struct {
 	lifecycle *lifecycleWrapper
 }
 
+// errHookCallbackExited is returned when a hook callback does not finish executing
+var errHookCallbackExited = fmt.Errorf("goroutine exited without returning")
+
 func withTimeout(ctx context.Context, param *withTimeoutParams) error {
 	c := make(chan error, 1)
-	go func() { c <- param.callback(ctx) }()
+	go func() {
+		// If runtime.Goexit() is called from within the callback
+		// then nothing is written to the chan.
+		// However the defer will still be called, so we can write to the chan,
+		// to avoid hanging until the timeout is reached.
+		callbackExited := false
+		defer func() {
+			if !callbackExited {
+				c <- errHookCallbackExited
+			}
+		}()
+
+		c <- param.callback(ctx)
+		callbackExited = true
+	}()
 
 	var err error
 
@@ -785,7 +798,7 @@ func withTimeout(ctx context.Context, param *withTimeoutParams) error {
 			err = ctx.Err()
 		}
 	}
-	if err != context.DeadlineExceeded {
+	if err != context.DeadlineExceeded && err != errHookCallbackExited {
 		return err
 	}
 	// On timeout, report running hook's caller and recorded

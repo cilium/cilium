@@ -21,4 +21,4 @@
 package fx
 
 // Version is exported for runtime compatibility checks.
-const Version = "1.17.1"
+const Version = "1.18.1"

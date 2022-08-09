@@ -22,6 +22,7 @@ package lifecycle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -72,11 +73,20 @@ func (l *Lifecycle) Append(hook Hook) {
 // Start runs all OnStart hooks, returning immediately if it encounters an
 // error.
 func (l *Lifecycle) Start(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("called OnStart with nil context")
+	}
+
 	l.mu.Lock()
 	l.startRecords = make(HookRecords, 0, len(l.hooks))
 	l.mu.Unlock()
 
 	for _, hook := range l.hooks {
+		// if ctx has cancelled, bail out of the loop.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		if hook.OnStart != nil {
 			l.mu.Lock()
 			l.runningHook = hook
@@ -124,6 +134,10 @@ func (l *Lifecycle) runStartHook(ctx context.Context, hook Hook) (runtime time.D
 // Stop runs any OnStop hooks whose OnStart counterpart succeeded. OnStop
 // hooks run in reverse order.
 func (l *Lifecycle) Stop(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("called OnStop with nil context")
+	}
+
 	l.mu.Lock()
 	l.stopRecords = make(HookRecords, 0, l.numStarted)
 	l.mu.Unlock()
@@ -131,6 +145,9 @@ func (l *Lifecycle) Stop(ctx context.Context) error {
 	// Run backward from last successful OnStart.
 	var errs []error
 	for ; l.numStarted > 0; l.numStarted-- {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		hook := l.hooks[l.numStarted-1]
 		if hook.OnStop == nil {
 			continue

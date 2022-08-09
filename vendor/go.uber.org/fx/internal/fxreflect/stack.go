@@ -75,14 +75,14 @@ const _defaultCallersDepth = 8
 //
 // Formatted with %v, the output is in a single-line, in the form,
 //
-//   foo/bar.Baz() (path/to/foo.go:42); bar/baz.Qux() (bar/baz/qux.go:12); ...
+//	foo/bar.Baz() (path/to/foo.go:42); bar/baz.Qux() (bar/baz/qux.go:12); ...
 //
 // Formatted with %+v, the output is in the form,
 //
-//   foo/bar.Baz()
-//   	path/to/foo.go:42
-//   bar/baz.Qux()
-//   	bar/baz/qux.go:12
+//	foo/bar.Baz()
+//		path/to/foo.go:42
+//	bar/baz.Qux()
+//		bar/baz/qux.go:12
 type Stack []Frame
 
 // Returns a single-line, semi-colon representation of a Stack. For a

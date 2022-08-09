@@ -31,7 +31,7 @@
 // to Fx, start there! Advanced features, including named instances, optional
 // parameters, and value groups, are explained under the In and Out types.
 //
-// Testing Fx Applications
+// # Testing Fx Applications
 //
 // To test functions that use the Lifecycle type or to write end-to-end tests
 // of your Fx application, use the helper functions and types provided by the

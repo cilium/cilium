@@ -30,14 +30,14 @@ import "go.uber.org/dig"
 // backward-compatible, modules can then add optional dependencies in minor
 // releases.
 //
-// Parameter Structs
+// # Parameter Structs
 //
 // Fx constructors declare their dependencies as function parameters. This can
 // quickly become unreadable if the constructor has a lot of dependencies.
 //
-//   func NewHandler(users *UserGateway, comments *CommentGateway, posts *PostGateway, votes *VoteGateway, authz *AuthZGateway) *Handler {
-//     // ...
-//   }
+//	func NewHandler(users *UserGateway, comments *CommentGateway, posts *PostGateway, votes *VoteGateway, authz *AuthZGateway) *Handler {
+//	  // ...
+//	}
 //
 // To improve the readability of constructors like this, create a struct that
 // lists all the dependencies as fields and change the function to accept that
@@ -48,49 +48,49 @@ import "go.uber.org/dig"
 // struct are supplied via dependency injection. Using a parameter struct, we
 // can make the constructor above much more readable:
 //
-//   type HandlerParams struct {
-//     fx.In
+//	type HandlerParams struct {
+//	  fx.In
 //
-//     Users    *UserGateway
-//     Comments *CommentGateway
-//     Posts    *PostGateway
-//     Votes    *VoteGateway
-//     AuthZ    *AuthZGateway
-//   }
+//	  Users    *UserGateway
+//	  Comments *CommentGateway
+//	  Posts    *PostGateway
+//	  Votes    *VoteGateway
+//	  AuthZ    *AuthZGateway
+//	}
 //
-//   func NewHandler(p HandlerParams) *Handler {
-//     // ...
-//   }
+//	func NewHandler(p HandlerParams) *Handler {
+//	  // ...
+//	}
 //
 // Though it's rarely a good idea, constructors can receive any combination of
 // parameter structs and parameters.
 //
-//   func NewHandler(p HandlerParams, l *log.Logger) *Handler {
-//     // ...
-//   }
+//	func NewHandler(p HandlerParams, l *log.Logger) *Handler {
+//	  // ...
+//	}
 //
-// Optional Dependencies
+// # Optional Dependencies
 //
-// Constructors often have soft dependencies on some types: if those types are
+// Constructors often have optional dependencies on some types: if those types are
 // missing, they can operate in a degraded state. Fx supports optional
 // dependencies via the `optional:"true"` tag to fields on parameter structs.
 //
-//   type UserGatewayParams struct {
-//     fx.In
+//	type UserGatewayParams struct {
+//	  fx.In
 //
-//     Conn  *sql.DB
-//     Cache *redis.Client `optional:"true"`
-//   }
+//	  Conn  *sql.DB
+//	  Cache *redis.Client `optional:"true"`
+//	}
 //
 // If an optional field isn't available in the container, the constructor
 // receives the field's zero value.
 //
-//   func NewUserGateway(p UserGatewayParams, log *log.Logger) (*UserGateway, error) {
-//     if p.Cache == nil {
-//       log.Print("Caching disabled")
-//     }
-//     // ...
-//   }
+//	func NewUserGateway(p UserGatewayParams, log *log.Logger) (*UserGateway, error) {
+//	  if p.Cache == nil {
+//	    log.Print("Caching disabled")
+//	  }
+//	  // ...
+//	}
 //
 // Constructors that declare optional dependencies MUST gracefully handle
 // situations in which those dependencies are absent.
@@ -98,7 +98,7 @@ import "go.uber.org/dig"
 // The optional tag also allows adding new dependencies without breaking
 // existing consumers of the constructor.
 //
-// Named Values
+// # Named Values
 //
 // Some use cases require the application container to hold multiple values of
 // the same type. For details on producing named values, see the documentation
@@ -108,32 +108,32 @@ import "go.uber.org/dig"
 // parameter structs. Note that both the name AND type of the fields on the
 // parameter struct must match the corresponding result struct.
 //
-//   type GatewayParams struct {
-//     fx.In
+//	type GatewayParams struct {
+//	  fx.In
 //
-//     WriteToConn  *sql.DB `name:"rw"`
-//     ReadFromConn *sql.DB `name:"ro"`
-//   }
+//	  WriteToConn  *sql.DB `name:"rw"`
+//	  ReadFromConn *sql.DB `name:"ro"`
+//	}
 //
 // The name tag may be combined with the optional tag to declare the
 // dependency optional.
 //
-//   type GatewayParams struct {
-//     fx.In
+//	type GatewayParams struct {
+//	  fx.In
 //
-//     WriteToConn  *sql.DB `name:"rw"`
-//     ReadFromConn *sql.DB `name:"ro" optional:"true"`
-//   }
+//	  WriteToConn  *sql.DB `name:"rw"`
+//	  ReadFromConn *sql.DB `name:"ro" optional:"true"`
+//	}
 //
-//   func NewCommentGateway(p GatewayParams, log *log.Logger) (*CommentGateway, error) {
-//     if p.ReadFromConn == nil {
-//       log.Print("Warning: Using RW connection for reads")
-//       p.ReadFromConn = p.WriteToConn
-//     }
-//     // ...
-//   }
+//	func NewCommentGateway(p GatewayParams, log *log.Logger) (*CommentGateway, error) {
+//	  if p.ReadFromConn == nil {
+//	    log.Print("Warning: Using RW connection for reads")
+//	    p.ReadFromConn = p.WriteToConn
+//	  }
+//	  // ...
+//	}
 //
-// Value Groups
+// # Value Groups
 //
 // To make it easier to produce and consume many values of the same type, Fx
 // supports named, unordered collections called value groups. For details on
@@ -146,45 +146,120 @@ import "go.uber.org/dig"
 // result struct fields different: if a group of constructors each returns
 // type T, parameter structs consuming the group must use a field of type []T.
 //
-//   type ServerParams struct {
-//     fx.In
+//	type ServerParams struct {
+//	  fx.In
 //
-//     Handlers []Handler `group:"server"`
-//   }
+//	  Handlers []Handler `group:"server"`
+//	}
 //
-//   func NewServer(p ServerParams) *Server {
-//     server := newServer()
-//     for _, h := range p.Handlers {
-//       server.Register(h)
-//     }
-//     return server
-//   }
+//	func NewServer(p ServerParams) *Server {
+//	  server := newServer()
+//	  for _, h := range p.Handlers {
+//	    server.Register(h)
+//	  }
+//	  return server
+//	}
 //
 // Note that values in a value group are unordered. Fx makes no guarantees
 // about the order in which these values will be produced.
 //
-// Unexported fields
+// # Soft Value Groups
+//
+// A soft value group can be thought of as a best-attempt at populating the
+// group with values from constructors that have already run. In other words,
+// if a constructor's output type is only consumed by a soft value group,
+// it will not be run.
+//
+// Note that Fx does not guarantee precise execution order of constructors
+// or invokers, which means that the change in code that affects execution
+// ordering of other constructors or functions will affect the values
+// populated in this group.
+//
+// To declare a soft relationship between a group and its constructors, use
+// the `soft` option on the group tag (`group:"[groupname],soft"`).
+// This option is only valid for input parameters.
+//
+//	type Params struct {
+//	  fx.In
+//
+//	  Handlers []Handler `group:"server"`
+//	  Logger   *zap.Logger
+//	}
+//
+//	NewHandlerAndLogger := func() (Handler, *zap.Logger) { ... }
+//	NewHandler := func() Handler { ... }
+//	Foo := func(Params) { ... }
+//
+//	app := fx.New(
+//	  fx.Provide(NewHandlerAndLogger),
+//	  fx.Provide(NewHandler),
+//	  fx.Invoke(Foo),
+//	)
+//
+// The only constructor called is `NewHandler`, because this also provides
+// `*zap.Logger` needed in the `Params` struct received by `Foo`.
+//
+// In the next example, the slice `s` isn't populated as the provider would be
+// called only because `strings` soft group value is its only consumer.
+//
+//	 app := fx.New(
+//	   fx.Provide(
+//	     fx.Annotate(
+//	       func() (string,int) { return "hello" },
+//	       fx.ResultTags(`group:"strings"`),
+//	     ),
+//	   ),
+//	   fx.Invoke(
+//	     fx.Annotate(func(s []string) {
+//	       // s will be an empty slice
+//	     }, fx.ParamTags(`group:"strings,soft"`)),
+//	   ),
+//	)
+//
+// In the next example, the slice `s` will be populated because there is a
+// consumer for the same type which is not a `soft` dependency.
+//
+//	 app := fx.New(
+//	   fx.Provide(
+//	     fx.Annotate(
+//	       func() string { "hello" },
+//	       fx.ResultTags(`group:"strings"`),
+//	     ),
+//	   ),
+//	   fx.Invoke(
+//	     fx.Annotate(func(b []string) {
+//	       // b is []string{"hello"}
+//	     }, fx.ParamTags(`group:"strings"`)),
+//	   ),
+//	   fx.Invoke(
+//	     fx.Annotate(func(s []string) {
+//	       // s is []string{"hello"}
+//	     }, fx.ParamTags(`group:"strings,soft"`)),
+//	   ),
+//	)
+//
+// # Unexported fields
 //
 // By default, a type that embeds fx.In may not have any unexported fields. The
 // following will return an error if used with Fx.
 //
-//   type Params struct {
-//     fx.In
+//	type Params struct {
+//	  fx.In
 //
-//     Logger *zap.Logger
-//     mu     sync.Mutex
-//   }
+//	  Logger *zap.Logger
+//	  mu     sync.Mutex
+//	}
 //
 // If you have need of unexported fields on such a type, you may opt-into
 // ignoring unexported fields by adding the ignore-unexported struct tag to the
 // fx.In. For example,
 //
-//   type Params struct {
-//     fx.In `ignore-unexported:"true"`
+//	type Params struct {
+//	  fx.In `ignore-unexported:"true"`
 //
-//     Logger *zap.Logger
-//     mu     sync.Mutex
-//   }
+//	  Logger *zap.Logger
+//	  mu     sync.Mutex
+//	}
 type In = dig.In
 
 // Out is the inverse of In: it can be embedded in result structs to take
@@ -194,7 +269,7 @@ type In = dig.In
 // provide a forward-compatible API: since adding fields to a struct is
 // backward-compatible, minor releases can provide additional types.
 //
-// Result Structs
+// # Result Structs
 //
 // Result structs are the inverse of parameter structs (discussed in the In
 // documentation). These structs represent multiple outputs from a
@@ -204,26 +279,26 @@ type In = dig.In
 //
 // Without result structs, we sometimes have function definitions like this:
 //
-//   func SetupGateways(conn *sql.DB) (*UserGateway, *CommentGateway, *PostGateway, error) {
-//     // ...
-//   }
+//	func SetupGateways(conn *sql.DB) (*UserGateway, *CommentGateway, *PostGateway, error) {
+//	  // ...
+//	}
 //
 // With result structs, we can make this both more readable and easier to
 // modify in the future:
 //
-//  type Gateways struct {
-//    fx.Out
+//	type Gateways struct {
+//	  fx.Out
 //
-//    Users    *UserGateway
-//    Comments *CommentGateway
-//    Posts    *PostGateway
-//  }
+//	  Users    *UserGateway
+//	  Comments *CommentGateway
+//	  Posts    *PostGateway
+//	}
 //
-//  func SetupGateways(conn *sql.DB) (Gateways, error) {
-//    // ...
-//  }
+//	func SetupGateways(conn *sql.DB) (Gateways, error) {
+//	  // ...
+//	}
 //
-// Named Values
+// # Named Values
 //
 // Some use cases require the application container to hold multiple values of
 // the same type. For details on consuming named values, see the documentation
@@ -234,19 +309,19 @@ type In = dig.In
 // specified name. An application may contain at most one unnamed value of a
 // given type, but may contain any number of named values of the same type.
 //
-//   type ConnectionResult struct {
-//     fx.Out
+//	type ConnectionResult struct {
+//	  fx.Out
 //
-//     ReadWrite *sql.DB `name:"rw"`
-//     ReadOnly  *sql.DB `name:"ro"`
-//   }
+//	  ReadWrite *sql.DB `name:"rw"`
+//	  ReadOnly  *sql.DB `name:"ro"`
+//	}
 //
-//   func ConnectToDatabase(...) (ConnectionResult, error) {
-//     // ...
-//     return ConnectionResult{ReadWrite: rw, ReadOnly:  ro}, nil
-//   }
+//	func ConnectToDatabase(...) (ConnectionResult, error) {
+//	  // ...
+//	  return ConnectionResult{ReadWrite: rw, ReadOnly:  ro}, nil
+//	}
 //
-// Value Groups
+// # Value Groups
 //
 // To make it easier to produce and consume many values of the same type, Fx
 // supports named, unordered collections called value groups. For details on
@@ -255,19 +330,19 @@ type In = dig.In
 // Constructors can send values into value groups by returning a result struct
 // tagged with `group:".."`.
 //
-//   type HandlerResult struct {
-//     fx.Out
+//	type HandlerResult struct {
+//	  fx.Out
 //
-//     Handler Handler `group:"server"`
-//   }
+//	  Handler Handler `group:"server"`
+//	}
 //
-//   func NewHelloHandler() HandlerResult {
-//     // ...
-//   }
+//	func NewHelloHandler() HandlerResult {
+//	  // ...
+//	}
 //
-//   func NewEchoHandler() HandlerResult {
-//     // ...
-//   }
+//	func NewEchoHandler() HandlerResult {
+//	  // ...
+//	}
 //
 // Any number of constructors may provide values to this named collection, but
 // the ordering of the final collection is unspecified. Keep in mind that
@@ -279,10 +354,10 @@ type In = dig.In
 // slice and use the `,flatten` option on the group tag. This indicates that
 // each element in the slice should be injected into the group individually.
 //
-//   type IntResult struct {
-//     fx.Out
+//	type IntResult struct {
+//	  fx.Out
 //
-//     Handler []int `group:"server"`         // Consume as [][]int
-//     Handler []int `group:"server,flatten"` // Consume as []int
-//   }
+//	  Handler []int `group:"server"`         // Consume as [][]int
+//	  Handler []int `group:"server,flatten"` // Consume as []int
+//	}
 type Out = dig.Out

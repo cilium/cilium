@@ -417,8 +417,15 @@ func (s *Scope) Provide(constructor interface{}, opts ...ProvideOption) error {
 	}
 
 	if err := s.provide(constructor, options); err != nil {
+		var errFunc *digreflect.Func
+		if options.Location == nil {
+			errFunc = digreflect.InspectFunc(constructor)
+		} else {
+			errFunc = options.Location
+		}
+
 		return errProvide{
-			Func:   digreflect.InspectFunc(constructor),
+			Func:   errFunc,
 			Reason: err,
 		}
 	}
