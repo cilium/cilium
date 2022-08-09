@@ -32,6 +32,7 @@ const (
 type group struct {
 	Name    string
 	Flatten bool
+	Soft    bool
 }
 
 type errInvalidGroupOption struct{ Option string }
@@ -47,6 +48,8 @@ func parseGroupString(s string) (group, error) {
 		switch c {
 		case "flatten":
 			g.Flatten = true
+		case "soft":
+			g.Soft = true
 		default:
 			return g, errInvalidGroupOption{Option: c}
 		}

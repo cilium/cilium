@@ -39,41 +39,41 @@ import (
 //
 // For example, given,
 //
-//  var log *zap.Logger = ...
+//	var log *zap.Logger = ...
 //
 // The following two forms are equivalent.
 //
-//  fx.Replace(log)
+//	fx.Replace(log)
 //
-//  fx.Decorate(
-//  	func() *zap.Logger {
-//  		return log
-//  	},
-//  )
+//	fx.Decorate(
+//		func() *zap.Logger {
+//			return log
+//		},
+//	)
 //
 // Replace panics if a value (or annotation target) is an untyped nil or an error.
 //
-// Replace Caveats
+// # Replace Caveats
 //
 // As mentioned above, Replace uses the most specific type of the provided
 // value. For interface values, this refers to the type of the implementation,
 // not the interface. So if you try to replace an io.Writer, fx.Replace will
 // use the type of the implementation.
 //
-//   var stderr io.Writer = os.Stderr
-//   fx.Replace(stderr)
+//	var stderr io.Writer = os.Stderr
+//	fx.Replace(stderr)
 //
 // Is equivalent to,
 //
-//   fx.Decorate(func() *os.File { return os.Stderr })
+//	fx.Decorate(func() *os.File { return os.Stderr })
 //
 // This is typically NOT what you intended. To replace the io.Writer in the
 // container with the value above, we need to use the fx.Annotate function with
 // the fx.As annotation.
 //
-//  fx.Replace(
-//  	fx.Annotate(os.Stderr, fx.As(new(io.Writer)))
-//  )
+//	fx.Replace(
+//		fx.Annotate(os.Stderr, fx.As(new(io.Writer)))
+//	)
 func Replace(values ...interface{}) Option {
 	decorators := make([]interface{}, len(values)) // one function per value
 	types := make([]reflect.Type, len(values))
@@ -105,8 +105,9 @@ type replaceOption struct {
 func (o replaceOption) apply(m *module) {
 	for _, target := range o.Targets {
 		m.decorators = append(m.decorators, decorator{
-			Target: target,
-			Stack:  o.Stack,
+			Target:    target,
+			Stack:     o.Stack,
+			IsReplace: true,
 		})
 	}
 }

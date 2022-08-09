@@ -21,6 +21,7 @@
 package dig
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -28,9 +29,18 @@ import (
 	"go.uber.org/dig/internal/dot"
 )
 
+type decoratorState int
+
+const (
+	decoratorReady decoratorState = iota
+	decoratorOnStack
+	decoratorCalled
+)
+
 type decorator interface {
 	Call(c containerStore) error
 	ID() dot.CtorID
+	State() decoratorState
 }
 
 type decoratorNode struct {
@@ -42,8 +52,8 @@ type decoratorNode struct {
 	// Location where this function was defined.
 	location *digreflect.Func
 
-	// Whether the decorator owned by this node was already called.
-	called bool
+	// Current state of this decorator
+	state decoratorState
 
 	// Parameters of the decorator.
 	params paramList
@@ -87,9 +97,11 @@ func newDecoratorNode(dcor interface{}, s *Scope) (*decoratorNode, error) {
 }
 
 func (n *decoratorNode) Call(s containerStore) error {
-	if n.called {
+	if n.state == decoratorCalled {
 		return nil
 	}
+
+	n.state = decoratorOnStack
 
 	if err := shallowCheckDependencies(s, n.params); err != nil {
 		return errMissingDependencies{
@@ -98,7 +110,7 @@ func (n *decoratorNode) Call(s containerStore) error {
 		}
 	}
 
-	args, err := n.params.BuildList(n.s, s == n.s /* decorating */)
+	args, err := n.params.BuildList(n.s)
 	if err != nil {
 		return errArgumentsFailed{
 			Func:   n.location,
@@ -110,11 +122,13 @@ func (n *decoratorNode) Call(s containerStore) error {
 	if err := n.results.ExtractList(n.s, true /* decorated */, results); err != nil {
 		return err
 	}
-	n.called = true
+	n.state = decoratorCalled
 	return nil
 }
 
 func (n *decoratorNode) ID() dot.CtorID { return n.id }
+
+func (n *decoratorNode) State() decoratorState { return n.state }
 
 // DecorateOption modifies the default behavior of Decorate.
 type DecorateOption interface {
@@ -201,15 +215,18 @@ func (s *Scope) Decorate(decorator interface{}, opts ...DecorateOption) error {
 		return err
 	}
 
-	keys := findResultKeys(dn.results)
+	keys, err := findResultKeys(dn.results)
+	if err != nil {
+		return err
+	}
 	for _, k := range keys {
-		if len(s.decorators[k]) > 0 {
+		if _, ok := s.decorators[k]; ok {
 			return fmt.Errorf("cannot decorate using function %v: %s already decorated",
 				dn.dtype,
 				k,
 			)
 		}
-		s.decorators[k] = append(s.decorators[k], dn)
+		s.decorators[k] = dn
 	}
 
 	if info := options.Info; info != nil {
@@ -238,7 +255,7 @@ func (s *Scope) Decorate(decorator interface{}, opts ...DecorateOption) error {
 	return nil
 }
 
-func findResultKeys(r resultList) []key {
+func findResultKeys(r resultList) ([]key, error) {
 	// use BFS to search for all keys included in a resultList.
 	var (
 		q    []result
@@ -254,6 +271,9 @@ func findResultKeys(r resultList) []key {
 		case resultSingle:
 			keys = append(keys, key{t: innerResult.Type, name: innerResult.Name})
 		case resultGrouped:
+			if innerResult.Type.Kind() != reflect.Slice {
+				return nil, errors.New("decorating a value group requires decorating the entire value group, not a single value")
+			}
 			keys = append(keys, key{t: innerResult.Type.Elem(), group: innerResult.Group})
 		case resultObject:
 			for _, f := range innerResult.Fields {
@@ -263,5 +283,5 @@ func findResultKeys(r resultList) []key {
 			q = append(q, innerResult.Results...)
 		}
 	}
-	return keys
+	return keys, nil
 }

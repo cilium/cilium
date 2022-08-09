@@ -34,15 +34,15 @@ import (
 // function(s) may depend on other types available in the application, must
 // return one or more objects, and may return an error. For example:
 //
-//  // Constructs type *C, depends on *A and *B.
-//  func(*A, *B) *C
+//	// Constructs type *C, depends on *A and *B.
+//	func(*A, *B) *C
 //
-//  // Constructs type *C, depends on *A and *B, and indicates failure by
-//  // returning an error.
-//  func(*A, *B) (*C, error)
+//	// Constructs type *C, depends on *A and *B, and indicates failure by
+//	// returning an error.
+//	func(*A, *B) (*C, error)
 //
-//  // Constructs types *B and *C, depends on *A, and can fail.
-//  func(*A) (*B, *C, error)
+//	// Constructs types *B and *C, depends on *A, and can fail.
+//	func(*A) (*B, *C, error)
 //
 // The order in which constructors are provided doesn't matter, and passing
 // multiple Provide options appends to the application's collection of

@@ -142,7 +142,7 @@ func (n *constructorNode) Call(c containerStore) error {
 		}
 	}
 
-	args, err := n.paramList.BuildList(c, false /* decorating */)
+	args, err := n.paramList.BuildList(c)
 	if err != nil {
 		return errArgumentsFailed{
 			Func:   n.location,

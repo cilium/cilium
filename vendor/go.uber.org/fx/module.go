@@ -190,12 +190,21 @@ func (m *module) decorate() (err error) {
 			outputNames[i] = o.String()
 		}
 
-		m.app.log.LogEvent(&fxevent.Decorated{
-			DecoratorName:   fxreflect.FuncName(decorator.Target),
-			ModuleName:      m.name,
-			OutputTypeNames: outputNames,
-			Err:             err,
-		})
+		if decorator.IsReplace {
+			m.app.log.LogEvent(&fxevent.Replaced{
+				ModuleName:      m.name,
+				OutputTypeNames: outputNames,
+				Err:             err,
+			})
+		} else {
+
+			m.app.log.LogEvent(&fxevent.Decorated{
+				DecoratorName:   fxreflect.FuncName(decorator.Target),
+				ModuleName:      m.name,
+				OutputTypeNames: outputNames,
+				Err:             err,
+			})
+		}
 		if err != nil {
 			return err
 		}
