@@ -1645,7 +1645,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 */
 	target.addr = IPV4_DIRECT_ROUTING;
 
-	ret = snat_v4_rev_nat(ctx, &target, false);
+	ret = snat_v4_rev_nat(ctx, &target);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
 		 * expensive in terms of instructions (since we don't have BPF to
