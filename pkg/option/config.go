@@ -3267,11 +3267,11 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 func (c *DaemonConfig) additionalMetrics() []string {
 	addMetric := func(name string) string {
-		return "+" + metrics.Namespace + name
+		return "+" + metrics.Namespace + "_" + name
 	}
 	var m []string
 	if c.DNSProxyConcurrencyLimit > 0 {
-		m = append(m, addMetric(metrics.SubsystemFQDN+"_sempaphore_rejected_total"))
+		m = append(m, addMetric(metrics.SubsystemFQDN+"_semaphore_rejected_total"))
 	}
 	return m
 }
