@@ -12,10 +12,13 @@ import (
 
 // ipCache is used to unmarshal the output of `cilium bpf ipcache list -o json` into.
 // The value is a list of strings because the output is as follows:
-// {
-//   "10.0.0.13/32": [
-//     "1 0 0.0.0.0"
-//   ],
+//
+//	{
+//	  "10.0.0.13/32": [
+//	    "1 0 0.0.0.0"
+//	  ],
+//	  ...
+//	}
 type ipCache map[string][]string
 
 // findPodID checks the ipCache for the presence of the given Pod's IP address.
