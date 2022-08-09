@@ -443,20 +443,21 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 }
 
 static __always_inline bool
-snat_v4_can_skip(const struct ipv4_nat_target *target,
-		 const struct ipv4_ct_tuple *tuple, enum nat_dir dir,
-		 bool from_endpoint, bool icmp_echoreply)
+snat_v4_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4_ct_tuple *tuple,
+		     bool from_endpoint, bool icmp_echoreply)
 {
-	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
+	__u16 sport = bpf_ntohs(tuple->sport);
 
-	if (dir == NAT_DIR_EGRESS &&
-	    ((!from_endpoint && !target->src_from_world && sport < NAT_MIN_EGRESS) ||
-	     icmp_echoreply))
-		return true;
-	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
-		return true;
+	return (!from_endpoint && !target->src_from_world && sport < NAT_MIN_EGRESS) ||
+		icmp_echoreply;
+}
 
-	return false;
+static __always_inline bool
+snat_v4_rev_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4_ct_tuple *tuple)
+{
+	__u16 dport = bpf_ntohs(tuple->dport);
+
+	return dport < target->min_port || dport > target->max_port;
 }
 
 static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *ctx,
@@ -572,7 +573,7 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v4_can_skip(target, &tuple, NAT_DIR_EGRESS, from_endpoint, icmp_echoreply))
+	if (snat_v4_nat_can_skip(target, &tuple, from_endpoint, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_handle_mapping(ctx, &tuple, &state, &tmp, NAT_DIR_EGRESS, off, target);
 	if (ret > 0)
@@ -584,8 +585,7 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
-		bool from_endpoint)
+snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target)
 {
 	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state, tmp;
@@ -596,7 +596,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		__be16 sport;
 		__be16 dport;
 	} l4hdr;
-	bool icmp_echoreply = false;
 	__u64 off;
 	int ret;
 
@@ -633,14 +632,13 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		} else {
 			tuple.dport = icmphdr.un.echo.id;
 			tuple.sport = 0;
-			icmp_echoreply = true;
 		}
 		break;
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v4_can_skip(target, &tuple, NAT_DIR_INGRESS, from_endpoint, icmp_echoreply))
+	if (snat_v4_rev_nat_can_skip(target, &tuple))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_handle_mapping(ctx, &tuple, &state, &tmp, NAT_DIR_INGRESS, off, target);
 	if (ret > 0)
@@ -661,8 +659,7 @@ int snat_v4_nat(struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline __maybe_unused
 int snat_v4_rev_nat(struct __ctx_buff *ctx __maybe_unused,
-		    const struct ipv4_nat_target *target __maybe_unused,
-		    bool from_endpoint __maybe_unused)
+		    const struct ipv4_nat_target *target __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
@@ -999,19 +996,20 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 }
 
 static __always_inline bool
-snat_v6_can_skip(const struct ipv6_nat_target *target,
-		 const struct ipv6_ct_tuple *tuple, enum nat_dir dir,
-		 bool icmp_echoreply)
+snat_v6_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6_ct_tuple *tuple,
+		     bool icmp_echoreply)
 {
-	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
+	__u16 sport = bpf_ntohs(tuple->sport);
 
-	if (dir == NAT_DIR_EGRESS &&
-	    ((!target->src_from_world && sport < NAT_MIN_EGRESS) ||
-	     icmp_echoreply))
-		return true;
-	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
-		return true;
-	return false;
+	return (!target->src_from_world && sport < NAT_MIN_EGRESS) || icmp_echoreply;
+}
+
+static __always_inline bool
+snat_v6_rev_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6_ct_tuple *tuple)
+{
+	__u16 dport = bpf_ntohs(tuple->dport);
+
+	return dport < target->min_port || dport > target->max_port;
 }
 
 static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *ctx,
@@ -1140,7 +1138,7 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v6_can_skip(target, &tuple, NAT_DIR_EGRESS, icmp_echoreply))
+	if (snat_v6_nat_can_skip(target, &tuple, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v6_handle_mapping(ctx, &tuple, &state, &tmp, NAT_DIR_EGRESS, off, target);
 	if (ret > 0)
@@ -1166,7 +1164,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 	} l4hdr;
 	__u8 nexthdr;
 	__u32 off;
-	bool icmp_echoreply = false;
 
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
 
@@ -1210,14 +1207,13 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 		} else {
 			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			tuple.sport = 0;
-			icmp_echoreply = true;
 		}
 		break;
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v6_can_skip(target, &tuple, NAT_DIR_INGRESS, icmp_echoreply))
+	if (snat_v6_rev_nat_can_skip(target, &tuple))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v6_handle_mapping(ctx, &tuple, &state, &tmp, NAT_DIR_INGRESS, off, target);
 	if (ret > 0)
