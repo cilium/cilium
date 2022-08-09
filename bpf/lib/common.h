@@ -46,6 +46,15 @@
 #define CONDITIONAL_PREALLOC BPF_F_NO_PREALLOC
 #endif
 
+#if defined(ENCAP_IFINDEX) || defined(ENABLE_EGRESS_GATEWAY)
+#define HAVE_ENCAP
+
+/* NOT_VTEP_DST is passed to an encapsulation function when the
+ * destination of the tunnel is not a VTEP.
+ */
+#define NOT_VTEP_DST 0
+#endif
+
 /* TODO: ipsec v6 tunnel datapath still needs separate fixing */
 #ifndef ENABLE_IPSEC
 # ifdef ENABLE_IPV6
@@ -990,12 +999,12 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING)) {
 		return ctx_redirect(ctx, ifindex, 0);
 	} else {
-# ifdef ENCAP_IFINDEX
+# ifdef HAVE_ENCAP
 		/* When coming from overlay, we need to set packet type
 		 * to HOST as otherwise we might get dropped in IP layer.
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
-# endif /* ENCAP_IFINDEX */
+# endif /* HAVE_ENCAP */
 		return ctx_redirect_peer(ctx, ifindex, 0);
 	}
 }

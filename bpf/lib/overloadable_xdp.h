@@ -97,4 +97,16 @@ ctx_change_head(struct xdp_md *ctx __maybe_unused,
 	return 0; /* Only intended for SKB context. */
 }
 
+#ifdef HAVE_ENCAP
+static __always_inline __maybe_unused int
+ctx_set_encap_info(struct xdp_md *ctx __maybe_unused,
+		   __u32 node_id __maybe_unused,
+		   __u32 seclabel __maybe_unused,
+		   __u32 dstid __maybe_unused,
+		   __u32 vni __maybe_unused)
+{
+	return DROP_INVALID;
+}
+#endif /* HAVE_ENCAP */
+
 #endif /* __LIB_OVERLOADABLE_XDP_H_ */
