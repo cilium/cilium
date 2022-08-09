@@ -234,6 +234,22 @@ func (t *Test) WithPolicy(policy string) *Test {
 						}
 					}
 				}
+
+				for _, e := range pl[i].Spec.EgressDeny {
+					for _, es := range e.ToEndpoints {
+						if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+							es.MatchLabels[k] = t.ctx.params.TestNamespace
+						}
+					}
+				}
+
+				for _, e := range pl[i].Spec.IngressDeny {
+					for _, es := range e.FromEndpoints {
+						if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+							es.MatchLabels[k] = t.ctx.params.TestNamespace
+						}
+					}
+				}
 			}
 		}
 	}

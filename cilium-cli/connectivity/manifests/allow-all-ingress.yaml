@@ -1,0 +1,10 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: allow-all-ingress
+spec:
+  endpointSelector: {}
+  ingress:
+  - fromEndpoints:
+    - {}

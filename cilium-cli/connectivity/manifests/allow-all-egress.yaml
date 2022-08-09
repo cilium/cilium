@@ -1,0 +1,12 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: allow-all-egress
+spec:
+  endpointSelector: {}
+  egress:
+  - toEndpoints:
+    - {}
+  - toCIDR:
+    - 0.0.0.0/0
