@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"path"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,7 +77,8 @@ var (
 		Short: "Run the ClusterMesh apiserver",
 		Run: func(cmd *cobra.Command, args []string) {
 			// Open socket for using gops to get stacktraces of the agent.
-			addr := fmt.Sprintf("127.0.0.1:%d", viper.GetInt(option.GopsPort))
+			gopsPort := strconv.Itoa(viper.GetInt(option.GopsPort))
+			addr := "127.0.0.1:" + gopsPort
 			addrField := logrus.Fields{"address": addr}
 			if err := gops.Listen(gops.Options{
 				Addr:                   addr,
@@ -269,8 +271,8 @@ func startApi() {
 			log.WithError(err).Error("Failed to respond to /healthz request")
 		}
 	})
-
-	srv := &http.Server{Addr: fmt.Sprintf(":%d", option.Config.ClusterMeshHealthPort)}
+	clusterMeshHealthPort := strconv.Itoa(option.Config.ClusterMeshHealthPort)
+	srv := &http.Server{Addr: ":" + clusterMeshHealthPort}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
