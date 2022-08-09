@@ -163,11 +163,11 @@ func (k *K8sInstaller) azureRetrieveAKSClusterInfo(ctx context.Context) error {
 // We create a new Service Principal for each installation by design:
 // - Having dedicated SPs with minimal privileges over their own AKS clusters is more secure.
 // - Even if we wanted to re-use pre-existing SPs, it would not be possible:
-// 	- The ClientSecret (password) of an SP is only displayed at creation time, and cannot be
-// 		retrieved at a later time.
-// 	- Specifying a name (--name) when creating a SP creates a new SP on first call, but then
-// 		overwrites the existing SP with a new ClientSecret on subsequent calls, which potentially
-// 		interferes with existing installations.
+//   - The ClientSecret (password) of an SP is only displayed at creation time, and cannot be
+//     retrieved at a later time.
+//   - Specifying a name (--name) when creating a SP creates a new SP on first call, but then
+//     overwrites the existing SP with a new ClientSecret on subsequent calls, which potentially
+//     interferes with existing installations.
 func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
 	// Since we depend on SubscriptionID and AKSNodeResourceGroup being properly
 	// set to create the Service Principal, we run the auto-detection mechanism if
