@@ -345,6 +345,32 @@ var _ = SkipDescribeIf(func() bool {
 			"l7Proxy":                   "false",
 		},
 	)
+
+	doContext("tunnel disabled with endpointRoutes enabled and XDP",
+		map[string]string{
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "disabled",
+			"autoDirectNodeRoutes":      "true",
+			"endpointRoutes.enabled":    "true",
+			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
+			"loadBalancer.acceleration": "testing-only",
+		},
+	)
+
+	doContext("tunnel disabled with endpointRoutes disabled and XDP",
+		map[string]string{
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "disabled",
+			"autoDirectNodeRoutes":      "true",
+			"endpointRoutes.enabled":    "false",
+			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
+			"loadBalancer.acceleration": "testing-only",
+		},
+	)
 })
 
 // Use x.x.x.100 as the egress IP
