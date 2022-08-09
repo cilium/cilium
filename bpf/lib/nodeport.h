@@ -1052,6 +1052,7 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	if (ret == CTX_ACT_REDIRECT)
 		return ctx_redirect(ctx, ifindex, 0);
 
+	ctx_move_xfer(ctx);
 	return ret;
 
 drop:
@@ -1987,8 +1988,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-#if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE) && \
-	__ctx_is != __ctx_xdp
+#if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE)
 	/* Traffic from clients to egress gateway nodes reaches said gateways
 	 * by a vxlan tunnel. If we are not using TUNNEL_MODE, we need to
 	 * identify reverse traffic from the gateway to clients and also steer
@@ -1997,10 +1997,6 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 	 * egress gateway map using a reverse address tuple. A match means that
 	 * the corresponding forward traffic was forwarded to the egress gateway
 	 * via the tunnel.
-	 *
-	 * Currently, we don't support redirect to a tunnel netdev / encap on
-	 * XDP. Thus, the problem mentioned above is present when using the
-	 * egress gw feature with bpf_xdp.
 	 */
 	{
 		struct egress_gw_policy_entry *egress_policy;
@@ -2043,7 +2039,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		bpf_mark_snat_done(ctx);
 
 		*ifindex = ct_state.ifindex;
-#if defined(TUNNEL_MODE) && __ctx_is != __ctx_xdp
+#if defined(TUNNEL_MODE)
 		{
 			struct remote_endpoint_info *info;
 
@@ -2125,8 +2121,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 
 	return CTX_ACT_REDIRECT;
 
-#if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)) && \
-	__ctx_is != __ctx_xdp
+#if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE))
 encap_redirect:
 	return __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
 				   NOT_VTEP_DST, reason, monitor, ifindex);
@@ -2169,6 +2164,7 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	if (ret == CTX_ACT_REDIRECT)
 		return ctx_redirect(ctx, ifindex, 0);
 
+	ctx_move_xfer(ctx);
 	return ret;
 }
 

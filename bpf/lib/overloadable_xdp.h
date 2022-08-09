@@ -96,13 +96,28 @@ static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
 	/* We transfer data from XFER_MARKER. This specifically
 	 * does not break packet trains in GRO.
 	 */
-	if (meta_xfer) {
+	if (meta_xfer == XFER_PKT_NO_SVC) {
 		if (!ctx_adjust_meta(ctx, -(int)sizeof(meta_xfer))) {
 			__u32 *data_meta = ctx_data_meta(ctx);
 			__u32 *data = ctx_data(ctx);
 
 			if (!ctx_no_room(data_meta + 1, data))
 				data_meta[XFER_FLAGS] = meta_xfer;
+		}
+	} else if (meta_xfer == XFER_PKT_ENCAP) {
+		if (!ctx_adjust_meta(ctx, -(int)(4 * sizeof(__u32)))) {
+			__u32 *data_meta = ctx_data_meta(ctx);
+			__u32 *data = ctx_data(ctx);
+
+			if (!ctx_no_room(data_meta + 4, data)) {
+				data_meta[XFER_FLAGS] = meta_xfer;
+				data_meta[XFER_ENCAP_NODEID] =
+					ctx_load_meta(ctx, CB_ENCAP_NODEID);
+				data_meta[XFER_ENCAP_SECLABEL] =
+					ctx_load_meta(ctx, CB_ENCAP_SECLABEL);
+				data_meta[XFER_ENCAP_DSTID] =
+					ctx_load_meta(ctx, CB_ENCAP_DSTID);
+			}
 		}
 	}
 }
@@ -123,8 +138,17 @@ ctx_set_encap_info(struct xdp_md *ctx __maybe_unused,
 		   __u32 dstid __maybe_unused,
 		   __u32 vni __maybe_unused, __u32 *ifindex __maybe_unused)
 {
+/* needs more work in the callers: */
+#ifdef TUNNEL_MODE
 	return DROP_INVALID;
-	/* return CTX_ACT_OK; */
+#else
+	ctx_store_meta(ctx, CB_ENCAP_NODEID, bpf_ntohl(node_id));
+	ctx_store_meta(ctx, CB_ENCAP_SECLABEL, seclabel);
+	ctx_store_meta(ctx, CB_ENCAP_DSTID, dstid);
+	ctx_set_xfer(ctx, XFER_PKT_ENCAP);
+
+	return CTX_ACT_OK;
+#endif /* TUNNEL_MODE */
 }
 #endif /* HAVE_ENCAP */
 
