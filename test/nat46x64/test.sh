@@ -14,7 +14,7 @@ HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
 #
 # The LB cilium does not connect to the kube-apiserver. For now we use Kind
 # just to create Docker-in-Docker containers.
-kind create cluster --config kind-config.yaml --image=brb0/kindest-node:v1.23.3-ubuntu-22.04
+kind create cluster --config kind-config.yaml --image=kindest/node:v1.24.3
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
 helm install cilium ${HELM_CHART_DIR} \
