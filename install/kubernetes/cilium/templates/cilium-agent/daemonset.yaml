@@ -327,6 +327,10 @@ spec:
         {{- end}}
         - name: cilium-run
           mountPath: /var/run/cilium
+          # Required for gRPC CRI client to connect to container runtime endpoint
+          # in order to get low-level container metadata.
+        - name: cri-endpoint
+          mountPath: /run/containerd
         - name: cni-path
           mountPath: /host/opt/cni/bin
         - name: etc-cni-netd
@@ -413,6 +417,8 @@ spec:
         volumeMounts:
         - name: cilium-run
           mountPath: /var/run/cilium
+        - name: cri-endpoint
+          mountPath: /run/containerd
         {{- with .Values.monitor.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
@@ -628,6 +634,9 @@ spec:
           mountPropagation: HostToContainer
         - name: cilium-run
           mountPath: /var/run/cilium
+        - name: cri-endpoint
+          mountPath: /run/containerd
+          mountPropagation: HostToContainer
         {{- with .Values.nodeinit.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
@@ -704,6 +713,10 @@ spec:
         hostPath:
           path: {{ .Values.daemon.runPath }}
           type: DirectoryOrCreate
+      - name: cri-endpoint
+        hostPath:
+          path: /run/containerd
+          type: Directory
       {{- /* CRI-O already mounts the BPF filesystem */ -}}
       {{- if not (eq .Values.containerRuntime.integration "crio") }}
         # To keep state between restarts / upgrades for bpf maps
