@@ -263,7 +263,7 @@ policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 	return ret;
 }
 
-#ifdef ENCAP_IFINDEX
+#ifdef HAVE_ENCAP
 static __always_inline bool is_encap(__u16 dport, __u8 proto)
 {
 	return proto == IPPROTO_UDP && dport == bpf_htons(TUNNEL_PORT);
@@ -276,7 +276,7 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 {
 	int ret;
 
-#ifdef ENCAP_IFINDEX
+#ifdef HAVE_ENCAP
 	if (src_id != HOST_ID && is_encap(dport, proto))
 		return DROP_ENCAP_PROHIBITED;
 #endif

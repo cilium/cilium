@@ -99,7 +99,7 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 };
 #endif /* SKIP_CALLS_MAP */
 
-#ifdef ENCAP_IFINDEX
+#ifdef HAVE_ENCAP
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);

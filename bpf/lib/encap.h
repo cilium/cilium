@@ -9,11 +9,7 @@
 #include "trace.h"
 #include "l3.h"
 
-#ifdef ENCAP_IFINDEX
-/* NOT_VTEP_DST is passed to an encapsulation function when the
- * destination of the tunnel is not a VTEP.
- */
-#define NOT_VTEP_DST 0
+#ifdef HAVE_ENCAP
 #ifdef ENABLE_IPSEC
 static __always_inline int
 encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
@@ -121,7 +117,6 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
 		    enum trace_reason ct_reason, __u32 monitor)
 {
-	struct bpf_tunnel_key key = {};
 	__u32 node_id;
 	int ret;
 
@@ -133,20 +128,12 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		seclabel = LOCAL_NODE_ID;
 
 	node_id = bpf_htonl(tunnel_endpoint);
-#ifdef ENABLE_VTEP
-	if (vni != NOT_VTEP_DST)
-		key.tunnel_id = vni;
-	else
-#endif /* ENABLE_VTEP */
-		key.tunnel_id = seclabel;
-	key.remote_ipv4 = node_id;
-	key.tunnel_ttl = IPDEFTTL;
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	ret = ctx_set_tunnel_key(ctx, &key, sizeof(key), BPF_F_ZERO_CSUM_TX);
+	ret = ctx_set_encap_info(ctx, node_id, seclabel, dstid, vni);
 	if (unlikely(ret < 0))
-		return DROP_WRITE_ERROR;
+		return ret;
 
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, ENCAP_IFINDEX,
 			  ct_reason, monitor);
@@ -262,5 +249,5 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
 						0, NOT_VTEP_DST, trace);
 }
-#endif /* ENCAP_IFINDEX */
+#endif /* HAVE_ENCAP */
 #endif /* __LIB_ENCAP_H_ */

@@ -4,6 +4,8 @@
 #ifndef __LIB_OVERLOADABLE_SKB_H_
 #define __LIB_OVERLOADABLE_SKB_H_
 
+#include "linux/ip.h"
+
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct __sk_buff *ctx)
 {
@@ -155,5 +157,31 @@ ctx_change_head(struct __sk_buff *ctx, __u32 head_room, __u64 flags)
 {
 	return skb_change_head(ctx, head_room, flags);
 }
+
+#ifdef HAVE_ENCAP
+static __always_inline __maybe_unused int
+ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
+		   __u32 dstid __maybe_unused, __u32 vni __maybe_unused)
+{
+	struct bpf_tunnel_key key = {};
+	int ret;
+
+#ifdef ENABLE_VTEP
+	if (vni != NOT_VTEP_DST)
+		key.tunnel_id = vni;
+	else
+#endif /* ENABLE_VTEP */
+		key.tunnel_id = seclabel;
+
+	key.remote_ipv4 = node_id;
+	key.tunnel_ttl = IPDEFTTL;
+
+	ret = ctx_set_tunnel_key(ctx, &key, sizeof(key), BPF_F_ZERO_CSUM_TX);
+	if (unlikely(ret < 0))
+		return DROP_WRITE_ERROR;
+
+	return 0;
+}
+#endif /* HAVE_ENCAP */
 
 #endif /* __LIB_OVERLOADABLE_SKB_H_ */
