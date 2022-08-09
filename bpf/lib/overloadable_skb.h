@@ -161,7 +161,8 @@ ctx_change_head(struct __sk_buff *ctx, __u32 head_room, __u64 flags)
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
-		   __u32 dstid __maybe_unused, __u32 vni __maybe_unused)
+		   __u32 dstid __maybe_unused, __u32 vni __maybe_unused,
+		   __u32 *ifindex)
 {
 	struct bpf_tunnel_key key = {};
 	int ret;
@@ -179,6 +180,8 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
 	ret = ctx_set_tunnel_key(ctx, &key, sizeof(key), BPF_F_ZERO_CSUM_TX);
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
+
+	*ifindex = ENCAP_IFINDEX;
 
 	return 0;
 }

@@ -115,7 +115,7 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
-		    enum trace_reason ct_reason, __u32 monitor)
+		    enum trace_reason ct_reason, __u32 monitor, __u32 *ifindex)
 {
 	__u32 node_id;
 	int ret;
@@ -131,11 +131,11 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	ret = ctx_set_encap_info(ctx, node_id, seclabel, dstid, vni);
+	ret = ctx_set_encap_info(ctx, node_id, seclabel, dstid, vni, ifindex);
 	if (unlikely(ret < 0))
 		return ret;
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, ENCAP_IFINDEX,
+	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
 			  ct_reason, monitor);
 	return 0;
 }
@@ -145,12 +145,15 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 				 __u32 seclabel, __u32 dstid, __u32 vni,
 				 const struct trace_ctx *trace)
 {
+	__u32 ifindex;
+
 	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid,
-				      vni, trace->reason, trace->monitor);
+				      vni, trace->reason, trace->monitor,
+				      &ifindex);
 	if (ret != 0)
 		return ret;
 
-	return ctx_redirect(ctx, ENCAP_IFINDEX, 0);
+	return ctx_redirect(ctx, ifindex, 0);
 }
 
 /* encap_and_redirect_with_nodeid returns CTX_ACT_OK after ctx meta-data is
@@ -187,6 +190,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		       struct endpoint_key *key, __u32 seclabel,
 		       __u32 dstid, const struct trace_ctx *trace)
 {
+	__u32 ifindex __maybe_unused;
 	struct endpoint_key *tunnel;
 
 	if (tunnel_endpoint) {
@@ -204,7 +208,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		 * See #14674 for details.
 		 */
 		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid, NOT_VTEP_DST,
-					   trace->reason, trace->monitor);
+					   trace->reason, trace->monitor, &ifindex);
 #else
 		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
 							seclabel, dstid, NOT_VTEP_DST, trace);
