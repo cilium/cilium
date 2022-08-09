@@ -11,4 +11,4 @@ spec:
   ingress:
   - fromEndpoints:
     - matchLabels:
-        k8s:other: client
+        other: client

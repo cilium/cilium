@@ -17,7 +17,7 @@ spec:
   # Allow GET / requests towards echo pods.
   - toEndpoints:
     - matchLabels:
-        k8s:kind: echo
+        kind: echo
     toPorts:
     - ports:
       - port: "8080"

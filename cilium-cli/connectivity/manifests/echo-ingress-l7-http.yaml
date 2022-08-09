@@ -15,7 +15,7 @@ spec:
   # Disallow L3 traffic for now, flow matcher doesn't yet support L7 drops.
   - fromEndpoints:
     - matchLabels:
-        k8s:other: client
+        other: client
     toPorts:
     - ports:
       - port: "8080"
