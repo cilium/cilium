@@ -175,8 +175,8 @@ jobs:
         run: |
           cd ./test/lvh-runner
           mkdir images
-          docker run -v $(pwd)/images:/mnt/images brb0.io/lvh-images-root-images:latest cp /data/images/kind.qcow2.zst /mnt/images
-          cd images && zstd -d kind.qcow2.zst && cd .
+          #docker run -v $(pwd)/images:/mnt/images brb0.io/lvh-images-root-images:latest cp /data/images/kind.qcow2.zst /mnt/images
+          #cd images && zstd -d kind.qcow2.zst && cd .
           go run . --base images/kind.qcow2 --mount cilium:./ --just-boot --daemonize
 
       - name: Wait for image to be available
