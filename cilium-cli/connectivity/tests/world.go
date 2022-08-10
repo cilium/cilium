@@ -59,3 +59,38 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 		i++
 	}
 }
+
+// PodToWorld2 sends an HTTPS request to cilium.io from from random client
+// Pods.
+func PodToWorld2() check.Scenario {
+	return &podToWorld2{}
+}
+
+// podToWorld2 implements a Scenario.
+type podToWorld2 struct{}
+
+func (s *podToWorld2) Name() string {
+	return "pod-to-world-2"
+}
+
+func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
+	https := check.HTTPEndpoint("cilium-io-https", "https://cilium.io")
+
+	fp := check.FlowParameters{
+		DNSRequired: true,
+		RSTAllowed:  true,
+	}
+
+	var i int
+	for _, client := range t.Context().ClientPods() {
+		client := client // copy to avoid memory aliasing when using reference
+
+		// With https, over port 443.
+		t.NewAction(s, fmt.Sprintf("https-cilium-io-%d", i), &client, https).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, curl(https))
+			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+		})
+
+		i++
+	}
+}

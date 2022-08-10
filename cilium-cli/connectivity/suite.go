@@ -518,8 +518,23 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithScenarios(
 			tests.PodToWorld(),
+			tests.PodToWorld2(), // resolves cilium.io
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Address() == "cilium.io" {
+				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
+					egress = check.ResultDNSOK
+					egress.HTTP = check.HTTP{
+						Method: "GET",
+						URL:    "https://cilium.io",
+					}
+					// Expect packets for cilium.io / 104.198.14.52 to be dropped.
+					return check.ResultDropCurlTimeout, check.ResultNone
+				}
+				// Else expect HTTP drop by proxy
+				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
+			}
+
 			if a.Destination().Port() == 80 && a.Destination().Address() == "one.one.one.one" {
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultDNSOK
