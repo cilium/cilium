@@ -171,6 +171,10 @@ jobs:
           persist-credentials: false
           path: pull-request
 
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.19.0' # The Go version to download (if necessary) and use.
+
       - name: Boot VM
         run: |
           cd ./test/lvh-runner
