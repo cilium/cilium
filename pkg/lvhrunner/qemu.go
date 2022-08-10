@@ -58,10 +58,14 @@ func BuildQemuArgs(log *logrus.Logger, rcnf *RunConf) ([]string, error) {
 	}
 
 	// NB: not sure what the best option is here, this is from trial-and-error
-	qemuArgs = append(qemuArgs,
-		"-serial", "mon:stdio",
-		"-device", "virtio-serial-pci",
-	)
+	if !rcnf.Daemonize {
+		qemuArgs = append(qemuArgs,
+			"-serial", "mon:stdio",
+			"-device", "virtio-serial-pci",
+		)
+	} else {
+		qemuArgs = append(qemuArgs, "-daemonize")
+	}
 
 	for _, fs := range rcnf.Filesystems {
 		qemuArgs = append(qemuArgs, fs.QemuArgs()...)

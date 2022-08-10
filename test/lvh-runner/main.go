@@ -85,6 +85,7 @@ func main() {
 	cmd.Flags().BoolVar(&rcnf.DisableKVM, "qemu-disable-kvm", false, "Do not use KVM acceleration, even if /dev/kvm exists")
 	cmd.Flags().BoolVar(&rcnf.JustBoot, "just-boot", false, "Do not actually run any tests. Just setup everything and start the VM. User will be able to login to the VM.")
 	cmd.Flags().StringArrayVarP(&mounts, "mount", "m", nil, "Mount a directory (id:path[:vmpath])")
+	cmd.Flags().BoolVar(&rcnf.Daemonize, "daemonize", false, "daemonize QEMU after initializing")
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
