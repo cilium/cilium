@@ -1177,7 +1177,7 @@ func (c *Collector) SubmitCniConflistSubtask(ctx context.Context, pods []*corev1
 			if err != nil {
 				return err
 			}
-			cniConfigFileNames := strings.Split(outputStr.String(), "\n")
+			cniConfigFileNames := strings.Split(strings.TrimSpace(outputStr.String()), "\n")
 			for _, cniFileName := range cniConfigFileNames {
 				cniConfigPath := path.Join(c.Options.CNIConfigDirectory, cniFileName)
 				cniConfigFileContent, err := c.Client.ExecInPod(ctx, p.GetNamespace(), p.GetName(), containerName, []string{
@@ -1185,7 +1185,7 @@ func (c *Collector) SubmitCniConflistSubtask(ctx context.Context, pods []*corev1
 					cniConfigPath,
 				})
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to copy CNI config file %q from directory %q: %w", cniFileName, c.Options.CNIConfigDirectory, err)
 				}
 				if err := c.WriteBytes(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), cniConfigFileContent.Bytes()); err != nil {
 					return fmt.Errorf("failed to write CNI configuration %q for %q in namespace %q: %w", cniFileName, p.GetName(), p.Namespace, err)
