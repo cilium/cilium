@@ -1165,6 +1165,7 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
+	matchFromDNSProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask)
 	markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
 
 	return prog.runProg([]string{
@@ -1173,6 +1174,7 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 		"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
 		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
+		"-m", "mark", "!", "--mark", matchFromDNSProxy, // Don't match DNS proxy egress traffic
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
 		"-j", "MARK", "--set-xmark", markAsFromHost})
 }
