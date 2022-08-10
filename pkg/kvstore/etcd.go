@@ -998,7 +998,9 @@ reList:
 				Typ: EventTypeDelete,
 			}
 
-			scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
+			scopedLog.WithFields(logrus.Fields{
+				"key": k,
+			}).Info("Emitting local EventTypeDelete event")
 			queueStart := spanstat.Start()
 			w.Events <- event
 			trackEventQueued(k, EventTypeDelete, queueStart.End(true).Total())
@@ -1065,6 +1067,10 @@ reList:
 					case ev.Type == client.EventTypeDelete:
 						event.Typ = EventTypeDelete
 						localCache.RemoveKey(ev.Kv.Key)
+						scopedLog.WithFields(logrus.Fields{
+							"key":   event.Key,
+							"value": event.Value,
+						}).Infof("Emitting %v event", event.Typ)
 					case ev.IsCreate():
 						event.Typ = EventTypeCreate
 						localCache.MarkInUse(ev.Kv.Key)
