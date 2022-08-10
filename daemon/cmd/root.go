@@ -25,6 +25,12 @@ var (
 		Short: "Output the internal dependencies of cilium-agent in graphviz dot format to stdout",
 		Run:   runDumpDotGraph,
 	}
+
+	dumpObjectsCmd = &cobra.Command{
+		Use:   "dump-objects",
+		Short: "Print the objects available in the application dependency graph",
+		Run:   runDumpObjects,
+	}
 )
 
 func init() {
@@ -39,6 +45,7 @@ func Execute() error {
 	rootCmd.AddCommand(
 		cmdrefCmd,
 		dumpDotGraphCmd,
+		dumpObjectsCmd,
 	)
 
 	return rootCmd.Execute()

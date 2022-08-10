@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
@@ -26,14 +27,15 @@ func AgentModules() fx.Option {
 }
 
 var (
-	agentDotGraph fx.DotGraph
-	agentApp      *fx.App
+	agentDotGraph  fx.DotGraph
+	agentAppLogger = newAppLogger()
+	agentApp       *fx.App
 )
 
 // initApp constructs the cilium-agent application.
 func initApp() {
 	agentApp = fx.New(
-		fx.WithLogger(newAppLogger),
+		fx.WithLogger(func() fxevent.Logger { return agentAppLogger }),
 		fx.Populate(&agentDotGraph),
 
 		// Register start and stop hooks for the unmodularized legacy part of the cilium-agent.
@@ -63,4 +65,8 @@ func runApp(cmd *cobra.Command, args []string) {
 func runDumpDotGraph(cmd *cobra.Command, args []string) {
 	fmt.Print(agentDotGraph)
 	os.Exit(0)
+}
+
+func runDumpObjects(cmd *cobra.Command, args []string) {
+	agentAppLogger.DumpObjects()
 }

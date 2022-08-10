@@ -273,4 +273,5 @@ cilium-agent [flags]
 * [cilium-agent cmdref](cilium-agent_cmdref.md)	 - Generate command reference for cilium-agent to given output directory
 * [cilium-agent completion](cilium-agent_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-agent dump-dot-graph](cilium-agent_dump-dot-graph.md)	 - Output the internal dependencies of cilium-agent in graphviz dot format to stdout
+* [cilium-agent dump-objects](cilium-agent_dump-objects.md)	 - Print the objects available in the application dependency graph
 
