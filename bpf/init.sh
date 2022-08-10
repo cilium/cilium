@@ -568,7 +568,3 @@ fi
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 	bpf_unload $HOST_DEV2 "egress"
 fi
-
-# Compile dummy BPF file containing all shared struct definitions used by
-# pkg/alignchecker to validate C and Go equivalent struct alignments
-bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj ""
