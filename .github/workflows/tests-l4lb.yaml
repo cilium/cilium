@@ -177,6 +177,8 @@ jobs:
 
       - name: Boot VM
         run: |
+          brew update
+          brew install qemu
           cd ./test/lvh-runner
           mkdir images
           #docker run -v $(pwd)/images:/mnt/images brb0.io/lvh-images-root-images:latest cp /data/images/kind.qcow2.zst /mnt/images
