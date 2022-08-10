@@ -54,15 +54,15 @@ func RemoveIfFromNetNSWithNameIfBothExist(netNSName, ifName string) error {
 //
 // Example usage of this function:
 //
-//   netns0, err := netns.ReplaceNetNSWithName(netnsName)
-//   if err != nil {
-//     return err
-//   }
-//   defer netns.RemoveNetNSWithName(netnsName)
+//	netns0, err := netns.ReplaceNetNSWithName(netnsName)
+//	if err != nil {
+//	  return err
+//	}
+//	defer netns.RemoveNetNSWithName(netnsName)
 //
-//   netns0.Do(func(_ ns.NetNS) error {
-//     <logic to be executed within the new netns>
-//   })
+//	netns0.Do(func(_ ns.NetNS) error {
+//	  <logic to be executed within the new netns>
+//	})
 //
 // FIXME: replace "ip-netns" invocations with native Go code
 func ReplaceNetNSWithName(netNSName string) (ns.NetNS, error) {
