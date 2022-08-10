@@ -5,7 +5,6 @@ package suite
 
 import (
 	"context"
-	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -231,12 +230,16 @@ func (cpt *ControlPlaneTest) UpdateObjects(objs ...k8sRuntime.Object) *ControlPl
 // The first match will be returned.
 // If the object cannot be found, a non nil error is returned.
 func (cpt *ControlPlaneTest) Get(gvr schema.GroupVersionResource, ns, name string) (k8sRuntime.Object, error) {
+	var (
+		obj k8sRuntime.Object
+		err error
+	)
 	for _, td := range cpt.trackers {
-		if obj, err := td.tracker.Get(gvr, ns, name); err == nil {
+		if obj, err = td.tracker.Get(gvr, ns, name); err == nil {
 			return obj, nil
 		}
 	}
-	return nil, errors.New("k8s object not found")
+	return nil, err
 }
 
 func (cpt *ControlPlaneTest) UpdateObjectsFromFile(filename string) *ControlPlaneTest {
