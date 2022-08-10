@@ -436,13 +436,13 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if l.canDisableDwarfRelocations {
-		// Validate alignments of C and Go equivalent structs
-		if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
-			log.WithError(err).Fatal("C and Go structs alignment check failed")
-		}
-	} else {
-		log.Warning("Cannot check matching of C and Go common struct alignments due to old LLVM/clang version")
+	// Compile alignchecker program
+	if err := Compile(ctx, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
+		log.WithError(err).Fatal("alignchecker compile failed")
+	}
+	// Validate alignments of C and Go equivalent structs
+	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
+		log.WithError(err).Fatal("C and Go structs alignment check failed")
 	}
 
 	if err := l.reinitializeIPSec(ctx); err != nil {

@@ -38,7 +38,7 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager
 		IptablesManager: ruleManager,
 		nodeAddressing:  NewNodeAddressing(),
 		config:          cfg,
-		loader:          loader.NewLoader(canDisableDwarfRelocations),
+		loader:          loader.NewLoader(),
 		wgAgent:         wgAgent,
 		lbmap:           lbmap.New(),
 	}
