@@ -26,74 +26,54 @@
 #include "lib/pcap.h"
 #include "sockops/bpf_sockops.h"
 
-/* DECLARE declares a unique usage of the union or struct 'x' on the stack.
- *
- * To prevent compiler from optimizing away the var, we pass a reference
- * to the var to a BPF helper function which accepts a reference as
- * an argument.
- */
-#define DECLARE(type)			\
-{					\
-	type s = {};			\
-	trace_printk("%p", 1, &s);	\
-}
-
-/* This function is a placeholder for C struct definitions shared with Go,
- * it is never executed.
- */
-int main(void)
-{
-	DECLARE(struct ipv4_ct_tuple);
-	DECLARE(struct ipv6_ct_tuple);
-	DECLARE(struct ct_entry);
-	DECLARE(struct ipcache_key);
-	DECLARE(struct remote_endpoint_info);
-	DECLARE(struct lb4_key);
-	DECLARE(struct lb4_service);
-	DECLARE(struct lb4_backend);
-	DECLARE(struct lb6_key);
-	DECLARE(struct lb6_service);
-	DECLARE(struct lb6_backend);
-	DECLARE(struct endpoint_key);
-	DECLARE(struct endpoint_info);
-	DECLARE(struct metrics_key);
-	DECLARE(struct metrics_value);
-	DECLARE(struct sock_key);
-	DECLARE(struct policy_key);
-	DECLARE(struct policy_entry);
-	DECLARE(struct ipv4_nat_entry);
-	DECLARE(struct ipv6_nat_entry);
-	DECLARE(struct trace_notify);
-	DECLARE(struct drop_notify);
-	DECLARE(struct policy_verdict_notify);
-	DECLARE(struct debug_msg);
-	DECLARE(struct debug_capture_msg);
-	DECLARE(struct ipv4_revnat_tuple);
-	DECLARE(struct ipv4_revnat_entry);
-	DECLARE(struct ipv6_revnat_tuple);
-	DECLARE(struct ipv6_revnat_entry);
-	DECLARE(struct ipv4_frag_id);
-	DECLARE(struct ipv4_frag_l4ports);
-	DECLARE(union macaddr);
-	DECLARE(struct lb4_affinity_key);
-	DECLARE(struct lb6_affinity_key);
-	DECLARE(struct lb_affinity_val);
-	DECLARE(struct lb_affinity_match);
-	DECLARE(struct lb4_src_range_key);
-	DECLARE(struct lb6_src_range_key);
-	DECLARE(struct edt_id);
-	DECLARE(struct edt_info);
-	DECLARE(struct egress_gw_policy_key);
-	DECLARE(struct egress_gw_policy_entry);
-	DECLARE(struct vtep_key);
-	DECLARE(struct vtep_value);
-	DECLARE(struct capture4_wcard);
-	DECLARE(struct capture6_wcard);
-	DECLARE(struct capture_rule);
-	DECLARE(struct srv6_vrf_key4);
-	DECLARE(struct srv6_vrf_key6);
-	DECLARE(struct srv6_policy_key4);
-	DECLARE(struct srv6_policy_key6);
-
-	return 0;
-}
+struct ipv4_ct_tuple _1;
+struct ipv6_ct_tuple _2;
+struct ct_entry _3;
+struct ipcache_key _4;
+struct remote_endpoint_info _5;
+struct lb4_key st6;
+struct lb4_service _7;
+struct lb4_backend _8;
+struct lb6_key _9;
+struct lb6_service _10;
+struct lb6_backend _11;
+struct endpoint_key _12;
+struct endpoint_info _13;
+struct metrics_key _14;
+struct metrics_value _15;
+struct sock_key _16;
+struct policy_key _17;
+struct policy_entry _18;
+struct ipv4_nat_entry _19;
+struct ipv6_nat_entry _20;
+struct trace_notify _21;
+struct drop_notify _22;
+struct policy_verdict_notify _23;
+struct debug_msg _24;
+struct debug_capture_msg _25;
+struct ipv4_revnat_tuple _26;
+struct ipv4_revnat_entry _27;
+struct ipv6_revnat_tuple _28;
+struct ipv6_revnat_entry _29;
+struct ipv4_frag_id _30;
+struct ipv4_frag_l4ports _31;
+union macaddr _32;
+struct lb4_affinity_key _33;
+struct lb6_affinity_key _34;
+struct lb_affinity_val _35;
+struct lb_affinity_match _36;
+struct lb4_src_range_key _37;
+struct lb6_src_range_key _38;
+struct edt_id _39;
+struct edt_info _40;
+struct egress_gw_policy_key _41;
+struct egress_gw_policy_entry _42;
+struct vtep_key _43;
+struct vtep_value _44;
+struct capture4_wcard _45;
+struct capture6_wcard _46;
+struct capture_rule _47;
+struct srv6_vrf_key4 _48;
+struct srv6_vrf_key6 _49;
+struct srv6_policy_key4 _50;
+struct srv6_policy_key6 _51;
