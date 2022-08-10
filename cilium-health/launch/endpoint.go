@@ -243,13 +243,15 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		ip4Address, ip6Address *net.IPNet
 	)
 
-	if healthIP = node.GetEndpointHealthIPv6(); healthIP != nil {
-		info.Addressing.IPV6 = healthIP.String()
-		ip6Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv6Mask}
+	if healthIPv6 := node.GetEndpointHealthIPv6(); healthIPv6 != nil {
+		info.Addressing.IPV6 = healthIPv6.String()
+		ip6Address = &net.IPNet{IP: healthIPv6, Mask: defaults.ContainerIPv6Mask}
+		healthIP = healthIPv6
 	}
-	if healthIP = node.GetEndpointHealthIPv4(); healthIP != nil {
-		info.Addressing.IPV4 = healthIP.String()
-		ip4Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv4Mask}
+	if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
+		info.Addressing.IPV4 = healthIPv4.String()
+		ip4Address = &net.IPNet{IP: healthIPv4, Mask: defaults.ContainerIPv4Mask}
+		healthIP = healthIPv4
 	}
 
 	if option.Config.EnableEndpointRoutes {
