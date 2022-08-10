@@ -26,14 +26,13 @@ const (
 	FeatureHostFirewall       Feature = "host-firewall"
 	FeatureICMPPolicy         Feature = "icmp-policy"
 
-	FeatureKPRMode                  Feature = "kpr-mode"
-	FeatureKPRExternalIPs           Feature = "kpr-external-ips"
-	FeatureKPRGracefulTermination   Feature = "kpr-graceful-termination"
-	FeatureKPRHostPort              Feature = "kpr-hostport"
-	FeatureKPRHostReachableServices Feature = "kpr-host-reachable-services"
-	FeatureKPRNodePort              Feature = "kpr-nodeport"
-	FeatureKPRSessionAffinity       Feature = "kpr-session-affinity"
-	FeatureKPRSocketLB              Feature = "kpr-socket-lb"
+	FeatureKPRMode                Feature = "kpr-mode"
+	FeatureKPRExternalIPs         Feature = "kpr-external-ips"
+	FeatureKPRGracefulTermination Feature = "kpr-graceful-termination"
+	FeatureKPRHostPort            Feature = "kpr-hostport"
+	FeatureKPRSocketLB            Feature = "kpr-socket-lb"
+	FeatureKPRNodePort            Feature = "kpr-nodeport"
+	FeatureKPRSessionAffinity     Feature = "kpr-session-affinity"
 
 	FeatureHostPort Feature = "host-port"
 
@@ -259,9 +258,6 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 			}
 			if f.GracefulTermination != nil {
 				result[FeatureKPRGracefulTermination] = FeatureStatus{Enabled: f.GracefulTermination.Enabled}
-			}
-			if f.HostReachableServices != nil {
-				result[FeatureKPRHostReachableServices] = FeatureStatus{Enabled: f.HostReachableServices.Enabled}
 			}
 			if f.NodePort != nil {
 				result[FeatureKPRNodePort] = FeatureStatus{Enabled: f.NodePort.Enabled}
