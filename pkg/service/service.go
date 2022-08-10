@@ -647,7 +647,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 func filterServiceBackends(svc *svcInfo, onlyPorts []string) map[string][]*lb.Backend {
 	if len(onlyPorts) == 0 {
 		return map[string][]*lb.Backend{
-			anyPort: svc.backends,
+			anyPort: filterPreferredBackends(svc.backends),
 		}
 	}
 
@@ -656,17 +656,32 @@ func filterServiceBackends(svc *svcInfo, onlyPorts []string) map[string][]*lb.Ba
 		// check for port number
 		if port == strconv.Itoa(int(svc.frontend.Port)) {
 			return map[string][]*lb.Backend{
-				port: svc.backends,
+				port: filterPreferredBackends(svc.backends),
 			}
 		}
 		// check for either named port
-		for _, backend := range svc.backends {
+		for _, backend := range filterPreferredBackends(svc.backends) {
 			if port == backend.FEPortName {
 				res[port] = append(res[port], backend)
 			}
 		}
 	}
 	return res
+}
+
+// filterPreferredBackends returns the slice of backends which are preferred for the given service.
+// If there is no preferred backend, it returns the slice of all backends.
+func filterPreferredBackends(backends []*lb.Backend) []*lb.Backend {
+	res := []*lb.Backend{}
+	for _, backend := range backends {
+		if backend.Preferred == lb.Preferred(true) {
+			res = append(res, backend)
+		}
+	}
+	if len(res) > 0 {
+		return res
+	}
+	return backends
 }
 
 // UpdateBackendsState updates all the service(s) with the updated state of

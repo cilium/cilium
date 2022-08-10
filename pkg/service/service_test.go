@@ -1276,6 +1276,88 @@ func Test_filterServiceBackends(t *testing.T) {
 		})
 	})
 
+	t.Run("filter with preferred backend", func(t *testing.T) {
+		svc := &svcInfo{
+			frontend: lb.L3n4AddrID{
+				L3n4Addr: lb.L3n4Addr{
+					L4Addr: lb.L4Addr{
+						Port: 8000,
+					},
+				},
+			},
+			backends: []*lb.Backend{
+				{
+					FEPortName: "http",
+					L3n4Addr: lb.L3n4Addr{
+						L4Addr: lb.L4Addr{
+							Port: 8080,
+						},
+					},
+					Preferred: lb.Preferred(true),
+				},
+				{
+					FEPortName: "http",
+					L3n4Addr: lb.L3n4Addr{
+						L4Addr: lb.L4Addr{
+							Port: 8081,
+						},
+					},
+				},
+				{
+					FEPortName: "https",
+					L3n4Addr: lb.L3n4Addr{
+						L4Addr: lb.L4Addr{
+							Port: 443,
+						},
+					},
+				},
+				{
+					FEPortName: "80",
+					L3n4Addr: lb.L3n4Addr{
+						L4Addr: lb.L4Addr{
+							Port: 8080,
+						},
+					},
+					Preferred: lb.Preferred(true),
+				},
+				{
+					FEPortName: "80",
+					L3n4Addr: lb.L3n4Addr{
+						L4Addr: lb.L4Addr{
+							Port: 8081,
+						},
+					},
+				},
+			},
+		}
+
+		t.Run("all ports are allowed", func(t *testing.T) {
+			backends := filterServiceBackends(svc, nil)
+			assert.Len(t, backends, 1)
+			assert.Len(t, backends[anyPort], 2)
+		})
+
+		t.Run("only named ports", func(t *testing.T) {
+			backends := filterServiceBackends(svc, []string{"http"})
+			assert.Len(t, backends, 1)
+			assert.Len(t, backends["http"], 1)
+		})
+		t.Run("multiple named ports", func(t *testing.T) {
+			backends := filterServiceBackends(svc, []string{"http", "https"})
+			assert.Len(t, backends, 1)
+
+			assert.Len(t, backends["http"], 1)
+			assert.Equal(t, (int)(backends["http"][0].Port), 8080)
+		})
+
+		t.Run("only port number", func(t *testing.T) {
+			backends := filterServiceBackends(svc, []string{"80"})
+			assert.Len(t, backends, 1)
+
+			assert.Len(t, backends["80"], 1)
+			assert.Equal(t, (int)(backends["80"][0].Port), 8080)
+		})
+	})
 }
 
 type mockNodeAddressingFamily struct {
