@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.10.14
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* add an option to wait for kube-proxy (Backport PR #20628, Upstream PR #20517, @michi-covalent)
+* Add metric on number of requests rejected by DNS Proxy semaphore (Backport PR #20620, Upstream PR #20491, @rahulkjoshi)
+
+**Bugfixes:**
+* Add EndpointSlice support for clustermesh-apiserver (Backport PR #20838, Upstream PR #20697, @YutaroHayakawa)
+* Fix ineffective post-start hook in ENI mode (Backport PR #20838, Upstream PR #20741, @bmcustodio)
+* Fix parsing of string map command line options when more than one separator is present. (Backport PR #20838, Upstream PR #20673, @tklauser)
+* helm: Guard apply sysctl init container (Backport PR #20838, Upstream PR #20643, @sayboras)
+* iptables: handle case where kernel IPv6 support is disabled (Backport PR #20838, Upstream PR #20680, @jibi)
+* pkg/k8s/version: Also set EndpointSlice when forcing version (Backport PR #20620, Upstream PR #20383, @joamaki)
+
+**CI Changes:**
+* ci: fix code changes detection on `push` events (Backport PR #20838, Upstream PR #20685, @nbusseneau)
+
+**Misc Changes:**
+* build(deps): bump actions/cache from 3.0.5 to 3.0.6 (#20803, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.6 to 3.0.7 (#20871, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.0.0 to 3.1.0 (#20591, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.1.0 to 3.1.1 (#20802, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.3 to 1.5.4 (#20579, @dependabot[bot])
+* Consider `$GO` environment variable `make precheck` checks (Backport PR #20838, Upstream PR #20750, @tklauser)
+* contrib: Add CRD generation to release process (Backport PR #20838, Upstream PR #20564, @joestringer)
+* daemon: Improve dnsproxy error when EP not found (Backport PR #20838, Upstream PR #20649, @joestringer)
+* docs(masquerading): add missing "address" (Backport PR #20620, Upstream PR #20538, @raphink)
+* docs: update etcd kvstore migration instructions (Backport PR #20838, Upstream PR #20624, @hhoover)
+* Fix `subnet_id` label value being empty in IP allocation and interface creation in ENI IPAM metrics (Backport PR #20838, Upstream PR #20449, @wu0407)
+* fqdn/dnsproxy: fix test build (Backport PR #20620, Upstream PR #20537, @tklauser)
+* Optimize CIDR label functions (Backport PR #20620, Upstream PR #19843, @christarazi)
+* pkg/k8s: do not wait for endpointslice cache sync in k8s >= 1.17 (Backport PR #20620, Upstream PR #20569, @aanm)
+* pkg/k8s: set the right IP addresses in log messages (Backport PR #20838, Upstream PR #20757, @aanm)
+
+**Other Changes:**
+* install: Update image digests for v1.10.13 (#20560, @joestringer)
+
 ## v1.10.13
 
 Summary of Changes
