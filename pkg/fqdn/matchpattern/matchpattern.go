@@ -20,7 +20,7 @@ func Validate(pattern string) (matcher *regexp.Regexp, err error) {
 	if err := prevalidate(pattern); err != nil {
 		return nil, err
 	}
-	return re.CompileRegex(ToRegexp(pattern))
+	return re.CompileRegex(ToAnchoredRegexp(pattern))
 }
 
 // ValidateWithoutCache is the same as Validate() but doesn't consult the regex
@@ -29,7 +29,7 @@ func ValidateWithoutCache(pattern string) (matcher *regexp.Regexp, err error) {
 	if err := prevalidate(pattern); err != nil {
 		return nil, err
 	}
-	return regexp.Compile(ToRegexp(pattern))
+	return regexp.Compile(ToAnchoredRegexp(pattern))
 }
 
 func prevalidate(pattern string) error {
@@ -44,7 +44,7 @@ func prevalidate(pattern string) error {
 	return nil
 }
 
-// Sanitize canonicalized the pattern for use by ToRegexp
+// Sanitize canonicalized the pattern for use by ToAnchoredRegexp
 func Sanitize(pattern string) string {
 	if pattern == "*" {
 		return pattern
@@ -53,11 +53,11 @@ func Sanitize(pattern string) string {
 	return dns.FQDN(pattern)
 }
 
-// ToRegexp converts a MatchPattern field into a regexp string. It does not
-// validate the pattern.
+// ToAnchoredRegexp converts a MatchPattern field into a regexp string. It does not
+// validate the pattern. It also adds anchors to ensure it match the whole string.
 // It supports:
 // * to select 0 or more DNS valid characters
-func ToRegexp(pattern string) string {
+func ToAnchoredRegexp(pattern string) string {
 	pattern = strings.TrimSpace(pattern)
 	pattern = strings.ToLower(pattern)
 
@@ -75,4 +75,29 @@ func ToRegexp(pattern string) string {
 
 	// Anchor the match to require the whole string to match this expression
 	return "^" + pattern + "$"
+}
+
+// ToUnAnchoredRegexp converts a MatchPattern field into a regexp string. It does not
+// validate the pattern. It does not add regexp anchors.
+// It supports:
+// * to select 0 or more DNS valid characters
+func ToUnAnchoredRegexp(pattern string) string {
+	pattern = strings.TrimSpace(pattern)
+	pattern = strings.ToLower(pattern)
+	// handle the * match-all case. This will filter down to the end.
+	if pattern == "*" {
+		return "(" + allowedDNSCharsREGroup + "+[.])+|[.]"
+	}
+	pattern = escapeRegexpCharacters(pattern)
+	return pattern
+}
+
+func escapeRegexpCharacters(pattern string) string {
+	// base case. "." becomes a literal .
+	pattern = strings.Replace(pattern, ".", "[.]", -1)
+
+	// base case. * becomes .*, but only for DNS valid characters
+	// NOTE: this only works because the case above does not leave the *
+	pattern = strings.Replace(pattern, "*", allowedDNSCharsREGroup+"*", -1)
+	return pattern
 }

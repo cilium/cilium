@@ -1107,23 +1107,23 @@ func shouldCompressResponse(request, response *dns.Msg) bool {
 // GeneratePattern takes a set of l7Rules and returns a regular expression pattern for matching the
 // provided l7 rules.
 func GeneratePattern(l7Rules *policy.PerSelectorPolicy) (pattern string) {
-	if l7Rules == nil {
+	if l7Rules == nil || len(l7Rules.DNS) == 0 {
 		l7Rules = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}}
 	}
 	reStrings := make([]string, 0, len(l7Rules.DNS))
 	for _, dnsRule := range l7Rules.DNS {
 		if len(dnsRule.MatchName) > 0 {
 			dnsRuleName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
-			reStrings = append(reStrings, "("+matchpattern.ToRegexp(dnsRuleName)+")")
+			dnsRuleNameAsRE := matchpattern.ToUnAnchoredRegexp(dnsRuleName)
+			reStrings = append(reStrings, dnsRuleNameAsRE)
 		}
 		if len(dnsRule.MatchPattern) > 0 {
 			dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
-			dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
-			reStrings = append(reStrings, "("+dnsPatternAsRE+")")
+			dnsPatternAsRE := matchpattern.ToUnAnchoredRegexp(dnsPattern)
+			reStrings = append(reStrings, dnsPatternAsRE)
 		}
 	}
-
-	return strings.Join(reStrings, "|")
+	return "^(?:" + strings.Join(reStrings, "|") + ")$"
 }
 
 func (p *DNSProxy) Cleanup() {
