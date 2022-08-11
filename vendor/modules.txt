@@ -371,7 +371,7 @@ github.com/go-openapi/analysis/internal/flatten/operations
 github.com/go-openapi/analysis/internal/flatten/replace
 github.com/go-openapi/analysis/internal/flatten/schutils
 github.com/go-openapi/analysis/internal/flatten/sortref
-# github.com/go-openapi/errors v0.20.2
+# github.com/go-openapi/errors v0.20.3
 ## explicit; go 1.14
 github.com/go-openapi/errors
 # github.com/go-openapi/jsonpointer v0.19.5
