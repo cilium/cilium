@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-dst_file="${dir}/concepts/kubernetes/compatibility-table.rst"
+dst_file="${PWD}/$(basename ${dir})/concepts/kubernetes/compatibility-table.rst"
 
 . "${dir}/../contrib/backporting/common.sh"
 remote="$(get_remote)"
@@ -21,7 +21,7 @@ get_schema_of_tag(){
 
 get_line_of_schema_version(){
    tag="${1}"
-   git grep -H 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${tag} -- pkg/k8s | sed "s+${remote}/${tag}:++;s+.go:.*+.go+"
+   git grep -H 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${tag} -- pkg/k8s | sed "s+${remote}/${tag}:++;s+.go:.*+.go+;s+^+${PWD}/+"
 }
 
 get_schema_of_branch(){
