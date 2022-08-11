@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  pull_request: {}
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: self-hosted 
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: What host
+        run: uname -a
+
+      - name: Run a multi-line script
+        run: |
+          echo Andre is a good manager
