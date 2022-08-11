@@ -55,7 +55,7 @@ func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector
 		if len(ToFQDN.MatchPattern) > 0 {
 			// lookup matching DNS names
 			dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
-			patternREStr := matchpattern.ToRegexp(dnsPattern)
+			patternREStr := matchpattern.ToAnchoredRegexp(dnsPattern)
 			var (
 				err       error
 				patternRE *regexp.Regexp
