@@ -1,5 +1,68 @@
 # Changelog
 
+## v1.11.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* add an option to wait for kube-proxy (Backport PR #20840, Upstream PR #20517, @michi-covalent)
+* Add metric on number of requests rejected by DNS Proxy semaphore (Backport PR #20840, Upstream PR #20491, @rahulkjoshi)
+* Cilium Istio integration is updated to Istio release 1.10.6 (Backport PR #20840, Upstream PR #18384, @jrajahalme)
+
+**Bugfixes:**
+* Add EndpointSlice support for clustermesh-apiserver (Backport PR #20840, Upstream PR #20697, @YutaroHayakawa)
+* Envoy version checking is now disabled whenever L7 proxy is disabled too (Backport PR #20840, Upstream PR #20440, @bmcustodio)
+* Fix ineffective post-start hook in ENI mode (Backport PR #20840, Upstream PR #20741, @bmcustodio)
+* Fix mtu setting for tunnel interface in init.sh (Backport PR #20840, Upstream PR #20552, @ChengyuanLiCY)
+* Fix parsing of string map command line options when more than one separator is present. (Backport PR #20840, Upstream PR #20673, @tklauser)
+* Fix the bugs when empty CiliumEndpointSlices were created and leaked. (Backport PR #20840, Upstream PR #20251, @alan-kut)
+* helm: Guard apply sysctl init container (Backport PR #20840, Upstream PR #20643, @sayboras)
+* iptables: handle case where kernel IPv6 support is disabled (Backport PR #20840, Upstream PR #20680, @jibi)
+* Optimize Eni update latency after new eni created (Backport PR #20840, Upstream PR #20609, @wu0407)
+* pkg/k8s/version: Also set EndpointSlice when forcing version (Backport PR #20840, Upstream PR #20383, @joamaki)
+
+**CI Changes:**
+* ci: fix code changes detection on `push` events (Backport PR #20840, Upstream PR #20685, @nbusseneau)
+* ci: pick up cilium-cli v0.11.9 for master/v1.11 workflows (Backport PR #20840, Upstream PR #20234, @tklauser)
+* ci: pick up cilium-cli v0.12.0 for master, v1.11 and v1.12 workflows (Backport PR #20840, Upstream PR #20617, @tklauser)
+* docs: Bump up Netlify Python version to 3.8 (Backport PR #20840, Upstream PR #20486, @michi-covalent)
+
+**Misc Changes:**
+* Add metric to track terminating endpoint events (Backport PR #20840, Upstream PR #20404, @aditighag)
+* Add Peer Service to Cilium DS Port List (Backport PR #20840, Upstream PR #20296, @nathanjsweet)
+* build(deps): bump actions/cache from 3.0.5 to 3.0.6 (#20805, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.6 to 3.0.7 (#20872, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.0.0 to 3.1.0 (#20592, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.1.0 to 3.1.1 (#20807, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.16 to 2.1.17 (#20708, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.17 to 2.1.18 (#20784, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.3 to 1.5.4 (#20577, @dependabot[bot])
+* build(deps): bump library/alpine from 3.16.0 to 3.16.1 in /images/cache (#20587, @dependabot[bot])
+* build(deps): bump library/alpine from 3.16.1 to 3.16.2 in /images/cache (#20855, @dependabot[bot])
+* Consider `$GO` environment variable `make precheck` checks (Backport PR #20840, Upstream PR #20750, @tklauser)
+* contrib: Add CRD generation to release process (Backport PR #20840, Upstream PR #20564, @joestringer)
+* daemon: Improve dnsproxy error when EP not found (Backport PR #20840, Upstream PR #20649, @joestringer)
+* dnsproxy: update dnsproxy benchmark memory calculation (Backport PR #20840, Upstream PR #20305, @odinuge)
+* docs(masquerading): add missing "address" (Backport PR #20840, Upstream PR #20538, @raphink)
+* docs, ci, test/l4lb: use latest cilium-cli release according to stable.txt (Backport PR #20840, Upstream PR #20203, @tklauser)
+* docs: fix a Links documentation style guide error (Backport PR #20840, Upstream PR #20460, @Kikiodazie)
+* docs: update etcd kvstore migration instructions (Backport PR #20840, Upstream PR #20624, @hhoover)
+* docs: Update Helm values (Backport PR #20840, Upstream PR #20716, @qmonnet)
+* Fix `subnet_id` label value being empty in IP allocation and interface creation in ENI IPAM metrics (Backport PR #20840, Upstream PR #20449, @wu0407)
+* fqdn/dnsproxy: fix test build (Backport PR #20840, Upstream PR #20537, @tklauser)
+* helm: Make DNS policy for cilium-agent and cilium-operator pods configurable (Backport PR #20840, Upstream PR #20082, @michi-covalent)
+* hubble-ui: release v0.9.1 (Backport PR #20840, Upstream PR #20572, @geakstr)
+* pkg/k8s: do not wait for endpointslice cache sync in k8s >= 1.17 (Backport PR #20840, Upstream PR #20569, @aanm)
+* pkg/k8s: set the right IP addresses in log messages (Backport PR #20840, Upstream PR #20757, @aanm)
+* pkg/metrics: Remove source node label (Backport PR #20840, Upstream PR #20433, @aditighag)
+* Revert "Revert "doc: update the api spec for fqdn egress policies cod… (Backport PR #20840, Upstream PR #20744, @aanm)
+* v1.11: Update Go to 1.17.13 (#20747, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.11.7 (#20561, @joestringer)
+* remove stable tag from docker images builds (#20575, @aanm)
+
 ## v1.11.7
 
 Summary of Changes
