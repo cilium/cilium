@@ -6,6 +6,7 @@ dst_file="${dir}/concepts/kubernetes/compatibility-table.rst"
 . "${dir}/../contrib/backporting/common.sh"
 remote="$(get_remote)"
 
+set -e
 set -o nounset
 set -o pipefail
 
