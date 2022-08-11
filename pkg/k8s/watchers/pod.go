@@ -396,6 +396,14 @@ func updateCiliumEndpointLabels(ep *endpoint.Endpoint, labels map[string]string)
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) (err error) {
 				pod := ep.GetPod()
+				if pod == nil {
+					err := errors.New("Skipping CiliumEndpoint update because it has no k8s pod")
+					scopedLog.WithFields(logrus.Fields{
+						logfields.EndpointID: ep.GetID(),
+						logfields.Labels:     logfields.Repr(labels),
+					}).Debug(err)
+					return err
+				}
 				ciliumClient := k8s.CiliumClient().CiliumV2()
 
 				replaceLabels := []k8s.JSONPatch{
