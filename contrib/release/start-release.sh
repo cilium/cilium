@@ -105,7 +105,7 @@ main() {
         sed -i 's/\(projects\/\)[0-9]\+/\1'$new_proj'/g' $ACTS_YAML
     fi
 
-    $DIR/../../Documentation/check-crd-compat-table.sh "$branch"
+    $DIR/../../Documentation/check-crd-compat-table.sh "$branch" --update
     if [ "${old_branch}" != "" ]; then
       $DIR/prep-changelog.sh "$old_version" "$version" "$old_branch"
     else
