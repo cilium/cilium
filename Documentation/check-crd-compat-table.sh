@@ -163,7 +163,7 @@ if ! git diff --quiet ${last_cilium_release}..${remote}/${release_version} $crd_
   if [[ "${current_release_version}" != "${expected_version}" ]]; then
     >&2 echo "Current version for branch ${release_version} should be ${expected_version}, not ${current_release_version}, please run the following command to fix it:"
     >&2 echo "git checkout ${remote}/${release_version} && \\"
-    >&2 echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_version})"
+    >&2 echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_version} | tr '\n' ' ')"
     exit 1
   fi
 fi
