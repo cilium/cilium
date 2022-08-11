@@ -6,14 +6,15 @@ package option
 import (
 	"fmt"
 	"os"
-	"path"
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/spf13/cast"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
+	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -68,6 +69,9 @@ func Module() fx.Option {
 type ConfigProvider interface {
 	// GetConfig retrieves the configuration for the structure of the given type.
 	GetConfig(typeName string) (any, error)
+
+	// DumpConfigs prints all registered configurations to stdout
+	DumpConfigs()
 }
 
 type CommandLineArguments []string
@@ -83,6 +87,7 @@ type configProviderParams struct {
 }
 
 type configProvider struct {
+	flagSet *pflag.FlagSet
 	configs map[string]any
 }
 
@@ -98,14 +103,11 @@ func newConfigProvider(in configProviderParams) (ConfigProvider, error) {
 	allOpts := []optInternal{}
 	flags := in.FlagSet
 
-	progName := path.Base(in.Args[0])
-	help := flags.BoolP("help", "h", false, "help for "+progName)
-
 	// Iterate over all registered configuration structs to build the flag set.
 	for _, reg := range in.Registrations {
 		val := reflect.ValueOf(reg.configStruct)
 		typ := val.Type()
-		configs[typ.Name()] = reg.configStruct
+		configs[typ.PkgPath()+"."+typ.Name()] = reg.configStruct
 
 		if val.Kind() != reflect.Struct {
 			return nil, fmt.Errorf("%s is not a struct!", typ)
@@ -121,12 +123,6 @@ func newConfigProvider(in configProviderParams) (ConfigProvider, error) {
 
 	if err := flags.Parse(in.Args[1:]); err != nil {
 		return nil, err
-	}
-
-	if *help {
-		fmt.Printf("Usage:\n  %s [flags]\n\nFlags:\n", progName)
-		flags.PrintDefaults()
-		os.Exit(1)
 	}
 
 	// Provide the parsed flags to viper
@@ -179,7 +175,30 @@ func newConfigProvider(in configProviderParams) (ConfigProvider, error) {
 		}
 	}
 
-	return &configProvider{configs}, nil
+	return &configProvider{flags, configs}, nil
+}
+
+func (p *configProvider) DumpConfigs() {
+	fmt.Printf("Configurations:\n\n")
+
+	keys := maps.Keys(p.configs)
+	sort.Strings(keys)
+
+	for _, name := range keys {
+		cfg := p.configs[name]
+		fmt.Printf("  %s:\n", name)
+
+		val := reflect.ValueOf(cfg)
+		typ := reflect.TypeOf(cfg)
+		for i := 0; i < val.NumField(); i++ {
+			if opt, ok := val.Field(i).Interface().(optInternal); ok {
+				flag := p.flagSet.Lookup(opt.getFlag())
+				v := fmt.Sprintf("%s=%s", flag.Name, flag.Value.String())
+				fmt.Printf("    %-25s | %-30s | %s\n", v, typ.Field(i).Name+" "+val.Field(i).Type().Name(), flag.Usage)
+			}
+		}
+		fmt.Println()
+	}
 }
 
 type ConfigRegistration struct {
@@ -205,7 +224,8 @@ func Register(configStruct any) fx.Annotated {
 // in order to inject it into the dependency graph.
 func GetConfig[T any](p ConfigProvider) (T, error) {
 	var proto T
-	typeName := reflect.TypeOf(proto).Name()
+	typ := reflect.TypeOf(proto)
+	typeName := typ.PkgPath() + "." + typ.Name()
 	if cfgValue, err := p.GetConfig(typeName); err != nil {
 		return proto, err
 	} else {

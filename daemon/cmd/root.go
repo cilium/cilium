@@ -31,6 +31,12 @@ var (
 		Short: "Print the objects available in the application dependency graph",
 		Run:   runDumpObjects,
 	}
+
+	dumpConfigsCmd = &cobra.Command{
+		Use:   "dump-configs",
+		Short: "Print out all registered modular configurations",
+		Run:   runDumpConfigs,
+	}
 )
 
 func init() {
@@ -46,6 +52,7 @@ func Execute() error {
 		cmdrefCmd,
 		dumpDotGraphCmd,
 		dumpObjectsCmd,
+		dumpConfigsCmd,
 	)
 
 	return rootCmd.Execute()

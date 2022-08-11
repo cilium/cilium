@@ -27,16 +27,17 @@ func AgentModules() fx.Option {
 }
 
 var (
-	agentDotGraph  fx.DotGraph
-	agentAppLogger = newAppLogger()
-	agentApp       *fx.App
+	agentDotGraph       fx.DotGraph
+	agentConfigProvider option.ConfigProvider
+	agentAppLogger      = newAppLogger()
+	agentApp            *fx.App
 )
 
 // initApp constructs the cilium-agent application.
 func initApp() {
 	agentApp = fx.New(
 		fx.WithLogger(func() fxevent.Logger { return agentAppLogger }),
-		fx.Populate(&agentDotGraph),
+		fx.Populate(&agentDotGraph, &agentConfigProvider),
 
 		// Register start and stop hooks for the unmodularized legacy part of the cilium-agent.
 		fx.Invoke(registerDaemonHooks),
@@ -48,7 +49,7 @@ func initApp() {
 		AgentModules(),
 	)
 	if err := agentApp.Err(); err != nil {
-		log.WithError(err).Fatal("Failed to initialize agent application")
+		log.WithError(err).Error("Failed to initialize agent application")
 	}
 }
 
@@ -64,9 +65,12 @@ func runApp(cmd *cobra.Command, args []string) {
 
 func runDumpDotGraph(cmd *cobra.Command, args []string) {
 	fmt.Print(agentDotGraph)
-	os.Exit(0)
 }
 
 func runDumpObjects(cmd *cobra.Command, args []string) {
 	agentAppLogger.DumpObjects()
+}
+
+func runDumpConfigs(cmd *cobra.Command, args []string) {
+	agentConfigProvider.DumpConfigs()
 }
