@@ -7,8 +7,7 @@ idna==3.3
 imagesize==1.3.0
 Jinja2==3.0.3
 jsonschema==4.4.0
-# for m2r (dependency to sphinxcontrib-openapi), see https://github.com/miyakogi/m2r/issues/66
-mistune<2.0.0
+mistune==2.0.2
 MarkupSafe==2.1.0
 myst-parser==0.17.0
 pyenchant==3.2.2
@@ -24,7 +23,9 @@ sphinx-autobuild==2021.3.14
 # forked read the docs themez
 git+https://github.com/cilium/sphinx_rtd_theme.git@v1.0
 sphinxcontrib-httpdomain==1.8.0
-sphinxcontrib-openapi==0.7.0
+# Fork openapi until it uses something newer than unmaintained m2r
+# (See git logs for details)
+git+https://github.com/cilium/openapi.git@mdinclude
 sphinxcontrib-spelling==7.3.2
 sphinxcontrib-websupport==1.2.4
 sphinx-tabs==3.3.1
