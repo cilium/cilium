@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright Authors of Cilium */
 
-/* To compile:
- * $ clang -I../../../bpf/include -O2 -g -target bpf -emit-llvm \
- *      -Wall -Werror -Wno-address-of-packed-member             \
- *      -Wno-unknown-warning-option -c bpf_foo.c -o bpf_foo.ll
- * $ llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=obj   \
- *      -o bpf_foo.o bpf_foo.ll
- */
+// To compile: make -C bpf testdata in repo root.
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 
 union v6addr {
         struct {
@@ -40,8 +34,5 @@ struct foo {
 	__u16 pad5;
 } __attribute__((packed));
 
-int main() {
-    __attribute__((unused)) struct foo f;
-
-    return 0;
-}
+struct foo _1;
+union v6addr _2;
