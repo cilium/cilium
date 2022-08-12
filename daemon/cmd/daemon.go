@@ -664,6 +664,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.ipcache,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
+
 	d.ipcache.RegisterK8sSyncedChecker(&d)
 
 	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)
