@@ -657,7 +657,7 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN,
 					  &fib_params.l.ifindex);
-		if (ret)
+		if (ret != CTX_ACT_REDIRECT)
 			goto drop_err;
 
 		BPF_V6(target.addr, ROUTER_IP);
@@ -940,17 +940,12 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 
 			info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 			if (info != NULL && info->tunnel_endpoint != 0) {
-				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-							  SECLABEL,
-							  info->sec_label,
-							  NOT_VTEP_DST,
-							  TRACE_REASON_CT_REPLY,
-							  TRACE_PAYLOAD_LEN,
-							  ifindex);
-				if (ret)
-					return ret;
-
-				return CTX_ACT_OK;
+				return __encap_with_nodeid(ctx, info->tunnel_endpoint,
+							   SECLABEL, info->sec_label,
+							   NOT_VTEP_DST,
+							   TRACE_REASON_CT_REPLY,
+							   TRACE_PAYLOAD_LEN,
+							   ifindex);
 			}
 		}
 #endif
@@ -970,7 +965,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 		if (ret != 0)
 			return ret;
 		if (!l2_hdr_required)
-			return CTX_ACT_OK;
+			return CTX_ACT_REDIRECT;
 
 		if (fib_ret != 0) {
 			union macaddr smac =
@@ -1006,7 +1001,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 		}
 	}
 
-	return CTX_ACT_OK;
+	return CTX_ACT_REDIRECT;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
@@ -1042,15 +1037,23 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		goto drop;
 	if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
-		ret = lb6_to_lb4(ctx, ip6);
-		if (ret)
+		int ret2;
+
+		ret2 = lb6_to_lb4(ctx, ip6);
+		if (ret2) {
+			ret = ret2;
 			goto drop;
+		}
 	}
 
 	edt_set_aggregate(ctx, 0);
 	cilium_capture_out(ctx);
 
-	return ctx_redirect(ctx, ifindex, 0);
+	if (ret == CTX_ACT_REDIRECT)
+		return ctx_redirect(ctx, ifindex, 0);
+
+	return ret;
+
 drop:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
@@ -1727,7 +1730,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN,
 					  &fib_params.l.ifindex);
-		if (ret)
+		if (ret != CTX_ACT_REDIRECT)
 			goto drop_err;
 
 		target.addr = IPV4_GATEWAY;
@@ -2075,7 +2078,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		if (ret != 0)
 			return ret;
 		if (!l2_hdr_required)
-			return CTX_ACT_OK;
+			return CTX_ACT_REDIRECT;
 
 		if (fib_ret != 0) {
 			union macaddr smac =
@@ -2120,17 +2123,13 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		}
 	}
 
-	return CTX_ACT_OK;
+	return CTX_ACT_REDIRECT;
 
 #if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)) && \
 	__ctx_is != __ctx_xdp
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
-				  NOT_VTEP_DST, reason, monitor, ifindex);
-	if (ret)
-		return ret;
-
-	return CTX_ACT_OK;
+	return __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
+				   NOT_VTEP_DST, reason, monitor, ifindex);
 #endif
 }
 
@@ -2167,7 +2166,10 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	edt_set_aggregate(ctx, 0);
 	cilium_capture_out(ctx);
 
-	return ctx_redirect(ctx, ifindex, 0);
+	if (ret == CTX_ACT_REDIRECT)
+		return ctx_redirect(ctx, ifindex, 0);
+
+	return ret;
 }
 
 declare_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
