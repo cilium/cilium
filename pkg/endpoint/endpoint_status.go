@@ -120,11 +120,7 @@ func getEndpointNetworking(mdlNetworking *models.EndpointNetworking) (networking
 		Addressing: make(cilium_v2.AddressPairList, len(mdlNetworking.Addressing)),
 	}
 
-	if option.Config.EnableIPv4 {
-		networking.NodeIP = node.GetIPv4().String()
-	} else {
-		networking.NodeIP = node.GetIPv6().String()
-	}
+	networking.NodeIP = node.GetCiliumEndpointNodeIP()
 
 	for i, pair := range mdlNetworking.Addressing {
 		networking.Addressing[i] = &cilium_v2.AddressPair{
