@@ -16,6 +16,7 @@ Summary of Changes
 * helm: Guard apply sysctl init container (Backport PR #20838, Upstream PR #20643, @sayboras)
 * iptables: handle case where kernel IPv6 support is disabled (Backport PR #20838, Upstream PR #20680, @jibi)
 * pkg/k8s/version: Also set EndpointSlice when forcing version (Backport PR #20620, Upstream PR #20383, @joamaki)
+* Fix bug where Cilium would crash on startup with an error about being unable to delete iptables rules. (Backport PR #20892, Upstream PR #20885, @jibi)
 
 **CI Changes:**
 * ci: fix code changes detection on `push` events (Backport PR #20838, Upstream PR #20685, @nbusseneau)
