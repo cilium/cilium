@@ -6,22 +6,53 @@ items:
     annotations:
       kubectl.kubernetes.io/last-applied-configuration: |
         {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"echo","namespace":"test"},"spec":{"ports":[{"name":"http","port":80,"protocol":"TCP","targetPort":80}],"selector":{"name":"echo"},"type":"NodePort"}}
-    creationTimestamp: "2022-07-06T09:25:50Z"
+    creationTimestamp: "2022-08-12T10:01:06Z"
     name: echo
     namespace: test
-    resourceVersion: "804"
-    uid: 73255222-9e75-4582-a5d0-7575611447b8
+    resourceVersion: "827"
+    uid: c7fbda14-5f68-44b6-a929-bc5d4cd36aec
   spec:
-    clusterIP: 10.96.215.26
+    clusterIP: 10.96.120.38
     clusterIPs:
-    - 10.96.215.26
+    - 10.96.120.38
     externalTrafficPolicy: Cluster
     ipFamilies:
     - IPv4
     ipFamilyPolicy: SingleStack
     ports:
     - name: http
-      nodePort: 31651
+      nodePort: 31406
+      port: 80
+      protocol: TCP
+      targetPort: 80
+    selector:
+      name: echo
+    sessionAffinity: None
+    type: NodePort
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"echo-local","namespace":"test"},"spec":{"externalTrafficPolicy":"Local","ports":[{"name":"http","port":80,"protocol":"TCP","targetPort":80}],"selector":{"name":"echo"},"type":"NodePort"}}
+    creationTimestamp: "2022-08-12T10:01:06Z"
+    name: echo-local
+    namespace: test
+    resourceVersion: "839"
+    uid: e64c2b08-b419-4fa5-9d03-576868508128
+  spec:
+    clusterIP: 10.96.165.224
+    clusterIPs:
+    - 10.96.165.224
+    externalTrafficPolicy: Local
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      nodePort: 32450
       port: 80
       protocol: TCP
       targetPort: 80
@@ -35,22 +66,46 @@ items:
   kind: Endpoints
   metadata:
     annotations:
-      endpoints.kubernetes.io/last-change-trigger-time: "2022-07-06T09:26:06Z"
-    creationTimestamp: "2022-07-06T09:25:50Z"
+      endpoints.kubernetes.io/last-change-trigger-time: "2022-08-12T10:01:13Z"
+    creationTimestamp: "2022-08-12T10:01:06Z"
     name: echo
     namespace: test
-    resourceVersion: "854"
-    uid: 9c6d99d4-8d3c-441b-a315-0b44a7e0f9fb
+    resourceVersion: "868"
+    uid: 0d63794d-3f87-46b3-9e05-e01f8023b0e4
   subsets:
   - addresses:
-    - ip: 10.244.2.56
-      nodeName: nodeport-worker
+    - ip: 10.244.1.133
+      nodeName: nodeport-worker2
       targetRef:
         kind: Pod
-        name: echo-76456c8696-cwxmh
+        name: echo-76456c8696-96v4m
         namespace: test
-        resourceVersion: "853"
-        uid: 8b4b16fa-55a8-4f56-a11f-8ca54762b377
+        resourceVersion: "867"
+        uid: 3d63d59c-b929-4956-ac65-e06eb0d7ce96
+    ports:
+    - name: http
+      port: 80
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2022-08-12T10:01:13Z"
+    creationTimestamp: "2022-08-12T10:01:06Z"
+    name: echo-local
+    namespace: test
+    resourceVersion: "869"
+    uid: 1827de7d-d386-4611-91c1-ecb3ef86c3f6
+  subsets:
+  - addresses:
+    - ip: 10.244.1.133
+      nodeName: nodeport-worker2
+      targetRef:
+        kind: Pod
+        name: echo-76456c8696-96v4m
+        namespace: test
+        resourceVersion: "867"
+        uid: 3d63d59c-b929-4956-ac65-e06eb0d7ce96
     ports:
     - name: http
       port: 80
@@ -59,28 +114,68 @@ items:
   apiVersion: discovery.k8s.io/v1beta1
   endpoints:
   - addresses:
-    - 10.244.2.56
+    - 10.244.1.133
     conditions:
       ready: true
     targetRef:
       kind: Pod
-      name: echo-76456c8696-cwxmh
+      name: echo-76456c8696-96v4m
       namespace: test
-      resourceVersion: "853"
-      uid: 8b4b16fa-55a8-4f56-a11f-8ca54762b377
+      resourceVersion: "867"
+      uid: 3d63d59c-b929-4956-ac65-e06eb0d7ce96
     topology:
-      kubernetes.io/hostname: nodeport-worker
+      kubernetes.io/hostname: nodeport-worker2
   kind: EndpointSlice
   metadata:
     annotations:
-      endpoints.kubernetes.io/last-change-trigger-time: "2022-07-06T09:26:06Z"
-    creationTimestamp: "2022-07-06T09:25:50Z"
+      endpoints.kubernetes.io/last-change-trigger-time: "2022-08-12T10:01:13Z"
+    creationTimestamp: "2022-08-12T10:01:06Z"
+    generateName: echo-local-
+    generation: 3
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: echo-local
+    name: echo-local-9r4sg
+    namespace: test
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: echo-local
+      uid: e64c2b08-b419-4fa5-9d03-576868508128
+    resourceVersion: "871"
+    uid: ef58ccde-6076-48a2-80a6-c19cfd8cd0ee
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1beta1
+  endpoints:
+  - addresses:
+    - 10.244.1.133
+    conditions:
+      ready: true
+    targetRef:
+      kind: Pod
+      name: echo-76456c8696-96v4m
+      namespace: test
+      resourceVersion: "867"
+      uid: 3d63d59c-b929-4956-ac65-e06eb0d7ce96
+    topology:
+      kubernetes.io/hostname: nodeport-worker2
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2022-08-12T10:01:13Z"
+    creationTimestamp: "2022-08-12T10:01:06Z"
     generateName: echo-
     generation: 3
     labels:
       endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
       kubernetes.io/service-name: echo
-    name: echo-r9khv
+    name: echo-rs6q2
     namespace: test
     ownerReferences:
     - apiVersion: v1
@@ -88,9 +183,9 @@ items:
       controller: true
       kind: Service
       name: echo
-      uid: 73255222-9e75-4582-a5d0-7575611447b8
-    resourceVersion: "855"
-    uid: eaeb4be0-111d-431c-bc9e-54a88fbd958f
+      uid: c7fbda14-5f68-44b6-a929-bc5d4cd36aec
+    resourceVersion: "870"
+    uid: 33a425e0-ce95-41ff-9e28-9827877b005c
   ports:
   - name: http
     port: 80
@@ -98,12 +193,12 @@ items:
 - apiVersion: v1
   kind: Pod
   metadata:
-    creationTimestamp: "2022-07-06T09:25:50Z"
+    creationTimestamp: "2022-08-12T10:01:06Z"
     generateName: echo-76456c8696-
     labels:
       name: echo
       pod-template-hash: 76456c8696
-    name: echo-76456c8696-cwxmh
+    name: echo-76456c8696-96v4m
     namespace: test
     ownerReferences:
     - apiVersion: apps/v1
@@ -111,9 +206,9 @@ items:
       controller: true
       kind: ReplicaSet
       name: echo-76456c8696
-      uid: b8a05aeb-3493-497f-bdb5-8f5929f441e9
-    resourceVersion: "853"
-    uid: 8b4b16fa-55a8-4f56-a11f-8ca54762b377
+      uid: 9db76013-e846-4625-a86e-e0cb7fa920c6
+    resourceVersion: "867"
+    uid: 3d63d59c-b929-4956-ac65-e06eb0d7ce96
   spec:
     containers:
     - image: docker.io/cilium/json-mock:1.2
@@ -137,11 +232,11 @@ items:
       terminationMessagePolicy: File
       volumeMounts:
       - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-        name: default-token-8fj58
+        name: default-token-wbblj
         readOnly: true
     dnsPolicy: ClusterFirst
     enableServiceLinks: true
-    nodeName: nodeport-worker
+    nodeName: nodeport-worker2
     preemptionPolicy: PreemptLowerPriority
     priority: 0
     restartPolicy: Always
@@ -160,30 +255,30 @@ items:
       operator: Exists
       tolerationSeconds: 300
     volumes:
-    - name: default-token-8fj58
+    - name: default-token-wbblj
       secret:
         defaultMode: 420
-        secretName: default-token-8fj58
+        secretName: default-token-wbblj
   status:
     conditions:
     - lastProbeTime: null
-      lastTransitionTime: "2022-07-06T09:25:50Z"
+      lastTransitionTime: "2022-08-12T10:01:06Z"
       status: "True"
       type: Initialized
     - lastProbeTime: null
-      lastTransitionTime: "2022-07-06T09:26:06Z"
+      lastTransitionTime: "2022-08-12T10:01:13Z"
       status: "True"
       type: Ready
     - lastProbeTime: null
-      lastTransitionTime: "2022-07-06T09:26:06Z"
+      lastTransitionTime: "2022-08-12T10:01:13Z"
       status: "True"
       type: ContainersReady
     - lastProbeTime: null
-      lastTransitionTime: "2022-07-06T09:25:50Z"
+      lastTransitionTime: "2022-08-12T10:01:06Z"
       status: "True"
       type: PodScheduled
     containerStatuses:
-    - containerID: containerd://c82517d6ecca797a5d4bf3c22e9abdef77b09e1d2f59e7ea5c82bf82c4edb246
+    - containerID: containerd://28fbbbbb9cf394203f1bcf81744c2c5dd15363670efc181839e2a9189ba8c04d
       image: docker.io/cilium/json-mock:1.2
       imageID: docker.io/cilium/json-mock@sha256:941e03da57551dd4a71f351b35650c152a1192ac1df717e43ee58b5aa2b8e241
       lastState: {}
@@ -193,14 +288,14 @@ items:
       started: true
       state:
         running:
-          startedAt: "2022-07-06T09:25:58Z"
-    hostIP: 172.18.0.3
+          startedAt: "2022-08-12T10:01:12Z"
+    hostIP: 172.18.0.4
     phase: Running
-    podIP: 10.244.2.56
+    podIP: 10.244.1.133
     podIPs:
-    - ip: 10.244.2.56
+    - ip: 10.244.1.133
     qosClass: BestEffort
-    startTime: "2022-07-06T09:25:50Z"
+    startTime: "2022-08-12T10:01:06Z"
 kind: List
 metadata:
   resourceVersion: ""

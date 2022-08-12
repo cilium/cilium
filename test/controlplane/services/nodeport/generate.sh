@@ -14,7 +14,7 @@ for version in ${versions[*]}; do
     mkdir -p v${version}
 
     : Start a kind cluster
-    kind create cluster --config ../dual-stack/manifests/kind-config-${version}.yaml --name nodeport
+    kind create cluster --config ../dualstack/manifests/kind-config-${version}.yaml --name nodeport
 
     : Wait for service account to be created
     until kubectl get serviceaccount/default; do

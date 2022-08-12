@@ -37,4 +37,20 @@ spec:
     protocol: TCP
   selector:
     name: echo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-local
+  namespace: test
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    name: echo
 
