@@ -150,7 +150,7 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 		}).Debug("Updated FQDN with new IPs")
 	}
 
-	namesMissingIPs, selectorIPMapping := n.generateSelectorUpdates(fqdnSelectorsToUpdate)
+	namesMissingIPs, selectorIPMapping := n.MapSelectorsToIPsLocked(fqdnSelectorsToUpdate)
 	if len(namesMissingIPs) != 0 {
 		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
@@ -235,14 +235,6 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 	}
 
 	return affectedSelectors, updatedNames
-}
-
-// generateSelectorUpdates iterates over all names in the DNS cache managed by
-// gen and figures out to which FQDNSelectors managed by the cache these names
-// map. Returns the set of FQDNSelectors which map to no IPs, and a mapping
-// of FQDNSelectors to IPs.
-func (n *NameManager) generateSelectorUpdates(fqdnSelectors map[api.FQDNSelector]struct{}) (namesMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
-	return n.MapSelectorsToIPsLocked(fqdnSelectors)
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
