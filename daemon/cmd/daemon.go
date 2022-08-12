@@ -374,8 +374,11 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
-	epMgr *endpointmanager.EndpointManager, dp datapath.Datapath,
+func NewDaemon(
+	ctx context.Context,
+	cleaner *daemonCleanup,
+	epMgr *endpointmanager.EndpointManager,
+	dp datapath.Datapath,
 	clientset k8sClient.Clientset,
 ) (*Daemon, *endpointRestoreState, error) {
 
@@ -675,6 +678,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		d.cgroupManager,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
+
 	d.ipcache.RegisterK8sSyncedChecker(&d)
 
 	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)

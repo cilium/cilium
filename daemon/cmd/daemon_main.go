@@ -1661,7 +1661,8 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	d, restoredEndpoints, err := NewDaemon(ctx, cleaner,
 		WithDefaultEndpointManager(ctx, clientset, endpoint.CheckHealth),
 		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent),
-		clientset)
+		clientset,
+	)
 	if err != nil {
 		log.Fatalf("daemon creation failed: %s", err)
 	}
@@ -1688,6 +1689,11 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	}
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
+	waitForRestore := func() {
+		if restoreComplete != nil {
+			<-restoreComplete
+		}
+	}
 	if wgAgent != nil {
 		if err := wgAgent.RestoreFinished(); err != nil {
 			log.WithError(err).Error("Failed to set up wireguard peers")
@@ -1714,11 +1720,28 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 		ipmasqAgent.Start()
 	}
 
+	var cleanupStaleCEPComplete chan struct{}
 	if !option.Config.DryMode {
+		cleanupStaleCEPComplete = make(chan struct{})
 		go func() {
-			if restoreComplete != nil {
-				<-restoreComplete
+			defer close(cleanupStaleCEPComplete)
+			waitForRestore()
+
+			if clientset.IsEnabled() {
+				// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
+				// This will clear out any CiliumEndpoints that may be stale.
+				// Likely causes for this are Pods having their init container restarted or the node being restarted.
+				// This must wait for both K8s watcher caches to be synced and local endpoint restoration to be complete.
+				// Note: Synchronization of endpoints to their CEPs may not be complete at this point, but we only have to
+				// know what endpoints exist post-restoration in our endpointManager cache to perform cleanup.
+				if err := d.cleanStaleCEPs(ctx, d.endpointManager, clientset.CiliumV2(), option.Config.EnableCiliumEndpointSlice); err != nil {
+					log.WithError(err).Error("Failed to clean up stale CEPs")
+				}
 			}
+		}()
+		go func() {
+			waitForRestore()
+
 			d.dnsNameManager.CompleteBootstrap()
 
 			ms := maps.NewMapSweeper(&EndpointMapManager{
@@ -1861,6 +1884,12 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	err = option.StoreViperInFile(option.Config.StateDir)
 	if err != nil {
 		log.WithError(err).Error("Unable to store Viper's configuration")
+	}
+
+	// Wait for this to complete to avoid potentially complex race scenarios
+	// with endpoint create/update/delete API.
+	if cleanupStaleCEPComplete != nil {
+		<-cleanupStaleCEPComplete
 	}
 
 	err = srv.Serve()

@@ -48,7 +48,8 @@ func startCiliumAgent(nodeName string, clientset k8sClient.Clientset) (*fakeData
 		cleaner,
 		cmd.WithCustomEndpointManager(&dummyEpSyncher{}),
 		fdp,
-		clientset)
+		clientset,
+	)
 	if err != nil {
 		return nil, agentHandle{}, err
 	}
