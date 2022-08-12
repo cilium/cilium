@@ -58,7 +58,10 @@ type NodeOperations interface {
 	// interfaces and IPs associated with the node. This function is called
 	// sparingly as this information is kept in sync based on the success
 	// of the functions AllocateIPs(), ReleaseIPs() and CreateInterface().
-	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error)
+	// It returns all available ip in node and remaining available interfaces
+	// that can either be allocated or have not yet exhausted the instance specific quota of addresses
+	// and error occurred during execution.
+	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, int, error)
 
 	// PrepareIPAllocation is called to calculate the number of IPs that
 	// can be allocated on the node and whether a new network interface

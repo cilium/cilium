@@ -357,14 +357,20 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 	// dependent on caller not using the resource after this call.
 	resource = resource.DeepCopy()
 
-	n.ops.UpdatedNode(resource)
-
+	// Update n.resource before n.ops.UpdatedNode. This is to increase the chance
+	// of performing a complete n.recalculate() execution when the nodeManager performs a resync
+	// and the operator is starting up.
+	// This is best effort to solve the issue where the metrics `cilium_operator_ipam_available_interfaces`
+	// only contains a part of the nodes at operator startup. It will be set to the correct
+	// value after the next period where nodeManager performs a resync.
 	n.mutex.Lock()
 	// Any modification to the custom resource is seen as a sign that the
 	// instance is alive
 	n.instanceRunning = true
 	n.resource = resource
 	n.mutex.Unlock()
+
+	n.ops.UpdatedNode(resource)
 
 	n.recalculate()
 	allocationNeeded := n.allocationNeeded()
@@ -390,7 +396,7 @@ func (n *Node) recalculate() {
 	}
 	scopedLog := n.logger()
 
-	a, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
+	a, remainingAvailableInterfaceCount, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -415,6 +421,7 @@ func (n *Node) recalculate() {
 	n.stats.AvailableIPs = len(n.available)
 	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
 	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, usedIPForExcessCalc, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
+	n.stats.RemainingInterfaces = remainingAvailableInterfaceCount
 
 	scopedLog.WithFields(logrus.Fields{
 		"available":                 n.stats.AvailableIPs,
@@ -423,6 +430,7 @@ func (n *Node) recalculate() {
 		"toRelease":                 n.stats.ExcessIPs,
 		"waitingForPoolMaintenance": n.waitingForPoolMaintenance,
 		"resyncNeeded":              n.resyncNeeded,
+		"remainingInterfaces":       remainingAvailableInterfaceCount,
 	}).Debug("Recalculated needed addresses")
 }
 

@@ -172,9 +172,13 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 // ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
 // the AlibabaCloud API and return them
-func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error) {
+func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, remainAvailableENIsCount int, err error) {
+	limits, limitsAvailable := n.getLimits()
+	if !limitsAvailable {
+		return nil, -1, fmt.Errorf(errUnableToDetermineLimits)
+	}
 	instanceID := n.node.InstanceID()
-	available := ipamTypes.AllocationMap{}
+	available = ipamTypes.AllocationMap{}
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -191,6 +195,12 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 			if e.Type == eniTypes.ENITypePrimary {
 				return nil
 			}
+
+			availableOnENI := math.IntMax(limits.IPv4-len(e.PrivateIPSets), 0)
+			if availableOnENI > 0 {
+				remainAvailableENIsCount++
+			}
+
 			for _, ip := range e.PrivateIPSets {
 				available[ip.PrivateIpAddress] = ipamTypes.AllocationIP{Resource: e.NetworkInterfaceID}
 			}
@@ -201,10 +211,11 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	// An ECS instance has at least one ENI attached, no ENI found implies instance not found.
 	if enis == 0 {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
-		return nil, fmt.Errorf("unable to retrieve ENIs")
+		return nil, -1, fmt.Errorf("unable to retrieve ENIs")
 	}
 
-	return available, nil
+	remainAvailableENIsCount += limits.Adapters - len(n.enis)
+	return available, remainAvailableENIsCount, nil
 }
 
 // PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
@@ -212,7 +223,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAction, error) {
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return nil, fmt.Errorf("Unable to determine limits")
+		return nil, fmt.Errorf(errUnableToDetermineLimits)
 	}
 	a := &ipam.AllocationAction{}
 

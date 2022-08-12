@@ -197,7 +197,7 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return nil, fmt.Errorf("Unable to determine limits")
+		return nil, fmt.Errorf(errUnableToDetermineLimits)
 	}
 
 	a = &ipam.AllocationAction{}
@@ -219,18 +219,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 			continue
 		}
 
-		// The limits include the primary IP, so we need to take it into account
-		// when computing the effective number of available addresses on the ENI.
-		effectiveLimits := limits.IPv4 - 1
-
-		// Include the primary IP when UsePrimaryAddress is set to true on ENI spec.
-		if n.k8sObj.Spec.ENI.UsePrimaryAddress != nil && *n.k8sObj.Spec.ENI.UsePrimaryAddress {
-			effectiveLimits++
-		}
-		if n.node.Ops().IsPrefixDelegated() {
-			effectiveLimits = effectiveLimits * option.ENIPDBlockSizeIPv4
-		}
-
+		effectiveLimits := n.getEffectiveIPLimits(limits.IPv4)
 		availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
 		if availableOnENI <= 0 {
 			continue
@@ -507,11 +496,15 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 // ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
 // the EC2 API and return them
-func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error) {
+func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, remainAvailableENIsCount int, err error) {
+	limits, limitsAvailable := n.getLimits()
+	if !limitsAvailable {
+		return nil, -1, fmt.Errorf(errUnableToDetermineLimits)
+	}
 	// n.node does not need to be protected by n.mutex as it is only written to
 	// upon creation of `n`
 	instanceID := n.node.InstanceID()
-	available := ipamTypes.AllocationMap{}
+	available = ipamTypes.AllocationMap{}
 
 	n.mutex.Lock()
 	n.enis = map[string]eniTypes.ENI{}
@@ -528,6 +521,12 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 				return nil
 			}
 
+			effectiveLimits := n.getEffectiveIPLimits(limits.IPv4)
+			availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
+			if availableOnENI > 0 {
+				remainAvailableENIsCount++
+			}
+
 			for _, ip := range e.Addresses {
 				available[ip] = ipamTypes.AllocationIP{Resource: e.ID}
 			}
@@ -539,10 +538,11 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
 	if enis == 0 {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
-		return nil, fmt.Errorf("unable to retrieve ENIs")
+		return nil, -1, fmt.Errorf("unable to retrieve ENIs")
 	}
 
-	return available, nil
+	remainAvailableENIsCount += limits.Adapters - len(n.enis)
+	return available, remainAvailableENIsCount, nil
 }
 
 // GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
@@ -742,4 +742,21 @@ func (n *Node) GetUsedIPWithPrefixes() int {
 		}
 	}
 	return usedIps
+}
+
+// getEffectiveIPLimits computing the effective number of available addresses on the ENI
+// based on limits
+func (n *Node) getEffectiveIPLimits(limits int) (effectiveLimits int) {
+	// The limits include the primary IP, so we need to take it into account
+	// when computing the effective number of available addresses on the ENI.
+	effectiveLimits = limits - 1
+
+	// Include the primary IP when UsePrimaryAddress is set to true on ENI spec.
+	if n.k8sObj.Spec.ENI.UsePrimaryAddress != nil && *n.k8sObj.Spec.ENI.UsePrimaryAddress {
+		effectiveLimits++
+	}
+	if n.node.Ops().IsPrefixDelegated() {
+		effectiveLimits = effectiveLimits * option.ENIPDBlockSizeIPv4
+	}
+	return effectiveLimits
 }
