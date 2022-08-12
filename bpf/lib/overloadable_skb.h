@@ -183,7 +183,7 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
 
 	*ifindex = ENCAP_IFINDEX;
 
-	return 0;
+	return CTX_ACT_REDIRECT;
 }
 #endif /* HAVE_ENCAP */
 

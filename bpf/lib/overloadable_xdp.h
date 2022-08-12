@@ -106,6 +106,7 @@ ctx_set_encap_info(struct xdp_md *ctx __maybe_unused,
 		   __u32 vni __maybe_unused, __u32 *ifindex __maybe_unused)
 {
 	return DROP_INVALID;
+	/* return CTX_ACT_OK; */
 }
 #endif /* HAVE_ENCAP */
 

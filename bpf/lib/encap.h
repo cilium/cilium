@@ -132,12 +132,11 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
 	ret = ctx_set_encap_info(ctx, node_id, seclabel, dstid, vni, ifindex);
-	if (unlikely(ret < 0))
-		return ret;
+	if (ret == CTX_ACT_REDIRECT)
+		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
+				  ct_reason, monitor);
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
-			  ct_reason, monitor);
-	return 0;
+	return ret;
 }
 
 static __always_inline int
@@ -150,7 +149,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid,
 				      vni, trace->reason, trace->monitor,
 				      &ifindex);
-	if (ret != 0)
+	if (ret != CTX_ACT_REDIRECT)
 		return ret;
 
 	return ctx_redirect(ctx, ifindex, 0);
@@ -192,6 +191,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 {
 	__u32 ifindex __maybe_unused;
 	struct endpoint_key *tunnel;
+	int ret __maybe_unused;
 
 	if (tunnel_endpoint) {
 #ifdef ENABLE_IPSEC
@@ -207,8 +207,13 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		 * the tunnel, to apply the correct reverse DNAT.
 		 * See #14674 for details.
 		 */
-		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid, NOT_VTEP_DST,
-					   trace->reason, trace->monitor, &ifindex);
+		ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid, NOT_VTEP_DST,
+					  trace->reason, trace->monitor, &ifindex);
+		if (ret != CTX_ACT_REDIRECT)
+			return ret;
+
+		/* tell caller that this packet needs to go through the stack: */
+		return CTX_ACT_OK;
 #else
 		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
 							seclabel, dstid, NOT_VTEP_DST, trace);
