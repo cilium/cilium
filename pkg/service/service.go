@@ -1452,11 +1452,14 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 	obsoleteBackendIDs := []lb.BackendID{}    // not used by any svc
 	obsoleteSVCBackendIDs := []lb.BackendID{} // removed from the svc, but might be used by other svc
 	newBackends := []*lb.Backend{}            // previously not used by any svc
-	backendSet := map[string]struct{}{}
+	backendSet := map[string]*lb.Backend{}
 
 	for i, backend := range backends {
 		hash := backend.L3n4Addr.Hash()
-		backendSet[hash] = struct{}{}
+		if b, found := backendSet[hash]; found && b.Protocol == backend.Protocol {
+			return nil, nil, nil, fmt.Errorf("duplicated backends are not allowed")
+		}
+		backendSet[hash] = backend
 
 		if b, found := svc.backendByHash[hash]; !found {
 			if s.backendRefCount.Add(hash) {

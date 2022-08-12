@@ -90,6 +90,14 @@ var (
 	backends4 = []*lb.Backend{
 		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.4"), 8080),
 	}
+	samebackends = []*lb.Backend{
+		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.5"), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.5"), 8080),
+	}
+	differentbackends = []*lb.Backend{
+		lb.NewBackend(0, lb.UDP, cmtypes.MustParseAddrCluster("10.0.0.7"), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.7"), 8080),
+	}
 )
 
 func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
@@ -235,6 +243,15 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(m.svc.svcByID[id1].sessionAffinity, Equals, false)
 	c.Assert(m.lbmap.ServiceByID[uint16(id1)].SessionAffinity, Equals, false)
 	// TODO(brb) test that backends are the same
+
+	p.Backends = samebackends
+	_, _, err = m.svc.UpsertService(p)
+	c.Assert(err, ErrorMatches, "duplicated backends are not allowed")
+
+	p.Backends = differentbackends
+	_, _, err = m.svc.UpsertService(p)
+	c.Assert(err, IsNil)
+
 	// TODO(brb) check that .backends =~ .backendsByHash
 
 	// Should remove one backend and enable session affinity
@@ -500,9 +517,10 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	clusterIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("10.20.30.40"), 80, lb.ScopeExternal, 0)
 
 	// Create two node-local backends
+
 	localBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080)
 	localBackend2 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080)
-	localTerminatingBackend3 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080)
+	localTerminatingBackend3 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.6"), 8080)
 	localBackend1.NodeName = nodeTypes.GetName()
 	localBackend2.NodeName = nodeTypes.GetName()
 	localTerminatingBackend3.NodeName = nodeTypes.GetName()

@@ -60,10 +60,6 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 	if !found {
 		frontend := lb.NewL3n4AddrID(lb.NONE, cmtypes.MustAddrClusterFromIP(p.IP), p.Port, p.Scope, lb.ID(p.ID))
 		svc = &lb.SVC{Frontend: *frontend}
-	} else {
-		if p.PrevBackendsCount != len(svc.Backends) {
-			return fmt.Errorf("Invalid backends count: %d vs %d", p.PrevBackendsCount, len(svc.Backends))
-		}
 	}
 	svc.Backends = backendsList
 	svc.SessionAffinity = p.SessionAffinity
