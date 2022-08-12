@@ -4,7 +4,6 @@
 package probes
 
 import (
-	"errors"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -242,9 +241,6 @@ func (s *ProbesTestSuite) TestSystemConfigProbes(c *C) {
 			features: Features{SystemConfig: tc.systemConfig},
 		}
 		err := manager.SystemConfigProbes()
-		if errors.Is(err, ErrKernelConfigNotFound) {
-			return
-		}
 		if tc.expectErr {
 			c.Assert(err, NotNil)
 		} else {

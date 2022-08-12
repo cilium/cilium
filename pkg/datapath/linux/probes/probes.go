@@ -34,10 +34,6 @@ var (
 	probeManager *ProbeManager
 )
 
-// ErrKernelConfigNotFound is the error returned if the kernel config is unavailable
-// to the cilium agent.
-var ErrKernelConfigNotFound = errors.New("Kernel Config file not found")
-
 // KernelParam is a type based on string which represents CONFIG_* kernel
 // parameters which usually have values "y", "n" or "m".
 type KernelParam string
@@ -204,13 +200,19 @@ func (p *ProbeManager) SystemKernelHz() (int, error) {
 // SystemConfigProbes performs a check of kernel configuration parameters. It
 // returns an error when parameters required by Cilium are not enabled. It logs
 // warnings when optional parameters are not enabled.
+//
+// When kernel config file is not found, bpftool can't probe kernel configuration
+// parameter real setting, so only return error log when kernel config file exists
+// and kernel configuration parameter setting is disabled
 func (p *ProbeManager) SystemConfigProbes() error {
+	var notFound bool
 	if !p.KernelConfigAvailable() {
-		return ErrKernelConfigNotFound
+		notFound = true
+		log.Warn("Kernel Config file not found: If agent fail to start, Please check kernel requirements https://docs.cilium.io/en/stable/operations/system_requirements")
 	}
 	requiredParams := p.GetRequiredConfig()
 	for param, kernelOption := range requiredParams {
-		if !kernelOption.Enabled {
+		if !kernelOption.Enabled && !notFound {
 			module := ""
 			if kernelOption.CanBeModule {
 				module = " or module"
@@ -220,7 +222,7 @@ func (p *ProbeManager) SystemConfigProbes() error {
 	}
 	optionalParams := p.GetOptionalConfig()
 	for param, kernelOption := range optionalParams {
-		if !kernelOption.Enabled {
+		if !kernelOption.Enabled && !notFound {
 			module := ""
 			if kernelOption.CanBeModule {
 				module = " or module"
