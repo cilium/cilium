@@ -204,7 +204,6 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
 	affectedSelectors = make(map[api.FQDNSelector]struct{}, len(updatedDNSIPs))
 
-perDNSName:
 	for dnsName, lookupIPs := range updatedDNSIPs {
 		updated := n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
 
@@ -214,7 +213,7 @@ perDNSName:
 				"dnsName":   dnsName,
 				"lookupIPs": lookupIPs,
 			}).Debug("FQDN: IPs didn't change for DNS name")
-			continue perDNSName
+			continue
 		}
 
 		// record the IPs that were different
