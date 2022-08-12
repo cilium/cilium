@@ -207,3 +207,45 @@ func TestRemovedCEPs(t *testing.T) {
 		assert.Equal(t, len(remCEPs), 0, "Total removedCEPs should match with value 0")
 	})
 }
+
+func TestCompressCESsOnFCFSStartUp(t *testing.T) {
+	t.Run("Test CES compression on FCFS startup", func(*testing.T) {
+		m := newCESManagerFcfs(newQueue(), 10)
+		createCES := func(cesName, ns string, cepList []capi_v2a1.CoreCiliumEndpoint) *cesTracker {
+			newCES := m.createCES(cesName)
+			newCES.ces.Namespace = ns
+			for _, cep := range cepList {
+				m.addCEPtoCES(&cep, newCES)
+			}
+
+			m.updateCESInCache(newCES.ces, true)
+			return newCES
+		}
+
+		ces1 := createCES("ces1", "default", []capi_v2a1.CoreCiliumEndpoint{*cep1})
+		ces2 := createCES("ces2", "default", []capi_v2a1.CoreCiliumEndpoint{*cep2, *cep2b})
+		ces3 := createCES("ces3", "namespace-a", []capi_v2a1.CoreCiliumEndpoint{*cep3})
+		ces4 := createCES("ces4", "namespace-a", []capi_v2a1.CoreCiliumEndpoint{*cep4})
+		ces5 := createCES("ces5", "namespace-a", []capi_v2a1.CoreCiliumEndpoint{*cep5})
+
+		assert.Equal(t, 5, m.getCESCount(), "Total number of CESs allocated is 5")
+		assert.Equal(t, 6, m.getTotalCEPCount(), "Total number of CEPs inserted is 6")
+
+		m.CompressCESsOnFCFSStartUp()
+		// The number of CESs after compression will remain the same here, because
+		// the CESs in cache that become empty will be deleted from cache only after
+		// the kube apiserver confirms deletions - which is beyond the unit test.
+		assert.Equal(t, 5, m.getCESCount(), "Total number of CESs allocated is 5")
+		assert.Equal(t, 6, m.getTotalCEPCount(), "Total number of CEPs inserted is 6")
+
+		// Confirm that the CEPs were moved correctly, and the CESs that need to be
+		// deleted are empty. The CEP from ces1 is moved to ces2 in the "default"
+		// namespace, and the CEPs from ces4 and ces5 are moved to ces3 in the
+		// "namespace-a".
+		assert.Equal(t, 0, len(ces1.ces.Endpoints), "The first CES has 0 endpoints")
+		assert.Equal(t, 3, len(ces2.ces.Endpoints), "The second CES has 3 endpoints")
+		assert.Equal(t, 3, len(ces3.ces.Endpoints), "The third CES has 3 endpoints")
+		assert.Equal(t, 0, len(ces4.ces.Endpoints), "The fourth CES has 0 endpoints")
+		assert.Equal(t, 0, len(ces5.ces.Endpoints), "The fifth CES has 0 endpoints")
+	})
+}

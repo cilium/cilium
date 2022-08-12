@@ -5,7 +5,9 @@ package ciliumendpointslice
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
+	"sort"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -45,6 +47,7 @@ type operations interface {
 	// External APIs to Insert/Remove CEP in local dataStore
 	InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) string
 	RemoveCEPFromCache(cepName string, baseDelay time.Duration)
+	CompressCESsOnFCFSStartUp()
 	// Supporting APIs to Insert/Remove CEP in local dataStore and effectively
 	// manages CES's.
 	getCESFromCache(cesName string) (*cilium_v2.CiliumEndpointSlice, error)
@@ -366,6 +369,114 @@ func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 	}
 
 	return
+}
+
+// CompressCESsOnFCFSStartUp makes sure that once FCFS (First Come, First
+// Served) CES manager starts, all CESs will be compressed to a minimum number
+// of fully packed CESs.
+//
+// This is only required when changing the batching strategy from Identity to
+// FCFS, to ensure expected performance. Otherwise, it will perform no action,
+// as all CESs are already compressed by design with FCFS batching.
+func (c *cesMgr) CompressCESsOnFCFSStartUp() {
+	log.Info("Running CompressCESsOnFCFSStartUp.")
+	// The compression needs to be done per namespace, since one CES cannot
+	// contain CEPs with different namespaces.
+	cesPerNamespace := make(map[string][]*cesTracker)
+	for _, ces := range c.desiredCESs.desiredCESs {
+		cesPerNamespace[ces.ces.Namespace] = append(cesPerNamespace[ces.ces.Namespace], ces)
+	}
+
+	for namespace, cesList := range cesPerNamespace {
+		c.compressCESList(cesList, namespace)
+	}
+
+	log.Info("CompressCESsOnFCFSStartUp completed.")
+}
+
+func (c *cesMgr) compressCESList(cesList []*cesTracker, namespace string) {
+	if len(cesList) == 0 {
+		log.WithFields(logrus.Fields{
+			logfields.K8sNamespace: namespace,
+		}).Info("No action required for compressCESList. No CES currently exist.")
+		return
+	}
+
+	totalCEPs := 0
+	for _, ces := range cesList {
+		ces.backendMutex.RLock()
+		totalCEPs += len(ces.ces.Endpoints)
+		ces.backendMutex.RUnlock()
+	}
+
+	// Calculate how many fully packed CES are needed.
+	requiredCESs := int(math.Ceil(float64(totalCEPs) / float64(c.maxCEPsInCES)))
+	// No compression is required when the number of CESs will remain the same.
+	if requiredCESs >= len(cesList) {
+		log.WithFields(logrus.Fields{
+			logfields.K8sNamespace: namespace,
+		}).Info("No action required for compressCESList. No compression required, as the minimum number of CES already exist.")
+		return
+	}
+
+	// Sort current list of CESs by size in decreasing order, to be able to take
+	// the largest ones and ensure the lowest number of CES updates.
+	sort.Slice(cesList, func(i, j int) bool {
+		cesList[i].backendMutex.RLock()
+		cesList[j].backendMutex.RLock()
+		defer cesList[i].backendMutex.RUnlock()
+		defer cesList[j].backendMutex.RUnlock()
+		return len(cesList[i].ces.Endpoints) > len(cesList[j].ces.Endpoints)
+	})
+
+	// Save references to the top largest CESs to a new list. These CESs will
+	// remain, and other CESs will be deleted after moving their CEPs.
+	compressedCESList := make([]*cesTracker, requiredCESs)
+	for i := 0; i < requiredCESs; i++ {
+		compressedCESList[i] = cesList[i]
+	}
+
+	// Move CEPs from the excess CESs to the ones that will remain.
+	for i := requiredCESs; i < len(cesList); i++ {
+		ces := cesList[i]
+		// Reverse loop to optimize the CEP removal in the RemoveCEPFromCache.
+		for cepIdx := len(ces.ces.Endpoints) - 1; cepIdx >= 0; cepIdx-- {
+			cep := &ces.ces.Endpoints[cepIdx]
+			// Remove the CEP from an existing CES and then insert the CEP into the
+			// suitable CES. The same order of operations is used in the
+			// InsertCEPInCache method of cesManagerIdentity.
+			c.RemoveCEPFromCache(GetCEPNameFromCCEP(cep, namespace), DelayedCESSyncTime)
+			c.insertCEPInFirstLargestCES(cep, namespace, compressedCESList)
+		}
+	}
+}
+
+// Based on the FCFS manager's InsertCEPInCache, with the difference to take a
+// list of CESs to maintain order, instead using unordered list from cache.
+func (c *cesMgr) insertCEPInFirstLargestCES(cep *cilium_v2.CoreCiliumEndpoint, ns string, cesList []*cesTracker) {
+	cb, cesName := func() (*cesTracker, string) {
+		// Insert the CEP into the first non-empty, non-full CES.
+		for _, ces := range cesList {
+			ces.backendMutex.RLock()
+			if ces.ces.Namespace != ns || len(ces.ces.Endpoints) >= c.maxCEPsInCES || len(ces.ces.Endpoints) == 0 {
+				ces.backendMutex.RUnlock()
+				continue
+			}
+			defer ces.backendMutex.RUnlock()
+			return ces, ces.ces.GetName()
+		}
+		// Otherwise, create a new CES to insert the CEP into.
+		newCES := c.createCES("")
+		newCES.ces.Namespace = ns
+		// Add the new CES to the provided cesList.
+		cesList = append(cesList, newCES)
+		return newCES, newCES.ces.GetName()
+	}()
+
+	// Cache CEP name with newly allocated CES.
+	c.desiredCESs.insertCEP(GetCEPNameFromCCEP(cep, ns), cesName)
+	// Queue the CEP in CES
+	c.addCEPtoCES(cep, cb)
 }
 
 // Returns the total number of CEPs in the cluster

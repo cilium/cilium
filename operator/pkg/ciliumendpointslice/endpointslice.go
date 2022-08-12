@@ -169,6 +169,11 @@ func (c *CiliumEndpointSliceController) Run(ces cache.Indexer, stopCh chan struc
 		defer utilruntime.HandleCrash()
 	}()
 
+	if c.slicingMode != cesIdentityBasedSlicing {
+		// Process CES updates required to reach the desired CES state for FCFS.
+		go c.Manager.CompressCESsOnFCFSStartUp()
+	}
+
 	<-stopCh
 
 	return
