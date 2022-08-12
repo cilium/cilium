@@ -141,12 +141,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		})
 
 		SkipContextIf(helpers.DoesNotRunWithKubeProxyReplacement, "Checks in-cluster KPR", func() {
-			It("Tests NodePort with externalTrafficPolicy=Local", func() {
-				// TODO(brb) split testExternalTrafficPolicyLocal into two functions -
-				// one for in-cluster, one for outside cluster
-				testExternalTrafficPolicyLocal(kubectl, ni)
-			})
-
 			It("Tests HealthCheckNodePort", func() {
 				testHealthCheckNodePort(kubectl, ni)
 			})
