@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -62,8 +63,14 @@ func output(ctx context.Context, cmd *exec.Cmd, filters []string, scopedLog *log
 		scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
 		return nil, fmt.Errorf("Command execution failed for %s: %s", cmd.Args, ctx.Err())
 	}
-	if err != nil && verbose {
-		warnToLog(cmd, filters, out, scopedLog, err)
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			err = fmt.Errorf("%w stderr=%q", exitErr, exitErr.Stderr)
+		}
+		if verbose {
+			warnToLog(cmd, filters, out, scopedLog, err)
+		}
 	}
 	return out, err
 }
