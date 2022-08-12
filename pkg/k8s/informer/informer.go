@@ -54,6 +54,21 @@ func NewInformer(
 	return clientState, NewInformerWithStore(lw, objType, resyncPeriod, h, convertFunc, clientState)
 }
 
+// NewIndexerInformer is a copy of k8s.io/client-go/tools/cache/NewIndexerInformer with a new
+// argument which converts an object into another object that can be stored in
+// the local cache.
+func NewIndexerInformer(
+	lw cache.ListerWatcher,
+	objType k8sRuntime.Object,
+	resyncPeriod time.Duration,
+	h cache.ResourceEventHandler,
+	convertFunc ConvertFunc,
+	indexers cache.Indexers,
+) (cache.Indexer, cache.Controller) {
+	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, indexers)
+	return clientState, NewInformerWithStore(lw, objType, resyncPeriod, h, convertFunc, clientState)
+}
+
 // NewInformerWithStore uses the same arguments as NewInformer for which a
 // caller can also set a cache.Store.
 func NewInformerWithStore(
