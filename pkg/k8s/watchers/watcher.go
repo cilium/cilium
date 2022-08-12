@@ -212,6 +212,13 @@ type K8sWatcher struct {
 	ciliumNodeStoreMU lock.RWMutex
 	ciliumNodeStore   cache.Store
 
+	ciliumEndpointIndexerMU lock.RWMutex
+	ciliumEndpointIndexer   cache.Indexer
+
+	ciliumEndpointSliceIndexerMU lock.RWMutex
+	// note: this store only contains endpointslices referencing local endpoints.
+	ciliumEndpointSliceIndexer cache.Indexer
+
 	namespaceStore cache.Store
 	datapath       datapath.Datapath
 
@@ -825,7 +832,45 @@ func (k *K8sWatcher) K8sEventReceived(scope string, action string, valid, equal 
 	metrics.KubernetesEventReceived.WithLabelValues(scope, action, strconv.FormatBool(valid), strconv.FormatBool(equal)).Inc()
 }
 
+// GetIndexer returns an index to a k8s cache store for the given resource name.
+// Objects gotten using returned stores should *not* be mutated as they
+// are references to internal k8s watcher store state.
+func (k *K8sWatcher) GetIndexer(name string) cache.Indexer {
+	switch name {
+	case "ciliumendpointslice":
+		k.ciliumEndpointSliceIndexerMU.RLock()
+		defer k.ciliumEndpointSliceIndexerMU.RUnlock()
+		return k.ciliumEndpointSliceIndexer
+	case "ciliumendpoint":
+		k.ciliumEndpointIndexerMU.RLock()
+		defer k.ciliumEndpointIndexerMU.RUnlock()
+		return k.ciliumEndpointIndexer
+	default:
+		panic("no such indexer: " + name)
+	}
+}
+
+// SetIndexer lets you set a named cache store, only used for testing.
+func (k *K8sWatcher) SetIndexer(name string, indexer cache.Indexer) {
+	switch name {
+	case "ciliumendpointslice":
+		k.ciliumEndpointSliceIndexerMU.Lock()
+		defer k.ciliumEndpointSliceIndexerMU.Unlock()
+		k.ciliumEndpointSliceIndexer = indexer
+	case "ciliumendpoint":
+		k.ciliumEndpointIndexerMU.Lock()
+		defer k.ciliumEndpointIndexerMU.Unlock()
+		k.ciliumEndpointIndexer = indexer
+	default:
+		panic("no such indexer: " + name)
+	}
+}
+
 // GetStore returns the k8s cache store for the given resource name.
+// It's possible for valid resource names to return nil stores if that
+// watcher is not in use.
+// Objects gotten using returned stores should *not* be mutated as they
+// are references to internal k8s watcher store state.
 func (k *K8sWatcher) GetStore(name string) cache.Store {
 	switch name {
 	case "networkpolicy":
@@ -839,8 +884,16 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 		k.podStoreMU.RLock()
 		defer k.podStoreMU.RUnlock()
 		return k.podStore
+	case "ciliumendpoint":
+		k.ciliumEndpointIndexerMU.RLock()
+		defer k.ciliumEndpointIndexerMU.RUnlock()
+		return k.ciliumEndpointIndexer
+	case "ciliumendpointslice":
+		k.ciliumEndpointSliceIndexerMU.RLock()
+		defer k.ciliumEndpointSliceIndexerMU.RUnlock()
+		return k.ciliumEndpointSliceIndexer
 	default:
-		return nil
+		panic("no such store: " + name)
 	}
 }
 
