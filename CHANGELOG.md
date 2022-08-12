@@ -21,6 +21,7 @@ Summary of Changes
 * iptables: handle case where kernel IPv6 support is disabled (Backport PR #20840, Upstream PR #20680, @jibi)
 * Optimize Eni update latency after new eni created (Backport PR #20840, Upstream PR #20609, @wu0407)
 * pkg/k8s/version: Also set EndpointSlice when forcing version (Backport PR #20840, Upstream PR #20383, @joamaki)
+* Fix bug where Cilium would crash on startup with an error about being unable to delete iptables rules. (Backport PR #20891, Upstream PR #20885, @jibi)
 
 **CI Changes:**
 * ci: fix code changes detection on `push` events (Backport PR #20840, Upstream PR #20685, @nbusseneau)
