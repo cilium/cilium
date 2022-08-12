@@ -54,7 +54,7 @@ func (ipt *mockIptables) getVersion() (semver.Version, error) {
 	return semver.Version{}, nil
 }
 
-func (ipt *mockIptables) runProgCombinedOutput(args []string) (out string, err error) {
+func (ipt *mockIptables) runProgOutput(args []string) (out string, err error) {
 	a := strings.Join(args, " ")
 	i := ipt.index
 	ipt.index++
@@ -74,7 +74,7 @@ func (ipt *mockIptables) runProgCombinedOutput(args []string) (out string, err e
 }
 
 func (ipt *mockIptables) runProg(args []string) error {
-	out, err := ipt.runProgCombinedOutput(args)
+	out, err := ipt.runProgOutput(args)
 	if len(out) > 0 {
 		ipt.c.Errorf("%d: Unexpected output for %s %s", ipt.index-1, ipt.prog, strings.Join(args, " "))
 	}
