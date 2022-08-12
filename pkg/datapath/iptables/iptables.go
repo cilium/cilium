@@ -81,7 +81,7 @@ type iptablesInterface interface {
 	getProg() string
 	getIpset() string
 	getVersion() (semver.Version, error)
-	runProgCombinedOutput(args []string) (string, error)
+	runProgOutput(args []string) (string, error)
 	runProg(args []string) error
 }
 
@@ -131,7 +131,7 @@ func (ipt *ipt) getVersion() (semver.Version, error) {
 	return versioncheck.Version(vString[1])
 }
 
-func (ipt *ipt) runProgCombinedOutput(args []string) (string, error) {
+func (ipt *ipt) runProgOutput(args []string) (string, error) {
 	fullCommand := fmt.Sprintf("%s %s", ipt.getProg(), strings.Join(args, " "))
 
 	log.Debugf("Running '%s' command", fullCommand)
@@ -140,19 +140,16 @@ func (ipt *ipt) runProgCombinedOutput(args []string) (string, error) {
 	iptArgs := make([]string, 0, len(ipt.waitArgs)+len(args))
 	iptArgs = append(iptArgs, ipt.waitArgs...)
 	iptArgs = append(iptArgs, args...)
-	out, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, iptArgs...).CombinedOutput(log, false)
-
-	outStr := string(out)
+	out, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, iptArgs...).Output(log, false)
 
 	if err != nil {
-		return outStr, fmt.Errorf("unable to run '%s' iptables command: %s (%w)", fullCommand, outStr, err)
+		return "", fmt.Errorf("unable to run '%s' iptables command: %w", fullCommand, err)
 	}
-
-	return outStr, nil
+	return string(out), nil
 }
 
 func (ipt *ipt) runProg(args []string) error {
-	_, err := ipt.runProgCombinedOutput(args)
+	_, err := ipt.runProgOutput(args)
 	return err
 }
 
@@ -217,7 +214,7 @@ func isDisabledChain(chain string) bool {
 }
 
 func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface, match string) error {
-	rules, err := prog.runProgCombinedOutput([]string{"-t", table, "-S"})
+	rules, err := prog.runProgOutput([]string{"-t", table, "-S"})
 	if err != nil {
 		return err
 	}
@@ -654,7 +651,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 }
 
 func (m *IptablesManager) doCopyProxyRules(prog iptablesInterface, table string, re *regexp.Regexp, match, oldChain, newChain string) error {
-	rules, err := prog.runProgCombinedOutput([]string{"-t", table, "-S"})
+	rules, err := prog.runProgOutput([]string{"-t", table, "-S"})
 	if err != nil {
 		return err
 	}
@@ -707,7 +704,7 @@ func (m *IptablesManager) copyProxyRules(oldChain string, match string) error {
 // Redirect packets to the host proxy via TPROXY, as directed by the Cilium
 // datapath bpf programs via skb marks (egress) or DSCP (ingress).
 func (m *IptablesManager) addProxyRules(prog iptablesInterface, proxyPort uint16, ingress bool, name string) error {
-	rules, err := prog.runProgCombinedOutput([]string{"-t", "mangle", "-S"})
+	rules, err := prog.runProgOutput([]string{"-t", "mangle", "-S"})
 	if err != nil {
 		return err
 	}
@@ -937,7 +934,7 @@ func (m *IptablesManager) GetProxyPort(name string) uint16 {
 }
 
 func (m *IptablesManager) doGetProxyPort(prog iptablesInterface, name string) uint16 {
-	rules, err := prog.runProgCombinedOutput([]string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain})
+	rules, err := prog.runProgOutput([]string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain})
 	if err != nil {
 		return 0
 	}
