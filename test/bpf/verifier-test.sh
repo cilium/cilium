@@ -12,7 +12,8 @@ MAPTOOL=$(dirname $0)/../../tools/maptool/maptool
 ALL_TC_PROGS="bpf_lxc bpf_host bpf_network bpf_overlay"
 ALL_CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
 ALL_XDP_PROGS="bpf_xdp"
-IGNORED_PROGS="bpf_alignchecker tests/bpf_ct_tests custom/bpf_custom"
+IGNORED_PROGS="bpf_alignchecker tests/bpf_ct_tests tests/bpf_nat_tests \
+               custom/bpf_custom"
 ALL_PROGS="${IGNORED_PROGS} ${ALL_CG_PROGS} ${ALL_TC_PROGS} ${ALL_XDP_PROGS}"
 
 # if {TC,CG,XDP}_PROGS is set (even if empty) use the existing value.
