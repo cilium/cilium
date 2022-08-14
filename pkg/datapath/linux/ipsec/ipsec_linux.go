@@ -254,7 +254,7 @@ func ipSecXfrmMarkSetSPI(markValue uint32, spi uint8) uint32 {
 
 // ipSecXfrmMarkGetSPI extracts from a XfrmMark value the encoded SPI
 func ipSecXfrmMarkGetSPI(markValue uint32) uint8 {
-	return uint8(markValue >> ipSecXfrmMarkSPIShift)
+	return uint8(markValue >> ipSecXfrmMarkSPIShift & 0xF)
 }
 
 func getSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
