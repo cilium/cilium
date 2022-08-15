@@ -36,4 +36,8 @@
 # define BPF_HAVE_SOCKET_LOOKUP 1
 #endif
 
+#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_current_cgroup_id)
+# define BPF_HAVE_CGROUP_ID 1
+#endif
+
 #endif /* ____BPF_FEATURES____ */
