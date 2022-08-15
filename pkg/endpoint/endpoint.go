@@ -794,7 +794,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, bEp []byte) (*Endpoint, error) {
+func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, bEp []byte) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	epSlice := bytes.Split(bEp, []byte{':'})
@@ -802,8 +802,9 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", bEp)
 	}
 	ep := Endpoint{
-		owner:        owner,
-		policyGetter: policyGetter,
+		owner:            owner,
+		namedPortsGetter: namedPortsGetter,
+		policyGetter:     policyGetter,
 	}
 
 	if err := parseBase64ToEndpoint(epSlice[1], &ep); err != nil {

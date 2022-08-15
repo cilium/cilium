@@ -57,6 +57,7 @@ type EndpointSuite struct {
 
 	// Owners interface mock
 	OnGetPolicyRepository     func() *policy.Repository
+	OnGetNamedPorts           func() (npm policy.NamedPortMultiMap)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnGetCompilationLock      func() *lock.RWMutex
@@ -93,6 +94,13 @@ func (s *EndpointSuite) TearDownSuite(c *C) {
 
 func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
+}
+
+func (s *EndpointSuite) GetNamedPorts() (npm policy.NamedPortMultiMap) {
+	if s.OnGetNamedPorts != nil {
+		return s.OnGetNamedPorts()
+	}
+	panic("GetNamedPorts should not have been called")
 }
 
 func (s *EndpointSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
@@ -139,7 +147,7 @@ func NewCachingIdentityAllocator(owner cache.IdentityAllocatorOwner) fakeIdentit
 	}
 }
 
-//func (f *fakeIdentityAllocator)
+// func (f *fakeIdentityAllocator)
 
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
