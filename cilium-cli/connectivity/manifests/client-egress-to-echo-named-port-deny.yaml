@@ -1,0 +1,18 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: client-ingress-to-echo-named-port-deny
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingressDeny:
+  - toPorts:
+    - ports:
+      - port: "http-8080"
+        protocol: TCP
+    fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: cilium-test
+        name: client

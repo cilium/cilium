@@ -1,0 +1,39 @@
+---
+# client2 is allowed to contact one.one.one.one and the echo Pod
+# on port http-8080. HTTP introspection is enabled for client2.
+# The toFQDNs section relies on DNS introspection being performed by
+# the client-egress-only-dns policy.
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: client-egress-l7-http-named-port
+spec:
+  description: "Allow GET one.one.one.one:80/ and GET <echo>:<http-80>/ from client2"
+  endpointSelector:
+    matchLabels:
+      other: client
+  egress:
+  # Allow GET / requests towards echo pods.
+  - toEndpoints:
+    - matchLabels:
+        kind: echo
+    toPorts:
+    - ports:
+      - port: "http-8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+  # Allow GET / requests, only towards one.one.one.one.
+  - toFQDNs:
+    - matchName: "one.one.one.one"
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
