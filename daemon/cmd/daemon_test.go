@@ -51,6 +51,7 @@ type DaemonSuite struct {
 
 	// Owners interface mock
 	OnGetPolicyRepository  func() *policy.Repository
+	OnGetNamedPorts        func() (npm policy.NamedPortMultiMap)
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
 	OnGetCompilationLock   func() *lock.RWMutex
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
@@ -236,6 +237,13 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 		return ds.OnGetPolicyRepository()
 	}
 	panic("GetPolicyRepository should not have been called")
+}
+
+func (ds *DaemonSuite) GetNamedPorts() (npm policy.NamedPortMultiMap) {
+	if ds.OnGetNamedPorts != nil {
+		return ds.OnGetNamedPorts()
+	}
+	panic("GetNamedPorts should not have been called")
 }
 
 func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
