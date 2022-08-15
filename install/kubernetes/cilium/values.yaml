@@ -1146,6 +1146,10 @@ ipam:
 # -- Configure the eBPF-based ip-masq-agent
 ipMasqAgent:
   enabled: false
+# the config of nonMasqueradeCIDRs
+# config:
+  # nonMasqueradeCIDRs: []
+  # masqLinkLocal: false
 
 # iptablesLockTimeout defines the iptables "--wait" option when invoked from Cilium.
 # iptablesLockTimeout: "5s"

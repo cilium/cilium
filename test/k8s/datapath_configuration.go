@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -388,21 +386,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 		return helpers.DoesNotExistNodeWithoutCilium() || helpers.DoesNotRunOn419OrLaterKernel()
 	}, "Check BPF masquerading with ip-masq-agent", func() {
 		var (
-			tmpEchoPodPath      string
-			tmpConfigMapDirPath string
-			tmpConfigMapPath    string
-			tmpConfigYAMLPath   string
+			tmpEchoPodPath string
+			nodeIP         string
 		)
-
-		installConfig := func(cidrsInYaml string) {
-			kubectl.ExecMiddle(fmt.Sprintf("echo 'nonMasqueradeCIDRs:\n%s' > %s",
-				cidrsInYaml, tmpConfigMapPath)).ExpectSuccess()
-			kubectl.CreateResource("configmap",
-				fmt.Sprintf("ip-masq-agent --from-file=%s --namespace=%s -o yaml --dry-run=client > %s",
-					tmpConfigMapDirPath, helpers.CiliumNamespace, tmpConfigYAMLPath)).
-				ExpectSuccess("Failed to create ip-masq-agent configmap file")
-			kubectl.ApplyDefault(tmpConfigYAMLPath).ExpectSuccess("Failed to apply configmap")
-		}
 
 		BeforeAll(func() {
 			// Deploy echoserver on the node which does not run Cilium to test
@@ -417,68 +403,39 @@ var _ = Describe("K8sDatapathConfig", func() {
 			kubectl.ApplyDefault(tmpEchoPodPath).ExpectSuccess("Cannot install echoserver application")
 			Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echoserver-hostnetns",
 				helpers.HelperTimeout)).Should(BeNil())
-
-			// Setup ip-masq-agent configmap dir
-			res = kubectl.ExecMiddle("mktemp -d")
-			res.ExpectSuccess()
-			tmpConfigMapDirPath = strings.Trim(res.Stdout(), "\n")
-			tmpConfigMapPath = filepath.Join(tmpConfigMapDirPath, "config")
-			res = kubectl.ExecMiddle("mktemp")
-			res.ExpectSuccess()
-			tmpConfigYAMLPath = strings.Trim(res.Stdout(), "\n")
-
-			// Deploy empty ip-masq-agent config to prevent the ipmasq agent from
-			// adding the default nonMasq CIDRs which include the echoserver's
-			// node IP. This is needed, as the first test case expects the request
-			// to be masqueraded.
-			installConfig("")
-		})
-
-		AfterEach(func() {
-			// Don't remove so that the default nonMasq CIDRs are not installed
-			installConfig("")
+			var err error
+			nodeIP, err = kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
+			Expect(err).Should(BeNil())
 		})
 
 		AfterAll(func() {
-			kubectl.DeleteResource("configmap", fmt.Sprintf("ip-masq-agent --namespace=%s", helpers.CiliumNamespace))
-
 			if tmpEchoPodPath != "" {
 				kubectl.Delete(tmpEchoPodPath)
-			}
-
-			for _, path := range []string{tmpEchoPodPath, tmpConfigMapPath, tmpConfigMapDirPath, tmpConfigYAMLPath} {
-				if path != "" {
-					os.Remove(path)
-				}
 			}
 		})
 
 		testIPMasqAgent := func() {
-			// Check that requests to the echoserver from client pods are masqueraded.
-			nodeIP, err := kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
-			Expect(err).Should(BeNil())
 			Expect(testPodHTTPToOutside(kubectl,
-				fmt.Sprintf("http://%s:80", nodeIP), true, false, false)).Should(BeTrue(),
+				fmt.Sprintf("http://%s:80", nodeIP), false, true, false)).Should(BeTrue(),
 				"Connectivity test to http://%s failed", nodeIP)
 
-			// Update ip-masq-agent config to prevent masquerading to the node IP
-			// which is running the echoserver.
-			installConfig(fmt.Sprintf("- %s/32", nodeIP))
-
+			// remove nonMasqueradeCIDRs from the ConfigMap
+			kubectl.Patch(helpers.CiliumNamespace, "configMap", "ip-masq-agent", `{"data":{"config":"{\"nonMasqueradeCIDRs\":[]}"}}`)
 			// Wait until the ip-masq-agent config update is handled by the agent
 			time.Sleep(90 * time.Second)
 
-			// Check that connections from the client pods are not masqueraded
+			// Check that requests to the echoserver from client pods are masqueraded.
 			Expect(testPodHTTPToOutside(kubectl,
-				fmt.Sprintf("http://%s:80", nodeIP), false, true, false)).Should(BeTrue(),
+				fmt.Sprintf("http://%s:80", nodeIP), true, false, false)).Should(BeTrue(),
 				"Connectivity test to http://%s failed", nodeIP)
 		}
 
 		It("DirectRouting", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"ipMasqAgent.enabled":  "true",
-				"tunnel":               "disabled",
-				"autoDirectNodeRoutes": "true",
+				"ipMasqAgent.enabled":                   "true",
+				"tunnel":                                "disabled",
+				"autoDirectNodeRoutes":                  "true",
+				"ipMasqAgent.config.nonMasqueradeCIDRs": fmt.Sprintf("{%s/32}", nodeIP),
 			}, DeployCiliumOptionsAndDNS)
 
 			testIPMasqAgent()
@@ -486,8 +443,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("VXLAN", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"ipMasqAgent.enabled": "true",
-				"tunnel":              "vxlan",
+				"ipMasqAgent.enabled":                   "true",
+				"tunnel":                                "vxlan",
+				"ipMasqAgent.config.nonMasqueradeCIDRs": fmt.Sprintf("{%s/32}", nodeIP),
 			}, DeployCiliumOptionsAndDNS)
 
 			testIPMasqAgent()

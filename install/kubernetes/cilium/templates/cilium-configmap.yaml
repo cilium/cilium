@@ -934,3 +934,15 @@ data:
 {{- end }}
 
 {{- end }}
+
+---
+{{- if and .Values.ipMasqAgent.enabled .Values.ipMasqAgent.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ip-masq-agent
+  namespace: {{ .Release.Namespace }}
+data:
+  config: |-
+{{ toJson .Values.ipMasqAgent.config | indent 4 }}
+{{- end }}

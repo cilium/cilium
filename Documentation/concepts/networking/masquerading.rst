@@ -130,6 +130,10 @@ The example below shows how to configure the agent via :term:`ConfigMap` and to 
     172.16.0.0/12
     192.168.0.0/16
 
+Alternatively, you can pass ``--set ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}'``
+and ``--set ipMasqAgent.config.masqLinkLocal=false`` when installing Cilium via Helm to
+configure the ``ip-masq-agent`` as above.
+
 .. note::
 
     eBPF based masquerading is currently not supported for IPv6 traffic.
