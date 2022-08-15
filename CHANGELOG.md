@@ -1,5 +1,78 @@
 # Changelog
 
+## v1.12.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump envoy version to 1.21.5 (Backport PR #20851, Upstream PR #20771, @sayboras)
+* fqdn/metrics: Fix ProxyUpstreamTime error=timeout (Backport PR #20851, Upstream PR #20752, @joestringer)
+* ingress: add websockets configuration (Backport PR #20867, Upstream PR #20814, @nikhiljha)
+* Remove check on intSlice type from config map validation (Backport PR #20851, Upstream PR #20638, @pippolo84)
+* Remove IPVLAN support following the deprecation in v1.11. (Backport PR #20656, Upstream PR #20453, @pchaigno)
+
+**Bugfixes:**
+* Add EndpointSlice support for clustermesh-apiserver (Backport PR #20851, Upstream PR #20697, @YutaroHayakawa)
+* bpf: Add send_trace_notify hook for redirect_direct_{v4,v6} (Backport PR #20851, Upstream PR #20479, @qmonnet)
+* Ensure that Cilium CNI in delegated-plugin IPAM mode avoids leaking IPs even when the network namespace has been deleted. (Backport PR #20851, Upstream PR #20630, @wedaly)
+* Fix bug where Cilium would crash on startup with an error about being unable to delete iptables rules. (Backport PR #20890, Upstream PR #20885, @jibi)
+* Fix bug where traffic sent outside the cluster via ToFQDNs policy would be denied despite a policy that allows it (Backport PR #20851, Upstream PR #20721, @joestringer)
+* Fix ineffective post-start hook in ENI mode (Backport PR #20851, Upstream PR #20741, @bmcustodio)
+* fix k8s latency metrics label cardinality (Backport PR #20851, Upstream PR #20831, @aanm)
+* Fix parsing of string map command line options when more than one separator is present. (Backport PR #20851, Upstream PR #20673, @tklauser)
+* Fix regression with cilium-health-probe controller in IPv6-only clusters (Backport PR #20867, Upstream PR #20849, @aanm)
+* helm: Guard apply sysctl init container (Backport PR #20851, Upstream PR #20643, @sayboras)
+* helm: Set KPR default to "disabled" for >= 1.12 (Backport PR #20851, Upstream PR #20610, @brb)
+* Helm: Use the correct operator.dnsPolicy value for the operator deployment template (Backport PR #20867, Upstream PR #20844, @michi-covalent)
+* ipcache/kvstore: fix panic when processing ip=<nil> entries (Backport PR #20867, Upstream PR #20706, @ArthurChiao)
+* iptables: handle case where kernel IPv6 support is disabled (Backport PR #20851, Upstream PR #20680, @jibi)
+* Optimize Eni update latency after new eni created (Backport PR #20851, Upstream PR #20609, @wu0407)
+
+**CI Changes:**
+* CI: Enable IPv6 in the L4LB suite (Backport PR #20867, Upstream PR #20821, @brb)
+* ci: fix code changes detection on `push` events (Backport PR #20851, Upstream PR #20685, @nbusseneau)
+* ci: pick up cilium-cli v0.12.0 for master, v1.11 and v1.12 workflows (Backport PR #20851, Upstream PR #20617, @tklauser)
+
+**Misc Changes:**
+* build(deps): bump actions/cache from 3.0.5 to 3.0.6 (#20806, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.6 to 3.0.7 (#20873, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.0.0 to 3.1.0 (#20590, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.1.0 to 3.1.1 (#20804, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.16 to 2.1.17 (#20710, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.17 to 2.1.18 (#20785, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.3 to 1.5.4 (#20578, @dependabot[bot])
+* build(deps): bump library/alpine from 3.16.0 to 3.16.1 in /images/cache (#20588, @dependabot[bot])
+* build(deps): bump library/alpine from 3.16.1 to 3.16.2 in /images/cache (#20857, @dependabot[bot])
+* CHANGELOG: fix v1.12.0 changelog (#20696, @aanm)
+* cilium-cni: don't set interface link up twice (Backport PR #20851, Upstream PR #20674, @tklauser)
+* clean up IPVLAN leftover code  in setupBaseDevice() (Backport PR #20867, Upstream PR #20608, @vincentmli)
+* Consider `$GO` environment variable `make precheck` checks (Backport PR #20851, Upstream PR #20750, @tklauser)
+* contrib: Add CRD generation to release process (Backport PR #20656, Upstream PR #20564, @joestringer)
+* daemon: Improve dnsproxy error when EP not found (Backport PR #20656, Upstream PR #20649, @joestringer)
+* doc: clarify CentOS 7 third-part kernel upgrade and Cilium advance features kernel config requirements (Backport PR #20851, Upstream PR #20605, @vincentmli)
+* docs: Add required ec2:DescribeInstances when instance-tags-filter is used (Backport PR #20851, Upstream PR #20703, @lht)
+* docs: Clarify identity table for reserved identities (Backport PR #20867, Upstream PR #20832, @joestringer)
+* docs: correct IPAM mode name in BGP control plane installation docs (Backport PR #20851, Upstream PR #20758, @tklauser)
+* docs: Update clustermesh troubleshooting with more details (Backport PR #20851, Upstream PR #20260, @sayboras)
+* docs: update etcd kvstore migration instructions (Backport PR #20656, Upstream PR #20624, @hhoover)
+* docs: Update Helm values (Backport PR #20851, Upstream PR #20716, @qmonnet)
+* docs: update the version specific notes table for v1.12 release (Backport PR #20851, Upstream PR #20669, @tklauser)
+* Fix `subnet_id` label value being empty in IP allocation and interface creation in ENI IPAM metrics (Backport PR #20851, Upstream PR #20449, @wu0407)
+* Fix complaint about nil IP address on restore of cilium_host (Backport PR #20867, Upstream PR #20734, @christarazi)
+* hubble-ui: release v0.9.1 (Backport PR #20851, Upstream PR #20572, @geakstr)
+* ipcache: Fix lock leak (Backport PR #20851, Upstream PR #20833, @joestringer)
+* maglev: Don't populate v4 inner table upon nat46 service (Backport PR #20851, Upstream PR #20648, @borkmann)
+* pkg/k8s: set the right IP addresses in log messages (Backport PR #20851, Upstream PR #20757, @aanm)
+* Reduce the vtep route log noise and avoid cilium_vtep_map symbol substitution warning log (Backport PR #20656, Upstream PR #20532, @vincentmli)
+* Remove completed items from Service Mesh Roadmap (Backport PR #20656, Upstream PR #20635, @margamanterola)
+* Revert "Revert "doc: update the api spec for fqdn egress policies cod… (Backport PR #20851, Upstream PR #20744, @aanm)
+* v1.12: Update Go to 1.18.5 (#20746, @tklauser)
+* vtep skip symbol substituation cilium_vtep_map (Backport PR #20656, Upstream PR #20589, @vincentmli)
+
+**Other Changes:**
+* install: Update image digests for v1.12.0 (#20581, @aanm)
+
 ## v1.12.0
 
 Summary of Changes
