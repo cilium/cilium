@@ -16,6 +16,7 @@
 #include "lib/identity.h"
 #include "lib/metrics.h"
 #include "lib/nat_46x64.h"
+#include "lib/trace_sock.h"
 
 #define SYS_REJECT	0
 #define SYS_PROCEED	1
@@ -327,6 +328,9 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (!svc)
 		return -ENXIO;
 
+	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
+				bpf_ntohs(dst_port));
+
 	/* Do not perform service translation for external IPs
 	 * that are not a local address because we don't want
 	 * a k8s service to easily do MITM attacks for a public
@@ -414,6 +418,10 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
+
+	send_trace_sock_notify4(ctx_full, XLATE_POST_DIRECTION_FWD, backend->address,
+				bpf_ntohs(backend->port));
+
 #ifdef ENABLE_L7_LB
 out:
 #endif
@@ -558,6 +566,8 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		.port		= dst_port,
 	};
 
+	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_REV, dst_ip,
+				bpf_ntohs(dst_port));
 	val = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
 	if (val) {
 		struct lb4_service *svc;
@@ -578,6 +588,8 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 
 		ctx->user_ip4 = val->address;
 		ctx_set_port(ctx, val->port);
+		send_trace_sock_notify4(ctx_full, XLATE_POST_DIRECTION_REV, val->address,
+					bpf_ntohs(val->port));
 		return 0;
 	}
 
@@ -966,6 +978,9 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
 
+	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
+				bpf_ntohs(dst_port));
+
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
@@ -1018,6 +1033,10 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (lb6_svc_is_affinity(svc) && !backend_from_affinity)
 		lb6_update_affinity_by_netns(svc, &id, backend_id);
+
+	send_trace_sock_notify6(ctx, XLATE_POST_DIRECTION_FWD, &backend->address,
+				bpf_ntohs(backend->port));
+
 #ifdef ENABLE_L7_LB
 out:
 #endif
@@ -1115,6 +1134,9 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 	key.port = dst_port;
 	ctx_get_v6_address(ctx, &key.address);
 
+	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_REV, &key.address,
+				bpf_ntohs(dst_port));
+
 	val = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
 	if (val) {
 		struct lb6_service *svc;
@@ -1135,6 +1157,8 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 
 		ctx_set_v6_address(ctx, &val->address);
 		ctx_set_port(ctx, val->port);
+		send_trace_sock_notify6(ctx, XLATE_POST_DIRECTION_REV, &val->address,
+					bpf_ntohs(val->port));
 		return 0;
 	}
 #endif /* ENABLE_IPV6 */
