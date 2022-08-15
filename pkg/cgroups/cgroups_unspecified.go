@@ -16,3 +16,7 @@ func mountCgroup() error {
 func cgrpCheckOrMountLocation(cgroupRoot string) error {
 	return ErrNotImplemented
 }
+
+func GetCgroupID(cgroupPath string) (uint64, error) {
+	return 0, ErrNotImplemented
+}
