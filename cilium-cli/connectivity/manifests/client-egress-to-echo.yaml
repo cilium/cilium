@@ -21,12 +21,6 @@ spec:
       - port: "53"
         protocol: ANY
     toEndpoints:
-    - matchLabels:
-        io.kubernetes.pod.namespace: kube-system
-        k8s-app: kube-dns
-    - matchLabels:
-        io.kubernetes.pod.namespace: kube-system
-        k8s-app: coredns
-    - matchLabels:
-        io.kubernetes.pod.namespace: kube-system
-        k8s-app: node-local-dns
+    - matchExpressions:
+      - { key: 'k8s-app', operator: In, values: [ "kube-dns", "coredns", "node-local-dns" ] }
+      - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "kube-system" ] }
