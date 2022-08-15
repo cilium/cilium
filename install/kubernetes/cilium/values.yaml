@@ -84,7 +84,7 @@ agent: true
 name: cilium
 
 # -- Roll out cilium agent pods automatically when configmap is updated.
-rollOutCiliumPods: false
+rollOutCiliumPods: true
 
 # -- Agent container image.
 image:
