@@ -37,7 +37,7 @@ jobs:
   installation-and-connectivity:
     if: ${{ github.repository == 'cilium/cilium-cli' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
@@ -160,7 +160,7 @@ jobs:
 
       - name: Wait for test job
         env:
-          timeout: 20m
+          timeout: 30m
         run: |
           # Background wait for job to complete or timeout
           kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
