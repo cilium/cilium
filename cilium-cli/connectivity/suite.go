@@ -34,8 +34,14 @@ var (
 	//go:embed manifests/client-egress-to-echo.yaml
 	clientEgressToEchoPolicyYAML string
 
+	//go:embed manifests/client-egress-to-echo-expression.yaml
+	clientEgressToEchoExpressionPolicyYAML string
+
 	//go:embed manifests/client-egress-to-echo-deny.yaml
 	clientEgressToEchoDenyPolicyYAML string
+
+	//go:embed manifests/client-egress-to-echo-expression-deny.yaml
+	clientEgressToEchoExpressionDenyPolicyYAML string
 
 	//go:embed manifests/client-egress-to-echo-named-port-deny.yaml
 	clientEgressToEchoDenyNamedPortPolicyYAML string
@@ -214,6 +220,12 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPod(),
 		)
 
+	// This policy allows port 8080 from client to echo (using label match expression, so this should succeed
+	ct.NewTest("client-egress-expression").WithPolicy(clientEgressToEchoExpressionPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(),
+		)
+
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
 	ct.NewTest("to-entities-world").
 		WithPolicy(clientEgressToEntitiesWorldPolicyYAML).
@@ -358,6 +370,23 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			if a.Destination().HasLabel("kind", "echo") &&
 				a.Source().HasLabel("name", "client") {
 				return check.ResultDropCurlTimeout, check.ResultNone
+			}
+			return check.ResultOK, check.ResultOK
+		})
+
+	// This policy denies port 8080 from client to echo (using label match expression), but allows traffic from client2
+	ct.NewTest("client-egress-to-echo-expression-deny").
+		WithPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
+		WithPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
+		WithPolicy(clientEgressToEchoExpressionDenyPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client"})),  // Client to echo should be denied
+			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client2"})), // Client2 to echo should be allowed
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("kind", "echo") &&
+				a.Source().HasLabel("name", "client") {
+				return check.ResultDrop, check.ResultNone
 			}
 			return check.ResultOK, check.ResultOK
 		})
