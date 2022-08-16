@@ -36,3 +36,8 @@ func (f *Config) EncryptionEnabled() bool {
 func (f *Config) NodeEncryptionEnabled() bool {
 	return true
 }
+
+// LocalClusterID returns a dummy cluster ID.
+func (f *Config) LocalClusterID() int {
+	return 5
+}
