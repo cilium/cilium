@@ -17,7 +17,6 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/cilium/ebpf/rlimit"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
@@ -687,9 +686,7 @@ func TestDummyProg(progType ProgType, attachType uint32) error {
 		Insns:      uintptr(unsafe.Pointer(&insns[0])),
 		License:    uintptr(unsafe.Pointer(&license[0])),
 	}
-	if err := rlimit.RemoveMemlock(); err != nil {
-		return err
-	}
+
 	fd, _, errno := unix.Syscall(unix.SYS_BPF, BPF_PROG_LOAD,
 		uintptr(unsafe.Pointer(&bpfAttr)),
 		unsafe.Sizeof(bpfAttr))
