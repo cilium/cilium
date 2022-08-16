@@ -2479,6 +2479,11 @@ func (c *DaemonConfig) LocalClusterName() string {
 	return c.ClusterName
 }
 
+// LocalClusterID returns the ID of the cluster local to the Cilium agent.
+func (c *DaemonConfig) LocalClusterID() int {
+	return c.ClusterID
+}
+
 // K8sServiceProxyName returns the required value for the
 // service.kubernetes.io/service-proxy-name label in order for services to be
 // handled.
