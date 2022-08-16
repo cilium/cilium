@@ -11,8 +11,6 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/ebpf/rlimit"
-
 	"github.com/cilium/cilium/pkg/bpf"
 )
 
@@ -43,11 +41,6 @@ func (p *probeValue) DeepCopyMapValue() bpf.MapValue { return &probeValue{p.Valu
 // with proper bpf.GetNextKey() traversal. Needs 4.16 or higher.
 func HaveFullLPM() bool {
 	haveFullLPMOnce.Do(func() {
-
-		if err := rlimit.RemoveMemlock(); err != nil {
-			return
-		}
-
 		m := bpf.NewMap("cilium_test", bpf.MapTypeLPMTrie,
 			&probeKey{}, int(unsafe.Sizeof(probeKey{})),
 			&probeValue{}, int(unsafe.Sizeof(probeValue{})),

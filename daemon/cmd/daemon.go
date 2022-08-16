@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/ebpf/rlimit"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
@@ -452,13 +451,6 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 		lbmapInitParams.MaglevMapMaxEntries = option.Config.LBMaglevMapEntries
 	}
 	lbmap.Init(lbmapInitParams)
-
-	if option.Config.DryMode == false {
-		if err := rlimit.RemoveMemlock(); err != nil {
-			log.WithError(err).Error("unable to set memory resource limits")
-			return nil, nil, fmt.Errorf("unable to set memory resource limits: %w", err)
-		}
-	}
 
 	authKeySize, encryptKeyID, err := setupIPSec()
 	if err != nil {

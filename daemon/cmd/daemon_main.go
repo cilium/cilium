@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/go-openapi/loads"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -1219,6 +1220,12 @@ func initEnv() {
 		scopedLog.Fatalf("Invalid %s value %d", option.MaxCtrlIntervalName, option.Config.MaxControllerInterval)
 	}
 
+	// set rlimit Memlock to INFINITY before creating any bpf resources.
+	if !option.Config.DryMode {
+		if err := rlimit.RemoveMemlock(); err != nil {
+			log.WithError(err).Fatal("unable to set memory resource limits")
+		}
+	}
 	linuxdatapath.CheckMinRequirements()
 
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {
