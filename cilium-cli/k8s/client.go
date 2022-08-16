@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -119,6 +121,20 @@ func (c *Client) ClusterName() (name string) {
 		name = context.Cluster
 	}
 	return
+}
+
+func (c *Client) GetAPIServerHostAndPort() (string, string) {
+	if context, ok := c.RawConfig.Contexts[c.ContextName()]; ok {
+		addr := c.RawConfig.Clusters[context.Cluster].Server
+		if addr != "" {
+			url, err := url.Parse(addr)
+			if err == nil {
+				host, port, _ := net.SplitHostPort(url.Host)
+				return host, port
+			}
+		}
+	}
+	return "", ""
 }
 
 func (c *Client) CreateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
