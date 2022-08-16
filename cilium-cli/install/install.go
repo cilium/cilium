@@ -144,6 +144,7 @@ func (k *K8sInstaller) getSecretNamespace() string {
 
 type k8sInstallerImplementation interface {
 	ClusterName() string
+	GetAPIServerHostAndPort() (string, string)
 	ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error)
 	PatchNode(ctx context.Context, nodeName string, pt types.PatchType, data []byte) (*corev1.Node, error)
 	GetCiliumExternalWorkload(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumExternalWorkload, error)
@@ -164,6 +165,7 @@ type k8sInstallerImplementation interface {
 	CreateRoleBinding(ctx context.Context, namespace string, roleBinding *rbacv1.RoleBinding, opts metav1.CreateOptions) (*rbacv1.RoleBinding, error)
 	DeleteRoleBinding(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	CreateDaemonSet(ctx context.Context, namespace string, ds *appsv1.DaemonSet, opts metav1.CreateOptions) (*appsv1.DaemonSet, error)
+	ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
 	DeleteDaemonSet(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error)
