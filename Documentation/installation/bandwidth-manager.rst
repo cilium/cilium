@@ -170,6 +170,12 @@ the ``netperf-server`` Pod):
 Each Pod is represented in Cilium as an :ref:`endpoint` which has an identity. The above
 identity can then be correlated with the ``cilium endpoint list`` command.
 
+.. note::
+
+   Bandwidth limits apply on a per-Pod scope. In our example, if multiple
+   replicas of the Pod are created, then each of the Pod instances receives
+   a 10M bandwidth limit.
+
 .. _BBR Pods:
 
 BBR for Pods
