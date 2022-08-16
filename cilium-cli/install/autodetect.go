@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium-cli/k8s"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type validationCheck interface {
@@ -166,5 +168,33 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		return fmt.Errorf("invalid encryption mode")
 	}
 
+	k.autodetectKubeProxy(ctx)
+	return nil
+}
+
+func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context) error {
+	kubeSysNameSpace := "kube-system"
+	dsList, err := k.client.ListDaemonSet(ctx, kubeSysNameSpace, metav1.ListOptions{})
+	if err != nil {
+		k.Log("⏭️ Skipping auto kube-proxy detction")
+		return nil
+	}
+
+	for _, ds := range dsList.Items {
+		if strings.Contains(ds.Name, "kube-proxy") {
+			k.Log("🔮 Auto-detected kube-proxy has been installed")
+			return nil
+		}
+	}
+	apiServerHost, apiServerPort := k.client.GetAPIServerHostAndPort()
+	if apiServerHost != "" && apiServerPort != "" {
+		k.Log("🔮 Auto-detected kube-proxy has not been installed")
+		k.Log("ℹ️ Cilium will fully replace all functionalities of kube-proxy")
+		// Use HelmOpts to set auto kube-proxy installation
+		k.params.HelmOpts.Values = append(k.params.HelmOpts.Values,
+			"kubeProxyReplacement=strict",
+			fmt.Sprintf("k8sServiceHost=%s", apiServerHost),
+			fmt.Sprintf("k8sServicePort=%s", apiServerPort))
+	}
 	return nil
 }
