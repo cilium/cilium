@@ -761,7 +761,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 
 	// All subnets must have been used for allocation
 	for _, subnet := range subnets {
-		c.Assert(metricsapi.AllocationAttempts("success", subnet.ID), check.Not(check.Equals), 0)
+		c.Assert(metricsapi.GetAllocationAttempts("createInterfaceAndAllocateIP", "success", subnet.ID), check.Not(check.Equals), 0)
 		c.Assert(metricsapi.IPAllocations(subnet.ID), check.Not(check.Equals), 0)
 	}
 
@@ -801,7 +801,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	}, 5*time.Second), check.IsNil)
 
 	// Metric should not indicate failure
-	c.Assert(metricsMock.AllocationAttempts("ENI attachment failed", testSubnet.ID), check.Equals, int64(0))
+	c.Assert(metricsMock.GetAllocationAttempts("createInterfaceAndAllocateIP", "unableToAttachENI", testSubnet.ID), check.Equals, int64(0))
 
 	node := mngr.Get("node1")
 	c.Assert(node, check.Not(check.IsNil))

@@ -461,9 +461,12 @@ IPAM
 Name                                     Labels                                                            Default    Description
 ======================================== ================================================================= ========== ========================================================
 ``ipam_ips``                             ``type``                                                          Enabled    Number of IPs allocated
-``ipam_allocation_ops``                  ``subnet_id``                                                     Enabled    Number of IP allocation operations.
-``ipam_interface_creation_ops``          ``subnet_id``, ``status``                                         Enabled    Number of interfaces creation operations.
-``ipam_available``                                                                                         Enabled    Number of interfaces with addresses available
+``ipam_ip_allocation_ops``               ``subnet_id``                                                     Enabled    Number of IP allocation operations.
+``ipam_ip_release_ops``                  ``subnet_id``                                                     Enabled    Number of IP release operations.
+``ipam_interface_creation_ops``          ``subnet_id``                                                     Enabled    Number of interfaces creation operations.
+``ipam_release_duration_seconds``        ``type``, ``status``, ``subnet_id``                               Enabled    Release ip or interface latency in seconds
+``ipam_allocation_duration_seconds``     ``type``, ``status``, ``subnet_id``                               Enabled    Allocation ip or interface latency in seconds
+``ipam_available_interfaces``                                                                              Enabled    Number of interfaces with addresses available
 ``ipam_nodes_at_capacity``                                                                                 Enabled    Number of nodes unable to allocate more addresses
 ``ipam_resync_total``                                                                                      Enabled    Number of synchronization operations with external IPAM API
 ``ipam_api_duration_seconds``            ``operation``, ``response_code``                                  Enabled    Duration of interactions with external IPAM API.

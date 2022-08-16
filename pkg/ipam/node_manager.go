@@ -119,7 +119,9 @@ type AllocationImplementation interface {
 
 // MetricsAPI represents the metrics being maintained by a NodeManager
 type MetricsAPI interface {
-	IncAllocationAttempt(status, subnetID string)
+	AllocationAttempt(typ, status, subnetID string, observe float64)
+	ReleaseAttempt(typ, status, subnetID string, observe float64)
+	IncInterfaceAllocation(subnetID string)
 	AddIPAllocation(subnetID string, allocated int64)
 	AddIPRelease(subnetID string, released int64)
 	SetAllocatedIPs(typ string, allocated int)

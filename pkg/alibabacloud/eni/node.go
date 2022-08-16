@@ -25,10 +25,14 @@ import (
 // usable for metrics accounting purposes.
 const (
 	errUnableToDetermineLimits   = "unable to determine limits"
+	unableToDetermineLimits      = "unableToDetermineLimits"
 	errUnableToGetSecurityGroups = "unable to get security groups"
+	unableToGetSecurityGroups    = "unableToGetSecurityGroups"
 	errUnableToCreateENI         = "unable to create ENI"
+	unableToCreateENI            = "unableToCreateENI"
 	errUnableToAttachENI         = "unable to attach ENI"
-	errUnableToFindSubnet        = "unable to find matching subnet"
+	unableToAttachENI            = "unableToAttachENI"
+	unableToFindSubnet           = "unableToFindSubnet"
 )
 
 const (
@@ -89,7 +93,7 @@ func (n *Node) PopulateStatusFields(resource *v2.CiliumNode) {
 func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return 0, errUnableToDetermineLimits, fmt.Errorf(errUnableToDetermineLimits)
+		return 0, unableToDetermineLimits, fmt.Errorf(errUnableToDetermineLimits)
 	}
 
 	n.mutex.RLock()
@@ -108,7 +112,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		toAllocate, resource.Spec.AlibabaCloud.VSwitchTags)
 	if bestSubnet == nil {
 		return 0,
-			errUnableToFindSubnet,
+			unableToFindSubnet,
 			fmt.Errorf(
 				"no matching vSwitch available for interface creation (VPC=%s AZ=%s SubnetTags=%s",
 				resource.Spec.AlibabaCloud.VPCID,
@@ -121,7 +125,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	securityGroupIDs, err := n.getSecurityGroupIDs(ctx, resource.Spec.AlibabaCloud)
 	if err != nil {
 		return 0,
-			errUnableToGetSecurityGroups,
+			unableToGetSecurityGroups,
 			fmt.Errorf("%s %s", errUnableToGetSecurityGroups, err)
 	}
 
@@ -143,7 +147,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, toAllocate-1, bestSubnet.ID, securityGroupIDs,
 		utils.FillTagWithENIIndex(map[string]string{}, index))
 	if err != nil {
-		return 0, errUnableToCreateENI, fmt.Errorf("%s %s", errUnableToCreateENI, err)
+		return 0, unableToCreateENI, fmt.Errorf("%s %s", errUnableToCreateENI, err)
 	}
 
 	scopedLog = scopedLog.WithField(fieldENIID, eniID)
@@ -151,7 +155,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	err = n.manager.api.AttachNetworkInterface(ctx, instanceID, eniID)
 	if err != nil {
-		return 0, errUnableToAttachENI, fmt.Errorf("%s %s", errUnableToAttachENI, err)
+		return 0, unableToAttachENI, fmt.Errorf("%s %s", errUnableToAttachENI, err)
 	}
 	_, err = n.manager.api.WaitENIAttached(ctx, eniID)
 	if err != nil {
@@ -159,7 +163,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		if err2 != nil {
 			scopedLog.Errorf("Failed to release ENI %s", err2.Error())
 		}
-		return 0, errUnableToAttachENI, fmt.Errorf("%s %s", errUnableToAttachENI, err)
+		return 0, unableToAttachENI, fmt.Errorf("%s %s", errUnableToAttachENI, err)
 	}
 
 	n.enis[eniID] = *eni

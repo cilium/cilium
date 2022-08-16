@@ -356,12 +356,16 @@ func (n *Node) findNextIndex(index int32) int32 {
 // CreateInterface without additional context embedded in order to make them
 // usable for metrics accounting purposes.
 const (
-	errUnableToDetermineLimits    = "unable to determine limits"
-	errUnableToGetSecurityGroups  = "unable to get security groups"
-	errUnableToCreateENI          = "unable to create ENI"
-	errUnableToAttachENI          = "unable to attach ENI"
-	errUnableToMarkENIForDeletion = "unable to mark ENI for deletion"
-	errUnableToFindSubnet         = "unable to find matching subnet"
+	errUnableToDetermineLimits   = "unable to determine limits"
+	unableToDetermineLimits      = "unableToDetermineLimits"
+	errUnableToGetSecurityGroups = "unable to get security groups"
+	unableToGetSecurityGroups    = "unableToGetSecurityGroups"
+	errUnableToCreateENI         = "unable to create ENI"
+	unableToCreateENI            = "unableToCreateENI"
+	errUnableToAttachENI         = "unable to attach ENI"
+	unableToAttachENI            = "unableToAttachENI"
+	unableToMarkENIForDeletion   = "unableToMarkENIForDeletion"
+	unableToFindSubnet           = "unableToFindSubnet"
 )
 
 // CreateInterface creates an additional interface with the instance and
@@ -371,7 +375,7 @@ const (
 func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return 0, errUnableToDetermineLimits, fmt.Errorf(errUnableToDetermineLimits)
+		return 0, unableToDetermineLimits, fmt.Errorf(errUnableToDetermineLimits)
 	}
 
 	n.mutex.RLock()
@@ -388,7 +392,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	if bestSubnet == nil {
 		return 0,
-			errUnableToFindSubnet,
+			unableToFindSubnet,
 			fmt.Errorf(
 				"No matching subnet available for interface creation (VPC=%s AZ=%s SubnetIDs=%v SubnetTags=%s)",
 				resource.Spec.ENI.VpcID,
@@ -402,7 +406,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	securityGroupIDs, err := n.getSecurityGroupIDs(ctx, resource.Spec.ENI)
 	if err != nil {
 		return 0,
-			errUnableToGetSecurityGroups,
+			unableToGetSecurityGroups,
 			fmt.Errorf("%s %s", errUnableToGetSecurityGroups, err)
 	}
 
@@ -427,7 +431,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), bestSubnet.ID, desc, securityGroupIDs, isPrefixDelegated)
 	if err != nil {
-		return 0, errUnableToCreateENI, fmt.Errorf("%s %s", errUnableToCreateENI, err)
+		return 0, unableToCreateENI, fmt.Errorf("%s %s", errUnableToCreateENI, err)
 	}
 
 	scopedLog = scopedLog.WithField(fieldEniID, eniID)
@@ -458,7 +462,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		}
 
 		return 0,
-			errUnableToAttachENI,
+			unableToAttachENI,
 			fmt.Errorf("%s at index %d: %s", errUnableToAttachENI, index, err)
 	}
 
@@ -485,7 +489,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 				return toAllocate, "", nil
 			}
 
-			return 0, errUnableToMarkENIForDeletion, fmt.Errorf("unable to mark ENI for deletion on termination: %s", err)
+			return 0, unableToMarkENIForDeletion, fmt.Errorf("unable to mark ENI for deletion on termination: %s", err)
 		}
 	}
 
