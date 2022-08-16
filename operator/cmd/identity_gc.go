@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func startKvstoreIdentityGC() {
@@ -26,8 +27,17 @@ func startKvstoreIdentityGC() {
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
 	}
+
+	identity.InitMinMaxIdentityAllocation(option.Config)
+
 	minID := idpool.ID(identity.MinimalAllocationIdentity)
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
+
+	log.WithFields(map[string]interface{}{
+		"min":        minID,
+		"max":        maxID,
+		"cluster-id": option.Config.ClusterID,
+	}).Info("Garbage Collecting identities between range")
 	a := allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
 	successfulRuns := 0
