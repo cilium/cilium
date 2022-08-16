@@ -343,7 +343,7 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 	}
 
 	// The above check returns as soon as the address requirements are met.
-	// The metrics may still be oudated, resync all nodes to update
+	// The metrics may still be outdated, resync all nodes to update
 	// metrics.
 	mngr.Resync(context.TODO(), time.Now())
 
@@ -357,7 +357,7 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 
 	// All subnets must have been used for allocation
 	for _, subnet := range subnets {
-		c.Assert(metrics.AllocationAttempts("success", subnet.ID), check.Not(check.Equals), 0)
+		c.Assert(metrics.GetAllocationAttempts("createInterfaceAndAllocateIP", "success", subnet.ID), check.Not(check.Equals), 0)
 		c.Assert(metrics.IPAllocations(subnet.ID), check.Not(check.Equals), 0)
 	}
 

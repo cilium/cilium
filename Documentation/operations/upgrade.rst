@@ -307,6 +307,25 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.13_upgrade_notes:
+
+1.13 Upgrade Notes
+------------------
+
+Added Metrics
+~~~~~~~~~~~~~
+
+* ``cilium_operator_allocation_duration_seconds``
+* ``cilium_operator_release_duration_seconds``
+
+Removed Metrics/Labels
+~~~~~~~~~~~~~~~~~~~~~~
+
+* ``cilium_operator_ipam_available`` is removed. Please use ``cilium_operator_ipam_available_interfaces`` instead.
+* ``cilium_operator_ipam_allocation_ops`` is removed. Please use ``cilium_operator_ipam_ip_allocation_ops`` instead.
+* ``cilium_operator_ipam_release_ops`` is removed. Please use ``cilium_operator_ipam_ip_release_ops`` instead.
+* The label of ``status`` in ``cilium_operator_ipam_interface_creation_ops`` is removed.
+
 .. _1.12_upgrade_notes:
 
 1.12 Upgrade Notes

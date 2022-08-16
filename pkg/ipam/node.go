@@ -15,6 +15,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -30,6 +31,15 @@ const (
 	// warningInterval is the interval for warnings which should be done
 	// once and then repeated if the warning persists.
 	warningInterval = time.Hour
+
+	// allocation type
+	createInterfaceAndAllocateIP = "createInterfaceAndAllocateIP"
+	allocateIP                   = "allocateIP"
+	releaseIP                    = "releaseIP"
+
+	// operator status
+	success = "success"
+	failed  = "failed"
 )
 
 // Node represents a Kubernetes node running Cilium with an associated
@@ -492,15 +502,17 @@ func (n *Node) createInterface(ctx context.Context, a *AllocationAction) (create
 	}
 
 	scopedLog := n.logger()
+	start := time.Now()
 	toAllocate, errCondition, err := n.ops.CreateInterface(ctx, a, scopedLog)
 	if err != nil {
+		n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, errCondition, string(a.PoolID), metrics.SinceInSeconds(start))
 		scopedLog.Warningf("Unable to create interface on instance: %s", err)
-		n.manager.metricsAPI.IncAllocationAttempt(errCondition, string(a.PoolID))
 		return false, err
 	}
 
-	n.manager.metricsAPI.IncAllocationAttempt("success", string(a.PoolID))
+	n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, success, string(a.PoolID), metrics.SinceInSeconds(start))
 	n.manager.metricsAPI.AddIPAllocation(string(a.PoolID), int64(toAllocate))
+	n.manager.metricsAPI.IncInterfaceAllocation(string(a.PoolID))
 
 	return true, nil
 }
@@ -793,8 +805,10 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			"selectedPoolID":    a.release.PoolID,
 		})
 		scopedLog.Info("Releasing excess IPs from node")
+		start := time.Now()
 		err := n.ops.ReleaseIPs(ctx, a.release)
 		if err == nil {
+			n.manager.metricsAPI.ReleaseAttempt(releaseIP, success, string(a.release.PoolID), metrics.SinceInSeconds(start))
 			n.manager.metricsAPI.AddIPRelease(string(a.release.PoolID), int64(len(a.release.IPsToRelease)))
 
 			// Remove the IPs from ipsMarkedForRelease
@@ -806,7 +820,7 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			n.mutex.Unlock()
 			return true, nil
 		}
-		n.manager.metricsAPI.IncAllocationAttempt("ip unassignment failed", string(a.release.PoolID))
+		n.manager.metricsAPI.ReleaseAttempt(releaseIP, failed, string(a.release.PoolID), metrics.SinceInSeconds(start))
 		scopedLog.WithFields(logrus.Fields{
 			"selectedInterface":  a.release.InterfaceID,
 			"releasingAddresses": len(a.release.IPsToRelease),
@@ -829,14 +843,15 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 	if a.allocation.AvailableForAllocation > 0 {
 		a.allocation.AvailableForAllocation = math.IntMin(a.allocation.AvailableForAllocation, a.allocation.MaxIPsToAllocate)
 
+		start := time.Now()
 		err := n.ops.AllocateIPs(ctx, a.allocation)
 		if err == nil {
-			n.manager.metricsAPI.IncAllocationAttempt("success", string(a.allocation.PoolID))
+			n.manager.metricsAPI.AllocationAttempt(allocateIP, success, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
 			n.manager.metricsAPI.AddIPAllocation(string(a.allocation.PoolID), int64(a.allocation.AvailableForAllocation))
 			return true, nil
 		}
 
-		n.manager.metricsAPI.IncAllocationAttempt("ip assignment failed", string(a.allocation.PoolID))
+		n.manager.metricsAPI.AllocationAttempt(allocateIP, failed, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
 		scopedLog.WithFields(logrus.Fields{
 			"selectedInterface": a.allocation.InterfaceID,
 			"ipsToAllocate":     a.allocation.AvailableForAllocation,

@@ -21,8 +21,8 @@ var _ = check.Suite(&MockSuite{})
 
 func (e *MockSuite) TestMock(c *check.C) {
 	api := NewMockMetrics()
-	api.IncAllocationAttempt("foo", "s-1")
-	c.Assert(api.AllocationAttempts("foo", "s-1"), check.Equals, int64(1))
+	api.AllocationAttempt("createInterfaceAndAllocateIP", "foo", "s-1", 0)
+	c.Assert(api.GetAllocationAttempts("createInterfaceAndAllocateIP", "foo", "s-1"), check.Equals, int64(1))
 	api.AddIPAllocation("s-1", 10)
 	api.AddIPAllocation("s-1", 20)
 	c.Assert(api.IPAllocations("s-1"), check.Equals, int64(30))
