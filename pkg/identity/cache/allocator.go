@@ -184,6 +184,12 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 	minID := idpool.ID(identity.MinimalAllocationIdentity)
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
 
+	log.WithFields(map[string]interface{}{
+		"min":        minID,
+		"max":        maxID,
+		"cluster-id": option.Config.ClusterID,
+	}).Info("Allocating identities between range")
+
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
 	go func(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan, minID, maxID idpool.ID) {
