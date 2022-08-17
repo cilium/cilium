@@ -91,10 +91,16 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 			listOfCiliumNodes := ciliumNodeStore.ListKeys()
 
 			kvStoreNodes := ciliumNodeKVStore.SharedKeysMap()
+
 			for _, ciliumNode := range listOfCiliumNodes {
 				// The remaining kvStoreNodes are leftovers that need to be GCed
 				kvStoreNodeName := nodeTypes.GetKeyNodeName(option.Config.ClusterName, ciliumNode)
 				delete(kvStoreNodes, kvStoreNodeName)
+			}
+
+			if len(listOfCiliumNodes) == 0 && len(kvStoreNodes) != 0 {
+				log.Warn("Preventing GC of nodes in the KVStore due the nonexistence of any CiliumNodes in kube-apiserver")
+				return
 			}
 
 			for _, kvStoreNode := range kvStoreNodes {
