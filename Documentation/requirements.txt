@@ -14,7 +14,7 @@ pyenchant==3.2.2
 Pygments==2.13.0
 pytz==2021.3
 PyYAML==6.0
-requests==2.27.1
+requests==2.28.1
 semver==2.13.0
 six==1.16.0
 snowballstemmer==2.2.0
