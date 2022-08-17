@@ -282,6 +282,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 				Name: "envoy.filters.http.router",
 			},
 		},
+		UpgradeConfigs: []*envoy_config_http.HttpConnectionManager_UpgradeConfig{
+			{UpgradeType: "websocket"},
+		},
 		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
 			RouteConfig: &envoy_config_route.RouteConfiguration{
