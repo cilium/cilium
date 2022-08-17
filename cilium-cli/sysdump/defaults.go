@@ -44,6 +44,8 @@ const (
 	DefaultDetectGopsPID                     = false
 	DefaultCNIConfigDirectory                = "/etc/cni/net.d/"
 	DefaultCNIConfigMapName                  = "cni-configuration"
+	DefaultTetragonNamespace                 = "kube-system"
+	DefaultTetragonLabelSelector             = "app.kubernetes.io/name=tetragon"
 )
 
 var (
