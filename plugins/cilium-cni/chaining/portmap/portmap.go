@@ -29,6 +29,10 @@ func (p *portmapChainer) Delete(ctx context.Context, pluginCtx chainingapi.Plugi
 	return nil
 }
 
+func (p *portmapChainer) Check(ctx context.Context, pluginContext chainingapi.PluginContext) error {
+	return nil
+}
+
 func init() {
 	chainingapi.Register("portmap", &portmapChainer{})
 }

@@ -106,3 +106,10 @@ type ArgsSpec struct {
 // Args contains arbitrary information a scheduler
 // can pass to the cni plugin
 type Args struct{}
+
+// CNI error codes
+// (error codes 100+ are allowed for plugin use)
+const (
+	CniErrHealthzGet uint = 100
+	CniErrUnhealthy       = iota
+)
