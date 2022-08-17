@@ -171,6 +171,7 @@ jenkinsfiles @cilium/ci-structure
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
+/operator/pkg/ingress @cilium/operator @cilium/sig-servicemesh
 /pkg/ @cilium/tophat
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
