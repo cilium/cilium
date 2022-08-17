@@ -195,6 +195,8 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 	svcInfo.ServiceAffinity = getAnnotationServiceAffinity(svc)
+	svcInfo.Nat46 = getAnnotationNat46(svc)
+	svcInfo.Nat64 = getAnnotationNat64(svc)
 
 	if svc.Spec.SessionAffinity == slim_corev1.ServiceAffinityClientIP {
 		svcInfo.SessionAffinity = true
@@ -383,6 +385,11 @@ type Service struct {
 	// TopologyAware denotes whether service endpoints might have topology aware
 	// hints
 	TopologyAware bool
+
+	// Nat46 is true when the service should have IPv4->IPv6 translation
+	Nat46 bool
+	// Nat64 is true when the service should have IPv6->IPv4 translation
+	Nat64 bool
 }
 
 // DeepEqual returns true if both the receiver and 'o' are deeply equal.
