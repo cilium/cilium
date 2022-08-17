@@ -64,7 +64,7 @@ func yamlNode(root *yaml.Node) (interface{}, error) {
 	case yaml.ScalarNode:
 		return yamlScalar(root)
 	case yaml.AliasNode:
-		return nil, fmt.Errorf("no translation to JSON for AliasNode")
+		return yamlNode(root.Alias)
 	default:
 		return nil, fmt.Errorf("unsupported YAML node type: %v", root.Kind)
 	}
@@ -209,6 +209,113 @@ func (s *JSONMapSlice) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		result = append(result, mi)
 	}
 	*s = result
+}
+
+func (s JSONMapSlice) MarshalYAML() (interface{}, error) {
+	var n yaml.Node
+	n.Kind = yaml.DocumentNode
+	var nodes []*yaml.Node
+	for _, item := range s {
+		nn, err := json2yaml(item.Value)
+		if err != nil {
+			return nil, err
+		}
+		ns := []*yaml.Node{
+			{
+				Kind:  yaml.ScalarNode,
+				Tag:   yamlStringScalar,
+				Value: item.Key,
+			},
+			nn,
+		}
+		nodes = append(nodes, ns...)
+	}
+
+	n.Content = []*yaml.Node{
+		{
+			Kind:    yaml.MappingNode,
+			Content: nodes,
+		},
+	}
+
+	return yaml.Marshal(&n)
+}
+
+func json2yaml(item interface{}) (*yaml.Node, error) {
+	switch val := item.(type) {
+	case JSONMapSlice:
+		var n yaml.Node
+		n.Kind = yaml.MappingNode
+		for i := range val {
+			childNode, err := json2yaml(&val[i].Value)
+			if err != nil {
+				return nil, err
+			}
+			n.Content = append(n.Content, &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   yamlStringScalar,
+				Value: val[i].Key,
+			}, childNode)
+		}
+		return &n, nil
+	case map[string]interface{}:
+		var n yaml.Node
+		n.Kind = yaml.MappingNode
+		for k, v := range val {
+			childNode, err := json2yaml(v)
+			if err != nil {
+				return nil, err
+			}
+			n.Content = append(n.Content, &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   yamlStringScalar,
+				Value: k,
+			}, childNode)
+		}
+		return &n, nil
+	case []interface{}:
+		var n yaml.Node
+		n.Kind = yaml.SequenceNode
+		for i := range val {
+			childNode, err := json2yaml(val[i])
+			if err != nil {
+				return nil, err
+			}
+			n.Content = append(n.Content, childNode)
+		}
+		return &n, nil
+	case string:
+		return &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   yamlStringScalar,
+			Value: val,
+		}, nil
+	case float64:
+		return &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   yamlFloatScalar,
+			Value: strconv.FormatFloat(val, 'f', -1, 64),
+		}, nil
+	case int64:
+		return &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   yamlIntScalar,
+			Value: strconv.FormatInt(val, 10),
+		}, nil
+	case uint64:
+		return &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   yamlIntScalar,
+			Value: strconv.FormatUint(val, 10),
+		}, nil
+	case bool:
+		return &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   yamlBoolScalar,
+			Value: strconv.FormatBool(val),
+		}, nil
+	}
+	return nil, nil
 }
 
 // JSONMapItem represents the value of a key in a JSON object held by JSONMapSlice
