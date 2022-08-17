@@ -291,6 +291,12 @@ func (in *Service) deepEqual(other *Service) bool {
 	if in.TopologyAware != other.TopologyAware {
 		return false
 	}
+	if in.Nat46 != other.Nat46 {
+		return false
+	}
+	if in.Nat64 != other.Nat64 {
+		return false
+	}
 
 	return true
 }
