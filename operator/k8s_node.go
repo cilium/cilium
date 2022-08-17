@@ -107,6 +107,11 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 			delete(kvStoreNodes, kvStoreNodeName)
 		}
 
+		if len(listOfCiliumNodes) == 0 && len(kvStoreNodes) != 0 {
+			log.Warn("Preventing GC of nodes in the KVStore due the nonexistence of any CiliumNodes in kube-apiserver")
+			return
+		}
+
 		for _, kvStoreNode := range kvStoreNodes {
 			// Only delete the nodes that belong to our cluster
 			if strings.HasPrefix(kvStoreNode.GetKeyName(), option.Config.ClusterName) {
