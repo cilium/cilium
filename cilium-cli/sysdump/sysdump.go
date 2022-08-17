@@ -87,6 +87,10 @@ type Options struct {
 	CNIConfigDirectory string
 	// The name of the CNI config map
 	CNIConfigMapName string
+	// The labels used to target Tetragon pods.
+	TetragonLabelSelector string
+	// The namespace Namespace is running in.
+	TetragonNamespace string
 }
 
 // Task defines a task for the sysdump collector to execute.
@@ -860,6 +864,23 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting bugtool output from Tetragon pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.TetragonNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.TetragonLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get Tetragon pods: %w", err)
+				}
+				if err := c.submitTetragonBugtoolTasks(ctx, FilterPods(p, c.NodeList)); err != nil {
+					return fmt.Errorf("failed to collect 'tetragon-bugtool': %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting platform-specific data",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
@@ -1050,6 +1071,65 @@ func (c *Collector) logWarn(msg string, args ...interface{}) {
 
 func (c *Collector) shouldSkipTask(t Task) bool {
 	return c.Options.Quick && !t.Quick
+}
+
+func (c *Collector) submitTetragonBugtoolTasks(ctx context.Context, pods []*corev1.Pod) error {
+	for _, p := range pods {
+		p := p
+		workerID := fmt.Sprintf("%s-%s", tetragonBugtoolPrefix, p.Name)
+		if err := c.Pool.Submit(workerID, func(ctx context.Context) error {
+			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, tetragonAgentContainerName)
+			if err != nil {
+				return fmt.Errorf("failed to pick exec target: %w", err)
+			}
+			defer func() {
+				err := cleanupFunc(ctx)
+				if err != nil {
+					c.logWarn("Failed to clean up exec target: %v", err)
+				}
+			}()
+
+			tarGzFile := fmt.Sprintf("%s-%s.tar.gz", tetragonBugtoolPrefix, time.Now().Format(timeFormat))
+			// Run 'tetra bugtool' in the pod.
+			command := []string{tetragonCliCommand, "bugtool", "--out", tarGzFile}
+
+			c.logDebug("Executing 'tetragon-bugtool' command: %v", command)
+			_, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, command)
+			if err != nil {
+				return fmt.Errorf("failed to collect 'tetragon-bugtool' output for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
+			}
+
+			// Dump the resulting file's contents to the temporary directory.
+			f := c.AbsoluteTempPath(fmt.Sprintf("%s-%s-<ts>.tar.gz", tetragonBugtoolPrefix, p.Name))
+			err = c.Client.CopyFromPod(ctx, p.Namespace, p.Name, containerName, tarGzFile, f)
+			if err != nil {
+				return fmt.Errorf("failed to collect 'tetragon-bugtool' output for %q: %w", p.Name, err)
+			}
+			// Untar the resulting file.
+			t := archiver.TarGz{
+				Tar: &archiver.Tar{
+					StripComponents: 1,
+				},
+			}
+			if err := t.Unarchive(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
+				c.logWarn("Failed to unarchive 'tetragon-bugtool' output for %q: %v", p.Name, err)
+				return nil
+			}
+			// Remove the file we've copied from the pod.
+			if err := os.Remove(f); err != nil {
+				c.logWarn("Failed to remove original 'tetragon-bugtool' file: %v", err)
+				return nil
+			}
+			if _, err = c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{rmCommand, tarGzFile}); err != nil {
+				c.logWarn("Failed to delete 'tetragon-bugtool' output from pod %q in namespace %q: %w", p.Name, p.Namespace, err)
+				return nil
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to submit 'tetragon-bugtool' task for %q: %w", p.Name, err)
+		}
+	}
+	return nil
 }
 
 func (c *Collector) submitCiliumBugtoolTasks(ctx context.Context, pods []*corev1.Pod) error {
