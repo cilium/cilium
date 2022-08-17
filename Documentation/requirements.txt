@@ -26,7 +26,7 @@ sphinxcontrib-httpdomain==1.8.0
 # Fork openapi until it uses something newer than unmaintained m2r
 # (See git logs for details)
 git+https://github.com/cilium/openapi.git@mdinclude
-sphinxcontrib-spelling==7.3.2
+sphinxcontrib-spelling==7.6.0
 sphinxcontrib-websupport==1.2.4
 sphinx-tabs==3.3.1
 sphinx-version-warning==1.1.2
