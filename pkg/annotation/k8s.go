@@ -45,6 +45,16 @@ const (
 	// key of the cilium host interface in the node's annotation.
 	CiliumEncryptionKey = Prefix + ".network.encryption-key"
 
+	// CiliumServiceNAT46 is the annotation name used to translate from IPv4
+	// service VIP to IPv6 backend IPs if set to true, and the .spec.ipFamilyPolicy
+	// is set to RequireDualStack.
+	CiliumServiceNAT46 = Prefix + ".service.ipv4-to-ipv6"
+
+	// CiliumServiceNAT64 is the annotation name used to translate from IPv6
+	// service VIP to IPv4 backend IPs if set to true, and the .spec.ipFamilyPolicy
+	// is set to RequireDualStack.
+	CiliumServiceNAT64 = Prefix + ".service.ipv6-to-ipv4"
+
 	// GlobalService if set to true, marks a service to become a global
 	// service
 	GlobalService = Prefix + "/global-service"
