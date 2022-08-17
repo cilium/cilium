@@ -24,7 +24,7 @@ import semver
 
 sys.path.insert(0, os.path.abspath('_exts'))
 import cilium_spellfilters
-
+import cilium_external_links
 
 # -- General configuration ------------------------------------------------
 
@@ -256,7 +256,6 @@ http_strict_mode = False
 # Try as hard as possible to find references
 default_role = 'any'
 
-
 def setup(app):
     app.add_css_file('parsed-literal.css')
     app.add_css_file('copybutton.css')
@@ -264,3 +263,5 @@ def setup(app):
     app.add_js_file('clipboardjs.min.js')
     app.add_js_file("copybutton.js")
     app.add_css_file('helm-reference.css')
+    # Patch HTML translator to open external links in new tabs
+    app.set_translator("html", cilium_external_links.PatchedHTMLTranslator)
