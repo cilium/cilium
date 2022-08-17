@@ -115,7 +115,7 @@ updates:
     labels:
       - kind/enhancement
       - release-note/misc
-  
+
   # # # # # # # # # # # # # # # #
   # Docker images v1.12 branch  #
   # # # # # # # # # # # # # # # #
@@ -471,3 +471,20 @@ updates:
     labels:
     - kind/enhancement
     - release-note/misc
+
+# # # # # # # # # # # # # # # #
+#        Python modules       #
+# # # # # # # # # # # # # # # #
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+    rebase-strategy: "disabled"
+    labels:
+    - kind/enhancement
+    - release-note/misc
+
+
+
