@@ -741,7 +741,7 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting 'cilium-bugtool' output from Cilium pods",
+			Description:     "Collecting bugtool output from Cilium pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
 				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
@@ -750,7 +750,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.submitBugtoolTasks(ctx, FilterPods(p, c.NodeList)); err != nil {
+				if err := c.submitCiliumBugtoolTasks(ctx, FilterPods(p, c.NodeList)); err != nil {
 					return fmt.Errorf("failed to collect 'cilium-bugtool': %w", err)
 				}
 				return nil
@@ -1052,7 +1052,7 @@ func (c *Collector) shouldSkipTask(t Task) bool {
 	return c.Options.Quick && !t.Quick
 }
 
-func (c *Collector) submitBugtoolTasks(ctx context.Context, pods []*corev1.Pod) error {
+func (c *Collector) submitCiliumBugtoolTasks(ctx context.Context, pods []*corev1.Pod) error {
 	for _, p := range pods {
 		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("cilium-bugtool-"+p.Name), func(ctx context.Context) error {
