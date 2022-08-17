@@ -57,6 +57,22 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 	return serviceAffinityNone
 }
 
+func getAnnotationNat46(svc *slim_corev1.Service) bool {
+	if value, ok := svc.ObjectMeta.Annotations[annotation.CiliumServiceNAT46]; ok {
+		return strings.ToLower(value) == "true"
+	}
+
+	return false
+}
+
+func getAnnotationNat64(svc *slim_corev1.Service) bool {
+	if value, ok := svc.ObjectMeta.Annotations[annotation.CiliumServiceNAT64]; ok {
+		return strings.ToLower(value) == "true"
+	}
+
+	return false
+}
+
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 	if value, ok := svc.ObjectMeta.Annotations[annotationTopologyAwareHints]; ok {
 		return strings.ToLower(value) == "auto"
