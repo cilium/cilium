@@ -112,6 +112,12 @@ func newCmdSysdump() *cobra.Command {
 	cmd.Flags().StringVar(&sysdumpOptions.CNIConfigMapName,
 		"cni-configmap-name", sysdump.DefaultCNIConfigMapName,
 		"The name of the CNI config map")
+	cmd.Flags().StringVar(&sysdumpOptions.TetragonNamespace,
+		"tetragon-namespace", sysdump.DefaultTetragonNamespace,
+		"The namespace Tetragon is running in")
+	cmd.Flags().StringVar(&sysdumpOptions.TetragonLabelSelector,
+		"tetragon-label-selector", sysdump.DefaultTetragonLabelSelector,
+		"The labels used to target Tetragon pods")
 
 	return cmd
 }

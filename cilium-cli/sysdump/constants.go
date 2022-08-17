@@ -103,3 +103,9 @@ var (
 		"stats",
 	}
 )
+
+var (
+	tetragonAgentContainerName = "tetragon"
+	tetragonBugtoolPrefix      = "tetragon-bugtool"
+	tetragonCliCommand         = "tetra"
+)
