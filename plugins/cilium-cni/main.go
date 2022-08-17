@@ -18,7 +18,7 @@ import (
 	cniInvoke "github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
+	cniTypesV1 "github.com/containernetworking/cni/pkg/types/100"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
 	gops "github.com/google/gops/agent"
@@ -77,7 +77,7 @@ type CmdState struct {
 
 func main() {
 	skel.PluginMain(cmdAdd,
-		nil,
+		cmdCheck,
 		cmdDel,
 		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0"),
 		"Cilium CNI plugin "+version.Version)
@@ -166,9 +166,9 @@ func allocateIPsWithDelegatedPlugin(
 		cniInvoke.DelegateDel(ctx, netConf.IPAM.Type, stdinData, nil)
 	}
 
-	ipamResult, err := cniTypesVer.NewResultFromResult(ipamRawResult)
+	ipamResult, err := cniTypesV1.NewResultFromResult(ipamRawResult)
 	if err != nil {
-		return nil, releaseFunc, fmt.Errorf("could not interpret delegated IPAM result for CNI version %s: %w", cniTypesVer.ImplementedSpecVersion, err)
+		return nil, releaseFunc, fmt.Errorf("could not interpret delegated IPAM result for CNI version %s: %w", cniTypesV1.ImplementedSpecVersion, err)
 	}
 
 	// Translate the IPAM result into the same format as a response from Cilium agent.
@@ -283,7 +283,7 @@ func newCNIRoute(r route.Route) *cniTypes.Route {
 	return rt
 }
 
-func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesVer.IPConfig, []*cniTypes.Route, error) {
+func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV1.IPConfig, []*cniTypes.Route, error) {
 	var (
 		routes []route.Route
 		err    error
@@ -323,7 +323,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 		return nil, nil, fmt.Errorf("Invalid gateway address: %s", gw)
 	}
 
-	return &cniTypesVer.IPConfig{
+	return &cniTypesV1.IPConfig{
 		Address: *ip.EndpointPrefix(),
 		Gateway: gwIP,
 	}, rt, nil
@@ -354,7 +354,7 @@ func setupLogging(n *types.NetConf) error {
 
 func cmdAdd(args *skel.CmdArgs) (err error) {
 	var (
-		ipConfig *cniTypesVer.IPConfig
+		ipConfig *cniTypesV1.IPConfig
 		routes   []*cniTypes.Route
 		ipam     *models.IPAMResponse
 		n        *types.NetConf
@@ -406,7 +406,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if len(n.NetConf.RawPrevResult) != 0 && n.Name != chainingapi.DefaultConfigName {
 		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
 			var (
-				res *cniTypesVer.Result
+				res *cniTypesV1.Result
 				ctx = chainingapi.PluginContext{
 					Logger:  logger,
 					Args:    args,
@@ -526,7 +526,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		HostAddr: ipam.HostAddressing,
 	}
 
-	res := &cniTypesVer.Result{}
+	res := &cniTypesV1.Result{}
 
 	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
 		err = fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
@@ -582,7 +582,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		return
 	}
 
-	res.Interfaces = append(res.Interfaces, &cniTypesVer.Interface{
+	res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
 		Name:    args.IfName,
 		Mac:     macAddrStr,
 		Sandbox: args.Netns,
@@ -590,7 +590,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	// Add to the result the Interface as index of Interfaces
 	for i := range res.Interfaces {
-		res.IPs[i].Interface = cniTypesVer.Int(i)
+		res.IPs[i].Interface = cniTypesV1.Int(i)
 	}
 
 	// Specify that endpoint must be regenerated synchronously. See GH-4409.
@@ -711,4 +711,172 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 
 	return nil
+}
+
+// cmdCheck implements the cni CHECK verb.
+// It ensures that the interface is configured correctly
+//
+// Currently, it verifies that
+// - endpoint exists in the agent and is healthy
+// - the interface in the container is sane
+func cmdCheck(args *skel.CmdArgs) error {
+	n, err := types.LoadNetConf(args.StdinData)
+	if err != nil {
+		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidNetworkConfig",
+			fmt.Sprintf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err))
+	}
+
+	if err := setupLogging(n); err != nil {
+		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidLoggingConfig",
+			fmt.Sprintf("unable to setup logging: %s", err))
+	}
+
+	logger := log.WithField("eventUUID", uuid.New())
+
+	if n.EnableDebug {
+		if err := gops.Listen(gops.Options{}); err != nil {
+			log.WithError(err).Warn("Unable to start gops")
+		} else {
+			defer gops.Close()
+		}
+	}
+	logger.Debugf("Processing CNI CHECK request %#v", args)
+
+	logger.Debugf("CNI NetConf: %#v", n)
+	if n.PrevResult != nil {
+		logger.Debugf("CNI Previous result: %#v", n.PrevResult)
+	}
+
+	cniArgs := types.ArgsSpec{}
+	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
+		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidArgs",
+			fmt.Sprintf("unable to extract CNI arguments: %s", err))
+	}
+	logger.Debugf("CNI Args: %#v", cniArgs)
+
+	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
+	if err != nil {
+		// use ErrTryAgainLater to tell the runtime that this is not a check failure
+		return cniTypes.NewError(cniTypes.ErrTryAgainLater, "DaemonDown",
+			fmt.Sprintf("unable to connect to Cilium daemon: %s", client.Hint(err)))
+	}
+
+	// If this is a chained plugin, then "delegate" to the special chaining mode and be done
+	// Note: CHECK always has PrevResult set, so that doesn't tell us if we're chained.
+	if n.Name != chainingapi.DefaultConfigName {
+		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
+			var (
+				ctx = chainingapi.PluginContext{
+					Logger:  logger,
+					Args:    args,
+					CniArgs: cniArgs,
+					NetConf: n,
+					Client:  c,
+				}
+			)
+
+			// err is nil on success
+			err := chainAction.Check(context.TODO(), ctx)
+			logger.Debugf("Chained CHECK %s returned %s", n.Name, err)
+			return err
+
+		} else {
+			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
+		}
+	}
+
+	// mechanical: parse PrevResult
+	if err := cniVersion.ParsePrevResult(&n.NetConf); err != nil {
+		return err
+	}
+	prevResult, err := cniTypesV1.NewResultFromResult(n.NetConf.PrevResult)
+	if err != nil {
+		return err
+	}
+
+	netNs, err := ns.GetNS(args.Netns)
+	if err != nil {
+		return cniTypes.NewError(cniTypes.ErrInvalidEnvironmentVariables, "NoNetNS",
+			fmt.Sprintf("failed to open netns %q: %s", args.Netns, err))
+	}
+	defer netNs.Close()
+
+	// Ask the agent for the endpoint's health
+	eID := fmt.Sprintf("container-id:%s", args.ContainerID)
+	logger.Debugf("Asking agent for healthz for %s", eID)
+	epHealth, err := c.EndpointHealthGet(eID)
+	if err != nil {
+		return cniTypes.NewError(types.CniErrHealthzGet, "HealthzFailed",
+			fmt.Sprintf("failed to retrieve container health: %s", err))
+	}
+
+	if epHealth.OverallHealth == models.EndpointHealthStatusFailure {
+		return cniTypes.NewError(types.CniErrUnhealthy, "Unhealthy",
+			"container is unhealthy in agent")
+	}
+	logger.Debugf("Container %s has a healthy agent endpoint", args.ContainerID)
+
+	// Verify that the interface exists and has the desired IP address
+	// we can get the IP from the CNI previous result.
+	if err := verifyInterface(netNs, args.IfName, prevResult); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// verifyInterface verifies that a given interface exists in the netns
+// with the given addresses
+func verifyInterface(netns ns.NetNS, ifName string, expected *cniTypesV1.Result) error {
+	wantAddresses := []*cniTypesV1.IPConfig{}
+	for idx, iface := range expected.Interfaces {
+		if iface.Sandbox == "" {
+			continue
+		}
+		if iface.Name != ifName {
+			continue
+		}
+		for _, ip := range expected.IPs {
+			if ip.Interface != nil && *ip.Interface == idx {
+				wantAddresses = append(wantAddresses, ip)
+			}
+		}
+	}
+
+	// Enter the container's namespace and ensure that
+	// the interface looks good:
+	// - does it exist?
+	// - does it have the expected IPs?
+	//
+	// Possible future ideas:
+	// - mtu
+	// - routes
+	return netns.Do(func(_ ns.NetNS) error {
+		link, err := netlink.LinkByName(ifName)
+		if err != nil {
+			return fmt.Errorf("cannot find container link %v", ifName)
+		}
+
+		addrList, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+		if err != nil {
+			return fmt.Errorf("failed to list link addresses: %w", err)
+		}
+
+		for _, ip := range wantAddresses {
+			ourAddr := netlink.Addr{IPNet: &ip.Address}
+			match := false
+
+			for _, addr := range addrList {
+				if addr.Equal(ourAddr) {
+					match = true
+					break
+				}
+			}
+			if !match {
+				return fmt.Errorf("expected ip %v on interface %v", ourAddr, ifName)
+			}
+		}
+
+		return nil
+	})
 }

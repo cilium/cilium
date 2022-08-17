@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -18,6 +19,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
+	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
 type GenericVethChainer struct{}
@@ -194,6 +196,24 @@ func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.P
 	if err := pluginCtx.Client.EndpointDelete(id); err != nil {
 		pluginCtx.Logger.WithError(err).Warning("Errors encountered while deleting endpoint")
 	}
+	return nil
+}
+
+func (f *GenericVethChainer) Check(ctx context.Context, pluginCtx chainingapi.PluginContext) error {
+	// Just confirm that the endpoint is healthy
+	eID := fmt.Sprintf("container-id:%s", pluginCtx.Args.ContainerID)
+	pluginCtx.Logger.Debugf("Asking agent for healthz for %s", eID)
+	epHealth, err := pluginCtx.Client.EndpointHealthGet(eID)
+	if err != nil {
+		return cniTypes.NewError(types.CniErrHealthzGet, "HealthzFailed",
+			fmt.Sprintf("failed to retrieve container health: %s", err))
+	}
+
+	if epHealth.OverallHealth == models.EndpointHealthStatusFailure {
+		return cniTypes.NewError(types.CniErrUnhealthy, "Unhealthy",
+			"container is unhealthy in agent")
+	}
+	pluginCtx.Logger.Debugf("Container %s has a healthy agent endpoint", pluginCtx.Args.ContainerID)
 	return nil
 }
 
