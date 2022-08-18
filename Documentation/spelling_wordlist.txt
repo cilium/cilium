@@ -450,6 +450,7 @@ golangci
 golangci-lint
 gops
 grafana
+graphviz
 grep
 hairpinned
 hardcode
@@ -892,6 +893,7 @@ startupProbe
 stateful
 statefulset
 statsd
+stdout
 structs
 subclasses
 subcommand
