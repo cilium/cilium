@@ -268,3 +268,10 @@ cilium-agent [flags]
       --write-cni-conf-when-ready string                        Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
 ```
 
+### SEE ALSO
+
+* [cilium-agent cmdref](cilium-agent_cmdref.md)	 - Generate command reference for cilium-agent to given output directory
+* [cilium-agent completion](cilium-agent_completion.md)	 - Generate the autocompletion script for the specified shell
+* [cilium-agent dot-graph](cilium-agent_dot-graph.md)	 - Output the internal dependencies of cilium-agent in graphviz dot format
+* [cilium-agent objects](cilium-agent_objects.md)	 - Print the objects, constructors and lifecycle hooks
+
