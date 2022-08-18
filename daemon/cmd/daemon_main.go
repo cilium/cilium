@@ -817,9 +817,6 @@ func initializeFlags() {
 	flags.MarkHidden(option.CMDRef)
 	regOpts.BindEnv(option.CMDRef)
 
-	flags.Int(option.GopsPort, defaults.GopsPortAgent, "Port for gops server to listen on")
-	regOpts.BindEnv(option.GopsPort)
-
 	flags.Int(option.ToFQDNsMinTTL, 0, fmt.Sprintf("The minimum time, in seconds, to use DNS data for toFQDNs policies. (default %d )", defaults.ToFQDNsMinTTL))
 	regOpts.BindEnv(option.ToFQDNsMinTTL)
 
