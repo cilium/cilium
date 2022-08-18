@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
-	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"go.uber.org/fx"
 
+	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
@@ -58,6 +58,7 @@ func init() {
 	agentHive = hive.New(
 		Vp, RootCmd.Flags(),
 
+		gops.Cell,
 		hive.NewCell("daemon", fx.Invoke(registerDaemonHooks)),
 	)
 }
@@ -69,17 +70,6 @@ func runApp(cmd *cobra.Command, args []string) {
 		fmt.Printf("%s %s\n", cmd.Name(), version.Version)
 		os.Exit(0)
 	}
-
-	// Open socket for using gops to get stacktraces of the agent.
-	addr := fmt.Sprintf("127.0.0.1:%d", Vp.GetInt(option.GopsPort))
-	addrField := logrus.Fields{"address": addr}
-	if err := gops.Listen(gops.Options{
-		Addr:                   addr,
-		ReuseSocketAddrAndPort: true,
-	}); err != nil {
-		log.WithError(err).WithFields(addrField).Fatal("Cannot start gops server")
-	}
-	log.WithFields(addrField).Info("Started gops server")
 
 	agentHive.Run()
 }
