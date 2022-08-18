@@ -24,6 +24,15 @@ an existing K8s cluster with Cilium installed.
 
 .. include:: installation.rst
 
+Supported Ingress Annotations
+########
+
+- io.cilium/tcp-keep-alive
+- io.cilium/tcp-keep-alive-idle
+- io.cilium/tcp-keep-alive-probe-interval
+- io.cilium/tcp-keep-alive-probe-max-failures
+- io.cilium/websocket
+
 Examples
 ########
 
