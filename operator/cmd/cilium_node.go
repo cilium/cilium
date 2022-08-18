@@ -34,11 +34,12 @@ import (
 
 // ciliumNodeName is only used to implement NamedKey interface.
 type ciliumNodeName struct {
-	name string
+	cluster string
+	name    string
 }
 
 func (c *ciliumNodeName) GetKeyName() string {
-	return c.name
+	return nodeTypes.GetKeyNodeName(c.cluster, c.name)
 }
 
 var (
@@ -120,7 +121,11 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 	if withKVStore {
 		kvStoreSyncHandler = syncHandlerConstructor(
 			func(name string) {
-				ciliumNodeKVStore.DeleteLocalKey(ctx, &ciliumNodeName{name: name})
+				nodeDel := ciliumNodeName{
+					cluster: option.Config.ClusterName,
+					name:    name,
+				}
+				ciliumNodeKVStore.DeleteLocalKey(ctx, &nodeDel)
 			},
 			func(node *cilium_v2.CiliumNode) {
 				nodeNew := nodeTypes.ParseCiliumNode(node)
