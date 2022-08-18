@@ -71,7 +71,7 @@ spec:
                   - --target=1
                   - --mount
                   - --
-                  - "/bin/sh"
+                  - "/bin/bash"
                   - "-c"
                   - |
                     #!/bin/bash
@@ -105,7 +105,7 @@ spec:
                   - "1"
                   - "-m"
                   - "--"
-                  - "/bin/sh"
+                  - "/bin/bash"
                   - "-c"
                   - |
                     #!/bin/bash
