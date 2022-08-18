@@ -14,12 +14,10 @@ import (
 
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/components"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
-	vp      *viper.Viper              = viper.New()
-	regOpts *option.RegisteredOptions = option.NewRegisteredOptions(vp)
+	vp *viper.Viper = viper.New()
 
 	cfgFile string
 	client  *clientPkg.Client

@@ -69,8 +69,7 @@ func (c configuration) K8sServiceProxyNameValue() string {
 }
 
 var (
-	vp      *viper.Viper              = viper.New()
-	regOpts *option.RegisteredOptions = option.NewRegisteredOptions(vp)
+	vp *viper.Viper = viper.New()
 
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "clustermesh-apiserver")
 
@@ -96,7 +95,7 @@ var (
 			if option.Config.Debug {
 				log.Logger.SetLevel(logrus.DebugLevel)
 			}
-			regOpts.LogRegisteredOptions(log)
+			option.LogRegisteredOptions(vp, log)
 		},
 	}
 
@@ -189,56 +188,56 @@ func readMockFile(path string) error {
 func runApiserver() error {
 	flags := rootCmd.Flags()
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
-	regOpts.BindEnv(option.DebugArg)
+	option.BindEnv(vp, option.DebugArg)
 
 	flags.Int(option.GopsPort, defaults.GopsPortApiserver, "Port for gops server to listen on")
-	regOpts.BindEnv(option.GopsPort)
+	option.BindEnv(vp, option.GopsPort)
 
 	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
-	regOpts.BindEnv(option.CRDWaitTimeout)
+	option.BindEnv(vp, option.CRDWaitTimeout)
 
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeCRD, "Method to use for identity allocation")
-	regOpts.BindEnv(option.IdentityAllocationMode)
+	option.BindEnv(vp, option.IdentityAllocationMode)
 
 	flags.Uint32Var(&clusterID, option.ClusterIDName, 0, "Cluster ID")
-	regOpts.BindEnv(option.ClusterIDName)
+	option.BindEnv(vp, option.ClusterIDName)
 
 	flags.StringVar(&cfg.clusterName, option.ClusterName, "default", "Cluster name")
-	regOpts.BindEnv(option.ClusterName)
+	option.BindEnv(vp, option.ClusterName)
 
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
-	regOpts.BindEnv(option.K8sKubeConfigPath)
+	option.BindEnv(vp, option.K8sKubeConfigPath)
 
 	flags.Int(option.ClusterMeshHealthPort, defaults.ClusterMeshHealthPort, "TCP port for ClusterMesh apiserver health API")
-	regOpts.BindEnv(option.ClusterMeshHealthPort)
+	option.BindEnv(vp, option.ClusterMeshHealthPort)
 
 	flags.StringVar(&mockFile, "mock-file", "", "Read from mock file")
 
 	flags.Duration(option.KVstoreConnectivityTimeout, defaults.KVstoreConnectivityTimeout, "Time after which an incomplete kvstore operation  is considered failed")
-	regOpts.BindEnv(option.KVstoreConnectivityTimeout)
+	option.BindEnv(vp, option.KVstoreConnectivityTimeout)
 
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
 	flags.MarkHidden(option.KVstoreLeaseTTL)
-	regOpts.BindEnv(option.KVstoreLeaseTTL)
+	option.BindEnv(vp, option.KVstoreLeaseTTL)
 
 	flags.Duration(option.KVstorePeriodicSync, defaults.KVstorePeriodicSync, "Periodic KVstore synchronization interval")
-	regOpts.BindEnv(option.KVstorePeriodicSync)
+	option.BindEnv(vp, option.KVstorePeriodicSync)
 
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
 		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	regOpts.BindEnv(option.KVStoreOpt)
+	option.BindEnv(vp, option.KVStoreOpt)
 
 	flags.StringVar(&cfg.serviceProxyName, option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
-	regOpts.BindEnv(option.K8sServiceProxyName)
+	option.BindEnv(vp, option.K8sServiceProxyName)
 
 	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
-	regOpts.BindEnv(option.AllocatorListTimeoutName)
+	option.BindEnv(vp, option.AllocatorListTimeoutName)
 
 	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
-	regOpts.BindEnv(option.EnableWellKnownIdentities)
+	option.BindEnv(vp, option.EnableWellKnownIdentities)
 
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enable support of Kubernetes EndpointSlice")
-	regOpts.BindEnv(option.K8sEnableEndpointSlice)
+	option.BindEnv(vp, option.K8sEnableEndpointSlice)
 
 	vp.BindPFlags(flags)
 
