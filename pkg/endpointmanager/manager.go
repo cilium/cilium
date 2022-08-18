@@ -553,6 +553,20 @@ func (mgr *EndpointManager) GetEndpoints() []*endpoint.Endpoint {
 	return eps
 }
 
+// GetEndpoints returns a slice of all endpoints present in endpoint manager.
+func (mgr *EndpointManager) GetEndpointsE() []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	eps := make([]*endpoint.Endpoint, 0, len(mgr.endpoints))
+	for _, ep := range mgr.endpoints {
+		eps = append(eps, ep)
+	}
+	for epAuxKey, ep := range mgr.endpointsAux {
+		fmt.Printf("%s -> %s -> %d\n", epAuxKey, ep.GetK8sNamespaceAndPodName(), ep.GetID())
+	}
+	mgr.mutex.RUnlock()
+	return eps
+}
+
 // GetPolicyEndpoints returns a map of all endpoints present in endpoint
 // manager as policy.Endpoint interface set for the map key.
 func (mgr *EndpointManager) GetPolicyEndpoints() map[policy.Endpoint]struct{} {

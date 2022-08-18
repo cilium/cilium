@@ -269,6 +269,7 @@ func sortAndFilterLabels(log logrus.FieldLogger, labels []string, securityIdenti
 }
 
 func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb.Endpoint {
+	fmt.Printf("aanm1 %s -> %d\n", ip, datapathSecurityIdentity)
 	// The datapathSecurityIdentity parameter is the numeric security identity
 	// obtained from the datapath.
 	// The numeric identity from the datapath can differ from the one we obtain
@@ -277,7 +278,7 @@ func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb
 	// created and the time the event reaches the Hubble parser.
 	// To aid in troubleshooting, we want to preserve what the datapath observed
 	// when it made the policy decision.
-	resolveIdentityConflict := func(identity identity.NumericIdentity) uint32 {
+	resolveIdentityConflict := func(ip net.IP, identity identity.NumericIdentity, datapathSecurityIdentity uint32) uint32 {
 		// if the datapath did not provide an identity (e.g. FROM_LXC trace
 		// points), use what we have in the user-space cache
 		userspaceSecurityIdentity := uint32(identity)
@@ -291,6 +292,7 @@ func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb
 				logfields.OldIdentity: userspaceSecurityIdentity,
 				logfields.IPAddr:      ip,
 			}).Debugf("stale identity observed")
+			fmt.Printf("aanm2 %s -> %d\n", ip, datapathSecurityIdentity)
 		}
 
 		return datapathSecurityIdentity
@@ -299,7 +301,8 @@ func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb
 	// for local endpoints, use the available endpoint information
 	if p.endpointGetter != nil {
 		if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
-			epIdentity := resolveIdentityConflict(ep.GetIdentity())
+			fmt.Printf("aanm3 %s -> %s/%s\n", ip, ep.GetK8sNamespace(), ep.GetK8sPodName())
+			epIdentity := resolveIdentityConflict(ip, ep.GetIdentity(), datapathSecurityIdentity)
 			e := &pb.Endpoint{
 				ID:        uint32(ep.GetID()),
 				Identity:  epIdentity,
@@ -323,7 +326,8 @@ func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb
 	var namespace, podName string
 	if p.ipGetter != nil {
 		if ipIdentity, ok := p.ipGetter.LookupSecIDByIP(ip); ok {
-			numericIdentity = resolveIdentityConflict(ipIdentity.ID)
+			fmt.Printf("aanm4 %s -> %d\n", ip, datapathSecurityIdentity)
+			numericIdentity = resolveIdentityConflict(ip, ipIdentity.ID, datapathSecurityIdentity)
 		}
 		if meta := p.ipGetter.GetK8sMetadata(ip); meta != nil {
 			namespace, podName = meta.Namespace, meta.PodName

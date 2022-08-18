@@ -79,7 +79,7 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 		convertedLabels = labels.NewLabelsFromModel(params.Labels)
 	}
 
-	eps := d.endpointManager.GetEndpoints()
+	eps := d.endpointManager.GetEndpointsE()
 	if len(eps) < maxGoroutines {
 		maxGoroutines = len(eps)
 	}

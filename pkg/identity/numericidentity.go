@@ -326,7 +326,7 @@ func InitMinMaxIdentityAllocation(c Configuration) {
 		MinimalAllocationIdentity = NumericIdentity((1 << ClusterIDShift) * c.LocalClusterID())
 		// The maximum identity also needs to be recalculated as ClusterID
 		// may be overwritten by runtime parameters.
-		MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*(c.LocalClusterID()+1) - 1)
+		MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*c.LocalClusterID()) + 10
 	}
 }
 
@@ -412,9 +412,10 @@ func DelReservedNumericIdentity(identity NumericIdentity) error {
 // NumericIdentity is the numeric representation of a security identity.
 //
 // Bits:
-//    0-15: identity identifier
-//   16-23: cluster identifier
-//      24: LocalIdentityFlag: Indicates that the identity has a local scope
+//
+//	 0-15: identity identifier
+//	16-23: cluster identifier
+//	   24: LocalIdentityFlag: Indicates that the identity has a local scope
 type NumericIdentity uint32
 
 // MaxNumericIdentity is the maximum value of a NumericIdentity.
