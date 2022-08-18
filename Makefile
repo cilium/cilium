@@ -35,7 +35,6 @@ SWAGGER_VERSION := v0.25.0
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 GOTEST_BASE := -test.v -timeout 600s
-GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
@@ -131,7 +130,7 @@ tests-privileged: ## Run integration tests for Cilium that require elevated priv
 		>&2 $(ECHO_TEST) $$pkg; \
 		PATH=$(PATH):$(ROOT_DIR)/bpf \
 		PRIVILEGED_TESTS=true \
-		$(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
+		$(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done | $(GOTEST_FORMATTER)
