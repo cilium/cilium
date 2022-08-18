@@ -55,18 +55,21 @@ const (
 	// is set to RequireDualStack.
 	CiliumServiceNAT64 = Prefix + ".service.ipv6-to-ipv4"
 
-	// GlobalService if set to true, marks a service to become a global
-	// service
-	GlobalService = Prefix + "/global-service"
+	// GlobalService / GlobalServiceAlias if set to true, marks a service to become
+	// a global service.
+	GlobalService      = Prefix + ".service.global"
+	GlobalServiceAlias = Prefix + "/global-service"
 
-	// SharedService if set to false, prevents a service from being shared,
-	// the default is true if GlobalService is set, otherwise false,
-	// Setting the annotation SharedService to false while setting
+	// SharedService / SharedServiceAlias if set to false, prevents a service
+	// from being shared, the default is true if GlobalService is set, otherwise
+	// false. Setting the annotation SharedService to false while setting
 	// GlobalService to true allows to expose remote endpoints without
 	// sharing local endpoints.
-	SharedService = Prefix + "/shared-service"
+	SharedService      = Prefix + ".service.shared"
+	SharedServiceAlias = Prefix + "/shared-service"
 
-	// ServiceAffinity annotations determines the preferred endpoint destination
+	// ServiceAffinity / ServiceAffinityAlias annotations determines the preferred
+	// endpoint destination.
 	// Allowed values:
 	//  - local
 	//		preferred endpoints from local cluster if available
@@ -74,7 +77,8 @@ const (
 	// 		preferred endpoints from remote cluster if available
 	//  - none (default)
 	//		no preference. Default behavior if this annotation does not exist
-	ServiceAffinity = Prefix + "/service-affinity"
+	ServiceAffinity      = Prefix + ".service.affinity"
+	ServiceAffinityAlias = Prefix + "/service-affinity"
 
 	// ProxyVisibility is the annotation name used to indicate whether proxy
 	// visibility should be enabled for a given pod (i.e., all traffic for the

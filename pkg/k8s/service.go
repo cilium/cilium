@@ -39,12 +39,18 @@ func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
 	if value, ok := svc.ObjectMeta.Annotations[annotation.GlobalService]; ok {
 		return strings.ToLower(value) == "true"
 	}
+	if value, ok := svc.ObjectMeta.Annotations[annotation.GlobalServiceAlias]; ok {
+		return strings.ToLower(value) == "true"
+	}
 
 	return false
 }
 
 func getAnnotationShared(svc *slim_corev1.Service) bool {
 	if value, ok := svc.ObjectMeta.Annotations[annotation.SharedService]; ok {
+		return strings.ToLower(value) == "true"
+	}
+	if value, ok := svc.ObjectMeta.Annotations[annotation.SharedServiceAlias]; ok {
 		return strings.ToLower(value) == "true"
 	}
 
@@ -55,6 +61,10 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 	if value, ok := svc.ObjectMeta.Annotations[annotation.ServiceAffinity]; ok {
 		return strings.ToLower(value)
 	}
+	if value, ok := svc.ObjectMeta.Annotations[annotation.ServiceAffinityAlias]; ok {
+		return strings.ToLower(value)
+	}
+
 	return serviceAffinityNone
 }
 
