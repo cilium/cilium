@@ -263,8 +263,8 @@ type OperatorConfig struct {
 	// being sent to the K8s apiserver for a given CNP.
 	CNPStatusUpdateInterval time.Duration
 
-	// NodeGCInterval is the GC interval for CiliumNodes
-	NodeGCInterval time.Duration
+	// NodesGCInterval is the GC interval for CiliumNodes
+	NodesGCInterval time.Duration
 
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
@@ -472,7 +472,7 @@ type OperatorConfig struct {
 func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.CNPNodeStatusGCInterval = vp.GetDuration(CNPNodeStatusGCInterval)
 	c.CNPStatusUpdateInterval = vp.GetDuration(CNPStatusUpdateInterval)
-	c.NodeGCInterval = vp.GetDuration(NodesGCInterval)
+	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.IdentityGCInterval = vp.GetDuration(IdentityGCInterval)
