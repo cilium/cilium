@@ -15,9 +15,7 @@ import (
 	"time"
 
 	"github.com/go-openapi/loads"
-	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
@@ -101,80 +99,10 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, daemonSubsys)
 
 	bootstrapTimestamp = time.Now()
-
-	// RootCmd represents the base command when called without any subcommands
-	RootCmd = &cobra.Command{
-		Use:   "cilium-agent",
-		Short: "Run the cilium agent",
-		Run: func(cmd *cobra.Command, args []string) {
-			cmdRefDir := Vp.GetString(option.CMDRef)
-			if cmdRefDir != "" {
-				genMarkdown(cmd, cmdRefDir)
-				os.Exit(0)
-			}
-
-			// Open socket for using gops to get stacktraces of the agent.
-			addr := fmt.Sprintf("127.0.0.1:%d", Vp.GetInt(option.GopsPort))
-			addrField := logrus.Fields{"address": addr}
-			if err := gops.Listen(gops.Options{
-				Addr:                   addr,
-				ReuseSocketAddrAndPort: true,
-			}); err != nil {
-				log.WithError(err).WithFields(addrField).Fatal("Cannot start gops server")
-			}
-			log.WithFields(addrField).Info("Started gops server")
-
-			bootstrapStats.earlyInit.Start()
-			initEnv(cmd)
-			bootstrapStats.earlyInit.End(true)
-
-			runApp()
-		},
-	}
-
-	bootstrapStats = bootstrapStatistics{}
+	bootstrapStats     = bootstrapStatistics{}
 )
 
-// Execute sets up gops, installs the cleanup signal handler and invokes
-// the root command. This function only returns when an interrupt
-// signal has been received. This is intended to be called by main.main().
-func Execute() {
-	bootstrapStats.overall.Start()
-
-	if err := RootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
-
-func init() {
-	setupSleepBeforeFatal()
-	initializeFlags()
-	registerBootstrapMetrics()
-}
-
-func setupSleepBeforeFatal() {
-	RootCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
-		time.Sleep(fatalSleep)
-		return e
-	})
-	logrus.RegisterExitHandler(func() {
-		time.Sleep(fatalSleep)
-	},
-	)
-}
-
 func initializeFlags() {
-	cobra.OnInitialize(option.InitConfig(RootCmd, "Cilium", "ciliumd", Vp))
-
-	// Reset the help function to also exit, as we block elsewhere in interrupts
-	// and would not exit when called with -h.
-	oldHelpFunc := RootCmd.HelpFunc()
-	RootCmd.SetHelpFunc(func(c *cobra.Command, a []string) {
-		oldHelpFunc(c, a)
-		os.Exit(0)
-	})
-
 	flags := RootCmd.Flags()
 
 	// Validators
@@ -1160,7 +1088,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initEnv(cmd *cobra.Command) {
+func initEnv() {
 	var debugDatapath bool
 
 	option.Config.SetMapElementSizes(
@@ -1621,7 +1549,41 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
-func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner) (*Daemon, error) {
+// registerDaemonHooks registers the lifecycle hooks for the part of the cilium-agent that has
+// not yet been modularized.
+//
+// The Daemon struct and objects referred to from there are not supplied to the graph as
+// object creation in Daemon is intertwined with side-effectful initialization. This stops
+// us from constructing and inspecting the dependency graph, so instead the daemon is constructed
+// and started via an OnStart hook.
+//
+// If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
+// a callback.
+func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	cleaner := NewDaemonCleanup()
+	lc.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
+			// of the start hooks to run.
+			go runDaemon(ctx, cleaner, shutdowner)
+			return nil
+		},
+		OnStop: func(context.Context) error {
+			cancel()
+			cleaner.Clean()
+			return nil
+		},
+	})
+	return nil
+}
+
+// runDaemon runs the old unmodular part of the cilium-agent.
+func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner) {
+	bootstrapStats.earlyInit.Start()
+	initEnv()
+	bootstrapStats.earlyInit.End(true)
+
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
@@ -1632,7 +1594,7 @@ func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shu
 	option.Config.RunMonitorAgent = true
 
 	if err := enableIPForwarding(); err != nil {
-		return nil, fmt.Errorf("enabling IP forwarding via sysctl failed: %w", err)
+		log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
 	}
 
 	iptablesManager := &iptables.IptablesManager{}
@@ -1642,10 +1604,10 @@ func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shu
 	if option.Config.EnableWireguard {
 		switch {
 		case option.Config.EnableIPSec:
-			return nil, fmt.Errorf("Wireguard (--%s) cannot be used with IPSec (--%s)",
+			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
 				option.EnableWireguard, option.EnableIPSecName)
 		case option.Config.EnableL7Proxy:
-			return nil, fmt.Errorf("Wireguard (--%s) is not compatible with L7 proxy (--%s)",
+			log.Fatalf("Wireguard (--%s) is not compatible with L7 proxy (--%s)",
 				option.EnableWireguard, option.EnableL7Proxy)
 		}
 
@@ -1653,7 +1615,7 @@ func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shu
 		privateKeyPath := filepath.Join(option.Config.StateDir, wireguardTypes.PrivKeyFilename)
 		wgAgent, err = wireguard.NewAgent(privateKeyPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialize wireguard: %w", err)
+			log.Fatalf("failed to initialize wireguard: %s", err)
 		}
 
 		cleaner.cleanupFuncs.Add(func() {
@@ -1667,7 +1629,7 @@ func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shu
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		if err := k8s.Init(option.Config); err != nil {
-			return nil, fmt.Errorf("unable to initialize Kubernetes subsystem: %w", err)
+			log.Fatalf("unable to initialize Kubernetes subsystem: %s", err)
 		}
 		bootstrapStats.k8sInit.End(true)
 	}
@@ -1676,14 +1638,14 @@ func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shu
 		WithDefaultEndpointManager(ctx, endpoint.CheckHealth),
 		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent))
 	if err != nil {
-		return nil, fmt.Errorf("daemon creation failed: %w", err)
+		log.Fatalf("daemon creation failed: %s", err)
 	}
 
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
 	log.Info("Validating configured node address ranges")
 	if err := node.ValidatePostInit(); err != nil {
-		return nil, fmt.Errorf("postinit failed: %w", err)
+		log.Fatalf("postinit failed: %s", err)
 	}
 
 	bootstrapStats.enableConntrack.Start()
@@ -1715,14 +1677,14 @@ func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shu
 			d.ctx, d, d, d.ipcache, d.l7Proxy, d.identityAllocator,
 			"Create host endpoint", nodeTypes.GetName(),
 		); err != nil {
-			return nil, fmt.Errorf("unable to create host endpoint: %w", err)
+			log.Fatalf("unable to create host endpoint: %s", err)
 		}
 	}
 
 	if option.Config.EnableIPMasqAgent {
 		ipmasqAgent, err := ipmasq.NewIPMasqAgent(option.Config.IPMasqAgentConfigPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create ipmasq agent: %w", err)
+			log.Fatalf("failed to create ipmasq agent: %s", err)
 		}
 		ipmasqAgent.Start()
 	}
@@ -1849,7 +1811,7 @@ func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shu
 		}
 		log.Info("Initializing BGP Control Plane")
 		if err := d.instantiateBGPControlPlane(d.ctx); err != nil {
-			return nil, fmt.Errorf("failed to initialize BGP control plane: %w", err)
+			log.Fatalf("failed to initialize BGP control plane: %s", err)
 		}
 	}
 
@@ -1859,25 +1821,17 @@ func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shu
 	if option.Config.WriteCNIConfigurationWhenReady != "" {
 		input, err := os.ReadFile(option.Config.ReadCNIConfiguration)
 		if err != nil {
-			return nil, fmt.Errorf("unable to read cni configuration file: %w", err)
+			log.Fatalf("unable to read cni configuration file: %s", err)
 		}
 
 		if err = os.WriteFile(option.Config.WriteCNIConfigurationWhenReady, input, 0644); err != nil {
-			return nil, fmt.Errorf("unable to write CNI configuration file to %s: %w",
+			log.Fatalf("unable to write CNI configuration file to %s: %s",
 				option.Config.WriteCNIConfigurationWhenReady,
 				err)
 		} else {
 			log.Infof("Wrote CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)
 		}
 	}
-
-	go func() {
-		err := srv.Serve()
-		if err != nil {
-			log.WithError(err).Error("Error returned from non-returning Serve() call")
-			shutdowner.Shutdown()
-		}
-	}()
 
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
@@ -1893,7 +1847,11 @@ func daemonModule(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shu
 		log.WithError(err).Error("Unable to store Viper's configuration")
 	}
 
-	return d, nil
+	err = srv.Serve()
+	if err != nil {
+		log.WithError(err).Error("Error returned from non-returning Serve() call")
+		shutdowner.Shutdown()
+	}
 }
 
 func (d *Daemon) instantiateBGPControlPlane(ctx context.Context) error {
