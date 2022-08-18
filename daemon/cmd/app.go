@@ -6,13 +6,14 @@ package cmd
 import (
 	"context"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"go.uber.org/fx"
 )
 
 func runApp() {
 	ctx, cancel := context.WithCancel(context.Background())
 	app := fx.New(
-		fx.WithLogger(newAppLogger),
+		logging.FxLoggerOption(log),
 		fx.Supply(fx.Annotate(ctx, fx.As(new(context.Context)))),
 		cleanerModule,
 		fx.Provide(daemonModule),
