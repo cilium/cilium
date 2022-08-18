@@ -6,8 +6,13 @@
 package metrics
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	. "gopkg.in/check.v1"
 )
 
@@ -19,6 +24,32 @@ func Test(t *testing.T) {
 type MetricsSuite struct{}
 
 var _ = Suite(&MetricsSuite{})
+
+func (s *MetricsSuite) TestAPIEventsTSHelperMiddleware(c *C) {
+	for _, test := range []struct {
+		url         string
+		statusCode  int
+		expectEvent bool
+	}{
+		{url: "https://10.0.0.0/v1/endpoint/id:00000000", statusCode: http.StatusOK, expectEvent: true},
+		{url: "https://10.0.0.0/v1/endpoint/id:00000000", statusCode: http.StatusNotFound, expectEvent: true},
+		{url: "", statusCode: http.StatusNotFound, expectEvent: false}, // invalid urls should not be emitted.
+	} {
+		req, err := http.NewRequest(http.MethodGet, test.url, nil)
+		c.Assert(err, Equals, nil)
+		gauge := prometheus.NewGaugeVec(prometheus.GaugeOpts{}, []string{LabelEventSource, LabelScope, LabelAction})
+		hist := prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "test_api_hist"}, []string{LabelEventSource, LabelScope, LabelAction})
+		middleware := &APIEventTSHelper{
+			Next:      http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(test.statusCode) }),
+			TSGauge:   gauge,
+			Histogram: hist,
+		}
+		middleware.ServeHTTP(httptest.NewRecorder(), req)
+		v := testutil.ToFloat64(gauge.WithLabelValues(LabelEventSourceAPI, "/v1/endpoint", http.MethodGet))
+		c.Assert(v >= float64(time.Now().Unix()), Equals, test.expectEvent)
+		c.Assert(testutil.CollectAndCount(hist, "test_api_hist") == 1, Equals, test.expectEvent)
+	}
+}
 
 func (s *MetricsSuite) Test_getShortPath(c *C) {
 	tests := []struct {

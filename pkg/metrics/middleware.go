@@ -52,14 +52,16 @@ func getShortPath(s string) string {
 // ServeHTTP implements the http.Handler interface. It records the timestamp
 // this API call began at, then chains to the next handler.
 func (m *APIEventTSHelper) ServeHTTP(r http.ResponseWriter, req *http.Request) {
-	if req != nil {
-		m.TSGauge.WithLabelValues(LabelEventSourceAPI, req.URL.Path, req.Method)
+	reqOk := req != nil && req.URL != nil && req.URL.Path != ""
+	var path string
+	if reqOk {
+		path = getShortPath(req.URL.Path)
+		m.TSGauge.WithLabelValues(LabelEventSourceAPI, path, req.Method).SetToCurrentTime()
 	}
 	duration := spanstat.Start()
 	rw := &responderWrapper{ResponseWriter: r}
 	m.Next.ServeHTTP(rw, req)
-	if req != nil && req.URL != nil && req.URL.Path != "" {
-		path := getShortPath(req.URL.Path)
+	if reqOk {
 		took := float64(duration.End(true).Total().Seconds())
 		m.Histogram.WithLabelValues(path, req.Method, strconv.Itoa(rw.code)).Observe(took)
 	}
