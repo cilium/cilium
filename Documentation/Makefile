@@ -12,14 +12,21 @@ HELM_VALUES := helm-values.rst
 
 default: html
 
-DOCS_BUILDER_IMG ?= cilium/docs-builder
+define build_image
+  $(ECHO_DOCKER)
+  # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
+  grep -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
+  $(QUIET)tar c requirements.txt Dockerfile \
+    | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) --target $(2) --tag $(3) -
+endef
 
+DOCS_BASE_IMG ?= cilium/docs-base
+base-image: Dockerfile ## Build the docs-base image for updating the requirements.txt file.
+	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
+
+DOCS_BUILDER_IMG ?= cilium/docs-builder
 builder-image: Dockerfile requirements.txt ## Build the docs-builder image for rendering and checking the documentation.
-	$(ECHO_DOCKER)
-	# Pre-pull FROM docker images due to Buildkit sometimes failing to pull them.
-	grep "^FROM " $< | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
-	$(QUIET)tar c requirements.txt Dockerfile \
-	  | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) --tag $(DOCS_BUILDER_IMG) -
+	$(call build_image,$<,docs-builder,$(DOCS_BUILDER_IMG))
 
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.
@@ -28,9 +35,10 @@ cilium-build:
 
 READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
 DOCKER_CTR_ROOT_DIR := /src
-DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
+DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
 		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
-		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR) \
+		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR)
+DOCKER_CTR := $(DOCKER_CTR_BASE) \
 		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
 		--user "$(shell id -u):$(shell id -g)"
@@ -103,6 +111,11 @@ live-preview: builder-image ## Build and serve the documentation locally.
 		--publish $(DOCS_PORT):8000 \
 			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 $(SPHINX_OPTS) --ignore *.swp -Q . _preview
+
+update-requirements: base-image requirements-min.txt
+	@echo '## Auto-generated from requirements-min.txt with "make update-requirements"' > requirements.txt
+	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
+		bash -c "pip install -r requirements-min.txt && pip freeze -r requirements-min.txt >> requirements.txt"
 
 clean: ## Clean up all artefacts from documentation.
 	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock

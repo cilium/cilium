@@ -1,36 +1,58 @@
-alabaster==0.7.12
-Babel==2.9.1
-certifi==2021.10.8
-chardet==4.0.0
-docutils==0.17
-idna==3.3
-imagesize==1.3.0
-Jinja2==3.0.3
-jsonschema==4.12.1
-mistune==2.0.3
-MarkupSafe==2.1.0
-myst-parser==0.17.0
-pyenchant==3.2.2
-Pygments==2.13.0
-pytz==2021.3
-PyYAML==6.0
-requests==2.28.1
-semver==2.13.0
-six==1.16.0
-snowballstemmer==2.2.0
+## Auto-generated from requirements-min.txt with "make update-requirements"
 Sphinx==4.5.0
-sphinx-autobuild==2021.3.14
-# forked read the docs themez
-git+https://github.com/cilium/sphinx_rtd_theme.git@v1.0
-sphinxcontrib-httpdomain==1.8.0
+
+# Custom theme, forked from Read the Docs
+sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@d607dabeb0a4af85c0364082789786534571aee1
+# We use semver to parse Cilium's version in the config file
+semver==2.13.0
+# Sphinx extensions
+myst-parser==0.18.0
 # Fork openapi until it uses something newer than unmaintained m2r
 # (See git logs for details)
-git+https://github.com/cilium/openapi.git@mdinclude
-sphinxcontrib-spelling==7.6.0
-sphinxcontrib-websupport==1.2.4
+sphinxcontrib-openapi @ git+https://github.com/cilium/openapi.git@a1d4fca2e7c3ae3cca69593baade1ebc297a12ff
 sphinx-tabs==3.3.1
 sphinx-version-warning==1.1.2
-typing==3.7.4.3
-urllib3==1.26.8
-yamllint==1.26.3
+sphinxcontrib-spelling==7.6.0
+sphinxcontrib-websupport==1.2.4
+# Linters
 rstcheck==3.3.1
+yamllint==1.27.1
+## The following requirements were added by pip freeze:
+alabaster==0.7.12
+attrs==22.1.0
+Babel==2.10.3
+certifi==2022.6.15
+charset-normalizer==2.1.0
+deepmerge==1.0.1
+docutils==0.17.1
+idna==3.3
+imagesize==1.4.1
+Jinja2==3.1.2
+jsonschema==4.12.1
+markdown-it-py==2.1.0
+MarkupSafe==2.1.1
+mdit-py-plugins==0.3.0
+mdurl==0.1.2
+mistune==2.0.4
+packaging==21.3
+pathspec==0.9.0
+picobox==2.2.0
+pyenchant==3.2.2
+Pygments==2.13.0
+pyparsing==3.0.9
+pyrsistent==0.18.1
+pytz==2022.2.1
+PyYAML==6.0
+requests==2.28.1
+six==1.16.0
+snowballstemmer==2.2.0
+sphinx_mdinclude==0.5.1
+sphinxcontrib-applehelp==1.0.2
+sphinxcontrib-devhelp==1.0.2
+sphinxcontrib-htmlhelp==2.0.0
+sphinxcontrib-httpdomain==1.8.0
+sphinxcontrib-jsmath==1.0.1
+sphinxcontrib-qthelp==1.0.3
+sphinxcontrib-serializinghtml==1.1.5
+typing_extensions==4.3.0
+urllib3==1.26.11

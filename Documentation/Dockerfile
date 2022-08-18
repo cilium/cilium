@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.10.4-alpine3.15
+FROM docker.io/library/python:3.10.4-alpine3.15 AS docs-base
 
 LABEL maintainer="maintainer@cilium.io"
 
@@ -19,6 +19,7 @@ RUN apk add --no-cache --virtual --update \
     musl-dev \
     && true
 
+FROM docs-base AS docs-builder
 ADD ./requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt
 
