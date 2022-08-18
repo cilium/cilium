@@ -66,7 +66,7 @@ func (h *LoggingHook) Fire(entry *logrus.Entry) error {
 	}
 
 	// Increment the metric.
-	h.metric.WithLabelValues(entry.Level.String(), subsystem).Inc()
+	h.metric.WithLabelValues(entry.Level.String(), subsystem, entry.Level.String()).Inc()
 
 	return nil
 }

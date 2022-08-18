@@ -1042,7 +1042,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace: Namespace,
 				Name:      "errors_warnings_total",
 				Help:      "Number of total errors in cilium-agent instances",
-			}, []string{"level", "subsystem"})
+			}, []string{"level", "subsystem", LabelType})
 
 			collectors = append(collectors, ErrorsWarnings)
 			c.ErrorsWarningsEnabled = true
