@@ -712,13 +712,11 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
       {{- end }}
-      {{- if .Values.cgroup.autoMount.enabled }}
-      # To mount cgroup2 filesystem on the host
+      # To mount cgroup2 filesystem on the host and apply sysctl-overwrites
       - name: hostproc
         hostPath:
           path: /proc
           type: Directory
-      {{- end }}
       # To keep state between restarts / upgrades for cgroup2 filesystem
       - name: cilium-cgroup
         hostPath:
