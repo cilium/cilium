@@ -49,7 +49,7 @@ spec:
                   - --target=1
                   - --mount
                   - --
-                  - "/bin/sh"
+                  - "/bin/bash"
                   - "-c"
                   - |
                     {{- tpl (.Files.Get "files/nodeinit/poststart-eni.bash") . | nindent 20 }}
@@ -62,7 +62,7 @@ spec:
                   - --target=1
                   - --mount
                   - --
-                  - /bin/sh
+                  - /bin/bash
                   - -c
                   - |
                     {{- tpl (.Files.Get "files/nodeinit/prestop.bash") . | nindent 20 }}
