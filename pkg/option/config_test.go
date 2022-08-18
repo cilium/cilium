@@ -107,7 +107,7 @@ func TestGetEnvName(t *testing.T) {
 }
 
 func (s *OptionSuite) TestReadDirConfig(c *C) {
-	ro := NewRegisteredOptions(viper.GetViper())
+	vp := viper.GetViper()
 	var dirName string
 	type args struct {
 		dirName string
@@ -161,7 +161,7 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 				c.Assert(err, IsNil)
 				fs := flag.NewFlagSet("single file configuration", flag.ContinueOnError)
 				fs.String("test", "", "")
-				ro.BindEnv("test")
+				BindEnv(vp, "test")
 				viper.BindPFlags(fs)
 
 				fmt.Println(fullPath)
@@ -198,15 +198,15 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 }
 
 func (s *OptionSuite) TestBindEnv(c *C) {
-	ro := NewRegisteredOptions(viper.GetViper())
+	vp := viper.GetViper()
 	optName1 := "foo-bar"
 	os.Setenv("LEGACY_FOO_BAR", "legacy")
 	os.Setenv(getEnvName(optName1), "new")
-	ro.BindEnvWithLegacyEnvFallback(optName1, "LEGACY_FOO_BAR")
+	BindEnvWithLegacyEnvFallback(vp, optName1, "LEGACY_FOO_BAR")
 	c.Assert(viper.GetString(optName1), Equals, "new")
 
 	optName2 := "bar-foo"
-	ro.BindEnvWithLegacyEnvFallback(optName2, "LEGACY_FOO_BAR")
+	BindEnvWithLegacyEnvFallback(vp, optName2, "LEGACY_FOO_BAR")
 	c.Assert(viper.GetString(optName2), Equals, "legacy")
 
 	viper.Reset()
@@ -681,7 +681,8 @@ func TestCheckIPAMDelegatedPlugin(t *testing.T) {
 }
 
 func Test_populateNodePortRange(t *testing.T) {
-	ro := NewRegisteredOptions(viper.GetViper())
+	vp := viper.New()
+	reset := func() { vp = viper.New() }
 	type want struct {
 		wantMin int
 		wantMax int
@@ -700,8 +701,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: false,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"23", "24"})
+				vp.Set(NodePortRange, []string{"23", "24"})
 			},
 		},
 		{
@@ -712,7 +712,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: false,
 			},
 			preTestRun: func() {
-				viper.Reset()
+				reset()
 
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
@@ -723,8 +723,8 @@ func Test_populateNodePortRange(t *testing.T) {
 					},
 					"")
 
-				ro.BindEnv(NodePortRange)
-				viper.BindPFlags(fs)
+				BindEnv(vp, NodePortRange)
+				vp.BindPFlags(fs)
 			},
 		},
 		{
@@ -735,8 +735,8 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"666", "555"})
+				reset()
+				vp.Set(NodePortRange, []string{"666", "555"})
 			},
 		},
 		{
@@ -747,8 +747,8 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"666", "666"})
+				reset()
+				vp.Set(NodePortRange, []string{"666", "666"})
 			},
 		},
 		{
@@ -759,8 +759,8 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"aaa", "0"})
+				reset()
+				vp.Set(NodePortRange, []string{"aaa", "0"})
 			},
 		},
 		{
@@ -771,8 +771,8 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"1024", "aaa"})
+				reset()
+				vp.Set(NodePortRange, []string{"1024", "aaa"})
 			},
 		},
 		{
@@ -783,9 +783,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-
-				ro.RemoveEnv(NodePortRange)
+				reset()
 
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
@@ -796,10 +794,10 @@ func Test_populateNodePortRange(t *testing.T) {
 					},
 					"")
 
-				ro.BindEnv(NodePortRange)
-				viper.BindPFlags(fs)
+				BindEnv(vp, NodePortRange)
+				vp.BindPFlags(fs)
 
-				viper.Set(NodePortRange, []string{"1024"})
+				vp.Set(NodePortRange, []string{"1024"})
 			},
 		},
 		{
@@ -811,9 +809,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: false,
 			},
 			preTestRun: func() {
-				viper.Reset()
-
-				ro.RemoveEnv(NodePortRange)
+				reset()
 
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
@@ -821,10 +817,10 @@ func Test_populateNodePortRange(t *testing.T) {
 					[]string{}, // Explicitly has no defaults.
 					"")
 
-				ro.BindEnv(NodePortRange)
-				viper.BindPFlags(fs)
+				BindEnv(vp, NodePortRange)
+				vp.BindPFlags(fs)
 
-				viper.Set(NodePortRange, []string{})
+				vp.Set(NodePortRange, []string{})
 			},
 		},
 	}
@@ -833,7 +829,7 @@ func Test_populateNodePortRange(t *testing.T) {
 			tt.preTestRun()
 
 			d := &DaemonConfig{}
-			err := d.populateNodePortRange(viper.GetViper())
+			err := d.populateNodePortRange(vp)
 
 			got := want{
 				wantMin: d.NodePortMin,
