@@ -1243,29 +1243,11 @@ func getEnvName(option string) string {
 	return ciliumEnvPrefix + upper
 }
 
-// RegisteredOptions is used to keep track of all the configuration options
-// registered to a Viper instance and be sure that no option is bound more than
-// once.
-type RegisteredOptions struct {
-	opts map[string]struct{}
-	vp   *viper.Viper
-}
-
-// NewRegisteredOptions returns an initialized RegisteredOptions
-// that tracks the Viper instance passed as a parameter.
-func NewRegisteredOptions(vp *viper.Viper) *RegisteredOptions {
-	return &RegisteredOptions{
-		opts: make(map[string]struct{}),
-		vp:   vp,
-	}
-}
-
 // BindEnv binds the option name with a deterministic generated environment
 // variable which is based on the given optName. If the same optName is bound
 // more than once, this function panics.
-func (ro *RegisteredOptions) BindEnv(optName string) {
-	ro.registerOpt(optName)
-	ro.vp.BindEnv(optName, getEnvName(optName))
+func BindEnv(vp *viper.Viper, optName string) {
+	vp.BindEnv(optName, getEnvName(optName))
 }
 
 // BindEnvWithLegacyEnvFallback binds the given option name with either the same
@@ -1274,43 +1256,24 @@ func (ro *RegisteredOptions) BindEnv(optName string) {
 // The function is used to work around the viper.BindEnv limitation that only
 // one environment variable can be bound for an option, and we need multiple
 // environment variables due to backward compatibility reasons.
-func (ro *RegisteredOptions) BindEnvWithLegacyEnvFallback(optName, legacyEnvName string) {
-	ro.registerOpt(optName)
-
+func BindEnvWithLegacyEnvFallback(vp *viper.Viper, optName, legacyEnvName string) {
 	envName := getEnvName(optName)
 	if os.Getenv(envName) == "" {
 		envName = legacyEnvName
 	}
-
-	ro.vp.BindEnv(optName, envName)
-}
-
-func (ro *RegisteredOptions) registerOpt(optName string) {
-	_, ok := ro.opts[optName]
-	if ok || optName == "" {
-		panic(fmt.Errorf("option already registered: %s", optName))
-	}
-	ro.opts[optName] = struct{}{}
-}
-
-// RemoveEnv deletes a registered option name from the set.
-func (ro *RegisteredOptions) RemoveEnv(optName string) {
-	delete(ro.opts, optName)
+	vp.BindEnv(optName, envName)
 }
 
 // LogRegisteredOptions logs all options that where bound to viper.
-func (ro *RegisteredOptions) LogRegisteredOptions(entry *logrus.Entry) {
-	keys := make([]string, 0, len(ro.opts))
-	for k := range ro.opts {
-		keys = append(keys, k)
-	}
+func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
+	keys := vp.AllKeys()
 	sort.Strings(keys)
 	for _, k := range keys {
-		v := ro.vp.GetStringSlice(k)
+		v := vp.GetStringSlice(k)
 		if len(v) > 0 {
 			entry.Infof("  --%s='%s'", k, strings.Join(v, ","))
 		} else {
-			entry.Infof("  --%s='%s'", k, ro.vp.GetString(k))
+			entry.Infof("  --%s='%s'", k, vp.GetString(k))
 		}
 	}
 }

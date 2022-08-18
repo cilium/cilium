@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // cleanupCmd represents the cleanup command
@@ -74,8 +75,8 @@ func init() {
 	cleanupCmd.Flags().BoolVarP(&cleanBPF, bpfFlagName, "", false, "Remove BPF state")
 	cleanupCmd.Flags().BoolVarP(&force, forceFlagName, "f", false, "Skip confirmation")
 
-	regOpts.BindEnv(allFlagName)
-	regOpts.BindEnv(bpfFlagName)
+	option.BindEnv(vp, allFlagName)
+	option.BindEnv(vp, bpfFlagName)
 
 	bindEnv(cleanCiliumEnvVar, cleanCiliumEnvVar)
 	bindEnv(cleanBpfEnvVar, cleanBpfEnvVar)
