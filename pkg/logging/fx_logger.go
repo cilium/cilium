@@ -28,7 +28,7 @@ func NewFxLogger(log logrus.FieldLogger) *FxLogger {
 	return &FxLogger{FieldLogger: log}
 }
 
-func (log *FxLogger) DumpObjects() {
+func (log *FxLogger) PrintObjects() {
 	slices.SortFunc(log.sups, func(a, b *fxevent.Supplied) bool {
 		return a.ModuleName < b.ModuleName || (a.ModuleName == b.ModuleName && a.TypeName < b.TypeName)
 	})
