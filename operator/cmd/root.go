@@ -525,8 +525,8 @@ func OnOperatorStartLeading(ctx context.Context) {
 		RunCNPNodeStatusGC(ciliumNodeStore)
 	}
 
-	if operatorOption.Config.NodeGCInterval != 0 {
-		operatorWatchers.RunCiliumNodeGC(ctx, ciliumNodeStore, operatorOption.Config.NodeGCInterval)
+	if operatorOption.Config.NodesGCInterval != 0 {
+		operatorWatchers.RunCiliumNodeGC(ctx, ciliumNodeStore, operatorOption.Config.NodesGCInterval)
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
