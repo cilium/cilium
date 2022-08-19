@@ -8,7 +8,7 @@ imagesize==1.3.0
 Jinja2==3.0.3
 jsonschema==4.12.1
 mistune==2.0.3
-MarkupSafe==2.1.0
+MarkupSafe==2.1.1
 myst-parser==0.17.0
 pyenchant==3.2.2
 Pygments==2.13.0
