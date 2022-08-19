@@ -273,6 +273,7 @@ var (
 	IsCiliumV1_11 = versioncheck.MustCompile(">=1.10.90 <1.12.0")
 	IsCiliumV1_12 = versioncheck.MustCompile(">=1.11.90 <1.13.0")
 	IsCiliumV1_13 = versioncheck.MustCompile(">=1.12.90 <1.14.0")
+	IsCiliumV1_14 = versioncheck.MustCompile(">=1.13.90 <1.15.0")
 )
 
 // badLogMessages is a map which key is a part of a log message which indicates
