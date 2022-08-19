@@ -38,12 +38,12 @@ message Container {
   // +optional
   optional string image = 2;
 
-  // List of ports to expose from the container. Exposing a port here gives
-  // the system additional information about the network connections a
-  // container uses, but is primarily informational. Not specifying a port here
+  // List of ports to expose from the container. Not specifying a port here
   // DOES NOT prevent that port from being exposed. Any port which is
   // listening on the default "0.0.0.0" address inside a container will be
   // accessible from the network.
+  // Modifying this array with strategic merge patch may corrupt the data.
+  // For more information See https://github.com/kubernetes/kubernetes/issues/108255.
   // Cannot be updated.
   // +optional
   // +patchMergeKey=containerPort
@@ -761,12 +761,19 @@ message ServiceSpec {
   // +optional
   repeated string loadBalancerSourceRanges = 9;
 
-  // externalTrafficPolicy denotes if this Service desires to route external
-  // traffic to node-local or cluster-wide endpoints. "Local" preserves the
-  // client source IP and avoids a second hop for LoadBalancer and Nodeport
-  // type services, but risks potentially imbalanced traffic spreading.
-  // "Cluster" obscures the client source IP and may cause a second hop to
-  // another node, but should have good overall load-spreading.
+  // externalTrafficPolicy describes how nodes distribute service traffic they
+  // receive on one of the Service's "externally-facing" addresses (NodePorts,
+  // ExternalIPs, and LoadBalancer IPs). If set to "Local", the proxy will configure
+  // the service in a way that assumes that external load balancers will take care
+  // of balancing the service traffic between nodes, and so each node will deliver
+  // traffic only to the node-local endpoints of the service, without masquerading
+  // the client source IP. (Traffic mistakenly sent to a node with no endpoints will
+  // be dropped.) The default value, "Cluster", uses the standard behavior of
+  // routing to all endpoints evenly (possibly modified by topology and other
+  // features). Note that traffic sent to an External IP or LoadBalancer IP from
+  // within the cluster will always get "Cluster" semantics, but clients sending to
+  // a NodePort from within the cluster may need to take traffic policy into account
+  // when picking a node.
   // +optional
   optional string externalTrafficPolicy = 11;
 
@@ -779,6 +786,7 @@ message ServiceSpec {
   // service or not.  If this field is specified when creating a Service
   // which does not need it, creation will fail. This field will be wiped
   // when updating a Service to no longer need it (e.g. changing type).
+  // This field cannot be updated once set.
   // +optional
   optional int32 healthCheckNodePort = 12;
 
@@ -841,21 +849,6 @@ message Taint {
   // It is only written for NoExecute taints.
   // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time timeAdded = 4;
-}
-
-// TypedLocalObjectReference contains enough information to let you locate the
-// typed referenced object inside the same namespace.
-message TypedLocalObjectReference {
-  // APIGroup is the group for the resource being referenced.
-  // If APIGroup is not specified, the specified Kind must be in the core API group.
-  // For any other third-party types, APIGroup is required.
-  optional string apiGroup = 1;
-
-  // Kind is the type of resource being referenced
-  optional string kind = 2;
-
-  // Name is the name of resource being referenced
-  optional string name = 3;
 }
 
 // VolumeMount describes a mounting of a Volume within a container.

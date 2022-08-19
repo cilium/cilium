@@ -98,7 +98,7 @@ retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
 apt-key add apt-key.gpg
 
 case $K8S_VERSION in
-    "1.24")
+    "1.24" | "1.25")
         KUBEADM_CRI_SOCKET="unix:///run/containerd/containerd.sock"
         ;;
 esac
@@ -331,6 +331,67 @@ discovery:
 EOF
 )
 
+# V1BETA5 configuration is enabled with DualStack feature gate by default.
+# IPv6 only clusters can still be opted by setting IPv6 variable to 1.
+# It also sets the cgroup-driver to "cgroupfs", away from "systemd",
+# so that docker does not have to be reconfigured and restarted.
+# This difffers from V1BETA4 because as it does not contain the featureGates field:
+#  - featureGates: Invalid value: map[string]bool{"IPv6DualStack":true}: IPv6DualStack is not a valid feature name.
+KUBEADM_CONFIG_V1BETA5=$(cat <<-EOF
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+bootstrapTokens:
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  token: {{ .TOKEN }}
+  ttl: 24h0m0s
+  usages:
+  - signing
+  - authentication
+localAPIEndpoint:
+  advertiseAddress: "{{ .KUBEADM_ADDR }}"
+  bindPort: 6443
+nodeRegistration:
+  criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
+apiServer:
+  extraArgs:
+    "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
+  timeoutForControlPlane: 4m0s
+controlPlaneEndpoint: k8s1:6443
+controllerManager:
+  extraArgs:
+    "node-cidr-mask-size-ipv6": "120"
+    "feature-gates": "{{ .CONTROLLER_FEATURE_GATES }}"
+networking:
+  dnsDomain: cluster.local
+  podSubnet: "{{ .KUBEADM_V1BETA2_POD_CIDR }}"
+  serviceSubnet: "{{ .KUBEADM_V1BETA2_SVC_CIDR }}"
+---
+kind: KubeletConfiguration
+apiVersion: kubelet.config.k8s.io/v1beta1
+cgroupDriver: cgroupfs
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    token: {{ .TOKEN }}
+    apiServerEndpoint: "k8s1:6443"
+    unsafeSkipCAVerification: true
+  tlsBootstrapToken: {{ .TOKEN }}
+nodeRegistration:
+  criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+  ignorePreflightErrors:
+  - cri
+  - SystemVerification
+  - swap
+EOF
+)
+
 # CRIO bridge disabled.
 if [[ -f  "/etc/cni/net.d/100-crio-bridge.conf" ]]; then
     echo "Disabling crio CNI bridge"
@@ -459,6 +520,22 @@ case $K8S_VERSION in
         CONTROLLER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
         API_SERVER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
         ;;
+    "1.25")
+        # kubeadm 1.24 requires conntrack to be installed, we can remove this
+        # once we have upgraded the VM image version.
+        sudo apt-get install -y conntrack
+        # We don't need to define dthe kubernetes CNI version once we have stable
+        # releases.
+        # KUBERNETES_CNI_VERSION="0.8.7"
+        KUBERNETES_CNI_OS="-linux"
+        K8S_FULL_VERSION="1.25.0"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_WORKER_OPTIONS="--config=/tmp/config.yaml"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA5}"
+        CONTROLLER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
+        API_SERVER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
+        ;;
 esac
 
 if [ "$KUBEPROXY" == "0" ]; then
@@ -467,23 +544,16 @@ fi
 
 #Install kubernetes
 set +e
-case $K8S_VERSION in
-    "1.16"|"1.17"|"1.18"|"1.19"|"1.20"|"1.21"|"1.22"|"1.23"|"1.24")
-        install_k8s_using_packages \
-            kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
-            kubelet=${K8S_FULL_VERSION}* \
-            kubeadm=${K8S_FULL_VERSION}* \
-            kubectl=${K8S_FULL_VERSION}*
-        if [ $? -ne 0 ]; then
-            echo "falling back on binary k8s install"
-            set -e
-            install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
-        fi
-        ;;
-#   "1.21")
-#       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
-#       ;;
-esac
+install_k8s_using_packages \
+    kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
+    kubelet=${K8S_FULL_VERSION}* \
+    kubeadm=${K8S_FULL_VERSION}* \
+    kubectl=${K8S_FULL_VERSION}*
+if [ $? -ne 0 ]; then
+    echo "falling back on binary k8s install"
+    set -e
+    install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
+fi
 set -e
 
 case $CONTAINER_RUNTIME in
@@ -525,7 +595,11 @@ if [[ "${HOST}" == "k8s1" ]]; then
     if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
       echo "${KUBEADM_CONFIG}" | envtpl > /tmp/config.yaml
 
-      sudo kubeadm init  --config /tmp/config.yaml $KUBEADM_OPTIONS
+      # In case of failure, print the contents of all k8s containers
+      sudo kubeadm init  --config /tmp/config.yaml $KUBEADM_OPTIONS || \
+      (for containerID in $(sudo crictl --runtime-endpoint unix:///run/containerd/containerd.sock ps -a | grep kube | grep -Ev '(CONTAINER)|(pause)' | awk '{ print $1 }');
+         do echo "${containerID}"; sudo crictl --runtime-endpoint unix:///run/containerd/containerd.sock logs "${containerID}" ;
+       done && exit 1)
 
       mkdir -p /root/.kube
       sudo sed -i "s/${KUBEADM_ADDR}/k8s1/" /etc/kubernetes/admin.conf
