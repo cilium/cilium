@@ -278,7 +278,8 @@ skip_host_firewall:
 		 * but with encrypt marks.
 		 */
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->key, secctx, info->sec_label,
+						      info->key, info->node_id,
+						      secctx, info->sec_label,
 						      &trace);
 	} else {
 		struct tunnel_key key = {};
@@ -308,7 +309,7 @@ skip_host_firewall:
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_meta(ctx, key);
+		set_encrypt_key_meta(ctx, key, info->node_id);
 		set_identity_meta(ctx, secctx);
 	}
 #endif
@@ -570,7 +571,8 @@ skip_vtep:
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->key, secctx, info->sec_label,
+						      info->key, info->node_id,
+						      secctx, info->sec_label,
 						      &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
@@ -604,7 +606,7 @@ skip_vtep:
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_meta(ctx, key);
+		set_encrypt_key_meta(ctx, key, info->node_id);
 		set_identity_meta(ctx, secctx);
 	}
 #endif
