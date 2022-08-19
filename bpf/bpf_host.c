@@ -277,7 +277,7 @@ skip_host_firewall:
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-							 info->key,
+							 info->key, info->node_id,
 							 secctx, TRACE_PAYLOAD_LEN);
 
 		/* If IPSEC is needed recirc through ingress to use xfrm stack
@@ -318,7 +318,7 @@ skip_host_firewall:
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_meta(ctx, key);
+		set_encrypt_key_meta(ctx, key, info->node_id);
 		set_identity_meta(ctx, secctx);
 	}
 #endif
@@ -552,8 +552,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						     info->key, secctx,
-						     TRACE_PAYLOAD_LEN);
+						     info->key, info->node_id,
+						     secctx, TRACE_PAYLOAD_LEN);
 
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
@@ -593,7 +593,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_meta(ctx, key);
+		set_encrypt_key_meta(ctx, key, info->node_id);
 		set_identity_meta(ctx, secctx);
 	}
 #endif
