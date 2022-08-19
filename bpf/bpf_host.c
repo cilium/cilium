@@ -740,13 +740,39 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
 #else /* TUNNEL_MODE */
 static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32 src_id)
 {
-	__u32 tunnel_endpoint = 0;
+	struct remote_endpoint_info *ep = NULL;
+	void *data, *data_end;
+	struct ipv6hdr *ip6 __maybe_unused;
+	struct iphdr *ip4 __maybe_unused;
+	__u16 proto;
 
-	tunnel_endpoint = ctx_load_meta(ctx, 4);
+	if (!validate_ethertype(ctx, &proto))
+		return DROP_UNSUPPORTED_L2;
+
+	switch (proto) {
+# ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr);
+		break;
+# endif /* ENABLE_IPV6 */
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		ep = lookup_ip4_remote_endpoint(ip4->daddr);
+		break;
+# endif /* ENABLE_IPV4 */
+	}
+	if (!ep)
+		return send_drop_notify_error(ctx, src_id,
+					      DROP_NO_TUNNEL_ENDPOINT,
+					      CTX_ACT_DROP, METRIC_EGRESS);
+
 	ctx->mark = 0;
-
 	bpf_clear_meta(ctx);
-	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, src_id, TRACE_PAYLOAD_LEN);
+	return __encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, src_id, TRACE_PAYLOAD_LEN);
 }
 
 static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
