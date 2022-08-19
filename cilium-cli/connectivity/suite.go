@@ -168,7 +168,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultOK, check.ResultOK
 		})
 
-	// This policy allows ingress to echo only from client with a label 'other:client'.
+	// This policy allowed ICMP traffic from client to another client.
 	ct.NewTest("client-ingress-icmp").WithPolicy(echoIngressICMPPolicyYAML).
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureICMPPolicy)).
 		WithScenarios(
