@@ -24,7 +24,7 @@ import (
 const (
 	EndpointPolicyStateEnforcing    cilium_v2.EndpointPolicyState = "enforcing"
 	EndpointPolicyStateNonEnforcing cilium_v2.EndpointPolicyState = "non-enforcing"
-	EndpointPolicyStateDisabled     cilium_v2.EndpointPolicyState = "disabled"
+	EndpointPolicyStateDisabled     cilium_v2.EndpointPolicyState = "<status disabled>"
 )
 
 func getEndpointStatusControllers(mdlControllers models.ControllerStatuses) (controllers cilium_v2.ControllerList) {
