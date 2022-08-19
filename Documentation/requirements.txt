@@ -1,5 +1,5 @@
 ## Auto-generated from requirements-min.txt with "make update-requirements"
-Sphinx==4.5.0
+Sphinx==5.1.1
 
 # Custom theme, forked from Read the Docs
 sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@d607dabeb0a4af85c0364082789786534571aee1
@@ -10,7 +10,7 @@ myst-parser==0.18.0
 # Fork openapi until it uses something newer than unmaintained m2r
 # (See git logs for details)
 sphinxcontrib-openapi @ git+https://github.com/cilium/openapi.git@a1d4fca2e7c3ae3cca69593baade1ebc297a12ff
-sphinx-tabs==3.3.1
+sphinx-tabs==3.4.0
 sphinx-version-warning==1.1.2
 sphinxcontrib-spelling==7.6.0
 sphinxcontrib-websupport==1.2.4
@@ -27,8 +27,8 @@ deepmerge==1.0.1
 docutils==0.17.1
 idna==3.3
 imagesize==1.4.1
-Jinja2==3.1.2
-jsonschema==4.12.1
+Jinja2==3.0.3
+jsonschema==4.13.0
 markdown-it-py==2.1.0
 MarkupSafe==2.1.1
 mdit-py-plugins==0.3.0
