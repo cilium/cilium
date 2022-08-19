@@ -4,7 +4,7 @@ certifi==2021.10.8
 chardet==4.0.0
 docutils==0.17
 idna==3.3
-imagesize==1.3.0
+imagesize==1.4.1
 Jinja2==3.0.3
 jsonschema==4.12.1
 mistune==2.0.3
