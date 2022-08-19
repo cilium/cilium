@@ -1013,6 +1013,7 @@ wakeup
 walkthrough
 webhook
 webservice
+websocket
 wellKnownIdentities
 whitelist
 whitelisted
