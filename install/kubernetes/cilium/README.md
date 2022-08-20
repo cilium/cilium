@@ -328,6 +328,7 @@ contributors across the globe, there is almost always someone available to help.
 | imagePullSecrets | string | `nil` | Configure image pull secrets for pulling container images |
 | ingressController.enabled | bool | `false` | Enable cilium ingress controller This will automatically set enable-envoy-config as well. |
 | ingressController.enforceHttps | bool | `true` | Enforce https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. |
+| ingressController.ingressLBAnnotations | list | `["service.beta.kubernetes.io","service.kubernetes.io","cloud.google.com"]` | IngressLBAnnotations are the annotations which are needed to propagate from Ingress to the Load Balancer |
 | ingressController.secretsNamespace | object | `{"create":true,"name":"cilium-secrets","sync":true}` | SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from. |
 | ingressController.secretsNamespace.create | bool | `true` | Create secrets namespace for Ingress. |
 | ingressController.secretsNamespace.name | string | `"cilium-secrets"` | Name of Ingress secret namespace. |

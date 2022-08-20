@@ -595,7 +595,8 @@ func OnOperatorStartLeading(ctx context.Context) {
 		ingressController, err := ingress.NewIngressController(
 			ingress.WithHTTPSEnforced(operatorOption.Config.EnforceIngressHTTPS),
 			ingress.WithSecretsSyncEnabled(operatorOption.Config.EnableIngressSecretsSync),
-			ingress.WithSecretsNamespace(operatorOption.Config.IngressSecretsNamespace))
+			ingress.WithSecretsNamespace(operatorOption.Config.IngressSecretsNamespace),
+			ingress.WithLBAnnotations(operatorOption.Config.IngressLBAnnotations))
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, ingress.Subsys).Fatal(
 				"Failed to start ingress controller")
