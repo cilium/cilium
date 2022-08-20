@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/name: cilium-agent
     {{- if .Values.keepDeprecatedLabels }}
     kubernetes.io/cluster-service: "true"
-    {{- if and .Values.gke.enabled (eq .Release.Namespace "kube-system" ) }}
+    {{- if and .Values.gke.enabled (eq cilium.namespace "kube-system" ) }}
       {{- fail "Invalid configuration: Installing Cilium on GKE with 'kubernetes.io/cluster-service' labels on 'kube-system' namespace causes Cilium DaemonSet to be removed by GKE. Either install Cilium on a different Namespace or install with '--set keepDeprecatedLabels=false'" }}
     {{- end }}
     {{- end }}
