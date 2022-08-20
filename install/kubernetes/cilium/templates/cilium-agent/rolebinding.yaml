@@ -11,5 +11,5 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccounts.cilium.name | quote }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ cilium.namespace }}
 {{- end }}

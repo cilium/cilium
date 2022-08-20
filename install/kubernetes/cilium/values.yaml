@@ -32,7 +32,7 @@ cluster:
   # may be 0 if Cluster Mesh is not used.
   id: 0
 # This allows to define the namespace where services will get installed 
-namespace: ""
+namespaceOverride: ""
 # -- Define serviceAccount names for components.
 # @default -- Component's fully qualified name.
 serviceAccounts:

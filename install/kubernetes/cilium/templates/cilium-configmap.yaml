@@ -62,7 +62,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cilium-config
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ cilium.namespace }}
 data:
 {{- if .Values.etcd.enabled }}
   # The kvstore configuration is used to enable use of a kvstore for state
@@ -81,7 +81,7 @@ data:
     ---
     endpoints:
       {{- if .Values.etcd.managed }}
-      - https://cilium-etcd-client.{{ .Release.Namespace }}.svc:2379
+      - https://cilium-etcd-client.{{ cilium.namespace }}.svc:2379
       {{- else }}
       {{- range .Values.etcd.endpoints }}
       - {{ . }}

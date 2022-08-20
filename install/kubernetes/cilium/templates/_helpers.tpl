@@ -132,3 +132,14 @@ and `commonCASecretName` variables.
     {{- $_ := set (set . "commonCA" $ca) "commonCASecretName" $secretName -}}
   {{- end -}}
 {{- end -}}
+
+{{/*
+overridde the release namespace for multi-namespace deployments in combined charts.
+*/}}
+{{- define "cilium.namespace" -}}
+{{- if .Values.namespaceOverride -}}
+{{- .Values.namespaceOverride -}}
+{{- else -}}
+{{- .Release.Namespace -}}
+{{- end -}}
+{{- end -}}
