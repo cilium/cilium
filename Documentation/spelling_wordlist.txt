@@ -496,6 +496,7 @@ imagePullSecrets
 incrementing
 indices
 ingressController
+ingressLBAnnotations
 ingressing
 init
 initContainer
