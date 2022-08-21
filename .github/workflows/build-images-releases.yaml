@@ -83,7 +83,23 @@ jobs:
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
+            
+      - name: cosign-installer
+        # You may pin to the exact commit or the version.
+        # uses: sigstore/cosign-installer@b3413d484cc23cf8778c3d2aa361568d4eb54679
+        uses: sigstore/cosign-installer@v2.5.1
 
+      - name: Write signing key to disk
+        run: echo "${KEY}" > cosign.key
+        shell: bash
+        env:
+          KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+      
+      - name: Sign release container image
+        env:
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: cosign sign --key cosign.key ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ github.run_id }}
+        
       - name: Image Release Digest
         shell: bash
         run: |
