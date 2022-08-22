@@ -1,4 +1,5 @@
 Sphinx==5.1.1
+sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
 git+https://github.com/cilium/sphinx_rtd_theme.git@v1.0#egg=sphinx-rtd-theme-cilium

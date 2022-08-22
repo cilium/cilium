@@ -1,5 +1,6 @@
 ## Auto-generated from requirements-min.txt with "make update-requirements"
 Sphinx==5.1.1
+sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
 sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@d607dabeb0a4af85c0364082789786534571aee1
@@ -22,13 +23,15 @@ alabaster==0.7.12
 attrs==22.1.0
 Babel==2.10.3
 certifi==2022.6.15
-charset-normalizer==2.1.0
+charset-normalizer==2.1.1
+colorama==0.4.5
 deepmerge==1.0.1
 docutils==0.17.1
 idna==3.3
 imagesize==1.4.1
 Jinja2==3.0.3
-jsonschema==4.13.0
+jsonschema==4.14.0
+livereload==2.6.3
 markdown-it-py==2.1.0
 MarkupSafe==2.1.1
 mdit-py-plugins==0.3.0
@@ -54,5 +57,6 @@ sphinxcontrib-httpdomain==1.8.0
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.3
 sphinxcontrib-serializinghtml==1.1.5
+tornado==6.2
 typing_extensions==4.3.0
 urllib3==1.26.11
