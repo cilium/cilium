@@ -89,6 +89,7 @@ spec:
         image: {{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
         name: cilium-etcd-operator
+        terminationMessagePolicy: FallbackToLogsOnError
       dnsPolicy: ClusterFirst
       hostNetwork: true
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.clustermesh.apiserver.priorityClassName "system-cluster-critical") }}

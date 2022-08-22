@@ -71,6 +71,7 @@ spec:
         volumeMounts:
         - name: etcd-data-dir
           mountPath: /var/run/etcd
+        terminationMessagePolicy: FallbackToLogsOnError
       containers:
       - name: etcd
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.etcd.image | quote }}
@@ -101,6 +102,7 @@ spec:
           readOnly: true
         - name: etcd-data-dir
           mountPath: /var/run/etcd
+        terminationMessagePolicy: FallbackToLogsOnError
       - name: apiserver
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
@@ -148,6 +150,7 @@ spec:
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
+        terminationMessagePolicy: FallbackToLogsOnError
       volumes:
       - name: etcd-server-secrets
         secret:

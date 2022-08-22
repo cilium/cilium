@@ -91,6 +91,7 @@ spec:
           securityContext:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
       {{- with .Values.nodeinit.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
