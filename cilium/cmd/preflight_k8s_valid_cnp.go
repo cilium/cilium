@@ -61,14 +61,7 @@ func validateCNPs() error {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 
-	restConfig, err := k8s.CreateConfig()
-	if err != nil {
-		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %w", err)
-	}
-	apiExtensionsClient, err := apiextensionsclient.NewForConfig(restConfig)
-	if err != nil {
-		return fmt.Errorf("Unable to create API extensions clientset for k8s CRD: %w", err)
-	}
+	apiExtensionsClient := k8s.APIExtClient()
 
 	npValidator, err := v2_validation.NewNPValidator()
 	if err != nil {

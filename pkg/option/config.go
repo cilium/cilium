@@ -1600,10 +1600,6 @@ type DaemonConfig struct {
 	IPv6Range                     string
 	IPv4ServiceRange              string
 	IPv6ServiceRange              string
-	K8sAPIServer                  string
-	K8sKubeConfigPath             string
-	K8sClientBurst                int
-	K8sClientQPSLimit             float64
 	K8sSyncTimeout                time.Duration
 	AllocatorListTimeout          time.Duration
 	K8sWatcherEndpointSelector    string
@@ -2085,9 +2081,6 @@ type DaemonConfig struct {
 
 	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
 	HubbleRecorderSinkQueueSize int
-
-	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
-	K8sHeartbeatTimeout time.Duration
 
 	// EndpointStatus enables population of information in the
 	// CiliumEndpoint.Status resource
@@ -2810,7 +2803,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLB = vp.GetBool(EnableHostReachableServices) || vp.GetBool(EnableSocketLB)
 	c.EnableRemoteNodeIdentity = vp.GetBool(EnableRemoteNodeIdentity)
-	c.K8sHeartbeatTimeout = vp.GetDuration(K8sHeartbeatTimeout)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
@@ -2863,12 +2855,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPv6Range = vp.GetString(IPv6Range)
 	c.IPv6ServiceRange = vp.GetString(IPv6ServiceRange)
 	c.JoinCluster = vp.GetBool(JoinClusterName)
-	c.K8sAPIServer = vp.GetString(K8sAPIServer)
-	c.K8sClientBurst = vp.GetInt(K8sClientBurst)
-	c.K8sClientQPSLimit = vp.GetFloat64(K8sClientQPSLimit)
 	c.K8sEnableK8sEndpointSlice = vp.GetBool(K8sEnableEndpointSlice)
 	c.K8sEnableAPIDiscovery = vp.GetBool(K8sEnableAPIDiscovery)
-	c.K8sKubeConfigPath = vp.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(vp.GetInt(K8sServiceCacheSize))

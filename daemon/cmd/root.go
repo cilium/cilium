@@ -10,10 +10,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"go.uber.org/fx"
 
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -26,9 +28,10 @@ var (
 	}
 
 	cmdrefCmd = &cobra.Command{
-		Use:   "cmdref [output directory]",
-		Short: "Generate command reference for cilium-agent to given output directory",
-		Args:  cobra.ExactArgs(1),
+		Use:    "cmdref [output directory]",
+		Short:  "Generate command reference for cilium-agent to given output directory",
+		Args:   cobra.ExactArgs(1),
+		Hidden: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			genMarkdown(RootCmd, args[0])
 		},
@@ -49,6 +52,15 @@ var (
 	agentHive *hive.Hive
 )
 
+type DaemonCellConfig struct {
+	SkipDaemon bool
+}
+
+func (DaemonCellConfig) CellFlags(flags *pflag.FlagSet) {
+	flags.Bool("skip-daemon", false, "Skip running of the daemon, only start normal cells")
+	flags.MarkHidden("skip-daemon")
+}
+
 func init() {
 	cobra.OnInitialize(option.InitConfig(RootCmd, "cilium-agent", "cilium", Vp))
 	setupSleepBeforeFatal()
@@ -56,10 +68,13 @@ func init() {
 	initializeFlags()
 
 	agentHive = hive.New(
-		Vp, RootCmd.Flags(),
+		Vp,
+		RootCmd.PersistentFlags(),
 
 		gops.Cell,
-		hive.NewCell("daemon", fx.Invoke(registerDaemonHooks)),
+		k8sClient.Cell,
+
+		hive.NewCellWithConfig[DaemonCellConfig]("daemon", fx.Invoke(registerDaemonHooks)),
 	)
 }
 

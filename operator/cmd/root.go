@@ -148,10 +148,11 @@ func initEnv() {
 	option.LogRegisteredOptions(Vp, log)
 	// Enable fallback to direct API probing to check for support of Leases in
 	// case Discovery API fails.
-	option.Config.EnableK8sLeasesFallbackDiscovery()
+	//option.Config.EnableK8sLeasesFallbackDiscovery()
 }
 
 func initK8s(k8sInitDone chan struct{}) {
+	/* TODO: Fixed in next commit.
 	k8s.Configure(
 		option.Config.K8sAPIServer,
 		option.Config.K8sKubeConfigPath,
@@ -161,7 +162,7 @@ func initK8s(k8sInitDone chan struct{}) {
 
 	if err := k8s.Init(option.Config); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
-	}
+	}*/
 
 	close(k8sInitDone)
 }
@@ -370,8 +371,10 @@ func OnOperatorStartLeading(ctx context.Context) {
 		cesController := ces.NewCESController(k8s.CiliumClient(),
 			operatorOption.Config.CESMaxCEPsInCES,
 			operatorOption.Config.CESSlicingMode,
+			0.0, 0,
+			/* TODO: Fixed in next commit.
 			option.Config.K8sClientQPSLimit,
-			option.Config.K8sClientBurst)
+			option.Config.K8sClientBurst)*/)
 		stopCh := make(chan struct{})
 		// Start CEP watcher
 		operatorWatchers.CiliumEndpointsSliceInit(k8s.CiliumClient().CiliumV2(), cesController)
