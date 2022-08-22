@@ -646,6 +646,7 @@ memcached
 memcd
 mentees
 metadata
+metricRelabelings
 metricsServer
 microk
 microservice
