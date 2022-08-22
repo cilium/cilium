@@ -66,7 +66,7 @@ func GetStringMapStringE(vp *viper.Viper, key string) (map[string]string, error)
 			for _, kv := range kvs {
 				temp := strings.Split(kv, string(equal))
 				if len(temp) != 2 {
-					return map[string]string{}, fmt.Errorf("'%s' is not formatted as key=value,key1=value1", s)
+					return map[string]string{}, fmt.Errorf("'%s' in '%s' is not formatted as key=value,key1=value1", kv, s)
 				}
 				v[temp[0]] = temp[1]
 			}
@@ -110,8 +110,12 @@ func splitKeyValue(str string, sep rune, keyValueSep rune) []string {
 
 	var res []string
 	var start = 0
-	for i := 0; i < len(sepIndexes)-1; i++ {
-		if strings.Contains(str[sepIndexes[i]:sepIndexes[i+1]], string(keyValueSep)) {
+	for i := 0; i < len(sepIndexes); i++ {
+		last := len(str)
+		if i < len(sepIndexes)-1 {
+			last = sepIndexes[i+1]
+		}
+		if strings.ContainsRune(str[sepIndexes[i]:last], keyValueSep) {
 			res = append(res, str[start:sepIndexes[i]])
 			start = sepIndexes[i] + 1
 		}

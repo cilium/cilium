@@ -1831,6 +1831,8 @@ func (m *UpstreamConnectionOptions) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for SetLocalInterfaceNameOnUpstreamConnections
+
 	if len(errors) > 0 {
 		return UpstreamConnectionOptionsMultiError(errors)
 	}

@@ -50,8 +50,9 @@ type FQDNSelector struct {
 	// Examples:
 	// `*.cilium.io` matches subomains of cilium at that level
 	//   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
-	// `*cilium.io` matches cilium.io and all subdomains 1 level below
-	//   www.cilium.io, blog.cilium.io and cilium.io match, google.com does not
+	// `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
+	//   except those containing "." separator, subcilium.io and sub-cilium.io match,
+	//   www.cilium.io and blog.cilium.io does not
 	// sub*.cilium.io matches subdomains of cilium where the subdomain component
 	// begins with "sub"
 	//   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
