@@ -28,15 +28,23 @@ import (
 
 // Parser is a parser for L7 payloads
 type Parser struct {
-	log           logrus.FieldLogger
-	cache         *lru.Cache
-	dnsGetter     getters.DNSGetter
-	ipGetter      getters.IPGetter
-	serviceGetter getters.ServiceGetter
+	log            logrus.FieldLogger
+	cache          *lru.Cache
+	dnsGetter      getters.DNSGetter
+	ipGetter       getters.IPGetter
+	serviceGetter  getters.ServiceGetter
+	endpointGetter getters.EndpointGetter
 }
 
 // New returns a new L7 parser
-func New(log logrus.FieldLogger, dnsGetter getters.DNSGetter, ipGetter getters.IPGetter, serviceGetter getters.ServiceGetter, opts ...options.Option) (*Parser, error) {
+func New(
+	log logrus.FieldLogger,
+	dnsGetter getters.DNSGetter,
+	ipGetter getters.IPGetter,
+	serviceGetter getters.ServiceGetter,
+	endpointGetter getters.EndpointGetter,
+	opts ...options.Option,
+) (*Parser, error) {
 	args := &options.Options{
 		CacheSize: 10000,
 	}
@@ -51,11 +59,12 @@ func New(log logrus.FieldLogger, dnsGetter getters.DNSGetter, ipGetter getters.I
 	}
 
 	return &Parser{
-		log:           log,
-		cache:         cache,
-		dnsGetter:     dnsGetter,
-		ipGetter:      ipGetter,
-		serviceGetter: serviceGetter,
+		log:            log,
+		cache:          cache,
+		dnsGetter:      dnsGetter,
+		ipGetter:       ipGetter,
+		serviceGetter:  serviceGetter,
+		endpointGetter: endpointGetter,
 	}, nil
 }
 
@@ -91,6 +100,13 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 			destinationNamespace, destinationPod = meta.Namespace, meta.PodName
 		}
 	}
+	srcEndpoint := decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod)
+	dstEndpoint := decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod)
+
+	if p.endpointGetter != nil {
+		p.updateEndpointWorkloads(sourceIP, srcEndpoint)
+		p.updateEndpointWorkloads(destinationIP, dstEndpoint)
+	}
 
 	l4, sourcePort, destinationPort := decodeLayer4(r.TransportProtocol, r.SourceEndpoint, r.DestinationEndpoint)
 	var sourceService, destinationService *pb.Service
@@ -105,8 +121,8 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 	decoded.DropReasonDesc = pb.DropReason_DROP_REASON_UNKNOWN
 	decoded.IP = ip
 	decoded.L4 = l4
-	decoded.Source = decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod)
-	decoded.Destination = decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod)
+	decoded.Source = srcEndpoint
+	decoded.Destination = dstEndpoint
 	decoded.Type = pb.FlowType_L7
 	decoded.SourceNames = sourceNames
 	decoded.DestinationNames = destinationNames
@@ -155,6 +171,18 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 	}
 
 	return 0
+}
+
+func (p *Parser) updateEndpointWorkloads(ip net.IP, endpoint *pb.Endpoint) {
+	if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
+		if pod := ep.GetPod(); pod != nil {
+			olen := len(pod.GetOwnerReferences())
+			endpoint.Workloads = make([]*pb.Workload, olen)
+			for index, owner := range pod.GetOwnerReferences() {
+				endpoint.Workloads[index] = &pb.Workload{Kind: owner.Kind, Name: owner.Name}
+			}
+		}
+	}
 }
 
 func decodeTime(timestamp string) (goTime time.Time, pbTime *timestamppb.Timestamp, err error) {

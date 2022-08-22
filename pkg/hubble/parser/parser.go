@@ -47,7 +47,7 @@ func New(
 		return nil, err
 	}
 
-	l7, err := seven.New(log, dnsGetter, ipGetter, serviceGetter, opts...)
+	l7, err := seven.New(log, dnsGetter, ipGetter, serviceGetter, endpointGetter, opts...)
 	if err != nil {
 		return nil, err
 	}
