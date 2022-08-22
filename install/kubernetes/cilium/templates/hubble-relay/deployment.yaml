@@ -91,6 +91,7 @@ spec:
             mountPath: /var/lib/hubble-relay/tls
             readOnly: true
           {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
       restartPolicy: Always
       priorityClassName: {{ .Values.hubble.relay.priorityClassName }}
       serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}

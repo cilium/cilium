@@ -72,6 +72,7 @@ spec:
           resources:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: true
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-cluster-critical") }}

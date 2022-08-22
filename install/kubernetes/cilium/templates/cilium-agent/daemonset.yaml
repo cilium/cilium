@@ -297,6 +297,7 @@ spec:
             drop:
               - ALL
           {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         {{- if not .Values.securityContext.privileged }}
         # Unprivileged containers need to mount /proc/sys/net from the host
@@ -412,6 +413,7 @@ spec:
         {{- range $type := .Values.monitor.eventTypes -}}
           {{ " " }}--type={{ $type }}
         {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - name: cilium-run
           mountPath: /var/run/cilium
@@ -452,6 +454,7 @@ spec:
           mountPath: /hostproc
         - name: cni-path
           mountPath: /hostbin
+        terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           {{- if .Values.securityContext.privileged }}
           privileged: true
@@ -495,6 +498,7 @@ spec:
           mountPath: /hostproc
         - name: cni-path
           mountPath: /hostbin
+        terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           {{- if .Values.securityContext.privileged }}
           privileged: true
@@ -529,6 +533,7 @@ spec:
         - /bin/bash
         - -c
         - --
+        terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           privileged: true
       {{- /* CRI-O already mounts the BPF filesystem */ -}}
@@ -551,6 +556,7 @@ spec:
             echo "Waiting on node-init to run...";
             sleep 1;
           done
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - name: cilium-bootstrap-file-dir
           mountPath: "/tmp/cilium-bootstrap.d"
@@ -584,6 +590,7 @@ spec:
         {{- with .Values.extraEnv }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           {{- if .Values.securityContext.privileged }}
           privileged: true
@@ -665,6 +672,7 @@ spec:
               echo "Waiting for kube-proxy to create iptables rules...";
               sleep 1;
             done
+        terminationMessagePolicy: FallbackToLogsOnError
       {{- end }} # wait-for-kube-proxy
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}

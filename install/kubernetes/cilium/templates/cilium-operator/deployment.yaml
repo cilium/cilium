@@ -206,6 +206,7 @@ spec:
         securityContext:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: true
       {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of

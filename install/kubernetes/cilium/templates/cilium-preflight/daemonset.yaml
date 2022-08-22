@@ -35,6 +35,7 @@ spec:
           command: ["/bin/echo"]
           args:
           - "hello"
+          terminationMessagePolicy: FallbackToLogsOnError
       containers:
         - name: cilium-pre-flight-check
           image: {{ include "cilium.image" .Values.preflight.image | quote }}
@@ -82,6 +83,7 @@ spec:
           securityContext:
             {{- toYaml . | trim | nindent 14 }}
           {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
         {{- if ne .Values.preflight.tofqdnsPreCache "" }}
         - name: cilium-pre-flight-fqdn-precache
           image: {{ include "cilium.image" .Values.preflight.image | quote }}
@@ -140,6 +142,7 @@ spec:
           securityContext:
             {{- toYaml . | trim | nindent 14 }}
           {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
         {{- end }}
       hostNetwork: true
       # This is here to seamlessly allow migrate-identity to work with
