@@ -486,9 +486,6 @@ const (
 	// DatapathMode is the name of the DatapathMode option
 	DatapathMode = "datapath-mode"
 
-	// IpvlanMasterDevice is the name of the IpvlanMasterDevice option
-	IpvlanMasterDevice = "ipvlan-master-device"
-
 	// EnableSocketLB is the name for the option to enable the socket LB
 	EnableSocketLB = "bpf-lb-sock"
 
@@ -1289,12 +1286,6 @@ func LogRegisteredOptions(entry *logrus.Entry) {
 	}
 }
 
-// IpvlanConfig is the configuration used by Daemon when in ipvlan mode.
-type IpvlanConfig struct {
-	MasterDeviceIndex int
-	OperationMode     string
-}
-
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	CreationTime        time.Time
@@ -1316,8 +1307,6 @@ type DaemonConfig struct {
 	// at runtime and reconfigure the datapath to load programs onto the new
 	// devices.
 	EnableRuntimeDeviceDetection bool
-
-	Ipvlan IpvlanConfig // Ipvlan related configuration
 
 	DatapathMode string // Datapath mode
 	Tunnel       string // Tunnel mode
@@ -1601,7 +1590,6 @@ type DaemonConfig struct {
 	IPv6Range                     string
 	IPv4ServiceRange              string
 	IPv6ServiceRange              string
-	IpvlanMasterDevice            string
 	K8sAPIServer                  string
 	K8sKubeConfigPath             string
 	K8sClientBurst                int
@@ -2888,7 +2876,6 @@ func (c *DaemonConfig) Populate() {
 	c.IPTablesLockTimeout = viper.GetDuration(IPTablesLockTimeout)
 	c.IPTablesRandomFully = viper.GetBool(IPTablesRandomFully)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
-	c.IpvlanMasterDevice = viper.GetString(IpvlanMasterDevice)
 	c.EnableMonitor = viper.GetBool(EnableMonitorName)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
@@ -3787,9 +3774,6 @@ func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
 			_, err = cast.ToFloat32E(value)
 		case "float64":
 			_, err = cast.ToFloat64E(value)
-		// remove this after PR https://github.com/cilium/cilium/pull/20282 is merged
-		case "intSlice":
-			_, err = cast.ToIntSliceE(value)
 		case "int":
 			_, err = cast.ToIntE(value)
 		case "int8":
