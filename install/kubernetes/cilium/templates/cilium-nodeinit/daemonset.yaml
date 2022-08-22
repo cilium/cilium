@@ -75,4 +75,5 @@ spec:
           - name: STARTUP_SCRIPT
             value: |
               {{- tpl (.Files.Get "files/nodeinit/startup.bash") . | nindent 14 }}
+          terminationMessagePolicy: FallbackToLogsOnError
 {{- end }}
