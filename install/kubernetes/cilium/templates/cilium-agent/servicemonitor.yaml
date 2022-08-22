@@ -25,6 +25,10 @@ spec:
     interval: 10s
     honorLabels: true
     path: /metrics
+    {{- with .Values.prometheus.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   targetLabels:
   - k8s-app
 {{- end }}

@@ -25,6 +25,10 @@ spec:
     interval: 10s
     honorLabels: true
     path: /metrics
+    {{- with .Values.operator.prometheus.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   targetLabels:
   - io.cilium/app
 {{- end }}
