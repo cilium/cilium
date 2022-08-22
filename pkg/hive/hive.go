@@ -135,6 +135,15 @@ func (h *Hive) PrintObjects() {
 		}
 		fmt.Printf("  • %s\n", funcNameAndLocation(hook.OnStop))
 	}
+
+	fmt.Printf("\nConfigurations:\n\n")
+	for _, cell := range h.cells {
+		if cell.newConfig != nil {
+			cfg := cell.newConfig()
+			h.unmarshalConfig(&cfg)
+			fmt.Printf("  ⚙ %s: %#v\n", cell.name, cfg)
+		}
+	}
 }
 
 func (h *Hive) PrintDotGraph() {
@@ -229,13 +238,13 @@ func (h *Hive) createApp() error {
 	h.app = fx.New(
 		fx.WithLogger(func() fxevent.Logger { return h.fxLogger }),
 		fx.Supply(fx.Annotate(log, fx.As(new(logrus.FieldLogger)))),
+		fx.StartTimeout(h.startTimeout),
+		fx.StopTimeout(h.stopTimeout),
+		fx.Populate(&h.dotGraph),
 		fx.Decorate(func(parent fx.Lifecycle) fx.Lifecycle {
 			h.lifecycle.parent = parent
 			return &h.lifecycle
 		}),
-		fx.StartTimeout(h.startTimeout),
-		fx.StopTimeout(h.stopTimeout),
-		fx.Populate(&h.dotGraph),
 		opts,
 	)
 	return h.app.Err()

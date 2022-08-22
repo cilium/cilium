@@ -153,10 +153,10 @@ func initEnv() {
 
 func initK8s(k8sInitDone chan struct{}) {
 	k8s.Configure(
-		option.Config.K8sAPIServer,
-		option.Config.K8sKubeConfigPath,
-		float32(option.Config.K8sClientQPSLimit),
-		option.Config.K8sClientBurst,
+		Vp.GetString(option.K8sAPIServer),
+		Vp.GetString(option.K8sKubeConfigPath),
+		float32(Vp.GetFloat64(option.K8sClientQPSLimit)),
+		Vp.GetInt(option.K8sClientBurst),
 	)
 
 	if err := k8s.Init(option.Config); err != nil {
@@ -370,8 +370,8 @@ func OnOperatorStartLeading(ctx context.Context) {
 		cesController := ces.NewCESController(k8s.CiliumClient(),
 			operatorOption.Config.CESMaxCEPsInCES,
 			operatorOption.Config.CESSlicingMode,
-			option.Config.K8sClientQPSLimit,
-			option.Config.K8sClientBurst)
+			Vp.GetFloat64(option.K8sClientQPSLimit),
+			Vp.GetInt(option.K8sClientBurst))
 		stopCh := make(chan struct{})
 		// Start CEP watcher
 		operatorWatchers.CiliumEndpointsSliceInit(k8s.CiliumClient().CiliumV2(), cesController)

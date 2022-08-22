@@ -20,8 +20,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/k8s"
-	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/policy/trace"
 )
 
@@ -225,16 +224,17 @@ func getSecIDFromK8s(podName string) (string, error) {
 	if err != nil {
 		Fatalf("Error while retrieving configuration: %s", err)
 	}
-	restConfig, err := k8s.CreateConfigFromAgentResponse(resp)
+
+	clientset, err := k8sClient.NewStandaloneClientset(
+		k8sClient.Config{
+			K8sAPIServer:      resp.Status.K8sEndpoint,
+			K8sKubeConfigPath: resp.Status.K8sConfiguration,
+		})
 	if err != nil {
-		return "", fmt.Errorf("unable to create rest configuration: %s", err)
-	}
-	ciliumK8sClient, err := clientset.NewForConfig(restConfig)
-	if err != nil {
-		return "", fmt.Errorf("unable to create k8s client: %s", err)
+		return "", fmt.Errorf("unable to construct client: %s", err)
 	}
 
-	ep, err := ciliumK8sClient.CiliumV2().CiliumEndpoints(namespace).Get(context.TODO(), pod, meta_v1.GetOptions{})
+	ep, err := clientset.CiliumV2().CiliumEndpoints(namespace).Get(context.TODO(), pod, meta_v1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("unable to get pod %s in namespace %s", pod, namespace)
 	}

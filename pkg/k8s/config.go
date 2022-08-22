@@ -73,6 +73,12 @@ func IsEnabled() bool {
 		return false
 	}
 
+	// If clients have been set, then consider k8s enabled regardless
+	// of config.
+	if k8sCLI.Interface != nil {
+		return true
+	}
+
 	return config.APIServerURL != "" ||
 		config.KubeconfigPath != "" ||
 		(os.Getenv("KUBERNETES_SERVICE_HOST") != "" &&
