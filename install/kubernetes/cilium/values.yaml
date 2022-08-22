@@ -694,6 +694,8 @@ hubble:
       labels: {}
       # -- Annotations to add to ServiceMonitor hubble
       annotations: {}
+      # -- Metrics relabeling configs for the ServiceMonitor hubble
+      metricRelabelings: ~
 
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
@@ -924,6 +926,8 @@ hubble:
         # -- Specify the Kubernetes namespace where Prometheus expects to find
         # service monitors configured.
         # namespace: ""
+        # -- Metrics relabeling configs for the ServiceMonitor hubble-relay
+        metricRelabelings: ~
 
   ui:
     # -- Whether to enable the Hubble UI.
@@ -1344,6 +1348,8 @@ prometheus:
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
+    # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
+    metricRelabelings: ~
   # -- Metrics that should be enabled or disabled from the default metric
   # list. (+metric_foo to enable metric_foo , -metric_bar to disable
   # metric_bar).
@@ -1659,6 +1665,8 @@ operator:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-operator
       annotations: {}
+      # -- Metrics relabeling configs for the ServiceMonitor cilium-operator
+      metricRelabelings: ~
 
   # -- Skip CRDs creation for cilium-operator
   skipCRDCreation: false

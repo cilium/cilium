@@ -24,9 +24,8 @@ spec:
     interval: 10s
     honorLabels: true
     path: /metrics
-    relabelings:
-    - sourceLabels:
-      - __meta_kubernetes_pod_node_name
-      targetLabel: node
-      replacement: ${1}
+    {{- with .Values.hubble.metrics.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 {{- end }}
