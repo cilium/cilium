@@ -243,6 +243,15 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 		}
 		routerIP = result.IP
 	}
+
+	// Coalescing multiple CIDRs. GH #18868
+	if option.Config.EnableIPv4Masquerade &&
+		option.Config.IPAM == ipamOption.IPAMENI &&
+		result != nil &&
+		len(result.CIDRs) > 0 {
+		result.CIDRs = coalesceCIDRs(result.CIDRs)
+	}
+
 	if (option.Config.IPAM == ipamOption.IPAMENI ||
 		option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
 		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
@@ -257,10 +266,6 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 		node.SetRouterInfo(routingInfo)
 	}
 
-	// Coalescing multiple CIDRs. GH #18868
-	if result != nil && len(result.CIDRs) > 0 {
-		result.CIDRs = coalesceCIDRs(result.CIDRs)
-	}
 	return
 }
 
@@ -274,7 +279,10 @@ func (d *Daemon) allocateHealthIPs() error {
 			}
 
 			// Coalescing multiple CIDRs. GH #18868
-			if result != nil && len(result.CIDRs) > 0 {
+			if option.Config.EnableIPv4Masquerade &&
+				option.Config.IPAM == ipamOption.IPAMENI &&
+				result != nil &&
+				len(result.CIDRs) > 0 {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
@@ -303,7 +311,10 @@ func (d *Daemon) allocateHealthIPs() error {
 			}
 
 			// Coalescing multiple CIDRs. GH #18868
-			if result != nil && len(result.CIDRs) > 0 {
+			if option.Config.EnableIPv6Masquerade &&
+				option.Config.IPAM == ipamOption.IPAMENI &&
+				result != nil &&
+				len(result.CIDRs) > 0 {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
@@ -339,6 +350,14 @@ func (d *Daemon) allocateIngressIPs() error {
 				if err != nil {
 					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
 				}
+			}
+
+			// Coalescing multiple CIDRs. GH #18868
+			if option.Config.EnableIPv4Masquerade &&
+				option.Config.IPAM == ipamOption.IPAMENI &&
+				result != nil &&
+				len(result.CIDRs) > 0 {
+				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
 			node.SetIngressIPv4(result.IP)
@@ -388,6 +407,14 @@ func (d *Daemon) allocateIngressIPs() error {
 					}
 					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
 				}
+			}
+
+			// Coalescing multiple CIDRs. GH #18868
+			if option.Config.EnableIPv6Masquerade &&
+				option.Config.IPAM == ipamOption.IPAMENI &&
+				result != nil &&
+				len(result.CIDRs) > 0 {
+				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
 			node.SetIngressIPv6(result.IP)
