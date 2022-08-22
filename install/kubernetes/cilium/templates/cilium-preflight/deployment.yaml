@@ -70,6 +70,7 @@ spec:
           - name: KUBERNETES_SERVICE_PORT
             value: {{ .Values.k8sServicePort | quote }}
           {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: true
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-cluster-critical") }}

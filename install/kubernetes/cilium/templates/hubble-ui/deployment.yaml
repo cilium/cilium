@@ -63,6 +63,7 @@ spec:
           - name: hubble-ui-nginx-conf
             mountPath: /etc/nginx/conf.d/default.conf
             subPath: nginx.conf
+        terminationMessagePolicy: FallbackToLogsOnError
       - name: backend
         image: {{ include "cilium.image" .Values.hubble.ui.backend.image | quote }}
         imagePullPolicy: {{ .Values.hubble.ui.backend.image.pullPolicy }}
@@ -99,6 +100,7 @@ spec:
           mountPath: /var/lib/hubble-ui/certs
           readOnly: true
         {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
       volumes:
       - configMap:
           defaultMode: 420

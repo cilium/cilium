@@ -246,6 +246,7 @@ spec:
         {{- end }}
         securityContext:
           privileged: true
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
         {{- if not (eq .Values.containerRuntime.integration "crio") }}
@@ -333,6 +334,7 @@ spec:
         {{- range $type := .Values.monitor.eventTypes }}
         - --type={{ $type }}
         {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - name: cilium-run
           mountPath: /var/run/cilium
@@ -378,6 +380,7 @@ spec:
           mountPath: /hostproc
         - name: cni-path
           mountPath: /hostbin
+        terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           privileged: true
       - name: apply-sysctl-overwrites
@@ -403,6 +406,7 @@ spec:
           mountPath: /hostproc
         - name: cni-path
           mountPath: /hostbin
+        terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           privileged: true
       {{- end }}
@@ -418,6 +422,7 @@ spec:
             echo "Waiting on node-init to run...";
             sleep 1;
           done
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - name: cilium-bootstrap-file-dir
           mountPath: "/tmp/cilium-bootstrap.d"
@@ -451,6 +456,7 @@ spec:
         {{- with .Values.extraEnv }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           privileged: true
         volumeMounts:
@@ -500,6 +506,7 @@ spec:
               echo "Waiting for kube-proxy to create iptables rules...";
               sleep 1;
             done
+        terminationMessagePolicy: FallbackToLogsOnError
       {{- end }} # wait-for-kube-proxy
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
