@@ -243,6 +243,15 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 		}
 		routerIP = result.IP
 	}
+
+	// Coalescing multiple CIDRs. GH #18868
+	if option.Config.EnableIPv4Masquerade &&
+		option.Config.IPAM == ipamOption.IPAMENI &&
+		result != nil &&
+		len(result.CIDRs) > 0 {
+		result.CIDRs = coalesceCIDRs(result.CIDRs)
+	}
+
 	if (option.Config.IPAM == ipamOption.IPAMENI ||
 		option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
 		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
@@ -257,10 +266,6 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 		node.SetRouterInfo(routingInfo)
 	}
 
-	// Coalescing multiple CIDRs. GH #18868
-	if result != nil && len(result.CIDRs) > 0 {
-		result.CIDRs = coalesceCIDRs(result.CIDRs)
-	}
 	return
 }
 
@@ -274,7 +279,10 @@ func (d *Daemon) allocateHealthIPs() error {
 			}
 
 			// Coalescing multiple CIDRs. GH #18868
-			if result != nil && len(result.CIDRs) > 0 {
+			if option.Config.EnableIPv4Masquerade &&
+				option.Config.IPAM == ipamOption.IPAMENI &&
+				result != nil &&
+				len(result.CIDRs) > 0 {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
@@ -302,7 +310,10 @@ func (d *Daemon) allocateHealthIPs() error {
 			}
 
 			// Coalescing multiple CIDRs. GH #18868
-			if result != nil && len(result.CIDRs) > 0 {
+			if option.Config.EnableIPv6Masquerade &&
+				option.Config.IPAM == ipamOption.IPAMENI &&
+				result != nil &&
+				len(result.CIDRs) > 0 {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
