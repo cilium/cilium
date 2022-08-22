@@ -43,9 +43,6 @@ type DaemonConfigurationStatus struct {
 	// Configured IPAM mode
 	IpamMode string `json:"ipam-mode,omitempty"`
 
-	// ipvlan configuration
-	IpvlanConfiguration *IpvlanConfiguration `json:"ipvlanConfiguration,omitempty"`
-
 	// k8s configuration
 	K8sConfiguration string `json:"k8s-configuration,omitempty"`
 
@@ -84,10 +81,6 @@ func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateImmutable(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateIpvlanConfiguration(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -158,24 +151,6 @@ func (m *DaemonConfigurationStatus) validateImmutable(formats strfmt.Registry) e
 			return ve.ValidateName("immutable")
 		}
 		return err
-	}
-
-	return nil
-}
-
-func (m *DaemonConfigurationStatus) validateIpvlanConfiguration(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.IpvlanConfiguration) { // not required
-		return nil
-	}
-
-	if m.IpvlanConfiguration != nil {
-		if err := m.IpvlanConfiguration.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("ipvlanConfiguration")
-			}
-			return err
-		}
 	}
 
 	return nil
