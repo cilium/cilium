@@ -197,6 +197,8 @@ cilium-agent [flags]
       --ipv6-service-range string                               Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --join-cluster                                            Join a Cilium cluster via kvstore registration
       --k8s-api-server string                                   Kubernetes API server URL
+      --k8s-client-burst int                                    Burst value allowed for the K8s client
+      --k8s-client-qps float32                                  Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration                          Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                              Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                                    Name of the Kubernetes namespace in which Cilium is deployed in
@@ -272,7 +274,6 @@ cilium-agent [flags]
 
 ### SEE ALSO
 
-* [cilium-agent cmdref](cilium-agent_cmdref.md)	 - Generate command reference for cilium-agent to given output directory
 * [cilium-agent completion](cilium-agent_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-agent dot-graph](cilium-agent_dot-graph.md)	 - Output the internal dependencies of cilium-agent in graphviz dot format
 * [cilium-agent objects](cilium-agent_objects.md)	 - Print the objects, constructors and lifecycle hooks

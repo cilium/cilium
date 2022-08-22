@@ -246,13 +246,13 @@ func (h *Hive) createApp() error {
 	h.app = fx.New(
 		fx.WithLogger(func() fxevent.Logger { return h.fxLogger }),
 		fx.Supply(fx.Annotate(log, fx.As(new(logrus.FieldLogger)))),
+		fx.StartTimeout(h.startTimeout),
+		fx.StopTimeout(h.stopTimeout),
+		fx.Populate(&h.dotGraph),
 		fx.Decorate(func(parent fx.Lifecycle) fx.Lifecycle {
 			h.lifecycle.parent = parent
 			return &h.lifecycle
 		}),
-		fx.StartTimeout(h.startTimeout),
-		fx.StopTimeout(h.stopTimeout),
-		fx.Populate(&h.dotGraph),
 		opts,
 	)
 	return h.app.Err()

@@ -51,6 +51,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -322,9 +323,6 @@ func initializeFlags() {
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it")
 	option.BindEnv(Vp, option.K8sEnableEndpointSlice)
 
-	flags.Bool(option.K8sEnableAPIDiscovery, defaults.K8sEnableAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
-	option.BindEnv(Vp, option.K8sEnableAPIDiscovery)
-
 	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
 	option.BindEnv(Vp, option.EnableL7Proxy)
 
@@ -433,12 +431,6 @@ func initializeFlags() {
 
 	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
 	option.BindEnv(Vp, option.K8sEventHandover)
-
-	flags.String(option.K8sAPIServer, "", "Kubernetes API server URL")
-	option.BindEnv(Vp, option.K8sAPIServer)
-
-	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
-	option.BindEnv(Vp, option.K8sKubeConfigPath)
 
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
 	option.BindEnv(Vp, option.K8sNamespaceName)
@@ -952,9 +944,6 @@ func initializeFlags() {
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(Vp, option.DisableIptablesFeederRules)
 
-	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
-	option.BindEnv(Vp, option.K8sHeartbeatTimeout)
-
 	flags.Bool(option.EnableIPv4FragmentsTrackingName, defaults.EnableIPv4FragmentsTracking, "Enable IPv4 fragments tracking for L4-based lookups")
 	option.BindEnv(Vp, option.EnableIPv4FragmentsTrackingName)
 
@@ -1066,7 +1055,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableBGPControlPlane, false, "Enable the BGP control plane.")
 	option.BindEnv(Vp, option.EnableBGPControlPlane)
 
-	Vp.BindPFlags(flags)
+	if err := Vp.BindPFlags(flags); err != nil {
+		log.Fatalf("BindPFlags failed: %s", err)
+	}
 }
 
 // restoreExecPermissions restores file permissions to 0740 of all files inside
@@ -1118,12 +1109,6 @@ func initEnv() {
 	option.LogRegisteredOptions(Vp, log)
 
 	sysctl.SetProcfs(option.Config.ProcFs)
-
-	// Configure k8s as soon as possible so that k8s.IsEnabled() has the right
-	// behavior.
-	bootstrapStats.k8sInit.Start()
-	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
-	bootstrapStats.k8sInit.End(true)
 
 	for _, grp := range option.Config.DebugVerbose {
 		switch grp {
@@ -1567,18 +1552,37 @@ func (d *Daemon) initKVStore() {
 //
 // If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
 // a callback.
-func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner) error {
+func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCellConfig, clientset k8sClient.Clientset) error {
+
+	if cfg.SkipDaemon {
+		return nil
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cleaner := NewDaemonCleanup()
+
+	if Vp.GetString(option.DatapathMode) == datapathOption.DatapathModeLBOnly {
+		// In lb-only mode the k8s client is not used, even if its configuration
+		// is available, so disable it here before it starts. Using GetString
+		// directly as option.Config not populated yet.
+		clientset.Disable()
+	}
+
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
+			// Set the k8s clients provided by the K8s client cell. The global clients will be refactored out
+			// by later commits.
+			if clientset.IsEnabled() {
+				k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
+			}
+
 			bootstrapStats.earlyInit.Start()
 			initEnv()
 			bootstrapStats.earlyInit.End(true)
 
 			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
 			// of the start hooks to run.
-			go runDaemon(ctx, cleaner, shutdowner)
+			go runDaemon(ctx, cleaner, shutdowner, clientset)
 			return nil
 		},
 		OnStop: func(context.Context) error {
@@ -1591,7 +1595,7 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner) error {
 }
 
 // runDaemon runs the old unmodular part of the cilium-agent.
-func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner) {
+func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner, clientset k8sClient.Clientset) {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
@@ -1632,14 +1636,6 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 	} else {
 		// Delete wireguard device from previous run (if such exists)
 		link.DeleteByName(wireguardTypes.IfaceName)
-	}
-
-	if k8s.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-		if err := k8s.Init(option.Config); err != nil {
-			log.Fatalf("unable to initialize Kubernetes subsystem: %s", err)
-		}
-		bootstrapStats.k8sInit.End(true)
 	}
 
 	d, restoredEndpoints, err := NewDaemon(ctx, cleaner,
