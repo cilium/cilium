@@ -61,6 +61,7 @@ spec:
             subPath: nginx.conf
           - name: tmp-dir
             mountPath: /tmp
+        terminationMessagePolicy: FallbackToLogsOnError
       - name: backend
         image: {{ include "cilium.image" .Values.hubble.ui.backend.image | quote }}
         imagePullPolicy: {{ .Values.hubble.ui.backend.image.pullPolicy }}
@@ -100,6 +101,7 @@ spec:
           mountPath: /var/lib/hubble-ui/certs
           readOnly: true
         {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
       {{- with .Values.hubble.ui.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
