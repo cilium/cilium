@@ -764,19 +764,19 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
-			cmd := fmt.Sprintf("iptables -t raw -C CILIUM_PRE_raw -s %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
+			cmd := fmt.Sprintf("iptables -w 60 -t raw -C CILIUM_PRE_raw -s %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
 			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
 			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing '-j CT --notrack' iptables rule")
 
-			cmd = fmt.Sprintf("iptables -t raw -C CILIUM_PRE_raw -d %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
+			cmd = fmt.Sprintf("iptables -w 60 -t raw -C CILIUM_PRE_raw -d %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
 			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
 			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing '-j CT --notrack' iptables rule")
 
-			cmd = fmt.Sprintf("iptables -t raw -C CILIUM_OUTPUT_raw -s %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
+			cmd = fmt.Sprintf("iptables -w 60 -t raw -C CILIUM_OUTPUT_raw -s %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
 			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
 			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing '-j CT --notrack' iptables rule")
 
-			cmd = fmt.Sprintf("iptables -t raw -C CILIUM_OUTPUT_raw -d %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
+			cmd = fmt.Sprintf("iptables -w 60 -t raw -C CILIUM_OUTPUT_raw -d %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
 			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
 			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing '-j CT --notrack' iptables rule")
 
