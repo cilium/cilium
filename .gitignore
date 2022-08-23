@@ -107,3 +107,6 @@ images/*/Dockerfile.dockerignore
 
 # Local Emacs files
 .dir-locals.el
+
+# Clangd cache for indexed bpf code
+bpf/.cache
