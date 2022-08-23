@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -501,6 +502,13 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				break
 			} else if result.NumToServicesRules > 0 {
 				// Only trigger policy updates if ToServices rules are in effect
+				ipcache.ReleaseCIDRIdentitiesByCIDR(result.PrefixesToRelease)
+				_, err := ipcache.AllocateCIDRs(result.PrefixesToAdd, nil, nil)
+				if err != nil {
+					scopedLog.WithError(err).
+						Error("Unabled to allocate ipcache CIDR for toService rule")
+					break
+				}
 				k.policyManager.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
 			}
 
@@ -520,6 +528,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				break
 			} else if result.NumToServicesRules > 0 {
 				// Only trigger policy updates if ToServices rules are in effect
+				ipcache.ReleaseCIDRIdentitiesByCIDR(result.PrefixesToRelease)
 				k.policyManager.TriggerPolicyUpdates(true, "Kubernetes service endpoint deleted")
 			}
 		}

@@ -7,6 +7,7 @@
 package k8s
 
 import (
+	"net"
 	"sort"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -221,9 +222,9 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 		},
 	}
 
-	err := generateToCidrFromEndpoint(rule, endpointInfo, false)
+	prefixesToAllocate, err := generateToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
-
+	c.Assert(len(prefixesToAllocate), Equals, 0, Commentf("if allocatePrefixes is false, then it should return nothing"))
 	cidrs := rule.ToCIDRSet.StringSlice()
 	sort.Strings(cidrs)
 	c.Assert(len(cidrs), Equals, 2)
@@ -233,8 +234,15 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	})
 
 	// second run, to make sure there are no duplicates added
-	err = generateToCidrFromEndpoint(rule, endpointInfo, false)
+	prefixesToAllocate, err = generateToCidrFromEndpoint(rule, endpointInfo, true)
 	c.Assert(err, IsNil)
+	c.Assert(len(prefixesToAllocate), Equals, 2, Commentf("if allocatePrefixes is true, then it should list of prefixes to allocate"))
+	_, epIP1Prefix, err := net.ParseCIDR(epIP1 + "/32")
+	c.Assert(err, IsNil)
+	_, epIP2Prefix, err := net.ParseCIDR(epIP2 + "/32")
+	c.Assert(err, IsNil)
+	c.Assert(prefixesToAllocate[0].String(), Equals, epIP1Prefix.String())
+	c.Assert(prefixesToAllocate[1].String(), Equals, epIP2Prefix.String())
 
 	cidrs = rule.ToCIDRSet.StringSlice()
 	sort.Strings(cidrs)
@@ -244,12 +252,12 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 		epIP2 + "/32",
 	})
 
-	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
+	_, err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 0)
 
 	// third run, to make sure there are no duplicates added
-	err = generateToCidrFromEndpoint(rule, endpointInfo, false)
+	_, err = generateToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 
 	cidrs = rule.ToCIDRSet.StringSlice()
@@ -261,7 +269,7 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	})
 
 	// and one final delete
-	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
+	_, err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 0)
 }
@@ -357,20 +365,20 @@ func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 		},
 	}
 
-	err := generateToCidrFromEndpoint(rule, endpointInfo, false)
+	_, err := generateToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 2)
 	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
 
 	// second run, to make sure there are no duplicates added
-	err = generateToCidrFromEndpoint(rule, endpointInfo, false)
+	_, err = generateToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 2)
 	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
 
-	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
+	_, err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, string(userCIDR))
