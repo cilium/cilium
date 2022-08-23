@@ -649,7 +649,46 @@ func (ai *accessInformation) validate() bool {
 		ai.ClusterID != "0"
 }
 
-func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8sClusterMeshImplementation, endpoints []string, verbose bool) (*accessInformation, error) {
+func getDeprecatedName(secretName string) string {
+	switch secretName {
+	case defaults.ClusterMeshServerSecretName,
+		defaults.ClusterMeshAdminSecretName,
+		defaults.ClusterMeshClientSecretName,
+		defaults.ClusterMeshExternalWorkloadSecretName:
+		return secretName + "s"
+	default:
+		return ""
+	}
+}
+
+// We had inconsistency in naming clustermesh secrets between Helm installation and Cilium CLI installation
+// Cilium CLI was naming clustermesh secrets with trailing 's'. eg. 'clustermesh-apiserver-client-certs' instead of `clustermesh-apiserver-client-cert`
+// This caused Cilium CLI 'clustermesh status' command to fail when Cilium is installed using Helm
+// getSecret handles both secret names and logs warning if deprecated secret name is found
+func (k *K8sClusterMesh) getSecret(ctx context.Context, client k8sClusterMeshImplementation, secretName string) (*corev1.Secret, error) {
+
+	secret, err := client.GetSecret(ctx, k.params.Namespace, secretName, metav1.GetOptions{})
+	if err != nil {
+		deprecatedSecretName := getDeprecatedName(secretName)
+		if deprecatedSecretName == "" {
+			return nil, fmt.Errorf("unable to get secret %q: %w", secretName, err)
+		}
+
+		k.Log("Trying to get secret %s by deprecated name %s", secretName, deprecatedSecretName)
+
+		secret, err = client.GetSecret(ctx, k.params.Namespace, deprecatedSecretName, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to get secret %q: %w", deprecatedSecretName, err)
+		}
+
+		k.Log("⚠️ Deprecated secret name %q, should be changed to %q", secret.Name, secretName)
+
+	}
+
+	return secret, err
+}
+
+func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8sClusterMeshImplementation, endpoints []string, verbose bool, getExternalWorkLoadSecret bool) (*accessInformation, error) {
 	cm, err := client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
@@ -683,34 +722,38 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		return nil, fmt.Errorf("secret %q does not contain CA cert %q", defaults.CASecretName, defaults.CASecretCertName)
 	}
 
-	meshSecret, err := client.GetSecret(ctx, k.params.Namespace, defaults.ClusterMeshClientSecretName, metav1.GetOptions{})
+	meshSecret, err := k.getSecret(ctx, client, defaults.ClusterMeshClientSecretName)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get secret %q to access clustermesh service: %s", defaults.ClusterMeshClientSecretName, err)
+		return nil, fmt.Errorf("unable to get client secret to access clustermesh service: %w", err)
 	}
 
 	clientKey, ok := meshSecret.Data[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshClientSecretName, corev1.TLSPrivateKeyKey)
+		return nil, fmt.Errorf("secret %q does not contain key %q", meshSecret.Name, corev1.TLSPrivateKeyKey)
 	}
 
 	clientCert, ok := meshSecret.Data[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshClientSecretName, corev1.TLSCertKey)
+		return nil, fmt.Errorf("secret %q does not contain key %q", meshSecret.Name, corev1.TLSCertKey)
 	}
 
-	externalWorkloadSecret, err := client.GetSecret(ctx, k.params.Namespace, defaults.ClusterMeshExternalWorkloadSecretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get secret %q to access clustermesh service: %s", defaults.ClusterMeshExternalWorkloadSecretName, err)
-	}
+	// ExternalWorkload secret is created by 'clustermesh enable' command, but it isn't created by Helm. We should try to load this secret only when needed
+	var externalWorkloadKey, externalWorkloadCert []byte
+	if getExternalWorkLoadSecret {
+		externalWorkloadSecret, err := k.getSecret(ctx, client, defaults.ClusterMeshExternalWorkloadSecretName)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get external workload secret to access clustermesh service")
+		}
 
-	externalWorkloadKey, ok := externalWorkloadSecret.Data[corev1.TLSPrivateKeyKey]
-	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshExternalWorkloadSecretName, corev1.TLSPrivateKeyKey)
-	}
+		externalWorkloadKey, ok = externalWorkloadSecret.Data[corev1.TLSPrivateKeyKey]
+		if !ok {
+			return nil, fmt.Errorf("secret %q does not contain key %q", externalWorkloadSecret.Namespace, corev1.TLSPrivateKeyKey)
+		}
 
-	externalWorkloadCert, ok := externalWorkloadSecret.Data[corev1.TLSCertKey]
-	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshExternalWorkloadSecretName, corev1.TLSCertKey)
+		externalWorkloadCert, ok = externalWorkloadSecret.Data[corev1.TLSCertKey]
+		if !ok {
+			return nil, fmt.Errorf("secret %q does not contain key %q", externalWorkloadSecret.Namespace, corev1.TLSCertKey)
+		}
 	}
 
 	ai := &accessInformation{
@@ -884,7 +927,7 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 		return fmt.Errorf("unable to create Kubernetes client to access remote cluster %q: %w", k.params.DestinationContext, err)
 	}
 
-	aiRemote, err := k.extractAccessInformation(ctx, remoteCluster, k.params.DestinationEndpoints, true)
+	aiRemote, err := k.extractAccessInformation(ctx, remoteCluster, k.params.DestinationEndpoints, true, false)
 	if err != nil {
 		k.Log("❌ Unable to retrieve access information of remote cluster %q: %s", remoteCluster.ClusterName(), err)
 		return err
@@ -894,7 +937,7 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 		return fmt.Errorf("remote cluster has non-unique name (%s) and/or ID (%s)", aiRemote.ClusterName, aiRemote.ClusterID)
 	}
 
-	aiLocal, err := k.extractAccessInformation(ctx, k.client, k.params.SourceEndpoints, true)
+	aiLocal, err := k.extractAccessInformation(ctx, k.client, k.params.SourceEndpoints, true, false)
 	if err != nil {
 		k.Log("❌ Unable to retrieve access information of local cluster %q: %s", k.client.ClusterName(), err)
 		return err
@@ -995,7 +1038,7 @@ type Status struct {
 	Connectivity      *ConnectivityStatus
 }
 
-func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool) (*accessInformation, error) {
+func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool, getExternalWorkloadSecret bool) (*accessInformation, error) {
 	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
 		if log {
 			k.Log("⌛ Waiting (%s) for access information: %s", wait, err)
@@ -1004,7 +1047,7 @@ func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool) 
 	defer w.Cancel()
 
 retry:
-	ai, err := k.extractAccessInformation(ctx, k.client, []string{}, false)
+	ai, err := k.extractAccessInformation(ctx, k.client, []string{}, false, getExternalWorkloadSecret)
 	if err != nil && k.params.Wait {
 		if err := w.Retry(err); err != nil {
 			return nil, err
@@ -1211,7 +1254,7 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 	defer cancel()
 
 	s := &Status{}
-	s.AccessInformation, err = k.statusAccessInformation(ctx, true)
+	s.AccessInformation, err = k.statusAccessInformation(ctx, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1553,7 +1596,7 @@ func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context,
 	}
 	k.Log("✅ Using image from Cilium DaemonSet: %s", daemonSet.Spec.Template.Spec.Containers[0].Image)
 
-	ai, err := k.statusAccessInformation(ctx, false)
+	ai, err := k.statusAccessInformation(ctx, false, true)
 	if err != nil {
 		return err
 	}
@@ -1614,7 +1657,7 @@ func (k *K8sClusterMesh) ExternalWorkloadStatus(ctx context.Context, names []str
 	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
 	defer cancel()
 
-	ai, err := k.statusAccessInformation(ctx, true)
+	ai, err := k.statusAccessInformation(ctx, true, true)
 	if err != nil {
 		return err
 	}

@@ -58,10 +58,10 @@ const (
 	ClusterMeshApiserverImage             = "quay.io/cilium/clustermesh-apiserver"
 	ClusterMeshServiceName                = "clustermesh-apiserver"
 	ClusterMeshSecretName                 = "cilium-clustermesh" // Secret which contains the clustermesh configuration
-	ClusterMeshServerSecretName           = "clustermesh-apiserver-server-certs"
-	ClusterMeshAdminSecretName            = "clustermesh-apiserver-admin-certs"
-	ClusterMeshClientSecretName           = "clustermesh-apiserver-client-certs"
-	ClusterMeshExternalWorkloadSecretName = "clustermesh-apiserver-external-workload-certs"
+	ClusterMeshServerSecretName           = "clustermesh-apiserver-server-cert"
+	ClusterMeshAdminSecretName            = "clustermesh-apiserver-admin-cert"
+	ClusterMeshClientSecretName           = "clustermesh-apiserver-client-cert"
+	ClusterMeshExternalWorkloadSecretName = "clustermesh-apiserver-external-workload-cert"
 
 	ConnectivityCheckNamespace = "cilium-test"
 
