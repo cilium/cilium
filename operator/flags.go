@@ -329,5 +329,9 @@ func init() {
 	flags.Bool(operatorOption.SetCiliumIsUpCondition, true, "Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node")
 	option.BindEnv(operatorOption.SetCiliumIsUpCondition)
 
+	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
+	flags.MarkHidden(option.KVstoreLeaseTTL)
+	option.BindEnv(option.KVstoreLeaseTTL)
+
 	viper.BindPFlags(flags)
 }
