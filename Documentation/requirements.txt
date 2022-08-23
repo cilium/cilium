@@ -29,7 +29,7 @@ deepmerge==1.0.1
 docutils==0.17.1
 idna==3.3
 imagesize==1.4.1
-Jinja2==3.0.3
+Jinja2==3.1.2
 jsonschema==4.14.0
 livereload==2.6.3
 markdown-it-py==2.1.0
