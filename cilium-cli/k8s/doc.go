@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018 Authors of Cilium
+// Copyright Authors of Cilium
 
 // Package k8s provides various helper functions for interacting with Kubernetes
 // APIs.
