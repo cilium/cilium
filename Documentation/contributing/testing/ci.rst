@@ -116,8 +116,6 @@ example patch that shows how this can be achieved.
 
                             //This test should run in each PR for now.
 
-.. _ci_failure_triage:
-
 Jobs Overview
 ~~~~~~~~~~~~~
 
@@ -276,6 +274,8 @@ always be found in the `Cilium CI matrix`_.
 .. _Cilium CI matrix: https://docs.google.com/spreadsheets/d/1TThkqvVZxaqLR-Ela4ZrcJ0lrTJByCqrbdCjnI32_X0
 
 .. _trigger_phrases:
+
+.. _ci_failure_triage:
 
 CI Failure Triage
 ~~~~~~~~~~~~~~~~~
