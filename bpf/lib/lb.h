@@ -1488,12 +1488,15 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 static __always_inline int
 lb4_to_lb6(struct __ctx_buff *ctx __maybe_unused,
 	   const struct iphdr *ip4 __maybe_unused,
-	   int l3_off __maybe_unused)
+	   int l3_off __maybe_unused, const bool rfc __maybe_unused)
 {
 #ifdef ENABLE_NAT_46X64
 	union v6addr src6, dst6;
 
-	build_v4_in_v6(&src6, ip4->saddr);
+	if (rfc)
+		build_v4_in_v6_rfc8215(&src6, ip4->saddr);
+	else
+		build_v4_in_v6(&src6, ip4->saddr);
 	build_v4_in_v6(&dst6, ip4->daddr);
 
 	return ipv4_to_ipv6(ctx, l3_off, &src6, &dst6);

@@ -1841,7 +1841,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		}
 #endif
 		if (lb4_to_lb6_service(svc)) {
-			ret = lb4_to_lb6(ctx, ip4, l3_off);
+			ret = lb4_to_lb6(ctx, ip4, l3_off, true);
 			if (!ret)
 				return NAT_46X64_RECIRC;
 		} else {
@@ -1875,7 +1875,7 @@ skip_service_lookup:
 		 */
 		if (!lb4_populate_ports(ctx, &tuple, l4_off) &&
 		    snat_v6_has_v4_match(&tuple)) {
-			ret = lb4_to_lb6(ctx, ip4, l3_off);
+			ret = lb4_to_lb6(ctx, ip4, l3_off, false);
 			if (ret)
 				return ret;
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
