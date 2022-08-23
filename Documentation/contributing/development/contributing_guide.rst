@@ -296,6 +296,14 @@ the PRs they need to review by filtering by reviews requested.
 A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+user-review-requested%3A%40me+sort%3Aupdated-asc>`_
 so make sure to bookmark it.
 
+Reviewers are expected to focus their review on the areas of the code where
+GitHub requested their review. For small PRs, it may make sense to simply
+review the entire PR. However, if the PR is quite large then it can help
+to narrow the area of focus to one particular aspect of the code. When leaving
+a review, share which areas you focused on and which areas you think that
+other reviewers should look into. This will help others to focus on aspects
+of review that have not been covered as deeply.
+
 Belonging to a team does not mean that a committer should know every single
 line of code the team is maintaining. For this reason it is recommended
 that once you have reviewed a PR, if you feel that another pair of eyes is
