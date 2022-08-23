@@ -571,7 +571,7 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 		return fmt.Errorf("unable to renew etcd session: %s", err)
 	}
 	sessionSuccess <- true
-	log.Infof("Got new lease ID %x", newSession.Lease())
+	log.Infof("Got new lease ID %x and the session TTL is %s", newSession.Lease(), option.Config.KVstoreLeaseTTL)
 
 	e.session = newSession
 	e.sessionCancel = sessionCancel
@@ -724,7 +724,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		ls = *lockSession
 		ec.RWMutex.Unlock()
 
-		log.Infof("Got lease ID %x", s.Lease())
+		log.Infof("Got lease ID %x and the session TTL is %s", s.Lease(), option.Config.KVstoreLeaseTTL)
 		log.Infof("Got lock lease ID %x", ls.Lease())
 		close(errorChan)
 	}()
