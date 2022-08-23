@@ -365,9 +365,6 @@ Triage process
       eventually deleted).
    #. Attach the zipfile downloaded from Jenkins with logs from the failing
       tests. A zipfile for all tests is also available.
-   #. Check how much time has passed since the last reported occurrence of this
-      failure and move this issue to the correct column in the `CI flakes
-      project`_ board.
 
 #. If no existing GitHub issue was found, file a `new GitHub issue <https://github.com/cilium/cilium/issues/new>`_:
 
@@ -385,7 +382,6 @@ Triage process
          eventually deleted).
       #. Attach zipfile downloaded from Jenkins with logs from failing test
       #. Include the test name and whole Stacktrace section to help others find this issue.
-      #. Add issue to `CI flakes project`_.
 
    .. note::
 
@@ -408,7 +404,7 @@ Triage process
 
       This step can only be performed with an account on Jenkins. If you are
       interested in CI failure reviews and do not have an account yet, ping us
-      on Slack.
+      on Slack in the ``#testing`` channel.
 
 **Examples:**
 
@@ -416,8 +412,6 @@ Triage process
 * ``Flake, DNS not ready, #3333``
 * ``CI-Bug, K8sValidatedPolicyTest: Namespaces, pod not ready, #9939``
 * ``Regression, k8s host policy, #1111``
-
-.. _CI flakes project: https://github.com/cilium/cilium/projects/8
 
 Bisect process
 ^^^^^^^^^^^^^^
