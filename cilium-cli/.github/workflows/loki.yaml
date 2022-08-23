@@ -1,0 +1,32 @@
+name: Push to Loki
+
+on:
+  workflow_run:
+    workflows:
+      - AKS (Azure IPAM)
+      - AKS (BYOCNI)
+      - EKS (tunnel)
+      - EKS (ENI)
+      - External Workloads
+      - GKE
+      - Go
+      - Image CI Build
+      - Kind
+      - Multicluster
+      - Create Release
+    types:
+      - completed
+
+permissions:
+  actions: read
+
+jobs:
+  push-to-loki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Push to Loki
+        uses: michi-covalent/push-to-loki@v0.2.0
+        with:
+          endpoint: https://logs-prod3.grafana.net/loki/api/v1/push
+          username: ${{ secrets.LOKI_USERNAME }}
+          password: ${{ secrets.LOKI_PASSWORD }}
