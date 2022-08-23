@@ -1,37 +1,203 @@
-# Code owners groups and a brief description of their areas:
-# @cilium/tophat             Catch-all for code not otherwise owned
-# @cilium/api                API stability guarantees
-# @cilium/sig-agent          Cilium Agent
-# @cilium/alibabacloud       Integration with AlibabaCloud
-# @cilium/aws                Integration with AWS
-# @cilium/azure              Integration with Azure
-# @cilium/sig-datapath       BPF Data Path
-# @cilium/build              Building and packaging
-# @cilium/ci-structure       Continuous integration, testing
-# @cilium/cli                Commandline interfaces
-# @cilium/contributing       Developer documentation & tools
-# @cilium/docker             Docker plugin
-# @cilium/docs-structure     Documentation, examples
-# @cilium/endpoint           Endpoint package
-# @cilium/github-sec         GitHub security (handling of secrets, consequences of pull_request_target, etc.)
-# @cilium/health             Cilium cluster health tool
-# @cilium/helm               Helm charts and best practices
-# @cilium/sig-hubble         Hubble integration
-# @cilium/sig-ipam           IPAM
-# @cilium/ipcache            Maintenance of pkg/ipcache
-# @cilium/sig-k8s            K8s integration, K8s CNI plugin
-# @cilium/kvstore            Key/Value store: Consul, etcd
-# @cilium/sig-lb             Load balancer
-# @cilium/loader             All related to LLVM, bpftool, Cilium loader, templating, etc.
-# @cilium/metrics            Metrics of the Cilium Agent
-# @cilium/operator           Cilium operator
-# @cilium/sig-policy         Policy behaviour
-# @cilium/proxy              L7 proxy, Envoy
-# @cilium/sig-clustermesh    All code related with clustermesh
-# @cilium/sig-servicemesh    All code related with servicemesh
-# @cilium/vendor             Vendoring, dependency management
-# @cilium/wireguard          Wireguard integration
-
+# Code owners are used by the Cilium community to consolidate common knowledge
+# into teams that can provide consistent and actionable feedback to
+# contributors. This section will describe groups of teams and suggestions
+# about the focus areas for review.
+#
+# The primary motivation for these teams is to provide structure around review
+# processes to ensure that contributors know how to reach out to community
+# members to conduct discussions, ensure contributions meet the expectations of
+# the community, and align on the direction of proposed changes. Furthermore,
+# while these teams are primarily drawn upon to provide review on specific pull
+# requests, they are also encouraged to self-organize around how to make
+# improvements to their areas of the Cilium project over time.
+#
+# Any committer may self-nominate to code owner teams. Reach out to the core
+# team on the #committers channel in Slack to coordinate. Committers do not
+# require expert knowledge in an area in order to join a code owner team,
+# only a willingness to engage in discussions and learn about the area.
+#
+# Project-wide
+# ++++++++++++
+#
+# These code owners may provide feedback for Pull Requests submitted to any
+# repository in the Cilium project:
+#
+# - @cilium/api:
+#   Ensure the backwards-compatibility of Cilium REST and gRPC APIs, including
+#   for Hubble flow export.
+# - @cilium/build:
+#   Provide feedback on languages and scripting used for build and packaging
+#   system: Make, Shell, Docker.
+# - @cilium/cli:
+#   Provide user experience feedback on changes to Command-Line Interfaces.
+#   These owners are a stand-in for the user community to bring a user
+#   perspective to the review process. Consider how information is presented,
+#   consistency of flags and options.
+# - @cilium/ci-structure:
+#   Provide guidance around the best use of Cilium project continuous
+#   integration and testing infrastructure, including GitHub actions, VM
+#   helpers, testing frameworks, etc.
+# - @cilium/contributing:
+#   Encourage practices that ensure an inclusive contributor community. Review
+#   tooling and scripts used by contributors.
+# - @cilium/docs-structure:
+#   Ensure the consistency and layout of documentation. General feedback on the
+#   use of Sphinx, how to communicate content clearly to the community. This
+#   code owner is not expected to validate the technical correctness of
+#   submissions. Correctness is typically handled by another code owner group
+#   which is also assigned to any given piece of documentation.
+# - @cilium/github-sec:
+#   Responsible for maintaining the security of repositories in the Cilium
+#   project by maintaining best practices for workflow usage, for instance
+#   preventing malicious use of GitHub actions.
+# - @cilium/helm:
+#   Provide input on the way that Helm can be used to configure features. These
+#   owners are a stand-in for the user community to bring a user perspective to
+#   the review process. Ensure that Helm changes are defined in manners that
+#   will be forward-compatible for upgrade and follow best practices for
+#   deployment (for example, being GitOps-friendly).
+# - @cilium/metrics:
+#   Provide recommendations about the types, names and labels for metrics to
+#   follow best practices. This includes considering the cardinality impact of
+#   metrics being added or extended.
+# - @cilium/tophat:
+#   Top Hat duties rotate between the committer group from week to week, and
+#   they may assist in maintenance, triage and backporting duties across
+#   different Cilium repositories. Catch-all for code not otherwise owned by a
+#   team.
+# - @cilium/vendor:
+#   Review vendor updates for software dependencies to check for any potential
+#   upstream breakages / incompatibilities. Discourage the use of unofficial
+#   forks of upstream libraries if they are actively maintained.
+#
+# Repository Owners
+# +++++++++++++++++
+#
+# The following code owners are responsible for a range of general feedback for
+# contributions to specific repositories:
+#
+# - @cilium/sig-hubble:
+#   Review all Cilium and Hubble code related to observing system events,
+#   exporting those via gRPC protocols outside the node and outside the
+#   cluster. those event channels, for example via TLS.
+# - @cilium/hubble-ui:
+#   Maintain the Hubble UI graphical interface.
+# - @cilium/tetragon:
+#   Review of all Tetragon code, both for Go and C (for eBPF).
+#
+# The teams above are responsible for reviewing the majority of contributions
+# to the corresponding repositories. Additionally, there are "maintainer" teams
+# listed below which may not be responsible for overall code review for a
+# repository, but they have administrator access to the repositories and so
+# they can assist with configuring GitHub repository settings, secrets, and
+# related processes. For the full codeowners for individual repositories, see
+# the CODEOWNERS file in the corresponding repository.
+#
+# - @cilium/cilium-cli-maintainers
+# - @cilium/cilium-maintainers
+# - @cilium/cilium-packer-ci-build-maintainers
+# - @cilium/ebpf-lib-maintainers
+# - @cilium/hubble-maintainers
+# - @cilium/image-tools-maintainers
+# - @cilium/iproute2-maintainers
+# - @cilium/metallb-maintainers
+# - @cilium/openshift-terraform-maintainers
+# - @cilium/proxy-maintainers
+# - @cilium/tetragon-maintainers
+#
+# Cloud Integrations
+# ++++++++++++++++++
+#
+# The following codeowner groups provide insight into the integrations with
+# specific cloud providers:
+#
+# - @cilium/alibabacloud
+# - @cilium/aws
+# - @cilium/azure
+#
+# Cilium Internals
+# ++++++++++++++++
+#
+# The following codeowner groups cover more specific knowledge about Cilium
+# Agent internals or the way that particular Cilium features interact with
+# external software and protocols:
+#
+# - @cilium/docker:
+#   Maintain the deprecated docker-plugin.
+# - @cilium/endpoint:
+#   Provide background on how the Cilium Endpoint package fits into the overall
+#   agent architecture, relationship with generation of policy / datapath
+#   constructs, serialization and restore from disk.
+# - @cilium/health:
+#   Review any contributions that impact cluster-wide health probing via
+#   periodic in-agent probes; bootstrapping of the simulated health 'endpoint'
+#   that provides an IP and HTTP endpoint for network health probing.
+# - @cilium/ipcache:
+#   Provide background on how the userspace IPCache structure fits into the
+#   overall agent architecture, ordering constraints with respect to network
+#   policies and encryption. Handle the relationship between Kubernetes state
+#   and datapath state as it pertains to remote peers.
+# - @cilium/kvstore:
+#   Review Cilium interactions with key-value stores, particularly etcd.
+#   Understand the client libraries used by Cilium for sharing state between
+#   nodes and clusters.
+# - @cilium/loader:
+#   Maintain the tooling that allows eBPF programs to be loaded into the
+#   kernel: LLVM, bpftool, use of cilium/ebpf for loading programs in the
+#   agent, ELF templating, etc.
+# - @cilium/operator:
+#   Review operations that occur once per cluster via the Cilium Operator
+#   component. Take care of the corresponding garbage collection and leader
+#   election logic.
+# - @cilium/proxy:
+#   Review low-level implementations used to redirect and process traffic at
+#   Layer 7, including via the Cilium DNS proxy and Envoy. Maintain the
+#   configurations for Envoy via xDS protocols as well as the extensible
+#   proxylib framework for Go-based layer 7 filters.
+# - @cilium/sig-agent:
+#   Provide Cilium (agent) general Go review. Internal architecture, core data
+#   structures and daemon startup.
+# - @cilium/sig-clustermesh:
+#   Ensure the reliability of state sharing between clusters to ensure that
+#   each cluster maintains a separate fault domain.
+# - @cilium/sig-datapath:
+#   Provide feedback on all eBPF code changes, use of the kernel APIs for
+#   configuring the networking and socket layers. Coordination of kernel
+#   subsystems such as xfrm (IPsec), iptables / nftables, tc. Maintain the
+#   control plane layers that populate most eBPF maps; account for endianness
+#   and system architecture impacts on the datapath code.
+# - @cilium/sig-hubble:
+#   Review all Cilium and Hubble code related to observing system events,
+#   exporting those via gRPC protocols outside the node and outside the
+#   cluster. Ensure the security of those event channels, for example via TLS.
+# - @cilium/sig-ipam:
+#   Coordinate the implementation between all of the IP Address Management
+#   modes, provide awareness/insight into IP resource exhaustion and garbage
+#   collection concerns.
+# - @cilium/sig-k8s:
+#   Provide input on all interactions with Kubernetes, both for standard
+#   resources and CRDs. Ensure best practices are followed for the coordination
+#   of clusterwide state in order to minimize memory usage.
+# - @cilium/sig-lb:
+#   Maintain the layers necessary to coordinate all load balancing
+#   configurations within the agent control plane, including Services,
+#   ClusterIP, NodePorts, Maglev, BGP export, local redirect policies, and
+#   NAT46/NAT64.
+# - @cilium/sig-policy:
+#   Ensure consistency of semantics for all network policy representations.
+#   Responsible for all policy logic from Kubernetes down to eBPF policymap
+#   entries, including all intermediate layers such as the Policy Repository,
+#   SelectorCache, PolicyCache, CachedSelectorPolicy, EndpointPolicy, etc.
+# - @cilium/sig-servicemesh:
+#   Provide input on the way that Service Mesh constructs such as Gateway API
+#   are converted into lower-level constructs backed by eBPF or Envoy
+#   configurations. Maintain the CRDs necessary for Service Mesh functionality.
+# - @cilium/wireguard:
+#   Maintain the kernel WireGuard configuration and datapath impacts related to
+#   ensuring traffic is encrypted correctly when WireGuard mode is enabled.
+#
+# END_CODEOWNERS_DOCS
+#
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
