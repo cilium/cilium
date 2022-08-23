@@ -29,6 +29,17 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 }
 
 static __always_inline __maybe_unused
+void build_v4_in_v6_rfc8215(union v6addr *daddr, __be32 v4)
+{
+	memset(daddr, 0, sizeof(*daddr));
+	daddr->addr[1] = 0x64;
+	daddr->addr[2] = 0xff;
+	daddr->addr[3] = 0x9b;
+	daddr->addr[5] = 0x01;
+	daddr->p4 = v4;
+}
+
+static __always_inline __maybe_unused
 void build_v4_in_v6(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
