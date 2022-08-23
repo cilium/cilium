@@ -1,4 +1,4 @@
-## Auto-generated from requirements-min.txt with "make update-requirements"
+## Auto-generated from requirements-min/requirements.txt with "make update-requirements"
 Sphinx==5.1.1
 sphinx-autobuild==2021.3.14
 

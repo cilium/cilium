@@ -5,6 +5,8 @@ include ../Makefile.defs
 include ../Makefile.quiet
 
 HELM_VALUES := helm-values.rst
+REQUIREMENTS_NODEP := requirements-min/requirements.txt
+REQUIREMENTS := requirements.txt
 
 .PHONY: default clean help builder-image cilium-build cmdref epub latex html
 
@@ -16,7 +18,7 @@ define build_image
   $(ECHO_DOCKER)
   # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
   grep -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
-  $(QUIET)tar c requirements.txt Dockerfile \
+  $(QUIET)tar c $(REQUIREMENTS) Dockerfile \
     | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) --target $(2) --tag $(3) -
 endef
 
@@ -25,7 +27,7 @@ base-image: Dockerfile ## Build the docs-base image for updating the requirement
 	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
 
 DOCS_BUILDER_IMG ?= cilium/docs-builder
-builder-image: Dockerfile requirements.txt ## Build the docs-builder image for rendering and checking the documentation.
+builder-image: Dockerfile $(REQUIREMENTS) ## Build the docs-builder image for rendering and checking the documentation.
 	$(call build_image,$<,docs-builder,$(DOCS_BUILDER_IMG))
 
 # cilium must have all build artifacts present for
@@ -112,10 +114,10 @@ live-preview: builder-image ## Build and serve the documentation locally.
 			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 $(SPHINX_OPTS) --ignore *.swp -Q . _preview
 
-update-requirements: base-image requirements-min.txt
-	@echo '## Auto-generated from requirements-min.txt with "make update-requirements"' > requirements.txt
+update-requirements: base-image $(REQUIREMENTS_NODEP)
+	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
 	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
-		bash -c "pip install -r requirements-min.txt && pip freeze -r requirements-min.txt >> requirements.txt"
+		bash -c "pip install -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
 
 clean: ## Clean up all artefacts from documentation.
 	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock
