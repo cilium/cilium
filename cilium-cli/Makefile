@@ -1,3 +1,6 @@
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 GO := go
 GO_BUILD = CGO_ENABLED=0 $(GO) build
 GO_TAGS ?=
