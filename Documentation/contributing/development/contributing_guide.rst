@@ -16,7 +16,7 @@ Clone and Provision Environment
 #. Make sure you have a `GitHub account <https://github.com/join>`_
 #. Fork the Cilium repository to your GitHub user or organization.
 #. Turn off GitHub actions for your fork as described in the `GitHub Docs <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#managing-github-actions-permissions-for-your-repository>`_.
-   #. This is recommended to avoid unnecessary CI notification failures on the fork.
+   This is recommended to avoid unnecessary CI notification failures on the fork.
 #. Clone your ``${YOUR_GITHUB_USERNAME_OR_ORG}/cilium`` fork into your ``GOPATH``, and setup the base repository as ``upstream`` remote:
 
    .. code-block:: shell-session
@@ -47,8 +47,14 @@ upstream GitHub repository at https://github.com/cilium/cilium.
 Before hitting the submit button, please make sure that the following
 requirements have been met:
 
-#. Each commit compiles and is functional on its own to allow for bisecting of
-   commits.
+#. Take some time to describe your change in the PR description! A well-written
+   description about the motivation of the change and choices you made during
+   the implementation can go a long way to help the reviewers understand why
+   you've made the change and why it's a good way to solve your problem. If
+   it helps you to explain something, use pictures or
+   `Mermaid diagrams <https://mermaid-js.github.io/>`_.
+#. Each commit must compile and be functional on its own to allow for
+   bisecting of commits in the event of a bug affecting the tree.
 #. All code is covered by unit and/or runtime tests where feasible.
 #. All changes have been tested and checked for regressions by running the
    existing testsuite against your changes. See the :ref:`testsuite` section
@@ -215,9 +221,9 @@ Getting a pull request merged
 #. As you submit the pull request as described in the section :ref:`submit_pr`.
    One of the reviewers will start a CI run by replying with a comment
    ``/test`` as described in :ref:`trigger_phrases`. If you are a core team
-   member, you may trigger the CI run yourself.
+   member, you may trigger the CI run yourself. CI consists of:
 
-   #. Basic static code analyzer by Github Action and Travis CI. Golang linter
+   #. Static code analysis by Github Actions and Travis CI. Golang linter
       suggestions are added in-line on PRs. For other failed jobs, please refer
       to build log for required action (e.g. Please run ``go mod tidy && go mod
       vendor`` and submit your changes, etc).
@@ -238,78 +244,82 @@ Getting a pull request merged
    #. Address any feedback received from the reviewers
    #. You can push individual commits to address feedback and then rebase your
       branch at the end before merging.
+   #. Once you have addressed the feedback, re-request a review from the
+      reviewers that provided feedback by clicking on the button next to their
+      name in the list of reviewers. This ensures that the reviewers are
+      notified again that your PR is ready for subsequent review.
 
 #. Owners of the repository will automatically adjust the labels on the pull
    request to track its state and progress towards merging.
 
 #. Once the PR has been reviewed and the CI tests have passed, the PR will be
    merged by one of the repository owners. In case this does not happen, ping
-   us on Slack.
+   us on Slack in the #development channel.
 
-#. If reviewers have requested changes and those changes have been addressed,
-   re-request a review for the reviewers that have requested changes. Otherwise,
-   those reviewers will not be notified and your PR will not receive any
-   reviews. If the PR is considerably large (e.g. with more than 200 lines
-   changed and/or more than 6 commits) create new commit for each review. This
-   will make the review process smoother as GitHub has limitations that
-   prevents reviewers from only seeing the new changes added since the last time
-   they have reviewed a PR. Once all reviews are addressed those commits should
-   be squashed against the commit that introduced those changes. This can be
-   easily accomplished by the usage of ``git rebase -i origin/master`` and in
-   that windows, move these new commits below the commit that introduced the
-   changes and replace the work ``pick`` with ``fixup``. In the following
-   example, commit ``d2cb02265`` will be meld into ``9c62e62d8`` and commit
-   ``146829b59`` will be meld into ``9400fed20``.
+Handling large pull requests
+----------------------------
 
-       ::
+If the PR is considerably large (e.g. with more than 200 lines changed and/or
+more than 6 commits), consider creating a new commit for each review. This
+will make the review process smoother as GitHub has limitations that
+prevents reviewers from only seeing the new changes added since the last time
+they have reviewed a PR. Once all reviews are addressed those commits should
+be squashed against the commit that introduced those changes. This can be
+accomplished by the usage of ``git rebase -i upstream/master`` and in
+that windows, move these new commits below the commit that introduced the
+changes and replace the work ``pick`` with ``fixup``. In the following
+example, commit ``d2cb02265`` will be combined into ``9c62e62d8`` and commit
+``146829b59`` will be combined into ``9400fed20``.
 
-           pick 9c62e62d8 docs: updating contribution guide process
-           fixup d2cb02265 joe + paul + chris changes
-           pick 9400fed20 docs: fixing typo
-           fixup 146829b59 Quetin and Maciej reviews
+    ::
 
-   Once this is done you can perform push force into your branch and request for
-   your PR to be merged.
+        pick 9c62e62d8 docs: updating contribution guide process
+        fixup d2cb02265 joe + paul + chris changes
+        pick 9400fed20 docs: fixing typo
+        fixup 146829b59 Quentin and Maciej reviews
+
+Once this is done you can perform push force into your branch and request for
+your PR to be merged.
 
 
 Pull requests review process for committers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#. Every committer in the `committers team <https://github.com/orgs/cilium/teams/committers/members>`_
-   belongs to `one or more other teams in the Cilium organization <https://github.com/orgs/cilium/teams/team/teams>`_
-   if you would like to be added or removed from any team, please contact any
-   of the `maintainers <https://github.com/orgs/cilium/teams/cilium-maintainers/members>`_.
+Every committer in the `committers team <https://github.com/orgs/cilium/teams/committers/members>`_
+belongs to `one or more other teams in the Cilium organization <https://github.com/orgs/cilium/teams/team/teams>`_
+If you would like to be added or removed from any team, please contact any
+of the `maintainers <https://github.com/orgs/cilium/teams/cilium-maintainers/members>`_.
 
-#. Once a PR is open, GitHub will automatically pick which `teams <https://github.com/orgs/cilium/teams/team/teams>`_
-   should review the PR using the ``CODEOWNERS`` file. Each committer can see
-   the PRs they need to review by filtering by reviews requested.
-   A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+user-review-requested%3A%40me+sort%3Aupdated-asc>`_
-   so make sure to bookmark it.
+Once a PR is opened by a contributor, GitHub will automatically pick which `teams <https://github.com/orgs/cilium/teams/team/teams>`_
+should review the PR using the ``CODEOWNERS`` file. Each committer can see
+the PRs they need to review by filtering by reviews requested.
+A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+user-review-requested%3A%40me+sort%3Aupdated-asc>`_
+so make sure to bookmark it.
 
-#. Belonging to a team does not mean that a committer should know every single
-   line of code the team is maintaining. For this reason it is recommended
-   that once you have reviewed a PR, if you feel that another pair of eyes is
-   needed, you should re-request a review from the appropriate team. In the
-   example below, the committer belonging to the CI team is re-requesting a
-   review for other team members to review the PR. This allows other team
-   members belonging to the CI team to see the PR as part of the PRs that
-   require review in the `filter <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+review-requested%3A%40me+sort%3Aupdated-asc>`_
+Belonging to a team does not mean that a committer should know every single
+line of code the team is maintaining. For this reason it is recommended
+that once you have reviewed a PR, if you feel that another pair of eyes is
+needed, you should re-request a review from the appropriate team. In the
+example below, the committer belonging to the CI team is re-requesting a
+review for other team members to review the PR. This allows other team
+members belonging to the CI team to see the PR as part of the PRs that
+require review in the `filter <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+review-requested%3A%40me+sort%3Aupdated-asc>`_.
 
-   .. image:: ../../images/re-request-review.png
-      :align: center
-      :scale: 50%
+.. image:: ../../images/re-request-review.png
+   :align: center
+   :scale: 50%
 
-#. When all review objectives for all ``CODEOWNERS`` are met, all required CI
-   tests have passed and a proper release label as been set, you may set the
-   ``ready-to-merge`` label to indicate that all criteria have been met.
-   Maintainer's little helper might set this label automatically if the previous
-   requirements were met.
+When all review objectives for all ``CODEOWNERS`` are met, all required CI
+tests have passed and a proper release label as been set, you may set the
+``ready-to-merge`` label to indicate that all criteria have been met.
+Maintainer's little helper might set this label automatically if the previous
+requirements were met.
 
-   +--------------------------+---------------------------+
-   | Labels                   | When to set               |
-   +==========================+===========================+
-   | ``ready-to-merge``       | PR is ready to be merged  |
-   +--------------------------+---------------------------+
++--------------------------+---------------------------+
+| Labels                   | When to set               |
++==========================+===========================+
+| ``ready-to-merge``       | PR is ready to be merged  |
++--------------------------+---------------------------+
 
 Weekly duties
 ~~~~~~~~~~~~~
