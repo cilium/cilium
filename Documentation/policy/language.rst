@@ -253,12 +253,12 @@ accessible from endpoints that have both labels ``env=prod`` and
 Services based
 --------------
 
-Services running in your cluster can be whitelisted in Egress rules.
-Currently Kubernetes `Services without a Selector
+Traffic from pods to services running in your cluster can be allowed via
+``toServices`` statements in Egress rules. Currently Kubernetes
+`Services without a Selector
 <https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors>`_
 are supported when defined by their name and namespace or label selector.
-Future versions of Cilium will support specifying non-Kubernetes services
-and Kubernetes services which are backed by pods.
+For services backed by pods, use `labels based` rules on the backend pod labels.
 
 This example shows how to allow all endpoints with the label ``id=app2``
 to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
@@ -301,6 +301,11 @@ have ``head:none`` set as the label.
 
         .. literalinclude:: ../../examples/policies/l3/service/service-labels.json
 
+Limitations
+~~~~~~~~~~~
+
+``toServices`` statements cannot be combined with ``toPorts`` statements in the
+same rule.
 
 .. _Entities based:
 
