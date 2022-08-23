@@ -26,7 +26,7 @@ certifi==2022.6.15
 charset-normalizer==2.1.1
 colorama==0.4.5
 deepmerge==1.0.1
-docutils==0.17.1
+docutils==0.19
 idna==3.3
 imagesize==1.4.1
 Jinja2==3.0.3
