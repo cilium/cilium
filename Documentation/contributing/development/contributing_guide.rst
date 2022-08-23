@@ -337,22 +337,20 @@ every week. The following steps describe how to perform those duties. Please
 submit changes to these steps if you have found a better way to perform each
 duty.
 
-* `People in a Janitor hat this week <https://github.com/orgs/cilium/teams/tophat/members>`_
-* `People in a Triage hat this week <https://github.com/orgs/cilium/teams/tophat/members>`_
-* `People in a Backport hat this week <https://github.com/orgs/cilium/teams/tophat/members>`_
+* `People with the top hat this week <https://github.com/orgs/cilium/teams/tophat/members>`_
 
-Pull request review process for Janitors team
----------------------------------------------
+Pull request review process
+---------------------------
 
 .. note::
 
    These instructions assume that whoever is reviewing is a member of the
-   Cilium GitHub organization or has the status of a contributor. This is
+   Cilium GitHub organization or has the status of a committer. This is
    required to obtain the privileges to modify GitHub labels on the pull
    request.
 
-Dedicated expectation time for each member of Janitors team: Follow the next
-steps 1 to 2 times per day. Works best if done first thing in the working day.
+Dedicated expectation time for review duties: Follow the next steps 1 to 2
+times per day.
 
 #. Review all PRs needing a review `from you <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+team-review-requested%3Acilium%2Ftophat+sort%3Aupdated-asc>`_;
 
@@ -438,17 +436,16 @@ steps 1 to 2 times per day. Works best if done first thing in the working day.
 #. If the PR is a backport PR, update the labels of cherry-picked PRs with the command included at the end of the original post. For example:
 
    .. code-block:: shell-session
-   
+
        $ for pr in 12589 12568; do contrib/backporting/set-labels.py $pr done 1.8; done
 
-Triage issues for Triage team
------------------------------
+Triage issues
+-------------
 
-Dedicated expectation time for each member of Triage team: 15/30 minutes per
+Dedicated expectation time for triage duties: 15/30 minutes per
 day. Works best if done first thing in the working day.
 
-#. Committers belonging to the `Triage team <https://github.com/orgs/cilium/teams/triage>`_
-   should make sure that:
+#. Ensure that:
 
    #. `Issues opened by community users are tracked down <https://github.com/cilium/cilium/issues?q=is%3Aissue+is%3Aopen+no%3Aassignee+sort%3Aupdated-desc>`_:
 
@@ -472,10 +469,10 @@ day. Works best if done first thing in the working day.
        #. If the issue cannot be solved, bring the issue up in the weekly
           meeting.
 
-Backporting PR for Backport team
---------------------------------
+Backporting community PRs
+-------------------------
 
-Dedicated expectation time for each member of Backport team: 60 minutes per
+Dedicated expectation time for backporting duties: 60 minutes, twice per
 week depending on releases that need to be performed at the moment.
 
 Even if the next release is not imminently planned, it is still important to
@@ -483,11 +480,6 @@ perform backports to keep the process smooth and to catch potential regressions
 in stable branches as soon as possible. If backports are delayed, this can also
 delay releases which is important to avoid especially if there are
 security-sensitive bug fixes that require an immediate release.
-
-In addition, when a backport PR is open, the person opening it is responsible to
-drive it to completion, even if it stretches after the assigned week of
-backporting hat. If this is not feasible (e.g. PTO), you are responsible to
-initiate handover of the PR to the next week's backporters.
 
 If you can't backport a PR due technical constraints feel free to contact the
 original author of that PR directly so they can backport the PR themselves.
@@ -497,21 +489,17 @@ Follow the :ref:`backport_process` guide to know how to perform this task.
 Coordination
 ++++++++++++
 
-In general, coordinating in the #launchpad Slack channel with the other hat
-owner for the week is encouraged. It can reduce your workload and it will avoid
-backporting conflicts such as opening a PR with the same backports. Such
-discussions will typically revolve around which branches to tackle and which
-day of the week.
+In general, the committer with the top hat should coordinate with other core
+team members in the #launchpad Slack channel in order to understand the status
+of the review, triage and backport duties. This is especially important when
+the top hat is rotated from one committer to another, as well as when a release
+is planned for the upcoming week.
 
 An example interaction in #launchpad:
 
 ::
 
     Starting backport round for v1.7 and v1.8 now
-    cc @other-hat-wearer
-
-The other hat owner can then handle v1.9 and v1.10 backports the next day, for
-example.
 
 If there are many backports to be done, then splitting up the rounds can be
 beneficial. Typically, backporters opt to start a round in the beginning of the
@@ -521,7 +509,7 @@ By the start / end of the week, if there are other backport PRs that haven't
 been merged, then please coordinate with the previous / next backporter to
 check what the status is and establish who will work on getting the backports
 into the tree (for instance by investigating CI failures and addressing review
-feedback). There's leeway to negotiate depending on who has time available.
+feedback). Ensure that the responsibility for driving the PRs forward is clear.
 
 .. _dev_coo:
 
