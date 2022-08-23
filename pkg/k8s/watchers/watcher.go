@@ -591,6 +591,13 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				break
 			} else if result.NumToServicesRules > 0 {
 				// Only trigger policy updates if ToServices rules are in effect
+				k.ipcache.ReleaseCIDRIdentitiesByCIDR(result.PrefixesToRelease)
+				_, err := k.ipcache.AllocateCIDRs(result.PrefixesToAdd, nil, nil)
+				if err != nil {
+					scopedLog.WithError(err).
+						Error("Unabled to allocate ipcache CIDR for toService rule")
+					break
+				}
 				k.policyManager.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
 			}
 
@@ -610,6 +617,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				break
 			} else if result.NumToServicesRules > 0 {
 				// Only trigger policy updates if ToServices rules are in effect
+				k.ipcache.ReleaseCIDRIdentitiesByCIDR(result.PrefixesToRelease)
 				k.policyManager.TriggerPolicyUpdates(true, "Kubernetes service endpoint deleted")
 			}
 		}
