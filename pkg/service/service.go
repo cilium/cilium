@@ -609,9 +609,16 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 		}
 	}
 
+	// For the case of NAT64, we also always need the backends in the v6 backend
+	// map as v4-in-v6 mapped addresses. Just push the whole set in this case. The
+	// backends are refcounted just once, taken care by updateBackendsCacheLocked().
+	upsertBackends := newBackends
+	if params.NatPolicy == lb.SVCNatPolicyNat64 {
+		upsertBackends = backendsCopy
+	}
 	// Update lbmaps (BPF service maps)
 	if err = s.upsertServiceIntoLBMaps(svc, onlyLocalBackends, prevBackendCount,
-		newBackends, obsoleteBackendIDs, prevSessionAffinity, prevLoadBalancerSourceRanges,
+		upsertBackends, obsoleteBackendIDs, prevSessionAffinity, prevLoadBalancerSourceRanges,
 		obsoleteSVCBackendIDs, scopedLog); err != nil {
 
 		return false, lb.ID(0), err
