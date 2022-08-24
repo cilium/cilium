@@ -56,22 +56,23 @@ for sensitive information.
 )
 
 var (
-	archive         bool
-	archiveType     string
-	k8s             bool
-	dumpPath        string
-	host            string
-	k8sNamespace    string
-	k8sLabel        string
-	execTimeout     time.Duration
-	configPath      string
-	dryRunMode      bool
-	enableMarkdown  bool
-	archivePrefix   string
-	getPProf        bool
-	pprofPort       int
-	traceSeconds    int
-	parallelWorkers int
+	archive            bool
+	archiveType        string
+	k8s                bool
+	dumpPath           string
+	host               string
+	k8sNamespace       string
+	k8sLabel           string
+	execTimeout        time.Duration
+	configPath         string
+	dryRunMode         bool
+	enableMarkdown     bool
+	archivePrefix      string
+	getPProf           bool
+	pprofPort          int
+	traceSeconds       int
+	parallelWorkers    int
+	excludeObjectFiles bool
 )
 
 func init() {
@@ -97,6 +98,7 @@ func init() {
 	BugtoolRootCmd.Flags().BoolVar(&enableMarkdown, "enable-markdown", false, "Dump output of commands in markdown format")
 	BugtoolRootCmd.Flags().StringVarP(&archivePrefix, "archive-prefix", "", "", "String to prefix to name of archive if created (e.g., with cilium pod-name)")
 	BugtoolRootCmd.Flags().IntVar(&parallelWorkers, "parallel-workers", 0, "Maximum number of parallel worker tasks, use 0 for number of CPUs")
+	BugtoolRootCmd.Flags().BoolVar(&excludeObjectFiles, "exclude-object-files", false, "Exclude object files from sysdump")
 }
 
 func getVerifyCiliumPods() (k8sPods []string) {

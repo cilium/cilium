@@ -419,6 +419,9 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 			kubectlArg := fmt.Sprintf("%s/%s:%s", k8sNamespace, pod, stateDir)
 			// kubectl cp kube-system/cilium-xrzwr:/var/run/cilium/state cilium-xrzwr-state
 			commands = append(commands, fmt.Sprintf("kubectl cp %s %s", kubectlArg, dst))
+			if excludeObjectFiles {
+				commands = append(commands, fmt.Sprintf("rm %s/*.o", dst))
+			}
 			for _, cmd := range ciliumCommands {
 				// Add the host flag if set
 				if len(host) > 0 {
