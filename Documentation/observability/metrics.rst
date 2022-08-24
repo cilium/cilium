@@ -496,9 +496,18 @@ and the ``http`` metric with the ``destinationContext=pod-short`` option.
 Context Options
 ^^^^^^^^^^^^^^^
 
+Hubble metrics support configuration via context options.
+Currently there are 3 supported context options for all metrics:
+
+- ``sourceContext`` - Configures the ``source`` label on metrics.
+- ``destinationContext`` - Configures the ``destination`` label on metrics.
+- ``labelsContext`` - Configures a list of labels to be enabled on metrics.
+
+See below for details on each of the different context options.
+
 Most Hubble metrics can be configured to add the source and/or destination
-context as a label. The options are called ``sourceContext`` and
-``destinationContext``. The possible values are:
+context as a label using the ``sourceContext`` and ``destinationContext``
+options. The possible values are:
 
 ===================== ===================================================================================
 Option Value          Description
@@ -529,6 +538,29 @@ and use the IP address of the target instead.
    3. ``reserved:kube-apiserver`` and ``reserved:world``
 
    In all of these 3 cases, ``reserved-identity`` context returns ``reserved:kube-apiserver``.
+
+Hubble metrics can also be configured with a ``labelsContext`` which allows providing a list of labels
+that should be added to the metric. Unlike ``sourceContext`` and ``destinationContext``, instead
+of different values being put into the same metric label, the ``labelsContext`` puts them into different label values.
+
+========================= ===============================================================================
+Option Value              Description
+========================= ===============================================================================
+``source_namespace``      The namespace of the pod if the flow source is from a Kubernetes pod.
+``source_pod``            The pod name if the flow source is from a Kubernetes pod.
+``source_workload``       The name of the source pod's workload (Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift)).
+``source_app``            The app name of the source pod, derived from pod labels (``app.kubernetes.io/name``, ``k8s-app``, or ``app``).
+``destination_namespace`` The namespace of the pod if the flow destination is from a Kubernetes pod.
+``destination_pod``       The pod name if the flow destination is from a Kubernetes pod.
+``destination_workload``  The name of the destination pod's workload (Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift)).
+``destination_app``       The app name of the source pod, derived from pod labels (``app.kubernetes.io/name``, ``k8s-app``, or ``app``).
+``traffic_direction``     Identifies the traffic direction of the flow. Possible values are ``ingress``, ``egress`` and ``unknown``.
+========================= ===============================================================================
+
+When specifying the flow context, multiple values can be specified by separating them via the ``,`` symbol.
+All labels listed are included in the metric, even if empty. For example, a metric configuration of
+``http:labelsContext=source_namespace,source_pod`` will add the ``source_namespace`` and ``source_pod``
+labels to all Hubble HTTP metrics.
 
 .. _hubble_exported_metrics:
 

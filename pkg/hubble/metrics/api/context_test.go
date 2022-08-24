@@ -6,6 +6,7 @@
 package api
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,6 +64,16 @@ func TestParseContextOptions(t *testing.T) {
 
 	opts, err = ParseContextOptions(Options{"destinationContext": "namespace|invalid"})
 	assert.NotNil(t, err)
+	assert.Nil(t, opts)
+
+	// All of the labelsContext options should work
+	opts, err = ParseContextOptions(Options{"labelsContext": strings.Join(contextLabelsList, ",")})
+	assert.NoError(t, err)
+	assert.EqualValues(t, "labels=source_pod,source_namespace,source_workload,source_app,destination_pod,destination_namespace,destination_workload,destination_app,traffic_direction", opts.Status())
+	assert.EqualValues(t, contextLabelsList, opts.GetLabelNames())
+
+	opts, err = ParseContextOptions(Options{"labelsContext": "non_existent_label"})
+	assert.Error(t, err, "unsupported labelsContext option should error")
 	assert.Nil(t, opts)
 }
 
@@ -145,6 +156,54 @@ func TestParseGetLabelValues(t *testing.T) {
 			Destination: "10.0.0.2",
 		},
 	}), []string{"", "10.0.0.2"})
+
+	opts, err = ParseContextOptions(Options{"labelsContext": strings.Join(contextLabelsList, ",")})
+	assert.NoError(t, err)
+	sourceEndpoint := &pb.Endpoint{
+		Namespace: "foo-ns",
+		PodName:   "foo-deploy-pod",
+		Workloads: []*pb.Workload{{
+			Name: "foo-deploy",
+			Kind: "Deployment",
+		}},
+		Labels: []string{
+			"k8s:app=fooapp",
+		},
+	}
+	destinationEndpoint := &pb.Endpoint{
+		Namespace: "bar-ns",
+		PodName:   "bar-deploy-pod",
+		Workloads: []*pb.Workload{{
+			Name: "bar-deploy",
+			Kind: "Deployment",
+		}},
+		Labels: []string{
+			"k8s:app=barapp",
+		},
+	}
+	flow := &pb.Flow{Source: sourceEndpoint, Destination: destinationEndpoint, TrafficDirection: pb.TrafficDirection_INGRESS}
+	assert.EqualValues(t,
+		opts.GetLabelValues(flow),
+		[]string{
+			// source_pod, source_namespace, source_workload, source_app
+			"foo-deploy-pod", "foo-ns", "foo-deploy", "fooapp",
+			// destination_pod, destination_namespace, destination_workload, destination_app
+			"bar-deploy-pod", "bar-ns", "bar-deploy", "barapp",
+			// traffic_direction
+			"ingress",
+		},
+	)
+
+	// Empty flow should just produce empty values for source/destination labels,
+	// and set traffic_direction to "unknown"
+	assert.EqualValues(t,
+		opts.GetLabelValues(&pb.Flow{}),
+		[]string{
+			"", "", "", "",
+			"", "", "", "",
+			"unknown",
+		},
+	)
 }
 
 func TestShortenPodName(t *testing.T) {
