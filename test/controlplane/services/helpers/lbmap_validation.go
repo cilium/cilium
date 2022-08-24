@@ -89,7 +89,7 @@ func l3n4AddrLess(a, b *lb.L3n4Addr) bool {
 	} else if a.Protocol > b.Protocol {
 		return false
 	}
-	if ipLess(a.IP, b.IP) {
+	if ipLess(net.ParseIP(a.IPCluster.IPString()), net.ParseIP(b.IPCluster.IPString())) {
 		return true
 	}
 	return a.Port < b.Port

@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -72,24 +73,24 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 }
 
 var (
-	surrogateFE = *lb.NewL3n4AddrID(lb.TCP, net.IPv4zero, 80, lb.ScopeExternal, 0)
-	frontend1   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, lb.ScopeExternal, 0)
-	frontend2   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, lb.ScopeExternal, 0)
-	frontend3   = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("f00d::1"), 80, lb.ScopeExternal, 0)
+	surrogateFE = *lb.NewL3n4AddrID(lb.TCP, cmtypes.NewIPCluster(net.IPv4zero.String(), 0), 80, lb.ScopeExternal, 0)
+	frontend1   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.NewIPCluster("1.1.1.1", 0), 80, lb.ScopeExternal, 0)
+	frontend2   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.NewIPCluster("1.1.1.2", 0), 80, lb.ScopeExternal, 0)
+	frontend3   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.NewIPCluster("f00d::1", 0), 80, lb.ScopeExternal, 0)
 	backends1   = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
-		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.1", 0), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.2", 0), 8080),
 	}
 	backends2 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
-		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.2", 0), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.3", 0), 8080),
 	}
 	backends3 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::2"), 8080),
-		lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::3"), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("fd00::2", 0), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("fd00::3", 0), 8080),
 	}
 	backends4 = []*lb.Backend{
-		lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.4", 0), 8080),
 	}
 )
 
@@ -497,20 +498,20 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	// Create two frontends, one for LoadBalaner and one for ClusterIP.
 	// This is used to emulate how we get K8s services from the K8s watcher,
 	// i.e. one service per frontend (even if it is logically the same service)
-	loadBalancerIP := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, lb.ScopeExternal, 0)
-	clusterIP := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("10.20.30.40"), 80, lb.ScopeExternal, 0)
+	loadBalancerIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.NewIPCluster("1.1.1.1", 0), 80, lb.ScopeExternal, 0)
+	clusterIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.NewIPCluster("10.20.30.40", 0), 80, lb.ScopeExternal, 0)
 
 	// Create two node-local backends
-	localBackend1 := lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080)
-	localBackend2 := lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080)
+	localBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.1", 0), 8080)
+	localBackend2 := lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.2", 0), 8080)
 	localBackend1.NodeName = nodeTypes.GetName()
 	localBackend2.NodeName = nodeTypes.GetName()
 	localBackends := []*lb.Backend{localBackend1, localBackend2}
 
 	// Create three remote backends
-	remoteBackend1 := lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080)
-	remoteBackend2 := lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080)
-	remoteBackend3 := lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.5"), 8080)
+	remoteBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.3", 0), 8080)
+	remoteBackend2 := lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.4", 0), 8080)
+	remoteBackend3 := lb.NewBackend(0, lb.TCP, cmtypes.NewIPCluster("10.0.0.5", 0), 8080)
 	remoteBackend1.NodeName = "not-" + nodeTypes.GetName()
 	remoteBackend2.NodeName = "not-" + nodeTypes.GetName()
 	remoteBackend3.NodeName = "not-" + nodeTypes.GetName()
@@ -1422,8 +1423,8 @@ func (m *ManagerTestSuite) TestSyncServices(c *C) {
 	c.Assert(len(m.svc.svcByID), Equals, 2)
 
 	nodeAddrs = &mockNodeAddressing{
-		ip4: &mockNodeAddressingFamily{[]net.IP{frontend1.IP, frontend2.IP}},
-		ip6: &mockNodeAddressingFamily{[]net.IP{frontend3.IP}},
+		ip4: &mockNodeAddressingFamily{[]net.IP{net.ParseIP(frontend1.IPCluster.IPString()), net.ParseIP(frontend2.IPCluster.IPString())}},
+		ip6: &mockNodeAddressingFamily{[]net.IP{net.ParseIP(frontend3.IPCluster.IPString())}},
 	}
 	m.svc.SyncServicesOnDeviceChange(nodeAddrs)
 	c.Assert(len(m.svc.svcByID), Equals, 4)

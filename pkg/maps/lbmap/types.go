@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -171,7 +172,7 @@ type RevNatValue interface {
 }
 
 func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4AddrID {
-	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, svcKey.GetAddress(), svcKey.GetPort(), svcKey.GetScope())
+	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, cmtypes.NewIPCluster(svcKey.GetAddress().String(), 0), svcKey.GetPort(), svcKey.GetScope())
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
 		ID:       loadbalancer.ID(svcValue.GetRevNat()),
@@ -184,6 +185,6 @@ func svcBackend(backendID loadbalancer.BackendID, backend BackendValue) *loadbal
 	bePort := backend.GetPort()
 	beProto := loadbalancer.NONE
 	beState := loadbalancer.GetBackendStateFromFlags(backend.GetFlags())
-	beBackend := loadbalancer.NewBackendWithState(backendID, beProto, beIP, bePort, beState, true)
+	beBackend := loadbalancer.NewBackendWithState(backendID, beProto, cmtypes.NewIPCluster(beIP.String(), 0), bePort, beState, true)
 	return beBackend
 }

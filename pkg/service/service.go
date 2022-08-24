@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -748,7 +749,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 				if p, found = updateSvcs[id]; !found {
 					p = &datapathTypes.UpsertServiceParams{
 						ID:                        uint16(id),
-						IP:                        info.frontend.L3n4Addr.IP,
+						IP:                        net.ParseIP(info.frontend.L3n4Addr.IPCluster.IPString()),
 						Port:                      info.frontend.L3n4Addr.L4Addr.Port,
 						PrevBackendsCount:         len(info.backends),
 						IPv6:                      info.frontend.IsIPv6(),
@@ -1223,7 +1224,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 
 	p := &datapathTypes.UpsertServiceParams{
 		ID:                        uint16(svc.frontend.ID),
-		IP:                        svc.frontend.L3n4Addr.IP,
+		IP:                        net.ParseIP(svc.frontend.L3n4Addr.IPCluster.IPString()),
 		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
 		PreferredBackends:         preferredBackends,
 		ActiveBackends:            activeBackends,
@@ -1540,14 +1541,14 @@ func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []
 
 	id := uint32(frontend.ID)
 	fe := monitorAPI.ServiceUpsertNotificationAddr{
-		IP:   frontend.IP,
+		IP:   net.ParseIP(frontend.IPCluster.IPString()),
 		Port: frontend.Port,
 	}
 
 	be := make([]monitorAPI.ServiceUpsertNotificationAddr, 0, len(backends))
 	for _, backend := range backends {
 		b := monitorAPI.ServiceUpsertNotificationAddr{
-			IP:   backend.IP,
+			IP:   net.ParseIP(backend.IPCluster.IPString()),
 			Port: backend.Port,
 		}
 		be = append(be, b)
@@ -1581,9 +1582,9 @@ func (s *Service) GetServiceNameByAddr(addr lb.L3n4Addr) (string, string, bool) 
 // (by bpf_sock).
 func isWildcardAddr(frontend lb.L3n4AddrID) bool {
 	if frontend.IsIPv6() {
-		return net.IPv6zero.Equal(frontend.IP)
+		return net.IPv6zero.Equal(net.ParseIP(frontend.IPCluster.IPString()))
 	}
-	return net.IPv4zero.Equal(frontend.IP)
+	return net.IPv4zero.Equal(net.ParseIP(frontend.IPCluster.IPString()))
 }
 
 func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]lb.BackendID,
@@ -1642,11 +1643,11 @@ func (s *Service) SyncServicesOnDeviceChange(nodeAddressing types.NodeAddressing
 			continue
 		}
 
-		if svc.frontend.IP.IsUnspecified() {
+		if net.ParseIP(svc.frontend.IPCluster.IPString()).IsUnspecified() {
 			nodePortSvcs = append(nodePortSvcs, svc)
 		} else {
-			existingFEs[svc.frontend.IP.String()] = true
-			if _, ok := frontendAddrs[svc.frontend.IP.String()]; !ok {
+			existingFEs[svc.frontend.IPCluster.IPString()] = true
+			if _, ok := frontendAddrs[svc.frontend.IPCluster.IPString()]; !ok {
 				removedFEs = append(removedFEs, svc)
 			}
 		}
@@ -1670,7 +1671,7 @@ func (s *Service) SyncServicesOnDeviceChange(nodeAddressing types.NodeAddressing
 		if !existingFEs[ip.String()] {
 			// No services for this frontend, create them.
 			for _, svcInfo := range nodePortSvcs {
-				fe := lb.NewL3n4AddrID(svcInfo.frontend.Protocol, ip, svcInfo.frontend.Port, svcInfo.frontend.Scope, 0)
+				fe := lb.NewL3n4AddrID(svcInfo.frontend.Protocol, cmtypes.NewIPCluster(ip.String(), 0), svcInfo.frontend.Port, svcInfo.frontend.Scope, 0)
 				svc := svcInfo.deepCopyToLBSVC()
 				svc.Frontend = *fe
 

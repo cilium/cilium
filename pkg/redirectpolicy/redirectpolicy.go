@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -81,7 +82,7 @@ type backend struct {
 }
 
 func (be *backend) GetModel() *models.LRPBackend {
-	ip := be.IP.String()
+	ip := be.IPCluster.IPString()
 	return &models.LRPBackend{
 		PodID: be.podID.String(),
 		BackendAddress: &models.BackendAddress{
@@ -107,7 +108,7 @@ func (feM *feMapping) GetModel() *models.FrontendMapping {
 	}
 	return &models.FrontendMapping{
 		FrontendAddress: &models.FrontendAddress{
-			IP:       feM.feAddr.IP.String(),
+			IP:       feM.feAddr.IPCluster.IPString(),
 			Protocol: feM.feAddr.Protocol,
 			Port:     feM.feAddr.Port,
 		},
@@ -195,7 +196,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 				return nil, fmt.Errorf("invalid address matcher port %v", err)
 			}
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
-			fe = loadbalancer.NewL3n4Addr(proto, ip, p, loadbalancer.ScopeExternal)
+			fe = loadbalancer.NewL3n4Addr(proto, cmtypes.NewIPCluster(ip.String(), 0), p, loadbalancer.ScopeExternal)
 			feM := &feMapping{
 				feAddr: fe,
 				fePort: pName,
@@ -234,7 +235,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 			}
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
 			// frontend ip will later be populated with the clusterIP of the service.
-			fe = loadbalancer.NewL3n4Addr(proto, net.IP{}, p, loadbalancer.ScopeExternal)
+			fe = loadbalancer.NewL3n4Addr(proto, cmtypes.NewIPCluster(net.IP{}.String(), 0), p, loadbalancer.ScopeExternal)
 			feM := &feMapping{
 				feAddr: fe,
 				fePort: pName,
