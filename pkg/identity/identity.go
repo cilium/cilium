@@ -90,7 +90,7 @@ func (id *Identity) StringID() string {
 
 // StringID returns the identity identifier as string
 func (id *Identity) String() string {
-	return id.ID.StringID()
+	return fmt.Sprintf("<ID=%d,labels=%s>", id.ID, id.Labels.String())
 }
 
 // IsReserved returns whether the identity represents a reserved identity
