@@ -3088,6 +3088,15 @@ func init() {
                   "type": "boolean"
                 }
               }
+            },
+            "socketLBTracing": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
             }
           }
         },
@@ -7683,6 +7692,15 @@ func init() {
                   "type": "boolean"
                 }
               }
+            },
+            "socketLBTracing": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
             }
           }
         },
@@ -7826,6 +7844,15 @@ func init() {
               "type": "boolean"
             }
           }
+        },
+        "socketLBTracing": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },
@@ -7931,6 +7958,15 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesSocketLB": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesSocketLBTracing": {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {

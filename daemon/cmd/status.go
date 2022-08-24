@@ -248,6 +248,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
 		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
 		SocketLB:              &models.KubeProxyReplacementFeaturesSocketLB{},
+		SocketLBTracing:       &models.KubeProxyReplacementFeaturesSocketLBTracing{},
 		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 		GracefulTermination:   &models.KubeProxyReplacementFeaturesGracefulTermination{},
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
@@ -290,6 +291,8 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 			protocols = append(protocols, "UDP")
 		}
 		features.HostReachableServices.Protocols = protocols
+
+		features.SocketLBTracing.Enabled = true
 	}
 	if option.Config.EnableSessionAffinity {
 		features.SessionAffinity.Enabled = true
