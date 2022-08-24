@@ -260,16 +260,29 @@ Handling large pull requests
 ----------------------------
 
 If the PR is considerably large (e.g. with more than 200 lines changed and/or
-more than 6 commits), consider creating a new commit for each review. This
-will make the review process smoother as GitHub has limitations that
-prevents reviewers from only seeing the new changes added since the last time
-they have reviewed a PR. Once all reviews are addressed those commits should
-be squashed against the commit that introduced those changes. This can be
-accomplished by the usage of ``git rebase -i upstream/master`` and in
-that windows, move these new commits below the commit that introduced the
-changes and replace the work ``pick`` with ``fixup``. In the following
-example, commit ``d2cb02265`` will be combined into ``9c62e62d8`` and commit
-``146829b59`` will be combined into ``9400fed20``.
+more than 6 commits), consider whether there is a good way to split the PR into
+smaller PRs that can be merged more incrementally. Reviewers are often more
+hesitant to review large PRs due to the level of complexity involved in
+understanding the changes and the amount of time required to provide
+constructive review comments. By making smaller logical PRs, this makes it
+easier for the reviewer to provide comments and to engage in dialogue on the
+PR, and also means there should be fewer overall pieces of feedback that you
+need to address as a contributor. Tighter feedback cycles like this then make
+it easier to get your contributions into the tree, which also helps with
+reducing conflicts with other contributions. Good candidates for smaller PRs
+may be individual bugfixes, or self-contained refactoring that adjusts the code
+in order to make it easier to build subsequent functionality on top.
+
+While handling review on larger PRs, consider creating a new commit to address
+feedback from each review that you receive on your PR. This will make the
+review process smoother as GitHub has limitations that prevents reviewers from
+only seeing the new changes added since the last time they have reviewed a PR.
+Once all reviews are addressed those commits should be squashed against the
+commit that introduced those changes. This can be accomplished by the usage of
+``git rebase -i upstream/master`` and in that windows, move these new commits
+below the commit that introduced the changes and replace the work ``pick`` with
+``fixup``. In the following example, commit ``d2cb02265`` will be combined into
+``9c62e62d8`` and commit ``146829b59`` will be combined into ``9400fed20``.
 
     ::
 
