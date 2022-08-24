@@ -79,7 +79,6 @@ type mockCIDRAllocator struct {
 	OnAllocateNext func() (*net.IPNet, error)
 	OnRelease      func(cidr *net.IPNet) error
 	OnIsAllocated  func(cidr *net.IPNet) (bool, error)
-	OnIsIPv6       func() bool
 	OnIsFull       func() bool
 	OnInRange      func(cidr *net.IPNet) bool
 }
@@ -114,13 +113,6 @@ func (d *mockCIDRAllocator) IsAllocated(cidr *net.IPNet) (bool, error) {
 		return d.OnIsAllocated(cidr)
 	}
 	panic("d.IsAllocated should not have been called!")
-}
-
-func (d *mockCIDRAllocator) IsIPv6() bool {
-	if d.OnIsIPv6 != nil {
-		return d.OnIsIPv6()
-	}
-	panic("d.IsIPv6 should not have been called!")
 }
 
 func (d *mockCIDRAllocator) IsFull() bool {

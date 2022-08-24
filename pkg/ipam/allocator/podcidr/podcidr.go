@@ -184,7 +184,6 @@ type CIDRAllocator interface {
 	AllocateNext() (*net.IPNet, error)
 	Release(cidr *net.IPNet) error
 	IsAllocated(cidr *net.IPNet) (bool, error)
-	IsIPv6() bool
 	IsFull() bool
 	InRange(cidr *net.IPNet) bool
 }
