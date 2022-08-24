@@ -375,9 +375,14 @@ func synchronizeIdentities() {
 	go identityInformer.Run(wait.NeverStop)
 }
 
-type nodeStub string
+type nodeStub struct {
+	cluster string
+	name    string
+}
 
-func (n nodeStub) GetKeyName() string { return string(n) }
+func (n *nodeStub) GetKeyName() string {
+	return nodeTypes.GetKeyNodeName(n.cluster, n.name)
+}
 
 func updateNode(obj interface{}) {
 	if ciliumNode, ok := obj.(*ciliumv2.CiliumNode); ok {
@@ -397,7 +402,11 @@ func updateNode(obj interface{}) {
 func deleteNode(obj interface{}) {
 	n, ok := obj.(*ciliumv2.CiliumNode)
 	if ok {
-		ciliumNodeStore.DeleteLocalKey(context.Background(), nodeStub(n.Name))
+		n := nodeStub{
+			cluster: cfg.clusterName,
+			name:    n.Name,
+		}
+		ciliumNodeStore.DeleteLocalKey(context.Background(), &n)
 	} else {
 		log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 	}
