@@ -245,6 +245,9 @@ type KubeProxyReplacementFeatures struct {
 
 	// socket l b
 	SocketLB *KubeProxyReplacementFeaturesSocketLB `json:"socketLB,omitempty"`
+
+	// socket l b tracing
+	SocketLBTracing *KubeProxyReplacementFeaturesSocketLBTracing `json:"socketLBTracing,omitempty"`
 }
 
 // Validate validates this kube proxy replacement features
@@ -280,6 +283,10 @@ func (m *KubeProxyReplacementFeatures) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateSocketLB(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateSocketLBTracing(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -425,6 +432,24 @@ func (m *KubeProxyReplacementFeatures) validateSocketLB(formats strfmt.Registry)
 		if err := m.SocketLB.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "socketLB")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) validateSocketLBTracing(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.SocketLBTracing) { // not required
+		return nil
+	}
+
+	if m.SocketLBTracing != nil {
+		if err := m.SocketLBTracing.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "socketLBTracing")
 			}
 			return err
 		}
@@ -892,6 +917,40 @@ func (m *KubeProxyReplacementFeaturesSocketLB) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesSocketLB) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesSocketLB
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
+// KubeProxyReplacementFeaturesSocketLBTracing
+//
+// +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacementFeaturesSocketLBTracing
+type KubeProxyReplacementFeaturesSocketLBTracing struct {
+
+	// enabled
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// Validate validates this kube proxy replacement features socket l b tracing
+func (m *KubeProxyReplacementFeaturesSocketLBTracing) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesSocketLBTracing) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesSocketLBTracing) UnmarshalBinary(b []byte) error {
+	var res KubeProxyReplacementFeaturesSocketLBTracing
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}
