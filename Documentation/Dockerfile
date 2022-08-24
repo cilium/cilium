@@ -38,9 +38,4 @@ RUN install -m 0777 -d /usr/local/lib/python3.10/site-packages/versionwarning/_s
 ## in the container). We pass --user "uid:gid" to have the "install" command
 ## work in the workaround for versionwarning above.
 ## Tell Git that this repository is safe.
-##
-## Use both the mountpoints used with docs' Makefile and with GitHub workflow.
-## Ideally we would like to make the mountpoint safe at runtime, but I don't
-## know an easy way to do so.
 RUN  git config --global --add safe.directory /src
-RUN  git config --global --add safe.directory /github/workspace
