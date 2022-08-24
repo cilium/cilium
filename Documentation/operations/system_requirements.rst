@@ -47,18 +47,20 @@ iproute2                 >= 5.9.0 [#iproute2_foot]_ yes
 .. [#iproute2_foot] Requires support for eBPF templating as documented
    :ref:`below <iproute2_requirements>`.
 
-Linux Distribution Compatibility Matrix
-=======================================
+Linux Distribution Compatibility & Considerations 
+=================================================
 
 The following table lists Linux distributions that are known to work
-well with Cilium.
+well with Cilium. Some distributions require a few initial tweaks. Please make
+sure to read each distribution's specific notes below before attempting to
+run Cilium.
 
 ========================== ====================
 Distribution               Minimum Version
 ========================== ====================
 `Amazon Linux 2`_          all
 `Container-Optimized OS`_  all
-`CentOS`_                  >= 7.0 [#centos_foot]_
+`CentOS`_                  >= 7.0
 Debian_                    >= 9 Stretch
 `Fedora Atomic/Core`_      >= 25
 Flatcar_                   all
@@ -79,22 +81,64 @@ Opensuse_                  Tumbleweed, >=Leap 15.0
 .. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
 .. _Opensuse: https://www.opensuse.org/
 
-.. [#centos_foot] CentOS 7 requires a third-party kernel provided by `ElRepo <http://elrepo.org/tiki/tiki-index.php>`_
-    whereas CentOS 8 ships with a supported kernel. Note that some more advanced features may not be available on CentOS 7 even with a third-party kernel. For full details on which kernel config options must be enabled in order to use various features, see the section on :ref:`admin_kernel_version` requirements below.
-
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
           GitHub issue or by creating a pull request that updates this guide.
 
-.. note:: Systemd 245 and above (``systemctl --version``) overrides ``rp_filter`` setting
-          of Cilium network interfaces. This introduces connectivity issues
-          (see :gh-issue:`10645` for details). To avoid that, configure
-          ``rp_filter`` in systemd using the following commands:
 
-          .. code-block:: shell-session
+CentOS 7
+~~~~~~~~
 
-              echo 'net.ipv4.conf.lxc*.rp_filter = 0' > /etc/sysctl.d/99-override_cilium_rp_filter.conf
-              systemctl restart systemd-sysctl
+CentOS 7 requires a third-party kernel provided by `ElRepo <http://elrepo.org/tiki/tiki-index.php>`_
+whereas CentOS 8 ships with a supported kernel. Note that some more advanced
+features may not be available on CentOS 7 even with a third-party kernel. For
+full details on which kernel config options must be enabled in order to use
+various features, see the section on :ref:`admin_kernel_version` requirements
+below.
+
+
+systemd-based distributions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some distributions need to be configured not to manage "foreign" routes. This
+is the case in Ubuntu 22.04, for example (see :gh-issue:`18706`). This can
+usually be done by setting
+
+.. code-block:: text
+
+   ManageForeignRoutes=no
+   ManageForeignRoutingPolicyRules=no
+
+in ``/etc/systemd/networkd.conf``, but please refer to your distribution's
+documentation for the right way to perform this override.
+
+
+Flatcar
+~~~~~~~
+
+Flatcar is known to manipulate network interfaces created and managed by
+Cilium. This is especially true in the official Flatcar image for AWS EKS, and
+causes connectivity issues and potentially prevents the Cilium agent from
+booting when Cilium is running in ENI mode. To avoid this, disable DHCP on
+these interfaces and mark them as unmanaged by adding
+
+.. code-block:: text
+
+        [Match]
+        Name=eth[1-9]*
+
+        [Network]
+        DHCP=no
+
+        [Link]
+        Unmanaged=yes
+
+to ``/etc/systemd/network/01-no-dhcp.network`` and then
+
+.. code-block:: shell-session
+
+        systemctl daemon-reload
+        systemctl restart systemd-networkd
 
 .. _admin_kernel_version:
 
