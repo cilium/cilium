@@ -106,6 +106,7 @@ jobs:
               - 'daemon/**'
               - 'bpf/**'
               - 'test/l4lb/**'
+              - 'images/**'
 
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
