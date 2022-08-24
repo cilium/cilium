@@ -132,6 +132,7 @@ TCP
 TLS
 Telco
 Terraform
+Tetragon
 Tierney
 Tu
 Twilio
@@ -268,6 +269,8 @@ cniConf
 cnp
 cnpStatusUpdates
 codebase
+codeowner
+codeowners
 committer
 committers
 compat
@@ -741,6 +744,7 @@ podcasts
 policyAuditMode
 policyEnforcementMode
 policyMapMax
+policymap
 poller
 portmap
 postcheck
@@ -1023,6 +1027,7 @@ workspace
 wouldn
 writeable
 www
+xDS
 xdp
 xfrm
 xml
