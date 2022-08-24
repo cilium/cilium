@@ -12,7 +12,7 @@ myst-parser==0.18.0
 # Fork openapi until it uses something newer than unmaintained m2r
 # (See git logs for details)
 git+https://github.com/cilium/openapi.git@mdinclude#egg=sphinxcontrib-openapi
-sphinx-tabs==3.4.0
+sphinx-tabs==3.4.1
 sphinx-version-warning==1.1.2
 sphinxcontrib-spelling==7.6.0
 sphinxcontrib-websupport==1.2.4
