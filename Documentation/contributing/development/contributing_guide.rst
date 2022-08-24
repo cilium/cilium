@@ -342,6 +342,11 @@ requirements were met.
 | ``ready-to-merge``       | PR is ready to be merged  |
 +--------------------------+---------------------------+
 
+Code Owners
+-----------
+
+.. include:: ../../codeowners.rst
+
 Weekly duties
 ~~~~~~~~~~~~~
 

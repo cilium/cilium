@@ -51,13 +51,22 @@ update-cmdref: builder-image cilium-build ## Update the command reference docume
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
-check: builder-image update-cmdref update-helm-values ## Validate command and Helm references, as well as policy examples.
+codeowners.rst: $(ROOT_DIR)/CODEOWNERS
+	@$(ECHO_GEN)$@
+	$(QUIET)$(DOCKER_RUN) ./update-codeowners.sh
+
+.PHONY: update-codeowners
+update-codeowners: codeowners.rst
+
+check: builder-image update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, as well as policy examples.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
 	$(QUIET) ./check-helmvalues.sh
 	@$(ECHO_CHECK) examples
 	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
+	@$(ECHO_CHECK) codeowners.rst
+	$(QUIET) ./check-codeowners.sh
 
 ifeq ($(V),0)
 SPHINX_OPTS += -q
