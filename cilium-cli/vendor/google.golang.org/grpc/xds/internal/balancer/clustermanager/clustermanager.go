@@ -123,6 +123,8 @@ func (b *bal) UpdateClientConnState(s balancer.ClientConnState) error {
 	}
 	b.logger.Infof("update with config %+v, resolver state %+v", pretty.ToJSON(s.BalancerConfig), s.ResolverState)
 
+	b.stateAggregator.pauseStateUpdates()
+	defer b.stateAggregator.resumeStateUpdates()
 	b.updateChildren(s, newConfig)
 	return nil
 }
