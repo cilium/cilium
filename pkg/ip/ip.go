@@ -799,17 +799,6 @@ func init() {
 	initPrivatePrefixes()
 }
 
-// IsExcluded returns whether a given IP is must be excluded
-// due to coming from blacklisted device.
-func IsExcluded(excludeList []net.IP, ip net.IP) bool {
-	for _, e := range excludeList {
-		if e.Equal(ip) {
-			return true
-		}
-	}
-	return false
-}
-
 // IsPublicAddr returns whether a given global IP is from
 // a public range.
 func IsPublicAddr(ip net.IP) bool {
@@ -855,6 +844,16 @@ func IsIPv4(ip net.IP) bool {
 // IsIPv6 returns if netIP is IPv6.
 func IsIPv6(ip net.IP) bool {
 	return ip != nil && ip.To4() == nil
+}
+
+// ListContainsIP returns whether a list of IPs contains a given IP.
+func ListContainsIP(ipList []net.IP, ip net.IP) bool {
+	for _, e := range ipList {
+		if e.Equal(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // SortIPList sorts the provided net.IP slice in place.

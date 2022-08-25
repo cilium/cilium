@@ -53,7 +53,7 @@ retryScope:
 
 	for _, a := range addr {
 		if a.Scope <= linkScopeMax {
-			if ip.IsExcluded(ipsToExclude, a.IP) {
+			if ip.ListContainsIP(ipsToExclude, a.IP) {
 				continue
 			}
 			if len(a.IP) >= ipLen {
