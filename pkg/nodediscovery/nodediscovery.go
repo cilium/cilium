@@ -56,8 +56,9 @@ const (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
 
-type k8sNodeGetter interface {
+type k8sGetters interface {
 	GetK8sNode(ctx context.Context, nodeName string) (*corev1.Node, error)
+	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
 // NodeDiscovery represents a node discovery action
@@ -68,7 +69,7 @@ type NodeDiscovery struct {
 	Registered            chan struct{}
 	localStateInitialized chan struct{}
 	NetConf               *cnitypes.NetConf
-	k8sNodeGetter         k8sNodeGetter
+	k8sGetters            k8sGetters
 	localNodeLock         lock.Mutex
 	localNode             nodeTypes.Node
 }
@@ -354,8 +355,9 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		performUpdate := true
 		if performGet {
 			var err error
-			nodeResource, err = ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
+			nodeResource, err = n.k8sGetters.GetCiliumNode(context.TODO(), nodeTypes.GetName())
 			if err != nil {
+				log.WithError(err).Warning("Unable to get node resource")
 				performUpdate = false
 				nodeResource = &ciliumv2.CiliumNode{
 					ObjectMeta: metav1.ObjectMeta{
@@ -388,8 +390,10 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 			}
 		} else {
 			if _, err := ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
-				if k8serrors.IsConflict(err) {
+				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
 					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
+					// Backoff before retrying
+					time.Sleep(500 * time.Millisecond)
 					continue
 				}
 				log.WithError(err).Fatal("Unable to create CiliumNode resource")
@@ -419,7 +423,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	// as this was added in sufficiently earlier versions of Cilium (v1.6).
 	// Source:
 	// https://github.com/cilium/cilium/commit/5c365f2c6d7930dcda0b8f0d5e6b826a64022a4f
-	k8sNode, err := n.k8sNodeGetter.GetK8sNode(
+	k8sNode, err := n.k8sGetters.GetK8sNode(
 		context.TODO(),
 		nodeTypes.GetName(),
 	)
@@ -707,8 +711,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	return nil
 }
 
-func (n *NodeDiscovery) RegisterK8sNodeGetter(k8sNodeGetter k8sNodeGetter) {
-	n.k8sNodeGetter = k8sNodeGetter
+func (n *NodeDiscovery) RegisterK8sGetters(k8sGetters k8sGetters) {
+	n.k8sGetters = k8sGetters
 }
 
 // LocalAllocCIDRsUpdated informs the agent that the local allocation CIDRs have

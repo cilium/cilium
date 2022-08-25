@@ -57,11 +57,14 @@ var migrateIdentityCmd = &cobra.Command{
 // The steps are:
 // 1- Connect to the kvstore via a pkg/allocatore.Backend
 // 2- Connect to k8s
-//   a- Create the ciliumidentity CRD if it is missing.
+//
+//	a- Create the ciliumidentity CRD if it is missing.
+//
 // 3- Iterate over each identity in the kvstore
-//   a- Attempt to allocate the same numeric ID to this key
-//   b- Already allocated identies that match ID->key are skipped
-//   c- kvstore IDs with conflicting CRDs are allocated with a different ID
+//
+//	a- Attempt to allocate the same numeric ID to this key
+//	b- Already allocated identies that match ID->key are skipped
+//	c- kvstore IDs with conflicting CRDs are allocated with a different ID
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
@@ -173,6 +176,11 @@ func migrateIdentities() {
 	}
 }
 
+type NodeGetter struct {
+	*k8s.K8sClient
+	*k8s.K8sCiliumClient
+}
+
 // initK8s connects to k8s with a allocator.Backend and an initialized
 // allocator.Allocator, using the k8s config passed into the command.
 func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
@@ -187,7 +195,10 @@ func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *a
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 
-	if err := k8s.WaitForNodeInformation(ctx, k8s.Client()); err != nil {
+	if err := k8s.WaitForNodeInformation(ctx, &NodeGetter{
+		K8sClient:       k8s.Client(),
+		K8sCiliumClient: k8s.CiliumClient(),
+	}); err != nil {
 		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 	}
 
