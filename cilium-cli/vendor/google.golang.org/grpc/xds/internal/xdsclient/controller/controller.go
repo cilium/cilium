@@ -72,7 +72,7 @@ type Controller struct {
 	watchMap map[xdsresource.ResourceType]map[string]bool
 	// versionMap contains the version that was acked (the version in the ack
 	// request that was sent on wire). The key is rType, the value is the
-	// version string, becaues the versions for different resource types should
+	// version string, because the versions for different resource types should
 	// be independent.
 	versionMap map[xdsresource.ResourceType]string
 	// nonceMap contains the nonce from the most recent received response.
