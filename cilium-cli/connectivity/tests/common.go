@@ -10,6 +10,38 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
+type labelsContainer interface {
+	HasLabel(key, value string) bool
+}
+
+type Option func(*labelsOption)
+
+type labelsOption struct {
+	sourceLabels      map[string]string
+	destinationLabels map[string]string
+}
+
+func WithSourceLabelsOption(sourceLabels map[string]string) Option {
+	return func(option *labelsOption) {
+		option.sourceLabels = sourceLabels
+	}
+}
+
+func WithDestinationLabelsOption(destinationLabels map[string]string) Option {
+	return func(option *labelsOption) {
+		option.destinationLabels = destinationLabels
+	}
+}
+
+func hasAllLabels(labelsContainer labelsContainer, filters map[string]string) bool {
+	for k, v := range filters {
+		if !labelsContainer.HasLabel(k, v) {
+			return false
+		}
+	}
+	return true
+}
+
 func curl(peer check.TestPeer, opts ...string) []string {
 	cmd := []string{"curl",
 		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}",
