@@ -13,12 +13,22 @@ import (
 // PodToPod generates one HTTP request from each client pod
 // to each echo (server) pod in the test context. The remote Pod is contacted
 // directly, no DNS is involved.
-func PodToPod() check.Scenario {
-	return &podToPod{}
+func PodToPod(opts ...Option) check.Scenario {
+	options := &labelsOption{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	return &podToPod{
+		sourceLabels:      options.sourceLabels,
+		destinationLabels: options.destinationLabels,
+	}
 }
 
 // podToPod implements a Scenario.
-type podToPod struct{}
+type podToPod struct {
+	sourceLabels      map[string]string
+	destinationLabels map[string]string
+}
 
 func (s *podToPod) Name() string {
 	return "pod-to-pod"
@@ -29,8 +39,13 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 
 	for _, client := range t.Context().ClientPods() {
 		client := client // copy to avoid memory aliasing when using reference
-
+		if !hasAllLabels(client, s.sourceLabels) {
+			continue
+		}
 		for _, echo := range t.Context().EchoPods() {
+			if !hasAllLabels(echo, s.destinationLabels) {
+				continue
+			}
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, echo).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, curl(echo))
 
