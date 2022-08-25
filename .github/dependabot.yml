@@ -477,7 +477,7 @@ updates:
 # # # # # # # # # # # # # # # #
 
   - package-ecosystem: pip
-    directory: /
+    directory: /Documentation/requirements-min/
     schedule:
       interval: daily
     open-pull-requests-limit: 5

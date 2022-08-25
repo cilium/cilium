@@ -606,3 +606,11 @@ func OnOperatorStartLeading(ctx context.Context) {
 
 	log.Info("Initialization complete")
 }
+
+// ResetCiliumNodesCacheSyncedStatus resets the current status of
+// cache synchronization in Cilium nodes as "not synced".
+// Should be used in control-plane testing only to reset the operator status
+// before executing the next test case.
+func ResetCiliumNodesCacheSyncedStatus() {
+	k8sCiliumNodesCacheSynced = make(chan struct{})
+}

@@ -291,7 +291,6 @@ jenkinsfiles @cilium/ci-structure
 # Misc. tests
 /test/k8s/cli.go @cilium/cli @cilium/ci-structure
 /test/k8s/health.go @cilium/health @cilium/ci-structure
-/test/k8s/identity.go @cilium/sig-agent @cilium/ci-structure
 /test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
