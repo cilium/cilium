@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -150,4 +151,13 @@ func (k8sCli K8sClient) GetK8sNode(ctx context.Context, nodeName string) (*core_
 	}
 
 	return k8sCli.CoreV1().Nodes().Get(ctx, nodeName, v1.GetOptions{})
+}
+
+// GetCiliumNode returns the CiliumNode with the given nodeName.
+func (k8sCiliumCli K8sCiliumClient) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
+	if k8sCiliumCli.Interface == nil {
+		return nil, fmt.Errorf("GetK8sNode: No k8s, cannot access k8s nodes")
+	}
+
+	return k8sCiliumCli.CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})
 }

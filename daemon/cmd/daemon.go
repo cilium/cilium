@@ -659,7 +659,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		option.Config,
 		d.ipcache,
 	)
-	nd.RegisterK8sNodeGetter(d.k8sWatcher)
+	nd.RegisterK8sGetters(d.k8sWatcher)
 	d.ipcache.RegisterK8sSyncedChecker(&d)
 
 	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)
