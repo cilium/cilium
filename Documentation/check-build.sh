@@ -12,6 +12,7 @@ set -o pipefail
 # times anyway.
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root_dir="$(dirname "${script_dir}")"
 
 build_dir="${script_dir}/_build"
 warnings="${build_dir}/warnings.txt"
@@ -76,7 +77,7 @@ build_with_spellchecker() {
     # If running in a container, tell Git that the repository is safe.
     set +o nounset
     if [[ -n "$MAKE_GIT_REPO_SAFE" ]]; then
-        git config --global --add safe.directory "${script_dir}/.."
+        git config --global --add safe.directory "${root_dir}"
     fi
     set -o nounset
 
