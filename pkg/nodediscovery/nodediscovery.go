@@ -297,7 +297,10 @@ func (n *NodeDiscovery) updateLocalNode() {
 			controller.NewManager().UpdateController("propagating local node change to kv-store",
 				controller.ControllerParams{
 					DoFunc: func(ctx context.Context) error {
-						err := n.Registrar.UpdateLocalKeySync(&n.localNode)
+						n.localNodeLock.Lock()
+						localNode := n.localNode.DeepCopy()
+						n.localNodeLock.Unlock()
+						err := n.Registrar.UpdateLocalKeySync(localNode)
 						if err != nil {
 							log.WithError(err).Error("Unable to propagate local node change to kvstore")
 						}
