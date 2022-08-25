@@ -69,6 +69,7 @@ var (
 // Caller must hold b.mu.
 func (b *priorityBalancer) syncPriority(childUpdating string) {
 	if b.inhibitPickerUpdates {
+		b.logger.Infof("Skipping update from child with name %q", childUpdating)
 		return
 	}
 	for p, name := range b.priorities {
@@ -84,7 +85,7 @@ func (b *priorityBalancer) syncPriority(childUpdating string) {
 			(child.state.ConnectivityState == connectivity.Connecting && child.initTimer != nil) ||
 			p == len(b.priorities)-1 {
 			if b.childInUse != child.name || child.name == childUpdating {
-				logger.Warningf("ciu, cn, cu: %v, %v, %v", b.childInUse, child.name, childUpdating)
+				b.logger.Warningf("childInUse, childUpdating: %q, %q", b.childInUse, child.name)
 				// If we switch children or the child in use just updated its
 				// picker, push the child's picker to the parent.
 				b.cc.UpdateState(child.state)

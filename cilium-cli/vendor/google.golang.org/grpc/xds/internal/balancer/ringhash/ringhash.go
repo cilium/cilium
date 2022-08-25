@@ -47,7 +47,7 @@ type bb struct{}
 func (bb) Build(cc balancer.ClientConn, bOpts balancer.BuildOptions) balancer.Balancer {
 	b := &ringhashBalancer{
 		cc:       cc,
-		subConns: make(map[resolver.Address]*subConn),
+		subConns: resolver.NewAddressMap(),
 		scStates: make(map[balancer.SubConn]*subConn),
 		csEvltr:  &connectivityStateEvaluator{},
 	}
@@ -65,8 +65,9 @@ func (bb) ParseConfig(c json.RawMessage) (serviceconfig.LoadBalancingConfig, err
 }
 
 type subConn struct {
-	addr string
-	sc   balancer.SubConn
+	addr   string
+	weight uint32
+	sc     balancer.SubConn
 
 	mu sync.RWMutex
 	// This is the actual state of this SubConn (as updated by the ClientConn).
@@ -178,9 +179,8 @@ type ringhashBalancer struct {
 	cc     balancer.ClientConn
 	logger *grpclog.PrefixLogger
 
-	config *LBConfig
-
-	subConns map[resolver.Address]*subConn // `attributes` is stripped from the keys of this map (the addresses)
+	config   *LBConfig
+	subConns *resolver.AddressMap // Map from resolver.Address to `*subConn`.
 	scStates map[balancer.SubConn]*subConn
 
 	// ring is always in sync with subConns. When subConns change, a new ring is
@@ -208,55 +208,47 @@ type ringhashBalancer struct {
 // SubConn states are Idle.
 func (b *ringhashBalancer) updateAddresses(addrs []resolver.Address) bool {
 	var addrsUpdated bool
-	// addrsSet is the set converted from addrs, it's used for quick lookup of
-	// an address.
-	//
-	// Addresses in this map all have attributes stripped, but metadata set to
-	// the weight. So that weight change can be detected.
-	//
-	// TODO: this won't be necessary if there are ways to compare address
-	// attributes.
-	addrsSet := make(map[resolver.Address]struct{})
-	for _, a := range addrs {
-		aNoAttrs := a
-		// Strip attributes but set Metadata to the weight.
-		aNoAttrs.Attributes = nil
-		w := weightedroundrobin.GetAddrInfo(a).Weight
-		if w == 0 {
-			// If weight is not set, use 1.
-			w = 1
-		}
-		aNoAttrs.Metadata = w
-		addrsSet[aNoAttrs] = struct{}{}
-		if scInfo, ok := b.subConns[aNoAttrs]; !ok {
-			// When creating SubConn, the original address with attributes is
-			// passed through. So that connection configurations in attributes
-			// (like creds) will be used.
-			sc, err := b.cc.NewSubConn([]resolver.Address{a}, balancer.NewSubConnOptions{HealthCheckEnabled: true})
+	// addrsSet is the set converted from addrs, used for quick lookup.
+	addrsSet := resolver.NewAddressMap()
+	for _, addr := range addrs {
+		addrsSet.Set(addr, true)
+		newWeight := getWeightAttribute(addr)
+		if val, ok := b.subConns.Get(addr); !ok {
+			sc, err := b.cc.NewSubConn([]resolver.Address{addr}, balancer.NewSubConnOptions{HealthCheckEnabled: true})
 			if err != nil {
 				logger.Warningf("base.baseBalancer: failed to create new SubConn: %v", err)
 				continue
 			}
-			scs := &subConn{addr: a.Addr, sc: sc}
+			scs := &subConn{addr: addr.Addr, weight: newWeight, sc: sc}
 			scs.setState(connectivity.Idle)
 			b.state = b.csEvltr.recordTransition(connectivity.Shutdown, connectivity.Idle)
-			b.subConns[aNoAttrs] = scs
+			b.subConns.Set(addr, scs)
 			b.scStates[sc] = scs
 			addrsUpdated = true
 		} else {
-			// Always update the subconn's address in case the attributes
-			// changed. The SubConn does a reflect.DeepEqual of the new and old
-			// addresses. So this is a noop if the current address is the same
-			// as the old one (including attributes).
-			b.subConns[aNoAttrs] = scInfo
-			b.cc.UpdateAddresses(scInfo.sc, []resolver.Address{a})
+			// We have seen this address before and created a subConn for it. If the
+			// weight associated with the address has changed, update the subConns map
+			// with the new weight. This will be used when a new ring is created.
+			//
+			// There is no need to call UpdateAddresses on the subConn at this point
+			// since *only* the weight attribute has changed, and that does not affect
+			// subConn uniqueness.
+			scInfo := val.(*subConn)
+			if oldWeight := scInfo.weight; oldWeight != newWeight {
+				scInfo.weight = newWeight
+				b.subConns.Set(addr, scInfo)
+				// Return true to force recreation of the ring.
+				addrsUpdated = true
+			}
 		}
 	}
-	for a, scInfo := range b.subConns {
-		// a was removed by resolver.
-		if _, ok := addrsSet[a]; !ok {
+	for _, addr := range b.subConns.Keys() {
+		// addr was removed by resolver.
+		if _, ok := addrsSet.Get(addr); !ok {
+			v, _ := b.subConns.Get(addr)
+			scInfo := v.(*subConn)
 			b.cc.RemoveSubConn(scInfo.sc)
-			delete(b.subConns, a)
+			b.subConns.Delete(addr)
 			addrsUpdated = true
 			// Keep the state of this sc in b.scStates until sc's state becomes Shutdown.
 			// The entry will be deleted in UpdateSubConnState.
@@ -267,29 +259,22 @@ func (b *ringhashBalancer) updateAddresses(addrs []resolver.Address) bool {
 
 func (b *ringhashBalancer) UpdateClientConnState(s balancer.ClientConnState) error {
 	b.logger.Infof("Received update from resolver, balancer config: %+v", pretty.ToJSON(s.BalancerConfig))
-	if b.config == nil {
-		newConfig, ok := s.BalancerConfig.(*LBConfig)
-		if !ok {
-			return fmt.Errorf("unexpected balancer config with type: %T", s.BalancerConfig)
-		}
-		b.config = newConfig
+	newConfig, ok := s.BalancerConfig.(*LBConfig)
+	if !ok {
+		return fmt.Errorf("unexpected balancer config with type: %T", s.BalancerConfig)
 	}
 
-	// Successful resolution; clear resolver error and ensure we return nil.
-	b.resolverErr = nil
-	if b.updateAddresses(s.ResolverState.Addresses) {
-		// If addresses were updated, no matter whether it resulted in SubConn
-		// creation/deletion, or just weight update, we will need to regenerate
-		// the ring.
-		var err error
-		b.ring, err = newRing(b.subConns, b.config.MinRingSize, b.config.MaxRingSize)
-		if err != nil {
-			b.ResolverError(fmt.Errorf("ringhash failed to make a new ring: %v", err))
-			return balancer.ErrBadResolverState
-		}
-		b.regeneratePicker()
-		b.cc.UpdateState(balancer.State{ConnectivityState: b.state, Picker: b.picker})
+	// If addresses were updated, whether it resulted in SubConn
+	// creation/deletion, or just weight update, we need to regenerate the ring
+	// and send a new picker.
+	regenerateRing := b.updateAddresses(s.ResolverState.Addresses)
+
+	// If the ring configuration has changed, we need to regenerate the ring and
+	// send a new picker.
+	if b.config == nil || b.config.MinRingSize != newConfig.MinRingSize || b.config.MaxRingSize != newConfig.MaxRingSize {
+		regenerateRing = true
 	}
+	b.config = newConfig
 
 	// If resolver state contains no addresses, return an error so ClientConn
 	// will trigger re-resolve. Also records this as an resolver error, so when
@@ -299,12 +284,23 @@ func (b *ringhashBalancer) UpdateClientConnState(s balancer.ClientConnState) err
 		b.ResolverError(errors.New("produced zero addresses"))
 		return balancer.ErrBadResolverState
 	}
+
+	if regenerateRing {
+		// Ring creation is guaranteed to not fail because we call newRing()
+		// with a non-empty subConns map.
+		b.ring = newRing(b.subConns, b.config.MinRingSize, b.config.MaxRingSize)
+		b.regeneratePicker()
+		b.cc.UpdateState(balancer.State{ConnectivityState: b.state, Picker: b.picker})
+	}
+
+	// Successful resolution; clear resolver error and return nil.
+	b.resolverErr = nil
 	return nil
 }
 
 func (b *ringhashBalancer) ResolverError(err error) {
 	b.resolverErr = err
-	if len(b.subConns) == 0 {
+	if b.subConns.Len() == 0 {
 		b.state = connectivity.TransientFailure
 	}
 
@@ -392,7 +388,8 @@ func (b *ringhashBalancer) UpdateSubConnState(sc balancer.SubConn, state balance
 		// attempting to connect, we need to trigger one. But since the deleted
 		// SubConn will eventually send a shutdown update, this code will run
 		// and trigger the next SubConn to connect.
-		for _, sc := range b.subConns {
+		for _, v := range b.subConns.Values() {
+			sc := v.(*subConn)
 			if sc.isAttemptingToConnect() {
 				return
 			}
@@ -484,4 +481,19 @@ func (cse *connectivityStateEvaluator) recordTransition(oldState, newState conne
 		return connectivity.Idle
 	}
 	return connectivity.TransientFailure
+}
+
+// getWeightAttribute is a convenience function which returns the value of the
+// weight attribute stored in the BalancerAttributes field of addr, using the
+// weightedroundrobin package.
+//
+// When used in the xDS context, the weight attribute is guaranteed to be
+// non-zero. But, when used in a non-xDS context, the weight attribute could be
+// unset. A Default of 1 is used in the latter case.
+func getWeightAttribute(addr resolver.Address) uint32 {
+	w := weightedroundrobin.GetAddrInfo(addr).Weight
+	if w == 0 {
+		return 1
+	}
+	return w
 }
