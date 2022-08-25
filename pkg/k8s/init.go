@@ -11,10 +11,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -28,11 +28,12 @@ const (
 	nodeRetrievalMaxRetries = 15
 )
 
-type nodeGetter interface {
+type k8sGetter interface {
 	GetK8sNode(ctx context.Context, nodeName string) (*corev1.Node, error)
+	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
-func waitForNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeName string) *nodeTypes.Node {
+func waitForNodeInformation(ctx context.Context, k8sGetter k8sGetter, nodeName string) *nodeTypes.Node {
 	backoff := backoff.Exponential{
 		Min:    time.Duration(200) * time.Millisecond,
 		Max:    2 * time.Minute,
@@ -41,7 +42,7 @@ func waitForNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeName
 	}
 
 	for retry := 0; retry < nodeRetrievalMaxRetries; retry++ {
-		n, err := retrieveNodeInformation(ctx, nodeGetter, nodeName)
+		n, err := retrieveNodeInformation(ctx, k8sGetter, nodeName)
 		if err != nil {
 			log.WithError(err).Warning("Waiting for k8s node information")
 			backoff.Wait(ctx)
@@ -54,7 +55,7 @@ func waitForNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeName
 	return nil
 }
 
-func retrieveNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeName string) (*nodeTypes.Node, error) {
+func retrieveNodeInformation(ctx context.Context, nodeGetter k8sGetter, nodeName string) (*nodeTypes.Node, error) {
 	requireIPv4CIDR := option.Config.K8sRequireIPv4PodCIDR
 	requireIPv6CIDR := option.Config.K8sRequireIPv6PodCIDR
 	// At this point it's not clear whether the device auto-detection will
@@ -65,7 +66,7 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeNam
 	var n *nodeTypes.Node
 
 	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
-		ciliumNode, err := CiliumClient().CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})
+		ciliumNode, err := nodeGetter.GetCiliumNode(ctx, nodeName)
 		if err != nil {
 			// If no CIDR is required, retrieving the node information is
 			// optional
@@ -130,9 +131,9 @@ func useNodeCIDR(n *nodeTypes.Node) {
 
 // WaitForNodeInformation retrieves the node information via the CiliumNode or
 // Kubernetes Node resource. This function will block until the information is
-// received. nodeGetter is a function used to retrieved the node from either
+// received. k8sGetter is a function used to retrieve the node from either
 // the kube-apiserver or a local cache, depending on the caller.
-func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
+func WaitForNodeInformation(ctx context.Context, k8sGetter k8sGetter) error {
 	// Use of the environment variable overwrites the node-name
 	// automatically derived
 	nodeName := nodeTypes.GetName()
@@ -146,7 +147,7 @@ func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
 		return nil
 	}
 
-	if n := waitForNodeInformation(ctx, nodeGetter, nodeName); n != nil {
+	if n := waitForNodeInformation(ctx, k8sGetter, nodeName); n != nil {
 		nodeIP4 := n.GetNodeIP(false)
 		nodeIP6 := n.GetNodeIP(true)
 

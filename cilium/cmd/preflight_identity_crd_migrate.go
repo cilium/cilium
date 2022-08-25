@@ -201,13 +201,21 @@ func migrateIdentities(clientset k8sClient.Clientset, shutdowner hive.Shutdowner
 	return nil
 }
 
+type NodeGetter struct {
+	*k8s.K8sClient
+	*k8s.K8sCiliumClient
+}
+
 // initK8s connects to k8s with a allocator.Backend and an initialized
 // allocator.Allocator, using the k8s config passed into the command.
 func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
 
 	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
-	if err := k8s.WaitForNodeInformation(ctx, k8s.Client()); err != nil {
+	if err := k8s.WaitForNodeInformation(ctx, &NodeGetter{
+		K8sClient:       k8s.Client(),
+		K8sCiliumClient: k8s.CiliumClient(),
+	}); err != nil {
 		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 	}
 
