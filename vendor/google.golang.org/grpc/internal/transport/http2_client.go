@@ -78,7 +78,6 @@ type http2Client struct {
 	framer *framer
 	// controlBuf delivers all the control related tasks (e.g., window
 	// updates, reset streams, and various settings) to the controller.
-	// Do not access controlBuf with mu held.
 	controlBuf *controlBuffer
 	fc         *trInFlow
 	// The scheme used: https if TLS is on, http otherwise.
@@ -110,7 +109,6 @@ type http2Client struct {
 	waitingStreams        uint32
 	nextID                uint32
 
-	// Do not access controlBuf with mu held.
 	mu            sync.Mutex // guard the following variables
 	state         transportState
 	activeStreams map[uint32]*Stream
@@ -687,6 +685,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (*Stream,
 				cleanup(err)
 				return err
 			}
+			t.activeStreams[id] = s
 			if channelz.IsOn() {
 				atomic.AddInt64(&t.czData.streamsStarted, 1)
 				atomic.StoreInt64(&t.czData.lastStreamCreatedTime, time.Now().UnixNano())
@@ -720,13 +719,6 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (*Stream,
 		t.nextID += 2
 		s.id = h.streamID
 		s.fc = &inFlow{limit: uint32(t.initialWindowSize)}
-		t.mu.Lock()
-		if t.activeStreams == nil { // Can be niled from Close().
-			t.mu.Unlock()
-			return false // Don't create a stream if the transport is already closed.
-		}
-		t.activeStreams[s.id] = s
-		t.mu.Unlock()
 		if t.streamQuota > 0 && t.waitingStreams > 0 {
 			select {
 			case t.streamsQuotaAvailable <- struct{}{}:
@@ -752,7 +744,13 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (*Stream,
 	}
 	for {
 		success, err := t.controlBuf.executeAndPut(func(it interface{}) bool {
-			return checkForHeaderListSize(it) && checkForStreamQuota(it)
+			if !checkForStreamQuota(it) {
+				return false
+			}
+			if !checkForHeaderListSize(it) {
+				return false
+			}
+			return true
 		}, hdr)
 		if err != nil {
 			// Connection closed.
@@ -1005,13 +1003,13 @@ func (t *http2Client) updateWindow(s *Stream, n uint32) {
 // for the transport and the stream based on the current bdp
 // estimation.
 func (t *http2Client) updateFlowControl(n uint32) {
+	t.mu.Lock()
+	for _, s := range t.activeStreams {
+		s.fc.newLimit(n)
+	}
+	t.mu.Unlock()
 	updateIWS := func(interface{}) bool {
 		t.initialWindowSize = int32(n)
-		t.mu.Lock()
-		for _, s := range t.activeStreams {
-			s.fc.newLimit(n)
-		}
-		t.mu.Unlock()
 		return true
 	}
 	t.controlBuf.executeAndPut(updateIWS, &outgoingWindowUpdate{streamID: 0, increment: t.fc.newLimit(n)})
@@ -1217,7 +1215,7 @@ func (t *http2Client) handleGoAway(f *http2.GoAwayFrame) {
 	default:
 		t.setGoAwayReason(f)
 		close(t.goAway)
-		defer t.controlBuf.put(&incomingGoAway{}) // Defer as t.mu is currently held.
+		t.controlBuf.put(&incomingGoAway{})
 		// Notify the clientconn about the GOAWAY before we set the state to
 		// draining, to allow the client to stop attempting to create streams
 		// before disallowing new streams on this connection.

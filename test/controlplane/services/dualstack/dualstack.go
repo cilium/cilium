@@ -8,9 +8,8 @@ import (
 	"path"
 	"testing"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane/services/helpers"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
@@ -25,9 +24,9 @@ func testDualStack(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	modConfig := func(daemonCfg *agentOption.DaemonConfig, _ *operatorOption.OperatorConfig) {
-		daemonCfg.EnableIPv6 = true
-		daemonCfg.EnableNodePort = true
+	modConfig := func(c *option.DaemonConfig) {
+		c.EnableIPv6 = true
+		c.EnableNodePort = true
 	}
 
 	for _, version := range []string{"1.20", "1.22", "1.24"} {
@@ -39,8 +38,7 @@ func testDualStack(t *testing.T) {
 			// Feed in initial state and start the agent.
 			test.
 				UpdateObjectsFromFile(abs("init.yaml")).
-				SetupEnvironment(modConfig).
-				StartAgent().
+				StartAgent(modConfig).
 				UpdateObjectsFromFile(abs("state1.yaml")).
 				Eventually(func() error { return validate(abs("lbmap1.golden"), test) }).
 				StopAgent()

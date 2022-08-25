@@ -6,7 +6,6 @@ package controlplane
 import (
 	"testing"
 
-	_ "github.com/cilium/cilium/test/controlplane/identities"
 	_ "github.com/cilium/cilium/test/controlplane/node"
 	_ "github.com/cilium/cilium/test/controlplane/node/ciliumnodes"
 	_ "github.com/cilium/cilium/test/controlplane/services/dualstack"

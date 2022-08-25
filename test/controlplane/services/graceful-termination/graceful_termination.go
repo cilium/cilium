@@ -8,8 +8,7 @@ import (
 	"path"
 	"testing"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
-	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane/services/helpers"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
@@ -27,8 +26,8 @@ func testGracefulTermination(t *testing.T) {
 
 	abs := func(f string) string { return path.Join(cwd, "services", "graceful-termination", f) }
 
-	modConfig := func(daemonCfg *agentOption.DaemonConfig, _ *operatorOption.OperatorConfig) {
-		daemonCfg.EnableK8sTerminatingEndpoint = true
+	modConfig := func(c *option.DaemonConfig) {
+		c.EnableK8sTerminatingEndpoint = true
 	}
 
 	test := suite.NewControlPlaneTest(t, "graceful-term-control-plane", "1.22")
@@ -37,8 +36,7 @@ func testGracefulTermination(t *testing.T) {
 	// Feed in initial state and start the agent.
 	test.
 		UpdateObjectsFromFile(abs("init.yaml")).
-		SetupEnvironment(modConfig).
-		StartAgent().
+		StartAgent(modConfig).
 
 		// Step 1: Initial creation of the services and backends
 		// lbmap1.golden: Shows graceful-term-svc service with an active backend

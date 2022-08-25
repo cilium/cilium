@@ -345,9 +345,5 @@ func init() {
 	flags.StringSlice(operatorOption.IngressLBAnnotations, operatorOption.IngressLBAnnotationsDefault, "IngressLBAnnotations are the annotations which are needed to propagate from Ingress to the Load Balancer")
 	regOpts.BindEnv(operatorOption.IngressLBAnnotations)
 
-	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
-	flags.MarkHidden(option.KVstoreLeaseTTL)
-	regOpts.BindEnv(option.KVstoreLeaseTTL)
-
 	Vp.BindPFlags(flags)
 }

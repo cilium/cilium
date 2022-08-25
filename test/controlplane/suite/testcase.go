@@ -4,7 +4,7 @@
 package suite
 
 import (
-	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -19,27 +19,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	versionapi "k8s.io/apimachinery/pkg/version"
+	"k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	k8sTesting "k8s.io/client-go/testing"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/operator/watchers"
-	"github.com/cilium/cilium/pkg/k8s/version"
-	agentOption "github.com/cilium/cilium/pkg/option"
-
-	agentCmd "github.com/cilium/cilium/daemon/cmd"
-	operatorCmd "github.com/cilium/cilium/operator/cmd"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	fakeCilium "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	fakeSlim "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
-	"github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -52,13 +41,12 @@ type trackerAndDecoder struct {
 }
 
 type ControlPlaneTest struct {
-	t              *testing.T
-	nodeName       string
-	clients        fakeClients
-	trackers       []trackerAndDecoder
-	agentHandle    *agentHandle
-	operatorHandle *operatorHandle
-	Datapath       *fakeDatapath.FakeDatapath
+	t           *testing.T
+	nodeName    string
+	clients     fakeClients
+	trackers    []trackerAndDecoder
+	agentHandle *agentHandle
+	Datapath    *fakeDatapath.FakeDatapath
 }
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
@@ -91,51 +79,11 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 	}
 }
 
-// SetupEnvironment sets the fake k8s clients and the mock FQDN proxy required for control-plane testing.
-// Then, it loads the defaults values for both the daemon and the operator configurations.
-// Finally, it calls modConfig to overwrite testcase specific options values.
-func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.DaemonConfig, *operatorOption.OperatorConfig)) *ControlPlaneTest {
-	types.SetName(cpt.nodeName)
-
-	// Configure k8s and perform capability detection with the fake client.
-	k8s.Configure("dummy", "dummy", 10.0, 10)
-	version.Update(cpt.clients.core, &k8sConfig{})
-	k8s.SetClients(cpt.clients.core, cpt.clients.slim, cpt.clients.cilium, cpt.clients.apiext)
-
-	proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
-
-	agentOption.Config.Populate(agentCmd.Vp)
-	agentOption.Config.IdentityAllocationMode = agentOption.IdentityAllocationModeCRD
-	agentOption.Config.DryMode = true
-	agentOption.Config.IPAM = ipamOption.IPAMKubernetes
-	agentOption.Config.Opts = agentOption.NewIntOptions(&agentOption.DaemonMutableOptionLibrary)
-	agentOption.Config.Opts.SetBool(agentOption.DropNotify, true)
-	agentOption.Config.Opts.SetBool(agentOption.TraceNotify, true)
-	agentOption.Config.Opts.SetBool(agentOption.PolicyVerdictNotify, true)
-	agentOption.Config.Opts.SetBool(agentOption.Debug, true)
-	agentOption.Config.EnableIPSec = false
-	agentOption.Config.EnableIPv6 = false
-	agentOption.Config.KubeProxyReplacement = agentOption.KubeProxyReplacementStrict
-	agentOption.Config.EnableHostIPRestore = false
-	agentOption.Config.K8sRequireIPv6PodCIDR = false
-	agentOption.Config.K8sEnableK8sEndpointSlice = true
-	agentOption.Config.EnableL7Proxy = false
-	agentOption.Config.EnableHealthCheckNodePort = false
-	agentOption.Config.Debug = true
-
-	operatorOption.Config.Populate(operatorCmd.Vp)
-
-	// Apply the test specific configuration
-	modConfig(agentOption.Config, operatorOption.Config)
-
-	return cpt
-}
-
-func (cpt *ControlPlaneTest) StartAgent() *ControlPlaneTest {
+func (cpt *ControlPlaneTest) StartAgent(modConfig func(*option.DaemonConfig)) *ControlPlaneTest {
 	if cpt.agentHandle != nil {
 		cpt.t.Fatal("StartAgent() already called")
 	}
-	datapath, agentHandle, err := startCiliumAgent(cpt.nodeName, cpt.clients)
+	datapath, agentHandle, err := startCiliumAgent(cpt.nodeName, cpt.clients, modConfig)
 	if err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
@@ -148,28 +96,6 @@ func (cpt *ControlPlaneTest) StopAgent() {
 	cpt.agentHandle.tearDown()
 	cpt.agentHandle = nil
 	cpt.Datapath = nil
-}
-
-func (cpt *ControlPlaneTest) StartOperator() *ControlPlaneTest {
-	if cpt.operatorHandle != nil {
-		cpt.t.Fatal("StartOperator() already called")
-	}
-
-	operatorCmd.ResetCiliumNodesCacheSyncedStatus()
-	watchers.PodStoreSynced = make(chan struct{})
-	watchers.UnmanagedPodStoreSynced = make(chan struct{})
-
-	context, cancel := context.WithCancel(context.Background())
-	cpt.operatorHandle = &operatorHandle{
-		cancel: cancel,
-	}
-	operatorCmd.OnOperatorStartLeading(context)
-	return cpt
-}
-
-func (cpt *ControlPlaneTest) StopOperator() {
-	cpt.operatorHandle.tearDown()
-	cpt.operatorHandle = nil
 }
 
 func (cpt *ControlPlaneTest) UpdateObjects(objs ...k8sRuntime.Object) *ControlPlaneTest {
@@ -230,16 +156,12 @@ func (cpt *ControlPlaneTest) UpdateObjects(objs ...k8sRuntime.Object) *ControlPl
 // The first match will be returned.
 // If the object cannot be found, a non nil error is returned.
 func (cpt *ControlPlaneTest) Get(gvr schema.GroupVersionResource, ns, name string) (k8sRuntime.Object, error) {
-	var (
-		obj k8sRuntime.Object
-		err error
-	)
 	for _, td := range cpt.trackers {
-		if obj, err = td.tracker.Get(gvr, ns, name); err == nil {
+		if obj, err := td.tracker.Get(gvr, ns, name); err == nil {
 			return obj, nil
 		}
 	}
-	return nil, err
+	return nil, errors.New("k8s object not found")
 }
 
 func (cpt *ControlPlaneTest) UpdateObjectsFromFile(filename string) *ControlPlaneTest {
@@ -278,13 +200,6 @@ func (cpt *ControlPlaneTest) Eventually(check func() error) *ControlPlaneTest {
 	return cpt
 }
 
-func (cpt *ControlPlaneTest) Execute(task func() error) *ControlPlaneTest {
-	if err := task(); err != nil {
-		cpt.t.Fatal(err)
-	}
-	return cpt
-}
-
 func retryUptoDuration(act func() error, maxDuration time.Duration) error {
 	wait := 50 * time.Millisecond
 	end := time.Now().Add(maxDuration)
@@ -301,9 +216,9 @@ func retryUptoDuration(act func() error, maxDuration time.Duration) error {
 	return act()
 }
 
-func toVersionInfo(rawVersion string) *versionapi.Info {
+func toVersionInfo(rawVersion string) *version.Info {
 	parts := strings.Split(rawVersion, ".")
-	return &versionapi.Info{Major: parts[0], Minor: parts[1]}
+	return &version.Info{Major: parts[0], Minor: parts[1]}
 }
 
 func gvrAndName(obj k8sRuntime.Object) (gvr schema.GroupVersionResource, ns string, name string) {

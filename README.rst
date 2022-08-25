@@ -24,6 +24,7 @@ implement security, networking and visibility logic. eBPF is highly efficient
 and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
 .. image:: Documentation/images/cilium-overview.png
+   :alt: Overview of Cilium features for networking, observability, service mesh, and runtime security
     :align: center
 
 Stable Releases
