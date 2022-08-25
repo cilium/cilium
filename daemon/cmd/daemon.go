@@ -677,7 +677,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 		d.k8sWatcher.RegisterNodeSubscriber(&d.k8sWatcher.K8sSvcCache)
 	}
 
-	d.k8sWatcher.NodeChain.Register(watchers.NewCiliumNodeUpdater(d.k8sWatcher, d.nodeDiscovery))
+	// watchers.NewCiliumNodeUpdater needs to be registered *after* d.endpointManager
+	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.nodeDiscovery))
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
