@@ -5,21 +5,13 @@ package watchers
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/source"
 
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,11 +28,11 @@ var (
 	onceNodeInitStart sync.Once
 )
 
-// The KVStoreNodeUpdater interface is used to provide an abstraction for the
+// The NodeUpdate interface is used to provide an abstraction for the
 // nodediscovery.NodeDiscovery object logic used to update a node entry in the
-// KV store.
-type KVStoreNodeUpdater interface {
-	UpdateKVNodeEntry(node *nodeTypes.Node) error
+// KVStore and the k8s CiliumNode.
+type NodeUpdate interface {
+	UpdateLocalNode()
 }
 
 func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
@@ -122,25 +114,26 @@ func (k *K8sWatcher) GetK8sNode(_ context.Context, nodeName string) (*v1.Node, e
 // ciliumNodeUpdater implements the subscriber.Node interface and is used
 // to keep CiliumNode objects in sync with the node ones.
 type ciliumNodeUpdater struct {
-	k8sWatcher         *K8sWatcher
-	kvStoreNodeUpdater KVStoreNodeUpdater
+	kvStoreNodeUpdater NodeUpdate
 }
 
-func NewCiliumNodeUpdater(k8sWatcher *K8sWatcher, kvStoreNodeUpdater KVStoreNodeUpdater) *ciliumNodeUpdater {
+func NewCiliumNodeUpdater(kvStoreNodeUpdater NodeUpdate) *ciliumNodeUpdater {
 	return &ciliumNodeUpdater{
-		k8sWatcher:         k8sWatcher,
 		kvStoreNodeUpdater: kvStoreNodeUpdater,
 	}
 }
 
 func (u *ciliumNodeUpdater) OnAddNode(newNode *v1.Node, swg *lock.StoppableWaitGroup) error {
-	u.updateCiliumNode(u.kvStoreNodeUpdater, newNode)
-
+	// We don't need to run OnAddNode because Cilium will fetch the state from
+	// k8s upon initialization and will populate the KVStore [1] node with this
+	// information or create a Cilium Node CR [2].
+	// [1] https://github.com/cilium/cilium/blob/2bea69a54a00f10bec093347900cc66395269154/daemon/cmd/daemon.go#L1102
+	// [2] https://github.com/cilium/cilium/blob/2bea69a54a00f10bec093347900cc66395269154/daemon/cmd/daemon.go#L864-L868
 	return nil
 }
 
 func (u *ciliumNodeUpdater) OnUpdateNode(oldNode, newNode *v1.Node, swg *lock.StoppableWaitGroup) error {
-	u.updateCiliumNode(u.kvStoreNodeUpdater, newNode)
+	u.updateCiliumNode(newNode)
 
 	return nil
 }
@@ -149,49 +142,13 @@ func (u *ciliumNodeUpdater) OnDeleteNode(*v1.Node, *lock.StoppableWaitGroup) err
 	return nil
 }
 
-func (u *ciliumNodeUpdater) updateCiliumNode(kvStoreNodeUpdater KVStoreNodeUpdater, node *v1.Node) {
-	var (
-		controllerName = fmt.Sprintf("sync-node-with-ciliumnode (%v)", node.Name)
-
-		nodeSlim      = k8s.ConvertToNode(node.DeepCopy()).(*slim_corev1.Node)
-		k8sNodeParsed = k8s.ParseNode(nodeSlim, source.Local)
-	)
-
-	k8sNodeParsed.NodeIdentity = uint32(identity.ReservedIdentityHost)
-
-	doFunc := func(ctx context.Context) (err error) {
-		if option.Config.KVStore != "" && !option.Config.JoinCluster {
-			return kvStoreNodeUpdater.UpdateKVNodeEntry(k8sNodeParsed)
-		} else {
-			u.k8sWatcher.ciliumNodeStoreMU.RLock()
-			defer u.k8sWatcher.ciliumNodeStoreMU.RUnlock()
-
-			if u.k8sWatcher.ciliumNodeStore == nil {
-				return errors.New("CiliumNode cache store not yet initialized")
-			}
-
-			ciliumNodeInterface, exists, err := u.k8sWatcher.ciliumNodeStore.GetByKey(node.Name)
-			if err != nil {
-				return fmt.Errorf("failed to get CiliumNode resource from cache store: %w", err)
-			}
-			if !exists {
-				return nil
-			}
-
-			ciliumNode := ciliumNodeInterface.(*ciliumv2.CiliumNode).DeepCopy()
-
-			ciliumNode.Labels = node.GetLabels()
-
-			if _, err = k8s.CiliumClient().CiliumV2().CiliumNodes().Update(ctx, ciliumNode, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("failed to update CiliumNode labels: %w", err)
-			}
-		}
-
-		return nil
+func (u *ciliumNodeUpdater) updateCiliumNode(node *v1.Node) {
+	if node.Name != nodeTypes.GetName() {
+		// The cilium node updater should only update the information relevant
+		// to itself. It should not update any of the other nodes.
+		log.Errorf("BUG: trying to update node %q while we should only update for %q", node.Name, nodeTypes.GetName())
+		return
 	}
 
-	k8sCM.UpdateController(controllerName,
-		controller.ControllerParams{
-			DoFunc: doFunc,
-		})
+	u.kvStoreNodeUpdater.UpdateLocalNode()
 }
