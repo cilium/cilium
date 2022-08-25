@@ -260,7 +260,7 @@ func (b *priorityBalancer) run() {
 				b.handleChildStateUpdate(s.name, s.s)
 			case resumePickerUpdates:
 				b.inhibitPickerUpdates = false
-				b.syncPriority("")
+				b.syncPriority(b.childInUse)
 				close(s.done)
 			}
 			b.mu.Unlock()

@@ -33,7 +33,9 @@ import (
 	v3statusgrpc "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/credentials/tls/certprovider/pemfile" // Register the file watcher certificate provider plugin.
+	"google.golang.org/grpc/internal"
 	internaladmin "google.golang.org/grpc/internal/admin"
+	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/xds/csds"
 	_ "google.golang.org/grpc/xds/internal/balancer"                        // Register the balancers.
 	_ "google.golang.org/grpc/xds/internal/clusterspecifier/rls"            // Register the RLS cluster specifier plugin. Note that this does not register the RLS LB policy.
@@ -72,4 +74,22 @@ func init() {
 		v3statusgrpc.RegisterClientStatusDiscoveryServiceServer(grpcServer, csdss)
 		return csdss.Close, nil
 	})
+}
+
+// NewXDSResolverWithConfigForTesting creates a new xDS resolver builder using
+// the provided xDS bootstrap config instead of the global configuration from
+// the supported environment variables.  The resolver.Builder is meant to be
+// used in conjunction with the grpc.WithResolvers DialOption.
+//
+// Testing Only
+//
+// This function should ONLY be used for testing and may not work with some
+// other features, including the CSDS service.
+//
+// Experimental
+//
+// Notice: This API is EXPERIMENTAL and may be changed or removed in a
+// later release.
+func NewXDSResolverWithConfigForTesting(bootstrapConfig []byte) (resolver.Builder, error) {
+	return internal.NewXDSResolverWithConfigForTesting.(func([]byte) (resolver.Builder, error))(bootstrapConfig)
 }
