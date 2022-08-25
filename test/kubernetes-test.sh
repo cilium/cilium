@@ -83,8 +83,11 @@ export KUBE_MASTER_IP=192.168.56.11
 export KUBE_MASTER_URL="https://192.168.56.11:6443"
 
 echo "Running upstream services conformance tests"
+# We currently skip the following tests:
+# - HostPort validates that there is no conflict between pods with same hostPort but different hostIP and protocol
+#   - https://github.com/cilium/cilium/issues/21060
 ${HOME}/go/bin/kubetest --provider=local --test \
-  --test_args="--ginkgo.focus=HostPort.*\[Conformance\].* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
+  --test_args="--ginkgo.focus=HostPort.*\[Conformance\].* --ginkgo.skip=(HostPort.validates.that.there.is.no.conflict.between.pods.with.same.hostPort.but.different.hostIP.and.protocol) --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
 ${HOME}/go/bin/kubetest --provider=local --test \
   --test_args="--ginkgo.focus=Services.*\[Conformance\].* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
 
