@@ -185,9 +185,16 @@ func processNextCiliumPodItem(c kubernetes.Interface, nodeGetter slimNodeGetter,
 func isCiliumPodRunning(nodeName string) bool {
 	ciliumPodsInNode, err := ciliumPodsStore.ByIndex(hostnameIndexer, nodeName)
 	if err != nil {
+		log.WithError(err).Error("error when retrieving node from store %s", hostnameIndexer)
 		return false
 	}
 	if len(ciliumPodsInNode) == 0 {
+		log.Debugf("cilium pods not found in %s", hostnameIndexer)
+		for _, ciliumPodInterface := range ciliumPodsStore.List() {
+			ciliumPod := ciliumPodInterface.(*slim_corev1.Pod)
+			log.Debugf("cilium-pod=%s - node-name=%s", ciliumPod.Name, ciliumPod.Spec.NodeName)
+		}
+
 		return false
 	}
 	for _, ciliumPodInterface := range ciliumPodsInNode {
@@ -195,6 +202,7 @@ func isCiliumPodRunning(nodeName string) bool {
 		if k8sUtils.GetLatestPodReadiness(ciliumPod.Status) == slim_corev1.ConditionTrue {
 			return true
 		}
+		log.Debugf("cilium %s not ready %+v", ciliumPod.Name, ciliumPod.Status)
 	}
 	return false
 }
