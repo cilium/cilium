@@ -227,7 +227,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       # Checkout source code to install Cilium using local Helm chart.
@@ -242,10 +242,10 @@ jobs:
           cd install/kubernetes
           helm install cilium ./cilium \
             --namespace kube-system \
-            --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --set image.repository=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --set image.tag=${{ steps.vars.outputs.sha }} \
             --set image.useDigest=false \
-            --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --set operator.image.repository=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/operator \
             --set operator.image.suffix="-ci" \
             --set operator.image.tag=${{ steps.vars.outputs.sha }} \
             --set operator.image.useDigest=false \
@@ -263,7 +263,7 @@ jobs:
             --namespace kube-system \
             --reuse-values \
             --set hubble.relay.enabled=true \
-            --set hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --set hubble.relay.image.repository=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --set hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
             --set hubble.relay.image.useDigest=false
 
