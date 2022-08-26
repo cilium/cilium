@@ -95,11 +95,11 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/ini.v1 v1.66.6
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.24.2
-	k8s.io/apiextensions-apiserver v0.24.2
-	k8s.io/apimachinery v0.24.2
-	k8s.io/client-go v0.24.2
-	k8s.io/code-generator v0.24.2
+	k8s.io/api v0.24.4
+	k8s.io/apiextensions-apiserver v0.24.4
+	k8s.io/apimachinery v0.24.4
+	k8s.io/client-go v0.24.4
+	k8s.io/code-generator v0.24.4
 	k8s.io/klog/v2 v2.60.1
 	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
@@ -231,7 +231,7 @@ replace (
 
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220713202445-9066eee9e0be
 
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20220808211112-706606a736d5
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20220819140146-d9df1ee1f047
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
