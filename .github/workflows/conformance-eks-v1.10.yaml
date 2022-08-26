@@ -137,14 +137,14 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
-            --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
-            --operator-image=quay.io/${{ github.repository_owner }}/operator-aws-ci \
+            --agent-image=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --operator-image=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/operator-aws-ci \
             --version=${SHA} \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
             --base-version=v1.10.12"
-          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10.12 \
             --flow-validation=disabled"
@@ -237,7 +237,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Install Cilium

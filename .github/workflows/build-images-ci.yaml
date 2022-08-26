@@ -126,8 +126,8 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -145,8 +145,8 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest-race
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
             BASE_IMAGE=quay.io/cilium/cilium-runtime:1d9a09fa9d641346b0fac05b7d9bc620cd52e044@sha256:fc2d789ed6631d447f886164da4667592394babf2f8e9da8eb2b2dcfb9b2279b
@@ -167,8 +167,8 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-unstripped
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest-unstripped
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
           target: release
           build-args: |
             NOSTRIP=1
@@ -179,12 +179,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-unstripped@${{ steps.docker_build_ci_master_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_master_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest-unstripped@${{ steps.docker_build_ci_master_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_master_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # PR updates
       - name: CI Build ${{ matrix.name }}
@@ -197,7 +197,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -212,7 +212,7 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
             BASE_IMAGE=quay.io/cilium/cilium-runtime:1d9a09fa9d641346b0fac05b7d9bc620cd52e044@sha256:fc2d789ed6631d447f886164da4667592394babf2f8e9da8eb2b2dcfb9b2279b
@@ -230,7 +230,7 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
           target: release
           build-args: |
             NOSTRIP=1
@@ -241,9 +241,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
@@ -351,16 +351,16 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ github.sha }}
           target: release
 
       - name: CI Image Releases digests
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ github.sha }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests

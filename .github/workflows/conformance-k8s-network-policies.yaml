@@ -60,8 +60,8 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          until docker manifest inspect quay.io/${{ github.repository_owner }}/cilium-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
-          until docker manifest inspect quay.io/${{ github.repository_owner }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+          until docker manifest inspect quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+          until docker manifest inspect quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
 
       - name: Create kind cluster
         uses: helm/kind-action@d08cf6ff1575077dee99962540d77ce91c62387d
@@ -82,11 +82,11 @@ jobs:
              --set hostPort.enabled=true \
              --set bpf.masquerade=false \
              --set ipam.mode=kubernetes \
-             --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+             --set image.repository=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/cilium-ci \
              --set image.tag=${{ steps.vars.outputs.tag }} \
              --set image.pullPolicy=IfNotPresent \
              --set image.useDigest=false \
-             --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+             --set operator.image.repository=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/operator \
              --set operator.image.suffix=-ci \
              --set operator.image.tag=${{ steps.vars.outputs.tag }} \
              --set operator.image.pullPolicy=IfNotPresent \

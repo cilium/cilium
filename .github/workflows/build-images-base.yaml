@@ -57,7 +57,7 @@ jobs:
         id: tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{  steps.tag.outputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}:${{  steps.tag.outputs.tag }} &>/dev/null; then
             echo ::set-output name=exists::"true"
           else
             echo ::set-output name=exists::"false"
@@ -81,7 +81,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
+            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
 
       - name: Image Release Digest
         if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
@@ -90,7 +90,7 @@ jobs:
           mkdir -p image-digest/
           echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
-          echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
 
       - name: Upload artifact digests

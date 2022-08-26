@@ -139,17 +139,17 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.name }} \
             --chart-directory=install/kubernetes/cilium \
-            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --helm-set=image.repository=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
-            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --helm-set=operator.image.repository=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/operator \
             --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
-            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --helm-set=clustermesh.apiserver.image.tag=${SHA} \
             --helm-set=clustermesh.apiserver.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --azure-resource-group ${{ env.name }} \
             --wait=false \
@@ -157,7 +157,7 @@ jobs:
             --config monitor-aggregation=none \
             --version="
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
+            --relay-image=quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
@@ -226,7 +226,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-azure-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       # Checkout source code to install Cilium using local Helm chart.
