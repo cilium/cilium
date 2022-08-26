@@ -63,21 +63,33 @@ if [[ -n "${image}" ]]; then
   kind_cmd+=" --image ${image}"
 fi
 
-control_planes() {
-  for _ in $(seq 1 "${controlplanes}"); do
-    echo "- role: control-plane"
+node_config() {
+    local port="234$1$2"
+    local max="$3"
+
     echo "  extraMounts:"
     echo "  - hostPath: $CILIUM_ROOT"
     echo "    containerPath: /home/vagrant/go/src/github.com/cilium/cilium"
+    if [[ "${max}" -lt 10 ]]; then
+        echo "  extraPortMappings:"
+        echo "  - containerPort: 2345"
+        echo "    hostPort: $port"
+        echo "    listenAddress: \"127.0.0.1\""
+        echo "    protocol: TCP"
+    fi
+}
+
+control_planes() {
+  for i in $(seq 1 "${controlplanes}"); do
+    echo "- role: control-plane"
+    node_config "0" "$i" "${controlplanes}"
   done
 }
 
 workers() {
-  for _ in $(seq 1 "${workers}"); do
+  for i in $(seq 1 "${workers}"); do
     echo "- role: worker"
-    echo "  extraMounts:"
-    echo "  - hostPath: $CILIUM_ROOT"
-    echo "    containerPath: /home/vagrant/go/src/github.com/cilium/cilium"
+    node_config "1" "$i" "${workers}"
   done
 }
 
