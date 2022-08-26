@@ -25,7 +25,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=
     make GOARCH=${TARGETARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} \
     && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv cilium-docker /out/${TARGETOS}/${TARGETARCH}/usr/bin
 
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} as release
 # TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
