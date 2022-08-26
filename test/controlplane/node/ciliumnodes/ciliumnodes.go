@@ -94,7 +94,7 @@ func init() {
 			abs := func(f string) string { return path.Join(cwd, "node", "ciliumnodes", "v"+version, f) }
 
 			t.Run("v"+version, func(t *testing.T) {
-				test := suite.NewControlPlaneTest(t, "cilium-nodes-control-plane", version)
+				test := suite.NewControlPlaneTest(t, "cilium-nodes-worker", version)
 
 				// Feed in initial state and start the agent.
 				test.
