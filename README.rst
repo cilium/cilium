@@ -7,12 +7,17 @@
 
 |cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl|
 
-Cilium is open source software for providing and transparently securing network
-connectivity and loadbalancing between application workloads such as
-application containers or processes. Cilium operates at Layer 3/4 to provide
-traditional networking and security services as well as Layer 7 to protect and
-secure use of modern application protocols such as HTTP, gRPC and Kafka. Cilium
-is integrated into common orchestration frameworks such as Kubernetes.
+Cilium is a networking, observability, and security solution with an eBPF-based
+dataplane. It provides a simple flat Layer 3 network with the ability to span 
+multiple clusters in either a native routing or overlay mode. It is L7-protocol 
+aware and can enforce network policies on L3-L7 using an identity based security 
+model that is decoupled from network addressing.
+
+Cilium implements distributed load balancing for traffic between pods and to 
+external services, and is able to fully replace kube-proxy, using efficient 
+hash tables in eBPF allowing for almost unlimited scale. It also supports 
+advanced functionality like integrated ingress and egress gateway, bandwidth 
+management and service mesh, and provides deep network and security visibility and monitoring.
 
 A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
 supports dynamic insertion of eBPF bytecode into the Linux kernel at various
@@ -20,8 +25,8 @@ integration points such as: network IO, application sockets, and tracepoints to
 implement security, networking and visibility logic. eBPF is highly efficient
 and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
-.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/cilium_overview.png
-    :align: center
+.. image:: Documentation/images/cilium-overview.png
+   :alt: Overview of Cilium features for networking, observability, service mesh, and runtime security
 
 Stable Releases
 ===============
