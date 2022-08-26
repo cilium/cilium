@@ -519,7 +519,7 @@ kind-image: export LOCAL_OPERATOR_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)
 kind-image: ## Build cilium-dev docker image and import it into kind.
 	@$(ECHO_CHECK) kind is ready...
 	@kind get clusters >/dev/null
-	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	$(QUIET)$(MAKE) dev-docker-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_AGENT_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_AGENT_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
@@ -527,6 +527,11 @@ kind-image: ## Build cilium-dev docker image and import it into kind.
 	@echo "  DEPLOY image to kind ($(LOCAL_OPERATOR_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE)
+
+kind-image-debug: export DEBUGGER_SUFFIX=-debug
+kind-image-debug: export NOSTRIP=1
+kind-image-debug: ## Build cilium-dev docker image with a dlv debugger wrapper and import it into kind.
+	$(MAKE) kind-image
 
 precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
