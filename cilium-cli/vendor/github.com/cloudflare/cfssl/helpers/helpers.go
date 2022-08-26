@@ -39,6 +39,16 @@ const OneYear = 8760 * time.Hour
 // OneDay is a time.Duration representing a day's worth of seconds.
 const OneDay = 24 * time.Hour
 
+// DelegationUsage  is the OID for the DelegationUseage extensions
+var DelegationUsage = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 44363, 44}
+
+// DelegationExtension
+var DelegationExtension = pkix.Extension{
+	Id:       DelegationUsage,
+	Critical: false,
+	Value:    []byte{0x05, 0x00}, // ASN.1 NULL
+}
+
 // InclusiveDate returns the time.Time representation of a date - 1
 // nanosecond. This allows time.After to be used inclusively.
 func InclusiveDate(year int, month time.Month, day int) time.Time {

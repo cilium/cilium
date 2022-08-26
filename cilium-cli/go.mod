@@ -18,7 +18,7 @@ require (
 	github.com/cilium/hubble v0.10.0
 	github.com/cilium/proxy v0.0.0-20220803100640-5739e4be8ae7
 	github.com/cilium/workerpool v1.1.3
-	github.com/cloudflare/cfssl v1.6.1
+	github.com/cloudflare/cfssl v1.6.2
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/google/gops v0.3.25
 	github.com/mholt/archiver/v3 v3.5.1
@@ -235,7 +235,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.19.1 // indirect
-	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
+	golang.org/x/crypto v0.0.0-20220824171710-5757bc0c5503 // indirect
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
