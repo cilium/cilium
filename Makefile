@@ -513,20 +513,33 @@ kind: ## Create a kind cluster for Cilium development.
 kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
 
-kind-image: export DOCKER_REGISTRY=localhost:5000
-kind-image: export LOCAL_AGENT_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
-kind-image: export LOCAL_OPERATOR_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/operator:$(LOCAL_IMAGE_TAG)
-kind-image: ## Build cilium-dev docker image and import it into kind.
+.PHONY: kind-ready
+kind-ready:
 	@$(ECHO_CHECK) kind is ready...
 	@kind get clusters >/dev/null
+
+.PHONY: kind-image-agent
+kind-image-agent: export DOCKER_REGISTRY=localhost:5000
+kind-image-agent: export LOCAL_AGENT_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+kind-image-agent: kind-ready ## Build cilium-dev docker image and import it into kind.
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_AGENT_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_AGENT_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
+
+.PHONY: kind-image-operator
+kind-image-operator: export DOCKER_REGISTRY=localhost:5000
+kind-image-operator: export LOCAL_OPERATOR_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/operator:$(LOCAL_IMAGE_TAG)
+kind-image-operator: kind-ready ## Build cilium-operator-dev docker image and import it into kind.
 	$(QUIET)$(MAKE) dev-docker-operator-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_OPERATOR_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE)
+
+.PHONY: kind-image
+kind-image: ## Build cilium and operator images and import them into kind.
+	$(MAKE) kind-image-agent
+	$(MAKE) kind-image-operator
 
 precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
