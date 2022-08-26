@@ -32,18 +32,21 @@ func init() {
 		for _, version := range controlplane.K8sVersions() {
 			abs := func(f string) string { return path.Join(cwd, "services", "nodeport", "v"+version, f) }
 
-			t.Run("v"+version, func(t *testing.T) {
-				test := suite.NewControlPlaneTest(t, "nodeport-control-plane", version)
+			// Run the test from each nodes perspective.
+			for _, nodeName := range []string{"nodeport-control-plane", "nodeport-worker", "nodeport-worker2"} {
+				t.Run("v"+version+"/"+nodeName, func(t *testing.T) {
+					test := suite.NewControlPlaneTest(t, nodeName, version)
 
-				// Feed in initial state and start the agent.
-				test.
-					UpdateObjectsFromFile(abs("init.yaml")).
-					SetupEnvironment(modConfig).
-					StartAgent().
-					UpdateObjectsFromFile(abs("state1.yaml")).
-					Eventually(func() error { return validate(test, abs("lbmap1.golden")) }).
-					StopAgent()
-			})
+					// Feed in initial state and start the agent.
+					test.
+						UpdateObjectsFromFile(abs("init.yaml")).
+						SetupEnvironment(modConfig).
+						StartAgent().
+						UpdateObjectsFromFile(abs("state1.yaml")).
+						Eventually(func() error { return validate(test, abs("lbmap1_"+nodeName+".golden")) }).
+						StopAgent()
+				})
+			}
 		}
 	})
 }
