@@ -93,3 +93,20 @@ WORKDIR /home/cilium
 
 ENV INITSYSTEM="SYSTEMD"
 CMD ["/usr/bin/cilium"]
+
+#
+# Cilium debug image.
+#
+# Typical image bulids will stop above at the 'release' target, but
+# developers follow this Dockerfile to the end. Starting from a release
+# image, install delve debugger and wrap the cilium-agent binary calls
+# with a script that automatically provisions the debugger on a
+# dedicated port.
+FROM release as debug
+# TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETOS
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETARCH
+COPY --from=builder /go/bin/dlv /usr/bin/dlv
+RUN mv /usr/bin/cilium-agent /usr/bin/cilium-agent-bin
+COPY images/scripts/debug-wrapper.sh /usr/bin/cilium-agent
