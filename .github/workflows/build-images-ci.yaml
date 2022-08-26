@@ -128,6 +128,7 @@ jobs:
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+          target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
 
@@ -146,6 +147,7 @@ jobs:
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
+          target: release
           build-args: |
             BASE_IMAGE=quay.io/cilium/cilium-runtime:07d9b863089eea0adc70f97f16cbb6c72cf3f14f@sha256:93e56c8f7e7cf1e6103fe8e8b978a5ae057e501a7ac7b78b51abb3905ed6557d
             LOCKDEBUG=1
@@ -167,6 +169,7 @@ jobs:
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-unstripped
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
+          target: release
           build-args: |
             NOSTRIP=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -195,6 +198,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+          target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
 
@@ -209,6 +213,7 @@ jobs:
           platforms: linux/amd64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
+          target: release
           build-args: |
             BASE_IMAGE=quay.io/cilium/cilium-runtime:07d9b863089eea0adc70f97f16cbb6c72cf3f14f@sha256:93e56c8f7e7cf1e6103fe8e8b978a5ae057e501a7ac7b78b51abb3905ed6557d
             LOCKDEBUG=1
@@ -226,6 +231,7 @@ jobs:
           platforms: linux/amd64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
+          target: release
           build-args: |
             NOSTRIP=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -347,6 +353,7 @@ jobs:
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
+          target: release
 
       - name: CI Image Releases digests
         shell: bash
