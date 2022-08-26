@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
 
@@ -127,7 +128,7 @@ func validateIdentityGC(test *suite.ControlPlaneTest) error {
 
 func init() {
 	suite.AddTestCase("IdentityGC", func(t *testing.T) {
-		for _, version := range []string{"1.20", "1.22", "1.24"} {
+		for _, version := range controlplane.K8sVersions() {
 			test := suite.NewControlPlaneTest(t, "identity-control-plane", version)
 
 			defer test.StopAgent()

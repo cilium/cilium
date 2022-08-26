@@ -17,6 +17,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
 
@@ -90,7 +91,7 @@ func init() {
 		modConfig := func(daemonCfg *agentOption.DaemonConfig, _ *operatorOption.OperatorConfig) {
 			daemonCfg.EnableNodePort = true
 		}
-		for _, version := range []string{"1.20", "1.22", "1.24"} {
+		for _, version := range controlplane.K8sVersions() {
 			abs := func(f string) string { return path.Join(cwd, "node", "ciliumnodes", "v"+version, f) }
 
 			t.Run("v"+version, func(t *testing.T) {
