@@ -530,7 +530,7 @@ endef
 
 $(eval $(call KIND_ENV,kind-image-agent))
 kind-image-agent: kind-ready ## Build cilium-dev docker image and import it into kind.
-	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	$(QUIET)$(MAKE) dev-docker-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_AGENT_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_AGENT_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
@@ -566,6 +566,20 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 kind-check-cilium:
 	@echo "  CHECK  cilium is ready..."
 	cilium status --wait --wait-duration 1s >/dev/null 2>/dev/null
+
+# Template for kind debug targets. Parameters are:
+# $(1) agent target
+define DEBUG_KIND_TEMPLATE
+.PHONY: kind-image$(1)-debug
+kind-image$(1)-debug: export DEBUGGER_SUFFIX=-debug
+kind-image$(1)-debug: export NOSTRIP=1
+kind-image$(1)-debug: export NOOPT=1
+kind-image$(1)-debug: ## Build cilium$(1) docker image with a dlv debugger wrapper and import it into kind.
+	$(MAKE) kind-image$(1)
+endef
+
+# kind-image-agent-debug
+$(eval $(call DEBUG_KIND_TEMPLATE,-agent))
 
 precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")

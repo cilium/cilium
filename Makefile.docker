@@ -81,6 +81,9 @@ define DOCKER_IMAGE_TEMPLATE
 $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 	$(ECHO_DOCKER)$(2) $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}:$(4)
 	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3)))
+ifeq ($(5),debug)
+	@export NOSTRIP=1
+endif
 	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(2)) \
 		$(DOCKER_BUILD_FLAGS) $(DOCKER_FLAGS) \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
@@ -112,6 +115,9 @@ $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-cilium-image,images/cilium/Dockerfile
 
 # dev-docker-image
 $(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image,images/cilium/Dockerfile,cilium-dev,$(DOCKER_IMAGE_TAG),release))
+
+# dev-docker-image-debug
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image-debug,images/cilium/Dockerfile,cilium-dev,$(DOCKER_IMAGE_TAG),debug))
 
 # docker-plugin-image
 $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-plugin-image,images/cilium-docker-plugin/Dockerfile,docker-plugin,$(DOCKER_IMAGE_TAG),release))
