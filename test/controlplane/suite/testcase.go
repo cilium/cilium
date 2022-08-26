@@ -18,9 +18,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	versionapi "k8s.io/apimachinery/pkg/version"
+	"k8s.io/apimachinery/pkg/watch"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	k8sTesting "k8s.io/client-go/testing"
@@ -38,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	fakeCilium "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	fakeSlim "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -64,10 +67,10 @@ type ControlPlaneTest struct {
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
 	clients := fakeClients{
-		core:   fake.NewSimpleClientset(),
-		slim:   fakeSlim.NewSimpleClientset(),
-		cilium: fakeCilium.NewSimpleClientset(),
-		apiext: fakeApiExt.NewSimpleClientset(),
+		core:   addFieldSelection(fake.NewSimpleClientset()),
+		slim:   addFieldSelection(fakeSlim.NewSimpleClientset()),
+		cilium: addFieldSelection(fakeCilium.NewSimpleClientset()),
+		apiext: addFieldSelection(fakeApiExt.NewSimpleClientset()),
 	}
 	fd := clients.core.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.FakedServerVersion = toVersionInfo(k8sVersion)
@@ -388,3 +391,157 @@ var (
 		},
 	}
 )
+
+func matchFieldSelector(obj k8sRuntime.Object, selector fields.Selector) bool {
+	if selector == nil {
+		return true
+	}
+
+	fs := fields.Set{}
+	acc, err := meta.Accessor(obj)
+	if err != nil {
+		panic(err)
+	}
+	fs["metadata.name"] = acc.GetName()
+	fs["metadata.namespace"] = acc.GetNamespace()
+
+	// Special handling for specific objects. Only add things here that k8s api-server
+	// handles, see for example ToSelectableFields() in pkg/registry/core/pod/strategy.go
+	// of kubernetes. We don't want to end up with tests passing with fake client and
+	// failing against the real API server.
+	if pod, ok := obj.(*corev1.Pod); ok {
+		fs["spec.nodeName"] = pod.Spec.NodeName
+	}
+	if pod, ok := obj.(*slim_corev1.Pod); ok {
+		fs["spec.nodeName"] = pod.Spec.NodeName
+	}
+
+	if !selector.Matches(fs) {
+		// Check if we failed because we were trying to match a field that doesn't exist.
+		// If so, we'll panic so that an exception can be added.
+		for _, req := range selector.Requirements() {
+			if _, ok := fs[req.Field]; !ok {
+				panic(fmt.Sprintf(
+					"Unknown field selector %q!\nPlease add handling for it to matchFieldSelector() in test/controlplane/suite/testcase.go",
+					req.Field))
+			}
+		}
+		return false
+	}
+	return true
+}
+
+type fakeWithTracker interface {
+	PrependReactor(verb string, resource string, reaction k8sTesting.ReactionFunc)
+	PrependWatchReactor(resource string, reaction k8sTesting.WatchReactionFunc)
+	Tracker() k8sTesting.ObjectTracker
+}
+
+type filteringWatcher struct {
+	parent       watch.Interface
+	events       chan watch.Event
+	restrictions k8sTesting.WatchRestrictions
+}
+
+var _ watch.Interface = &filteringWatcher{}
+
+func (fw *filteringWatcher) Stop() {
+	fw.parent.Stop()
+	close(fw.events)
+	fw.events = nil
+}
+
+func (fw *filteringWatcher) ResultChan() <-chan watch.Event {
+	if fw.events != nil {
+		return fw.events
+	}
+
+	fw.events = make(chan watch.Event)
+	selector := fw.restrictions.Fields
+	go func() {
+		for event := range fw.parent.ResultChan() {
+			if matchFieldSelector(event.Object, selector) {
+				fw.events <- event
+			}
+		}
+	}()
+	return fw.events
+}
+
+func filterList(obj k8sRuntime.Object, restrictions k8sTesting.ListRestrictions) {
+	selector := restrictions.Fields
+	if selector == nil || selector.Empty() {
+		return
+	}
+
+	switch obj := obj.(type) {
+	case *corev1.NodeList:
+		items := make([]corev1.Node, 0, len(obj.Items))
+		for i := range obj.Items {
+			if matchFieldSelector(&obj.Items[i], selector) {
+				items = append(items, obj.Items[i])
+			}
+		}
+		obj.Items = items
+	case *slim_corev1.EndpointsList:
+		items := make([]slim_corev1.Endpoints, 0, len(obj.Items))
+		for i := range obj.Items {
+			if matchFieldSelector(&obj.Items[i], selector) {
+				items = append(items, obj.Items[i])
+			}
+		}
+		obj.Items = items
+	case *slim_corev1.PodList:
+		items := make([]slim_corev1.Pod, 0, len(obj.Items))
+		for i := range obj.Items {
+			if matchFieldSelector(&obj.Items[i], selector) {
+				items = append(items, obj.Items[i])
+			}
+		}
+		obj.Items = items
+	default:
+		panic(
+			fmt.Sprintf("Unhandled type %T for field selector filtering!\nPlease add handling for it to filterList()", obj),
+		)
+	}
+}
+
+// addFieldSelection augments the fake clientset to support filtering with a field selector
+// in List and Watch actions
+func addFieldSelection[T fakeWithTracker](f T) T {
+	o := f.Tracker()
+	objectReaction := k8sTesting.ObjectReaction(o)
+
+	// Prepend our own reactors that adds field selector filtering to
+	// the results.
+	f.PrependReactor("*", "*", func(action k8sTesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
+		handled, ret, err = objectReaction(action)
+
+		switch action := action.(type) {
+		case k8sTesting.ListActionImpl:
+			filterList(ret, action.GetListRestrictions())
+		}
+		return
+
+	})
+
+	f.PrependWatchReactor(
+		"*",
+		func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+			w := action.(k8sTesting.WatchAction)
+			gvr := w.GetResource()
+			ns := w.GetNamespace()
+			watch, err := o.Watch(gvr, ns)
+			if err != nil {
+				return false, nil, err
+			}
+			fw := &filteringWatcher{
+				parent:       watch,
+				restrictions: w.GetWatchRestrictions(),
+			}
+			return true, fw, nil
+
+		})
+
+	return f
+}
