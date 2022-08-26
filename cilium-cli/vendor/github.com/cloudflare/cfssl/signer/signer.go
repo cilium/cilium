@@ -20,6 +20,7 @@ import (
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
 	cferr "github.com/cloudflare/cfssl/errors"
+	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/info"
 )
 
@@ -45,7 +46,7 @@ type Extension struct {
 // Extensions provided in the signRequest are copied into the certificate, as
 // long as they are in the ExtensionWhitelist for the signer's policy.
 // Extensions requested in the CSR are ignored, except for those processed by
-// ParseCertificateRequest (mainly subjectAltName).
+// ParseCertificateRequest (mainly subjectAltName) and DelegationUsage.
 type SignRequest struct {
 	Hosts       []string    `json:"hosts"`
 	Request     string      `json:"certificate_request"`
@@ -240,6 +241,8 @@ func ParseCertificateRequest(s Signer, p *config.SigningProfile, csrBytes []byte
 			template.IsCA = constraints.IsCA
 			template.MaxPathLen = constraints.MaxPathLen
 			template.MaxPathLenZero = template.MaxPathLen == 0
+		} else if val.Id.Equal(helpers.DelegationUsage) {
+			template.ExtraExtensions = append(template.ExtraExtensions, val)
 		} else {
 			// If the profile has 'copy_extensions' to true then lets add it
 			if p.CopyExtensions {
