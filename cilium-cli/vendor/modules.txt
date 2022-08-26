@@ -175,8 +175,8 @@ github.com/cilium/proxy/go/envoy/type/v3
 # github.com/cilium/workerpool v1.1.3
 ## explicit; go 1.15
 github.com/cilium/workerpool
-# github.com/cloudflare/cfssl v1.6.1
-## explicit; go 1.14
+# github.com/cloudflare/cfssl v1.6.2
+## explicit; go 1.16
 github.com/cloudflare/cfssl/api
 github.com/cloudflare/cfssl/api/client
 github.com/cloudflare/cfssl/auth
@@ -1119,7 +1119,7 @@ go.uber.org/zap/internal/ztest
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
 go.uber.org/zap/zaptest
-# golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
+# golang.org/x/crypto v0.0.0-20220824171710-5757bc0c5503
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish

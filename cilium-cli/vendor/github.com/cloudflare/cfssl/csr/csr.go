@@ -37,7 +37,7 @@ type Name struct {
 	L            string            `json:"L,omitempty" yaml:"L,omitempty"`   // Locality
 	O            string            `json:"O,omitempty" yaml:"O,omitempty"`   // OrganisationName
 	OU           string            `json:"OU,omitempty" yaml:"OU,omitempty"` // OrganisationalUnitName
-    E            string            `json:"E,omitempty" yaml:"E,omitempty"`
+	E            string            `json:"E,omitempty" yaml:"E,omitempty"`
 	SerialNumber string            `json:"SerialNumber,omitempty" yaml:"SerialNumber,omitempty"`
 	OID          map[string]string `json:"OID,omitempty", yaml:"OID,omitempty"`
 }
@@ -136,14 +136,15 @@ type CAConfig struct {
 // A CertificateRequest encapsulates the API interface to the
 // certificate request functionality.
 type CertificateRequest struct {
-	CN           string           `json:"CN" yaml:"CN"`
-	Names        []Name           `json:"names" yaml:"names"`
-	Hosts        []string         `json:"hosts" yaml:"hosts"`
-	KeyRequest   *KeyRequest      `json:"key,omitempty" yaml:"key,omitempty"`
-	CA           *CAConfig        `json:"ca,omitempty" yaml:"ca,omitempty"`
-	SerialNumber string           `json:"serialnumber,omitempty" yaml:"serialnumber,omitempty"`
-	Extensions   []pkix.Extension `json:"extensions,omitempty" yaml:"extensions,omitempty"`
-	CRL          string           `json:"crl_url,omitempty" yaml:"crl_url,omitempty"`
+	CN                string           `json:"CN" yaml:"CN"`
+	Names             []Name           `json:"names" yaml:"names"`
+	Hosts             []string         `json:"hosts" yaml:"hosts"`
+	KeyRequest        *KeyRequest      `json:"key,omitempty" yaml:"key,omitempty"`
+	CA                *CAConfig        `json:"ca,omitempty" yaml:"ca,omitempty"`
+	SerialNumber      string           `json:"serialnumber,omitempty" yaml:"serialnumber,omitempty"`
+	DelegationEnabled bool             `json:"delegation_enabled,omitempty" yaml:"delegation_enabled,omitempty"`
+	Extensions        []pkix.Extension `json:"extensions,omitempty" yaml:"extensions,omitempty"`
+	CRL               string           `json:"crl_url,omitempty" yaml:"crl_url,omitempty"`
 }
 
 // New returns a new, empty CertificateRequest with a
@@ -196,9 +197,9 @@ func (cr *CertificateRequest) Name() (pkix.Name, error) {
 			}
 			name.ExtraNames = append(name.ExtraNames, pkix.AttributeTypeAndValue{Type: oid, Value: v})
 		}
-        if n.E != "" {
-            name.ExtraNames = append(name.ExtraNames, pkix.AttributeTypeAndValue{Type: asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 1}, Value: n.E})
-        }
+		if n.E != "" {
+			name.ExtraNames = append(name.ExtraNames, pkix.AttributeTypeAndValue{Type: asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 1}, Value: n.E})
+		}
 	}
 	name.SerialNumber = cr.SerialNumber
 	return name, nil
@@ -428,6 +429,10 @@ func Generate(priv crypto.Signer, req *CertificateRequest) (csr []byte, err erro
 			err = cferr.Wrap(cferr.CSRError, cferr.GenerationFailed, err)
 			return
 		}
+	}
+
+	if req.DelegationEnabled {
+		tpl.ExtraExtensions = append(tpl.Extensions, helpers.DelegationExtension)
 	}
 
 	if req.Extensions != nil {
