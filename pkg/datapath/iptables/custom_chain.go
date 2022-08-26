@@ -105,6 +105,18 @@ func (c *customChain) exists(prog iptablesInterface) (bool, error) {
 			return false, nil
 		}
 
+		// with iptables-nft >= 1.8.7, when we try to list the rules of a non existing
+		// chain, the command will return an error in the format:
+		//
+		//     chain `$chain' in table `$chain' is incompatible, use 'nft' tool.
+		//
+		// rather than the usual one:
+		//
+		//     No chain/target/match by that name.
+		if strings.Contains(err.Error(), fmt.Sprintf("chain `%s' in table `%s' is incompatible, use 'nft' tool.", c.name, c.table)) {
+			return false, nil
+		}
+
 		return false, fmt.Errorf("unable to list %s chain: %s (%w)", c.name, string(output), err)
 	}
 
