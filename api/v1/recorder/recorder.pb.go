@@ -81,6 +81,7 @@ type RecordRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to RequestType:
+	//
 	//	*RecordRequest_Start
 	//	*RecordRequest_Stop
 	RequestType isRecordRequest_RequestType `protobuf_oneof:"request_type"`
@@ -322,7 +323,8 @@ type FileSinkConfiguration struct {
 	// Defaults to `hubble` if empty. Must match the following regex if not
 	// empty: ^[a-z][a-z0-9]{0,19}$
 	// The generated filename will be of format
-	//  <file_prefix>_<unixtime>_<unique_random>_<node_name>.pcap
+	//
+	//	<file_prefix>_<unixtime>_<unique_random>_<node_name>.pcap
 	FilePrefix string `protobuf:"bytes,1,opt,name=file_prefix,json=filePrefix,proto3" json:"file_prefix,omitempty"`
 }
 
@@ -504,6 +506,7 @@ type RecordResponse struct {
 	// granular or structured error responses here.
 	//
 	// Types that are assignable to ResponseType:
+	//
 	//	*RecordResponse_Running
 	//	*RecordResponse_Stopped
 	ResponseType isRecordResponse_ResponseType `protobuf_oneof:"response_type"`

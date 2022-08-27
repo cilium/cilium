@@ -44,6 +44,8 @@ type Image struct {
 	Status                  string                                      `json:"Status" xml:"Status"`
 	ImageOwnerId            int64                                       `json:"ImageOwnerId" xml:"ImageOwnerId"`
 	IsPublic                bool                                        `json:"IsPublic" xml:"IsPublic"`
+	DetectionOptions        DetectionOptions                            `json:"DetectionOptions" xml:"DetectionOptions"`
+	Features                Features                                    `json:"Features" xml:"Features"`
 	Tags                    TagsInDescribeImageFromFamily               `json:"Tags" xml:"Tags"`
 	DiskDeviceMappings      DiskDeviceMappingsInDescribeImageFromFamily `json:"DiskDeviceMappings" xml:"DiskDeviceMappings"`
 }

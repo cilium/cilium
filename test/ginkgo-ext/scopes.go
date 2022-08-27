@@ -229,8 +229,8 @@ func AfterAll(body func()) bool {
 	return true
 }
 
-//JustAfterEach runs the function just after each test, before all AfterEeach,
-//AfterFailed and AfterAll
+// JustAfterEach runs the function just after each test, before all AfterEeach,
+// AfterFailed and AfterAll
 func JustAfterEach(body func()) bool {
 	if currentScope != nil {
 		if body == nil {

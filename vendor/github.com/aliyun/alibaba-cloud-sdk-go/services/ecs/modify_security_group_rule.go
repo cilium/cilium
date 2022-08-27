@@ -80,9 +80,9 @@ type ModifySecurityGroupRuleRequest struct {
 	Description             string           `position:"Query" name:"Description"`
 	SourceGroupOwnerId      requests.Integer `position:"Query" name:"SourceGroupOwnerId"`
 	SourceGroupOwnerAccount string           `position:"Query" name:"SourceGroupOwnerAccount"`
+	Policy                  string           `position:"Query" name:"Policy"`
 	Ipv6SourceCidrIp        string           `position:"Query" name:"Ipv6SourceCidrIp"`
 	Ipv6DestCidrIp          string           `position:"Query" name:"Ipv6DestCidrIp"`
-	Policy                  string           `position:"Query" name:"Policy"`
 	PortRange               string           `position:"Query" name:"PortRange"`
 	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
 	IpProtocol              string           `position:"Query" name:"IpProtocol"`

@@ -19,7 +19,8 @@ import (
 // GetPolicyResolveOKCode is the HTTP code returned for type GetPolicyResolveOK
 const GetPolicyResolveOKCode int = 200
 
-/*GetPolicyResolveOK Success
+/*
+GetPolicyResolveOK Success
 
 swagger:response getPolicyResolveOK
 */

@@ -40,7 +40,7 @@ struct {
 	__array(values, int());
 } entry_call_map __section(".maps") = {
 	.values = {
-		[0] = &handle_xgress,
+		[0] = &cil_from_container,
 	},
 };
 

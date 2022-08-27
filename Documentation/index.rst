@@ -9,7 +9,7 @@ Welcome to Cilium's documentation!
 
 The documentation is divided into the following sections:
 
-* :ref:`gs_guide`: Provides a simple tutorial for running a small Cilium
+* :ref:`k8s_install_quick`: Provides a simple tutorial for running a small Cilium
   setup on your laptop.  Intended as an easy way to get your hands dirty
   applying Cilium security policies between containers.
 
@@ -18,7 +18,7 @@ The documentation is divided into the following sections:
   understanding required to run a full Cilium deployment and understand its
   behavior.
 
-* :ref:`gs_install` :  Details instructions for installing, configuring, and
+* :ref:`getting_started` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
 
 * :ref:`network_policy` : Detailed walkthrough of the policy language structure
@@ -44,12 +44,32 @@ get started and experiment with Cilium.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Overview
+
+   overview/intro
+   overview/component-overview
+
+.. _getting_started:
+
+.. toctree::
+   :maxdepth: 2
    :caption: Getting Started
 
-   intro
-   gettingstarted/index
-   concepts/index
-   gettinghelp
+   gettingstarted/k8s-install-default
+   gettingstarted/hubble_intro
+   gettingstarted/hubble_setup
+   gettingstarted/hubble-configuration
+   gettingstarted/hubble
+   gettingstarted/hubble_cli.rst
+   gettingstarted/terminology
+   gettingstarted/gettinghelp
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced Installation
+
+   installation/index
+
 
 .. toctree::
    :maxdepth: 2
@@ -62,6 +82,8 @@ get started and experiment with Cilium.
    operations/metrics
    operations/performance/index
    operations/troubleshooting
+   concepts/index
+   installation/microk8s
 
 
 .. toctree::

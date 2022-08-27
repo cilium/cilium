@@ -24,7 +24,7 @@ GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(GO_LIST) -find -e ./...))
 GOFILES ?= $(GOFILES_EVAL)
 TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 		sed 's/ /\n\//g' | \
-		grep -Pv '(/api/v1|/vendor|/contrib|/test$$|/test/(?!control-plane))' | \
+		grep -Pv '(/api/v1|/vendor|/contrib|/test$$|/test/(?!controlplane))' | \
 		sed 's/^\///g')) \
 	test/helpers/logutils
 
@@ -41,8 +41,6 @@ BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
 BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
 BENCHFLAGS ?= $(BENCHFLAGS_EVAL)
-# Level of logs emitted to console during unit test runs
-LOGLEVEL ?= "error"
 SKIP_VET ?= "false"
 SKIP_KVSTORES ?= "false"
 SKIP_K8S_CODE_GEN_CHECK ?= "true"
@@ -190,7 +188,6 @@ init-coverage: ## Initialize converage report for Cilium integration-tests.
 
 integration-tests: GO_TAGS_FLAGS+=integration_tests
 integration-tests: start-kvstores ## Runs all integration-tests for Cilium.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tools/maptool/
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
@@ -427,6 +424,9 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	pkg:tuple\
 	pkg:recorder")
 
+check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
+	./contrib/scripts/check-preflight-clusterrole.sh
+
 ##@ Development
 vps: ## List all the running vagrant VMs.
 	VBoxManage list runningvms
@@ -458,6 +458,7 @@ govet: ## Run govet on Go source files in the repository.
     ./api/... \
     ./bugtool/... \
     ./cilium/... \
+    ./clustermesh-apiserver/... \
     ./cilium-health/... \
     ./daemon/... \
     ./hubble-relay/... \
@@ -466,8 +467,9 @@ govet: ## Run govet on Go source files in the repository.
     ./plugins/... \
     ./proxylib/... \
     ./test/. \
+    ./test/bpf_tests/... \
     ./test/config/... \
-    ./test/control-plane/... \
+    ./test/controlplane/... \
     ./test/ginkgo-ext/... \
     ./test/helpers/... \
     ./test/runtime/... \

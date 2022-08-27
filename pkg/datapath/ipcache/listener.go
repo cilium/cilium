@@ -240,13 +240,16 @@ func shuffleMaps(realized, backup, pending string) error {
 // garbageCollect implements GC of the ipcache map in one of two ways:
 //
 // On Linux 4.9, 4.10 or 4.16 and later:
-//   Periodically sweep through every element in the BPF map and check it
-//   against the in-memory copy of the map. If it doesn't exist in memory,
-//   delete the entry.
+//
+//	Periodically sweep through every element in the BPF map and check it
+//	against the in-memory copy of the map. If it doesn't exist in memory,
+//	delete the entry.
+//
 // On Linux 4.11 to 4.15:
-//   Create a brand new map, populate it with all of the IPCache entries from
-//   the in-memory cache, delete the old map, and trigger regeneration of all
-//   BPF programs so that they pick up the new map.
+//
+//	Create a brand new map, populate it with all of the IPCache entries from
+//	the in-memory cache, delete the old map, and trigger regeneration of all
+//	BPF programs so that they pick up the new map.
 //
 // Returns an error if garbage collection failed to occur.
 func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, error) {

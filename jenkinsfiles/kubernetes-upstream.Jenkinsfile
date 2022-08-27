@@ -9,7 +9,7 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         VM_MEMORY = "5120"
-        K8S_VERSION="1.24"
+        K8S_VERSION="1.25"
         KERNEL="419"
         SERVER_BOX = "cilium/ubuntu-4-19"
     }
@@ -60,7 +60,7 @@ pipeline {
                         env.DOCKER_TAG = env.DOCKER_TAG + "-race"
                         env.RACE = 1
                         env.LOCKDEBUG = 1
-                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:65691020fc08884b9eadbe696151a668107a70eb@sha256:22aa80e98620414e2cd800f1c0703a84186553b276898a77ba0131299b781208"
+                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:87e645c8309f1e9d7c214eacf350f520b957ac4a@sha256:1a377aa91413af7b168b9112b8b00b08eed57ee8b3b811581c87e6121eef89bd"
                     }
                 }
             }

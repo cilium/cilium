@@ -19,7 +19,8 @@ import (
 // DeletePolicyOKCode is the HTTP code returned for type DeletePolicyOK
 const DeletePolicyOKCode int = 200
 
-/*DeletePolicyOK Success
+/*
+DeletePolicyOK Success
 
 swagger:response deletePolicyOK
 */
@@ -63,7 +64,8 @@ func (o *DeletePolicyOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // DeletePolicyInvalidCode is the HTTP code returned for type DeletePolicyInvalid
 const DeletePolicyInvalidCode int = 400
 
-/*DeletePolicyInvalid Invalid request
+/*
+DeletePolicyInvalid Invalid request
 
 swagger:response deletePolicyInvalid
 */
@@ -105,7 +107,8 @@ func (o *DeletePolicyInvalid) WriteResponse(rw http.ResponseWriter, producer run
 // DeletePolicyNotFoundCode is the HTTP code returned for type DeletePolicyNotFound
 const DeletePolicyNotFoundCode int = 404
 
-/*DeletePolicyNotFound Policy not found
+/*
+DeletePolicyNotFound Policy not found
 
 swagger:response deletePolicyNotFound
 */
@@ -129,7 +132,8 @@ func (o *DeletePolicyNotFound) WriteResponse(rw http.ResponseWriter, producer ru
 // DeletePolicyFailureCode is the HTTP code returned for type DeletePolicyFailure
 const DeletePolicyFailureCode int = 500
 
-/*DeletePolicyFailure Error while deleting policy
+/*
+DeletePolicyFailure Error while deleting policy
 
 swagger:response deletePolicyFailure
 */

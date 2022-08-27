@@ -70,7 +70,7 @@ test -d kubernetes && rm -rfv kubernetes
 git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} --depth 1
 cd kubernetes
 
-GO_VERSION="1.18.4"
+GO_VERSION="1.19"
 sudo rm -fr /usr/local/go
 curl -LO https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
@@ -83,8 +83,11 @@ export KUBE_MASTER_IP=192.168.56.11
 export KUBE_MASTER_URL="https://192.168.56.11:6443"
 
 echo "Running upstream services conformance tests"
+# We currently skip the following tests:
+# - HostPort validates that there is no conflict between pods with same hostPort but different hostIP and protocol
+#   - https://github.com/cilium/cilium/issues/21060
 ${HOME}/go/bin/kubetest --provider=local --test \
-  --test_args="--ginkgo.focus=HostPort.*\[Conformance\].* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
+  --test_args="--ginkgo.focus=HostPort.*\[Conformance\].* --ginkgo.skip=(HostPort.validates.that.there.is.no.conflict.between.pods.with.same.hostPort.but.different.hostIP.and.protocol) --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
 ${HOME}/go/bin/kubetest --provider=local --test \
   --test_args="--ginkgo.focus=Services.*\[Conformance\].* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
 

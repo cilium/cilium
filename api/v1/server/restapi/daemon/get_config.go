@@ -32,13 +32,12 @@ func NewGetConfig(ctx *middleware.Context, handler GetConfigHandler) *GetConfig 
 	return &GetConfig{Context: ctx, Handler: handler}
 }
 
-/*GetConfig swagger:route GET /config daemon getConfig
+/*
+GetConfig swagger:route GET /config daemon getConfig
 
-Get configuration of Cilium daemon
+# Get configuration of Cilium daemon
 
 Returns the configuration of the Cilium daemon.
-
-
 */
 type GetConfig struct {
 	Context *middleware.Context

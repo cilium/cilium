@@ -2605,8 +2605,8 @@ var _ = SkipDescribeIf(func() bool {
 // This Describe block is needed to run some tests in GKE. For example, the
 // kube-apiserver policy matching feature needs coverage on GKE as there are
 // two cases for that feature:
-//   * kube-apiserver running within the cluster (Vagrant VMs)
-//   * kube-apiserver running outside of the cluster (GKE)
+//   - kube-apiserver running within the cluster (Vagrant VMs)
+//   - kube-apiserver running outside of the cluster (GKE)
 var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 	"K8sPolicyTestExtended", func() {
 		var (

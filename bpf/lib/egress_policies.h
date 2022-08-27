@@ -31,6 +31,14 @@ struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 
 #endif /* ENABLE_EGRESS_GATEWAY */
 
 #ifdef ENABLE_SRV6
+struct srv6_srh {
+	struct ipv6_rt_hdr rthdr;
+	__u8 first_segment;
+	__u8 flags;
+	__u16 reserved;
+	struct in6_addr segments[0];
+};
+
 # ifdef ENABLE_IPV4
 
 /* SRV6_VRF_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
@@ -125,10 +133,10 @@ srv6_lookup_sid(const struct in6_addr *sid)
 static __always_inline bool
 is_srv6_packet(const struct ipv6hdr *ip6)
 {
-#ifndef ENABLE_SRV6_REDUCED_ENCAP
+#ifdef ENABLE_SRV6_SRH_ENCAP
 	if (ip6->nexthdr == NEXTHDR_ROUTING)
 		return true;
-#endif
+#endif /* ENABLE_SRV6_SRH_ENCAP */
 	return ip6->nexthdr == IPPROTO_IPIP ||
 	       ip6->nexthdr == IPPROTO_IPV6;
 }
@@ -155,6 +163,13 @@ srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 		.hop_limit   = IPDEFTTL,
 	};
 
+#ifdef ENABLE_SRV6_SRH_ENCAP
+	/* If reduced encapsulation is disabled, the next header will be the
+	 * segment routing header.
+	 */
+	new_ip6.nexthdr = NEXTHDR_ROUTING;
+#endif /* ENABLE_SRV6_SRH_ENCAP */
+
 	/* Add room between Ethernet and network headers. */
 	if (ctx_adjust_hroom(ctx, growth, BPF_ADJ_ROOM_MAC,
 			     ctx_adjust_hroom_flags()))
@@ -167,6 +182,33 @@ srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct ipv6hdr, daddr),
 			    sid, sizeof(struct in6_addr), 0) < 0)
 		return DROP_WRITE_ERROR;
+
+#ifdef ENABLE_SRV6_SRH_ENCAP
+	{
+	/* If reduced encapsulation mode is disabled, we need to add a segment
+	 * routing header.
+	 */
+	struct srv6_srh srh = {
+		.rthdr.nexthdr       = nexthdr,
+		.rthdr.hdrlen        = sizeof(struct in6_addr) / 8,
+		.rthdr.type          = IPV6_SRCRT_TYPE_4,
+		.rthdr.segments_left = 0,
+		.first_segment       = 0,
+		.flags               = 0,
+		.reserved            = 0,
+	};
+	int segment_list_offset = ETH_HLEN + sizeof(struct ipv6hdr) +
+				  offsetof(struct srv6_srh, segments);
+
+	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(struct ipv6hdr),
+			    &srh, sizeof(struct srv6_srh), 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (ctx_store_bytes(ctx, segment_list_offset, sid,
+			    sizeof(struct in6_addr), 0) < 0)
+		return DROP_WRITE_ERROR;
+	}
+#endif /* ENABLE_SRV6_SRH_ENCAP */
+
 	return 0;
 }
 
@@ -176,13 +218,33 @@ srv6_decapsulation(struct __ctx_buff *ctx)
 	__u16 new_proto = bpf_htons(ETH_P_IP);
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int shrink;
+	int shrink = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	switch (ip6->nexthdr) {
+#ifdef ENABLE_SRV6_SRH_ENCAP
+	case NEXTHDR_ROUTING: {
+		struct srv6_srh *srh = (struct srv6_srh *)(ip6 + 1);
+
+		if ((void *)srh + sizeof(struct srv6_srh) + sizeof(struct in6_addr) > data_end)
+			return DROP_INVALID;
+
+		shrink = sizeof(struct srv6_srh) + sizeof(struct in6_addr);
+
+		switch (srh->rthdr.nexthdr) {
+		case IPPROTO_IPIP:
+			goto parse_outer_ipv4;
+		case IPPROTO_IPV6:
+			goto parse_outer_ipv6;
+		default:
+			return DROP_INVALID;
+		}
+	}
+#endif /* ENABLE_SRV6_SRH_ENCAP */
 	case IPPROTO_IPIP:
+parse_outer_ipv4: __maybe_unused
 		if (ctx_change_proto(ctx, new_proto, 0) < 0)
 			return DROP_WRITE_ERROR;
 		if (ctx_store_bytes(ctx, offsetof(struct ethhdr, h_proto),
@@ -193,10 +255,11 @@ srv6_decapsulation(struct __ctx_buff *ctx)
 		 * same header we will later delete.
 		 * Thus, deduce this space from the next packet shrinking.
 		 */
-		shrink = sizeof(struct iphdr);
+		shrink += sizeof(struct iphdr);
 		break;
 	case IPPROTO_IPV6:
-		shrink = sizeof(struct ipv6hdr);
+parse_outer_ipv6: __maybe_unused
+		shrink += sizeof(struct ipv6hdr);
 		break;
 	default:
 		return DROP_INVALID;
@@ -305,6 +368,11 @@ srv6_handling4(struct __ctx_buff *ctx, union v6addr *src_sid,
 	 */
 	growth = sizeof(struct iphdr);
 
+#ifdef ENABLE_SRV6_SRH_ENCAP
+	growth += sizeof(struct srv6_srh) + sizeof(struct in6_addr);
+	new_payload_len += sizeof(struct srv6_srh) + sizeof(struct in6_addr);
+#endif /* ENABLE_SRV6_SRH_ENCAP */
+
 	return srv6_encapsulation(ctx, growth, new_payload_len, nexthdr,
 				  src_sid, dst_sid);
 }
@@ -325,6 +393,11 @@ srv6_handling6(struct __ctx_buff *ctx, union v6addr *src_sid,
 	nexthdr = IPPROTO_IPV6;
 	new_payload_len = bpf_ntohs(ip6->payload_len) + sizeof(struct ipv6hdr);
 	growth = sizeof(struct ipv6hdr);
+
+#ifdef ENABLE_SRV6_SRH_ENCAP
+	growth += sizeof(struct srv6_srh) + sizeof(struct in6_addr);
+	new_payload_len += sizeof(struct srv6_srh) + sizeof(struct in6_addr);
+#endif /* ENABLE_SRV6_SRH_ENCAP */
 
 	return srv6_encapsulation(ctx, growth, new_payload_len, nexthdr,
 				  src_sid, dst_sid);

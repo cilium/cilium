@@ -11,7 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the ClassicLink status of one or more VPCs.
+// Describes the ClassicLink status of one or more VPCs. We are retiring
+// EC2-Classic on August 15, 2022. We recommend that you migrate from EC2-Classic
+// to a VPC. For more information, see Migrate from EC2-Classic to a VPC
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
+// Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeVpcClassicLink(ctx context.Context, params *DescribeVpcClassicLinkInput, optFns ...func(*Options)) (*DescribeVpcClassicLinkOutput, error) {
 	if params == nil {
 		params = &DescribeVpcClassicLinkInput{}

@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 // GetHostEndpoint returns the host endpoint.
@@ -51,6 +52,8 @@ func (mgr *EndpointManager) OnUpdateNode(oldNode, newNode *v1.Node,
 		log.Error("Host endpoint not found")
 		return nil
 	}
+
+	node.SetLabels(newNodeLabels)
 
 	err := nodeEP.UpdateLabelsFrom(oldNodeLabels, newNodeLabels, labels.LabelSourceK8s)
 	if err != nil {

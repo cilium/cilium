@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/asaskevich/govalidator"
@@ -20,20 +18,16 @@ import (
 )
 
 const (
-	appServiceName           = "app1-service"
-	appServiceNameIPv6       = "app1-service-ipv6"
-	echoServiceName          = "echo"
-	echoServiceNameDualStack = "echo-dualstack"
-	echoPodLabel             = "name=echo"
-	app2PodLabel             = "id=app2"
+	appServiceName     = "app1-service"
+	appServiceNameIPv6 = "app1-service-ipv6"
+	echoServiceName    = "echo"
+	echoPodLabel       = "name=echo"
+	app2PodLabel       = "id=app2"
 	// echoServiceNameIPv6 = "echo-ipv6"
 
 	testDSClient = "zgroup=testDSClient"
 	testDS       = "zgroup=testDS"
 	testDSK8s2   = "zgroup=test-k8s2"
-
-	testDSServiceIPv4 = "testds-service"
-	testDSServiceIPv6 = "testds-service-ipv6"
 )
 
 // The 5.4 CI job is intended to catch BPF complexity regressions and as such
@@ -146,66 +140,13 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 		})
 
-		SkipItIf(func() bool {
-			return !helpers.DualStackSupportBeta()
-		}, "Checks DualStack services", func() {
-			ciliumPods, err := kubectl.GetCiliumPods()
-			Expect(err).To(BeNil(), "Cannot get cilium pods")
-
-			clusterIPs, err := kubectl.GetServiceClusterIPs(helpers.DefaultNamespace, echoServiceNameDualStack)
-			Expect(err).Should(BeNil(), "Cannot get service %q ClusterIPs", echoServiceNameDualStack)
-
-			for _, clusterIP := range clusterIPs {
-				Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
-
-				By("Validating that Cilium is handling all the ClusterIP for service")
-				Eventually(func() int {
-					validPods := 0
-					for _, pod := range ciliumPods {
-						if ciliumHasServiceIP(kubectl, pod, clusterIP) {
-							validPods++
-						}
-					}
-
-					return validPods
-				}, 30*time.Second, 2*time.Second).
-					Should(Equal(len(ciliumPods)), "All Cilium pods must have the ClusterIP in services list")
-
-				By("Validating connectivity to dual stack service ClusterIP")
-				url := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
-				// TODO: Make use of echoPodLabel once the support for hairpin flow of IPv6 services
-				// is in.
-				testCurlFromPods(kubectl, app2PodLabel, url, 10, 0)
-				url = fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
-				testCurlFromPods(kubectl, app2PodLabel, url, 10, 0)
-			}
-		})
-
 		SkipContextIf(helpers.DoesNotRunWithKubeProxyReplacement, "Checks in-cluster KPR", func() {
-			It("Tests NodePort", func() {
-				testNodePort(kubectl, ni, true, false, 0)
-			})
-
-			It("Tests NodePort with externalTrafficPolicy=Local", func() {
-				// TODO(brb) split testExternalTrafficPolicyLocal into two functions -
-				// one for in-cluster, one for outside cluster
-				testExternalTrafficPolicyLocal(kubectl, ni)
-			})
-
-			It("Tests NodePort with sessionAffinity", func() {
-				testSessionAffinity(kubectl, ni, false, true)
-			})
-
 			It("Tests HealthCheckNodePort", func() {
 				testHealthCheckNodePort(kubectl, ni)
 			})
 
 			It("Tests that binding to NodePort port fails", func() {
 				testFailBind(kubectl, ni)
-			})
-
-			It("Tests HostPort", func() {
-				testHostPort(kubectl, ni)
 			})
 
 			Context("with L7 policy", func() {
@@ -246,82 +187,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 
 		}, 600)
-
-		SkipContextIf(func() bool {
-			return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotRunOnNetNextKernel()
-		}, "Checks connectivity when skipping socket lb in pod ns", func() {
-			var yamls []string
-
-			BeforeAll(func() {
-				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"socketLB.hostNamespaceOnly": "true",
-					// Enable Maglev to check if traffic destined to ClusterIP from Pod is properly handled
-					// by bpf_lxc.c using LB_SELECTION_RANDOM even if Maglev is enabled.
-					"loadBalancer.algorithm": "maglev",
-				})
-
-				yamls = []string{"demo_ds.yaml"}
-				if helpers.DualStackSupported() {
-					yamls = append(yamls, "demo_ds_v6.yaml")
-				}
-
-				for _, yaml := range yamls {
-					path := helpers.ManifestGet(kubectl.BasePath(), yaml)
-					kubectl.ApplyDefault(path).
-						ExpectSuccess("Unable to apply %s", path)
-				}
-				waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
-			})
-
-			AfterAll(func() {
-				for _, yaml := range yamls {
-					path := helpers.ManifestGet(kubectl.BasePath(), yaml)
-					kubectl.Delete(path)
-				}
-				ExpectAllPodsTerminated(kubectl)
-			})
-
-			// In adition to the bpf_sock bypass, this test is testing whether bpf_lxc
-			// ClusterIP for IPv6 is working
-			It("Checks ClusterIP connectivity", func() {
-				services := []string{testDSServiceIPv4}
-				if helpers.DualStackSupported() {
-					services = append(services, testDSServiceIPv6)
-				}
-
-				// Test that socket lb doesn't kick in, aka we see service VIP in monitor output.
-				// Note that cilium monitor won't capture service VIP if run with Istio.
-				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-				monitorRes, monitorCancel := kubectl.MonitorStart(ciliumPodK8s1)
-				defer func() {
-					monitorCancel()
-					helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), "skip-socket-lb-connectivity-across-nodes.log")
-				}()
-
-				for _, service := range services {
-					clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
-					Expect(err).Should(BeNil(), "Cannot get services %s", service)
-					Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
-					httpURL := fmt.Sprintf("http://%s", net.JoinHostPort(clusterIP, "80"))
-					tftpURL := fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
-
-					// Test connectivity from root ns (bpf_sock)
-					kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
-						helpers.CurlFail(httpURL)).
-						ExpectSuccess("cannot curl to service IP from host")
-					kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
-						helpers.CurlFail(tftpURL)).
-						ExpectSuccess("cannot curl to service IP from host")
-
-					// Test connectivity from pod netns (bpf_lxc)
-					testCurlFromPods(kubectl, testDSClient, httpURL, 10, 0)
-					testCurlFromPods(kubectl, testDSClient, tftpURL, 10, 0)
-
-					monitorRes.ExpectContains(clusterIP, "Service VIP not seen in monitor trace, indicating socket lb still in effect")
-				}
-			})
-		})
 
 		SkipContextIf(func() bool {
 			return helpers.RunsWithKubeProxyReplacement()
@@ -793,149 +658,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				Expect(curlClusterIPFromExternalHost(kubectl, ni)).
 					Should(helpers.CMDSuccess(), "Could not curl ClusterIP %s from external host", svcIP)
 			})
-		})
-	})
-
-	SkipContextIf(func() bool {
-		// The graceful termination feature depends on enabling an alpha feature
-		// EndpointSliceTerminatingCondition in Kubernetes.
-		return helpers.SkipK8sVersions("<1.20.0") || helpers.RunsOnGKE() || helpers.RunsOnEKS() ||
-			helpers.RunsWithoutKubeProxy()
-	}, "Checks graceful termination of service endpoints", func() {
-		const (
-			clientPodLabel = "app=graceful-term-client"
-			serverPodLabel = "app=graceful-term-server"
-			testPodLabel   = "zgroup=testDSClient"
-		)
-		var (
-			gracefulTermYAML string
-			clientPod        string
-			serverPod        string
-			wg               sync.WaitGroup
-		)
-
-		terminateServiceEndpointPod := func() {
-			By("Deleting service endpoint pod %s", serverPodLabel)
-			wg.Add(1)
-			// Delete the service pod asynchronously subsequent steps need
-			// to be checked while the pod is terminating.
-			go func() {
-				defer wg.Done()
-				res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l %s", helpers.DefaultNamespace, serverPodLabel))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Unable to delete %s pod", serverPodLabel)
-			}()
-
-			By("Waiting until server is terminating")
-			ctx, cancel := context.WithCancel(context.Background())
-			res := kubectl.LogsStream(helpers.DefaultNamespace, serverPod, ctx)
-			find := "terminating"
-			Eventually(func() bool {
-				return strings.Contains(res.OutputPrettyPrint(), find)
-			}, 60*time.Second, time.Second).Should(BeTrue(), "[%s] is not in the output after timeout\n%s", find, res.Stdout())
-			defer cancel()
-		}
-
-		BeforeAll(func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"kubeProxyReplacement": "disabled",
-			})
-
-			_, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-			_, err = kubectl.GetCiliumPodOnNode(helpers.K8s2)
-			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
-
-			gracefulTermYAML = helpers.ManifestGet(kubectl.BasePath(), "graceful-termination.yaml")
-			res := kubectl.ApplyDefault(gracefulTermYAML)
-			Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", gracefulTermYAML)
-		})
-
-		BeforeEach(func() {
-			gracefulTermYAML = helpers.ManifestGet(kubectl.BasePath(), "graceful-termination.yaml")
-			res := kubectl.ApplyDefault(gracefulTermYAML)
-			Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", gracefulTermYAML)
-
-			pods := waitForServiceBackendPods(kubectl, serverPodLabel, 1)
-			serverPod = pods[0]
-		})
-
-		AfterFailed(func() {
-			kubectl.CiliumReport("cilium service list", "cilium bpf lb list")
-			kubectl.LogsPreviousWithLabel(helpers.DefaultNamespace, serverPodLabel)
-			kubectl.LogsPreviousWithLabel(helpers.DefaultNamespace, clientPodLabel)
-		})
-
-		AfterEach(func() {
-			wg.Wait()
-			kubectl.Delete(gracefulTermYAML)
-			ExpectAllPodsTerminated(kubectl)
-		})
-
-		It("Checks client terminates gracefully on service endpoint deletion", func() {
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l "+clientPodLabel, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Client pods failed to come up")
-			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
-			Expect(err).Should(BeNil(), "Cannot retrieve pod names by filter %s", clientPodLabel)
-			Expect(len(pods)).To(Equal(1), "Unexpected number of client pods")
-			clientPod = pods[0]
-			ctx, cancel := context.WithCancel(context.Background())
-			res := kubectl.LogsStream(helpers.DefaultNamespace, clientPod, ctx)
-			// Check if the client pod is able to get a response from the server once it's up and running
-			find := "client received"
-			Eventually(func() bool {
-				return strings.Contains(res.OutputPrettyPrint(), find)
-			}, 60*time.Second, time.Second).Should(BeTrue(), "[%s] is not in the output after timeout\n%s", find, res.Stdout())
-			defer cancel()
-
-			terminateServiceEndpointPod()
-
-			By("Checking if client pod terminated gracefully")
-			ctx, cancel = context.WithCancel(context.Background())
-			res = kubectl.LogsStream(helpers.DefaultNamespace, clientPod, ctx)
-			// The log message indicates that the connectivity between client and
-			// server was intact even after the service endpoint pod was terminated,
-			// and that the client connection terminated gracefully.
-			find = "exiting on graceful termination"
-			Eventually(func() bool {
-				return strings.Contains(res.OutputPrettyPrint(), find)
-			}, 60*time.Second, time.Second).Should(BeTrue(), "[%s] is not in the output after timeout\n%s", find, res.Stdout())
-			defer cancel()
-
-			// The client pod exits with status code 0 on graceful termination.
-			By("Checking if client pod exited successfully")
-			Eventually(func() string {
-				filter := `{.status.phase}`
-				status, err := kubectl.GetPods(helpers.DefaultNamespace, clientPod).Filter(filter)
-				Expect(err).Should(BeNil(), "Failed to get pod status %s", clientPod)
-				return status.String()
-			}, 15*time.Second, time.Second).Should(BeIdenticalTo("Succeeded"), "Unexpected pod status \n")
-		})
-
-		It("Checks if terminating service endpoint doesn't serve new connections", func() {
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testDSClient", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Pods %s failed to come up", testPodLabel)
-			podIPs, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, testPodLabel)
-			ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve pod IPs for %s", testPodLabel)
-
-			terminateServiceEndpointPod()
-
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			for pod, ip := range podIPs {
-				// Repeat the command as Kubernetes events propagation may have delays
-				Eventually(func() bool {
-					By("Checking if test pod connection is unsuccessful")
-					res := kubectl.ExecPodCmd(
-						helpers.DefaultNamespace, pod,
-						helpers.CurlFail("graceful-term-svc.default.svc.cluster.local.:8081"))
-
-					By("Checking if terminating service endpoint did not receive new connection")
-					msg := fmt.Sprintf("received connection from %s", ip)
-					res2 := kubectl.LogsStream(helpers.DefaultNamespace, serverPod, ctx)
-
-					return !res.WasSuccessful() || !res2.ExpectDoesNotContain(msg, "Server received connection from %s when it should not have", ip)
-				}, 10*time.Second, time.Second).Should(BeTrue(), "%q can connect when it should not work \n", pod)
-			}
 		})
 	})
 

@@ -295,11 +295,11 @@ func (c *Controller) Run(ctx context.Context, stop chan struct{}) {
 // *corev1.Node, enforced by a set of policy selection rules.
 //
 // Policy selection follows the following rules:
-// - A policy matches a node if said policy's "nodeSelector" field matches
-//   the node's labels
-// - If (N > 1) policies match the provided *corev1.Node an error is returned.
-//   only a single policy may apply to a node to avoid ambiguity at this stage
-//   of development.
+//   - A policy matches a node if said policy's "nodeSelector" field matches
+//     the node's labels
+//   - If (N > 1) policies match the provided *corev1.Node an error is returned.
+//     only a single policy may apply to a node to avoid ambiguity at this stage
+//     of development.
 func PolicySelection(ctx context.Context, labels map[string]string, policies []*v2alpha1api.CiliumBGPPeeringPolicy) (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
 	var (
 		l = log.WithFields(logrus.Fields{

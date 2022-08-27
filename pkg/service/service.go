@@ -620,9 +620,10 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
 	if option.Config.EnableHealthCheckNodePort {
 		if onlyLocalBackends && filterBackends {
-			localBackendCount := len(backendsCopy)
+			_, activeBackends, _ := segregateBackends(backendsCopy)
+
 			s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcName.Namespace, svc.svcName.Name,
-				localBackendCount, svc.svcHealthCheckNodePort)
+				len(activeBackends), svc.svcHealthCheckNodePort)
 		} else if svc.svcHealthCheckNodePort == 0 {
 			// Remove the health check server in case this service used to have
 			// externalTrafficPolicy=Local with HealthCheckNodePort in the previous
@@ -647,7 +648,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 func filterServiceBackends(svc *svcInfo, onlyPorts []string) map[string][]*lb.Backend {
 	if len(onlyPorts) == 0 {
 		return map[string][]*lb.Backend{
-			anyPort: svc.backends,
+			anyPort: filterPreferredBackends(svc.backends),
 		}
 	}
 
@@ -656,17 +657,32 @@ func filterServiceBackends(svc *svcInfo, onlyPorts []string) map[string][]*lb.Ba
 		// check for port number
 		if port == strconv.Itoa(int(svc.frontend.Port)) {
 			return map[string][]*lb.Backend{
-				port: svc.backends,
+				port: filterPreferredBackends(svc.backends),
 			}
 		}
 		// check for either named port
-		for _, backend := range svc.backends {
+		for _, backend := range filterPreferredBackends(svc.backends) {
 			if port == backend.FEPortName {
 				res[port] = append(res[port], backend)
 			}
 		}
 	}
 	return res
+}
+
+// filterPreferredBackends returns the slice of backends which are preferred for the given service.
+// If there is no preferred backend, it returns the slice of all backends.
+func filterPreferredBackends(backends []*lb.Backend) []*lb.Backend {
+	res := []*lb.Backend{}
+	for _, backend := range backends {
+		if backend.Preferred == lb.Preferred(true) {
+			res = append(res, backend)
+		}
+	}
+	if len(res) > 0 {
+		return res
+	}
+	return backends
 }
 
 // UpdateBackendsState updates all the service(s) with the updated state of
@@ -1345,11 +1361,8 @@ func (s *Service) restoreServicesLocked() error {
 
 		// Recalculate Maglev lookup tables if the maps were removed due to
 		// the changed M param.
-		ipv6 := newSVC.frontend.IsIPv6()
+		ipv6 := newSVC.frontend.IsIPv6() || (svc.NatPolicy == lb.SVCNatPolicyNat46)
 		recreated := s.lbmap.IsMaglevLookupTableRecreated(ipv6)
-		if svc.NatPolicy == lb.SVCNatPolicyNat46 {
-			recreated = recreated || s.lbmap.IsMaglevLookupTableRecreated(!ipv6)
-		}
 		if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly &&
 			newSVC.useMaglev() && recreated {
 
@@ -1358,16 +1371,9 @@ func (s *Service) restoreServicesLocked() error {
 				backends[b.String()] = b.ID
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends,
-				ipv6 || svc.NatPolicy == lb.SVCNatPolicyNat46); err != nil {
+				ipv6); err != nil {
 				scopedLog.WithError(err).Warning("Unable to upsert into the Maglev BPF map.")
 				continue
-			}
-			if svc.NatPolicy == lb.SVCNatPolicyNat46 {
-				if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends,
-					false); err != nil {
-					scopedLog.WithError(err).Warning("Unable to upsert into the Maglev BPF map.")
-					continue
-				}
 			}
 		}
 

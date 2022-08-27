@@ -9,14 +9,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 const (
 	// DropNotifyLen is the amount of packet data provided in a drop notification
-	DropNotifyLen = 32
+	DropNotifyLen = 36
 )
 
 // DropNotify is the message format of a drop notification in the BPF ring buffer
@@ -33,6 +32,7 @@ type DropNotify struct {
 	Line     uint16
 	File     uint8
 	ExtError int8
+	Ifindex  uint32
 	// data
 }
 
@@ -49,8 +49,8 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
-	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, file %s line %d, ",
-		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, loader.DecodeSourceName(int(n.File)), int(n.Line))
+	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %d:%d, ",
+		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, int(n.File), int(n.Line))
 	n.dumpIdentity(buf, numeric)
 	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[DropNotifyLen:]))
 	buf.Flush()
@@ -112,11 +112,13 @@ type DropNotifyVerbose struct {
 	DstID    uint32                   `json:"dstID"`
 	Line     uint16                   `json:"Line"`
 	File     uint8                    `json:"File"`
+	ExtError int8                     `json:"ExtError"`
+	Ifindex  uint32                   `json:"Ifindex"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }
 
-//DropNotifyToVerbose creates verbose notification from DropNotify
+// DropNotifyToVerbose creates verbose notification from DropNotify
 func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
 	return DropNotifyVerbose{
 		Type:     "drop",
@@ -129,5 +131,7 @@ func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
 		DstID:    n.DstID,
 		Line:     n.Line,
 		File:     n.File,
+		ExtError: n.ExtError,
+		Ifindex:  n.Ifindex,
 	}
 }

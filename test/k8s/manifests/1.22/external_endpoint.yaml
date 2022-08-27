@@ -1,0 +1,16 @@
+apiVersion: discovery.k8s.io/v1beta1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 198.49.23.144
+  conditions:
+    ready: true
+metadata:
+  name: external-service
+  namespace: default
+  labels:
+    kubernetes.io/service-name: external-service
+ports:
+- port: 80
+  protocol: TCP

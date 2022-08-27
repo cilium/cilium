@@ -60,7 +60,8 @@ func NewPatchEndpointIDParamsWithHTTPClient(client *http.Client) *PatchEndpointI
 	}
 }
 
-/*PatchEndpointIDParams contains all the parameters to send to the API endpoint
+/*
+PatchEndpointIDParams contains all the parameters to send to the API endpoint
 for the patch endpoint ID operation typically these are written to a http.Request
 */
 type PatchEndpointIDParams struct {

@@ -9,6 +9,10 @@
      - Description
      - Type
      - Default
+   * - MTU
+     - Configure the underlying network MTU to overwrite auto-detected MTU.
+     - int
+     - ``0``
    * - affinity
      - Affinity for cilium-agent.
      - object
@@ -980,7 +984,7 @@
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b"}``
+     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.9.1@sha256:c4b86e0d7a38d52c6ea3d9d7b17809e5212efd97494e8bd37c8466ddd68d42d0"}``
    * - hubble.ui.backend.resources
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
@@ -996,7 +1000,7 @@
    * - hubble.ui.frontend.image
      - Hubble-ui frontend image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.9.0@sha256:0ef04e9a29212925da6bdfd0ba5b581765e41a01f1cc30563cef9b30b457fea0"}``
+     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.9.1@sha256:baff611b975cb12307a163c0e547e648da211384eabdafd327707ff2ec31cc24"}``
    * - hubble.ui.frontend.resources
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -1105,6 +1109,10 @@
      - Enforce https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header.
      - bool
      - ``true``
+   * - ingressController.ingressLBAnnotations
+     - IngressLBAnnotations are the annotations which are needed to propagate from Ingress to the Load Balancer
+     - list
+     - ``["service.beta.kubernetes.io","service.kubernetes.io","cloud.google.com"]``
    * - ingressController.secretsNamespace
      - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
      - object
@@ -1689,6 +1697,10 @@
      - Configure the encapsulation configuration for communication between nodes. Possible values:   - disabled   - vxlan (default)   - geneve
      - string
      - ``"vxlan"``
+   * - tunnelPort
+     - Configure VXLAN and Geneve tunnel port.
+     - int
+     - Port 8472 for VXLAN, Port 6081 for Geneve
    * - updateStrategy
      - Cilium agent update strategy
      - object

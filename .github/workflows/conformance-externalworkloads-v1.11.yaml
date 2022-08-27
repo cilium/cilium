@@ -65,7 +65,7 @@ env:
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
-  cilium_cli_version: v0.12.0
+  cilium_cli_version: v0.12.1
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -205,7 +205,7 @@ jobs:
           gcloud info
 
       - name: Create GCP VM
-        uses: nick-invision/retry@e88a9994b039653512d697de1bce46b00bfe11b5
+        uses: nick-invision/retry@b4fa57557dda8c2f30bcb2d19372cc3237190f7f
         with:
           retry_on: error
           timeout_minutes: 1
@@ -354,7 +354,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

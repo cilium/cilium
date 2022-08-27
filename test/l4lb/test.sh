@@ -11,11 +11,14 @@ HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
 #  SETUP  #
 ###########
 
+
 # bpf_xdp_veth_host is a dummy XDP program which is going to be attached to LB
 # node's veth pair end in the host netns. When bpf_xdp, which is attached in
 # the container netns, forwards a LB request with XDP_TX, the request needs to
 # be picked in the host netns by a NAPI handler. To register the handler, we
 # attach the dummy program.
+apt-get update
+apt-get install -y gcc-multilib libbpf-dev
 clang -O2 -Wall -target bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
 
 # The worker (aka backend node) will receive IPIP packets from the LB node.
@@ -32,7 +35,7 @@ clang -O2 -Wall -target bpf -c test_tc_tunnel.c -o test_tc_tunnel.o
 #
 # The LB cilium does not connect to the kube-apiserver. For now we use Kind
 # just to create Docker-in-Docker containers.
-kind create cluster --config kind-config.yaml
+kind create cluster --config kind-config.yaml --image=kindest/node:v1.24.3
 
 # Create additional veth pair which is going to be used to test XDP_REDIRECT.
 ip l a l4lb-veth0 type veth peer l4lb-veth1
@@ -62,7 +65,6 @@ helm install cilium ${HELM_CHART_DIR} \
     --set loadBalancer.dsrDispatch=ipip \
     --set devices='{eth0,l4lb-veth1}' \
     --set nodePort.directRoutingDevice=eth0 \
-    --set ipv6.enabled=false \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key="kubernetes.io/hostname" \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator=In \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]=kind-control-plane

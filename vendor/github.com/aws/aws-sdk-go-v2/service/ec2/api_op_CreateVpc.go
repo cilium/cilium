@@ -73,12 +73,15 @@ type CreateVpcInput struct {
 	InstanceTenancy types.Tenancy
 
 	// The ID of an IPv4 IPAM pool you want to use for allocating this VPC's CIDR. For
-	// more information, see What is IPAM? in the Amazon VPC IPAM User Guide.
+	// more information, see What is IPAM?
+	// (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html) in the Amazon
+	// VPC IPAM User Guide.
 	Ipv4IpamPoolId *string
 
 	// The netmask length of the IPv4 CIDR you want to allocate to this VPC from an
 	// Amazon VPC IP Address Manager (IPAM) pool. For more information about IPAM, see
-	// What is IPAM? in the Amazon VPC IPAM User Guide.
+	// What is IPAM? (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html)
+	// in the Amazon VPC IPAM User Guide.
 	Ipv4NetmaskLength *int32
 
 	// The IPv6 CIDR block from the IPv6 address pool. You must also specify Ipv6Pool
@@ -96,12 +99,14 @@ type CreateVpcInput struct {
 	// management workflows including assigning, tracking, troubleshooting, and
 	// auditing IP addresses across Amazon Web Services Regions and accounts throughout
 	// your Amazon Web Services Organization. For more information, see What is IPAM?
-	// in the Amazon VPC IPAM User Guide.
+	// (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html) in the Amazon
+	// VPC IPAM User Guide.
 	Ipv6IpamPoolId *string
 
 	// The netmask length of the IPv6 CIDR you want to allocate to this VPC from an
 	// Amazon VPC IP Address Manager (IPAM) pool. For more information about IPAM, see
-	// What is IPAM? in the Amazon VPC IPAM User Guide.
+	// What is IPAM? (https://docs.aws.amazon.com/vpc/latest/ipam/what-is-it-ipam.html)
+	// in the Amazon VPC IPAM User Guide.
 	Ipv6NetmaskLength *int32
 
 	// The ID of an IPv6 address pool from which to allocate the IPv6 CIDR block.

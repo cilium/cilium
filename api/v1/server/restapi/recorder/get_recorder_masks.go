@@ -32,10 +32,10 @@ func NewGetRecorderMasks(ctx *middleware.Context, handler GetRecorderMasksHandle
 	return &GetRecorderMasks{Context: ctx, Handler: handler}
 }
 
-/*GetRecorderMasks swagger:route GET /recorder/masks recorder getRecorderMasks
+/*
+GetRecorderMasks swagger:route GET /recorder/masks recorder getRecorderMasks
 
 Retrieve list of all recorder masks
-
 */
 type GetRecorderMasks struct {
 	Context *middleware.Context

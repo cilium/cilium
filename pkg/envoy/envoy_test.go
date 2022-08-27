@@ -14,6 +14,8 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/spf13/viper"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -42,7 +44,7 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 }
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
-	option.Config.Populate()
+	option.Config.Populate(viper.GetViper())
 	option.Config.ProxyConnectTimeout = 1
 	c.Assert(option.Config.ProxyConnectTimeout, Not(Equals), 0)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

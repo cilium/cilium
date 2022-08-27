@@ -12,7 +12,6 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -22,6 +21,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -50,13 +50,13 @@ type ingressServiceUpdatedEvent struct {
 
 // IngressController is a simple pattern that allows to perform the following
 // tasks:
-//   - Watch cilium Ingress object
-//   - Manage related child resources for this Ingress
-//   	- Service
-//      - Endpoint
-//      - CiliumEnvoyConfig
-//   - Manage synced TLS secrets in given namespace
-//		- TLS secrets
+//  1. Watch cilium Ingress object
+//  2. Manage related child resources for this Ingress
+//     - Service
+//     - Endpoint
+//     - CiliumEnvoyConfig
+//  3. Manage synced TLS secrets in given namespace
+//     - TLS secrets
 type IngressController struct {
 	ingressInformer cache.Controller
 	ingressStore    cache.Store
@@ -72,6 +72,7 @@ type IngressController struct {
 	enforcedHTTPS      bool
 	enabledSecretsSync bool
 	secretsNamespace   string
+	lbAnnotations      []string
 }
 
 // NewIngressController returns a controller for ingress objects having ingressClassName as cilium
@@ -89,9 +90,10 @@ func NewIngressController(options ...Option) (*IngressController, error) {
 		enforcedHTTPS:      opts.EnforcedHTTPS,
 		enabledSecretsSync: opts.EnabledSecretsSync,
 		secretsNamespace:   opts.SecretsNamespace,
+		lbAnnotations:      opts.LBAnnotations,
 	}
 	ic.ingressStore, ic.ingressInformer = informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.WatcherClient().NetworkingV1().RESTClient(), "ingresses", corev1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*slim_networkingv1.IngressList](k8s.WatcherClient().NetworkingV1().Ingresses(corev1.NamespaceAll)),
 		&slim_networkingv1.Ingress{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -327,7 +329,7 @@ func getIngressKeyForService(service *slim_corev1.Service) string {
 }
 
 func (ic *IngressController) createLoadBalancer(ingress *slim_networkingv1.Ingress) error {
-	svc := getServiceForIngress(ingress)
+	svc := getServiceForIngress(ingress, ic.lbAnnotations)
 	svcKey, err := cache.MetaNamespaceKeyFunc(svc)
 	if err != nil {
 		log.Warn("Failed to get service key for ingress")

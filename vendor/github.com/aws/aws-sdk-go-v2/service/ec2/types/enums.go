@@ -1423,6 +1423,24 @@ func (DomainType) Values() []DomainType {
 	}
 }
 
+type DynamicRoutingValue string
+
+// Enum values for DynamicRoutingValue
+const (
+	DynamicRoutingValueEnable  DynamicRoutingValue = "enable"
+	DynamicRoutingValueDisable DynamicRoutingValue = "disable"
+)
+
+// Values returns all known values for DynamicRoutingValue. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (DynamicRoutingValue) Values() []DynamicRoutingValue {
+	return []DynamicRoutingValue{
+		"enable",
+		"disable",
+	}
+}
+
 type EbsEncryptionSupport string
 
 // Enum values for EbsEncryptionSupport
@@ -1966,9 +1984,11 @@ type FlowLogsResourceType string
 
 // Enum values for FlowLogsResourceType
 const (
-	FlowLogsResourceTypeVpc              FlowLogsResourceType = "VPC"
-	FlowLogsResourceTypeSubnet           FlowLogsResourceType = "Subnet"
-	FlowLogsResourceTypeNetworkInterface FlowLogsResourceType = "NetworkInterface"
+	FlowLogsResourceTypeVpc                      FlowLogsResourceType = "VPC"
+	FlowLogsResourceTypeSubnet                   FlowLogsResourceType = "Subnet"
+	FlowLogsResourceTypeNetworkInterface         FlowLogsResourceType = "NetworkInterface"
+	FlowLogsResourceTypeTransitGateway           FlowLogsResourceType = "TransitGateway"
+	FlowLogsResourceTypeTransitGatewayAttachment FlowLogsResourceType = "TransitGatewayAttachment"
 )
 
 // Values returns all known values for FlowLogsResourceType. Note that this can be
@@ -1979,6 +1999,8 @@ func (FlowLogsResourceType) Values() []FlowLogsResourceType {
 		"VPC",
 		"Subnet",
 		"NetworkInterface",
+		"TransitGateway",
+		"TransitGatewayAttachment",
 	}
 }
 
@@ -3123,6 +3145,7 @@ const (
 	InstanceTypeC7g8xlarge      InstanceType = "c7g.8xlarge"
 	InstanceTypeC7g12xlarge     InstanceType = "c7g.12xlarge"
 	InstanceTypeC7g16xlarge     InstanceType = "c7g.16xlarge"
+	InstanceTypeMac2Metal       InstanceType = "mac2.metal"
 )
 
 // Values returns all known values for InstanceType. Note that this can be expanded
@@ -3655,6 +3678,7 @@ func (InstanceType) Values() []InstanceType {
 		"c7g.8xlarge",
 		"c7g.12xlarge",
 		"c7g.16xlarge",
+		"mac2.metal",
 	}
 }
 
@@ -5289,7 +5313,9 @@ const (
 	ResourceTypeTransitGatewayAttachment                               ResourceType = "transit-gateway-attachment"
 	ResourceTypeTransitGatewayConnectPeer                              ResourceType = "transit-gateway-connect-peer"
 	ResourceTypeTransitGatewayMulticastDomain                          ResourceType = "transit-gateway-multicast-domain"
+	ResourceTypeTransitGatewayPolicyTable                              ResourceType = "transit-gateway-policy-table"
 	ResourceTypeTransitGatewayRouteTable                               ResourceType = "transit-gateway-route-table"
+	ResourceTypeTransitGatewayRouteTableAnnouncement                   ResourceType = "transit-gateway-route-table-announcement"
 	ResourceTypeVolume                                                 ResourceType = "volume"
 	ResourceTypeVpc                                                    ResourceType = "vpc"
 	ResourceTypeVpcEndpoint                                            ResourceType = "vpc-endpoint"
@@ -5298,6 +5324,9 @@ const (
 	ResourceTypeVpnConnection                                          ResourceType = "vpn-connection"
 	ResourceTypeVpnGateway                                             ResourceType = "vpn-gateway"
 	ResourceTypeVpcFlowLog                                             ResourceType = "vpc-flow-log"
+	ResourceTypeCapacityReservationFleet                               ResourceType = "capacity-reservation-fleet"
+	ResourceTypeTrafficMirrorFilterRule                                ResourceType = "traffic-mirror-filter-rule"
+	ResourceTypeVpcEndpointConnectionDeviceType                        ResourceType = "vpc-endpoint-connection-device-type"
 )
 
 // Values returns all known values for ResourceType. Note that this can be expanded
@@ -5364,7 +5393,9 @@ func (ResourceType) Values() []ResourceType {
 		"transit-gateway-attachment",
 		"transit-gateway-connect-peer",
 		"transit-gateway-multicast-domain",
+		"transit-gateway-policy-table",
 		"transit-gateway-route-table",
+		"transit-gateway-route-table-announcement",
 		"volume",
 		"vpc",
 		"vpc-endpoint",
@@ -5373,6 +5404,9 @@ func (ResourceType) Values() []ResourceType {
 		"vpn-connection",
 		"vpn-gateway",
 		"vpc-flow-log",
+		"capacity-reservation-fleet",
+		"traffic-mirror-filter-rule",
+		"vpc-endpoint-connection-device-type",
 	}
 }
 
@@ -6382,6 +6416,29 @@ func (TransitGatewayMulticastDomainState) Values() []TransitGatewayMulticastDoma
 	}
 }
 
+type TransitGatewayPolicyTableState string
+
+// Enum values for TransitGatewayPolicyTableState
+const (
+	TransitGatewayPolicyTableStatePending   TransitGatewayPolicyTableState = "pending"
+	TransitGatewayPolicyTableStateAvailable TransitGatewayPolicyTableState = "available"
+	TransitGatewayPolicyTableStateDeleting  TransitGatewayPolicyTableState = "deleting"
+	TransitGatewayPolicyTableStateDeleted   TransitGatewayPolicyTableState = "deleted"
+)
+
+// Values returns all known values for TransitGatewayPolicyTableState. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (TransitGatewayPolicyTableState) Values() []TransitGatewayPolicyTableState {
+	return []TransitGatewayPolicyTableState{
+		"pending",
+		"available",
+		"deleting",
+		"deleted",
+	}
+}
+
 type TransitGatewayPrefixListReferenceState string
 
 // Enum values for TransitGatewayPrefixListReferenceState
@@ -6447,6 +6504,52 @@ func (TransitGatewayRouteState) Values() []TransitGatewayRouteState {
 		"pending",
 		"active",
 		"blackhole",
+		"deleting",
+		"deleted",
+	}
+}
+
+type TransitGatewayRouteTableAnnouncementDirection string
+
+// Enum values for TransitGatewayRouteTableAnnouncementDirection
+const (
+	TransitGatewayRouteTableAnnouncementDirectionOutgoing TransitGatewayRouteTableAnnouncementDirection = "outgoing"
+	TransitGatewayRouteTableAnnouncementDirectionIncoming TransitGatewayRouteTableAnnouncementDirection = "incoming"
+)
+
+// Values returns all known values for
+// TransitGatewayRouteTableAnnouncementDirection. Note that this can be expanded in
+// the future, and so it is only as up to date as the client. The ordering of this
+// slice is not guaranteed to be stable across updates.
+func (TransitGatewayRouteTableAnnouncementDirection) Values() []TransitGatewayRouteTableAnnouncementDirection {
+	return []TransitGatewayRouteTableAnnouncementDirection{
+		"outgoing",
+		"incoming",
+	}
+}
+
+type TransitGatewayRouteTableAnnouncementState string
+
+// Enum values for TransitGatewayRouteTableAnnouncementState
+const (
+	TransitGatewayRouteTableAnnouncementStateAvailable TransitGatewayRouteTableAnnouncementState = "available"
+	TransitGatewayRouteTableAnnouncementStatePending   TransitGatewayRouteTableAnnouncementState = "pending"
+	TransitGatewayRouteTableAnnouncementStateFailing   TransitGatewayRouteTableAnnouncementState = "failing"
+	TransitGatewayRouteTableAnnouncementStateFailed    TransitGatewayRouteTableAnnouncementState = "failed"
+	TransitGatewayRouteTableAnnouncementStateDeleting  TransitGatewayRouteTableAnnouncementState = "deleting"
+	TransitGatewayRouteTableAnnouncementStateDeleted   TransitGatewayRouteTableAnnouncementState = "deleted"
+)
+
+// Values returns all known values for TransitGatewayRouteTableAnnouncementState.
+// Note that this can be expanded in the future, and so it is only as up to date as
+// the client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (TransitGatewayRouteTableAnnouncementState) Values() []TransitGatewayRouteTableAnnouncementState {
+	return []TransitGatewayRouteTableAnnouncementState{
+		"available",
+		"pending",
+		"failing",
+		"failed",
 		"deleting",
 		"deleted",
 	}

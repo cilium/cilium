@@ -44,7 +44,7 @@ type ClientService interface {
 }
 
 /*
-  DeleteServiceID deletes a service
+DeleteServiceID deletes a service
 */
 func (a *Client) DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceIDOK, error) {
 	// TODO: Validate the params before sending
@@ -78,7 +78,7 @@ func (a *Client) DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceI
 }
 
 /*
-  GetLrp retrieves list of all local redirect policies
+GetLrp retrieves list of all local redirect policies
 */
 func (a *Client) GetLrp(params *GetLrpParams) (*GetLrpOK, error) {
 	// TODO: Validate the params before sending
@@ -112,7 +112,7 @@ func (a *Client) GetLrp(params *GetLrpParams) (*GetLrpOK, error) {
 }
 
 /*
-  GetService retrieves list of all services
+GetService retrieves list of all services
 */
 func (a *Client) GetService(params *GetServiceParams) (*GetServiceOK, error) {
 	// TODO: Validate the params before sending
@@ -146,7 +146,7 @@ func (a *Client) GetService(params *GetServiceParams) (*GetServiceOK, error) {
 }
 
 /*
-  GetServiceID retrieves configuration of a service
+GetServiceID retrieves configuration of a service
 */
 func (a *Client) GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, error) {
 	// TODO: Validate the params before sending
@@ -180,7 +180,7 @@ func (a *Client) GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, erro
 }
 
 /*
-  PutServiceID creates or update service
+PutServiceID creates or update service
 */
 func (a *Client) PutServiceID(params *PutServiceIDParams) (*PutServiceIDOK, *PutServiceIDCreated, error) {
 	// TODO: Validate the params before sending

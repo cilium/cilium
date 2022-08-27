@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.0
+  cilium_cli_version: v0.12.1
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -26,7 +26,7 @@ env:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
@@ -39,6 +39,9 @@ jobs:
         uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
         id: tested-tree
         with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
           filters: |
             src:
               - '!(test|Documentation)/**'
@@ -51,15 +54,7 @@ jobs:
           persist-credentials: false
 
       - name: Check pre-flight clusterrole
-        run: |
-          cd install/kubernetes/cilium/templates
-          echo "Checking for differences between preflight and agent clusterrole"
-          diff \
-             -I '^[ ]\{2\}name: cilium.*' \
-             -I '^Keep file in sync with.*' \
-             -I '{{- if.*' \
-             cilium-agent/clusterrole.yaml \
-             cilium-preflight/clusterrole.yaml
+        run: make check-k8s-clusterrole
 
   helm-charts:
     runs-on: ubuntu-latest
@@ -201,7 +196,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

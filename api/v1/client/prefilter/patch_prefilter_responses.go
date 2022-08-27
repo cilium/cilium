@@ -55,7 +55,8 @@ func NewPatchPrefilterOK() *PatchPrefilterOK {
 	return &PatchPrefilterOK{}
 }
 
-/*PatchPrefilterOK handles this case with default header values.
+/*
+PatchPrefilterOK handles this case with default header values.
 
 Updated
 */
@@ -88,7 +89,8 @@ func NewPatchPrefilterInvalidCIDR() *PatchPrefilterInvalidCIDR {
 	return &PatchPrefilterInvalidCIDR{}
 }
 
-/*PatchPrefilterInvalidCIDR handles this case with default header values.
+/*
+PatchPrefilterInvalidCIDR handles this case with default header values.
 
 Invalid CIDR prefix
 */
@@ -119,7 +121,8 @@ func NewPatchPrefilterFailure() *PatchPrefilterFailure {
 	return &PatchPrefilterFailure{}
 }
 
-/*PatchPrefilterFailure handles this case with default header values.
+/*
+PatchPrefilterFailure handles this case with default header values.
 
 Prefilter update failed
 */

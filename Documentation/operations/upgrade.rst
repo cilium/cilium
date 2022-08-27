@@ -159,7 +159,7 @@ specifying the equivalent options as used for the initial deployment, either by
 specifying a them at the command line or by committing the values to a YAML
 file.
 
-.. include:: ../gettingstarted/k8s-install-download-release.rst
+.. include:: ../installation/k8s-install-download-release.rst
 
 To minimize datapath disruption during the upgrade, the
 ``upgradeCompatibility`` option should be set to the initial Cilium
@@ -286,16 +286,16 @@ The table below lists suggested upgrade transitions, from a specified current
 version running in a cluster to a specified target version. If a specific
 combination is not listed in the table below, then it may not be safe. In that
 case, consider performing incremental upgrades between versions (e.g. upgrade
-from ``1.9.x`` to ``1.10.y`` first, and to ``1.11.z`` only afterwards).
+from ``1.10.x`` to ``1.11.y`` first, and to ``1.12.z`` only afterwards).
 
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3/L4 impact            | L7 impact                 |
 +=======================+=======================+=========================+===========================+
+| ``1.11.x``            | ``1.12.y``            | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.10.x``            | ``1.11.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.9.x``             | ``1.10.y``            | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.8.x``             | ``1.9.y``             | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
@@ -306,6 +306,25 @@ Annotations:
    connections.
 
 .. _current_release_required_changes:
+
+.. _1.13_upgrade_notes:
+
+1.13 Upgrade Notes
+------------------
+
+Added Metrics
+~~~~~~~~~~~~~
+
+* ``cilium_operator_allocation_duration_seconds``
+* ``cilium_operator_release_duration_seconds``
+
+Removed Metrics/Labels
+~~~~~~~~~~~~~~~~~~~~~~
+
+* ``cilium_operator_ipam_available`` is removed. Please use ``cilium_operator_ipam_available_interfaces`` instead.
+* ``cilium_operator_ipam_allocation_ops`` is removed. Please use ``cilium_operator_ipam_ip_allocation_ops`` instead.
+* ``cilium_operator_ipam_release_ops`` is removed. Please use ``cilium_operator_ipam_ip_release_ops`` instead.
+* The label of ``status`` in ``cilium_operator_ipam_interface_creation_ops`` is removed.
 
 .. _1.12_upgrade_notes:
 

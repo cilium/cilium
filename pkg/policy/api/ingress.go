@@ -81,17 +81,17 @@ type IngressCommonRule struct {
 // i.e. network traffic that originates outside of the endpoint and
 // is entering the endpoint selected by the endpointSelector.
 //
-// - All members of this structure are optional. If omitted or empty, the
-//   member will have no effect on the rule.
+//   - All members of this structure are optional. If omitted or empty, the
+//     member will have no effect on the rule.
 //
-// - If multiple members are set, all of them need to match in order for
-//   the rule to take effect. The exception to this rule is FromRequires field;
-//   the effects of any Requires field in any rule will apply to all other
-//   rules as well.
+//   - If multiple members are set, all of them need to match in order for
+//     the rule to take effect. The exception to this rule is FromRequires field;
+//     the effects of any Requires field in any rule will apply to all other
+//     rules as well.
 //
-// - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually
-//   exclusive. Only one of these members may be present within an individual
-//   rule.
+//   - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually
+//     exclusive. Only one of these members may be present within an individual
+//     rule.
 type IngressRule struct {
 	IngressCommonRule `json:",inline"`
 
@@ -122,17 +122,17 @@ type IngressRule struct {
 // i.e. network traffic that originates outside of the endpoint and
 // is entering the endpoint selected by the endpointSelector.
 //
-// - All members of this structure are optional. If omitted or empty, the
-//   member will have no effect on the rule.
+//   - All members of this structure are optional. If omitted or empty, the
+//     member will have no effect on the rule.
 //
-// - If multiple members are set, all of them need to match in order for
-//   the rule to take effect. The exception to this rule is FromRequires field;
-//   the effects of any Requires field in any rule will apply to all other
-//   rules as well.
+//   - If multiple members are set, all of them need to match in order for
+//     the rule to take effect. The exception to this rule is FromRequires field;
+//     the effects of any Requires field in any rule will apply to all other
+//     rules as well.
 //
-// - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually
-//   exclusive. Only one of these members may be present within an individual
-//   rule.
+//   - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually
+//     exclusive. Only one of these members may be present within an individual
+//     rule.
 type IngressDenyRule struct {
 	IngressCommonRule `json:",inline"`
 

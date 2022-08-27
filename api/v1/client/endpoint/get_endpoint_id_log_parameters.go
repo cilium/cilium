@@ -58,7 +58,8 @@ func NewGetEndpointIDLogParamsWithHTTPClient(client *http.Client) *GetEndpointID
 	}
 }
 
-/*GetEndpointIDLogParams contains all the parameters to send to the API endpoint
+/*
+GetEndpointIDLogParams contains all the parameters to send to the API endpoint
 for the get endpoint ID log operation typically these are written to a http.Request
 */
 type GetEndpointIDLogParams struct {

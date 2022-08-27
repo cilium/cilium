@@ -433,7 +433,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		// TODO: Remove 'enable-selective-regeneration' agent option.  Without selective
 		// regeneration we retain the old behavior of upserting new identities to ipcache
 		// before endpoint policy maps have been updated.
-		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
+		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities, nil)
 	}
 
 	return
@@ -461,11 +461,11 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 }
 
 // reactToRuleUpdates does the following:
-// * regenerate all endpoints in epsToRegen
-// * bump the policy revision of all endpoints not in epsToRegen, but which are
-//   in allEps, to revision rev.
-// * wait for the regenerations to be finished
-// * upsert or delete CIDR identities to the ipcache, as needed.
+//   - regenerate all endpoints in epsToRegen
+//   - bump the policy revision of all endpoints not in epsToRegen, but which are
+//     in allEps, to revision rev.
+//   - wait for the regenerations to be finished
+//   - upsert or delete CIDR identities to the ipcache, as needed.
 func (d *Daemon) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64, upsertIdentities map[string]*identity.Identity, releasePrefixes []*net.IPNet) {
 	var enqueueWaitGroup sync.WaitGroup
 
@@ -508,7 +508,7 @@ func (d *Daemon) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.Endpoi
 	// policy maps are ready to classify packets using the newly allocated identities before
 	// they are upserted to the ipcache here.
 	if upsertIdentities != nil {
-		d.ipcache.UpsertGeneratedIdentities(upsertIdentities)
+		d.ipcache.UpsertGeneratedIdentities(upsertIdentities, nil)
 	}
 }
 

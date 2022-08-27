@@ -89,6 +89,7 @@ type AllocateDedicatedHostsRequest struct {
 	OwnerAccount                   string                       `position:"Query" name:"OwnerAccount"`
 	AutoReleaseTime                string                       `position:"Query" name:"AutoReleaseTime"`
 	OwnerId                        requests.Integer             `position:"Query" name:"OwnerId"`
+	SchedulerOptionsFenceId        string                       `position:"Query" name:"SchedulerOptions.FenceId"`
 	PeriodUnit                     string                       `position:"Query" name:"PeriodUnit"`
 	AutoRenew                      requests.Boolean             `position:"Query" name:"AutoRenew"`
 	NetworkAttributesSlbUdpTimeout requests.Integer             `position:"Query" name:"NetworkAttributes.SlbUdpTimeout"`

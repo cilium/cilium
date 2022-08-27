@@ -289,7 +289,7 @@ func (d *Daemon) launchHubble() {
 // GetIdentity looks up identity by ID from Cilium's identity cache. Hubble uses the identity info
 // to populate source and destination labels of flows.
 //
-//  - IdentityGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L40
+//   - IdentityGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L40
 func (d *Daemon) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
 	ident := d.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
 	if ident == nil {
@@ -301,7 +301,7 @@ func (d *Daemon) GetIdentity(securityIdentity uint32) (*identity.Identity, error
 // GetEndpointInfo returns endpoint info for a given IP address. Hubble uses this function to populate
 // fields like namespace and pod name for local endpoints.
 //
-//  - EndpointGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L34
+//   - EndpointGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L34
 func (d *Daemon) GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
 	ep := d.endpointManager.LookupIP(ip)
 	if ep == nil {
@@ -326,7 +326,7 @@ func (d *Daemon) GetEndpoints() map[policy.Endpoint]struct{} {
 // GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given IP from the
 // FQDN cache of an endpoint specified by sourceEpID.
 //
-//  - DNSGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L27
+//   - DNSGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L27
 func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 	ep := d.endpointManager.LookupCiliumID(uint16(sourceEpID))
 	if ep == nil {
@@ -344,7 +344,7 @@ func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 // GetServiceByAddr looks up service by IP/port. Hubble uses this function to annotate flows
 // with service information.
 //
-//  - ServiceGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L52
+//   - ServiceGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L52
 func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) *flowpb.Service {
 	addr := loadbalancer.L3n4Addr{
 		IP: ip,

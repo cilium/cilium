@@ -19,7 +19,8 @@ import (
 // DeleteRecorderIDOKCode is the HTTP code returned for type DeleteRecorderIDOK
 const DeleteRecorderIDOKCode int = 200
 
-/*DeleteRecorderIDOK Success
+/*
+DeleteRecorderIDOK Success
 
 swagger:response deleteRecorderIdOK
 */
@@ -43,7 +44,8 @@ func (o *DeleteRecorderIDOK) WriteResponse(rw http.ResponseWriter, producer runt
 // DeleteRecorderIDNotFoundCode is the HTTP code returned for type DeleteRecorderIDNotFound
 const DeleteRecorderIDNotFoundCode int = 404
 
-/*DeleteRecorderIDNotFound Recorder not found
+/*
+DeleteRecorderIDNotFound Recorder not found
 
 swagger:response deleteRecorderIdNotFound
 */
@@ -67,7 +69,8 @@ func (o *DeleteRecorderIDNotFound) WriteResponse(rw http.ResponseWriter, produce
 // DeleteRecorderIDFailureCode is the HTTP code returned for type DeleteRecorderIDFailure
 const DeleteRecorderIDFailureCode int = 500
 
-/*DeleteRecorderIDFailure Recorder deletion failed
+/*
+DeleteRecorderIDFailure Recorder deletion failed
 
 swagger:response deleteRecorderIdFailure
 */

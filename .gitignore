@@ -35,6 +35,7 @@ coverage-all.out
 coverage-all.html
 coverage-all-tmp.out
 bpf-coverage.html
+bpf-coverage.cover
 
 .DS_Store
 .idea/
@@ -106,3 +107,6 @@ images/*/Dockerfile.dockerignore
 
 # Local Emacs files
 .dir-locals.el
+
+# Clangd cache for indexed bpf code
+bpf/.cache

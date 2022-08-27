@@ -8,47 +8,19 @@ package serializer
 import (
 	"errors"
 	"testing"
-	"time"
-
-	. "gopkg.in/check.v1"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type SerializerSuite struct{}
-
-var _ = Suite(&SerializerSuite{})
-
-func (s *SerializerSuite) TestFuncSerializer(c *C) {
-	stopTest := make(chan struct{})
-	nRetriesExecuted := 0
-	nRetriesExpected := 3
+func TestFuncSerializer(t *testing.T) {
+	terr := errors.New("Failed")
 
 	f := func() error {
-		nRetriesExecuted++
-		return errors.New("Failed")
+		return terr
 	}
 
-	wf := func(nRetries int) bool {
-		if nRetries >= nRetriesExpected {
-			close(stopTest)
-			return false
-		}
-		return true
+	fs := NewFunctionQueue()
+	fs.Enqueue(f)
+
+	if err := fs.Wait(); err != terr {
+		t.Errorf("Expected error %s, got: %s", terr, err)
 	}
-
-	fs := NewFunctionQueue(1)
-
-	fs.Enqueue(f, wf)
-
-	select {
-	case <-stopTest:
-	case <-time.NewTimer(5 * time.Second).C:
-		c.Fatalf("FuncSerializer failed to execute")
-	}
-
-	c.Assert(nRetriesExecuted, Equals, nRetriesExpected)
 }

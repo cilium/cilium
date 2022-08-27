@@ -25,7 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
@@ -35,6 +34,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
 const (
@@ -55,7 +55,7 @@ func newEnvoyConfigManager(maxRetries int) (*envoyConfigManager, error) {
 
 	// setup store and informer only for endpoints having label cilium.io/ingress
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(), v2.CECPluralName, corev1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*v2.CiliumEnvoyConfigList](k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(corev1.NamespaceAll)),
 		&v2.CiliumEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{},
@@ -261,7 +261,7 @@ func getResources(ingress *slim_networkingv1.Ingress, backendServices []*v2.Serv
 
 func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace string, enforcedHTTPS bool) (v2.XDSResource, error) {
 	cecName := getCECNameForIngress(ingress)
-	defaultHttpConnectionManager, err := getConnectionManager(cecName, fmt.Sprintf("%s_route", cecName))
+	defaultHttpConnectionManager, err := getConnectionManager(ingress, cecName, fmt.Sprintf("%s_route", cecName))
 	if err != nil {
 		return v2.XDSResource{}, nil
 	}
@@ -286,7 +286,7 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 	} else {
 		insecureHttpConnectionManager := defaultHttpConnectionManager
 		if enforcedHTTPS {
-			insecureHttpConnectionManager, err = getConnectionManager(cecName, fmt.Sprintf("%s_redirect", cecName))
+			insecureHttpConnectionManager, err = getConnectionManager(ingress, cecName, fmt.Sprintf("%s_redirect", cecName))
 			if err != nil {
 				return v2.XDSResource{}, nil
 			}
@@ -360,8 +360,16 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 	}, nil
 }
 
-func getConnectionManager(name string, routeName string) (v2.XDSResource, error) {
+func getConnectionManager(ingress *slim_networkingv1.Ingress, name string, routeName string) (v2.XDSResource, error) {
 	var connectionManager envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager
+	var upgradeConfigs []*envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_UpgradeConfig
+
+	if annotations.GetAnnotationWebsocketEnabled(ingress) == 1 {
+		upgradeConfigs = []*envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
+			{UpgradeType: "websocket"},
+		}
+	}
+
 	connectionManager = envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{
 		StatPrefix: name,
 		RouteSpecifier: &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_Rds{
@@ -372,6 +380,7 @@ func getConnectionManager(name string, routeName string) (v2.XDSResource, error)
 		HttpFilters: []*envoy_extensions_filters_network_http_connection_manager_v3.HttpFilter{
 			{Name: "envoy.filters.http.router"},
 		},
+		UpgradeConfigs: upgradeConfigs,
 	}
 
 	connectionManagerBytes, err := proto.Marshal(&connectionManager)
@@ -618,8 +627,8 @@ func getRedirectRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (
 // Currently, only TPC keep-alive related options are specified.
 //
 // Related references:
-//  - https://man7.org/linux/man-pages/man7/tcp.7.html
-//  - https://github.com/envoyproxy/envoy/issues/3634
+//   - https://man7.org/linux/man-pages/man7/tcp.7.html
+//   - https://github.com/envoyproxy/envoy/issues/3634
 func getSocketOptions(ingress *slim_networkingv1.Ingress) []*envoy_config_core_v3.SocketOption {
 	tcpKeepAliveEnabled := annotations.GetAnnotationTCPKeepAliveEnabled(ingress)
 	if tcpKeepAliveEnabled == 0 {

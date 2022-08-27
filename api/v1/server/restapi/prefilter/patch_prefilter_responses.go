@@ -19,7 +19,8 @@ import (
 // PatchPrefilterOKCode is the HTTP code returned for type PatchPrefilterOK
 const PatchPrefilterOKCode int = 200
 
-/*PatchPrefilterOK Updated
+/*
+PatchPrefilterOK Updated
 
 swagger:response patchPrefilterOK
 */
@@ -63,7 +64,8 @@ func (o *PatchPrefilterOK) WriteResponse(rw http.ResponseWriter, producer runtim
 // PatchPrefilterInvalidCIDRCode is the HTTP code returned for type PatchPrefilterInvalidCIDR
 const PatchPrefilterInvalidCIDRCode int = 461
 
-/*PatchPrefilterInvalidCIDR Invalid CIDR prefix
+/*
+PatchPrefilterInvalidCIDR Invalid CIDR prefix
 
 swagger:response patchPrefilterInvalidCIdR
 */
@@ -105,7 +107,8 @@ func (o *PatchPrefilterInvalidCIDR) WriteResponse(rw http.ResponseWriter, produc
 // PatchPrefilterFailureCode is the HTTP code returned for type PatchPrefilterFailure
 const PatchPrefilterFailureCode int = 500
 
-/*PatchPrefilterFailure Prefilter update failed
+/*
+PatchPrefilterFailure Prefilter update failed
 
 swagger:response patchPrefilterFailure
 */

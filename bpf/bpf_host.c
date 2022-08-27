@@ -299,7 +299,7 @@ skip_host_firewall:
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						     info->key, secctx, &trace);
+						     info->key, secctx, info->sec_label, &trace);
 
 		/* If IPSEC is needed recirc through ingress to use xfrm stack
 		 * and then result will routed back through bpf_netdev on egress
@@ -603,7 +603,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
-								secctx, WORLD_ID, &trace);
+								secctx, WORLD_ID, WORLD_ID, &trace);
 		}
 	}
 skip_vtep:
@@ -613,7 +613,7 @@ skip_vtep:
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						     info->key, secctx, &trace);
+						     info->key, secctx, info->sec_label, &trace);
 
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
@@ -748,9 +748,10 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 	 * affinity we can not use IP address to assign the
 	 * destination IP. Instead rewrite it here from cb[].
 	 */
-	sum = csum_diff(&iphdr->daddr, 4, &tunnel_endpoint, 4, 0);
+	sum = csum_diff(&iphdr->daddr, sizeof(__u32), &tunnel_endpoint,
+			sizeof(tunnel_endpoint), 0);
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
-	    &tunnel_endpoint, 4, 0) < 0) {
+	    &tunnel_endpoint, sizeof(tunnel_endpoint), 0) < 0) {
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
@@ -765,9 +766,10 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 		goto drop_err;
 	}
 
-	sum = csum_diff(&iphdr->saddr, 4, &tunnel_source, 4, 0);
+	sum = csum_diff(&iphdr->saddr, sizeof(__u32), &tunnel_source,
+			sizeof(tunnel_source), 0);
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
-	    &tunnel_source, 4, 0) < 0) {
+	    &tunnel_source, sizeof(tunnel_source), 0) < 0) {
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
@@ -892,7 +894,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 
 	bpf_clear_meta(ctx);
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, src_id,
-						NOT_VTEP_DST, &trace);
+						0, NOT_VTEP_DST, &trace);
 }
 
 static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused,
@@ -1141,7 +1143,7 @@ handle_srv6(struct __ctx_buff *ctx)
  * - BPF NodePort is enabled
  */
 __section("from-netdev")
-int from_netdev(struct __ctx_buff *ctx)
+int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	__u32 __maybe_unused vlan_id;
 
@@ -1166,7 +1168,7 @@ int from_netdev(struct __ctx_buff *ctx)
  * interface if present.
  */
 __section("from-host")
-int from_host(struct __ctx_buff *ctx)
+int cil_from_host(struct __ctx_buff *ctx)
 {
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
@@ -1182,7 +1184,7 @@ int from_host(struct __ctx_buff *ctx)
  * - BPF NodePort is enabled
  */
 __section("to-netdev")
-int to_netdev(struct __ctx_buff *ctx __maybe_unused)
+int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1315,7 +1317,7 @@ out:
  * 'cilium_net' devices if present.
  */
 __section("to-host")
-int to_host(struct __ctx_buff *ctx)
+int cil_to_host(struct __ctx_buff *ctx)
 {
 	__u32 magic = ctx_load_meta(ctx, ENCRYPT_OR_PROXY_MAGIC);
 	__u16 __maybe_unused proto = 0;

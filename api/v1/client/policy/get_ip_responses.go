@@ -55,7 +55,8 @@ func NewGetIPOK() *GetIPOK {
 	return &GetIPOK{}
 }
 
-/*GetIPOK handles this case with default header values.
+/*
+GetIPOK handles this case with default header values.
 
 Success
 */
@@ -86,7 +87,8 @@ func NewGetIPBadRequest() *GetIPBadRequest {
 	return &GetIPBadRequest{}
 }
 
-/*GetIPBadRequest handles this case with default header values.
+/*
+GetIPBadRequest handles this case with default header values.
 
 Invalid request (error parsing parameters)
 */
@@ -117,7 +119,8 @@ func NewGetIPNotFound() *GetIPNotFound {
 	return &GetIPNotFound{}
 }
 
-/*GetIPNotFound handles this case with default header values.
+/*
+GetIPNotFound handles this case with default header values.
 
 No IP cache entries with provided parameters found
 */

@@ -330,6 +330,26 @@ func (m *validateOpAssociateSubnetCidrBlock) HandleInitialize(ctx context.Contex
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpAssociateTransitGatewayPolicyTable struct {
+}
+
+func (*validateOpAssociateTransitGatewayPolicyTable) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssociateTransitGatewayPolicyTable) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssociateTransitGatewayPolicyTableInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssociateTransitGatewayPolicyTableInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpAssociateTransitGatewayRouteTable struct {
 }
 
@@ -1750,6 +1770,26 @@ func (m *validateOpCreateTransitGatewayPeeringAttachment) HandleInitialize(ctx c
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateTransitGatewayPolicyTable struct {
+}
+
+func (*validateOpCreateTransitGatewayPolicyTable) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateTransitGatewayPolicyTable) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateTransitGatewayPolicyTableInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateTransitGatewayPolicyTableInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateTransitGatewayPrefixListReference struct {
 }
 
@@ -1785,6 +1825,26 @@ func (m *validateOpCreateTransitGatewayRoute) HandleInitialize(ctx context.Conte
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpCreateTransitGatewayRouteInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpCreateTransitGatewayRouteTableAnnouncement struct {
+}
+
+func (*validateOpCreateTransitGatewayRouteTableAnnouncement) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateTransitGatewayRouteTableAnnouncement) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateTransitGatewayRouteTableAnnouncementInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateTransitGatewayRouteTableAnnouncementInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -2850,6 +2910,26 @@ func (m *validateOpDeleteTransitGatewayPeeringAttachment) HandleInitialize(ctx c
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDeleteTransitGatewayPolicyTable struct {
+}
+
+func (*validateOpDeleteTransitGatewayPolicyTable) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteTransitGatewayPolicyTable) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteTransitGatewayPolicyTableInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteTransitGatewayPolicyTableInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDeleteTransitGatewayPrefixListReference struct {
 }
 
@@ -2885,6 +2965,26 @@ func (m *validateOpDeleteTransitGatewayRoute) HandleInitialize(ctx context.Conte
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpDeleteTransitGatewayRouteInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDeleteTransitGatewayRouteTableAnnouncement struct {
+}
+
+func (*validateOpDeleteTransitGatewayRouteTableAnnouncement) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteTransitGatewayRouteTableAnnouncement) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteTransitGatewayRouteTableAnnouncementInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteTransitGatewayRouteTableAnnouncementInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -3950,6 +4050,26 @@ func (m *validateOpDisassociateSubnetCidrBlock) HandleInitialize(ctx context.Con
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDisassociateTransitGatewayPolicyTable struct {
+}
+
+func (*validateOpDisassociateTransitGatewayPolicyTable) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisassociateTransitGatewayPolicyTable) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisassociateTransitGatewayPolicyTableInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisassociateTransitGatewayPolicyTableInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDisassociateTransitGatewayRouteTable struct {
 }
 
@@ -4745,6 +4865,46 @@ func (m *validateOpGetTransitGatewayAttachmentPropagations) HandleInitialize(ctx
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpGetTransitGatewayAttachmentPropagationsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetTransitGatewayPolicyTableAssociations struct {
+}
+
+func (*validateOpGetTransitGatewayPolicyTableAssociations) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetTransitGatewayPolicyTableAssociations) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetTransitGatewayPolicyTableAssociationsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetTransitGatewayPolicyTableAssociationsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetTransitGatewayPolicyTableEntries struct {
+}
+
+func (*validateOpGetTransitGatewayPolicyTableEntries) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetTransitGatewayPolicyTableEntries) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetTransitGatewayPolicyTableEntriesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetTransitGatewayPolicyTableEntriesInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -7134,6 +7294,10 @@ func addOpAssociateSubnetCidrBlockValidationMiddleware(stack *middleware.Stack) 
 	return stack.Initialize.Add(&validateOpAssociateSubnetCidrBlock{}, middleware.After)
 }
 
+func addOpAssociateTransitGatewayPolicyTableValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssociateTransitGatewayPolicyTable{}, middleware.After)
+}
+
 func addOpAssociateTransitGatewayRouteTableValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssociateTransitGatewayRouteTable{}, middleware.After)
 }
@@ -7418,12 +7582,20 @@ func addOpCreateTransitGatewayPeeringAttachmentValidationMiddleware(stack *middl
 	return stack.Initialize.Add(&validateOpCreateTransitGatewayPeeringAttachment{}, middleware.After)
 }
 
+func addOpCreateTransitGatewayPolicyTableValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateTransitGatewayPolicyTable{}, middleware.After)
+}
+
 func addOpCreateTransitGatewayPrefixListReferenceValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateTransitGatewayPrefixListReference{}, middleware.After)
 }
 
 func addOpCreateTransitGatewayRouteValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateTransitGatewayRoute{}, middleware.After)
+}
+
+func addOpCreateTransitGatewayRouteTableAnnouncementValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateTransitGatewayRouteTableAnnouncement{}, middleware.After)
 }
 
 func addOpCreateTransitGatewayRouteTableValidationMiddleware(stack *middleware.Stack) error {
@@ -7638,12 +7810,20 @@ func addOpDeleteTransitGatewayPeeringAttachmentValidationMiddleware(stack *middl
 	return stack.Initialize.Add(&validateOpDeleteTransitGatewayPeeringAttachment{}, middleware.After)
 }
 
+func addOpDeleteTransitGatewayPolicyTableValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteTransitGatewayPolicyTable{}, middleware.After)
+}
+
 func addOpDeleteTransitGatewayPrefixListReferenceValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteTransitGatewayPrefixListReference{}, middleware.After)
 }
 
 func addOpDeleteTransitGatewayRouteValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteTransitGatewayRoute{}, middleware.After)
+}
+
+func addOpDeleteTransitGatewayRouteTableAnnouncementValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteTransitGatewayRouteTableAnnouncement{}, middleware.After)
 }
 
 func addOpDeleteTransitGatewayRouteTableValidationMiddleware(stack *middleware.Stack) error {
@@ -7858,6 +8038,10 @@ func addOpDisassociateSubnetCidrBlockValidationMiddleware(stack *middleware.Stac
 	return stack.Initialize.Add(&validateOpDisassociateSubnetCidrBlock{}, middleware.After)
 }
 
+func addOpDisassociateTransitGatewayPolicyTableValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisassociateTransitGatewayPolicyTable{}, middleware.After)
+}
+
 func addOpDisassociateTransitGatewayRouteTableValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisassociateTransitGatewayRouteTable{}, middleware.After)
 }
@@ -8016,6 +8200,14 @@ func addOpGetSubnetCidrReservationsValidationMiddleware(stack *middleware.Stack)
 
 func addOpGetTransitGatewayAttachmentPropagationsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetTransitGatewayAttachmentPropagations{}, middleware.After)
+}
+
+func addOpGetTransitGatewayPolicyTableAssociationsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetTransitGatewayPolicyTableAssociations{}, middleware.After)
+}
+
+func addOpGetTransitGatewayPolicyTableEntriesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetTransitGatewayPolicyTableEntries{}, middleware.After)
 }
 
 func addOpGetTransitGatewayPrefixListReferencesValidationMiddleware(stack *middleware.Stack) error {
@@ -9474,6 +9666,24 @@ func validateOpAssociateSubnetCidrBlockInput(v *AssociateSubnetCidrBlockInput) e
 	}
 }
 
+func validateOpAssociateTransitGatewayPolicyTableInput(v *AssociateTransitGatewayPolicyTableInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssociateTransitGatewayPolicyTableInput"}
+	if v.TransitGatewayPolicyTableId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayPolicyTableId"))
+	}
+	if v.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpAssociateTransitGatewayRouteTableInput(v *AssociateTransitGatewayRouteTableInput) error {
 	if v == nil {
 		return nil
@@ -10071,9 +10281,6 @@ func validateOpCreateFlowLogsInput(v *CreateFlowLogsInput) error {
 	}
 	if len(v.ResourceType) == 0 {
 		invalidParams.Add(smithy.NewErrParamRequired("ResourceType"))
-	}
-	if len(v.TrafficType) == 0 {
-		invalidParams.Add(smithy.NewErrParamRequired("TrafficType"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -10777,6 +10984,21 @@ func validateOpCreateTransitGatewayPeeringAttachmentInput(v *CreateTransitGatewa
 	}
 }
 
+func validateOpCreateTransitGatewayPolicyTableInput(v *CreateTransitGatewayPolicyTableInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateTransitGatewayPolicyTableInput"}
+	if v.TransitGatewayId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateTransitGatewayPrefixListReferenceInput(v *CreateTransitGatewayPrefixListReferenceInput) error {
 	if v == nil {
 		return nil
@@ -10805,6 +11027,24 @@ func validateOpCreateTransitGatewayRouteInput(v *CreateTransitGatewayRouteInput)
 	}
 	if v.TransitGatewayRouteTableId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateTransitGatewayRouteTableAnnouncementInput(v *CreateTransitGatewayRouteTableAnnouncementInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateTransitGatewayRouteTableAnnouncementInput"}
+	if v.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+	if v.PeeringAttachmentId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("PeeringAttachmentId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -11641,6 +11881,21 @@ func validateOpDeleteTransitGatewayPeeringAttachmentInput(v *DeleteTransitGatewa
 	}
 }
 
+func validateOpDeleteTransitGatewayPolicyTableInput(v *DeleteTransitGatewayPolicyTableInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteTransitGatewayPolicyTableInput"}
+	if v.TransitGatewayPolicyTableId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayPolicyTableId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDeleteTransitGatewayPrefixListReferenceInput(v *DeleteTransitGatewayPrefixListReferenceInput) error {
 	if v == nil {
 		return nil
@@ -11669,6 +11924,21 @@ func validateOpDeleteTransitGatewayRouteInput(v *DeleteTransitGatewayRouteInput)
 	}
 	if v.DestinationCidrBlock == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("DestinationCidrBlock"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDeleteTransitGatewayRouteTableAnnouncementInput(v *DeleteTransitGatewayRouteTableAnnouncementInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteTransitGatewayRouteTableAnnouncementInput"}
+	if v.TransitGatewayRouteTableAnnouncementId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayRouteTableAnnouncementId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -12409,9 +12679,6 @@ func validateOpDisableTransitGatewayRouteTablePropagationInput(v *DisableTransit
 	if v.TransitGatewayRouteTableId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayRouteTableId"))
 	}
-	if v.TransitGatewayAttachmentId == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
-	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	} else {
@@ -12525,6 +12792,24 @@ func validateOpDisassociateSubnetCidrBlockInput(v *DisassociateSubnetCidrBlockIn
 	invalidParams := smithy.InvalidParamsError{Context: "DisassociateSubnetCidrBlockInput"}
 	if v.AssociationId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("AssociationId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDisassociateTransitGatewayPolicyTableInput(v *DisassociateTransitGatewayPolicyTableInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisassociateTransitGatewayPolicyTableInput"}
+	if v.TransitGatewayPolicyTableId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayPolicyTableId"))
+	}
+	if v.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -12659,9 +12944,6 @@ func validateOpEnableTransitGatewayRouteTablePropagationInput(v *EnableTransitGa
 	invalidParams := smithy.InvalidParamsError{Context: "EnableTransitGatewayRouteTablePropagationInput"}
 	if v.TransitGatewayRouteTableId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayRouteTableId"))
-	}
-	if v.TransitGatewayAttachmentId == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -13194,6 +13476,36 @@ func validateOpGetTransitGatewayAttachmentPropagationsInput(v *GetTransitGateway
 	invalidParams := smithy.InvalidParamsError{Context: "GetTransitGatewayAttachmentPropagationsInput"}
 	if v.TransitGatewayAttachmentId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetTransitGatewayPolicyTableAssociationsInput(v *GetTransitGatewayPolicyTableAssociationsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetTransitGatewayPolicyTableAssociationsInput"}
+	if v.TransitGatewayPolicyTableId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayPolicyTableId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetTransitGatewayPolicyTableEntriesInput(v *GetTransitGatewayPolicyTableEntriesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetTransitGatewayPolicyTableEntriesInput"}
+	if v.TransitGatewayPolicyTableId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayPolicyTableId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

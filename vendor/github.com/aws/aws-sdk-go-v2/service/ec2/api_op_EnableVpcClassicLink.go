@@ -10,12 +10,16 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Enables a VPC for ClassicLink. You can then link EC2-Classic instances to your
-// ClassicLink-enabled VPC to allow communication over private IP addresses. You
-// cannot enable your VPC for ClassicLink if any of your VPC route tables have
-// existing routes for address ranges within the 10.0.0.0/8 IP address range,
-// excluding local routes for VPCs in the 10.0.0.0/16 and 10.1.0.0/16 IP address
-// ranges. For more information, see ClassicLink
+// We are retiring EC2-Classic on August 15, 2022. We recommend that you migrate
+// from EC2-Classic to a VPC. For more information, see Migrate from EC2-Classic to
+// a VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in
+// the Amazon Elastic Compute Cloud User Guide. Enables a VPC for ClassicLink. You
+// can then link EC2-Classic instances to your ClassicLink-enabled VPC to allow
+// communication over private IP addresses. You cannot enable your VPC for
+// ClassicLink if any of your VPC route tables have existing routes for address
+// ranges within the 10.0.0.0/8 IP address range, excluding local routes for VPCs
+// in the 10.0.0.0/16 and 10.1.0.0/16 IP address ranges. For more information, see
+// ClassicLink
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-classiclink.html) in
 // the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) EnableVpcClassicLink(ctx context.Context, params *EnableVpcClassicLinkInput, optFns ...func(*Options)) (*EnableVpcClassicLinkOutput, error) {

@@ -49,7 +49,8 @@ func NewGetPolicyOK() *GetPolicyOK {
 	return &GetPolicyOK{}
 }
 
-/*GetPolicyOK handles this case with default header values.
+/*
+GetPolicyOK handles this case with default header values.
 
 Success
 */
@@ -82,7 +83,8 @@ func NewGetPolicyNotFound() *GetPolicyNotFound {
 	return &GetPolicyNotFound{}
 }
 
-/*GetPolicyNotFound handles this case with default header values.
+/*
+GetPolicyNotFound handles this case with default header values.
 
 No policy rules found
 */

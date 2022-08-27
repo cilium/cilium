@@ -509,15 +509,23 @@ ct_recreate6:
 		 * (c) packet was redirected to tunnel device so return.
 		 */
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, SECLABEL, &trace);
+					     &key, SECLABEL, *dst_id, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
 #endif
-	if (is_defined(ENABLE_HOST_ROUTING))
-		return redirect_direct_v6(ctx, ETH_HLEN, ip6);
+	if (is_defined(ENABLE_HOST_ROUTING)) {
+		int oif;
+
+		ret = redirect_direct_v6(ctx, ETH_HLEN, ip6, &oif);
+		if (likely(ret == CTX_ACT_REDIRECT))
+			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
+					  *dst_id, 0, oif,
+					  trace.reason, trace.monitor);
+		return ret;
+	}
 
 	goto pass_to_stack;
 
@@ -1034,7 +1042,7 @@ ct_recreate4:
 		 * node through a tunnel.
 		 */
 		ret = encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
-					     &key, SECLABEL, &trace);
+					     &key, SECLABEL, *dst_id, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else
@@ -1062,7 +1070,8 @@ skip_egress_gateway:
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
-								SECLABEL, WORLD_ID, &trace);
+								SECLABEL, WORLD_ID,
+								WORLD_ID, &trace);
 		}
 	}
 skip_vtep:
@@ -1082,7 +1091,7 @@ skip_vtep:
 		key.family = ENDPOINT_KEY_IPV4;
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, SECLABEL, &trace);
+					     &key, SECLABEL, *dst_id, &trace);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack
@@ -1097,8 +1106,16 @@ skip_vtep:
 			return ret;
 	}
 #endif /* TUNNEL_MODE */
-	if (is_defined(ENABLE_HOST_ROUTING))
-		return redirect_direct_v4(ctx, ETH_HLEN, ip4);
+	if (is_defined(ENABLE_HOST_ROUTING)) {
+		int oif;
+
+		ret = redirect_direct_v4(ctx, ETH_HLEN, ip4, &oif);
+		if (likely(ret == CTX_ACT_REDIRECT))
+			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
+					  *dst_id, 0, oif,
+					  trace.reason, trace.monitor);
+		return ret;
+	}
 
 	goto pass_to_stack;
 
@@ -1305,7 +1322,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
  * It corresponds to packets leaving the container.
  */
 __section("from-container")
-int handle_xgress(struct __ctx_buff *ctx)
+int cil_from_container(struct __ctx_buff *ctx)
 {
 	__u16 proto;
 	int ret;
@@ -2117,7 +2134,7 @@ out:
  * routes are enabled.
  */
 __section("to-container")
-int handle_to_container(struct __ctx_buff *ctx)
+int cil_to_container(struct __ctx_buff *ctx)
 {
 	enum trace_point trace = TRACE_FROM_STACK;
 	__u32 magic, identity = 0;

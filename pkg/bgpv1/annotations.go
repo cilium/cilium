@@ -76,9 +76,10 @@ func (e ErrAttrib) Error() string {
 // Where {asn} is replaced by the local ASN of the virtual router.
 //
 // Currently supported attributes are:
-//  router-id=IPv4 (string): when present on a specific node, use this value for
-//                           the router ID of the virtual router with local {asn}
-//  local-port=port (int):  the local port to listen on for incoming BGP connections
+//
+//	router-id=IPv4 (string): when present on a specific node, use this value for
+//	                         the router ID of the virtual router with local {asn}
+//	local-port=port (int):  the local port to listen on for incoming BGP connections
 type Attributes struct {
 	// The local ASN of the virtual router these Attributes targets.
 	ASN int

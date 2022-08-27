@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/dylandreimerink/gocovmerge"
 	"github.com/golang/protobuf/proto"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/tools/cover"
@@ -44,6 +43,7 @@ import (
 var (
 	testPath               = flag.String("bpf-test-path", "", "Path to the eBPF tests")
 	testCoverageReport     = flag.String("coverage-report", "", "Specify a path for the coverage report")
+	testCoverageFormat     = flag.String("coverage-format", "html", "Specify the format of the coverage report")
 	testInstrumentationLog = flag.String("instrumentation-log", "", "Path to a log file containing details about"+
 		" code coverage instrumentation, needed if code coverage breaks the verifier")
 
@@ -87,7 +87,7 @@ func TestBPF(t *testing.T) {
 		profiles := loadAndRunSpec(t, entry, instrLog)
 		for _, profile := range profiles {
 			if len(profile.Blocks) > 0 {
-				mergedProfiles = gocovmerge.AddProfile(mergedProfiles, profile)
+				mergedProfiles = addProfile(mergedProfiles, profile)
 			}
 		}
 	}
@@ -99,8 +99,15 @@ func TestBPF(t *testing.T) {
 		}
 		defer coverReport.Close()
 
-		if err = coverbee.HTMLOutput(mergedProfiles, coverReport); err != nil {
-			t.Fatalf("create HTML coverage report: %s", err.Error())
+		switch *testCoverageFormat {
+		case "html":
+			if err = coverbee.HTMLOutput(mergedProfiles, coverReport); err != nil {
+				t.Fatalf("create HTML coverage report: %s", err.Error())
+			}
+		case "go-cover", "cover":
+			coverbee.ProfilesToGoCover(mergedProfiles, coverReport, "count")
+		default:
+			t.Fatal("unknown output format")
 		}
 	}
 }
@@ -234,8 +241,13 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 		t.Fatalf("apply covermap to blocklist: %s", err.Error())
 	}
 
+	outBlocks, err := coverbee.SourceCodeInterpolation(blocklist, nil)
+	if err != nil {
+		t.Fatalf("error while interpolating using source files: %s", err)
+	}
+
 	var buf bytes.Buffer
-	coverbee.BlockListToGoCover(blocklist, &buf, "count")
+	coverbee.BlockListToGoCover(outBlocks, &buf, "count")
 	profiles, err := cover.ParseProfilesFromReader(&buf)
 	if err != nil {
 		t.Fatalf("parse profiles: %s", err.Error())
@@ -270,14 +282,6 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 			if prog.Type == ebpf.UnspecifiedProgram {
 				continue
 			}
-
-			t.Fatalf(
-				"File '%s' contains both '%s' and '%s' program types, "+
-					"only one program type per ELF file allowed:",
-				elfPath,
-				progTestType,
-				prog.Type,
-			)
 		}
 	}
 
@@ -285,9 +289,11 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 		t.Fatalf("File '%s' only contains unspecified program types", elfPath)
 	}
 
-	// Give all tail call programs the same program type as the test programs
+	// Give all untyped tail call programs the same program type as the test programs
 	for _, spec := range spec.Programs {
-		spec.Type = progTestType
+		if spec.Type == ebpf.UnspecifiedProgram {
+			spec.Type = progTestType
+		}
 	}
 
 	return spec

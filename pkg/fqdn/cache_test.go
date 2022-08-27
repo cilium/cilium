@@ -1024,3 +1024,83 @@ func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 	alive = zombies.DumpAlive(cidrMatcher)
 	c.Assert(alive, HasLen, 0)
 }
+
+func (ds *DNSCacheTestSuite) TestOverlimitPreferNewerEntries(c *C) {
+	toFQDNsMinTTL := 100
+	toFQDNsMaxIPsPerHost := 5
+	cache := NewDNSCacheWithLimit(toFQDNsMinTTL, toFQDNsMaxIPsPerHost)
+
+	toFQDNsMaxDeferredConnectionDeletes := 10
+	zombies := NewDNSZombieMappings(toFQDNsMaxDeferredConnectionDeletes, toFQDNsMaxIPsPerHost)
+
+	name := "test.com"
+	IPs := []net.IP{
+		net.ParseIP("1.1.1.1"),
+		net.ParseIP("1.1.1.2"),
+		net.ParseIP("1.1.1.3"),
+		net.ParseIP("1.1.1.4"),
+		net.ParseIP("1.1.1.5"),
+		net.ParseIP("1.1.1.6"),
+		net.ParseIP("1.1.1.7"),
+		net.ParseIP("1.1.1.8"),
+		net.ParseIP("1.1.1.9"),
+		net.ParseIP("1.1.1.10"),
+		net.ParseIP("1.1.1.11"),
+		net.ParseIP("1.1.1.12"),
+		net.ParseIP("1.1.1.13"),
+		net.ParseIP("1.1.1.14"),
+		net.ParseIP("1.1.1.15"),
+		net.ParseIP("1.1.1.16"),
+		net.ParseIP("1.1.1.17"),
+		net.ParseIP("1.1.1.18"),
+		net.ParseIP("1.1.1.19"),
+		net.ParseIP("1.1.1.20"),
+	}
+	ttl := 0 // will be overwritten with toFQDNsMinTTL
+
+	now := time.Now()
+	for i, ip := range IPs {
+		// Entries with lower values in last IP octet will expire earlier
+		lookupTime := now.Add(-time.Duration(len(IPs)-i) * time.Second)
+		cache.Update(lookupTime, name, []net.IP{ip}, ttl)
+	}
+
+	affected := cache.GC(time.Now(), zombies)
+
+	c.Assert(affected, HasLen, 1)
+	c.Assert(affected[0], Equals, name)
+
+	// No entries have expired, but no more than toFQDNsMaxIPsPerHost can be
+	// kept in the cache.
+	// The exceeding ones will be moved to the zombies cache due to overlimit
+	c.Assert(cache.forward[name], HasLen, toFQDNsMaxIPsPerHost)
+
+	alive, dead := zombies.GC()
+
+	// No more than toFQDNsMaxIPsPerHost entries will be kept
+	// alive in the zombies cache as well
+	c.Assert(alive, HasLen, toFQDNsMaxIPsPerHost)
+
+	// More recent entries (i.e. entries with later expire time) will be kept alive
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.11": {name},
+		"1.1.1.12": {name},
+		"1.1.1.13": {name},
+		"1.1.1.14": {name},
+		"1.1.1.15": {name},
+	})
+
+	// Older entries will be evicted
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.1":  {name},
+		"1.1.1.2":  {name},
+		"1.1.1.3":  {name},
+		"1.1.1.4":  {name},
+		"1.1.1.5":  {name},
+		"1.1.1.6":  {name},
+		"1.1.1.7":  {name},
+		"1.1.1.8":  {name},
+		"1.1.1.9":  {name},
+		"1.1.1.10": {name},
+	})
+}

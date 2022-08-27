@@ -132,7 +132,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(context.TODO(), ds, ds, tmpDir, epsNames)
+	eps := ReadEPsFromDirNames(context.TODO(), ds, ds, ds, tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -198,7 +198,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult := ReadEPsFromDirNames(context.TODO(), ds, ds, tmpDir, epNames)
+	epResult := ReadEPsFromDirNames(context.TODO(), ds, ds, ds, tmpDir, epNames)
 	c.Assert(len(epResult), Equals, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -254,7 +254,7 @@ func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 	c.StartTimer()
 
 	for i := 0; i < c.N; i++ {
-		eps := ReadEPsFromDirNames(context.TODO(), ds, ds, tmpDir, epsNames)
+		eps := ReadEPsFromDirNames(context.TODO(), ds, ds, ds, tmpDir, epsNames)
 		c.Assert(len(eps), Equals, len(epsWanted))
 	}
 }

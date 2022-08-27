@@ -18,7 +18,6 @@ import (
 
 // EndpointStatus Connectivity status to host cilium-health endpoints via different paths
 //
-//
 // swagger:model EndpointStatus
 type EndpointStatus struct {
 

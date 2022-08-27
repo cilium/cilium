@@ -7,12 +7,17 @@
 
 |cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl|
 
-Cilium is open source software for providing and transparently securing network
-connectivity and loadbalancing between application workloads such as
-application containers or processes. Cilium operates at Layer 3/4 to provide
-traditional networking and security services as well as Layer 7 to protect and
-secure use of modern application protocols such as HTTP, gRPC and Kafka. Cilium
-is integrated into common orchestration frameworks such as Kubernetes.
+Cilium is a networking, observability, and security solution with an eBPF-based
+dataplane. It provides a simple flat Layer 3 network with the ability to span 
+multiple clusters in either a native routing or overlay mode. It is L7-protocol 
+aware and can enforce network policies on L3-L7 using an identity based security 
+model that is decoupled from network addressing.
+
+Cilium implements distributed load balancing for traffic between pods and to 
+external services, and is able to fully replace kube-proxy, using efficient 
+hash tables in eBPF allowing for almost unlimited scale. It also supports 
+advanced functionality like integrated ingress and egress gateway, bandwidth 
+management and service mesh, and provides deep network and security visibility and monitoring.
 
 A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
 supports dynamic insertion of eBPF bytecode into the Linux kernel at various
@@ -20,8 +25,8 @@ integration points such as: network IO, application sockets, and tracepoints to
 implement security, networking and visibility logic. eBPF is highly efficient
 and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
-.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/cilium_overview.png
-    :align: center
+.. image:: Documentation/images/cilium-overview.png
+   :alt: Overview of Cilium features for networking, observability, service mesh, and runtime security
 
 Stable Releases
 ===============
@@ -37,11 +42,11 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2022-07-19 | ``quay.io/cilium/cilium:v1.12.0``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.0>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__  |
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2022-08-15 | ``quay.io/cilium/cilium:v1.12.1``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.1>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-07-15 | ``quay.io/cilium/cilium:v1.11.7``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.7>`__  | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-08-15 | ``quay.io/cilium/cilium:v1.11.8``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.8>`__  | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-07-15 | ``quay.io/cilium/cilium:v1.10.13`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.13>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
+| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-08-15 | ``quay.io/cilium/cilium:v1.10.14`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.14>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 
 Functionality Overview
@@ -246,7 +251,7 @@ Special Interest Groups (SIG)
 -----------------------------
 
 See `Special Interest groups
-<https://docs.cilium.io/en/stable/community/#special-interest-groups>`_ for a list of all SIGs and their meeting times.
+<https://docs.cilium.io/en/stable/community/community/#special-interest-groups>`_ for a list of all SIGs and their meeting times.
 
 Weekly Developer meeting
 ------------------------

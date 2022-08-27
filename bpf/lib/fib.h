@@ -14,10 +14,10 @@
 static __always_inline int
 redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 		   int l3_off __maybe_unused,
-		   struct ipv6hdr *ip6 __maybe_unused)
+		   struct ipv6hdr *ip6 __maybe_unused, int *oif)
 {
 	bool no_neigh = is_defined(ENABLE_SKIP_FIB);
-	int ret, oif = DIRECT_ROUTING_DEV_IFINDEX;
+	int ret;
 	struct bpf_redir_neigh *nh = NULL;
 # ifndef ENABLE_SKIP_FIB
 	struct bpf_redir_neigh nh_params;
@@ -47,20 +47,26 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 		return CTX_ACT_DROP;
 	}
 
-	oif = fib_params.ifindex;
+	*oif = fib_params.ifindex;
+# else
+	*oif = DIRECT_ROUTING_DEV_IFINDEX;
 # endif /* ENABLE_SKIP_FIB */
 
 	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
-	if (no_neigh)
-		return redirect_neigh(oif, nh, nh ? sizeof(*nh) : 0, 0);
+	if (no_neigh) {
+		if (nh)
+			return redirect_neigh(*oif, nh, sizeof(*nh), 0);
+		else
+			return redirect_neigh(*oif, NULL, 0, 0);
+	}
 # ifndef ENABLE_SKIP_FIB
 	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
 		return CTX_ACT_DROP;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return CTX_ACT_DROP;
-	return ctx_redirect(ctx, oif, 0);
+	return ctx_redirect(ctx, *oif, 0);
 # endif /* ENABLE_SKIP_FIB */
 	return CTX_ACT_DROP;
 }
@@ -70,7 +76,7 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int
 redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		   int l3_off __maybe_unused,
-		   struct iphdr *ip4 __maybe_unused)
+		   struct iphdr *ip4 __maybe_unused, int *oif)
 {
 	/* For deployments with just single external dev, redirect_neigh()
 	 * will resolve the GW and do L2 resolution for us. For multi-device
@@ -79,7 +85,7 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 	 * otherwise we can directly call redirect().
 	 */
 	bool no_neigh = is_defined(ENABLE_SKIP_FIB);
-	int ret, oif = DIRECT_ROUTING_DEV_IFINDEX;
+	int ret;
 	struct bpf_redir_neigh *nh = NULL;
 # ifndef ENABLE_SKIP_FIB
 	struct bpf_redir_neigh nh_params;
@@ -107,20 +113,26 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		return CTX_ACT_DROP;
 	}
 
-	oif = fib_params.ifindex;
+	*oif = fib_params.ifindex;
+# else
+	*oif = DIRECT_ROUTING_DEV_IFINDEX;
 # endif /* ENABLE_SKIP_FIB */
 
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
-	if (no_neigh)
-		return redirect_neigh(oif, nh, nh ? sizeof(*nh) : 0, 0);
+	if (no_neigh) {
+		if (nh)
+			return redirect_neigh(*oif, nh, sizeof(*nh), 0);
+		else
+			return redirect_neigh(*oif, NULL, 0, 0);
+	}
 # ifndef ENABLE_SKIP_FIB
 	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
 		return CTX_ACT_DROP;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return CTX_ACT_DROP;
-	return ctx_redirect(ctx, oif, 0);
+	return ctx_redirect(ctx, *oif, 0);
 # endif /* ENABLE_SKIP_FIB */
 	return CTX_ACT_DROP;
 }

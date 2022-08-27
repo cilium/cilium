@@ -67,7 +67,9 @@ func hasHostObjectFile(epDir string) bool {
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter,
+	namedPortsGetter namedPortsGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
 	if len(incompleteEPDirNames) > 0 {
@@ -76,7 +78,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 				logfields.EndpointID: epDirName,
 			})
 			fullDirName := filepath.Join(basePath, epDirName)
-			scopedLog.Warning(fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName))
+			scopedLog.Info(fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName))
 			if err := os.RemoveAll(epDirName); err != nil {
 				scopedLog.WithError(err).Warn(fmt.Sprintf("Error while removing directory %s. Ignoring it...", fullDirName))
 			}
@@ -137,7 +139,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
 		}
-		ep, err := parseEndpoint(ctx, owner, policyGetter, bEp)
+		ep, err := parseEndpoint(ctx, owner, policyGetter, namedPortsGetter, bEp)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
@@ -212,7 +214,6 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
 	}
 	if buildSuccess := <-e.Regenerate(regenerationMetadata); !buildSuccess {
-		scopedLog.Warn("Failed while regenerating endpoint")
 		return fmt.Errorf("failed while regenerating endpoint")
 	}
 
@@ -402,14 +403,12 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 // serializableEndpoint contains the fields from an Endpoint which are needed to be
 // restored if cilium-agent restarts.
 //
-//
 // WARNING - STABLE API
 // This structure is written as JSON to StateDir/{ID}/ep_config.h to allow to
 // restore endpoints when the agent is being restarted. The restore operation
 // will read the file and re-create all endpoints with all fields which are not
 // marked as private to JSON marshal. Do NOT modify this structure in ways which
 // is not JSON forward compatible.
-//
 type serializableEndpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16

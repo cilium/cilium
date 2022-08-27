@@ -54,17 +54,17 @@ pipeline {
         }
         stage('Set programmatic env vars') {
             steps {
-                // retrieve k8s and kernel versions from gh comment, then from job parameter, default to 1.24 for k8s, 419 for kernel
+                // retrieve k8s and kernel versions from gh comment, then from job parameter, default to 1.25 for k8s, 419 for kernel
                 script {
                     flags = env.ghprbCommentBody?.replace("\\", "")
                     env.K8S_VERSION = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
                             python3 ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="k8s_version" | \
-                            sed "s/^$/${JobK8sVersion:-1.24}/" | \
+                            sed "s/^$/${JobK8sVersion:-1.25}/" | \
                             sed 's/^"//' | sed 's/"$//' | \
                             xargs echo -n
                         else
-                            echo -n ${JobK8sVersion:-1.24}
+                            echo -n ${JobK8sVersion:-1.25}
                         fi''', returnStdout: true
                     env.KERNEL = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
@@ -97,7 +97,7 @@ pipeline {
                         env.DOCKER_TAG = env.DOCKER_TAG + "-race"
                         env.RACE = 1
                         env.LOCKDEBUG = 1
-                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:65691020fc08884b9eadbe696151a668107a70eb@sha256:22aa80e98620414e2cd800f1c0703a84186553b276898a77ba0131299b781208"
+                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:87e645c8309f1e9d7c214eacf350f520b957ac4a@sha256:1a377aa91413af7b168b9112b8b00b08eed57ee8b3b811581c87e6121eef89bd"
                     }
                 }
             }

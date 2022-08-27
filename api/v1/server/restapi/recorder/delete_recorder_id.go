@@ -32,10 +32,10 @@ func NewDeleteRecorderID(ctx *middleware.Context, handler DeleteRecorderIDHandle
 	return &DeleteRecorderID{Context: ctx, Handler: handler}
 }
 
-/*DeleteRecorderID swagger:route DELETE /recorder/{id} recorder deleteRecorderId
+/*
+DeleteRecorderID swagger:route DELETE /recorder/{id} recorder deleteRecorderId
 
 Delete a recorder
-
 */
 type DeleteRecorderID struct {
 	Context *middleware.Context

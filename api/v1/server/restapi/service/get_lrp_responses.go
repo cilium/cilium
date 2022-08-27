@@ -19,7 +19,8 @@ import (
 // GetLrpOKCode is the HTTP code returned for type GetLrpOK
 const GetLrpOKCode int = 200
 
-/*GetLrpOK Success
+/*
+GetLrpOK Success
 
 swagger:response getLrpOK
 */

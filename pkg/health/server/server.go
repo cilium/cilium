@@ -352,10 +352,10 @@ func (s *Server) runActiveServices() error {
 }
 
 // Serve spins up the following goroutines:
-// * HTTP API Server: Responder to the health API "/hello" message
-// * Prober: Periodically run pings across the cluster at a configured interval
-//   and update the server's connectivity status cache.
-// * Unix API Server: Handle all health API requests over a unix socket.
+//   - HTTP API Server: Responder to the health API "/hello" message
+//   - Prober: Periodically run pings across the cluster at a configured interval
+//     and update the server's connectivity status cache.
+//   - Unix API Server: Handle all health API requests over a unix socket.
 //
 // Callers should first defer the Server.Shutdown(), then call Serve().
 func (s *Server) Serve() (err error) {

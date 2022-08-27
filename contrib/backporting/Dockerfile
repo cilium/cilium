@@ -11,12 +11,15 @@ RUN apt-get install -y \
   python3-pip \
   curl \
   vim
-RUN mkdir -p /hub && \
-    cd /hub \
-    && curl -L -o hub.tgz https://github.com/github/hub/releases/download/v2.14.0/hub-linux-amd64-2.14.0.tgz \
-    && tar xfz hub.tgz \
-    && $(tar tfz hub.tgz | head -n1 | cut -f1 -d"/")/install \
-    && rm -rf /hub
+
+RUN set -ex \
+  && mkdir -p /hub \
+  && cd /hub \
+  && HUB_ARCH=amd64; if [ "$(uname -m)" = "aarch64" ]; then HUB_ARCH=arm64; fi \
+  && curl -L -o hub.tgz https://github.com/github/hub/releases/download/v2.14.0/hub-linux-${HUB_ARCH}-2.14.0.tgz \
+  && tar xfz hub.tgz \
+  && $(tar tfz hub.tgz | head -n1 | cut -f1 -d"/")/install \
+  && rm -rf /hub
 RUN useradd -m user
 USER user
 RUN pip3 install --user PyGithub

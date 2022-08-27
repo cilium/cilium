@@ -481,6 +481,10 @@ ingressController:
   # Incoming traffic to http listener will return 308 http error code with respective location in header.
   enforceHttps: true
 
+  # -- IngressLBAnnotations are the annotations which are needed to propagate
+  # from Ingress to the Load Balancer
+  ingressLBAnnotations: ['service.beta.kubernetes.io', 'service.kubernetes.io', 'cloud.google.com']
+  
   # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
   secretsNamespace:
     # -- Create secrets namespace for Ingress.
@@ -1139,6 +1143,10 @@ ipam:
 # -- Configure the eBPF-based ip-masq-agent
 ipMasqAgent:
   enabled: false
+# the config of nonMasqueradeCIDRs
+# config:
+  # nonMasqueradeCIDRs: []
+  # masqLinkLocal: false
 
 # iptablesLockTimeout defines the iptables "--wait" option when invoked from Cilium.
 # iptablesLockTimeout: "5s"
@@ -1439,6 +1447,13 @@ tls:
 #   - vxlan (default)
 #   - geneve
 tunnel: "vxlan"
+
+# -- Configure VXLAN and Geneve tunnel port.
+# @default -- Port 8472 for VXLAN, Port 6081 for Geneve
+tunnelPort: 0
+
+# -- Configure the underlying network MTU to overwrite auto-detected MTU.
+MTU: 0
 
 # -- Disable the usage of CiliumEndpoint CRD.
 disableEndpointCRD: "false"

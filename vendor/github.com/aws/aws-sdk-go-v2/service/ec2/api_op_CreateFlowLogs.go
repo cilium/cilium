@@ -54,12 +54,6 @@ type CreateFlowLogsInput struct {
 	// This member is required.
 	ResourceType types.FlowLogsResourceType
 
-	// The type of traffic to log. You can log traffic that the resource accepts or
-	// rejects, or all traffic.
-	//
-	// This member is required.
-	TrafficType types.TrafficType
-
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see How to ensure idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html).
@@ -127,6 +121,10 @@ type CreateFlowLogsInput struct {
 
 	// The tags to apply to the flow logs.
 	TagSpecifications []types.TagSpecification
+
+	// The type of traffic to log. You can log traffic that the resource accepts or
+	// rejects, or all traffic.
+	TrafficType types.TrafficType
 
 	noSmithyDocumentSerde
 }

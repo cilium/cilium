@@ -63,16 +63,16 @@ spec:
                 items:
                   description: "EgressRule contains all rule types which can be applied
                     at egress, i.e. network traffic that originates inside the endpoint
-                    and exits the endpoint selected by the endpointSelector. \n -
+                    and exits the endpoint selected by the endpointSelector. \n   -
                     All members of this structure are optional. If omitted or empty,
-                    the   member will have no effect on the rule. \n - If multiple
-                    members of the structure are specified, then all members   must
+                    the     member will have no effect on the rule. \n   - If multiple
+                    members of the structure are specified, then all members     must
                     match in order for the rule to take effect. The exception to this
-                    \  rule is the ToRequires member; the effects of any Requires
-                    field in any   rule will apply to all other rules as well. \n
-                    - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups
-                    are   mutually exclusive. Only one of these members may be present
-                    within an   individual rule."
+                    \    rule is the ToRequires member; the effects of any Requires
+                    field in any     rule will apply to all other rules as well. \n
+                    \  - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and
+                    ToGroups are     mutually exclusive. Only one of these members
+                    may be present within an     individual rule."
                   properties:
                     icmps:
                       description: "ICMPs is a list of ICMP rule identified by type
@@ -287,10 +287,11 @@ spec:
                               missing. \n Examples: `*.cilium.io` matches subomains
                               of cilium at that level   www.cilium.io and blog.cilium.io
                               match, cilium.io and google.com do not `*cilium.io`
-                              matches cilium.io and all subdomains 1 level below   www.cilium.io,
-                              blog.cilium.io and cilium.io match, google.com does
-                              not sub*.cilium.io matches subdomains of cilium where
-                              the subdomain component begins with \"sub\"   sub.cilium.io
+                              matches cilium.io and all subdomains ends with \"cilium.io\"
+                              \  except those containing \".\" separator, subcilium.io
+                              and sub-cilium.io match,   www.cilium.io and blog.cilium.io
+                              does not sub*.cilium.io matches subdomains of cilium
+                              where the subdomain component begins with \"sub\"   sub.cilium.io
                               and subdomain.cilium.io match, www.cilium.io,   blog.cilium.io,
                               cilium.io and google.com do not"
                             pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
@@ -453,11 +454,12 @@ spec:
                                         of cilium at that level   www.cilium.io and
                                         blog.cilium.io match, cilium.io and google.com
                                         do not `*cilium.io` matches cilium.io and
-                                        all subdomains 1 level below   www.cilium.io,
-                                        blog.cilium.io and cilium.io match, google.com
-                                        does not sub*.cilium.io matches subdomains
-                                        of cilium where the subdomain component begins
-                                        with \"sub\"   sub.cilium.io and subdomain.cilium.io
+                                        all subdomains ends with \"cilium.io\"   except
+                                        those containing \".\" separator, subcilium.io
+                                        and sub-cilium.io match,   www.cilium.io and
+                                        blog.cilium.io does not sub*.cilium.io matches
+                                        subdomains of cilium where the subdomain component
+                                        begins with \"sub\"   sub.cilium.io and subdomain.cilium.io
                                         match, www.cilium.io,   blog.cilium.io, cilium.io
                                         and google.com do not"
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
@@ -881,15 +883,15 @@ spec:
                   description: "EgressDenyRule contains all rule types which can be
                     applied at egress, i.e. network traffic that originates inside
                     the endpoint and exits the endpoint selected by the endpointSelector.
-                    \n - All members of this structure are optional. If omitted or
-                    empty, the   member will have no effect on the rule. \n - If multiple
-                    members of the structure are specified, then all members   must
-                    match in order for the rule to take effect. The exception to this
-                    \  rule is the ToRequires member; the effects of any Requires
-                    field in any   rule will apply to all other rules as well. \n
-                    - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups
-                    are   mutually exclusive. Only one of these members may be present
-                    within an   individual rule."
+                    \n   - All members of this structure are optional. If omitted
+                    or empty, the     member will have no effect on the rule. \n   -
+                    If multiple members of the structure are specified, then all members
+                    \    must match in order for the rule to take effect. The exception
+                    to this     rule is the ToRequires member; the effects of any
+                    Requires field in any     rule will apply to all other rules as
+                    well. \n   - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices
+                    and ToGroups are     mutually exclusive. Only one of these members
+                    may be present within an     individual rule."
                   properties:
                     icmps:
                       description: "ICMPs is a list of ICMP rule identified by type
@@ -1353,14 +1355,15 @@ spec:
                   description: "IngressRule contains all rule types which can be applied
                     at ingress, i.e. network traffic that originates outside of the
                     endpoint and is entering the endpoint selected by the endpointSelector.
-                    \n - All members of this structure are optional. If omitted or
-                    empty, the   member will have no effect on the rule. \n - If multiple
-                    members are set, all of them need to match in order for   the
-                    rule to take effect. The exception to this rule is FromRequires
-                    field;   the effects of any Requires field in any rule will apply
-                    to all other   rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet
-                    and FromEntities are mutually   exclusive. Only one of these members
-                    may be present within an individual   rule."
+                    \n   - All members of this structure are optional. If omitted
+                    or empty, the     member will have no effect on the rule. \n   -
+                    If multiple members are set, all of them need to match in order
+                    for     the rule to take effect. The exception to this rule is
+                    FromRequires field;     the effects of any Requires field in any
+                    rule will apply to all other     rules as well. \n   - FromEndpoints,
+                    FromCIDR, FromCIDRSet and FromEntities are mutually     exclusive.
+                    Only one of these members may be present within an individual
+                    \    rule."
                   properties:
                     fromCIDR:
                       description: "FromCIDR is a list of IP blocks which the endpoint
@@ -1725,11 +1728,12 @@ spec:
                                         of cilium at that level   www.cilium.io and
                                         blog.cilium.io match, cilium.io and google.com
                                         do not `*cilium.io` matches cilium.io and
-                                        all subdomains 1 level below   www.cilium.io,
-                                        blog.cilium.io and cilium.io match, google.com
-                                        does not sub*.cilium.io matches subdomains
-                                        of cilium where the subdomain component begins
-                                        with \"sub\"   sub.cilium.io and subdomain.cilium.io
+                                        all subdomains ends with \"cilium.io\"   except
+                                        those containing \".\" separator, subcilium.io
+                                        and sub-cilium.io match,   www.cilium.io and
+                                        blog.cilium.io does not sub*.cilium.io matches
+                                        subdomains of cilium where the subdomain component
+                                        begins with \"sub\"   sub.cilium.io and subdomain.cilium.io
                                         match, www.cilium.io,   blog.cilium.io, cilium.io
                                         and google.com do not"
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
@@ -2003,14 +2007,15 @@ spec:
                   description: "IngressDenyRule contains all rule types which can
                     be applied at ingress, i.e. network traffic that originates outside
                     of the endpoint and is entering the endpoint selected by the endpointSelector.
-                    \n - All members of this structure are optional. If omitted or
-                    empty, the   member will have no effect on the rule. \n - If multiple
-                    members are set, all of them need to match in order for   the
-                    rule to take effect. The exception to this rule is FromRequires
-                    field;   the effects of any Requires field in any rule will apply
-                    to all other   rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet
-                    and FromEntities are mutually   exclusive. Only one of these members
-                    may be present within an individual   rule."
+                    \n   - All members of this structure are optional. If omitted
+                    or empty, the     member will have no effect on the rule. \n   -
+                    If multiple members are set, all of them need to match in order
+                    for     the rule to take effect. The exception to this rule is
+                    FromRequires field;     the effects of any Requires field in any
+                    rule will apply to all other     rules as well. \n   - FromEndpoints,
+                    FromCIDR, FromCIDRSet and FromEntities are mutually     exclusive.
+                    Only one of these members may be present within an individual
+                    \    rule."
                   properties:
                     fromCIDR:
                       description: "FromCIDR is a list of IP blocks which the endpoint
@@ -2407,15 +2412,16 @@ spec:
                     description: "EgressRule contains all rule types which can be
                       applied at egress, i.e. network traffic that originates inside
                       the endpoint and exits the endpoint selected by the endpointSelector.
-                      \n - All members of this structure are optional. If omitted
-                      or empty, the   member will have no effect on the rule. \n -
-                      If multiple members of the structure are specified, then all
-                      members   must match in order for the rule to take effect. The
-                      exception to this   rule is the ToRequires member; the effects
-                      of any Requires field in any   rule will apply to all other
-                      rules as well. \n - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities,
-                      ToServices and ToGroups are   mutually exclusive. Only one of
-                      these members may be present within an   individual rule."
+                      \n   - All members of this structure are optional. If omitted
+                      or empty, the     member will have no effect on the rule. \n
+                      \  - If multiple members of the structure are specified, then
+                      all members     must match in order for the rule to take effect.
+                      The exception to this     rule is the ToRequires member; the
+                      effects of any Requires field in any     rule will apply to
+                      all other rules as well. \n   - ToEndpoints, ToCIDR, ToCIDRSet,
+                      ToEntities, ToServices and ToGroups are     mutually exclusive.
+                      Only one of these members may be present within an     individual
+                      rule."
                     properties:
                       icmps:
                         description: "ICMPs is a list of ICMP rule identified by type
@@ -2633,8 +2639,9 @@ spec:
                                 matches subomains of cilium at that level   www.cilium.io
                                 and blog.cilium.io match, cilium.io and google.com
                                 do not `*cilium.io` matches cilium.io and all subdomains
-                                1 level below   www.cilium.io, blog.cilium.io and
-                                cilium.io match, google.com does not sub*.cilium.io
+                                ends with \"cilium.io\"   except those containing
+                                \".\" separator, subcilium.io and sub-cilium.io match,
+                                \  www.cilium.io and blog.cilium.io does not sub*.cilium.io
                                 matches subdomains of cilium where the subdomain component
                                 begins with \"sub\"   sub.cilium.io and subdomain.cilium.io
                                 match, www.cilium.io,   blog.cilium.io, cilium.io
@@ -2801,12 +2808,13 @@ spec:
                                           of cilium at that level   www.cilium.io
                                           and blog.cilium.io match, cilium.io and
                                           google.com do not `*cilium.io` matches cilium.io
-                                          and all subdomains 1 level below   www.cilium.io,
-                                          blog.cilium.io and cilium.io match, google.com
-                                          does not sub*.cilium.io matches subdomains
-                                          of cilium where the subdomain component
-                                          begins with \"sub\"   sub.cilium.io and
-                                          subdomain.cilium.io match, www.cilium.io,
+                                          and all subdomains ends with \"cilium.io\"
+                                          \  except those containing \".\" separator,
+                                          subcilium.io and sub-cilium.io match,   www.cilium.io
+                                          and blog.cilium.io does not sub*.cilium.io
+                                          matches subdomains of cilium where the subdomain
+                                          component begins with \"sub\"   sub.cilium.io
+                                          and subdomain.cilium.io match, www.cilium.io,
                                           \  blog.cilium.io, cilium.io and google.com
                                           do not"
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
@@ -3239,15 +3247,16 @@ spec:
                     description: "EgressDenyRule contains all rule types which can
                       be applied at egress, i.e. network traffic that originates inside
                       the endpoint and exits the endpoint selected by the endpointSelector.
-                      \n - All members of this structure are optional. If omitted
-                      or empty, the   member will have no effect on the rule. \n -
-                      If multiple members of the structure are specified, then all
-                      members   must match in order for the rule to take effect. The
-                      exception to this   rule is the ToRequires member; the effects
-                      of any Requires field in any   rule will apply to all other
-                      rules as well. \n - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities,
-                      ToServices and ToGroups are   mutually exclusive. Only one of
-                      these members may be present within an   individual rule."
+                      \n   - All members of this structure are optional. If omitted
+                      or empty, the     member will have no effect on the rule. \n
+                      \  - If multiple members of the structure are specified, then
+                      all members     must match in order for the rule to take effect.
+                      The exception to this     rule is the ToRequires member; the
+                      effects of any Requires field in any     rule will apply to
+                      all other rules as well. \n   - ToEndpoints, ToCIDR, ToCIDRSet,
+                      ToEntities, ToServices and ToGroups are     mutually exclusive.
+                      Only one of these members may be present within an     individual
+                      rule."
                     properties:
                       icmps:
                         description: "ICMPs is a list of ICMP rule identified by type
@@ -3717,15 +3726,15 @@ spec:
                     description: "IngressRule contains all rule types which can be
                       applied at ingress, i.e. network traffic that originates outside
                       of the endpoint and is entering the endpoint selected by the
-                      endpointSelector. \n - All members of this structure are optional.
-                      If omitted or empty, the   member will have no effect on the
-                      rule. \n - If multiple members are set, all of them need to
-                      match in order for   the rule to take effect. The exception
-                      to this rule is FromRequires field;   the effects of any Requires
-                      field in any rule will apply to all other   rules as well. \n
-                      - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are
-                      mutually   exclusive. Only one of these members may be present
-                      within an individual   rule."
+                      endpointSelector. \n   - All members of this structure are optional.
+                      If omitted or empty, the     member will have no effect on the
+                      rule. \n   - If multiple members are set, all of them need to
+                      match in order for     the rule to take effect. The exception
+                      to this rule is FromRequires field;     the effects of any Requires
+                      field in any rule will apply to all other     rules as well.
+                      \n   - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities
+                      are mutually     exclusive. Only one of these members may be
+                      present within an individual     rule."
                     properties:
                       fromCIDR:
                         description: "FromCIDR is a list of IP blocks which the endpoint
@@ -4092,12 +4101,13 @@ spec:
                                           of cilium at that level   www.cilium.io
                                           and blog.cilium.io match, cilium.io and
                                           google.com do not `*cilium.io` matches cilium.io
-                                          and all subdomains 1 level below   www.cilium.io,
-                                          blog.cilium.io and cilium.io match, google.com
-                                          does not sub*.cilium.io matches subdomains
-                                          of cilium where the subdomain component
-                                          begins with \"sub\"   sub.cilium.io and
-                                          subdomain.cilium.io match, www.cilium.io,
+                                          and all subdomains ends with \"cilium.io\"
+                                          \  except those containing \".\" separator,
+                                          subcilium.io and sub-cilium.io match,   www.cilium.io
+                                          and blog.cilium.io does not sub*.cilium.io
+                                          matches subdomains of cilium where the subdomain
+                                          component begins with \"sub\"   sub.cilium.io
+                                          and subdomain.cilium.io match, www.cilium.io,
                                           \  blog.cilium.io, cilium.io and google.com
                                           do not"
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
@@ -4376,15 +4386,15 @@ spec:
                     description: "IngressDenyRule contains all rule types which can
                       be applied at ingress, i.e. network traffic that originates
                       outside of the endpoint and is entering the endpoint selected
-                      by the endpointSelector. \n - All members of this structure
-                      are optional. If omitted or empty, the   member will have no
-                      effect on the rule. \n - If multiple members are set, all of
-                      them need to match in order for   the rule to take effect. The
-                      exception to this rule is FromRequires field;   the effects
-                      of any Requires field in any rule will apply to all other   rules
-                      as well. \n - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities
-                      are mutually   exclusive. Only one of these members may be present
-                      within an individual   rule."
+                      by the endpointSelector. \n   - All members of this structure
+                      are optional. If omitted or empty, the     member will have
+                      no effect on the rule. \n   - If multiple members are set, all
+                      of them need to match in order for     the rule to take effect.
+                      The exception to this rule is FromRequires field;     the effects
+                      of any Requires field in any rule will apply to all other     rules
+                      as well. \n   - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities
+                      are mutually     exclusive. Only one of these members may be
+                      present within an individual     rule."
                     properties:
                       fromCIDR:
                         description: "FromCIDR is a list of IP blocks which the endpoint

@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -248,11 +249,15 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 		cancelCompile()
 	}
 	if err != nil {
-		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
-		log.WithFields(logrus.Fields{
-			"compiler-pid": pidFromProcess(compileCmd.Process),
-			"linker-pid":   pidFromProcess(linkCmd.Process),
-		}).Error(err)
+		err = fmt.Errorf("Failed to compile %s: %w", prog.Output, err)
+
+		if !errors.Is(err, context.Canceled) {
+			log.WithFields(logrus.Fields{
+				"compiler-pid": pidFromProcess(compileCmd.Process),
+				"linker-pid":   pidFromProcess(linkCmd.Process),
+			}).Error(err)
+		}
+
 		if compileOut != nil {
 			scopedLog := log.Warn
 			if debug {
@@ -288,44 +293,6 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 	)
 }
 
-// We need to map all bpf/*.c files to ids (an id value doesn't matter, but
-// should be a unique non-zero __u8 number).  A build will fail if there is
-// a file found for which there is no a corresponding id.
-var sourceNameToId map[string]int = map[string]int{
-	"bpf_network.c":            1,
-	"bpf_sock.c":               2,
-	"bpf_host.c":               3,
-	"bpf_overlay.c":            4,
-	"bpf_xdp.c":                5,
-	"bpf_alignchecker.c":       6,
-	"cilium-probe-kernel-hz.c": 7,
-	"bpf_lxc.c":                8,
-}
-
-var idToSourceName map[int]string
-
-func encodeSourceName(sourceName string) int {
-	if id, ok := sourceNameToId[sourceName]; ok {
-		return id
-	}
-	return 0
-}
-
-func DecodeSourceName(id int) string {
-	// auto-generate idToSourceName to simplify updates of the list
-	if idToSourceName == nil {
-		idToSourceName = make(map[int]string)
-		for sourceName, id := range sourceNameToId {
-			idToSourceName[id] = sourceName
-		}
-	}
-
-	if sourceName, ok := idToSourceName[id]; ok {
-		return sourceName
-	}
-	return "unknown"
-}
-
 // compile and link a program.
 func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error) {
 	args := make([]string, 0, 16)
@@ -338,7 +305,6 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error
 
 	args = append(args, standardCFlags...)
 	args = append(args, prog.Options...)
-	args = append(args, fmt.Sprintf("-D__MAGIC_FILE__=%d", encodeSourceName(prog.Source)))
 	args = append(args, progCFlags(prog, dir)...)
 
 	// Compilation is split between two exec calls. First clang generates
@@ -394,12 +360,10 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 	}
 	for _, p := range progs {
 		if err := compile(ctx, p, dirs); err != nil {
-			// Only log an error here if the context was not canceled or not
-			// timed out; this log message should only represent failures
-			// with respect to compiling the program.
-			if ctx.Err() == nil {
-				scopedLog.WithField(logfields.Params, logfields.Repr(p)).
-					WithError(err).Debug("JoinEP: Failed to compile")
+			// Only log an error here if the context was not canceled. This log message
+			// should only represent failures with respect to compiling the program.
+			if !errors.Is(err, context.Canceled) {
+				scopedLog.WithField(logfields.Params, logfields.Repr(p)).WithError(err).Debug("JoinEP: Failed to compile")
 			}
 			return err
 		}
@@ -411,12 +375,10 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 		prog = hostEpProg
 	}
 	if err := compile(ctx, prog, dirs); err != nil {
-		// Only log an error here if the context was not canceled or not timed
-		// out; this log message should only represent failures with respect to
-		// compiling the program.
-		if ctx.Err() == nil {
-			scopedLog.WithField(logfields.Params, logfields.Repr(prog)).
-				WithError(err).Warn("JoinEP: Failed to compile")
+		// Only log an error here if the context was not canceled. This log message
+		// should only represent failures with respect to compiling the program.
+		if !errors.Is(err, context.Canceled) {
+			scopedLog.WithField(logfields.Params, logfields.Repr(prog)).WithError(err).Warn("JoinEP: Failed to compile")
 		}
 		return err
 	}

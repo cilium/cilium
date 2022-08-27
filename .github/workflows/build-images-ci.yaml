@@ -86,7 +86,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@0865c47f36e68161719c5b124609996bb5c40129
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77
         id: cache
         with:
           path: /tmp/.cache/${{ matrix.name }}
@@ -104,7 +104,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         with:
           context: /tmp/.cache/${{ matrix.name }}
           file: ./images/cache/Dockerfile
@@ -115,7 +115,7 @@ jobs:
       # master branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_master
         with:
           context: .
@@ -133,7 +133,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_master_detect_race_condition
         with:
           context: .
@@ -154,7 +154,7 @@ jobs:
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_master_unstripped
         with:
           context: .
@@ -186,7 +186,7 @@ jobs:
       # PR updates
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_pr
         with:
           context: .
@@ -200,7 +200,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_pr_detect_race_condition
         with:
           context: .
@@ -217,7 +217,7 @@ jobs:
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_pr_unstripped
         with:
           context: .
@@ -250,7 +250,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
         if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         with:
           context: .
           file: ./images/cache/Dockerfile
@@ -307,7 +307,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@0865c47f36e68161719c5b124609996bb5c40129
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77
         id: cache
         with:
           path: /tmp/.cache/${{ matrix.name }}
@@ -325,7 +325,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         with:
           context: /tmp/.cache/${{ matrix.name }}
           file: ./images/cache/Dockerfile
@@ -334,7 +334,7 @@ jobs:
           target: import-cache
 
       - name: CI Build ${{ matrix.name }}
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_master
         with:
           context: .
@@ -366,7 +366,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
         if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@1cb9d22b932e4832bb29793b7777ec860fc1cde0
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         with:
           context: .
           file: ./images/cache/Dockerfile
@@ -390,7 +390,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

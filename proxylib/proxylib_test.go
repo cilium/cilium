@@ -192,9 +192,7 @@ func (p *PanicParserFactory) Create(connection *proxylib.Connection) interface{}
 	return &PanicParser{connection: connection}
 }
 
-//
 // Parses individual lines and verifies them against the policy
-//
 func (p *PanicParser) OnData(reply, endStream bool, data [][]byte) (proxylib.OpType, int) {
 	if !reply {
 		panic(fmt.Errorf("PanicParser OnData(reply=%t, endStream=%t, data=%v) panicing...", reply, endStream, data))

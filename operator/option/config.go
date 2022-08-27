@@ -17,6 +17,8 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
 
+var IngressLBAnnotationsDefault = []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"}
+
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
 	EndpointGCIntervalDefault = 5 * time.Minute
@@ -250,6 +252,10 @@ const (
 	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
 	// nodes.
 	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
+
+	// IngressLBAnnotations are the annotations which are needed to propagate
+	// from Ingress to the Load Balancer
+	IngressLBAnnotations = "ingress-lb-annotations"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -263,8 +269,8 @@ type OperatorConfig struct {
 	// being sent to the K8s apiserver for a given CNP.
 	CNPStatusUpdateInterval time.Duration
 
-	// NodeGCInterval is the GC interval for CiliumNodes
-	NodeGCInterval time.Duration
+	// NodesGCInterval is the GC interval for CiliumNodes
+	NodesGCInterval time.Duration
 
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
@@ -466,45 +472,51 @@ type OperatorConfig struct {
 	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
 	// nodes.
 	SetCiliumIsUpCondition bool
+
+	// IngressLBAnnotations are the annotations which are needed to propagate
+	// from Ingress to the Load Balancer
+	IngressLBAnnotations []string
 }
 
 // Populate sets all options with the values from viper.
-func (c *OperatorConfig) Populate() {
-	c.CNPNodeStatusGCInterval = viper.GetDuration(CNPNodeStatusGCInterval)
-	c.CNPStatusUpdateInterval = viper.GetDuration(CNPStatusUpdateInterval)
-	c.NodeGCInterval = viper.GetDuration(NodesGCInterval)
-	c.EnableMetrics = viper.GetBool(EnableMetrics)
-	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
-	c.IdentityGCInterval = viper.GetDuration(IdentityGCInterval)
-	c.IdentityGCRateInterval = viper.GetDuration(IdentityGCRateInterval)
-	c.IdentityGCRateLimit = viper.GetInt64(IdentityGCRateLimit)
-	c.IdentityHeartbeatTimeout = viper.GetDuration(IdentityHeartbeatTimeout)
-	c.OperatorAPIServeAddr = viper.GetString(OperatorAPIServeAddr)
-	c.OperatorPrometheusServeAddr = viper.GetString(OperatorPrometheusServeAddr)
-	c.PProf = viper.GetBool(PProf)
-	c.PProfPort = viper.GetInt(PProfPort)
-	c.SyncK8sServices = viper.GetBool(SyncK8sServices)
-	c.SyncK8sNodes = viper.GetBool(SyncK8sNodes)
-	c.UnmanagedPodWatcherInterval = viper.GetInt(UnmanagedPodWatcherInterval)
-	c.NodeCIDRMaskSizeIPv4 = viper.GetInt(NodeCIDRMaskSizeIPv4)
-	c.NodeCIDRMaskSizeIPv6 = viper.GetInt(NodeCIDRMaskSizeIPv6)
-	c.ClusterPoolIPv4CIDR = viper.GetStringSlice(ClusterPoolIPv4CIDR)
-	c.ClusterPoolIPv6CIDR = viper.GetStringSlice(ClusterPoolIPv6CIDR)
-	c.LeaderElectionLeaseDuration = viper.GetDuration(LeaderElectionLeaseDuration)
-	c.LeaderElectionRenewDeadline = viper.GetDuration(LeaderElectionRenewDeadline)
-	c.LeaderElectionRetryPeriod = viper.GetDuration(LeaderElectionRetryPeriod)
-	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)
-	c.BGPConfigPath = viper.GetString(BGPConfigPath)
-	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
-	c.EnableIngressController = viper.GetBool(EnableIngressController)
-	c.EnforceIngressHTTPS = viper.GetBool(EnforceIngressHttps)
-	c.IngressSecretsNamespace = viper.GetString(IngressSecretsNamespace)
-	c.EnableIngressSecretsSync = viper.GetBool(EnableIngressSecretsSync)
-	c.CiliumPodLabels = viper.GetString(CiliumPodLabels)
-	c.RemoveCiliumNodeTaints = viper.GetBool(RemoveCiliumNodeTaints)
-	c.SetCiliumIsUpCondition = viper.GetBool(SetCiliumIsUpCondition)
+func (c *OperatorConfig) Populate(vp *viper.Viper) {
+	c.CNPNodeStatusGCInterval = vp.GetDuration(CNPNodeStatusGCInterval)
+	c.CNPStatusUpdateInterval = vp.GetDuration(CNPStatusUpdateInterval)
+	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
+	c.EnableMetrics = vp.GetBool(EnableMetrics)
+	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
+	c.IdentityGCInterval = vp.GetDuration(IdentityGCInterval)
+	c.IdentityGCRateInterval = vp.GetDuration(IdentityGCRateInterval)
+	c.IdentityGCRateLimit = vp.GetInt64(IdentityGCRateLimit)
+	c.IdentityHeartbeatTimeout = vp.GetDuration(IdentityHeartbeatTimeout)
+	c.OperatorAPIServeAddr = vp.GetString(OperatorAPIServeAddr)
+	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
+	c.PProf = vp.GetBool(PProf)
+	c.PProfPort = vp.GetInt(PProfPort)
+	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
+	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
+	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
+	c.NodeCIDRMaskSizeIPv4 = vp.GetInt(NodeCIDRMaskSizeIPv4)
+	c.NodeCIDRMaskSizeIPv6 = vp.GetInt(NodeCIDRMaskSizeIPv6)
+	c.ClusterPoolIPv4CIDR = vp.GetStringSlice(ClusterPoolIPv4CIDR)
+	c.ClusterPoolIPv6CIDR = vp.GetStringSlice(ClusterPoolIPv6CIDR)
+	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
+	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)
+	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
+	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
+	c.BGPConfigPath = vp.GetString(BGPConfigPath)
+	c.SkipCRDCreation = vp.GetBool(SkipCRDCreation)
+	c.EnableIngressController = vp.GetBool(EnableIngressController)
+	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
+	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
+	c.EnableIngressSecretsSync = vp.GetBool(EnableIngressSecretsSync)
+	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
+	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
+	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
+	c.IngressLBAnnotations = vp.GetStringSlice(IngressLBAnnotations)
 
-	c.CiliumK8sNamespace = viper.GetString(CiliumK8sNamespace)
+	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
+
 	if c.CiliumK8sNamespace == "" {
 		if option.Config.K8sNamespace == "" {
 			c.CiliumK8sNamespace = metav1.NamespaceDefault
@@ -521,54 +533,54 @@ func (c *OperatorConfig) Populate() {
 
 	// AWS options
 
-	c.AWSReleaseExcessIPs = viper.GetBool(AWSReleaseExcessIPs)
-	c.AWSEnablePrefixDelegation = viper.GetBool(AWSEnablePrefixDelegation)
-	c.AWSUsePrimaryAddress = viper.GetBool(AWSUsePrimaryAddress)
-	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
-	c.EC2APIEndpoint = viper.GetString(EC2APIEndpoint)
-	c.ExcessIPReleaseDelay = viper.GetInt(ExcessIPReleaseDelay)
+	c.AWSReleaseExcessIPs = vp.GetBool(AWSReleaseExcessIPs)
+	c.AWSEnablePrefixDelegation = vp.GetBool(AWSEnablePrefixDelegation)
+	c.AWSUsePrimaryAddress = vp.GetBool(AWSUsePrimaryAddress)
+	c.UpdateEC2AdapterLimitViaAPI = vp.GetBool(UpdateEC2AdapterLimitViaAPI)
+	c.EC2APIEndpoint = vp.GetString(EC2APIEndpoint)
+	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
 
 	// Azure options
 
-	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
-	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
-	c.AzureUsePrimaryAddress = viper.GetBool(AzureUsePrimaryAddress)
-	c.AzureUserAssignedIdentityID = viper.GetString(AzureUserAssignedIdentityID)
+	c.AzureSubscriptionID = vp.GetString(AzureSubscriptionID)
+	c.AzureResourceGroup = vp.GetString(AzureResourceGroup)
+	c.AzureUsePrimaryAddress = vp.GetBool(AzureUsePrimaryAddress)
+	c.AzureUserAssignedIdentityID = vp.GetString(AzureUserAssignedIdentityID)
 
 	// AlibabaCloud options
 
-	c.AlibabaCloudVPCID = viper.GetString(AlibabaCloudVPCID)
-	c.AlibabaCloudReleaseExcessIPs = viper.GetBool(AlibabaCloudReleaseExcessIPs)
+	c.AlibabaCloudVPCID = vp.GetString(AlibabaCloudVPCID)
+	c.AlibabaCloudReleaseExcessIPs = vp.GetBool(AlibabaCloudReleaseExcessIPs)
 
 	// CiliumEndpointSlice options
-	c.CESMaxCEPsInCES = viper.GetInt(CESMaxCEPsInCES)
-	c.CESSlicingMode = viper.GetString(CESSlicingMode)
+	c.CESMaxCEPsInCES = vp.GetInt(CESMaxCEPsInCES)
+	c.CESSlicingMode = vp.GetString(CESSlicingMode)
 
 	// Option maps and slices
 
-	if m := viper.GetStringSlice(IPAMSubnetsIDs); len(m) != 0 {
+	if m := vp.GetStringSlice(IPAMSubnetsIDs); len(m) != 0 {
 		c.IPAMSubnetsIDs = m
 	}
 
-	if m, err := command.GetStringMapStringE(viper.GetViper(), IPAMSubnetsTags); err != nil {
+	if m, err := command.GetStringMapStringE(vp, IPAMSubnetsTags); err != nil {
 		log.Fatalf("unable to parse %s: %s", IPAMSubnetsTags, err)
 	} else {
 		c.IPAMSubnetsTags = m
 	}
 
-	if m, err := command.GetStringMapStringE(viper.GetViper(), IPAMInstanceTags); err != nil {
+	if m, err := command.GetStringMapStringE(vp, IPAMInstanceTags); err != nil {
 		log.Fatalf("unable to parse %s: %s", IPAMInstanceTags, err)
 	} else {
 		c.IPAMInstanceTags = m
 	}
 
-	if m, err := command.GetStringMapStringE(viper.GetViper(), AWSInstanceLimitMapping); err != nil {
+	if m, err := command.GetStringMapStringE(vp, AWSInstanceLimitMapping); err != nil {
 		log.Fatalf("unable to parse %s: %s", AWSInstanceLimitMapping, err)
 	} else {
 		c.AWSInstanceLimitMapping = m
 	}
 
-	if m, err := command.GetStringMapStringE(viper.GetViper(), ENITags); err != nil {
+	if m, err := command.GetStringMapStringE(vp, ENITags); err != nil {
 		log.Fatalf("unable to parse %s: %s", ENITags, err)
 	} else {
 		c.ENITags = m

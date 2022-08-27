@@ -18,7 +18,7 @@ HELM_CHART_DIR=${3:-/vagrant/kubernetes/cilium}
 # * "kind-worker2" runs a netperf server.
 #
 
-kind create cluster --config kind-config.yaml
+kind create cluster --config kind-config.yaml --image=kindest/node:v1.24.3
 
 # Install Cilium with IPv6 BIG TCP enabled
 helm install cilium ${HELM_CHART_DIR} \

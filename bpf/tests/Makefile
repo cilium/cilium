@@ -17,7 +17,6 @@ CLANG_FLAGS += -Wall -Wextra -Werror -Wshadow
 CLANG_FLAGS += -Wno-address-of-packed-member
 CLANG_FLAGS += -Wno-unknown-warning-option
 CLANG_FLAGS += -Wno-gnu-variable-sized-type-not-at-end
-CLANG_FLAGS += -Wdeclaration-after-statement
 CLANG_FLAGS += -Wimplicit-int-conversion -Wenum-conversion
 LLC_FLAGS := -march=bpf -mattr=dwarfris
 # Mimics the mcpu values set by cilium-agent. See GetBPFCPU().

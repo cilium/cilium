@@ -58,7 +58,8 @@ func NewGetEndpointIDLabelsParamsWithHTTPClient(client *http.Client) *GetEndpoin
 	}
 }
 
-/*GetEndpointIDLabelsParams contains all the parameters to send to the API endpoint
+/*
+GetEndpointIDLabelsParams contains all the parameters to send to the API endpoint
 for the get endpoint ID labels operation typically these are written to a http.Request
 */
 type GetEndpointIDLabelsParams struct {

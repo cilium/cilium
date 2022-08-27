@@ -82,20 +82,19 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	slot := 1
 	svcVal := svcKey.NewValue().(ServiceValue)
 
-	backends := p.ActiveBackends
-	if len(p.PreferredBackends) > 0 {
-		backends = p.PreferredBackends
-	}
-
-	if p.UseMaglev && len(backends) != 0 {
-		if err := lbmap.UpsertMaglevLookupTable(p.ID, backends, ipv6); err != nil {
-			return err
-		}
-	}
-
+	// start off with #backends = 0 for updateMasterService()
+	backends := make(map[string]loadbalancer.BackendID)
 	if backendsOk {
+		backends = p.ActiveBackends
+		if len(p.PreferredBackends) > 0 {
+			backends = p.PreferredBackends
+		}
+		if p.UseMaglev && len(backends) != 0 {
+			if err := lbmap.UpsertMaglevLookupTable(p.ID, backends, ipv6); err != nil {
+				return err
+			}
+		}
 		backendIDs := p.GetOrderedBackends()
-
 		for _, backendID := range backendIDs {
 			if backendID == 0 {
 				return fmt.Errorf("Invalid backend ID 0")
@@ -247,7 +246,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 		return err
 	}
 	if natPolicy == loadbalancer.SVCNatPolicyNat46 {
-		if err := deleteServiceProto(svc, 0, useMaglev, false); err != nil {
+		if err := deleteServiceProto(svc, 0, false, false); err != nil {
 			return err
 		}
 	}

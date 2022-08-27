@@ -232,6 +232,9 @@ type K8sWatcher struct {
 
 	nodeStore cache.Store
 
+	// nodesInitOnce is used to guarantee that only one function call of NodesInit is executed.
+	nodesInitOnce sync.Once
+
 	ciliumNodeStoreMU lock.RWMutex
 	ciliumNodeStore   cache.Store
 

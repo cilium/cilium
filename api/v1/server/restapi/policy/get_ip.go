@@ -32,15 +32,14 @@ func NewGetIP(ctx *middleware.Context, handler GetIPHandler) *GetIP {
 	return &GetIP{Context: ctx, Handler: handler}
 }
 
-/*GetIP swagger:route GET /ip policy getIp
+/*
+GetIP swagger:route GET /ip policy getIp
 
-Lists information about known IP addresses
+# Lists information about known IP addresses
 
 Retrieves a list of IPs with known associated information such as
 their identities, host addresses, Kubernetes pod names, etc.
 The list can optionally filtered by a CIDR IP range.
-
-
 */
 type GetIP struct {
 	Context *middleware.Context

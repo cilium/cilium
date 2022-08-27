@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -174,6 +175,10 @@ func (f *sessionUDPFactory) ReadRequest(conn *net.UDPConn) ([]byte, dns.SessionU
 		return nil, nil, err
 	}
 	return s.m, s, err
+}
+
+func (f *sessionUDPFactory) ReadRequestConn(conn net.PacketConn) ([]byte, net.Addr, error) {
+	return []byte{}, nil, errors.New("ReadRequestConn is not supported")
 }
 
 // Discard returns 's' to the factory pool

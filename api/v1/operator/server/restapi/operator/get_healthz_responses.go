@@ -17,7 +17,8 @@ import (
 // GetHealthzOKCode is the HTTP code returned for type GetHealthzOK
 const GetHealthzOKCode int = 200
 
-/*GetHealthzOK Cilium operator is healthy
+/*
+GetHealthzOK Cilium operator is healthy
 
 swagger:response getHealthzOK
 */
@@ -59,7 +60,8 @@ func (o *GetHealthzOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 // GetHealthzInternalServerErrorCode is the HTTP code returned for type GetHealthzInternalServerError
 const GetHealthzInternalServerErrorCode int = 500
 
-/*GetHealthzInternalServerError Cilium operator is not healthy
+/*
+GetHealthzInternalServerError Cilium operator is not healthy
 
 swagger:response getHealthzInternalServerError
 */

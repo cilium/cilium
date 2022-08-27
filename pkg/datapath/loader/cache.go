@@ -5,6 +5,7 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -165,7 +166,7 @@ func (o *objectCache) serialize(hash string) (fq *serializer.FunctionQueue, foun
 
 	fq, compiled := o.compileQueue[hash]
 	if !compiled {
-		fq = serializer.NewFunctionQueue(1)
+		fq = serializer.NewFunctionQueue()
 		o.compileQueue[hash] = fq
 	}
 	return fq, compiled
@@ -288,32 +289,36 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 	scopedLog := log.WithField(logfields.BPFHeaderfileHash, hash)
 
 	// Serializes attempts to compile this cfg.
+	// TODO(tb): replace with sync.Once.
 	fq, compiled := o.serialize(hash)
 	if !compiled {
 		fq.Enqueue(func() error {
-			defer fq.Stop()
 			templateCfg := wrap(cfg, stats)
-			err := o.build(ctx, templateCfg, hash)
-			if err != nil {
-				scopedLog.WithError(err).Error("BPF template object creation failed")
+			if err := o.build(ctx, templateCfg, hash); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					scopedLog.WithError(err).Error("BPF template object creation failed")
+				}
+
 				o.Lock()
 				delete(o.compileQueue, hash)
 				o.Unlock()
+
+				return err
 			}
-			return err
-		}, serializer.NoRetry)
+
+			return nil
+		})
 	}
 
 	// Wait until the build completes.
-	if err = fq.Wait(ctx); err != nil {
-		scopedLog.WithError(err).Warning("Error while waiting for BPF template compilation")
-		return "", false, fmt.Errorf("BPF template compilation failed: %s", err)
+	if err := fq.Wait(); err != nil {
+		return "", false, fmt.Errorf("BPF template compilation failed: %w", err)
 	}
 
 	// Fetch the result of the compilation.
 	path, ok := o.lookup(hash)
 	if !ok {
-		err := fmt.Errorf("Could not locate previously compiled BPF template")
+		err := errors.New("Could not locate previously compiled BPF template")
 		scopedLog.WithError(err).Warning("BPF template compilation unsuccessful")
 		return "", false, err
 	}

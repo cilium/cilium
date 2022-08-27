@@ -5,6 +5,7 @@ package ingress
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -51,8 +53,9 @@ func newServiceManager(ingressQueue workqueue.RateLimitingInterface, maxRetries 
 	}
 
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(), "services",
-			v1.NamespaceAll, func(options *metav1.ListOptions) {
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](k8s.WatcherClient().CoreV1().Services("")),
+			func(options *metav1.ListOptions) {
 				options.LabelSelector = ciliumIngressLabelKey
 			}),
 		&slim_corev1.Service{},
@@ -183,7 +186,15 @@ func (sm *serviceManager) notify(service *slim_corev1.Service) {
 	}
 }
 
-func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
+func getServiceForIngress(ingress *slim_networkingv1.Ingress, lbAnnotations []string) *v1.Service {
+	annotations := make(map[string]string)
+	for annotationKey, annotationValue := range ingress.ObjectMeta.Annotations {
+		for _, annotationPrefix := range lbAnnotations {
+			if strings.HasPrefix(annotationKey, annotationPrefix) {
+				annotations[annotationKey] = annotationValue
+			}
+		}
+	}
 	ports := []v1.ServicePort{
 		{
 			Name:     "http",
@@ -200,9 +211,10 @@ func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
 	}
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getServiceNameForIngress(ingress),
-			Namespace: ingress.Namespace,
-			Labels:    map[string]string{ciliumIngressLabelKey: "true"},
+			Name:        getServiceNameForIngress(ingress),
+			Namespace:   ingress.Namespace,
+			Labels:      map[string]string{ciliumIngressLabelKey: "true"},
+			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: slim_networkingv1.SchemeGroupVersion.String(),

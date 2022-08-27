@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/iana"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -26,16 +25,6 @@ type exists struct{}
 // capitalization of the protocol name are automatically fixed up. More
 // fundamental violations will cause an error to be returned.
 func (r Rule) Sanitize() error {
-
-	// reject cilium-generated labels on insert.
-	// This isn't a proper function because r.Labels is a labels.LabelArray and
-	// not a labels.Labels, where we could add a function similar to GetReserved
-	for _, lbl := range r.Labels {
-		if lbl.Source == labels.LabelSourceCiliumGenerated {
-			return fmt.Errorf("rule labels cannot have cilium-generated source")
-		}
-	}
-
 	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil {
 		return fmt.Errorf("rule must have one of EndpointSelector or NodeSelector")
 	}

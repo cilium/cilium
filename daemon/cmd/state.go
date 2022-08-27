@@ -105,13 +105,14 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 // ready. In summary:
 //
 // 1. fetchOldEndpoints(): Unmarshal old endpoints
-//    - used to start DNS proxy with restored DNS history and rules
-// 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
-//    - IP allocation
-//    - some endpoints may be rejected and not regnerated in the 3rd step
-// 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
-//    - recreate endpoint's policy, as well as bpf programs and maps
+//   - used to start DNS proxy with restored DNS history and rules
 //
+// 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
+//   - IP allocation
+//   - some endpoints may be rejected and not regnerated in the 3rd step
+//
+// 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
+//   - recreate endpoint's policy, as well as bpf programs and maps
 func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	state := &endpointRestoreState{
 		possible: nil,
@@ -132,7 +133,7 @@ func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d, d, dir, eptsID)
+	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d, d, d.ipcache, dir, eptsID)
 
 	if len(state.possible) == 0 {
 		log.Info("No old endpoints found.")
@@ -284,6 +285,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RegenerateAfterRestore(); err != nil {
+				log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating during restore")
 				epRegenerated <- false
 				return
 			}

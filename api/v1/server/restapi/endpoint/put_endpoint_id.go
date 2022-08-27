@@ -32,13 +32,12 @@ func NewPutEndpointID(ctx *middleware.Context, handler PutEndpointIDHandler) *Pu
 	return &PutEndpointID{Context: ctx, Handler: handler}
 }
 
-/*PutEndpointID swagger:route PUT /endpoint/{id} endpoint putEndpointId
+/*
+PutEndpointID swagger:route PUT /endpoint/{id} endpoint putEndpointId
 
-Create endpoint
+# Create endpoint
 
 Creates a new endpoint
-
-
 */
 type PutEndpointID struct {
 	Context *middleware.Context

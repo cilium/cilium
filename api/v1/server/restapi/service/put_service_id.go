@@ -32,10 +32,10 @@ func NewPutServiceID(ctx *middleware.Context, handler PutServiceIDHandler) *PutS
 	return &PutServiceID{Context: ctx, Handler: handler}
 }
 
-/*PutServiceID swagger:route PUT /service/{id} service putServiceId
+/*
+PutServiceID swagger:route PUT /service/{id} service putServiceId
 
 Create or update service
-
 */
 type PutServiceID struct {
 	Context *middleware.Context

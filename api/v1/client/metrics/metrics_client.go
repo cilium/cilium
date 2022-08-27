@@ -36,7 +36,7 @@ type ClientService interface {
 }
 
 /*
-  GetMetrics retrieves cilium metrics
+GetMetrics retrieves cilium metrics
 */
 func (a *Client) GetMetrics(params *GetMetricsParams) (*GetMetricsOK, error) {
 	// TODO: Validate the params before sending

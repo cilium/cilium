@@ -14,7 +14,7 @@ HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
 #
 # The LB cilium does not connect to the kube-apiserver. For now we use Kind
 # just to create Docker-in-Docker containers.
-kind create cluster --config kind-config.yaml
+kind create cluster --config kind-config.yaml --image=kindest/node:v1.24.3
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
 helm install cilium ${HELM_CHART_DIR} \
@@ -62,6 +62,14 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
 SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
 
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
+
+MAG_V4=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v4}')
+MAG_V6=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v6}')
+if [ ! -z "$MAG_V4" -o -z "$MAG_V6" ]; then
+	echo "Invalid content of Maglev table!"
+	kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list
+	exit 1
+fi
 
 LB_NODE_IP=$(docker exec kind-control-plane ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
@@ -181,6 +189,14 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
 SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
 
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
+
+MAG_V4=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v4}')
+MAG_V6=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v6}')
+if [ ! -z "$MAG_V4" -o -z "$MAG_V6" ]; then
+	echo "Invalid content of Maglev table!"
+	kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list
+	exit 1
+fi
 
 LB_NODE_IP=$(docker exec kind-control-plane ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip -6 r a "${LB_VIP}/128" via "$LB_NODE_IP"

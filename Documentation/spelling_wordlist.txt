@@ -32,6 +32,7 @@ DNS
 DSR
 DTrace
 Dangaard
+Datadog
 Datapath
 Dataplane
 Deathstar
@@ -74,6 +75,7 @@ KV
 KVstore
 Kata
 Kicinski
+Klusters
 Kops
 KubeVersion
 Kubernetes
@@ -84,12 +86,14 @@ Leblond
 Leia
 Lund
 Lx
+MTU
 Maglev
 Majkowski
 Marek
 MaskSize
 Mbit
 Mellanox
+Meltwater
 Menlo
 Mesos
 MiB
@@ -101,6 +105,8 @@ Netronome
 NewProto
 Nic
 O'Reilly
+PaaS
+Palantir
 Pepelnjak
 Pfaff
 PodCIDR
@@ -126,6 +132,7 @@ Suchakra
 Suricata
 TCP
 TLS
+Telco
 Terraform
 Tierney
 Tu
@@ -443,6 +450,7 @@ golangci
 golangci-lint
 gops
 grafana
+graphviz
 grep
 hairpinned
 hardcode
@@ -495,6 +503,7 @@ imagePullSecrets
 incrementing
 indices
 ingressController
+ingressLBAnnotations
 ingressing
 init
 initContainer
@@ -754,6 +763,7 @@ prepend
 prepended
 prepulls
 prerequirement
+printf
 priori
 priorityClassName
 procfs
@@ -883,6 +893,7 @@ startupProbe
 stateful
 statefulset
 statsd
+stdout
 structs
 subclasses
 subcommand
@@ -947,6 +958,7 @@ tracepoints
 transpiling
 triaged
 ttlSecondsAfterFinished
+tunnelPort
 tuples
 ubuntu
 udp
@@ -1004,6 +1016,7 @@ wakeup
 walkthrough
 webhook
 webservice
+websocket
 wellKnownIdentities
 whitelist
 whitelisted

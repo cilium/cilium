@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,8 +52,8 @@ func validateCNPs() error {
 
 	log.Info("Setting up Kubernetes client")
 
-	k8sClientQPSLimit := viper.GetFloat64(option.K8sClientQPSLimit)
-	k8sClientBurst := viper.GetInt(option.K8sClientBurst)
+	k8sClientQPSLimit := vp.GetFloat64(option.K8sClientQPSLimit)
+	k8sClientBurst := vp.GetInt(option.K8sClientBurst)
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
 

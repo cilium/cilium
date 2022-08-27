@@ -245,10 +245,10 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		logfields.K8sNamespace: newK8sPod.ObjectMeta.Namespace,
 		"new-podIP":            newK8sPod.Status.PodIP,
 		"new-podIPs":           newK8sPod.Status.PodIPs,
-		"new-hostIP":           newK8sPod.Status.PodIP,
+		"new-hostIP":           newK8sPod.Status.HostIP,
 		"old-podIP":            oldK8sPod.Status.PodIP,
 		"old-podIPs":           oldK8sPod.Status.PodIPs,
-		"old-hostIP":           oldK8sPod.Status.PodIP,
+		"old-hostIP":           oldK8sPod.Status.HostIP,
 	})
 
 	// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
@@ -396,6 +396,14 @@ func updateCiliumEndpointLabels(ep *endpoint.Endpoint, labels map[string]string)
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) (err error) {
 				pod := ep.GetPod()
+				if pod == nil {
+					err := errors.New("Skipping CiliumEndpoint update because it has no k8s pod")
+					scopedLog.WithFields(logrus.Fields{
+						logfields.EndpointID: ep.GetID(),
+						logfields.Labels:     logfields.Repr(labels),
+					}).Debug(err)
+					return err
+				}
 				ciliumClient := k8s.CiliumClient().CiliumV2()
 
 				replaceLabels := []k8s.JSONPatch{

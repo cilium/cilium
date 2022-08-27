@@ -61,9 +61,9 @@ linters-settings:
     ignore-words:
       - rela # This is for elf.SHT_RELA
   staticcheck:
-    go: "1.18"
+    go: "1.19"
   unused:
-    go: "1.18"
+    go: "1.19"
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source

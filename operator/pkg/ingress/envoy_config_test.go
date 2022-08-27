@@ -132,6 +132,42 @@ func Test_getListenerResource(t *testing.T) {
 		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 1)
 		require.Equal(t, "cilium-secrets/dummy-namespace-tls-very-secure-server-com", downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
 	})
+
+	t.Run("with websocket", func(t *testing.T) {
+		ingress := baseIngress.DeepCopy()
+		ingress.Annotations["io.cilium/websocket"] = "enabled"
+		res, err := getListenerResource(ingress, "cilium-secrets", false)
+		require.NoError(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.NoError(t, err)
+
+		require.Len(t, listener.ListenerFilters, 1)
+		require.Len(t, listener.FilterChains, 2)
+		require.Len(t, listener.FilterChains[0].Filters, 1)
+		require.Len(t, listener.SocketOptions, 4)
+		require.IsType(t, &envoy_config_listener.Filter_TypedConfig{}, listener.FilterChains[0].Filters[0].ConfigType)
+
+		// check for connection managers
+		// http connection manager
+		require.Equal(t, "raw_buffer", listener.FilterChains[0].FilterChainMatch.TransportProtocol)
+		httpConnectionManager := &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{}
+		filterPresent := false
+		for _, chain := range listener.FilterChains {
+			for _, filter := range chain.Filters {
+				err = proto.Unmarshal(filter.ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, httpConnectionManager)
+				require.NoError(t, err)
+				for _, upgradeConfig := range httpConnectionManager.UpgradeConfigs {
+					if upgradeConfig.UpgradeType == "websocket" {
+						filterPresent = true
+						break
+					}
+				}
+			}
+		}
+		require.True(t, filterPresent)
+	})
 }
 
 func Test_getRouteConfigurationResource(t *testing.T) {
