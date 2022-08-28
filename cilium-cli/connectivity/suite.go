@@ -24,6 +24,12 @@ var (
 	//go:embed manifests/allow-all-ingress.yaml
 	allowAllIngressPolicyYAML string
 
+	//go:embed manifests/deny-all-egress.yaml
+	denyAllEgressPolicyYAML string
+
+	//go:embed manifests/deny-all-ingress.yaml
+	denyAllIngressPolicyYAML string
+
 	//go:embed manifests/allow-all-except-world.yaml
 	allowAllExceptWorldPolicyYAML string
 	//go:embed manifests/allow-all-except-world-pre-v1.11.yaml
@@ -195,6 +201,36 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				return check.ResultOK, check.ResultOK
 			}
 			return check.ResultOK, check.ResultDrop
+		})
+
+	// This policy denies all ingresses by default
+	ct.NewTest("all-ingress-deny").
+		WithPolicy(denyAllIngressPolicyYAML).
+		WithScenarios(
+			// Pod to Pod fails because there is no egress policy (so egress traffic originating from a pod is allowed),
+			// but then at the destination there is ingress policy that denies the traffic.
+			tests.PodToPod(),
+			// Egress to world works because there is no egress policy (so egress traffic originating from a pod is allowed),
+			// then when replies come back, they are considered as "replies" to the outbound connection.
+			// so they are not subject to ingress policy.
+			tests.PodToCIDR(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Address() == "1.0.0.1" || a.Destination().Address() == "1.1.1.1" {
+				return check.ResultOK, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultNone
+		})
+
+	// This policy denies all egresses by default
+	ct.NewTest("all-egress-deny").
+		WithPolicy(denyAllEgressPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(),
+			tests.PodToPodWithEndpoints(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultDrop, check.ResultNone
 		})
 
 	// This policy allows ingress to echo only from client with a label 'other:client'.
