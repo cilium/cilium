@@ -98,66 +98,6 @@ var _ = SkipDescribeIf(func() bool {
 			namespaceForTest string
 		)
 
-		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
-			var wg sync.WaitGroup
-			for _, appPod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
-				wg.Add(1)
-				go func(pod string) {
-					defer GinkgoRecover()
-					defer wg.Done()
-					By("HTTP connectivity to 1.1.1.1")
-					res := kubectl.ExecPodCmd(
-						namespaceForTest, pod,
-						helpers.CurlWithRetries("http://1.1.1.1/", 5, true))
-
-					ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
-						"HTTP egress connectivity to 1.1.1.1 from pod %q", pod)
-				}(appPod)
-
-				wg.Add(1)
-				go func(pod string) {
-					defer GinkgoRecover()
-					defer wg.Done()
-					By("ICMP connectivity to 8.8.8.8")
-					res := kubectl.ExecPodCmd(
-						namespaceForTest, pod,
-						helpers.Ping("8.8.8.8"))
-
-					ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
-						"ICMP egress connectivity to 8.8.8.8 from pod %q", pod)
-				}(appPod)
-
-				wg.Add(1)
-				go func(pod string) {
-					defer GinkgoRecover()
-					defer wg.Done()
-					By("DNS lookup of kubernetes.default.svc.cluster.local")
-					// -R3 retry 3 times, -N1 ndots set to 1, -t A only lookup A records
-					res := kubectl.ExecPodCmd(
-						namespaceForTest, pod,
-						"host -v -R3 -N1 -t A kubernetes.default.svc.cluster.local.")
-
-					// kube-dns is always whitelisted so this should always work
-					ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess || expectClusterSuccess),
-						"DNS connectivity of kubernetes.default.svc.cluster.local from pod %q", pod)
-				}(appPod)
-
-				wg.Add(1)
-				go func(pod string) {
-					defer GinkgoRecover()
-					defer wg.Done()
-					By("HTTP connectivity from pod to pod")
-					res := kubectl.ExecPodCmd(
-						namespaceForTest, pod,
-						helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-
-					ExpectWithOffset(1, res).To(getMatcher(expectClusterSuccess),
-						"HTTP connectivity to clusterIP %q of app1 from pod %q", clusterIP, appPods[helpers.App2])
-				}(appPod)
-			}
-			wg.Wait()
-		}
-
 		BeforeAll(func() {
 			namespaceForTest = helpers.GenerateNamespaceForTest("")
 			kubectl.NamespaceDelete(namespaceForTest)
@@ -274,52 +214,6 @@ var _ = SkipDescribeIf(func() bool {
 				&helpers.TimeoutConfig{Timeout: 100 * time.Second})
 
 			Expect(err).To(BeNil(), "CNP status for invalid policy did not update correctly")
-		})
-
-		Context("Validate to-entities policies", func() {
-			const (
-				WorldConnectivityDeny  = false
-				WorldConnectivityAllow = true
-
-				ClusterConnectivityDeny  = false
-				ClusterConnectivityAllow = true
-			)
-
-			var (
-				ccnpToEntitiesAllDeny string
-				cnpToEntitiesCluster  string
-				cnpToEntitiesHost     string
-			)
-
-			BeforeAll(func() {
-				ccnpToEntitiesAllDeny = helpers.ManifestGet(kubectl.BasePath(), "ccnp-to-entities-all-deny.yaml")
-				cnpToEntitiesCluster = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-cluster.yaml")
-				cnpToEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-host.yaml")
-			})
-
-			It("Validate toEntities All", func() {
-				By("Installing deny toEntities All")
-				importPolicy(kubectl, namespaceForTest, ccnpToEntitiesAllDeny, "to-entities-all-deny")
-
-				By("Verifying policy correctness")
-				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityDeny)
-			})
-
-			It("Validate toEntities Cluster", func() {
-				By("Installing toEntities Cluster")
-				importPolicy(kubectl, namespaceForTest, cnpToEntitiesCluster, "to-entities-cluster")
-
-				By("Verifying policy correctness")
-				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityAllow)
-			})
-
-			It("Validate toEntities Host", func() {
-				By("Installing toEntities Host")
-				importPolicy(kubectl, namespaceForTest, cnpToEntitiesHost, "to-entities-host")
-
-				By("Verifying policy correctness")
-				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityDeny)
-			})
 		})
 
 		Context("Validate CNP update", func() {
