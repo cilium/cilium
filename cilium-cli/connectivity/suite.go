@@ -33,6 +33,12 @@ var (
 	//go:embed manifests/deny-all-entities.yaml
 	denyAllEntitiesPolicyYAML string
 
+	//go:embed manifests/allow-cluster-entity.yaml
+	allowClusterEntityPolicyYAML string
+
+	//go:embed manifests/allow-host-entity.yaml
+	allowHostEntityPolicyYAML string
+
 	//go:embed manifests/allow-all-except-world.yaml
 	allowAllExceptWorldPolicyYAML string
 	//go:embed manifests/allow-all-except-world-pre-v1.11.yaml
@@ -245,6 +251,39 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			return check.ResultDrop, check.ResultNone
+		})
+
+	// This policy allows cluster entity
+	ct.NewTest("cluster-entity").
+		WithPolicy(allowClusterEntityPolicyYAML).
+		WithScenarios(
+			// Only enable to local cluster for now due to the below
+			// https://github.com/cilium/cilium/blob/88c4dddede2a3b5b9a7339c1316a0dedd7229a26/pkg/policy/api/entity.go#L126
+			tests.PodToPod(tests.WithDestinationLabelsOption(map[string]string{"name": "echo-same-node"})),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultOK, check.ResultOK
+		})
+
+	if ct.Params().MultiCluster != "" {
+		ct.NewTest("cluster-entity-multi-cluster").
+			WithPolicy(allowClusterEntityPolicyYAML).
+			WithScenarios(
+				tests.PodToPod(tests.WithDestinationLabelsOption(map[string]string{"name": "echo-other-node"})),
+			).
+			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+				return check.ResultDrop, check.ResultNone
+			})
+	}
+
+	// This policy allows host entity
+	ct.NewTest("host-entity").
+		WithPolicy(allowHostEntityPolicyYAML).
+		WithScenarios(
+			tests.PodToHost(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultOK, check.ResultNone
 		})
 
 	// This policy allows ingress to echo only from client with a label 'other:client'.
