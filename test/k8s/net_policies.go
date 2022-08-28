@@ -66,8 +66,6 @@ var _ = SkipDescribeIf(func() bool {
 		cnpDenyEgress            string
 		knpAllowIngress          string
 		knpAllowEgress           string
-		cnpMatchExpression       string
-		cnpMatchExpressionDeny   string
 		connectivityCheckYml     string
 
 		app1Service = "app1-service"
@@ -106,8 +104,6 @@ var _ = SkipDescribeIf(func() bool {
 		cnpDenyEgress = helpers.ManifestGet(kubectl.BasePath(), "cnp-default-deny-egress.yaml")
 		knpAllowIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-ingress.yaml")
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
-		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
-		cnpMatchExpressionDeny = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions-deny.yaml")
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
@@ -790,39 +786,6 @@ var _ = SkipDescribeIf(func() bool {
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
 		}, 500)
-
-		It("CNP test MatchExpressions key", func() {
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, cnpMatchExpression, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "cannot install policy %s", cnpMatchExpression)
-
-			res := kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
-
-			By("Testing CNP test MatchExpressions key with policy Denies")
-
-			_, err = kubectl.CiliumPolicyAction(
-				namespaceForTest, cnpMatchExpressionDeny, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "cannot install policy %s", cnpMatchExpression)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("%q can curl clusterIP %q", appPods[helpers.App2], clusterIP)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
-
-		})
 
 		It("Denies traffic with k8s default-deny ingress policy", func() {
 
