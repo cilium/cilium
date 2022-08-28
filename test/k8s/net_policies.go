@@ -49,8 +49,6 @@ var _ = SkipDescribeIf(func() bool {
 		TLSLyftCrt           string
 		TLSLyftKey           string
 		TLSCa                string
-		knpAllowIngress      string
-		knpAllowEgress       string
 		connectivityCheckYml string
 
 		app1Service = "app1-service"
@@ -72,8 +70,6 @@ var _ = SkipDescribeIf(func() bool {
 		TLSLyftCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.crt")
 		TLSLyftKey = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.key")
 		TLSCa = helpers.ManifestGet(kubectl.BasePath(), "ca.crt")
-		knpAllowIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-ingress.yaml")
-		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
@@ -319,53 +315,6 @@ var _ = SkipDescribeIf(func() bool {
 				&helpers.TimeoutConfig{Timeout: 100 * time.Second})
 
 			Expect(err).To(BeNil(), "CNP status for invalid policy did not update correctly")
-		})
-
-		It("Allows traffic with k8s default-allow ingress policy", func() {
-			By("Installing ingress default-allow")
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, knpAllowIngress, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(),
-				"L3 allow-ingress Policy cannot be applied in %q namespace", namespaceForTest)
-
-			By("Testing connectivity with ingress default-allow policy loaded")
-			res := kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("http://%s/public", clusterIP))
-			res.ExpectSuccess("Ingress connectivity should be allowed by policy")
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlFail("http://%s/public", clusterIP))
-			res.ExpectSuccess("Ingress connectivity should be allowed by policy")
-		})
-
-		It("Allows traffic with k8s default-allow egress policy", func() {
-			By("Installing egress default-allow")
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, knpAllowEgress, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(),
-				"L3 allow-egress Policy cannot be applied in %q namespace", namespaceForTest)
-
-			By("Checking connectivity between pods and external services after installing egress policy")
-
-			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.CurlWithRetries("http://1.1.1.1/", 5, true))
-				res.ExpectSuccess("Egress connectivity should be allowed for pod %q", pod)
-
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.Ping("8.8.8.8"))
-				res.ExpectSuccess("Egress ping connectivity should be allowed for pod %q", pod)
-
-				// -R3 retry 3 times, -N1 ndots set to 1, -t A only lookup A records
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					"host -v -R3 -N1 -t A kubernetes.default.svc.cluster.local.")
-				res.ExpectSuccess("Egress DNS connectivity should be allowed for pod %q", pod)
-			}
 		})
 
 		Context("Validate to-entities policies", func() {
