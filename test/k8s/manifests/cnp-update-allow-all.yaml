@@ -1,7 +1,0 @@
-apiVersion: "cilium.io/v2"
-kind: CiliumNetworkPolicy
-metadata:
-  name: "cnp-update"
-spec:
-  description: "Policy with the same name as cnp-update-deny-ingress to test CNP update"
-  endpointSelector: {}
