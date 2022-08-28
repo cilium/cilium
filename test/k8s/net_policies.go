@@ -49,9 +49,6 @@ var _ = SkipDescribeIf(func() bool {
 		TLSLyftCrt           string
 		TLSLyftKey           string
 		TLSCa                string
-		knpDenyIngress       string
-		knpDenyEgress        string
-		knpDenyIngressEgress string
 		knpAllowIngress      string
 		knpAllowEgress       string
 		connectivityCheckYml string
@@ -75,9 +72,6 @@ var _ = SkipDescribeIf(func() bool {
 		TLSLyftCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.crt")
 		TLSLyftKey = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.key")
 		TLSCa = helpers.ManifestGet(kubectl.BasePath(), "ca.crt")
-		knpDenyIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-ingress.yaml")
-		knpDenyEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-egress.yaml")
-		knpDenyIngressEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-ingress-egress.yaml")
 		knpAllowIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-ingress.yaml")
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
@@ -325,104 +319,6 @@ var _ = SkipDescribeIf(func() bool {
 				&helpers.TimeoutConfig{Timeout: 100 * time.Second})
 
 			Expect(err).To(BeNil(), "CNP status for invalid policy did not update correctly")
-		})
-
-		It("Denies traffic with k8s default-deny ingress policy", func() {
-
-			res := kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("%q cannot curl to %q", appPods[helpers.App3], clusterIP)
-
-			By("Installing knp ingress default-deny")
-
-			// Import the policy and wait for all required endpoints to enforce the policy
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, knpDenyIngress, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(),
-				"L3 deny-ingress Policy cannot be applied in %q namespace", namespaceForTest)
-
-			By("Testing connectivity with ingress default-deny policy loaded")
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("Ingress connectivity should be denied by policy")
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("Ingress connectivity should be denied by policy")
-		})
-
-		It("Denies traffic with k8s default-deny egress policy", func() {
-			By("Installing knp egress default-deny")
-
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, knpDenyEgress, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(),
-				"L3 deny-egress Policy cannot be applied in %q namespace", namespaceForTest)
-
-			By("Testing if egress policy enforcement is enabled on the endpoint")
-			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.CurlFail("http://1.1.1.1/"))
-				res.ExpectFail("Egress connectivity should be denied for pod %q", pod)
-
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.Ping("8.8.8.8"))
-				res.ExpectFail("Egress ping connectivity should be denied for pod %q", pod)
-
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					"host kubernetes.default.svc.cluster.local")
-				res.ExpectFail("Egress DNS connectivity should be denied for pod %q", pod)
-			}
-		})
-
-		It("Denies traffic with k8s default-deny ingress-egress policy", func() {
-			By("Installing knp ingress-egress default-deny")
-
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, knpDenyIngressEgress, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(),
-				"L3 deny-ingress-egress policy cannot be applied in %q namespace", namespaceForTest)
-
-			By("Testing if egress and ingress policy enforcement is enabled on the endpoint")
-			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.CurlFail("http://1.1.1.1/"))
-				res.ExpectFail("Egress connectivity should be denied for pod %q", pod)
-
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.Ping("8.8.8.8"))
-				res.ExpectFail("Egress ping connectivity should be denied for pod %q", pod)
-
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					"host kubernetes.default.svc.cluster.local")
-				res.ExpectFail("Egress DNS connectivity should be denied for pod %q", pod)
-			}
-
-			By("Testing ingress connectivity with default-deny policy loaded")
-			res := kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("Ingress connectivity should be denied by policy")
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("Ingress connectivity should be denied by policy")
 		})
 
 		It("Allows traffic with k8s default-allow ingress policy", func() {
