@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "host-cluster"
+spec:
+  endpointSelector:
+    matchLabels: {}
+  egress:
+    - toEntities:
+        - host
+        - remote-node
