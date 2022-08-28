@@ -40,7 +40,6 @@ var _ = SkipDescribeIf(func() bool {
 		ciliumFilename       string
 		demoPath             string
 		l3Policy             string
-		l7PolicyKafka        string
 		l7PolicyTLS          string
 		TLSCaCerts           string
 		TLSArtiiCrt          string
@@ -60,7 +59,6 @@ var _ = SkipDescribeIf(func() bool {
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
-		l7PolicyKafka = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-kafka.yaml")
 		l7PolicyTLS = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-TLS.yaml")
 		TLSCaCerts = helpers.ManifestGet(kubectl.BasePath(), "testCA.crt")
 		TLSArtiiCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-artii.crt")
@@ -214,136 +212,6 @@ var _ = SkipDescribeIf(func() bool {
 				&helpers.TimeoutConfig{Timeout: 100 * time.Second})
 
 			Expect(err).To(BeNil(), "CNP status for invalid policy did not update correctly")
-		})
-
-		Context("Validate CNP update", func() {
-			const (
-				allowAll = iota
-				denyFromApp3
-				denyAll
-			)
-
-			var (
-				cnpUpdateAllow        string
-				cnpUpdateDeny         string
-				cnpUpdateDenyAll      string
-				cnpUpdateNoSpecs      string
-				cnpUpdateDenyLabelled string
-			)
-
-			BeforeAll(func() {
-				cnpUpdateAllow = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-allow-all.yaml")
-				cnpUpdateDenyAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-all.yaml")
-				cnpUpdateDeny = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-ingress.yaml")
-				cnpUpdateNoSpecs = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-no-specs.yaml")
-				cnpUpdateDenyLabelled = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-ingress-labelled.yaml")
-			})
-
-			validateL3L4 := func(allow int) {
-				var allowApp2, allowApp3 bool
-				switch allow {
-				case allowAll:
-					allowApp2 = true
-					allowApp3 = true
-				case denyFromApp3:
-					allowApp2 = true
-				case denyAll:
-				}
-
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, appPods[helpers.App2],
-					helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-				ExpectWithOffset(1, res).To(getMatcher(allowApp2),
-					"%q curl clusterIP %q (expected to allow: %t)",
-					appPods[helpers.App2], clusterIP, allowApp2)
-
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, appPods[helpers.App3],
-					helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-				ExpectWithOffset(1, res).To(getMatcher(allowApp3),
-					"%q curl clusterIP %q (expected to allow: %t)",
-					appPods[helpers.App3], clusterIP, allowApp3)
-			}
-
-			It("Enforces connectivity correctly when the same L3/L4 CNP is updated", func() {
-				By("Applying default allow policy")
-				_, err := kubectl.CiliumPolicyAction(
-					namespaceForTest, cnpUpdateAllow, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
-
-				validateL3L4(allowAll)
-
-				By("Applying l3-l4 policy")
-				_, err = kubectl.CiliumPolicyAction(
-					namespaceForTest, cnpUpdateDeny, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
-
-				validateL3L4(denyFromApp3)
-
-				By("Applying no-specs policy")
-				// We are intentionally not using helpers.CiliumPolicyAction
-				// because we don't expect this policy to be applied; it will
-				// be accepted by K8s apiserver, but it will be rejected by
-				// Cilium agent, and therefore no revision bump.
-				Expect(kubectl.Apply(helpers.ApplyOptions{
-					Namespace: namespaceForTest,
-					FilePath:  cnpUpdateNoSpecs,
-				})).Should(helpers.CMDSuccess(), "%q Policy cannot be applied", cnpUpdateNoSpecs)
-				validateL3L4(denyFromApp3)
-
-				By("Applying l3-l4 policy with user-specified labels")
-				_, err = kubectl.CiliumPolicyAction(
-					namespaceForTest, cnpUpdateDenyLabelled, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDenyLabelled)
-
-				validateL3L4(denyFromApp3)
-
-				By("Applying default allow policy (should remove policy with user labels)")
-				_, err = kubectl.CiliumPolicyAction(
-					namespaceForTest, cnpUpdateAllow, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
-
-				validateL3L4(allowAll)
-
-				By("Applying a full deny policy on all endpoints")
-				_, err = kubectl.CiliumPolicyAction(
-					namespaceForTest, cnpUpdateDenyAll, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDenyAll)
-
-				validateL3L4(denyAll)
-			})
-
-			// Tests involving the L7 proxy do not work when built with -race, see issue #13757.
-			SkipItIf(helpers.SkipRaceDetectorEnabled, "Verifies that a CNP with L7 HTTP rules can be replaced with L7 Kafka rules", func() {
-				By("Installing L7 Policy")
-
-				// This HTTP policy was already validated in the
-				// test "checks all kind of Kubernetes policies".
-				// Install it then move on.
-				_, err := kubectl.CiliumPolicyAction(
-					namespaceForTest, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
-
-				// Update existing policy on port 80 from http to kafka
-				// to test ability to change L7 parser type of a port.
-				// Traffic cannot flow but policy must be able to be
-				// imported and applied to the endpoints.
-				_, err = kubectl.CiliumPolicyAction(
-					namespaceForTest, l7PolicyKafka, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Cannot update L7 policy (%q) from parser http to kafka", l7PolicyKafka)
-
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, appPods[helpers.App3],
-					helpers.CurlFail("http://%s/public", clusterIP))
-				res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
-					appPods[helpers.App3], clusterIP)
-
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, appPods[helpers.App2],
-					helpers.CurlFail("http://%s/public", clusterIP))
-				res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
-					appPods[helpers.App2], clusterIP)
-			})
 		})
 
 		// Tests involving the L7 proxy do not work when built with -race, see issue #13757.
