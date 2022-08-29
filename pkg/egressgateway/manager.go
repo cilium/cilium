@@ -235,7 +235,7 @@ func (manager *Manager) regenerateGatewayConfigs() {
 	}
 }
 
-func (manager *Manager) addMissingIpRulesAndRoutes() (shouldRetry bool) {
+func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bool) {
 	addIPRulesAndRoutesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
 		if !gwc.localNodeConfiguredAsGateway {
 			return
@@ -249,8 +249,12 @@ func (manager *Manager) addMissingIpRulesAndRoutes() (shouldRetry bool) {
 		})
 
 		if err := addEgressIpRule(endpointIP, dstCIDR, gwc.egressIP.IP, gwc.ifaceIndex); err != nil {
-			logger.WithError(err).Warn("Can't add IP rule")
-			shouldRetry = true
+			if isRetry {
+				logger.WithError(err).Warn("Can't add IP rule")
+			} else {
+				logger.WithError(err).Debug("Can't add IP rule, will retry")
+				shouldRetry = true
+			}
 		} else {
 			logger.Info("Added IP rule")
 		}
@@ -408,11 +412,11 @@ func (manager *Manager) reconcile() {
 	manager.regenerateGatewayConfigs()
 
 	if option.Config.InstallEgressGatewayRoutes {
-		shouldRetry := manager.addMissingIpRulesAndRoutes()
+		shouldRetry := manager.addMissingIpRulesAndRoutes(false)
 		manager.removeUnusedIpRulesAndRoutes()
 
 		if shouldRetry {
-			manager.addMissingIpRulesAndRoutes()
+			manager.addMissingIpRulesAndRoutes(true)
 		}
 	}
 
