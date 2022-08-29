@@ -812,6 +812,8 @@ func IsPublicAddr(ip net.IP) bool {
 }
 
 // GetCIDRPrefixesFromIPs returns all of the ips as a slice of *net.IPNet.
+//
+// Deprecated. Consider using IPsToNetPrefixes() instead.
 func GetCIDRPrefixesFromIPs(ips []net.IP) []*net.IPNet {
 	if len(ips) == 0 {
 		return nil

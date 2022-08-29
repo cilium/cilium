@@ -6,7 +6,9 @@ package k8s
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -108,18 +110,22 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 func (k RuleTranslator) generateToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoint Endpoints,
-	allocatePrefixes bool) ([]*net.IPNet, error) {
+	allocatePrefixes bool) ([]netip.Prefix, error) {
 
-	var prefixes []*net.IPNet
-	var err error
+	var prefixes []netip.Prefix
+
 	// allocatePrefixes if true here implies that this translation is
 	// occurring after policy import. This means that the CIDRs were not
 	// known at that time, so the IPCache hasn't been informed about them.
 	// In this case, it's the job of this Translator to notify the IPCache.
 	if allocatePrefixes {
-		prefixes, err = endpoint.CIDRPrefixes()
+		cidrs, err := endpoint.CIDRPrefixes()
 		if err != nil {
 			return nil, err
+		}
+		prefixes = make([]netip.Prefix, 0, len(cidrs))
+		for _, c := range cidrs {
+			prefixes = append(prefixes, ip.IPNetToPrefix(c))
 		}
 	}
 
@@ -166,9 +172,9 @@ func (k RuleTranslator) generateToCidrFromEndpoint(
 func (k RuleTranslator) deleteToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoint Endpoints,
-	releasePrefixes bool) ([]*net.IPNet, error) {
+	releasePrefixes bool) ([]netip.Prefix, error) {
 
-	var toReleasePrefixes []*net.IPNet
+	var toReleasePrefixes []netip.Prefix
 	delCIDRRules := make(map[int]*api.CIDRRule, len(egress.ToCIDRSet))
 
 	for addrCluster := range endpoint.Backends {

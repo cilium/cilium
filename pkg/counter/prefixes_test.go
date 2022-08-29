@@ -7,6 +7,7 @@ package counter
 
 import (
 	"net"
+	"net/netip"
 
 	. "gopkg.in/check.v1"
 
@@ -14,12 +15,12 @@ import (
 )
 
 func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
-	v4Prefixes := []*net.IPNet{
-		{Mask: net.CIDRMask(0, 32)},
-		{Mask: net.CIDRMask(15, 32)},
-		{Mask: net.CIDRMask(15, 32)},
-		{Mask: net.CIDRMask(31, 32)},
-		{Mask: net.CIDRMask(32, 32)},
+	v4Prefixes := []netip.Prefix{
+		netip.MustParsePrefix("0.0.0.0/0"),
+		netip.MustParsePrefix("192.0.0.0/15"),
+		netip.MustParsePrefix("192.0.0.0/15"),
+		netip.MustParsePrefix("192.0.2.2/31"),
+		netip.MustParsePrefix("192.0.2.3/32"),
 	}
 	v4PrefixesLengths := map[int]int{
 		0:  1,
@@ -54,8 +55,8 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 
 	// Delete the /15 prefix and see that it is removed and doesn't affect
 	// other counts
-	prefixes15 := []*net.IPNet{
-		{Mask: net.CIDRMask(15, 32)},
+	prefixes15 := []netip.Prefix{
+		netip.MustParsePrefix("192.0.0.0/15"),
 	}
 	expectedPrefixLengths[15]--
 	c.Assert(result.Delete(prefixes15), Equals, false)
@@ -87,11 +88,11 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	c.Assert(changed, Equals, true)
 	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
 
-	v6Prefixes := []*net.IPNet{
-		{Mask: net.CIDRMask(0, 128)},
-		{Mask: net.CIDRMask(76, 128)},
-		{Mask: net.CIDRMask(96, 128)},
-		{Mask: net.CIDRMask(120, 128)},
+	v6Prefixes := []netip.Prefix{
+		netip.MustParsePrefix("::/0"),
+		netip.MustParsePrefix("FD33:DEAD:BEEF:CAFE::/76"),
+		netip.MustParsePrefix("FD33:DEAD:BEEF:CAFE::/96"),
+		netip.MustParsePrefix("fd33:dead:beef:cafe::91b2:b600/120"),
 	}
 	v6PrefixesLengths := map[int]int{
 		0:   1,
@@ -146,17 +147,17 @@ func (cs *CounterTestSuite) TestCheckLimits(c *C) {
 	c.Assert(checkLimits(0, 4, result.maxUniquePrefixes6), IsNil)
 	c.Assert(checkLimits(0, 5, result.maxUniquePrefixes6), NotNil)
 
-	prefixes := []*net.IPNet{
-		{Mask: net.CIDRMask(0, 32)},
-		{Mask: net.CIDRMask(15, 32)},
-		{Mask: net.CIDRMask(31, 32)},
-		{Mask: net.CIDRMask(32, 32)},
+	prefixes := []netip.Prefix{
+		netip.MustParsePrefix("0.0.0.0/0"),
+		netip.MustParsePrefix("192.0.0.0/15"),
+		netip.MustParsePrefix("192.0.2.2/31"),
+		netip.MustParsePrefix("192.0.2.3/32"),
 	}
 	changed, err := result.Add(prefixes)
 	c.Assert(err, IsNil)
 	c.Assert(changed, Equals, true)
 
-	changed, err = result.Add([]*net.IPNet{{Mask: net.CIDRMask(8, 32)}})
+	changed, err = result.Add([]netip.Prefix{netip.MustParsePrefix("192.0.0.0/8")})
 	c.Assert(err, NotNil)
 	c.Assert(changed, Equals, false)
 }
@@ -169,10 +170,9 @@ func (cs *CounterTestSuite) TestToBPFData(c *C) {
 		"192.0.2.0/32",
 		"192.0.64.0/20",
 	}
-	prefixesToAdd := []*net.IPNet{}
+	prefixesToAdd := []netip.Prefix{}
 	for _, prefix := range prefixes {
-		_, net, err := net.ParseCIDR(prefix)
-		c.Assert(err, IsNil)
+		net := netip.MustParsePrefix(prefix)
 		prefixesToAdd = append(prefixesToAdd, net)
 	}
 
@@ -185,10 +185,6 @@ func (cs *CounterTestSuite) TestToBPFData(c *C) {
 }
 
 func (cs *CounterTestSuite) TestDefaultPrefixLengthCounter(c *C) {
-	defer func() {
-		r := recover()
-		c.Assert(r, IsNil)
-	}()
 	result := DefaultPrefixLengthCounter(net.IPv6len*8, net.IPv4len*8)
 	c.Assert(result.v4[0], Equals, 1)
 	c.Assert(result.v6[0], Equals, 1)
