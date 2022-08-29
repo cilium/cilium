@@ -120,9 +120,9 @@ func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 	logger := log.WithField(logfields.CiliumEgressNATPolicyName, config.id.Name)
 
 	if _, ok := manager.policyConfigs[config.id]; !ok {
-		logger.Info("Added CiliumEgressNATPolicy")
+		logger.Debug("Added CiliumEgressNATPolicy")
 	} else {
-		logger.Info("Updated CiliumEgressNATPolicy")
+		logger.Debug("Updated CiliumEgressNATPolicy")
 	}
 
 	manager.policyConfigs[config.id] = &config
@@ -143,7 +143,7 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 		return
 	}
 
-	logger.Info("Deleted CiliumEgressNATPolicy")
+	logger.Debug("Deleted CiliumEgressNATPolicy")
 
 	delete(manager.policyConfigs, configID)
 
@@ -172,7 +172,7 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 
 	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
 		logger.WithError(err).
-			Error("Failed to get idenity labels for endpoint, skipping update to egress policy.")
+			Error("Failed to get identity labels for endpoint, skipping update to egress policy.")
 		return
 	}
 
@@ -256,14 +256,14 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 				shouldRetry = true
 			}
 		} else {
-			logger.Info("Added IP rule")
+			logger.Debug("Added IP rule")
 		}
 
 		if err := addEgressIpRoutes(gwc.egressIP, gwc.ifaceIndex); err != nil {
 			logger.WithError(err).Warn("Can't add IP routes")
 			return
 		}
-		logger.Info("Added IP routes")
+		logger.Debug("Added IP routes")
 	}
 
 	for _, policyConfig := range manager.policyConfigs {
@@ -354,7 +354,7 @@ func (manager *Manager) addMissingEgressRules() {
 		if err := egressmap.EgressPolicyMap.Update(endpointIP, *dstCIDR, gwc.egressIP.IP, gwc.gatewayIP); err != nil {
 			logger.WithError(err).Error("Error applying egress gateway policy")
 		} else {
-			logger.Info("Egress gateway policy applied")
+			logger.Debug("Egress gateway policy applied")
 		}
 	}
 
@@ -394,7 +394,7 @@ nextPolicyKey:
 		if err := egressmap.EgressPolicyMap.Delete(policyKey.GetSourceIP(), *policyKey.GetDestCIDR()); err != nil {
 			logger.WithError(err).Error("Error removing egress gateway policy")
 		} else {
-			logger.Info("Egress gateway policy removed")
+			logger.Debug("Egress gateway policy removed")
 		}
 	}
 }
