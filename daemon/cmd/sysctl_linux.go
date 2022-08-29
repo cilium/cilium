@@ -9,6 +9,10 @@ import (
 )
 
 func enableIPForwarding() error {
+	if option.Config.DryMode {
+		return nil
+	}
+
 	if err := sysctl.Enable("net.ipv4.ip_forward"); err != nil {
 		return err
 	}

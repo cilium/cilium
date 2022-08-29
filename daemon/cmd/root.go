@@ -54,11 +54,15 @@ var (
 
 type DaemonCellConfig struct {
 	SkipDaemon bool
+	DryMode    bool
 }
 
 func (DaemonCellConfig) CellFlags(flags *pflag.FlagSet) {
 	flags.Bool("skip-daemon", false, "Skip running of the daemon, only start normal cells")
 	flags.MarkHidden("skip-daemon")
+
+	flags.Bool("dry-mode", false, "Run in dry mode")
+	flags.MarkHidden("dry-mode")
 }
 
 func init() {

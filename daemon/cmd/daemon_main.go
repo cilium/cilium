@@ -1112,7 +1112,9 @@ func initEnv(clientset k8sClient.Clientset) {
 		option.Config.Opts.SetBool(option.DebugPolicy, true)
 	}
 
-	common.RequireRootPrivilege("cilium-agent")
+	if !option.Config.DryMode {
+		common.RequireRootPrivilege("cilium-agent")
+	}
 
 	log.Info("     _ _ _")
 	log.Info(" ___|_| |_|_ _ _____")
@@ -1193,8 +1195,10 @@ func initEnv(clientset k8sClient.Clientset) {
 
 	linuxdatapath.CheckMinRequirements()
 
-	if err := pidfile.Write(defaults.PidFilePath); err != nil {
-		log.WithField(logfields.Path, defaults.PidFilePath).WithError(err).Fatal("Failed to create Pidfile")
+	if !option.Config.DryMode {
+		if err := pidfile.Write(defaults.PidFilePath); err != nil {
+			log.WithField(logfields.Path, defaults.PidFilePath).WithError(err).Fatal("Failed to create Pidfile")
+		}
 	}
 
 	option.Config.AllowLocalhost = strings.ToLower(option.Config.AllowLocalhost)
@@ -1313,7 +1317,7 @@ func initEnv(clientset k8sClient.Clientset) {
 		if !option.Config.EnableIPv6 {
 			log.Fatalf("SRv6 requires IPv6.")
 		}
-		if !probes.NewProbeManager().GetMapTypes().HaveLruHashMapType {
+		if !option.Config.DryMode && !probes.NewProbeManager().GetMapTypes().HaveLruHashMapType {
 			log.Fatalf("SRv6 requires support for BPF LRU maps (Linux 4.10 or later).")
 		}
 	}
@@ -1346,7 +1350,7 @@ func initEnv(clientset k8sClient.Clientset) {
 	if option.Config.EnableIPv4FragmentsTracking {
 		if !option.Config.EnableIPv4 {
 			option.Config.EnableIPv4FragmentsTracking = false
-		} else {
+		} else if !option.Config.DryMode {
 			supportedMapTypes := probes.NewProbeManager().GetMapTypes()
 			if !supportedMapTypes.HaveLruHashMapType {
 				option.Config.EnableIPv4FragmentsTracking = false
@@ -1355,7 +1359,7 @@ func initEnv(clientset k8sClient.Clientset) {
 		}
 	}
 
-	if option.Config.EnableBPFTProxy {
+	if !option.Config.DryMode && option.Config.EnableBPFTProxy {
 		if h := probes.NewProbeManager().GetHelpers("sched_act"); h != nil {
 			if _, ok := h["bpf_sk_assign"]; !ok {
 				option.Config.EnableBPFTProxy = false
@@ -1514,7 +1518,16 @@ type daemonParams struct {
 // If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
 // a callback.
 func registerDaemonHooks(p daemonParams) error {
+	p.LocalNodeStore.Observe(
+		context.TODO(),
+		func(n nodeTypes.Node) {
+			b, _ := n.Marshal()
+			fmt.Printf(">>> Local node changed: %s\n", string(b))
+		},
+		func(err error) {})
+
 	if p.Config.SkipDaemon {
+
 		return nil
 	}
 
@@ -1543,6 +1556,8 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, p daemonParams) {
 	if p.Clientset.IsEnabled() {
 		k8s.SetClients(p.Clientset, p.Clientset.Slim(), p.Clientset, p.Clientset)
 	}
+
+	option.Config.DryMode = p.Config.DryMode
 
 	bootstrapStats.earlyInit.Start()
 	initEnv(p.Clientset)

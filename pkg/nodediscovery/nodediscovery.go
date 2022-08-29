@@ -370,6 +370,8 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 			}
 		}
 
+		fmt.Printf(">>> Got CiliumNode: %#v\n", nodeResource)
+
 		if err := n.mutateNodeResource(nodeResource); err != nil {
 			log.WithError(err).WithField("retryCount", retryCount).Warning("Unable to mutate nodeResource")
 			continue

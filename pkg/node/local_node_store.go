@@ -81,6 +81,7 @@ func newLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
 			s.emit = emit
 			s.complete = complete
 			s.cond.Broadcast()
+			emit(s.value)
 			return nil
 		},
 		OnStop: func(context.Context) error {

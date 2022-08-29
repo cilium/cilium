@@ -31,11 +31,11 @@ var localNodeInitCell = hive.NewCellWithConfig[daemonLocalNodeConfig](
 // daemonLocalNodeConfig has the configuration options for affecting the initialization
 // of the local node state.
 type daemonLocalNodeConfig struct {
-	// IPv4NodeAddr is the IPv4 address for the local node.
-	IPv4NodeAddr string
+	// IPv4Node is the IPv4 address for the local node.
+	IPv4Node string
 
-	// IPv6NodeAddr is the IPv6 address for the local node.
-	IPv6NodeAddr string
+	// IPv6Node is the IPv6 address for the local node.
+	IPv6Node string
 
 	IPv4Range string
 	IPv6Range string
@@ -77,12 +77,12 @@ func (ni *daemonLocalNodeInit) InitLocalNode(localNode *nodeTypes.Node) error {
 }
 
 func (ni *daemonLocalNodeInit) initLocalNodeFromConfig(localNode *nodeTypes.Node) error {
-	if ni.config.IPv6NodeAddr != "auto" {
-		if ip := net.ParseIP(ni.config.IPv6NodeAddr); ip == nil {
-			return fmt.Errorf("Invalid IPv6 node address: %q", ni.config.IPv6NodeAddr)
+	if ni.config.IPv6Node != "auto" {
+		if ip := net.ParseIP(ni.config.IPv6Node); ip == nil {
+			return fmt.Errorf("Invalid IPv6 node address: %q", ni.config.IPv6Node)
 		} else {
 			if !ip.IsGlobalUnicast() {
-				return fmt.Errorf("Invalid IPv6 node address: %q, not a global unicast address", ni.config.IPv6NodeAddr)
+				return fmt.Errorf("Invalid IPv6 node address: %q, not a global unicast address", ni.config.IPv6Node)
 			}
 			localNode.IPAddresses =
 				append(localNode.IPAddresses,
@@ -93,9 +93,9 @@ func (ni *daemonLocalNodeInit) initLocalNodeFromConfig(localNode *nodeTypes.Node
 		}
 	}
 
-	if ni.config.IPv4NodeAddr != "auto" {
-		if ip := net.ParseIP(ni.config.IPv4NodeAddr); ip == nil {
-			return fmt.Errorf("Invalid IPv4 node address: %q", ni.config.IPv4NodeAddr)
+	if ni.config.IPv4Node != "auto" {
+		if ip := net.ParseIP(ni.config.IPv4Node); ip == nil {
+			return fmt.Errorf("Invalid IPv4 node address: %q", ni.config.IPv4Node)
 		} else {
 			localNode.IPAddresses =
 				append(localNode.IPAddresses,
@@ -154,11 +154,11 @@ func (ni *daemonLocalNodeInit) initLocalNodeFromK8s(localNode *nodeTypes.Node) e
 
 func (ni *daemonLocalNodeInit) validate(localNode *nodeTypes.Node) error {
 	if ni.config.EnableIPv6 && localNode.IPv6AllocCIDR == nil {
-		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specificy --%s", option.IPv6Range)
+		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specify --%s", option.IPv6Range)
 	}
 
 	if ni.config.EnableIPv4 && localNode.IPv4AllocCIDR == nil {
-		return fmt.Errorf("IPv4 allocation CIDR is not configured. Please specificy --%s", option.IPv4Range)
+		return fmt.Errorf("IPv4 allocation CIDR is not configured. Please specify --%s", option.IPv4Range)
 	}
 
 	if ni.config.EnableIPv4 || ni.config.Tunnel != option.TunnelDisabled {

@@ -8,6 +8,7 @@ package synced
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -321,11 +322,13 @@ func (c *crdGetter) Get() *rest.Request {
 	var req *rest.Request
 
 	if k8sversion.Capabilities().APIExtensionsV1CRD {
+		fmt.Printf(">>> Using V1\n")
 		req = c.api.ApiextensionsV1().
 			RESTClient().
 			Get().
 			Name("customresourcedefinitions")
 	} else {
+		fmt.Printf(">>> Using V1beta1\n")
 		req = c.api.ApiextensionsV1beta1().
 			RESTClient().
 			Get().

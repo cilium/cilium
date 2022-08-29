@@ -35,10 +35,12 @@ import (
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_apiextclientsetscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/scheme"
+	slim_apiext_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-clientset"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slim_metav1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1"
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/version"
@@ -55,7 +57,7 @@ var Cell = hive.NewCellWithConfig[Config](
 type (
 	KubernetesClientset = kubernetes.Clientset
 	SlimClientset       = slim_clientset.Clientset
-	APIExtClientset     = apiext_clientset.Clientset
+	APIExtClientset     = slim_apiext_clientset.Clientset
 	CiliumClientset     = cilium_clientset.Clientset
 )
 
@@ -131,7 +133,6 @@ func newClientset(lc fx.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientse
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s REST client: %w", err)
 	}
-	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
 
 	// We are implementing the same logic as Kubelet, see
 	// https://github.com/kubernetes/kubernetes/blob/v1.24.0-beta.0/cmd/kubelet/app/server.go#L852.
@@ -143,24 +144,29 @@ func newClientset(lc fx.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientse
 		}
 	}
 
+	// Slim and K8s clients use protobuf marshalling.
+	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
+
 	client.slim, err = slim_clientset.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create slim k8s client: %w", err)
 	}
 
-	client.APIExtClientset, err = apiext_clientset.NewForConfigAndClient(restConfig, httpClient)
+	client.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create apiext k8s client: %w", err)
-	}
-
-	client.CiliumClientset, err = cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
 	}
 
 	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client: %w", err)
+	}
+
+	// The cilium client uses JSON marshalling.
+	restConfig.ContentConfig.ContentType = `application/json`
+	client.CiliumClientset, err = cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
 	}
 
 	lc.Append(fx.Hook{
@@ -177,14 +183,25 @@ func (c *compositeClientset) onStart(startCtx context.Context) error {
 		return err
 	}
 	c.startHeartbeat()
+
+	// TODO: refactor k8sversion into its own cell.
+	//
+	// Update the K8s version and the capabilities.
+	if err := k8sversion.Update(c, c.Config()); err != nil {
+		return err
+	}
+
+	if !k8sversion.Capabilities().MinimalVersionMet {
+		return fmt.Errorf("k8s version (%v) is not meeting the minimal requirement (%v)",
+			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
+	}
+
 	return nil
 }
 
 func (c *compositeClientset) onStop(ctx context.Context) error {
 	c.controller.RemoveAllAndWait()
 	c.closeAllConns()
-
-	fmt.Printf(">>> STOPPED\n")
 	return nil
 }
 

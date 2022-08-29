@@ -845,10 +845,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
 		// context deadline or if the context has been cancelled, the context's
 		// error will be returned. Otherwise, it succeeded.
-		if !option.Config.DryMode {
-			if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
-				return nil, restoredEndpoints, err
-			}
+		if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
+			return nil, restoredEndpoints, err
 		}
 
 		// Launch the K8s node watcher so we can start receiving node events.
