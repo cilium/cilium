@@ -7,7 +7,7 @@
 package cidr
 
 import (
-	"net"
+	"net/netip"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -28,8 +28,7 @@ var _ = Suite(&CIDRLabelsSuite{})
 // TestGetCIDRLabels checks that GetCIDRLabels returns a sane set of labels for
 // given CIDRs.
 func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
-	_, cidr, err := net.ParseCIDR("192.0.2.3/32")
-	c.Assert(err, IsNil)
+	prefix := netip.MustParsePrefix("192.0.2.3/32")
 	expected := labels.ParseLabelArray(
 		"cidr:0.0.0.0/0",
 		"cidr:128.0.0.0/1",
@@ -39,34 +38,32 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 		"reserved:world",
 	)
 
-	lbls := GetCIDRLabels(cidr)
+	lbls := GetCIDRLabels(prefix)
 	lblArray := lbls.LabelArray()
 	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 	// IPs should be masked as the labels are generated
 	c.Assert(lblArray.Has("cidr:192.0.2.3/24"), Equals, false)
 
-	_, cidr, err = net.ParseCIDR("192.0.2.0/24")
-	c.Assert(err, IsNil)
+	prefix = netip.MustParsePrefix("192.0.2.0/24")
 	expected = labels.ParseLabelArray(
 		"cidr:0.0.0.0/0",
 		"cidr:192.0.2.0/24",
 		"reserved:world",
 	)
 
-	lbls = GetCIDRLabels(cidr)
+	lbls = GetCIDRLabels(prefix)
 	lblArray = lbls.LabelArray()
 	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 	// CIDRs that are covered by the prefix should not be in the labels
 	c.Assert(lblArray.Has("cidr.192.0.2.3/32"), Equals, false)
 
 	// Zero-length prefix / default route should become reserved:world.
-	_, cidr, err = net.ParseCIDR("0.0.0.0/0")
-	c.Assert(err, IsNil)
+	prefix = netip.MustParsePrefix("0.0.0.0/0")
 	expected = labels.ParseLabelArray(
 		"reserved:world",
 	)
 
-	lbls = GetCIDRLabels(cidr)
+	lbls = GetCIDRLabels(prefix)
 	lblArray = lbls.LabelArray()
 	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 	c.Assert(lblArray.Has("cidr.0.0.0.0/0"), Equals, false)
@@ -74,8 +71,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 	// Note that we convert the colons in IPv6 addresses into dashes when
 	// translating into labels, because endpointSelectors don't support
 	// colons.
-	_, cidr, err = net.ParseCIDR("2001:DB8::1/128")
-	c.Assert(err, IsNil)
+	prefix = netip.MustParsePrefix("2001:DB8::1/128")
 	expected = labels.ParseLabelArray(
 		"cidr:0--0/0",
 		"cidr:2000--0/3",
@@ -86,7 +82,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 		"reserved:world",
 	)
 
-	lbls = GetCIDRLabels(cidr)
+	lbls = GetCIDRLabels(prefix)
 	lblArray = lbls.LabelArray()
 	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 	// IPs should be masked as the labels are generated
@@ -96,20 +92,18 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 // TestGetCIDRLabelsInCluster checks that the cluster label is properly added
 // when getting labels for CIDRs that are equal to or within the cluster range.
 func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
-	_, cidr, err := net.ParseCIDR("10.0.0.0/16")
-	c.Assert(err, IsNil)
+	prefix := netip.MustParsePrefix("10.0.0.0/16")
 	expected := labels.ParseLabelArray(
 		"cidr:0.0.0.0/0",
 		"cidr:10.0.0.0/16",
 		"reserved:world",
 	)
-	lbls := GetCIDRLabels(cidr)
+	lbls := GetCIDRLabels(prefix)
 	lblArray := lbls.LabelArray()
 	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 
 	// This case is firmly within the cluster range
-	_, cidr, err = net.ParseCIDR("2001:db8:cafe::cab:4:b0b:0/112")
-	c.Assert(err, IsNil)
+	prefix = netip.MustParsePrefix("2001:db8:cafe::cab:4:b0b:0/112")
 	expected = labels.ParseLabelArray(
 		"cidr:0--0/0",
 		"cidr:2001-db8-cafe--0/64",
@@ -117,7 +111,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
 		"cidr:2001-db8-cafe-0-cab-4-b0b-0/112",
 		"reserved:world",
 	)
-	lbls = GetCIDRLabels(cidr)
+	lbls = GetCIDRLabels(prefix)
 	lblArray = lbls.LabelArray()
 	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 }
@@ -183,25 +177,17 @@ func (s *CIDRLabelsSuite) TestIPStringToLabel(c *C) {
 	}
 }
 
-func mustCIDR(cidr string) *net.IPNet {
-	_, c, err := net.ParseCIDR(cidr)
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
-
 func BenchmarkGetCIDRLabels(b *testing.B) {
-	for _, cidr := range []*net.IPNet{
-		mustCIDR("0.0.0.0/0"),
-		mustCIDR("10.16.0.0/16"),
-		mustCIDR("192.0.2.3/32"),
-		mustCIDR("192.0.2.3/24"),
-		mustCIDR("192.0.2.0/24"),
-		mustCIDR("::/0"),
-		mustCIDR("fdff::ff/128"),
-		mustCIDR("f00d:42::ff/128"),
-		mustCIDR("f00d:42::ff/96"),
+	for _, cidr := range []netip.Prefix{
+		netip.MustParsePrefix("0.0.0.0/0"),
+		netip.MustParsePrefix("10.16.0.0/16"),
+		netip.MustParsePrefix("192.0.2.3/32"),
+		netip.MustParsePrefix("192.0.2.3/24"),
+		netip.MustParsePrefix("192.0.2.0/24"),
+		netip.MustParsePrefix("::/0"),
+		netip.MustParsePrefix("fdff::ff/128"),
+		netip.MustParsePrefix("f00d:42::ff/128"),
+		netip.MustParsePrefix("f00d:42::ff/96"),
 	} {
 		b.Run(cidr.String(), func(b *testing.B) {
 			b.ReportAllocs()

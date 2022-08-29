@@ -59,8 +59,8 @@ func (ipc *IPCache) AllocateCIDRs(
 			continue
 		}
 
-		lbls := cidr.GetCIDRLabels(p)
 		prefix := ip.IPNetToPrefix(p)
+		lbls := cidr.GetCIDRLabels(prefix)
 		lbls.MergeLabels(ipc.metadata.get(prefix).ToLabels())
 		oldNID := identity.InvalidIdentity
 		if oldNIDs != nil && len(oldNIDs) > i {
@@ -228,7 +228,7 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
 		}
 
 		p := ip.IPNetToPrefix(prefix)
-		if id := ipc.IdentityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(prefix)); id != nil {
+		if id := ipc.IdentityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(p)); id != nil {
 			identities[p] = id
 		} else {
 			log.Errorf("Unable to find identity of previously used CIDR %s", p.String())

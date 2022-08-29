@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	cidrlabels "github.com/cilium/cilium/pkg/labels/cidr"
@@ -405,7 +404,7 @@ func (ipc *IPCache) injectLabels(ctx context.Context, prefix netip.Prefix, lbls 
 // injectLabelsForCIDR will allocate a CIDR identity for the given prefix. The
 // release of the identity must be managed by the caller.
 func (ipc *IPCache) injectLabelsForCIDR(ctx context.Context, prefix netip.Prefix, lbls labels.Labels) (*identity.Identity, bool, error) {
-	allLbls := cidrlabels.GetCIDRLabels(ip.PrefixToIPNet(prefix))
+	allLbls := cidrlabels.GetCIDRLabels(prefix)
 	allLbls.MergeLabels(lbls)
 
 	log.WithFields(logrus.Fields{
