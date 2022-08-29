@@ -282,8 +282,7 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 // IP.
 func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 	var (
-		cidrs  []*cidr.CIDR
-		fromFS net.IP
+		cidrs []*cidr.CIDR
 	)
 
 	if ipv6 {
@@ -294,7 +293,6 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 		default:
 			cidrs = []*cidr.CIDR{node.GetIPv6AllocRange()}
 		}
-		fromFS = node.GetIPv6Router()
 	} else {
 		switch option.Config.IPAMMode() {
 		case ipamOption.IPAMCRD:
@@ -307,10 +305,9 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 		default:
 			cidrs = []*cidr.CIDR{node.GetIPv4AllocRange()}
 		}
-		fromFS = node.GetInternalIPv4Router()
 	}
 
-	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
+	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, cidrs)
 	if err := removeOldRouterState(ipv6, restoredIP); err != nil {
 		log.WithError(err).Warnf(
 			"Failed to remove old router IPs (restored IP: %s) from cilium_host. Manual intervention is required to remove all other old IPs.",
@@ -867,10 +864,11 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 			d.nodeDiscovery.UpdateCiliumNodeResource()
 		}
 
+		/* XXX moved to daemon initializers
 		if err := k8s.WaitForNodeInformation(d.ctx, d.k8sWatcher); err != nil {
 			log.WithError(err).Error("unable to connect to get node spec from apiserver")
 			return nil, nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
-		}
+		}*/
 
 		// Kubernetes demands that the localhost can always reach local
 		// pods. Therefore unless the AllowLocalhost policy is set to a
@@ -1041,9 +1039,6 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 	// IPAM initialization to finish off the `cilium_host` IP restoration (part
 	// 2/2).
 	router4FromK8s, router6FromK8s := node.GetInternalIPv4Router(), node.GetIPv6Router()
-
-	// Configure IPAM without using the configuration yet.
-	d.configureIPAM()
 
 	if option.Config.JoinCluster {
 		if k8s.IsEnabled() {

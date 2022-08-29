@@ -1620,8 +1620,6 @@ type DaemonConfig struct {
 	InstallIptRules            bool
 	MonitorAggregation         string
 	PreAllocateMaps            bool
-	IPv6NodeAddr               string
-	IPv4NodeAddr               string
 	SidecarIstioProxyImage     string
 	SocketPath                 string
 	TracePayloadlen            int
@@ -2828,10 +2826,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IdentityRestoreGracePeriod = vp.GetDuration(IdentityRestoreGracePeriod)
 	c.IPAM = vp.GetString(IPAM)
 	c.IPv4Range = vp.GetString(IPv4Range)
-	c.IPv4NodeAddr = vp.GetString(IPv4NodeAddr)
 	c.IPv4ServiceRange = vp.GetString(IPv4ServiceRange)
 	c.IPv6ClusterAllocCIDR = vp.GetString(IPv6ClusterAllocCIDRName)
-	c.IPv6NodeAddr = vp.GetString(IPv6NodeAddr)
 	c.IPv6Range = vp.GetString(IPv6Range)
 	c.IPv6ServiceRange = vp.GetString(IPv6ServiceRange)
 	c.JoinCluster = vp.GetBool(JoinClusterName)

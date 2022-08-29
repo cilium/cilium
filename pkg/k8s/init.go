@@ -21,7 +21,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -120,17 +119,6 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeNam
 	return n, nil
 }
 
-// useNodeCIDR sets the ipv4-range and ipv6-range values values from the
-// addresses defined in the given node.
-func useNodeCIDR(n *nodeTypes.Node) {
-	if n.IPv4AllocCIDR != nil && option.Config.EnableIPv4 {
-		node.SetIPv4AllocRange(n.IPv4AllocCIDR)
-	}
-	if n.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
-		node.SetIPv6NodeRange(n.IPv6AllocCIDR)
-	}
-}
-
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init(conf k8sconfig.Configuration) error {
@@ -164,21 +152,22 @@ func Init(conf k8sconfig.Configuration) error {
 // Kubernetes Node resource. This function will block until the information is
 // received. nodeGetter is a function used to retrieved the node from either
 // the kube-apiserver or a local cache, depending on the caller.
-func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
+func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) (*nodeTypes.Node, error) {
 	// Use of the environment variable overwrites the node-name
 	// automatically derived
 	nodeName := nodeTypes.GetName()
 	if nodeName == "" {
 		if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
-			return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", k8sConst.EnvNodeNameSpec)
+			return nil, fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", k8sConst.EnvNodeNameSpec)
 		}
 		if option.MightAutoDetectDevices() {
 			log.Info("K8s node name is empty. BPF NodePort might not be able to auto detect all devices")
 		}
-		return nil
+		return nil, nil
 	}
 
 	if n := waitForNodeInformation(ctx, nodeGetter, nodeName); n != nil {
+
 		nodeIP4 := n.GetNodeIP(false)
 		nodeIP6 := n.GetNodeIP(true)
 
@@ -194,31 +183,7 @@ func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
 			logfields.K8sNodeIP:        k8sNodeIP,
 		}).Info("Received own node information from API server")
 
-		useNodeCIDR(n)
-
-		// Note: Node IPs are derived regardless of
-		// option.Config.EnableIPv4 and
-		// option.Config.EnableIPv6. This is done to enable
-		// underlay addressing to be different from overlay
-		// addressing, e.g. an IPv6 only PodCIDR running over
-		// IPv4 encapsulation.
-		if nodeIP4 != nil {
-			node.SetIPv4(nodeIP4)
-		}
-
-		if nodeIP6 != nil {
-			node.SetIPv6(nodeIP6)
-		}
-
-		node.SetLabels(n.Labels)
-
-		node.SetK8sExternalIPv4(n.GetExternalIP(false))
-		node.SetK8sExternalIPv6(n.GetExternalIP(true))
-
-		// K8s Node IP is used by BPF NodePort devices auto-detection
-		node.SetK8sNodeIP(k8sNodeIP)
-
-		restoreRouterHostIPs(n)
+		return n, nil
 	} else {
 		// if node resource could not be received, fail if
 		// PodCIDR requirement has been requested
@@ -229,31 +194,5 @@ func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
 
 	// Annotate addresses will occur later since the user might
 	// want to specify them manually
-	return nil
-}
-
-// restoreRouterHostIPs restores (sets) the router IPs found from the
-// Kubernetes resource.
-//
-// Note that it does not validate the correctness of the IPs, as that is done
-// later in the daemon initialization when node.AutoComplete() is called.
-func restoreRouterHostIPs(n *nodeTypes.Node) {
-	if !option.Config.EnableHostIPRestore {
-		return
-	}
-
-	router4 := n.GetCiliumInternalIP(false)
-	router6 := n.GetCiliumInternalIP(true)
-	if router4 != nil {
-		node.SetInternalIPv4Router(router4)
-	}
-	if router6 != nil {
-		node.SetIPv6Router(router6)
-	}
-	if router4 != nil || router6 != nil {
-		log.WithFields(logrus.Fields{
-			logfields.IPv4: router4,
-			logfields.IPv6: router6,
-		}).Info("Restored router IPs from node information")
-	}
+	return nil, nil
 }

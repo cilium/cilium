@@ -332,6 +332,27 @@ func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {
 	return nil
 }
 
+// SetCiliumInternalIP sets the CiliumInternalIP e.g. the IP associated
+// with cilium_host on the node.
+func (n *Node) SetCiliumInternalIP(newAddr net.IP) {
+	ipv6 := newAddr.To4() == nil
+	for i, addr := range n.IPAddresses {
+		if (ipv6 && addr.IP.To4() != nil) ||
+			(!ipv6 && addr.IP.To4() == nil) {
+			continue
+		}
+		if addr.Type == addressing.NodeCiliumInternalIP {
+			n.IPAddresses[i].IP = newAddr
+			return
+		}
+	}
+	n.IPAddresses = append(n.IPAddresses,
+		Address{
+			Type: addressing.NodeCiliumInternalIP,
+			IP:   newAddr,
+		})
+}
+
 func (n *Node) GetIPByType(addrType addressing.AddressType, ipv6 bool) net.IP {
 	for _, addr := range n.IPAddresses {
 		if addr.Type != addrType {

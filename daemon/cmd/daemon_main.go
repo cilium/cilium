@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -405,12 +404,6 @@ func initializeFlags() {
 	flags.String(option.IPAM, ipamOption.IPAMClusterPool, "Backend to use for IPAM")
 	option.BindEnv(Vp, option.IPAM)
 
-	flags.String(option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
-	option.BindEnv(Vp, option.IPv4Range)
-
-	flags.String(option.IPv6Range, AutoCIDR, "Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96")
-	option.BindEnv(Vp, option.IPv6Range)
-
 	flags.String(option.IPv6ClusterAllocCIDRName, defaults.IPv6ClusterAllocCIDR, "IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR")
 	option.BindEnv(Vp, option.IPv6ClusterAllocCIDRName)
 
@@ -694,12 +687,6 @@ func initializeFlags() {
 
 	flags.Bool(option.PrependIptablesChainsName, true, "Prepend custom iptables chains instead of appending")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.PrependIptablesChainsName, "CILIUM_PREPEND_IPTABLES_CHAIN")
-
-	flags.String(option.IPv6NodeAddr, "auto", "IPv6 address of node")
-	option.BindEnv(Vp, option.IPv6NodeAddr)
-
-	flags.String(option.IPv4NodeAddr, "auto", "IPv4 address of node")
-	option.BindEnv(Vp, option.IPv4NodeAddr)
 
 	flags.String(option.ReadCNIConfiguration, "", "Read to the CNI configuration at specified path to extract per node configuration")
 	option.BindEnv(Vp, option.ReadCNIConfiguration)
@@ -1350,30 +1337,6 @@ func initEnv(clientset k8sClient.Clientset) {
 		log.Fatal("BPF masquerade is not supported for IPv6.")
 	}
 
-	// If there is one device specified, use it to derive better default
-	// allocation prefixes
-	node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
-
-	if option.Config.IPv6NodeAddr != "auto" {
-		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
-			log.WithField(logfields.IPAddr, option.Config.IPv6NodeAddr).Fatal("Invalid IPv6 node address")
-		} else {
-			if !ip.IsGlobalUnicast() {
-				log.WithField(logfields.IPAddr, ip).Fatal("Invalid IPv6 node address: not a global unicast address")
-			}
-
-			node.SetIPv6(ip)
-		}
-	}
-
-	if option.Config.IPv4NodeAddr != "auto" {
-		if ip := net.ParseIP(option.Config.IPv4NodeAddr); ip == nil {
-			log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
-		} else {
-			node.SetIPv4(ip)
-		}
-	}
-
 	k8s.SidecarIstioProxyImageRegexp, err = regexp.Compile(option.Config.SidecarIstioProxyImage)
 	if err != nil {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
@@ -1530,6 +1493,16 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
+type daemonParams struct {
+	fx.In
+
+	Lifecycle      fx.Lifecycle
+	Shutdowner     fx.Shutdowner
+	Config         DaemonCellConfig
+	Clientset      k8sClient.Clientset
+	LocalNodeStore node.LocalNodeStore
+}
+
 // registerDaemonHooks registers the lifecycle hooks for the part of the cilium-agent that has
 // not yet been modularized.
 //
@@ -1540,16 +1513,18 @@ func (d *Daemon) initKVStore() {
 //
 // If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
 // a callback.
-func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCellConfig, clientset k8sClient.Clientset) error {
-	if cfg.SkipDaemon {
+func registerDaemonHooks(p daemonParams) error {
+	if p.Config.SkipDaemon {
 		return nil
 	}
 
+	node.SetLocalNodeStore(p.LocalNodeStore)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cleaner := NewDaemonCleanup()
-	lc.Append(fx.Hook{
+	p.Lifecycle.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			go runDaemon(ctx, cleaner, shutdowner, clientset)
+			go runDaemon(ctx, cleaner, p)
 			return nil
 		},
 		OnStop: func(context.Context) error {
@@ -1562,15 +1537,15 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCe
 }
 
 // runDaemon runs the old unmodular part of the cilium-agent.
-func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner, clientset k8sClient.Clientset) {
+func runDaemon(ctx context.Context, cleaner *daemonCleanup, p daemonParams) {
 	// Set the k8s clients provided by the K8s client cell. The global clients will be refactored out
 	// by later commits.
-	if clientset.IsEnabled() {
-		k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
+	if p.Clientset.IsEnabled() {
+		k8s.SetClients(p.Clientset, p.Clientset.Slim(), p.Clientset, p.Clientset)
 	}
 
 	bootstrapStats.earlyInit.Start()
-	initEnv(clientset)
+	initEnv(p.Clientset)
 	bootstrapStats.earlyInit.End(true)
 
 	datapathConfig := linuxdatapath.DatapathConfiguration{
@@ -1620,13 +1595,6 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent))
 	if err != nil {
 		log.Fatalf("daemon creation failed: %s", err)
-	}
-
-	// This validation needs to be done outside of the agent until
-	// datapath.NodeAddressing is used consistently across the code base.
-	log.Info("Validating configured node address ranges")
-	if err := node.ValidatePostInit(); err != nil {
-		log.Fatalf("postinit failed: %s", err)
 	}
 
 	bootstrapStats.enableConntrack.Start()
@@ -1742,7 +1710,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 		err := <-errs
 		if err != nil {
 			log.WithError(err).Error("Cannot start metrics server")
-			shutdowner.Shutdown()
+			p.Shutdowner.Shutdown()
 		}
 	}(initMetrics())
 
@@ -1831,7 +1799,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 	err = srv.Serve()
 	if err != nil {
 		log.WithError(err).Error("Error returned from non-returning Serve() call")
-		shutdowner.Shutdown()
+		p.Shutdowner.Shutdown()
 	}
 }
 

@@ -13,18 +13,14 @@ import (
 )
 
 type LocalNodeInitializer interface {
-	InitLocalNode(*types.Node)
+	InitLocalNode(*types.Node) error
 }
-
-type LocalNodeInitializerFunc func(*types.Node)
-
-func (f LocalNodeInitializerFunc) InitLocalNode(n *types.Node) { f(n) }
 
 type LocalNodeStoreParams struct {
 	fx.In
 
 	Lifecycle fx.Lifecycle
-	Inits     []LocalNodeInitializer `group:"local-node-init"`
+	Init      LocalNodeInitializer
 }
 
 // LocalNodeStore provides access to information about the local node.
@@ -77,13 +73,13 @@ func newLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
 	params.Lifecycle.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			s.mu.Lock()
-			for _, init := range params.Inits {
-				init.InitLocalNode(&s.value)
+			defer s.mu.Unlock()
+			if err := params.Init.InitLocalNode(&s.value); err != nil {
+				return err
 			}
 			s.valid = true
 			s.emit = emit
 			s.complete = complete
-			s.mu.Unlock()
 			s.cond.Broadcast()
 			return nil
 		},

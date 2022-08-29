@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/cidr"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -482,41 +481,6 @@ func (d *Daemon) allocateIPs() error {
 	}
 
 	return d.allocateHealthIPs()
-}
-
-func (d *Daemon) configureIPAM() {
-	// If the device has been specified, the IPv4AllocPrefix and the
-	// IPv6AllocPrefix were already allocated before the k8s.Init().
-	//
-	// If the device hasn't been specified, k8s.Init() allocated the
-	// IPv4AllocPrefix and the IPv6AllocPrefix from k8s node annotations.
-	//
-	// If k8s.Init() failed to retrieve the IPv4AllocPrefix we can try to derive
-	// it from an existing node_config.h file or from previous cilium_host
-	// interfaces.
-	//
-	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
-	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
-	if option.Config.IPv4Range != AutoCIDR {
-		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv4Range)
-		if err != nil {
-			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4Range).Fatal("Invalid IPv4 allocation prefix")
-		}
-		node.SetIPv4AllocRange(allocCIDR)
-	}
-
-	if option.Config.IPv6Range != AutoCIDR {
-		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv6Range)
-		if err != nil {
-			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6Range).Fatal("Invalid IPv6 allocation prefix")
-		}
-
-		node.SetIPv6NodeRange(allocCIDR)
-	}
-
-	if err := node.AutoComplete(); err != nil {
-		log.WithError(err).Fatal("Cannot autocomplete node addresses")
-	}
 }
 
 func (d *Daemon) startIPAM() {

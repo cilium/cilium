@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -73,8 +74,12 @@ func init() {
 
 		gops.Cell,
 		k8sClient.Cell,
+		node.LocalNodeStoreCell,
 
-		hive.NewCellWithConfig[DaemonCellConfig]("daemon", fx.Invoke(registerDaemonHooks)),
+		localNodeInitCell,
+		hive.NewCellWithConfig[DaemonCellConfig](
+			"daemon",
+			fx.Invoke(registerDaemonHooks)),
 	)
 	// Add the flags to commands that use them. Would use PersistentFlags(), but cmdref
 	// command should not inherit them.
