@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"runtime"
 	"strings"
@@ -48,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -585,7 +587,11 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	restoredCIDRidentities := make(map[string]*identity.Identity)
 	if len(d.restoredCIDRs) > 0 {
 		log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
-		_, err = d.ipcache.AllocateCIDRs(d.restoredCIDRs, oldNIDs, restoredCIDRidentities)
+		prefixes := make([]netip.Prefix, 0, len(d.restoredCIDRs))
+		for _, c := range d.restoredCIDRs {
+			prefixes = append(prefixes, ip.IPNetToPrefix(c))
+		}
+		_, err = d.ipcache.AllocateCIDRs(prefixes, oldNIDs, restoredCIDRidentities)
 		if err != nil {
 			log.WithError(err).Error("Error allocating old CIDR identities")
 		}

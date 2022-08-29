@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
@@ -48,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -1715,7 +1717,11 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 				time.Sleep(option.Config.IdentityRestoreGracePeriod)
 				log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
 
-				d.ipcache.ReleaseCIDRIdentitiesByCIDR(d.restoredCIDRs)
+				prefixes := make([]netip.Prefix, 0, len(d.restoredCIDRs))
+				for _, c := range d.restoredCIDRs {
+					prefixes = append(prefixes, ip.IPNetToPrefix(c))
+				}
+				d.ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
 				// release the memory held by restored CIDRs
 				d.restoredCIDRs = nil
 			}

@@ -36,7 +36,7 @@ import (
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
 func (ipc *IPCache) AllocateCIDRs(
-	prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[string]*identity.Identity,
+	prefixes []netip.Prefix, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[string]*identity.Identity,
 ) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
 	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
@@ -54,12 +54,7 @@ func (ipc *IPCache) AllocateCIDRs(
 
 	ipc.Lock()
 	allocatedIdentities := make(map[netip.Prefix]*identity.Identity, len(prefixes))
-	for i, p := range prefixes {
-		if p == nil {
-			continue
-		}
-
-		prefix := ip.IPNetToPrefix(p)
+	for i, prefix := range prefixes {
 		lbls := cidr.GetCIDRLabels(prefix)
 		lbls.MergeLabels(ipc.metadata.get(prefix).ToLabels())
 		oldNID := identity.InvalidIdentity
@@ -102,7 +97,7 @@ func (ipc *IPCache) AllocateCIDRs(
 func (ipc *IPCache) AllocateCIDRsForIPs(
 	prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity,
 ) ([]*identity.Identity, error) {
-	return ipc.AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), nil, newlyAllocatedIdentities)
+	return ipc.AllocateCIDRs(ip.IPsToNetPrefixes(prefixes), nil, newlyAllocatedIdentities)
 }
 
 func cidrLabelToPrefix(label string) (string, bool) {
@@ -216,18 +211,13 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[ne
 
 // ReleaseCIDRIdentitiesByCIDR releases the identities of a list of CIDRs.
 // When the last use of the identity is released, the ipcache entry is deleted.
-func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
+func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []netip.Prefix) {
 	// TODO: Structure the code to pass context down from the Daemon.
 	releaseCtx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
 	identities := make(map[netip.Prefix]*identity.Identity, len(prefixes))
-	for _, prefix := range prefixes {
-		if prefix == nil {
-			continue
-		}
-
-		p := ip.IPNetToPrefix(prefix)
+	for _, p := range prefixes {
 		if id := ipc.IdentityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(p)); id != nil {
 			identities[p] = id
 		} else {

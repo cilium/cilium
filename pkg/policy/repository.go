@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 
@@ -610,11 +610,11 @@ type TranslationResult struct {
 
 	// BackendPrefixes contains all egress CIDRs that are to be added
 	// for the translation.
-	PrefixesToAdd []*net.IPNet
+	PrefixesToAdd []netip.Prefix
 
 	// BackendPrefixes contains all egress CIDRs that are to be removed
 	// for the translation.
-	PrefixesToRelease []*net.IPNet
+	PrefixesToRelease []netip.Prefix
 }
 
 // TranslateRules traverses rules and applies provided translator to rules

@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	stdlog "log"
-	"net"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -308,7 +308,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 
 	// removedPrefixes tracks prefixes that we replace in the rules. It is used
 	// after we release the policy repository lock.
-	var removedPrefixes []*net.IPNet
+	var removedPrefixes []netip.Prefix
 
 	// policySelectionWG is used to signal when the updating of all of the
 	// caches of endpoints in the rules which were added / updated have been
@@ -441,7 +441,7 @@ type PolicyReactionEvent struct {
 	endpointsToRegen  *policy.EndpointSet
 	newRev            uint64
 	upsertIdentities  map[string]*identity.Identity // deferred CIDR identity upserts, if any
-	releasePrefixes   []*net.IPNet                  // deferred CIDR identity deletes, if any
+	releasePrefixes   []netip.Prefix                // deferred CIDR identity deletes, if any
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
@@ -458,7 +458,7 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 //     in allEps, to revision rev.
 //   - wait for the regenerations to be finished
 //   - upsert or delete CIDR identities to the ipcache, as needed.
-func (d *Daemon) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64, upsertIdentities map[string]*identity.Identity, releasePrefixes []*net.IPNet) {
+func (d *Daemon) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64, upsertIdentities map[string]*identity.Identity, releasePrefixes []netip.Prefix) {
 	var enqueueWaitGroup sync.WaitGroup
 
 	// Release CIDR identities before regenerations have been started, if any. This makes sure
