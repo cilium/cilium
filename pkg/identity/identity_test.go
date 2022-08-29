@@ -6,7 +6,7 @@
 package identity
 
 import (
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,13 +73,11 @@ func (s *IdentityTestSuite) TestIsReservedIdentity(c *C) {
 }
 
 func (s *IdentityTestSuite) TestRequiresGlobalIdentity(c *C) {
-	_, ipnet, err := net.ParseCIDR("0.0.0.0/0")
-	c.Assert(err, IsNil)
-	c.Assert(RequiresGlobalIdentity(cidr.GetCIDRLabels(ipnet)), Equals, false)
+	prefix := netip.MustParsePrefix("0.0.0.0/0")
+	c.Assert(RequiresGlobalIdentity(cidr.GetCIDRLabels(prefix)), Equals, false)
 
-	_, ipnet, err = net.ParseCIDR("192.168.23.0/24")
-	c.Assert(err, IsNil)
-	c.Assert(RequiresGlobalIdentity(cidr.GetCIDRLabels(ipnet)), Equals, false)
+	prefix = netip.MustParsePrefix("192.168.23.0/24")
+	c.Assert(RequiresGlobalIdentity(cidr.GetCIDRLabels(prefix)), Equals, false)
 
 	c.Assert(RequiresGlobalIdentity(labels.NewLabelsFromModel([]string{"k8s:foo=bar"})), Equals, true)
 }
