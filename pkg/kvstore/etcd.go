@@ -1412,9 +1412,7 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 	}
 
 	if lease {
-		e.RWMutex.RLock()
-		leaseID := e.session.Lease()
-		e.RWMutex.RUnlock()
+		leaseID := e.GetSessionLeaseID()
 		if getR.Kvs[0].Lease != int64(leaseID) {
 			return true, e.UpdateIfLocked(ctx, key, value, lease, lock)
 		}
@@ -1446,9 +1444,7 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 		return true, e.Update(ctx, key, value, lease)
 	}
 	if lease {
-		e.RWMutex.RLock()
-		leaseID := e.session.Lease()
-		e.RWMutex.RUnlock()
+		leaseID := e.GetSessionLeaseID()
 		if getR.Kvs[0].Lease != int64(leaseID) {
 			return true, e.Update(ctx, key, value, lease)
 		}
