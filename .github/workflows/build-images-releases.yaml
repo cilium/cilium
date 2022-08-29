@@ -80,7 +80,6 @@ jobs:
           tags: |
             ${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
             quay.io/${{ secrets.QUAY_ORGANIZATION }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
-            quay.io/${{ secrets.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ github.sha }}
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
