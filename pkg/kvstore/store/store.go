@@ -350,13 +350,6 @@ func (s *SharedStore) SharedKeysMap() map[string]Key {
 	return sharedKeysCopy
 }
 
-// UpdateLocalKey adds a key to be synchronized with the kvstore
-func (s *SharedStore) UpdateLocalKey(key LocalKey) {
-	s.mutex.Lock()
-	s.localKeys[key.GetKeyName()] = key.DeepKeyCopy()
-	s.mutex.Unlock()
-}
-
 // UpdateLocalKeySync synchronously synchronizes a local key with the kvstore
 // and adds it to the list of local keys to be synchronized if the initial
 // synchronous synchronization was successful
