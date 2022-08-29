@@ -227,7 +227,11 @@ func (ls labelsSet) String() string {
 	return b.String()
 }
 
-func labelsContext(wantedLabels labelsSet, flow *pb.Flow) (outputLabels []string, err error) {
+func labelsContext(invertSourceDestination bool, wantedLabels labelsSet, flow *pb.Flow) (outputLabels []string, err error) {
+	source, destination := flow.GetSource(), flow.GetDestination()
+	if invertSourceDestination {
+		source, destination = flow.GetDestination(), flow.GetSource()
+	}
 	// Iterate over contextLabelsList so that the label order is stable,
 	// otherwise GetLabelNames and GetLabelValues might be mismatched
 	for _, label := range contextLabelsList {
@@ -235,25 +239,25 @@ func labelsContext(wantedLabels labelsSet, flow *pb.Flow) (outputLabels []string
 			var labelValue string
 			switch label {
 			case "source_pod":
-				labelValue = flow.GetSource().GetPodName()
+				labelValue = source.GetPodName()
 			case "source_namespace":
-				labelValue = flow.GetSource().GetNamespace()
+				labelValue = source.GetNamespace()
 			case "source_workload":
-				if workloads := flow.GetSource().GetWorkloads(); len(workloads) != 0 {
+				if workloads := source.GetWorkloads(); len(workloads) != 0 {
 					labelValue = workloads[0].Name
 				}
 			case "source_app":
-				labelValue = getK8sAppFromLabels(flow.GetSource().GetLabels())
+				labelValue = getK8sAppFromLabels(source.GetLabels())
 			case "destination_pod":
-				labelValue = flow.GetDestination().GetPodName()
+				labelValue = destination.GetPodName()
 			case "destination_namespace":
-				labelValue = flow.GetDestination().GetNamespace()
+				labelValue = destination.GetNamespace()
 			case "destination_workload":
-				if workloads := flow.GetDestination().GetWorkloads(); len(workloads) != 0 {
+				if workloads := destination.GetWorkloads(); len(workloads) != 0 {
 					labelValue = workloads[0].Name
 				}
 			case "destination_app":
-				labelValue = getK8sAppFromLabels(flow.GetDestination().GetLabels())
+				labelValue = getK8sAppFromLabels(destination.GetLabels())
 			case "traffic_direction":
 				direction := flow.GetTrafficDirection()
 				if direction == pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN {
@@ -331,13 +335,6 @@ func sourceIPContext(flow *pb.Flow) (context string) {
 	return
 }
 
-func destinationNamespaceContext(flow *pb.Flow) (context string) {
-	if flow.GetDestination() != nil {
-		context = flow.GetDestination().Namespace
-	}
-	return
-}
-
 func handleReservedIdentityLabels(lbls []string) string {
 	// if reserved:kube-apiserver label is present, return it (instead of reserved:world, etc..)
 	if slices.Contains(lbls, kubeAPIServerLabel) {
@@ -350,6 +347,13 @@ func handleReservedIdentityLabels(lbls []string) string {
 		}
 	}
 	return ""
+}
+
+func destinationNamespaceContext(flow *pb.Flow) (context string) {
+	if flow.GetDestination() != nil {
+		context = flow.GetDestination().Namespace
+	}
+	return
 }
 
 func destinationIdentityContext(flow *pb.Flow) (context string) {
@@ -418,13 +422,31 @@ func getK8sAppFromLabels(labels []string) string {
 // to the configured options. The order of the values is the same as the order
 // of the label names returned by GetLabelNames()
 func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string, err error) {
+	return o.getLabelValues(false, flow)
+}
+
+// GetLabelValuesInvertSourceDestination is the same as GetLabelValues but the
+// source and destination labels are inverted. This is primarily for metrics
+// that leverage the response/return flows where the source and destination are
+// swapped from the request flow.
+func (o *ContextOptions) GetLabelValuesInvertSourceDestination(flow *pb.Flow) (labels []string, err error) {
+	return o.getLabelValues(true, flow)
+}
+
+// getLabelValues returns the values of the context relevant labels according
+// to the configured options. The order of the values is the same as the order
+// of the label names returned by GetLabelNames(). If invert is true, the
+// source and destination related labels are inverted.
+func (o *ContextOptions) getLabelValues(invert bool, flow *pb.Flow) (labels []string, err error) {
 	if len(o.Labels) != 0 {
-		labelsContextLabels, err := labelsContext(o.Labels, flow)
+		labelsContextLabels, err := labelsContext(invert, o.Labels, flow)
 		if err != nil {
 			return nil, err
 		}
 		labels = append(labels, labelsContextLabels...)
 	}
+
+	var sourceLabel, destinationLabel string
 
 	if len(o.Source) != 0 {
 		var context string
@@ -450,7 +472,7 @@ func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string, err err
 				break
 			}
 		}
-		labels = append(labels, context)
+		sourceLabel = context
 	}
 
 	if len(o.Destination) != 0 {
@@ -477,7 +499,17 @@ func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string, err err
 				break
 			}
 		}
-		labels = append(labels, context)
+		destinationLabel = context
+	}
+
+	if invert {
+		sourceLabel, destinationLabel = destinationLabel, sourceLabel
+	}
+	if len(o.Source) != 0 {
+		labels = append(labels, sourceLabel)
+	}
+	if len(o.Destination) != 0 {
+		labels = append(labels, destinationLabel)
 	}
 
 	return
