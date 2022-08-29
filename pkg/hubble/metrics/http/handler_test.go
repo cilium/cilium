@@ -95,3 +95,101 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	`
 	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).duration, strings.NewReader(durationExpected)))
 }
+
+func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
+	ctx := context.TODO()
+	plugin := httpV2Plugin{}
+	handler := plugin.NewHandler()
+	require.Error(t, handler.Init(prometheus.NewRegistry(), map[string]string{"destinationContext": "invalid"}))
+	require.NoError(t, handler.Init(prometheus.NewRegistry(), map[string]string{
+		"sourceContext":      "pod",
+		"destinationContext": "pod",
+		"labelsContext":      "source_pod,destination_pod",
+	}))
+	// shouldn't count
+	handler.ProcessFlow(ctx, &pb.Flow{})
+	// shouldn't count
+	handler.ProcessFlow(ctx, &pb.Flow{
+		TrafficDirection: pb.TrafficDirection_INGRESS,
+		L7: &pb.Layer7{
+			Type:   pb.L7FlowType_RESPONSE,
+			Record: &pb.Layer7_Dns{},
+		}})
+	// shouldn't count for request, we use responses in v2
+	handler.ProcessFlow(ctx, &pb.Flow{
+		TrafficDirection: pb.TrafficDirection_INGRESS,
+		L7: &pb.Layer7{
+			Type: pb.L7FlowType_REQUEST,
+			Record: &pb.Layer7_Http{Http: &pb.HTTP{
+				Method: "GET",
+			}},
+		},
+	})
+
+	sourceEndpoint := &pb.Endpoint{
+		Namespace: "source-ns",
+		PodName:   "source-deploy-pod",
+		Workloads: []*pb.Workload{{
+			Name: "source-deploy",
+			Kind: "Deployment",
+		}},
+		Labels: []string{
+			"k8s:app=sourceapp",
+		},
+	}
+	destinationEndpoint := &pb.Endpoint{
+		Namespace: "destination-ns",
+		PodName:   "destination-deploy-pod",
+		Workloads: []*pb.Workload{{
+			Name: "destination-deploy",
+			Kind: "Deployment",
+		}},
+		Labels: []string{
+			"k8s:app=destinationapp",
+		},
+	}
+	// should count for request
+	handler.ProcessFlow(ctx, &pb.Flow{
+		TrafficDirection: pb.TrafficDirection_INGRESS,
+		// Responses have the source and destination inverted, because it's the
+		// other side of the flow. Our tests are asserting that the HTTPv2 handler
+		// correctly inverts them so the source and destination are from the
+		// perspective of the request.
+		Source:      destinationEndpoint,
+		Destination: sourceEndpoint,
+		L7: &pb.Layer7{
+			Type:      pb.L7FlowType_RESPONSE,
+			LatencyNs: 12345678,
+			Record: &pb.Layer7_Http{Http: &pb.HTTP{
+				Protocol: "HTTP/1.1",
+				Code:     200,
+				Method:   "GET",
+			}},
+		},
+	})
+	requestsExpected := `
+        # HELP hubble_http_requests_total Count of HTTP requests
+        # TYPE hubble_http_requests_total counter
+	      hubble_http_requests_total{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",protocol="HTTP/1.1",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",status="200"} 1
+	`
+	assert.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).requests, strings.NewReader(requestsExpected)))
+	durationExpected := `
+        # HELP hubble_http_request_duration_seconds Quantiles of HTTP request duration in seconds
+        # TYPE hubble_http_request_duration_seconds histogram
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="0.005"} 0
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="0.01"} 0
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="0.025"} 1
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="0.05"} 1
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="0.1"} 1
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="0.25"} 1
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="0.5"} 1
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="1"} 1
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="2.5"} 1
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="5"} 1
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="10"} 1
+        hubble_http_request_duration_seconds_bucket{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",le="+Inf"} 1
+        hubble_http_request_duration_seconds_sum{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod"} 0.012345678
+        hubble_http_request_duration_seconds_count{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod"} 1
+	`
+	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).duration, strings.NewReader(durationExpected)))
+}

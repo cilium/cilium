@@ -317,6 +317,13 @@ Added Metrics
 
 * ``cilium_operator_allocation_duration_seconds``
 * ``cilium_operator_release_duration_seconds``
+* ``httpV2``, an updated version of the existing ``http`` metrics.
+
+Deprecated Metrics
+~~~~~~~~~~~~~~~~~~
+
+* ``http`` is deprecated. Please use ``httpV2`` instead.
+
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~

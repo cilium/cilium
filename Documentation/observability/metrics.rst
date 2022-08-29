@@ -503,6 +503,9 @@ Currently there are 3 supported context options for all metrics:
 - ``destinationContext`` - Configures the ``destination`` label on metrics.
 - ``labelsContext`` - Configures a list of labels to be enabled on metrics.
 
+There are also some context options that are specific to certain metrics.
+See the documentation for the individual metrics to see what options are available for each.
+
 See below for details on each of the different context options.
 
 Most Hubble metrics can be configured to add the source and/or destination
@@ -650,12 +653,15 @@ This metric supports :ref:`Context Options<hubble_context_options>`.
 ``http``
 ~~~~~~~~
 
+Deprecated, use ``httpV2`` instead.
+These metrics can not be enabled at the same time as ``httpV2``.
+
 ================================= ======================================= ========== ==============================================
-Name                              Labels                                  Default     Description
+Name                              Labels                                  Default    Description
 ================================= ======================================= ========== ==============================================
 ``http_requests_total``           ``method``, ``protocol``, ``reporter``  Disabled   Count of HTTP requests
 ``http_responses_total``          ``method``, ``status``, ``reporter``    Disabled   Count of HTTP responses
-``http_request_duration_seconds`` ``method``, ``reporter``                Disabled   Quantiles of HTTP request duration in seconds
+``http_request_duration_seconds`` ``method``, ``reporter``                Disabled   Histogram of HTTP request duration in seconds
 ================================= ======================================= ========== ==============================================
 
 Labels
@@ -664,7 +670,43 @@ Labels
 - ``method`` is the HTTP method of the request/response.
 - ``protocol`` is the HTTP protocol of the request, (For example: ``HTTP/1.1``, ``HTTP/2``).
 - ``status`` is the HTTP status code of the response.
-- ``reporter`` identifies the origin of the request/response. It is set to ``client`` if it originated from the client, ``server`` if it originated from the server, or ``unknown`` if it's origin isn't known.
+- ``reporter`` identifies the origin of the request/response. It is set to ``client`` if it originated from the client, ``server`` if it originated from the server, or ``unknown`` if its origin is unknown.
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
+``httpV2``
+~~~~~~~~~~
+
+``httpV2`` is an updated version of the existing ``http`` metrics.
+These metrics can not be enabled at the same time as ``http``.
+
+The main difference is that ``http_requests_total`` and
+``http_responses_total`` have been consolidated, and use the response flow
+data.
+
+Additionally, the ``http_request_duration_seconds`` metric source/destination
+related labels now are from the perspective of the request. In the ``http``
+metrics, the source/destination were swapped, because the metric uses the
+response flow data, where the source/destination are swapped, but in ``httpV2``
+we correctly account for this.
+
+================================= =================================================== ========== ==============================================
+Name                              Labels                                              Default    Description
+================================= =================================================== ========== ==============================================
+``http_requests_total``           ``method``, ``protocol``, ``status``, ``reporter``  Disabled   Count of HTTP requests
+``http_request_duration_seconds`` ``method``, ``reporter``                            Disabled   Histogram of HTTP request duration in seconds
+================================= =================================================== ========== ==============================================
+
+Labels
+""""""
+
+- ``method`` is the HTTP method of the request/response.
+- ``protocol`` is the HTTP protocol of the request, (For example: ``HTTP/1.1``, ``HTTP/2``).
+- ``status`` is the HTTP status code of the response.
+- ``reporter`` identifies the origin of the request/response. It is set to ``client`` if it originated from the client, ``server`` if it originated from the server, or ``unknown`` if its origin is unknown.
 
 Options
 """""""
