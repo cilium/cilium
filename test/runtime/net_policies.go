@@ -32,14 +32,11 @@ const (
 	http6PathRewrite  = "http6_path_rewrite"
 
 	// Policy files
-	policyJSON                      = "policy.json"
-	multL7PoliciesJSON              = "Policies-l7-multiple.json"
-	policiesL7JSON                  = "Policies-l7-simple.json"
-	imposePoliciesL7JSON            = "Policies-l7-impose.json"
-	policiesL3JSON                  = "Policies-l3-policy.json"
-	policiesL4Json                  = "Policies-l4-policy.json"
-	policiesL3DependentL7EgressJSON = "Policies-l3-dependent-l7-egress.json"
-	policiesReservedInitJSON        = "Policies-reserved-init.json"
+	multL7PoliciesJSON       = "Policies-l7-multiple.json"
+	policiesL7JSON           = "Policies-l7-simple.json"
+	policiesL3JSON           = "Policies-l3-policy.json"
+	policiesL4Json           = "Policies-l4-policy.json"
+	policiesReservedInitJSON = "Policies-reserved-init.json"
 
 	initContainer = "initContainer"
 )
@@ -261,78 +258,6 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 		By("Trying to access %s:80/private from %s after daemon configuration is updated (should not be allowed by policy)", helpers.Httpd1, helpers.App1)
 		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/private", httpd1DockerNetworking[helpers.IPv4]))
 		res.ExpectFail("unable to access %s:80/private from %s (should not have worked)", helpers.Httpd1, helpers.App1)
-	})
-
-	It("Extended HTTP Methods tests", func() {
-		// This also tests L3-dependent L7.
-		httpMethods := []string{"GET", "POST"}
-		TestMethodPolicy := func(method string) {
-			vm.PolicyDelAll().ExpectSuccess("Cannot delete all policies")
-			policy := `
-			[{
-				"endpointSelector": {"matchLabels": {"id.httpd1": ""}},
-				"ingress": [{
-					"fromEndpoints": [{"matchLabels": {"id.app1": ""}}],
-					"toPorts": [{
-						"ports": [{"port": "80", "protocol": "tcp"}],
-						"rules": {
-							"HTTP": [{
-							  "method": "%[1]s",
-							  "path": "/public"
-							}]
-						}
-					}]
-				}]
-			},{
-				"endpointSelector": {"matchLabels": {"id.httpd1": ""}},
-				"ingress": [{
-					"fromEndpoints": [{"matchLabels": {"id.app2": ""}}],
-					"toPorts": [{
-						"ports": [{"port": "80", "protocol": "tcp"}],
-						"rules": {
-							"HTTP": [{
-								"method": "%[1]s",
-								"path": "/public",
-								"headers": ["X-Test: True"]
-							}]
-						}
-					}]
-				}]
-			}]`
-
-			_, err := vm.PolicyRenderAndImport(fmt.Sprintf(policy, method))
-			Expect(err).To(BeNil(), "Cannot import policy for %q", method)
-
-			srvIP, err := vm.ContainerInspectNet(helpers.Httpd1)
-			Expect(err).Should(BeNil(), "could not get container %q meta", helpers.Httpd1)
-
-			dest := helpers.CurlFail("http://%s/public -X %s", srvIP[helpers.IPv4], method)
-			destHeader := helpers.CurlFail("http://%s/public -H 'X-Test: True' -X %s",
-				srvIP[helpers.IPv4], method)
-
-			vm.ContainerExec(helpers.App1, dest).ExpectSuccess(
-				"%q cannot http request to Public", helpers.App1)
-
-			vm.ContainerExec(helpers.App2, dest).ExpectFail(
-				"%q can http request to Public", helpers.App2)
-
-			vm.ContainerExec(helpers.App2, destHeader).ExpectSuccess(
-				"%q cannot http request to Public", helpers.App2)
-
-			vm.ContainerExec(helpers.App1, destHeader).ExpectSuccess(
-				"%q can http request to Public", helpers.App1)
-
-			vm.ContainerExec(helpers.App3, destHeader).ExpectFail(
-				"%q can http request to Public", helpers.App3)
-
-			vm.ContainerExec(helpers.App3, dest).ExpectFail(
-				"%q can http request to Public", helpers.App3)
-		}
-
-		for _, method := range httpMethods {
-			By("Testing method %q", method)
-			TestMethodPolicy(method)
-		}
 	})
 
 	It("Tests EntityNone as a deny-all", func() {
