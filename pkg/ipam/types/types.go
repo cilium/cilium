@@ -51,6 +51,50 @@ type AllocationIP struct {
 // AllocationMap is a map of allocated IPs indexed by IP
 type AllocationMap map[string]AllocationIP
 
+// IPAMPoolAllocation describes an allocation of an IPAM pool from the operator to the
+// node. It contains the assigned PodCIDRs allocated from this pool
+type IPAMPoolAllocation struct {
+	// Pool is the name of the IPAM pool backing this allocation
+	//
+	// +kubebuilder:validation:MinLength=1
+	Pool string `json:"pool"`
+
+	// CIDRs contains a list of pod CIDRs currently allocated from this pool
+	//
+	// +optional
+	CIDRs []string `json:"cidrs,omitempty"`
+}
+
+type IPAMPoolRequest struct {
+	// Pool is the name of the IPAM pool backing this request
+	//
+	// +kubebuilder:validation:MinLength=1
+	Pool string `json:"pool"`
+
+	// Needed indicates how many IPs out of the above Pool this node requests
+	// from the operator. The operator runs a reconciliation loop to ensure each
+	// node always has enough PodCIDRs allocated in each pool to fulfil the
+	// requested number of IPs here.
+	//
+	// +optional
+	Needed IPAMPoolDemand `json:"needed,omitempty"`
+}
+
+type IPAMPoolSpec struct {
+	// Requested contains a list of IPAM pool requests, i.e. indicates how many
+	// addresses this node requests out of each pool listed here. This field
+	// is owned and written to by cilium-agent and read by the operator.
+	//
+	// +optional
+	Requested []IPAMPoolRequest `json:"requested,omitempty"`
+
+	// Allocated contains the list of pooled CIDR assigned to this node. This field
+	// is owned and written to by cilium-operator and read by the agent.
+	//
+	// +optional
+	Allocated []IPAMPoolAllocation `json:"allocated,omitempty"`
+}
+
 // IPAMSpec is the IPAM specification of the node
 //
 // This structure is embedded into v2.CiliumNode
@@ -61,6 +105,11 @@ type IPAMSpec struct {
 	//
 	// +optional
 	Pool AllocationMap `json:"pool,omitempty"`
+
+	// Pools contains the list of assigned IPAM pools for this node.
+	//
+	// +optional
+	Pools IPAMPoolSpec `json:"pools,omitempty"`
 
 	// PodCIDRs is the list of CIDRs available to the node for allocation.
 	// When an IP is used, the IP will be added to Status.IPAM.Used
@@ -143,6 +192,12 @@ type IPAMStatus struct {
 	// +optional
 	PodCIDRs PodCIDRMap `json:"pod-cidrs,omitempty"`
 
+	// Pools lists all pools needed by this node. It contains the status of all
+	// assigned pools.
+	//
+	// +optional
+	Pools []IPAMPoolStatus `json:"pools,omitempty"`
+
 	// Operator is the Operator status of the node
 	//
 	// +optional
@@ -157,6 +212,35 @@ type IPAMStatus struct {
 	//
 	// +optional
 	ReleaseIPs map[string]IPReleaseStatus `json:"release-ips,omitempty"`
+}
+
+// IPAMPoolStatus describe the current usage of an IPAM pool allocation
+type IPAMPoolStatus struct {
+	// Pool is the name of the IPAM pool backing this allocation
+	//
+	// +kubebuilder:validation:MinLength=1
+	Pool string `json:"pool"`
+
+	// CIDRs contains the status of each CIDR allocated from this pool
+	//
+	// +optional
+	CIDRs PodCIDRMap `json:"cidrs,omitempty"`
+}
+
+// IPAMPoolRequest is a request from the agent to the operator, indicating how
+// may IPs it requires from a given pool
+type IPAMPoolDemand struct {
+	// IPv4Addrs contains the number of requested IPv4 addresses out of a given
+	// pool
+	//
+	// +optional
+	IPv4Addrs int `json:"ipv4-addrs,omitempty"`
+
+	// IPv6Addrs contains the number of requested IPv6 addresses out of a given
+	// pool
+	//
+	// +optional
+	IPv6Addrs int `json:"ipv6-addrs,omitempty"`
 }
 
 type PodCIDRMap map[string]PodCIDRMapEntry
