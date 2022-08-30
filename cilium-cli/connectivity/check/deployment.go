@@ -707,6 +707,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Port:      containerPort,
 				HostPort:  hostPort,
 				Image:     ct.params.JSONMockImage,
+				Labels:    map[string]string{"first": "echo"},
 				Affinity: &corev1.Affinity{
 					PodAntiAffinity: &corev1.PodAntiAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
