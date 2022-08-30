@@ -297,13 +297,12 @@ func (c *cesMgr) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) 
 	// If given cep object isn't packed in any of the CES. find a new ces
 	// to pack this cep.
 	cb, cesName := func() (*cesTracker, string) {
-		// get first available CES
-		for _, ces := range c.desiredCESs.getAllCESs() {
+		// Get the largest available CES.
+		// This ensures the minimum number of CES updates, as the CESs will be
+		// consistently filled up in order.
+		ces := c.getLargestAvailableCES()
+		if ces != nil {
 			ces.backendMutex.RLock()
-			if ces.ces.Namespace != ns || len(ces.ces.Endpoints) >= c.maxCEPsInCES || len(ces.ces.Endpoints) == 0 {
-				ces.backendMutex.RUnlock()
-				continue
-			}
 			defer ces.backendMutex.RUnlock()
 			return ces, ces.ces.GetName()
 		}
@@ -366,6 +365,30 @@ func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 	}
 
 	return
+}
+
+// getLargestAvailableCES returns the largest CES from cache that has at least 1
+// CEP and not more than maximum number of CEPs in it. If it is not found, a nil
+// is returned.
+func (c *cesMgr) getLargestAvailableCES() *cesTracker {
+	var selectedCES *cesTracker
+	largestCEPCount := 0
+
+	for _, ces := range c.desiredCESs.getAllCESs() {
+		ces.backendMutex.RLock()
+		cepCount := len(ces.ces.Endpoints)
+		ces.backendMutex.RUnlock()
+
+		if cepCount < c.maxCEPsInCES && cepCount > largestCEPCount {
+			selectedCES = ces
+			largestCEPCount = cepCount
+			if largestCEPCount == c.maxCEPsInCES-1 {
+				break
+			}
+		}
+	}
+
+	return selectedCES
 }
 
 // Returns the total number of CEPs in the cluster
