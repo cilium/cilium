@@ -543,6 +543,9 @@ const (
 	// ClusterMeshConfigName is the name of the ClusterMeshConfig option
 	ClusterMeshConfigName = "clustermesh-config"
 
+	// CNIChainingMode configures which CNI plugin Cilium is chained with.
+	CNIChainingMode = "cni-chaining-mode"
+
 	// CTMapEntriesGlobalTCPDefault is the default maximum number of entries
 	// in the TCP CT table.
 	CTMapEntriesGlobalTCPDefault = 2 << 18 // 512Ki
@@ -1963,6 +1966,9 @@ type DaemonConfig struct {
 	// IPAM is the IPAM method to use
 	IPAM string
 
+	// Enable chaining with another CNI plugin.
+	CNIChainingMode string
+
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource bool
@@ -2768,6 +2774,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ClusterID = vp.GetUint32(ClusterIDName)
 	c.ClusterName = vp.GetString(ClusterName)
 	c.ClusterMeshConfig = vp.GetString(ClusterMeshConfigName)
+	c.CNIChainingMode = vp.GetString(CNIChainingMode)
 	c.DatapathMode = vp.GetString(DatapathMode)
 	c.Debug = vp.GetBool(DebugArg)
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)
