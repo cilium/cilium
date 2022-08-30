@@ -61,6 +61,7 @@ cilium-agent [flags]
       --cluster-id int                                          Unique identifier of the cluster
       --cluster-name string                                     Name of the cluster (default "default")
       --clustermesh-config string                               Path to the ClusterMesh configuration directory
+      --cni-chaining-mode string                                Enable CNI chaining with the specified plugin
       --config string                                           Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                                       Configuration directory that contains a file for each option
       --conntrack-gc-interval duration                          Overwrite the connection-tracking garbage collection interval
