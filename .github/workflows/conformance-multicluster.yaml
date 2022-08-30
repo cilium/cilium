@@ -362,12 +362,9 @@ jobs:
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
             --collect-sysdump-on-failure \
             --test '!/pod-to-.*-nodeport' \
-            --test '!client-egress-l7,!echo-ingress-l7,!to-fqdns,!dns-only' \
-            --test '!no-policies/pod-to-service'
+            --test '!no-policies/pod-to-service' \
             --test '!/pod-to-world' \
             --test '!/pod-to-cidr'
-        # TODO: Once WireGuard supports the L7 proxy, the L7 tests can be
-        # included here. See cilium/cilium#15462
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
         # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
         # is fixed.
