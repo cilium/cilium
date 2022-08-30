@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
@@ -199,6 +200,7 @@ type k8sInstallerImplementation interface {
 	GetServerVersion() (*semver.Version, error)
 	CreateIngressClass(ctx context.Context, r *networkingv1.IngressClass, opts metav1.CreateOptions) (*networkingv1.IngressClass, error)
 	DeleteIngressClass(ctx context.Context, name string, opts metav1.DeleteOptions) error
+	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
 }
 
 type K8sInstaller struct {
