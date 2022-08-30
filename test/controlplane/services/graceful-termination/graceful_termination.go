@@ -10,6 +10,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/services/helpers"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
@@ -31,7 +32,9 @@ func testGracefulTermination(t *testing.T) {
 		daemonCfg.EnableK8sTerminatingEndpoint = true
 	}
 
-	test := suite.NewControlPlaneTest(t, "graceful-term-control-plane", "1.22")
+	k8sVersions := controlplane.K8sVersions()
+	// We only need to test the last k8s version
+	test := suite.NewControlPlaneTest(t, "graceful-term-control-plane", k8sVersions[len(k8sVersions)-1])
 	defer test.StopAgent()
 
 	// Feed in initial state and start the agent.
