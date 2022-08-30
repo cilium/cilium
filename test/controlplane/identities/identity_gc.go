@@ -128,25 +128,25 @@ func validateIdentityGC(test *suite.ControlPlaneTest) error {
 
 func init() {
 	suite.AddTestCase("IdentityGC", func(t *testing.T) {
-		for _, version := range controlplane.K8sVersions() {
-			test := suite.NewControlPlaneTest(t, "identity-control-plane", version)
+		k8sVersions := controlplane.K8sVersions()
+		// We only need to test the last k8s version
+		test := suite.NewControlPlaneTest(t, "identity-control-plane", k8sVersions[len(k8sVersions)-1])
 
-			defer test.StopAgent()
-			defer test.StopOperator()
+		defer test.StopAgent()
+		defer test.StopOperator()
 
-			modConfig := func(_ *option.DaemonConfig, operatorCfg *operatorOption.OperatorConfig) {
-				operatorCfg.EndpointGCInterval = 2 * time.Second
-				operatorCfg.IdentityGCInterval = 2 * time.Second
-				operatorCfg.IdentityHeartbeatTimeout = 2 * time.Second
-			}
-
-			test.
-				UpdateObjects(initialObjects...).
-				SetupEnvironment(modConfig).
-				StartAgent().
-				StartOperator().
-				Execute(func() error { return applyDummyIdentity(test) }).
-				Eventually(func() error { return validateIdentityGC(test) })
+		modConfig := func(_ *option.DaemonConfig, operatorCfg *operatorOption.OperatorConfig) {
+			operatorCfg.EndpointGCInterval = 2 * time.Second
+			operatorCfg.IdentityGCInterval = 2 * time.Second
+			operatorCfg.IdentityHeartbeatTimeout = 2 * time.Second
 		}
+
+		test.
+			UpdateObjects(initialObjects...).
+			SetupEnvironment(modConfig).
+			StartAgent().
+			StartOperator().
+			Execute(func() error { return applyDummyIdentity(test) }).
+			Eventually(func() error { return validateIdentityGC(test) })
 	})
 }

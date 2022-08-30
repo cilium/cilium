@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
 
@@ -62,7 +63,9 @@ func validateNodes(dp *fakeDatapath.FakeDatapath) error {
 
 func init() {
 	suite.AddTestCase("NodeHandler", func(t *testing.T) {
-		test := suite.NewControlPlaneTest(t, "minimal", "1.21")
+		k8sVersions := controlplane.K8sVersions()
+		// We only need to test the last k8s version
+		test := suite.NewControlPlaneTest(t, "minimal", k8sVersions[len(k8sVersions)-1])
 
 		test.
 			UpdateObjects(minimalNode).
