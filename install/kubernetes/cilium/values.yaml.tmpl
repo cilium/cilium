@@ -1016,6 +1016,10 @@ hubble:
       #   requests:
       #     cpu: 100m
       #     memory: 64Mi
+      server:
+        # -- Controls server listener for ipv6
+        ipv6:
+          enabled: true
 
     # -- The number of replicas of Hubble UI to deploy.
     replicas: 1
