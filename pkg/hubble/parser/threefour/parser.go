@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -310,10 +311,9 @@ func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb
 				PodName:   ep.GetK8sPodName(),
 			}
 			if pod := ep.GetPod(); pod != nil {
-				olen := len(pod.GetOwnerReferences())
-				e.Workloads = make([]*pb.Workload, olen)
-				for index, owner := range pod.GetOwnerReferences() {
-					e.Workloads[index] = &pb.Workload{Kind: owner.Kind, Name: owner.Name}
+				workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
+				if ok {
+					e.Workloads = []*pb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
 				}
 			}
 			return e
