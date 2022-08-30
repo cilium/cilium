@@ -77,6 +77,9 @@ var (
 	//go:embed manifests/client-egress-l7-http.yaml
 	clientEgressL7HTTPPolicyYAML string
 
+	//go:embed manifests/client-egress-l7-http-method.yaml
+	clientEgressL7HTTPMethodPolicyYAML string
+
 	//go:embed manifests/client-egress-l7-http-named-port.yaml
 	clientEgressL7HTTPNamedPortPolicyYAML string
 
@@ -445,6 +448,32 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithScenarios(tests.CiliumHealth())
 
 	// The following tests have DNS redirect policies. They should be executed last.
+
+	// Test L7 HTTP with different methods introspection using an egress policy on the clients.
+	ct.NewTest("client-egress-l7-method").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithPolicy(clientEgressOnlyDNSPolicyYAML).      // DNS resolution only
+		WithPolicy(clientEgressL7HTTPMethodPolicyYAML). // L7 allow policy with HTTP introspection (POST only)
+		WithScenarios(
+			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithDestinationLabelsOption(map[string]string{"other": "echo"})),
+			tests.PodToPodWithEndpoints(tests.WithDestinationLabelsOption(map[string]string{"first": "echo"})),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
+				(a.Destination().Port() == 8080) { // port 8080 is traffic to echo Pod.
+				if a.Destination().HasLabel("other", "echo") { //we are POSTing only other echo
+					egress = check.ResultOK
+
+					egress.HTTP = check.HTTP{
+						Method: "POST",
+					}
+					return egress, check.ResultNone
+				}
+				// Else expect HTTP drop by proxy
+				return check.ResultDropCurlHTTPError, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultNone
+		})
 
 	// Test L7 HTTP introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7").
