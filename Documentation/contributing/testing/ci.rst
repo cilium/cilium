@@ -152,8 +152,6 @@ After you don't need to run tests on your branch, please remove the branch from 
    +-------------------------------------------------+-------------------------------------------+
    | ``/test-only --focus="K8s"``                    | Runs all kubernetes tests                 |
    +-------------------------------------------------+-------------------------------------------+
-   | ``/test-only --focus="K8sConformance"``         | Runs all k8s conformance tests            |
-   +-------------------------------------------------+-------------------------------------------+
    | ``/test-only --focus="K8sChaos"``               | Runs all k8s chaos tests                  |
    +-------------------------------------------------+-------------------------------------------+
    | ``/test-only --focus="K8sDatapathConfig"``      | Runs all k8s datapath configuration tests |
