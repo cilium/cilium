@@ -881,6 +881,10 @@ hubble:
       #     memory: 64Mi
       # -- Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
       resources: {}
+      server:
+        # -- Controls server listener for ipv6
+        ipv6:
+          enabled: true
 
     # -- The number of replicas of Hubble UI to deploy.
     replicas: 1
