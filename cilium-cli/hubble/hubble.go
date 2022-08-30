@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -63,6 +64,7 @@ type k8sHubbleImplementation interface {
 	GetServerVersion() (*semver.Version, error)
 	GetHelmState(ctx context.Context, namespace string, secretName string) (*helm.State, error)
 	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
+	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
 }
 
 type K8sHubble struct {

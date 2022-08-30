@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -426,6 +427,7 @@ type k8sClusterMeshImplementation interface {
 	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	GetPlatform(ctx context.Context) (*k8s.Platform, error)
+	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
 }
 
 type K8sClusterMesh struct {
