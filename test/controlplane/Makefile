@@ -10,3 +10,7 @@ update-golden:
 
 pre-pull-kind-images:
 	bash ./k8s_versions.sh --pre-pull-images
+
+update-k8s-versions:
+	# Update kind-config with the versions stored in k8s_versions.txt
+	$(shell bash ./k8s_versions.sh --update-kind-config)
