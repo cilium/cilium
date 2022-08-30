@@ -6,15 +6,15 @@ items:
     annotations:
       kubectl.kubernetes.io/last-applied-configuration: |
         {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"graceful-term-svc","namespace":"test"},"spec":{"ports":[{"port":8081}],"selector":{"app":"graceful-term-server"}}}
-    creationTimestamp: "2022-07-05T14:29:37Z"
+    creationTimestamp: "2022-08-30T21:28:13Z"
     name: graceful-term-svc
     namespace: test
-    resourceVersion: "720"
-    uid: 1719c285-69ac-44bc-b07b-4203f32300f7
+    resourceVersion: "611"
+    uid: e0a9d8d2-4701-425f-962f-463a186c9bff
   spec:
-    clusterIP: 10.96.23.96
+    clusterIP: 10.96.199.217
     clusterIPs:
-    - 10.96.23.96
+    - 10.96.199.217
     internalTrafficPolicy: Cluster
     ipFamilies:
     - IPv4
@@ -34,13 +34,13 @@ items:
   endpoints: null
   kind: EndpointSlice
   metadata:
-    creationTimestamp: "2022-07-05T14:29:37Z"
+    creationTimestamp: "2022-08-30T21:28:13Z"
     generateName: graceful-term-svc-
-    generation: 6
+    generation: 5
     labels:
       endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
       kubernetes.io/service-name: graceful-term-svc
-    name: graceful-term-svc-h4mp4
+    name: graceful-term-svc-vjmtd
     namespace: test
     ownerReferences:
     - apiVersion: v1
@@ -48,11 +48,10 @@ items:
       controller: true
       kind: Service
       name: graceful-term-svc
-      uid: 1719c285-69ac-44bc-b07b-4203f32300f7
-    resourceVersion: "810"
-    uid: 653565a3-3084-4423-9e37-0f27884b2f2a
+      uid: e0a9d8d2-4701-425f-962f-463a186c9bff
+    resourceVersion: "709"
+    uid: d9793e50-09a4-4141-8ce6-daf9d54bba38
   ports: null
 kind: List
 metadata:
   resourceVersion: ""
-  selfLink: ""

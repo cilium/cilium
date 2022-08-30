@@ -5,6 +5,7 @@ package suite
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -71,7 +72,10 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 	fd := clients.core.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.FakedServerVersion = toVersionInfo(k8sVersion)
 
-	resources := apiResources[k8sVersion]
+	resources, ok := apiResources[k8sVersion]
+	if !ok {
+		panic(fmt.Sprintf("k8s version %s not found in apiResources", k8sVersion))
+	}
 	clients.core.Resources = resources
 	clients.slim.Resources = resources
 	clients.cilium.Resources = resources
@@ -365,23 +369,6 @@ var (
 	// This is mostly relevant for the feature detection at pkg/k8s/version/version.go.
 	// The lists here are currently not exhaustive and expanded on need-by-need basis.
 	apiResources = map[string][]*metav1.APIResourceList{
-		"1.20": {
-			corev1APIResources,
-			discoveryV1beta1APIResources,
-			ciliumv2APIResources,
-		},
-		"1.21": {
-			corev1APIResources,
-			discoveryV1APIResources,
-			discoveryV1beta1APIResources,
-			ciliumv2APIResources,
-		},
-		"1.22": {
-			corev1APIResources,
-			discoveryV1APIResources,
-			discoveryV1beta1APIResources,
-			ciliumv2APIResources,
-		},
 		"1.23": {
 			corev1APIResources,
 			discoveryV1APIResources,
@@ -392,6 +379,11 @@ var (
 			corev1APIResources,
 			discoveryV1APIResources,
 			discoveryV1beta1APIResources,
+			ciliumv2APIResources,
+		},
+		"1.25": {
+			corev1APIResources,
+			discoveryV1APIResources,
 			ciliumv2APIResources,
 		},
 	}

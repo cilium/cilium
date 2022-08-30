@@ -1,4 +1,3 @@
-
 # Control-plane tests for the cilium agent
 
 The control-plane tests are integration tests that validate that the agent
@@ -48,3 +47,16 @@ For representative examples see `node/nodehandler.go` (test with manually
 constructed k8s object) and `services/nodeport/nodeport.go` (test with
 generated k8s objects and golden test files).
 
+## Updating k8s versions
+
+To update the k8s versions being tested, the only step necessary is to
+update the `k8s_versions.txt` file and run `make update-k8s-versions
+generate-input-files`. This make target will regenerate all auto-generated
+input files.
+
+If a new k8s version is being added, remove the oldest kind-config file and
+manually add the new kind-config file in all directories that contain the
+kind-configs. It is possible to list all kind-config files with `find . -type f -regextype posix-extended -regex ".*/kind-config-.*.yaml"`
+
+It might be necessary to update the `suite/testcase.go` file with the new
+API resources used in the k8s version.

@@ -1,0 +1,7 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+    - role: control-plane
+      image: kindest/node:v1.25.0-beta.0@sha256:b71857f517e6600f897e33666899254c9013fc5c54fb25eca01ffa533e276500
+featureGates:
+  EndpointSliceTerminatingCondition: true
