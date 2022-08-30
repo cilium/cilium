@@ -525,6 +525,9 @@ const (
 	// ClusterMeshConfigName is the name of the ClusterMeshConfig option
 	ClusterMeshConfigName = "clustermesh-config"
 
+	// CNIChainingMode configures which CNI plugin Cilium is chained with.
+	CNIChainingMode = "cni-chaining-mode"
+
 	// BPFCompileDebugName is the name of the option to enable BPF compiliation debugging
 	BPFCompileDebugName = "bpf-compile-debug"
 
@@ -1857,6 +1860,9 @@ type DaemonConfig struct {
 	// IPAM is the IPAM method to use
 	IPAM string
 
+	// Enable chaining with another CNI plugin.
+	CNIChainingMode string
+
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource bool
@@ -2480,6 +2486,7 @@ func (c *DaemonConfig) Populate() {
 	c.ClusterID = viper.GetInt(ClusterIDName)
 	c.ClusterName = viper.GetString(ClusterName)
 	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
+	c.CNIChainingMode = viper.GetString(CNIChainingMode)
 	c.DatapathMode = viper.GetString(DatapathMode)
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)

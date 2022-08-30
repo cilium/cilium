@@ -476,6 +476,9 @@ func initializeFlags() {
 	flags.String(option.IPAM, ipamOption.IPAMClusterPool, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
+	flags.String(option.CNIChainingMode, "", "Enable CNI chaining with the specified plugin")
+	option.BindEnv(option.CNIChainingMode)
+
 	flags.String(option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	option.BindEnv(option.IPv4Range)
 
