@@ -23,6 +23,10 @@ for version in ${versions[*]}; do
         sleep 5
     done
 
+    : Preloading images
+    kind load --name nodeport docker-image "${cilium_container_repo}/${cilium_container_image}:${cilium_version}" || true
+    kind load --name nodeport docker-image "${cilium_container_repo}/${cilium_operator_container_image}:${cilium_version}" || true || true
+
     : Install cilium
     cilium install --wait
 

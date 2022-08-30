@@ -28,6 +28,10 @@ until kubectl get serviceaccount/default; do
     sleep 5
 done
 
+: Preloading images
+kind load --name graceful-term docker-image "${cilium_container_repo}/${cilium_container_image}:${cilium_version}" || true
+kind load --name graceful-term docker-image "${cilium_container_repo}/${cilium_operator_container_image}:${cilium_version}" || true || true
+
 : Install cilium
 cilium install --wait
 

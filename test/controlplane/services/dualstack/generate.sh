@@ -28,6 +28,10 @@ for version in ${versions[*]}; do
     : Start a kind cluster
     kind create cluster --config "${dir}/manifests/kind-config-${version}.yaml" --name dual-stack
 
+    : Preloading images
+    kind load --name dual-stack docker-image "${cilium_container_repo}/${cilium_container_image}:${cilium_version}" || true
+    kind load --name dual-stack docker-image "${cilium_container_repo}/${cilium_operator_container_image}:${cilium_version}" || true || true
+
     : Wait for service account to be created
     until kubectl get serviceaccount/default; do
         sleep 5
