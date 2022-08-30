@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -195,8 +194,7 @@ func (d *Daemon) getClockSourceStatus() *models.ClockSource {
 }
 
 func (d *Daemon) getCNIChainingStatus() *models.CNIChainingStatus {
-	// CNI chaining is enabled only from CILIUM_CNI_CHAINING_MODE env
-	mode := os.Getenv("CILIUM_CNI_CHAINING_MODE")
+	mode := option.Config.CNIChainingMode
 	if len(mode) == 0 {
 		mode = models.CNIChainingStatusModeNone
 	}
