@@ -1,7 +1,9 @@
 {{- define "hubble-ui.nginx.conf" }}
 server {
     listen       8081;
+{{- if .Values.hubble.ui.frontend.server.ipv6.enabled }}
     listen       [::]:8081;
+{{- end }}
     server_name  localhost;
     root /app;
     index index.html;
