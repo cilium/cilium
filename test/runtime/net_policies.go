@@ -185,6 +185,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 		}
 	}
 
+	// Cannot be tested in cilium-cli connectivity tests because of Daemon configuration changes
 	It("Tests Endpoint Connectivity Functions After Daemon Configuration Is Updated", func() {
 		httpd1DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).ToNot(HaveOccurred(), "unable to get container networking metadata for %s", helpers.Httpd1)
@@ -260,6 +261,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 		res.ExpectFail("unable to access %s:80/private from %s (should not have worked)", helpers.Httpd1, helpers.App1)
 	})
 
+	// Cannot be tested in cilium-cli connectivity tests because of setting policy enforcement to default
 	It("Tests EntityNone as a deny-all", func() {
 		worldIP := "1.1.1.1"
 
@@ -375,6 +377,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 	})
 
+	// TODO: discuss whether it should be tested in cilium-cli by creating a host network pod
 	Context("TestsEgressToHost", func() {
 		hostDockerContainer := "hostDockerContainer"
 		hostIP := "10.0.2.15"
@@ -613,6 +616,9 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 			res.ExpectContains("403", "unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
 		})
 	})
+
+	// cannot be tested in cilium-cli connectivity tests because of delicate timing required for this test
+	// (this test relies heavily on the fact that pod is created and being pinged immediately after creation)
 	Context("Init Policy Default Drop Test", func() {
 		BeforeEach(func() {
 			vm.ContainerRm(initContainer)
@@ -878,6 +884,8 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 		})
 	})
 
+	// This test cannot be tested in cilium-cli connectivity test suite because it relies on pod and policy creation
+	// being done in a specific order
 	Context("Tests for Already-Allocated Identities", func() {
 		var (
 			newContainerName = fmt.Sprintf("%s-already-allocated-id", helpers.Httpd1)
