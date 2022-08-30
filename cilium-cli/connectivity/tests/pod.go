@@ -21,6 +21,7 @@ func PodToPod(opts ...Option) check.Scenario {
 	return &podToPod{
 		sourceLabels:      options.sourceLabels,
 		destinationLabels: options.destinationLabels,
+		method:            options.method,
 	}
 }
 
@@ -28,6 +29,7 @@ func PodToPod(opts ...Option) check.Scenario {
 type podToPod struct {
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
+	method            string
 }
 
 func (s *podToPod) Name() string {
@@ -47,7 +49,11 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, echo).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, curl(echo))
+				if s.method == "" {
+					a.ExecInPod(ctx, curl(echo))
+				} else {
+					a.ExecInPod(ctx, curl(echo, "-X", s.method))
+				}
 
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 				a.ValidateFlows(ctx, echo, a.GetIngressRequirements(check.FlowParameters{}))
@@ -58,12 +64,24 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 	}
 }
 
-func PodToPodWithEndpoints() check.Scenario {
-	return &podToPodWithEndpoints{}
+func PodToPodWithEndpoints(opts ...Option) check.Scenario {
+	options := &labelsOption{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	return &podToPodWithEndpoints{
+		sourceLabels:      options.sourceLabels,
+		destinationLabels: options.destinationLabels,
+		method:            options.method,
+	}
 }
 
 // podToPodWithEndpoints implements a Scenario.
-type podToPodWithEndpoints struct{}
+type podToPodWithEndpoints struct {
+	sourceLabels      map[string]string
+	destinationLabels map[string]string
+	method            string
+}
 
 func (s *podToPodWithEndpoints) Name() string {
 	return "pod-to-pod-with-endpoints"
@@ -74,9 +92,19 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 
 	for _, client := range t.Context().ClientPods() {
 		client := client // copy to avoid memory aliasing when using reference
-
+		if !hasAllLabels(client, s.sourceLabels) {
+			continue
+		}
 		for _, echo := range t.Context().EchoPods() {
-			curlEndpoints(ctx, s, t, fmt.Sprintf("curl-%d", i), &client, echo)
+			if !hasAllLabels(echo, s.destinationLabels) {
+				continue
+			}
+
+			if s.method == "" {
+				curlEndpoints(ctx, s, t, fmt.Sprintf("curl-%d", i), &client, echo)
+			} else {
+				curlEndpoints(ctx, s, t, fmt.Sprintf("curl-%d", i), &client, echo, "-X", s.method)
+			}
 
 			i++
 		}
@@ -84,7 +112,7 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 }
 
 func curlEndpoints(ctx context.Context, s check.Scenario, t *check.Test,
-	name string, client *check.Pod, echo check.TestPeer) {
+	name string, client *check.Pod, echo check.TestPeer, curlOpts ...string) {
 
 	baseURL := fmt.Sprintf("%s://%s:%d", echo.Scheme(), echo.Address(), echo.Port())
 
@@ -95,7 +123,7 @@ func curlEndpoints(ctx context.Context, s check.Scenario, t *check.Test,
 		ep := check.HTTPEndpoint(epName, url)
 
 		t.NewAction(s, epName, client, ep).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(ep))
+			a.ExecInPod(ctx, curl(ep, curlOpts...))
 
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 			a.ValidateFlows(ctx, ep, a.GetIngressRequirements(check.FlowParameters{}))
@@ -108,7 +136,11 @@ func curlEndpoints(ctx context.Context, s check.Scenario, t *check.Test,
 				"X-Very-Secret-Token": "42",
 			})
 			t.NewAction(s, epName, client, ep).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, curl(ep, "-H", "X-Very-Secret-Token: 42"))
+				opts := make([]string, 0, len(curlOpts)+2)
+				opts = append(opts, curlOpts...)
+				opts = append(opts, "-H", "X-Very-Secret-Token: 42")
+
+				a.ExecInPod(ctx, curl(ep, opts...))
 
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 				a.ValidateFlows(ctx, ep, a.GetIngressRequirements(check.FlowParameters{}))

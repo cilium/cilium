@@ -19,6 +19,13 @@ type Option func(*labelsOption)
 type labelsOption struct {
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
+	method            string
+}
+
+func WithMethod(method string) Option {
+	return func(option *labelsOption) {
+		option.method = method
+	}
 }
 
 func WithSourceLabelsOption(sourceLabels map[string]string) Option {
