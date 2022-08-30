@@ -956,11 +956,21 @@ func (m *IptablesManager) doGetProxyPort(prog iptablesInterface, name string) ui
 }
 
 func getDeliveryInterface(ifName string) string {
-	deliveryInterface := ifName
-	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud || option.Config.EnableEndpointRoutes {
-		deliveryInterface = "lxc+"
+	switch {
+	case option.Config.EnableEndpointRoutes:
+		// aws-cni creates container interfaces with names like eni621c0fc8425.
+		if option.Config.CNIChainingMode == "aws-cni" {
+			return "eni+"
+		}
+		return "lxc+"
+
+	case option.Config.IPAM == ipamOption.IPAMENI ||
+		option.Config.IPAM == ipamOption.IPAMAlibabaCloud:
+		return "lxc+"
+
+	default:
+		return ifName
 	}
-	return deliveryInterface
 }
 
 func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterface, forwardChain string) error {
