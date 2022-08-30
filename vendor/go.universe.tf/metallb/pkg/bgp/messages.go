@@ -190,7 +190,6 @@ func readOpen(r io.Reader) (*openResult, error) {
 	if err := binary.Read(lr, binary.BigEndian, &open); err != nil {
 		return nil, err
 	}
-	fmt.Printf("%#v\n", open)
 	if open.Version != 4 {
 		return nil, fmt.Errorf("wrong BGP version")
 	}
