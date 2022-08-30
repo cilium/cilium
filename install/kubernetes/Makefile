@@ -3,8 +3,9 @@
 
 include Makefile.digests ../../Makefile.defs
 
-HUBBLE_UI_VERSION := "v0.9.0@sha256:0ef04e9a29212925da6bdfd0ba5b581765e41a01f1cc30563cef9b30b457fea0"
-HUBBLE_UI_BACKEND_VERSION := "v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b"
+HUBBLE_UI_VERSION := "v0.9.2@sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e"
+HUBBLE_UI_BACKEND_VERSION := "v0.9.2@sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7"
+
 MANAGED_ETCD_VERSION := "v2.0.7"
 ETCD_VERSION := "v3.4.13"
 NODEINIT_VERSION := "62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
@@ -67,9 +68,9 @@ update-versions:
 		# image.tag operator.image.tag preflight.image.tag hubble.relay.image.tag;					\
 		sed -i 's/tag: .*/tag: '$$cilium_version'/g' $(CILIUM_VALUES);							\
 		# hubble.ui.frontend.image.tag;											\
-		sed -i '/repository.*hubble-ui$$/{!b;n;s/tag.*/tag: '$$hubble_version'/}' $(CILIUM_VALUES);			\
+		sed -i '/repository.*"*.*hubble-ui"*$$/{!b;n;s/tag.*/tag: '$$hubble_version'/}' $(CILIUM_VALUES);			\
 		# hubble.ui.backend.image.tag;											\
-		sed -i '/repository.*hubble-ui-backend.*/{!b;n;s/tag.*/tag: '$$hubble_backend_version'/}' $(CILIUM_VALUES);	\
+		sed -i '/repository.*"*.*hubble-ui-backend.*"*/{!b;n;s/tag.*/tag: '$$hubble_backend_version'/}' $(CILIUM_VALUES);	\
 		# etcd.image.tag												\
 		sed -i '/repository.*etcd-operator.*/{!b;n;s/tag.*/tag: '$(MANAGED_ETCD_VERSION)'/}' $(CILIUM_VALUES)		\
 		# clustermesh.apiserver.etcd.image.tag										\

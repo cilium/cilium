@@ -775,37 +775,45 @@ hubble:
       # -- Hubble-ui backend image.
       image:
         override: ~
-        repository: quay.io/cilium/hubble-ui-backend
-        tag: v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b
+        repository: "quay.io/cilium/hubble-ui-backend"
+        tag: v0.9.2@sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7
         pullPolicy: IfNotPresent
-      # [Example]
-      # resources:
+
+      # -- Additional hubble-ui backend environment variables.
+      extraEnv: []
+
+      # -- Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
+      resources: {}
       #   limits:
       #     cpu: 1000m
       #     memory: 1024M
       #   requests:
       #     cpu: 100m
       #     memory: 64Mi
-      # -- Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
-      resources: {}
 
     frontend:
       # -- Hubble-ui frontend image.
       image:
         override: ~
-        repository: quay.io/cilium/hubble-ui
-        tag: v0.9.0@sha256:0ef04e9a29212925da6bdfd0ba5b581765e41a01f1cc30563cef9b30b457fea0
+        repository: "quay.io/cilium/hubble-ui"
+        tag: v0.9.2@sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e
         pullPolicy: IfNotPresent
-      # [Example]
-      # resources:
+
+      # -- Additional hubble-ui frontend environment variables.
+      extraEnv: []
+
+      # -- Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
+      resources: {}
       #   limits:
       #     cpu: 1000m
       #     memory: 1024M
       #   requests:
       #     cpu: 100m
       #     memory: 64Mi
-      # -- Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
-      resources: {}
+      server:
+        # -- Controls server listener for ipv6
+        ipv6:
+          enabled: true
 
     # -- The number of replicas of Hubble UI to deploy.
     replicas: 1

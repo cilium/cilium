@@ -132,7 +132,7 @@
    * - clustermesh.apiserver.image
      - Clustermesh API server image.
      - object
-     - ``{"digest":"sha256:0dd9df6e4b20f7120f10ddee560e0c285875657f0db0e2a18bc0cd748f86a84c","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.12","useDigest":true}``
+     - ``{"digest":"sha256:ebd5c66c7ed9bbab7634263b9f5a38008827648be30cb8334aa3353aaaac8f48","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.14","useDigest":true}``
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -612,7 +612,7 @@
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
-     - ``{"digest":"sha256:fd3829bf67f2f3d3471da6ded9c636b22feb9a31feaac4509a295043e93af169","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.12","useDigest":true}``
+     - ``{"digest":"sha256:a6d131f1eb66c950712d2faf8ca788ac4b81353f5b0884f31a3fa9dee82e33c9","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.14","useDigest":true}``
    * - hubble.relay.listenHost
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -721,10 +721,14 @@
      - base64 encoded PEM values for the Hubble server certificate and private key
      - object
      - ``{"cert":"","key":""}``
+   * - hubble.ui.backend.extraEnv
+     - Additional hubble-ui backend environment variables.
+     - list
+     - ``[]``
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
-     - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.9.0@sha256:000df6b76719f607a9edefb9af94dfd1811a6f1b6a8a9c537cba90bf12df474b"}``
+     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.9.2@sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7"}``
    * - hubble.ui.backend.resources
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
@@ -733,14 +737,22 @@
      - Whether to enable the Hubble UI.
      - bool
      - ``false``
+   * - hubble.ui.frontend.extraEnv
+     - Additional hubble-ui frontend environment variables.
+     - list
+     - ``[]``
    * - hubble.ui.frontend.image
      - Hubble-ui frontend image.
      - object
-     - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.9.0@sha256:0ef04e9a29212925da6bdfd0ba5b581765e41a01f1cc30563cef9b30b457fea0"}``
+     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.9.2@sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e"}``
    * - hubble.ui.frontend.resources
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
      - ``{}``
+   * - hubble.ui.frontend.server.ipv6
+     - Controls server listener for ipv6
+     - object
+     - ``{"enabled":true}``
    * - hubble.ui.ingress
      - hubble-ui ingress configuration.
      - object
@@ -784,7 +796,7 @@
    * - image
      - Agent container image.
      - object
-     - ``{"digest":"sha256:6a119c4f249d42df0d5654295ac9466da117f9b838ff48b4bc64234f7ab20b80","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.12","useDigest":true}``
+     - ``{"digest":"sha256:65c78132e247c72c396ef2e02375665d0d0b05850ddfe4fa978fe8ac194a2149","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.14","useDigest":true}``
    * - imagePullSecrets
      - Configure image pull secrets for pulling container images
      - string
@@ -1020,7 +1032,7 @@
    * - operator.image
      - cilium-operator image.
      - object
-     - ``{"alibabacloudDigest":"sha256:72de09e0e7a17de8e61e03f251d698c68e2e8e1f1fa1ada67200920a6cad6d0a","awsDigest":"sha256:06b31f3d9baa2be911b90ab933bb8dc08a1bd5e3104f5e90b9cb51a9dd9142f6","azureDigest":"sha256:7c920352c82cd10b402d14902f119d75e45f6faa103f2ea89f760cf5de5301f3","genericDigest":"sha256:35288de36cd1b6fe65e55a9b878100c2ab92ac88ed6a3ab04326e00326cff3f7","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.12","useDigest":true}``
+     - ``{"alibabacloudDigest":"sha256:fafc53bfa40ed47befdd5b9b28d68b33bde04d00b3a277ed15a59ab829bdb2be","awsDigest":"sha256:6e54d5d670e32d0854c774934b3094e5fda514a96dc923f1140e0b119bbf8be4","azureDigest":"sha256:cf3400449d0e883d7338f08a55e29fed2872add031be655824bc012446bf1633","genericDigest":"sha256:fff61fed88fe07fe5e67eb51d2eb4297a65a51b0c367046ceb9c928b70443c6b","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.14","useDigest":true}``
    * - operator.nodeGCInterval
      - Interval for cilium node garbage collection.
      - string
@@ -1152,7 +1164,7 @@
    * - preflight.image
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"sha256:6a119c4f249d42df0d5654295ac9466da117f9b838ff48b4bc64234f7ab20b80","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.12","useDigest":true}``
+     - ``{"digest":"sha256:65c78132e247c72c396ef2e02375665d0d0b05850ddfe4fa978fe8ac194a2149","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.14","useDigest":true}``
    * - preflight.nodeSelector
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
