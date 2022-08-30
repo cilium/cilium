@@ -47,6 +47,8 @@ jobs:
             SHA=${{ github.sha }}
           fi
 
+          # Note: On Kind, we install Cilium with HostPort (portmap CNI chaining) enabled,
+          # to ensure coverage of that feature in cilium connectivity test
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
@@ -60,6 +62,7 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set cni.chainingMode=portmap \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
