@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -54,6 +57,7 @@ type k8sImplementation interface {
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
+	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
 }
 
 func NewK8sStatusCollector(client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
@@ -477,12 +481,66 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 		},
 	}
 
+	// for the sake of sanity, don't get pod logs more than once
+	var agentLogsOnce = sync.Once{}
 	err := k.podStatus(ctx, status, defaults.AgentDaemonSetName, "k8s-app=cilium", func(ctx context.Context, status *Status, name string, pod *corev1.Pod) {
 		if pod.Status.Phase == corev1.PodRunning {
+			// extract container status
+			var containerStatus *corev1.ContainerStatus
+			for i, cStatus := range pod.Status.ContainerStatuses {
+				if cStatus.Name == defaults.AgentContainerName {
+					containerStatus = &pod.Status.ContainerStatuses[i]
+					break
+				}
+			}
 			tasks = append(tasks, statusTask{
 				name: pod.Name,
-				task: func(_ context.Context) error {
-					s, err := k.client.CiliumStatus(ctx, k.params.Namespace, pod.Name)
+				task: func(ctx context.Context) error {
+					var s *models.StatusResponse
+					var err error
+
+					if containerStatus != nil && containerStatus.State.Running != nil {
+						// if container is running, execute "cilium status" in the container and parse the result
+						s, err = k.client.CiliumStatus(ctx, k.params.Namespace, pod.Name)
+					} else {
+						// otherwise, generate a useful status message
+						desc := "is not running"
+						lastLog := fmt.Sprintf("try 'kubectl -n %s logs -c %s %s'",
+							pod.Namespace, defaults.AgentContainerName, pod.Name)
+
+						// determine CrashLoopBackOff status and get last log line, if available.
+						if containerStatus != nil {
+							if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+								desc = "is in CrashLoopBackOff"
+							}
+							if containerStatus.LastTerminationState.Terminated != nil {
+								terminated := containerStatus.LastTerminationState.Terminated
+								desc = fmt.Sprintf("%s, exited with code %d", desc, terminated.ExitCode)
+
+								// capture final log line, maybe it's useful
+								// either from container message or a separate logs request
+								dyingGasp := ""
+								if terminated.Message != "" {
+									dyingGasp = strings.TrimSpace(terminated.Message)
+								} else {
+									agentLogsOnce.Do(func() { // in a sync.Once so we don't waste time retrieving lots of logs
+										logs, err := k.client.CiliumLogs(ctx, pod.Namespace, pod.Name, terminated.FinishedAt.Time.Add(-2*time.Minute), nil)
+										if err == nil && logs != "" {
+											dyingGasp = strings.TrimSpace(logs)
+										}
+									})
+								}
+
+								// Only output the last line
+								if dyingGasp != "" {
+									lines := strings.Split(dyingGasp, "\n")
+									lastLog = lines[len(lines)-1]
+								}
+							}
+						}
+						err = fmt.Errorf("container %s %s: %s", defaults.AgentContainerName, desc, lastLog)
+					}
+
 					status.mutex.Lock()
 					defer status.mutex.Unlock()
 
