@@ -516,7 +516,8 @@ kind-down: ## Destroy a kind cluster for Cilium development.
 .PHONY: kind-ready
 kind-ready:
 	@$(ECHO_CHECK) kind is ready...
-	@kind get clusters >/dev/null
+	@kind get clusters 2>&1 | grep "No kind clusters found." \
+		&& exit 1 || exit 0
 
 .PHONY: kind-image-agent
 kind-image-agent: export DOCKER_REGISTRY=localhost:5000
