@@ -150,32 +150,5 @@ var _ = Describe("K8sCLI", func() {
 				kubectl.NamespaceDelete(namespaceForTest)
 			})
 		})
-
-		Context("stdout/stderr testing", func() {
-			var (
-				ciliumPod string
-				err       error
-			)
-
-			BeforeAll(func() {
-				ciliumPod, err = kubectl.GetCiliumPodOnNode("k8s1")
-				Expect(err).Should(BeNil())
-			})
-
-			It("Root command help should print to stdout", func() {
-				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium help")
-				Expect(res.Stdout()).Should(ContainSubstring("Use \"cilium [command] --help\" for more information about a command."))
-			})
-
-			It("Subcommand help should print to stdout", func() {
-				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium help bpf")
-				Expect(res.Stdout()).Should(ContainSubstring("Use \"cilium bpf [command] --help\" for more information about a command."))
-			})
-
-			It("Failed subcommand should print help to stdout", func() {
-				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium endpoint confi 173")
-				Expect(res.Stdout()).Should(ContainSubstring("Use \"cilium endpoint [command] --help\" for more information about a command."))
-			})
-		})
 	})
 })
