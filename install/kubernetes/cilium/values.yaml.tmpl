@@ -708,6 +708,12 @@ hubble:
       interval: "10s"
       # -- Metrics relabeling configs for the ServiceMonitor hubble
       metricRelabelings: ~
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      namespace: ~
+      labelValue: "1"
+      annotations: {}
 
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
