@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -75,6 +76,14 @@ func init() {
 		k8sClient.Cell,
 
 		hive.NewCellWithConfig[DaemonCellConfig]("daemon", fx.Invoke(registerDaemonHooks)),
+
+		node.LocalNodeStoreCell,
+		hive.Invoke(func(store node.LocalNodeStore) {
+			// Set the global LocalNodeStore. This is to retain the API of getters and setters
+			// defined in pkg/node/address.go until uses of them have been converted to use
+			// LocalNodeStore directly.
+			node.SetLocalNodeStore(store)
+		}),
 	)
 }
 

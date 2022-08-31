@@ -76,6 +76,13 @@ func New(v *viper.Viper, flags *pflag.FlagSet, cells ...*Cell) *Hive {
 	return h
 }
 
+// NewForTests returns a new hive for testing that does not register
+// the flags declared by the cells. Use in combination with TestApp()
+// to provide cell configurations.
+func NewForTests(cells ...*Cell) *Hive {
+	return New(viper.New(), pflag.NewFlagSet("", pflag.ContinueOnError), cells...)
+}
+
 func (h *Hive) SetTimeouts(start, stop time.Duration) {
 	h.startTimeout, h.stopTimeout = start, stop
 }
