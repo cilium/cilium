@@ -547,6 +547,26 @@ kind-image: ## Build cilium and operator images and import them into kind.
 	$(MAKE) kind-image-agent
 	$(MAKE) kind-image-operator
 
+.PHONY: kind-install-cilium
+kind-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
+	@echo "  INSTALL cilium"
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-cilium uninstall >/dev/null
+	# cilium-cli's --wait flag doesn't work, so we just force it to run
+	# in the background instead and wait for the resources to be available.
+	# https://github.com/cilium/cilium-cli/issues/1070
+	cilium install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-values.yaml \
+		--version= \
+		>/dev/null 2>&1 &
+
+.PHONY: kind-check-cilium
+kind-check-cilium:
+	@echo "  CHECK  cilium is ready..."
+	cilium status --wait --wait-duration 1s >/dev/null 2>/dev/null
+
 precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
