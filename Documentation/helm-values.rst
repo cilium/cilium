@@ -85,6 +85,10 @@
      - Enable BPF clock source probing for more efficient tick retrieval.
      - bool
      - ``false``
+   * - bpf.hostBoot
+     - Configure the path to the host boot directory
+     - string
+     - ``"/boot"``
    * - bpf.lbExternalClusterIP
      - Allow cluster external access to ClusterIP services.
      - bool
@@ -105,6 +109,10 @@
      - Configure the typical time between monitor notifications for active connections.
      - string
      - ``"5s"``
+   * - bpf.mountHostBoot
+     - Enable host boot directory mount for BPF clock source probing
+     - bool
+     - ``true``
    * - bpf.policyMapMax
      - Configure the maximum number of entries in endpoint policy map (per endpoint).
      - int
