@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -284,8 +285,10 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	annotationsChanged := annoChangedProxy || annoChangedBandwidth || annoChangedNoTrack
 
 	// Check label updates too.
-	oldPodLabels := oldK8sPod.ObjectMeta.Labels
-	newPodLabels := newK8sPod.ObjectMeta.Labels
+	oldK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(oldK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
+	oldPodLabels := oldK8sPodLabels.K8sStringMap()
+	newK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(newK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
+	newPodLabels := newK8sPodLabels.K8sStringMap()
 	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
 
 	lrpNeedsReassign := false
