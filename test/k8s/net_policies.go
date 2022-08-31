@@ -535,42 +535,23 @@ var _ = SkipDescribeIf(func() bool {
 			)
 
 			var (
-				cnpToEntitiesAll      string
 				ccnpToEntitiesAllDeny string
-				cnpToEntitiesWorld    string
 				cnpToEntitiesCluster  string
 				cnpToEntitiesHost     string
 			)
 
 			BeforeAll(func() {
-				cnpToEntitiesAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-all.yaml")
 				ccnpToEntitiesAllDeny = helpers.ManifestGet(kubectl.BasePath(), "ccnp-to-entities-all-deny.yaml")
-				cnpToEntitiesWorld = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-world.yaml")
 				cnpToEntitiesCluster = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-cluster.yaml")
 				cnpToEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-host.yaml")
 			})
 
 			It("Validate toEntities All", func() {
-				By("Installing toEntities All")
-				importPolicy(kubectl, namespaceForTest, cnpToEntitiesAll, "to-entities-all")
-
-				By("Verifying policy correctness")
-				validateConnectivity(WorldConnectivityAllow, ClusterConnectivityAllow)
-
 				By("Installing deny toEntities All")
 				importPolicy(kubectl, namespaceForTest, ccnpToEntitiesAllDeny, "to-entities-all-deny")
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityDeny)
-			})
-
-			It("Validate toEntities World", func() {
-				By("Installing toEntities World")
-				importPolicy(kubectl, namespaceForTest, cnpToEntitiesWorld, "to-entities-world")
-
-				By("Verifying policy correctness")
-				validateConnectivity(WorldConnectivityAllow, ClusterConnectivityDeny)
-
 			})
 
 			It("Validate toEntities Cluster", func() {
