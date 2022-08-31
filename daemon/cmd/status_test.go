@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -27,7 +26,7 @@ type GetNodesSuite struct {
 
 var _ = Suite(&GetNodesSuite{})
 
-var nm *manager.Manager
+var nm manager.NodeManager
 
 func (g *GetNodesSuite) SetUpTest(c *C) {
 	option.Config.IPv4ServiceRange = AutoCIDR
@@ -36,7 +35,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.NewManager("", fake.NewNodeHandler(), &fakeConfig.Config{}, nil, nil)
+	nm, err = manager.New("", &fakeConfig.Config{})
 	c.Assert(err, IsNil)
 }
 
