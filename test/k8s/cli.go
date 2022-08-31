@@ -87,18 +87,6 @@ var _ = Describe("K8sCLI", func() {
 				resSingleOut := res.SingleOut()
 				containsIdentity := strings.Contains(resSingleOut, fmt.Sprintf("%d", identity))
 				Expect(containsIdentity).To(BeTrue(), "Identity %d of endpoint %s not in 'cilium identity list' output", identity, resSingleOut)
-
-				By("Testing 'cilium identity list' for reserved identities")
-				res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium identity list")
-				res.ExpectSuccess("Unable to get identity list output")
-				resSingleOut = res.SingleOut()
-
-				reservedIdentities := []string{"health", "host", "world", "init"}
-				for _, id := range reservedIdentities {
-					By("Checking that reserved identity '%s' is in 'cilium identity list' output", id)
-					containsReservedIdentity := strings.Contains(resSingleOut, id)
-					Expect(containsReservedIdentity).To(BeTrue(), "Reserved identity '%s' not in 'cilium identity list' output", id)
-				}
 			})
 
 			It("Test cilium bpf metrics list", func() {
