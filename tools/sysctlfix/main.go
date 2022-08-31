@@ -38,8 +38,8 @@ var (
 
 var sysctlConfig = `
 # Disable rp_filter on Cilium interfaces since it may cause mangled packets to be dropped
-net.ipv4.conf.lxc*.rp_filter = 0
-net.ipv4.conf.cilium_*.rp_filter = 0
+-net.ipv4.conf.lxc*.rp_filter = 0
+-net.ipv4.conf.cilium_*.rp_filter = 0
 # The kernel uses max(conf.all, conf.{dev}) as its value, so we need to set .all. to 0 as well.
 # Otherwise it will overrule the device specific settings.
 net.ipv4.conf.all.rp_filter = 0
