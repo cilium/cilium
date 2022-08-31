@@ -519,18 +519,23 @@ kind-ready:
 	@kind get clusters 2>&1 | grep "No kind clusters found." \
 		&& exit 1 || exit 0
 
-.PHONY: kind-image-agent
-kind-image-agent: export DOCKER_REGISTRY=localhost:5000
-kind-image-agent: export LOCAL_AGENT_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+# Template for kind environment for a target. Parameters are:
+# $(1) Makefile target name
+define KIND_ENV
+.PHONY: $(1)
+$(1): export DOCKER_REGISTRY=localhost:5000
+$(1): export LOCAL_AGENT_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/cilium-dev:$$(LOCAL_IMAGE_TAG)
+$(1): export LOCAL_OPERATOR_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/operator-generic:$$(LOCAL_IMAGE_TAG)
+endef
+
+$(eval $(call KIND_ENV,kind-image-agent))
 kind-image-agent: kind-ready ## Build cilium-dev docker image and import it into kind.
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_AGENT_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_AGENT_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
 
-.PHONY: kind-image-operator
-kind-image-operator: export DOCKER_REGISTRY=localhost:5000
-kind-image-operator: export LOCAL_OPERATOR_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/operator:$(LOCAL_IMAGE_TAG)
+$(eval $(call KIND_ENV,kind-image-operator))
 kind-image-operator: kind-ready ## Build cilium-operator-dev docker image and import it into kind.
 	$(QUIET)$(MAKE) dev-docker-operator-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_OPERATOR_IMAGE))"
