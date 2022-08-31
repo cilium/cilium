@@ -4,9 +4,6 @@
 package k8sTest
 
 import (
-	"fmt"
-	"strings"
-
 	. "github.com/onsi/gomega"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -37,58 +34,6 @@ var _ = Describe("K8sCLI", func() {
 		})
 
 		Context("Identity CLI testing", func() {
-			const (
-				manifestYAML = "test-cli.yaml"
-				fooID        = "foo"
-				fooNode      = "k8s1"
-				// These labels are automatically added to all pods in the default namespace.
-				defaultLabels = "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=default " +
-					"k8s:io.cilium.k8s.policy.cluster=default " +
-					"k8s:io.cilium.k8s.policy.serviceaccount=default " +
-					"k8s:io.kubernetes.pod.namespace=default"
-			)
-
-			var (
-				cliManifest string
-				ciliumPod   string
-				err         error
-				identity    int64
-			)
-
-			BeforeAll(func() {
-				cliManifest = helpers.ManifestGet(kubectl.BasePath(), manifestYAML)
-				res := kubectl.ApplyDefault(cliManifest)
-				res.ExpectSuccess("Unable to apply %s", cliManifest)
-				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l id", helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "The pods were not ready after timeout")
-
-				ciliumPod, err = kubectl.GetCiliumPodOnNode(fooNode)
-				Expect(err).Should(BeNil())
-
-				err := kubectl.WaitForCEPIdentity(helpers.DefaultNamespace, fooID)
-				Expect(err).Should(BeNil())
-
-				ep, err := kubectl.GetCiliumEndpoint(helpers.DefaultNamespace, fooID)
-				Expect(err).Should(BeNil(), fmt.Sprintf("Unable to get CEP for pod %s", fooID))
-				identity = ep.Identity.ID
-			})
-
-			AfterAll(func() {
-				_ = kubectl.Delete(cliManifest)
-				ExpectAllPodsTerminated(kubectl)
-			})
-
-			It("Test identity list", func() {
-				By("Testing 'cilium identity list' for an endpoint's identity")
-				cmd := fmt.Sprintf("cilium identity list k8s:id=%s %s", fooID, defaultLabels)
-				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
-				res.ExpectSuccess(fmt.Sprintf("Unable to get identity list output for label k8s:id=%s %s", fooID, defaultLabels))
-
-				resSingleOut := res.SingleOut()
-				containsIdentity := strings.Contains(resSingleOut, fmt.Sprintf("%d", identity))
-				Expect(containsIdentity).To(BeTrue(), "Identity %d of endpoint %s not in 'cilium identity list' output", identity, resSingleOut)
-			})
-
 			It("Test cilium bpf metrics list", func() {
 				demoManifest := helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
 				app1Service := "app1-service"
