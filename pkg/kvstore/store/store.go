@@ -363,11 +363,6 @@ func (s *SharedStore) UpdateLocalKeySync(ctx context.Context, key LocalKey) erro
 	return err
 }
 
-// UpdateKeySync synchronously synchronizes a key with the kvstore.
-func (s *SharedStore) UpdateKeySync(ctx context.Context, key LocalKey) error {
-	return s.syncLocalKey(ctx, key)
-}
-
 // DeleteLocalKey removes a key from being synchronized with the kvstore
 func (s *SharedStore) DeleteLocalKey(ctx context.Context, key NamedKey) {
 	name := key.GetKeyName()

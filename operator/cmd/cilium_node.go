@@ -128,8 +128,8 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 				ciliumNodeKVStore.DeleteLocalKey(ctx, &nodeDel)
 			},
 			func(node *cilium_v2.CiliumNode) {
-				nodeNew := nodeTypes.ParseCiliumNode(node)
-				ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew)
+				// Ignored because the agent running on that particular node will
+				// take care of adding/updating its CiliumNode in the kvstore.
 			})
 	}
 
