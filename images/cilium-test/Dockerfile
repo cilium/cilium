@@ -37,7 +37,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=
   env GOARCH=arm64 CC=aarch64-linux-gnu-gcc \
     /out/linux/amd64/usr/local/bin/ginkgo build ./ && mv test.test /out/linux/arm64/usr/local/bin/cilium-test
 
-FROM scratch
+FROM scratch as release
 ARG TARGETPLATFORM
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=rootfs / /
