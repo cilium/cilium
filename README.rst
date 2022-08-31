@@ -19,7 +19,7 @@ hash tables in eBPF allowing for almost unlimited scale. It also supports
 advanced functionality like integrated ingress and egress gateway, bandwidth 
 management and service mesh, and provides deep network and security visibility and monitoring.
 
-A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
+A  new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
 supports dynamic insertion of eBPF bytecode into the Linux kernel at various
 integration points such as: network IO, application sockets, and tracepoints to
 implement security, networking and visibility logic. eBPF is highly efficient
