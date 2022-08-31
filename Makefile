@@ -581,6 +581,20 @@ endef
 # kind-image-agent-debug
 $(eval $(call DEBUG_KIND_TEMPLATE,-agent))
 
+$(eval $(call KIND_ENV,kind-debug-agent))
+kind-debug-agent: ## Create a local kind development environment with cilium-agent attached to a debugger.
+	$(QUIET)$(MAKE) kind-ready 2>/dev/null \
+		|| $(MAKE) kind
+	$(MAKE) kind-image-agent-debug
+	# Not debugging cilium-operator here; any image is good enough.
+	$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE) \
+		|| $(MAKE) kind-image-operator
+	$(MAKE) kind-check-cilium 2>/dev/null \
+		|| $(MAKE) kind-install-cilium
+	@echo "Attach delve to localhost on these ports to continue:"
+	@echo " - 23401: cilium-agent (kind-control-plane)"
+	@echo " - 23411: cilium-agent (kind-worker)"
+
 precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
