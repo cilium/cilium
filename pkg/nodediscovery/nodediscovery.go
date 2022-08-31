@@ -64,7 +64,7 @@ type k8sGetters interface {
 
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
-	Manager               *nodemanager.Manager
+	Manager               nodemanager.NodeManager
 	LocalConfig           datapath.LocalNodeConfiguration
 	Registrar             nodestore.NodeRegistrar
 	Registered            chan struct{}
@@ -84,7 +84,7 @@ func enableLocalNodeRoute() bool {
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(manager *nodemanager.Manager, clientset client.Clientset, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
+func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientset, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -334,11 +334,6 @@ func (n *NodeDiscovery) LocalNode() *types.Node {
 
 	n.fillLocalNode()
 	return n.localNode.DeepCopy()
-}
-
-// Close shuts down the node discovery engine
-func (n *NodeDiscovery) Close() {
-	n.Manager.Close()
 }
 
 // UpdateCiliumNodeResource updates the CiliumNode resource representing the

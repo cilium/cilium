@@ -57,7 +57,7 @@ type Configuration struct {
 
 	// NodeManager is the node manager to manage all discovered remote
 	// nodes
-	NodeManager *nodemanager.Manager
+	NodeManager nodemanager.NodeManager
 
 	nodeObserver store.Observer
 
