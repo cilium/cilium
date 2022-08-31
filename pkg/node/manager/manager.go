@@ -8,7 +8,6 @@ import (
 	"errors"
 	"net"
 	"net/netip"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,8 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -67,23 +66,10 @@ type Configuration interface {
 	EncryptionEnabled() bool
 }
 
-// Notifier is the interface the wraps Subscribe and Unsubscribe. An
-// implementation of this interface notifies subscribers of nodes being added,
-// updated or deleted.
-type Notifier interface {
-	// Subscribe adds the given NodeHandler to the list of subscribers that are
-	// notified of node changes. Upon call to this method, the NodeHandler is
-	// being notified of all nodes that are already in the cluster by calling
-	// the NodeHandler's NodeAdd callback.
-	Subscribe(datapath.NodeHandler)
-	// Unsubscribe removes the given NodeHandler from the list of subscribers.
-	Unsubscribe(datapath.NodeHandler)
-}
+var _ Notifier = (*manager)(nil)
 
-var _ Notifier = (*Manager)(nil)
-
-// Manager is the entity that manages a collection of nodes
-type Manager struct {
+// manager is the entity that manages a collection of nodes
+type manager struct {
 	// mutex is the lock protecting access to the nodes map. The mutex must
 	// be held for any access of the nodes map.
 	//
@@ -141,24 +127,10 @@ type Manager struct {
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
 	controllerManager *controller.Manager
-
-	// selectorCacheUpdater updates the identities inside the selector cache.
-	selectorCacheUpdater selectorCacheUpdater
-
-	// policyTriggerer triggers policy updates (recalculations).
-	policyTriggerer policyTriggerer
-}
-
-type selectorCacheUpdater interface {
-	UpdateIdentities(added, deleted cache.IdentityCache, wg *sync.WaitGroup)
-}
-
-type policyTriggerer interface {
-	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
 }
 
 // Subscribe subscribes the given node handler to node events.
-func (m *Manager) Subscribe(nh datapath.NodeHandler) {
+func (m *manager) Subscribe(nh datapath.NodeHandler) {
 	m.nodeHandlersMu.Lock()
 	m.nodeHandlers[nh] = struct{}{}
 	m.nodeHandlersMu.Unlock()
@@ -173,14 +145,14 @@ func (m *Manager) Subscribe(nh datapath.NodeHandler) {
 }
 
 // Unsubscribe unsubscribes the given node handler with node events.
-func (m *Manager) Unsubscribe(nh datapath.NodeHandler) {
+func (m *manager) Unsubscribe(nh datapath.NodeHandler) {
 	m.nodeHandlersMu.Lock()
 	delete(m.nodeHandlers, nh)
 	m.nodeHandlersMu.Unlock()
 }
 
 // Iter executes the given function in all subscribed node handlers.
-func (m *Manager) Iter(f func(nh datapath.NodeHandler)) {
+func (m *manager) Iter(f func(nh datapath.NodeHandler)) {
 	m.nodeHandlersMu.RLock()
 	defer m.nodeHandlersMu.RUnlock()
 
@@ -189,19 +161,16 @@ func (m *Manager) Iter(f func(nh datapath.NodeHandler)) {
 	}
 }
 
-// NewManager returns a new node manager
-func NewManager(name string, dp datapath.NodeHandler, c Configuration, sc selectorCacheUpdater, pt policyTriggerer) (*Manager, error) {
-	m := &Manager{
-		name:                 name,
-		nodes:                map[nodeTypes.Identity]*nodeEntry{},
-		conf:                 c,
-		controllerManager:    controller.NewManager(),
-		selectorCacheUpdater: sc,
-		policyTriggerer:      pt,
-		nodeHandlers:         map[datapath.NodeHandler]struct{}{},
-		closeChan:            make(chan struct{}),
+// New returns a new node manager
+func New(name string, c Configuration) (*manager, error) {
+	m := &manager{
+		name:              name,
+		nodes:             map[nodeTypes.Identity]*nodeEntry{},
+		conf:              c,
+		controllerManager: controller.NewManager(),
+		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
+		closeChan:         make(chan struct{}),
 	}
-	m.Subscribe(dp)
 
 	m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metrics.Namespace,
@@ -229,31 +198,21 @@ func NewManager(name string, dp datapath.NodeHandler, c Configuration, sc select
 		return nil, err
 	}
 
-	go m.backgroundSync()
-
 	return m, nil
 }
 
-// WithSelectorCacheUpdater sets the selector cache updater in the Manager.
-func (m *Manager) WithSelectorCacheUpdater(sc selectorCacheUpdater) *Manager {
-	m.selectorCacheUpdater = sc
-	return m
-}
-
-// WithPolicyTriggerer sets the policy update trigger in the Manager.
-func (m *Manager) WithPolicyTriggerer(pt policyTriggerer) *Manager {
-	m.policyTriggerer = pt
-	return m
-}
-
-// WithIPCache sets the ipcache field in the Manager.
-func (m *Manager) WithIPCache(ipc IPCache) *Manager {
+// SetIPCache sets the ipcache field in the Manager.
+func (m *manager) SetIPCache(ipc IPCache) {
 	m.ipcache = ipc
-	return m
 }
 
-// Close shuts down a node manager
-func (m *Manager) Close() {
+func (m *manager) Start(hive.HookContext) error {
+	go m.backgroundSync()
+	return nil
+}
+
+// Stop shuts down a node manager
+func (m *manager) Stop(hive.HookContext) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -271,6 +230,8 @@ func (m *Manager) Close() {
 		})
 		n.mutex.Unlock()
 	}
+
+	return nil
 }
 
 // ClusterSizeDependantInterval returns a time.Duration that is dependant on
@@ -297,7 +258,7 @@ func (m *Manager) Close() {
 // 4096  | 8m19.080616652s
 // 8192  | 9m00.662124608s
 // 16384 | 9m42.247293667s
-func (m *Manager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
+func (m *manager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
 	m.mutex.RLock()
 	numNodes := len(m.nodes)
 	m.mutex.RUnlock()
@@ -305,13 +266,13 @@ func (m *Manager) ClusterSizeDependantInterval(baseInterval time.Duration) time.
 	return backoff.ClusterSizeDependantInterval(baseInterval, numNodes)
 }
 
-func (m *Manager) backgroundSyncInterval() time.Duration {
+func (m *manager) backgroundSyncInterval() time.Duration {
 	return m.ClusterSizeDependantInterval(baseBackgroundSyncInterval)
 }
 
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
-func (m *Manager) backgroundSync() {
+func (m *manager) backgroundSync() {
 	syncTimer, syncTimerDone := inctimer.New()
 	defer syncTimerDone()
 	for {
@@ -351,7 +312,7 @@ func (m *Manager) backgroundSync() {
 
 // legacyNodeIpBehavior returns true if the agent is still running in legacy
 // mode regarding node IPs
-func (m *Manager) legacyNodeIpBehavior() bool {
+func (m *manager) legacyNodeIpBehavior() bool {
 	// Cilium < 1.7 only exposed the Cilium internalIP to the ipcache
 	// unless encryption was enabled. This meant that for the majority of
 	// node IPs, CIDR policy rules would apply. With the introduction of
@@ -378,7 +339,7 @@ func (m *Manager) legacyNodeIpBehavior() bool {
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
 // interface is invoked.
-func (m *Manager) NodeUpdated(n nodeTypes.Node) {
+func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	log.Debugf("Received node update event from %s: %#v", n.Source, n)
 
 	nodeIdentity := n.Identity()
@@ -557,7 +518,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 // upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
 // (IDMD) map. The given node identity determines which labels are associated
 // with the CIDR.
-func (m *Manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentity, rid ipcacheTypes.ResourceID) {
+func (m *manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentity, rid ipcacheTypes.ResourceID) {
 	if id == identity.ReservedIdentityHost {
 		m.ipcache.UpsertLabels(prefix, labels.LabelHost, source.Local, rid)
 	} else {
@@ -567,7 +528,7 @@ func (m *Manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentit
 
 // deleteIPCache deletes the IP addresses from the IPCache with the 'oldSource'
 // if they are not found in the newIPs slice.
-func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs []string) {
+func (m *manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs []string) {
 	for _, address := range oldIPs {
 		if address == nil {
 			continue
@@ -592,7 +553,7 @@ func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs
 // from the manager if the node is still owned by the source of which the event
 // origins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
-func (m *Manager) NodeDeleted(n nodeTypes.Node) {
+func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	m.metricEventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
 
 	log.Debugf("Received node delete event from %s", n.Source)
@@ -613,7 +574,7 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 		m.mutex.Unlock()
 		if n.IsLocal() && n.Source == source.Kubernetes {
 			log.Debugf("Kubernetes is deleting local node, close manager")
-			m.Close()
+			m.Stop(context.Background())
 		} else {
 			log.Debugf("Ignoring delete event of node %s from source %s. The node is owned by %s",
 				n.Name, n.Source, entry.node.Source)
@@ -655,7 +616,7 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 
 // GetNodeIdentities returns a list of all node identities store in node
 // manager.
-func (m *Manager) GetNodeIdentities() []nodeTypes.Identity {
+func (m *manager) GetNodeIdentities() []nodeTypes.Identity {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -668,7 +629,7 @@ func (m *Manager) GetNodeIdentities() []nodeTypes.Identity {
 }
 
 // GetNodes returns a copy of all of the nodes as a map from Identity to Node.
-func (m *Manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
+func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -684,7 +645,7 @@ func (m *Manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 
 // StartNeighborRefresh spawns a controller which refreshes neighbor table
 // by sending arping periodically.
-func (m *Manager) StartNeighborRefresh(nh datapath.NodeHandler) {
+func (m *manager) StartNeighborRefresh(nh datapath.NodeHandler) {
 	ctx, cancel := context.WithCancel(context.Background())
 	controller.NewManager().UpdateController("neighbor-table-refresh",
 		controller.ControllerParams{
