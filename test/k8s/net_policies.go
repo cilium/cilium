@@ -40,7 +40,6 @@ var _ = SkipDescribeIf(func() bool {
 		ciliumFilename       string
 		demoPath             string
 		l3Policy             string
-		l7Policy             string
 		l7PolicyKafka        string
 		l7PolicyTLS          string
 		TLSCaCerts           string
@@ -61,7 +60,6 @@ var _ = SkipDescribeIf(func() bool {
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
-		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
 		l7PolicyKafka = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-kafka.yaml")
 		l7PolicyTLS = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-TLS.yaml")
 		TLSCaCerts = helpers.ManifestGet(kubectl.BasePath(), "testCA.crt")
@@ -204,45 +202,6 @@ var _ = SkipDescribeIf(func() bool {
 			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
 			_ = kubectl.Exec(cmd)
 		})
-
-		It("checks all kind of Kubernetes policies", func() {
-
-			logger.Infof("PolicyRulesTest: cluster service ip '%s'", clusterIP)
-
-			By("Testing L7 Policy")
-
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
-
-			// Cilium launches Envoy with path normalization enabled by default, so '//public' will be seen as '/public'.
-			// Note that 'hhtpd' performs slash merging and serves '/public' when '//public' is requested.
-			// Policy enforcement will block this if path normalization is not done prior as policy only allows '/public'.
-			res := kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("http://%s//public", clusterIP))
-			res.ExpectSuccess("Cannot connect from %q to 'http://%s//public'",
-				appPods[helpers.App2], clusterIP)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://%s/private", clusterIP)))
-			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
-				appPods[helpers.App2], clusterIP)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
-				appPods[helpers.App3], clusterIP)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlFail("http://%s/private", clusterIP))
-			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
-				appPods[helpers.App3], clusterIP)
-
-		}, 500)
 
 		SkipItIf(helpers.SkipQuarantined, "TLS policy", func() {
 			By("Testing L7 Policy with TLS")
