@@ -48,6 +48,7 @@
 /.gitignore @cilium/tophat
 /.golangci.yaml @cilium/ci-structure
 /.mailmap @cilium/tophat
+/.nvim @cilium/contributing
 /.travis/ @cilium/ci-structure
 /.travis.yml @cilium/ci-structure
 /.vscode @cilium/contributing
