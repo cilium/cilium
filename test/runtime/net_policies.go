@@ -9,7 +9,6 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -19,18 +18,6 @@ import (
 )
 
 const (
-	// Commands
-	ping              = "ping"
-	ping6             = "ping6"
-	http              = "http"
-	http6             = "http6"
-	httpPrivate       = "http_private"
-	http6Private      = "http6_private"
-	httpPrivateToken  = "http_private_token"
-	http6PrivateToken = "http6_private_token"
-	httpPathRewrite   = "http_path_rewrite"
-	http6PathRewrite  = "http6_path_rewrite"
-
 	// Policy files
 	multL7PoliciesJSON       = "Policies-l7-multiple.json"
 	policiesL7JSON           = "Policies-l7-simple.json"
@@ -100,90 +87,6 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 		vm.CloseSSHClient()
 	})
-
-	pingRequests := []string{ping, ping6}
-	httpRequestsPublic := []string{http, http6}
-	httpRequestsPrivate := []string{httpPrivate, http6Private}
-	httpRequestsPathRewrite := []string{httpPathRewrite, http6PathRewrite}
-	httpRequests := append(httpRequestsPublic, httpRequestsPrivate...)
-	httpRequests = append(httpRequests, httpRequestsPathRewrite...)
-	connectivityTest := func(tests []string, client, server string, expectsSuccess bool) {
-		var assertFn func() types.GomegaMatcher
-		if expectsSuccess {
-			assertFn = BeTrue
-		} else {
-			assertFn = BeFalse
-		}
-
-		if client != helpers.Host {
-			_, err := vm.ContainerInspectNet(client)
-			ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf(
-				"could not get container %q (client) meta", client))
-		}
-
-		srvIP, err := vm.ContainerInspectNet(server)
-		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf(
-			"could not get container %q (server) meta", server))
-		for _, test := range tests {
-			var command, commandName, dst, resultName string
-			switch test {
-			case ping:
-				command = helpers.Ping(srvIP[helpers.IPv4])
-				dst = srvIP[helpers.IPv4]
-			case ping6:
-				command = helpers.Ping6(srvIP[helpers.IPv6])
-				dst = srvIP[helpers.IPv6]
-			case http, httpPrivate, httpPrivateToken, httpPathRewrite:
-				dst = srvIP[helpers.IPv4]
-			case http6, http6Private, http6PrivateToken, http6PathRewrite:
-				dst = fmt.Sprintf("[%s]", srvIP[helpers.IPv6])
-			}
-			switch test {
-			case ping:
-				commandName = "ping"
-			case ping6:
-				commandName = "ping6"
-			case http:
-				commandName = "curl public IPv4 URL on"
-				command = helpers.CurlFail("http://%s:80/public", dst)
-			case http6:
-				commandName = "curl public IPv6 URL on"
-				command = helpers.CurlFail("http://%s:80/public", dst)
-			case httpPrivate:
-				commandName = "curl private IPv4 URL on"
-				command = helpers.CurlFail("http://%s:80/private", dst)
-			case http6Private:
-				commandName = "curl private IPv6 URL on"
-				command = helpers.CurlFail("http://%s:80/private", dst)
-			case httpPrivateToken:
-				commandName = "curl private IPv4 URL with an access-token 1234-09AB-5678-CDEF on"
-				command = helpers.CurlFail(`--header "Access-Token: 1234-09AB-5678-CDEF" http://%s:80/private`, dst)
-			case http6PrivateToken:
-				commandName = "curl private IPv6 URL with an access-token 1234-09AB-5678-CDEF on"
-				command = helpers.CurlFail(`--header "Access-Token: 1234-09AB-5678-CDEF" http://%s:80/private`, dst)
-			case httpPathRewrite:
-				commandName = "curl path rewrite IPv4 URL on"
-				command = helpers.CurlFail("http://%s:80/public/../private", dst)
-			case http6PathRewrite:
-				commandName = "curl path rewrite IPv6 URL on"
-				command = helpers.CurlFail("http://%s:80/public/../private", dst)
-			}
-			if expectsSuccess {
-				resultName = "succeed"
-			} else {
-				resultName = "fail"
-			}
-			By("%q attempting to %q %q", client, commandName, server)
-			var res *helpers.CmdRes
-			if client != helpers.Host {
-				res = vm.ContainerExec(client, command)
-			} else {
-				res = vm.Exec(command)
-			}
-			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
-				fmt.Sprintf("%q expects %s %s (%s) to %s", client, commandName, server, dst, resultName))
-		}
-	}
 
 	// Cannot be tested in cilium-cli connectivity tests because of Daemon configuration changes
 	It("Tests Endpoint Connectivity Functions After Daemon Configuration Is Updated", func() {
@@ -881,48 +784,6 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 				`{.source.ID} {.source.labels} -> {.destination.labels} {.IP.destination} : {.verdict} {.drop_reason}`,
 				fmt.Sprintf(`%s ["container:somelabel"] -> ["reserved:host"] %s : DROPPED 133`, endpointID, hostIP),
 				"Unexpected drop")
-		})
-	})
-
-	// This test cannot be tested in cilium-cli connectivity test suite because it relies on pod and policy creation
-	// being done in a specific order
-	Context("Tests for Already-Allocated Identities", func() {
-		var (
-			newContainerName = fmt.Sprintf("%s-already-allocated-id", helpers.Httpd1)
-		)
-
-		// Apply L3-L4 policy, which will select the already-running containers
-		// that have been created outside of this Context.
-		BeforeEach(func() {
-			By("Importing policy which selects all endpoints with label id.httpd1 to allow ingress traffic on port 80")
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-l4-policy.json"), helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "unable to apply L3-L4 policy")
-		})
-
-		AfterEach(func() {
-			vm.ContainerRm(newContainerName)
-		})
-
-		It("Tests L4 policy is generated for endpoint with already-allocated identity", func() {
-			// Create a new container which has labels which have already been
-			// allocated an identity from the key-value store.
-			By("Creating new container with label id.httpd1, which has already " +
-				"been allocated an identity from the key-value store")
-			res := vm.ContainerCreate(newContainerName, constants.HttpdImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", helpers.Httpd1))
-			res.ExpectSuccess("failed to create httpd container")
-
-			By("Waiting for newly added endpoint to be ready")
-			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
-
-			// All endpoints should be able to connect to this container on port
-			// 80, but should not be able to ping because ICMP does not use
-			// port 80.
-
-			By("Checking that datapath behavior matches policy which selects this new endpoint")
-			for _, app := range []string{helpers.App1, helpers.App2} {
-				connectivityTest(pingRequests, app, newContainerName, false)
-				connectivityTest(httpRequests, app, newContainerName, true)
-			}
 		})
 	})
 })
