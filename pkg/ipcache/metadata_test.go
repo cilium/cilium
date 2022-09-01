@@ -38,7 +38,7 @@ func TestInjectLabels(t *testing.T) {
 
 	// Insert kube-apiserver IP from outside of the cluster. This should create
 	// a CIDR ID for this IP.
-	IPIdentityCache.UpsertMetadata(inClusterPrefix, labels.LabelKubeAPIServer, source.KubeAPIServer, "kube-uid")
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.KubeAPIServer, "kube-uid", labels.LabelKubeAPIServer)
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
@@ -49,7 +49,7 @@ func TestInjectLabels(t *testing.T) {
 	// Upsert node labels to the kube-apiserver to validate that the CIDR ID is
 	// deallocated and the kube-apiserver reserved ID is associated with this
 	// IP now.
-	IPIdentityCache.UpsertMetadata(inClusterPrefix, labels.LabelRemoteNode, source.CustomResource, "node-uid")
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "node-uid", labels.LabelRemoteNode)
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
@@ -61,8 +61,8 @@ func TestInjectLabels(t *testing.T) {
 func TestFilterMetadataByLabels(t *testing.T) {
 	setupTest(t)
 
-	IPIdentityCache.UpsertMetadata(netip.MustParsePrefix("2.1.1.1/32"), labels.LabelWorld, source.Generated, "gen-uid")
-	IPIdentityCache.UpsertMetadata(netip.MustParsePrefix("3.1.1.1/32"), labels.LabelWorld, source.Generated, "gen-uid-2")
+	IPIdentityCache.metadata.upsertLocked(netip.MustParsePrefix("2.1.1.1/32"), source.Generated, "gen-uid", labels.LabelWorld)
+	IPIdentityCache.metadata.upsertLocked(netip.MustParsePrefix("3.1.1.1/32"), source.Generated, "gen-uid-2", labels.LabelWorld)
 
 	assert.Len(t, IPIdentityCache.metadata.filterByLabels(labels.LabelKubeAPIServer), 1)
 	assert.Len(t, IPIdentityCache.metadata.filterByLabels(labels.LabelWorld), 2)
@@ -92,7 +92,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	// Entry with only kube-apiserver labels means kube-apiserver is outside of
 	// the cluster, and thus will have a CIDR identity when InjectLabels() is
 	// called.
-	IPIdentityCache.UpsertMetadata(worldPrefix, labels.LabelKubeAPIServer, source.CustomResource, "kube-uid")
+	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "kube-uid", labels.LabelKubeAPIServer)
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
@@ -128,8 +128,8 @@ func setupTest(t *testing.T) {
 	})
 	IPIdentityCache.k8sSyncedChecker = &mockK8sSyncedChecker{}
 
-	IPIdentityCache.UpsertMetadata(worldPrefix, labels.LabelKubeAPIServer, source.CustomResource, "kube-uid")
-	IPIdentityCache.UpsertMetadata(worldPrefix, labels.LabelHost, source.Local, "host-uid")
+	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "kube-uid", labels.LabelKubeAPIServer)
+	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.Local, "host-uid", labels.LabelHost)
 }
 
 type mockK8sSyncedChecker struct{}

@@ -5,6 +5,7 @@ package ipcache
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -422,6 +424,42 @@ func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
 	ipc.RLock()
 	ipc.DumpToListenerLocked(listener)
 	ipc.RUnlock()
+}
+
+// UpsertMetadata upserts a given IP and some corresponding information into
+// the ipcache metadata map. See IPMetadata for a list of types that are valid
+// to pass into this function. This will trigger asynchronous calculation of
+// any datapath updates necessary to implement the logic associated with the
+// specified metadata.
+func (ipc *IPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
+	ipc.metadata.Lock()
+	ipc.metadata.upsertLocked(prefix, src, resource, aux...)
+	ipc.metadata.Unlock()
+	ipc.metadata.enqueuePrefixUpdates(prefix)
+	ipc.TriggerLabelInjection()
+}
+
+func (ipc *IPCache) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
+	ipc.metadata.Lock()
+	ipc.metadata.remove(prefix, resource, aux...)
+	ipc.metadata.Unlock()
+	ipc.metadata.enqueuePrefixUpdates(prefix)
+	ipc.TriggerLabelInjection()
+}
+
+// UpsertLabels upserts a given IP and its corresponding labels associated
+// with it into the ipcache metadata map. The given labels are not modified nor
+// is its reference saved, as they're copied when inserting into the map.
+// This will trigger asynchronous calculation of any local identity changes
+// that must occur to associate the specified labels with the prefix, and push
+// any datapath updates necessary to implement the logic associated with the
+// metadata currently associated with the 'prefix'.
+func (ipc *IPCache) UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
+	ipc.UpsertMetadata(prefix, src, resource, lbls)
+}
+
+func (ipc *IPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource ipcacheTypes.ResourceID) {
+	ipc.RemoveMetadata(cidr, resource, lbls)
 }
 
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
