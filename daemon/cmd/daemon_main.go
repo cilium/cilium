@@ -1553,7 +1553,6 @@ func (d *Daemon) initKVStore() {
 // If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
 // a callback.
 func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCellConfig, clientset k8sClient.Clientset) error {
-
 	if cfg.SkipDaemon {
 		return nil
 	}
@@ -1640,7 +1639,8 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 
 	d, restoredEndpoints, err := NewDaemon(ctx, cleaner,
 		WithDefaultEndpointManager(ctx, endpoint.CheckHealth),
-		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent))
+		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent),
+		clientset)
 	if err != nil {
 		log.Fatalf("daemon creation failed: %s", err)
 	}

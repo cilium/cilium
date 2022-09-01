@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -106,6 +107,7 @@ const (
 // monitoring when a LXC starts.
 type Daemon struct {
 	ctx              context.Context
+	clientset        k8sClient.Clientset
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
 	svc              *service.Service
@@ -366,7 +368,10 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
+	epMgr *endpointmanager.EndpointManager, dp datapath.Datapath,
+	clientset k8sClient.Clientset,
+) (*Daemon, *endpointRestoreState, error) {
 
 	var (
 		err           error
@@ -495,6 +500,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 
 	d := Daemon{
 		ctx:               ctx,
+		clientset:         clientset,
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),

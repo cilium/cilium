@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 )
@@ -36,13 +35,6 @@ type K8sIntegrationSuite struct{}
 var _ = Suite(&K8sIntegrationSuite{})
 
 func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
-	if os.Getenv("INTEGRATION") != "" {
-		if k8sConfigPath := os.Getenv("KUBECONFIG"); k8sConfigPath == "" {
-			k8s.Configure("", "/var/lib/cilium/cilium.kubeconfig", defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
-		} else {
-			k8s.Configure("", k8sConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
-		}
-	}
 }
 
 var nodeSampleJSON = `{

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
@@ -134,11 +135,14 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
+	_, clientset := k8sClient.NewFakeClientset()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	ds.cancel = cancel
 	d, _, err := NewDaemon(ctx, NewDaemonCleanup(),
 		WithCustomEndpointManager(&dummyEpSyncher{}),
-		fakedatapath.NewDatapath())
+		fakedatapath.NewDatapath(),
+		clientset)
 	c.Assert(err, IsNil)
 	ds.d = d
 

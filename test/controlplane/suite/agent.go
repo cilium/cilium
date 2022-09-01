@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	agentOption "github.com/cilium/cilium/pkg/option"
 )
 
@@ -29,7 +30,7 @@ func (h *agentHandle) tearDown() {
 	os.RemoveAll(h.tempDir)
 }
 
-func startCiliumAgent(nodeName string) (*fakeDatapath.FakeDatapath, agentHandle, error) {
+func startCiliumAgent(nodeName string, clientset k8sClient.Clientset) (*fakeDatapath.FakeDatapath, agentHandle, error) {
 	var handle agentHandle
 
 	handle.tempDir = setupTestDirectories()
@@ -46,7 +47,8 @@ func startCiliumAgent(nodeName string) (*fakeDatapath.FakeDatapath, agentHandle,
 	handle.d, _, err = cmd.NewDaemon(ctx,
 		cleaner,
 		cmd.WithCustomEndpointManager(&dummyEpSyncher{}),
-		fdp)
+		fdp,
+		clientset)
 	if err != nil {
 		return nil, agentHandle{}, err
 	}
@@ -69,14 +71,4 @@ func setupTestDirectories() string {
 	agentOption.Config.RunDir = tempDir
 	agentOption.Config.StateDir = tempDir
 	return tempDir
-}
-
-type k8sConfig struct{}
-
-func (k8sConfig) K8sAPIDiscoveryEnabled() bool {
-	return true
-}
-
-func (k8sConfig) K8sLeasesFallbackDiscoveryEnabled() bool {
-	return false
 }
