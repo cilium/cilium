@@ -36,6 +36,9 @@ type TestPeer interface {
 
 	// HasLabel checks if given label with the given name and value exists.
 	HasLabel(name, value string) bool
+
+	// Labels returns copy of peer labels
+	Labels() map[string]string
 }
 
 // Pod is a Kubernetes Pod acting as a peer in a connectivity test.
@@ -91,6 +94,14 @@ func (p Pod) Port() uint32 {
 	return p.port
 }
 
+func (p Pod) Labels() map[string]string {
+	newMap := make(map[string]string, len(p.Pod.Labels))
+	for k, v := range p.Pod.Labels {
+		newMap[k] = v
+	}
+	return newMap
+}
+
 // Service is a service acting as a peer in a connectivity test.
 // It implements interface TestPeer.
 type Service struct {
@@ -131,6 +142,15 @@ func (s Service) HasLabel(name, value string) bool {
 	return ok && v == value
 }
 
+// Labels returns the copy of service labels
+func (s Service) Labels() map[string]string {
+	newMap := make(map[string]string, len(s.Service.Labels))
+	for k, v := range s.Service.Labels {
+		newMap[k] = v
+	}
+	return newMap
+}
+
 // ExternalWorkload is an external workload acting as a peer in a
 // connectivity test. It implements interface TestPeer.
 type ExternalWorkload struct {
@@ -167,6 +187,15 @@ func (e ExternalWorkload) Port() uint32 {
 func (e ExternalWorkload) HasLabel(name, value string) bool {
 	v, ok := e.workload.Labels[name]
 	return ok && v == value
+}
+
+// Labels returns the copy of labels
+func (e ExternalWorkload) Labels() map[string]string {
+	newMap := make(map[string]string, len(e.workload.Labels))
+	for k, v := range e.workload.Labels {
+		newMap[k] = v
+	}
+	return newMap
 }
 
 // ICMPEndpoint returns a new ICMP endpoint.
@@ -214,6 +243,11 @@ func (ie icmpEndpoint) Port() uint32 {
 // HasLabel checks if given label exists and value matches.
 func (ie icmpEndpoint) HasLabel(name, value string) bool {
 	return false
+}
+
+// Labels returns the copy of labels
+func (ie icmpEndpoint) Labels() map[string]string {
+	return make(map[string]string)
 }
 
 // HTTPEndpoint returns a new endpoint with the given name and raw URL.
@@ -291,4 +325,12 @@ func (he httpEndpoint) HasLabel(name, value string) bool {
 		return false
 	}
 	return (*he.labels)[name] == value
+}
+
+func (he httpEndpoint) Labels() map[string]string {
+	newMap := make(map[string]string, len(*he.labels))
+	for k, v := range *he.labels {
+		newMap[k] = v
+	}
+	return newMap
 }
