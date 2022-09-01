@@ -26,9 +26,6 @@ const (
 var (
 	toFQDNsPreCachePath string
 	toFQDNsPreCacheTTL  int
-
-	k8sAPIServer      string
-	k8sKubeConfigPath string
 )
 
 // preflightCmd is the command used to manage preflight tasks for upgrades
@@ -60,15 +57,12 @@ func init() {
 	preflightCmd.AddCommand(pollerCmd)
 
 	// From preflight_migrate_crd_identity.go
-	migrateIdentityCmd.Flags().StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
-	migrateIdentityCmd.Flags().StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
-	migrateIdentityCmd.Flags().StringVar(&kvStore, "kvstore", "", "Key-value store type")
-	migrateIdentityCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	preflightCmd.AddCommand(migrateIdentityCmd)
+	miCmd := migrateIdentityCmd()
+	miCmd.Flags().StringVar(&kvStore, "kvstore", "", "Key-value store type")
+	miCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options e.g. etcd.address=127.0.0.1:4001")
+	preflightCmd.AddCommand(miCmd)
 
-	validateCNP.Flags().StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
-	validateCNP.Flags().StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
-	preflightCmd.AddCommand(validateCNP)
+	preflightCmd.AddCommand(validateCNPCmd())
 
 	rootCmd.AddCommand(preflightCmd)
 }
