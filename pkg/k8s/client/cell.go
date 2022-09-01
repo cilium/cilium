@@ -208,7 +208,7 @@ func (c *compositeClientset) onStart(startCtx context.Context) error {
 	c.startHeartbeat()
 
 	// Update the global K8s clients, K8s version and the capabilities.
-	if err := k8sversion.Update(c, c.Config()); err != nil {
+	if err := k8sversion.Update(c, cfg.EnableK8sAPIDiscovery); err != nil {
 		return err
 	}
 

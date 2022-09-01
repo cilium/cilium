@@ -15,11 +15,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s/client"
-	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -129,35 +126,6 @@ func useNodeCIDR(n *nodeTypes.Node) {
 	if n.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
 		node.SetIPv6NodeRange(n.IPv6AllocCIDR)
 	}
-}
-
-// Init initializes the Kubernetes package. It is required to call Configure()
-// beforehand.
-func Init(conf k8sconfig.Configuration) error {
-	cfg := client.Config{
-		K8sAPIServer:      GetAPIServerURL(),
-		K8sKubeConfigPath: GetKubeconfigPath(),
-		K8sClientQPS:      GetQPS(),
-		K8sClientBurst:    GetBurst(),
-	}
-
-	clientset, err := client.NewStandaloneClientset(cfg)
-	if err != nil {
-		return err
-	}
-
-	SetClients(clientset, clientset.Slim(), clientset, clientset)
-
-	if err := k8sversion.Update(Client(), conf); err != nil {
-		return err
-	}
-
-	if !k8sversion.Capabilities().MinimalVersionMet {
-		return fmt.Errorf("k8s version (%v) is not meeting the minimal requirement (%v)",
-			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
-	}
-
-	return nil
 }
 
 // WaitForNodeInformation retrieves the node information via the CiliumNode or

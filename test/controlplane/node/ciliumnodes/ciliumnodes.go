@@ -11,11 +11,11 @@ import (
 	"reflect"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1" // nolint: golint
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2" // nolint: golint
 	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/suite"
