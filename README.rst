@@ -335,9 +335,9 @@ and the `2-Clause BSD License <bsd-license_>`__
     :alt: CII Best Practices
     :target: https://bestpractices.coreinfrastructure.org/projects/1269
 
-.. |clomonitor| image:: https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/cilium/cilium/badge
+.. |clomonitor| image:: https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/cilium/badge
     :alt: CLOMonitor
-    :target: https://clomonitor.io/projects/cncf/cilium/cilium
+    :target: https://clomonitor.io/projects/cncf/cilium
 
 .. |artifacthub| image:: https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/cilium
     :alt: Artifact Hub
