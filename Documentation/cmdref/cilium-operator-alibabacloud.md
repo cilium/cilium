@@ -35,7 +35,7 @@ cilium-operator-alibabacloud [flags]
       --enable-k8s-endpoint-slice                 Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
-      --gops-port int                             Port for gops server to listen on (default 9891)
+      --gops-port uint16                          Port for gops server to listen on (default 9890)
   -h, --help                                      help for cilium-operator-alibabacloud
       --identity-allocation-mode string           Method to use for identity allocation (default "kvstore")
       --identity-gc-interval duration             GC interval for security identities (default 15m0s)

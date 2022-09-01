@@ -421,13 +421,13 @@ type FakeClientset struct {
 	*CiliumFakeClientset
 	*APIExtFakeClientset
 
-	SlimClientset *SlimFakeClientset
+	SlimFakeClientset *SlimFakeClientset
 }
 
 var _ Clientset = &FakeClientset{}
 
 func (c *FakeClientset) Slim() slim_clientset.Interface {
-	return c.SlimClientset
+	return c.SlimFakeClientset
 }
 
 func (c *FakeClientset) Discovery() discovery.DiscoveryInterface {
@@ -448,7 +448,7 @@ func (c *FakeClientset) Config() Config {
 
 func NewFakeClientset() (*FakeClientset, Clientset) {
 	client := FakeClientset{
-		SlimClientset:           slim_fake.NewSimpleClientset(),
+		SlimFakeClientset:       slim_fake.NewSimpleClientset(),
 		CiliumFakeClientset:     cilium_fake.NewSimpleClientset(),
 		APIExtFakeClientset:     apiext_fake.NewSimpleClientset(),
 		KubernetesFakeClientset: fake.NewSimpleClientset(),

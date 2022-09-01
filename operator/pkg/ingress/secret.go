@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
@@ -77,18 +78,18 @@ func (n noOpsSecretManager) Run() {}
 func (n noOpsSecretManager) Add(event interface{}) {}
 
 // newSyncSecretsManager constructs a new secret manager instance
-func newSyncSecretsManager(namespace string, maxRetries int) (secretManager, error) {
+func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxRetries int) (secretManager, error) {
 	manager := &syncSecretManager{
 		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		namespace:        namespace,
 		maxRetries:       maxRetries,
-		client:           k8s.Client().CoreV1().Secrets(namespace),
+		client:           clientset.CoreV1().Secrets(namespace),
 		watchedSecretMap: map[string]string{},
 	}
 
 	manager.store, manager.informer = informer.NewInformer(
 		utils.ListerWatcherWithModifier(
-			utils.ListerWatcherFromTyped[*slim_corev1.SecretList](k8s.WatcherClient().CoreV1().Secrets(corev1.NamespaceAll)),
+			utils.ListerWatcherFromTyped[*slim_corev1.SecretList](clientset.Slim().CoreV1().Secrets(corev1.NamespaceAll)),
 			// only watch TLS secret
 			func(options *metav1.ListOptions) {
 				options.FieldSelector = tlsFieldSelector

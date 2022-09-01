@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -47,14 +47,14 @@ func podNodeNameIndexFunc(obj interface{}) ([]string, error) {
 	return []string{}, nil
 }
 
-func PodsInit(slimClient *k8s.K8sSlimClient, stopCh <-chan struct{}) {
+func PodsInit(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 	var podInformer cache.Controller
 	PodStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
 		PodNodeNameIndex: podNodeNameIndexFunc,
 	})
 	podInformer = informer.NewInformerWithStore(
 		k8sUtils.ListerWatcherWithFields(
-			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](slimClient.CoreV1().Pods("")),
+			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](clientset.Slim().CoreV1().Pods("")),
 			fields.Everything()),
 		&slim_corev1.Pod{},
 		0,
@@ -120,11 +120,11 @@ func convertToPod(obj interface{}) interface{} {
 	}
 }
 
-func UnmanagedKubeDNSPodsInit(slimClient *k8s.K8sSlimClient) {
+func UnmanagedKubeDNSPodsInit(clientset k8sClient.Clientset) {
 	var unmanagedPodInformer cache.Controller
 	UnmanagedKubeDNSPodStore, unmanagedPodInformer = informer.NewInformer(
 		k8sUtils.ListerWatcherWithModifier(
-			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](slimClient.CoreV1().Pods("")),
+			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](clientset.Slim().CoreV1().Pods("")),
 			func(options *metav1.ListOptions) {
 				options.LabelSelector = "k8s-app=kube-dns"
 				options.FieldSelector = "status.phase=Running"

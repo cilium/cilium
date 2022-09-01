@@ -30,8 +30,8 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -48,14 +48,14 @@ type envoyConfigManager struct {
 	maxRetries int
 }
 
-func newEnvoyConfigManager(maxRetries int) (*envoyConfigManager, error) {
+func newEnvoyConfigManager(clientset k8sClient.Clientset, maxRetries int) (*envoyConfigManager, error) {
 	manager := &envoyConfigManager{
 		maxRetries: maxRetries,
 	}
 
 	// setup store and informer only for endpoints having label cilium.io/ingress
 	manager.store, manager.informer = informer.NewInformer(
-		utils.ListerWatcherFromTyped[*v2.CiliumEnvoyConfigList](k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(corev1.NamespaceAll)),
+		utils.ListerWatcherFromTyped[*v2.CiliumEnvoyConfigList](clientset.CiliumV2().CiliumEnvoyConfigs(corev1.NamespaceAll)),
 		&v2.CiliumEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{},

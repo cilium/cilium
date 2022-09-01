@@ -12,8 +12,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -52,8 +52,8 @@ func (c *ciliumNodeGCCandidate) Delete(nodeName string) {
 }
 
 // RunCiliumNodeGC performs garbage collector for cilium node resource
-func RunCiliumNodeGC(ctx context.Context, ciliumNodeStore cache.Store, interval time.Duration) {
-	nodesInit(k8s.WatcherClient(), ctx.Done())
+func RunCiliumNodeGC(ctx context.Context, clientset k8sClient.Clientset, ciliumNodeStore cache.Store, interval time.Duration) {
+	nodesInit(clientset.Slim(), ctx.Done())
 
 	// wait for k8s nodes synced is done
 	select {
@@ -70,7 +70,7 @@ func RunCiliumNodeGC(ctx context.Context, ciliumNodeStore cache.Store, interval 
 		controller.ControllerParams{
 			Context: ctx,
 			DoFunc: func(ctx context.Context) error {
-				return performCiliumNodeGC(ctx, k8s.CiliumClient().CiliumV2().CiliumNodes(), ciliumNodeStore,
+				return performCiliumNodeGC(ctx, clientset.CiliumV2().CiliumNodes(), ciliumNodeStore,
 					nodeGetter{}, interval, candidateStore)
 			},
 			RunInterval: interval,

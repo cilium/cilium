@@ -15,7 +15,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -29,10 +29,10 @@ var (
 	lastPodRestart = map[string]time.Time{}
 )
 
-func enableUnmanagedKubeDNSController() {
+func enableUnmanagedKubeDNSController(clientset k8sClient.Clientset) {
 	// These functions will block until the resources are synced with k8s.
-	watchers.CiliumEndpointsInit(k8s.CiliumClient().CiliumV2(), wait.NeverStop)
-	watchers.UnmanagedKubeDNSPodsInit(k8s.WatcherClient())
+	watchers.CiliumEndpointsInit(clientset, wait.NeverStop)
+	watchers.UnmanagedKubeDNSPodsInit(clientset)
 
 	controller.NewManager().UpdateController("restart-unmanaged-kube-dns",
 		controller.ControllerParams{
@@ -77,7 +77,7 @@ func enableUnmanagedKubeDNSController() {
 								}
 
 								log.WithField(logfields.K8sPodName, podID).Infof("Restarting unmanaged kube-dns pod, started %s ago", age)
-								if err := k8s.Client().CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
+								if err := clientset.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
 									log.WithError(err).WithField(logfields.K8sPodName, podID).Warning("Unable to restart pod")
 								} else {
 									lastPodRestart[podID] = time.Now()

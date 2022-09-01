@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
@@ -24,7 +24,7 @@ type endpointManager struct {
 	maxRetries int
 }
 
-func newEndpointManager(maxRetries int) (*endpointManager, error) {
+func newEndpointManager(clientset k8sClient.Clientset, maxRetries int) (*endpointManager, error) {
 	manager := &endpointManager{
 		maxRetries: maxRetries,
 	}
@@ -32,7 +32,7 @@ func newEndpointManager(maxRetries int) (*endpointManager, error) {
 	// setup store and informer only for endpoints having label cilium.io/ingress
 	manager.store, manager.informer = informer.NewInformer(
 		utils.ListerWatcherWithModifier(
-			utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](k8s.WatcherClient().CoreV1().Endpoints("")),
+			utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](clientset.Slim().CoreV1().Endpoints("")),
 			func(options *metav1.ListOptions) {
 				options.LabelSelector = ciliumIngressLabelKey
 			}),
