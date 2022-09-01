@@ -35,6 +35,7 @@ type Cell struct {
 	registerFlags func(*pflag.FlagSet)
 	name          string
 	opts          []fx.Option
+	flags         []string // Flags registered for the cell. Populated after call to registerFlags().
 }
 
 // NewCell constructs a new cell with the given name and options.

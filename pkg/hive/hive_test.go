@@ -6,6 +6,7 @@
 package hive
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/pflag"
@@ -55,4 +56,38 @@ func TestHive(t *testing.T) {
 		t.Fatalf("Config not set correctly, expected 'override', got %v", cfg)
 	}
 
+}
+
+// BadConfig has a field that matches no flags, and CellFlags
+// declares a flag that matches no field.
+type BadConfig struct {
+	Bar string
+}
+
+func (BadConfig) CellFlags(flags *pflag.FlagSet) {
+	flags.String("foo", "foobar", "foo")
+}
+
+func TestHiveBadConfig(t *testing.T) {
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	viper := viper.New()
+
+	var cfg BadConfig
+	cell := NewCellWithConfig[BadConfig](
+		"test-cell",
+		fx.Populate(&cfg),
+	)
+
+	hive := New(viper, flags, cell)
+	_, err := hive.TestApp(t)
+	if err == nil {
+		t.Fatal("Expected TestApp() to fail")
+	}
+
+	if !strings.Contains(err.Error(), "has invalid keys: foo") {
+		t.Fatalf("Expected 'invalid keys' error, got: %s", err)
+	}
+	if !strings.Contains(err.Error(), "has unset fields: Bar") {
+		t.Fatalf("Expected 'unset fields' error, got: %s", err)
+	}
 }

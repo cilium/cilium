@@ -135,6 +135,16 @@ func (h *Hive) PrintObjects() {
 		}
 		fmt.Printf("  • %s\n", funcNameAndLocation(hook.OnStop))
 	}
+
+	fmt.Printf("\nConfigurations:\n\n")
+	allSettings := h.viper.AllSettings()
+	for _, cell := range h.cells {
+		if cell.newConfig != nil {
+			cfg := cell.newConfig()
+			h.unmarshalConfig(allSettings, cell, &cfg)
+			fmt.Printf("  ⚙ %s: %#v\n", cell.name, cfg)
+		}
+	}
 }
 
 func (h *Hive) PrintDotGraph() {
@@ -154,7 +164,12 @@ func (h *Hive) getEnvName(option string) string {
 // registerCells registers the command-line flags from all the cells.
 func (h *Hive) registerFlags(parent *pflag.FlagSet) error {
 	for _, cell := range h.cells {
-		cell.registerFlags(h.flags)
+		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+		cell.registerFlags(flags)
+		h.flags.AddFlagSet(flags)
+		flags.VisitAll(func(f *pflag.Flag) {
+			cell.flags = append(cell.flags, f.Name)
+		})
 	}
 	var err error
 	h.flags.VisitAll(func(f *pflag.Flag) {
@@ -177,6 +192,8 @@ func (h *Hive) registerFlags(parent *pflag.FlagSet) error {
 // populate creates the cell configurations from viper and returns the combined
 // fx option for all cells and their configurations.
 func (h *Hive) populate(overrides ...any) (fx.Option, error) {
+	allSettings := h.viper.AllSettings()
+
 	overridesMap := map[reflect.Type]any{}
 	for _, cfg := range overrides {
 		overridesMap[reflect.TypeOf(cfg)] = cfg
@@ -193,7 +210,7 @@ func (h *Hive) populate(overrides ...any) (fx.Option, error) {
 			if override, ok := overridesMap[reflect.TypeOf(cfg)]; ok {
 				cfg = override
 			} else {
-				if err := h.unmarshalConfig(&cfg); err != nil {
+				if err := h.unmarshalConfig(allSettings, cell, &cfg); err != nil {
 					return nil, err
 				}
 			}
@@ -253,8 +270,23 @@ func (h *Hive) TestApp(tb fxtest.TB, configs ...any) (*fxtest.App, error) {
 		opts), nil
 }
 
-func (h *Hive) unmarshalConfig(target *any) error {
-	if err := h.viper.Unmarshal(target, decoderConfig); err != nil {
+func (h *Hive) unmarshalConfig(allSettings map[string]any, cell *Cell, target *any) error {
+	decoder, err := mapstructure.NewDecoder(decoderConfig(target))
+	if err != nil {
+		return fmt.Errorf("failed to create config decoder: %w", err)
+	}
+
+	// As input, only consider the flags declared by CellFlags.
+	input := make(map[string]any)
+	for _, flag := range cell.flags {
+		if v, ok := allSettings[flag]; ok {
+			input[flag] = v
+		} else {
+			return fmt.Errorf("internal error: cell flag %s not found from settings", flag)
+		}
+	}
+
+	if err := decoder.Decode(input); err != nil {
 		return fmt.Errorf("failed to unmarshal config struct %T: %w.\n"+
 			"Hint: field 'FooBar' matches flag 'foo-bar', or use tag `mapstructure:\"flag-name\"` to match field with flag",
 			*target, err)
@@ -262,18 +294,30 @@ func (h *Hive) unmarshalConfig(target *any) error {
 	return nil
 }
 
-func decoderConfig(cfg *mapstructure.DecoderConfig) {
-	// Error out if the config struct has fields that are
-	// not found from viper.
-	cfg.ErrorUnset = true
-
-	// Match field FooBarBaz with "foo-bar-baz" by removing
-	// the dashes from the flag.
-	cfg.MatchName = func(mapKey, fieldName string) bool {
-		return strings.EqualFold(
-			strings.ReplaceAll(mapKey, "-", ""),
-			fieldName)
+func decoderConfig(target *any) *mapstructure.DecoderConfig {
+	return &mapstructure.DecoderConfig{
+		Metadata:         nil,
+		Result:           target,
+		WeaklyTypedInput: true,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToSliceHookFunc(","),
+		),
+		ZeroFields: true,
+		// Error out if the config struct has fields that are
+		// not found from input.
+		ErrorUnset: true,
+		// Error out also if settings from input are not used.
+		ErrorUnused: true,
+		// Match field FooBarBaz with "foo-bar-baz" by removing
+		// the dashes from the flag.
+		MatchName: func(mapKey, fieldName string) bool {
+			return strings.EqualFold(
+				strings.ReplaceAll(mapKey, "-", ""),
+				fieldName)
+		},
 	}
+
 }
 
 // lifecycleProxy collects the appended hooks so they can be shown
