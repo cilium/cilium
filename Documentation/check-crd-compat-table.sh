@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-dst_file="${PWD}/$(basename ${dir})/concepts/kubernetes/compatibility-table.rst"
+dst_file="${PWD}/$(basename ${dir})/network/kubernetes/compatibility-table.rst"
 
 . "${dir}/../contrib/backporting/common.sh"
 remote="$(get_remote)"
