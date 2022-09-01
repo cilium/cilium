@@ -31,8 +31,14 @@ func TestHive(t *testing.T) {
 		"test-cell",
 		fx.Populate(&cfg),
 	)
+	var receivedConfig bool
 
-	hive := New(viper, flags, cell)
+	hive := New(viper, flags,
+		cell,
+		OnStart(func(c Config) error {
+			receivedConfig = true
+			return nil
+		}))
 
 	flags.Set("hello", "test")
 
@@ -44,6 +50,10 @@ func TestHive(t *testing.T) {
 	app.RequireStart().RequireStop()
 	if cfg.Hello != "test" {
 		t.Fatalf("Config not set correctly, expected 'test', got %v", cfg)
+	}
+
+	if !receivedConfig {
+		t.Fatal("OnStart hook not called")
 	}
 
 	// Test with config override

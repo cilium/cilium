@@ -4,6 +4,8 @@
 package hive
 
 import (
+	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/spf13/pflag"
@@ -51,6 +53,59 @@ func NewCell(name string, opts ...fx.Option) *Cell {
 // Invoke constructs an unnamed cell for an invoke function.
 func Invoke(fn any) *Cell {
 	return NewCell("", fx.Invoke(fn))
+}
+
+// OnStart registers a function of form "func(a A, b B, ...) error" to run on start up.
+// The function can take any number of arguments.
+//
+// For example:
+//
+//	func myStartFunc(a A, b B) error
+//	OnStart(myStartFunc)
+//
+// This will append a start hook to run myStartFunc after A and B have been constructed
+// and their start hooks have been executed. This is equivalent to the long form:
+//
+//	NewCell("", fx.Invoke(func(lc fx.Lifecycle, a A, b B) {
+//		lc.Append(fx.Hook{OnStart: func(context.Context) error {
+//			return myStartFunc(a, b)
+//	  	})
+//	}))
+func OnStart(fn any) *Cell {
+	typ := reflect.TypeOf(fn)
+	if typ.Kind() != reflect.Func {
+		panic(fmt.Sprintf("OnStart called with unsupported type %s. Argument must be a function", typ))
+	}
+
+	in := []reflect.Type{reflect.TypeOf(new(fx.Lifecycle)).Elem()}
+	for i := 0; i < typ.NumIn(); i++ {
+		in = append(in, typ.In(i))
+	}
+	errType := reflect.TypeOf(new(error)).Elem()
+	if typ.NumOut() != 1 || !typ.Out(0).Implements(errType) {
+		panic(fmt.Sprintf("OnStart called with unsupported type %s. Start function needs to return an error", typ))
+	}
+
+	// Construct a wrapper function that takes the same arguments plus lifecycle.
+	// The wrapper will append a start hook and will then invoke the original function
+	// from the start hook.
+	// We ignore any outputs from the function.
+	funTyp := reflect.FuncOf(in, []reflect.Type{}, false)
+	funVal := reflect.MakeFunc(funTyp, func(args []reflect.Value) []reflect.Value {
+		lc := args[0].Interface().(fx.Lifecycle)
+		lc.Append(fx.Hook{
+			OnStart: func(context.Context) error {
+				result := reflect.ValueOf(fn).Call(args[1:])
+				if result[0].IsNil() {
+					return nil
+				} else {
+					return result[0].Interface().(error)
+				}
+			},
+		})
+		return []reflect.Value{}
+	})
+	return NewCell("", fx.Invoke(funVal.Interface()))
 }
 
 // Require constructs a cell that ensures the object T is
