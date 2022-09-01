@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -44,23 +45,23 @@ type VMManager struct {
 	ciliumExternalWorkloadInformer cache.Controller
 }
 
-func NewVMManager(ciliumK8sClient clientset.Interface) *VMManager {
+func NewVMManager(clientset k8sClient.Clientset) *VMManager {
 	m := &VMManager{
-		ciliumClient: ciliumK8sClient,
+		ciliumClient: clientset,
 	}
 	m.identityAllocator = identityCache.NewCachingIdentityAllocator(m)
 
 	if option.Config.EnableWellKnownIdentities {
 		identity.InitWellKnownIdentities(option.Config)
 	}
-	m.identityAllocator.InitIdentityAllocator(ciliumK8sClient, identityStore)
-	m.startCiliumExternalWorkloadWatcher()
+	m.identityAllocator.InitIdentityAllocator(clientset, identityStore)
+	m.startCiliumExternalWorkloadWatcher(clientset)
 	return m
 }
 
-func (m *VMManager) startCiliumExternalWorkloadWatcher() {
+func (m *VMManager) startCiliumExternalWorkloadWatcher(clientset k8sClient.Clientset) {
 	m.ciliumExternalWorkloadStore, m.ciliumExternalWorkloadInformer = informer.NewInformer(
-		cache.NewListWatchFromClient(ciliumK8sClient.CiliumV2().RESTClient(),
+		cache.NewListWatchFromClient(clientset.CiliumV2().RESTClient(),
 			ciliumv2.CEWPluralName, k8sv1.NamespaceAll, fields.Everything()),
 		&ciliumv2.CiliumExternalWorkload{},
 		0,
