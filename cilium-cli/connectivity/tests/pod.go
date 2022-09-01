@@ -120,7 +120,7 @@ func curlEndpoints(ctx context.Context, s check.Scenario, t *check.Test,
 	for _, path := range []string{"public", "private"} {
 		epName := fmt.Sprintf("%s-%s", name, path)
 		url := fmt.Sprintf("%s/%s", baseURL, path)
-		ep := check.HTTPEndpoint(epName, url)
+		ep := check.HTTPEndpointWithLabels(epName, url, echo.Labels())
 
 		t.NewAction(s, epName, client, ep).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, curl(ep, curlOpts...))
@@ -132,9 +132,9 @@ func curlEndpoints(ctx context.Context, s check.Scenario, t *check.Test,
 		// Additionally test private endpoint access with HTTP header expected by policy.
 		if path == "private" {
 			epName += "with-header"
-			ep = check.HTTPEndpointWithLabels(epName, url, map[string]string{
-				"X-Very-Secret-Token": "42",
-			})
+			labels := echo.Labels()
+			labels["X-Very-Secret-Token"] = "42"
+			ep = check.HTTPEndpointWithLabels(epName, url, labels)
 			t.NewAction(s, epName, client, ep).Run(func(a *check.Action) {
 				opts := make([]string, 0, len(curlOpts)+2)
 				opts = append(opts, curlOpts...)
