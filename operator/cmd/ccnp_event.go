@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -31,7 +32,7 @@ func k8sEventMetric(scope, action string) {
 // clusterwide policies. Since, internally Clusterwide policies are implemented
 // using CiliumNetworkPolicy itself, the entire implementation uses the methods
 // associcated with CiliumNetworkPolicy.
-func enableCCNPWatcher() error {
+func enableCCNPWatcher(clientset k8sClient.Clientset) error {
 	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
 	if enableCNPStatusUpdates {
 		log.Info("Starting a CCNP Status handover from kvstore to k8s")
@@ -63,7 +64,7 @@ func enableCCNPWatcher() error {
 	}
 
 	ciliumV2Controller := informer.NewInformerWithStore(
-		utils.ListerWatcherFromTyped[*cilium_v2.CiliumClusterwideNetworkPolicyList](ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies()),
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumClusterwideNetworkPolicyList](clientset.CiliumV2().CiliumClusterwideNetworkPolicies()),
 		&cilium_v2.CiliumClusterwideNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{

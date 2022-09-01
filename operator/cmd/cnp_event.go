@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -36,7 +37,7 @@ func init() {
 
 // enableCNPWatcher waits for the CiliumNetowrkPolicy CRD availability and then
 // garbage collects stale CiliumNetowrkPolicy status field entries.
-func enableCNPWatcher() error {
+func enableCNPWatcher(clientset k8sClient.Clientset) error {
 	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
 	if enableCNPStatusUpdates {
 		log.Info("Starting CNP Status handover from kvstore to k8s")
@@ -68,7 +69,7 @@ func enableCNPWatcher() error {
 	}
 
 	ciliumV2Controller := informer.NewInformerWithStore(
-		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNetworkPolicyList](ciliumK8sClient.CiliumV2().CiliumNetworkPolicies("")),
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNetworkPolicyList](clientset.CiliumV2().CiliumNetworkPolicies("")),
 		&cilium_v2.CiliumNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{

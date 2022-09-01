@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -109,7 +110,7 @@ type ServiceSyncConfiguration interface {
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
+func StartSynchronizingServices(clientset k8sClient.Clientset, shared bool, cfg ServiceSyncConfiguration) {
 	log.Info("Starting to synchronize k8s services to kvstore")
 	sharedOnly = shared
 
@@ -122,11 +123,15 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 
 	go func() {
 		store, err := store.JoinSharedStore(store.Configuration{
-			Prefix: serviceStore.ServiceStorePrefix,
+			Prefix:                  serviceStore.ServiceStorePrefix,
+			SynchronizationInterval: 5 * time.Minute,
+			SharedKeyDeleteDelay:    0,
 			KeyCreator: func() store.Key {
 				return &serviceStore.ClusterService{}
 			},
-			SynchronizationInterval: 5 * time.Minute,
+			Backend:  nil,
+			Observer: nil,
+			Context:  nil,
 		})
 
 		if err != nil {
@@ -142,7 +147,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 
 	serviceSubscribers.Register(newServiceCacheSubscriber(swgSvcs, swgEps))
 
-	InitServiceWatcher(cfg, swgSvcs, swgEps, serviceOptsModifier)
+	InitServiceWatcher(cfg, clientset, swgSvcs, swgEps, serviceOptsModifier)
 
 	var (
 		endpointController cache.Controller
@@ -152,7 +157,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 	switch {
 	case k8s.SupportsEndpointSlice():
 		var endpointSliceEnabled bool
-		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.WatcherClient(), swgEps)
+		endpointController, endpointSliceEnabled = endpointSlicesInit(clientset.Slim(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if endpointSliceEnabled {
 			// endpointController has been kicked off already inside
@@ -167,7 +172,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 		}
 		fallthrough
 	default:
-		endpointController = endpointsInit(k8s.WatcherClient(), swgEps, serviceOptsModifier)
+		endpointController = endpointsInit(clientset.Slim(), swgEps, serviceOptsModifier)
 		go endpointController.Run(wait.NeverStop)
 	}
 
@@ -187,6 +192,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 // changes and push changes into ServiceCache.
 func InitServiceWatcher(
 	cfg ServiceSyncConfiguration,
+	clientset k8sClient.Clientset,
 	swgSvcs, swgEps *lock.StoppableWaitGroup,
 	optsModifier func(options *v1meta.ListOptions),
 ) {
@@ -194,7 +200,7 @@ func InitServiceWatcher(
 		// Watch for v1.Service changes and push changes into ServiceCache.
 		serviceIndexer, serviceController = informer.NewInformer(
 			utils.ListerWatcherWithModifier(
-				utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](k8s.WatcherClient().CoreV1().Services("")),
+				utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](clientset.Slim().CoreV1().Services("")),
 				optsModifier),
 			&slim_corev1.Service{},
 			0,

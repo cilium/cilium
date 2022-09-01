@@ -15,8 +15,8 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -32,15 +32,13 @@ import (
 //     delete CEP if the corresponding pod does not exist
 //
 // CiliumEndpoint objects have the same name as the pod they represent
-func enableCiliumEndpointSyncGC(once bool) {
+func enableCiliumEndpointSyncGC(clientset k8sClient.Clientset, once bool) {
 	var (
 		controllerName = "to-k8s-ciliumendpoint-gc"
 		scopedLog      = log.WithField("controller", controllerName)
 		gcInterval     time.Duration
 		stopCh         = make(chan struct{})
 	)
-
-	ciliumClient := ciliumK8sClient.CiliumV2()
 
 	if once {
 		log.Info("Running the garbage collector only once to clean up leftover CiliumEndpoint custom resources")
@@ -51,12 +49,12 @@ func enableCiliumEndpointSyncGC(once bool) {
 	}
 
 	// This functions will block until the resources are synced with k8s.
-	watchers.CiliumEndpointsInit(ciliumClient, stopCh)
+	watchers.CiliumEndpointsInit(clientset, stopCh)
 	if !once {
 		// If we are running this function "once" it means that we
 		// will delete all CEPs in the cluster regardless of the pod
 		// state.
-		watchers.PodsInit(k8s.WatcherClient(), stopCh)
+		watchers.PodsInit(clientset, stopCh)
 	}
 	<-k8sCiliumNodesCacheSynced
 
@@ -65,13 +63,13 @@ func enableCiliumEndpointSyncGC(once bool) {
 		controller.ControllerParams{
 			RunInterval: gcInterval,
 			DoFunc: func(ctx context.Context) error {
-				return doCiliumEndpointSyncGC(ctx, once, stopCh, scopedLog)
+				return doCiliumEndpointSyncGC(ctx, clientset, once, stopCh, scopedLog)
 			},
 		})
 }
 
-func doCiliumEndpointSyncGC(ctx context.Context, once bool, stopCh chan struct{}, scopedLog *logrus.Entry) error {
-	ciliumClient := ciliumK8sClient.CiliumV2()
+func doCiliumEndpointSyncGC(ctx context.Context, clientset k8sClient.Clientset, once bool, stopCh chan struct{}, scopedLog *logrus.Entry) error {
+	ciliumClient := clientset.CiliumV2()
 	// For each CEP we fetched, check if we know about it
 	for _, cepObj := range watchers.CiliumEndpointStore.List() {
 		cep, ok := cepObj.(*cilium_v2.CiliumEndpoint)

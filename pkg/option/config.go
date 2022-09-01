@@ -2113,8 +2113,6 @@ type DaemonConfig struct {
 	// map.
 	SizeofSockRevElement int
 
-	K8sEnableAPIDiscovery bool
-
 	// k8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
 	// for the support of Leases in Kubernetes when there is an error in discovering
 	// API groups using Discovery API.
@@ -2276,7 +2274,6 @@ var (
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
 		EnableWellKnownIdentities:    defaults.EnableWellKnownIdentities,
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
-		K8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 		AllocatorListTimeout:         defaults.AllocatorListTimeout,
 		EnableICMPRules:              defaults.EnableICMPRules,
 
@@ -2519,22 +2516,9 @@ func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
 	}
 }
 
-// K8sAPIDiscoveryEnabled returns true if API discovery of API groups and
-// resources is enabled
-func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
-	return c.K8sEnableAPIDiscovery
-}
-
 // K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
 func (c *DaemonConfig) K8sIngressControllerEnabled() bool {
 	return c.EnableIngressController
-}
-
-// K8sLeasesFallbackDiscoveryEnabled returns true if we should fallback to direct API
-// probing when checking for support of Leases in case Discovery API fails to discover
-// required groups.
-func (c *DaemonConfig) K8sLeasesFallbackDiscoveryEnabled() bool {
-	return c.K8sEnableAPIDiscovery
 }
 
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
@@ -2544,12 +2528,6 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
 	return (c.EnableNodePort || BPFHostRoutingEnabled) && !c.TunnelingEnabled()
-}
-
-// EnableK8sLeasesFallbackDiscovery enables using direct API probing as a fallback to check
-// for the support of Leases when discovering API groups is not possible.
-func (c *DaemonConfig) EnableK8sLeasesFallbackDiscovery() {
-	c.K8sEnableAPIDiscovery = true
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -2856,7 +2834,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPv6ServiceRange = vp.GetString(IPv6ServiceRange)
 	c.JoinCluster = vp.GetBool(JoinClusterName)
 	c.K8sEnableK8sEndpointSlice = vp.GetBool(K8sEnableEndpointSlice)
-	c.K8sEnableAPIDiscovery = vp.GetBool(K8sEnableAPIDiscovery)
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(vp.GetInt(K8sServiceCacheSize))

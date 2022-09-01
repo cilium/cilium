@@ -9,14 +9,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	fakeApiExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
-	"k8s.io/client-go/kubernetes/fake"
-
 	"github.com/cilium/cilium/daemon/cmd"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
-	fakeCilium "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
-	fakeSlim "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 	agentOption "github.com/cilium/cilium/pkg/option"
 )
 
@@ -34,7 +29,7 @@ func (h *agentHandle) tearDown() {
 	os.RemoveAll(h.tempDir)
 }
 
-func startCiliumAgent(nodeName string, clients fakeClients) (*fakeDatapath.FakeDatapath, agentHandle, error) {
+func startCiliumAgent(nodeName string) (*fakeDatapath.FakeDatapath, agentHandle, error) {
 	var handle agentHandle
 
 	handle.tempDir = setupTestDirectories()
@@ -84,11 +79,4 @@ func (k8sConfig) K8sAPIDiscoveryEnabled() bool {
 
 func (k8sConfig) K8sLeasesFallbackDiscoveryEnabled() bool {
 	return false
-}
-
-type fakeClients struct {
-	core   *fake.Clientset
-	slim   *fakeSlim.Clientset
-	cilium *fakeCilium.Clientset
-	apiext *fakeApiExt.Clientset
 }

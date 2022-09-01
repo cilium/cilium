@@ -16,7 +16,7 @@ import (
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_cli "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -51,10 +51,10 @@ var (
 )
 
 // CiliumEndpointsSliceInit starts a CiliumEndpointWatcher and caches cesController locally.
-func CiliumEndpointsSliceInit(ciliumNPClient cilium_cli.CiliumV2Interface,
+func CiliumEndpointsSliceInit(clientset k8sClient.Clientset,
 	cbController *ces.CiliumEndpointSliceController) {
 	cesController = cbController
-	CiliumEndpointsInit(ciliumNPClient, wait.NeverStop)
+	CiliumEndpointsInit(clientset, wait.NeverStop)
 }
 
 // identityIndexFunc index identities by ID.
@@ -71,7 +71,7 @@ func identityIndexFunc(obj interface{}) ([]string, error) {
 }
 
 // CiliumEndpointsInit starts a CiliumEndpointWatcher
-func CiliumEndpointsInit(ciliumNPClient cilium_cli.CiliumV2Interface, stopCh <-chan struct{}) {
+func CiliumEndpointsInit(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 	once.Do(func() {
 		CiliumEndpointStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, indexers)
 
@@ -104,7 +104,7 @@ func CiliumEndpointsInit(ciliumNPClient cilium_cli.CiliumV2Interface, stopCh <-c
 		}
 
 		ciliumEndpointInformer := informer.NewInformerWithStore(
-			utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](k8s.CiliumClient().CiliumV2().CiliumEndpoints("")),
+			utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](clientset.CiliumV2().CiliumEndpoints("")),
 			&cilium_api_v2.CiliumEndpoint{},
 			0,
 			cacheResourceHandler,

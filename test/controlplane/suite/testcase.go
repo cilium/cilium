@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discov1 "k8s.io/api/discovery/v1"
 	discov1beta1 "k8s.io/api/discovery/v1beta1"
-	fakeApiExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -24,7 +23,6 @@ import (
 	versionapi "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	fakediscovery "k8s.io/client-go/discovery/fake"
-	"k8s.io/client-go/kubernetes/fake"
 	k8sTesting "k8s.io/client-go/testing"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -39,11 +37,11 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	fakeCilium "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	fakeSlim "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/proxy"
+
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
 
 const (
@@ -58,7 +56,7 @@ type trackerAndDecoder struct {
 type ControlPlaneTest struct {
 	t              *testing.T
 	nodeName       string
-	clients        fakeClients
+	clients        *k8sClient.FakeClientset
 	trackers       []trackerAndDecoder
 	agentHandle    *agentHandle
 	operatorHandle *operatorHandle
@@ -66,28 +64,27 @@ type ControlPlaneTest struct {
 }
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
-	clients := fakeClients{
-		core:   addFieldSelection(fake.NewSimpleClientset()),
-		slim:   addFieldSelection(fakeSlim.NewSimpleClientset()),
-		cilium: addFieldSelection(fakeCilium.NewSimpleClientset()),
-		apiext: addFieldSelection(fakeApiExt.NewSimpleClientset()),
-	}
-	fd := clients.core.Discovery().(*fakediscovery.FakeDiscovery)
+	clients, _ := k8sClient.NewFakeClientset()
+	clients.KubernetesFakeClientset = addFieldSelection(clients.KubernetesFakeClientset)
+	clients.SlimFakeClientset = addFieldSelection(clients.SlimFakeClientset)
+	clients.CiliumFakeClientset = addFieldSelection(clients.CiliumFakeClientset)
+	clients.APIExtFakeClientset = addFieldSelection(clients.APIExtFakeClientset)
+	fd := clients.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.FakedServerVersion = toVersionInfo(k8sVersion)
 
 	resources, ok := apiResources[k8sVersion]
 	if !ok {
 		panic(fmt.Sprintf("k8s version %s not found in apiResources", k8sVersion))
 	}
-	clients.core.Resources = resources
-	clients.slim.Resources = resources
-	clients.cilium.Resources = resources
-	clients.apiext.Resources = resources
+	clients.KubernetesFakeClientset.Resources = resources
+	clients.SlimFakeClientset.Resources = resources
+	clients.CiliumFakeClientset.Resources = resources
+	clients.APIExtFakeClientset.Resources = resources
 
 	trackers := []trackerAndDecoder{
-		{clients.core.Tracker(), coreDecoder},
-		{clients.slim.Tracker(), slimDecoder},
-		{clients.cilium.Tracker(), ciliumDecoder},
+		{clients.KubernetesFakeClientset.Tracker(), coreDecoder},
+		{clients.SlimFakeClientset.Tracker(), slimDecoder},
+		{clients.CiliumFakeClientset.Tracker(), ciliumDecoder},
 	}
 
 	return &ControlPlaneTest{
@@ -106,8 +103,8 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 
 	// Configure k8s and perform capability detection with the fake client.
 	k8s.Configure("dummy", "dummy", 10.0, 10)
-	version.Update(cpt.clients.core, &k8sConfig{})
-	k8s.SetClients(cpt.clients.core, cpt.clients.slim, cpt.clients.cilium, cpt.clients.apiext)
+	version.Update(cpt.clients, &k8sConfig{})
+	k8s.SetClients(cpt.clients, cpt.clients.Slim(), cpt.clients, cpt.clients)
 
 	proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
 
@@ -142,7 +139,7 @@ func (cpt *ControlPlaneTest) StartAgent() *ControlPlaneTest {
 	if cpt.agentHandle != nil {
 		cpt.t.Fatal("StartAgent() already called")
 	}
-	datapath, agentHandle, err := startCiliumAgent(cpt.nodeName, cpt.clients)
+	datapath, agentHandle, err := startCiliumAgent(cpt.nodeName)
 	if err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
@@ -170,7 +167,7 @@ func (cpt *ControlPlaneTest) StartOperator() *ControlPlaneTest {
 	cpt.operatorHandle = &operatorHandle{
 		cancel: cancel,
 	}
-	operatorCmd.OnOperatorStartLeading(context)
+	operatorCmd.OnOperatorStartLeading(context, cpt.clients)
 	return cpt
 }
 

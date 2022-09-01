@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -50,7 +51,7 @@ var (
 	k8sCiliumNodesCacheSynced = make(chan struct{})
 )
 
-func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.NodeEventHandler, withKVStore bool) error {
+func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clientset, nodeManager allocator.NodeEventHandler, withKVStore bool) error {
 	var (
 		ciliumNodeKVStore      *store.SharedStore
 		err                    error
@@ -208,7 +209,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 	// introducing a slim version of it.
 	var ciliumNodeInformer cache.Controller
 	ciliumNodeStore, ciliumNodeInformer = informer.NewInformer(
-		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNodeList](ciliumK8sClient.CiliumV2().CiliumNodes()),
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNodeList](clientset.CiliumV2().CiliumNodes()),
 		&cilium_v2.CiliumNode{},
 		0,
 		resourceEventHandler,
@@ -313,39 +314,41 @@ func processNextWorkItem(queue workqueue.RateLimitingInterface, syncHandler func
 	return true
 }
 
-type ciliumNodeUpdateImplementation struct{}
+type ciliumNodeUpdateImplementation struct {
+	clientset k8sClient.Clientset
+}
 
 func (c *ciliumNodeUpdateImplementation) Create(node *cilium_v2.CiliumNode) (*cilium_v2.CiliumNode, error) {
-	return ciliumK8sClient.CiliumV2().CiliumNodes().Create(context.TODO(), node, meta_v1.CreateOptions{})
+	return c.clientset.CiliumV2().CiliumNodes().Create(context.TODO(), node, meta_v1.CreateOptions{})
 }
 
 func (c *ciliumNodeUpdateImplementation) Get(node string) (*cilium_v2.CiliumNode, error) {
-	return ciliumK8sClient.CiliumV2().CiliumNodes().Get(context.TODO(), node, meta_v1.GetOptions{})
+	return c.clientset.CiliumV2().CiliumNodes().Get(context.TODO(), node, meta_v1.GetOptions{})
 }
 
 func (c *ciliumNodeUpdateImplementation) UpdateStatus(origNode, node *cilium_v2.CiliumNode) (*cilium_v2.CiliumNode, error) {
 	if origNode == nil || !origNode.Status.DeepEqual(&node.Status) {
-		return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, meta_v1.UpdateOptions{})
+		return c.clientset.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, meta_v1.UpdateOptions{})
 	}
 	return nil, nil
 }
 
 func (c *ciliumNodeUpdateImplementation) Update(origNode, node *cilium_v2.CiliumNode) (*cilium_v2.CiliumNode, error) {
 	if origNode == nil || !origNode.Spec.DeepEqual(&node.Spec) {
-		return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, meta_v1.UpdateOptions{})
+		return c.clientset.CiliumV2().CiliumNodes().Update(context.TODO(), node, meta_v1.UpdateOptions{})
 	}
 	return nil, nil
 }
 
-func RunCNPNodeStatusGC(nodeStore cache.Store) {
-	go runCNPNodeStatusGC("cnp-node-gc", false, nodeStore)
-	go runCNPNodeStatusGC("ccnp-node-gc", true, nodeStore)
+func RunCNPNodeStatusGC(clientset k8sClient.Clientset, nodeStore cache.Store) {
+	go runCNPNodeStatusGC("cnp-node-gc", false, clientset, nodeStore)
+	go runCNPNodeStatusGC("ccnp-node-gc", true, clientset, nodeStore)
 }
 
 // runCNPNodeStatusGC runs the node status garbage collector for cilium network
 // policies. The policy corresponds to CiliumClusterwideNetworkPolicy if the clusterwide
 // parameter is true and CiliumNetworkPolicy otherwise.
-func runCNPNodeStatusGC(name string, clusterwide bool, nodeStore cache.Store) {
+func runCNPNodeStatusGC(name string, clusterwide bool, clientset k8sClient.Clientset, nodeStore cache.Store) {
 	parallelRequests := 4
 	removeNodeFromCNP := make(chan func(), 50)
 	for i := 0; i < parallelRequests; i++ {
@@ -369,7 +372,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, nodeStore cache.Store) {
 					var cnpItemsList []cilium_v2.CiliumNetworkPolicy
 
 					if clusterwide {
-						ccnpList, err := ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx,
+						ccnpList, err := clientset.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx,
 							meta_v1.ListOptions{
 								Limit:    10,
 								Continue: continueID,
@@ -386,7 +389,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, nodeStore cache.Store) {
 						}
 						continueID = ccnpList.Continue
 					} else {
-						cnpList, err := ciliumK8sClient.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(ctx,
+						cnpList, err := clientset.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(ctx,
 							meta_v1.ListOptions{
 								Limit:    10,
 								Continue: continueID,
@@ -421,7 +424,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, nodeStore cache.Store) {
 							wg.Add(1)
 							cnpCpy := cnp.DeepCopy()
 							removeNodeFromCNP <- func() {
-								updateCNP(ciliumK8sClient.CiliumV2(), cnpCpy, nodesToDelete)
+								updateCNP(clientset.CiliumV2(), cnpCpy, nodesToDelete)
 								wg.Done()
 							}
 						}

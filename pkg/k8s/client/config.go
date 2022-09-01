@@ -39,10 +39,15 @@ func (cfg Config) CellFlags(flags *pflag.FlagSet) {
 	flags.Bool(option.K8sEnableAPIDiscovery, defaults.K8sEnableAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
 }
 
+// K8sAPIDiscoveryEnabled returns true if API discovery of API groups and
+// resources is enabled
 func (cfg Config) K8sAPIDiscoveryEnabled() bool {
 	return cfg.EnableK8sAPIDiscovery
 }
 
+// K8sLeasesFallbackDiscoveryEnabled returns true if we should fallback to direct API
+// probing when checking for support of Leases in case Discovery API fails to discover
+// required groups.
 func (cfg Config) K8sLeasesFallbackDiscoveryEnabled() bool {
 	return cfg.K8sAPIDiscoveryEnabled()
 }

@@ -15,9 +15,9 @@ import (
 
 	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	csv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	csv2a1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -93,7 +93,7 @@ func GetCEPNameFromCCEP(cep *capi_v2a1.CoreCiliumEndpoint, namespace string) str
 }
 
 // NewCESController, creates and initializes the CES controller
-func NewCESController(client *k8s.K8sCiliumClient,
+func NewCESController(clientset k8sClient.Clientset,
 	maxCEPsInCES int,
 	slicingMode string,
 	qpsLimit float64,
@@ -124,7 +124,7 @@ func NewCESController(client *k8s.K8sCiliumClient,
 	if slicingMode == cesIdentityBasedSlicing {
 		manager = newCESManagerIdentity(rlQueue, maxCEPsInCES)
 	}
-	cesStore := ciliumEndpointSliceInit(client.CiliumV2alpha1(), wait.NeverStop)
+	cesStore := ciliumEndpointSliceInit(clientset.CiliumV2alpha1(), wait.NeverStop)
 
 	// List all existing CESs from the api-server and cache it locally.
 	// This sync should happen before starting CEP watcher, because CEP watcher
@@ -134,9 +134,9 @@ func NewCESController(client *k8s.K8sCiliumClient,
 	// to sync existing CESs before starting a CEP watcher.
 	syncCESsInLocalCache(cesStore, manager)
 	return &CiliumEndpointSliceController{
-		clientV2:                 client.CiliumV2(),
-		clientV2a1:               client.CiliumV2alpha1(),
-		reconciler:               newReconciler(client.CiliumV2alpha1(), manager),
+		clientV2:                 clientset.CiliumV2(),
+		clientV2a1:               clientset.CiliumV2alpha1(),
+		reconciler:               newReconciler(clientset.CiliumV2alpha1(), manager),
 		Manager:                  manager,
 		queue:                    rlQueue,
 		ciliumEndpointSliceStore: cesStore,

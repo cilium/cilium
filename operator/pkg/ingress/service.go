@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
@@ -45,7 +46,7 @@ type serviceManager struct {
 	ingressQueue workqueue.RateLimitingInterface
 }
 
-func newServiceManager(ingressQueue workqueue.RateLimitingInterface, maxRetries int) (*serviceManager, error) {
+func newServiceManager(clientset k8sClient.Clientset, ingressQueue workqueue.RateLimitingInterface, maxRetries int) (*serviceManager, error) {
 	manager := &serviceManager{
 		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		ingressQueue: ingressQueue,
@@ -54,7 +55,7 @@ func newServiceManager(ingressQueue workqueue.RateLimitingInterface, maxRetries 
 
 	manager.store, manager.informer = informer.NewInformer(
 		utils.ListerWatcherWithModifier(
-			utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](k8s.WatcherClient().CoreV1().Services("")),
+			utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](clientset.Slim().CoreV1().Services("")),
 			func(options *metav1.ListOptions) {
 				options.LabelSelector = ciliumIngressLabelKey
 			}),

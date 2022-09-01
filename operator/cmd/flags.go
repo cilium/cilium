@@ -239,23 +239,11 @@ func init() {
 		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	option.BindEnv(Vp, option.KVStoreOpt)
 
-	flags.String(option.K8sAPIServer, "", "Kubernetes API server URL")
-	option.BindEnv(Vp, option.K8sAPIServer)
-
-	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
-	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
-
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it")
 	option.BindEnv(Vp, option.K8sEnableEndpointSlice)
 
-	flags.Bool(option.K8sEnableAPIDiscovery, defaults.K8sEnableAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
-	option.BindEnv(Vp, option.K8sEnableAPIDiscovery)
-
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
 	option.BindEnv(Vp, option.K8sNamespaceName)
-
-	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
-	option.BindEnv(Vp, option.K8sKubeConfigPath)
 
 	flags.Duration(operatorOption.NodesGCInterval, 5*time.Minute, "GC interval for CiliumNodes")
 	option.BindEnv(Vp, operatorOption.NodesGCInterval)
@@ -287,12 +275,6 @@ func init() {
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(Vp, option.CMDRef)
-
-	flags.Int(option.GopsPort, defaults.GopsPortOperator, "Port for gops server to listen on")
-	option.BindEnv(Vp, option.GopsPort)
-
-	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
-	option.BindEnv(Vp, option.K8sHeartbeatTimeout)
 
 	flags.Duration(operatorOption.LeaderElectionLeaseDuration, 15*time.Second,
 		"Duration that non-leader operator candidates will wait before forcing to acquire leadership")

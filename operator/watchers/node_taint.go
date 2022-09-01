@@ -9,17 +9,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
-	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	pkgOption "github.com/cilium/cilium/pkg/option"
-
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +17,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/informer"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	pkgOption "github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -107,13 +107,13 @@ func checkAndMarkNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeNam
 }
 
 // ciliumPodsWatcher starts up a pod watcher to handle pod events.
-func ciliumPodsWatcher(slimClient slimclientset.Interface, stopCh <-chan struct{}) {
+func ciliumPodsWatcher(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 	ciliumQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "cilium-pod-queue")
 
 	ciliumPodInformer := informer.NewInformerWithStore(
 		k8sUtils.ListerWatcherWithModifier(
 			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](
-				slimClient.CoreV1().Pods(option.Config.CiliumK8sNamespace),
+				clientset.Slim().CoreV1().Pods(option.Config.CiliumK8sNamespace),
 			),
 			func(options *metav1.ListOptions) {
 				options.LabelSelector = option.Config.CiliumPodLabels
@@ -140,7 +140,7 @@ func ciliumPodsWatcher(slimClient slimclientset.Interface, stopCh <-chan struct{
 		// Do not use the k8sClient provided by the nodesInit function since we
 		// need a k8s client that can update node structures and not simply
 		// watch for node events.
-		for processNextCiliumPodItem(k8s.Client(), nodeGetter, ciliumQueue) {
+		for processNextCiliumPodItem(clientset, nodeGetter, ciliumQueue) {
 		}
 	}()
 
@@ -404,20 +404,20 @@ func markNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string
 }
 
 // HandleNodeTolerationAndTaints remove node
-func HandleNodeTolerationAndTaints(stopCh <-chan struct{}) {
+func HandleNodeTolerationAndTaints(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 	mno = markNodeOptions{
 		RemoveNodeTaint:        option.Config.RemoveCiliumNodeTaints,
 		SetCiliumIsUpCondition: option.Config.SetCiliumIsUpCondition,
 	}
-	nodesInit(k8s.WatcherClient(), stopCh)
+	nodesInit(clientset.Slim(), stopCh)
 
 	go func() {
 		// Do not use the k8sClient provided by the nodesInit function since we
 		// need a k8s client that can update node structures and not simply
 		// watch for node events.
-		for checkTaintForNextNodeItem(k8s.Client(), &nodeGetter{}, nodeQueue) {
+		for checkTaintForNextNodeItem(clientset, &nodeGetter{}, nodeQueue) {
 		}
 	}()
 
-	ciliumPodsWatcher(k8s.WatcherClient(), stopCh)
+	ciliumPodsWatcher(clientset, stopCh)
 }
