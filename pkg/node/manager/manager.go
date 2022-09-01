@@ -55,8 +55,7 @@ type nodeEntry struct {
 type IPCache interface {
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error)
 	Delete(IP string, source source.Source) bool
-	TriggerLabelInjection()
-	UpsertMetadata(prefix netip.Prefix, lbls labels.Labels, src source.Source, rid ipcacheTypes.ResourceID)
+	UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, rid ipcacheTypes.ResourceID)
 }
 
 // Configuration is the set of configuration options the node manager depends
@@ -561,8 +560,6 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 		entry.mutex.Unlock()
 	}
-
-	m.ipcache.TriggerLabelInjection()
 }
 
 // upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
@@ -570,9 +567,9 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 // with the CIDR.
 func (m *Manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentity, rid ipcacheTypes.ResourceID) {
 	if id == identity.ReservedIdentityHost {
-		m.ipcache.UpsertMetadata(prefix, labels.LabelHost, source.Local, rid)
+		m.ipcache.UpsertLabels(prefix, labels.LabelHost, source.Local, rid)
 	} else {
-		m.ipcache.UpsertMetadata(prefix, labels.LabelRemoteNode, source.CustomResource, rid)
+		m.ipcache.UpsertLabels(prefix, labels.LabelRemoteNode, source.CustomResource, rid)
 	}
 }
 

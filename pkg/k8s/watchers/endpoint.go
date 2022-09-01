@@ -137,10 +137,8 @@ func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[netip.Pr
 	)
 
 	for ip := range desiredIPs {
-		k.ipcache.UpsertMetadata(ip, labels.LabelKubeAPIServer, src, rid)
+		k.ipcache.UpsertLabels(ip, labels.LabelKubeAPIServer, src, rid)
 	}
-
-	k.ipcache.TriggerLabelInjection()
 }
 
 func insertK8sPrefix(desiredIPs map[netip.Prefix]struct{}, addr string, resource ipcacheTypes.ResourceID) {
