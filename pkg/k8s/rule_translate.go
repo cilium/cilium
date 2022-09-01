@@ -125,10 +125,12 @@ func (k RuleTranslator) generateToCidrFromEndpoint(
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
 	mask := net.CIDRMask(128, 128)
-	for ip := range endpoint.Backends {
-		epIP := net.ParseIP(ip)
+	for addrCluster := range endpoint.Backends {
+		ipStr := addrCluster.Addr().String()
+
+		epIP := net.ParseIP(ipStr)
 		if epIP == nil {
-			return nil, fmt.Errorf("unable to parse ip: %s", ip)
+			return nil, fmt.Errorf("unable to parse ip: %s", ipStr)
 		}
 
 		found := false
@@ -169,10 +171,12 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 	var toReleasePrefixes []*net.IPNet
 	delCIDRRules := make(map[int]*api.CIDRRule, len(egress.ToCIDRSet))
 
-	for ip := range endpoint.Backends {
-		epIP := net.ParseIP(ip)
+	for addrCluster := range endpoint.Backends {
+		ipStr := addrCluster.Addr().String()
+
+		epIP := net.ParseIP(ipStr)
 		if epIP == nil {
-			return nil, fmt.Errorf("unable to parse ip: %s", ip)
+			return nil, fmt.Errorf("unable to parse ip: %s", ipStr)
 		}
 
 		for i, c := range egress.ToCIDRSet {

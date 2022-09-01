@@ -726,8 +726,8 @@ func genCartesianProduct(
 
 	for fePortName, fePort := range ports {
 		var besValues []*loadbalancer.Backend
-		for netIP, backend := range bes.Backends {
-			parsedIP := net.ParseIP(netIP)
+		for addrCluster, backend := range bes.Backends {
+			parsedIP := net.ParseIP(addrCluster.Addr().String())
 
 			if backendPort := backend.Ports[string(fePortName)]; backendPort != nil && feFamilyIPv6 == ip.IsIPv6(parsedIP) {
 				backendState := loadbalancer.BackendStateActive

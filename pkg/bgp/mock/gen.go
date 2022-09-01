@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -189,8 +190,8 @@ func GenTestEndpointsPairs() (k8s.Endpoints, slim_corev1.Endpoints, metallbspr.E
 	backend := k8s.Backend{
 		NodeName: NodeName,
 	}
-	backends := map[string]*k8s.Backend{
-		IP: &backend,
+	backends := map[cmtypes.AddrCluster]*k8s.Backend{
+		cmtypes.MustParseAddrCluster(IP): &backend,
 	}
 	endpoints := k8s.Endpoints{Backends: backends}
 	slimEndpoints := slim_corev1.Endpoints{

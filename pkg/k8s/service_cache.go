@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -448,7 +449,7 @@ func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) 
 		return localEndpoints
 	}
 
-	filteredEndpoints := &Endpoints{Backends: map[string]*Backend{}}
+	filteredEndpoints := &Endpoints{Backends: map[cmtypes.AddrCluster]*Backend{}}
 
 	for key, backend := range localEndpoints.Backends {
 		if len(backend.HintsForZones) == 0 {
@@ -558,9 +559,9 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 		delete(externalEndpoints.endpoints, service.Cluster)
 	} else {
 		scopedLog.Debugf("Updating backends to %+v", service.Backends)
-		backends := map[string]*Backend{}
+		backends := map[cmtypes.AddrCluster]*Backend{}
 		for ipString, portConfig := range service.Backends {
-			backends[ipString] = &Backend{Ports: portConfig}
+			backends[cmtypes.MustParseAddrCluster(ipString)] = &Backend{Ports: portConfig}
 		}
 		externalEndpoints.endpoints[service.Cluster] = &Endpoints{
 			Backends: backends,

@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/checker"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -30,8 +31,8 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	svcID2 := ServiceID{Name: "svc2", Namespace: "default"}
 
 	endpoints := Endpoints{
-		Backends: map[string]*Backend{
-			"3.3.3.3": {
+		Backends: map[cmtypes.AddrCluster]*Backend{
+			cmtypes.MustParseAddrCluster("3.3.3.3"): {
 				Ports: map[string]*loadbalancer.L4Addr{
 					"port": {
 						Protocol: loadbalancer.TCP,
@@ -436,7 +437,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		c.Assert(event.ID, check.Equals, svcID)
 
 		c.Assert(len(event.Endpoints.Backends), checker.Equals, 1)
-		c.Assert(event.Endpoints.Backends["2.2.2.2"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("2.2.2.2")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
 			},
@@ -470,13 +471,13 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
 
-		c.Assert(event.Endpoints.Backends["2.2.2.2"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("2.2.2.2")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
 			},
 		})
 
-		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("3.3.3.3")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -567,7 +568,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 
-		c.Assert(event.Endpoints.Backends["4.4.4.4"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("4.4.4.4")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -581,7 +582,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
-		c.Assert(event.Endpoints.Backends["4.4.4.4"], check.IsNil)
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("4.4.4.4")], check.IsNil)
 		return true
 	}, 2*time.Second), check.IsNil)
 
@@ -602,7 +603,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
-		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("3.3.3.3")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -991,7 +992,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID0)
 		c.Assert(len(event.Endpoints.Backends), check.Equals, 1)
-		_, found := event.Endpoints.Backends["10.0.0.2"]
+		_, found := event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.0.2")]
 		c.Assert(found, check.Equals, true)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -1018,7 +1019,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID0)
 		c.Assert(len(event.Endpoints.Backends), check.Equals, 1)
-		_, found := event.Endpoints.Backends["10.0.0.1"]
+		_, found := event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.0.1")]
 		c.Assert(found, check.Equals, true)
 		return true
 	}, 2*time.Second), check.IsNil)

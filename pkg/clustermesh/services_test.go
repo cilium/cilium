@@ -14,6 +14,7 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
@@ -151,8 +152,8 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 	svcID := s.svcCache.UpdateService(k8sSvc, swgSvcs)
 
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
-		return event.Endpoints.Backends["10.0.185.196"] != nil &&
-			event.Endpoints.Backends["20.0.185.196"] != nil
+		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.185.196")] != nil &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")] != nil
 	})
 
 	k8sEndpoints := &slim_corev1.Endpoints{
@@ -177,12 +178,12 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 	swgEps := lock.NewStoppableWaitGroup()
 	s.svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
-		return event.Endpoints.Backends["30.0.185.196"] != nil
+		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("30.0.185.196")] != nil
 	})
 
 	s.svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
-		return event.Endpoints.Backends["30.0.185.196"] == nil
+		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("30.0.185.196")] == nil
 	})
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"1")
@@ -228,26 +229,26 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	svcID := s.svcCache.UpdateService(k8sSvc, swgSvcs)
 
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
-		return event.Endpoints.Backends["10.0.185.196"] != nil &&
-			event.Endpoints.Backends["10.0.185.196"].Ports["http"].DeepEqual(
+		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.185.196")] != nil &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.185.196")].Ports["http"].DeepEqual(
 				loadbalancer.NewL4Addr(loadbalancer.TCP, 80)) &&
-			event.Endpoints.Backends["20.0.185.196"] != nil &&
-			event.Endpoints.Backends["20.0.185.196"].Ports["http2"].DeepEqual(
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")] != nil &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")].Ports["http2"].DeepEqual(
 				loadbalancer.NewL4Addr(loadbalancer.TCP, 90))
 	})
 
 	k, v = s.prepareServiceUpdate("1", "80.0.185.196", "http", "8080")
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
-		return event.Endpoints.Backends["80.0.185.196"] != nil &&
-			event.Endpoints.Backends["20.0.185.196"] != nil
+		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")] != nil &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")] != nil
 	})
 
 	k, v = s.prepareServiceUpdate("2", "90.0.185.196", "http", "8080")
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
-		return event.Endpoints.Backends["80.0.185.196"] != nil &&
-			event.Endpoints.Backends["90.0.185.196"] != nil
+		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")] != nil &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("90.0.185.196")] != nil
 	})
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"1")
