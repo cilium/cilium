@@ -26,6 +26,10 @@ Options:` +
 		api.ContextOptionsHelp
 }
 
+func (p *httpPlugin) ConflictingPlugins() []string {
+	return []string{"httpV2"}
+}
+
 type httpV2Plugin struct{}
 
 func (p *httpV2Plugin) NewHandler() api.Handler {
@@ -42,6 +46,10 @@ Metrics:
 
 Options:` +
 		api.ContextOptionsHelp
+}
+
+func (p *httpV2Plugin) ConflictingPlugins() []string {
+	return []string{"http"}
 }
 
 func init() {

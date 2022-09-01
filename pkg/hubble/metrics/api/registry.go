@@ -52,6 +52,14 @@ func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled Map)
 			return nil, fmt.Errorf("metric '%s' does not exist", name)
 		}
 
+		if cp, ok := plugin.(PluginConflicts); ok {
+			for _, conflict := range cp.ConflictingPlugins() {
+				if _, conflictExists := enabled[conflict]; conflictExists {
+					return nil, fmt.Errorf("plugin %s conflicts with plugin %s", name, conflict)
+				}
+			}
+		}
+
 		handler := plugin.NewHandler()
 		if err := handler.Init(registry, opts); err != nil {
 			return nil, fmt.Errorf("unable to initialize metric '%s': %s", name, err)

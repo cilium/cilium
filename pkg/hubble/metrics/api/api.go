@@ -53,6 +53,14 @@ type Plugin interface {
 	HelpText() string
 }
 
+// PluginConflicts is an optional interface that plugins can implement to
+// declare other plugins they conflict with.
+type PluginConflicts interface {
+	// ConflictingPlugin returns a list of other plugin names that this plugin
+	// conflicts with.
+	ConflictingPlugins() []string
+}
+
 // Handler is a metric handler. It is called upon receival of raw event data
 // and is responsible to perform metrics accounting according to the scope of
 // the metrics plugin.
