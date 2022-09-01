@@ -9,7 +9,6 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 )
@@ -226,13 +225,6 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 	case helpers.CIIntegrationGKE:
 		err := vm.WaitforPods(helpers.KubeSystemNamespace, "", longTimeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "kube-system pods were not able to get into ready state after restart")
-	}
-}
-
-// SkipIfBenchmark will skip the test if benchmark is not specified
-func SkipIfBenchmark() {
-	if !config.CiliumTestConfig.Benchmarks {
-		Skip("Benchmarks are skipped, specify -cilium.Benchmarks")
 	}
 }
 

@@ -10,7 +10,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	ipApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
@@ -35,11 +34,11 @@ var numeric bool
 
 func init() {
 	ipCmd.AddCommand(ipListCmd)
-	command.AddJSONOutput(ipListCmd)
+	command.AddOutputOption(ipListCmd)
 	flags := ipListCmd.Flags()
 	flags.BoolVarP(&numeric, "numeric", "n", false, "Print numeric identities")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "Print all fields of ipcache")
-	viper.BindPFlags(flags)
+	vp.BindPFlags(flags)
 }
 
 func listIPs() {
@@ -54,9 +53,9 @@ func listIPs() {
 }
 
 func printIPcacheEntries(entries []*models.IPListEntry) {
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(entries); err != nil {
-			Fatalf("Unable to provide JSON output: %s", err)
+			Fatalf("Unable to provide %s output: %s", command.OutputOptionString(), err)
 		}
 		return
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -117,8 +118,23 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 			return nil
 		},
 	}
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+			switch {
+			case ip.Equal(net.ParseIP(fakeSourceEndpoint.IPv4)):
+				return &testutils.FakeEndpointInfo{
+					ID: fakeSourceEndpoint.ID,
+				}, true
+			case ip.Equal(net.ParseIP(fakeDestinationEndpoint.IPv4)):
+				return &testutils.FakeEndpointInfo{
+					ID: fakeDestinationEndpoint.ID,
+				}, true
+			}
+			return nil, false
+		},
+	}
 
-	parser, err := New(log, dnsGetter, IPGetter, serviceGetter)
+	parser, err := New(log, dnsGetter, IPGetter, serviceGetter, endpointGetter)
 	require.NoError(t, err)
 
 	f := &pb.Flow{}
@@ -216,8 +232,23 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 			return nil
 		},
 	}
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+			switch {
+			case ip.Equal(net.ParseIP(fakeSourceEndpoint.IPv4)):
+				return &testutils.FakeEndpointInfo{
+					ID: fakeSourceEndpoint.ID,
+				}, true
+			case ip.Equal(net.ParseIP(fakeDestinationEndpoint.IPv4)):
+				return &testutils.FakeEndpointInfo{
+					ID: fakeDestinationEndpoint.ID,
+				}, true
+			}
+			return nil, false
+		},
+	}
 
-	parser, err := New(log, dnsGetter, IPGetter, serviceGetter)
+	parser, err := New(log, dnsGetter, IPGetter, serviceGetter, endpointGetter)
 	require.NoError(t, err)
 
 	f := &pb.Flow{}
@@ -282,8 +313,9 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 	dnsGetter := &testutils.NoopDNSGetter
 	ipGetter := &testutils.NoopIPGetter
 	serviceGetter := &testutils.NoopServiceGetter
+	endpointGetter := &testutils.NoopEndpointGetter
 
-	parser, err := New(log, dnsGetter, ipGetter, serviceGetter)
+	parser, err := New(log, dnsGetter, ipGetter, serviceGetter, endpointGetter)
 	require.NoError(t, err)
 
 	f := &pb.Flow{}
@@ -355,8 +387,9 @@ func BenchmarkL7Decode(b *testing.B) {
 	dnsGetter := &testutils.NoopDNSGetter
 	ipGetter := &testutils.NoopIPGetter
 	serviceGetter := &testutils.NoopServiceGetter
+	endpointGetter := &testutils.NoopEndpointGetter
 
-	parser, err := New(log, dnsGetter, ipGetter, serviceGetter)
+	parser, err := New(log, dnsGetter, ipGetter, serviceGetter, endpointGetter)
 	require.NoError(b, err)
 
 	f := &pb.Flow{}
@@ -385,7 +418,7 @@ func TestDecodeResponseTime(t *testing.T) {
 	requestTimestamp := time.Unix(0, 0).Format(time.RFC3339Nano)
 	responseTimestamp := time.Unix(1, 0).Format(time.RFC3339Nano)
 
-	parser, err := New(log, nil, nil, nil)
+	parser, err := New(log, nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	request := &accesslog.LogRecord{

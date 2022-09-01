@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sync"
 	"sync/atomic"
 
@@ -612,6 +613,14 @@ type TranslationResult struct {
 	// NumToServicesRules is the number of ToServices rules processed while
 	// translating the rules
 	NumToServicesRules int
+
+	// BackendPrefixes contains all egress CIDRs that are to be added
+	// for the translation.
+	PrefixesToAdd []*net.IPNet
+
+	// BackendPrefixes contains all egress CIDRs that are to be removed
+	// for the translation.
+	PrefixesToRelease []*net.IPNet
 }
 
 // TranslateRules traverses rules and applies provided translator to rules

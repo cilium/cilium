@@ -79,6 +79,7 @@ type ModifyDiskSpecRequest struct {
 	PerformanceLevel     string           `position:"Query" name:"PerformanceLevel"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	ProvisionedIops      requests.Integer `position:"Query" name:"ProvisionedIops"`
 }
 
 // ModifyDiskSpecResponse is the response struct for api ModifyDiskSpec

@@ -26,7 +26,7 @@ var endpointLogCmd = &cobra.Command{
 
 func init() {
 	endpointCmd.AddCommand(endpointLogCmd)
-	command.AddJSONOutput(endpointLogCmd)
+	command.AddOutputOption(endpointLogCmd)
 }
 
 func getEndpointLog(cmd *cobra.Command, args []string) {
@@ -37,7 +37,7 @@ func getEndpointLog(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get endpoint log %s: %s\n", eID, err)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(epLog); err != nil {
 			os.Exit(1)
 		}

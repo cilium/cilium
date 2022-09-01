@@ -47,7 +47,7 @@ func init() {
 	statusCmd.Flags().BoolVar(&brief, "brief", false, "Only print a one-line status message")
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Equivalent to --all-addresses --all-controllers --all-nodes --all-redirects --all-clusters --all-health")
 	statusCmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "Sets the timeout to use when querying for health")
-	command.AddJSONOutput(statusCmd)
+	command.AddOutputOption(statusCmd)
 }
 
 func statusDaemon() {
@@ -76,7 +76,7 @@ func statusDaemon() {
 			fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 		}
 		os.Exit(1)
-	} else if command.OutputJSON() {
+	} else if command.OutputOption() {
 		if err := command.PrintOutput(resp.Payload); err != nil {
 			os.Exit(1)
 		}

@@ -266,9 +266,9 @@ func createVlanLink(vlanId int, mainLink *netlink.Dummy, c *C) *netlink.Vlan {
 }
 
 func (s *ConfigSuite) TestVLANBypassConfig(c *C) {
-	oldDevices := option.Config.Devices
+	oldDevices := option.Config.GetDevices()
 	defer func() {
-		option.Config.Devices = oldDevices
+		option.Config.SetDevices(oldDevices)
 	}()
 
 	main1 := createMainLink("dummy0", c)
@@ -295,7 +295,7 @@ func (s *ConfigSuite) TestVLANBypassConfig(c *C) {
 		}()
 	}
 
-	option.Config.Devices = []string{"dummy0", "dummy0.4000", "dummy0.4001", "dummy1", "dummy1.4003"}
+	option.Config.SetDevices([]string{"dummy0", "dummy0.4000", "dummy0.4001", "dummy1", "dummy1.4003"})
 	option.Config.VLANBPFBypass = []int{4004}
 	m, err := vlanFilterMacros()
 	c.Assert(err, Equals, nil)

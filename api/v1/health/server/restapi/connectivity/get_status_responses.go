@@ -19,7 +19,8 @@ import (
 // GetStatusOKCode is the HTTP code returned for type GetStatusOK
 const GetStatusOKCode int = 200
 
-/*GetStatusOK Success
+/*
+GetStatusOK Success
 
 swagger:response getStatusOK
 */

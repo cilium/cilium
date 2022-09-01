@@ -24,7 +24,7 @@ cilium fqdn cache [flags]
 
 ### SEE ALSO
 
-* [cilium fqdn](../cilium_fqdn)	 - Manage fqdn proxy
-* [cilium fqdn cache clean](../cilium_fqdn_cache_clean)	 - Clean fqdn cache
-* [cilium fqdn cache list](../cilium_fqdn_cache_list)	 - List fqdn cache contents
+* [cilium fqdn](cilium_fqdn.md)	 - Manage fqdn proxy
+* [cilium fqdn cache clean](cilium_fqdn_cache_clean.md)	 - Clean fqdn cache
+* [cilium fqdn cache list](cilium_fqdn_cache_list.md)	 - List fqdn cache contents
 

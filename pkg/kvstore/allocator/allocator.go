@@ -24,30 +24,31 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "kvstorebackend")
 )
 
-// kvstoreBackend is an implentaton of pkg/allocator.Backend. It store
+// kvstoreBackend is an implementaton of pkg/allocator.Backend. It store
 // identities in the following format:
 //
 // Slave keys:
-//   Slave keys are owned by individual nodes:
-//     - basePath/value/key1/node1 => 1001
-//     - basePath/value/key1/node2 => 1001
-//     - basePath/value/key2/node1 => 1002
-//     - basePath/value/key2/node2 => 1002
 //
-//   If at least one key exists with the prefix basePath/value/keyN then that
-//   key must be considered to be in use in the allocation space.
+// Slave keys are owned by individual nodes:
+//   - basePath/value/key1/node1 => 1001
+//   - basePath/value/key1/node2 => 1001
+//   - basePath/value/key2/node1 => 1002
+//   - basePath/value/key2/node2 => 1002
 //
-//   Slave keys are protected by a lease and will automatically get removed
-//   after ~ option.Config.KVstoreLeaseTTL if the node does not renew in time.
+// If at least one key exists with the prefix basePath/value/keyN then that
+// key must be considered to be in use in the allocation space.
+//
+// Slave keys are protected by a lease and will automatically get removed
+// after ~ option.Config.KVstoreLeaseTTL if the node does not renew in time.
 //
 // Master key:
-//    - basePath/id/1001 => key1
-//    - basePath/id/1002 => key2
+//   - basePath/id/1001 => key1
+//   - basePath/id/1002 => key2
 //
-//   Master keys provide the mapping from ID to key. As long as a master key
-//   for an ID exists, the ID is still in use. However, if a master key is no
-//   longer backed by at least one slave key, the garbage collector will
-//   eventually release the master key and return it back to the pool.
+// Master keys provide the mapping from ID to key. As long as a master key
+// for an ID exists, the ID is still in use. However, if a master key is no
+// longer backed by at least one slave key, the garbage collector will
+// eventually release the master key and return it back to the pool.
 type kvstoreBackend struct {
 	// lockless is true if allocation can be done lockless. This depends on
 	// the underlying kvstore backend

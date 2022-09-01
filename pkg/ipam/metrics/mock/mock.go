@@ -12,9 +12,11 @@ import (
 
 type mockMetrics struct {
 	mutex                 lock.RWMutex
-	allocationAttempts    map[string]int64
+	allocationAttempts    map[string]histogram
+	releaseAttempts       map[string]histogram
 	ipAllocations         map[string]int64
 	ipReleases            map[string]int64
+	interfaceAllocations  map[string]int64
 	allocatedIPs          map[string]int
 	availableInterfaces   int
 	availableIPsPerSubnet map[string]int
@@ -22,10 +24,17 @@ type mockMetrics struct {
 	resyncCount           int64
 }
 
+type histogram struct {
+	count int64
+	sum   float64
+}
+
 // NewMockMetrics returns a new metrics implementation with a mocked backend
 func NewMockMetrics() *mockMetrics {
 	return &mockMetrics{
-		allocationAttempts:    map[string]int64{},
+		allocationAttempts:    map[string]histogram{},
+		releaseAttempts:       map[string]histogram{},
+		interfaceAllocations:  map[string]int64{},
 		ipAllocations:         map[string]int64{},
 		ipReleases:            map[string]int64{},
 		allocatedIPs:          map[string]int{},
@@ -34,15 +43,35 @@ func NewMockMetrics() *mockMetrics {
 	}
 }
 
-func (m *mockMetrics) AllocationAttempts(status, subnetID string) int64 {
+func (m *mockMetrics) GetAllocationAttempts(typ, status, subnetID string) int64 {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	return m.allocationAttempts[fmt.Sprintf("status=%s, subnetId=%s", status, subnetID)]
+	return m.allocationAttempts[fmt.Sprintf("type=%s, status=%s, subnetId=%s", typ, status, subnetID)].count
 }
 
-func (m *mockMetrics) IncAllocationAttempt(status, subnetID string) {
+func (m *mockMetrics) AllocationAttempt(typ, status, subnetID string, observer float64) {
 	m.mutex.Lock()
-	m.allocationAttempts[fmt.Sprintf("status=%s, subnetId=%s", status, subnetID)]++
+	defer m.mutex.Unlock()
+	key := fmt.Sprintf("type=%s, status=%s, subnetId=%s", typ, status, subnetID)
+	value := m.allocationAttempts[key]
+	value.count++
+	value.sum += observer
+	m.allocationAttempts[key] = value
+}
+
+func (m *mockMetrics) ReleaseAttempt(typ, status, subnetID string, observer float64) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	key := fmt.Sprintf("type=%s, status=%s, subnetId=%s", typ, status, subnetID)
+	value := m.releaseAttempts[key]
+	value.count++
+	value.sum += observer
+	m.releaseAttempts[key] = value
+}
+
+func (m *mockMetrics) IncInterfaceAllocation(subnetID string) {
+	m.mutex.Lock()
+	m.interfaceAllocations[fmt.Sprintf("subnetId=%s", subnetID)]++
 	m.mutex.Unlock()
 }
 

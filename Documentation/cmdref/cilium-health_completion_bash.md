@@ -23,7 +23,7 @@ To load completions for every new session, execute once:
 
 #### macOS:
 
-	cilium-health completion bash > /usr/local/etc/bash_completion.d/cilium-health
+	cilium-health completion bash > $(brew --prefix)/etc/bash_completion.d/cilium-health
 
 You will need to start a new shell for this setup to take effect.
 
@@ -50,5 +50,5 @@ cilium-health completion bash
 
 ### SEE ALSO
 
-* [cilium-health completion](cilium-health_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-health completion](cilium-health_completion.md)	 - Generate the autocompletion script for the specified shell
 

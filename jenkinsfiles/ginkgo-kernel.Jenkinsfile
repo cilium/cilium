@@ -54,17 +54,17 @@ pipeline {
         }
         stage('Set programmatic env vars') {
             steps {
-                // retrieve k8s and kernel versions from gh comment, then from job parameter, default to 1.23 for k8s, 419 for kernel
+                // retrieve k8s and kernel versions from gh comment, then from job parameter, default to 1.25 for k8s, 419 for kernel
                 script {
                     flags = env.ghprbCommentBody?.replace("\\", "")
                     env.K8S_VERSION = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
                             python3 ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="k8s_version" | \
-                            sed "s/^$/${JobK8sVersion:-1.23}/" | \
+                            sed "s/^$/${JobK8sVersion:-1.25}/" | \
                             sed 's/^"//' | sed 's/"$//' | \
                             xargs echo -n
                         else
-                            echo -n ${JobK8sVersion:-1.23}
+                            echo -n ${JobK8sVersion:-1.25}
                         fi''', returnStdout: true
                     env.KERNEL = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
@@ -86,6 +86,8 @@ pipeline {
                             echo -n "K8s"
                         fi''', returnStdout: true
 
+                    env.IMAGE_REGISTRY = sh script: 'echo -n ${JobImageRegistry:-quay.io/cilium}', returnStdout: true
+
                     if (env.ghprbActualCommit?.trim()) {
                         env.DOCKER_TAG = env.ghprbActualCommit
                     } else {
@@ -95,7 +97,7 @@ pipeline {
                         env.DOCKER_TAG = env.DOCKER_TAG + "-race"
                         env.RACE = 1
                         env.LOCKDEBUG = 1
-                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:efb92c208c5f1f190243b361cbb43413ca49d534@sha256:8ca66f05327b5affad2bfb09614636f2b0d3fa24a9f40d1b5f86c2ef9ca2e46a"
+                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:1d9a09fa9d641346b0fac05b7d9bc620cd52e044@sha256:fc2d789ed6631d447f886164da4667592394babf2f8e9da8eb2b2dcfb9b2279b"
                     }
                 }
             }
@@ -123,7 +125,7 @@ pipeline {
             parallel {
                 stage ("Copy code and boot vms"){
                     options {
-                        timeout(time: 50, unit: 'MINUTES')
+                        timeout(time: 30, unit: 'MINUTES')
                     }
 
                     environment {
@@ -156,10 +158,8 @@ pipeline {
                     }
                     steps {
                         withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
-                            retry(3) {
-                                dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
-                                }
+                            dir("${TESTDIR}") {
+                                sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 25m ./vagrant-ci-start.sh'
                             }
                         }
                     }
@@ -180,9 +180,9 @@ pipeline {
                     steps {
                         retry(25) {
                             sleep(time: 60)
-                            sh 'docker manifest inspect quay.io/cilium/cilium-ci:${DOCKER_TAG} &> /dev/null'
-                            sh 'docker manifest inspect quay.io/cilium/operator-generic-ci:${DOCKER_TAG} &> /dev/null'
-                            sh 'docker manifest inspect quay.io/cilium/hubble-relay-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/cilium-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/operator-generic-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/hubble-relay-ci:${DOCKER_TAG} &> /dev/null'
                         }
                     }
                     post {
@@ -229,11 +229,11 @@ pipeline {
                     returnStdout: true,
                     script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "0"; else echo -n ""; fi'
                     )}"""
-                CILIUM_IMAGE = "quay.io/cilium/cilium-ci"
+                CILIUM_IMAGE = "${IMAGE_REGISTRY}/cilium-ci"
                 CILIUM_TAG = "${DOCKER_TAG}"
-                CILIUM_OPERATOR_IMAGE= "quay.io/cilium/operator"
+                CILIUM_OPERATOR_IMAGE= "${IMAGE_REGISTRY}/operator"
                 CILIUM_OPERATOR_TAG = "${DOCKER_TAG}"
-                HUBBLE_RELAY_IMAGE= "quay.io/cilium/hubble-relay-ci"
+                HUBBLE_RELAY_IMAGE= "${IMAGE_REGISTRY}/hubble-relay-ci"
                 HUBBLE_RELAY_TAG = "${DOCKER_TAG}"
             }
             steps {

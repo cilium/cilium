@@ -2,13 +2,13 @@
 // Copyright Authors of Cilium
 
 // Package fqdn handles some of the DNS-based policy functions:
-// - A DNS lookup cache used to populate toFQDNs rules in the policy layer.
-// - A NameManager that coordinates distributing IPs to matching toFQDNs
-//   selectors.
-// - A DNS Proxy that applies L7 DNS rules and populates the lookup cache with
-//   IPs from allowed/successful DNS lookups.
-// - (deprecated) A DNS Poller that actively polls all L3 toFQDNs.MatchName
-//   entries and populates the DNS lookup cache.
+//   - A DNS lookup cache used to populate toFQDNs rules in the policy layer.
+//   - A NameManager that coordinates distributing IPs to matching toFQDNs
+//     selectors.
+//   - A DNS Proxy that applies L7 DNS rules and populates the lookup cache with
+//     IPs from allowed/successful DNS lookups.
+//   - (deprecated) A DNS Poller that actively polls all L3 toFQDNs.MatchName
+//     entries and populates the DNS lookup cache.
 //
 // Note: There are 2 different requests that are handled: the DNS lookup and
 // the connection to the domain in the DNS lookup.
@@ -23,45 +23,46 @@
 // have no TTL nor a distinct lookup request from the endpoint. Furthermore,
 // toFQDNs cannot handle in-cluster IPs but toServices can.
 //
-// +-------------+   +----------------+        +---------+     +---------+
-// |             |   |                |        |         |     |         |
-// |             +<--+   NameManager  +<-------+         |     |         |
-// |             |   |                | Update |         |     |         |
-// |   Policy    |   +-------+--------+ Trigger|   DNS   |     |         |
-// |  Selectors  |           ^                 |  Proxy  +<--->+ Network |
-// |             |           |                 |         |     |         |
-// |             |   +-------+--------+        |         |     |         |
-// |             |   |      DNS       |        |         |     |         |
-// |             |   |  Lookup Cache  +<-------+         |     |         |
-// +------+------+   |                |   DNS  +----+----+     +----+----+
-//        |          +----------------+   Data      ^               ^
-//        v                                         |               |
-// +------+------+--------------------+             |               |
-// |             |                    |             |               |
-// |   Datapath  |                    |             |               |
-// |             |                    |   DNS Lookup|               |
-// +-------------+                    +<------------+               |
-// |                                  |                             |
-// |                Pod               |                             |
-// |                                  |                   HTTP etc. |
-// |                                  +<----------------------------+
-// |                                  |
-// +----------------------------------+
+//	+-------------+   +----------------+        +---------+     +---------+
+//	|             |   |                |        |         |     |         |
+//	|             +<--+   NameManager  +<-------+         |     |         |
+//	|             |   |                | Update |         |     |         |
+//	|   Policy    |   +-------+--------+ Trigger|   DNS   |     |         |
+//	|  Selectors  |           ^                 |  Proxy  +<--->+ Network |
+//	|             |           |                 |         |     |         |
+//	|             |   +-------+--------+        |         |     |         |
+//	|             |   |      DNS       |        |         |     |         |
+//	|             |   |  Lookup Cache  +<-------+         |     |         |
+//	+------+------+   |                |   DNS  +----+----+     +----+----+
+//	       |          +----------------+   Data      ^               ^
+//	       v                                         |               |
+//	+------+------+--------------------+             |               |
+//	|             |                    |             |               |
+//	|   Datapath  |                    |             |               |
+//	|             |                    |   DNS Lookup|               |
+//	+-------------+                    +<------------+               |
+//	|                                  |                             |
+//	|                Pod               |                             |
+//	|                                  |                   HTTP etc. |
+//	|                                  +<----------------------------+
+//	|                                  |
+//	+----------------------------------+
 //
 // === L7 DNS ===
 // L7 DNS is handled by the DNS Proxy. The proxy is always running within
 // cilium-agent but traffic is only redirected to it when a L7 rule includes a
 // DNS section such as:
 //
-//  - toEndpoints:
-//    toPorts:
-//    - ports:
-//       - port: "53"
-//         protocol: ANY
-//      rules:
-//        dns:
-//          - matchPattern: "*"
-//          - matchName: "cilium.io"
+//	---
+//	- toEndpoints:
+//	  toPorts:
+//	  - ports:
+//	     - port: "53"
+//	       protocol: ANY
+//	    rules:
+//	      dns:
+//	        - matchPattern: "*"
+//	        - matchName: "cilium.io"
 //
 // These redirects are implemented by the datapath and the management logic is
 // shared with other proxies in cilium (envoy and kafka). L7 DNS rules can
@@ -72,13 +73,13 @@
 // In the example above `matchPattern: "*"` allows all requests and makes
 // `matchName: "cilium.io"` redundant.
 // Notes:
-//  - The forwarded requests are sent from cilium-agent on the host interface
-//    and not from the endpoint.
-//  - Users must explicitly allow `*.*.svc.cluster.local.` in k8s clusters.
-//    This is not automatic.
-//  - L7 DNS rules are egress-only,
-//  - The proxy emits L7 cilium-monitor events: one for the request, an
-//    accept/reject event, and the final response.
+//   - The forwarded requests are sent from cilium-agent on the host interface
+//     and not from the endpoint.
+//   - Users must explicitly allow `*.*.svc.cluster.local.` in k8s clusters.
+//     This is not automatic.
+//   - L7 DNS rules are egress-only,
+//   - The proxy emits L7 cilium-monitor events: one for the request, an
+//     accept/reject event, and the final response.
 //
 // Apart from allowing or denying DNS requests, the DNS proxy is used to
 // observe DNS lookups in order to then allow L3 connections with the response
@@ -92,9 +93,10 @@
 // They rely on DNS lookup cache information and it must come from the DNS
 // proxy, or via a L7 DNS rule.
 //
-//  - toFQDNs:
-//      - matchName: "my-remote-service.com"
-//      - matchPattern: "bucket.*.my-remote-service.com"
+//	---
+//	- toFQDNs:
+//	    - matchName: "my-remote-service.com"
+//	    - matchPattern: "bucket.*.my-remote-service.com"
 //
 // IPs seen in a DNS response (i.e. the request was allowed by a L7 policy)
 // that are also selected in a DNS L3 rule matchPattern or matchName have a /32
@@ -104,18 +106,18 @@
 // node-local ipcache and in the policy map of each endpoint that is allowed to
 // connect to them (i.e. defined in the L3 DNS rule).
 // Notes:
-// - Generally speaking, toFQDNs can only handle non-cluster IPs. In-cluster
-//   policy should use toEndpoints and toServices. This is partly historical but
-//   is because of ipcache limitations when mapping ip->identity. Endpoint
-//   identities can clobber the FQDN IP identity.
-// - Despite being tracked per-Endpoint. DNS lookup IPs are collected into a
-//   global cache. This is historical and can be changed.
-//   The original implementation created policy documents in the policy
-//   repository to represent the IPs being allowed and could not distinguish
-//   between endpoints. The current implementation uses selectors that also do
-//   not distinguish between Endpoints. There is some provision for this,
-//   however, and it just requires better plumbing in how we place data in the
-//   Endpoint's datapath.
+//   - Generally speaking, toFQDNs can only handle non-cluster IPs. In-cluster
+//     policy should use toEndpoints and toServices. This is partly historical but
+//     is because of ipcache limitations when mapping ip->identity. Endpoint
+//     identities can clobber the FQDN IP identity.
+//   - Despite being tracked per-Endpoint. DNS lookup IPs are collected into a
+//     global cache. This is historical and can be changed.
+//     The original implementation created policy documents in the policy
+//     repository to represent the IPs being allowed and could not distinguish
+//     between endpoints. The current implementation uses selectors that also do
+//     not distinguish between Endpoints. There is some provision for this,
+//     however, and it just requires better plumbing in how we place data in the
+//     Endpoint's datapath.
 //
 // === Caching, Long-Lived Connections & Garbage Collection ===
 // DNS requests are distinct traffic from the connections that pods make with
@@ -123,14 +125,14 @@
 // lookup to a later connection; a pod may reuse the IPs in a DNS response an
 // arbitrary time after the lookup occurred, even past the DNS TTL. The
 // solution is multi-layered for historical reasons:
-// - Keep a per-Endpoint cache that can be stored to disk and restored on
-//   startup. These caches apply TTL expiration and limit the IP count per domain.
-// - Keep a global cache to combine all this DNS information and send it to the
-//   policy system. This cache applies TTL but not per-domain limits.
-//   This causes a DNS lookup in one endpoint to leak to another!
-// - Track live connections allowed by DNS policy and delay expiring that data
-//   while the connection is open. If the policy itself is removed, however, the
-//   connection is interrupted.
+//   - Keep a per-Endpoint cache that can be stored to disk and restored on
+//     startup. These caches apply TTL expiration and limit the IP count per domain.
+//   - Keep a global cache to combine all this DNS information and send it to the
+//     policy system. This cache applies TTL but not per-domain limits.
+//     This causes a DNS lookup in one endpoint to leak to another!
+//   - Track live connections allowed by DNS policy and delay expiring that data
+//     while the connection is open. If the policy itself is removed, however, the
+//     connection is interrupted.
 //
 // The same DNSCache type is used in all cases. DNSCache instances remain
 // consistent if the update order is different and merging multiple caches
@@ -141,19 +143,19 @@
 // overlapping DNS responses may have different TTLs for IPs that appear in
 // both.
 // Notes:
-// - The default configurable minimum TTL in the caches is 1 hour. This is
-//   mostly for identity stability, as short TTLs would cause more identity
-//   churn. This is mostly history as CIDR identities now have a near-0
-//   allocation overhead.
-// - DNSCache deletes only currently occur when the cilium API clears the cache
-//   or when the garbage collector evicts entries.
-// - The combination of caches: per-Endpoint and global must manage disparate
-//   behaviours of pods. The worst case scenario is one where one pod makes many
-//   requests to a target with changing IPs (like S3) but another makes few
-//   requests that are long-lived. We need to ensure "fairness" where one does
-//   not starve the other. The limits in the per-Endpoint caches allow this, and
-//   the global cache acts as a collector across different Endpoints (without
-//   restrictions).
+//   - The default configurable minimum TTL in the caches is 1 hour. This is
+//     mostly for identity stability, as short TTLs would cause more identity
+//     churn. This is mostly history as CIDR identities now have a near-0
+//     allocation overhead.
+//   - DNSCache deletes only currently occur when the cilium API clears the cache
+//     or when the garbage collector evicts entries.
+//   - The combination of caches: per-Endpoint and global must manage disparate
+//     behaviours of pods. The worst case scenario is one where one pod makes many
+//     requests to a target with changing IPs (like S3) but another makes few
+//     requests that are long-lived. We need to ensure "fairness" where one does
+//     not starve the other. The limits in the per-Endpoint caches allow this, and
+//     the global cache acts as a collector across different Endpoints (without
+//     restrictions).
 //
 // Expiration of DNS data is handled by the dns-garbage-collector-job controller.
 // Historically, the only expiration was TTL based and the per-Endpoint and
@@ -187,39 +189,38 @@
 //
 // === Flow of DNS data ===
 //
-// +---------------------+
-// |      DNS Proxy      |
-// +----------+----------+
-//            |
-//            v
-// +----------+----------+
-// | per-EP Lookup Cache |
-// +----------+----------+
-//            |
-//            v
-// +----------+----------+
-// | per-EP Zombie Cache |
-// +----------+----------+
-//            |
-//            v
-// +----------+----------+
-// |  Global DNS Cache   |
-// +----------+----------+
-//            |
-//            v
-// +----------+----------+
-// |     NameManager     |
-// +----------+----------+
-//            |
-//            v
-// +----------+----------+
-// |   Policy toFQDNs    |
-// |      Selectors      |
-// +----------+----------+
-//            |
-//            v
-// +----------+----------+
-// |   per-EP Datapath   |
-// +---------------------+
-//
+//	+---------------------+
+//	|      DNS Proxy      |
+//	+----------+----------+
+//	           |
+//	           v
+//	+----------+----------+
+//	| per-EP Lookup Cache |
+//	+----------+----------+
+//	           |
+//	           v
+//	+----------+----------+
+//	| per-EP Zombie Cache |
+//	+----------+----------+
+//	           |
+//	           v
+//	+----------+----------+
+//	|  Global DNS Cache   |
+//	+----------+----------+
+//	           |
+//	           v
+//	+----------+----------+
+//	|     NameManager     |
+//	+----------+----------+
+//	           |
+//	           v
+//	+----------+----------+
+//	|   Policy toFQDNs    |
+//	|      Selectors      |
+//	+----------+----------+
+//	           |
+//	           v
+//	+----------+----------+
+//	|   per-EP Datapath   |
+//	+---------------------+
 package fqdn

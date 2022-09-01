@@ -26,7 +26,7 @@ var lrpListCmd = &cobra.Command{
 
 func init() {
 	lrpCmd.AddCommand(lrpListCmd)
-	command.AddJSONOutput(lrpListCmd)
+	command.AddOutputOption(lrpListCmd)
 }
 
 func listLRPs(cmd *cobra.Command, args []string) {
@@ -35,7 +35,7 @@ func listLRPs(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get lrp list: %s", err)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(list); err != nil {
 			os.Exit(1)
 		}

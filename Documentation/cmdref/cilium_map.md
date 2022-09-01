@@ -20,7 +20,7 @@ Access userspace cached content of BPF maps
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium map get](../cilium_map_get)	 - Display cached content of given BPF map
-* [cilium map list](../cilium_map_list)	 - List all open BPF maps
+* [cilium](cilium.md)	 - CLI
+* [cilium map get](cilium_map_get.md)	 - Display cached content of given BPF map
+* [cilium map list](cilium_map_list.md)	 - List all open BPF maps
 

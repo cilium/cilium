@@ -36,7 +36,7 @@ contribute to Cilium:
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 | `go <https://golang.org/dl/>`_                               | |GO_RELEASE|                 | N/A (OS-specific)                                               |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
-+ `ginkgo <https://github.com/onsi/ginkgo>`__                  | >= 1.4.0                     | ``go install github.com/onsi/ginkgo/ginkgo@latest``             |
++ `ginkgo <https://github.com/onsi/ginkgo>`__                  | >= 1.4.0 and < 2.0.0         | ``go install github.com/onsi/ginkgo/ginkgo@latest``             |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 + `golangci-lint <https://github.com/golangci/golangci-lint>`_ | >= v1.27                     | ``go install github.com/golangci/golangci-lint@latest``         |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
@@ -49,6 +49,8 @@ contribute to Cilium:
 + `Docker-Compose <https://docs.docker.com/compose/install/>`_ | OS-Dependent                 | N/A (OS-specific)                                               |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 + python3-pip                                                  | latest                       | N/A (OS-specific)                                               |
++--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
++ `helm <https://helm.sh/docs/intro/install/>`_                | >= v3.6.0                    | N/A (OS-specific)                                               |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 
 For `integration_testing`, you will need to run ``docker`` without privileges.
@@ -65,17 +67,11 @@ Finally, in order to run Cilium locally on VMs, you need:
 | `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_  | >= 5.2                | N/A (OS-specific)                                                              |
 +------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 
-You should start with the `gs_guide`, which walks you through the set-up, such
-as installing Vagrant, getting the Cilium sources, and going through some
-Cilium basics.
-
-
 Vagrant Setup
 ~~~~~~~~~~~~~
 
-While the `gs_guide` uses a Vagrantfile tuned for the basic walk through, the
-setup for the Vagrantfile in the root of the Cilium tree depends on a number of
-environment variables and network setup that are managed via
+The setup for the Vagrantfile in the root of the Cilium tree depends on a
+number of environment variables and network setup that are managed via
 ``contrib/vagrant/start.sh``.
 
 Option 1 - Using the Provided Vagrantfiles (Recommended)
@@ -148,6 +144,11 @@ brought up by vagrant:
   second node is created, where ``k8s2`` will be a kubernetes node, which
   contains: kubelet, kube-proxy, kubectl and cilium.
 * ``NETNEXT=1``: Run with net-next kernel.
+* ``SERVER_BOX`` and ``SERVER_VERSION``: Run with a specified vagrant
+  box. See: ``vagrant_box_defaults.rb`` for the supported
+  versions. This may be useful for BPF developers that want to test
+  their changes with ``make -C bpf && sudo
+  test/bpf/verifier-test.sh``.
 * ``IPV4=1``: Run Cilium with IPv4 enabled.
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
   cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not
@@ -427,6 +428,8 @@ Making Changes
 #. Run ``git diff --check`` to catch obvious white space violations
 #. Run ``make`` to build your changes. This will also run ``make lint`` and error out
    on any golang linting errors. The rules are configured in ``.golangci.yaml``
+#. Run ``make -C bpf checkpatch`` to validate against your changes
+   coding style and commit messages.
 #. See :ref:`integration_testing` on how to run integration tests.
 #. See :ref:`testsuite` for information how to run the end to end integration
    tests

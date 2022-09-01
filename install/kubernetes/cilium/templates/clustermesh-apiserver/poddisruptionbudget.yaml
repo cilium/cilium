@@ -7,6 +7,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: clustermesh-apiserver
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: clustermesh-apiserver
 spec:
   {{- with $component.maxUnavailable }}
   maxUnavailable: {{ . }}

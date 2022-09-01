@@ -21,7 +21,7 @@ __lookup_ip6_endpoint(const union v6addr *ip6)
 }
 
 static __always_inline __maybe_unused struct endpoint_info *
-lookup_ip6_endpoint(struct ipv6hdr *ip6)
+lookup_ip6_endpoint(const struct ipv6hdr *ip6)
 {
 	return __lookup_ip6_endpoint((union v6addr *)&ip6->daddr);
 }
@@ -116,8 +116,8 @@ _Pragma("unroll")							\
 	return NULL;							\
 }
 #ifdef IPCACHE6_PREFIXES
-LPM_LOOKUP_FN(lookup_ip6_remote_endpoint, union v6addr *, IPCACHE6_PREFIXES,
-	      IPCACHE_MAP, ipcache_lookup6)
+LPM_LOOKUP_FN(lookup_ip6_remote_endpoint, const union v6addr *,
+	      IPCACHE6_PREFIXES, IPCACHE_MAP, ipcache_lookup6)
 #endif
 #ifdef IPCACHE4_PREFIXES
 LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,

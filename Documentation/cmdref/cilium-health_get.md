@@ -12,7 +12,7 @@ cilium-health get [flags]
 
 ```
   -h, --help            help for get
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -26,5 +26,5 @@ cilium-health get [flags]
 
 ### SEE ALSO
 
-* [cilium-health](cilium-health.html)	 - Cilium Health Client
+* [cilium-health](cilium-health.md)	 - Cilium Health Client
 

@@ -7,8 +7,6 @@ import (
 	"net"
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -17,6 +15,8 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -29,25 +29,27 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 	// CiliumEndpoint objects are used for ipcache discovery until the
 	// key-value store is connected
 	var once sync.Once
+	apiGroup := k8sAPIGroupCiliumEndpointV2
 	for {
 		_, ciliumEndpointInformer := informer.NewInformer(
-			cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
-				cilium_v2.CEPPluralName, v1.NamespaceAll, fields.Everything()),
+			utils.ListerWatcherFromTyped[*cilium_v2.CiliumEndpointList](ciliumNPClient.CiliumV2().CiliumEndpoints("")),
 			&cilium_v2.CiliumEndpoint{},
 			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					var valid, equal bool
-					defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricCreate, valid, equal) }()
+					defer func() {
+						k.K8sEventReceived(apiGroup, metricCiliumEndpoint, resources.MetricCreate, valid, equal)
+					}()
 					if ciliumEndpoint, ok := obj.(*types.CiliumEndpoint); ok {
 						valid = true
 						k.endpointUpdated(nil, ciliumEndpoint)
-						k.K8sEventProcessed(metricCiliumEndpoint, metricCreate, true)
+						k.K8sEventProcessed(metricCiliumEndpoint, resources.MetricCreate, true)
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
-					defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricUpdate, valid, equal) }()
+					defer func() { k.K8sEventReceived(apiGroup, metricCiliumEndpoint, resources.MetricUpdate, valid, equal) }()
 					if oldCE := k8s.ObjToCiliumEndpoint(oldObj); oldCE != nil {
 						if newCE := k8s.ObjToCiliumEndpoint(newObj); newCE != nil {
 							valid = true
@@ -56,13 +58,13 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 								return
 							}
 							k.endpointUpdated(oldCE, newCE)
-							k.K8sEventProcessed(metricCiliumEndpoint, metricUpdate, true)
+							k.K8sEventProcessed(metricCiliumEndpoint, resources.MetricUpdate, true)
 						}
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
 					var valid, equal bool
-					defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricDelete, valid, equal) }()
+					defer func() { k.K8sEventReceived(apiGroup, metricCiliumEndpoint, resources.MetricDelete, valid, equal) }()
 					ciliumEndpoint := k8s.ObjToCiliumEndpoint(obj)
 					if ciliumEndpoint == nil {
 						return
@@ -124,13 +126,13 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 					}
 				}
 				if !v4Added {
-					portsChanged := k.ipcache.Delete(oldPair.IPV4, source.CustomResource)
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
 					if portsChanged {
 						namedPortsChanged = true
 					}
 				}
 				if !v6Added {
-					portsChanged := k.ipcache.Delete(oldPair.IPV6, source.CustomResource)
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
 					if portsChanged {
 						namedPortsChanged = true
 					}

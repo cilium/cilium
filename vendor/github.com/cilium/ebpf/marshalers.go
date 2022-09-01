@@ -99,14 +99,7 @@ var bytesReaderPool = sync.Pool{
 func unmarshalBytes(data interface{}, buf []byte) error {
 	switch value := data.(type) {
 	case unsafe.Pointer:
-		var dst []byte
-		// Use unsafe.Slice when we drop support for pre1.17 (https://github.com/golang/go/issues/19367)
-		// We could opt for removing unsafe.Pointer support in the lib as well
-		sh := (*reflect.SliceHeader)(unsafe.Pointer(&dst))
-		sh.Data = uintptr(value)
-		sh.Len = len(buf)
-		sh.Cap = len(buf)
-
+		dst := unsafe.Slice((*byte)(value), len(buf))
 		copy(dst, buf)
 		runtime.KeepAlive(value)
 		return nil

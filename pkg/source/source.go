@@ -34,8 +34,13 @@ const (
 	CustomResource Source = "custom-resource"
 
 	// Generated is the source used for generated state which can be
-	// overwritten by all other sources
+	// overwritten by all other sources, except for restored (and unspec).
 	Generated Source = "generated"
+
+	// Restored is the source used for restored state from data left behind
+	// by the previous agent instance. Can be overwritten by all other
+	// sources (except for unspec).
+	Restored Source = "restored"
 )
 
 // AllowOverwrite returns true if new state from a particular source is allowed
@@ -59,17 +64,22 @@ func AllowOverwrite(existing, new Source) bool {
 		return new == KVStore || new == Local || new == KubeAPIServer
 
 	// Custom-resource state can be overwritten by everything except
-	// generated, unspecified and Kubernetes (non-CRD) state
+	// restored, generated, unspecified and Kubernetes (non-CRD) state
 	case CustomResource:
-		return new != Generated && new != Unspec && new != Kubernetes
+		return new != Restored && new != Generated && new != Unspec && new != Kubernetes
 
-	// Kubernetes state can be overwritten by everything except generated
-	// and unspecified state
+	// Kubernetes state can be overwritten by everything except restored,
+	// generated and unspecified state
 	case Kubernetes:
-		return new != Generated && new != Unspec
+		return new != Restored && new != Generated && new != Unspec
 
-	// Generated can be overwritten by everything except by Unspecified
+	// Generated can be overwritten by everything except by Restored and
+	// Unspecified
 	case Generated:
+		return new != Restored && new != Unspec
+
+	// Restored can be overwritten by everything except by Unspecified
+	case Restored:
 		return new != Unspec
 
 	// Unspecified state can be overwritten by everything

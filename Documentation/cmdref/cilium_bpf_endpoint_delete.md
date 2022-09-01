@@ -24,5 +24,5 @@ cilium bpf endpoint delete [flags]
 
 ### SEE ALSO
 
-* [cilium bpf endpoint](../cilium_bpf_endpoint)	 - Local endpoint map
+* [cilium bpf endpoint](cilium_bpf_endpoint.md)	 - Local endpoint map
 

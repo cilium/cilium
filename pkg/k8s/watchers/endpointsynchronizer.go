@@ -158,11 +158,10 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 								Name: podName,
 								OwnerReferences: []meta_v1.OwnerReference{
 									{
-										APIVersion:         "v1",
-										Kind:               "Pod",
-										Name:               pod.GetObjectMeta().GetName(),
-										UID:                pod.ObjectMeta.UID,
-										BlockOwnerDeletion: func() *bool { a := true; return &a }(),
+										APIVersion: "v1",
+										Kind:       "Pod",
+										Name:       pod.GetObjectMeta().GetName(),
+										UID:        pod.ObjectMeta.UID,
 									},
 								},
 								// Mirror the labels of parent pod in CiliumEndpoint object to enable

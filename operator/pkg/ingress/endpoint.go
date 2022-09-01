@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
 type endpointManager struct {
@@ -30,8 +31,9 @@ func newEndpointManager(maxRetries int) (*endpointManager, error) {
 
 	// setup store and informer only for endpoints having label cilium.io/ingress
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(), "endpoints",
-			v1.NamespaceAll, func(options *metav1.ListOptions) {
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](k8s.WatcherClient().CoreV1().Endpoints("")),
+			func(options *metav1.ListOptions) {
 				options.LabelSelector = ciliumIngressLabelKey
 			}),
 		&slim_corev1.Endpoints{},
@@ -62,22 +64,6 @@ func (em *endpointManager) getByKey(key string) (*slim_corev1.Endpoints, bool, e
 }
 
 func getEndpointsForIngress(ingress *slim_networkingv1.Ingress) *v1.Endpoints {
-	var ports []v1.EndpointPort
-
-	if len(ingress.Spec.Rules) > 0 && len(ingress.Spec.Rules[0].HTTP.Paths) > 0 &&
-		ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service != nil {
-		ports = append(ports, v1.EndpointPort{
-			Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Name,
-			Port: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number,
-		})
-	} else {
-		if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
-			ports = append(ports, v1.EndpointPort{
-				Name: ingress.Spec.DefaultBackend.Service.Port.Name,
-				Port: ingress.Spec.DefaultBackend.Service.Port.Number,
-			})
-		}
-	}
 	return &v1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getServiceNameForIngress(ingress),
@@ -98,7 +84,7 @@ func getEndpointsForIngress(ingress *slim_networkingv1.Ingress) *v1.Endpoints {
 				// to the lb map when the service has no backends.
 				// Related github issue https://github.com/cilium/cilium/issues/19262
 				Addresses: []v1.EndpointAddress{{IP: "192.192.192.192"}}, // dummy
-				Ports:     ports,
+				Ports:     []v1.EndpointPort{{Port: 9999}},               //dummy
 			},
 		},
 	}

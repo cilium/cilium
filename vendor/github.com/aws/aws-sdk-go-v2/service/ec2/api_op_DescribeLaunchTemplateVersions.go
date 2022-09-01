@@ -85,14 +85,14 @@ type DescribeLaunchTemplateVersionsInput struct {
 	Filters []types.Filter
 
 	// The ID of the launch template. To describe one or more versions of a specified
-	// launch template, you must specify either the launch template ID or the launch
-	// template name in the request. To describe all the latest or default launch
+	// launch template, you must specify either the LaunchTemplateId or the
+	// LaunchTemplateName, but not both. To describe all the latest or default launch
 	// template versions in your account, you must omit this parameter.
 	LaunchTemplateId *string
 
 	// The name of the launch template. To describe one or more versions of a specified
-	// launch template, you must specify either the launch template ID or the launch
-	// template name in the request. To describe all the latest or default launch
+	// launch template, you must specify either the LaunchTemplateName or the
+	// LaunchTemplateId, but not both. To describe all the latest or default launch
 	// template versions in your account, you must omit this parameter.
 	LaunchTemplateName *string
 
@@ -117,7 +117,7 @@ type DescribeLaunchTemplateVersionsInput struct {
 	// all launch templates in your account that are defined as the latest version, the
 	// valid value is $Latest. To describe all launch templates in your account that
 	// are defined as the default version, the valid value is $Default. You can specify
-	// $Latest and $Default in the same call. You cannot specify numbers.
+	// $Latest and $Default in the same request. You cannot specify numbers.
 	Versions []string
 
 	noSmithyDocumentSerde

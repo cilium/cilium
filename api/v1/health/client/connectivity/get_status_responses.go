@@ -43,7 +43,8 @@ func NewGetStatusOK() *GetStatusOK {
 	return &GetStatusOK{}
 }
 
-/*GetStatusOK handles this case with default header values.
+/*
+GetStatusOK handles this case with default header values.
 
 Success
 */

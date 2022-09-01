@@ -71,7 +71,7 @@ func CreateFile(name string) *FileData {
 }
 
 func CreateDir(name string) *FileData {
-	return &FileData{name: name, memDir: &DirMap{}, dir: true}
+	return &FileData{name: name, memDir: &DirMap{}, dir: true, modtime: time.Now()}
 }
 
 func ChangeFileName(f *FileData, newname string) {

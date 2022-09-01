@@ -43,10 +43,10 @@ jobs:
 
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25
+        uses: docker/setup-buildx-action@dc7b9719a96d48369863986a06765841d7ea23f6
 
       - name: Login to quay.io
-        uses: docker/login-action@dd4fa0671be5250ee6f50aedf4cb05514abda2c7
+        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_DEVELOPER_USERNAME }}
@@ -67,12 +67,12 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           persist-credentials: false
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_release
         with:
           context: .
@@ -82,6 +82,7 @@ jobs:
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
+          target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
 
@@ -97,7 +98,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -105,7 +106,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

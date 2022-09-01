@@ -6,7 +6,6 @@ package process
 import (
 	"bytes"
 	"context"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -147,11 +146,7 @@ func (p *Process) StatusWithContext(ctx context.Context) ([]string, error) {
 func (p *Process) ForegroundWithContext(ctx context.Context) (bool, error) {
 	// see https://github.com/shirou/gopsutil/issues/596#issuecomment-432707831 for implementation details
 	pid := p.Pid
-	ps, err := exec.LookPath("ps")
-	if err != nil {
-		return false, err
-	}
-	out, err := invoke.CommandWithContext(ctx, ps, "-o", "stat=", "-p", strconv.Itoa(int(pid)))
+	out, err := invoke.CommandWithContext(ctx, "ps", "-o", "stat=", "-p", strconv.Itoa(int(pid)))
 	if err != nil {
 		return false, err
 	}

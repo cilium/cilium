@@ -136,8 +136,13 @@ type AssumeRoleAPIClient interface {
 	AssumeRole(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error)
 }
 
-// DefaultDuration is the default amount of time in minutes that the credentials
-// will be valid for.
+// DefaultDuration is the default amount of time in minutes that the
+// credentials will be valid for. This value is only used by AssumeRoleProvider
+// for specifying the default expiry duration of an assume role.
+//
+// Other providers such as WebIdentityRoleProvider do not use this value, and
+// instead rely on STS API's default parameter handing to assign a default
+// value.
 var DefaultDuration = time.Duration(15) * time.Minute
 
 // AssumeRoleProvider retrieves temporary credentials from the STS service, and

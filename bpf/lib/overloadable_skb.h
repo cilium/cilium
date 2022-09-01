@@ -37,7 +37,7 @@ get_epid(const struct __sk_buff *ctx)
 static __always_inline __maybe_unused void
 set_encrypt_dip(struct __sk_buff *ctx, __u32 ip_endpoint)
 {
-	ctx->cb[4] = ip_endpoint;
+	ctx->cb[CB_ENCRYPT_DST] = ip_endpoint;
 }
 
 /**
@@ -53,7 +53,7 @@ set_identity_mark(struct __sk_buff *ctx, __u32 identity)
 static __always_inline __maybe_unused void
 set_identity_meta(struct __sk_buff *ctx, __u32 identity)
 {
-	ctx->cb[1] = identity;
+	ctx->cb[CB_ENCRYPT_IDENTITY] = identity;
 }
 
 /**
@@ -68,7 +68,7 @@ set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key)
 static __always_inline __maybe_unused void
 set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key)
 {
-	ctx->cb[0] = or_encrypt_key(key);
+	ctx->cb[CB_ENCRYPT_MAGIC] = or_encrypt_key(key);
 }
 
 /**
@@ -85,17 +85,10 @@ set_encrypt_mark(struct __sk_buff *ctx)
 static __always_inline __maybe_unused int
 redirect_self(const struct __sk_buff *ctx)
 {
-	/* Looping back the packet into the originating netns. In
-	 * case of veth, it's xmit'ing into the hosts' veth device
-	 * such that we end up on ingress in the peer. For ipvlan
-	 * slave it's redirect to ingress as we are attached on the
-	 * slave in netns already.
+	/* Looping back the packet into the originating netns. We xmit into the
+	 * hosts' veth device such that we end up on ingress in the peer.
 	 */
-#ifdef ENABLE_HOST_REDIRECT
 	return ctx_redirect(ctx, ctx->ifindex, 0);
-#else
-	return ctx_redirect(ctx, ctx->ifindex, BPF_F_INGRESS);
-#endif
 }
 
 static __always_inline __maybe_unused void

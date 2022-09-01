@@ -21,7 +21,7 @@ cilium bpf egress list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -34,5 +34,5 @@ cilium bpf egress list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf egress](../cilium_bpf_egress)	 - Manage the egress routing rules
+* [cilium bpf egress](cilium_bpf_egress.md)	 - Manage the egress routing rules
 

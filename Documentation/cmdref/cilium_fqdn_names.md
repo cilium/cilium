@@ -24,5 +24,5 @@ cilium fqdn names [flags]
 
 ### SEE ALSO
 
-* [cilium fqdn](../cilium_fqdn)	 - Manage fqdn proxy
+* [cilium fqdn](cilium_fqdn.md)	 - Manage fqdn proxy
 

@@ -718,6 +718,7 @@ func newNeighborFromAPIStruct(a *api.Peer) (*config.Neighbor, error) {
 		pconf.Transport.Config.LocalAddress = a.Transport.LocalAddress
 		pconf.Transport.Config.PassiveMode = a.Transport.PassiveMode
 		pconf.Transport.Config.RemotePort = uint16(a.Transport.RemotePort)
+		pconf.Transport.Config.LocalPort = uint16(a.Transport.LocalPort)
 		pconf.Transport.Config.BindInterface = a.Transport.BindInterface
 	}
 	if a.EbgpMultihop != nil {

@@ -219,6 +219,14 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 				}, ""),
 			},
 		},
+		{
+			name: "ingress",
+			args: labels.LabelIngress,
+			want: &want{
+				id:     ReservedIdentityIngress,
+				labels: labels.LabelIngress,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

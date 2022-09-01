@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_test
+//go:build !privileged_tests
 
 package ipam
 
@@ -20,9 +20,10 @@ import (
 
 type ownerMock struct{}
 
-func (o *ownerMock) K8sEventReceived(scope string, action string, valid, equal bool) {}
-func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool)      {}
-func (o *ownerMock) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)            {}
+func (o *ownerMock) K8sEventReceived(resourceApiGroup, scope string, action string, valid, equal bool) {
+}
+func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool) {}
+func (o *ownerMock) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)       {}
 
 func (o *ownerMock) UpdateCiliumNodeResource()                                          {}
 func (o *ownerMock) LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR) {}

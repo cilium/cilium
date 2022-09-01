@@ -28,35 +28,22 @@ rules:
   resources:
   - namespaces
   - services
-  - nodes
-  - endpoints
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - nodes
   - pods
+  - endpoints
+  - nodes
   verbs:
   - get
   - list
   - watch
-  - update
+{{- if .Values.annotateK8sNode }}
 - apiGroups:
   - ""
   resources:
-  - nodes
   - nodes/status
   verbs:
+  # To annotate the k8s node with Cilium's metadata
   - patch
+{{- end }}
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -79,35 +66,59 @@ rules:
 - apiGroups:
   - cilium.io
   resources:
-  - ciliumnetworkpolicies
-  - ciliumnetworkpolicies/status
-  - ciliumnetworkpolicies/finalizers
-  - ciliumclusterwidenetworkpolicies
-  - ciliumclusterwidenetworkpolicies/status
-  - ciliumclusterwidenetworkpolicies/finalizers
-  - ciliumendpoints
-  - ciliumendpoints/status
-  - ciliumendpoints/finalizers
-  - ciliumnodes
-  - ciliumnodes/status
-  - ciliumnodes/finalizers
-  - ciliumidentities
-  - ciliumidentities/finalizers
-  - ciliumlocalredirectpolicies
-  - ciliumlocalredirectpolicies/status
-  - ciliumlocalredirectpolicies/finalizers
-  - ciliumegressnatpolicies
-  - ciliumendpointslices
-  - ciliumbgppeeringpolicies
   - ciliumbgploadbalancerippools
-  verbs:
-  - '*'
-- apiGroups:
-  - cilium.io
-  resources:
+  - ciliumbgppeeringpolicies
   - ciliumclusterwideenvoyconfigs
+  - ciliumclusterwidenetworkpolicies
+  - ciliumegressgatewaypolicies
+  - ciliumegressnatpolicies
+  - ciliumendpoints
+  - ciliumendpointslices
   - ciliumenvoyconfigs
+  - ciliumidentities
+  - ciliumlocalredirectpolicies
+  - ciliumnetworkpolicies
+  - ciliumnodes
   verbs:
   - list
   - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumidentities
+  - ciliumendpoints
+  - ciliumnodes
+  verbs:
+  - create
+- apiGroups:
+  - cilium.io
+  # To synchronize garbage collection of such resources
+  resources:
+  - ciliumidentities
+  verbs:
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumendpoints
+  verbs:
+  - delete
+  - get
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnodes
+  - ciliumnodes/status
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies/status
+  - ciliumclusterwidenetworkpolicies/status
+  - ciliumendpoints/status
+  - ciliumendpoints
+  verbs:
+  - patch
 {{- end }}

@@ -1,15 +1,15 @@
 # syntax=docker/dockerfile:1.2
 
-# Copyright 2020-2021 Authors of Cilium
+# Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG TESTER_IMAGE=quay.io/cilium/image-tester:c37f768323abfba87c90cd9c82d37136183457bc@sha256:4c9d640b6379eb4964b8590acc95ca2dfaa71df70f4467fb7d8ac076acf6a8e1
-ARG GOLANG_IMAGE=docker.io/library/golang:1.18.0@sha256:b5a9ae5907066849cbb2b47af93713b1f030e3eb6b36d84f2ae5f354b25c80d4
-ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:626ffe58f6e7566e00254b638eb7e0f3b11d4da9675088f4781a50ae288f3322
+ARG TESTER_IMAGE=quay.io/cilium/image-tester:dd09c8d3ef349a909fbcdc99279516baef153f22@sha256:c056d064cb47c97acd607343db5457e1d49d9338d6d8a87e93e23cc93f052c73
+ARG GOLANG_IMAGE=docker.io/library/golang:1.19.0@sha256:d72a2944621f0f4027983e094bdf9464d26459c17efe732320043b84c91e51e7
+ARG UBUNTU_IMAGE=docker.io/library/ubuntu:22.04@sha256:26c68657ccce2cb0a31b330cb0be2b5e108d467f641c62e13ab40cbec258c68d
 
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:547db7ec9a750b8f888a506709adb41f135b952e@sha256:4d6fa0aede3556c5fb5a9c71bc6b9585475ac9b1064f516d4c45c8fb691c9d9e
-ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:523f6b3928c309e0ee5ebbc2241604892912e507@sha256:4c31054bf0bf252117ef0e1b3d09c3a607baa7f06425b0d6432124a5333319c9
-ARG CILIUM_IPROUTE2_IMAGE=quay.io/cilium/cilium-iproute2:02c29c971c01f0b9a7b916327f0caedd83820c18@sha256:eeb019043163891b91b731bed237d1edfaac036993b75f839b7d8fe6dd82b866
+ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:3408daa17f6490a464dfc746961e28ae31964c66@sha256:ff13a1a9f973d102c6ac907d2bc38a524c8e1d26c6c1b16ed809a98925206a79
+ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:d3093f6aeefef8270306011109be623a7e80ad1b@sha256:2c28c64195dee20ab596d70a59a4597a11058333c6b35a99da32c339dcd7df56
+ARG CILIUM_IPROUTE2_IMAGE=quay.io/cilium/cilium-iproute2:f882e3fd516184703eea5ee9b3b915748b5d4ee8@sha256:f22b8aaf01952cf4b2ec959f0b8f4d242b95ce279480fbd73fded606ce0c3fa4
 
 FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} as bpftool-dist
@@ -31,7 +31,7 @@ FROM ${UBUNTU_IMAGE} as rootfs
 
 # Change the number to force the generation of a new git-tree SHA. Useful when
 # we want to re-run 'apt-get upgrade' for stale images.
-ENV FORCE_BUILD=1
+ENV FORCE_BUILD=2
 
 # Update ubuntu packages to the most recent versions
 RUN apt-get update && \
@@ -42,11 +42,10 @@ WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     ./install-runtime-deps.sh
 
-COPY iptables-wrapper /usr/sbin/iptables-wrapper
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
-    ./configure-iptables-wrapper.sh
+    ./iptables-wrapper-installer.sh --no-sanity-check
 
-COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /bin/
+COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local /usr/local
 COPY --from=iproute2-dist /usr/lib/libbpf* /usr/lib
 COPY --from=iproute2-dist /usr/local /usr/local

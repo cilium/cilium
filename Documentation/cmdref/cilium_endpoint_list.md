@@ -13,7 +13,7 @@ cilium endpoint list [flags]
 ```
   -h, --help            help for list
       --no-headers      Do not print headers
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -26,5 +26,5 @@ cilium endpoint list [flags]
 
 ### SEE ALSO
 
-* [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
+* [cilium endpoint](cilium_endpoint.md)	 - Manage endpoints
 

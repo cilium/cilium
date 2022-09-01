@@ -89,7 +89,7 @@ type CreateSnapshotRequest struct {
 
 // CreateSnapshotTag is a repeated param struct in CreateSnapshotRequest
 type CreateSnapshotTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

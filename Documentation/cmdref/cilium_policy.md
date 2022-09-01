@@ -20,11 +20,11 @@ Manage security policies
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium policy delete](../cilium_policy_delete)	 - Delete policy rules
-* [cilium policy get](../cilium_policy_get)	 - Display policy node information
-* [cilium policy import](../cilium_policy_import)	 - Import security policy in JSON format
-* [cilium policy selectors](../cilium_policy_selectors)	 - Display cached information about selectors
-* [cilium policy validate](../cilium_policy_validate)	 - Validate a policy
-* [cilium policy wait](../cilium_policy_wait)	 - Wait for all endpoints to have updated to a given policy revision
+* [cilium](cilium.md)	 - CLI
+* [cilium policy delete](cilium_policy_delete.md)	 - Delete policy rules
+* [cilium policy get](cilium_policy_get.md)	 - Display policy node information
+* [cilium policy import](cilium_policy_import.md)	 - Import security policy in JSON format
+* [cilium policy selectors](cilium_policy_selectors.md)	 - Display cached information about selectors
+* [cilium policy validate](cilium_policy_validate.md)	 - Validate a policy
+* [cilium policy wait](cilium_policy_wait.md)	 - Wait for all endpoints to have updated to a given policy revision
 

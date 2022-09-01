@@ -22,7 +22,7 @@ certificate would be signed by a different CA.
         {{- $key := index .data "ca.key" }}
         {{- $ca = buildCustomCert $crt $key -}}
       {{- else }}
-        {{- $_ := include "cilum.ca.setup" . -}}
+        {{- $_ := include "cilium.ca.setup" . -}}
         {{- with lookup "v1" "Secret" .Release.Namespace .commonCASecretName }}
           {{- $crt := index .data "ca.crt" }}
           {{- $key := index .data "ca.key" }}

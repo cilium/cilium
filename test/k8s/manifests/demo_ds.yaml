@@ -59,6 +59,28 @@ spec:
           - "1000h"
 ---
 apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testclient-2
+spec:
+  selector:
+    matchLabels:
+      zgroup: testDSClient2
+  template:
+    metadata:
+      labels:
+        zgroup: testDSClient2
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: web
+        image: docker.io/cilium/demo-client:1.0
+        imagePullPolicy: IfNotPresent
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+---
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: test-k8s2

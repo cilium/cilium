@@ -12,7 +12,7 @@ cilium recorder list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium recorder list [flags]
 
 ### SEE ALSO
 
-* [cilium recorder](../cilium_recorder)	 - Introspect or mangle pcap recorder
+* [cilium recorder](cilium_recorder.md)	 - Introspect or mangle pcap recorder
 

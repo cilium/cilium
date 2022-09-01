@@ -38,7 +38,7 @@ func GetNodesInfo(kubectl *Kubectl) (*NodesInfo, error) {
 		ni.OutsideNodeName, ni.OutsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 	}
 
-	ni.PrivateIface, err = kubectl.GetPrivateIface()
+	ni.PrivateIface, err = kubectl.GetPrivateIface(K8s1)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot determine private iface: %w", err)
 	}

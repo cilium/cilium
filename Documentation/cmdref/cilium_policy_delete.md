@@ -13,7 +13,7 @@ cilium policy delete [<labels>] [flags]
 ```
       --all             Delete all policies
   -h, --help            help for delete
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -26,5 +26,5 @@ cilium policy delete [<labels>] [flags]
 
 ### SEE ALSO
 
-* [cilium policy](../cilium_policy)	 - Manage security policies
+* [cilium policy](cilium_policy.md)	 - Manage security policies
 

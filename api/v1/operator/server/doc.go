@@ -4,19 +4,19 @@
 
 // Package server Cilium Operator
 //
-//  Cilium
-//  Schemes:
-//    http
-//  Host: localhost
-//  BasePath: /v1
-//  Version: v1beta
+//	Cilium
+//	Schemes:
+//	  http
+//	Host: localhost
+//	BasePath: /v1
+//	Version: v1beta
 //
-//  Consumes:
-//    - application/json
+//	Consumes:
+//	  - application/json
 //
-//  Produces:
-//    - application/json
-//    - text/plain
+//	Produces:
+//	  - application/json
+//	  - text/plain
 //
 // swagger:meta
 package server

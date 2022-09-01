@@ -33,7 +33,7 @@ var nodeListCmd = &cobra.Command{
 			return
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(cluster); err != nil {
 				os.Exit(1)
 			}
@@ -48,7 +48,7 @@ var nodeListCmd = &cobra.Command{
 
 func init() {
 	nodeCmd.AddCommand(nodeListCmd)
-	command.AddJSONOutput(nodeListCmd)
+	command.AddOutputOption(nodeListCmd)
 }
 
 func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {

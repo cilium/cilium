@@ -5,11 +5,11 @@ package ingress
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -52,8 +53,9 @@ func newServiceManager(ingressQueue workqueue.RateLimitingInterface, maxRetries 
 	}
 
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(), "services",
-			v1.NamespaceAll, func(options *metav1.ListOptions) {
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](k8s.WatcherClient().CoreV1().Services("")),
+			func(options *metav1.ListOptions) {
 				options.LabelSelector = ciliumIngressLabelKey
 			}),
 		&slim_corev1.Service{},
@@ -171,7 +173,7 @@ func (sm *serviceManager) handleServiceUpdatedEvent(event serviceUpdatedEvent) e
 		}).Debug("Service is being deleted")
 		return nil
 	}
-	log.WithField("old", event.oldService).WithField("new", event.newService).Info("Handling service update")
+	log.WithField("old", event.oldService).WithField("new", event.newService).Debug("Handling service update")
 	sm.notify(event.newService)
 	return nil
 }
@@ -184,46 +186,35 @@ func (sm *serviceManager) notify(service *slim_corev1.Service) {
 	}
 }
 
-func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
-	var targetPort int32
-	if len(ingress.Spec.Rules) > 0 && len(ingress.Spec.Rules[0].HTTP.Paths) > 0 &&
-		ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service != nil {
-		targetPort = ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number
-	} else {
-		if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
-			targetPort = ingress.Spec.DefaultBackend.Service.Port.Number
+func getServiceForIngress(ingress *slim_networkingv1.Ingress, lbAnnotations []string) *v1.Service {
+	annotations := make(map[string]string)
+	for annotationKey, annotationValue := range ingress.ObjectMeta.Annotations {
+		for _, annotationPrefix := range lbAnnotations {
+			if strings.HasPrefix(annotationKey, annotationPrefix) {
+				annotations[annotationKey] = annotationValue
+			}
 		}
 	}
-
 	ports := []v1.ServicePort{
 		{
 			Name:     "http",
 			Protocol: "TCP",
 			Port:     80,
-			// TODO(michi) how do we deal with multiple target ports?
-			// TODO(jarno) It seems that when service is accessed via
-			//             NodePort all these targetports are ignored anyway,
-			//             and the targetport defined in the backend service is
-			//             used regardless what is specified here.
-			TargetPort: intstr.FromInt((int)(targetPort)),
 		},
 	}
-	if len(ingress.Spec.TLS) > 0 {
-		ports = []v1.ServicePort{
-			{
-				Name:     "https",
-				Protocol: "TCP",
-				Port:     443,
-				// TODO(michi) how do we deal with multiple target ports?
-				TargetPort: intstr.FromInt((int)(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number)),
-			},
-		}
+	if tlsEnabled(ingress) {
+		ports = append(ports, v1.ServicePort{
+			Name:     "https",
+			Protocol: "TCP",
+			Port:     443,
+		})
 	}
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getServiceNameForIngress(ingress),
-			Namespace: ingress.Namespace,
-			Labels:    map[string]string{ciliumIngressLabelKey: "true"},
+			Name:        getServiceNameForIngress(ingress),
+			Namespace:   ingress.Namespace,
+			Labels:      map[string]string{ciliumIngressLabelKey: "true"},
+			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: slim_networkingv1.SchemeGroupVersion.String(),

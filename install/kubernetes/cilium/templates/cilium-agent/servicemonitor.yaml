@@ -6,6 +6,7 @@ metadata:
   name: cilium-agent
   namespace: {{ .Values.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
   labels:
+    app.kubernetes.io/part-of: cilium
     {{- with .Values.prometheus.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -22,7 +23,7 @@ spec:
     - {{ .Release.Namespace }}
   endpoints:
   - port: metrics
-    interval: 10s
+    interval: {{ .Values.prometheus.serviceMonitor.interval | quote }}
     honorLabels: true
     path: /metrics
   targetLabels:

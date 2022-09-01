@@ -5,19 +5,30 @@ include ../Makefile.defs
 include ../Makefile.quiet
 
 HELM_VALUES := helm-values.rst
+REQUIREMENTS_NODEP := requirements-min/requirements.txt
+REQUIREMENTS := requirements.txt
 
-.PHONY: default clean builder-image cilium-build cmdref epub latex html run-server stop-server
+.PHONY: default clean help builder-image cilium-build cmdref epub latex html
+
+##@ Targets (default: "html")
 
 default: html
 
-clean:
-	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock
+define build_image
+  $(ECHO_DOCKER)
+  # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
+  grep -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
+  $(QUIET)tar c $(REQUIREMENTS) Dockerfile \
+    | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) --target $(2) --tag $(3) -
+endef
 
-builder-image: Dockerfile requirements.txt
-	# Pre-pull FROM docker images due to Buildkit sometimes failing to pull them.
-	grep "^FROM " $< | cut -d ' ' -f2 | xargs -n1 docker pull
-	$(QUIET)tar c requirements.txt Dockerfile \
-	  | $(CONTAINER_ENGINE) build --tag cilium/docs-builder -
+DOCS_BASE_IMG ?= cilium/docs-base
+base-image: Dockerfile ## Build the docs-base image for updating the requirements.txt file.
+	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
+
+DOCS_BUILDER_IMG ?= cilium/docs-builder
+builder-image: Dockerfile $(REQUIREMENTS) ## Build the docs-builder image for rendering and checking the documentation.
+	$(call build_image,$<,docs-builder,$(DOCS_BUILDER_IMG))
 
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.
@@ -26,20 +37,21 @@ cilium-build:
 
 READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
 DOCKER_CTR_ROOT_DIR := /src
-DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
+DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
 		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
-		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR) \
+		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR)
+DOCKER_CTR := $(DOCKER_CTR_BASE) \
 		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
 		--user "$(shell id -u):$(shell id -g)"
-DOCKER_RUN := $(DOCKER_CTR) cilium/docs-builder
+DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
-update-cmdref: builder-image cilium-build
+update-cmdref: builder-image cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
-check: builder-image update-cmdref update-helm-values
+check: builder-image update-cmdref update-helm-values ## Validate command and Helm references, as well as policy examples.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
@@ -53,7 +65,7 @@ endif
 
 copy-api:
 	@$(ECHO_GEN)_api
-	$(QUIET)cp -r ../api _api
+	$(QUIET)cp -r ../api/. _api
 
 # $(HELM_DOCS_IMAGE), necessary to update the reference for Helm values,
 # attempts to run a Go binary compiled for x86_64. Skip the update on other
@@ -66,17 +78,14 @@ ifneq ($(shell uname -m),x86_64)
     HELM_VALUES_DEP :=
   endif
 endif
-update-helm-values: $(HELM_VALUES_DEP)
+update-helm-values: $(HELM_VALUES_DEP) ## Update the Helm reference documentation.
 
 HELM_DOCS_ROOT_PATH := $(DOCKER_CTR_ROOT_DIR)
 HELM_DOCS_CHARTS_DIR := $(HELM_DOCS_ROOT_PATH)/install/kubernetes
 HELM_DOCS_OUTPUT_DIR := $(HELM_DOCS_ROOT_PATH)/Documentation
-HELM_DOCS := $(DOCKER_CTR) $(HELM_DOCS_IMAGE)
+HELM_DOCS := $(DOCKER_CTR) $(HELM_TOOLBOX_IMAGE) helm-docs
 
-M2R_VERSION := 0.2.1
-M2R_SHA := a3dc2c3fcdc31260dcb7cd42e39763281a6fdce4ca59b4c150fb3bfff5be9eb7
-M2R_IMAGE := docker.io/bmcustodio/m2r:$(M2R_VERSION)@sha256:$(M2R_SHA)
-M2R := $(DOCKER_CTR) $(M2R_IMAGE) m2r
+M2R := $(DOCKER_CTR) $(HELM_TOOLBOX_IMAGE) python3 /usr/bin/m2r2
 
 .PHONY: update-helm-values FORCE
 $(HELM_VALUES): TMP_FILE_1 := helm-values.tmp
@@ -88,7 +97,7 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $@)" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2)
 
-epub latex html: builder-image copy-api update-helm-values
+epub latex html: builder-image copy-api update-helm-values ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
@@ -98,26 +107,20 @@ html-netlify: copy-api
 
 DOCS_PORT = 9081
 
-run-server: stop-server
-	# Work around Docker issue where this directory is created as root in
-	# the `--volume` parameter below. See also GH-10869.
-	$(QUIET)mkdir -p $(CURDIR)/_build/html/
-	$(QUIET)$(CONTAINER_ENGINE) container run --rm \
-		--detach \
-		--interactive \
-		--tty \
-		--name docs-cilium \
-		--publish $(DOCS_PORT):80 \
-		--volume $(CURDIR)/_build/html/:/usr/local/apache2/htdocs/ \
-			httpd:2.4
-	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
-
-stop-server:
-	-$(QUIET)$(CONTAINER_ENGINE) container rm --force --volumes docs-cilium 2>/dev/null
-
-live-preview: stop-server
+live-preview: builder-image ## Build and serve the documentation locally.
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
 	$(QUIET)$(DOCKER_CTR) \
 		--publish $(DOCS_PORT):8000 \
-			cilium/docs-builder \
-		sphinx-autobuild -B -H 0.0.0.0 $(SPHINX_OPTS) -i *.swp -Q . _preview
+			$(DOCS_BUILDER_IMG) \
+		sphinx-autobuild --open-browser --host 0.0.0.0 $(SPHINX_OPTS) --ignore *.swp -Q . _preview
+
+update-requirements: base-image $(REQUIREMENTS_NODEP)
+	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
+	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
+		bash -c "pip install -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
+
+clean: ## Clean up all artefacts from documentation.
+	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock
+
+help: ## Display help for the Makefile.
+	$(call print_help_from_makefile)

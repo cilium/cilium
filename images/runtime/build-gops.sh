@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2017-2021 Authors of Cilium
+# Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 set -o xtrace
@@ -8,7 +8,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-gops_version="v0.3.22"
+gops_version="v0.3.25"
 
 mkdir -p /go/src/github.com/google
 cd /go/src/github.com/google

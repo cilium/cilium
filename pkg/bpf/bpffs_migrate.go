@@ -1,10 +1,8 @@
 package bpf
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"path/filepath"
 
 	"github.com/cilium/ebpf"
@@ -24,18 +22,12 @@ const bpffsPending = ":pending"
 // Takes a bpffsPath explicitly since it does not necessarily execute within
 // the same runtime as the agent. It is imported from a Cilium cmd that takes
 // its bpffs path from an env.
-func StartBPFFSMigration(bpffsPath, elfPath string) error {
-	coll, err := ebpf.LoadCollectionSpec(elfPath)
-	if err != nil {
-		return err
+func StartBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec) error {
+	if coll == nil {
+		return errors.New("can't migrate a nil CollectionSpec")
 	}
 
 	for name, spec := range coll.Maps {
-		// Parse iproute2 bpf_elf_map's extra fields, if any.
-		if err := parseExtra(spec, coll); err != nil {
-			return fmt.Errorf("parsing extra bytes of ELF map definition %q:", name)
-		}
-
 		// Skip map specs without the pinning flag. Also takes care of skipping .data,
 		// .rodata and .bss.
 		if spec.Pinning == 0 {
@@ -59,18 +51,12 @@ func StartBPFFSMigration(bpffsPath, elfPath string) error {
 // Takes a bpffsPath explicitly since it does not necessarily execute within
 // the same runtime as the agent. It is imported from a Cilium cmd that takes
 // its bpffs path from an env.
-func FinalizeBPFFSMigration(bpffsPath, elfPath string, revert bool) error {
-	coll, err := ebpf.LoadCollectionSpec(elfPath)
-	if err != nil {
-		return err
+func FinalizeBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec, revert bool) error {
+	if coll == nil {
+		return errors.New("can't migrate a nil CollectionSpec")
 	}
 
 	for name, spec := range coll.Maps {
-		// Parse iproute2 bpf_elf_map's extra fields, if any.
-		if err := parseExtra(spec, coll); err != nil {
-			return fmt.Errorf("parsing extra bytes of ELF map definition %q:", name)
-		}
-
 		// Skip map specs without the pinning flag. Also takes care of skipping .data,
 		// .rodata and .bss.
 		// Don't unpin existing maps if their new versions are missing the pinning flag.
@@ -82,35 +68,6 @@ func FinalizeBPFFSMigration(bpffsPath, elfPath string, revert bool) error {
 			return err
 		}
 	}
-
-	return nil
-}
-
-// parseExtra parses extra bytes that appear at the end of a struct bpf_elf_map.
-// If the Extra field is empty, the function is a no-op.
-//
-// The library supports parsing `struct bpf_map_def` out of the box, but Cilium
-// uses `struct bpf_elf_map` instead, which is bigger.
-// The 'extra' bytes are exposed in the Map's Extra field, and appear in the
-// following order (all u32): id, pinning, inner_id, inner_idx.
-func parseExtra(spec *ebpf.MapSpec, coll *ebpf.CollectionSpec) error {
-	// Nothing to parse. This will be the case for BTF-style maps that have
-	// built-in support for pinning and map-in-map.
-	if spec.Extra == nil || spec.Extra.Len() == 0 {
-		return nil
-	}
-
-	// Discard the id as it's not needed.
-	if _, err := io.CopyN(io.Discard, spec.Extra, 4); err != nil {
-		return fmt.Errorf("reading id field: %v", err)
-	}
-
-	// Read the pinning field.
-	var pinning uint32
-	if err := binary.Read(spec.Extra, coll.ByteOrder, &pinning); err != nil {
-		return fmt.Errorf("reading pinning field: %v", err)
-	}
-	spec.Pinning = ebpf.PinType(pinning)
 
 	return nil
 }

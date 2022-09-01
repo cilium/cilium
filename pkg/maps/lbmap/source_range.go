@@ -139,13 +139,15 @@ var (
 // initSourceRange creates the BPF maps for storing both IPv4 and IPv6
 // service source ranges.
 func initSourceRange(params InitParams) {
+	SourceRangeMapMaxEntries = params.SourceRangeMapMaxEntries
+
 	if params.IPv4 {
 		SourceRange4Map = bpf.NewMap(
 			SourceRange4MapName,
 			bpf.MapTypeLPMTrie,
 			&SourceRangeKey4{}, int(unsafe.Sizeof(SourceRangeKey4{})),
 			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
-			MaxEntries,
+			SourceRangeMapMaxEntries,
 			bpf.BPF_F_NO_PREALLOC, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -157,7 +159,7 @@ func initSourceRange(params InitParams) {
 			bpf.MapTypeLPMTrie,
 			&SourceRangeKey6{}, int(unsafe.Sizeof(SourceRangeKey6{})),
 			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
-			MaxEntries,
+			SourceRangeMapMaxEntries,
 			bpf.BPF_F_NO_PREALLOC, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()

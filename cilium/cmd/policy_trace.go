@@ -151,7 +151,7 @@ If multiple sources and / or destinations are provided, each source is tested wh
 				params := NewGetPolicyResolveParams().WithTraceSelector(&search).WithTimeout(api.ClientTimeout)
 				if scr, err := client.Policy.GetPolicyResolve(params); err != nil {
 					Fatalf("Error while retrieving policy assessment result: %s\n", err)
-				} else if command.OutputJSON() {
+				} else if command.OutputOption() {
 					if err := command.PrintOutput(scr); err != nil {
 						os.Exit(1)
 					}
@@ -181,7 +181,7 @@ func init() {
 	policyTraceCmd.Flags().StringVarP(&dstK8sPod, "dst-k8s-pod", "", "", "Destination k8s pod ([namespace:]podname)")
 	policyTraceCmd.Flags().StringVarP(&srcK8sYaml, "src-k8s-yaml", "", "", "Path to YAML file for source")
 	policyTraceCmd.Flags().StringVarP(&dstK8sYaml, "dst-k8s-yaml", "", "", "Path to YAML file for destination")
-	command.AddJSONOutput(policyTraceCmd)
+	command.AddOutputOption(policyTraceCmd)
 }
 
 func appendIdentityLabelsToSlice(labelSlice []string, secID string) []string {

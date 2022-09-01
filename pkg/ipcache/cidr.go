@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -27,10 +28,14 @@ import (
 // identities are placed in 'newlyAllocatedIdentities' and it is the caller's
 // responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
 //
+// Previously used numeric identities for the given prefixes may be passed in as the
+// 'oldNIDs' parameter; nil slice must be passed if no previous numeric identities exist.
+// Previously used NID is allocated if still available. Non-availability is not an error.
+//
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
 func (ipc *IPCache) AllocateCIDRs(
-	prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity,
+	prefixes []*net.IPNet, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[string]*identity.Identity,
 ) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
 	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
@@ -43,18 +48,23 @@ func (ipc *IPCache) AllocateCIDRs(
 		newlyAllocatedIdentities = map[string]*identity.Identity{}
 	}
 
+	ipc.Lock()
 	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
-	for _, p := range prefixes {
+	for i, p := range prefixes {
 		if p == nil {
 			continue
 		}
 
 		lbls := cidr.GetCIDRLabels(p)
 		lbls.MergeLabels(ipc.GetIDMetadataByIP(p.IP.String()))
-
-		id, isNew, err := ipc.allocate(p, lbls)
+		oldNID := identity.InvalidIdentity
+		if oldNIDs != nil && len(oldNIDs) > i {
+			oldNID = oldNIDs[i]
+		}
+		id, isNew, err := ipc.allocate(p, lbls, oldNID)
 		if err != nil {
 			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
+			ipc.Unlock()
 			return nil, err
 		}
 
@@ -65,11 +75,12 @@ func (ipc *IPCache) AllocateCIDRs(
 			newlyAllocatedIdentities[prefixStr] = id
 		}
 	}
+	ipc.Unlock()
 
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
 	if upsert {
-		ipc.UpsertGeneratedIdentities(newlyAllocatedIdentities)
+		ipc.UpsertGeneratedIdentities(newlyAllocatedIdentities, nil)
 	}
 
 	identities := make([]*identity.Identity, 0, len(allocatedIdentities))
@@ -87,12 +98,54 @@ func (ipc *IPCache) AllocateCIDRs(
 func (ipc *IPCache) AllocateCIDRsForIPs(
 	prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity,
 ) ([]*identity.Identity, error) {
-	return ipc.AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), newlyAllocatedIdentities)
+	return ipc.AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), nil, newlyAllocatedIdentities)
 }
 
-func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity) {
+func cidrLabelToPrefix(label string) (string, bool) {
+	if !strings.HasPrefix(label, labels.LabelSourceCIDR) {
+		return "", false
+	}
+	return strings.TrimPrefix(label, labels.LabelSourceCIDR+":"), true
+}
+
+// UpsertGeneratedIdentities unconditionally upserts 'newlyAllocatedIdentities'
+// into the ipcache, then also upserts any CIDR identities in 'usedIdentities'
+// that were not already upserted. If any 'usedIdentities' are upserted, these
+// are counted separately as they may provide an indication of another logic
+// error elsewhere in the codebase that is causing premature ipcache deletions.
+func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity, usedIdentities []*identity.Identity) {
 	for prefixString, id := range newlyAllocatedIdentities {
 		ipc.Upsert(prefixString, nil, 0, nil, Identity{
+			ID:     id.ID,
+			Source: source.Generated,
+		})
+	}
+	if len(usedIdentities) == 0 {
+		return
+	}
+
+	toUpsert := make(map[string]*identity.Identity)
+	ipc.mutex.RLock()
+	for _, id := range usedIdentities {
+		prefix, ok := cidrLabelToPrefix(id.CIDRLabel.String())
+		if !ok {
+			log.WithFields(logrus.Fields{
+				logfields.Identity: id.ID,
+			}).Warning("BUG: Attempting to upsert non-CIDR identity")
+			continue
+		}
+		if _, ok := ipc.LookupByIPRLocked(prefix); ok {
+			// Already there; continue
+			continue
+		}
+		toUpsert[prefix] = id
+	}
+	ipc.mutex.RUnlock()
+	for prefix, id := range toUpsert {
+		metrics.IPCacheErrorsTotal.WithLabelValues(
+			metricTypeRecover, metricErrorUnexpected,
+		).Inc()
+		ipc.Upsert(prefix, nil, 0, nil, Identity{
 			ID:     id.ID,
 			Source: source.Generated,
 		})
@@ -107,9 +160,13 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[strin
 // If the identity is a CIDR identity, then its corresponding Identity will
 // have its CIDR labels set correctly.
 //
+// A possible previously used numeric identity for these labels can be passed
+// in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
+// previous numeric identity exists.
+//
 // It is up to the caller to provide the full set of labels for identity
 // allocation.
-func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.Identity, bool, error) {
+func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	if prefix == nil {
 		return nil, false, nil
 	}
@@ -117,7 +174,7 @@ func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.I
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 	defer cancel()
 
-	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(allocateCtx, lbls, false)
+	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(allocateCtx, lbls, false, oldNID)
 	if err != nil {
 		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
 	}
@@ -130,6 +187,21 @@ func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels) (*identity.I
 }
 
 func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
+	// Create a critical section for identity release + removal from ipcache.
+	// Otherwise, it's possible to trigger the following race condition:
+	//
+	// Goroutine 1                | Goroutine 2
+	// releaseCIDRIdentities()    | AllocateCIDRs()
+	// -> Release(..., id, ...)   |
+	//                            | -> allocate(...)
+	//                            | -> ipc.UpsertGeneratedIdentities(...)
+	// -> ipc.deleteLocked(...)   |
+	//
+	// In this case, the expectation from Goroutine 2 is that an identity
+	// is allocated and that identity is in the ipcache, but the result
+	// is that the identity is allocated but the ipcache entry is missing.
+	ipc.Lock()
+	defer ipc.Unlock()
 	for prefix, id := range identities {
 		released, err := ipc.IdentityAllocator.Release(ctx, id, false)
 		if err != nil {
@@ -140,7 +212,7 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[st
 		}
 
 		if released {
-			ipc.Delete(prefix, source.Generated)
+			ipc.deleteLocked(prefix, source.Generated)
 		}
 	}
 }
@@ -174,15 +246,15 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []
 	fullIdentities := make(map[string]*identity.Identity, len(identities))
 	for _, nid := range identities {
 		if id := ipc.IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
-			cidr := id.CIDRLabel.String()
-			if !strings.HasPrefix(cidr, labels.LabelSourceCIDR) {
+			cidr, ok := cidrLabelToPrefix(id.CIDRLabel.String())
+			if !ok {
 				log.WithFields(logrus.Fields{
 					logfields.Identity: nid,
 					logfields.Labels:   id.Labels,
 				}).Warn("Unexpected release of non-CIDR identity, will leak this identity. Please report this issue to the developers.")
 				continue
 			}
-			fullIdentities[strings.TrimPrefix(cidr, labels.LabelSourceCIDR+":")] = id
+			fullIdentities[cidr] = id
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: nid,

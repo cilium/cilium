@@ -29,6 +29,8 @@ permissions:
   pull-requests: read
   # So that Sibz/github-status-action can write into the status API
   statuses: write
+  # Required to generate OIDC tokens for `az` authentication
+  id-token: write
 
 concurrency:
   # Structure:
@@ -64,7 +66,7 @@ env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   location: westeurope
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
-  cilium_cli_version: v0.10.4
+  cilium_cli_version: v0.12.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -85,7 +87,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -136,18 +138,28 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.name }} \
-            --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
-            --operator-image=quay.io/${{ github.repository_owner }}/operator-azure-ci \
-            --version=${SHA} \
+            --chart-directory=install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ github.repository_owner }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
+            --helm-set=clustermesh.apiserver.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
             --azure-resource-group ${{ env.name }} \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
-            --base-version=v1.11"
-          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --version="
+          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.11 \
-            --flow-validation=disabled"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
@@ -173,16 +185,15 @@ jobs:
           cilium version
 
       - name: Login to Azure
-        uses: azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf
+        uses: azure/login@24848bc889cfc0a8313c2b3e378ac0d625b9bc16
         with:
-          creds: ${{ secrets.AZURE_PR_SP_CREDS }}
+          client-id: ${{ secrets.AZURE_PR_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_PR_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_PR_SUBSCRIPTION_ID }}
 
-      - name: Display Azure CLI info
-        uses: azure/CLI@7378ce2ca3c38b4b063feb7a4cbe384fef978055
-        with:
-          azcliversion: 2.0.72
-          inlineScript: |
-            az account show
+      - name: Display az version
+        run: |
+            az version
 
       - name: Create AKS cluster
         run: |
@@ -198,39 +209,9 @@ jobs:
             --name ${{ env.name }} \
             --location ${{ env.location }} \
             --network-plugin azure \
-            --node-count 1 \
+            --node-count 2 \
             ${{ env.cost_reduction }} \
             --generate-ssh-keys
-
-          # Get name of initial system node pool
-          nodepool_to_delete=$(az aks nodepool list --resource-group ${{ env.name }} --cluster-name ${{ env.name }} --output tsv --query "[0].name")
-
-          # Create system node pool tainted with `CriticalAddonsOnly=true:NoSchedule`
-          az aks nodepool add \
-            --resource-group ${{ env.name }} \
-            --cluster-name ${{ env.name }} \
-            --name systempool \
-            --mode system \
-            --node-count 1 \
-            --node-taints "CriticalAddonsOnly=true:NoSchedule" \
-            ${{ env.cost_reduction }} \
-            --no-wait
-
-          # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoExecute`
-          az aks nodepool add \
-            --resource-group ${{ env.name }} \
-            --cluster-name ${{ env.name }} \
-            --name userpool \
-            --mode user \
-            --node-count 2 \
-            --node-taints "node.cilium.io/agent-not-ready=true:NoExecute" \
-            ${{ env.cost_reduction }}
-
-          # Delete the initial system node pool
-          az aks nodepool delete \
-            --resource-group ${{ env.name }} \
-            --cluster-name ${{ env.name }} \
-            --name "${nodepool_to_delete}"
 
       - name: Get cluster credentials
         run: |
@@ -245,6 +226,13 @@ jobs:
           for image in cilium-ci operator-azure-ci hubble-relay-ci ; do
             until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
+
+      # Checkout source code to install Cilium using local Helm chart.
+      - name: Checkout code
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
 
       - name: Install Cilium
         run: |
@@ -267,7 +255,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --wait
+          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Create custom IPsec secret
         run: |
@@ -308,7 +296,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
@@ -349,7 +337,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

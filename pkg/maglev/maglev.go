@@ -4,11 +4,12 @@
 package maglev
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"runtime"
-	"sync"
 
+	"github.com/cilium/workerpool"
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/cilium/cilium/pkg/murmur3"
@@ -63,8 +64,6 @@ func getOffsetAndSkip(backend string, m uint64) (uint64, uint64) {
 }
 
 func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
-	var wg sync.WaitGroup
-
 	// The idea is to split the calculation into batches so that they can be
 	// concurrently executed. We limit the number of concurrent goroutines to
 	// the number of available CPU cores. This is because the calculation does
@@ -84,13 +83,18 @@ func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
 		batchSize = bCount
 	}
 
+	// Since no other goroutine is controlling the WorkerPool, it is safe to
+	// ignore the returned error from wp methods. Also as our task func never
+	// return any error, we have no use returned value from Drain() and don't
+	// need to provide an id to Submit().
+	wp := workerpool.New(numCPU)
+	defer wp.Close()
 	for g := 0; g < bCount; g += batchSize {
-		wg.Add(1)
-		go func(from int) {
-			to := from + batchSize
-			if to > bCount {
-				to = bCount
-			}
+		from, to := g, g+batchSize
+		if to > bCount {
+			to = bCount
+		}
+		wp.Submit("", func(_ context.Context) error {
 			for i := from; i < to; i++ {
 				offset, skip := getOffsetAndSkip(backends[i], m)
 				permutation[i*int(m)] = offset % m
@@ -98,10 +102,10 @@ func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
 					permutation[i*int(m)+int(j)] = (permutation[i*int(m)+int(j-1)] + skip) % m
 				}
 			}
-			wg.Done()
-		}(g)
+			return nil
+		})
 	}
-	wg.Wait()
+	wp.Drain()
 
 	return permutation[:bCount*int(m)]
 }
@@ -141,16 +145,16 @@ func GetLookupTable(backends []string, m uint64) []int {
 // the Maglev table size "m". The formula is (M / 100) * M. The heuristic gives
 // the following slice size for the given M.
 //
-//   251:    0.004806594848632812 MB
-//   509:    0.019766311645507812 MB
-//   1021:   0.07953193664550783 MB
-//   2039:   0.3171936798095703 MB
-//   4093:   1.2781256866455077 MB
-//   8191:   5.118750076293945 MB
-//   16381:  20.472500686645507 MB
-//   32749:  81.82502754211426 MB
-//   65521:  327.5300171661377 MB
-//   131071: 1310.700000076294 MB
+//	251:    0.004806594848632812 MB
+//	509:    0.019766311645507812 MB
+//	1021:   0.07953193664550783 MB
+//	2039:   0.3171936798095703 MB
+//	4093:   1.2781256866455077 MB
+//	8191:   5.118750076293945 MB
+//	16381:  20.472500686645507 MB
+//	32749:  81.82502754211426 MB
+//	65521:  327.5300171661377 MB
+//	131071: 1310.700000076294 MB
 //
 // The heuristic does not apply to nodes with less than or equal to 8GB, as to
 // avoid memory pressure on memory-tight systems.

@@ -7,6 +7,7 @@ package ipam
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -35,8 +36,8 @@ func (f *fakeK8sCiliumNodeAPI) RegisterCiliumNodeSubscriber(s subscriber.CiliumN
 
 // UpdateStatus implements nodeUpdater
 func (f *fakeK8sCiliumNodeAPI) UpdateStatus(_ context.Context, ciliumNode *ciliumv2.CiliumNode, _ v1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
-	f.updateNode(ciliumNode)
-	return ciliumNode, nil
+	err := f.updateNode(ciliumNode)
+	return ciliumNode, err
 }
 
 // currentNode returns a the current snapshot of the node
@@ -47,10 +48,14 @@ func (f *fakeK8sCiliumNodeAPI) currentNode() *ciliumv2.CiliumNode {
 	return f.node.DeepCopy()
 }
 
-// updateNode is to be invoked by the test code to simulate writes by the operator
+// updateNode is to be invoked by the test code to simulate updates by the operator
 func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
 	f.mutex.Lock()
 	oldNode := f.node
+	if oldNode == nil {
+		f.mutex.Unlock()
+		return fmt.Errorf("failed to update CiliumNode %q: node not found", newNode.Name)
+	}
 	f.node = newNode
 
 	sub := f.sub
@@ -59,11 +64,7 @@ func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
 
 	var err error
 	if sub != nil {
-		if oldNode == nil {
-			err = sub.OnAddCiliumNode(newNode, nil)
-		} else {
-			err = sub.OnUpdateCiliumNode(oldNode, newNode, nil)
-		}
+		err = sub.OnUpdateCiliumNode(oldNode, newNode, nil)
 	}
 	if onUpsertEvent != nil {
 		onUpsertEvent()
@@ -72,7 +73,7 @@ func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
 	return err
 }
 
-// updateNode is to be invoked by the test code to simulate an unexpected node deletion
+// deleteNode is to be invoked by the test code to simulate an unexpected node deletion
 func (f *fakeK8sCiliumNodeAPI) deleteNode() error {
 	f.mutex.Lock()
 	oldNode := f.node
@@ -131,12 +132,12 @@ func TestPodCIDRPool(t *testing.T) {
 			Expect(availableIPs).To(BeZero())
 			Expect(numPodCIDRs).To(BeZero())
 			Expect(p.hasAvailableIPs()).To(BeFalse())
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{}))
+			Expect(p.status()).To(Equal(types.PodCIDRMap{}))
 
 			// Add pod CIDRs.
 			p.updatePool([]string{tc.podCIDR})
 			Expect(p.hasAvailableIPs()).To(BeTrue())
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+			Expect(p.status()).To(Equal(types.PodCIDRMap{
 				tc.podCIDR: {
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -166,7 +167,7 @@ func TestPodCIDRPool(t *testing.T) {
 			ip, err = p.allocateNext()
 			Expect(err).To(HaveOccurred())
 			Expect(ip).To(BeNil())
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+			Expect(p.status()).To(Equal(types.PodCIDRMap{
 				tc.podCIDR: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -180,7 +181,7 @@ func TestPodCIDRPool(t *testing.T) {
 				if i+1 < p.allocationThreshold {
 					expectedStatus = types.PodCIDRStatusDepleted
 				}
-				Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+				Expect(p.status()).To(Equal(types.PodCIDRMap{
 					tc.podCIDR: {
 						Status: expectedStatus,
 					},
@@ -193,7 +194,7 @@ func TestPodCIDRPool(t *testing.T) {
 			Expect(err).To(HaveOccurred())
 			Expect(ip).To(BeNil())
 			Expect(p.hasAvailableIPs()).To(BeFalse())
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{}))
+			Expect(p.status()).To(Equal(types.PodCIDRMap{}))
 		})
 	}
 }
@@ -228,7 +229,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 			p.updatePool([]string{tc.podCIDR1})
 
 			// Test behavior with no allocations.
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+			Expect(p.status()).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -248,7 +249,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Test fully allocating the first pod CIDR.
 			ips1 := allocateNextN(p, tc.capacity1, podCIDR1)
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+			Expect(p.status()).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -256,7 +257,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Allocate the second pod CIDR.
 			p.updatePool([]string{tc.podCIDR1, tc.podCIDR2})
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+			Expect(p.status()).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -267,7 +268,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Test fully allocating the second pod CIDR.
 			ips2 := allocateNextN(p, tc.capacity2, podCIDR2)
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+			Expect(p.status()).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -289,7 +290,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Test fully releasing the second pod CIDR.
 			releaseAll(p, ips2)
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+			Expect(p.status()).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -309,13 +310,13 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 				Expect(availableIPs).ToNot(BeZero())
 				Expect(numPodCIDRs).To(Equal(2))
 
-				var expectedStatus2 types.UsedPodCIDRStatus
+				var expectedStatus2 types.PodCIDRStatus
 				if i+1 < p.releaseThreshold {
 					expectedStatus2 = types.PodCIDRStatusInUse
 				} else {
 					expectedStatus2 = types.PodCIDRStatusReleased
 				}
-				Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+				Expect(p.status()).To(Equal(types.PodCIDRMap{
 					tc.podCIDR1: {
 						Status: types.PodCIDRStatusInUse,
 					},
@@ -324,7 +325,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 					},
 				}))
 			}
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+			Expect(p.status()).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -335,7 +336,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Release the second pod CIDR.
 			p.updatePool([]string{tc.podCIDR1})
-			Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+			Expect(p.status()).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -351,7 +352,7 @@ func TestPodCIDRPoolRemoveInUse(t *testing.T) {
 		podCIDRs       []string
 		allocate       int
 		afterPodCIDRs  []string
-		expectedStatus types.UsedPodCIDRMap
+		expectedStatus types.PodCIDRMap
 	}{
 		{
 			name:   "remove_first_unused",
@@ -361,7 +362,7 @@ func TestPodCIDRPoolRemoveInUse(t *testing.T) {
 			},
 			afterPodCIDRs:  []string{},
 			allocate:       0,
-			expectedStatus: types.UsedPodCIDRMap{},
+			expectedStatus: types.PodCIDRMap{},
 		},
 		{
 			name:   "remove_first_in_use",
@@ -371,7 +372,7 @@ func TestPodCIDRPoolRemoveInUse(t *testing.T) {
 			},
 			afterPodCIDRs: []string{},
 			allocate:      1,
-			expectedStatus: types.UsedPodCIDRMap{
+			expectedStatus: types.PodCIDRMap{
 				"192.168.0.0/27": {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -388,7 +389,7 @@ func TestPodCIDRPoolRemoveInUse(t *testing.T) {
 			afterPodCIDRs: []string{
 				"192.168.0.0/27",
 			},
-			expectedStatus: types.UsedPodCIDRMap{
+			expectedStatus: types.PodCIDRMap{
 				"192.168.0.0/27": {
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -405,7 +406,7 @@ func TestPodCIDRPoolRemoveInUse(t *testing.T) {
 			afterPodCIDRs: []string{
 				"192.168.0.0/27",
 			},
-			expectedStatus: types.UsedPodCIDRMap{
+			expectedStatus: types.PodCIDRMap{
 				"192.168.0.0/27": {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -441,7 +442,7 @@ func TestPodCIDRPoolRemoveInUseWithRelease(t *testing.T) {
 	_ = allocateNextN(p, 30, mustParseCIDR("192.168.0.0/27"))
 	ip2s := allocateNextN(p, 30, mustParseCIDR("192.168.1.0/27"))
 	_ = allocateNextN(p, 1, mustParseCIDR("192.168.2.0/27"))
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/27": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -458,7 +459,7 @@ func TestPodCIDRPoolRemoveInUseWithRelease(t *testing.T) {
 		"192.168.0.0/27",
 		"192.168.2.0/27",
 	})
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/27": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -480,7 +481,7 @@ func TestPodCIDRPoolRemoveInUseWithRelease(t *testing.T) {
 
 	// Remove all remaining IPs from the second pod CIDR.
 	releaseAll(p, ip2s[1:])
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/27": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -502,7 +503,7 @@ func TestPodCIDRPoolDuplicatePodCIDRs(t *testing.T) {
 		"192.168.0.0/27",
 		"192.168.0.0/27",
 	})
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/27": {
 			Status: types.PodCIDRStatusInUse,
 		},
@@ -519,7 +520,7 @@ func TestPodCIDRPoolSmallAlloc(t *testing.T) {
 	p.updatePool([]string{
 		"192.168.0.0/30", // Add 2 IPs.
 	})
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/30": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -531,7 +532,7 @@ func TestPodCIDRPoolSmallAlloc(t *testing.T) {
 		"192.168.0.0/30", // Add 2 IPs.
 		"192.168.1.0/30", // Add 2 IPs.
 	})
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/30": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -548,7 +549,7 @@ func TestPodCIDRPoolSmallAlloc(t *testing.T) {
 		"192.168.2.0/30", // Add 2 IPs.
 		"192.168.3.0/30", // Add 2 IPs.
 	})
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/30": {
 			Status: types.PodCIDRStatusInUse,
 		},
@@ -571,7 +572,7 @@ func TestPodCIDRPoolSmallAlloc(t *testing.T) {
 		"192.168.3.0/30", // Add 2 IPs.
 		"192.168.4.0/27", // Add 30 IPs.
 	})
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/30": {
 			Status: types.PodCIDRStatusReleased,
 		},
@@ -600,7 +601,7 @@ func TestPodCIDRPoolTooSmallAlloc(t *testing.T) {
 	p.updatePool([]string{
 		"192.168.0.0/32", // 0 IPs.
 	})
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/32": {
 			Status: types.PodCIDRStatusReleased,
 		},
@@ -608,7 +609,7 @@ func TestPodCIDRPoolTooSmallAlloc(t *testing.T) {
 	p.updatePool([]string{
 		"192.168.0.0/31", // 0 IPs.
 	})
-	Expect(p.status()).To(Equal(types.UsedPodCIDRMap{
+	Expect(p.status()).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/31": {
 			Status: types.PodCIDRStatusReleased,
 		},
@@ -646,6 +647,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			fakeK8sEventRegister := &ownerMock{}
 			events := make(chan string, 1)
 			fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPI{
+				node: &ciliumv2.CiliumNode{},
 				onDeleteEvent: func() {
 					events <- "delete"
 				},
@@ -669,8 +671,8 @@ func TestNewCRDWatcher(t *testing.T) {
 			c.restoreFinished()
 			Expect(<-events).To(Equal("upsert"))
 			Expect(fakeK8sCiliumNodeAPI.currentNode()).NotTo(BeNil())
-			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
-				tc.podCIDR1: types.UsedPodCIDR{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.PodCIDRs).To(Equal(types.PodCIDRMap{
+				tc.podCIDR1: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusInUse,
 				},
 			}))
@@ -679,8 +681,8 @@ func TestNewCRDWatcher(t *testing.T) {
 			ip1s := allocateNextN(pool, tc.capacity1, nil)
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
-				tc.podCIDR1: types.UsedPodCIDR{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.PodCIDRs).To(Equal(types.PodCIDRMap{
+				tc.podCIDR1: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusDepleted,
 				},
 			}))
@@ -698,11 +700,11 @@ func TestNewCRDWatcher(t *testing.T) {
 			})
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
-				tc.podCIDR1: types.UsedPodCIDR{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.PodCIDRs).To(Equal(types.PodCIDRMap{
+				tc.podCIDR1: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusDepleted,
 				},
-				tc.podCIDR2: types.UsedPodCIDR{
+				tc.podCIDR2: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusInUse,
 				},
 			}))
@@ -711,11 +713,11 @@ func TestNewCRDWatcher(t *testing.T) {
 			ip2s := allocateNextN(pool, tc.capacity2, nil)
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
-				tc.podCIDR1: types.UsedPodCIDR{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.PodCIDRs).To(Equal(types.PodCIDRMap{
+				tc.podCIDR1: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusDepleted,
 				},
-				tc.podCIDR2: types.UsedPodCIDR{
+				tc.podCIDR2: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusDepleted,
 				},
 			}))
@@ -724,11 +726,11 @@ func TestNewCRDWatcher(t *testing.T) {
 			releaseAll(pool, ip2s)
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
-				tc.podCIDR1: types.UsedPodCIDR{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.PodCIDRs).To(Equal(types.PodCIDRMap{
+				tc.podCIDR1: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusDepleted,
 				},
-				tc.podCIDR2: types.UsedPodCIDR{
+				tc.podCIDR2: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusInUse,
 				},
 			}))
@@ -737,11 +739,11 @@ func TestNewCRDWatcher(t *testing.T) {
 			releaseAll(pool, ip1s)
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
-				tc.podCIDR1: types.UsedPodCIDR{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.PodCIDRs).To(Equal(types.PodCIDRMap{
+				tc.podCIDR1: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusInUse,
 				},
-				tc.podCIDR2: types.UsedPodCIDR{
+				tc.podCIDR2: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusReleased,
 				},
 			}))
@@ -758,8 +760,8 @@ func TestNewCRDWatcher(t *testing.T) {
 			})
 			c.controller.TriggerController(clusterPoolStatusControllerName)
 			Expect(<-events).To(Equal("upsert"))
-			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
-				tc.podCIDR1: types.UsedPodCIDR{
+			Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.PodCIDRs).To(Equal(types.PodCIDRMap{
+				tc.podCIDR1: types.PodCIDRMapEntry{
 					Status: types.PodCIDRStatusInUse,
 				},
 			}))
@@ -780,6 +782,7 @@ func TestNewCRDWatcher_restoreFinished(t *testing.T) {
 	fakeK8sEventRegister := &ownerMock{}
 	events := make(chan string, 1)
 	fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPI{
+		node: &ciliumv2.CiliumNode{},
 		onDeleteEvent: func() {
 			events <- "delete"
 		},
@@ -807,16 +810,16 @@ func TestNewCRDWatcher_restoreFinished(t *testing.T) {
 		t.Fatalf("received unexpected event %q", e)
 	case <-time.After(10 * time.Millisecond):
 	}
-	Expect(fakeK8sCiliumNodeAPI.currentNode()).To(BeNil())
+	Expect(fakeK8sCiliumNodeAPI.currentNode()).To(Equal(&ciliumv2.CiliumNode{}))
 
 	// Test CiliumNode CRD is updated after restore has finished
 	c.restoreFinished()
 	Expect(<-events).To(Equal("upsert"))
-	Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.UsedPodCIDRs).To(Equal(types.UsedPodCIDRMap{
-		"192.168.0.0/24": types.UsedPodCIDR{
+	Expect(fakeK8sCiliumNodeAPI.currentNode().Status.IPAM.PodCIDRs).To(Equal(types.PodCIDRMap{
+		"192.168.0.0/24": types.PodCIDRMapEntry{
 			Status: types.PodCIDRStatusInUse,
 		},
-		"192.168.1.0/24": types.UsedPodCIDR{
+		"192.168.1.0/24": types.PodCIDRMapEntry{
 			Status: types.PodCIDRStatusReleased,
 		},
 	}))

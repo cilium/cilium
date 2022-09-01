@@ -7,6 +7,7 @@
 package proxy
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -22,7 +23,7 @@ var _ = Suite(&ProxySuite{})
 
 type MockDatapathUpdater struct{}
 
-func (m *MockDatapathUpdater) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
+func (m *MockDatapathUpdater) InstallProxyRules(ctx context.Context, proxyPort uint16, ingress bool, name string) error {
 	return nil
 }
 
@@ -87,13 +88,13 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(pp.rulesPort, Equals, uint16(0))
 
 	// Ack configures the port to the datapath
-	err = p.AckProxyPort("listener1")
+	err = p.AckProxyPort(context.TODO(), "listener1")
 	c.Assert(err, IsNil)
 	c.Assert(pp.nRedirects, Equals, 1)
 	c.Assert(pp.rulesPort, Equals, port2)
 
 	// Another Ack takes another reference
-	err = p.AckProxyPort("listener1")
+	err = p.AckProxyPort(context.TODO(), "listener1")
 	c.Assert(err, IsNil)
 	c.Assert(pp.nRedirects, Equals, 2)
 	c.Assert(pp.rulesPort, Equals, port2)
@@ -139,7 +140,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(pp.rulesPort, Equals, port2)
 
 	// Ack configures the port to the datapath
-	err = p.AckProxyPort("listener1")
+	err = p.AckProxyPort(context.TODO(), "listener1")
 	c.Assert(err, IsNil)
 	c.Assert(pp.nRedirects, Equals, 1)
 	c.Assert(pp.rulesPort, Equals, port3)

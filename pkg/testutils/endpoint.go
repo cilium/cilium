@@ -42,7 +42,7 @@ func NewTestHostEndpoint() TestEndpoint {
 	opts := option.NewIntOptions(&option.OptionLibrary{})
 	opts.SetBool("TEST_OPTION", true)
 	return TestEndpoint{
-		Id:       uint64(identity.ReservedIdentityHost),
+		Id:       65535,
 		Identity: hostIdentity,
 		MAC:      mac.MAC([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
 		Opts:     opts,
@@ -50,7 +50,6 @@ func NewTestHostEndpoint() TestEndpoint {
 	}
 }
 
-func (e *TestEndpoint) HasIpvlanDataPath() bool                     { return false }
 func (e *TestEndpoint) ConntrackLocalLocked() bool                  { return false }
 func (e *TestEndpoint) RequireARPPassthrough() bool                 { return false }
 func (e *TestEndpoint) RequireEgressProg() bool                     { return false }
@@ -90,8 +89,4 @@ func (e *TestEndpoint) SetIdentity(secID int64, newEndpoint bool) {
 
 func (e *TestEndpoint) StateDir() string {
 	return "test_loader"
-}
-
-func (e *TestEndpoint) MapPath() string {
-	return "map_path"
 }

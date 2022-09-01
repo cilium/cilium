@@ -5,12 +5,19 @@ package ingress
 
 // Options stores all the configurations values for cilium ingress controller.
 type Options struct {
-	MaxRetries int
+	MaxRetries         int
+	EnforcedHTTPS      bool
+	EnabledSecretsSync bool
+	SecretsNamespace   string
+	LBAnnotations      []string
 }
 
 // DefaultIngressOptions specifies default values for cilium ingress controller.
 var DefaultIngressOptions = Options{
-	MaxRetries: 10,
+	MaxRetries:         10,
+	EnforcedHTTPS:      true,
+	EnabledSecretsSync: true,
+	LBAnnotations:      []string{},
 }
 
 // Option customizes the configuration of cilium ingress controller
@@ -20,6 +27,38 @@ type Option func(o *Options) error
 func WithMaxRetries(maxRetries int) Option {
 	return func(o *Options) error {
 		o.MaxRetries = maxRetries
+		return nil
+	}
+}
+
+// WithHTTPSEnforced specifies if https enforcement should be done or not
+func WithHTTPSEnforced(enforcedHTTPS bool) Option {
+	return func(o *Options) error {
+		o.EnforcedHTTPS = enforcedHTTPS
+		return nil
+	}
+}
+
+// WithSecretsSyncEnabled specifies if secrets syncs process should be done or not
+func WithSecretsSyncEnabled(enabledSecretsSync bool) Option {
+	return func(o *Options) error {
+		o.EnabledSecretsSync = enabledSecretsSync
+		return nil
+	}
+}
+
+// WithSecretsNamespace configures destination namespace for syncing all TLS secrets across namespaces.
+func WithSecretsNamespace(secretsNamespace string) Option {
+	return func(o *Options) error {
+		o.SecretsNamespace = secretsNamespace
+		return nil
+	}
+}
+
+// WithLBAnnotations configures LB annotations to be used for LB service
+func WithLBAnnotations(lbAnnotations []string) Option {
+	return func(o *Options) error {
+		o.LBAnnotations = lbAnnotations
 		return nil
 	}
 }

@@ -19,7 +19,6 @@ import (
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -27,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bandwidth"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -98,9 +96,6 @@ const (
 	// StateInvalid is used when an endpoint failed during creation due to
 	// invalid data.
 	StateInvalid = State(models.EndpointStateInvalid)
-
-	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
-	IpvlanMapName = "cilium_lxc_ipve_"
 )
 
 // compile time interface check
@@ -144,9 +139,6 @@ type Endpoint struct {
 	// dockerEndpointID is the Docker network endpoint ID if managed by
 	// libnetwork
 	dockerEndpointID string
-
-	// Corresponding BPF map identifier for tail call map of ipvlan datapath
-	datapathMapID int
 
 	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
@@ -413,14 +405,6 @@ func (e *Endpoint) bpfProgramInstalled() bool {
 	}
 }
 
-// HasIpvlanDataPath returns whether the daemon is running in ipvlan mode.
-func (e *Endpoint) HasIpvlanDataPath() bool {
-	if e.datapathMapID > 0 {
-		return true
-	}
-	return false
-}
-
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held.
 func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
@@ -470,7 +454,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		OpLabels:         labels.NewOpLabels(),
 		DNSRules:         nil,
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies:       fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes),
+		DNSZombies:       fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:            "",
 		status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),
@@ -482,6 +466,8 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		noTrackPort:      0,
 	}
 
+	ep.initDNSHistoryTrigger()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
@@ -491,6 +477,19 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	return ep
+}
+
+func (e *Endpoint) initDNSHistoryTrigger() {
+	// Note: This can only fail if the trigger func is nil.
+	var err error
+	e.dnsHistoryTrigger, err = trigger.NewTrigger(trigger.Parameters{
+		Name:        "sync_endpoint_header_file",
+		MinInterval: 5 * time.Second,
+		TriggerFunc: e.syncEndpointHeaderFile,
+	})
+	if err != nil {
+		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Failed to create the endpoint header file sync trigger")
+	}
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
@@ -546,19 +545,7 @@ func (e *Endpoint) GetID16() uint16 {
 // In some datapath modes, it may return an empty string as there is no unique
 // host netns network interface for this endpoint.
 func (e *Endpoint) HostInterface() string {
-	if e.HasIpvlanDataPath() {
-		return ""
-	}
 	return e.ifName
-}
-
-// GetLabelsSHA returns the SHA of labels
-func (e *Endpoint) GetLabelsSHA() string {
-	if e.SecurityIdentity == nil {
-		return ""
-	}
-
-	return e.SecurityIdentity.GetLabelsSHA256()
 }
 
 // GetOpLabels returns the labels as slice
@@ -807,7 +794,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, bEp []byte) (*Endpoint, error) {
+func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, bEp []byte) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	epSlice := bytes.Split(bEp, []byte{':'})
@@ -815,13 +802,16 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", bEp)
 	}
 	ep := Endpoint{
-		owner:        owner,
-		policyGetter: policyGetter,
+		owner:            owner,
+		namedPortsGetter: namedPortsGetter,
+		policyGetter:     policyGetter,
 	}
 
 	if err := parseBase64ToEndpoint(epSlice[1], &ep); err != nil {
 		return nil, fmt.Errorf("failed to parse restored endpoint: %s", err)
 	}
+
+	ep.initDNSHistoryTrigger()
 
 	// Validate the options that were parsed
 	ep.SetDefaultOpts(ep.Options)
@@ -1875,7 +1865,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 	// identity is new, then this will start updating the policy for other
 	// co-located endpoints without having to wait for that RTT.
 	notifySelectorCache := true
-	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, notifySelectorCache)
+	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, notifySelectorCache, identity.InvalidIdentity)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
@@ -2056,8 +2046,9 @@ type policySignal struct {
 
 // WaitForPolicyRevision returns a channel that is closed when one or more of
 // the following conditions have met:
-//  - the endpoint is disconnected state
-//  - the endpoint's policy revision reaches the wanted revision
+//   - the endpoint is disconnected state
+//   - the endpoint's policy revision reaches the wanted revision
+//
 // When the done callback is non-nil it will be called just before the channel is closed.
 func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done func(ts time.Time)) <-chan struct{} {
 	// NOTE: unconditionalLock is used here because this method handles endpoint in disconnected state on its own
@@ -2110,32 +2101,6 @@ func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
 }
 
-// PinDatapathMap retrieves a file descriptor from the map ID from the API call
-// and pins the corresponding map into the BPF file system.
-func (e *Endpoint) PinDatapathMap() error {
-	if err := e.lockAlive(); err != nil {
-		return err
-	}
-	defer e.unlock()
-	return e.pinDatapathMap()
-}
-
-// PinDatapathMap retrieves a file descriptor from the map ID from the API call
-// and pins the corresponding map into the BPF file system.
-func (e *Endpoint) pinDatapathMap() error {
-	if e.datapathMapID == 0 {
-		return nil
-	}
-
-	mapFd, err := bpf.MapFdFromID(e.datapathMapID)
-	if err != nil {
-		return err
-	}
-	defer unix.Close(mapFd)
-
-	return bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
-}
-
 func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
@@ -2153,30 +2118,12 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	}
 }
 
-// SyncEndpointHeaderFile it bumps the current DNS History information for the
-// endpoint in the ep_config.h file.
-func (e *Endpoint) SyncEndpointHeaderFile() error {
-	if err := e.lockAlive(); err != nil {
-		// endpoint was removed in the meanwhile, return
-		return nil
+// SyncEndpointHeaderFile triggers the header file sync to the ep_config.h
+// file. This includes updating the current DNS History information.
+func (e *Endpoint) SyncEndpointHeaderFile() {
+	if e.dnsHistoryTrigger != nil {
+		e.dnsHistoryTrigger.Trigger()
 	}
-	defer e.unlock()
-
-	if e.dnsHistoryTrigger == nil {
-		t, err := trigger.NewTrigger(trigger.Parameters{
-			Name:        "sync_endpoint_header_file",
-			MinInterval: 5 * time.Second,
-			TriggerFunc: func(reasons []string) { e.syncEndpointHeaderFile(reasons) },
-		})
-		if err != nil {
-			return fmt.Errorf(
-				"Sync Endpoint header file trigger for endpoint cannot be activated: %s",
-				err)
-		}
-		e.dnsHistoryTrigger = t
-	}
-	e.dnsHistoryTrigger.Trigger()
-	return nil
 }
 
 // Delete cleans up all resources associated with this endpoint, including the
@@ -2312,7 +2259,7 @@ func (e *Endpoint) WaitForFirstRegeneration(ctx context.Context) error {
 		}
 
 		if ctx.Err() != nil {
-			return fmt.Errorf("timeout while waiting for initial endpoint generation to complete")
+			return fmt.Errorf("timeout while waiting for initial endpoint generation to complete: %w", ctx.Err())
 		}
 	}
 }

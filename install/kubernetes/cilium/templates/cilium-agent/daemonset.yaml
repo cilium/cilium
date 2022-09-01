@@ -7,6 +7,9 @@
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
   {{- $defaultKeepDeprecatedProbes = false -}}
 {{- end -}}
+
+{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "disabled") -}}
+
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -15,6 +18,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: cilium
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-agent
     {{- if .Values.keepDeprecatedLabels }}
     kubernetes.io/cluster-service: "true"
     {{- if and .Values.gke.enabled (eq .Release.Namespace "kube-system" ) }}
@@ -43,11 +48,24 @@ spec:
         # ensure pods roll when configmap updates
         cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
         {{- end }}
+        {{- if not .Values.securityContext.privileged }}
+        # Set app AppArmor's profile to "unconfined". The value of this annotation
+        # can be modified as long users know which profiles they have available
+        # in AppArmor.
+        container.apparmor.security.beta.kubernetes.io/cilium-agent: "unconfined"
+        container.apparmor.security.beta.kubernetes.io/clean-cilium-state: "unconfined"
+        {{- if .Values.cgroup.autoMount.enabled }}
+        container.apparmor.security.beta.kubernetes.io/mount-cgroup: "unconfined"
+        container.apparmor.security.beta.kubernetes.io/apply-sysctl-overwrites: "unconfined"
+        {{- end }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
         k8s-app: cilium
+        app.kubernetes.io/name: cilium-agent
+        app.kubernetes.io/part-of: cilium
         {{- if .Values.keepDeprecatedLabels }}
         kubernetes.io/cluster-service: "true"
         {{- end }}
@@ -213,6 +231,12 @@ spec:
         {{- end }}
         {{- if or .Values.prometheus.enabled .Values.hubble.metrics.enabled }}
         ports:
+        {{- if .Values.hubble.peerService.enabled }}
+        - name: peer-service
+          containerPort: {{ .Values.hubble.peerService.targetPort }}
+          hostPort: {{ .Values.hubble.peerService.targetPort }}
+          protocol: TCP
+        {{- end }}
         {{- if .Values.prometheus.enabled }}
         - name: prometheus
           containerPort: {{ .Values.prometheus.port }}
@@ -233,13 +257,70 @@ spec:
         {{- end }}
         {{- end }}
         securityContext:
+          {{- if .Values.securityContext.privileged }}
           privileged: true
+          {{- else }}
+          seLinuxOptions:
+            level: 's0'
+            # Running with spc_t since we have removed the privileged mode.
+            # Users can change it to a different type as long as they have the
+            # type available on the system.
+            type: 'spc_t'
+          capabilities:
+            add:
+              # Use to set socket permission
+              - CHOWN
+              # Used to terminate envoy child process
+              - KILL
+              # Used since cilium modifies routing tables, etc...
+              - NET_ADMIN
+              # Used since cilium creates raw sockets, etc...
+              - NET_RAW
+              # Used since cilium monitor uses mmap
+              - IPC_LOCK
+              # Used in iptables. Consider removing once we are iptables-free
+              - SYS_MODULE
+              # We need it for now but might not need it for >= 5.11 specially
+              # for the 'SYS_RESOURCE'.
+              # In >= 5.8 there's already BPF and PERMON capabilities
+              - SYS_ADMIN
+              # Could be an alternative for the SYS_ADMIN for the RLIMIT_NPROC
+              - SYS_RESOURCE
+              # Both PERFMON and BPF requires kernel 5.8, container runtime
+              # cri-o >= v1.22.0 or containerd >= v1.5.0.
+              # If available, SYS_ADMIN can be removed.
+              #- PERFMON
+              #- BPF
+              {{- with .Values.securityContext.extraCapabilities }}
+              {{- toYaml . | nindent 14 }}
+              {{- end }}
+            drop:
+              - ALL
+          {{- end }}
         volumeMounts:
+        {{- if not .Values.securityContext.privileged }}
+        # Unprivileged containers need to mount /proc/sys/net from the host
+        # to have write access
+        - mountPath: /host/proc/sys/net
+          name: host-proc-sys-net
+        # Unprivileged containers need to mount /proc/sys/kernel from the host
+        # to have write access
+        - mountPath: /host/proc/sys/kernel
+          name: host-proc-sys-kernel
+        {{- end}}
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
         {{- if not (eq .Values.containerRuntime.integration "crio") }}
         - name: bpf-maps
           mountPath: /sys/fs/bpf
+          {{- if .Values.securityContext.privileged }}
           mountPropagation: Bidirectional
+          {{- else }}
+          # Unprivileged containers can't set mount propagation to bidirectional
+          # in this case we will mount the bpf fs from an init container that
+          # is privileged and set the mount propagation from host to container
+          # in Cilium.
+          mountPropagation: HostToContainer
+          {{- end}}
         {{- end }}
         {{- if not (contains "/run/cilium/cgroupv2" .Values.cgroup.hostRoot) }}
         # Check for duplicate mounts before mounting
@@ -318,11 +399,18 @@ spec:
       - name: cilium-monitor
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        command: ["cilium"]
+        command:
+        - /bin/bash
+        - -c
+        - --
         args:
-        - monitor
-        {{- range $type := .Values.monitor.eventTypes }}
-        - --type={{ $type }}
+        - |-
+          for i in {1..5}; do \
+            [ -S /var/run/cilium/monitor1_2.sock ] && break || sleep 10;\
+            done; \
+          cilium monitor
+        {{- range $type := .Values.monitor.eventTypes -}}
+          {{ " " }}--type={{ $type }}
         {{- end }}
         volumeMounts:
         - name: cilium-run
@@ -331,6 +419,9 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
+      {{- end }}
+      {{- if .Values.extraContainers }}
+      {{- toYaml .Values.extraContainers | nindent 6 }}
       {{- end }}
       initContainers:
       {{- if .Values.cgroup.autoMount.enabled }}
@@ -362,7 +453,91 @@ spec:
         - name: cni-path
           mountPath: /hostbin
         securityContext:
+          {{- if .Values.securityContext.privileged }}
           privileged: true
+          {{- else }}
+          seLinuxOptions:
+            level: 's0'
+            # Running with spc_t since we have removed the privileged mode.
+            # Users can change it to a different type as long as they have the
+            # type available on the system.
+            type: 'spc_t'
+          capabilities:
+            drop:
+              - ALL
+            add:
+              # Only used for 'mount' cgroup
+              - SYS_ADMIN
+              # Used for nsenter
+              - SYS_CHROOT
+              - SYS_PTRACE
+          {{- end}}
+      - name: apply-sysctl-overwrites
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: BIN_PATH
+          value: {{ .Values.cni.binPath }}
+        command:
+        - sh
+        - -ec
+        # The statically linked Go program binary is invoked to avoid any
+        # dependency on utilities like sh that can be missing on certain
+        # distros installed on the underlying host. Copy the binary to the
+        # same directory where we install cilium cni plugin so that exec permissions
+        # are available.
+        - |
+          cp /usr/bin/cilium-sysctlfix /hostbin/cilium-sysctlfix;
+          nsenter --mount=/hostproc/1/ns/mnt "${BIN_PATH}/cilium-sysctlfix";
+          rm /hostbin/cilium-sysctlfix
+        volumeMounts:
+        - name: hostproc
+          mountPath: /hostproc
+        - name: cni-path
+          mountPath: /hostbin
+        securityContext:
+          {{- if .Values.securityContext.privileged }}
+          privileged: true
+          {{- else }}
+          seLinuxOptions:
+            level: 's0'
+            # Running with spc_t since we have removed the privileged mode.
+            # Users can change it to a different type as long as they have the
+            # type available on the system.
+            type: 'spc_t'
+          capabilities:
+            drop:
+              - ALL
+            add:
+              # Required in order to access host's /etc/sysctl.d dir
+              - SYS_ADMIN
+              # Used for nsenter
+              - SYS_CHROOT
+              - SYS_PTRACE
+          {{- end}}
+      {{- end }}
+      {{- if not .Values.securityContext.privileged }}
+      # Mount the bpf fs if it is not mounted. We will perform this task
+      # from a privileged container because the mount propagation bidirectional
+      # only works from privileged containers.
+      - name: mount-bpf-fs
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - 'mount | grep "/sys/fs/bpf type bpf" || mount -t bpf bpf /sys/fs/bpf'
+        command:
+        - /bin/bash
+        - -c
+        - --
+        securityContext:
+          privileged: true
+      {{- /* CRI-O already mounts the BPF filesystem */ -}}
+      {{- if not (eq .Values.containerRuntime.integration "crio") }}
+        volumeMounts:
+        - name: bpf-maps
+          mountPath: /sys/fs/bpf
+          mountPropagation: Bidirectional
+        {{- end }}
       {{- end }}
       {{- if and .Values.nodeinit.enabled .Values.nodeinit.bootstrapFile }}
       - name: wait-for-node-init
@@ -410,7 +585,39 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         securityContext:
+          {{- if .Values.securityContext.privileged }}
           privileged: true
+          {{- else }}
+          seLinuxOptions:
+            level: 's0'
+            # Running with spc_t since we have removed the privileged mode.
+            # Users can change it to a different type as long as they have the
+            # type available on the system.
+            type: 'spc_t'
+          capabilities:
+            # Most of the capabilities here are the same ones used in the
+            # cilium-agent's container because this container can be used to
+            # uninstall all Cilium resources, and therefore it is likely that
+            # will need the same capabilities.
+            add:
+              # Used since cilium modifies routing tables, etc...
+              - NET_ADMIN
+              # Used in iptables. Consider removing once we are iptables-free
+              - SYS_MODULE
+              # We need it for now but might not need it for >= 5.11 specially
+              # for the 'SYS_RESOURCE'.
+              # In >= 5.8 there's already BPF and PERMON capabilities
+              - SYS_ADMIN
+              # Could be an alternative for the SYS_ADMIN for the RLIMIT_NPROC
+              - SYS_RESOURCE
+              # Both PERFMON and BPF requires kernel 5.8, container runtime
+              # cri-o >= v1.22.0 or containerd >= v1.5.0.
+              # If available, SYS_ADMIN can be removed.
+              #- PERFMON
+              #- BPF
+            drop:
+              - ALL
+          {{- end}}
         volumeMounts:
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
         {{- if not (eq .Values.containerRuntime.integration "crio") }}
@@ -427,6 +634,38 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
+      {{- if and .Values.waitForKubeProxy (ne $kubeProxyReplacement "strict") }}
+      - name: wait-for-kube-proxy
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          privileged: true
+        command:
+          - bash
+          - -c
+          - |
+            while true
+            do
+              if iptables-nft-save -t mangle | grep -E '^:(KUBE-IPTABLES-HINT|KUBE-PROXY-CANARY)'; then
+                echo "Found KUBE-IPTABLES-HINT or KUBE-PROXY-CANARY iptables rule in 'iptables-nft-save -t mangle'"
+                exit 0
+              fi
+              if ip6tables-nft-save -t mangle | grep -E '^:(KUBE-IPTABLES-HINT|KUBE-PROXY-CANARY)'; then
+                echo "Found KUBE-IPTABLES-HINT or KUBE-PROXY-CANARY iptables rule in 'ip6tables-nft-save -t mangle'"
+                exit 0
+              fi
+              if iptables-legacy-save | grep -E '^:KUBE-PROXY-CANARY'; then
+                echo "Found KUBE-PROXY-CANARY iptables rule in 'iptables-legacy-save"
+                exit 0
+              fi
+              if ip6tables-legacy-save | grep -E '^:KUBE-PROXY-CANARY'; then
+                echo "KUBE-PROXY-CANARY iptables rule in 'ip6tables-legacy-save'"
+                exit 0
+              fi
+              echo "Waiting for kube-proxy to create iptables rules...";
+              sleep 1;
+            done
+      {{- end }} # wait-for-kube-proxy
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
@@ -437,10 +676,8 @@ spec:
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
       dnsPolicy: ClusterFirstWithHostNet
-      {{- end }}
-      {{- with .Values.hostAliases }}
-      hostAliases:
-        {{- toYaml . | nindent 8 }}
+      {{- else if .Values.dnsPolicy }}
+      dnsPolicy: {{ .Values.dnsPolicy }}
       {{- end }}
       {{- with .Values.affinity }}
       affinity:
@@ -574,6 +811,16 @@ spec:
       - name: bgp-config-path
         configMap:
           name: bgp-config
+      {{- end }}
+      {{- if not .Values.securityContext.privileged }}
+      - name: host-proc-sys-net
+        hostPath:
+          path: /proc/sys/net
+          type: Directory
+      - name: host-proc-sys-kernel
+        hostPath:
+          path: /proc/sys/kernel
+          type: Directory
       {{- end }}
       {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
       - name: hubble-tls

@@ -87,7 +87,7 @@ func InitBandwidthManager() {
 		return
 	}
 
-	if len(option.Config.Devices) == 0 {
+	if len(option.Config.GetDevices()) == 0 {
 		log.Warn("BPF bandwidth manager could not detect host devices. Disabling the feature.")
 		option.Config.EnableBandwidthManager = false
 		return
@@ -131,7 +131,7 @@ func InitBandwidthManager() {
 		}
 	}
 
-	for _, device := range option.Config.Devices {
+	for _, device := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(device)
 		if err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")

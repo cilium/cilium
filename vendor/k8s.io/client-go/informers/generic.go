@@ -47,6 +47,7 @@ import (
 	flowcontrolv1beta1 "k8s.io/api/flowcontrol/v1beta1"
 	flowcontrolv1beta2 "k8s.io/api/flowcontrol/v1beta2"
 	networkingv1 "k8s.io/api/networking/v1"
+	networkingv1alpha1 "k8s.io/api/networking/v1alpha1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	nodev1 "k8s.io/api/node/v1"
 	nodev1alpha1 "k8s.io/api/node/v1alpha1"
@@ -272,6 +273,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case networkingv1.SchemeGroupVersion.WithResource("networkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1().NetworkPolicies().Informer()}, nil
 
+		// Group=networking.k8s.io, Version=v1alpha1
+	case networkingv1alpha1.SchemeGroupVersion.WithResource("clustercidrs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().ClusterCIDRs().Informer()}, nil
+
 		// Group=networking.k8s.io, Version=v1beta1
 	case networkingv1beta1.SchemeGroupVersion.WithResource("ingresses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1beta1().Ingresses().Informer()}, nil
@@ -347,6 +352,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Storage().V1().CSIDrivers().Informer()}, nil
 	case storagev1.SchemeGroupVersion.WithResource("csinodes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Storage().V1().CSINodes().Informer()}, nil
+	case storagev1.SchemeGroupVersion.WithResource("csistoragecapacities"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Storage().V1().CSIStorageCapacities().Informer()}, nil
 	case storagev1.SchemeGroupVersion.WithResource("storageclasses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Storage().V1().StorageClasses().Informer()}, nil
 	case storagev1.SchemeGroupVersion.WithResource("volumeattachments"):

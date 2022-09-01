@@ -54,6 +54,11 @@ resource "metal_device" "test" {
         destination="/provision"
     }
 
+    provisioner "file" {
+            source="../../contrib/scripts/add_vagrant_box.sh"
+            destination="/provision"
+    }
+
     provisioner "remote-exec" {
         inline = [
             "sudo chmod 755 /provision/*.sh",

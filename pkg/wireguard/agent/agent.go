@@ -265,7 +265,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 			Mask: net.CIDRMask(0, 8*net.IPv4len),
 		}
 		rt.Prefix = subnet
-		if _, err := route.Upsert(rt); err != nil {
+		if err := route.Upsert(rt); err != nil {
 			return fmt.Errorf("failed to upsert ipv4 route: %w", err)
 		}
 	}
@@ -279,7 +279,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 			Mask: net.CIDRMask(0, 8*net.IPv6len),
 		}
 		rt.Prefix = subnet
-		if _, err := route.Upsert(rt); err != nil {
+		if err := route.Upsert(rt); err != nil {
 			return fmt.Errorf("failed to upsert ipv6 route: %w", err)
 		}
 	}
@@ -613,7 +613,7 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 
 // peerConfig represents the kernel state of each Wireguard peer.
 // In order to be able to add and remove individual IPs from the
-//`AllowedIPs` list, we store a `peerConfig` for each known Wireguard peer.
+// `AllowedIPs` list, we store a `peerConfig` for each known Wireguard peer.
 // When a peer is first discovered via node manager, we obtain the remote
 // peers `AllowedIPs` by querying Cilium's user-space copy of the IPCache
 // in the agent. In addition, we also subscribe to IPCache updates in the

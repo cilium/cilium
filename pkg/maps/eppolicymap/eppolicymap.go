@@ -19,7 +19,7 @@ import (
 var (
 	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ep-policy")
 	MapName      = "cilium_ep_to_policy"
-	innerMapName = "ep-policy-inner-map"
+	innerMapName = "ep_policy_inner_map"
 )
 
 const (

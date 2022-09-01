@@ -23,7 +23,7 @@ To load completions for every new session, execute once:
 
 #### macOS:
 
-	cilium-operator-generic completion bash > /usr/local/etc/bash_completion.d/cilium-operator-generic
+	cilium-operator-generic completion bash > $(brew --prefix)/etc/bash_completion.d/cilium-operator-generic
 
 You will need to start a new shell for this setup to take effect.
 
@@ -41,5 +41,5 @@ cilium-operator-generic completion bash
 
 ### SEE ALSO
 
-* [cilium-operator-generic completion](cilium-operator-generic_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator-generic completion](cilium-operator-generic_completion.md)	 - Generate the autocompletion script for the specified shell
 

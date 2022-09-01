@@ -56,7 +56,7 @@ func (e *EPPolicyMapTestSuite) TestWriteEndpoint(c *C) {
 	fd, err := bpf.CreateMap(bpf.MapTypeHash,
 		uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 		uint32(unsafe.Sizeof(policymap.PolicyEntry{})), 1024, 0, 0,
-		"ep-policy-inner-map")
+		innerMapName)
 	c.Assert(err, IsNil)
 
 	keys[0] = lxcmap.NewEndpointKey(net.ParseIP("1.2.3.4"))
@@ -82,7 +82,7 @@ func (e *EPPolicyMapTestSuite) TestWriteEndpointFails(c *C) {
 	_, err := bpf.CreateMap(bpf.MapTypeHash,
 		uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 		uint32(unsafe.Sizeof(policymap.PolicyEntry{})), 1024, 0, 0,
-		"ep-policy-inner-map")
+		innerMapName)
 	c.Assert(err, IsNil)
 
 	keys[0] = lxcmap.NewEndpointKey(net.ParseIP("1.2.3.4"))
@@ -98,7 +98,7 @@ func (e *EPPolicyMapTestSuite) TestWriteEndpointDisabled(c *C) {
 	fd, err := bpf.CreateMap(bpf.MapTypeHash,
 		uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 		uint32(unsafe.Sizeof(policymap.PolicyEntry{})), 1024, 0, 0,
-		"ep-policy-inner-map")
+		innerMapName)
 	c.Assert(err, IsNil)
 
 	keys[0] = lxcmap.NewEndpointKey(net.ParseIP("1.2.3.4"))

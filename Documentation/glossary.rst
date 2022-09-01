@@ -64,7 +64,6 @@ with words you expected to see here.
      https://tools.ietf.org/html/draft-ietf-nvo3-geneve-04
 
    Pod
-   Pods
      https://kubernetes.io/docs/concepts/workloads/pods/pod/
 
    Service

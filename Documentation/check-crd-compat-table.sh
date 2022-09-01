@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-dst_file="${dir}/concepts/kubernetes/compatibility-table.rst"
+dst_file="${PWD}/$(basename ${dir})/concepts/kubernetes/compatibility-table.rst"
 
 . "${dir}/../contrib/backporting/common.sh"
 remote="$(get_remote)"
 
+set -e
 set -o nounset
 set -o pipefail
 
@@ -20,7 +21,7 @@ get_schema_of_tag(){
 
 get_line_of_schema_version(){
    tag="${1}"
-   git grep -H 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${tag} -- pkg/k8s | sed "s+${remote}/${tag}:++;s+.go:.*+.go+"
+   git grep -H 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${tag} -- pkg/k8s | sed "s+${remote}/${tag}:++;s+.go:.*+.go+;s+^+${PWD}/+"
 }
 
 get_schema_of_branch(){
@@ -137,8 +138,8 @@ semverEQ() {
     return 0
 }
 
-if [[ "$#" -ne 1 ]]; then
-  echo "Usage: $0 <v1.X>"
+if [[ "$#" -lt 1 ]] || [[ "$#" -gt 2 ]]; then
+  echo "Usage: $0 <v1.X> [--update]"
   exit 1
 fi
 
@@ -159,10 +160,14 @@ if ! git diff --quiet ${last_cilium_release}..${remote}/${release_version} $crd_
     && semverEQ "${current_release_version}" "${last_release_version}"; then
   semverParseInto ${last_release_version} last_major last_minor last_patch ignore
   expected_version="${last_major}.${last_minor}.$(( ${last_patch} + 1 ))"
-  if [[ "${current_release_version}" != "${expected_version}" ]]; then
+  if [[ "$#" -gt 1 ]] && [[ "$2" == "--update" ]]; then
+    >&2 echo "Current version for branch ${release_version} should be ${expected_version}, not ${current_release_version}, updating in-place."
+    sed -i "s+${current_release_version}+${expected_version}+" $(get_line_of_schema_version ${release_version} | tr '\n' ' ')
+    create_file ${release_version} "${dst_file}"
+  elif [[ "${current_release_version}" != "${expected_version}" ]]; then
     >&2 echo "Current version for branch ${release_version} should be ${expected_version}, not ${current_release_version}, please run the following command to fix it:"
     >&2 echo "git checkout ${remote}/${release_version} && \\"
-    >&2 echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_version})"
+    >&2 echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_version} | tr '\n' ' ')"
     exit 1
   fi
 fi

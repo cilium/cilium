@@ -3,7 +3,7 @@
 
 // Ensure build fails on versions of Go that are not supported by Cilium.
 // This build tag should be kept in sync with the version specified in go.mod.
-//go:build go1.17
+//go:build go1.18
 
 package main
 
@@ -62,7 +62,6 @@ connected to a Docker network of type "cilium".`,
 func main() {
 	if err := RootCmd.Execute(); err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
 }
 

@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -47,22 +46,29 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 	if opts.ServerTLSConfig == nil && !opts.Insecure {
 		return nil, errNoServerTLSConfig
 	}
-	return &Server{log: log, opts: opts}, nil
+
+	s := &Server{log: log, opts: opts}
+	if err := s.initGRPCServer(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *Server) newGRPCServer() (*grpc.Server, error) {
-	switch {
-	case s.opts.Insecure:
-		return grpc.NewServer(), nil
-	case s.opts.ServerTLSConfig != nil:
+	var opts []grpc.ServerOption
+	for _, interceptor := range s.opts.GRPCUnaryInterceptors {
+		opts = append(opts, grpc.UnaryInterceptor(interceptor))
+	}
+	for _, interceptor := range s.opts.GRPCStreamInterceptors {
+		opts = append(opts, grpc.StreamInterceptor(interceptor))
+	}
+	if s.opts.ServerTLSConfig != nil {
 		tlsConfig := s.opts.ServerTLSConfig.ServerConfig(&tls.Config{
 			MinVersion: serveroption.MinTLSVersion,
 		})
-		creds := credentials.NewTLS(tlsConfig)
-		return grpc.NewServer(grpc.Creds(creds)), nil
-	default:
-		return nil, errNoServerTLSConfig
+		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
+	return grpc.NewServer(opts...), nil
 }
 
 func (s *Server) initGRPCServer() error {
@@ -82,26 +88,18 @@ func (s *Server) initGRPCServer() error {
 	if s.opts.RecorderService != nil {
 		recorderpb.RegisterRecorderServer(srv, s.opts.RecorderService)
 	}
+	reflection.Register(srv)
+	if s.opts.GRPCMetrics != nil {
+		s.opts.GRPCMetrics.InitializeMetrics(srv)
+	}
 	s.srv = srv
-	reflection.Register(s.srv)
 	return nil
 }
 
 // Serve starts the hubble server and accepts new connections on the configured
 // listener. Stop should be called to stop the server.
 func (s *Server) Serve() error {
-	if err := s.initGRPCServer(); err != nil {
-		return err
-	}
-	if s.opts.Listener == nil {
-		return errNoListener
-	}
-	go func(listener net.Listener) {
-		if err := s.srv.Serve(s.opts.Listener); err != nil {
-			s.log.WithError(err).WithField("address", listener.Addr().String()).Error("Failed to start gRPC server")
-		}
-	}(s.opts.Listener)
-	return nil
+	return s.srv.Serve(s.opts.Listener)
 }
 
 // Stop stops the hubble server.

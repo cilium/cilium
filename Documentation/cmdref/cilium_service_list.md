@@ -11,8 +11,9 @@ cilium service list [flags]
 ### Options
 
 ```
-  -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+      --clustermesh-affinity   Print clustermesh affinity if available
+  -h, --help                   help for list
+  -o, --output string          json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +26,5 @@ cilium service list [flags]
 
 ### SEE ALSO
 
-* [cilium service](../cilium_service)	 - Manage services & loadbalancers
+* [cilium service](cilium_service.md)	 - Manage services & loadbalancers
 

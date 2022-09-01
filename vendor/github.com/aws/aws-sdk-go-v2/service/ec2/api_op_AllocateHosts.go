@@ -75,6 +75,10 @@ type AllocateHostsInput struct {
 	// the same request.
 	InstanceType *string
 
+	// The Amazon Resource Name (ARN) of the Amazon Web Services Outpost on which to
+	// allocate the Dedicated Host.
+	OutpostArn *string
+
 	// The tags to apply to the Dedicated Host during creation.
 	TagSpecifications []types.TagSpecification
 

@@ -20,6 +20,6 @@ BPF filesystem mount
 
 ### SEE ALSO
 
-* [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
-* [cilium bpf fs show](../cilium_bpf_fs_show)	 - Show bpf filesystem mount details
+* [cilium bpf](cilium_bpf.md)	 - Direct access to local BPF maps
+* [cilium bpf fs show](cilium_bpf_fs_show.md)	 - Show bpf filesystem mount details
 

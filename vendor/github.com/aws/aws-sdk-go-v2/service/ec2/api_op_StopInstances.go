@@ -11,8 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Stops an Amazon EBS-backed instance. You can use the Stop action to hibernate an
-// instance if the instance is enabled for hibernation
+// Stops an Amazon EBS-backed instance. For more information, see Stop and start
+// your instance
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html) in the
+// Amazon EC2 User Guide. You can use the Stop action to hibernate an instance if
+// the instance is enabled for hibernation
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#enabling-hibernation)
 // and it meets the hibernation prerequisites
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).

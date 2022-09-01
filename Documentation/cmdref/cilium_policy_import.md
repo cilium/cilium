@@ -19,7 +19,7 @@ cilium policy import <path> [flags]
 
 ```
   -h, --help            help for import
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
       --print           Print policy after import
 ```
 
@@ -33,5 +33,5 @@ cilium policy import <path> [flags]
 
 ### SEE ALSO
 
-* [cilium policy](../cilium_policy)	 - Manage security policies
+* [cilium policy](cilium_policy.md)	 - Manage security policies
 

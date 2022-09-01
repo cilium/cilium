@@ -12,7 +12,7 @@ cilium bpf nat list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium bpf nat list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf nat](../cilium_bpf_nat)	 - NAT mapping tables
+* [cilium bpf nat](cilium_bpf_nat.md)	 - NAT mapping tables
 

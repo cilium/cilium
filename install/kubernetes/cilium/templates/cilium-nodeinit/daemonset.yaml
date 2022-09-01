@@ -7,6 +7,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: cilium-node-init
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-node-init
 spec:
   selector:
     matchLabels:
@@ -21,8 +23,16 @@ spec:
         {{- with .Values.nodeinit.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- if not .Values.securityContext.privileged }}
+        # Set app AppArmor's profile to "unconfined". The value of this annotation
+        # can be modified as long users know which profiles they have available
+        # in AppArmor.
+        container.apparmor.security.beta.kubernetes.io/node-init: "unconfined"
+        {{- end }}
       labels:
         app: cilium-node-init
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: cilium-node-init
         {{- with .Values.nodeinit.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -31,25 +41,19 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      volumes:
-      # To access iptables concurrently with other processes (e.g. kube-proxy)
-      - hostPath:
-          path: /run/xtables.lock
-          type: FileOrCreate
-        name: xtables-lock
       containers:
         - name: node-init
           image: {{ include "cilium.image" .Values.nodeinit.image | quote }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
-          volumeMounts:
-            # To access iptables concurrently with other processes (e.g. kube-proxy)
-            - mountPath: /run/xtables.lock
-              name: xtables-lock
           lifecycle:
             {{- if .Values.eni.enabled }}
             postStart:
               exec:
                 command:
+                  - nsenter
+                  - --target=1
+                  - --mount
+                  - --
                   - "/bin/sh"
                   - "-c"
                   - |

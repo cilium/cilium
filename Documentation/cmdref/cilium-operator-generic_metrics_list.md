@@ -13,10 +13,10 @@ cilium-operator-generic metrics list [flags]
 ```
   -h, --help                   help for list
   -p, --match-pattern string   Show only metrics whose names match matchpattern
-  -o, --output string          json| jsonpath='{}'
+  -o, --output string          json| yaml| jsonpath='{}'
 ```
 
 ### SEE ALSO
 
-* [cilium-operator-generic metrics](cilium-operator-generic_metrics.html)	 - Access metric status of the operator
+* [cilium-operator-generic metrics](cilium-operator-generic_metrics.md)	 - Access metric status of the operator
 

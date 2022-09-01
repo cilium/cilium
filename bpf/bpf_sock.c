@@ -30,7 +30,7 @@ static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
 	return (daddr & bpf_htonl(0x7f000000)) == bpf_htonl(0x7f000000);
 }
 
-static __always_inline __maybe_unused bool is_v6_loopback(union v6addr *daddr)
+static __always_inline __maybe_unused bool is_v6_loopback(const union v6addr *daddr)
 {
 	/* Check for ::1/128, RFC4291. */
 	union v6addr loopback = { .addr[15] = 1, };
@@ -141,22 +141,22 @@ static __always_inline __maybe_unused
 bool sock_proto_enabled(__u32 proto)
 {
 	switch (proto) {
-#ifdef ENABLE_HOST_SERVICES_TCP
+#ifdef ENABLE_SOCKET_LB_TCP
 	case IPPROTO_TCP:
 		return true;
-#endif /* ENABLE_HOST_SERVICES_TCP */
-#ifdef ENABLE_HOST_SERVICES_UDP
+#endif /* ENABLE_SOCKET_LB_TCP */
+#ifdef ENABLE_SOCKET_LB_UDP
 	case IPPROTO_UDPLITE:
 	case IPPROTO_UDP:
 		return true;
-#endif /* ENABLE_HOST_SERVICES_UDP */
+#endif /* ENABLE_SOCKET_LB_UDP */
 	default:
 		return false;
 	}
 }
 
 #ifdef ENABLE_IPV4
-#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
+#if defined(ENABLE_SOCKET_LB_UDP) || defined(ENABLE_SOCKET_LB_PEER)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_revnat_tuple);
@@ -197,7 +197,7 @@ int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 {
 	return 0;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
+#endif /* ENABLE_SOCKET_LB_UDP || ENABLE_SOCKET_LB_PEER */
 
 static __always_inline bool
 sock4_skip_xlate(struct lb4_service *svc, __be32 address)
@@ -384,7 +384,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 			l7backend.address = bpf_htonl(0x7f000001);
 			l7backend.port = (__be16)svc->l7_lb_proxy_port;
 			l7backend.proto = 0;
-			l7backend.pad = 0;
+			l7backend.flags = 0;
 			backend = &l7backend;
 			goto out;
 		}
@@ -476,7 +476,7 @@ __sock4_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 }
 
 __section("cgroup/connect4")
-int sock4_connect(struct bpf_sock_addr *ctx)
+int cil_sock4_connect(struct bpf_sock_addr *ctx)
 {
 	if (sock_is_health_check(ctx))
 		return __sock4_health_fwd(ctx);
@@ -520,7 +520,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 }
 
 __section("cgroup/post_bind4")
-int sock4_post_bind(struct bpf_sock *ctx)
+int cil_sock4_post_bind(struct bpf_sock *ctx)
 {
 	if (__sock4_post_bind(ctx, ctx) < 0)
 		return SYS_REJECT;
@@ -559,7 +559,7 @@ static __always_inline int __sock4_pre_bind(struct bpf_sock_addr *ctx,
 }
 
 __section("cgroup/bind4")
-int sock4_pre_bind(struct bpf_sock_addr *ctx)
+int cil_sock4_pre_bind(struct bpf_sock_addr *ctx)
 {
 	int ret = SYS_PROCEED;
 
@@ -573,7 +573,7 @@ int sock4_pre_bind(struct bpf_sock_addr *ctx)
 }
 #endif /* ENABLE_HEALTH_CHECK */
 
-#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
+#if defined(ENABLE_SOCKET_LB_UDP) || defined(ENABLE_SOCKET_LB_PEER)
 static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
 {
@@ -611,31 +611,31 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 }
 
 __section("cgroup/sendmsg4")
-int sock4_sendmsg(struct bpf_sock_addr *ctx)
+int cil_sock4_sendmsg(struct bpf_sock_addr *ctx)
 {
 	__sock4_xlate_fwd(ctx, ctx, true);
 	return SYS_PROCEED;
 }
 
 __section("cgroup/recvmsg4")
-int sock4_recvmsg(struct bpf_sock_addr *ctx)
+int cil_sock4_recvmsg(struct bpf_sock_addr *ctx)
 {
 	__sock4_xlate_rev(ctx, ctx);
 	return SYS_PROCEED;
 }
 
 __section("cgroup/getpeername4")
-int sock4_getpeername(struct bpf_sock_addr *ctx)
+int cil_sock4_getpeername(struct bpf_sock_addr *ctx)
 {
 	__sock4_xlate_rev(ctx, ctx);
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
+#endif /* ENABLE_SOCKET_LB_UDP || ENABLE_SOCKET_LB_PEER */
 #endif /* ENABLE_IPV4 */
 
 #if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
 #ifdef ENABLE_IPV6
-#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
+#if defined(ENABLE_SOCKET_LB_UDP) || defined(ENABLE_SOCKET_LB_PEER)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_revnat_tuple);
@@ -676,7 +676,7 @@ int sock6_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 {
 	return 0;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
+#endif /* ENABLE_SOCKET_LB_UDP || ENABLE_SOCKET_LB_PEER */
 #endif /* ENABLE_IPV6 */
 
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
@@ -721,7 +721,7 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 }
 
 static __always_inline __maybe_unused bool
-sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
+sock6_skip_xlate(struct lb6_service *svc, const union v6addr *address)
 {
 	if (lb6_to_lb4_service(svc))
 		return true;
@@ -874,7 +874,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 }
 
 __section("cgroup/post_bind6")
-int sock6_post_bind(struct bpf_sock *ctx)
+int cil_sock6_post_bind(struct bpf_sock *ctx)
 {
 	if (__sock6_post_bind(ctx) < 0)
 		return SYS_REJECT;
@@ -944,7 +944,7 @@ static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 }
 
 __section("cgroup/bind6")
-int sock6_pre_bind(struct bpf_sock_addr *ctx)
+int cil_sock6_pre_bind(struct bpf_sock_addr *ctx)
 {
 	int ret = SYS_PROCEED;
 
@@ -1003,7 +1003,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 			l7backend.address = loopback;
 			l7backend.port = (__be16)svc->l7_lb_proxy_port;
 			l7backend.proto = 0;
-			l7backend.pad = 0;
+			l7backend.flags = 0;
 			backend = &l7backend;
 			goto out;
 		}
@@ -1089,7 +1089,7 @@ __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 }
 
 __section("cgroup/connect6")
-int sock6_connect(struct bpf_sock_addr *ctx)
+int cil_sock6_connect(struct bpf_sock_addr *ctx)
 {
 	if (sock_is_health_check(ctx))
 		return __sock6_health_fwd(ctx);
@@ -1098,7 +1098,7 @@ int sock6_connect(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
-#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
+#if defined(ENABLE_SOCKET_LB_UDP) || defined(ENABLE_SOCKET_LB_PEER)
 static __always_inline int
 sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
@@ -1167,26 +1167,26 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 }
 
 __section("cgroup/sendmsg6")
-int sock6_sendmsg(struct bpf_sock_addr *ctx)
+int cil_sock6_sendmsg(struct bpf_sock_addr *ctx)
 {
 	__sock6_xlate_fwd(ctx, true);
 	return SYS_PROCEED;
 }
 
 __section("cgroup/recvmsg6")
-int sock6_recvmsg(struct bpf_sock_addr *ctx)
+int cil_sock6_recvmsg(struct bpf_sock_addr *ctx)
 {
 	__sock6_xlate_rev(ctx);
 	return SYS_PROCEED;
 }
 
 __section("cgroup/getpeername6")
-int sock6_getpeername(struct bpf_sock_addr *ctx)
+int cil_sock6_getpeername(struct bpf_sock_addr *ctx)
 {
 	__sock6_xlate_rev(ctx);
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
+#endif /* ENABLE_SOCKET_LB_UDP || ENABLE_SOCKET_LB_PEER */
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
 BPF_LICENSE("Dual BSD/GPL");

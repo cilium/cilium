@@ -5,9 +5,6 @@ package watchers
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -18,24 +15,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
-	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/source"
-)
-
-var (
-	// onceNodeInitStart is used to guarantee that only one function call of
-	// NodesInit is executed.
-	onceNodeInitStart sync.Once
 )
 
 // RegisterNodeSubscriber allows registration of subscriber.Node implementations.
@@ -43,6 +29,13 @@ var (
 // have their event handling methods called in order of registration.
 func (k *K8sWatcher) RegisterNodeSubscriber(s subscriber.Node) {
 	k.NodeChain.Register(s)
+}
+
+// The NodeUpdate interface is used to provide an abstraction for the
+// nodediscovery.NodeDiscovery object logic used to update a node entry in the
+// KVStore and the k8s CiliumNode.
+type NodeUpdate interface {
+	UpdateLocalNode()
 }
 
 func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
@@ -54,12 +47,14 @@ func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
 }
 
 func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
-	onceNodeInitStart.Do(func() {
+	apiGroup := k8sAPIGroupNodeV1Core
+	k.nodesInitOnce.Do(func() {
 		swg := lock.NewStoppableWaitGroup()
 
 		nodeStore, nodeController := informer.NewInformer(
-			cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-				"nodes", v1.NamespaceAll, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName())),
+			utils.ListerWatcherWithFields(
+				utils.ListerWatcherFromTyped[*v1.NodeList](k8sClient.CoreV1().Nodes()),
+				fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName())),
 			&v1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
@@ -67,31 +62,24 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 					var valid bool
 					if node := k8s.ObjToV1Node(obj); node != nil {
 						valid = true
-						if hasAgentNotReadyTaint(node) || !k8s.HasCiliumIsUpCondition(node) {
-							k8sClient.ReMarkNodeReady()
-						}
 						errs := k.NodeChain.OnAddNode(node, swg)
-						k.K8sEventProcessed(metricNode, metricCreate, errs == nil)
+						k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
 					}
-					k.K8sEventReceived(metricNode, metricCreate, valid, false)
+					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, valid, false)
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
 					if oldNode := k8s.ObjToV1Node(oldObj); oldNode != nil {
 						valid = true
 						if newNode := k8s.ObjToV1Node(newObj); newNode != nil {
-							if hasAgentNotReadyTaint(newNode) || !k8s.HasCiliumIsUpCondition(newNode) {
-								k8sClient.ReMarkNodeReady()
-							}
-
 							equal = nodeEventsAreEqual(oldNode, newNode)
 							if !equal {
 								errs := k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
-								k.K8sEventProcessed(metricNode, metricUpdate, errs == nil)
+								k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
 							}
 						}
 					}
-					k.K8sEventReceived(metricNode, metricUpdate, valid, equal)
+					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, valid, false)
 				},
 				DeleteFunc: func(obj interface{}) {
 				},
@@ -103,19 +91,8 @@ func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
 
 		k.blockWaitGroupToSyncResources(wait.NeverStop, swg, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
 		go nodeController.Run(k.stop)
-		k.k8sAPIGroups.AddAPI(k8sAPIGroupNodeV1Core)
+		k.k8sAPIGroups.AddAPI(apiGroup)
 	})
-}
-
-// hasAgentNotReadyTaint returns true if the given node has the Cilium Agen
-// Not Ready Node Taint.
-func hasAgentNotReadyTaint(k8sNode *v1.Node) bool {
-	for _, taint := range k8sNode.Spec.Taints {
-		if taint.Key == ciliumio.AgentNotReadyNodeTaint {
-			return true
-		}
-	}
-	return false
 }
 
 // GetK8sNode returns the *local Node* from the local store.
@@ -142,18 +119,21 @@ func (k *K8sWatcher) GetK8sNode(_ context.Context, nodeName string) (*v1.Node, e
 // ciliumNodeUpdater implements the subscriber.Node interface and is used
 // to keep CiliumNode objects in sync with the node ones.
 type ciliumNodeUpdater struct {
-	k8sWatcher *K8sWatcher
+	kvStoreNodeUpdater NodeUpdate
 }
 
-func NewCiliumNodeUpdater(k8sWatcher *K8sWatcher) *ciliumNodeUpdater {
+func NewCiliumNodeUpdater(kvStoreNodeUpdater NodeUpdate) *ciliumNodeUpdater {
 	return &ciliumNodeUpdater{
-		k8sWatcher: k8sWatcher,
+		kvStoreNodeUpdater: kvStoreNodeUpdater,
 	}
 }
 
 func (u *ciliumNodeUpdater) OnAddNode(newNode *v1.Node, swg *lock.StoppableWaitGroup) error {
-	u.updateCiliumNode(newNode)
-
+	// We don't need to run OnAddNode because Cilium will fetch the state from
+	// k8s upon initialization and will populate the KVStore [1] node with this
+	// information or create a Cilium Node CR [2].
+	// [1] https://github.com/cilium/cilium/blob/2bea69a54a00f10bec093347900cc66395269154/daemon/cmd/daemon.go#L1102
+	// [2] https://github.com/cilium/cilium/blob/2bea69a54a00f10bec093347900cc66395269154/daemon/cmd/daemon.go#L864-L868
 	return nil
 }
 
@@ -168,49 +148,12 @@ func (u *ciliumNodeUpdater) OnDeleteNode(*v1.Node, *lock.StoppableWaitGroup) err
 }
 
 func (u *ciliumNodeUpdater) updateCiliumNode(node *v1.Node) {
-	var (
-		controllerName = fmt.Sprintf("sync-node-with-ciliumnode (%v)", node.Name)
-
-		nodeSlim      = k8s.ConvertToNode(node.DeepCopy()).(*slim_corev1.Node)
-		k8sNodeParsed = k8s.ParseNode(nodeSlim, source.Local)
-	)
-
-	k8sNodeParsed.NodeIdentity = uint32(identity.ReservedIdentityHost)
-
-	doFunc := func(ctx context.Context) (err error) {
-		if option.Config.KVStore != "" && !option.Config.JoinCluster {
-			// TODO(jibi) handle the KV store case
-			return nil
-		} else {
-			u.k8sWatcher.ciliumNodeStoreMU.RLock()
-			defer u.k8sWatcher.ciliumNodeStoreMU.RUnlock()
-
-			if u.k8sWatcher.ciliumNodeStore == nil {
-				return errors.New("CiliumNode cache store not yet initialized")
-			}
-
-			ciliumNodeInterface, exists, err := u.k8sWatcher.ciliumNodeStore.GetByKey(node.Name)
-			if err != nil {
-				return fmt.Errorf("failed to get CiliumNode resource from cache store: %w", err)
-			}
-			if !exists {
-				return nil
-			}
-
-			ciliumNode := ciliumNodeInterface.(*ciliumv2.CiliumNode).DeepCopy()
-
-			ciliumNode.Labels = node.GetLabels()
-
-			if _, err = k8s.CiliumClient().CiliumV2().CiliumNodes().Update(ctx, ciliumNode, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("failed to update CiliumNode labels: %w", err)
-			}
-		}
-
-		return nil
+	if node.Name != nodeTypes.GetName() {
+		// The cilium node updater should only update the information relevant
+		// to itself. It should not update any of the other nodes.
+		log.Errorf("BUG: trying to update node %q while we should only update for %q", node.Name, nodeTypes.GetName())
+		return
 	}
 
-	k8sCM.UpdateController(controllerName,
-		controller.ControllerParams{
-			DoFunc: doFunc,
-		})
+	u.kvStoreNodeUpdater.UpdateLocalNode()
 }

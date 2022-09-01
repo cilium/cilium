@@ -12,7 +12,7 @@ cilium bpf bandwidth list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium bpf bandwidth list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf bandwidth](../cilium_bpf_bandwidth)	 - BPF datapath bandwidth settings
+* [cilium bpf bandwidth](cilium_bpf_bandwidth.md)	 - BPF datapath bandwidth settings
 

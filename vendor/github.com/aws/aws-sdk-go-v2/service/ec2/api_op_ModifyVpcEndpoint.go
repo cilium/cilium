@@ -6,15 +6,15 @@ import (
 	"context"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Modifies attributes of a specified VPC endpoint. The attributes that you can
 // modify depend on the type of VPC endpoint (interface, gateway, or Gateway Load
-// Balancer). For more information, see VPC Endpoints
-// (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-endpoints.html) in the
-// Amazon Virtual Private Cloud User Guide.
+// Balancer). For more information, see the Amazon Web Services PrivateLink Guide
+// (https://docs.aws.amazon.com/vpc/latest/privatelink/).
 func (c *Client) ModifyVpcEndpoint(ctx context.Context, params *ModifyVpcEndpointInput, optFns ...func(*Options)) (*ModifyVpcEndpointOutput, error) {
 	if params == nil {
 		params = &ModifyVpcEndpointInput{}
@@ -50,11 +50,17 @@ type ModifyVpcEndpointInput struct {
 	// only one subnet.
 	AddSubnetIds []string
 
+	// The DNS options for the endpoint.
+	DnsOptions *types.DnsOptionsSpecification
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	// The IP address type for the endpoint.
+	IpAddressType types.IpAddressType
 
 	// (Interface and gateway endpoints) A policy to attach to the endpoint that
 	// controls access to the service. The policy must be in valid JSON format.

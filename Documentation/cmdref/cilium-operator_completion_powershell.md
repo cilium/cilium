@@ -29,5 +29,5 @@ cilium-operator completion powershell [flags]
 
 ### SEE ALSO
 
-* [cilium-operator completion](cilium-operator_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator completion](cilium-operator_completion.md)	 - Generate the autocompletion script for the specified shell
 

@@ -343,8 +343,10 @@ func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
 // filter.
 func doGC6(m *Map, filter *GCFilter) gcStats {
 	ctMap := mapInfo[m.mapType]
-	ctMap.natMapLock.Lock()
-	defer ctMap.natMapLock.Unlock()
+	if ctMap.natMapLock != nil {
+		ctMap.natMapLock.Lock()
+		defer ctMap.natMapLock.Unlock()
+	}
 	natMap := ctMap.natMap
 	stats := statStartGc(m)
 	defer stats.finish()
@@ -426,8 +428,10 @@ func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
 // filter.
 func doGC4(m *Map, filter *GCFilter) gcStats {
 	ctMap := mapInfo[m.mapType]
-	ctMap.natMapLock.Lock()
-	defer ctMap.natMapLock.Unlock()
+	if ctMap.natMapLock != nil {
+		ctMap.natMapLock.Lock()
+		defer ctMap.natMapLock.Unlock()
+	}
 	natMap := ctMap.natMap
 	stats := statStartGc(m)
 	defer stats.finish()
@@ -564,13 +568,13 @@ func GC(m *Map, filter *GCFilter) int {
 // The consumer of the buffer invokes the function.
 //
 // The SNAT is being used for the following cases:
-// 1. By NodePort BPF on an intermediate node before fwd'ing request from outside
+//  1. By NodePort BPF on an intermediate node before fwd'ing request from outside
 //     to a destination node.
-// 2. A packet from local endpoint sent to outside (BPF-masq).
-// 3. A packet from a host local application (i.e. running in the host netns)
-//    This is needed to prevent SNAT from hijacking such connections.
-// 4. By DSR on a backend node to SNAT responses with service IP+port before
-//    sending to a client.
+//  2. A packet from local endpoint sent to outside (BPF-masq).
+//  3. A packet from a host local application (i.e. running in the host netns)
+//     This is needed to prevent SNAT from hijacking such connections.
+//  4. By DSR on a backend node to SNAT responses with service IP+port before
+//     sending to a client.
 //
 // In the case of 1-3, we always create a CT_EGRESS CT entry. This allows the
 // CT GC to remove corresponding SNAT entries. In the case of 4, will create
@@ -586,8 +590,10 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
 	ctMap := mapInfo[ctMapTCP.mapType]
-	ctMap.natMapLock.Lock()
-	defer ctMap.natMapLock.Unlock()
+	if ctMap.natMapLock != nil {
+		ctMap.natMapLock.Lock()
+		defer ctMap.natMapLock.Unlock()
+	}
 	natMap := ctMap.natMap
 	if natMap == nil {
 		return nil

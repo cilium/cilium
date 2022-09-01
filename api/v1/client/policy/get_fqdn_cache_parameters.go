@@ -58,7 +58,8 @@ func NewGetFqdnCacheParamsWithHTTPClient(client *http.Client) *GetFqdnCacheParam
 	}
 }
 
-/*GetFqdnCacheParams contains all the parameters to send to the API endpoint
+/*
+GetFqdnCacheParams contains all the parameters to send to the API endpoint
 for the get fqdn cache operation typically these are written to a http.Request
 */
 type GetFqdnCacheParams struct {
@@ -73,6 +74,11 @@ type GetFqdnCacheParams struct {
 
 	*/
 	Matchpattern *string
+	/*Source
+	  Source from which FQDN entries come from
+
+	*/
+	Source *string
 
 	timeout    time.Duration
 	Context    context.Context
@@ -134,6 +140,17 @@ func (o *GetFqdnCacheParams) SetMatchpattern(matchpattern *string) {
 	o.Matchpattern = matchpattern
 }
 
+// WithSource adds the source to the get fqdn cache params
+func (o *GetFqdnCacheParams) WithSource(source *string) *GetFqdnCacheParams {
+	o.SetSource(source)
+	return o
+}
+
+// SetSource adds the source to the get fqdn cache params
+func (o *GetFqdnCacheParams) SetSource(source *string) {
+	o.Source = source
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetFqdnCacheParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -168,6 +185,22 @@ func (o *GetFqdnCacheParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 		qMatchpattern := qrMatchpattern
 		if qMatchpattern != "" {
 			if err := r.SetQueryParam("matchpattern", qMatchpattern); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	if o.Source != nil {
+
+		// query param source
+		var qrSource string
+		if o.Source != nil {
+			qrSource = *o.Source
+		}
+		qSource := qrSource
+		if qSource != "" {
+			if err := r.SetQueryParam("source", qSource); err != nil {
 				return err
 			}
 		}

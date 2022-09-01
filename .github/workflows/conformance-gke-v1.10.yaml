@@ -63,7 +63,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   zone: us-west2-a
-  cilium_cli_version: v0.10.4
+  cilium_cli_version: v0.10.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -84,7 +84,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -141,10 +141,10 @@ jobs:
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
-            --base-version=v1.10"
+            --base-version=v1.10.12"
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10 \
+          CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10.12 \
             --flow-validation=disabled"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
@@ -331,7 +331,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
@@ -372,7 +372,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

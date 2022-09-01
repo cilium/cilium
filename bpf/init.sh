@@ -2,31 +2,33 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 # Copyright Authors of Cilium
 
-LIB=$1
-RUNDIR=$2
-IP4_HOST=$3
-IP6_HOST=$4
-MODE=$5
-TUNNEL_MODE=$6
+LIB=${1}
+RUNDIR=${2}
+PROCSYSNETDIR=${3}
+SYSCLASSNETDIR=${4}
+IP4_HOST=${5}
+IP6_HOST=${6}
+MODE=${7}
+TUNNEL_MODE=${8}
 # Only set if TUNNEL_MODE = "vxlan", "geneve"
-TUNNEL_PORT=$7
-# Only set if MODE = "direct", "ipvlan"
-NATIVE_DEVS=$8
-HOST_DEV1=$9
-HOST_DEV2=${10}
-MTU=${11}
-HOSTLB=${12}
-HOSTLB_UDP=${13}
-HOSTLB_PEER=${14}
-CGROUP_ROOT=${15}
-BPFFS_ROOT=${16}
-NODE_PORT=${17}
-NODE_PORT_BIND=${18}
-MCPU=${19}
-NR_CPUS=${20}
-ENDPOINT_ROUTES=${21}
-PROXY_RULE=${22}
-FILTER_PRIO=${23}
+TUNNEL_PORT=${9}
+# Only set if MODE = "direct"
+NATIVE_DEVS=${10}
+HOST_DEV1=${11}
+HOST_DEV2=${12}
+MTU=${13}
+HOSTLB=${14}
+HOSTLB_UDP=${15}
+HOSTLB_PEER=${16}
+CGROUP_ROOT=${17}
+BPFFS_ROOT=${18}
+NODE_PORT=${19}
+NODE_PORT_BIND=${20}
+MCPU=${21}
+NR_CPUS=${22}
+ENDPOINT_ROUTES=${23}
+PROXY_RULE=${24}
+FILTER_PRIO=${25}
 
 ID_HOST=1
 ID_WORLD=2
@@ -53,14 +55,14 @@ function setup_dev()
 	ip link set $NAME up
 
 	if [ "$IP6_HOST" != "<nil>" ]; then
-		echo 1 > /proc/sys/net/ipv6/conf/${NAME}/forwarding
+		echo 1 > "${PROCSYSNETDIR}/ipv6/conf/${NAME}/forwarding"
 	fi
 
 	if [ "$IP4_HOST" != "<nil>" ]; then
-		echo 1 > /proc/sys/net/ipv4/conf/${NAME}/forwarding
-		echo 0 > /proc/sys/net/ipv4/conf/${NAME}/rp_filter
-		echo 1 > /proc/sys/net/ipv4/conf/${NAME}/accept_local
-		echo 0 > /proc/sys/net/ipv4/conf/${NAME}/send_redirects
+		echo 1 > "${PROCSYSNETDIR}/ipv4/conf/${NAME}/forwarding"
+		echo 0 > "${PROCSYSNETDIR}/ipv4/conf/${NAME}/rp_filter"
+		echo 1 > "${PROCSYSNETDIR}/ipv4/conf/${NAME}/accept_local"
+		echo 0 > "${PROCSYSNETDIR}/ipv4/conf/${NAME}/send_redirects"
 	fi
 }
 
@@ -108,10 +110,6 @@ function move_local_rules()
 
 function setup_proxy_rules()
 {
-	if [ "$MODE" = "ipvlan" ]; then
-		return
-	fi
-
 	# Any packet from an ingress proxy uses a separate routing table that routes
 	# the packet back to the cilium host device.
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
@@ -332,7 +330,7 @@ case "${MODE}" in
 		echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
 
 		sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-		HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
+		HOST_IDX=$(cat "${SYSCLASSNETDIR}/${HOST_DEV2}/ifindex")
 		echo "#define HOST_IFINDEX $HOST_IDX" >> $RUNDIR/globals/node_config.h
 
 		sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
@@ -341,10 +339,10 @@ case "${MODE}" in
 		echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
 
 		sed -i '/^#.*CILIUM_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-		CILIUM_IDX=$(cat /sys/class/net/${HOST_DEV1}/ifindex)
+		CILIUM_IDX=$(cat "${SYSCLASSNETDIR}/${HOST_DEV1}/ifindex")
 		echo "#define CILIUM_IFINDEX $CILIUM_IDX" >> $RUNDIR/globals/node_config.h
 
-		CILIUM_EPHEMERAL_MIN=$(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}')
+		CILIUM_EPHEMERAL_MIN=$(cat "${PROCSYSNETDIR}/ipv4/ip_local_port_range" | awk '{print $1}')
 		echo "#define EPHEMERAL_MIN $CILIUM_EPHEMERAL_MIN" >> $RUNDIR/globals/node_config.h
 esac
 
@@ -380,7 +378,7 @@ if [ "$MODE" = "ipip" ]; then
 		}
 		setup_dev $ENCAP_DEV || encap_fail
 
-		ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
+		ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
 		sed -i '/^#.*ENCAP4_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 		echo "#define ENCAP4_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 	else
@@ -401,7 +399,7 @@ if [ "$MODE" = "ipip" ]; then
 		}
 		setup_dev $ENCAP_DEV || encap_fail
 
-		ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
+		ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
 		sed -i '/^#.*ENCAP6_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 		echo "#define ENCAP6_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 	else
@@ -423,7 +421,6 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_DEV="cilium_${TUNNEL_MODE}"
 
 	ip link show $ENCAP_DEV || create_encap_dev
-	ip link set $ENCAP_DEV mtu $MTU || encap_fail
 
 	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
 		ip -details link show $ENCAP_DEV | grep "dstport $TUNNEL_PORT" || {
@@ -432,9 +429,10 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 		}
 	fi
 
+	ip link set $ENCAP_DEV mtu $MTU || encap_fail
 	setup_dev $ENCAP_DEV || encap_fail
 
-	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
+	ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
@@ -455,12 +453,12 @@ else
 	ip link del cilium_geneve 2> /dev/null || true
 fi
 
-if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$NODE_PORT" = "true" ] ; then
+if [ "$MODE" = "direct" ] || [ "$NODE_PORT" = "true" ] ; then
 	if [ "$NATIVE_DEVS" == "<nil>" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
 		if [ "$IP6_HOST" != "<nil>" ]; then
-			echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+			echo 1 > "${PROCSYSNETDIR}/ipv6/conf/all/forwarding"
 		fi
 		echo "$NATIVE_DEVS" > $RUNDIR/device.state
 	fi
@@ -487,12 +485,10 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 	$found && continue
 	for where in ingress egress; do
-		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev.*[.]o"; then
-			echo "Removing bpf_netdev.o from $where of $iface"
-			tc filter del dev "$iface" "$where" || true
-		fi
-		if tc filter show dev "$iface" "$where" | grep -q "bpf_host.o"; then
-			echo "Removing bpf_host.o from $where of $iface"
+		# Filters created Go bpf loader are of format 'cilium-<iface>'.
+		# iproute2 would use the filename and section, e.g. bpf_overlay.o:[from-overlay].
+		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev\|bpf_host\|cilium"; then
+			echo "Removing $where TC filter from interface $iface"
 			tc filter del dev "$iface" "$where" || true
 		fi
 	done
@@ -500,12 +496,12 @@ done
 
 if [ "$HOSTLB" = "true" ]; then
 	if [ "$IP6_HOST" != "<nil>" ]; then
-		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+		echo 1 > "${PROCSYSNETDIR}/ipv6/conf/all/forwarding"
 	fi
 
 	CALLS_MAP="cilium_calls_lb"
 	COPTS=""
-	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f /proc/sys/net/ipv6/conf/all/forwarding ]; then
+	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f "${PROCSYSNETDIR}/ipv6/conf/all/forwarding" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$HOSTLB_PEER" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT

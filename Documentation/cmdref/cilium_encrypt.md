@@ -20,7 +20,7 @@ Manage transparent encryption
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium encrypt flush](../cilium_encrypt_flush)	 - Flushes the current IPsec state
-* [cilium encrypt status](../cilium_encrypt_status)	 - Display the current encryption state
+* [cilium](cilium.md)	 - CLI
+* [cilium encrypt flush](cilium_encrypt_flush.md)	 - Flushes the current IPsec state
+* [cilium encrypt status](cilium_encrypt_status.md)	 - Display the current encryption state
 

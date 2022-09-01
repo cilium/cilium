@@ -12,7 +12,7 @@ cilium bpf recorder list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium bpf recorder list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf recorder](../cilium_bpf_recorder)	 - PCAP recorder
+* [cilium bpf recorder](cilium_bpf_recorder.md)	 - PCAP recorder
 

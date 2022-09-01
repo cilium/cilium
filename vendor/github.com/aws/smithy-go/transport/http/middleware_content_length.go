@@ -44,12 +44,6 @@ func (m *ComputeContentLength) HandleBuild(
 			"failed getting length of request stream, %w", err)
 	} else if ok {
 		req.ContentLength = n
-		if n == 0 {
-			// If the content length could be determined, and the body is empty
-			// the stream must be cleared to prevent unexpected chunk encoding.
-			req, _ = req.SetStream(nil)
-			in.Request = req
-		}
 	}
 
 	return next.HandleBuild(ctx, in)

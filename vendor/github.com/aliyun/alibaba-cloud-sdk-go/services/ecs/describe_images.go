@@ -101,7 +101,7 @@ type DescribeImagesRequest struct {
 
 // DescribeImagesTag is a repeated param struct in DescribeImagesRequest
 type DescribeImagesTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

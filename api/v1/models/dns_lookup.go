@@ -33,7 +33,7 @@ type DNSLookup struct {
 	// IP addresses returned in this lookup
 	Ips []string `json:"ips"`
 
-	// The absolute time when this data was recieved
+	// The absolute time when this data was received
 	// Format: date-time
 	LookupTime strfmt.DateTime `json:"lookup-time,omitempty"`
 

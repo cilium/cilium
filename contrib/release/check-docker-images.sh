@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Authors of Cilium
 
 cilium_tag="${1}"
 org="cilium"
+suffix=${CILIUM_OPERATOR_SUFFIX:-}
 
 external_dependencies=(
-  "docker.io/envoyproxy/envoy:${HUBBLE_PROXY_VERSION}" \
   "quay.io/coreos/etcd:${ETCD_VERSION}" \
+)
+
+internal_dependencies_quay_only=(
+  "cilium-etcd-operator:${CILIUM_ETCD_OPERATOR_VERSION}" \
+  "startup-script:${CILIUM_NODEINIT_VERSION}"
 )
 
 internal_dependencies=(
   "certgen:${CERTGEN_VERSION}" \
-  "cilium-etcd-operator:${MANAGED_ETCD_VERSION}" \
-  "startup-script:${NODEINIT_VERSION}"
-  "hubble-ui:${HUBBLE_UI_VERSION}" \
+  "hubble-ui:${HUBBLE_UI_FRONTEND_VERSION}" \
   "hubble-ui-backend:${HUBBLE_UI_BACKEND_VERSION}" \
 )
 
@@ -46,6 +51,11 @@ for image in "${internal_dependencies[@]}" ; do
     echo "docker.io/${image_name}:${image_tag} does not exist!"
     not_found=true
   fi
+done
+
+for image in "${internal_dependencies[@]}" "${internal_dependencies_quay_only[@]}" ; do
+  image_tag=${image#*:}
+  image_name=${org}/${image%":$image_tag"}
   if ! image_tag_exists "quay.io/${image_name}:${image_tag}" ; then
     echo "quay.io/${image_name}:${image_tag} does not exist!"
     not_found=true
@@ -54,12 +64,12 @@ done
 
 for image in "${cilium_images[@]}"; do
   image_name="${org}/${image}"
-  if ! image_tag_exists "docker.io/${image_name}:${cilium_tag}" ; then
+  if [ -z "${suffix}" ] && ! image_tag_exists "docker.io/${image_name}:${cilium_tag}" ; then
     echo "docker.io/${image_name}:${cilium_tag} does not exist!"
     not_found=true
   fi
-  if ! image_tag_exists "quay.io/${image_name}:${cilium_tag}" ; then
-    echo "quay.io/${image_name}:${cilium_tag} does not exist!"
+  if ! image_tag_exists "quay.io/${image_name}${suffix}:${cilium_tag}" ; then
+    echo "quay.io/${image_name}${suffix}:${cilium_tag} does not exist!"
     not_found=true
   fi
 done

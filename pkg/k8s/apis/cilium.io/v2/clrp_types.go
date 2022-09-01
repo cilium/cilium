@@ -217,8 +217,14 @@ func (pInfo *PortInfo) SanitizePortInfo(checkNamedPort bool) (uint16, string, lb
 	}
 	// Sanitize name
 	if checkNamedPort {
+		if pInfo.Name == "" {
+			return pInt, pName, protocol, fmt.Errorf("port %s in the local "+
+				"redirect policy spec must have a valid IANA_SVC_NAME, as there are multiple ports", pInfo.Port)
+
+		}
 		if !iana.IsSvcName(pInfo.Name) {
-			return pInt, pName, protocol, fmt.Errorf("valid port name is not present")
+			return pInt, pName, protocol, fmt.Errorf("port name %s isn't a "+
+				"valid IANA_SVC_NAME", pInfo.Name)
 		}
 	}
 	pName = strings.ToLower(pInfo.Name) // Normalize for case insensitive comparison

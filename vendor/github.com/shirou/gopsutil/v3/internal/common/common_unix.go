@@ -5,6 +5,7 @@ package common
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -18,12 +19,11 @@ func CallLsofWithContext(ctx context.Context, invoke Invoker, pid int32, args ..
 		cmd = []string{"-a", "-n", "-P", "-p", strconv.Itoa(int(pid))}
 	}
 	cmd = append(cmd, args...)
-	lsof, err := exec.LookPath("lsof")
+	out, err := invoke.CommandWithContext(ctx, "lsof", cmd...)
 	if err != nil {
-		return []string{}, err
-	}
-	out, err := invoke.CommandWithContext(ctx, lsof, cmd...)
-	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return []string{}, err
+		}
 		// if no pid found, lsof returns code 1.
 		if err.Error() == "exit status 1" && len(out) == 0 {
 			return []string{}, nil
@@ -42,12 +42,7 @@ func CallLsofWithContext(ctx context.Context, invoke Invoker, pid int32, args ..
 }
 
 func CallPgrepWithContext(ctx context.Context, invoke Invoker, pid int32) ([]int32, error) {
-	cmd := []string{"-P", strconv.Itoa(int(pid))}
-	pgrep, err := exec.LookPath("pgrep")
-	if err != nil {
-		return []int32{}, err
-	}
-	out, err := invoke.CommandWithContext(ctx, pgrep, cmd...)
+	out, err := invoke.CommandWithContext(ctx, "pgrep", "-P", strconv.Itoa(int(pid)))
 	if err != nil {
 		return []int32{}, err
 	}

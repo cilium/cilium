@@ -63,47 +63,43 @@ func (op JumpOp) Op(source Source) OpCode {
 // Imm compares 64 bit dst to 64 bit value (sign extended), and adjusts PC by offset if the condition is fulfilled.
 func (op JumpOp) Imm(dst Register, value int32, label string) Instruction {
 	return Instruction{
-		OpCode:    op.opCode(JumpClass, ImmSource),
-		Dst:       dst,
-		Offset:    -1,
-		Constant:  int64(value),
-		Reference: label,
-	}
+		OpCode:   op.opCode(JumpClass, ImmSource),
+		Dst:      dst,
+		Offset:   -1,
+		Constant: int64(value),
+	}.WithReference(label)
 }
 
 // Imm32 compares 32 bit dst to 32 bit value, and adjusts PC by offset if the condition is fulfilled.
 // Requires kernel 5.1.
 func (op JumpOp) Imm32(dst Register, value int32, label string) Instruction {
 	return Instruction{
-		OpCode:    op.opCode(Jump32Class, ImmSource),
-		Dst:       dst,
-		Offset:    -1,
-		Constant:  int64(value),
-		Reference: label,
-	}
+		OpCode:   op.opCode(Jump32Class, ImmSource),
+		Dst:      dst,
+		Offset:   -1,
+		Constant: int64(value),
+	}.WithReference(label)
 }
 
 // Reg compares 64 bit dst to 64 bit src, and adjusts PC by offset if the condition is fulfilled.
 func (op JumpOp) Reg(dst, src Register, label string) Instruction {
 	return Instruction{
-		OpCode:    op.opCode(JumpClass, RegSource),
-		Dst:       dst,
-		Src:       src,
-		Offset:    -1,
-		Reference: label,
-	}
+		OpCode: op.opCode(JumpClass, RegSource),
+		Dst:    dst,
+		Src:    src,
+		Offset: -1,
+	}.WithReference(label)
 }
 
 // Reg32 compares 32 bit dst to 32 bit src, and adjusts PC by offset if the condition is fulfilled.
 // Requires kernel 5.1.
 func (op JumpOp) Reg32(dst, src Register, label string) Instruction {
 	return Instruction{
-		OpCode:    op.opCode(Jump32Class, RegSource),
-		Dst:       dst,
-		Src:       src,
-		Offset:    -1,
-		Reference: label,
-	}
+		OpCode: op.opCode(Jump32Class, RegSource),
+		Dst:    dst,
+		Src:    src,
+		Offset: -1,
+	}.WithReference(label)
 }
 
 func (op JumpOp) opCode(class Class, source Source) OpCode {
@@ -118,16 +114,14 @@ func (op JumpOp) opCode(class Class, source Source) OpCode {
 func (op JumpOp) Label(label string) Instruction {
 	if op == Call {
 		return Instruction{
-			OpCode:    OpCode(JumpClass).SetJumpOp(Call),
-			Src:       PseudoCall,
-			Constant:  -1,
-			Reference: label,
-		}
+			OpCode:   OpCode(JumpClass).SetJumpOp(Call),
+			Src:      PseudoCall,
+			Constant: -1,
+		}.WithReference(label)
 	}
 
 	return Instruction{
-		OpCode:    OpCode(JumpClass).SetJumpOp(op),
-		Offset:    -1,
-		Reference: label,
-	}
+		OpCode: OpCode(JumpClass).SetJumpOp(op),
+		Offset: -1,
+	}.WithReference(label)
 }

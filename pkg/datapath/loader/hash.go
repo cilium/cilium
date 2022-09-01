@@ -38,6 +38,7 @@ func newDatapathHash() *datapathHash {
 // hashDatapath returns a new datapath hash based on the specified datapath.
 //
 // The endpoint's static data is NOT included in this hash, for that perform:
+//
 //	hash := hashDatapath(dp, nodeCfg, netdevCfg, ep)
 //	hashStr := hash.sumEndpoint(ep)
 func hashDatapath(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, netdevCfg datapath.DeviceConfiguration, epCfg datapath.EndpointConfiguration) *datapathHash {

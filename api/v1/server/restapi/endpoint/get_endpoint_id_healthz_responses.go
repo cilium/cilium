@@ -19,7 +19,8 @@ import (
 // GetEndpointIDHealthzOKCode is the HTTP code returned for type GetEndpointIDHealthzOK
 const GetEndpointIDHealthzOKCode int = 200
 
-/*GetEndpointIDHealthzOK Success
+/*
+GetEndpointIDHealthzOK Success
 
 swagger:response getEndpointIdHealthzOK
 */
@@ -63,7 +64,8 @@ func (o *GetEndpointIDHealthzOK) WriteResponse(rw http.ResponseWriter, producer 
 // GetEndpointIDHealthzInvalidCode is the HTTP code returned for type GetEndpointIDHealthzInvalid
 const GetEndpointIDHealthzInvalidCode int = 400
 
-/*GetEndpointIDHealthzInvalid Invalid identity provided
+/*
+GetEndpointIDHealthzInvalid Invalid identity provided
 
 swagger:response getEndpointIdHealthzInvalid
 */
@@ -87,7 +89,8 @@ func (o *GetEndpointIDHealthzInvalid) WriteResponse(rw http.ResponseWriter, prod
 // GetEndpointIDHealthzNotFoundCode is the HTTP code returned for type GetEndpointIDHealthzNotFound
 const GetEndpointIDHealthzNotFoundCode int = 404
 
-/*GetEndpointIDHealthzNotFound Endpoint not found
+/*
+GetEndpointIDHealthzNotFound Endpoint not found
 
 swagger:response getEndpointIdHealthzNotFound
 */
@@ -111,7 +114,8 @@ func (o *GetEndpointIDHealthzNotFound) WriteResponse(rw http.ResponseWriter, pro
 // GetEndpointIDHealthzTooManyRequestsCode is the HTTP code returned for type GetEndpointIDHealthzTooManyRequests
 const GetEndpointIDHealthzTooManyRequestsCode int = 429
 
-/*GetEndpointIDHealthzTooManyRequests Rate-limiting too many requests in the given time frame
+/*
+GetEndpointIDHealthzTooManyRequests Rate-limiting too many requests in the given time frame
 
 swagger:response getEndpointIdHealthzTooManyRequests
 */

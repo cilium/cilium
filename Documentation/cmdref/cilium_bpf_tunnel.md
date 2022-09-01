@@ -20,6 +20,6 @@ Tunnel endpoint map
 
 ### SEE ALSO
 
-* [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
-* [cilium bpf tunnel list](../cilium_bpf_tunnel_list)	 - List tunnel endpoint entries
+* [cilium bpf](cilium_bpf.md)	 - Direct access to local BPF maps
+* [cilium bpf tunnel list](cilium_bpf_tunnel_list.md)	 - List tunnel endpoint entries
 

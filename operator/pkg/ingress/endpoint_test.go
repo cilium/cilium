@@ -33,7 +33,7 @@ func Test_getEndpointForIngress(t *testing.T) {
 			Addresses: []v1.EndpointAddress{{IP: "192.192.192.192"}},
 			Ports: []v1.EndpointPort{
 				{
-					Port: 8080,
+					Port: 9999,
 				},
 			},
 		},

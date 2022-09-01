@@ -12,7 +12,7 @@ cilium prefilter list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium prefilter list [flags]
 
 ### SEE ALSO
 
-* [cilium prefilter](../cilium_prefilter)	 - Manage XDP CIDR filters
+* [cilium prefilter](cilium_prefilter.md)	 - Manage XDP CIDR filters
 

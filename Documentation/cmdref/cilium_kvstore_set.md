@@ -34,5 +34,5 @@ cilium kvstore set foo=bar
 
 ### SEE ALSO
 
-* [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
+* [cilium kvstore](cilium_kvstore.md)	 - Direct access to the kvstore
 

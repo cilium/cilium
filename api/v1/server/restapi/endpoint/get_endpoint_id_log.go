@@ -32,10 +32,10 @@ func NewGetEndpointIDLog(ctx *middleware.Context, handler GetEndpointIDLogHandle
 	return &GetEndpointIDLog{Context: ctx, Handler: handler}
 }
 
-/*GetEndpointIDLog swagger:route GET /endpoint/{id}/log endpoint getEndpointIdLog
+/*
+GetEndpointIDLog swagger:route GET /endpoint/{id}/log endpoint getEndpointIdLog
 
 Retrieves the status logs associated with this endpoint.
-
 */
 type GetEndpointIDLog struct {
 	Context *middleware.Context

@@ -261,7 +261,7 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 	c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, allowAllIdentityList)
 
 	fooLbls := labels.Labels{"": labels.ParseLabel("foo")}
-	fooIdentity, _, err := e.allocator.AllocateIdentity(context.Background(), fooLbls, false)
+	fooIdentity, _, err := e.allocator.AllocateIdentity(context.Background(), fooLbls, false, identity.InvalidIdentity)
 	c.Assert(err, check.Equals, nil)
 	defer s.mgr.Release(context.Background(), fooIdentity, false)
 

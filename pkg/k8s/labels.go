@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -94,10 +95,8 @@ func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (contain
 
 	objMetaCpy := pod.ObjectMeta.DeepCopy()
 	annotations := objMetaCpy.Annotations
-	k8sLabels := objMetaCpy.Labels
-	if k8sLabels == nil {
-		k8sLabels = map[string]string{}
-	}
+	k8sLabels := filterPodLabels(objMetaCpy.Labels)
+
 	for k, v := range k8sNs.GetLabels() {
 		k8sLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
 	}
@@ -113,8 +112,9 @@ func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (contain
 	// Cilium, add a label to notify that.
 	// If the pod already contains that label to explicitly enable or disable
 	// the sidecar proxy mode, keep it as is.
-	if _, ok := k8sLabels[k8sConst.PolicyLabelIstioSidecarProxy]; !ok &&
-		isInjectedWithIstioSidecarProxy(scopedLog, pod) {
+	if val, ok := objMetaCpy.Labels[k8sConst.PolicyLabelIstioSidecarProxy]; ok {
+		k8sLabels[k8sConst.PolicyLabelIstioSidecarProxy] = val
+	} else if isInjectedWithIstioSidecarProxy(scopedLog, pod) {
 		k8sLabels[k8sConst.PolicyLabelIstioSidecarProxy] = "true"
 	}
 
@@ -127,4 +127,16 @@ func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (contain
 	}
 
 	return containerPorts, k8sLabels, annotations, nil
+}
+
+// filterPodLabels returns a copy of the given labels map, without the labels owned by Cilium.
+func filterPodLabels(labels map[string]string) map[string]string {
+	res := map[string]string{}
+	for k, v := range labels {
+		if strings.HasPrefix(k, k8sConst.LabelPrefix) {
+			continue
+		}
+		res[k] = v
+	}
+	return res
 }

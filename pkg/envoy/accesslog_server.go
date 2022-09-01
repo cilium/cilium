@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/option"
 	kafka_api "github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -44,10 +45,14 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 	}
 	accessLogListener.SetUnlinkOnClose(true)
 
-	// Make the socket accessible by non-root Envoy proxies, e.g. running in
-	// sidecar containers.
-	if err = os.Chmod(accessLogPath, 0777); err != nil {
+	// Make the socket accessible by owner and group only. Group access is needed for Istio
+	// sidecar proxies.
+	if err = os.Chmod(accessLogPath, 0660); err != nil {
 		log.WithError(err).Fatalf("Envoy: Failed to change mode of access log listen socket at %s", accessLogPath)
+	}
+	// Change the group to ProxyGID allowing access from any process from that group.
+	if err = os.Chown(accessLogPath, -1, option.Config.ProxyGID); err != nil {
+		log.WithError(err).Warningf("Envoy: Failed to change the group of access log listen socket at %s, sidecar proxies may not work", accessLogPath)
 	}
 
 	server := accessLogServer{

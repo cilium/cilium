@@ -20,6 +20,6 @@ BPF datapath traffic metrics
 
 ### SEE ALSO
 
-* [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
-* [cilium bpf metrics list](../cilium_bpf_metrics_list)	 - List BPF datapath traffic metrics
+* [cilium bpf](cilium_bpf.md)	 - Direct access to local BPF maps
+* [cilium bpf metrics list](cilium_bpf_metrics_list.md)	 - List BPF datapath traffic metrics
 

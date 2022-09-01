@@ -148,7 +148,7 @@ type CreateInstanceSystemDisk struct {
 
 // CreateInstanceTag is a repeated param struct in CreateInstanceRequest
 type CreateInstanceTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

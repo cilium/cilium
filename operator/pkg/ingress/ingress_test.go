@@ -6,20 +6,24 @@
 package ingress
 
 import (
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 var exactPathType = slim_networkingv1.PathTypeExact
 
+var testAnnotations = map[string]string{
+	"service.beta.kubernetes.io/dummy-load-balancer-backend-protocol":    "http",
+	"service.beta.kubernetes.io/dummy-load-balancer-access-log-enabled":  "true",
+	"service.alpha.kubernetes.io/dummy-load-balancer-access-log-enabled": "true",
+}
+
 var baseIngress = &slim_networkingv1.Ingress{
 	ObjectMeta: slim_metav1.ObjectMeta{
-		Name:      "dummy-ingress",
-		Namespace: "dummy-namespace",
-		UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+		Name:        "dummy-ingress",
+		Namespace:   "dummy-namespace",
+		Annotations: testAnnotations,
+		UID:         "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
 	},
 	Spec: slim_networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
@@ -74,27 +78,5 @@ var baseIngress = &slim_networkingv1.Ingress{
 				},
 			},
 		},
-	},
-}
-
-var verySecureTLS = &v1.Secret{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "tls-very-secure-server-com",
-		Namespace: "dummy-namespace",
-	},
-	Data: map[string][]byte{
-		"tls.key": []byte("very-secure-key"),
-		"tls.crt": []byte("very-secure-cert"),
-	},
-}
-
-var anotherVerySecureTLS = &v1.Secret{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "tls-another-very-secure-server-com",
-		Namespace: "dummy-namespace",
-	},
-	Data: map[string][]byte{
-		"tls.key": []byte("another-very-secure-key"),
-		"tls.crt": []byte("another-very-secure-cert"),
 	},
 }

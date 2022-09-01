@@ -1141,7 +1141,7 @@ type ZebraState struct {
 	MplsLabelRangeSize uint32 `mapstructure:"mpls-label-range-size" json:"mpls-label-range-size,omitempty"`
 	// original -> gobgp:software-name
 	// Configure zebra software name.
-	// frr4, cumulus, frr6, frr7, frr7.2, and frr7.3 can be used.
+	// frr4, cumulus, frr6, frr7, frr7.2 and frr7.3 can be used.
 	SoftwareName string `mapstructure:"software-name" json:"software-name,omitempty"`
 }
 
@@ -1171,7 +1171,7 @@ type ZebraConfig struct {
 	MplsLabelRangeSize uint32 `mapstructure:"mpls-label-range-size" json:"mpls-label-range-size,omitempty"`
 	// original -> gobgp:software-name
 	// Configure zebra software name.
-	// frr4, cumulus, frr6, frr7, frr7.2, and frr7.3 can be used.
+	// frr4, cumulus, frr6, frr7, frr7.2 and frr7.3 can be used.
 	SoftwareName string `mapstructure:"software-name" json:"software-name,omitempty"`
 }
 
@@ -2580,6 +2580,10 @@ type TransportConfig struct {
 	// may be expressed as either an IP address or reference
 	// to the name of an interface.
 	LocalAddress string `mapstructure:"local-address" json:"local-address,omitempty"`
+	// original -> gobgp:local-port
+	// gobgp:local-port's original type is inet:port-number.
+	// Set the local port (if available) to use for the session.
+	LocalPort uint16 `mapstructure:"local-port" json:"local-port,omitempty"`
 	// original -> gobgp:remote-port
 	// gobgp:remote-port's original type is inet:port-number.
 	RemotePort uint16 `mapstructure:"remote-port" json:"remote-port,omitempty"`
@@ -2605,6 +2609,9 @@ func (lhs *TransportConfig) Equal(rhs *TransportConfig) bool {
 		return false
 	}
 	if lhs.LocalAddress != rhs.LocalAddress {
+		return false
+	}
+	if lhs.LocalPort != rhs.LocalPort {
 		return false
 	}
 	if lhs.RemotePort != rhs.RemotePort {

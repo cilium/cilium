@@ -16,7 +16,7 @@ cilium bpf ipmasq list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -29,5 +29,5 @@ cilium bpf ipmasq list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf ipmasq](../cilium_bpf_ipmasq)	 - ip-masq-agent CIDRs
+* [cilium bpf ipmasq](cilium_bpf_ipmasq.md)	 - ip-masq-agent CIDRs
 

@@ -229,8 +229,10 @@ func (t *CNITypesSuite) TestReadCNIConfENIv2WithPlugins(c *check.C) {
 				"bar": "false",
 			},
 		},
-		IPAM: ipamTypes.IPAMSpec{
-			PreAllocate: 5,
+		IPAM: IPAM{
+			IPAMSpec: ipamTypes.IPAMSpec{
+				PreAllocate: 5,
+			},
 		},
 	}
 	testConfRead(c, confFile1, &netConf1)
@@ -263,8 +265,10 @@ func (t *CNITypesSuite) TestReadCNIConfAzurev2WithPlugins(c *check.C) {
 		Azure: azureTypes.AzureSpec{
 			InterfaceName: "eth1",
 		},
-		IPAM: ipamTypes.IPAMSpec{
-			PreAllocate: 5,
+		IPAM: IPAM{
+			IPAMSpec: ipamTypes.IPAMSpec{
+				PreAllocate: 5,
+			},
 		},
 	}
 	testConfRead(c, confFile1, &netConf1)
@@ -292,12 +296,44 @@ func (t *CNITypesSuite) TestReadCNIConfClusterPoolV2(c *check.C) {
 			CNIVersion: "0.3.1",
 			Type:       "cilium-cni",
 		},
-		IPAM: ipamTypes.IPAMSpec{
-			PodCIDRAllocationThreshold: 10,
-			PodCIDRReleaseThreshold:    20,
+		IPAM: IPAM{
+			IPAMSpec: ipamTypes.IPAMSpec{
+				PodCIDRAllocationThreshold: 10,
+				PodCIDRReleaseThreshold:    20,
+			},
 		},
 	}
 	testConfRead(c, confFile1, &netConf1)
+}
+
+func (t *CNITypesSuite) TestReadCNIConfIPAMType(c *check.C) {
+	confFile := `
+{
+  "cniVersion":"0.3.1",
+  "name":"cilium",
+  "plugins": [
+    {
+      "cniVersion":"0.3.1",
+      "type":"cilium-cni",
+      "ipam": {
+        "type": "delegated-ipam"
+      }
+    }
+  ]
+}
+`
+	netConf := NetConf{
+		NetConf: cnitypes.NetConf{
+			CNIVersion: "0.3.1",
+			Type:       "cilium-cni",
+		},
+		IPAM: IPAM{
+			IPAM: cnitypes.IPAM{
+				Type: "delegated-ipam",
+			},
+		},
+	}
+	testConfRead(c, confFile, &netConf)
 }
 
 func (t *CNITypesSuite) TestReadCNIConfError(c *check.C) {

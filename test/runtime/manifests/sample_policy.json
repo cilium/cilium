@@ -1,8 +1,0 @@
-[{
-     "endpointSelector":
-		{"matchLabels":{"id.app":""}},
-     "egress": [{
-         "toCIDR": [ "9.9.9.9/32" ]
-     }]
-}]
-

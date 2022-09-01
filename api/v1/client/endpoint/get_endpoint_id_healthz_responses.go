@@ -61,7 +61,8 @@ func NewGetEndpointIDHealthzOK() *GetEndpointIDHealthzOK {
 	return &GetEndpointIDHealthzOK{}
 }
 
-/*GetEndpointIDHealthzOK handles this case with default header values.
+/*
+GetEndpointIDHealthzOK handles this case with default header values.
 
 Success
 */
@@ -94,7 +95,8 @@ func NewGetEndpointIDHealthzInvalid() *GetEndpointIDHealthzInvalid {
 	return &GetEndpointIDHealthzInvalid{}
 }
 
-/*GetEndpointIDHealthzInvalid handles this case with default header values.
+/*
+GetEndpointIDHealthzInvalid handles this case with default header values.
 
 Invalid identity provided
 */
@@ -115,7 +117,8 @@ func NewGetEndpointIDHealthzNotFound() *GetEndpointIDHealthzNotFound {
 	return &GetEndpointIDHealthzNotFound{}
 }
 
-/*GetEndpointIDHealthzNotFound handles this case with default header values.
+/*
+GetEndpointIDHealthzNotFound handles this case with default header values.
 
 Endpoint not found
 */
@@ -136,7 +139,8 @@ func NewGetEndpointIDHealthzTooManyRequests() *GetEndpointIDHealthzTooManyReques
 	return &GetEndpointIDHealthzTooManyRequests{}
 }
 
-/*GetEndpointIDHealthzTooManyRequests handles this case with default header values.
+/*
+GetEndpointIDHealthzTooManyRequests handles this case with default header values.
 
 Rate-limiting too many requests in the given time frame
 */

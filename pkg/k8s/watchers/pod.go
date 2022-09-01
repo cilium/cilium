@@ -14,13 +14,11 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -35,8 +33,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -50,10 +50,12 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fields.Selector) (cache.Store, cache.Controller) {
+func (k *K8sWatcher) createPodController(slimClient slimclientset.Interface, fieldSelector fields.Selector) (cache.Store, cache.Controller) {
+	apiGroup := resources.K8sAPIGroupPodV1Core
 	return informer.NewInformer(
-		cache.NewListWatchFromClient(getter,
-			"pods", v1.NamespaceAll, fieldSelector),
+		k8sUtils.ListerWatcherWithFields(
+			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](slimClient.CoreV1().Pods("")),
+			fieldSelector),
 		&slim_corev1.Pod{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -80,9 +82,9 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 						metrics.EventLagK8s.Set(0)
 					}
 					err := k.addK8sPodV1(pod)
-					k.K8sEventProcessed(metricPod, metricCreate, err == nil)
+					k.K8sEventProcessed(metricPod, resources.MetricCreate, err == nil)
 				}
-				k.K8sEventReceived(metricPod, metricCreate, valid, false)
+				k.K8sEventReceived(apiGroup, metricPod, resources.MetricCreate, valid, false)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
@@ -93,32 +95,32 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 							equal = true
 						} else {
 							err := k.updateK8sPodV1(oldPod, newPod)
-							k.K8sEventProcessed(metricPod, metricUpdate, err == nil)
+							k.K8sEventProcessed(metricPod, resources.MetricUpdate, err == nil)
 						}
 					}
 				}
-				k.K8sEventReceived(metricPod, metricUpdate, valid, equal)
+				k.K8sEventReceived(apiGroup, metricPod, resources.MetricUpdate, valid, equal)
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid bool
 				if pod := k8s.ObjTov1Pod(obj); pod != nil {
 					valid = true
 					err := k.deleteK8sPodV1(pod)
-					k.K8sEventProcessed(metricPod, metricDelete, err == nil)
+					k.K8sEventProcessed(metricPod, resources.MetricDelete, err == nil)
 				}
-				k.K8sEventReceived(metricPod, metricDelete, valid, false)
+				k.K8sEventReceived(apiGroup, metricPod, resources.MetricDelete, valid, false)
 			},
 		},
 		nil,
 	)
 }
 
-func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControllers *sync.WaitGroup) {
 	var once sync.Once
 	watchNodePods := func() chan struct{} {
 		// Only watch for pod events for our node.
 		podStore, podController := k.createPodController(
-			k8sClient.CoreV1().RESTClient(),
+			slimClient,
 			fields.ParseSelectorOrDie("spec.nodeName="+nodeTypes.GetName()))
 		isConnected := make(chan struct{})
 		k.podStoreMU.Lock()
@@ -128,10 +130,10 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 			close(k.podStoreSet)
 		})
 
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, resources.K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.AddAPI(K8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 		return isConnected
@@ -151,16 +153,16 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 	// K8sEventHandover is enabled.
 	for {
 		podStore, podController := k.createPodController(
-			k8sClient.CoreV1().RESTClient(),
+			slimClient,
 			fields.Everything())
 
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, resources.K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.AddAPI(K8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 
@@ -243,10 +245,10 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		logfields.K8sNamespace: newK8sPod.ObjectMeta.Namespace,
 		"new-podIP":            newK8sPod.Status.PodIP,
 		"new-podIPs":           newK8sPod.Status.PodIPs,
-		"new-hostIP":           newK8sPod.Status.PodIP,
+		"new-hostIP":           newK8sPod.Status.HostIP,
 		"old-podIP":            oldK8sPod.Status.PodIP,
 		"old-podIPs":           oldK8sPod.Status.PodIPs,
-		"old-hostIP":           oldK8sPod.Status.PodIP,
+		"old-hostIP":           oldK8sPod.Status.HostIP,
 	})
 
 	// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
@@ -394,6 +396,14 @@ func updateCiliumEndpointLabels(ep *endpoint.Endpoint, labels map[string]string)
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) (err error) {
 				pod := ep.GetPod()
+				if pod == nil {
+					err := errors.New("Skipping CiliumEndpoint update because it has no k8s pod")
+					scopedLog.WithFields(logrus.Fields{
+						logfields.EndpointID: ep.GetID(),
+						logfields.Labels:     logfields.Repr(labels),
+					}).Debug(err)
+					return err
+				}
 				ciliumClient := k8s.CiliumClient().CiliumV2()
 
 				replaceLabels := []k8s.JSONPatch{
@@ -491,8 +501,8 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				continue
 			}
 
-			var bes4 []loadbalancer.Backend
-			var bes6 []loadbalancer.Backend
+			var bes4 []*loadbalancer.Backend
+			var bes6 []*loadbalancer.Backend
 
 			for _, podIP := range podIPs {
 				be := loadbalancer.Backend{
@@ -505,9 +515,9 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 					},
 				}
 				if be.L3n4Addr.IP.To4() != nil {
-					bes4 = append(bes4, be)
+					bes4 = append(bes4, &be)
 				} else {
-					bes6 = append(bes6, be)
+					bes6 = append(bes6, &be)
 				}
 			}
 
@@ -629,8 +639,10 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 			Type:                dpSvc.Type,
 			TrafficPolicy:       dpSvc.TrafficPolicy,
 			HealthCheckNodePort: dpSvc.HealthCheckNodePort,
-			Name:                fmt.Sprintf("%s/host-port/%d", newPod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
-			Namespace:           newPod.ObjectMeta.Namespace,
+			Name: loadbalancer.ServiceName{
+				Name:      fmt.Sprintf("%s/host-port/%d", newPod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
+				Namespace: newPod.ObjectMeta.Namespace,
+			},
 		}
 
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
@@ -852,11 +864,11 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 // agent flag `option.Config.K8sEventHandover` this function might only return
 // local pods.
 // If `option.Config.K8sEventHandover` is:
-//  - true: returns only local pods received by the pod watcher.
-//  - false: returns any pod in the cluster received by the pod watcher.
+//   - true: returns only local pods received by the pod watcher.
+//   - false: returns any pod in the cluster received by the pod watcher.
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	<-k.controllersStarted
-	k.WaitForCacheSync(K8sAPIGroupPodV1Core)
+	k.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
 	<-k.podStoreSet
 	k.podStoreMU.RLock()
 	defer k.podStoreMU.RUnlock()

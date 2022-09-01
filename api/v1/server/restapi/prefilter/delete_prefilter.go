@@ -32,10 +32,10 @@ func NewDeletePrefilter(ctx *middleware.Context, handler DeletePrefilterHandler)
 	return &DeletePrefilter{Context: ctx, Handler: handler}
 }
 
-/*DeletePrefilter swagger:route DELETE /prefilter prefilter deletePrefilter
+/*
+DeletePrefilter swagger:route DELETE /prefilter prefilter deletePrefilter
 
 Delete list of CIDRs
-
 */
 type DeletePrefilter struct {
 	Context *middleware.Context

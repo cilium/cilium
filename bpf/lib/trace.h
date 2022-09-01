@@ -246,8 +246,9 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 
 static __always_inline void
 send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
-		   __u32 src, __u32 dst, union v6addr *orig_addr, __u16 dst_id,
-		   __u32 ifindex, enum trace_reason reason, __u32 monitor)
+		   __u32 src, __u32 dst, const union v6addr *orig_addr,
+		   __u16 dst_id, __u32 ifindex, enum trace_reason reason,
+		   __u32 monitor)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,

@@ -13,10 +13,10 @@ cilium-operator-aws metrics list [flags]
 ```
   -h, --help                   help for list
   -p, --match-pattern string   Show only metrics whose names match matchpattern
-  -o, --output string          json| jsonpath='{}'
+  -o, --output string          json| yaml| jsonpath='{}'
 ```
 
 ### SEE ALSO
 
-* [cilium-operator-aws metrics](cilium-operator-aws_metrics.html)	 - Access metric status of the operator
+* [cilium-operator-aws metrics](cilium-operator-aws_metrics.md)	 - Access metric status of the operator
 

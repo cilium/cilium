@@ -4,37 +4,42 @@
 package watchers
 
 import (
-	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) {
+func (k *K8sWatcher) servicesInit(slimClient slimclientset.Interface, swgSvcs *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) {
+	apiGroup := resources.K8sAPIGroupServiceV1Core
 	_, svcController := informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"services", v1.NamespaceAll, optsModifier),
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](slimClient.CoreV1().Services("")),
+			optsModifier),
 		&slim_corev1.Service{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricService, metricCreate, valid, equal) }()
+				defer func() {
+					k.K8sEventReceived(apiGroup, resources.MetricService, resources.MetricCreate, valid, equal)
+				}()
 				if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
 					valid = true
 					err := k.addK8sServiceV1(k8sSvc, swgSvcs)
-					k.K8sEventProcessed(metricService, metricCreate, err == nil)
+					k.K8sEventProcessed(resources.MetricService, resources.MetricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricService, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, resources.MetricService, resources.MetricUpdate, valid, equal) }()
 				if oldk8sSvc := k8s.ObjToV1Services(oldObj); oldk8sSvc != nil {
 					if newk8sSvc := k8s.ObjToV1Services(newObj); newk8sSvc != nil {
 						valid = true
@@ -44,13 +49,13 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.
 						}
 
 						err := k.updateK8sServiceV1(oldk8sSvc, newk8sSvc, swgSvcs)
-						k.K8sEventProcessed(metricService, metricUpdate, err == nil)
+						k.K8sEventProcessed(resources.MetricService, resources.MetricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricService, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, resources.MetricService, resources.MetricDelete, valid, equal) }()
 				k8sSvc := k8s.ObjToV1Services(obj)
 				if k8sSvc == nil {
 					return
@@ -58,14 +63,14 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.
 
 				valid = true
 				err := k.deleteK8sServiceV1(k8sSvc, swgSvcs)
-				k.K8sEventProcessed(metricService, metricDelete, err == nil)
+				k.K8sEventProcessed(resources.MetricService, resources.MetricDelete, err == nil)
 			},
 		},
 		nil,
 	)
-	k.blockWaitGroupToSyncResources(k.stop, swgSvcs, svcController.HasSynced, K8sAPIGroupServiceV1Core)
+	k.blockWaitGroupToSyncResources(k.stop, swgSvcs, svcController.HasSynced, resources.K8sAPIGroupServiceV1Core)
 	go svcController.Run(k.stop)
-	k.k8sAPIGroups.AddAPI(K8sAPIGroupServiceV1Core)
+	k.k8sAPIGroups.AddAPI(apiGroup)
 }
 
 func (k *K8sWatcher) addK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {

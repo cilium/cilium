@@ -69,6 +69,8 @@ pipeline {
         stage('Set programmatic env vars') {
             steps {
                 script {
+                    env.IMAGE_REGISTRY = sh script: 'echo -n ${JobImageRegistry:-quay.io/cilium}', returnStdout: true
+
                     if (env.ghprbActualCommit?.trim()) {
                         env.DOCKER_TAG = env.ghprbActualCommit
                     } else {
@@ -78,7 +80,7 @@ pipeline {
                         env.DOCKER_TAG = env.DOCKER_TAG + "-race"
                         env.RACE = 1
                         env.LOCKDEBUG = 1
-                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:efb92c208c5f1f190243b361cbb43413ca49d534@sha256:8ca66f05327b5affad2bfb09614636f2b0d3fa24a9f40d1b5f86c2ef9ca2e46a"
+                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:1d9a09fa9d641346b0fac05b7d9bc620cd52e044@sha256:fc2d789ed6631d447f886164da4667592394babf2f8e9da8eb2b2dcfb9b2279b"
                     }
                 }
             }
@@ -92,13 +94,13 @@ pipeline {
                     steps {
                         retry(25) {
                             sleep(time: 60)
-                            sh 'docker manifest inspect quay.io/cilium/cilium-ci:${DOCKER_TAG}} &> /dev/null'
-                            sh 'docker manifest inspect quay.io/cilium/operator-generic-ci:${DOCKER_TAG}} &> /dev/null'
-                            sh 'docker manifest inspect quay.io/cilium/hubble-relay-ci:${DOCKER_TAG}} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/cilium-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/operator-generic-ci:${DOCKER_TAG} &> /dev/null'
+                            sh 'docker manifest inspect ${IMAGE_REGISTRY}/hubble-relay-ci:${DOCKER_TAG} &> /dev/null'
                         }
                     }
                 }
-                stage ("Select cluster and scale it"){
+                stage ("Create cluster"){
                     options {
                         timeout(time: 20, unit: 'MINUTES')
                     }
@@ -107,11 +109,8 @@ pipeline {
                     }
                     steps {
                         dir("${TESTDIR}/gke") {
-                            retry(3){
-                                sh './release-cluster.sh || true'
-                                sh './select-cluster.sh'
-                            }
                             script {
+                                sh './create-cluster.sh "' + currentBuild.fullProjectName.toLowerCase() + '-' + currentBuild.id + '"'
                                 def name = readFile file: 'cluster-name'
                                 currentBuild.displayName = currentBuild.displayName + " running on " + name
                             }
@@ -121,7 +120,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'Scaling cluster failed\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'cluster creation failed\n' + currentBuild.displayName
                                 }
                             }
                         }
@@ -138,11 +137,11 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
                 KUBECONFIG="${TESTDIR}/gke/gke-kubeconfig"
                 CNI_INTEGRATION="gke"
-                CILIUM_IMAGE = "quay.io/cilium/cilium-ci"
+                CILIUM_IMAGE = "${IMAGE_REGISTRY}/cilium-ci"
                 CILIUM_TAG = "${DOCKER_TAG}"
-                CILIUM_OPERATOR_IMAGE= "quay.io/cilium/operator"
+                CILIUM_OPERATOR_IMAGE= "${IMAGE_REGISTRY}/operator"
                 CILIUM_OPERATOR_TAG = "${DOCKER_TAG}"
-                HUBBLE_RELAY_IMAGE= "quay.io/cilium/hubble-relay-ci"
+                HUBBLE_RELAY_IMAGE= "${IMAGE_REGISTRY}/hubble-relay-ci"
                 HUBBLE_RELAY_TAG = "${DOCKER_TAG}"
                 K8S_VERSION= """${sh(
                         returnStdout: true,

@@ -12,6 +12,6 @@ Access metric status of the operator
 
 ### SEE ALSO
 
-* [cilium-operator-aws](cilium-operator-aws.html)	 - Run cilium-operator-aws
-* [cilium-operator-aws metrics list](cilium-operator-aws_metrics_list.html)	 - List all metrics for the operator
+* [cilium-operator-aws](cilium-operator-aws.md)	 - Run cilium-operator-aws
+* [cilium-operator-aws metrics list](cilium-operator-aws_metrics_list.md)	 - List all metrics for the operator
 

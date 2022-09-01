@@ -11,10 +11,10 @@ The default installation contains:
 ## Enable Metrics in Cilium & Cilium-operator
 
 Enable prometheus metrics on all Cilium agents, be aware this will open the
-port `9090` in all nodes of your cluster where a cilium-agent is running.
+port `9962` in all nodes of your cluster where a cilium-agent is running.
 
 ```
-$ kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"prometheus-serve-addr":":9090"}}'
+$ kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"prometheus-serve-addr":":9962"}}'
 configmap/cilium-config patched
 ```
 

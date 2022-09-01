@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -66,7 +66,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 	}
 
 	if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
-		d.k8sWatcher.WaitForCacheSync(watchers.K8sAPIGroupPodV1Core)
+		d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
 		pod, err := d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil && k8serrors.IsNotFound(err) {
 			return false, fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
@@ -105,13 +105,14 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 // ready. In summary:
 //
 // 1. fetchOldEndpoints(): Unmarshal old endpoints
-//    - used to start DNS proxy with restored DNS history and rules
-// 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
-//    - IP allocation
-//    - some endpoints may be rejected and not regnerated in the 3rd step
-// 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
-//    - recreate endpoint's policy, as well as bpf programs and maps
+//   - used to start DNS proxy with restored DNS history and rules
 //
+// 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
+//   - IP allocation
+//   - some endpoints may be rejected and not regnerated in the 3rd step
+//
+// 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
+//   - recreate endpoint's policy, as well as bpf programs and maps
 func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	state := &endpointRestoreState{
 		possible: nil,
@@ -132,7 +133,7 @@ func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d, d, dir, eptsID)
+	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d, d, d.ipcache, dir, eptsID)
 
 	if len(state.possible) == 0 {
 		log.Info("No old endpoints found.")
@@ -284,6 +285,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RegenerateAfterRestore(); err != nil {
+				log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating during restore")
 				epRegenerated <- false
 				return
 			}

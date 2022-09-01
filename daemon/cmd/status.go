@@ -148,6 +148,14 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	return s
 }
 
+func (d *Daemon) getIPV6BigTCPStatus() *models.IPV6BigTCP {
+	s := &models.IPV6BigTCP{
+		Enabled: option.Config.EnableIPv6BIGTCP,
+	}
+
+	return s
+}
+
 func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 	s := &models.BandwidthManager{
 		Enabled: option.Config.EnableBandwidthManager,
@@ -162,12 +170,7 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 		s.CongestionControl = models.BandwidthManagerCongestionControlBbr
 	}
 
-	devices := make([]string, len(option.Config.Devices))
-	for i, iface := range option.Config.Devices {
-		devices[i] = iface
-	}
-
-	s.Devices = devices
+	s.Devices = option.Config.GetDevices()
 	return s
 }
 
@@ -184,13 +187,9 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 	if option.Config.EnableHostFirewall {
 		mode = models.HostFirewallModeEnabled
 	}
-	devices := make([]string, len(option.Config.Devices))
-	for i, iface := range option.Config.Devices {
-		devices[i] = iface
-	}
 	return &models.HostFirewall{
 		Mode:    mode,
-		Devices: devices,
+		Devices: option.Config.GetDevices(),
 	}
 }
 
@@ -227,12 +226,11 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devicesLegacy := make([]string, len(option.Config.Devices))
-	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(option.Config.Devices))
+	devicesLegacy := option.Config.GetDevices()
+	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(devicesLegacy))
 	v4Addrs := node.GetNodePortIPv4AddrsWithDevices()
 	v6Addrs := node.GetNodePortIPv6AddrsWithDevices()
-	for i, iface := range option.Config.Devices {
-		devicesLegacy[i] = iface
+	for i, iface := range devicesLegacy {
 		info := &models.KubeProxyReplacementDeviceListItems0{
 			Name: iface,
 			IP:   make([]string, 0),
@@ -251,6 +249,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		HostPort:              &models.KubeProxyReplacementFeaturesHostPort{},
 		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
 		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
+		SocketLB:              &models.KubeProxyReplacementFeaturesSocketLB{},
 		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 		GracefulTermination:   &models.KubeProxyReplacementFeaturesGracefulTermination{},
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
@@ -280,8 +279,11 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableExternalIPs {
 		features.ExternalIPs.Enabled = true
 	}
-	if option.Config.EnableHostServicesTCP {
+	if option.Config.EnableSocketLB {
+		features.SocketLB.Enabled = true
+
 		features.HostReachableServices.Enabled = true
+
 		protocols := []string{}
 		if option.Config.EnableHostServicesTCP {
 			protocols = append(protocols, "TCP")
@@ -344,27 +346,27 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			},
 			{
 				Name: "IPv4 service", // cilium_lb4_services_v2
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.ServiceMapMaxEntries),
 			},
 			{
 				Name: "IPv6 service", // cilium_lb6_services_v2
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.ServiceMapMaxEntries),
 			},
 			{
 				Name: "IPv4 service backend", // cilium_lb4_backends_v2
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.ServiceBackEndMapMaxEntries),
 			},
 			{
 				Name: "IPv6 service backend", // cilium_lb6_backends_v2
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.ServiceBackEndMapMaxEntries),
 			},
 			{
 				Name: "IPv4 service reverse NAT", // cilium_lb4_reverse_nat
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.RevNatMapMaxEntries),
 			},
 			{
 				Name: "IPv6 service reverse NAT", // cilium_lb6_reverse_nat
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.RevNatMapMaxEntries),
 			},
 			{
 				Name: "Metrics",
@@ -388,7 +390,7 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			},
 			{
 				Name: "Session affinity",
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.AffinityMapMaxEntries),
 			},
 			{
 				Name: "Signal",
@@ -703,7 +705,7 @@ func (d *Daemon) getIdentityRange() *models.IdentityRange {
 	return s
 }
 
-func (d *Daemon) startStatusCollector() {
+func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	probes := []status.Probe{
 		{
 			Name: "check-locks",
@@ -1000,16 +1002,30 @@ func (d *Daemon) startStatusCollector() {
 				}
 			},
 		},
-	}
+		{
+			Name: "kube-proxy-replacement",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				if k8s.IsEnabled() || option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
+					return d.getKubeProxyReplacementStatus(), nil
+				} else {
+					return nil, nil
+				}
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
 
-	if k8s.IsEnabled() || option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
-		// kube-proxy replacement configuration does not change after
-		// initKubeProxyReplacementOptions() has been executed, so it's fine to
-		// statically set the field here.
-		d.statusResponse.KubeProxyReplacement = d.getKubeProxyReplacementStatus()
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.KubeProxyReplacement); ok {
+						d.statusResponse.KubeProxyReplacement = s
+					}
+				}
+			},
+		},
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
+	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()

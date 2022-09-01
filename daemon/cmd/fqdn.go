@@ -41,8 +41,11 @@ import (
 )
 
 const (
-	upstream       = "upstreamTime"
-	processingTime = "processingTime"
+	upstream        = "upstreamTime"
+	processingTime  = "processingTime"
+	semaphoreTime   = "semaphoreTime"
+	policyCheckTime = "policyCheckTime"
+	dataplaneTime   = "dataplaneTime"
 
 	metricErrorTimeout = "timeout"
 	metricErrorProxy   = "proxyErr"
@@ -53,7 +56,7 @@ const (
 	dnsSourceConnection = "connection"
 )
 
-func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator secIDCache.IdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, map[string]*identity.Identity, error) {
+func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator secIDCache.IdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, []*identity.Identity, map[string]*identity.Identity, error) {
 	var err error
 
 	// Used to track identities which are allocated in calls to
@@ -102,13 +105,13 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 			identityAllocator.ReleaseSlice(context.TODO(), nil, usedIdentities)
 			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 				"failed to allocate identities for IPs")
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		usedIdentities = append(usedIdentities, currentlyAllocatedIdentities...)
 		selectorIdentitySliceMapping[selector] = currentlyAllocatedIdentities
 	}
 
-	return selectorIdentitySliceMapping, newlyAllocatedIdentities, nil
+	return selectorIdentitySliceMapping, usedIdentities, newlyAllocatedIdentities, nil
 }
 
 func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) *sync.WaitGroup {
@@ -198,8 +201,21 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			// Cleanup each endpoint cache, deferring deletions via DNSZombies.
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
+				epID := ep.StringID()
+				if option.Config.MetricsConfig.FQDNActiveNames || option.Config.MetricsConfig.FQDNActiveIPs {
+					countFQDNs, countIPs := ep.DNSHistory.Count()
+					if option.Config.MetricsConfig.FQDNActiveNames {
+						metrics.FQDNActiveNames.WithLabelValues(epID).Set(float64(countFQDNs))
+					}
+					if option.Config.MetricsConfig.FQDNActiveIPs {
+						metrics.FQDNActiveIPs.WithLabelValues(epID).Set(float64(countIPs))
+					}
+				}
 				namesToClean = append(namesToClean, ep.DNSHistory.GC(GCStart, ep.DNSZombies)...)
 				alive, dead := ep.DNSZombies.GC()
+				if option.Config.MetricsConfig.FQDNActiveZombiesConnections {
+					metrics.FQDNAliveZombieConnections.WithLabelValues(epID).Set(float64(len(alive)))
+				}
 
 				// Alive zombie need to be added to the global cache as name->IP
 				// entries.
@@ -327,7 +343,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	}
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression,
 		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.LookupSecIDByIP, d.lookupIPsBySecID,
-		d.notifyOnDNSMsg)
+		d.notifyOnDNSMsg, option.Config.DNSProxyConcurrencyLimit)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(proxy.DNSProxyName, proxy.ProxyTypeDNS, proxy.DefaultDNSProxy.GetBindPort(), false)
@@ -349,23 +365,23 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 // updateDNSDatapathRules updates the DNS proxy iptables rules. Must be
 // called after iptables has been initailized, and only after
 // successful bootstrapFQDN().
-func (d *Daemon) updateDNSDatapathRules() error {
-	return d.l7Proxy.AckProxyPort(proxy.DNSProxyName)
+func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
+	return d.l7Proxy.AckProxyPort(ctx, proxy.DNSProxyName)
 }
 
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well
 // as the set of FQDNSelectors which have no IPs which correspond to them
 // (usually due to TTL expiry), down to policy layer managed by this daemon.
-func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
+func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
 	// Convert set of selectors with IPs to update to set of selectors
 	// with identities corresponding to said IPs.
-	selectorsIdentities, newlyAllocatedIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
+	selectorsIdentities, usedIdentities, newlyAllocatedIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
 	if err != nil {
-		return &sync.WaitGroup{}, nil, err
+		return &sync.WaitGroup{}, nil, nil, err
 	}
 
 	// Update mapping in selector cache with new identities.
-	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), newlyAllocatedIdentities, nil
+	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), usedIdentities, newlyAllocatedIdentities, nil
 }
 
 // lookupEPByIP returns the endpoint that this IP belongs to
@@ -382,15 +398,16 @@ func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
 	return d.ipcache.LookupByIdentity(nid)
 }
 
-// NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor
+// notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 // events, proxy metrics and storing DNS data in the DNS cache. This may
 // result in rule generation.
 // It will:
-// - Report a monitor error event and proxy metrics when the proxy sees an
-//   error, and when it can't process something in this function
-// - Report the verdict in a monitor event and emit proxy metrics
-// - Insert the DNS data into the cache when msg is a DNS response and we
-//   can lookup the endpoint related to it
+//   - Report a monitor error event and proxy metrics when the proxy sees an
+//     error, and when it can't process something in this function
+//   - Report the verdict in a monitor event and emit proxy metrics
+//   - Insert the DNS data into the cache when msg is a DNS response and we
+//     can lookup the endpoint related to it
+//
 // epIPPort and serverAddr should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
@@ -402,11 +419,21 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	stat.ProcessingTime.Start()
 
 	endMetric := func() {
+		stat.DataplaneTime.End(true)
 		stat.ProcessingTime.End(true)
-		metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorTimeout, metrics.L7DNS, upstream).Observe(
+		if errors.Is(stat.Err, dnsproxy.ErrFailedAcquireSemaphore{}) || errors.Is(stat.Err, dnsproxy.ErrTimedOutAcquireSemaphore{}) {
+			metrics.FQDNSemaphoreRejectedTotal.Add(1)
+		}
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstream).Observe(
 			stat.UpstreamTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
 			stat.ProcessingTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
+			stat.SemaphoreAcquireTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
+			stat.PolicyCheckTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
+			stat.DataplaneTime.Total().Seconds())
 	}
 
 	switch {
@@ -434,7 +461,9 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
 		err := errors.New("DNS request cannot be associated with an existing endpoint")
-		log.WithError(err).Error("cannot find matching endpoint")
+		log.WithFields(logrus.Fields{
+			logfields.L3n4Addr: epIPPort,
+		}).WithError(err).Error("cannot find matching endpoint")
 		endMetric()
 		return err
 	}
@@ -494,6 +523,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	record.Log()
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
+		stat.DataplaneTime.Start()
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
 		// We also need to add to the cache before we purge any matching zombies
@@ -516,7 +546,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		defer updateCancel()
 		updateStart := time.Now()
 
-		wg, newlyAllocatedIdentities, err := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
+		wg, usedIdentities, newlyAllocatedIdentities, err := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
@@ -534,6 +564,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		select {
 		case <-updateCtx.Done():
 			log.Error("Timed out waiting for datapath updates of FQDN IP information; returning response")
+			metrics.ProxyDatapathUpdateTimeout.Inc()
 		case <-updateComplete:
 		}
 
@@ -544,7 +575,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}).Debug("Waited for endpoints to regenerate due to a DNS response")
 
 		// Add new identities to the ipcache after the wait for the policy updates above
-		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
+		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
 
 		endMetric()
 	}
@@ -575,7 +606,12 @@ func (h *getFqdnCache) Handle(params GetFqdnCacheParams) middleware.Responder {
 		matchPatternStr = *params.Matchpattern
 	}
 
-	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr)
+	source := ""
+	if params.Source != nil {
+		source = *params.Source
+	}
+
+	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr, source)
 	switch {
 	case err != nil:
 		return api.Error(GetFqdnCacheBadRequestCode, err)
@@ -647,7 +683,12 @@ func (h *getFqdnCacheID) Handle(params GetFqdnCacheIDParams) middleware.Responde
 		matchPatternStr = *params.Matchpattern
 	}
 
-	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr)
+	source := ""
+	if params.Source != nil {
+		source = *params.Source
+	}
+
+	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr, source)
 	switch {
 	case err != nil:
 		return api.Error(GetFqdnCacheBadRequestCode, err)
@@ -674,7 +715,7 @@ func (h *getFqdnNamesHandler) Handle(params GetFqdnNamesParams) middleware.Respo
 // extractDNSLookups returns API models.DNSLookup copies of DNS data in each
 // endpoint's DNSHistory. These are filtered by CIDRStr and matchPatternStr if
 // they are non-empty.
-func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr string) (lookups []*models.DNSLookup, err error) {
+func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr, source string) (lookups []*models.DNSLookup, err error) {
 	cidrMatcher := func(ip net.IP) bool { return true }
 	if CIDRStr != "" {
 		_, cidr, err := net.ParseCIDR(CIDRStr)
@@ -686,7 +727,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 
 	nameMatcher := func(name string) bool { return true }
 	if matchPatternStr != "" {
-		matcher, err := matchpattern.Validate(matchpattern.Sanitize(matchPatternStr))
+		matcher, err := matchpattern.ValidateWithoutCache(matchpattern.Sanitize(matchPatternStr))
 		if err != nil {
 			return nil, err
 		}
@@ -694,6 +735,8 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 	}
 
 	for _, ep := range endpoints {
+		lookupSourceEntries := []*models.DNSLookup{}
+		connectionSourceEntries := []*models.DNSLookup{}
 		for _, lookup := range ep.DNSHistory.Dump() {
 			if !nameMatcher(lookup.Name) {
 				continue
@@ -712,7 +755,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 				continue
 			}
 
-			lookups = append(lookups, &models.DNSLookup{
+			lookupSourceEntries = append(lookupSourceEntries, &models.DNSLookup{
 				Fqdn:           lookup.Name,
 				Ips:            IPStrings,
 				LookupTime:     strfmt.DateTime(lookup.LookupTime),
@@ -729,7 +772,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 					continue
 				}
 
-				lookups = append(lookups, &models.DNSLookup{
+				connectionSourceEntries = append(connectionSourceEntries, &models.DNSLookup{
 					Fqdn:           name,
 					Ips:            []string{delete.IP.String()},
 					LookupTime:     strfmt.DateTime(delete.AliveAt),
@@ -740,6 +783,16 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 				})
 			}
 		}
+
+		switch source {
+		case dnsSourceLookup:
+			lookups = append(lookups, lookupSourceEntries...)
+		case dnsSourceConnection:
+			lookups = append(lookups, connectionSourceEntries...)
+		default:
+			lookups = append(lookups, lookupSourceEntries...)
+			lookups = append(lookups, connectionSourceEntries...)
+		}
 	}
 
 	return lookups, nil
@@ -748,7 +801,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, matchPatternStr string) (namesToRegen []string, err error) {
 	var nameMatcher *regexp.Regexp // nil matches all in our implementation
 	if matchPatternStr != "" {
-		nameMatcher, err = matchpattern.Validate(matchPatternStr)
+		nameMatcher, err = matchpattern.ValidateWithoutCache(matchPatternStr)
 		if err != nil {
 			return nil, err
 		}

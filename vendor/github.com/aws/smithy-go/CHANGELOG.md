@@ -1,3 +1,25 @@
+# Release (v1.12.0)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.12.0
+  * **Feature**: `transport/http`: Add utility for setting context metadata when operation serializer automatically assigns content-type default value.
+
+# Release (v1.11.3)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.11.3
+  * **Dependency Update**: Updates smithy-go unit test dependency go-cmp to 0.5.8.
+
+# Release (v1.11.2)
+
+* No change notes available for this release.
+
+# Release (v1.11.1)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.11.1
+  * **Bug Fix**: Updates the smithy-go HTTP Request to correctly handle building the request to an http.Request. Related to [aws/aws-sdk-go-v2#1583](https://github.com/aws/aws-sdk-go-v2/issues/1583)
+
 # Release (v1.11.0)
 
 ## Module Highlights

@@ -27,10 +27,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -41,6 +41,8 @@ import (
 const (
 	initArgLib int = iota
 	initArgRundir
+	initArgProcSysNetDir
+	initArgSysDir
 	initArgIPv4NodeIP
 	initArgIPv6NodeIP
 	initArgMode
@@ -106,8 +108,8 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.Devices, " "))
-	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.ModePreFilter)
+	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.GetDevices(), " "))
+	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.NodePortAcceleration)
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
 	return fw.Flush()
@@ -161,6 +163,17 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing types.NodeAddressi
 		IP:   nodeAddressing.IPv4().Router(),
 		Mask: net.CIDRMask(32, 32),
 	}
+
+	cidrs2 := make([]*net.IPNet, 0, 0)
+	for i := range cidrs {
+		cidrs2 = append(cidrs2, &cidrs[i])
+	}
+	resultcidr, _ := iputil.CoalesceCIDRs(cidrs2)
+	cidrs = make([]net.IPNet, 0, len(resultcidr))
+	for _, cidr := range resultcidr {
+		cidrs = append(cidrs, *cidr)
+	}
+
 	for _, cidr := range cidrs {
 		if err = linuxrouting.SetupRules(&routerIP, &cidr, info.GetMac().String(), info.GetInterfaceNumber()); err != nil {
 			return nil, fmt.Errorf("unable to install ip rule for cilium_host: %w", err)
@@ -211,11 +224,11 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 }
 
 func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
-	maybeUnloadObsoleteXDPPrograms(option.Config.Devices, option.Config.XDPMode)
+	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode)
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}
-	for _, dev := range option.Config.Devices {
+	for _, dev := range option.Config.GetDevices() {
 		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
 			return err
 		}
@@ -245,7 +258,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args = make([]string, initArgMax)
 
 	sysSettings := []sysctl.Setting{
-		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true},
+		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
 		{Name: "net.ipv4.fib_multipath_use_neigh", Val: "1", IgnoreErr: true},
 		{Name: "kernel.unprivileged_bpf_disabled", Val: "1", IgnoreErr: true},
@@ -263,9 +276,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		log.WithError(err).Warn("Unable to write netdev header")
 		return err
 	}
+	args[initArgProcSysNetDir] = filepath.Join(o.Datapath().Procfs(), "sys", "net")
+	args[initArgSysDir] = filepath.Join("/sys", "class", "net")
 
 	if option.Config.EnableXDPPrefilter {
-		scopedLog := log.WithField(logfields.Devices, option.Config.Devices)
+		scopedLog := log.WithField(logfields.Devices, option.Config.GetDevices())
 
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
@@ -305,7 +320,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
 
-	if option.Config.EnableHostReachableServices {
+	if option.Config.EnableSocketLB {
 		args[initArgHostReachableServices] = "true"
 		if option.Config.EnableHostServicesUDP {
 			args[initArgHostReachableServicesUDP] = "true"
@@ -323,17 +338,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgHostReachableServicesPeer] = "false"
 	}
 
-	devices := make([]netlink.Link, 0, len(option.Config.Devices))
-	if len(option.Config.Devices) != 0 {
-		for _, device := range option.Config.Devices {
-			link, err := netlink.LinkByName(device)
-			if err != nil {
-				log.WithError(err).WithField("device", device).Warn("Link does not exist")
-				return err
-			}
-			devices = append(devices, link)
-		}
-		args[initArgDevices] = strings.Join(option.Config.Devices, ";")
+	if len(option.Config.GetDevices()) != 0 {
+		args[initArgDevices] = strings.Join(option.Config.GetDevices(), ";")
 	} else {
 		args[initArgDevices] = "<nil>"
 	}
@@ -344,8 +350,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	case option.Config.Tunnel != option.TunnelDisabled:
 		mode = tunnelMode
 		args[initArgTunnelMode] = option.Config.Tunnel
-	case option.Config.DatapathMode == datapathOption.DatapathModeIpvlan:
-		mode = ipvlanMode
 	case option.Config.EnableHealthDatapath:
 		mode = option.DSRDispatchIPIP
 		sysSettings = append(sysSettings,
@@ -405,7 +409,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	sysctl.ApplySettings(sysSettings)
 
 	// Datapath initialization
-	hostDev1, hostDev2, err := setupBaseDevice(devices, mode, deviceMTU)
+	hostDev1, hostDev2, err := SetupBaseDevice(deviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
 	}
@@ -418,7 +422,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgProxyRule] = "false"
 	}
 
-	args[initTCFilterPriority] = strconv.Itoa(option.Config.TCFilterPriority)
+	args[initTCFilterPriority] = strconv.Itoa(int(option.Config.TCFilterPriority))
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
@@ -460,13 +464,15 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if err := iptMgr.InstallRules(defaults.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
+	if err := iptMgr.InstallRules(ctx, defaults.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
 		return err
 	}
 
 	// Reinstall proxy rules for any running proxies if needed
 	if p != nil {
-		p.ReinstallRules()
+		if err := p.ReinstallRules(ctx); err != nil {
+			return err
+		}
 	}
 
 	return nil

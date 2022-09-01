@@ -18,7 +18,7 @@ cilium kvstore get --recursive foo
 
 ```
   -h, --help            help for get
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
       --recursive       Recursive lookup
 ```
 
@@ -34,5 +34,5 @@ cilium kvstore get --recursive foo
 
 ### SEE ALSO
 
-* [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
+* [cilium kvstore](cilium_kvstore.md)	 - Direct access to the kvstore
 

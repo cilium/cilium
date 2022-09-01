@@ -12,7 +12,7 @@ cilium bpf sha list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium bpf sha list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf sha](../cilium_bpf_sha)	 - Manage compiled BPF template objects
+* [cilium bpf sha](cilium_bpf_sha.md)	 - Manage compiled BPF template objects
 

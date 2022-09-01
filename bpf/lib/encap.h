@@ -10,6 +10,10 @@
 #include "l3.h"
 
 #ifdef ENCAP_IFINDEX
+/* NOT_VTEP_DST is passed to an encapsulation function when the
+ * destination of the tunnel is not a VTEP.
+ */
+#define NOT_VTEP_DST 0
 #ifdef ENABLE_IPSEC
 static __always_inline int
 encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
@@ -114,7 +118,8 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		    __u32 seclabel, enum trace_reason ct_reason, __u32 monitor)
+		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
+		    enum trace_reason ct_reason, __u32 monitor)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 node_id;
@@ -128,9 +133,14 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		seclabel = LOCAL_NODE_ID;
 
 	node_id = bpf_htonl(tunnel_endpoint);
-	key.tunnel_id = seclabel;
+#ifdef ENABLE_VTEP
+	if (vni != NOT_VTEP_DST)
+		key.tunnel_id = vni;
+	else
+#endif /* ENABLE_VTEP */
+		key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
-	key.tunnel_ttl = 64;
+	key.tunnel_ttl = IPDEFTTL;
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
@@ -138,17 +148,18 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
+	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, ENCAP_IFINDEX,
 			  ct_reason, monitor);
 	return 0;
 }
 
 static __always_inline int
 __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-				 __u32 seclabel, const struct trace_ctx *trace)
+				 __u32 seclabel, __u32 dstid, __u32 vni,
+				 const struct trace_ctx *trace)
 {
-	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel,
-				      trace->reason, trace->monitor);
+	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid,
+				      vni, trace->reason, trace->monitor);
 	if (ret != 0)
 		return ret;
 
@@ -163,13 +174,13 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 			       __u8 key __maybe_unused, __u32 seclabel,
-			       const struct trace_ctx *trace)
+			       __u32 dstid, const struct trace_ctx *trace)
 {
 #ifdef ENABLE_IPSEC
 	if (key)
 		return encap_and_redirect_nomark_ipsec(ctx, tunnel_endpoint, key, seclabel);
 #endif
-	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel,
+	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid, NOT_VTEP_DST,
 						trace);
 }
 
@@ -187,7 +198,7 @@ static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		       __u8 encrypt_key __maybe_unused,
 		       struct endpoint_key *key, __u32 seclabel,
-		       const struct trace_ctx *trace)
+		       __u32 dstid, const struct trace_ctx *trace)
 {
 	struct endpoint_key *tunnel;
 
@@ -205,11 +216,11 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		 * the tunnel, to apply the correct reverse DNAT.
 		 * See #14674 for details.
 		 */
-		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel,
+		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid, NOT_VTEP_DST,
 					   trace->reason, trace->monitor);
 #else
 		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
-							seclabel, trace);
+							seclabel, dstid, NOT_VTEP_DST, trace);
 #endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */
 	}
 
@@ -227,7 +238,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	}
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
-						trace);
+						dstid, NOT_VTEP_DST, trace);
 }
 
 static __always_inline int
@@ -249,7 +260,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
 	}
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
-						trace);
+						0, NOT_VTEP_DST, trace);
 }
 #endif /* ENCAP_IFINDEX */
 #endif /* __LIB_ENCAP_H_ */

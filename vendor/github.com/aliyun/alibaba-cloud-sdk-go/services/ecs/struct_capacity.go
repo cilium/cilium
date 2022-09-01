@@ -17,13 +17,16 @@ package ecs
 
 // Capacity is a nested struct in ecs response
 type Capacity struct {
+	AvailableLocalStorage int     `json:"AvailableLocalStorage" xml:"AvailableLocalStorage"`
+	TotalLocalStorage     int     `json:"TotalLocalStorage" xml:"TotalLocalStorage"`
+	ZoneId                string  `json:"ZoneId" xml:"ZoneId"`
+	AvailableAmount       int     `json:"AvailableAmount" xml:"AvailableAmount"`
+	TotalVgpus            int     `json:"TotalVgpus" xml:"TotalVgpus"`
+	AvailableVcpus        int     `json:"AvailableVcpus" xml:"AvailableVcpus"`
 	AvailableMemory       float64 `json:"AvailableMemory" xml:"AvailableMemory"`
+	TotalVcpus            int     `json:"TotalVcpus" xml:"TotalVcpus"`
+	AvailableVgpus        int     `json:"AvailableVgpus" xml:"AvailableVgpus"`
+	UsedAmount            int     `json:"UsedAmount" xml:"UsedAmount"`
 	LocalStorageCategory  string  `json:"LocalStorageCategory" xml:"LocalStorageCategory"`
 	TotalMemory           float64 `json:"TotalMemory" xml:"TotalMemory"`
-	TotalLocalStorage     int     `json:"TotalLocalStorage" xml:"TotalLocalStorage"`
-	TotalVcpus            int     `json:"TotalVcpus" xml:"TotalVcpus"`
-	TotalVgpus            int     `json:"TotalVgpus" xml:"TotalVgpus"`
-	AvailableLocalStorage int     `json:"AvailableLocalStorage" xml:"AvailableLocalStorage"`
-	AvailableVcpus        int     `json:"AvailableVcpus" xml:"AvailableVcpus"`
-	AvailableVgpus        int     `json:"AvailableVgpus" xml:"AvailableVgpus"`
 }

@@ -28,7 +28,7 @@ var recorderListCmd = &cobra.Command{
 
 func init() {
 	recorderCmd.AddCommand(recorderListCmd)
-	command.AddJSONOutput(recorderListCmd)
+	command.AddOutputOption(recorderListCmd)
 }
 
 func listMasks(cmd *cobra.Command, args []string) {
@@ -37,7 +37,7 @@ func listMasks(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get recorder mask list: %s", err)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(list); err != nil {
 			os.Exit(1)
 		}
@@ -96,7 +96,7 @@ func listRecorders(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get recorder list: %s", err)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(list); err != nil {
 			os.Exit(1)
 		}

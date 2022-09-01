@@ -8,20 +8,20 @@
 .. _k8s_quick_install:
 .. _k8s_install_standard:
 
-******************
-Quick Installation
-******************
+*************************
+Cilium Quick Installation
+*************************
 
 This guide will walk you through the quick default installation. It will
 automatically detect and use the best configuration possible for the Kubernetes
-distribution you are using. All state is stored using Kubernetes CRDs.
+distribution you are using. All state is stored using Kubernetes custom resource definitions (CRDs).
 
 This is the best installation method for most use cases.  For large
 environments (> 500 nodes) or if you want to run specific datapath modes, refer
-to the :ref:`k8s_install_advanced` guide.
+to the :ref:`getting_started` guide.
 
 Should you encounter any issues during the installation, please refer to the
-:ref:`troubleshooting_k8s` section and / or seek help on the `Slack channel`.
+:ref:`troubleshooting_k8s` section and / or seek help on the :term:`Slack channel`.
 
 .. _create_cluster:
 
@@ -56,16 +56,58 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
           Please make sure to read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
 
-    .. group-tab:: AKS
+    .. group-tab:: AKS (BYOCNI)
+
+       .. note::
+
+          BYOCNI is the preferred way to run Cilium on AKS, however integration
+          with the Azure stack via the :ref:`Azure IPAM<ipam_azure>` is not
+          available. If you require Azure IPAM, refer to the AKS (Azure IPAM)
+          installation.
+
+       The following commands create a Kubernetes cluster using `Azure
+       Kubernetes Service <https://docs.microsoft.com/en-us/azure/aks/>`_ with
+       no CNI plugin pre-installed (BYOCNI). See `Azure Cloud CLI
+       <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
+       for instructions on how to install ``az`` and prepare your account, and
+       the `Bring your own CNI documentation
+       <https://docs.microsoft.com/en-us/azure/aks/use-byo-cni?tabs=azure-cli>`_
+       for more details about BYOCNI prerequisites / implications.
+
+       .. note::
+
+          BYOCNI requires the ``aks-preview`` CLI extension with version >=
+          0.5.55, which itself requires an ``az`` CLI version >= 2.32.0 .
+
+       .. code-block:: bash
+
+           export NAME="$(whoami)-$RANDOM"
+           export AZURE_RESOURCE_GROUP="${NAME}-group"
+           az group create --name "${AZURE_RESOURCE_GROUP}" -l westus2
+
+           # Create AKS cluster
+           az aks create \
+             --resource-group "${AZURE_RESOURCE_GROUP}" \
+             --name "${NAME}" \
+             --network-plugin none
+
+           # Get the credentials to access the cluster with kubectl
+           az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}"
+
+    .. group-tab:: AKS (Azure IPAM)
+
+       .. note::
+
+          :ref:`Azure IPAM<ipam_azure>` offers integration with the Azure stack
+          but is not the preferred way to run Cilium on AKS. If you do not
+          require Azure IPAM, we recommend you to switch to the AKS (BYOCNI)
+          installation.
 
        The following commands create a Kubernetes cluster using `Azure
        Kubernetes Service <https://docs.microsoft.com/en-us/azure/aks/>`_. See
        `Azure Cloud CLI
        <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
        for instructions on how to install ``az`` and prepare your account.
-
-       For more details about why node pools must be set up in this way on AKS,
-       see the note below the commands.
 
        .. code-block:: bash
 
@@ -78,40 +120,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
              --resource-group "${AZURE_RESOURCE_GROUP}" \
              --name "${NAME}" \
              --network-plugin azure \
-             --node-count 1
-
-           # Get name of initial system node pool
-           nodepool_to_delete=$(az aks nodepool list \
-             --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --cluster-name "${NAME}" \
-             --output tsv --query "[0].name")
-
-           # Create system node pool tainted with `CriticalAddonsOnly=true:NoSchedule`
-           az aks nodepool add \
-             --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --cluster-name "${NAME}" \
-             --name systempool \
-             --mode system \
-             --node-count 1 \
-             --node-taints "CriticalAddonsOnly=true:NoSchedule" \
-             --no-wait
-
-           # Create user node pool tainted with `node.cilium.io/agent-not-ready=true:NoExecute`
-           az aks nodepool add \
-             --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --cluster-name "${NAME}" \
-             --name userpool \
-             --mode user \
-             --node-count 2 \
-             --node-taints "node.cilium.io/agent-not-ready=true:NoExecute" \
-             --no-wait
-
-           # Delete the initial system node pool
-           az aks nodepool delete \
-             --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --cluster-name "${NAME}" \
-             --name "${nodepool_to_delete}" \
-             --no-wait
+             --node-count 2
 
            # Get the credentials to access the cluster with kubectl
            az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}"
@@ -121,33 +130,6 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
            Do NOT specify the ``--network-policy`` flag when creating the
            cluster, as this will cause the Azure CNI plugin to install unwanted
            iptables rules.
-
-       .. note::
-
-          `Node pools <https://aka.ms/aks/nodepools>`_ should be tainted with
-          ``node.cilium.io/agent-not-ready=true:NoExecute`` to ensure that
-          applications pods will only be scheduled/executed once Cilium is ready
-          to manage them. However, there are other options. Please make sure to
-          read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
-
-          Additionally on AKS:
-
-          * It is not possible to assign taints to the initial node pool at this
-            time, cf. `Azure/AKS#1402 <https://github.com/Azure/AKS/issues/1402>`_.
-
-          * It is not possible to assign custom node taints such as ``node.cilium.io/agent-not-ready=true:NoExecute``
-            to system node pools, cf. `Azure/AKS#2578 <https://github.com/Azure/AKS/issues/2578>`_.
-
-          In order to have Cilium properly manage application pods on AKS with
-          these limitations, the operations above:
-
-          * Replace the initial node pool with a new system node pool tainted
-            with ``CriticalAddonsOnly=true:NoSchedule``, preventing application
-            pods from being scheduled on it.
-
-          * Create a secondary user node pool tainted with ``node.cilium.io/agent-not-ready=true:NoExecute``,
-            preventing application pods from being scheduled/executed on it until Cilium
-            is ready to manage them.
 
     .. group-tab:: EKS
 
@@ -193,7 +175,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
        .. parsed-literal::
 
-          curl -LO \ |SCM_WEB|\/Documentation/gettingstarted/kind-config.yaml
+          curl -LO \ |SCM_WEB|\/Documentation/installation/kind-config.yaml
           kind create cluster --config=kind-config.yaml
 
     .. group-tab:: minikube
@@ -219,13 +201,18 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
        Next you need to configure Rancher Desktop so to disable the builtin CNI so you can install Cilium.
 
-       .. include:: rancher-desktop-configure.rst
+       .. include:: ../installation/rancher-desktop-configure.rst
 
 
 Install the Cilium CLI
 ======================
 
-.. include:: cli-download.rst
+.. include:: ../installation/cli-download.rst
+
+.. admonition:: Video
+  :class: attention
+
+  To learn more about the Cilium CLI, check out `eCHO episode 8: Exploring the Cilium CLI <https://www.youtube.com/watch?v=ndjmaM1i0WQ&t=1136s>`__.
 
 Install Cilium
 ==============
@@ -242,7 +229,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
        distribution/platform specific instructions which also list the ideal
        default configuration for particular platforms.
 
-       .. include:: requirements-generic.rst
+       .. include:: ../installation/requirements-generic.rst
 
        **Install Cilium**
 
@@ -254,7 +241,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: GKE
 
-       .. include:: requirements-gke.rst
+       .. include:: ../installation/requirements-gke.rst
 
        **Install Cilium:**
 
@@ -264,9 +251,21 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
            cilium install
 
-    .. group-tab:: AKS
+    .. group-tab:: AKS (BYOCNI)
 
-       .. include:: requirements-aks.rst
+       .. include:: ../installation/requirements-aks-byocni.rst
+
+       **Install Cilium:**
+
+       Install Cilium into the AKS cluster:
+
+       .. code-block:: shell-session
+
+           cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
+
+    .. group-tab:: AKS (Azure IPAM)
+
+       .. include:: ../installation/requirements-aks-azure-ipam.rst
 
        **Install Cilium:**
 
@@ -278,7 +277,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: EKS
 
-       .. include:: requirements-eks.rst
+       .. include:: ../installation/requirements-eks.rst
 
        **Install Cilium:**
 
@@ -291,7 +290,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: OpenShift
 
-       .. include:: requirements-openshift.rst
+       .. include:: ../installation/requirements-openshift.rst
 
        **Install Cilium:**
 
@@ -301,7 +300,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: RKE
 
-       .. include:: requirements-rke.rst
+       .. include:: ../installation/requirements-rke.rst
 
        **Install Cilium:**
 
@@ -313,7 +312,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: k3s
 
-       .. include:: requirements-k3s.rst
+       .. include:: ../installation/requirements-k3s.rst
 
        **Install Cilium:**
 
@@ -348,7 +347,7 @@ pods are failing to be deployed.
 Validate the Installation
 =========================
 
-.. include:: cli-status.rst
-.. include:: cli-connectivity-test.rst
+.. include:: ../installation/cli-status.rst
+.. include:: ../installation/cli-connectivity-test.rst
 
-.. include:: next-steps.rst
+.. include:: ../installation/next-steps.rst

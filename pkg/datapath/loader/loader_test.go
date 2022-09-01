@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -69,12 +68,6 @@ func (s *LoaderTestSuite) SetUpSuite(c *C) {
 	sourceFile = filepath.Join(bpfDir, hostEndpointProg)
 	err = os.Symlink(sourceFile, hostEndpointProg)
 	c.Assert(err, IsNil)
-
-	// Set datapath in ipvlan mode to avoid loading the second master device.
-	// Loading that second device requires a proper compilation of the
-	// bpf_host.o object file with the adtual endpoint configurations, and not
-	// just the template compilation as we test here.
-	option.Config.DatapathMode = datapathOption.DatapathModeIpvlan
 }
 
 func (s *LoaderTestSuite) TearDownSuite(c *C) {
@@ -179,6 +172,19 @@ func (s *LoaderTestSuite) TestCompileAndLoadDefaultEndpoint(c *C) {
 // TestCompileAndLoadHostEndpoint is the same as
 // TestCompileAndLoadDefaultEndpoint, but for the host endpoint.
 func (s *LoaderTestSuite) TestCompileAndLoadHostEndpoint(c *C) {
+	elfMapPrefixes = []string{
+		fmt.Sprintf("test_%s", policymap.MapName),
+		fmt.Sprintf("test_%s", callsmap.MapName),
+	}
+
+	callsmap.HostMapName = fmt.Sprintf("test_%s", callsmap.MapName)
+	callsmap.NetdevMapName = fmt.Sprintf("test_%s", callsmap.MapName)
+
+	epDir := ep.StateDir()
+	err := os.MkdirAll(epDir, 0755)
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(epDir)
+
 	s.testCompileAndLoad(c, &hostEp)
 }
 
@@ -191,11 +197,11 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 	c.Assert(err, IsNil)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, "")
 	c.Assert(err, IsNil)
 	finalize()
 
-	finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+	finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, "")
 	c.Assert(err, IsNil)
 	finalize()
 }
@@ -279,7 +285,7 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, "")
 		if err != nil {
 			b.Fatal(err)
 		}

@@ -45,19 +45,23 @@ func (r *Request) Clone() *Request {
 // to the request and ok set. If the length cannot be determined, an error will
 // be returned.
 func (r *Request) StreamLength() (size int64, ok bool, err error) {
-	if r.stream == nil {
+	return streamLength(r.stream, r.isStreamSeekable, r.streamStartPos)
+}
+
+func streamLength(stream io.Reader, seekable bool, startPos int64) (size int64, ok bool, err error) {
+	if stream == nil {
 		return 0, true, nil
 	}
 
-	if l, ok := r.stream.(interface{ Len() int }); ok {
+	if l, ok := stream.(interface{ Len() int }); ok {
 		return int64(l.Len()), true, nil
 	}
 
-	if !r.isStreamSeekable {
+	if !seekable {
 		return 0, false, nil
 	}
 
-	s := r.stream.(io.Seeker)
+	s := stream.(io.Seeker)
 	endOffset, err := s.Seek(0, io.SeekEnd)
 	if err != nil {
 		return 0, false, err
@@ -69,12 +73,12 @@ func (r *Request) StreamLength() (size int64, ok bool, err error) {
 	// file, and wants to skip the first N bytes uploading the rest. The
 	// application would move the file's offset N bytes, then hand it off to
 	// the SDK to send the remaining. The SDK should respect that initial offset.
-	_, err = s.Seek(r.streamStartPos, io.SeekStart)
+	_, err = s.Seek(startPos, io.SeekStart)
 	if err != nil {
 		return 0, false, err
 	}
 
-	return endOffset - r.streamStartPos, true, nil
+	return endOffset - startPos, true, nil
 }
 
 // RewindStream will rewind the io.Reader to the relative start position if it
@@ -103,23 +107,41 @@ func (r *Request) IsStreamSeekable() bool {
 	return r.isStreamSeekable
 }
 
-// SetStream returns a clone of the request with the stream set to the provided reader.
-// May return an error if the provided reader is seekable but returns an error.
+// SetStream returns a clone of the request with the stream set to the provided
+// reader. May return an error if the provided reader is seekable but returns
+// an error.
 func (r *Request) SetStream(reader io.Reader) (rc *Request, err error) {
 	rc = r.Clone()
 
+	if reader == http.NoBody {
+		reader = nil
+	}
+
+	var isStreamSeekable bool
+	var streamStartPos int64
 	switch v := reader.(type) {
 	case io.Seeker:
 		n, err := v.Seek(0, io.SeekCurrent)
 		if err != nil {
 			return r, err
 		}
-		rc.isStreamSeekable = true
-		rc.streamStartPos = n
+		isStreamSeekable = true
+		streamStartPos = n
 	default:
-		rc.isStreamSeekable = false
+		// If the stream length can be determined, and is determined to be empty,
+		// use a nil stream to prevent confusion between empty vs not-empty
+		// streams.
+		length, ok, err := streamLength(reader, false, 0)
+		if err != nil {
+			return nil, err
+		} else if ok && length == 0 {
+			reader = nil
+		}
 	}
+
 	rc.stream = reader
+	rc.isStreamSeekable = isStreamSeekable
+	rc.streamStartPos = streamStartPos
 
 	return rc, err
 }
@@ -139,7 +161,11 @@ func (r *Request) Build(ctx context.Context) *http.Request {
 		req.Body = ioutil.NopCloser(stream)
 		req.ContentLength = -1
 	default:
-		if r.stream != nil {
+		// HTTP Client Request must only have a non-nil body if the
+		// ContentLength is explicitly unknown (-1) or non-zero. The HTTP
+		// Client will interpret a non-nil body and ContentLength 0 as
+		// "unknown". This is unwanted behavior.
+		if req.ContentLength != 0 && r.stream != nil {
 			req.Body = iointernal.NewSafeReadCloser(ioutil.NopCloser(stream))
 		}
 	}

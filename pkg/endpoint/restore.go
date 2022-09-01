@@ -67,7 +67,9 @@ func hasHostObjectFile(epDir string) bool {
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter,
+	namedPortsGetter namedPortsGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
 	if len(incompleteEPDirNames) > 0 {
@@ -76,7 +78,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 				logfields.EndpointID: epDirName,
 			})
 			fullDirName := filepath.Join(basePath, epDirName)
-			scopedLog.Warning(fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName))
+			scopedLog.Info(fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName))
 			if err := os.RemoveAll(epDirName); err != nil {
 				scopedLog.WithError(err).Warn(fmt.Sprintf("Error while removing directory %s. Ignoring it...", fullDirName))
 			}
@@ -137,7 +139,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
 		}
-		ep, err := parseEndpoint(ctx, owner, policyGetter, bEp)
+		ep, err := parseEndpoint(ctx, owner, policyGetter, namedPortsGetter, bEp)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
@@ -212,7 +214,6 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
 	}
 	if buildSuccess := <-e.Regenerate(regenerationMetadata); !buildSuccess {
-		scopedLog.Warn("Failed while regenerating endpoint")
 		return fmt.Errorf("failed while regenerating endpoint")
 	}
 
@@ -239,7 +240,7 @@ func (e *Endpoint) restoreIdentity() error {
 	// requests.
 	controllerName := fmt.Sprintf("restoring-ep-identity (%v)", e.ID)
 	var (
-		identity          *identity.Identity
+		id                *identity.Identity
 		allocatedIdentity = make(chan struct{})
 	)
 	e.UpdateController(controllerName,
@@ -247,7 +248,7 @@ func (e *Endpoint) restoreIdentity() error {
 			DoFunc: func(ctx context.Context) (err error) {
 				allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 				defer cancel()
-				identity, _, err = e.allocator.AllocateIdentity(allocateCtx, l, true)
+				id, _, err = e.allocator.AllocateIdentity(allocateCtx, l, true, identity.InvalidIdentity)
 				if err != nil {
 					return err
 				}
@@ -268,7 +269,7 @@ func (e *Endpoint) restoreIdentity() error {
 	// kvstore before doing any policy calculation for
 	// endpoints that don't have a fixed identity or are
 	// not well known.
-	if !identity.IsFixed() && !identity.IsWellKnown() {
+	if !id.IsFixed() && !id.IsWellKnown() {
 		// Getting the initial global identities while we are restoring should
 		// block the restoring of the endpoint.
 		// If the endpoint is removed, this controller will cancel the allocator
@@ -315,11 +316,11 @@ func (e *Endpoint) restoreIdentity() error {
 	e.setState(StateRestoring, "Synchronizing endpoint labels with KVStore")
 
 	if e.SecurityIdentity != nil {
-		if oldSecID := e.SecurityIdentity.ID; identity.ID != oldSecID {
+		if oldSecID := e.SecurityIdentity.ID; id.ID != oldSecID {
 			log.WithFields(logrus.Fields{
 				logfields.EndpointID:              e.ID,
 				logfields.IdentityLabels + ".old": oldSecID,
-				logfields.IdentityLabels + ".new": identity.ID,
+				logfields.IdentityLabels + ".new": id.ID,
 			}).Info("Security identity for endpoint is different from the security identity restored for the endpoint")
 
 			// The identity of the endpoint being
@@ -364,7 +365,7 @@ func (e *Endpoint) restoreIdentity() error {
 	// The identity of a freshly restored endpoint is incomplete due to some
 	// parts of the identity not being marshaled to JSON. Hence we must set
 	// the identity even if has not changed.
-	e.SetIdentity(identity, true)
+	e.SetIdentity(id, true)
 	e.unlock()
 
 	return nil
@@ -381,7 +382,6 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		ContainerID:           e.containerID,
 		DockerNetworkID:       e.dockerNetworkID,
 		DockerEndpointID:      e.dockerEndpointID,
-		DatapathMapID:         e.datapathMapID,
 		IfName:                e.ifName,
 		IfIndex:               e.ifIndex,
 		OpLabels:              e.OpLabels,
@@ -403,14 +403,12 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 // serializableEndpoint contains the fields from an Endpoint which are needed to be
 // restored if cilium-agent restarts.
 //
-//
 // WARNING - STABLE API
 // This structure is written as JSON to StateDir/{ID}/ep_config.h to allow to
 // restore endpoints when the agent is being restarted. The restore operation
 // will read the file and re-create all endpoints with all fields which are not
 // marked as private to JSON marshal. Do NOT modify this structure in ways which
 // is not JSON forward compatible.
-//
 type serializableEndpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
@@ -429,9 +427,6 @@ type serializableEndpoint struct {
 	// dockerEndpointID is the Docker network endpoint ID if managed by
 	// libnetwork
 	DockerEndpointID string
-
-	// Corresponding BPF map identifier for tail call map of ipvlan datapath
-	DatapathMapID int
 
 	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
@@ -498,7 +493,7 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 	restoredEp := &serializableEndpoint{
 		OpLabels:   labels.NewOpLabels(),
 		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies: fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes),
+		DNSZombies: fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 	}
 	if err := json.Unmarshal(raw, restoredEp); err != nil {
 		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %s", err)
@@ -520,7 +515,6 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.containerID = r.ContainerID
 	ep.dockerNetworkID = r.DockerNetworkID
 	ep.dockerEndpointID = r.DockerEndpointID
-	ep.datapathMapID = r.DatapathMapID
 	ep.ifName = r.IfName
 	ep.ifIndex = r.IfIndex
 	ep.OpLabels = r.OpLabels

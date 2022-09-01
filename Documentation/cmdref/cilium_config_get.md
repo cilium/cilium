@@ -12,7 +12,7 @@ cilium config get <config name> [flags]
 
 ```
   -h, --help            help for get
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium config get <config name> [flags]
 
 ### SEE ALSO
 
-* [cilium config](../cilium_config)	 - Cilium configuration options
+* [cilium config](cilium_config.md)	 - Cilium configuration options
 

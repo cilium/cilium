@@ -20,7 +20,7 @@ Maglev lookup table
 
 ### SEE ALSO
 
-* [cilium bpf lb](../cilium_bpf_lb)	 - Load-balancing configuration
-* [cilium bpf lb maglev get](../cilium_bpf_lb_maglev_get)	 - Get Maglev lookup table for given service by ID
-* [cilium bpf lb maglev list](../cilium_bpf_lb_maglev_list)	 - List Maglev lookup tables
+* [cilium bpf lb](cilium_bpf_lb.md)	 - Load-balancing configuration
+* [cilium bpf lb maglev get](cilium_bpf_lb_maglev_get.md)	 - Get Maglev lookup table for given service by ID
+* [cilium bpf lb maglev list](cilium_bpf_lb_maglev_list.md)	 - List Maglev lookup tables
 

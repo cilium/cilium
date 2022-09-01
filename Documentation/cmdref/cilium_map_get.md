@@ -18,7 +18,7 @@ cilium map get cilium_ipcache
 
 ```
   -h, --help            help for get
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -31,5 +31,5 @@ cilium map get cilium_ipcache
 
 ### SEE ALSO
 
-* [cilium map](../cilium_map)	 - Access userspace cached content of BPF maps
+* [cilium map](cilium_map.md)	 - Access userspace cached content of BPF maps
 

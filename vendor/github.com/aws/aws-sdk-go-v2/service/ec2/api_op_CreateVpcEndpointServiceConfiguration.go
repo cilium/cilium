@@ -11,28 +11,23 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a VPC endpoint service configuration to which service consumers (Amazon
-// Web Services accounts, IAM users, and IAM roles) can connect. To create an
-// endpoint service configuration, you must first create one of the following for
-// your service:
+// Creates a VPC endpoint service to which service consumers (Amazon Web Services
+// accounts, IAM users, and IAM roles) can connect. Before you create an endpoint
+// service, you must create one of the following for your service:
 //
-// * A Network Load Balancer
-// (https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html).
-// Service consumers connect to your service using an interface endpoint.
+// * A Network
+// Load Balancer
+// (https://docs.aws.amazon.com/elasticloadbalancing/latest/network/). Service
+// consumers connect to your service using an interface endpoint.
 //
-// * A
-// Gateway Load Balancer
-// (https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/introduction.html).
+// * A Gateway Load
+// Balancer (https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/).
 // Service consumers connect to your service using a Gateway Load Balancer
 // endpoint.
 //
-// For more information, see VPC Endpoint Services
-// (https://docs.aws.amazon.com/vpc/latest/userguide/endpoint-service.html) in the
-// Amazon Virtual Private Cloud User Guide. If you set the private DNS name, you
-// must prove that you own the private DNS domain name. For more information, see
-// VPC Endpoint Service Private DNS Name Verification
-// (https://docs.aws.amazon.com/vpc/latest/userguide/endpoint-services-dns-validation.html)
-// in the Amazon Virtual Private Cloud User Guide.
+// If you set the private DNS name, you must prove that you own the
+// private DNS domain name. For more information, see the Amazon Web Services
+// PrivateLink Guide (https://docs.aws.amazon.com/vpc/latest/privatelink/).
 func (c *Client) CreateVpcEndpointServiceConfiguration(ctx context.Context, params *CreateVpcEndpointServiceConfigurationInput, optFns ...func(*Options)) (*CreateVpcEndpointServiceConfigurationOutput, error) {
 	if params == nil {
 		params = &CreateVpcEndpointServiceConfigurationInput{}
@@ -51,7 +46,7 @@ func (c *Client) CreateVpcEndpointServiceConfiguration(ctx context.Context, para
 type CreateVpcEndpointServiceConfigurationInput struct {
 
 	// Indicates whether requests from service consumers to create an endpoint to your
-	// service must be accepted. To accept a request, use AcceptVpcEndpointConnections.
+	// service must be accepted manually.
 	AcceptanceRequired *bool
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
@@ -75,6 +70,9 @@ type CreateVpcEndpointServiceConfigurationInput struct {
 	// (Interface endpoint configuration) The private DNS name to assign to the VPC
 	// endpoint service.
 	PrivateDnsName *string
+
+	// The supported IP address types. The possible values are ipv4 and ipv6.
+	SupportedIpAddressTypes []string
 
 	// The tags to associate with the service.
 	TagSpecifications []types.TagSpecification

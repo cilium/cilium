@@ -32,10 +32,10 @@ func NewPutRecorderID(ctx *middleware.Context, handler PutRecorderIDHandler) *Pu
 	return &PutRecorderID{Context: ctx, Handler: handler}
 }
 
-/*PutRecorderID swagger:route PUT /recorder/{id} recorder putRecorderId
+/*
+PutRecorderID swagger:route PUT /recorder/{id} recorder putRecorderId
 
 Create or update recorder
-
 */
 type PutRecorderID struct {
 	Context *middleware.Context

@@ -28,4 +28,5 @@ type DeploymentSet struct {
 	DeploymentSetName        string                              `json:"DeploymentSetName" xml:"DeploymentSetName"`
 	InstanceAmount           int                                 `json:"InstanceAmount" xml:"InstanceAmount"`
 	InstanceIds              InstanceIdsInDescribeDeploymentSets `json:"InstanceIds" xml:"InstanceIds"`
+	Capacities               Capacities                          `json:"Capacities" xml:"Capacities"`
 }

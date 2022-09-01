@@ -19,7 +19,7 @@ cilium endpoint get 4598, cilium endpoint get pod-name:default:foobar, cilium en
 ```
   -h, --help             help for get
   -l, --labels strings   list of labels
-  -o, --output string    json| jsonpath='{}'
+  -o, --output string    json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -32,5 +32,5 @@ cilium endpoint get 4598, cilium endpoint get pod-name:default:foobar, cilium en
 
 ### SEE ALSO
 
-* [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
+* [cilium endpoint](cilium_endpoint.md)	 - Manage endpoints
 

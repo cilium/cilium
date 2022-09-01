@@ -478,7 +478,9 @@ func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) 
 // returns a boolean that indicates whether the service is ready to be plumbed,
 // this is true if:
 // A local endpoints resource is present. Regardless whether the
-//    endpoints resource contains actual backends or not.
+//
+//	endpoints resource contains actual backends or not.
+//
 // OR Remote endpoints exist which correlate to the service.
 func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	endpoints := newEndpoints()
@@ -491,6 +493,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 		localEndpoints = s.filterEndpoints(localEndpoints, svc)
 
 		for ip, e := range localEndpoints.Backends {
+			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == serviceAffinityLocal
 			endpoints.Backends[ip] = e
 		}
 	}
@@ -511,6 +514,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 							"cluster":              clusterName,
 						}).Warning("Conflicting service backend IP")
 					} else {
+						e.Preferred = svc.ServiceAffinity == serviceAffinityRemote
 						endpoints.Backends[ip] = e
 					}
 				}

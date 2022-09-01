@@ -51,6 +51,9 @@ var (
 	// Log files for optional performance tracing.
 	CPUProfile, MemProfile, Trace string
 
+	// IncludeTests indicates whether test files should be analyzed too.
+	IncludeTests = true
+
 	// Fix determines whether to apply all suggested fixes.
 	Fix bool
 )
@@ -65,6 +68,7 @@ func RegisterFlags() {
 	flag.StringVar(&CPUProfile, "cpuprofile", "", "write CPU profile to this file")
 	flag.StringVar(&MemProfile, "memprofile", "", "write memory profile to this file")
 	flag.StringVar(&Trace, "trace", "", "write trace log to this file")
+	flag.BoolVar(&IncludeTests, "test", IncludeTests, "indicates whether test files should be analyzed, too")
 
 	flag.BoolVar(&Fix, "fix", false, "apply all suggested fixes")
 }
@@ -163,7 +167,7 @@ func load(patterns []string, allSyntax bool) ([]*packages.Package, error) {
 	}
 	conf := packages.Config{
 		Mode:  mode,
-		Tests: true,
+		Tests: IncludeTests,
 	}
 	initial, err := packages.Load(&conf, patterns...)
 	if err == nil {
@@ -574,7 +578,6 @@ type action struct {
 	deps         []*action
 	objectFacts  map[objectFactKey]analysis.Fact
 	packageFacts map[packageFactKey]analysis.Fact
-	inputs       map[*analysis.Analyzer]interface{}
 	result       interface{}
 	diagnostics  []analysis.Diagnostic
 	err          error
@@ -762,7 +765,7 @@ func inheritFacts(act, dep *action) {
 		if serialize {
 			encodedFact, err := codeFact(fact)
 			if err != nil {
-				log.Panicf("internal error: encoding of %T fact failed in %v", fact, act)
+				log.Panicf("internal error: encoding of %T fact failed in %v: %v", fact, act, err)
 			}
 			fact = encodedFact
 		}
@@ -826,7 +829,7 @@ func codeFact(fact analysis.Fact) (analysis.Fact, error) {
 
 // exportedFrom reports whether obj may be visible to a package that imports pkg.
 // This includes not just the exported members of pkg, but also unexported
-// constants, types, fields, and methods, perhaps belonging to oether packages,
+// constants, types, fields, and methods, perhaps belonging to other packages,
 // that find there way into the API.
 // This is an overapproximation of the more accurate approach used by
 // gc export data, which walks the type graph, but it's much simpler.
@@ -890,7 +893,7 @@ func (act *action) exportObjectFact(obj types.Object, fact analysis.Fact) {
 func (act *action) allObjectFacts() []analysis.ObjectFact {
 	facts := make([]analysis.ObjectFact, 0, len(act.objectFacts))
 	for k := range act.objectFacts {
-		facts = append(facts, analysis.ObjectFact{k.obj, act.objectFacts[k]})
+		facts = append(facts, analysis.ObjectFact{Object: k.obj, Fact: act.objectFacts[k]})
 	}
 	return facts
 }
@@ -936,7 +939,7 @@ func factType(fact analysis.Fact) reflect.Type {
 func (act *action) allPackageFacts() []analysis.PackageFact {
 	facts := make([]analysis.PackageFact, 0, len(act.packageFacts))
 	for k := range act.packageFacts {
-		facts = append(facts, analysis.PackageFact{k.pkg, act.packageFacts[k]})
+		facts = append(facts, analysis.PackageFact{Package: k.pkg, Fact: act.packageFacts[k]})
 	}
 	return facts
 }

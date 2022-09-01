@@ -14,7 +14,7 @@ cilium bpf lb list [flags]
       --backends        List all service backend entries
       --frontends       List all service frontend entries
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
       --revnat          List reverse NAT entries
 ```
 
@@ -28,5 +28,5 @@ cilium bpf lb list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf lb](../cilium_bpf_lb)	 - Load-balancing configuration
+* [cilium bpf lb](cilium_bpf_lb.md)	 - Load-balancing configuration
 

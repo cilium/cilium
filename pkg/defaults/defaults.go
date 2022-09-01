@@ -9,7 +9,7 @@ import (
 
 const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
-	AgentHealthPort = 9876
+	AgentHealthPort = 9879
 
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
@@ -109,6 +109,10 @@ const (
 	// for each FQDN selector in endpoint's restored DNS rules.
 	DNSMaxIPsPerRestoredRule = 1000
 
+	// FFQDNRegexCompileLRUSize defines the maximum size for the FQDN regex
+	// compilation LRU used by the DNS proxy and policy validation.
+	FQDNRegexCompileLRUSize = 1024
+
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
 	// This is used in DaemonConfig.Populate
 	ToFQDNsMinTTL = 3600 // 1 hour in seconds
@@ -139,6 +143,10 @@ const (
 	// option.IdentityChangeGracePeriod
 	IdentityChangeGracePeriod = 5 * time.Second
 
+	// IdentityRestoreGracePeriod is the default value for
+	// option.IdentityRestoreGracePeriod
+	IdentityRestoreGracePeriod = 10 * time.Minute
+
 	// ExecTimeout is a timeout for executing commands.
 	ExecTimeout = 300 * time.Second
 
@@ -161,6 +169,12 @@ const (
 
 	// EnableIPv6NDP is the default value for IPv6 NDP support enablement
 	EnableIPv6NDP = false
+
+	// EnableSRv6 is the default value for the SRv6 support enablement.
+	EnableSRv6 = false
+
+	// SRv6EncapMode is the encapsulation mode for SRv6.
+	SRv6EncapMode = "reduced"
 
 	// EnableL7Proxy is the default value for L7 proxy enablement
 	EnableL7Proxy = true
@@ -258,8 +272,8 @@ const (
 	// invoked only for endpoints which are selected by policy changes.
 	SelectiveRegeneration = true
 
-	// K8sSyncTimeout specifies the standard time to allow for synchronizing
-	// local caches with Kubernetes state before exiting.
+	// K8sSyncTimeout specifies the default time to wait after the last event
+	// of a Kubernetes resource type before timing out while waiting for synchronization.
 	K8sSyncTimeout = 3 * time.Minute
 
 	// AllocatorListTimeout specifies the standard time to allow for listing
@@ -304,7 +318,7 @@ const (
 	// AnnotateK8sNode is the default value for option.AnnotateK8sNode. It is
 	// enabled by default to annotate kubernetes node and can be disabled using
 	// the provided option.
-	AnnotateK8sNode = true
+	AnnotateK8sNode = false
 
 	// MonitorBufferPages is the default number of pages to use for the
 	// ring buffer interacting with the kernel
@@ -341,6 +355,14 @@ const (
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set.
 	ENIFirstInterfaceIndex = 0
 
+	// UseENIPrimaryAddress is the default value for
+	// CiliumNode.Spec.ENI.UsePrimaryAddress if no value is set.
+	UseENIPrimaryAddress = false
+
+	// ENIDisableNodeLevelPD  is the default value for
+	// CiliumNode.Spec.ENI.DisablePrefixDelegation if no value is set.
+	ENIDisableNodeLevelPD = false
+
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
 
@@ -352,10 +374,12 @@ const (
 
 	// IPAMPodCIDRAllocationThreshold is the default value for
 	// CiliumNode.Spec.IPAM.PodCIDRAllocationThreshold if no value is set
+	// Defaults to 8, which is similar to IPAMPreAllocation
 	IPAMPodCIDRAllocationThreshold = 8
 
 	// IPAMPodCIDRReleaseThreshold is the default value for
 	// CiliumNode.Spec.IPAM.PodCIDRReleaseThreshold if no value is set
+	// Defaults to 16, which is 2x the allocation threshold to avoid flapping
 	IPAMPodCIDRReleaseThreshold = 16
 
 	// AutoCreateCiliumNodeResource enables automatic creation of a
@@ -412,7 +436,7 @@ const (
 	// the map used to track datagram fragments.
 	FragmentsMapEntries = 8192
 
-	// K8sEnableAPIDiscovery defines whether Kuberntes API groups and
+	// K8sEnableAPIDiscovery defines whether Kubernetes API groups and
 	// resources should be probed using the discovery API
 	K8sEnableAPIDiscovery = false
 
@@ -442,7 +466,7 @@ const (
 	ExternalClusterIP = false
 
 	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
-	EnableICMPRules = false
+	EnableICMPRules = true
 
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN = 8472
@@ -453,7 +477,8 @@ const (
 	ARPBaseReachableTime = 30 * time.Second
 
 	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
-	EnableVTEP = false
+	EnableVTEP     = false
+	MaxVTEPDevices = 8
 
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false

@@ -1,24 +1,25 @@
 ---
 name: Feature Request
 about: Suggest a feature to Cilium
-title: ''
-labels: kind/feature
+title: 'CFP: '
+labels: 'kind/feature'
 assignees: ''
-
 ---
 
-<!--
-
-If you have usage questions, please try the [slack
-channel](http://cilium.io/slack) and see the [FAQ](https://goo.gl/qG2YmU)
-first.
-
-Choose either "Proposal" or "Bug report"
-
--->
-
-## Proposal / RFE
+## Cilium Feature Proposal
+        
+Thanks for taking time to make a feature request for Cilium! If you have usage questions, please try the [slack channel](http://slack.cilium.io/) and see the [FAQ](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is:issue+label:kind/question+) first.
 
 **Is your feature request related to a problem?**
 
-**Describe the solution you'd like**
+If so, please describe the problem
+
+**Describe the feature you'd like**
+
+Include any specific requirements you need
+
+**(Optional) Describe your proposed solution**
+
+Please complete this section if you have ideas / suggestions on how to implement the feature. We strongly recommend discussing your approach with Cilium committers before spending lots of time implementing a change. 
+
+For longer proposals, you are welcome to link to an external doc (e.g. a Google doc). We have a [Cilium Feature Proposal template](https://docs.google.com/document/d/1vtE82JExQHw8_-pX2Uhq5acN1BMPxNlS6cMQUezRTWg/edit) to help you structure your proposal - if you would like to use it, please make a copy and ensure it's publicly visible, and then add the link here.

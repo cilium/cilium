@@ -13,7 +13,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/types"
@@ -83,6 +82,20 @@ func (k Key) String() string {
 	return "<unknown>"
 }
 
+func (k Key) IPNet() *net.IPNet {
+	cidr := &net.IPNet{}
+	prefixLen := k.Prefixlen - getStaticPrefixBits()
+	switch k.Family {
+	case bpf.EndpointKeyIPv4:
+		cidr.IP = net.IP(k.IP[:net.IPv4len])
+		cidr.Mask = net.CIDRMask(int(prefixLen), 32)
+	case bpf.EndpointKeyIPv6:
+		cidr.IP = net.IP(k.IP[:net.IPv6len])
+		cidr.Mask = net.CIDRMask(int(prefixLen), 128)
+	}
+	return cidr
+}
+
 // getPrefixLen determines the length that should be set inside the Key so that
 // the lookup prefix is correct in the BPF map key. The specified 'prefixBits'
 // indicates the number of bits in the IP that must match to match the entry in
@@ -148,20 +161,23 @@ type Map struct {
 	deleteSupport bool
 }
 
+func newIPCacheMap(name string) *bpf.Map {
+	return bpf.NewMap(
+		name,
+		bpf.MapTypeLPMTrie,
+		&Key{},
+		int(unsafe.Sizeof(Key{})),
+		&RemoteEndpointInfo{},
+		int(unsafe.Sizeof(RemoteEndpointInfo{})),
+		MaxEntries,
+		bpf.BPF_F_NO_PREALLOC, 0,
+		bpf.ConvertKeyValue)
+}
+
 // NewMap instantiates a Map.
 func NewMap(name string) *Map {
 	return &Map{
-		Map: *bpf.NewMap(
-			name,
-			bpf.MapTypeLPMTrie,
-			&Key{},
-			int(unsafe.Sizeof(Key{})),
-			&RemoteEndpointInfo{},
-			int(unsafe.Sizeof(RemoteEndpointInfo{})),
-			MaxEntries,
-			bpf.BPF_F_NO_PREALLOC, 0,
-			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric(),
+		Map:           *newIPCacheMap(name).WithCache().WithPressureMetric(),
 		deleteSupport: true,
 	}
 }
@@ -205,19 +221,36 @@ func (m *Map) GetMaxPrefixLengths() (ipv6, ipv4 int) {
 
 func (m *Map) supportsDelete() bool {
 	m.detectDeleteSupport.Do(func() {
+		// Create a separate map for the probing since this map may not have been created yet.
+		probeMap := newIPCacheMap(m.Name() + "_probe")
+		err := probeMap.CreateUnpinned()
+		if err != nil {
+			log.WithError(err).Warn("Failed to open IPCache map for feature probing, assuming delete and dump unsupported")
+			m.deleteSupport = false
+			return
+		}
+		defer probeMap.Close()
+
 		// Entry is invalid because IPCache needs a family specified.
 		invalidEntry := &Key{}
-		m.deleteSupport, _ = m.delete(invalidEntry, false)
+		err = probeMap.Delete(invalidEntry)
+		var errno unix.Errno
+		if ok := errors.As(err, &errno); ok && errno == unix.ENOSYS {
+			m.deleteSupport = false
+		} else {
+			m.deleteSupport = true
+		}
 		log.Debugf("Detected IPCache delete operation support: %t", m.deleteSupport)
+
+		// Detect dump support
+		err = probeMap.Dump(map[string][]string{})
+		dumpSupport := err == nil
+		log.Debugf("Detected IPCache dump operation support: %t", dumpSupport)
 
 		// In addition to delete support, ability to dump the map is
 		// also required in order to run the garbage collector which
 		// will iterate over the map and delete entries.
-		if m.deleteSupport {
-			err := m.Dump(map[string][]string{})
-			m.deleteSupport = err == nil
-			log.Debugf("Detected IPCache dump operation support: %t", m.deleteSupport)
-		}
+		m.deleteSupport = m.deleteSupport && dumpSupport
 
 		if !m.deleteSupport {
 			log.Infof("Periodic IPCache map swap will occur due to lack of kernel support for LPM delete operation. Upgrade to Linux 4.15 or higher to avoid this.")
@@ -249,22 +282,4 @@ var (
 // on the filesystem.
 func Reopen() error {
 	return IPCache.Map.Reopen()
-}
-
-// Function to update IPCache map with VTEP CIDR
-func UpdateIPCacheVTEPMapping(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP,
-	securityIdentity uint32, encryptKey uint8) error {
-
-	key := NewKey(newCIDR.IP, newCIDR.Mask)
-
-	value := RemoteEndpointInfo{
-		SecurityIdentity: securityIdentity,
-		Key:              encryptKey,
-	}
-	if ip4 := newTunnelEndpoint.To4(); ip4 != nil {
-		copy(value.TunnelEndpoint[:], ip4)
-	}
-
-	return IPCache.Update(&key, &value)
-
 }

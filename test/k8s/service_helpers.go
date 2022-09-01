@@ -870,7 +870,7 @@ func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl, ni *helpers.NodesI
 		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.K8s1NodeName)
 		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.K8s1NodeName)
 		// In-cluster connectivity from k8s2 to k8s1 IP will still work with
-		// HostReachableServices (regardless of if we are running with or
+		// SocketLB (regardless of if we are running with or
 		// without kube-proxy) since we'll hit the wildcard rule in bpf_sock
 		// and k8s1 IP is in ipcache as REMOTE_NODE_ID. But that is fine since
 		// it's all in-cluster connectivity w/ client IP preserved.
@@ -879,21 +879,17 @@ func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl, ni *helpers.NodesI
 		// but not from k8s2 to k8s1. In the k8s2 to k8s1 case, kube-proxy
 		// would send traffic to k8s1, where it would be subsequently
 		// dropped, because k8s1 has no service backend.
-		// If HostReachableServices is enabled, Cilium does the service
+		// If SocketLB is enabled, Cilium does the service
 		// translation for ClusterIP services on the client node, bypassing
 		// kube-proxy completely. Here, we are probing NodePort service, so we
 		// need BPF NodePort to be enabled as well for the requests to succeed.
-		hostReachableServicesTCP := kubectl.HasHostReachableServices(ciliumPodK8s2, true, false)
-		hostReachableServicesUDP := kubectl.HasHostReachableServices(ciliumPodK8s2, false, true)
+		socketLB := kubectl.HasSocketLB(ciliumPodK8s2)
 		bpfNodePort := kubectl.HasBPFNodePort(ciliumPodK8s2)
-		if hostReachableServicesTCP && bpfNodePort {
+		if socketLB && bpfNodePort {
 			testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.K8s2NodeName)
-		} else {
-			testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.K8s2NodeName)
-		}
-		if hostReachableServicesUDP && bpfNodePort {
 			testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.K8s2NodeName)
 		} else {
+			testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.K8s2NodeName)
 			testCurlFailFromPodInHostNetNS(kubectl, tftpURL, 1, ni.K8s2NodeName)
 		}
 
@@ -1033,7 +1029,7 @@ func testIPv4FragmentSupport(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	if helpers.DoesNotRunWithKubeProxyReplacement() {
 		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 		ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-		hasDNAT = kubectl.HasHostReachableServices(ciliumPodK8s1, false, true)
+		hasDNAT = kubectl.HasSocketLB(ciliumPodK8s1)
 	}
 
 	// Get testDSClient and testDS pods running on k8s1.

@@ -204,6 +204,82 @@ const (
 	ScopeInternal
 )
 
+// BackendState tracks backend's ability to load-balance service traffic.
+//
+// Valid transition states for a backend -
+// BackendStateActive -> BackendStateTerminating, BackendStateQuarantined, BackendStateMaintenance
+// BackendStateTerminating -> No valid state transition
+// BackendStateQuarantined -> BackendStateActive, BackendStateTerminating
+// BackendStateMaintenance -> BackendStateActive
+//
+// Sources setting the states -
+// BackendStateActive - Kubernetes events, service API
+// BackendStateTerminating - Kubernetes events
+// BackendStateQuarantined - service API
+// BackendStateMaintenance - service API
+const (
+	// BackendStateActive refers to the backend state when it's available for
+	// load-balancing traffic. It's the default state for a backend.
+	// Backends in this state can be health-checked.
+	BackendStateActive BackendState = iota
+	// BackendStateTerminating refers to the terminating backend state so that
+	// it can be gracefully removed.
+	// Backends in this state won't be health-checked.
+	BackendStateTerminating
+	// BackendStateQuarantined refers to the backend state when it's unreachable,
+	// and will not be selected for load-balancing traffic.
+	// Backends in this state can be health-checked.
+	BackendStateQuarantined
+	// BackendStateMaintenance refers to the backend state where the backend
+	// is put under maintenance, and will neither be selected for load-balancing
+	// traffic nor be health-checked.
+	BackendStateMaintenance
+	// BackendStateInvalid is an invalid state, and is used to report error conditions.
+	// Keep this as the last entry.
+	BackendStateInvalid
+)
+
+// BackendStateFlags is the datapath representation of the backend flags that
+// are used in (lb{4,6}_backend.flags) to store backend state.
+type BackendStateFlags = uint8
+
+const (
+	BackendStateActiveFlag = iota
+	BackendStateTerminatingFlag
+	BackendStateQuarantinedFlag
+	BackendStateMaintenanceFlag
+)
+
+func NewBackendFlags(state BackendState) BackendStateFlags {
+	var flags BackendStateFlags
+
+	switch state {
+	case BackendStateActive:
+		flags = BackendStateActiveFlag
+	case BackendStateTerminating:
+		flags = BackendStateTerminatingFlag
+	case BackendStateQuarantined:
+		flags = BackendStateQuarantinedFlag
+	case BackendStateMaintenance:
+		flags = BackendStateMaintenanceFlag
+	}
+
+	return flags
+}
+
+func GetBackendStateFromFlags(flags uint8) BackendState {
+	switch flags {
+	case BackendStateTerminatingFlag:
+		return BackendStateTerminating
+	case BackendStateQuarantinedFlag:
+		return BackendStateQuarantined
+	case BackendStateMaintenanceFlag:
+		return BackendStateMaintenance
+	default:
+		return BackendStateActive
+	}
+}
+
 var (
 	// AllProtocols is the list of all supported L4 protocols
 	AllProtocols = []L4Type{TCP, UDP}
@@ -218,23 +294,47 @@ type FEPortName string
 // ServiceID is the service's ID.
 type ServiceID uint16
 
+// ServiceName represents the fully-qualified reference to the service by name,
+// including both the namespace and name of the service.
+type ServiceName struct {
+	Namespace string
+	Name      string
+}
+
+func (n ServiceName) String() string {
+	return n.Namespace + "/" + n.Name
+}
+
 // BackendID is the backend's ID.
 type BackendID uint32
 
 // ID is the ID of L3n4Addr endpoint (either service or backend).
 type ID uint32
 
+// BackendState is the state of a backend for load-balancing service traffic.
+type BackendState uint8
+
+// Preferred indicates if this backend is preferred to be load balanced.
+type Preferred bool
+
 // Backend represents load balancer backend.
 type Backend struct {
+	// FEPortName is the frontend port name. This is used to filter backends sending to EDS.
+	FEPortName string
 	// ID of the backend
 	ID BackendID
 	// Node hosting this backend. This is used to determine backends local to
 	// a node.
 	NodeName string
 	L3n4Addr
-	// State indicating whether backend is terminating so that it can be
-	// gracefully removed
-	Terminating bool
+	// State of the backend for load-balancing service traffic
+	State BackendState
+
+	// Preferred indicates if the healthy backend is preferred
+	Preferred Preferred
+
+	// RestoredFromDatapath indicates whether the backend was restored from BPF maps
+	RestoredFromDatapath bool
 }
 
 func (b *Backend) String() string {
@@ -244,17 +344,17 @@ func (b *Backend) String() string {
 // SVC is a structure for storing service details.
 type SVC struct {
 	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID
-	Backends                  []Backend        // List of service backends
+	Backends                  []*Backend       // List of service backends
 	Type                      SVCType          // Service type
 	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
-	HealthCheckNodePort       uint16 // Service health check node port
-	Name                      string // Service name
-	Namespace                 string // Service namespace
+	HealthCheckNodePort       uint16      // Service health check node port
+	Name                      ServiceName // Fully qualified service name
 	LoadBalancerSourceRanges  []*cidr.CIDR
-	L7LBProxyPort             uint16 // Non-zero for L7 LB services
+	L7LBProxyPort             uint16   // Non-zero for L7 LB services
+	L7LBFrontendPorts         []string // Non-zero for L7 LB frontend service ports
 }
 
 func (s *SVC) GetModel() *models.Service {
@@ -282,8 +382,8 @@ func (s *SVC) GetModel() *models.Service {
 			NatPolicy:           natPolicy,
 			HealthCheckNodePort: s.HealthCheckNodePort,
 
-			Name:      s.Name,
-			Namespace: s.Namespace,
+			Name:      s.Name.Name,
+			Namespace: s.Name.Namespace,
 		},
 	}
 
@@ -303,6 +403,68 @@ func (s *SVC) GetModel() *models.Service {
 			Realized: spec,
 		},
 	}
+}
+
+func IsValidStateTransition(old, new BackendState) bool {
+	if old == new {
+		return true
+	}
+	if new == BackendStateInvalid {
+		return false
+	}
+
+	switch old {
+	case BackendStateActive:
+	case BackendStateTerminating:
+		return false
+	case BackendStateQuarantined:
+		if new == BackendStateMaintenance {
+			return false
+		}
+	case BackendStateMaintenance:
+		if new != BackendStateActive {
+			return false
+		}
+	default:
+		return false
+	}
+	return true
+}
+
+func GetBackendState(state string) (BackendState, error) {
+	switch strings.ToLower(state) {
+	case "active", "":
+		return BackendStateActive, nil
+	case "terminating":
+		return BackendStateTerminating, nil
+	case "quarantined":
+		return BackendStateQuarantined, nil
+	case "maintenance":
+		return BackendStateMaintenance, nil
+	default:
+		return BackendStateInvalid, fmt.Errorf("invalid backend state %s", state)
+	}
+}
+
+func (state BackendState) String() (string, error) {
+	switch state {
+	case BackendStateActive:
+		return "active", nil
+	case BackendStateTerminating:
+		return "terminating", nil
+	case BackendStateQuarantined:
+		return "quarantined", nil
+	case BackendStateMaintenance:
+		return "maintenance", nil
+	default:
+		return "", fmt.Errorf("invalid backend state %d", state)
+	}
+}
+
+func IsValidBackendState(state string) bool {
+	_, err := GetBackendState(state)
+
+	return err == nil
 }
 
 func NewL4Type(name string) (L4Type, error) {
@@ -407,11 +569,29 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 }
 
 // NewBackend creates the Backend struct instance from given params.
+// The default state for the returned Backend is BackendStateActive.
 func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
-		ID:       BackendID(id),
-		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
+		ID:        BackendID(id),
+		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *lbport},
+		State:     BackendStateActive,
+		Preferred: Preferred(false),
+	}
+
+	return &b
+}
+
+// NewBackendWithState creates the Backend struct instance from given params,
+// and sets the restore state for the Backend.
+func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber uint16,
+	state BackendState, restored bool) *Backend {
+	lbport := NewL4Addr(protocol, portNumber)
+	b := Backend{
+		ID:                   id,
+		L3n4Addr:             L3n4Addr{IP: ip, L4Addr: *lbport},
+		State:                state,
+		RestoredFromDatapath: restored,
 	}
 
 	return &b
@@ -428,8 +608,17 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
+	state, err := GetBackendState(base.State)
+	if err != nil {
+		return nil, fmt.Errorf("invalid backend state [%s]", base.State)
+	}
 
-	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
+	return &Backend{
+		NodeName:  base.NodeName,
+		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *l4addr},
+		State:     state,
+		Preferred: Preferred(base.Preferred),
+	}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -468,10 +657,13 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	}
 
 	ip := b.IP.String()
+	stateStr, _ := b.State.String()
 	return &models.BackendAddress{
-		IP:       &ip,
-		Port:     b.Port,
-		NodeName: b.NodeName,
+		IP:        &ip,
+		Port:      b.Port,
+		NodeName:  b.NodeName,
+		State:     stateStr,
+		Preferred: bool(b.Preferred),
 	}
 }
 

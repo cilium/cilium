@@ -15,8 +15,9 @@ import (
 // deleting the resource, set its monitored state to false using
 // ModifyIpamResourceCidr
 // (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyIpamResourceCidr.html).
-// For more information, see Release an allocation in the Amazon VPC IPAM User
-// Guide.
+// For more information, see Release an allocation
+// (https://docs.aws.amazon.com/vpc/latest/ipam/release-pool-alloc-ipam.html) in
+// the Amazon VPC IPAM User Guide.
 func (c *Client) ReleaseIpamPoolAllocation(ctx context.Context, params *ReleaseIpamPoolAllocationInput, optFns ...func(*Options)) (*ReleaseIpamPoolAllocationOutput, error) {
 	if params == nil {
 		params = &ReleaseIpamPoolAllocationInput{}
@@ -39,6 +40,11 @@ type ReleaseIpamPoolAllocationInput struct {
 	// This member is required.
 	Cidr *string
 
+	// The ID of the allocation.
+	//
+	// This member is required.
+	IpamPoolAllocationId *string
+
 	// The ID of the IPAM pool which contains the allocation you want to release.
 	//
 	// This member is required.
@@ -49,9 +55,6 @@ type ReleaseIpamPoolAllocationInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
-
-	// The ID of the allocation.
-	IpamPoolAllocationId *string
 
 	noSmithyDocumentSerde
 }

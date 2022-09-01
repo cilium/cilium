@@ -26,7 +26,7 @@ var healthGetCmd = &cobra.Command{
 		}
 		sr := result.Payload
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(sr); err != nil {
 				os.Exit(1)
 			}
@@ -44,5 +44,5 @@ var healthGetCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(healthGetCmd)
-	command.AddJSONOutput(healthGetCmd)
+	command.AddOutputOption(healthGetCmd)
 }

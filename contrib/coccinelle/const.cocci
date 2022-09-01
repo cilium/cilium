@@ -45,9 +45,7 @@ position p;
       when != WRITE_ONCE(x->z, ...)
       when != WRITE_ONCE(x->z[...], ...)
       when != f(..., x, ...)
-      // Special case for the addr field since it's an array in several
-      // structures.
-      when != f(..., x->addr, ...)
+      when != f(..., x->z, ...)
   }
 )
 
@@ -67,6 +65,6 @@ cnt += 1
 if cnt > 0:
   print("""Use the following command to fix the above issues:
 docker run --rm --user 1000 --workdir /workspace -v `pwd`:/workspace                \\
-    -it docker.io/cilium/coccicheck spatch --sp-file contrib/coccinelle/const.cocci \\
+    -it docker.io/cilium/coccicheck:2.3@sha256:56c7445e3d0cc37de49750f5dfd154786082c4be6bc17683c231c0445862233a spatch --sp-file contrib/coccinelle/const.cocci \\
     --include-headers --very-quiet --in-place bpf/\n
 """)

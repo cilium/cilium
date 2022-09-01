@@ -15,11 +15,9 @@ import (
 	"time"
 
 	"github.com/go-openapi/loads"
-	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/vishvananda/netlink"
+	"go.uber.org/fx"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/server"
@@ -32,14 +30,12 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -52,7 +48,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -74,6 +70,7 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -96,98 +93,15 @@ const (
 )
 
 var (
+	Vp *viper.Viper = viper.New()
+
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, daemonSubsys)
 
 	bootstrapTimestamp = time.Now()
-
-	// RootCmd represents the base command when called without any subcommands
-	RootCmd = &cobra.Command{
-		Use:   "cilium-agent",
-		Short: "Run the cilium agent",
-		Run: func(cmd *cobra.Command, args []string) {
-			cmdRefDir := viper.GetString(option.CMDRef)
-			if cmdRefDir != "" {
-				genMarkdown(cmd, cmdRefDir)
-				os.Exit(0)
-			}
-
-			// Open socket for using gops to get stacktraces of the agent.
-			addr := fmt.Sprintf("127.0.0.1:%d", viper.GetInt(option.GopsPort))
-			addrField := logrus.Fields{"address": addr}
-			if err := gops.Listen(gops.Options{
-				Addr:                   addr,
-				ReuseSocketAddrAndPort: true,
-			}); err != nil {
-				log.WithError(err).WithFields(addrField).Fatal("Cannot start gops server")
-			}
-			log.WithFields(addrField).Info("Started gops server")
-
-			bootstrapStats.earlyInit.Start()
-			initEnv(cmd)
-			bootstrapStats.earlyInit.End(true)
-			runDaemon()
-		},
-	}
-
-	bootstrapStats = bootstrapStatistics{}
+	bootstrapStats     = bootstrapStatistics{}
 )
 
-// Execute sets up gops, installs the cleanup signal handler and invokes
-// the root command. This function only returns when an interrupt
-// signal has been received. This is intended to be called by main.main().
-func Execute() {
-	bootstrapStats.overall.Start()
-
-	interruptCh := cleaner.registerSigHandler()
-	if err := RootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	<-interruptCh
-}
-
-func skipInit(basePath string) bool {
-	switch basePath {
-	case components.CiliumAgentName, components.CiliumDaemonTestName:
-		return false
-	default:
-		return true
-	}
-}
-
-func init() {
-	setupSleepBeforeFatal()
-	initializeFlags()
-	registerBootstrapMetrics()
-}
-
-func setupSleepBeforeFatal() {
-	RootCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
-		time.Sleep(fatalSleep)
-		return e
-	})
-	logrus.RegisterExitHandler(func() {
-		time.Sleep(fatalSleep)
-	},
-	)
-}
-
 func initializeFlags() {
-	if skipInit(path.Base(os.Args[0])) {
-		log.Debug("Skipping preparation of cilium-agent environment")
-		return
-	}
-
-	cobra.OnInitialize(option.InitConfig(RootCmd, "Cilium", "ciliumd"))
-
-	// Reset the help function to also exit, as we block elsewhere in interrupts
-	// and would not exit when called with -h.
-	oldHelpFunc := RootCmd.HelpFunc()
-	RootCmd.SetHelpFunc(func(c *cobra.Command, a []string) {
-		oldHelpFunc(c, a)
-		os.Exit(0)
-	})
-
 	flags := RootCmd.Flags()
 
 	// Validators
@@ -214,888 +128,936 @@ func initializeFlags() {
 
 	// Env bindings
 	flags.Int(option.AgentHealthPort, defaults.AgentHealthPort, "TCP port for agent health status API")
-	option.BindEnv(option.AgentHealthPort)
+	option.BindEnv(Vp, option.AgentHealthPort)
 
 	flags.Int(option.ClusterHealthPort, defaults.ClusterHealthPort, "TCP port for cluster-wide network connectivity health API")
-	option.BindEnv(option.ClusterHealthPort)
+	option.BindEnv(Vp, option.ClusterHealthPort)
 
 	flags.StringSlice(option.AgentLabels, []string{}, "Additional labels to identify this agent")
-	option.BindEnv(option.AgentLabels)
+	option.BindEnv(Vp, option.AgentLabels)
 
 	flags.Bool(option.AllowICMPFragNeeded, defaults.AllowICMPFragNeeded, "Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU.")
-	option.BindEnv(option.AllowICMPFragNeeded)
+	option.BindEnv(Vp, option.AllowICMPFragNeeded)
 
 	flags.String(option.AllowLocalhost, option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy }")
-	option.BindEnv(option.AllowLocalhost)
+	option.BindEnv(Vp, option.AllowLocalhost)
 
 	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes node")
-	option.BindEnv(option.AnnotateK8sNode)
+	option.BindEnv(Vp, option.AnnotateK8sNode)
 
 	flags.Duration(option.ARPPingRefreshPeriod, defaults.ARPBaseReachableTime, "Period for remote node ARP entry refresh (set 0 to disable)")
-	option.BindEnv(option.ARPPingRefreshPeriod)
+	option.BindEnv(Vp, option.ARPPingRefreshPeriod)
 
 	flags.Bool(option.EnableL2NeighDiscovery, true, "Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec")
-	option.BindEnv(option.EnableL2NeighDiscovery)
+	option.BindEnv(Vp, option.EnableL2NeighDiscovery)
 
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
-	option.BindEnv(option.AutoCreateCiliumNodeResource)
+	option.BindEnv(Vp, option.AutoCreateCiliumNodeResource)
 
 	flags.String(option.BPFRoot, "", "Path to BPF filesystem")
-	option.BindEnv(option.BPFRoot)
+	option.BindEnv(Vp, option.BPFRoot)
 
 	flags.Bool(option.EnableBPFClockProbe, false, "Enable BPF clock source probing for more efficient tick retrieval")
-	option.BindEnv(option.EnableBPFClockProbe)
+	option.BindEnv(Vp, option.EnableBPFClockProbe)
 
 	flags.String(option.CGroupRoot, "", "Path to Cgroup2 filesystem")
-	option.BindEnv(option.CGroupRoot)
+	option.BindEnv(Vp, option.CGroupRoot)
 
 	flags.Bool(option.SockopsEnableName, defaults.SockopsEnable, "Enable sockops when kernel supported")
-	option.BindEnv(option.SockopsEnableName)
+	option.BindEnv(Vp, option.SockopsEnableName)
 
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
-	option.BindEnv(option.ClusterIDName)
+	option.BindEnv(Vp, option.ClusterIDName)
 
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
-	option.BindEnv(option.ClusterName)
+	option.BindEnv(Vp, option.ClusterName)
 
 	flags.String(option.ClusterMeshConfigName, "", "Path to the ClusterMesh configuration directory")
-	option.BindEnv(option.ClusterMeshConfigName)
+	option.BindEnv(Vp, option.ClusterMeshConfigName)
 
 	flags.StringSlice(option.CompilerFlags, []string{}, "Extra CFLAGS for BPF compilation")
 	flags.MarkHidden(option.CompilerFlags)
-	option.BindEnv(option.CompilerFlags)
+	option.BindEnv(Vp, option.CompilerFlags)
 
 	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
-	option.BindEnv(option.ConfigFile)
+	option.BindEnv(Vp, option.ConfigFile)
 
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
-	option.BindEnv(option.ConfigDir)
+	option.BindEnv(Vp, option.ConfigDir)
 
 	flags.Duration(option.ConntrackGCInterval, time.Duration(0), "Overwrite the connection-tracking garbage collection interval")
-	option.BindEnv(option.ConntrackGCInterval)
+	option.BindEnv(Vp, option.ConntrackGCInterval)
 
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
-	option.BindEnv(option.DebugArg)
+	option.BindEnv(Vp, option.DebugArg)
 
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
-	option.BindEnv(option.DebugVerbose)
+	option.BindEnv(Vp, option.DebugVerbose)
 
 	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
-	option.BindEnv(option.Devices)
+	option.BindEnv(Vp, option.Devices)
 
 	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
-	option.BindEnv(option.DirectRoutingDevice)
+	option.BindEnv(Vp, option.DirectRoutingDevice)
+
+	flags.Bool(option.EnableRuntimeDeviceDetection, false, "Enable runtime device detection and datapath reconfiguration (experimental)")
+	option.BindEnv(Vp, option.EnableRuntimeDeviceDetection)
 
 	flags.String(option.LBDevInheritIPAddr, "", fmt.Sprintf("Device name which IP addr is inherited by devices running LB BPF program (--%s)", option.Devices))
-	option.BindEnv(option.LBDevInheritIPAddr)
+	option.BindEnv(Vp, option.LBDevInheritIPAddr)
 
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
-	option.BindEnv(option.DatapathMode)
-
-	flags.StringP(option.IpvlanMasterDevice, "", "undefined", "Device facing external network acting as ipvlan master")
-	option.BindEnv(option.IpvlanMasterDevice)
-	flags.MarkDeprecated(option.IpvlanMasterDevice, "This option will be removed in v1.12")
+	option.BindEnv(Vp, option.DatapathMode)
 
 	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
-	option.BindEnv(option.DisableConntrack)
+	option.BindEnv(Vp, option.DisableConntrack)
 	flags.MarkDeprecated(option.DisableConntrack, "This option is no-op and it will be removed in v1.13")
 
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
-	option.BindEnv(option.EnableEndpointRoutes)
+	option.BindEnv(Vp, option.EnableEndpointRoutes)
 
 	flags.Bool(option.EnableHealthChecking, defaults.EnableHealthChecking, "Enable connectivity health checking")
-	option.BindEnv(option.EnableHealthChecking)
+	option.BindEnv(Vp, option.EnableHealthChecking)
 
 	flags.Bool(option.EnableHealthCheckNodePort, defaults.EnableHealthCheckNodePort, "Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set")
-	option.BindEnv(option.EnableHealthCheckNodePort)
+	option.BindEnv(Vp, option.EnableHealthCheckNodePort)
 
 	flags.StringSlice(option.EndpointStatus, []string{},
 		"Enable additional CiliumEndpoint status features ("+strings.Join(option.EndpointStatusValues(), ",")+")")
-	option.BindEnv(option.EndpointStatus)
+	option.BindEnv(Vp, option.EndpointStatus)
 
 	flags.Bool(option.EnableEndpointHealthChecking, defaults.EnableEndpointHealthChecking, "Enable connectivity health checking between virtual endpoints")
-	option.BindEnv(option.EnableEndpointHealthChecking)
+	option.BindEnv(Vp, option.EnableEndpointHealthChecking)
 
 	flags.Bool(option.EnableLocalNodeRoute, defaults.EnableLocalNodeRoute, "Enable installation of the route which points the allocation prefix of the local node")
-	option.BindEnv(option.EnableLocalNodeRoute)
+	option.BindEnv(Vp, option.EnableLocalNodeRoute)
 
 	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
-	option.BindEnv(option.EnableIPv4Name)
+	option.BindEnv(Vp, option.EnableIPv4Name)
 
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
-	option.BindEnv(option.EnableIPv6Name)
+	option.BindEnv(Vp, option.EnableIPv6Name)
 
 	flags.Bool(option.EnableIPv6NDPName, defaults.EnableIPv6NDP, "Enable IPv6 NDP support")
-	option.BindEnv(option.EnableIPv6NDPName)
+	option.BindEnv(Vp, option.EnableIPv6NDPName)
+
+	flags.Bool(option.EnableSRv6, defaults.EnableSRv6, "Enable SRv6 support (beta)")
+	flags.MarkHidden(option.EnableSRv6)
+	option.BindEnv(Vp, option.EnableSRv6)
+
+	flags.String(option.SRv6EncapModeName, defaults.SRv6EncapMode, "Encapsulation mode for SRv6 (\"srh\" or \"reduced\")")
+	flags.MarkHidden(option.SRv6EncapModeName)
+	option.BindEnv(Vp, option.SRv6EncapModeName)
 
 	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
-	option.BindEnv(option.IPv6MCastDevice)
+	option.BindEnv(Vp, option.IPv6MCastDevice)
 
 	flags.Bool(option.EnableRemoteNodeIdentity, defaults.EnableRemoteNodeIdentity, "Enable use of remote node identity")
-	option.BindEnv(option.EnableRemoteNodeIdentity)
+	option.BindEnv(Vp, option.EnableRemoteNodeIdentity)
 
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
-	option.BindEnv(option.EncryptInterface)
+	option.BindEnv(Vp, option.EncryptInterface)
 
 	flags.Bool(option.EncryptNode, defaults.EncryptNode, "Enables encrypting traffic from non-Cilium pods and host networking")
-	option.BindEnv(option.EncryptNode)
+	option.BindEnv(Vp, option.EncryptNode)
 
 	flags.StringSlice(option.IPv4PodSubnets, []string{}, "List of IPv4 pod subnets to preconfigure for encryption")
-	option.BindEnv(option.IPv4PodSubnets)
+	option.BindEnv(Vp, option.IPv4PodSubnets)
 
 	flags.StringSlice(option.IPv6PodSubnets, []string{}, "List of IPv6 pod subnets to preconfigure for encryption")
-	option.BindEnv(option.IPv6PodSubnets)
+	option.BindEnv(Vp, option.IPv6PodSubnets)
 
 	flags.String(option.EndpointInterfaceNamePrefix, "", "Prefix of interface name shared by all endpoints")
-	option.BindEnv(option.EndpointInterfaceNamePrefix)
+	option.BindEnv(Vp, option.EndpointInterfaceNamePrefix)
 	flags.MarkDeprecated(option.EndpointInterfaceNamePrefix, "This option no longer has any effect and will be removed in v1.13.")
 
 	flags.StringSlice(option.ExcludeLocalAddress, []string{}, "Exclude CIDR from being recognized as local address")
-	option.BindEnv(option.ExcludeLocalAddress)
+	option.BindEnv(Vp, option.ExcludeLocalAddress)
 
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
-	option.BindEnv(option.DisableCiliumEndpointCRDName)
+	option.BindEnv(Vp, option.DisableCiliumEndpointCRDName)
 
 	flags.String(option.EgressMasqueradeInterfaces, "", "Limit egress masquerading to interface selector")
-	option.BindEnv(option.EgressMasqueradeInterfaces)
+	option.BindEnv(Vp, option.EgressMasqueradeInterfaces)
 
 	flags.Bool(option.BPFSocketLBHostnsOnly, false, "Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
-	option.BindEnv(option.BPFSocketLBHostnsOnly)
+	option.BindEnv(Vp, option.BPFSocketLBHostnsOnly)
+
+	flags.Bool(option.EnableSocketLB, false, "Enable socket-based LB for E/W traffic")
+	option.BindEnv(Vp, option.EnableSocketLB)
 
 	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
-	option.BindEnv(option.EnableHostReachableServices)
+	option.BindEnv(Vp, option.EnableHostReachableServices)
+	flags.MarkDeprecated(option.EnableHostReachableServices,
+		fmt.Sprintf("This option will be removed in v1.13. Use --%s instead", option.EnableSocketLB))
 
 	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
-	option.BindEnv(option.HostReachableServicesProtos)
+	option.BindEnv(Vp, option.HostReachableServicesProtos)
 	flags.MarkDeprecated(option.HostReachableServicesProtos, "This option will be removed in v1.13")
 
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
-	option.BindEnv(option.EnableAutoDirectRoutingName)
+	option.BindEnv(Vp, option.EnableAutoDirectRoutingName)
 
 	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection, if support available")
-	option.BindEnv(option.EnableBPFTProxy)
+	option.BindEnv(Vp, option.EnableBPFTProxy)
 
 	flags.Bool(option.EnableHostLegacyRouting, defaults.EnableHostLegacyRouting, "Enable the legacy host forwarding model which does not bypass upper stack in host namespace")
-	option.BindEnv(option.EnableHostLegacyRouting)
+	option.BindEnv(Vp, option.EnableHostLegacyRouting)
 
 	flags.Bool(option.EnableXTSocketFallbackName, defaults.EnableXTSocketFallback, "Enable fallback for missing xt_socket module")
-	option.BindEnv(option.EnableXTSocketFallbackName)
+	option.BindEnv(Vp, option.EnableXTSocketFallbackName)
 
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
-	option.BindEnv(option.EnablePolicy)
+	option.BindEnv(Vp, option.EnablePolicy)
 
 	flags.Bool(option.EnableExternalIPs, defaults.EnableExternalIPs, fmt.Sprintf("Enable k8s service externalIPs feature (requires enabling %s)", option.EnableNodePort))
-	option.BindEnv(option.EnableExternalIPs)
+	option.BindEnv(Vp, option.EnableExternalIPs)
 
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it")
-	option.BindEnv(option.K8sEnableEndpointSlice)
+	option.BindEnv(Vp, option.K8sEnableEndpointSlice)
 
 	flags.Bool(option.K8sEnableAPIDiscovery, defaults.K8sEnableAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
-	option.BindEnv(option.K8sEnableAPIDiscovery)
+	option.BindEnv(Vp, option.K8sEnableAPIDiscovery)
 
 	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
-	option.BindEnv(option.EnableL7Proxy)
+	option.BindEnv(Vp, option.EnableL7Proxy)
 
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
-	option.BindEnv(option.EnableTracing)
+	option.BindEnv(Vp, option.EnableTracing)
 
 	flags.Bool(option.EnableUnreachableRoutes, false, "Add unreachable routes on pod deletion")
-	option.BindEnv(option.EnableUnreachableRoutes)
+	option.BindEnv(Vp, option.EnableUnreachableRoutes)
 
 	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
-	option.BindEnv(option.EnableWellKnownIdentities)
+	option.BindEnv(Vp, option.EnableWellKnownIdentities)
 
 	flags.String(option.EnvoyLog, "", "Path to a separate Envoy log file, if any")
-	option.BindEnv(option.EnvoyLog)
+	option.BindEnv(Vp, option.EnvoyLog)
 
 	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPSec support")
-	option.BindEnv(option.EnableIPSecName)
+	option.BindEnv(Vp, option.EnableIPSecName)
 
 	flags.String(option.IPSecKeyFileName, "", "Path to IPSec key file")
-	option.BindEnv(option.IPSecKeyFileName)
+	option.BindEnv(Vp, option.IPSecKeyFileName)
 
 	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
-	option.BindEnv(option.EnableWireguard)
+	option.BindEnv(Vp, option.EnableWireguard)
 
 	flags.Bool(option.EnableWireguardUserspaceFallback, false, "Enables the fallback to the wireguard userspace implementation")
-	option.BindEnv(option.EnableWireguardUserspaceFallback)
+	option.BindEnv(Vp, option.EnableWireguardUserspaceFallback)
 
 	flags.Bool(option.ForceLocalPolicyEvalAtSource, defaults.ForceLocalPolicyEvalAtSource, "Force policy evaluation of all local communication at the source endpoint")
-	option.BindEnv(option.ForceLocalPolicyEvalAtSource)
+	option.BindEnv(Vp, option.ForceLocalPolicyEvalAtSource)
 
 	flags.Bool(option.HTTPNormalizePath, true, "Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution.")
-	option.BindEnv(option.HTTPNormalizePath)
+	option.BindEnv(Vp, option.HTTPNormalizePath)
 
 	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
 	flags.MarkHidden(option.HTTP403Message)
-	option.BindEnv(option.HTTP403Message)
+	option.BindEnv(Vp, option.HTTP403Message)
 
 	flags.Uint(option.HTTPRequestTimeout, 60*60, "Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited")
-	option.BindEnv(option.HTTPRequestTimeout)
+	option.BindEnv(Vp, option.HTTPRequestTimeout)
 
 	flags.Uint(option.HTTPIdleTimeout, 0, "Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)")
-	option.BindEnv(option.HTTPIdleTimeout)
+	option.BindEnv(Vp, option.HTTPIdleTimeout)
 
 	flags.Uint(option.HTTPMaxGRPCTimeout, 0, "Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
-	option.BindEnv(option.HTTPMaxGRPCTimeout)
+	option.BindEnv(Vp, option.HTTPMaxGRPCTimeout)
 
 	flags.Uint(option.HTTPRetryCount, 3, "Number of retries performed after a forwarded request attempt fails")
-	option.BindEnv(option.HTTPRetryCount)
+	option.BindEnv(Vp, option.HTTPRetryCount)
 
 	flags.Uint(option.HTTPRetryTimeout, 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
-	option.BindEnv(option.HTTPRetryTimeout)
+	option.BindEnv(Vp, option.HTTPRetryTimeout)
 
 	flags.Uint(option.ProxyConnectTimeout, 1, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
-	option.BindEnv(option.ProxyConnectTimeout)
+	option.BindEnv(Vp, option.ProxyConnectTimeout)
+
+	flags.Uint(option.ProxyGID, 1337, "Group ID for proxy control plane sockets.")
+	option.BindEnv(Vp, option.ProxyGID)
 
 	flags.Int(option.ProxyPrometheusPort, 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
-	option.BindEnv(option.ProxyPrometheusPort)
+	option.BindEnv(Vp, option.ProxyPrometheusPort)
 
 	flags.Int(option.ProxyMaxRequestsPerConnection, 0, "Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)")
-	option.BindEnv(option.ProxyMaxRequestsPerConnection)
+	option.BindEnv(Vp, option.ProxyMaxRequestsPerConnection)
 
 	flags.Int64(option.ProxyMaxConnectionDuration, 0, "Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)")
-	option.BindEnv(option.ProxyMaxConnectionDuration)
+	option.BindEnv(Vp, option.ProxyMaxConnectionDuration)
 
 	flags.Bool(option.DisableEnvoyVersionCheck, false, "Do not perform Envoy binary version check on startup")
 	flags.MarkHidden(option.DisableEnvoyVersionCheck)
 	// Disable version check if Envoy build is disabled
-	option.BindEnvWithLegacyEnvFallback(option.DisableEnvoyVersionCheck, "CILIUM_DISABLE_ENVOY_BUILD")
+	option.BindEnvWithLegacyEnvFallback(Vp, option.DisableEnvoyVersionCheck, "CILIUM_DISABLE_ENVOY_BUILD")
 
 	flags.Var(option.NewNamedMapOptions(option.FixedIdentityMapping, &option.Config.FixedIdentityMapping, option.Config.FixedIdentityMappingValidator),
 		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns")
-	option.BindEnv(option.FixedIdentityMapping)
+	option.BindEnv(Vp, option.FixedIdentityMapping)
 
 	flags.Duration(option.IdentityChangeGracePeriod, defaults.IdentityChangeGracePeriod, "Time to wait before using new identity on endpoint identity change")
-	option.BindEnv(option.IdentityChangeGracePeriod)
+	option.BindEnv(Vp, option.IdentityChangeGracePeriod)
+
+	flags.Duration(option.IdentityRestoreGracePeriod, defaults.IdentityRestoreGracePeriod, "Time to wait before releasing unused restored CIDR identities during agent restart")
+	option.BindEnv(Vp, option.IdentityRestoreGracePeriod)
 
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
-	option.BindEnv(option.IdentityAllocationMode)
+	option.BindEnv(Vp, option.IdentityAllocationMode)
 
 	flags.String(option.IPAM, ipamOption.IPAMClusterPool, "Backend to use for IPAM")
-	option.BindEnv(option.IPAM)
+	option.BindEnv(Vp, option.IPAM)
 
 	flags.String(option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
-	option.BindEnv(option.IPv4Range)
+	option.BindEnv(Vp, option.IPv4Range)
 
 	flags.String(option.IPv6Range, AutoCIDR, "Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96")
-	option.BindEnv(option.IPv6Range)
+	option.BindEnv(Vp, option.IPv6Range)
 
 	flags.String(option.IPv6ClusterAllocCIDRName, defaults.IPv6ClusterAllocCIDR, "IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR")
-	option.BindEnv(option.IPv6ClusterAllocCIDRName)
+	option.BindEnv(Vp, option.IPv6ClusterAllocCIDRName)
 
 	flags.String(option.IPv4ServiceRange, AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
-	option.BindEnv(option.IPv4ServiceRange)
+	option.BindEnv(Vp, option.IPv4ServiceRange)
 
 	flags.String(option.IPv6ServiceRange, AutoCIDR, "Kubernetes IPv6 services CIDR if not inside cluster prefix")
-	option.BindEnv(option.IPv6ServiceRange)
+	option.BindEnv(Vp, option.IPv6ServiceRange)
 
 	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
-	option.BindEnv(option.K8sEventHandover)
+	option.BindEnv(Vp, option.K8sEventHandover)
 
 	flags.String(option.K8sAPIServer, "", "Kubernetes API server URL")
-	option.BindEnv(option.K8sAPIServer)
+	option.BindEnv(Vp, option.K8sAPIServer)
 
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
-	option.BindEnv(option.K8sKubeConfigPath)
+	option.BindEnv(Vp, option.K8sKubeConfigPath)
 
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
-	option.BindEnv(option.K8sNamespaceName)
+	option.BindEnv(Vp, option.K8sNamespaceName)
+
+	flags.String(option.AgentNotReadyNodeTaintKeyName, defaults.AgentNotReadyNodeTaint, "Key of the taint indicating that Cilium is not ready on the node")
+	option.BindEnv(Vp, option.AgentNotReadyNodeTaintKeyName)
 
 	flags.Bool(option.JoinClusterName, false, "Join a Cilium cluster via kvstore registration")
-	option.BindEnv(option.JoinClusterName)
+	option.BindEnv(Vp, option.JoinClusterName)
 
 	flags.Bool(option.K8sRequireIPv4PodCIDRName, false, "Require IPv4 PodCIDR to be specified in node resource")
-	option.BindEnv(option.K8sRequireIPv4PodCIDRName)
+	option.BindEnv(Vp, option.K8sRequireIPv4PodCIDRName)
 
 	flags.Bool(option.K8sRequireIPv6PodCIDRName, false, "Require IPv6 PodCIDR to be specified in node resource")
-	option.BindEnv(option.K8sRequireIPv6PodCIDRName)
+	option.BindEnv(Vp, option.K8sRequireIPv6PodCIDRName)
 
 	flags.Uint(option.K8sServiceCacheSize, defaults.K8sServiceCacheSize, "Cilium service cache size for kubernetes")
-	option.BindEnv(option.K8sServiceCacheSize)
+	option.BindEnv(Vp, option.K8sServiceCacheSize)
 	flags.MarkHidden(option.K8sServiceCacheSize)
 
 	flags.String(option.K8sWatcherEndpointSelector, defaults.K8sWatcherEndpointSelector, "K8s endpoint watcher will watch for these k8s endpoints")
-	option.BindEnv(option.K8sWatcherEndpointSelector)
+	option.BindEnv(Vp, option.K8sWatcherEndpointSelector)
 
 	flags.Bool(option.KeepConfig, false, "When restoring state, keeps containers' configuration in place")
-	option.BindEnv(option.KeepConfig)
+	option.BindEnv(Vp, option.KeepConfig)
 
 	flags.String(option.KVStore, "", "Key-value store type")
-	option.BindEnv(option.KVStore)
+	option.BindEnv(Vp, option.KVStore)
 
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
 	flags.MarkHidden(option.KVstoreLeaseTTL)
-	option.BindEnv(option.KVstoreLeaseTTL)
+	option.BindEnv(Vp, option.KVstoreLeaseTTL)
 
 	flags.Int(option.KVstoreMaxConsecutiveQuorumErrorsName, defaults.KVstoreMaxConsecutiveQuorumErrors, "Max acceptable kvstore consecutive quorum errors before the agent assumes permanent failure")
-	option.BindEnv(option.KVstoreMaxConsecutiveQuorumErrorsName)
+	option.BindEnv(Vp, option.KVstoreMaxConsecutiveQuorumErrorsName)
 
 	flags.Duration(option.KVstorePeriodicSync, defaults.KVstorePeriodicSync, "Periodic KVstore synchronization interval")
-	option.BindEnv(option.KVstorePeriodicSync)
+	option.BindEnv(Vp, option.KVstorePeriodicSync)
 
 	flags.Duration(option.KVstoreConnectivityTimeout, defaults.KVstoreConnectivityTimeout, "Time after which an incomplete kvstore operation  is considered failed")
-	option.BindEnv(option.KVstoreConnectivityTimeout)
+	option.BindEnv(Vp, option.KVstoreConnectivityTimeout)
 
 	flags.Duration(option.IPAllocationTimeout, defaults.IPAllocationTimeout, "Time after which an incomplete CIDR allocation is considered failed")
-	option.BindEnv(option.IPAllocationTimeout)
+	option.BindEnv(Vp, option.IPAllocationTimeout)
 
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
 		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	option.BindEnv(option.KVStoreOpt)
+	option.BindEnv(Vp, option.KVStoreOpt)
 
-	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout for synchronizing k8s resources before exiting")
+	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout after last K8s event for synchronizing k8s resources before exiting")
 	flags.MarkHidden(option.K8sSyncTimeoutName)
-	option.BindEnv(option.K8sSyncTimeoutName)
+	option.BindEnv(Vp, option.K8sSyncTimeoutName)
 
 	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
-	option.BindEnv(option.AllocatorListTimeoutName)
+	option.BindEnv(Vp, option.AllocatorListTimeoutName)
 
 	flags.String(option.LabelPrefixFile, "", "Valid label prefixes file path")
-	option.BindEnv(option.LabelPrefixFile)
+	option.BindEnv(Vp, option.LabelPrefixFile)
 
 	flags.StringSlice(option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
-	option.BindEnv(option.Labels)
+	option.BindEnv(Vp, option.Labels)
 
 	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementPartial, fmt.Sprintf(
-		"auto-enable available features for kube-proxy replacement (%q), "+
-			"or enable only selected features (will panic if any selected feature cannot be enabled) (%q) "+
+		"enable only selected features (will panic if any selected feature cannot be enabled) (%q), "+
 			"or enable all features (will panic if any feature cannot be enabled) (%q), "+
 			"or completely disable it (ignores any selected feature) (%q)",
-		option.KubeProxyReplacementProbe, option.KubeProxyReplacementPartial,
-		option.KubeProxyReplacementStrict, option.KubeProxyReplacementDisabled))
-	option.BindEnv(option.KubeProxyReplacement)
+		option.KubeProxyReplacementPartial, option.KubeProxyReplacementStrict,
+		option.KubeProxyReplacementDisabled))
+	option.BindEnv(Vp, option.KubeProxyReplacement)
 
 	flags.String(option.KubeProxyReplacementHealthzBindAddr, defaults.KubeProxyReplacementHealthzBindAddr, "The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.")
-	option.BindEnv(option.KubeProxyReplacementHealthzBindAddr)
+	option.BindEnv(Vp, option.KubeProxyReplacementHealthzBindAddr)
 
 	flags.Bool(option.EnableHostPort, true, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
-	option.BindEnv(option.EnableHostPort)
+	option.BindEnv(Vp, option.EnableHostPort)
 
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium")
-	option.BindEnv(option.EnableNodePort)
+	option.BindEnv(Vp, option.EnableNodePort)
 
 	flags.Bool(option.EnableSVCSourceRangeCheck, true, "Enable check of service source ranges (currently, only for LoadBalancer)")
-	option.BindEnv(option.EnableSVCSourceRangeCheck)
+	option.BindEnv(Vp, option.EnableSVCSourceRangeCheck)
+
+	flags.String(option.AddressScopeMax, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
+	flags.MarkHidden(option.AddressScopeMax)
+	option.BindEnv(Vp, option.AddressScopeMax)
 
 	flags.Bool(option.EnableBandwidthManager, false, "Enable BPF bandwidth manager")
-	option.BindEnv(option.EnableBandwidthManager)
+	option.BindEnv(Vp, option.EnableBandwidthManager)
 
 	flags.Bool(option.EnableBBR, false, "Enable BBR for the bandwidth manager")
-	option.BindEnv(option.EnableBBR)
+	option.BindEnv(Vp, option.EnableBBR)
 
 	flags.Bool(option.EnableRecorder, false, "Enable BPF datapath pcap recorder")
-	option.BindEnv(option.EnableRecorder)
+	option.BindEnv(Vp, option.EnableRecorder)
 
 	flags.Bool(option.EnableLocalRedirectPolicy, false, "Enable Local Redirect Policy")
-	option.BindEnv(option.EnableLocalRedirectPolicy)
+	option.BindEnv(Vp, option.EnableLocalRedirectPolicy)
 
 	flags.Bool(option.EnableMKE, false, "Enable BPF kube-proxy replacement for MKE environments")
 	flags.MarkHidden(option.EnableMKE)
-	option.BindEnv(option.EnableMKE)
+	option.BindEnv(Vp, option.EnableMKE)
 
 	flags.String(option.CgroupPathMKE, "", "Cgroup v1 net_cls mount path for MKE environments")
 	flags.MarkHidden(option.CgroupPathMKE)
-	option.BindEnv(option.CgroupPathMKE)
+	option.BindEnv(Vp, option.CgroupPathMKE)
 
 	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
 	flags.MarkHidden(option.NodePortMode)
-	option.BindEnv(option.NodePortMode)
+	option.BindEnv(Vp, option.NodePortMode)
 
 	flags.String(option.NodePortAlg, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
 	flags.MarkHidden(option.NodePortAlg)
-	option.BindEnv(option.NodePortAlg)
+	option.BindEnv(Vp, option.NodePortAlg)
 
 	flags.String(option.NodePortAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
 		"BPF NodePort acceleration via XDP (\"%s\", \"%s\")",
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
 	flags.MarkHidden(option.NodePortAcceleration)
-	option.BindEnv(option.NodePortAcceleration)
+	option.BindEnv(Vp, option.NodePortAcceleration)
 
 	flags.String(option.LoadBalancerMode, option.NodePortModeSNAT, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
-	option.BindEnv(option.LoadBalancerMode)
+	option.BindEnv(Vp, option.LoadBalancerMode)
 
 	flags.String(option.LoadBalancerAlg, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
-	option.BindEnv(option.LoadBalancerAlg)
+	option.BindEnv(Vp, option.LoadBalancerAlg)
 
 	flags.String(option.LoadBalancerDSRDispatch, option.DSRDispatchOption, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\")")
-	option.BindEnv(option.LoadBalancerDSRDispatch)
+	option.BindEnv(Vp, option.LoadBalancerDSRDispatch)
 
 	flags.String(option.LoadBalancerDSRL4Xlate, option.DSRL4XlateFrontend, "BPF load balancing DSR L4 DNAT method for IPIP (\"frontend\", \"backend\")")
-	option.BindEnv(option.LoadBalancerDSRL4Xlate)
+	option.BindEnv(Vp, option.LoadBalancerDSRL4Xlate)
 
 	flags.String(option.LoadBalancerRSSv4CIDR, "", "BPF load balancing RSS outer source IPv4 CIDR prefix for IPIP")
-	option.BindEnv(option.LoadBalancerRSSv4CIDR)
+	option.BindEnv(Vp, option.LoadBalancerRSSv4CIDR)
 
 	flags.String(option.LoadBalancerRSSv6CIDR, "", "BPF load balancing RSS outer source IPv6 CIDR prefix for IPIP")
-	option.BindEnv(option.LoadBalancerRSSv6CIDR)
+	option.BindEnv(Vp, option.LoadBalancerRSSv6CIDR)
 
 	flags.String(option.LoadBalancerAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
 		"BPF load balancing acceleration via XDP (\"%s\", \"%s\")",
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
-	option.BindEnv(option.LoadBalancerAcceleration)
+	option.BindEnv(Vp, option.LoadBalancerAcceleration)
 
 	flags.Uint(option.MaglevTableSize, maglev.DefaultTableSize, "Maglev per service backend table size (parameter M)")
-	option.BindEnv(option.MaglevTableSize)
+	option.BindEnv(Vp, option.MaglevTableSize)
 
 	flags.String(option.MaglevHashSeed, maglev.DefaultHashSeed, "Maglev cluster-wide hash seed (base64 encoded)")
-	option.BindEnv(option.MaglevHashSeed)
+	option.BindEnv(Vp, option.MaglevHashSeed)
 
 	flags.Bool(option.EnableAutoProtectNodePortRange, true,
 		"Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps "+
 			"with ephemeral port range (net.ipv4.ip_local_port_range)")
-	option.BindEnv(option.EnableAutoProtectNodePortRange)
+	option.BindEnv(Vp, option.EnableAutoProtectNodePortRange)
 
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, "Set the min/max NodePort port range")
-	option.BindEnv(option.NodePortRange)
+	option.BindEnv(Vp, option.NodePortRange)
 
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
-	option.BindEnv(option.NodePortBindProtection)
+	option.BindEnv(Vp, option.NodePortBindProtection)
 
 	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
-	option.BindEnv(option.EnableSessionAffinity)
+	option.BindEnv(Vp, option.EnableSessionAffinity)
 
 	flags.Bool(option.EnableServiceTopology, false, "Enable support for service topology aware hints")
-	option.BindEnv(option.EnableServiceTopology)
+	option.BindEnv(Vp, option.EnableServiceTopology)
 
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
-	option.BindEnv(option.EnableIdentityMark)
+	option.BindEnv(Vp, option.EnableIdentityMark)
 
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
-	option.BindEnv(option.EnableHostFirewall)
-
-	flags.String(option.NativeRoutingCIDR, "",
-		fmt.Sprintf("Allows to explicitly specify the IPv4 CIDR for native routing. "+
-			"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
-			"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
-			"To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag. "+
-			"Deprecated in favor of --%s", option.IPv4NativeRoutingCIDR))
-	option.BindEnv(option.NativeRoutingCIDR)
-	flags.MarkDeprecated(option.NativeRoutingCIDR, "This option will be removed in v1.12")
+	option.BindEnv(Vp, option.EnableHostFirewall)
 
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. "+
 		"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
 		"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
 		"To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag.")
-	option.BindEnv(option.IPv4NativeRoutingCIDR)
+	option.BindEnv(Vp, option.IPv4NativeRoutingCIDR)
 
 	flags.String(option.IPv6NativeRoutingCIDR, "", "Allows to explicitly specify the IPv6 CIDR for native routing. "+
 		"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
 		"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
 		"To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag.")
-	option.BindEnv(option.IPv6NativeRoutingCIDR)
+	option.BindEnv(Vp, option.IPv6NativeRoutingCIDR)
 
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
-	option.BindEnv(option.LibDir)
+	option.BindEnv(Vp, option.LibDir)
 
 	flags.StringSlice(option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
-	option.BindEnv(option.LogDriver)
+	option.BindEnv(Vp, option.LogDriver)
 
 	flags.Var(option.NewNamedMapOptions(option.LogOpt, &option.Config.LogOpt, nil),
 		option.LogOpt, `Log driver options for cilium-agent, `+
 			`configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}`)
-	option.BindEnv(option.LogOpt)
+	option.BindEnv(Vp, option.LogOpt)
 
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
-	option.BindEnv(option.LogSystemLoadConfigName)
+	option.BindEnv(Vp, option.LogSystemLoadConfigName)
 
 	flags.String(option.LoopbackIPv4, defaults.LoopbackIPv4, "IPv4 address for service loopback SNAT")
-	option.BindEnv(option.LoopbackIPv4)
+	option.BindEnv(Vp, option.LoopbackIPv4)
 
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
-	option.BindEnv(option.EnableIPv4Masquerade)
+	option.BindEnv(Vp, option.EnableIPv4Masquerade)
 
 	flags.Bool(option.EnableIPv6Masquerade, true, "Masquerade IPv6 traffic from endpoints leaving the host")
-	option.BindEnv(option.EnableIPv6Masquerade)
+	option.BindEnv(Vp, option.EnableIPv6Masquerade)
 
 	flags.Bool(option.EnableBPFMasquerade, false, "Masquerade packets from endpoints leaving the host with BPF instead of iptables")
-	option.BindEnv(option.EnableBPFMasquerade)
+	option.BindEnv(Vp, option.EnableBPFMasquerade)
 
 	flags.String(option.DeriveMasqIPAddrFromDevice, "", "Device name from which Cilium derives the IP addr for BPF masquerade")
 	flags.MarkHidden(option.DeriveMasqIPAddrFromDevice)
-	option.BindEnv(option.DeriveMasqIPAddrFromDevice)
+	option.BindEnv(Vp, option.DeriveMasqIPAddrFromDevice)
 
 	flags.Bool(option.EnableIPMasqAgent, false, "Enable BPF ip-masq-agent")
-	option.BindEnv(option.EnableIPMasqAgent)
+	option.BindEnv(Vp, option.EnableIPMasqAgent)
+
+	flags.Bool(option.EnableIPv6BIGTCP, false, "Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits")
+	option.BindEnv(Vp, option.EnableIPv6BIGTCP)
 
 	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
-	option.BindEnv(option.EnableIPv4EgressGateway)
+	option.BindEnv(Vp, option.EnableIPv4EgressGateway)
+
+	flags.Bool(option.InstallEgressGatewayRoutes, false, "Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface")
+	option.BindEnv(Vp, option.InstallEgressGatewayRoutes)
 
 	flags.Bool(option.EnableEnvoyConfig, false, "Enable Envoy Config CRDs")
-	option.BindEnv(option.EnableEnvoyConfig)
+	option.BindEnv(Vp, option.EnableEnvoyConfig)
 
 	flags.Duration(option.EnvoyConfigTimeout, defaults.EnvoyConfigTimeout, "Timeout duration for Envoy Config acknowledgements")
-	option.BindEnv(option.EnvoyConfigTimeout)
+	option.BindEnv(Vp, option.EnvoyConfigTimeout)
 
 	flags.String(option.IPMasqAgentConfigPath, "/etc/config/ip-masq-agent", "ip-masq-agent configuration file path")
-	option.BindEnv(option.IPMasqAgentConfigPath)
+	option.BindEnv(Vp, option.IPMasqAgentConfigPath)
 
 	flags.Bool(option.InstallIptRules, true, "Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading)")
-	option.BindEnv(option.InstallIptRules)
+	option.BindEnv(Vp, option.InstallIptRules)
 
 	flags.Duration(option.IPTablesLockTimeout, 5*time.Second, "Time to pass to each iptables invocation to wait for xtables lock acquisition")
-	option.BindEnv(option.IPTablesLockTimeout)
+	option.BindEnv(Vp, option.IPTablesLockTimeout)
 
 	flags.Bool(option.IPTablesRandomFully, false, "Set iptables flag random-fully on masquerading rules")
-	option.BindEnv(option.IPTablesRandomFully)
+	option.BindEnv(Vp, option.IPTablesRandomFully)
 
 	flags.Int(option.MaxCtrlIntervalName, 0, "Maximum interval (in seconds) between controller runs. Zero is no limit.")
 	flags.MarkHidden(option.MaxCtrlIntervalName)
-	option.BindEnv(option.MaxCtrlIntervalName)
+	option.BindEnv(Vp, option.MaxCtrlIntervalName)
 
 	flags.StringSlice(option.Metrics, []string{}, "Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)")
-	option.BindEnv(option.Metrics)
+	option.BindEnv(Vp, option.Metrics)
 
 	flags.Bool(option.EnableMonitorName, true, "Enable the monitor unix domain socket server")
-	option.BindEnv(option.EnableMonitorName)
+	option.BindEnv(Vp, option.EnableMonitorName)
 
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
-	option.BindEnvWithLegacyEnvFallback(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
+	option.BindEnvWithLegacyEnvFallback(Vp, option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
 
 	flags.Int(option.MonitorQueueSizeName, 0, "Size of the event queue when reading monitor events")
-	option.BindEnv(option.MonitorQueueSizeName)
+	option.BindEnv(Vp, option.MonitorQueueSizeName)
 
 	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
-	option.BindEnv(option.MTUName)
+	option.BindEnv(Vp, option.MTUName)
+
+	flags.String(option.ProcFs, "/proc", "Root's proc filesystem path")
+	option.BindEnv(Vp, option.ProcFs)
 
 	flags.Int(option.RouteMetric, 0, "Overwrite the metric used by cilium when adding routes to its 'cilium_host' device")
-	option.BindEnv(option.RouteMetric)
+	option.BindEnv(Vp, option.RouteMetric)
 
 	flags.Bool(option.PrependIptablesChainsName, true, "Prepend custom iptables chains instead of appending")
-	option.BindEnvWithLegacyEnvFallback(option.PrependIptablesChainsName, "CILIUM_PREPEND_IPTABLES_CHAIN")
+	option.BindEnvWithLegacyEnvFallback(Vp, option.PrependIptablesChainsName, "CILIUM_PREPEND_IPTABLES_CHAIN")
 
 	flags.String(option.IPv6NodeAddr, "auto", "IPv6 address of node")
-	option.BindEnv(option.IPv6NodeAddr)
+	option.BindEnv(Vp, option.IPv6NodeAddr)
 
 	flags.String(option.IPv4NodeAddr, "auto", "IPv4 address of node")
-	option.BindEnv(option.IPv4NodeAddr)
+	option.BindEnv(Vp, option.IPv4NodeAddr)
 
 	flags.String(option.ReadCNIConfiguration, "", "Read to the CNI configuration at specified path to extract per node configuration")
-	option.BindEnv(option.ReadCNIConfiguration)
+	option.BindEnv(Vp, option.ReadCNIConfiguration)
 
 	flags.Bool(option.Restore, true, "Restores state, if possible, from previous daemon")
-	option.BindEnv(option.Restore)
+	option.BindEnv(Vp, option.Restore)
 
 	flags.String(option.SidecarIstioProxyImage, k8s.DefaultSidecarIstioProxyImageRegexp,
 		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
-	option.BindEnv(option.SidecarIstioProxyImage)
+	option.BindEnv(Vp, option.SidecarIstioProxyImage)
 
 	flags.Bool(option.SingleClusterRouteName, false,
 		"Use a single cluster route instead of per node routes")
-	option.BindEnv(option.SingleClusterRouteName)
+	option.BindEnv(Vp, option.SingleClusterRouteName)
 
 	flags.String(option.SocketPath, defaults.SockPath, "Sets daemon's socket path to listen for connections")
-	option.BindEnv(option.SocketPath)
+	option.BindEnv(Vp, option.SocketPath)
 
 	flags.String(option.StateDir, defaults.RuntimePath, "Directory path to store runtime state")
-	option.BindEnv(option.StateDir)
+	option.BindEnv(Vp, option.StateDir)
 
 	flags.StringP(option.TunnelName, "t", "", fmt.Sprintf("Tunnel mode {%s} (default \"vxlan\" for the \"veth\" datapath mode)", option.GetTunnelModes()))
-	option.BindEnv(option.TunnelName)
+	option.BindEnv(Vp, option.TunnelName)
 
 	flags.Int(option.TunnelPortName, 0, fmt.Sprintf("Tunnel port (default %d for \"vxlan\" and %d for \"geneve\")", defaults.TunnelPortVXLAN, defaults.TunnelPortGeneve))
-	option.BindEnv(option.TunnelPortName)
+	option.BindEnv(Vp, option.TunnelPortName)
 
 	flags.Int(option.TracePayloadlen, 128, "Length of payload to capture when tracing")
-	option.BindEnv(option.TracePayloadlen)
+	option.BindEnv(Vp, option.TracePayloadlen)
 
 	flags.Bool(option.Version, false, "Print version information")
-	option.BindEnv(option.Version)
+	option.BindEnv(Vp, option.Version)
 
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
-	option.BindEnv(option.PProf)
+	option.BindEnv(Vp, option.PProf)
 
 	flags.Int(option.PProfPort, 6060, "Port that the pprof listens on")
-	option.BindEnv(option.PProfPort)
+	option.BindEnv(Vp, option.PProfPort)
 
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
-	option.BindEnv(option.EnableXDPPrefilter)
-
-	flags.String(option.PrefilterDevice, "undefined", "Device facing external network for XDP prefiltering")
-	option.BindEnv(option.PrefilterDevice)
-	flags.MarkDeprecated(option.PrefilterDevice,
-		fmt.Sprintf("This option will be removed in v1.12. Use --%s and --%s instead.",
-			option.EnableXDPPrefilter, option.Devices))
-
-	flags.String(option.PrefilterMode, option.ModePreFilterNative, "Prefilter mode via XDP (\"native\", \"generic\")")
-	option.BindEnv(option.PrefilterMode)
-	flags.MarkDeprecated(option.PrefilterMode,
-		fmt.Sprintf("This option will be removed in v1.12. Use --%s instead.", option.LoadBalancerAcceleration))
+	option.BindEnv(Vp, option.EnableXDPPrefilter)
 
 	flags.Bool(option.PreAllocateMapsName, defaults.PreAllocateMaps, "Enable BPF map pre-allocation")
-	option.BindEnv(option.PreAllocateMapsName)
+	option.BindEnv(Vp, option.PreAllocateMapsName)
 
 	// We expect only one of the possible variables to be filled. The evaluation order is:
 	// --prometheus-serve-addr, CILIUM_PROMETHEUS_SERVE_ADDR, then PROMETHEUS_SERVE_ADDR
 	// The second environment variable (without the CILIUM_ prefix) is here to
 	// handle the case where someone uses a new image with an older spec, and the
 	// older spec used the older variable name.
-	flags.String(option.PrometheusServeAddr, "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
-	option.BindEnvWithLegacyEnvFallback(option.PrometheusServeAddr, "PROMETHEUS_SERVE_ADDR")
+	flags.String(option.PrometheusServeAddr, ":9962", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
+	option.BindEnvWithLegacyEnvFallback(Vp, option.PrometheusServeAddr, "PROMETHEUS_SERVE_ADDR")
 
 	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
-	option.BindEnvWithLegacyEnvFallback(option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
+	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
 
 	flags.String(option.CertsDirectory, defaults.CertsDirectory, "Root directory to find certificates specified in L7 TLS policy enforcement")
-	option.BindEnv(option.CertsDirectory)
+	option.BindEnv(Vp, option.CertsDirectory)
 
 	flags.Int(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyDefault, "Maximum number of entries in non-TCP CT table")
-	option.BindEnvWithLegacyEnvFallback(option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
+	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
 
 	flags.Duration(option.CTMapEntriesTimeoutTCPName, 21600*time.Second, "Timeout for established entries in TCP CT table")
-	option.BindEnv(option.CTMapEntriesTimeoutTCPName)
+	option.BindEnv(Vp, option.CTMapEntriesTimeoutTCPName)
 
 	flags.Duration(option.CTMapEntriesTimeoutAnyName, 60*time.Second, "Timeout for entries in non-TCP CT table")
-	option.BindEnv(option.CTMapEntriesTimeoutAnyName)
+	option.BindEnv(Vp, option.CTMapEntriesTimeoutAnyName)
 
 	flags.Duration(option.CTMapEntriesTimeoutSVCTCPName, 21600*time.Second, "Timeout for established service entries in TCP CT table")
-	option.BindEnv(option.CTMapEntriesTimeoutSVCTCPName)
+	option.BindEnv(Vp, option.CTMapEntriesTimeoutSVCTCPName)
+
+	flags.Duration(option.CTMapEntriesTimeoutSVCTCPGraceName, 60*time.Second, "Timeout for graceful shutdown of service entries in TCP CT table")
+	option.BindEnv(Vp, option.CTMapEntriesTimeoutSVCTCPGraceName)
 
 	flags.Duration(option.CTMapEntriesTimeoutSVCAnyName, 60*time.Second, "Timeout for service entries in non-TCP CT table")
-	option.BindEnv(option.CTMapEntriesTimeoutSVCAnyName)
+	option.BindEnv(Vp, option.CTMapEntriesTimeoutSVCAnyName)
 
 	flags.Duration(option.CTMapEntriesTimeoutSYNName, 60*time.Second, "Establishment timeout for entries in TCP CT table")
-	option.BindEnv(option.CTMapEntriesTimeoutSYNName)
+	option.BindEnv(Vp, option.CTMapEntriesTimeoutSYNName)
 
 	flags.Duration(option.CTMapEntriesTimeoutFINName, 10*time.Second, "Teardown timeout for entries in TCP CT table")
-	option.BindEnv(option.CTMapEntriesTimeoutFINName)
+	option.BindEnv(Vp, option.CTMapEntriesTimeoutFINName)
 
 	flags.Duration(option.MonitorAggregationInterval, 5*time.Second, "Monitor report interval when monitor aggregation is enabled")
-	option.BindEnv(option.MonitorAggregationInterval)
+	option.BindEnv(Vp, option.MonitorAggregationInterval)
 
 	flags.StringSlice(option.MonitorAggregationFlags, option.MonitorAggregationFlagsDefault, "TCP flags that trigger monitor reports when monitor aggregation is enabled")
-	option.BindEnv(option.MonitorAggregationFlags)
+	option.BindEnv(Vp, option.MonitorAggregationFlags)
 
 	flags.Int(option.NATMapEntriesGlobalName, option.NATMapEntriesGlobalDefault, "Maximum number of entries for the global BPF NAT table")
-	option.BindEnv(option.NATMapEntriesGlobalName)
+	option.BindEnv(Vp, option.NATMapEntriesGlobalName)
 
 	flags.Int(option.NeighMapEntriesGlobalName, option.NATMapEntriesGlobalDefault, "Maximum number of entries for the global BPF neighbor table")
-	option.BindEnv(option.NeighMapEntriesGlobalName)
+	option.BindEnv(Vp, option.NeighMapEntriesGlobalName)
 
 	flags.Int(option.PolicyMapEntriesName, policymap.MaxEntries, "Maximum number of entries in endpoint policy map (per endpoint)")
-	option.BindEnv(option.PolicyMapEntriesName)
+	option.BindEnv(Vp, option.PolicyMapEntriesName)
 
 	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
-	option.BindEnv(option.SockRevNatEntriesName)
+	option.BindEnv(Vp, option.SockRevNatEntriesName)
 
 	flags.Float64(option.MapEntriesGlobalDynamicSizeRatioName, 0.0, "Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)")
-	option.BindEnv(option.MapEntriesGlobalDynamicSizeRatioName)
+	option.BindEnv(Vp, option.MapEntriesGlobalDynamicSizeRatioName)
 
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")
 	flags.MarkHidden(option.CMDRef)
-	option.BindEnv(option.CMDRef)
-
-	flags.Int(option.GopsPort, defaults.GopsPortAgent, "Port for gops server to listen on")
-	option.BindEnv(option.GopsPort)
+	option.BindEnv(Vp, option.CMDRef)
 
 	flags.Int(option.ToFQDNsMinTTL, 0, fmt.Sprintf("The minimum time, in seconds, to use DNS data for toFQDNs policies. (default %d )", defaults.ToFQDNsMinTTL))
-	option.BindEnv(option.ToFQDNsMinTTL)
+	option.BindEnv(Vp, option.ToFQDNsMinTTL)
 
 	flags.Int(option.ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
-	option.BindEnv(option.ToFQDNsProxyPort)
+	option.BindEnv(Vp, option.ToFQDNsProxyPort)
 
 	flags.StringVar(&option.Config.FQDNRejectResponse, option.FQDNRejectResponseCode, option.FQDNProxyDenyWithRefused, fmt.Sprintf("DNS response code for rejecting DNS requests, available options are '%v'", option.FQDNRejectOptions))
-	option.BindEnv(option.FQDNRejectResponseCode)
+	option.BindEnv(Vp, option.FQDNRejectResponseCode)
 
 	flags.Int(option.ToFQDNsMaxIPsPerHost, defaults.ToFQDNsMaxIPsPerHost, "Maximum number of IPs to maintain per FQDN name for each endpoint")
-	option.BindEnv(option.ToFQDNsMaxIPsPerHost)
+	option.BindEnv(Vp, option.ToFQDNsMaxIPsPerHost)
 
 	flags.Int(option.DNSMaxIPsPerRestoredRule, defaults.DNSMaxIPsPerRestoredRule, "Maximum number of IPs to maintain for each restored DNS rule")
-	option.BindEnv(option.DNSMaxIPsPerRestoredRule)
+	option.BindEnv(Vp, option.DNSMaxIPsPerRestoredRule)
 
 	flags.Bool(option.DNSPolicyUnloadOnShutdown, false, "Unload DNS policy rules on graceful shutdown")
-	option.BindEnv(option.DNSPolicyUnloadOnShutdown)
+	option.BindEnv(Vp, option.DNSPolicyUnloadOnShutdown)
 
 	flags.Int(option.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxDeferredConnectionDeletes, "Maximum number of IPs to retain for expired DNS lookups with still-active connections")
-	option.BindEnv(option.ToFQDNsMaxDeferredConnectionDeletes)
+	option.BindEnv(Vp, option.ToFQDNsMaxDeferredConnectionDeletes)
 
 	flags.DurationVar(&option.Config.ToFQDNsIdleConnectionGracePeriod, option.ToFQDNsIdleConnectionGracePeriod, defaults.ToFQDNsIdleConnectionGracePeriod, "Time during which idle but previously active connections with expired DNS lookups are still considered alive (default 0s)")
-	option.BindEnv(option.ToFQDNsIdleConnectionGracePeriod)
+	option.BindEnv(Vp, option.ToFQDNsIdleConnectionGracePeriod)
 
 	flags.DurationVar(&option.Config.FQDNProxyResponseMaxDelay, option.FQDNProxyResponseMaxDelay, 100*time.Millisecond, "The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.")
-	option.BindEnv(option.FQDNProxyResponseMaxDelay)
+	option.BindEnv(Vp, option.FQDNProxyResponseMaxDelay)
+
+	flags.Int(option.FQDNRegexCompileLRUSize, defaults.FQDNRegexCompileLRUSize, "Size of the FQDN regex compilation LRU. Useful for heavy but repeated DNS L7 rules with MatchName or MatchPattern")
+	flags.MarkHidden(option.FQDNRegexCompileLRUSize)
+	option.BindEnv(Vp, option.FQDNRegexCompileLRUSize)
 
 	flags.String(option.ToFQDNsPreCache, defaults.ToFQDNsPreCache, "DNS cache data at this path is preloaded on agent startup")
-	option.BindEnv(option.ToFQDNsPreCache)
+	option.BindEnv(Vp, option.ToFQDNsPreCache)
 
 	flags.Bool(option.ToFQDNsEnableDNSCompression, defaults.ToFQDNsEnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
-	option.BindEnv(option.ToFQDNsEnableDNSCompression)
+	option.BindEnv(Vp, option.ToFQDNsEnableDNSCompression)
+
+	flags.Int(option.DNSProxyConcurrencyLimit, 0, "Limit concurrency of DNS message processing")
+	option.BindEnv(Vp, option.DNSProxyConcurrencyLimit)
+
+	flags.Duration(option.DNSProxyConcurrencyProcessingGracePeriod, 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
+	option.BindEnv(Vp, option.DNSProxyConcurrencyProcessingGracePeriod)
 
 	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "size of queues for policy-related events")
-	option.BindEnv(option.PolicyQueueSize)
+	option.BindEnv(Vp, option.PolicyQueueSize)
 
 	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "size of EventQueue per-endpoint")
-	option.BindEnv(option.EndpointQueueSize)
+	option.BindEnv(Vp, option.EndpointQueueSize)
 
 	flags.Duration(option.EndpointGCInterval, 5*time.Minute, "Periodically monitor local endpoint health via link status on this interval and garbage collect them if they become unhealthy, set to 0 to disable")
 	flags.MarkHidden(option.EndpointGCInterval)
-	option.BindEnv(option.EndpointGCInterval)
+	option.BindEnv(Vp, option.EndpointGCInterval)
 
 	flags.Bool(option.SelectiveRegeneration, true, "only regenerate endpoints which need to be regenerated upon policy changes")
 	flags.MarkHidden(option.SelectiveRegeneration)
-	option.BindEnv(option.SelectiveRegeneration)
+	option.BindEnv(Vp, option.SelectiveRegeneration)
 
 	flags.String(option.WriteCNIConfigurationWhenReady, "", fmt.Sprintf("Write the CNI configuration as specified via --%s to path when agent is ready", option.ReadCNIConfiguration))
-	option.BindEnv(option.WriteCNIConfigurationWhenReady)
+	option.BindEnv(Vp, option.WriteCNIConfigurationWhenReady)
 
 	flags.Duration(option.PolicyTriggerInterval, defaults.PolicyTriggerInterval, "Time between triggers of policy updates (regenerations for all endpoints)")
 	flags.MarkHidden(option.PolicyTriggerInterval)
-	option.BindEnv(option.PolicyTriggerInterval)
+	option.BindEnv(Vp, option.PolicyTriggerInterval)
 
 	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
-	option.BindEnv(option.DisableCNPStatusUpdates)
+	option.BindEnv(Vp, option.DisableCNPStatusUpdates)
 
 	flags.Bool(option.PolicyAuditModeArg, false, "Enable policy audit (non-drop) mode")
-	option.BindEnv(option.PolicyAuditModeArg)
+	option.BindEnv(Vp, option.PolicyAuditModeArg)
 
 	flags.Bool(option.EnableHubble, false, "Enable hubble server")
-	option.BindEnv(option.EnableHubble)
+	option.BindEnv(Vp, option.EnableHubble)
 
 	flags.String(option.HubbleSocketPath, defaults.HubbleSockPath, "Set hubble's socket path to listen for connections")
-	option.BindEnv(option.HubbleSocketPath)
+	option.BindEnv(Vp, option.HubbleSocketPath)
 
 	flags.String(option.HubbleListenAddress, "", `An additional address for Hubble server to listen to, e.g. ":4244"`)
-	option.BindEnv(option.HubbleListenAddress)
+	option.BindEnv(Vp, option.HubbleListenAddress)
 
 	flags.Bool(option.HubbleTLSDisabled, false, "Allow Hubble server to run on the given listen address without TLS.")
-	option.BindEnv(option.HubbleTLSDisabled)
+	option.BindEnv(Vp, option.HubbleTLSDisabled)
 
 	flags.String(option.HubbleTLSCertFile, "", "Path to the public key file for the Hubble server. The file must contain PEM encoded data.")
-	option.BindEnv(option.HubbleTLSCertFile)
+	option.BindEnv(Vp, option.HubbleTLSCertFile)
 
 	flags.String(option.HubbleTLSKeyFile, "", "Path to the private key file for the Hubble server. The file must contain PEM encoded data.")
-	option.BindEnv(option.HubbleTLSKeyFile)
+	option.BindEnv(Vp, option.HubbleTLSKeyFile)
 
 	flags.StringSlice(option.HubbleTLSClientCAFiles, []string{}, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
-	option.BindEnv(option.HubbleTLSClientCAFiles)
+	option.BindEnv(Vp, option.HubbleTLSClientCAFiles)
 
 	flags.Int(option.HubbleEventBufferCapacity, observeroption.Default.MaxFlows.AsInt(), "Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535)")
-	option.BindEnv(option.HubbleEventBufferCapacity)
+	option.BindEnv(Vp, option.HubbleEventBufferCapacity)
 
 	flags.Int(option.HubbleEventQueueSize, 0, "Buffer size of the channel to receive monitor events.")
-	option.BindEnv(option.HubbleEventQueueSize)
+	option.BindEnv(Vp, option.HubbleEventQueueSize)
 
 	flags.String(option.HubbleMetricsServer, "", "Address to serve Hubble metrics on.")
-	option.BindEnv(option.HubbleMetricsServer)
+	option.BindEnv(Vp, option.HubbleMetricsServer)
 
 	flags.StringSlice(option.HubbleMetrics, []string{}, "List of Hubble metrics to enable.")
-	option.BindEnv(option.HubbleMetrics)
+	option.BindEnv(Vp, option.HubbleMetrics)
 
 	flags.String(option.HubbleExportFilePath, exporteroption.Default.Path, "Filepath to write Hubble events to.")
-	option.BindEnv(option.HubbleExportFilePath)
+	option.BindEnv(Vp, option.HubbleExportFilePath)
 
 	flags.Int(option.HubbleExportFileMaxSizeMB, exporteroption.Default.MaxSizeMB, "Size in MB at which to rotate Hubble export file.")
-	option.BindEnv(option.HubbleExportFileMaxSizeMB)
+	option.BindEnv(Vp, option.HubbleExportFileMaxSizeMB)
 
 	flags.Int(option.HubbleExportFileMaxBackups, exporteroption.Default.MaxBackups, "Number of rotated Hubble export files to keep.")
-	option.BindEnv(option.HubbleExportFileMaxBackups)
+	option.BindEnv(Vp, option.HubbleExportFileMaxBackups)
 
 	flags.Bool(option.HubbleExportFileCompress, exporteroption.Default.Compress, "Compress rotated Hubble export files.")
-	option.BindEnv(option.HubbleExportFileCompress)
+	option.BindEnv(Vp, option.HubbleExportFileCompress)
 
 	flags.Bool(option.EnableHubbleRecorderAPI, true, "Enable the Hubble recorder API")
-	option.BindEnv(option.EnableHubbleRecorderAPI)
+	option.BindEnv(Vp, option.EnableHubbleRecorderAPI)
 
 	flags.String(option.HubbleRecorderStoragePath, defaults.HubbleRecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
-	option.BindEnv(option.HubbleRecorderStoragePath)
+	option.BindEnv(Vp, option.HubbleRecorderStoragePath)
 
 	flags.Int(option.HubbleRecorderSinkQueueSize, defaults.HubbleRecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
-	option.BindEnv(option.HubbleRecorderSinkQueueSize)
+	option.BindEnv(Vp, option.HubbleRecorderSinkQueueSize)
 
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
-	option.BindEnv(option.DisableIptablesFeederRules)
+	option.BindEnv(Vp, option.DisableIptablesFeederRules)
 
 	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
-	option.BindEnv(option.K8sHeartbeatTimeout)
+	option.BindEnv(Vp, option.K8sHeartbeatTimeout)
 
 	flags.Bool(option.EnableIPv4FragmentsTrackingName, defaults.EnableIPv4FragmentsTracking, "Enable IPv4 fragments tracking for L4-based lookups")
-	option.BindEnv(option.EnableIPv4FragmentsTrackingName)
+	option.BindEnv(Vp, option.EnableIPv4FragmentsTrackingName)
 
 	flags.Int(option.FragmentsMapEntriesName, defaults.FragmentsMapEntries, "Maximum number of entries in fragments tracking map")
-	option.BindEnv(option.FragmentsMapEntriesName)
+	option.BindEnv(Vp, option.FragmentsMapEntriesName)
 
-	flags.Int(option.LBMapEntriesName, lbmap.MaxEntries, "Maximum number of entries in Cilium BPF lbmap")
-	option.BindEnv(option.LBMapEntriesName)
+	flags.Int(option.LBMapEntriesName, lbmap.DefaultMaxEntries, "Maximum number of entries in Cilium BPF lbmap")
+	option.BindEnv(Vp, option.LBMapEntriesName)
+
+	flags.Int(option.LBServiceMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for services (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBServiceMapMaxEntries)
+	option.BindEnv(Vp, option.LBServiceMapMaxEntries)
+
+	flags.Int(option.LBBackendMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for service backends (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBBackendMapMaxEntries)
+	option.BindEnv(Vp, option.LBBackendMapMaxEntries)
+
+	flags.Int(option.LBRevNatMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for reverse NAT (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBRevNatMapMaxEntries)
+	option.BindEnv(Vp, option.LBRevNatMapMaxEntries)
+
+	flags.Int(option.LBAffinityMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for session affinities (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBAffinityMapMaxEntries)
+	option.BindEnv(Vp, option.LBAffinityMapMaxEntries)
+
+	flags.Int(option.LBSourceRangeMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for source ranges (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBSourceRangeMapMaxEntries)
+	option.BindEnv(Vp, option.LBSourceRangeMapMaxEntries)
+
+	flags.Int(option.LBMaglevMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for maglev (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
+	flags.MarkHidden(option.LBMaglevMapMaxEntries)
+	option.BindEnv(Vp, option.LBMaglevMapMaxEntries)
 
 	flags.String(option.LocalRouterIPv4, "", "Link-local IPv4 used for Cilium's router devices")
-	option.BindEnv(option.LocalRouterIPv4)
+	option.BindEnv(Vp, option.LocalRouterIPv4)
 
 	flags.String(option.LocalRouterIPv6, "", "Link-local IPv6 used for Cilium's router devices")
-	option.BindEnv(option.LocalRouterIPv6)
+	option.BindEnv(Vp, option.LocalRouterIPv6)
 
 	flags.String(option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
-	option.BindEnv(option.K8sServiceProxyName)
+	option.BindEnv(Vp, option.K8sServiceProxyName)
 
 	flags.Var(option.NewNamedMapOptions(option.APIRateLimitName, &option.Config.APIRateLimit, nil), option.APIRateLimitName, "API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)")
-	option.BindEnv(option.APIRateLimitName)
+	option.BindEnv(Vp, option.APIRateLimitName)
 
 	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
-	option.BindEnv(option.CRDWaitTimeout)
+	option.BindEnv(Vp, option.CRDWaitTimeout)
 
 	flags.Bool(option.EgressMultiHomeIPRuleCompat, false,
 		"Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.")
-	option.BindEnv(option.EgressMultiHomeIPRuleCompat)
-
-	flags.Bool(option.EnableBPFBypassFIBLookup, false, "Enable FIB lookup bypass optimization for nodeport reverse NAT handling")
-	option.BindEnv(option.EnableBPFBypassFIBLookup)
-	flags.MarkDeprecated(option.EnableBPFBypassFIBLookup, fmt.Sprintf("This option will be removed in v1.12."))
+	option.BindEnv(Vp, option.EgressMultiHomeIPRuleCompat)
 
 	flags.Bool(option.InstallNoConntrackIptRules, defaults.InstallNoConntrackIptRules, "Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.")
-	option.BindEnv(option.InstallNoConntrackIptRules)
+	option.BindEnv(Vp, option.InstallNoConntrackIptRules)
 
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
-	option.BindEnv(option.EnableCustomCallsName)
+	option.BindEnv(Vp, option.EnableCustomCallsName)
 
 	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
-	option.BindEnv(option.BGPAnnounceLBIP)
+	option.BindEnv(Vp, option.BGPAnnounceLBIP)
 
 	flags.Bool(option.BGPAnnouncePodCIDR, false, "Announces the node's pod CIDR via BGP")
-	option.BindEnv(option.BGPAnnouncePodCIDR)
+	option.BindEnv(Vp, option.BGPAnnouncePodCIDR)
 
 	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
-	option.BindEnv(option.BGPConfigPath)
+	option.BindEnv(Vp, option.BGPConfigPath)
 
 	flags.Bool(option.ExternalClusterIPName, false, "Enable external access to ClusterIP services (default false)")
-	option.BindEnv(option.ExternalClusterIPName)
+	option.BindEnv(Vp, option.ExternalClusterIPName)
 
-	flags.IntSlice(option.VLANBPFBypass, []int{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
-	option.BindEnv(option.VLANBPFBypass)
+	// flags.IntSlice cannot be used due to missing support for appropriate conversion in Viper.
+	// See https://github.com/cilium/cilium/pull/20282 for more information.
+	flags.StringSlice(option.VLANBPFBypass, []string{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
+	option.BindEnv(Vp, option.VLANBPFBypass)
 
-	flags.Bool(option.EnableICMPRules, false, "Enable ICMP-based rule support for Cilium Network Policies")
+	flags.Bool(option.EnableICMPRules, true, "Enable ICMP-based rule support for Cilium Network Policies")
 	flags.MarkHidden(option.EnableICMPRules)
-	option.BindEnv(option.EnableICMPRules)
+	option.BindEnv(Vp, option.EnableICMPRules)
 
 	flags.Bool(option.BypassIPAvailabilityUponRestore, false, "Bypasses the IP availability error within IPAM upon endpoint restore")
 	flags.MarkHidden(option.BypassIPAvailabilityUponRestore)
-	option.BindEnv(option.BypassIPAvailabilityUponRestore)
+	option.BindEnv(Vp, option.BypassIPAvailabilityUponRestore)
 
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, CiliumEndpointSlice feature is enabled and cilium agent watch for CiliumEndpointSlice instead of CiliumEndpoint to update the IPCache.")
-	option.BindEnv(option.EnableCiliumEndpointSlice)
+	option.BindEnv(Vp, option.EnableCiliumEndpointSlice)
 
 	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
-	option.BindEnv(option.EnableK8sTerminatingEndpoint)
+	option.BindEnv(Vp, option.EnableK8sTerminatingEndpoint)
 
 	flags.Bool(option.EnableVTEP, defaults.EnableVTEP, "Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)")
-	option.BindEnv(option.EnableVTEP)
+	option.BindEnv(Vp, option.EnableVTEP)
 
 	flags.StringSlice(option.VtepEndpoint, []string{}, "List of VTEP IP addresses")
-	option.BindEnv(option.VtepEndpoint)
+	option.BindEnv(Vp, option.VtepEndpoint)
 
 	flags.StringSlice(option.VtepCIDR, []string{}, "List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress")
-	option.BindEnv(option.VtepCIDR)
+	option.BindEnv(Vp, option.VtepCIDR)
+
+	flags.String(option.VtepMask, "255.255.255.0", "VTEP CIDR Mask for all VTEP CIDRs")
+	option.BindEnv(Vp, option.VtepMask)
 
 	flags.StringSlice(option.VtepMAC, []string{}, "List of VTEP MAC addresses for forwarding traffic outside the cluster")
-	option.BindEnv(option.VtepMAC)
+	option.BindEnv(Vp, option.VtepMAC)
 
 	flags.Int(option.TCFilterPriority, 1, "Priority of TC BPF filter")
 	flags.MarkHidden(option.TCFilterPriority)
-	option.BindEnv(option.TCFilterPriority)
+	option.BindEnv(Vp, option.TCFilterPriority)
 
 	flags.Bool(option.EnableBGPControlPlane, false, "Enable the BGP control plane.")
-	option.BindEnv(option.EnableBGPControlPlane)
+	option.BindEnv(Vp, option.EnableBGPControlPlane)
 
-	viper.BindPFlags(flags)
+	Vp.BindPFlags(flags)
 }
 
 // restoreExecPermissions restores file permissions to 0740 of all files inside
@@ -1122,7 +1084,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initEnv(cmd *cobra.Command) {
+func initEnv() {
 	var debugDatapath bool
 
 	option.Config.SetMapElementSizes(
@@ -1134,7 +1096,7 @@ func initEnv(cmd *cobra.Command) {
 		lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value)
 
 	// Prepopulate option.Config with options from CLI.
-	option.Config.Populate()
+	option.Config.Populate(Vp)
 
 	// add hooks after setting up metrics in the option.Config
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
@@ -1144,7 +1106,9 @@ func initEnv(cmd *cobra.Command) {
 		log.Fatal(err)
 	}
 
-	option.LogRegisteredOptions(log)
+	option.LogRegisteredOptions(Vp, log)
+
+	sysctl.SetProcfs(option.Config.ProcFs)
 
 	// Configure k8s as soon as possible so that k8s.IsEnabled() has the right
 	// behavior.
@@ -1269,33 +1233,6 @@ func initEnv(cmd *cobra.Command) {
 			option.AllowLocalhostAuto, option.AllowLocalhostAlways, option.AllowLocalhostPolicy)
 	}
 
-	option.Config.ModePreFilter = strings.ToLower(option.Config.ModePreFilter)
-	if option.Config.ModePreFilter == "generic" {
-		option.Config.ModePreFilter = option.ModePreFilterGeneric
-	}
-	if option.Config.ModePreFilter != option.ModePreFilterNative &&
-		option.Config.ModePreFilter != option.ModePreFilterGeneric {
-		log.Fatalf("Invalid setting for --prefilter-mode, must be { %s, generic }",
-			option.ModePreFilterNative)
-	}
-
-	if option.Config.DevicePreFilter != "undefined" {
-		option.Config.EnableXDPPrefilter = true
-		found := false
-		for _, dev := range option.Config.Devices {
-			if dev == option.Config.DevicePreFilter {
-				found = true
-				break
-			}
-		}
-		if !found {
-			option.Config.Devices = append(option.Config.Devices, option.Config.DevicePreFilter)
-		}
-		if err := loader.SetXDPMode(option.Config.ModePreFilter); err != nil {
-			scopedLog.WithError(err).Fatal("Cannot set prefilter XDP mode")
-		}
-	}
-
 	scopedLog = log.WithField(logfields.Path, option.Config.SocketPath)
 	socketDir := path.Dir(option.Config.SocketPath)
 	if err := os.MkdirAll(socketDir, defaults.RuntimePathRights); err != nil {
@@ -1348,61 +1285,15 @@ func initEnv(cmd *cobra.Command) {
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		if name := option.Config.IpvlanMasterDevice; name != "undefined" {
-			log.WithField(logfields.IpvlanMasterDevice, name).
-				Fatal("ipvlan master device cannot be set in the 'veth' datapath mode")
-		}
 		if option.Config.Tunnel == "" {
 			option.Config.Tunnel = option.TunnelVXLAN
-		}
-	case datapathOption.DatapathModeIpvlan:
-		if option.Config.Tunnel != "" && option.Config.TunnelingEnabled() {
-			log.WithField(logfields.Tunnel, option.Config.Tunnel).
-				Fatal("tunnel cannot be set in the 'ipvlan' datapath mode")
-		}
-		if len(option.Config.Devices) != 0 {
-			log.WithField(logfields.Devices, option.Config.Devices).
-				Fatal("device cannot be set in the 'ipvlan' datapath mode")
-		}
-		if option.Config.EnableIPSec {
-			log.Fatal("Currently ipsec cannot be used in the 'ipvlan' datapath mode.")
-		}
-
-		option.Config.Tunnel = option.TunnelDisabled
-		// We disallow earlier command line combination of --device with
-		// --datapath-mode ipvlan. But given all the remaining logic is
-		// shared with option.Config.Devices, override it here internally
-		// with the specified ipvlan master device. Reason to have a
-		// separate, more specific command line parameter here and in
-		// the swagger API is that in future we might deprecate --device
-		// parameter with e.g. some auto-detection mechanism, thus for
-		// ipvlan it is desired to have a separate one, see PR #6608.
-		iface := option.Config.IpvlanMasterDevice
-		if iface == "undefined" {
-			log.WithField(logfields.IpvlanMasterDevice, option.Config.Devices[0]).
-				Fatal("ipvlan master device must be specified in the 'ipvlan' datapath mode")
-		}
-		option.Config.Devices = []string{iface}
-		link, err := netlink.LinkByName(option.Config.Devices[0])
-		if err != nil {
-			log.WithError(err).WithField(logfields.IpvlanMasterDevice, option.Config.Devices[0]).
-				Fatal("Cannot find device interface")
-		}
-		option.Config.Ipvlan.MasterDeviceIndex = link.Attrs().Index
-		option.Config.Ipvlan.OperationMode = connector.OperationModeL3
-		if option.Config.InstallIptRules {
-			option.Config.Ipvlan.OperationMode = connector.OperationModeL3S
-		} else {
-			log.WithFields(logrus.Fields{
-				logfields.URL: "https://github.com/cilium/cilium/issues/12879",
-			}).Warn("IPtables rule configuration has been disabled. This may affect policy and forwarding, see the URL for more details.")
 		}
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")
 		option.Config.LoadBalancerPMTUDiscovery =
 			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementPartial
-		option.Config.EnableHostReachableServices = true
+		option.Config.EnableSocketLB = true
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
@@ -1445,6 +1336,15 @@ func initEnv(cmd *cobra.Command) {
 
 	initClockSourceOption()
 	initSockmapOption()
+
+	if option.Config.EnableSRv6 {
+		if !option.Config.EnableIPv6 {
+			log.Fatalf("SRv6 requires IPv6.")
+		}
+		if !probes.NewProbeManager().GetMapTypes().HaveLruHashMapType {
+			log.Fatalf("SRv6 requires support for BPF LRU maps (Linux 4.10 or later).")
+		}
+	}
 
 	if option.Config.EnableHostFirewall {
 		if option.Config.EnableIPSec {
@@ -1577,7 +1477,7 @@ func initEnv(cmd *cobra.Command) {
 	// mode which support the bypass.
 	if option.Config.BypassIPAvailabilityUponRestore {
 		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMENI:
+		case ipamOption.IPAMENI, ipamOption.IPAMAzure:
 			log.Info(
 				"Running with bypass of IP not available errors upon endpoint " +
 					"restore. Be advised that this mode is intended to be " +
@@ -1623,14 +1523,14 @@ func (d *Daemon) initKVStore() {
 		// to the service IP as well perform the service -> backend IPs for
 		// that service IP.
 		d.k8sWatcher.WaitForCacheSync(
-			watchers.K8sAPIGroupServiceV1Core,
-			watchers.K8sAPIGroupEndpointV1Core,
-			watchers.K8sAPIGroupEndpointSliceV1Discovery,
-			watchers.K8sAPIGroupEndpointSliceV1Beta1Discovery,
+			resources.K8sAPIGroupServiceV1Core,
+			resources.K8sAPIGroupEndpointV1Core,
+			resources.K8sAPIGroupEndpointSliceV1Discovery,
+			resources.K8sAPIGroupEndpointSliceV1Beta1Discovery,
 		)
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
-			grpc.WithDialer(k8s.CreateCustomDialer(&d.k8sWatcher.K8sSvcCache, log)),
+			grpc.WithContextDialer(k8s.CreateCustomDialer(&d.k8sWatcher.K8sSvcCache, log)),
 		}
 	}
 
@@ -1645,9 +1545,44 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
-func runDaemon() {
+// registerDaemonHooks registers the lifecycle hooks for the part of the cilium-agent that has
+// not yet been modularized.
+//
+// The Daemon struct and objects referred to from there are not supplied to the graph as
+// object creation in Daemon is intertwined with side-effectful initialization. This stops
+// us from constructing and inspecting the dependency graph, so instead the daemon is constructed
+// and started via an OnStart hook.
+//
+// If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
+// a callback.
+func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	cleaner := NewDaemonCleanup()
+	lc.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
+			// of the start hooks to run.
+			go runDaemon(ctx, cleaner, shutdowner)
+			return nil
+		},
+		OnStop: func(context.Context) error {
+			cancel()
+			cleaner.Clean()
+			return nil
+		},
+	})
+	return nil
+}
+
+// runDaemon runs the old unmodular part of the cilium-agent.
+func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner) {
+	bootstrapStats.earlyInit.Start()
+	initEnv()
+	bootstrapStats.earlyInit.End(true)
+
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
+		ProcFs:     option.Config.ProcFs,
 	}
 
 	log.Info("Initializing daemon")
@@ -1655,7 +1590,7 @@ func runDaemon() {
 	option.Config.RunMonitorAgent = true
 
 	if err := enableIPForwarding(); err != nil {
-		log.WithError(err).Fatal("Error when enabling sysctl parameters")
+		log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
 	}
 
 	iptablesManager := &iptables.IptablesManager{}
@@ -1676,7 +1611,7 @@ func runDaemon() {
 		privateKeyPath := filepath.Join(option.Config.StateDir, wireguardTypes.PrivKeyFilename)
 		wgAgent, err = wireguard.NewAgent(privateKeyPath)
 		if err != nil {
-			log.WithError(err).Fatal("Failed to initialize wireguard")
+			log.Fatalf("failed to initialize wireguard: %s", err)
 		}
 
 		cleaner.cleanupFuncs.Add(func() {
@@ -1690,36 +1625,30 @@ func runDaemon() {
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		if err := k8s.Init(option.Config); err != nil {
-			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
+			log.Fatalf("unable to initialize Kubernetes subsystem: %s", err)
 		}
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	ctx, cancel := context.WithCancel(server.ServerCtx)
-	d, restoredEndpoints, err := NewDaemon(ctx, cancel,
+	d, restoredEndpoints, err := NewDaemon(ctx, cleaner,
 		WithDefaultEndpointManager(ctx, endpoint.CheckHealth),
 		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent))
 	if err != nil {
-		select {
-		case <-server.ServerCtx.Done():
-			log.WithError(err).Debug("Error while creating daemon")
-		default:
-			log.WithError(err).Fatal("Error while creating daemon")
-		}
-		return
+		log.Fatalf("daemon creation failed: %s", err)
 	}
 
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
 	log.Info("Validating configured node address ranges")
 	if err := node.ValidatePostInit(); err != nil {
-		log.WithError(err).Fatal("postinit failed")
+		log.Fatalf("postinit failed: %s", err)
 	}
 
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
 	gc.Enable(option.Config.EnableIPv4, option.Config.EnableIPv6,
-		restoredEndpoints.restored, d.endpointManager)
+		restoredEndpoints.restored, d.endpointManager,
+		d.datapath.LocalNodeAddressing())
 	bootstrapStats.enableConntrack.End(true)
 
 	bootstrapStats.k8sInit.Start()
@@ -1744,14 +1673,14 @@ func runDaemon() {
 			d.ctx, d, d, d.ipcache, d.l7Proxy, d.identityAllocator,
 			"Create host endpoint", nodeTypes.GetName(),
 		); err != nil {
-			log.WithError(err).Fatal("Unable to create host endpoint")
+			log.Fatalf("unable to create host endpoint: %s", err)
 		}
 	}
 
 	if option.Config.EnableIPMasqAgent {
 		ipmasqAgent, err := ipmasq.NewIPMasqAgent(option.Config.IPMasqAgentConfigPath)
 		if err != nil {
-			log.WithError(err).Fatal("Failed to create ip-masq-agent")
+			log.Fatalf("failed to create ipmasq agent: %s", err)
 		}
 		ipmasqAgent.Start()
 	}
@@ -1768,9 +1697,27 @@ func runDaemon() {
 			})
 			ms.CollectStaleMapGarbage()
 			ms.RemoveDisabledMaps()
+
+			if len(d.restoredCIDRs) > 0 {
+				// Release restored CIDR identities after a grace period (default 10
+				// minutes).  Any identities actually in use will still exist after
+				// this.
+				//
+				// This grace period is needed when running on an external workload
+				// where policy synchronization is not done via k8s. Also in k8s
+				// case it is prudent to allow concurrent endpoint regenerations to
+				// (re-)allocate the restored identities before we release them.
+				time.Sleep(option.Config.IdentityRestoreGracePeriod)
+				log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
+
+				d.ipcache.ReleaseCIDRIdentitiesByCIDR(d.restoredCIDRs)
+				// release the memory held by restored CIDRs
+				d.restoredCIDRs = nil
+			}
 		}()
 		d.endpointManager.Subscribe(d)
-		defer d.endpointManager.Unsubscribe(d)
+		// Add the endpoint manager unsubscribe as the last step in cleanup
+		defer cleaner.cleanupFuncs.Add(func() { d.endpointManager.Unsubscribe(d) })
 	}
 
 	// Migrating the ENI datapath must happen before the API is served to
@@ -1800,13 +1747,19 @@ func runDaemon() {
 
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
-		d.initHealth()
+		d.initHealth(cleaner)
 	}
 	bootstrapStats.healthCheck.End(true)
 
-	d.startStatusCollector()
+	d.startStatusCollector(cleaner)
 
-	metricsErrs := initMetrics()
+	go func(errs <-chan error) {
+		err := <-errs
+		if err != nil {
+			log.WithError(err).Error("Cannot start metrics server")
+			shutdowner.Shutdown()
+		}
+	}(initMetrics())
 
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
@@ -1821,7 +1774,7 @@ func runDaemon() {
 	srv.SocketPath = option.Config.SocketPath
 	srv.ReadTimeout = apiTimeout
 	srv.WriteTimeout = apiTimeout
-	defer srv.Shutdown()
+	cleaner.cleanupFuncs.Add(func() { srv.Shutdown() })
 
 	srv.ConfigureAPI()
 	bootstrapStats.initAPI.End(true)
@@ -1845,9 +1798,16 @@ func runDaemon() {
 	}
 
 	if option.Config.BGPControlPlaneEnabled() {
+		switch option.Config.IPAM {
+		case ipamOption.IPAMClusterPool:
+		case ipamOption.IPAMClusterPoolV2:
+		case ipamOption.IPAMKubernetes:
+		default:
+			log.Fatalf("BGP control plane cannot be utilized with IPAM mode: %v", option.Config.IPAM)
+		}
 		log.Info("Initializing BGP Control Plane")
 		if err := d.instantiateBGPControlPlane(d.ctx); err != nil {
-			log.WithError(err).Fatal("Error returned when instantiating BGP control plane")
+			log.Fatalf("failed to initialize BGP control plane: %s", err)
 		}
 	}
 
@@ -1857,26 +1817,16 @@ func runDaemon() {
 	if option.Config.WriteCNIConfigurationWhenReady != "" {
 		input, err := os.ReadFile(option.Config.ReadCNIConfiguration)
 		if err != nil {
-			log.WithError(err).Fatal("Unable to read CNI configuration file")
+			log.Fatalf("unable to read cni configuration file: %s", err)
 		}
 
 		if err = os.WriteFile(option.Config.WriteCNIConfigurationWhenReady, input, 0644); err != nil {
-			log.WithError(err).Fatalf("Unable to write CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)
+			log.Fatalf("unable to write CNI configuration file to %s: %s",
+				option.Config.WriteCNIConfigurationWhenReady,
+				err)
 		} else {
 			log.Infof("Wrote CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)
 		}
-	}
-
-	errs := make(chan error, 1)
-
-	go func() {
-		errs <- srv.Serve()
-	}()
-
-	if k8s.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-		k8s.Client().MarkNodeReady(d.k8sWatcher, nodeTypes.GetName())
-		bootstrapStats.k8sInit.End(true)
 	}
 
 	bootstrapStats.overall.End(true)
@@ -1893,15 +1843,10 @@ func runDaemon() {
 		log.WithError(err).Error("Unable to store Viper's configuration")
 	}
 
-	select {
-	case err := <-metricsErrs:
-		if err != nil {
-			log.WithError(err).Fatal("Cannot start metrics server")
-		}
-	case err := <-errs:
-		if err != nil {
-			log.WithError(err).Fatal("Error returned from non-returning Serve() call")
-		}
+	err = srv.Serve()
+	if err != nil {
+		log.WithError(err).Error("Error returned from non-returning Serve() call")
+		shutdowner.Shutdown()
 	}
 }
 

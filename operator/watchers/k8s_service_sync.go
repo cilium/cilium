@@ -9,13 +9,10 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -23,7 +20,9 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -53,6 +52,10 @@ var (
 
 	serviceSubscribers = subscriber.NewServiceChain()
 )
+
+func k8sEventMetric(scope, action string) {
+	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action)
+}
 
 func k8sServiceHandler(clusterName string) {
 	serviceHandler := func(event k8s.ServiceEvent) {
@@ -190,19 +193,20 @@ func InitServiceWatcher(
 	serviceInitOnce.Do(func() {
 		// Watch for v1.Service changes and push changes into ServiceCache.
 		serviceIndexer, serviceController = informer.NewInformer(
-			cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(),
-				"services", v1.NamespaceAll, optsModifier),
+			utils.ListerWatcherWithModifier(
+				utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](k8s.WatcherClient().CoreV1().Services("")),
+				optsModifier),
 			&slim_corev1.Service{},
 			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
-					metrics.EventTSK8s.SetToCurrentTime()
+					k8sEventMetric(resources.MetricService, resources.MetricCreate)
 					if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
 						serviceSubscribers.OnAddService(k8sSvc)
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					metrics.EventTSK8s.SetToCurrentTime()
+					k8sEventMetric(resources.MetricService, resources.MetricUpdate)
 					if oldk8sSvc := k8s.ObjToV1Services(oldObj); oldk8sSvc != nil {
 						if newk8sSvc := k8s.ObjToV1Services(newObj); newk8sSvc != nil {
 							if oldk8sSvc.DeepEqual(newk8sSvc) {
@@ -213,7 +217,7 @@ func InitServiceWatcher(
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					metrics.EventTSK8s.SetToCurrentTime()
+					k8sEventMetric(resources.MetricService, resources.MetricDelete)
 					k8sSvc := k8s.ObjToV1Services(obj)
 					if k8sSvc == nil {
 						return
@@ -235,7 +239,7 @@ func InitServiceWatcher(
 	})
 }
 
-func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) cache.Controller {
+func endpointsInit(slimClient slimclientset.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) cache.Controller {
 	epOptsModifier := func(options *v1meta.ListOptions) {
 		// Don't get any events from kubernetes endpoints.
 		options.FieldSelector = fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager").String()
@@ -244,21 +248,20 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 
 	// Watch for v1.Endpoints changes and push changes into ServiceCache
 	_, endpointController := informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"endpoints", v1.NamespaceAll,
-			epOptsModifier,
-		),
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](slimClient.CoreV1().Endpoints("")),
+			epOptsModifier),
 		&slim_corev1.Endpoints{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEventMetric(resources.MetricEndpoint, resources.MetricCreate)
 				if k8sEP := k8s.ObjToV1Endpoints(obj); k8sEP != nil {
 					K8sSvcCache.UpdateEndpoints(k8sEP, swgEps)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEventMetric(resources.MetricEndpoint, resources.MetricUpdate)
 				if oldk8sEP := k8s.ObjToV1Endpoints(oldObj); oldk8sEP != nil {
 					if newk8sEP := k8s.ObjToV1Endpoints(newObj); newk8sEP != nil {
 						if oldk8sEP.DeepEqual(newk8sEP) {
@@ -269,7 +272,7 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEventMetric(resources.MetricEndpoint, resources.MetricDelete)
 				k8sEP := k8s.ObjToV1Endpoints(obj)
 				if k8sEP == nil {
 					return
@@ -282,18 +285,18 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 	return endpointController
 }
 
-func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup) (cache.Controller, bool) {
+func endpointSlicesInit(slimClient slimclientset.Interface, swgEps *lock.StoppableWaitGroup) (cache.Controller, bool) {
 	var (
 		hasEndpointSlices = make(chan struct{})
 		once              sync.Once
-		esClient          rest.Interface
+		esLW              cache.ListerWatcher
 		objType           runtime.Object
 		addFunc, delFunc  func(obj interface{})
 		updateFunc        func(oldObj, newObj interface{})
 	)
 
 	if k8s.SupportsEndpointSliceV1() {
-		esClient = k8sClient.DiscoveryV1().RESTClient()
+		esLW = utils.ListerWatcherFromTyped[*slim_discover_v1.EndpointSliceList](slimClient.DiscoveryV1().EndpointSlices(""))
 		objType = &slim_discover_v1.EndpointSlice{}
 		addFunc = func(obj interface{}) {
 			once.Do(func() {
@@ -301,13 +304,13 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 				// so it means the cluster has endpoint slices enabled.
 				close(hasEndpointSlices)
 			})
-			metrics.EventTSK8s.SetToCurrentTime()
+			k8sEventMetric(resources.MetricEndpointSlice, resources.MetricCreate)
 			if k8sEP := k8s.ObjToV1EndpointSlice(obj); k8sEP != nil {
 				K8sSvcCache.UpdateEndpointSlicesV1(k8sEP, swgEps)
 			}
 		}
 		updateFunc = func(oldObj, newObj interface{}) {
-			metrics.EventTSK8s.SetToCurrentTime()
+			k8sEventMetric(resources.MetricEndpointSlice, resources.MetricUpdate)
 			if oldk8sEP := k8s.ObjToV1EndpointSlice(oldObj); oldk8sEP != nil {
 				if newk8sEP := k8s.ObjToV1EndpointSlice(newObj); newk8sEP != nil {
 					if oldk8sEP.DeepEqual(newk8sEP) {
@@ -318,7 +321,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 			}
 		}
 		delFunc = func(obj interface{}) {
-			metrics.EventTSK8s.SetToCurrentTime()
+			k8sEventMetric(resources.MetricEndpointSlice, resources.MetricDelete)
 			k8sEP := k8s.ObjToV1EndpointSlice(obj)
 			if k8sEP == nil {
 				return
@@ -326,7 +329,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 			K8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
 		}
 	} else {
-		esClient = k8sClient.DiscoveryV1beta1().RESTClient()
+		esLW = utils.ListerWatcherFromTyped[*slim_discover_v1beta1.EndpointSliceList](slimClient.DiscoveryV1beta1().EndpointSlices(""))
 		objType = &slim_discover_v1beta1.EndpointSlice{}
 		addFunc = func(obj interface{}) {
 			once.Do(func() {
@@ -334,13 +337,13 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 				// so it means the cluster has endpoint slices enabled.
 				close(hasEndpointSlices)
 			})
-			metrics.EventTSK8s.SetToCurrentTime()
+			k8sEventMetric(resources.MetricEndpointSlice, resources.MetricCreate)
 			if k8sEP := k8s.ObjToV1Beta1EndpointSlice(obj); k8sEP != nil {
 				K8sSvcCache.UpdateEndpointSlicesV1Beta1(k8sEP, swgEps)
 			}
 		}
 		updateFunc = func(oldObj, newObj interface{}) {
-			metrics.EventTSK8s.SetToCurrentTime()
+			k8sEventMetric(resources.MetricEndpointSlice, resources.MetricUpdate)
 			if oldk8sEP := k8s.ObjToV1Beta1EndpointSlice(oldObj); oldk8sEP != nil {
 				if newk8sEP := k8s.ObjToV1Beta1EndpointSlice(newObj); newk8sEP != nil {
 					if oldk8sEP.DeepEqual(newk8sEP) {
@@ -351,7 +354,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 			}
 		}
 		delFunc = func(obj interface{}) {
-			metrics.EventTSK8s.SetToCurrentTime()
+			k8sEventMetric(resources.MetricEndpointSlice, resources.MetricDelete)
 			k8sEP := k8s.ObjToV1Beta1EndpointSlice(obj)
 			if k8sEP == nil {
 				return
@@ -361,8 +364,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 	}
 
 	_, endpointController := informer.NewInformer(
-		cache.NewListWatchFromClient(esClient,
-			"endpointslices", v1.NamespaceAll, fields.Everything()),
+		esLW,
 		objType,
 		0,
 		cache.ResourceEventHandlerFuncs{

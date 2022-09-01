@@ -23,7 +23,7 @@ cilium bpf ipcache list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -36,5 +36,5 @@ cilium bpf ipcache list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf ipcache](../cilium_bpf_ipcache)	 - Manage the IPCache mappings for IP/CIDR <-> Identity
+* [cilium bpf ipcache](cilium_bpf_ipcache.md)	 - Manage the IPCache mappings for IP/CIDR <-> Identity
 

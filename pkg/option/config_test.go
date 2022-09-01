@@ -107,6 +107,7 @@ func TestGetEnvName(t *testing.T) {
 }
 
 func (s *OptionSuite) TestReadDirConfig(c *C) {
+	vp := viper.GetViper()
 	var dirName string
 	type args struct {
 		dirName string
@@ -160,7 +161,7 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 				c.Assert(err, IsNil)
 				fs := flag.NewFlagSet("single file configuration", flag.ContinueOnError)
 				fs.String("test", "", "")
-				BindEnv("test")
+				BindEnv(vp, "test")
 				viper.BindPFlags(fs)
 
 				fmt.Println(fullPath)
@@ -189,7 +190,7 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 		want := tt.setupWant()
 		m, err := ReadDirConfig(args.dirName)
 		c.Assert(err, want.errChecker, want.err, Commentf("Test Name: %s", tt.name))
-		err = MergeConfig(m)
+		err = MergeConfig(viper.GetViper(), m)
 		c.Assert(err, IsNil)
 		c.Assert(viper.AllSettings(), want.allSettingsChecker, want.allSettings, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
@@ -197,14 +198,15 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 }
 
 func (s *OptionSuite) TestBindEnv(c *C) {
+	vp := viper.GetViper()
 	optName1 := "foo-bar"
 	os.Setenv("LEGACY_FOO_BAR", "legacy")
 	os.Setenv(getEnvName(optName1), "new")
-	BindEnvWithLegacyEnvFallback(optName1, "LEGACY_FOO_BAR")
+	BindEnvWithLegacyEnvFallback(vp, optName1, "LEGACY_FOO_BAR")
 	c.Assert(viper.GetString(optName1), Equals, "new")
 
 	optName2 := "bar-foo"
-	BindEnvWithLegacyEnvFallback(optName2, "LEGACY_FOO_BAR")
+	BindEnvWithLegacyEnvFallback(vp, optName2, "LEGACY_FOO_BAR")
 	c.Assert(viper.GetString(optName2), Equals, "legacy")
 
 	viper.Reset()
@@ -515,7 +517,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "without native routing cidr and tunnel enabled",
+			name: "without native routing cidr and tunnel disabled",
 			d: &DaemonConfig{
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
@@ -543,6 +545,8 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			err := tt.d.checkIPv4NativeRoutingCIDR()
 			if tt.wantErr && err == nil {
 				t.Error("expected error, but got nil")
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, but got %q", err)
 			}
 		})
 	}
@@ -603,13 +607,82 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 			err := tt.d.checkIPv6NativeRoutingCIDR()
 			if tt.wantErr && err == nil {
 				t.Error("expected error, but got nil")
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, but got %q", err)
 			}
 		})
 	}
 
 }
 
+func TestCheckIPAMDelegatedPlugin(t *testing.T) {
+	tests := []struct {
+		name      string
+		d         *DaemonConfig
+		expectErr error
+	}{
+		{
+			name: "IPAMDelegatedPlugin with local router IPv4 set and endpoint health checking disabled",
+			d: &DaemonConfig{
+				IPAM:            ipamOption.IPAMDelegatedPlugin,
+				EnableIPv4:      true,
+				LocalRouterIPv4: "169.254.0.0",
+			},
+			expectErr: nil,
+		},
+		{
+			name: "IPAMDelegatedPlugin with local router IPv6 set and endpoint health checking disabled",
+			d: &DaemonConfig{
+				IPAM:            ipamOption.IPAMDelegatedPlugin,
+				EnableIPv6:      true,
+				LocalRouterIPv6: "fe80::1",
+			},
+			expectErr: nil,
+		},
+		{
+			name: "IPAMDelegatedPlugin with health checking enabled",
+			d: &DaemonConfig{
+				IPAM:                         ipamOption.IPAMDelegatedPlugin,
+				EnableHealthChecking:         true,
+				EnableEndpointHealthChecking: true,
+			},
+			expectErr: fmt.Errorf("--enable-endpoint-health-checking must be disabled with --ipam=delegated-plugin"),
+		},
+		{
+			name: "IPAMDelegatedPlugin without local router IPv4",
+			d: &DaemonConfig{
+				IPAM:       ipamOption.IPAMDelegatedPlugin,
+				EnableIPv4: true,
+			},
+			expectErr: fmt.Errorf("--local-router-ipv4 must be provided when IPv4 is enabled with --ipam=delegated-plugin"),
+		},
+		{
+			name: "IPAMDelegatedPlugin without local router IPv6",
+			d: &DaemonConfig{
+				IPAM:       ipamOption.IPAMDelegatedPlugin,
+				EnableIPv6: true,
+			},
+			expectErr: fmt.Errorf("--local-router-ipv6 must be provided when IPv6 is enabled with --ipam=delegated-plugin"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.d.checkIPAMDelegatedPlugin()
+			if tt.expectErr != nil && err == nil {
+				t.Errorf("expected error but got none")
+			} else if tt.expectErr == nil && err != nil {
+				t.Errorf("expected no error but got %q", err)
+			} else if tt.expectErr != nil && tt.expectErr.Error() != err.Error() {
+				t.Errorf("expected error %q but got %q", tt.expectErr, err)
+			}
+		})
+	}
+}
+
 func Test_populateNodePortRange(t *testing.T) {
+	vp := viper.New()
+	reset := func() { vp = viper.New() }
 	type want struct {
 		wantMin int
 		wantMax int
@@ -628,8 +701,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: false,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"23", "24"})
+				vp.Set(NodePortRange, []string{"23", "24"})
 			},
 		},
 		{
@@ -640,7 +712,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: false,
 			},
 			preTestRun: func() {
-				viper.Reset()
+				reset()
 
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
@@ -651,8 +723,8 @@ func Test_populateNodePortRange(t *testing.T) {
 					},
 					"")
 
-				BindEnv(NodePortRange)
-				viper.BindPFlags(fs)
+				BindEnv(vp, NodePortRange)
+				vp.BindPFlags(fs)
 			},
 		},
 		{
@@ -663,8 +735,8 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"666", "555"})
+				reset()
+				vp.Set(NodePortRange, []string{"666", "555"})
 			},
 		},
 		{
@@ -675,8 +747,8 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"666", "666"})
+				reset()
+				vp.Set(NodePortRange, []string{"666", "666"})
 			},
 		},
 		{
@@ -687,8 +759,8 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"aaa", "0"})
+				reset()
+				vp.Set(NodePortRange, []string{"aaa", "0"})
 			},
 		},
 		{
@@ -699,8 +771,8 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-				viper.Set(NodePortRange, []string{"1024", "aaa"})
+				reset()
+				vp.Set(NodePortRange, []string{"1024", "aaa"})
 			},
 		},
 		{
@@ -711,9 +783,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: true,
 			},
 			preTestRun: func() {
-				viper.Reset()
-
-				delete(RegisteredOptions, NodePortRange)
+				reset()
 
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
@@ -724,10 +794,10 @@ func Test_populateNodePortRange(t *testing.T) {
 					},
 					"")
 
-				BindEnv(NodePortRange)
-				viper.BindPFlags(fs)
+				BindEnv(vp, NodePortRange)
+				vp.BindPFlags(fs)
 
-				viper.Set(NodePortRange, []string{"1024"})
+				vp.Set(NodePortRange, []string{"1024"})
 			},
 		},
 		{
@@ -739,9 +809,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				wantErr: false,
 			},
 			preTestRun: func() {
-				viper.Reset()
-
-				delete(RegisteredOptions, NodePortRange)
+				reset()
 
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
@@ -749,10 +817,10 @@ func Test_populateNodePortRange(t *testing.T) {
 					[]string{}, // Explicitly has no defaults.
 					"")
 
-				BindEnv(NodePortRange)
-				viper.BindPFlags(fs)
+				BindEnv(vp, NodePortRange)
+				vp.BindPFlags(fs)
 
-				viper.Set(NodePortRange, []string{})
+				vp.Set(NodePortRange, []string{})
 			},
 		},
 	}
@@ -761,7 +829,7 @@ func Test_populateNodePortRange(t *testing.T) {
 			tt.preTestRun()
 
 			d := &DaemonConfig{}
-			err := d.populateNodePortRange()
+			err := d.populateNodePortRange(vp)
 
 			got := want{
 				wantMin: d.NodePortMin,
@@ -1017,7 +1085,7 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			)
 
 			if tt.totalMemory > 0 && tt.ratio > 0.0 {
-				d.calculateDynamicBPFMapSizes(tt.totalMemory, tt.ratio)
+				d.calculateDynamicBPFMapSizes(viper.GetViper(), tt.totalMemory, tt.ratio)
 			}
 
 			got := sizes{

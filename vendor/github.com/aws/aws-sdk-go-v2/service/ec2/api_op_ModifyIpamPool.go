@@ -12,7 +12,8 @@ import (
 )
 
 // Modify the configurations of an IPAM pool. For more information, see Modify a
-// pool in the Amazon VPC IPAM User Guide.
+// pool (https://docs.aws.amazon.com/vpc/latest/ipam/mod-pool-ipam.html) in the
+// Amazon VPC IPAM User Guide.
 func (c *Client) ModifyIpamPool(ctx context.Context, params *ModifyIpamPoolInput, optFns ...func(*Options)) (*ModifyIpamPoolOutput, error) {
 	if params == nil {
 		params = &ModifyIpamPoolInput{}
@@ -36,7 +37,9 @@ type ModifyIpamPoolInput struct {
 	IpamPoolId *string
 
 	// Add tag allocation rules to a pool. For more information about allocation rules,
-	// see Create a top-level pool in the Amazon VPC IPAM User Guide.
+	// see Create a top-level pool
+	// (https://docs.aws.amazon.com/vpc/latest/ipam/create-top-ipam.html) in the Amazon
+	// VPC IPAM User Guide.
 	AddAllocationResourceTags []types.RequestIpamResourceTag
 
 	// The default netmask length for allocations added to this pool. If, for example,

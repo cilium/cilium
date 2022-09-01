@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
@@ -38,11 +39,12 @@ type GlobalIdentity struct {
 }
 
 // GetKey encodes an Identity as string
-func (gi GlobalIdentity) GetKey() (str string) {
+func (gi GlobalIdentity) GetKey() string {
+	var str strings.Builder
 	for _, l := range gi.LabelArray {
-		str += l.FormatForKVStore()
+		str.Write(l.FormatForKVStore())
 	}
-	return
+	return str.String()
 }
 
 // GetAsMap encodes a GlobalIdentity a map of keys to values. The keys will
@@ -75,18 +77,15 @@ type CachingIdentityAllocator struct {
 	// allocator is initialized.
 	globalIdentityAllocatorInitialized chan struct{}
 
-	// localIdentityAllocatorInitialized is closed whenever the local identity
-	// allocator is initialized.
-	localIdentityAllocatorInitialized chan struct{}
-
 	localIdentities *localIdentityCache
 
 	identitiesPath string
 
+	events  allocator.AllocatorEventChan
+	watcher identityWatcher
+
 	// setupMutex synchronizes InitIdentityAllocator() and Close()
 	setupMutex lock.Mutex
-
-	watcher identityWatcher
 
 	owner IdentityAllocatorOwner
 }
@@ -113,12 +112,11 @@ type IdentityAllocator interface {
 	// security identities to have been received.
 	WaitForInitialGlobalIdentities(context.Context) error
 
-	// IsLocalIdentityAllocatorInitialized returns true if the local identity
-	// allocator has been initialized.
-	IsLocalIdentityAllocatorInitialized() bool
-
 	// AllocateIdentity allocates an identity described by the specified labels.
-	AllocateIdentity(context.Context, labels.Labels, bool) (*identity.Identity, bool, error)
+	// A possible previously used numeric identity for these labels can be passed
+	// in as the last parameter; identity.InvalidIdentity must be passed if no
+	// previous numeric identity exists.
+	AllocateIdentity(context.Context, labels.Labels, bool, identity.NumericIdentity) (*identity.Identity, bool, error)
 
 	// Release is the reverse operation of AllocateIdentity() and releases the
 	// specified identity.
@@ -162,7 +160,7 @@ type IdentityAllocator interface {
 	ReleaseCIDRIdentitiesByID(context.Context, []identity.NumericIdentity)
 }
 
-// InitIdentityAllocator creates the the identity allocator. Only the first
+// InitIdentityAllocator creates the global identity allocator. Only the first
 // invocation of this function will have an effect. The Caller must have
 // initialized well known identities before calling this (by calling
 // identity.InitWellKnownIdentities()).
@@ -183,23 +181,18 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 	log.Info("Initializing identity allocator")
 
-	// Local identity cache can be created synchronously since it doesn't
-	// rely upon any external resources (e.g., external kvstore).
-	events := make(allocator.AllocatorEventChan, 1024)
-	m.localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
-	close(m.localIdentityAllocatorInitialized)
-
 	minID := idpool.ID(identity.MinimalAllocationIdentity)
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
 
-	// It is important to start listening for events before calling
-	// NewAllocator() as it will emit events while filling the
-	// initial cache
-	m.watcher.watch(events)
+	log.WithFields(map[string]interface{}{
+		"min":        minID,
+		"max":        maxID,
+		"cluster-id": option.Config.ClusterID,
+	}).Info("Allocating identities between range")
 
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
-	go func(owner IdentityAllocatorOwner, evs allocator.AllocatorEventChan, minID, maxID idpool.ID) {
+	go func(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan, minID, maxID idpool.ID) {
 		m.setupMutex.Lock()
 		defer m.setupMutex.Unlock()
 
@@ -243,7 +236,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 		m.IdentityAllocator = a
 		close(m.globalIdentityAllocatorInitialized)
-	}(m.owner, events, minID, maxID)
+	}(m.owner, m.events, minID, maxID)
 
 	return m.globalIdentityAllocatorInitialized
 }
@@ -264,18 +257,23 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 // CachingIdentityAllocator.
 func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
 	watcher := identityWatcher{
-		stopChan: make(chan struct{}),
-		owner:    owner,
+		owner: owner,
 	}
 
-	mgr := &CachingIdentityAllocator{
+	m := &CachingIdentityAllocator{
 		globalIdentityAllocatorInitialized: make(chan struct{}),
-		localIdentityAllocatorInitialized:  make(chan struct{}),
 		owner:                              owner,
 		identitiesPath:                     IdentitiesPath,
 		watcher:                            watcher,
+		events:                             make(allocator.AllocatorEventChan, 1024),
 	}
-	return mgr
+	m.watcher.watch(m.events)
+
+	// Local identity cache can be created synchronously since it doesn't
+	// rely upon any external resources (e.g., external kvstore).
+	m.localIdentities = newLocalIdentityCache(identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity, m.events)
+
+	return m
 }
 
 // Close closes the identity allocator and allows to call
@@ -293,21 +291,9 @@ func (m *CachingIdentityAllocator) Close() {
 		}
 	}
 
-	select {
-	case <-m.localIdentityAllocatorInitialized:
-		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
-	default:
-		if m.IdentityAllocator == nil {
-			log.Panic("Close() called without calling InitIdentityAllocator() first")
-		}
-	}
-
 	m.IdentityAllocator.Delete()
-	m.watcher.stop()
 	m.IdentityAllocator = nil
 	m.globalIdentityAllocatorInitialized = make(chan struct{})
-	m.localIdentityAllocatorInitialized = make(chan struct{})
-	m.localIdentities = nil
 }
 
 // WaitForInitialGlobalIdentities waits for the initial set of global security
@@ -325,8 +311,11 @@ func (m *CachingIdentityAllocator) WaitForInitialGlobalIdentities(ctx context.Co
 // AllocateIdentity allocates an identity described by the specified labels. If
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
-// allocated via the kvstore.
-func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool) (id *identity.Identity, allocated bool, err error) {
+// allocated via the kvstore or via the local identity allocator.
+// A possible previously used numeric identity for these labels can be passed
+// in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
+// previous numeric identity exists.
+func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error) {
 	isNewLocally := false
 
 	// Notify the owner of the newly added identities so that the
@@ -335,7 +324,13 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	defer func() {
 		if err == nil {
 			if allocated || isNewLocally {
-				metrics.Identity.Inc()
+				if id.ID.HasLocalScope() {
+					metrics.Identity.WithLabelValues(identity.NodeLocalIdentityType).Inc()
+				} else if id.ID.IsReservedIdentity() {
+					metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
+				} else {
+					metrics.Identity.WithLabelValues(identity.ClusterLocalIdentityType).Inc()
+				}
 			}
 
 			if allocated && notifyOwner {
@@ -366,8 +361,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	}
 
 	if !identity.RequiresGlobalIdentity(lbls) {
-		<-m.localIdentityAllocatorInitialized
-		return m.localIdentities.lookupOrCreate(lbls)
+		return m.localIdentities.lookupOrCreate(lbls, oldNID)
 	}
 
 	// This will block until the kvstore can be accessed and all identities
@@ -407,7 +401,13 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Identity, notifyOwner bool) (released bool, err error) {
 	defer func() {
 		if released {
-			metrics.Identity.Dec()
+			if id.ID.HasLocalScope() {
+				metrics.Identity.WithLabelValues(identity.NodeLocalIdentityType).Dec()
+			} else if id.ID.IsReservedIdentity() {
+				metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Dec()
+			} else {
+				metrics.Identity.WithLabelValues(identity.ClusterLocalIdentityType).Dec()
+			}
 		}
 		if m.owner != nil && released && notifyOwner {
 			deleted := IdentityCache{
@@ -423,7 +423,6 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	}
 
 	if !identity.RequiresGlobalIdentity(id.Labels) {
-		<-m.localIdentityAllocatorInitialized
 		return m.localIdentities.release(id), nil
 	}
 

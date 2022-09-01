@@ -58,7 +58,8 @@ func NewDeleteFqdnCacheParamsWithHTTPClient(client *http.Client) *DeleteFqdnCach
 	}
 }
 
-/*DeleteFqdnCacheParams contains all the parameters to send to the API endpoint
+/*
+DeleteFqdnCacheParams contains all the parameters to send to the API endpoint
 for the delete fqdn cache operation typically these are written to a http.Request
 */
 type DeleteFqdnCacheParams struct {

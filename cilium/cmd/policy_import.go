@@ -48,7 +48,7 @@ var policyImportCmd = &cobra.Command{
 			}
 			if resp, err := client.PolicyPut(string(jsonPolicy)); err != nil {
 				Fatalf("Cannot import policy: %s\n", err)
-			} else if command.OutputJSON() {
+			} else if command.OutputOption() {
 				if err := command.PrintOutput(resp); err != nil {
 					os.Exit(1)
 				}
@@ -64,5 +64,5 @@ var policyImportCmd = &cobra.Command{
 func init() {
 	policyCmd.AddCommand(policyImportCmd)
 	policyImportCmd.Flags().BoolVarP(&printPolicy, "print", "", false, "Print policy after import")
-	command.AddJSONOutput(policyImportCmd)
+	command.AddOutputOption(policyImportCmd)
 }

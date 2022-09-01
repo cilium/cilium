@@ -8,7 +8,7 @@ permissions: read-all
 jobs:
   policy-stress-test:
     name: Start Nightly Policy Stress tests
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Request GKE test cluster
         uses: docker://quay.io/isovalent/gke-test-cluster-requester:fe34abda190c31680968ba62634c788428d91706@sha256:5f4345487870e0447afa150d2b12741ac8734c36ae13a46a13b80c7129da9b4b
@@ -21,7 +21,7 @@ jobs:
     name: Start performance test
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           persist-credentials: false
       - name: Add namespace object
@@ -49,7 +49,7 @@ jobs:
             --set prometheus.enabled=true \
             --set operator.prometheus.enabled=true \
             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \
-            --set nativeRoutingCIDR=NATIVE_CIDR_PLACEHOLDER \
+            --set ipv4NativeRoutingCIDR=NATIVE_CIDR_PLACEHOLDER \
             | tee -a cilium.yaml
       - name: Request GKE test cluster
         uses: docker://quay.io/isovalent/gke-test-cluster-requester:fe34abda190c31680968ba62634c788428d91706@sha256:5f4345487870e0447afa150d2b12741ac8734c36ae13a46a13b80c7129da9b4b
@@ -61,7 +61,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

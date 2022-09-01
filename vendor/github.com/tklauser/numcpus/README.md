@@ -2,19 +2,22 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/tklauser/numcpus.svg)](https://pkg.go.dev/github.com/tklauser/numcpus)
 [![GitHub Action Status](https://github.com/tklauser/numcpus/workflows/Tests/badge.svg)](https://github.com/tklauser/numcpus/actions?query=workflow%3ATests)
-[![Go Report Card](https://goreportcard.com/badge/github.com/tklauser/numcpus)](https://goreportcard.com/report/github.com/tklauser/numcpus)
 
-Package numcpus provides information about the number of CPU in a system.
+Package numcpus provides information about the number of CPUs in the system.
 
 It gets the number of CPUs (online, offline, present, possible, configured or
-kernel maximum) on a Linux, Darwin, FreeBSD, NetBSD, OpenBSD,  DragonflyBSD or
-Solaris/Illumos system.
+kernel maximum) on Linux, Darwin, FreeBSD, NetBSD, OpenBSD, DragonflyBSD or
+Solaris/Illumos systems.
 
 On Linux, the information is retrieved by reading the corresponding CPU
 topology files in `/sys/devices/system/cpu`.
 
+On BSD systems, the information is retrieved using the `hw.ncpu` and
+`hw.ncpuonline` sysctls, if supported.
+
 Not all functions are supported on Darwin, FreeBSD, NetBSD, OpenBSD,
-DragonflyBSD and Solaris/Illumos.
+DragonflyBSD and Solaris/Illumos. ErrNotSupported is returned in case a
+function is not supported on a particular platform.
 
 ## Usage
 

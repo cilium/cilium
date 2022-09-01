@@ -22,8 +22,8 @@ func ConfigDir() (string, error) {
 		return configDir, nil
 	}
 
-	if osUserConfigDir := getOSUserConfigDir(); osUserConfigDir != "" {
-		return filepath.Join(osUserConfigDir, "gops"), nil
+	if userConfigDir, err := os.UserConfigDir(); err == nil {
+		return filepath.Join(userConfigDir, "gops"), nil
 	}
 
 	if runtime.GOOS == "windows" {

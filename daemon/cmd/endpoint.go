@@ -440,12 +440,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
-	// Now that we have ep.ID we can pin the map from this point. This
-	// also has to happen before the first build takes place.
-	if err = ep.PinDatapathMap(); err != nil {
-		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
-	}
-
 	// We need to update the the visibility policy after adding the endpoint in
 	// the endpoint manager because the endpoint manager create the endpoint
 	// queue of the endpoint. If we execute this function before the endpoint
@@ -731,7 +725,7 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 	}
 }
 
-// EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
+// EndpointCreated is a callback to satisfy EndpointManager.Subscriber,
 // allowing the EndpointManager to be the primary implementer of the core
 // endpoint management functionality while deferring other responsibilities
 // to the daemon.

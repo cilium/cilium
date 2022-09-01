@@ -32,10 +32,10 @@ func NewGetServiceID(ctx *middleware.Context, handler GetServiceIDHandler) *GetS
 	return &GetServiceID{Context: ctx, Handler: handler}
 }
 
-/*GetServiceID swagger:route GET /service/{id} service getServiceId
+/*
+GetServiceID swagger:route GET /service/{id} service getServiceId
 
 Retrieve configuration of a service
-
 */
 type GetServiceID struct {
 	Context *middleware.Context

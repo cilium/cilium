@@ -518,7 +518,7 @@ func init() {
     },
     "/fqdn/cache": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by DNS name, CIDR IP range or source.\n",
         "tags": [
           "policy"
         ],
@@ -529,6 +529,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/cidr"
+          },
+          {
+            "$ref": "#/parameters/source"
           }
         ],
         "responses": {
@@ -578,7 +581,7 @@ func init() {
     },
     "/fqdn/cache/{id}": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from the specific endpoint,\noptionally filtered by endpoint id, DNS name, CIDR IP range or source.\n",
         "tags": [
           "policy"
         ],
@@ -592,6 +595,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/cidr"
+          },
+          {
+            "$ref": "#/parameters/source"
           }
         ],
         "responses": {
@@ -1426,6 +1432,13 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Failure"
+          },
+          "501": {
+            "description": "Error while updating backend states",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "UpdateBackendFailure"
           }
         }
       },
@@ -1598,6 +1611,20 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "preferred": {
+          "description": "Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based\non related annotation of global service. Applicable for active state only.",
+          "type": "boolean"
+        },
+        "state": {
+          "description": "State of the backend for load-balancing service traffic",
+          "type": "string",
+          "enum": [
+            "active",
+            "terminating",
+            "quarantined",
+            "maintenance"
+          ]
         }
       }
     },
@@ -1876,7 +1903,7 @@ func init() {
           }
         },
         "lookup-time": {
-          "description": "The absolute time when this data was recieved",
+          "description": "The absolute time when this data was received",
           "type": "string",
           "format": "date-time"
         },
@@ -1927,6 +1954,14 @@ func init() {
       "description": "Response to a daemon configuration request. Contains the addressing\ninformation, k8s, node monitor and immutable and mutable configuration\nsettings.\n",
       "type": "object",
       "properties": {
+        "GROMaxSize": {
+          "description": "Maximum GRO size on workload facing devices",
+          "type": "integer"
+        },
+        "GSOMaxSize": {
+          "description": "Maximum GSO size on workload facing devices",
+          "type": "integer"
+        },
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
@@ -1954,9 +1989,6 @@ func init() {
         "ipam-mode": {
           "description": "Configured IPAM mode",
           "type": "string"
-        },
-        "ipvlanConfiguration": {
-          "$ref": "#/definitions/IpvlanConfiguration"
         },
         "k8s-configuration": {
           "type": "string"
@@ -2002,8 +2034,7 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth",
-        "ipvlan"
+        "veth"
       ]
     },
     "DebugInfo": {
@@ -2808,6 +2839,16 @@ func init() {
         }
       }
     },
+    "IPV6BigTCP": {
+      "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv6 BIG TCP enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "Identity": {
       "description": "Security identity",
       "type": "object",
@@ -2850,24 +2891,6 @@ func init() {
         "min-identity": {
           "description": "Minimum identity of the cluster",
           "type": "integer"
-        }
-      }
-    },
-    "IpvlanConfiguration": {
-      "description": "Setup for datapath when operating in ipvlan mode.",
-      "type": "object",
-      "properties": {
-        "masterDeviceIndex": {
-          "description": "Workload facing ipvlan master device ifindex.",
-          "type": "integer"
-        },
-        "operationMode": {
-          "description": "Mode in which ipvlan setup operates.",
-          "type": "string",
-          "enum": [
-            "L3",
-            "L3S"
-          ]
         }
       }
     },
@@ -3043,6 +3066,15 @@ func init() {
               }
             },
             "sessionAffinity": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "socketLB": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
@@ -3367,6 +3399,10 @@ func init() {
       "properties": {
         "health-endpoint-address": {
           "description": "Address used for probing cluster connectivity",
+          "$ref": "#/definitions/NodeAddressing"
+        },
+        "ingress-address": {
+          "description": "Source address for Ingress listener",
           "$ref": "#/definitions/NodeAddressing"
         },
         "name": {
@@ -3872,6 +3908,10 @@ func init() {
         "id": {
           "description": "Unique identification",
           "type": "integer"
+        },
+        "updateServices": {
+          "description": "Update all services selecting the backends with their given states\n(id and frontend are ignored)\n",
+          "type": "boolean"
         }
       }
     },
@@ -3971,6 +4011,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv6-big-tcp": {
+          "description": "Status of IPv6 BIG TCP",
+          "$ref": "#/definitions/IPV6BigTCP"
         },
         "kube-proxy-replacement": {
           "description": "Status of kube-proxy replacement",
@@ -4267,6 +4311,12 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
+    },
+    "source": {
+      "type": "string",
+      "description": "Source from which FQDN entries come from",
+      "name": "source",
+      "in": "query"
     },
     "trace-selector": {
       "description": "Context to provide policy evaluation on",
@@ -4834,7 +4884,7 @@ func init() {
     },
     "/fqdn/cache": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by DNS name, CIDR IP range or source.\n",
         "tags": [
           "policy"
         ],
@@ -4850,6 +4900,12 @@ func init() {
             "type": "string",
             "description": "A CIDR range of IPs",
             "name": "cidr",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Source from which FQDN entries come from",
+            "name": "source",
             "in": "query"
           }
         ],
@@ -4903,7 +4959,7 @@ func init() {
     },
     "/fqdn/cache/{id}": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from the specific endpoint,\noptionally filtered by endpoint id, DNS name, CIDR IP range or source.\n",
         "tags": [
           "policy"
         ],
@@ -4926,6 +4982,12 @@ func init() {
             "type": "string",
             "description": "A CIDR range of IPs",
             "name": "cidr",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Source from which FQDN entries come from",
+            "name": "source",
             "in": "query"
           }
         ],
@@ -5852,6 +5914,13 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Failure"
+          },
+          "501": {
+            "description": "Error while updating backend states",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "UpdateBackendFailure"
           }
         }
       },
@@ -6028,6 +6097,20 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "preferred": {
+          "description": "Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based\non related annotation of global service. Applicable for active state only.",
+          "type": "boolean"
+        },
+        "state": {
+          "description": "State of the backend for load-balancing service traffic",
+          "type": "string",
+          "enum": [
+            "active",
+            "terminating",
+            "quarantined",
+            "maintenance"
+          ]
         }
       }
     },
@@ -6358,7 +6441,7 @@ func init() {
           }
         },
         "lookup-time": {
-          "description": "The absolute time when this data was recieved",
+          "description": "The absolute time when this data was received",
           "type": "string",
           "format": "date-time"
         },
@@ -6409,6 +6492,14 @@ func init() {
       "description": "Response to a daemon configuration request. Contains the addressing\ninformation, k8s, node monitor and immutable and mutable configuration\nsettings.\n",
       "type": "object",
       "properties": {
+        "GROMaxSize": {
+          "description": "Maximum GRO size on workload facing devices",
+          "type": "integer"
+        },
+        "GSOMaxSize": {
+          "description": "Maximum GSO size on workload facing devices",
+          "type": "integer"
+        },
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
@@ -6436,9 +6527,6 @@ func init() {
         "ipam-mode": {
           "description": "Configured IPAM mode",
           "type": "string"
-        },
-        "ipvlanConfiguration": {
-          "$ref": "#/definitions/IpvlanConfiguration"
         },
         "k8s-configuration": {
           "type": "string"
@@ -6498,8 +6586,7 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth",
-        "ipvlan"
+        "veth"
       ]
     },
     "DebugInfo": {
@@ -7352,6 +7439,16 @@ func init() {
         }
       }
     },
+    "IPV6BigTCP": {
+      "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv6 BIG TCP enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "Identity": {
       "description": "Security identity",
       "type": "object",
@@ -7394,24 +7491,6 @@ func init() {
         "min-identity": {
           "description": "Minimum identity of the cluster",
           "type": "integer"
-        }
-      }
-    },
-    "IpvlanConfiguration": {
-      "description": "Setup for datapath when operating in ipvlan mode.",
-      "type": "object",
-      "properties": {
-        "masterDeviceIndex": {
-          "description": "Workload facing ipvlan master device ifindex.",
-          "type": "integer"
-        },
-        "operationMode": {
-          "description": "Mode in which ipvlan setup operates.",
-          "type": "string",
-          "enum": [
-            "L3",
-            "L3S"
-          ]
         }
       }
     },
@@ -7581,6 +7660,15 @@ func init() {
                   "type": "boolean"
                 }
               }
+            },
+            "socketLB": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
             }
           }
         },
@@ -7715,6 +7803,15 @@ func init() {
               "type": "boolean"
             }
           }
+        },
+        "socketLB": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },
@@ -7811,6 +7908,15 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesSessionAffinity": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesSocketLB": {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
@@ -8136,6 +8242,10 @@ func init() {
       "properties": {
         "health-endpoint-address": {
           "description": "Address used for probing cluster connectivity",
+          "$ref": "#/definitions/NodeAddressing"
+        },
+        "ingress-address": {
+          "description": "Source address for Ingress listener",
           "$ref": "#/definitions/NodeAddressing"
         },
         "name": {
@@ -8641,6 +8751,10 @@ func init() {
         "id": {
           "description": "Unique identification",
           "type": "integer"
+        },
+        "updateServices": {
+          "description": "Update all services selecting the backends with their given states\n(id and frontend are ignored)\n",
+          "type": "boolean"
         }
       }
     },
@@ -8788,6 +8902,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv6-big-tcp": {
+          "description": "Status of IPv6 BIG TCP",
+          "$ref": "#/definitions/IPV6BigTCP"
         },
         "kube-proxy-replacement": {
           "description": "Status of kube-proxy replacement",
@@ -9084,6 +9202,12 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
+    },
+    "source": {
+      "type": "string",
+      "description": "Source from which FQDN entries come from",
+      "name": "source",
+      "in": "query"
     },
     "trace-selector": {
       "description": "Context to provide policy evaluation on",

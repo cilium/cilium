@@ -60,11 +60,11 @@ type LocalASNMap map[int]*ServerWithConfig
 // CiliumBGPPeeringConfig.
 //
 // Together, the high-level flow the manager takes is:
-// - Instantiate a reconcilerDiff to compute which BgpServers to create, remove,
-//   and reconcile
-// - Create any BgpServers necessary, run ReconcilerConfigFuncs(s) on each
-// - Run each ReconcilerConfigFunc, by way of ReconcileBGPConfig,
-//   on any BgpServers marked for reconcile
+//   - Instantiate a reconcilerDiff to compute which BgpServers to create, remove,
+//     and reconcile
+//   - Create any BgpServers necessary, run ReconcilerConfigFuncs(s) on each
+//   - Run each ReconcilerConfigFunc, by way of ReconcileBGPConfig,
+//     on any BgpServers marked for reconcile
 //
 // BgpServers are abstracted by the ServerWithConfig structure which provides a
 // method set for low-level BGP operations.

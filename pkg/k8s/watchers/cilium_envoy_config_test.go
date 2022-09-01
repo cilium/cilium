@@ -16,13 +16,13 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/envoy"
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	. "gopkg.in/check.v1"
 )
 
 var (
-	envoySpec = []byte(`apiVersion: cilium.io/v2alpha1
+	envoySpec = []byte(`apiVersion: cilium.io/v2
 kind: CiliumEnvoyConfig
 metadata:
   name: envoy-prometheus-metrics-listener
@@ -62,7 +62,7 @@ func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
 	var buf bytes.Buffer
 	json.Indent(&buf, jsonBytes, "", "\t")
 	fmt.Printf("JSON spec:\n%s\n", buf.String())
-	cec := &cilium_v2alpha1.CiliumEnvoyConfig{}
+	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
 	c.Assert(cec.Spec.Resources, HasLen, 1)

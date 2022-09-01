@@ -17,7 +17,9 @@ import (
 // (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReleaseIpamPoolAllocation.html).
 // To deprovision pool CIDRs, see DeprovisionIpamPoolCidr
 // (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeprovisionIpamPoolCidr.html).
-// For more information, see Delete a pool in the Amazon VPC IPAM User Guide.
+// For more information, see Delete a pool
+// (https://docs.aws.amazon.com/vpc/latest/ipam/delete-pool-ipam.html) in the
+// Amazon VPC IPAM User Guide.
 func (c *Client) DeleteIpamPool(ctx context.Context, params *DeleteIpamPoolInput, optFns ...func(*Options)) (*DeleteIpamPoolOutput, error) {
 	if params == nil {
 		params = &DeleteIpamPoolInput{}

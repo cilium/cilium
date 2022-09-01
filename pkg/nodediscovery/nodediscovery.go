@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -65,7 +66,7 @@ type NodeDiscovery struct {
 	LocalConfig           datapath.LocalNodeConfiguration
 	Registrar             nodestore.NodeRegistrar
 	Registered            chan struct{}
-	LocalStateInitialized chan struct{}
+	localStateInitialized chan struct{}
 	NetConf               *cnitypes.NetConf
 	k8sNodeGetter         k8sNodeGetter
 	localNodeLock         lock.Mutex
@@ -121,7 +122,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 			Source: source.Local,
 		},
 		Registered:            make(chan struct{}),
-		LocalStateInitialized: make(chan struct{}),
+		localStateInitialized: make(chan struct{}),
 		NetConf:               netConf,
 	}
 }
@@ -173,6 +174,58 @@ func (n *NodeDiscovery) StartDiscovery() {
 	n.localNodeLock.Lock()
 	defer n.localNodeLock.Unlock()
 
+	n.fillLocalNode()
+
+	go func() {
+		log.WithFields(
+			logrus.Fields{
+				logfields.Node: n.localNode,
+			}).Info("Adding local node to cluster")
+		for {
+			if err := n.Registrar.RegisterNode(&n.localNode, n.Manager); err != nil {
+				log.WithError(err).Error("Unable to initialize local node. Retrying...")
+				time.Sleep(time.Second)
+			} else {
+				break
+			}
+		}
+		close(n.Registered)
+	}()
+
+	go func() {
+		select {
+		case <-n.Registered:
+		case <-time.After(defaults.NodeInitTimeout):
+			log.Fatalf("Unable to initialize local node due to timeout")
+		}
+	}()
+
+	n.Manager.NodeUpdated(n.localNode)
+	close(n.localStateInitialized)
+
+	n.updateLocalNode()
+}
+
+// WaitForLocalNodeInit blocks until StartDiscovery() has been called.  This is used to block until
+// Node's local IP addresses have been allocated, see https://github.com/cilium/cilium/pull/14299
+// and https://github.com/cilium/cilium/pull/14670.
+func (n *NodeDiscovery) WaitForLocalNodeInit() {
+	<-n.localStateInitialized
+}
+
+func (n *NodeDiscovery) NodeDeleted(node nodeTypes.Node) {
+	n.Manager.NodeDeleted(node)
+}
+
+func (n *NodeDiscovery) NodeUpdated(node nodeTypes.Node) {
+	n.Manager.NodeUpdated(node)
+}
+
+func (n *NodeDiscovery) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
+	return n.Manager.ClusterSizeDependantInterval(baseInterval)
+}
+
+func (n *NodeDiscovery) fillLocalNode() {
 	n.localNode.Name = nodeTypes.GetName()
 	n.localNode.Cluster = option.Config.ClusterName
 	n.localNode.IPAddresses = []nodeTypes.Address{}
@@ -180,6 +233,8 @@ func (n *NodeDiscovery) StartDiscovery() {
 	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.localNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
 	n.localNode.IPv6HealthIP = node.GetEndpointHealthIPv6()
+	n.localNode.IPv4IngressIP = node.GetIngressIPv4()
+	n.localNode.IPv6IngressIP = node.GetIngressIPv6()
 	n.localNode.ClusterID = option.Config.ClusterID
 	n.localNode.EncryptionKey = node.GetIPsecKeyIdentity()
 	n.localNode.WireguardPubKey = node.GetWireguardPubKey()
@@ -227,41 +282,19 @@ func (n *NodeDiscovery) StartDiscovery() {
 			IP:   node.GetK8sExternalIPv6(),
 		})
 	}
+}
 
-	go func() {
-		log.WithFields(
-			logrus.Fields{
-				logfields.Node: n.localNode,
-			}).Info("Adding local node to cluster")
-		for {
-			if err := n.Registrar.RegisterNode(&n.localNode, n.Manager); err != nil {
-				log.WithError(err).Error("Unable to initialize local node. Retrying...")
-				time.Sleep(time.Second)
-			} else {
-				break
-			}
-		}
-		close(n.Registered)
-	}()
-
-	go func() {
-		select {
-		case <-n.Registered:
-		case <-time.NewTimer(defaults.NodeInitTimeout).C:
-			log.Fatalf("Unable to initialize local node due to timeout")
-		}
-	}()
-
-	n.Manager.NodeUpdated(n.localNode)
-	close(n.LocalStateInitialized)
-
+func (n *NodeDiscovery) updateLocalNode() {
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		go func() {
 			<-n.Registered
 			controller.NewManager().UpdateController("propagating local node change to kv-store",
 				controller.ControllerParams{
 					DoFunc: func(ctx context.Context) error {
-						err := n.Registrar.UpdateLocalKeySync(&n.localNode)
+						n.localNodeLock.Lock()
+						localNode := n.localNode.DeepCopy()
+						n.localNodeLock.Unlock()
+						err := n.Registrar.UpdateLocalKeySync(localNode)
 						if err != nil {
 							log.WithError(err).Error("Unable to propagate local node change to kvstore")
 						}
@@ -276,6 +309,27 @@ func (n *NodeDiscovery) StartDiscovery() {
 		// to avoid custom resource update conflicts.
 		n.UpdateCiliumNodeResource()
 	}
+}
+
+// UpdateLocalNode syncs the internal localNode object with the actual state of
+// the local node and publishes the corresponding updated KV store entry and/or
+// CiliumNode object
+func (n *NodeDiscovery) UpdateLocalNode() {
+	n.localNodeLock.Lock()
+	defer n.localNodeLock.Unlock()
+
+	n.fillLocalNode()
+	n.updateLocalNode()
+}
+
+// LocalNode syncs the localNode object with the information stored in the node
+// package and then returns a copy of the localNode object
+func (n *NodeDiscovery) LocalNode() *types.Node {
+	n.localNodeLock.Lock()
+	defer n.localNodeLock.Unlock()
+
+	n.fillLocalNode()
+	return n.localNode.DeepCopy()
 }
 
 // Close shuts down the node discovery engine
@@ -295,8 +349,8 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	ciliumClient := k8s.CiliumClient()
 
 	performGet := true
+	var nodeResource *ciliumv2.CiliumNode
 	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
-		var nodeResource *ciliumv2.CiliumNode
 		performUpdate := true
 		if performGet {
 			var err error
@@ -400,6 +454,9 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 	nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels
 
+	localCN := n.localNode.ToCiliumNode()
+	nodeResource.ObjectMeta.Annotations = localCN.Annotations
+
 	for _, k8sAddress := range k8sNodeAddresses {
 		k8sAddressStr := k8sAddress.IP.String()
 		nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
@@ -458,6 +515,16 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
 	}
 
+	nodeResource.Spec.IngressAddressing.IPV4 = ""
+	if ip := n.localNode.IPv4IngressIP; ip != nil {
+		nodeResource.Spec.IngressAddressing.IPV4 = ip.String()
+	}
+
+	nodeResource.Spec.IngressAddressing.IPV6 = ""
+	if ip := n.localNode.IPv6IngressIP; ip != nil {
+		nodeResource.Spec.IngressAddressing.IPV6 = ip.String()
+	}
+
 	if pk := n.localNode.WireguardPubKey; pk != "" {
 		if nodeResource.ObjectMeta.Annotations == nil {
 			nodeResource.ObjectMeta.Annotations = make(map[string]string)
@@ -492,6 +559,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		// determine the appropriate value to place inside the resource.
 		nodeResource.Spec.ENI.VpcID = vpcID
 		nodeResource.Spec.ENI.FirstInterfaceIndex = getInt(defaults.ENIFirstInterfaceIndex)
+		nodeResource.Spec.ENI.UsePrimaryAddress = getBool(defaults.UseENIPrimaryAddress)
+		nodeResource.Spec.ENI.DisablePrefixDelegation = getBool(defaults.ENIDisableNodeLevelPD)
 
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
@@ -528,6 +597,14 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 			if len(c.ENI.ExcludeInterfaceTags) > 0 {
 				nodeResource.Spec.ENI.ExcludeInterfaceTags = c.ENI.ExcludeInterfaceTags
+			}
+
+			if c.ENI.UsePrimaryAddress != nil {
+				nodeResource.Spec.ENI.UsePrimaryAddress = c.ENI.UsePrimaryAddress
+			}
+
+			if c.ENI.DisablePrefixDelegation != nil {
+				nodeResource.Spec.ENI.DisablePrefixDelegation = c.ENI.DisablePrefixDelegation
 			}
 
 			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
@@ -691,4 +768,8 @@ func validatePrimaryCIDR(oldCIDR, newCIDR *cidr.CIDR, family ipam.Family) {
 
 func getInt(i int) *int {
 	return &i
+}
+
+func getBool(b bool) *bool {
+	return &b
 }

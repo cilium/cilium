@@ -33,7 +33,9 @@ type Client struct {
 	limiter             *helpers.ApiLimiter
 	metricsAPI          MetricsAPI
 	subnetsFilters      []ec2_types.Filter
+	instancesFilters    []ec2_types.Filter
 	eniTagSpecification ec2_types.TagSpecification
+	usePrimary          bool
 }
 
 // MetricsAPI represents the metrics maintained by the AWS API client
@@ -43,7 +45,7 @@ type MetricsAPI interface {
 }
 
 // NewClient returns a new EC2 client
-func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters []ec2_types.Filter, eniTags map[string]string) *Client {
+func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters, instancesFilters []ec2_types.Filter, eniTags map[string]string, usePrimary bool) *Client {
 	eniTagSpecification := ec2_types.TagSpecification{
 		ResourceType: ec2_types.ResourceTypeNetworkInterface,
 		Tags:         createAWSTagSlice(eniTags),
@@ -54,7 +56,9 @@ func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, bur
 		metricsAPI:          metrics,
 		limiter:             helpers.NewApiLimiter(metrics, rateLimit, burst),
 		subnetsFilters:      subnetsFilters,
+		instancesFilters:    instancesFilters,
 		eniTagSpecification: eniTagSpecification,
+		usePrimary:          usePrimary,
 	}
 }
 
@@ -93,6 +97,21 @@ func NewSubnetsFilters(tags map[string]string, ids []string) []ec2_types.Filter 
 		filters = append(filters, ec2_types.Filter{
 			Name:   aws.String("subnet-id"),
 			Values: ids,
+		})
+	}
+
+	return filters
+}
+
+// NewInstancsFilters transforms a map of tags and values
+// into a slice of ec2.Filter adequate to filter AWS Instances.
+func NewInstancesFilters(tags map[string]string) []ec2_types.Filter {
+	filters := make([]ec2_types.Filter, 0, len(tags))
+
+	for k, v := range tags {
+		filters = append(filters, ec2_types.Filter{
+			Name:   aws.String(fmt.Sprintf("tag:%s", k)),
+			Values: []string{v},
 		})
 	}
 
@@ -145,9 +164,64 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 	return result, nil
 }
 
+// describeNetworkInterfacesFromInstances lists all ENIs matching filtered EC2 instances
+func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]ec2_types.NetworkInterface, error) {
+	enisFromInstances := make(map[string]struct{})
+
+	instanceAttrs := &ec2.DescribeInstancesInput{}
+	if len(c.instancesFilters) > 0 {
+		instanceAttrs.Filters = c.instancesFilters
+	}
+
+	paginator := ec2.NewDescribeInstancesPaginator(c.ec2Client, instanceAttrs)
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeInstances")
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeInstances", deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+
+		// loop the instances and add all ENIs to the list
+		for _, r := range output.Reservations {
+			for _, i := range r.Instances {
+				for _, ifs := range i.NetworkInterfaces {
+					enisFromInstances[aws.ToString(ifs.NetworkInterfaceId)] = struct{}{}
+				}
+			}
+		}
+	}
+
+	enisListFromInstances := []string{}
+	for k := range enisFromInstances {
+		enisListFromInstances = append(enisListFromInstances, k)
+	}
+
+	ENIAttrs := &ec2.DescribeNetworkInterfacesInput{}
+	if len(enisListFromInstances) > 0 {
+		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
+	}
+
+	var result []ec2_types.NetworkInterface
+
+	ENIPaginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, ENIAttrs)
+	for ENIPaginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		sinceStart := spanstat.Start()
+		output, err := ENIPaginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeNetworkInterfaces", deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.NetworkInterfaces...)
+	}
+	return result, nil
+}
+
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
 // converts it into a eniTypes.ENI object
-func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (instanceID string, eni *eniTypes.ENI, err error) {
+func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, eni *eniTypes.ENI, err error) {
 	if iface.PrivateIpAddress == nil {
 		err = fmt.Errorf("ENI has no IP address")
 		return
@@ -201,7 +275,10 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	}
 
 	for _, ip := range iface.PrivateIpAddresses {
-		if ip.PrivateIpAddress != nil && !aws.ToBool(ip.Primary) {
+		if !usePrimary && ip.Primary != nil && aws.ToBool(ip.Primary) {
+			continue
+		}
+		if ip.PrivateIpAddress != nil {
 			eni.Addresses = append(eni.Addresses, aws.ToString(ip.PrivateIpAddress))
 		}
 	}
@@ -235,13 +312,20 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	instances := ipamTypes.NewInstanceMap()
 
-	networkInterfaces, err := c.describeNetworkInterfaces(ctx, subnets)
+	var networkInterfaces []ec2_types.NetworkInterface
+	var err error
+
+	if len(c.instancesFilters) > 0 {
+		networkInterfaces, err = c.describeNetworkInterfacesFromInstances(ctx)
+	} else {
+		networkInterfaces, err = c.describeNetworkInterfaces(ctx, subnets)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	for _, iface := range networkInterfaces {
-		id, eni, err := parseENI(&iface, vpcs, subnets)
+		id, eni, err := parseENI(&iface, vpcs, subnets, c.usePrimary)
 		if err != nil {
 			return nil, err
 		}
@@ -393,7 +477,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		return "", nil, err
 	}
 
-	_, eni, err := parseENI(output.NetworkInterface, nil, nil)
+	_, eni, err := parseENI(output.NetworkInterface, nil, nil, c.usePrimary)
 	if err != nil {
 		// The error is ignored on purpose. The allocation itself has
 		// succeeded. The ability to parse and return the ENI
@@ -404,7 +488,6 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 	}
 
 	return eni.ID, eni, nil
-
 }
 
 // DeleteNetworkInterface deletes an ENI with the specified ID

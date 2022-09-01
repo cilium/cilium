@@ -25,5 +25,5 @@ cilium-health ping [flags]
 
 ### SEE ALSO
 
-* [cilium-health](cilium-health.html)	 - Cilium Health Client
+* [cilium-health](cilium-health.md)	 - Cilium Health Client
 

@@ -56,6 +56,10 @@ var (
 // have their maximum entries configured. Note this does not create or open the
 // maps; it simply constructs the objects.
 func initSVC(params InitParams) {
+	ServiceMapMaxEntries = params.ServiceMapMaxEntries
+	ServiceBackEndMapMaxEntries = params.BackEndMapMaxEntries
+	RevNatMapMaxEntries = params.RevNatMapMaxEntries
+
 	if params.IPv4 {
 		Service4MapV2 = bpf.NewMap(Service4MapV2Name,
 			bpf.MapTypeHash,
@@ -63,7 +67,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Service4Key{})),
 			&Service4Value{},
 			int(unsafe.Sizeof(Service4Value{})),
-			MaxEntries,
+			ServiceMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -73,7 +77,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Backend4Key{})),
 			&Backend4Value{},
 			int(unsafe.Sizeof(Backend4Value{})),
-			MaxEntries,
+			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -83,7 +87,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Backend4KeyV2{})),
 			&Backend4Value{},
 			int(unsafe.Sizeof(Backend4Value{})),
-			MaxEntries,
+			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -93,7 +97,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(RevNat4Key{})),
 			&RevNat4Value{},
 			int(unsafe.Sizeof(RevNat4Value{})),
-			MaxEntries,
+			RevNatMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -106,7 +110,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Service6Key{})),
 			&Service6Value{},
 			int(unsafe.Sizeof(Service6Value{})),
-			MaxEntries,
+			ServiceMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -116,7 +120,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Backend6Key{})),
 			&Backend6Value{},
 			int(unsafe.Sizeof(Backend6Value{})),
-			MaxEntries,
+			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -126,7 +130,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(Backend6KeyV2{})),
 			&Backend6Value{},
 			int(unsafe.Sizeof(Backend6Value{})),
-			MaxEntries,
+			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -136,7 +140,7 @@ func initSVC(params InitParams) {
 			int(unsafe.Sizeof(RevNat6Key{})),
 			&RevNat6Value{},
 			int(unsafe.Sizeof(RevNat6Value{})),
-			MaxEntries,
+			RevNatMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
@@ -389,18 +393,20 @@ type Backend4Value struct {
 	Address types.IPv4      `align:"address"`
 	Port    uint16          `align:"port"`
 	Proto   u8proto.U8proto `align:"proto"`
-	Pad     uint8           `align:"pad"`
+	Flags   uint8           `align:"flags"`
 }
 
-func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4Value, error) {
+func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend4Value, error) {
 	ip4 := ip.To4()
 	if ip4 == nil {
 		return nil, fmt.Errorf("Not an IPv4 address")
 	}
+	flags := loadbalancer.NewBackendFlags(state)
 
 	val := Backend4Value{
 		Port:  port,
 		Proto: proto,
+		Flags: flags,
 	}
 	copy(val.Address[:], ip.To4())
 
@@ -416,6 +422,7 @@ func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) 
 
 func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4Value) GetPort() uint16    { return b.Port }
+func (b *Backend4Value) GetFlags() uint8    { return b.Flags }
 
 func (v *Backend4Value) ToNetwork() BackendValue {
 	n := *v
@@ -435,8 +442,9 @@ type Backend4V2 struct {
 	Value *Backend4Value
 }
 
-func NewBackend4V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4V2, error) {
-	val, err := NewBackend4Value(ip, port, proto)
+func NewBackend4V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto,
+	state loadbalancer.BackendState) (*Backend4V2, error) {
+	val, err := NewBackend4Value(ip, port, proto, state)
 	if err != nil {
 		return nil, err
 	}

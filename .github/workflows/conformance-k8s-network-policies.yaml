@@ -8,6 +8,7 @@ on:
 permissions: read-all
 
 env:
+  cilium_cli_version: v0.12.2
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -18,7 +19,7 @@ jobs:
   preflight-clusterrole:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           persist-credentials: false
       - name: Check pre-flight clusterrole
@@ -36,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           persist-credentials: false
 
@@ -63,7 +64,7 @@ jobs:
           until docker manifest inspect quay.io/${{ github.repository_owner }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
 
       - name: Create kind cluster
-        uses: helm/kind-action@94729529f85113b88f4f819c17ce61382e6d8478
+        uses: helm/kind-action@d08cf6ff1575077dee99962540d77ce91c62387d
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -75,7 +76,7 @@ jobs:
              --namespace kube-system \
              --set nodeinit.enabled=true \
              --set kubeProxyReplacement=partial \
-             --set hostServices.enabled=false \
+             --set socketLB.enabled=false \
              --set externalIPs.enabled=true \
              --set nodePort.enabled=true \
              --set hostPort.enabled=true \
@@ -107,8 +108,8 @@ jobs:
       - name: Capture cilium-sysdump
         if: ${{ failure() }}
         run: |
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          echo "=== Install Cilium CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
           sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
           rm cilium-linux-amd64.tar.gz{,.sha256sum}
@@ -120,7 +121,7 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         if: ${{ failure() }}
         with:
           name: cilium-sysdump-out.zip
@@ -128,7 +129,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

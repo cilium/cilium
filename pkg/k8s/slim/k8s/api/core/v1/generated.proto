@@ -13,7 +13,7 @@ import "k8s.io/apimachinery/pkg/runtime/generated.proto";
 import "k8s.io/apimachinery/pkg/runtime/schema/generated.proto";
 
 // Package-wide variables from generator "generated".
-option go_package = "v1";
+option go_package = "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1";
 
 // ClientIPConfig represents the configurations of Client IP based session affinity.
 message ClientIPConfig {
@@ -31,19 +31,19 @@ message Container {
   // Cannot be updated.
   optional string name = 1;
 
-  // Docker image name.
+  // Container image name.
   // More info: https://kubernetes.io/docs/concepts/containers/images
   // This field is optional to allow higher level config management to default or override
   // container images in workload controllers like Deployments and StatefulSets.
   // +optional
   optional string image = 2;
 
-  // List of ports to expose from the container. Exposing a port here gives
-  // the system additional information about the network connections a
-  // container uses, but is primarily informational. Not specifying a port here
+  // List of ports to expose from the container. Not specifying a port here
   // DOES NOT prevent that port from being exposed. Any port which is
   // listening on the default "0.0.0.0" address inside a container will be
   // accessible from the network.
+  // Modifying this array with strategic merge patch may corrupt the data.
+  // For more information See https://github.com/kubernetes/kubernetes/issues/108255.
   // Cannot be updated.
   // +optional
   // +patchMergeKey=containerPort
@@ -130,13 +130,16 @@ message EndpointPort {
 // EndpointSubset is a group of addresses with a common set of ports. The
 // expanded set of endpoints is the Cartesian product of Addresses x Ports.
 // For example, given:
-//   {
-//     Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
-//     Ports:     [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
-//   }
+//
+// 	{
+// 	  Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
+// 	  Ports:     [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
+// 	}
+//
 // The resulting set of endpoints can be viewed as:
-//     a: [ 10.10.1.1:8675, 10.10.2.2:8675 ],
-//     b: [ 10.10.1.1:309, 10.10.2.2:309 ]
+//
+// 	a: [ 10.10.1.1:8675, 10.10.2.2:8675 ],
+// 	b: [ 10.10.1.1:309, 10.10.2.2:309 ]
 message EndpointSubset {
   // IP addresses which offer the related ports that are marked as ready. These endpoints
   // should be considered safe for load balancers and clients to utilize.
@@ -149,17 +152,18 @@ message EndpointSubset {
 }
 
 // Endpoints is a collection of endpoints that implement the actual service. Example:
-//   Name: "mysvc",
-//   Subsets: [
-//     {
-//       Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
-//       Ports: [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
-//     },
-//     {
-//       Addresses: [{"ip": "10.10.3.3"}],
-//       Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
-//     },
-//  ]
+//
+// 	 Name: "mysvc",
+// 	 Subsets: [
+// 	   {
+// 	     Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
+// 	     Ports: [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
+// 	   },
+// 	   {
+// 	     Addresses: [{"ip": "10.10.3.3"}],
+// 	     Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
+// 	   },
+// 	]
 message Endpoints {
   // Standard object's metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
@@ -186,12 +190,6 @@ message EndpointsList {
 
   // List of endpoints.
   repeated Endpoints items = 2;
-}
-
-// A list of ephemeral containers used with the Pod ephemeralcontainers subresource.
-message EphemeralContainers {
-  // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 }
 
 // LoadBalancerIngress represents the status of a load-balancer ingress point:
@@ -273,6 +271,19 @@ message NodeAddress {
   optional string address = 2;
 }
 
+// NodeCondition contains condition information for a node.
+message NodeCondition {
+  // Type of node condition.
+  optional string type = 1;
+
+  // Status of the condition, one of True, False, Unknown.
+  optional string status = 2;
+
+  // (brief) reason for the condition's last transition.
+  // +optional
+  optional string reason = 5;
+}
+
 // NodeList is the whole list of all Nodes which have been registered with master.
 message NodeList {
   // Standard list metadata.
@@ -304,6 +315,13 @@ message NodeSpec {
 
 // NodeStatus is information about the current status of a node.
 message NodeStatus {
+  // Conditions is an array of current observed node conditions.
+  // More info: https://kubernetes.io/docs/concepts/nodes/node/#condition
+  // +optional
+  // +patchMergeKey=type
+  // +patchStrategy=merge
+  repeated NodeCondition conditions = 4;
+
   // List of addresses reachable to the node.
   // Queried from cloud provider, if available.
   // More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses
@@ -368,7 +386,8 @@ message PodCondition {
 
 // IP address information for entries in the (plural) PodIPs field.
 // Each entry includes:
-//    IP: An IP address allocated to the pod. Routable at least within the cluster.
+//
+// 	IP: An IP address allocated to the pod. Routable at least within the cluster.
 message PodIP {
   // ip is an IP address (IPv4 or IPv6) assigned to the pod
   optional string ip = 1;
@@ -508,6 +527,54 @@ message PortStatus {
   // +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$`
   // +kubebuilder:validation:MaxLength=316
   optional string error = 3;
+}
+
+// Secret holds secret data of a certain type. The total bytes of the values in
+// the Data field must be less than MaxSecretSize bytes.
+message Secret {
+  // Standard object's metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+
+  // Immutable, if set to true, ensures that data stored in the Secret cannot
+  // be updated (only object metadata can be modified).
+  // If not set to true, the field can be modified at any time.
+  // Defaulted to nil.
+  // +optional
+  optional bool immutable = 5;
+
+  // Data contains the secret data. Each key must consist of alphanumeric
+  // characters, '-', '_' or '.'. The serialized form of the secret data is a
+  // base64 encoded string, representing the arbitrary (possibly non-string)
+  // data value here. Described in https://tools.ietf.org/html/rfc4648#section-4
+  // +optional
+  map<string, bytes> data = 2;
+
+  // stringData allows specifying non-binary secret data in string form.
+  // It is provided as a write-only input field for convenience.
+  // All keys and values are merged into the data field on write, overwriting any existing values.
+  // The stringData field is never output when reading from the API.
+  // +k8s:conversion-gen=false
+  // +optional
+  map<string, string> stringData = 4;
+
+  // Used to facilitate programmatic handling of secret data.
+  // More info: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types
+  // +optional
+  optional string type = 3;
+}
+
+// SecretList is a list of Secret.
+message SecretList {
+  // Standard list metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+
+  // Items is a list of secret objects.
+  // More info: https://kubernetes.io/docs/concepts/configuration/secret
+  repeated Secret items = 2;
 }
 
 // Service is a named abstraction of software service (for example, mysql) consisting of local port
@@ -676,11 +743,14 @@ message ServiceSpec {
   // +optional
   optional string sessionAffinity = 7;
 
-  // Only applies to Service Type: LoadBalancer
-  // LoadBalancer will get created with the IP specified in this field.
+  // Only applies to Service Type: LoadBalancer.
   // This feature depends on whether the underlying cloud-provider supports specifying
   // the loadBalancerIP when a load balancer is created.
   // This field will be ignored if the cloud-provider does not support the feature.
+  // Deprecated: This field was under-specified and its meaning varies across implementations,
+  // and it cannot support dual-stack.
+  // As of Kubernetes v1.24, users are encouraged to use implementation-specific annotations when available.
+  // This field may be removed in a future API version.
   // +optional
   optional string loadBalancerIP = 8;
 
@@ -691,12 +761,19 @@ message ServiceSpec {
   // +optional
   repeated string loadBalancerSourceRanges = 9;
 
-  // externalTrafficPolicy denotes if this Service desires to route external
-  // traffic to node-local or cluster-wide endpoints. "Local" preserves the
-  // client source IP and avoids a second hop for LoadBalancer and Nodeport
-  // type services, but risks potentially imbalanced traffic spreading.
-  // "Cluster" obscures the client source IP and may cause a second hop to
-  // another node, but should have good overall load-spreading.
+  // externalTrafficPolicy describes how nodes distribute service traffic they
+  // receive on one of the Service's "externally-facing" addresses (NodePorts,
+  // ExternalIPs, and LoadBalancer IPs). If set to "Local", the proxy will configure
+  // the service in a way that assumes that external load balancers will take care
+  // of balancing the service traffic between nodes, and so each node will deliver
+  // traffic only to the node-local endpoints of the service, without masquerading
+  // the client source IP. (Traffic mistakenly sent to a node with no endpoints will
+  // be dropped.) The default value, "Cluster", uses the standard behavior of
+  // routing to all endpoints evenly (possibly modified by topology and other
+  // features). Note that traffic sent to an External IP or LoadBalancer IP from
+  // within the cluster will always get "Cluster" semantics, but clients sending to
+  // a NodePort from within the cluster may need to take traffic policy into account
+  // when picking a node.
   // +optional
   optional string externalTrafficPolicy = 11;
 
@@ -709,6 +786,7 @@ message ServiceSpec {
   // service or not.  If this field is specified when creating a Service
   // which does not need it, creation will fail. This field will be wiped
   // when updating a Service to no longer need it (e.g. changing type).
+  // This field cannot be updated once set.
   // +optional
   optional int32 healthCheckNodePort = 12;
 
@@ -771,22 +849,6 @@ message Taint {
   // It is only written for NoExecute taints.
   // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time timeAdded = 4;
-}
-
-// TypedLocalObjectReference contains enough information to let you locate the
-// typed referenced object inside the same namespace.
-message TypedLocalObjectReference {
-  // APIGroup is the group for the resource being referenced.
-  // If APIGroup is not specified, the specified Kind must be in the core API group.
-  // For any other third-party types, APIGroup is required.
-  // +optional
-  optional string apiGroup = 1;
-
-  // Kind is the type of resource being referenced
-  optional string kind = 2;
-
-  // Name is the name of resource being referenced
-  optional string name = 3;
 }
 
 // VolumeMount describes a mounting of a Volume within a container.

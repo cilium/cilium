@@ -31,7 +31,7 @@ var mapListCmd = &cobra.Command{
 			return
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(mapList); err != nil {
 				os.Exit(1)
 			}
@@ -76,6 +76,6 @@ func printMapList(mapList *models.BPFMapList) {
 
 func init() {
 	mapCmd.AddCommand(mapListCmd)
-	command.AddJSONOutput(mapListCmd)
+	command.AddOutputOption(mapListCmd)
 	mapListCmd.Flags().BoolVar(&verbose, "verbose", false, "Print cache contents of all maps")
 }

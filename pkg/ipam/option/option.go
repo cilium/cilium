@@ -24,10 +24,15 @@ const (
 	IPAMClusterPool = "cluster-pool"
 
 	// IPAMClusterPoolV2 is the value to select cluster pool version 2
-	IPAMClusterPoolV2 = "cluster-pool-v2"
+	IPAMClusterPoolV2 = "cluster-pool-v2beta"
 
 	// IPAMAlibabaCloud is the value to select the AlibabaCloud ENI IPAM plugin for option.IPAM
 	IPAMAlibabaCloud = "alibabacloud"
+
+	// IPAMDelegatedPlugin is the value to select CNI delegated IPAM plugin mode.
+	// In this mode, Cilium CNI invokes another CNI binary (the delegated plugin) for IPAM.
+	// See https://www.cni.dev/docs/spec/#section-4-plugin-delegation
+	IPAMDelegatedPlugin = "delegated-plugin"
 )
 
 const (

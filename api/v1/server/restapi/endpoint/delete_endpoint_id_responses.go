@@ -19,7 +19,8 @@ import (
 // DeleteEndpointIDOKCode is the HTTP code returned for type DeleteEndpointIDOK
 const DeleteEndpointIDOKCode int = 200
 
-/*DeleteEndpointIDOK Success
+/*
+DeleteEndpointIDOK Success
 
 swagger:response deleteEndpointIdOK
 */
@@ -43,7 +44,8 @@ func (o *DeleteEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runt
 // DeleteEndpointIDErrorsCode is the HTTP code returned for type DeleteEndpointIDErrors
 const DeleteEndpointIDErrorsCode int = 206
 
-/*DeleteEndpointIDErrors Deleted with a number of errors encountered
+/*
+DeleteEndpointIDErrors Deleted with a number of errors encountered
 
 swagger:response deleteEndpointIdErrors
 */
@@ -85,9 +87,9 @@ func (o *DeleteEndpointIDErrors) WriteResponse(rw http.ResponseWriter, producer 
 // DeleteEndpointIDInvalidCode is the HTTP code returned for type DeleteEndpointIDInvalid
 const DeleteEndpointIDInvalidCode int = 400
 
-/*DeleteEndpointIDInvalid Invalid endpoint ID format for specified type. Details in error
+/*
+DeleteEndpointIDInvalid Invalid endpoint ID format for specified type. Details in error
 message
-
 
 swagger:response deleteEndpointIdInvalid
 */
@@ -129,7 +131,8 @@ func (o *DeleteEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer
 // DeleteEndpointIDNotFoundCode is the HTTP code returned for type DeleteEndpointIDNotFound
 const DeleteEndpointIDNotFoundCode int = 404
 
-/*DeleteEndpointIDNotFound Endpoint not found
+/*
+DeleteEndpointIDNotFound Endpoint not found
 
 swagger:response deleteEndpointIdNotFound
 */
@@ -153,7 +156,8 @@ func (o *DeleteEndpointIDNotFound) WriteResponse(rw http.ResponseWriter, produce
 // DeleteEndpointIDTooManyRequestsCode is the HTTP code returned for type DeleteEndpointIDTooManyRequests
 const DeleteEndpointIDTooManyRequestsCode int = 429
 
-/*DeleteEndpointIDTooManyRequests Rate-limiting too many requests in the given time frame
+/*
+DeleteEndpointIDTooManyRequests Rate-limiting too many requests in the given time frame
 
 swagger:response deleteEndpointIdTooManyRequests
 */

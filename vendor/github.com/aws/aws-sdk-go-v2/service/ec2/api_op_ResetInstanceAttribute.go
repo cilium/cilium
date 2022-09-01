@@ -37,8 +37,7 @@ func (c *Client) ResetInstanceAttribute(ctx context.Context, params *ResetInstan
 type ResetInstanceAttributeInput struct {
 
 	// The attribute to reset. You can only reset the following attributes: kernel |
-	// ramdisk | sourceDestCheck. To change an instance attribute, use
-	// ModifyInstanceAttribute.
+	// ramdisk | sourceDestCheck.
 	//
 	// This member is required.
 	Attribute types.InstanceAttributeName

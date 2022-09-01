@@ -12,7 +12,7 @@ cilium bpf tunnel list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium bpf tunnel list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf tunnel](../cilium_bpf_tunnel)	 - Tunnel endpoint map
+* [cilium bpf tunnel](cilium_bpf_tunnel.md)	 - Tunnel endpoint map
 

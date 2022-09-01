@@ -83,7 +83,8 @@ type ModifySpotFleetRequestInput struct {
 // Contains the output of ModifySpotFleetRequest.
 type ModifySpotFleetRequestOutput struct {
 
-	// Is true if the request succeeds, and an error otherwise.
+	// If the request succeeds, the response returns true. If the request fails, no
+	// response is returned, and instead an error message is returned.
 	Return *bool
 
 	// Metadata pertaining to the operation's result.

@@ -16,6 +16,9 @@ const (
 
 	// Pattern for detecting valid variable within a value
 	variablePattern = `(\\)?(\$)(\{?([A-Z0-9_]+)?\}?)`
+
+	// Byte order mark character
+	bom = "\xef\xbb\xbf"
 )
 
 // Env holds key/value pair of valid environment variable
@@ -84,7 +87,7 @@ func loadenv(override bool, filenames ...string) error {
 
 // parse and set :)
 func parset(r io.Reader, override bool) error {
-	env, err := StrictParse(r)
+	env, err := strictParse(r, override)
 	if err != nil {
 		return err
 	}
@@ -110,7 +113,7 @@ func setenv(key, val string, override bool) {
 // It expands the value of a variable from the environment variable but does not set the value to the environment itself.
 // This function is skipping any invalid lines and only processing the valid one.
 func Parse(r io.Reader) Env {
-	env, _ := StrictParse(r)
+	env, _ := strictParse(r, false)
 	return env
 }
 
@@ -118,22 +121,59 @@ func Parse(r io.Reader) Env {
 // It expands the value of a variable from the environment variable but does not set the value to the environment itself.
 // This function is returning an error if there are any invalid lines.
 func StrictParse(r io.Reader) (Env, error) {
+	return strictParse(r, false)
+}
+
+func strictParse(r io.Reader, override bool) (Env, error) {
 	env := make(Env)
 	scanner := bufio.NewScanner(r)
 
-	i := 1
-	bom := string([]byte{239, 187, 191})
+	firstLine := true
 
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
 
-		if i == 1 {
+		if firstLine {
 			line = strings.TrimPrefix(line, bom)
+			firstLine = false
 		}
 
-		i++
+		if line == "" || line[0] == '#' {
+			continue
+		}
 
-		err := parseLine(line, env)
+		quote := ""
+		idx := strings.Index(line, "=")
+		if idx == -1 {
+			idx = strings.Index(line, ":")
+		}
+		if idx > 0 && idx < len(line)-1 {
+			val := strings.TrimSpace(line[idx+1:])
+			if val[0] == '"' || val[0] == '\'' {
+				quote = val[:1]
+				idx = strings.LastIndex(strings.TrimSpace(val[1:]), quote)
+				if idx >= 0 && val[idx] != '\\' {
+					quote = ""
+				}
+			}
+		}
+		for quote != "" && scanner.Scan() {
+			l := scanner.Text()
+			line += "\n" + l
+			idx := strings.LastIndex(l, quote)
+			if idx > 0 && l[idx-1] == '\\' {
+				continue
+			}
+			if idx >= 0 {
+				quote = ""
+			}
+		}
+
+		if quote != "" {
+			return env, fmt.Errorf("missing quotes")
+		}
+
+		err := parseLine(line, env, override)
 		if err != nil {
 			return env, err
 		}
@@ -142,9 +182,14 @@ func StrictParse(r io.Reader) (Env, error) {
 	return env, nil
 }
 
-func parseLine(s string, env Env) error {
-	rl := regexp.MustCompile(linePattern)
-	rm := rl.FindStringSubmatch(s)
+var (
+	lineRgx     = regexp.MustCompile(linePattern)
+	unescapeRgx = regexp.MustCompile(`\\([^$])`)
+	varRgx      = regexp.MustCompile(variablePattern)
+)
+
+func parseLine(s string, env Env, override bool) error {
+	rm := lineRgx.FindStringSubmatch(s)
 
 	if len(rm) == 0 {
 		return checkFormat(s, env)
@@ -153,35 +198,36 @@ func parseLine(s string, env Env) error {
 	key := rm[1]
 	val := rm[2]
 
+	// trim whitespace
+	val = strings.TrimSpace(val)
+
 	// determine if string has quote prefix
 	hdq := strings.HasPrefix(val, `"`)
 
 	// determine if string has single quote prefix
 	hsq := strings.HasPrefix(val, `'`)
 
-	// trim whitespace
-	val = strings.Trim(val, " ")
-
 	// remove quotes '' or ""
-	rq := regexp.MustCompile(`\A(['"])(.*)(['"])\z`)
-	val = rq.ReplaceAllString(val, "$2")
+	if l := len(val); (hsq || hdq) && l >= 2 {
+		val = val[1 : l-1]
+	}
 
 	if hdq {
-		val = strings.Replace(val, `\n`, "\n", -1)
-		val = strings.Replace(val, `\r`, "\r", -1)
+		val = strings.ReplaceAll(val, `\n`, "\n")
+		val = strings.ReplaceAll(val, `\r`, "\r")
 
 		// Unescape all characters except $ so variables can be escaped properly
-		re := regexp.MustCompile(`\\([^$])`)
-		val = re.ReplaceAllString(val, "$1")
+		val = unescapeRgx.ReplaceAllString(val, "$1")
 	}
 
-	rv := regexp.MustCompile(variablePattern)
 	fv := func(s string) string {
-		return varReplacement(s, hsq, env)
+		return varReplacement(s, hsq, env, override)
 	}
 
-	val = rv.ReplaceAllStringFunc(val, fv)
-	val = parseVal(val, env)
+	if !hsq {
+		val = varRgx.ReplaceAllStringFunc(val, fv)
+		val = parseVal(val, env, hdq, override)
+	}
 
 	env[key] = val
 	return nil
@@ -201,7 +247,9 @@ func parseExport(st string, env Env) error {
 	return nil
 }
 
-func varReplacement(s string, hsq bool, env Env) string {
+var varNameRgx = regexp.MustCompile(`(\$)(\{?([A-Z0-9_]+)\}?)`)
+
+func varReplacement(s string, hsq bool, env Env, override bool) string {
 	if strings.HasPrefix(s, "\\") {
 		return strings.TrimPrefix(s, "\\")
 	}
@@ -210,15 +258,17 @@ func varReplacement(s string, hsq bool, env Env) string {
 		return s
 	}
 
-	sn := `(\$)(\{?([A-Z0-9_]+)\}?)`
-	rn := regexp.MustCompile(sn)
-	mn := rn.FindStringSubmatch(s)
+	mn := varNameRgx.FindStringSubmatch(s)
 
 	if len(mn) == 0 {
 		return s
 	}
 
 	v := mn[3]
+
+	if replace, ok := os.LookupEnv(v); ok && !override {
+		return replace
+	}
 
 	replace, ok := env[v]
 	if !ok {
@@ -242,21 +292,14 @@ func checkFormat(s string, env Env) error {
 	return fmt.Errorf("line `%s` doesn't match format", s)
 }
 
-func parseVal(val string, env Env) string {
-	if strings.Contains(val, "=") {
-		if !(val == "\n" || val == "\r") {
-			kv := strings.Split(val, "\n")
+func parseVal(val string, env Env, ignoreNewlines bool, override bool) string {
+	if strings.Contains(val, "=") && !ignoreNewlines {
+		kv := strings.Split(val, "\r")
 
-			if len(kv) == 1 {
-				kv = strings.Split(val, "\r")
-			}
-
-			if len(kv) > 1 {
-				val = kv[0]
-
-				for i := 1; i < len(kv); i++ {
-					parseLine(kv[i], env)
-				}
+		if len(kv) > 1 {
+			val = kv[0]
+			for _, l := range kv[1:] {
+				_ = parseLine(l, env, override)
 			}
 		}
 	}

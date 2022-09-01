@@ -643,6 +643,11 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+        '501':
+          description: Error while updating backend states
+          x-go-name: UpdateBackendFailure
+          schema:
+            "$ref": "#/definitions/Error"
     delete:
       summary: Delete a service
       tags:
@@ -848,12 +853,13 @@ paths:
       summary: Retrieves the list of DNS lookups intercepted from all endpoints.
       description: |
         Retrieves the list of DNS lookups intercepted from endpoints,
-        optionally filtered by endpoint id, DNS name, or CIDR IP range.
+        optionally filtered by DNS name, CIDR IP range or source.
       tags:
       - policy
       parameters:
       - "$ref": "#/parameters/matchpattern"
       - "$ref": "#/parameters/cidr"
+      - "$ref": "#/parameters/source"
       responses:
         '200':
           description: Success
@@ -889,14 +895,15 @@ paths:
     get:
       summary: Retrieves the list of DNS lookups intercepted from an endpoint.
       description: |
-        Retrieves the list of DNS lookups intercepted from endpoints,
-        optionally filtered by endpoint id, DNS name, or CIDR IP range.
+        Retrieves the list of DNS lookups intercepted from the specific endpoint,
+        optionally filtered by endpoint id, DNS name, CIDR IP range or source.
       tags:
       - policy
       parameters:
       - "$ref": "#/parameters/endpoint-id"
       - "$ref": "#/parameters/matchpattern"
       - "$ref": "#/parameters/cidr"
+      - "$ref": "#/parameters/source"
       responses:
         '200':
           description: Success
@@ -1092,6 +1099,12 @@ parameters:
   cidr:
     name: cidr
     description: A CIDR range of IPs
+    required: false
+    in: query
+    type: string
+  source:
+    name: source
+    description: Source from which FQDN entries come from
     required: false
     in: query
     type: string
@@ -1747,6 +1760,9 @@ definitions:
       identity-range:
         description: Status of identity range of the cluster
         "$ref": "#/definitions/IdentityRange"
+      ipv6-big-tcp:
+        description: Status of IPv6 BIG TCP
+        "$ref": "#/definitions/IPV6BigTCP"
       bandwidth-manager:
         description: Status of bandwidth manager
         "$ref": "#/definitions/BandwidthManager"
@@ -2000,6 +2016,15 @@ definitions:
                 type: array
                 items:
                   type: string
+          socketLB:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
+            type: object
+            properties:
+              enabled:
+                type: boolean
           sessionAffinity:
             description: |-
 
@@ -2221,8 +2246,6 @@ definitions:
         type: integer
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
-      ipvlanConfiguration:
-        "$ref": "#/definitions/IpvlanConfiguration"
       ipam-mode:
         description: Configured IPAM mode
         type: string
@@ -2245,25 +2268,17 @@ definitions:
         description: Config map which contains all the active daemon configurations
         additionalProperties:
           type: object
+      GSOMaxSize:
+        description: Maximum GSO size on workload facing devices
+        type: integer
+      GROMaxSize:
+        description: Maximum GRO size on workload facing devices
+        type: integer
   DatapathMode:
     description: Datapath mode
     type: string
     enum:
       - veth
-      - ipvlan
-  IpvlanConfiguration:
-    description: Setup for datapath when operating in ipvlan mode.
-    type: object
-    properties:
-      masterDeviceIndex:
-        description: Workload facing ipvlan master device ifindex.
-        type: integer
-      operationMode:
-        description: Mode in which ipvlan setup operates.
-        type: string
-        enum:
-          - L3
-          - L3S
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
@@ -2314,6 +2329,9 @@ definitions:
           "$ref": "#/definitions/NodeAddressingElement"
       health-endpoint-address:
         description: Address used for probing cluster connectivity
+        "$ref": "#/definitions/NodeAddressing"
+      ingress-address:
+        description: Source address for Ingress listener
         "$ref": "#/definitions/NodeAddressing"
   NodeAddressing:
     description: |-
@@ -2478,6 +2496,19 @@ definitions:
       nodeName:
         description: Optional name of the node on which this backend runs
         type: string
+      state:
+        description: State of the backend for load-balancing service traffic
+        type: string
+        enum:
+          - active
+          - terminating
+          - quarantined
+          - maintenance
+      preferred:
+        description: |-
+          Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based
+          on related annotation of global service. Applicable for active state only.
+        type: boolean
   LRPBackend:
     description: Pod backend of an LRP
     type: object
@@ -2587,6 +2618,12 @@ definitions:
           namespace:
             description: Service namespace  (e.g. Kubernetes namespace)
             type: string
+      updateServices:
+        description: |
+          Update all services selecting the backends with their given states
+          (id and frontend are ignored)
+        type: boolean
+
   ServiceStatus:
     description: Configuration of a service
     type: object
@@ -2786,6 +2823,16 @@ definitions:
       forwarded:
         description: Number of messages forwarded
         type: integer
+  IPV6BigTCP:
+    description: |-
+      Status of IPv6 BIG TCP
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      enabled:
+        description: Is IPv6 BIG TCP enabled
+        type: boolean
   BandwidthManager:
     description: |-
       Status of bandwidth manager
@@ -3064,7 +3111,7 @@ definitions:
         description: The TTL in the DNS response
         type: integer
       lookup-time:
-        description: The absolute time when this data was recieved
+        description: The absolute time when this data was received
         type: string
         format: date-time
       expiration-time:

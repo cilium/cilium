@@ -82,6 +82,7 @@ type ModifyDiskAttributeRequest struct {
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	BurstingEnabled      requests.Boolean `position:"Query" name:"BurstingEnabled"`
 }
 
 // ModifyDiskAttributeResponse is the response struct for api ModifyDiskAttribute

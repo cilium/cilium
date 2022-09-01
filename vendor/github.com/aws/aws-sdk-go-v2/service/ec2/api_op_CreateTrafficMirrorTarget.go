@@ -16,8 +16,9 @@ import (
 // destination for mirrored traffic. The Traffic Mirror source and the Traffic
 // Mirror target (monitoring appliances) can be in the same VPC, or in different
 // VPCs connected via VPC peering or a transit gateway. A Traffic Mirror target can
-// be a network interface, or a Network Load Balancer. To use the target in a
-// Traffic Mirror session, use CreateTrafficMirrorSession
+// be a network interface, a Network Load Balancer, or a Gateway Load Balancer
+// endpoint. To use the target in a Traffic Mirror session, use
+// CreateTrafficMirrorSession
 // (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorSession.htm).
 func (c *Client) CreateTrafficMirrorTarget(ctx context.Context, params *CreateTrafficMirrorTargetInput, optFns ...func(*Options)) (*CreateTrafficMirrorTargetOutput, error) {
 	if params == nil {
@@ -49,6 +50,9 @@ type CreateTrafficMirrorTargetInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	// The ID of the Gateway Load Balancer endpoint.
+	GatewayLoadBalancerEndpointId *string
 
 	// The network interface ID that is associated with the target.
 	NetworkInterfaceId *string

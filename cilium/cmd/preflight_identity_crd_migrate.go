@@ -11,7 +11,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -57,11 +56,14 @@ var migrateIdentityCmd = &cobra.Command{
 // The steps are:
 // 1- Connect to the kvstore via a pkg/allocatore.Backend
 // 2- Connect to k8s
-//   a- Create the ciliumidentity CRD if it is missing.
+//
+//	a- Create the ciliumidentity CRD if it is missing.
+//
 // 3- Iterate over each identity in the kvstore
-//   a- Attempt to allocate the same numeric ID to this key
-//   b- Already allocated identies that match ID->key are skipped
-//   c- kvstore IDs with conflicting CRDs are allocated with a different ID
+//
+//	a- Attempt to allocate the same numeric ID to this key
+//	b- Already allocated identies that match ID->key are skipped
+//	c- kvstore IDs with conflicting CRDs are allocated with a different ID
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
@@ -178,8 +180,8 @@ func migrateIdentities() {
 func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
 
-	k8sClientQPSLimit := viper.GetFloat64(option.K8sClientQPSLimit)
-	k8sClientBurst := viper.GetInt(option.K8sClientBurst)
+	k8sClientQPSLimit := vp.GetFloat64(option.K8sClientQPSLimit)
+	k8sClientBurst := vp.GetInt(option.K8sClientBurst)
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
 

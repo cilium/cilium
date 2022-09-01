@@ -126,6 +126,10 @@ spec:
                       is not set the default behavior is to delete the ENI on instance
                       termination.
                     type: boolean
+                  disable-prefix-delegation:
+                    description: DisablePrefixDelegation determines whether ENI prefix
+                      delegation should be disabled on this node.
+                    type: boolean
                   exclude-interface-tags:
                     additionalProperties:
                       type: string
@@ -200,6 +204,10 @@ spec:
                     description: SubnetTags is the list of tags to use when evaluating
                       what AWS subnets to use for ENI and IP allocation.
                     type: object
+                  use-primary-address:
+                    description: UsePrimaryAddress determines whether an ENI's primary
+                      address should be available for allocations on the node
+                    type: boolean
                   vpc-id:
                     description: VpcID is the VPC ID to use when allocating ENIs.
                     type: string
@@ -213,6 +221,15 @@ spec:
                     type: string
                   ipv6:
                     description: IPv6 is the IPv6 address of the IPv4 health endpoint.
+                    type: string
+                type: object
+              ingress:
+                description: IngressAddressing is the addressing information for Ingress
+                  listener.
+                properties:
+                  ipv4:
+                    type: string
+                  ipv6:
                     type: string
                 type: object
               instance-id:
@@ -557,6 +574,20 @@ spec:
                         description: Error is the error message set by cilium-operator.
                         type: string
                     type: object
+                  pod-cidrs:
+                    additionalProperties:
+                      properties:
+                        status:
+                          description: Status describes the status of a pod CIDR
+                          enum:
+                          - released
+                          - depleted
+                          - in-use
+                          type: string
+                      type: object
+                    description: PodCIDRs lists the status of each pod CIDR allocated
+                      to this node.
+                    type: object
                   release-ips:
                     additionalProperties:
                       description: IPReleaseStatus  defines the valid states in IP
@@ -596,20 +627,6 @@ spec:
                       type: object
                     description: Used lists all IPs out of Spec.IPAM.Pool which have
                       been allocated and are in use.
-                    type: object
-                  used-pod-cidrs:
-                    additionalProperties:
-                      properties:
-                        status:
-                          description: Status describes the status of a pod CIDR
-                          enum:
-                          - released
-                          - depleted
-                          - in-use
-                          type: string
-                      type: object
-                    description: UsedPodCIDRs lists the status of each pod CIDR allocated
-                      to this node.
                     type: object
                 type: object
             type: object

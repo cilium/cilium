@@ -6,8 +6,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: hubble-relay
+    app.kubernetes.io/name: hubble-relay
+    app.kubernetes.io/part-of: cilium
 spec:
-  type: ClusterIP
+  type: {{ .Values.hubble.relay.service.type | quote }}
   selector:
     k8s-app: hubble-relay
   ports:
@@ -18,4 +20,7 @@ spec:
     port: {{ .Values.hubble.relay.tls.server.enabled | ternary 443 80 }}
   {{- end }}
     targetPort: {{ .Values.hubble.relay.listenPort }}
+    {{- if and (eq "NodePort" .Values.hubble.relay.service.type) .Values.hubble.relay.service.nodePort }}
+    nodePort: {{ .Values.hubble.relay.service.nodePort }}
+    {{- end }}
 {{- end }}

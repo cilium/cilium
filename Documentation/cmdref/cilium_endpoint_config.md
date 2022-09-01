@@ -19,7 +19,7 @@ endpoint config 5421 DropNotification=false TraceNotification=false PolicyVerdic
 ```
   -h, --help            help for config
       --list-options    List available options
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -32,5 +32,5 @@ endpoint config 5421 DropNotification=false TraceNotification=false PolicyVerdic
 
 ### SEE ALSO
 
-* [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
+* [cilium endpoint](cilium_endpoint.md)	 - Manage endpoints
 

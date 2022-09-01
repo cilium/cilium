@@ -1,0 +1,253 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"echo-dualstack","namespace":"default"},"spec":{"ipFamilies":["IPv4","IPv6"],"ipFamilyPolicy":"RequireDualStack","ports":[{"name":"http","port":80,"protocol":"TCP"},{"name":"tftp","port":69,"protocol":"UDP"}],"selector":{"name":"echo"},"type":"NodePort"}}
+    creationTimestamp: "2022-08-30T21:20:18Z"
+    name: echo-dualstack
+    namespace: default
+    resourceVersion: "766"
+    uid: 9aa19da8-e3ec-4c2c-be3c-f73bb685218b
+  spec:
+    clusterIP: 10.96.248.142
+    clusterIPs:
+    - 10.96.248.142
+    - fd00:10:96::b599
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    - IPv6
+    ipFamilyPolicy: RequireDualStack
+    ports:
+    - name: http
+      nodePort: 32117
+      port: 80
+      protocol: TCP
+      targetPort: 80
+    - name: tftp
+      nodePort: 30288
+      port: 69
+      protocol: UDP
+      targetPort: 69
+    selector:
+      name: echo
+    sessionAffinity: None
+    type: NodePort
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2022-08-30T21:19:09Z"
+    labels:
+      component: apiserver
+      provider: kubernetes
+    name: kubernetes
+    namespace: default
+    resourceVersion: "202"
+    uid: 76204492-9d7e-4bff-9a2b-a83422116d10
+  spec:
+    clusterIP: 10.96.0.1
+    clusterIPs:
+    - 10.96.0.1
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 6443
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2022-08-30T21:20:45Z"
+    creationTimestamp: "2022-08-30T21:20:18Z"
+    name: echo-dualstack
+    namespace: default
+    resourceVersion: "857"
+    uid: 884b7033-006f-47a0-aaac-a43b3fa33aa3
+  subsets:
+  - addresses:
+    - ip: 10.244.1.251
+      nodeName: dual-stack-worker2
+      targetRef:
+        kind: Pod
+        name: echo-bc5cf6ffb-t476d
+        namespace: default
+        uid: 0151f41c-59e6-44d2-9e0e-af34c5168fcc
+    - ip: 10.244.2.89
+      nodeName: dual-stack-worker
+      targetRef:
+        kind: Pod
+        name: echo-bc5cf6ffb-zh7w2
+        namespace: default
+        uid: 7d6b7dde-1490-4b9b-a4d2-3fbf3b0bb314
+    ports:
+    - name: http
+      port: 80
+      protocol: TCP
+    - name: tftp
+      port: 69
+      protocol: UDP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    creationTimestamp: "2022-08-30T21:19:09Z"
+    labels:
+      endpointslice.kubernetes.io/skip-mirror: "true"
+    name: kubernetes
+    namespace: default
+    resourceVersion: "204"
+    uid: 30490325-a150-45c4-a089-4fef4d46581f
+  subsets:
+  - addresses:
+    - ip: 172.18.0.4
+    ports:
+    - name: https
+      port: 6443
+      protocol: TCP
+- addressType: IPv6
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - fd00:10:244:2::d14b
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: dual-stack-worker
+    targetRef:
+      kind: Pod
+      name: echo-bc5cf6ffb-zh7w2
+      namespace: default
+      uid: 7d6b7dde-1490-4b9b-a4d2-3fbf3b0bb314
+  - addresses:
+    - fd00:10:244:1::8f0
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: dual-stack-worker2
+    targetRef:
+      kind: Pod
+      name: echo-bc5cf6ffb-t476d
+      namespace: default
+      uid: 0151f41c-59e6-44d2-9e0e-af34c5168fcc
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2022-08-30T21:20:45Z"
+    creationTimestamp: "2022-08-30T21:20:18Z"
+    generateName: echo-dualstack-
+    generation: 5
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: echo-dualstack
+    name: echo-dualstack-gmzj9
+    namespace: default
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: echo-dualstack
+      uid: 9aa19da8-e3ec-4c2c-be3c-f73bb685218b
+    resourceVersion: "858"
+    uid: 3d78074f-fb85-4a7b-bc07-10f4403e4170
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  - name: tftp
+    port: 69
+    protocol: UDP
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.244.2.89
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: dual-stack-worker
+    targetRef:
+      kind: Pod
+      name: echo-bc5cf6ffb-zh7w2
+      namespace: default
+      uid: 7d6b7dde-1490-4b9b-a4d2-3fbf3b0bb314
+  - addresses:
+    - 10.244.1.251
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: dual-stack-worker2
+    targetRef:
+      kind: Pod
+      name: echo-bc5cf6ffb-t476d
+      namespace: default
+      uid: 0151f41c-59e6-44d2-9e0e-af34c5168fcc
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2022-08-30T21:20:45Z"
+    creationTimestamp: "2022-08-30T21:20:18Z"
+    generateName: echo-dualstack-
+    generation: 5
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: echo-dualstack
+    name: echo-dualstack-rnnps
+    namespace: default
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: echo-dualstack
+      uid: 9aa19da8-e3ec-4c2c-be3c-f73bb685218b
+    resourceVersion: "860"
+    uid: dea6ee5c-819f-43c1-88d9-bd653bbb04f7
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  - name: tftp
+    port: 69
+    protocol: UDP
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 172.18.0.4
+    conditions:
+      ready: true
+  kind: EndpointSlice
+  metadata:
+    creationTimestamp: "2022-08-30T21:19:09Z"
+    generation: 1
+    labels:
+      kubernetes.io/service-name: kubernetes
+    name: kubernetes
+    namespace: default
+    resourceVersion: "205"
+    uid: fe7dec1e-f107-47a6-8604-b6b6ed6d7821
+  ports:
+  - name: https
+    port: 6443
+    protocol: TCP
+kind: List
+metadata:
+  resourceVersion: ""

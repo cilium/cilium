@@ -178,26 +178,36 @@ func (ins *Instance) PolicyUpdate(resp *envoy_service_discovery.DiscoveryRespons
 			return fmt.Errorf("NPDS: Policy unmarshal error: %v", err)
 		}
 
-		policyName := config.GetName()
-
+		ips := config.GetEndpointIps()
+		if len(ips) == 0 {
+			return fmt.Errorf("NPDS: Policy has no endpoint_ips")
+		}
+		for _, ip := range ips {
+			logrus.Infof("NPDS: Endpoint IP: %s", ip)
+		}
 		// Locate the old version, if any
-		oldPolicy, found := oldMap[policyName]
+		oldPolicy, found := oldMap[ips[0]]
 		if found {
 			// Check if the new policy is the same as the old one
 			if proto.Equal(&config, oldPolicy.protobuf) {
-				logrus.Debugf("NPDS: New policy for %s is equal to the old one, no need to change", policyName)
-				newMap[policyName] = oldPolicy
+				logrus.Debugf("NPDS: New policy for Endpoint %d is equal to the old one, no need to change", config.GetEndpointId())
+				for _, ip := range ips {
+					newMap[ip] = oldPolicy
+				}
 				continue
 			}
 		}
 
 		// Validate new config
 		if err = config.Validate(); err != nil {
-			return fmt.Errorf("NPDS: Policy validation error for %s: %v", policyName, err)
+			return fmt.Errorf("NPDS: Policy validation error for Endpoint %d: %v", config.GetEndpointId(), err)
 		}
 
 		// Create new PolicyInstance, may panic. Takes ownership of 'config'.
-		newMap[policyName] = newPolicyInstance(&config)
+		newPolicy := newPolicyInstance(&config)
+		for _, ip := range ips {
+			newMap[ip] = newPolicy
+		}
 	}
 
 	// Store the new policy map

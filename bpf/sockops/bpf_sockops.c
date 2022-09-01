@@ -127,7 +127,7 @@ static inline void bpf_sock_ops_ipv6(struct bpf_sock_ops *skops)
 #endif /* ENABLE_IPV6 */
 
 __section("sockops")
-int bpf_sockmap(struct bpf_sock_ops *skops)
+int cil_sockops(struct bpf_sock_ops *skops)
 {
 	__u32 family, op;
 

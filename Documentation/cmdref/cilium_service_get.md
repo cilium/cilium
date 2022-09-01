@@ -12,7 +12,7 @@ cilium service get <service id> [flags]
 
 ```
   -h, --help            help for get
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium service get <service id> [flags]
 
 ### SEE ALSO
 
-* [cilium service](../cilium_service)	 - Manage services & loadbalancers
+* [cilium service](cilium_service.md)	 - Manage services & loadbalancers
 

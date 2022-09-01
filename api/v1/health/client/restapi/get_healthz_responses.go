@@ -49,7 +49,8 @@ func NewGetHealthzOK() *GetHealthzOK {
 	return &GetHealthzOK{}
 }
 
-/*GetHealthzOK handles this case with default header values.
+/*
+GetHealthzOK handles this case with default header values.
 
 Success
 */
@@ -82,7 +83,8 @@ func NewGetHealthzFailed() *GetHealthzFailed {
 	return &GetHealthzFailed{}
 }
 
-/*GetHealthzFailed handles this case with default header values.
+/*
+GetHealthzFailed handles this case with default header values.
 
 Failed to contact local Cilium daemon
 */

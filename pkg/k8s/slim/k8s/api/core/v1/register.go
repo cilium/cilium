@@ -36,6 +36,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&PodList{},
 		&Service{},
 		&ServiceList{},
+		&Secret{},
+		&SecretList{},
 		&Endpoints{},
 		&EndpointsList{},
 		&Node{},

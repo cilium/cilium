@@ -84,7 +84,7 @@ type DescribeTagsRequest struct {
 
 // DescribeTagsTag is a repeated param struct in DescribeTagsRequest
 type DescribeTagsTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

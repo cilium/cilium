@@ -56,6 +56,12 @@ func (o *PutServiceIDReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
+	case 501:
+		result := NewPutServiceIDUpdateBackendFailure()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
@@ -67,7 +73,8 @@ func NewPutServiceIDOK() *PutServiceIDOK {
 	return &PutServiceIDOK{}
 }
 
-/*PutServiceIDOK handles this case with default header values.
+/*
+PutServiceIDOK handles this case with default header values.
 
 Updated
 */
@@ -88,7 +95,8 @@ func NewPutServiceIDCreated() *PutServiceIDCreated {
 	return &PutServiceIDCreated{}
 }
 
-/*PutServiceIDCreated handles this case with default header values.
+/*
+PutServiceIDCreated handles this case with default header values.
 
 Created
 */
@@ -109,7 +117,8 @@ func NewPutServiceIDInvalidFrontend() *PutServiceIDInvalidFrontend {
 	return &PutServiceIDInvalidFrontend{}
 }
 
-/*PutServiceIDInvalidFrontend handles this case with default header values.
+/*
+PutServiceIDInvalidFrontend handles this case with default header values.
 
 Invalid frontend in service configuration
 */
@@ -140,7 +149,8 @@ func NewPutServiceIDInvalidBackend() *PutServiceIDInvalidBackend {
 	return &PutServiceIDInvalidBackend{}
 }
 
-/*PutServiceIDInvalidBackend handles this case with default header values.
+/*
+PutServiceIDInvalidBackend handles this case with default header values.
 
 Invalid backend in service configuration
 */
@@ -171,7 +181,8 @@ func NewPutServiceIDFailure() *PutServiceIDFailure {
 	return &PutServiceIDFailure{}
 }
 
-/*PutServiceIDFailure handles this case with default header values.
+/*
+PutServiceIDFailure handles this case with default header values.
 
 Error while creating service
 */
@@ -188,6 +199,38 @@ func (o *PutServiceIDFailure) GetPayload() models.Error {
 }
 
 func (o *PutServiceIDFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response payload
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+		return err
+	}
+
+	return nil
+}
+
+// NewPutServiceIDUpdateBackendFailure creates a PutServiceIDUpdateBackendFailure with default headers values
+func NewPutServiceIDUpdateBackendFailure() *PutServiceIDUpdateBackendFailure {
+	return &PutServiceIDUpdateBackendFailure{}
+}
+
+/*
+PutServiceIDUpdateBackendFailure handles this case with default header values.
+
+Error while updating backend states
+*/
+type PutServiceIDUpdateBackendFailure struct {
+	Payload models.Error
+}
+
+func (o *PutServiceIDUpdateBackendFailure) Error() string {
+	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdUpdateBackendFailure  %+v", 501, o.Payload)
+}
+
+func (o *PutServiceIDUpdateBackendFailure) GetPayload() models.Error {
+	return o.Payload
+}
+
+func (o *PutServiceIDUpdateBackendFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {

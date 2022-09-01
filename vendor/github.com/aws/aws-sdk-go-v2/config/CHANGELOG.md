@@ -1,3 +1,68 @@
+# v1.15.15 (2022-08-01)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.14 (2022-07-11)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.13 (2022-07-05)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.12 (2022-06-29)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.11 (2022-06-16)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.10 (2022-06-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.9 (2022-05-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.8 (2022-05-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.7 (2022-05-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.6 (2022-05-16)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.5 (2022-05-09)
+
+* **Bug Fix**: Fixes a bug in LoadDefaultConfig to correctly assign ConfigSources so all config resolvers have access to the config sources. This fixes the feature/ec2/imds client not having configuration applied via config.LoadOptions such as EC2IMDSClientEnableState. PR [#1682](https://github.com/aws/aws-sdk-go-v2/pull/1682)
+
+# v1.15.4 (2022-04-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.3 (2022-03-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.2 (2022-03-24)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.1 (2022-03-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.0 (2022-03-08)
+
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.14.0 (2022-02-24)
 
 * **Feature**: Adds support for loading RetryMaxAttempts and RetryMod from the environment and shared configuration files. These parameters drive how the SDK's API client will initialize its default retryer, if custome retryer has not been specified. See [config](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/config) module and [aws.Config](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws#Config) for more information about and how to use these new options.

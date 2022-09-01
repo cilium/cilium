@@ -11,7 +11,9 @@ import (
 )
 
 // Disable the IPAM account. For more information, see Enable integration with
-// Organizations in the Amazon VPC IPAM User Guide.
+// Organizations
+// (https://docs.aws.amazon.com/vpc/latest/ipam/enable-integ-ipam.html) in the
+// Amazon VPC IPAM User Guide.
 func (c *Client) DisableIpamOrganizationAdminAccount(ctx context.Context, params *DisableIpamOrganizationAdminAccountInput, optFns ...func(*Options)) (*DisableIpamOrganizationAdminAccountOutput, error) {
 	if params == nil {
 		params = &DisableIpamOrganizationAdminAccountInput{}

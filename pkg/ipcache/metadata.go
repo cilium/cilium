@@ -105,12 +105,11 @@ func (m *metadata) get(prefix string) labels.Labels {
 // so a balance is kept, ensuring a one-to-one mapping between prefix and
 // identity.
 func (ipc *IPCache) InjectLabels(src source.Source) error {
-	if ipc.IdentityAllocator == nil || !ipc.IdentityAllocator.IsLocalIdentityAllocatorInitialized() {
+	if ipc.IdentityAllocator == nil {
 		return ErrLocalIdentityAllocatorUninitialized
 	}
 
-	if ipc.k8sSyncedChecker != nil &&
-		!ipc.k8sSyncedChecker.K8sCacheIsSynced() {
+	if ipc.k8sSyncedChecker == nil || !ipc.k8sSyncedChecker.K8sCacheIsSynced() {
 		return errors.New("k8s cache not fully synced")
 	}
 
@@ -268,7 +267,7 @@ func (ipc *IPCache) injectLabels(prefix string, lbls labels.Labels) (*identity.I
 		return ipc.injectLabelsForCIDR(prefix, lbls)
 	}
 
-	return ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false)
+	return ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, identity.InvalidIdentity)
 }
 
 // injectLabelsForCIDR will allocate a CIDR identity for the given prefix. The
@@ -300,7 +299,7 @@ func (ipc *IPCache) injectLabelsForCIDR(p string, lbls labels.Labels) (*identity
 		"Injecting CIDR labels for prefix",
 	)
 
-	return ipc.allocate(cidr, allLbls)
+	return ipc.allocate(cidr, allLbls, identity.InvalidIdentity)
 }
 
 // RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD
@@ -392,7 +391,7 @@ func (ipc *IPCache) removeLabelsFromIPs(
 				identity.AddReservedIdentityWithLabels(id.ID, l)
 			}
 
-			newID, _, err := ipc.IdentityAllocator.AllocateIdentity(context.TODO(), l, false)
+			newID, _, err := ipc.IdentityAllocator.AllocateIdentity(context.TODO(), l, false, identity.InvalidIdentity)
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.IPAddr:         prefix,
@@ -437,8 +436,9 @@ func (ipc *IPCache) removeLabelsFromIPs(
 // leftover labels are returned, if any. If there are leftover labels, the
 // caller must allocate a new identity and do the following *in order* to avoid
 // drops:
-//   1) policy recalculation must be implemented into the datapath and
-//   2) new identity must have a new entry upserted into the IPCache
+//  1. policy recalculation must be implemented into the datapath and
+//  2. new identity must have a new entry upserted into the IPCache
+//
 // Note: GH-17962, triggering policy recalculation doesn't actually *implement*
 // the changes into datapath (because it's an async call), this is a known
 // issue. There's a very small window for drops when two policies select the
@@ -541,29 +541,29 @@ func sourceByLabels(d source.Source, lbls labels.Labels) source.Source {
 // The following diagram describes the relationship between the label injector
 // triggered here and the callers/callees.
 //
-//      +------------+  (1)        (1)  +-----------------------------+
-//      | EP Watcher +-----+      +-----+ CN Watcher / Node Discovery |
-//      +-----+------+   W |      | W   +------+----------------------+
-//            |            |      |            |
-//            |            v      v            |
-//            |            +------+            |
-//            |            | IDMD |            |
-//            |            +------+            |
-//            |               ^                |
-//            |               |                |
-//            |           (3) |R               |
-//            | (2)    +------+--------+   (2) |
-//            +------->|Label Injector |<------+
-//           Trigger   +-------+-------+ Trigger
-//                         (4) |W
-//                             |
-//                             v
-//                           +---+
-//                           |IPC|
-//                           +---+
-//      legend:
-//      * W means write
-//      * R means read
+//	+------------+  (1)        (1)  +-----------------------------+
+//	| EP Watcher +-----+      +-----+ CN Watcher / Node Discovery |
+//	+-----+------+   W |      | W   +------+----------------------+
+//	      |            |      |            |
+//	      |            v      v            |
+//	      |            +------+            |
+//	      |            | IDMD |            |
+//	      |            +------+            |
+//	      |               ^                |
+//	      |               |                |
+//	      |           (3) |R               |
+//	      | (2)    +------+--------+   (2) |
+//	      +------->|Label Injector |<------+
+//	     Trigger   +-------+-------+ Trigger
+//	                   (4) |W
+//	                       |
+//	                       v
+//	                     +---+
+//	                     |IPC|
+//	                     +---+
+//	legend:
+//	* W means write
+//	* R means read
 func (ipc *IPCache) TriggerLabelInjection(src source.Source) {
 	// GH-17829: Would also be nice to have an end-to-end test to validate
 	//           on upgrade that there are no connectivity drops when this

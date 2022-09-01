@@ -7,6 +7,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: cilium
+    app.kubernetes.io/name: cilium-agent
+    app.kubernetes.io/part-of: cilium
 spec:
   clusterIP: None
   type: ClusterIP
@@ -32,6 +34,8 @@ metadata:
     prometheus.io/port: {{ .Values.proxy.prometheus.port | quote }}
   labels:
     k8s-app: cilium
+    app.kubernetes.io/name: cilium-agent
+    app.kubernetes.io/part-of: cilium
 spec:
   clusterIP: None
   type: ClusterIP

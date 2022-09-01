@@ -19,7 +19,8 @@ import (
 // GetIdentityIDOKCode is the HTTP code returned for type GetIdentityIDOK
 const GetIdentityIDOKCode int = 200
 
-/*GetIdentityIDOK Success
+/*
+GetIdentityIDOK Success
 
 swagger:response getIdentityIdOK
 */
@@ -63,7 +64,8 @@ func (o *GetIdentityIDOK) WriteResponse(rw http.ResponseWriter, producer runtime
 // GetIdentityIDBadRequestCode is the HTTP code returned for type GetIdentityIDBadRequest
 const GetIdentityIDBadRequestCode int = 400
 
-/*GetIdentityIDBadRequest Invalid identity provided
+/*
+GetIdentityIDBadRequest Invalid identity provided
 
 swagger:response getIdentityIdBadRequest
 */
@@ -87,7 +89,8 @@ func (o *GetIdentityIDBadRequest) WriteResponse(rw http.ResponseWriter, producer
 // GetIdentityIDNotFoundCode is the HTTP code returned for type GetIdentityIDNotFound
 const GetIdentityIDNotFoundCode int = 404
 
-/*GetIdentityIDNotFound Identity not found
+/*
+GetIdentityIDNotFound Identity not found
 
 swagger:response getIdentityIdNotFound
 */
@@ -111,7 +114,8 @@ func (o *GetIdentityIDNotFound) WriteResponse(rw http.ResponseWriter, producer r
 // GetIdentityIDUnreachableCode is the HTTP code returned for type GetIdentityIDUnreachable
 const GetIdentityIDUnreachableCode int = 520
 
-/*GetIdentityIDUnreachable Identity storage unreachable. Likely a network problem.
+/*
+GetIdentityIDUnreachable Identity storage unreachable. Likely a network problem.
 
 swagger:response getIdentityIdUnreachable
 */
@@ -153,7 +157,8 @@ func (o *GetIdentityIDUnreachable) WriteResponse(rw http.ResponseWriter, produce
 // GetIdentityIDInvalidStorageFormatCode is the HTTP code returned for type GetIdentityIDInvalidStorageFormat
 const GetIdentityIDInvalidStorageFormatCode int = 521
 
-/*GetIdentityIDInvalidStorageFormat Invalid identity format in storage
+/*
+GetIdentityIDInvalidStorageFormat Invalid identity format in storage
 
 swagger:response getIdentityIdInvalidStorageFormat
 */

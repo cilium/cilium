@@ -4,10 +4,13 @@
 package synced
 
 import (
+	"fmt"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -21,6 +24,28 @@ type Resources struct {
 	resources map[string]<-chan struct{}
 	// stopWait contains the result of cache.WaitForCacheSync
 	stopWait map[string]bool
+
+	// timeSinceLastEvent contains the time each resource last received an event.
+	timeSinceLastEvent map[string]time.Time
+}
+
+func (r *Resources) getTimeOfLastEvent(resource string) (when time.Time, never bool) {
+	r.RLock()
+	defer r.RUnlock()
+	t, ok := r.timeSinceLastEvent[resource]
+	if !ok {
+		return time.Time{}, true
+	}
+	return t, false
+}
+
+func (r *Resources) SetEventTimestamp(resource string) {
+	now := time.Now()
+	r.Lock()
+	defer r.Unlock()
+	if r.timeSinceLastEvent != nil {
+		r.timeSinceLastEvent[resource] = now
+	}
 }
 
 func (r *Resources) CancelWaitGroupToSyncResources(resourceName string) {
@@ -46,6 +71,7 @@ func (r *Resources) BlockWaitGroupToSyncResources(
 	if r.resources == nil {
 		r.resources = make(map[string]<-chan struct{})
 		r.stopWait = make(map[string]bool)
+		r.timeSinceLastEvent = make(map[string]time.Time)
 	}
 	r.resources[resourceName] = ch
 	r.Unlock()
@@ -107,7 +133,7 @@ func (r *Resources) WaitForCacheSync(resourceNames ...string) {
 				break
 			}
 			scopedLog.Debug("original cache sync operation was aborted, waiting for caches to be synced with a new channel...")
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(syncedPollPeriod)
 			r.RLock()
 			c, ok = r.resources[resourceName]
 			r.RUnlock()
@@ -116,4 +142,63 @@ func (r *Resources) WaitForCacheSync(resourceNames ...string) {
 			}
 		}
 	}
+}
+
+// poll period for underlying client-go wait for cache sync.
+const syncedPollPeriod = 100 * time.Millisecond
+
+// WaitForCacheSyncWithTimeout waits for K8s resources represented by resourceNames to be synced.
+// For every resource type, if an event happens after starting the wait, the timeout will be pushed out
+// to be the time of the last event plus the timeout duration.
+func (r *Resources) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceNames ...string) error {
+	// Upon completion, release event map to reduce unnecessary memory usage.
+	// SetEventTimestamp calls to nil event time map are no-op.
+	// Running BlockWaitGroupToSyncResources will reinitialize the event map.
+	defer func() {
+		r.Lock()
+		r.timeSinceLastEvent = nil
+		r.Unlock()
+	}()
+
+	wg := &errgroup.Group{}
+	for _, resource := range resourceNames {
+		done := make(chan struct{})
+		go func(resource string) {
+			r.WaitForCacheSync(resource)
+			close(done)
+		}(resource)
+
+		waitFn := func(resource string) func() error {
+			return func() error {
+				currTimeout := timeout + syncedPollPeriod // add buffer of the poll period.
+
+				for {
+					// Wait until after timeout ends or sync is completed.
+					// If timeout is reached, check if an event occurred that would
+					// have pushed back the timeout and wait for that amount of time.
+					select {
+					case now := <-inctimer.After(currTimeout):
+						lastEvent, never := r.getTimeOfLastEvent(resource)
+						if never {
+							return fmt.Errorf("timed out after %s, never received event for resource %q", timeout, resource)
+						}
+						if now.After(lastEvent.Add(timeout)) {
+							return fmt.Errorf("timed out after %s since receiving last event for resource %q", timeout, resource)
+						}
+						// We reset the timer to wait the timeout period minus the
+						// time since the last event.
+						currTimeout = timeout - time.Since(lastEvent)
+						log.Debugf("resource %q received event %s ago, waiting for additional %s before timing out", resource, time.Since(lastEvent), currTimeout)
+					case <-done:
+						log.Debugf("resource %q cache has synced, stopping timeout watcher", resource)
+						return nil
+					}
+				}
+			}
+		}(resource)
+
+		wg.Go(waitFn)
+	}
+
+	return wg.Wait()
 }

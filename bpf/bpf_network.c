@@ -12,7 +12,7 @@
 #include "lib/encrypt.h"
 
 __section("from-network")
-int from_network(struct __ctx_buff *ctx)
+int cil_from_network(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 

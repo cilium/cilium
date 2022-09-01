@@ -12,17 +12,19 @@ import (
 )
 
 // Creates an Amazon EBS-backed AMI from an Amazon EBS-backed instance that is
-// either running or stopped. By default, Amazon EC2 shuts down and reboots the
-// instance before creating the AMI to ensure that everything on the instance is
-// stopped and in a consistent state during the creation process. If you're
-// confident that your instance is in a consistent state appropriate for AMI
-// creation, use the NoReboot parameter to prevent Amazon EC2 from shutting down
-// and rebooting the instance. If you customized your instance with instance store
-// volumes or Amazon EBS volumes in addition to the root device volume, the new AMI
-// contains block device mapping information for those volumes. When you launch an
-// instance from this new AMI, the instance automatically launches with those
-// additional volumes. For more information, see Creating Amazon EBS-Backed Linux
-// AMIs
+// either running or stopped. By default, when Amazon EC2 creates the new AMI, it
+// reboots the instance so that it can take snapshots of the attached volumes while
+// data is at rest, in order to ensure a consistent state. You can set the NoReboot
+// parameter to true in the API request, or use the --no-reboot option in the CLI
+// to prevent Amazon EC2 from shutting down and rebooting the instance. If you
+// choose to bypass the shutdown and reboot process by setting the NoReboot
+// parameter to true in the API request, or by using the --no-reboot option in the
+// CLI, we can't guarantee the file system integrity of the created image. If you
+// customized your instance with instance store volumes or Amazon EBS volumes in
+// addition to the root device volume, the new AMI contains block device mapping
+// information for those volumes. When you launch an instance from this new AMI,
+// the instance automatically launches with those additional volumes. For more
+// information, see Creating Amazon EBS-Backed Linux AMIs
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateImage(ctx context.Context, params *CreateImageInput, optFns ...func(*Options)) (*CreateImageOutput, error) {
@@ -68,12 +70,15 @@ type CreateImageInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// By default, Amazon EC2 attempts to shut down and reboot the instance before
-	// creating the image. If the No Reboot option is set, Amazon EC2 doesn't shut down
-	// the instance before creating the image. Without a reboot, the AMI will be crash
-	// consistent (all the volumes are snapshotted at the same time), but not
-	// application consistent (all the operating system buffers are not flushed to disk
-	// before the snapshots are created).
+	// By default, when Amazon EC2 creates the new AMI, it reboots the instance so that
+	// it can take snapshots of the attached volumes while data is at rest, in order to
+	// ensure a consistent state. You can set the NoReboot parameter to true in the API
+	// request, or use the --no-reboot option in the CLI to prevent Amazon EC2 from
+	// shutting down and rebooting the instance. If you choose to bypass the shutdown
+	// and reboot process by setting the NoReboot parameter to true in the API request,
+	// or by using the --no-reboot option in the CLI, we can't guarantee the file
+	// system integrity of the created image. Default: false (follow standard reboot
+	// process)
 	NoReboot *bool
 
 	// The tags to apply to the AMI and snapshots on creation. You can tag the AMI, the

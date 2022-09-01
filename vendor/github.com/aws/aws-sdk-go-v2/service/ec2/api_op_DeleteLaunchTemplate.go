@@ -36,12 +36,12 @@ type DeleteLaunchTemplateInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The ID of the launch template. You must specify either the launch template ID or
-	// launch template name in the request.
+	// The ID of the launch template. You must specify either the LaunchTemplateId or
+	// the LaunchTemplateName, but not both.
 	LaunchTemplateId *string
 
-	// The name of the launch template. You must specify either the launch template ID
-	// or launch template name in the request.
+	// The name of the launch template. You must specify either the LaunchTemplateName
+	// or the LaunchTemplateId, but not both.
 	LaunchTemplateName *string
 
 	noSmithyDocumentSerde

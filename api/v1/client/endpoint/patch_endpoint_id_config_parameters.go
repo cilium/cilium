@@ -60,7 +60,8 @@ func NewPatchEndpointIDConfigParamsWithHTTPClient(client *http.Client) *PatchEnd
 	}
 }
 
-/*PatchEndpointIDConfigParams contains all the parameters to send to the API endpoint
+/*
+PatchEndpointIDConfigParams contains all the parameters to send to the API endpoint
 for the patch endpoint ID config operation typically these are written to a http.Request
 */
 type PatchEndpointIDConfigParams struct {

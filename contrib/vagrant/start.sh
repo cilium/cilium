@@ -348,10 +348,16 @@ function write_cilium_cfg() {
 cat <<EOF >> "$filename"
 sleep 2s
 if [ -n "\${K8S}" ]; then
+
+    # It is expected and wanted to have CILIUM_OPTS and
+    # CILIUM_OPERATOR_OPTS defined two times, for with and without
+    # kvstore. Developers can switch between them and restart services.
+
     echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
     echo '# Cilium configuration with kvstore.' >> /etc/sysconfig/cilium
     echo 'CILIUM_OPTS="${cilium_options_with_kvstore}"' >> /etc/sysconfig/cilium
     echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options_with_kvstore}"' >> /etc/sysconfig/cilium
+    echo '' >> /etc/sysconfig/cilium
     echo '# Cilium configuration without kvstore.' >> /etc/sysconfig/cilium
 fi
 echo 'CILIUM_OPTS="${cilium_options}"' >> /etc/sysconfig/cilium
@@ -441,9 +447,7 @@ function set_vagrant_env(){
     export 'FIRST_IP_SUFFIX_NFS'="${ipv4_array[3]}"
     echo "# NFS enabled. don't forget to enable these ports on your host"
     echo "# before starting the VMs in order to have nfs working"
-    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
-    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
-    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
+    echo "# iptables -I INPUT -s ${IPV4_BASE_ADDR_NFS}0/24 -j ACCEPT"
 
     echo "# To use kubectl on the host, you need to add the following route:"
     echo "# ip route add $MASTER_IPV4 via $MASTER_IPV4_NFS"

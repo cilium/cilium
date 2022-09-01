@@ -480,7 +480,7 @@ func (r *Recorder) RetrieveRecorder(id ID) (*RecInfo, error) {
 
 // RetrieveRecorderSet will return a list of all existing recorder objects.
 func (r *Recorder) RetrieveRecorderSet() []*RecInfo {
-	recList := []*RecInfo{}
+	recList := make([]*RecInfo, 0, len(r.recByID))
 	r.RLock()
 	defer r.RUnlock()
 	for id := range r.recByID {
@@ -492,7 +492,7 @@ func (r *Recorder) RetrieveRecorderSet() []*RecInfo {
 
 // RetrieveRecorderMaskSet will return a list of all existing recorder masks.
 func (r *Recorder) RetrieveRecorderMaskSet() []*RecMask {
-	recMaskList := []*RecMask{}
+	recMaskList := make([]*RecMask, 0, len(r.recMask))
 	r.RLock()
 	defer r.RUnlock()
 	for _, mask := range r.recMask {

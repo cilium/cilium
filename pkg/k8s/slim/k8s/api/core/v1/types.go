@@ -69,18 +69,18 @@ type Container struct {
 	// Each container in a pod must have a unique name (DNS_LABEL).
 	// Cannot be updated.
 	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
-	// Docker image name.
+	// Container image name.
 	// More info: https://kubernetes.io/docs/concepts/containers/images
 	// This field is optional to allow higher level config management to default or override
 	// container images in workload controllers like Deployments and StatefulSets.
 	// +optional
 	Image string `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
-	// List of ports to expose from the container. Exposing a port here gives
-	// the system additional information about the network connections a
-	// container uses, but is primarily informational. Not specifying a port here
+	// List of ports to expose from the container. Not specifying a port here
 	// DOES NOT prevent that port from being exposed. Any port which is
 	// listening on the default "0.0.0.0" address inside a container will be
 	// accessible from the network.
+	// Modifying this array with strategic merge patch may corrupt the data.
+	// For more information See https://github.com/kubernetes/kubernetes/issues/108255.
 	// Cannot be updated.
 	// +optional
 	// +patchMergeKey=containerPort
@@ -135,10 +135,9 @@ const (
 )
 
 // PodConditionType is a valid value for PodCondition.Type
-// +enum
 type PodConditionType string
 
-// These are valid conditions of pod.
+// These are built-in conditions of pod. An application may use a custom condition not listed here.
 const (
 	// ContainersReady indicates whether all containers in the pod are ready.
 	ContainersReady PodConditionType = "ContainersReady"
@@ -267,7 +266,8 @@ type PodSpec struct {
 
 // IP address information for entries in the (plural) PodIPs field.
 // Each entry includes:
-//    IP: An IP address allocated to the pod. Routable at least within the cluster.
+//
+//	IP: An IP address allocated to the pod. Routable at least within the cluster.
 type PodIP struct {
 	// ip is an IP address (IPv4 or IPv6) assigned to the pod
 	IP string `json:"ip,omitempty" protobuf:"bytes,1,opt,name=ip"`
@@ -421,15 +421,34 @@ const (
 	ServiceTypeExternalName ServiceType = "ExternalName"
 )
 
-// Service External Traffic Policy Type string
+// ServiceInternalTrafficPolicyType describes how nodes distribute service traffic they
+// receive on the ClusterIP.
+// +enum
+type ServiceInternalTrafficPolicyType string
+
+const (
+	// ServiceInternalTrafficPolicyCluster routes traffic to all endpoints.
+	ServiceInternalTrafficPolicyCluster ServiceInternalTrafficPolicyType = "Cluster"
+
+	// ServiceInternalTrafficPolicyLocal routes traffic only to endpoints on the same
+	// node as the client pod (dropping the traffic if there are no local endpoints).
+	ServiceInternalTrafficPolicyLocal ServiceInternalTrafficPolicyType = "Local"
+)
+
+// ServiceExternalTrafficPolicyType describes how nodes distribute service traffic they
+// receive on one of the Service's "externally-facing" addresses (NodePorts, ExternalIPs,
+// and LoadBalancer IPs).
 // +enum
 type ServiceExternalTrafficPolicyType string
 
 const (
-	// ServiceExternalTrafficPolicyTypeLocal specifies node-local endpoints behavior.
-	ServiceExternalTrafficPolicyTypeLocal ServiceExternalTrafficPolicyType = "Local"
-	// ServiceExternalTrafficPolicyTypeCluster specifies node-global (legacy) behavior.
+	// ServiceExternalTrafficPolicyTypeCluster routes traffic to all endpoints.
 	ServiceExternalTrafficPolicyTypeCluster ServiceExternalTrafficPolicyType = "Cluster"
+
+	// ServiceExternalTrafficPolicyTypeLocal preserves the source IP of the traffic by
+	// routing only to endpoints on the same node as the traffic was received on
+	// (dropping the traffic if there are no local endpoints).
+	ServiceExternalTrafficPolicyTypeLocal ServiceExternalTrafficPolicyType = "Local"
 )
 
 // ServiceStatus represents the current status of a service.
@@ -581,11 +600,14 @@ type ServiceSpec struct {
 	// +optional
 	SessionAffinity ServiceAffinity `json:"sessionAffinity,omitempty" protobuf:"bytes,7,opt,name=sessionAffinity,casttype=ServiceAffinity"`
 
-	// Only applies to Service Type: LoadBalancer
-	// LoadBalancer will get created with the IP specified in this field.
+	// Only applies to Service Type: LoadBalancer.
 	// This feature depends on whether the underlying cloud-provider supports specifying
 	// the loadBalancerIP when a load balancer is created.
 	// This field will be ignored if the cloud-provider does not support the feature.
+	// Deprecated: This field was under-specified and its meaning varies across implementations,
+	// and it cannot support dual-stack.
+	// As of Kubernetes v1.24, users are encouraged to use implementation-specific annotations when available.
+	// This field may be removed in a future API version.
 	// +optional
 	LoadBalancerIP string `json:"loadBalancerIP,omitempty" protobuf:"bytes,8,opt,name=loadBalancerIP"`
 
@@ -596,12 +618,19 @@ type ServiceSpec struct {
 	// +optional
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty" protobuf:"bytes,9,opt,name=loadBalancerSourceRanges"`
 
-	// externalTrafficPolicy denotes if this Service desires to route external
-	// traffic to node-local or cluster-wide endpoints. "Local" preserves the
-	// client source IP and avoids a second hop for LoadBalancer and Nodeport
-	// type services, but risks potentially imbalanced traffic spreading.
-	// "Cluster" obscures the client source IP and may cause a second hop to
-	// another node, but should have good overall load-spreading.
+	// externalTrafficPolicy describes how nodes distribute service traffic they
+	// receive on one of the Service's "externally-facing" addresses (NodePorts,
+	// ExternalIPs, and LoadBalancer IPs). If set to "Local", the proxy will configure
+	// the service in a way that assumes that external load balancers will take care
+	// of balancing the service traffic between nodes, and so each node will deliver
+	// traffic only to the node-local endpoints of the service, without masquerading
+	// the client source IP. (Traffic mistakenly sent to a node with no endpoints will
+	// be dropped.) The default value, "Cluster", uses the standard behavior of
+	// routing to all endpoints evenly (possibly modified by topology and other
+	// features). Note that traffic sent to an External IP or LoadBalancer IP from
+	// within the cluster will always get "Cluster" semantics, but clients sending to
+	// a NodePort from within the cluster may need to take traffic policy into account
+	// when picking a node.
 	// +optional
 	ExternalTrafficPolicy ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty" protobuf:"bytes,11,opt,name=externalTrafficPolicy"`
 
@@ -614,6 +643,7 @@ type ServiceSpec struct {
 	// service or not.  If this field is specified when creating a Service
 	// which does not need it, creation will fail. This field will be wiped
 	// when updating a Service to no longer need it (e.g. changing type).
+	// This field cannot be updated once set.
 	// +optional
 	HealthCheckNodePort int32 `json:"healthCheckNodePort,omitempty" protobuf:"bytes,12,opt,name=healthCheckNodePort"`
 
@@ -719,17 +749,18 @@ type ServiceList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Endpoints is a collection of endpoints that implement the actual service. Example:
-//   Name: "mysvc",
-//   Subsets: [
-//     {
-//       Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
-//       Ports: [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
-//     },
-//     {
-//       Addresses: [{"ip": "10.10.3.3"}],
-//       Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
-//     },
-//  ]
+//
+//	 Name: "mysvc",
+//	 Subsets: [
+//	   {
+//	     Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
+//	     Ports: [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
+//	   },
+//	   {
+//	     Addresses: [{"ip": "10.10.3.3"}],
+//	     Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
+//	   },
+//	]
 type Endpoints struct {
 	slim_metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
@@ -751,13 +782,16 @@ type Endpoints struct {
 // EndpointSubset is a group of addresses with a common set of ports. The
 // expanded set of endpoints is the Cartesian product of Addresses x Ports.
 // For example, given:
-//   {
-//     Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
-//     Ports:     [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
-//   }
+//
+//	{
+//	  Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
+//	  Ports:     [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
+//	}
+//
 // The resulting set of endpoints can be viewed as:
-//     a: [ 10.10.1.1:8675, 10.10.2.2:8675 ],
-//     b: [ 10.10.1.1:309, 10.10.2.2:309 ]
+//
+//	a: [ 10.10.1.1:8675, 10.10.2.2:8675 ],
+//	b: [ 10.10.1.1:309, 10.10.2.2:309 ]
 type EndpointSubset struct {
 	// IP addresses which offer the related ports that are marked as ready. These endpoints
 	// should be considered safe for load balancers and clients to utilize.
@@ -837,6 +871,12 @@ type NodeSpec struct {
 
 // NodeStatus is information about the current status of a node.
 type NodeStatus struct {
+	// Conditions is an array of current observed node conditions.
+	// More info: https://kubernetes.io/docs/concepts/nodes/node/#condition
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []NodeCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,4,rep,name=conditions"`
 	// List of addresses reachable to the node.
 	// Queried from cloud provider, if available.
 	// More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses
@@ -850,9 +890,50 @@ type NodeStatus struct {
 }
 
 // +enum
+type NodePhase string
+
+// These are the valid phases of node.
+const (
+	// NodePending means the node has been created/added by the system, but not configured.
+	NodePending NodePhase = "Pending"
+	// NodeRunning means the node has been configured and has Kubernetes components running.
+	NodeRunning NodePhase = "Running"
+	// NodeTerminated means the node has been removed from the cluster.
+	NodeTerminated NodePhase = "Terminated"
+)
+
+type NodeConditionType string
+
+// These are valid but not exhaustive conditions of node. A cloud provider may set a condition not listed here.
+// The built-in set of conditions are:
+// NodeReachable, NodeLive, NodeReady, NodeSchedulable, NodeRunnable.
+const (
+	// NodeReady means kubelet is healthy and ready to accept pods.
+	NodeReady NodeConditionType = "Ready"
+	// NodeMemoryPressure means the kubelet is under pressure due to insufficient available memory.
+	NodeMemoryPressure NodeConditionType = "MemoryPressure"
+	// NodeDiskPressure means the kubelet is under pressure due to insufficient available disk.
+	NodeDiskPressure NodeConditionType = "DiskPressure"
+	// NodePIDPressure means the kubelet is under pressure due to insufficient available PID.
+	NodePIDPressure NodeConditionType = "PIDPressure"
+	// NodeNetworkUnavailable means that network for the node is not correctly configured.
+	NodeNetworkUnavailable NodeConditionType = "NetworkUnavailable"
+)
+
+// NodeCondition contains condition information for a node.
+type NodeCondition struct {
+	// Type of node condition.
+	Type NodeConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=NodeConditionType"`
+	// Status of the condition, one of True, False, Unknown.
+	Status ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=ConditionStatus"`
+	// (brief) reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
+}
+
 type NodeAddressType string
 
-// These are valid address type of node.
+// These are built-in addresses type of node. A cloud provider may set a type not listed here.
 const (
 	// NodeHostName identifies a name of the node. Although every node can be assumed
 	// to have a NodeAddress of this type, its exact syntax and semantics are not
@@ -972,27 +1053,150 @@ type NamespaceList struct {
 	Items []Namespace `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// Bytes type is used to avoid issue with deepequal
+// deepequal.go:607 Hit an unsupported type []byte for map[string][]byte, from map[string][]byte
+type Bytes []byte
+
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// A list of ephemeral containers used with the Pod ephemeralcontainers subresource.
-type EphemeralContainers struct {
+// Secret holds secret data of a certain type. The total bytes of the values in
+// the Data field must be less than MaxSecretSize bytes.
+type Secret struct {
 	slim_metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Immutable, if set to true, ensures that data stored in the Secret cannot
+	// be updated (only object metadata can be modified).
+	// If not set to true, the field can be modified at any time.
+	// Defaulted to nil.
+	// +optional
+	Immutable *bool `json:"immutable,omitempty" protobuf:"varint,5,opt,name=immutable"`
+
+	// Data contains the secret data. Each key must consist of alphanumeric
+	// characters, '-', '_' or '.'. The serialized form of the secret data is a
+	// base64 encoded string, representing the arbitrary (possibly non-string)
+	// data value here. Described in https://tools.ietf.org/html/rfc4648#section-4
+	// +optional
+	Data map[string]Bytes `json:"data,omitempty" protobuf:"bytes,2,rep,name=data"`
+
+	// stringData allows specifying non-binary secret data in string form.
+	// It is provided as a write-only input field for convenience.
+	// All keys and values are merged into the data field on write, overwriting any existing values.
+	// The stringData field is never output when reading from the API.
+	// +k8s:conversion-gen=false
+	// +optional
+	StringData map[string]string `json:"stringData,omitempty" protobuf:"bytes,4,rep,name=stringData"`
+
+	// Used to facilitate programmatic handling of secret data.
+	// More info: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types
+	// +optional
+	Type SecretType `json:"type,omitempty" protobuf:"bytes,3,opt,name=type,casttype=SecretType"`
 }
 
-// TypedLocalObjectReference contains enough information to let you locate the
-// typed referenced object inside the same namespace.
-type TypedLocalObjectReference struct {
-	// APIGroup is the group for the resource being referenced.
-	// If APIGroup is not specified, the specified Kind must be in the core API group.
-	// For any other third-party types, APIGroup is required.
+const MaxSecretSize = 1 * 1024 * 1024
+
+type SecretType string
+
+const (
+	// SecretTypeOpaque is the default. Arbitrary user-defined data
+	SecretTypeOpaque SecretType = "Opaque"
+
+	// SecretTypeServiceAccountToken contains a token that identifies a service account to the API
+	//
+	// Required fields:
+	// - Secret.Annotations["kubernetes.io/service-account.name"] - the name of the ServiceAccount the token identifies
+	// - Secret.Annotations["kubernetes.io/service-account.uid"] - the UID of the ServiceAccount the token identifies
+	// - Secret.Data["token"] - a token that identifies the service account to the API
+	SecretTypeServiceAccountToken SecretType = "kubernetes.io/service-account-token"
+
+	// ServiceAccountNameKey is the key of the required annotation for SecretTypeServiceAccountToken secrets
+	ServiceAccountNameKey = "kubernetes.io/service-account.name"
+	// ServiceAccountUIDKey is the key of the required annotation for SecretTypeServiceAccountToken secrets
+	ServiceAccountUIDKey = "kubernetes.io/service-account.uid"
+	// ServiceAccountTokenKey is the key of the required data for SecretTypeServiceAccountToken secrets
+	ServiceAccountTokenKey = "token"
+	// ServiceAccountKubeconfigKey is the key of the optional kubeconfig data for SecretTypeServiceAccountToken secrets
+	ServiceAccountKubeconfigKey = "kubernetes.kubeconfig"
+	// ServiceAccountRootCAKey is the key of the optional root certificate authority for SecretTypeServiceAccountToken secrets
+	ServiceAccountRootCAKey = "ca.crt"
+	// ServiceAccountNamespaceKey is the key of the optional namespace to use as the default for namespaced API calls
+	ServiceAccountNamespaceKey = "namespace"
+
+	// SecretTypeDockercfg contains a dockercfg file that follows the same format rules as ~/.dockercfg
+	//
+	// Required fields:
+	// - Secret.Data[".dockercfg"] - a serialized ~/.dockercfg file
+	SecretTypeDockercfg SecretType = "kubernetes.io/dockercfg"
+
+	// DockerConfigKey is the key of the required data for SecretTypeDockercfg secrets
+	DockerConfigKey = ".dockercfg"
+
+	// SecretTypeDockerConfigJson contains a dockercfg file that follows the same format rules as ~/.docker/config.json
+	//
+	// Required fields:
+	// - Secret.Data[".dockerconfigjson"] - a serialized ~/.docker/config.json file
+	SecretTypeDockerConfigJson SecretType = "kubernetes.io/dockerconfigjson"
+
+	// DockerConfigJsonKey is the key of the required data for SecretTypeDockerConfigJson secrets
+	DockerConfigJsonKey = ".dockerconfigjson"
+
+	// SecretTypeBasicAuth contains data needed for basic authentication.
+	//
+	// Required at least one of fields:
+	// - Secret.Data["username"] - username used for authentication
+	// - Secret.Data["password"] - password or token needed for authentication
+	SecretTypeBasicAuth SecretType = "kubernetes.io/basic-auth"
+
+	// BasicAuthUsernameKey is the key of the username for SecretTypeBasicAuth secrets
+	BasicAuthUsernameKey = "username"
+	// BasicAuthPasswordKey is the key of the password or token for SecretTypeBasicAuth secrets
+	BasicAuthPasswordKey = "password"
+
+	// SecretTypeSSHAuth contains data needed for SSH authetication.
+	//
+	// Required field:
+	// - Secret.Data["ssh-privatekey"] - private SSH key needed for authentication
+	SecretTypeSSHAuth SecretType = "kubernetes.io/ssh-auth"
+
+	// SSHAuthPrivateKey is the key of the required SSH private key for SecretTypeSSHAuth secrets
+	SSHAuthPrivateKey = "ssh-privatekey"
+	// SecretTypeTLS contains information about a TLS client or server secret. It
+	// is primarily used with TLS termination of the Ingress resource, but may be
+	// used in other types.
+	//
+	// Required fields:
+	// - Secret.Data["tls.key"] - TLS private key.
+	//   Secret.Data["tls.crt"] - TLS certificate.
+	// TODO: Consider supporting different formats, specifying CA/destinationCA.
+	SecretTypeTLS SecretType = "kubernetes.io/tls"
+
+	// TLSCertKey is the key for tls certificates in a TLS secret.
+	TLSCertKey = "tls.crt"
+	// TLSPrivateKeyKey is the key for the private key field in a TLS secret.
+	TLSPrivateKeyKey = "tls.key"
+	// SecretTypeBootstrapToken is used during the automated bootstrap process (first
+	// implemented by kubeadm). It stores tokens that are used to sign well known
+	// ConfigMaps. They are used for authn.
+	SecretTypeBootstrapToken SecretType = "bootstrap.kubernetes.io/token"
+)
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SecretList is a list of Secret.
+type SecretList struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	// +optional
-	APIGroup *string `json:"apiGroup" protobuf:"bytes,1,opt,name=apiGroup"`
-	// Kind is the type of resource being referenced
-	Kind string `json:"kind" protobuf:"bytes,2,opt,name=kind"`
-	// Name is the name of resource being referenced
-	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
+	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Items is a list of secret objects.
+	// More info: https://kubernetes.io/docs/concepts/configuration/secret
+	Items []Secret `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // PortStatus represents the error condition of a service port

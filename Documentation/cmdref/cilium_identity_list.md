@@ -13,7 +13,7 @@ cilium identity list [LABELS] [flags]
 ```
       --endpoints       list identities of locally managed endpoints
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -26,5 +26,5 @@ cilium identity list [LABELS] [flags]
 
 ### SEE ALSO
 
-* [cilium identity](../cilium_identity)	 - Manage security identities
+* [cilium identity](cilium_identity.md)	 - Manage security identities
 

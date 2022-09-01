@@ -18,9 +18,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 )
 
 type DNSCacheTestSuite struct{}
+
+func (ds *DNSCacheTestSuite) SetUpSuite(c *C) {
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+}
 
 var _ = Suite(&DNSCacheTestSuite{})
 
@@ -99,6 +104,10 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 	for _, name := range []string{"test1.com", "test2.com", "test3.com"} {
 		ips := cache.lookupByTime(now, name)
 		c.Assert(len(ips), Equals, 2, Commentf("Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name))
+		c.Assert(cache.forward, checker.HasKey, name, Commentf("Expired name '%s' not deleted from forward", name))
+		for _, ip := range ips {
+			c.Assert(cache.reverse, checker.HasKey, ip.String(), Commentf("Expired IP '%s' not deleted from reverse", ip))
+		}
 	}
 
 	// Delete a single name and check that
@@ -111,9 +120,17 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 	c.Assert(namesAffected[0], Equals, "test1.com", Commentf("Incorrect affected name returned on forced expire: %s", namesAffected))
 	ips := cache.lookupByTime(now, "test1.com")
 	c.Assert(len(ips), Equals, 0, Commentf("IPs returned (%v) for deleted name 'test1.com'", ips))
+	c.Assert(cache.forward, Not(checker.HasKey), "test1.com", Commentf("Expired name 'test1.com' not deleted from forward"))
+	for _, ip := range ips {
+		c.Assert(cache.reverse, Not(checker.HasKey), ip.String(), Commentf("Expired IP '%s' not deleted from reverse", ip))
+	}
 	for _, name := range []string{"test2.com", "test3.com"} {
 		ips = cache.lookupByTime(now, name)
 		c.Assert(len(ips), Equals, 2, Commentf("Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name))
+		c.Assert(cache.forward, checker.HasKey, name, Commentf("Expired name '%s' not deleted from forward", name))
+		for _, ip := range ips {
+			c.Assert(cache.reverse, checker.HasKey, ip.String(), Commentf("Expired IP '%s' not deleted from reverse", ip))
+		}
 	}
 
 	// Delete the whole cache. This should leave no data.
@@ -127,6 +144,8 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 		ips = cache.lookupByTime(now, name)
 		c.Assert(len(ips), Equals, 0, Commentf("Returned IP data for %s after the cache was fully cleared: %v", name, ips))
 	}
+	c.Assert(cache.forward, HasLen, 0)
+	c.Assert(cache.reverse, HasLen, 0)
 	dump := cache.Dump()
 	c.Assert(len(dump), Equals, 0, Commentf("Returned cache entries from cache dump after the cache was fully cleared: %v", dump))
 }
@@ -268,6 +287,29 @@ func (ds *DNSCacheTestSuite) TestJSONMarshal(c *C) {
 		IPs := cache.lookupByTime(currentTime, name)
 		c.Assert(len(IPs), Equals, 0, Commentf("Returned IPs that should be expired for %s", name))
 	}
+}
+
+func (ds *DNSCacheTestSuite) TestCountIPs(c *C) {
+	names := map[string]net.IP{
+		"test1.com": net.ParseIP("1.1.1.1"),
+		"test2.com": net.ParseIP("2.2.2.2"),
+		"test3.com": net.ParseIP("3.3.3.3")}
+	sharedIP := net.ParseIP("8.8.8.8")
+	cache := NewDNSCache(0)
+
+	// Insert 3 records all sharing one IP and 1 unique IP.
+	cache.Update(now, "test1.com", []net.IP{sharedIP, names["test1.com"]}, 5)
+	cache.Update(now, "test2.com", []net.IP{sharedIP, names["test2.com"]}, 5)
+	cache.Update(now, "test3.com", []net.IP{sharedIP, names["test3.com"]}, 5)
+
+	fqdns, ips := cache.Count()
+
+	// Dump() returns the deduplicated (or consolidated) list of entries with
+	// length equal to CountFQDNs(), while CountIPs() returns the raw number of
+	// IPs.
+	c.Assert(len(cache.Dump()), Equals, len(names))
+	c.Assert(int(fqdns), Equals, len(names))
+	c.Assert(int(ips), Equals, len(names)*2)
 }
 
 /* Benchmarks
@@ -615,7 +657,7 @@ func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string
 
 func (ds *DNSCacheTestSuite) TestZombiesSiblingsGC(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	// Siblings are IPs that resolve to the same name.
 	zombies.Upsert(now, "1.1.1.1", "test.com")
@@ -640,7 +682,7 @@ func (ds *DNSCacheTestSuite) TestZombiesSiblingsGC(c *C) {
 
 func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	zombies.Upsert(now, "1.1.1.1", "test.com")
 	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
@@ -719,9 +761,33 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	})
 }
 
+func (ds *DNSCacheTestSuite) TestZombiesGCOverLimit(c *C) {
+	now := time.Now()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, 1)
+
+	// Limit the total number of IPs to be associated with a specific host
+	// to 1, but associate 'test.com' with multiple IPs.
+	zombies.Upsert(now, "1.1.1.1", "test.com")
+	zombies.Upsert(now, "2.2.2.2", "somethingelse.com", "test.com")
+	zombies.Upsert(now, "3.3.3.3", "anothertest.com")
+
+	// Based on the zombie liveness sorting, the '2.2.2.2' entry is more
+	// important (as it could potentially impact multiple apps connecting
+	// to different domains), so it should be kept alive when sweeping to
+	// enforce the max per-host IP limit for names.
+	alive, dead := zombies.GC()
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.1": {"test.com"},
+	})
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"somethingelse.com", "test.com"},
+		"3.3.3.3": {"anothertest.com"},
+	})
+}
+
 func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
 	zombies.Upsert(now.Add(1*time.Second), "2.2.2.2", "somethingelse.com")
@@ -736,7 +802,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 		"3.3.3.3": {"onemorething.com"},
 	})
 
-	zombies = NewDNSZombieMappings(2)
+	zombies = NewDNSZombieMappings(2, defaults.ToFQDNsMaxIPsPerHost)
 	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
 
 	// No zombies should be evicted because we are below the limit
@@ -779,7 +845,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 
 func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	zombies.Upsert(now, "1.1.1.1", "test.com", "anothertest.com")
 	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
@@ -854,7 +920,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 	now := time.Now()
 	cache := NewDNSCache(0)
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	// Add entries that should expire at different times
 	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")}, 3)
@@ -862,7 +928,14 @@ func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 
 	// Cascade expirations from cache to zombies. The 3.3.3.3 lookup has not expired
 	now = now.Add(4 * time.Second)
-	cache.GC(now, zombies)
+	expired := cache.GC(now, zombies)
+	c.Assert(expired, HasLen, 1) // test.com
+	// Not all IPs expired (3.3.3.3 still alive) so we expect test.com to be
+	// present in the cache.
+	c.Assert(cache.forward, checker.HasKey, "test.com")
+	c.Assert(cache.reverse, checker.HasKey, "3.3.3.3")
+	c.Assert(cache.reverse, Not(checker.HasKey), "1.1.1.1")
+	c.Assert(cache.reverse, Not(checker.HasKey), "2.2.2.2")
 	alive, dead := zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
@@ -873,7 +946,13 @@ func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 	// Cascade expirations from cache to zombies. The 3.3.3.3 lookup has expired
 	// but the older zombies are still alive.
 	now = now.Add(4 * time.Second)
-	cache.GC(now, zombies)
+	expired = cache.GC(now, zombies)
+	c.Assert(expired, HasLen, 1) // test.com
+	// Now all IPs expired so we expect test.com to be removed from the cache.
+	c.Assert(cache.forward, Not(checker.HasKey), "test.com")
+	c.Assert(cache.forward, HasLen, 0)
+	c.Assert(cache.reverse, Not(checker.HasKey), "3.3.3.3")
+	c.Assert(cache.reverse, HasLen, 0)
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
@@ -885,7 +964,7 @@ func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 
 func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	alive := zombies.DumpAlive(nil)
 	c.Assert(alive, HasLen, 0)
@@ -944,4 +1023,84 @@ func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 	cidrMatcher = func(ip net.IP) bool { return cidr.Contains(ip) }
 	alive = zombies.DumpAlive(cidrMatcher)
 	c.Assert(alive, HasLen, 0)
+}
+
+func (ds *DNSCacheTestSuite) TestOverlimitPreferNewerEntries(c *C) {
+	toFQDNsMinTTL := 100
+	toFQDNsMaxIPsPerHost := 5
+	cache := NewDNSCacheWithLimit(toFQDNsMinTTL, toFQDNsMaxIPsPerHost)
+
+	toFQDNsMaxDeferredConnectionDeletes := 10
+	zombies := NewDNSZombieMappings(toFQDNsMaxDeferredConnectionDeletes, toFQDNsMaxIPsPerHost)
+
+	name := "test.com"
+	IPs := []net.IP{
+		net.ParseIP("1.1.1.1"),
+		net.ParseIP("1.1.1.2"),
+		net.ParseIP("1.1.1.3"),
+		net.ParseIP("1.1.1.4"),
+		net.ParseIP("1.1.1.5"),
+		net.ParseIP("1.1.1.6"),
+		net.ParseIP("1.1.1.7"),
+		net.ParseIP("1.1.1.8"),
+		net.ParseIP("1.1.1.9"),
+		net.ParseIP("1.1.1.10"),
+		net.ParseIP("1.1.1.11"),
+		net.ParseIP("1.1.1.12"),
+		net.ParseIP("1.1.1.13"),
+		net.ParseIP("1.1.1.14"),
+		net.ParseIP("1.1.1.15"),
+		net.ParseIP("1.1.1.16"),
+		net.ParseIP("1.1.1.17"),
+		net.ParseIP("1.1.1.18"),
+		net.ParseIP("1.1.1.19"),
+		net.ParseIP("1.1.1.20"),
+	}
+	ttl := 0 // will be overwritten with toFQDNsMinTTL
+
+	now := time.Now()
+	for i, ip := range IPs {
+		// Entries with lower values in last IP octet will expire earlier
+		lookupTime := now.Add(-time.Duration(len(IPs)-i) * time.Second)
+		cache.Update(lookupTime, name, []net.IP{ip}, ttl)
+	}
+
+	affected := cache.GC(time.Now(), zombies)
+
+	c.Assert(affected, HasLen, 1)
+	c.Assert(affected[0], Equals, name)
+
+	// No entries have expired, but no more than toFQDNsMaxIPsPerHost can be
+	// kept in the cache.
+	// The exceeding ones will be moved to the zombies cache due to overlimit
+	c.Assert(cache.forward[name], HasLen, toFQDNsMaxIPsPerHost)
+
+	alive, dead := zombies.GC()
+
+	// No more than toFQDNsMaxIPsPerHost entries will be kept
+	// alive in the zombies cache as well
+	c.Assert(alive, HasLen, toFQDNsMaxIPsPerHost)
+
+	// More recent entries (i.e. entries with later expire time) will be kept alive
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.11": {name},
+		"1.1.1.12": {name},
+		"1.1.1.13": {name},
+		"1.1.1.14": {name},
+		"1.1.1.15": {name},
+	})
+
+	// Older entries will be evicted
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.1":  {name},
+		"1.1.1.2":  {name},
+		"1.1.1.3":  {name},
+		"1.1.1.4":  {name},
+		"1.1.1.5":  {name},
+		"1.1.1.6":  {name},
+		"1.1.1.7":  {name},
+		"1.1.1.8":  {name},
+		"1.1.1.9":  {name},
+		"1.1.1.10": {name},
+	})
 }

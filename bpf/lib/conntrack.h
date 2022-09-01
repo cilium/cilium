@@ -69,9 +69,8 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	__u8 seen_flags = flags.lower_bits & report_mask;
 	__u32 last_report;
 
-#ifdef NEEDS_TIMEOUT
 	WRITE_ONCE(entry->lifetime, now + lifetime);
-#endif
+
 	if (dir == CT_INGRESS) {
 		accumulated_flags = READ_ONCE(entry->rx_flags_seen);
 		last_report = READ_ONCE(entry->last_rx_report);
@@ -167,12 +166,29 @@ static __always_inline bool ct_entry_alive(const struct ct_entry *entry)
 	return !entry->rx_closing || !entry->tx_closing;
 }
 
+static __always_inline bool ct_entry_closing(const struct ct_entry *entry)
+{
+	return entry->tx_closing || entry->rx_closing;
+}
+
+static __always_inline bool
+ct_entry_expired_rebalance(const struct ct_entry *entry)
+{
+	__u32 wait_time = bpf_sec_to_mono(CT_SERVICE_CLOSE_REBALANCE);
+
+	/* This doesn't check last_rx_report because we don't see closing
+	 * in RX direction for CT_SERVICE.
+	 */
+	return READ_ONCE(entry->last_tx_report) + wait_time <= bpf_mono_now();
+}
+
 static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 					const void *tuple, int action, int dir,
 					struct ct_state *ct_state,
 					bool is_tcp, union tcp_flags seen_flags,
 					__u32 *monitor)
 {
+	bool syn = seen_flags.value & TCP_FLAG_SYN;
 	struct ct_entry *entry;
 	int reopen;
 
@@ -181,6 +197,12 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 	entry = map_lookup_elem(map, tuple);
 	if (entry) {
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
+#ifdef HAVE_LARGE_INSN_LIMIT
+		if (dir == CT_SERVICE && syn &&
+		    ct_entry_closing(entry) &&
+		    ct_entry_expired_rebalance(entry))
+			goto ct_new;
+#endif
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 		if (ct_state) {
@@ -191,8 +213,10 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			ct_state->dsr = entry->dsr;
 			ct_state->proxy_redirect = entry->proxy_redirect;
 			ct_state->from_l7lb = entry->from_l7lb;
-			if (dir == CT_SERVICE)
+			if (dir == CT_SERVICE) {
 				ct_state->backend_id = entry->backend_id;
+				ct_state->syn = syn;
+			}
 		}
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
@@ -243,6 +267,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 		return CT_ESTABLISHED;
 	}
 
+ct_new: __maybe_unused
 	*monitor = TRACE_PAYLOAD_LEN;
 	return CT_NEW;
 }

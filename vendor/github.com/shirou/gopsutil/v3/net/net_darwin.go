@@ -207,11 +207,7 @@ func IOCountersWithContext(ctx context.Context, pernic bool) ([]IOCountersStat, 
 		}
 	} else {
 		// duplicated interface, list all interfaces
-		ifconfig, err := exec.LookPath("ifconfig")
-		if err != nil {
-			return nil, err
-		}
-		if out, err = invoke.CommandWithContext(ctx, ifconfig, "-l"); err != nil {
+		if out, err = invoke.CommandWithContext(ctx, "ifconfig", "-l"); err != nil {
 			return nil, err
 		}
 		interfaceNames := strings.Fields(strings.TrimRight(string(out), endOfLine))

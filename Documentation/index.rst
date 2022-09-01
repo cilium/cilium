@@ -9,16 +9,11 @@ Welcome to Cilium's documentation!
 
 The documentation is divided into the following sections:
 
-* :ref:`gs_guide`: Provides a simple tutorial for running a small Cilium
+* :ref:`k8s_install_quick`: Provides a simple tutorial for running a small Cilium
   setup on your laptop.  Intended as an easy way to get your hands dirty
   applying Cilium security policies between containers.
 
-* :ref:`concepts`: Describes the components of Cilium,
-  and the different models for deploying Cilium.  Provides the high-level
-  understanding required to run a full Cilium deployment and understand its
-  behavior.
-
-* :ref:`gs_install` :  Details instructions for installing, configuring, and
+* :ref:`getting_started` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
 
 * :ref:`network_policy` : Detailed walkthrough of the policy language structure
@@ -44,12 +39,66 @@ get started and experiment with Cilium.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Overview
+
+   overview/intro
+   overview/component-overview
+
+.. _getting_started:
+
+.. toctree::
+   :maxdepth: 2
    :caption: Getting Started
 
-   intro
-   gettingstarted/index
-   concepts/index
-   gettinghelp
+   gettingstarted/k8s-install-default
+   gettingstarted/hubble_intro
+   gettingstarted/hubble_setup
+   gettingstarted/hubble-configuration
+   gettingstarted/hubble
+   gettingstarted/hubble_cli.rst
+   gettingstarted/terminology
+   gettingstarted/gettinghelp
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced Installation
+
+   installation/taints
+   installation/k8s-install-helm
+   installation/k8s-toc
+   installation/external-toc
+   installation/provider-toc
+   installation/microk8s
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Networking
+
+   network/concepts/index
+   network/kubernetes/index
+   network/bgp-toc
+   network/ebpf/index
+   network/clustermesh/index
+   network/external-toc
+   network/servicemesh/index
+   network/istio
+   network/vtep
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Security
+
+   security/network/index
+   security/policy/index
+   security/tutorial-toc
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Observability
+
+   observability/grafana
+   observability/metrics
+   observability/visibility
 
 .. toctree::
    :maxdepth: 2
@@ -58,28 +107,27 @@ get started and experiment with Cilium.
    operations/system_requirements
    operations/upgrade
    configuration/index
-   policy/index
-   operations/metrics
    operations/performance/index
    operations/troubleshooting
-
 
 .. toctree::
    :maxdepth: 2
    :caption: Community
 
-   community
+   community/governance/index
+   community/community
+   community/roadmap
 
 .. toctree::
-   :maxdepth: 3
-   :caption: For Developers
+   :maxdepth: 2
+   :caption: Contributor Guide
 
-   contributing/governance/index
    contributing/development/index
    contributing/release/index
    contributing/testing/index
-   bpf
+   contributing/docs/index
    api
+   grpcapi
    internals/index
 
 .. toctree::
@@ -88,7 +136,14 @@ get started and experiment with Cilium.
 
    cheatsheet
    cmdref/index
+   helm-reference
    kvstore
    further_reading
    glossary
-   helm-reference
+
+.. toctree::
+   :maxdepth: 2
+   :caption: BPF and XDP Reference Guide
+
+   bpf
+

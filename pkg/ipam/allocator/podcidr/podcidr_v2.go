@@ -30,7 +30,7 @@ func (s specPodCIDRs) Contains(other *net.IPNet) bool {
 
 type podCIDRStatus struct {
 	ipNet  *net.IPNet
-	status types.UsedPodCIDRStatus
+	status types.PodCIDRStatus
 }
 
 type statusPodCIDRs []podCIDRStatus
@@ -215,10 +215,10 @@ func extractPodCIDRs(node *v2.CiliumNode) (
 		}
 	}
 
-	for podCIDRStr, s := range node.Status.IPAM.UsedPodCIDRs {
+	for podCIDRStr, s := range node.Status.IPAM.PodCIDRs {
 		_, podCIDR, err := net.ParseCIDR(podCIDRStr)
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("invalid pod CIDR in .Status.IPAM.UsedPodCIDRs: %w", err)
+			return nil, nil, nil, nil, fmt.Errorf("invalid pod CIDR in .Status.IPAM.PodCIDRs: %w", err)
 		}
 
 		status := podCIDRStatus{

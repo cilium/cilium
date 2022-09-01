@@ -19,7 +19,7 @@ import (
 
 // defaultOptions is the reference point for default values.
 var defaultOptions = options{
-	peerServiceAddress: defaults.HubbleTarget,
+	peerServiceAddress: defaults.PeerTarget,
 	peerClientBuilder: peerTypes.LocalClientBuilder{
 		DialTimeout: defaults.DialTimeout,
 	},

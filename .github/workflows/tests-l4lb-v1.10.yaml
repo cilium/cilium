@@ -61,6 +61,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  cilium_cli_version: v0.12.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -81,8 +82,9 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
+          ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
       - name: Retrieve pull request's base and head
         if: ${{ github.event.issue.pull_request }}
@@ -104,6 +106,7 @@ jobs:
               - 'daemon/**'
               - 'bpf/**'
               - 'test/l4lb/**'
+              - 'images/**'
 
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
@@ -117,9 +120,10 @@ jobs:
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
-    # We need nested virtualisation which is supported only by MacOS runner
-    runs-on: macos-10.15
-    timeout-minutes: 30
+    # Ubuntu 22.04 runner uses cgroup v2-only which is needed for some
+    # our LB functionality
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
     steps:
       - name: Set up job variables
         id: vars
@@ -146,32 +150,19 @@ jobs:
           state: pending
           target_url: ${{ env.check_url }}
 
-      - name: Install Docker Client
-        run: |
-          cd /tmp
-          curl -sOL https://download.docker.com/mac/static/stable/x86_64/docker-20.10.9.tgz
-          tar xzf docker-20.10.9.tgz
-          sudo xattr -rc docker
-          sudo cp docker/docker /usr/local/bin/docker
-          rm -r docker docker-20.10.9.tgz
-
-      - uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+      - name: Checkout upstream for test files
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
+          # This is intentionally set to stable branch to avoid using test.sh from pull requests.
           ref: v1.10
           persist-credentials: false
 
-      - name: Boot Fedora
-        run: |
-          ln -sf ./test/l4lb/Vagrantfile ./Vagrantfile
-          # Retry if it fails (download.fedoraproject.org returns 404 sometimes)
-          # Spend up to 10 seconds on this
-          for i in {1..4}; do
-            if vagrant up --provision; then
-              break
-            fi
-            sleep $i
-          done
-          vagrant ssh-config >> ~/.ssh/config
+      - name: Checkout pull request for Helm chart
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: pull-request
 
       - name: Wait for image to be available
         timeout-minutes: 10
@@ -179,9 +170,14 @@ jobs:
         run: |
           until docker manifest inspect quay.io/${{ github.repository_owner }}/cilium-ci:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
 
-      - name: Run tests
+      - name: Run LoadBalancing test
         run: |
-          ssh default "sudo /bin/sh -c 'cd /vagrant/test/l4lb && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }}'"
+          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
+
+      - name: Fetch cilium-sysdump
+        if: ${{ !success() }}
+        run: |
+          sudo cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
@@ -190,7 +186,7 @@ jobs:
           scp default:/tmp/cilium-sysdump-out.zip .
 
       - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         if: ${{ !success() }}
         with:
           name: cilium-sysdump-out.zip
@@ -231,7 +227,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

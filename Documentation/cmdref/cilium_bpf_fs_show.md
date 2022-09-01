@@ -18,7 +18,7 @@ cilium bpf fs show
 
 ```
   -h, --help            help for show
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -31,5 +31,5 @@ cilium bpf fs show
 
 ### SEE ALSO
 
-* [cilium bpf fs](../cilium_bpf_fs)	 - BPF filesystem mount
+* [cilium bpf fs](cilium_bpf_fs.md)	 - BPF filesystem mount
 

@@ -12,7 +12,7 @@ cilium bpf metrics list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium bpf metrics list [flags]
 
 ### SEE ALSO
 
-* [cilium bpf metrics](../cilium_bpf_metrics)	 - BPF datapath traffic metrics
+* [cilium bpf metrics](cilium_bpf_metrics.md)	 - BPF datapath traffic metrics
 

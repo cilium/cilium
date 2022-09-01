@@ -12,8 +12,6 @@ import (
 	"io"
 	"net"
 	"sort"
-	"strconv"
-	"strings"
 	"text/template"
 
 	"github.com/sirupsen/logrus"
@@ -24,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -52,7 +49,9 @@ import (
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
+	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -124,6 +123,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		fw.WriteString(defineIPv6("HOST_IP", hostIP))
 	}
 
+	cDefinesMap["TUNNEL_PORT"] = fmt.Sprintf("%d", option.Config.TunnelPort)
+
 	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
 	cDefinesMap["WORLD_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameWorld))
 	cDefinesMap["HEALTH_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHealth))
@@ -132,7 +133,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LOCAL_NODE_ID"] = fmt.Sprintf("%d", identity.GetLocalNodeID())
 	cDefinesMap["REMOTE_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameRemoteNode))
 	cDefinesMap["KUBE_APISERVER_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameKubeAPIServer))
-	cDefinesMap["CILIUM_LB_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.MaxEntries)
+	cDefinesMap["CILIUM_LB_SERVICE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.ServiceMapMaxEntries)
+	cDefinesMap["CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.ServiceBackEndMapMaxEntries)
+	cDefinesMap["CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.RevNatMapMaxEntries)
+	cDefinesMap["CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.AffinityMapMaxEntries)
+	cDefinesMap["CILIUM_LB_SOURCE_RANGE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.SourceRangeMapMaxEntries)
+	cDefinesMap["CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.MaglevMapMaxEntries)
+
 	cDefinesMap["TUNNEL_MAP"] = tunnel.MapName
 	cDefinesMap["TUNNEL_ENDPOINT_MAP_SIZE"] = fmt.Sprintf("%d", tunnel.MaxEntries)
 	cDefinesMap["ENDPOINTS_MAP"] = lxcmap.MapName
@@ -142,9 +149,19 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["POLICY_MAP_SIZE"] = fmt.Sprintf("%d", policymap.MaxEntries)
 	cDefinesMap["IPCACHE_MAP"] = ipcachemap.Name
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
-	// TODO(anfernee): Update Documentation/concepts/ebpf/maps.rst when egress gateway support is merged.
 	cDefinesMap["EGRESS_POLICY_MAP"] = egressmap.PolicyMapName
 	cDefinesMap["EGRESS_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", egressmap.MaxPolicyEntries)
+	cDefinesMap["SRV6_VRF_MAP4"] = srv6map.VRFMapName4
+	cDefinesMap["SRV6_VRF_MAP6"] = srv6map.VRFMapName6
+	cDefinesMap["SRV6_POLICY_MAP4"] = srv6map.PolicyMapName4
+	cDefinesMap["SRV6_POLICY_MAP6"] = srv6map.PolicyMapName6
+	cDefinesMap["SRV6_SID_MAP"] = srv6map.SIDMapName
+	cDefinesMap["SRV6_STATE_MAP4"] = srv6map.StateMapName4
+	cDefinesMap["SRV6_STATE_MAP6"] = srv6map.StateMapName6
+	cDefinesMap["SRV6_VRF_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxVRFEntries)
+	cDefinesMap["SRV6_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxPolicyEntries)
+	cDefinesMap["SRV6_SID_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxSIDEntries)
+	cDefinesMap["SRV6_STATE_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxStateEntries)
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
 	cDefinesMap["SOCKOPS_MAP_SIZE"] = fmt.Sprintf("%d", sockmap.MaxEntries)
 	cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName
@@ -152,14 +169,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CT_CONNECTION_LIFETIME_NONTCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutAny.Seconds()))
 	cDefinesMap["CT_SERVICE_LIFETIME_TCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutSVCTCP.Seconds()))
 	cDefinesMap["CT_SERVICE_LIFETIME_NONTCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutSVCAny.Seconds()))
+	cDefinesMap["CT_SERVICE_CLOSE_REBALANCE"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutSVCTCPGrace.Seconds()))
 	cDefinesMap["CT_SYN_TIMEOUT"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutSYN.Seconds()))
 	cDefinesMap["CT_CLOSE_TIMEOUT"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutFIN.Seconds()))
 	cDefinesMap["CT_REPORT_INTERVAL"] = fmt.Sprintf("%d", int64(option.Config.MonitorAggregationInterval.Seconds()))
 	cDefinesMap["CT_REPORT_FLAGS"] = fmt.Sprintf("%#04x", int64(option.Config.MonitorAggregationFlags))
-
-	if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-		cDefinesMap["ENABLE_EXTRA_HOST_DEV"] = "1"
-	}
+	cDefinesMap["CT_TAIL_CALL_BUFFER4"] = "cilium_tail_call_buffer4"
+	cDefinesMap["CT_TAIL_CALL_BUFFER6"] = "cilium_tail_call_buffer6"
 
 	if option.Config.PreAllocateMaps {
 		cDefinesMap["PREALLOCATE_MAPS"] = "1"
@@ -205,6 +221,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IPV6"] = "1"
 	}
 
+	if option.Config.EnableSRv6 {
+		cDefinesMap["ENABLE_SRV6"] = "1"
+		if option.Config.SRv6EncapMode != "reduced" {
+			cDefinesMap["ENABLE_SRV6_SRH_ENCAP"] = "1"
+		}
+	}
+
 	if option.Config.EnableIPSec {
 		cDefinesMap["ENABLE_IPSEC"] = "1"
 	}
@@ -241,18 +264,18 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_L7_LB"] = "1"
 	}
 
-	if option.Config.EnableHostReachableServices {
+	if option.Config.EnableSocketLB {
 		if option.Config.EnableHostServicesTCP {
-			cDefinesMap["ENABLE_HOST_SERVICES_TCP"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_TCP"] = "1"
 		}
 		if option.Config.EnableHostServicesUDP {
-			cDefinesMap["ENABLE_HOST_SERVICES_UDP"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_UDP"] = "1"
 		}
 		if option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP && !option.Config.BPFSocketLBHostnsOnly {
-			cDefinesMap["ENABLE_HOST_SERVICES_FULL"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_FULL"] = "1"
 		}
 		if option.Config.EnableHostServicesPeer {
-			cDefinesMap["ENABLE_HOST_SERVICES_PEER"] = "1"
+			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
 		}
 		if option.Config.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
@@ -276,7 +299,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
-		if option.Config.EnableMKE && option.Config.EnableHostReachableServices {
+		if option.Config.EnableMKE && option.Config.EnableSocketLB {
 			cDefinesMap["ENABLE_MKE"] = "1"
 			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
 		}
@@ -549,34 +572,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableVTEP {
 		cDefinesMap["ENABLE_VTEP"] = "1"
+		cDefinesMap["VTEP_MAP"] = vtep.Name
+		cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
+		cDefinesMap["VTEP_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask)))
 
-		l := len(option.Config.VtepEndpoints)
-		cDefinesMap["VTEP_NUMS"] = strconv.Itoa(l)
-
-		var (
-			ipb  strings.Builder
-			macb strings.Builder
-		)
-
-		ipb.WriteString("(__u32[]){ ")
-		macb.WriteString("(__u64[]){ ")
-
-		for i, ep := range option.Config.VtepEndpoints {
-			fmt.Fprintf(&ipb, "%#x, ", byteorder.NetIPv4ToHost32(ep))
-
-			mac := option.Config.VtepMACs[i]
-			vtep_mac, err := mac.Uint64()
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(&macb, "%#x, ", vtep_mac)
-		}
-
-		ipb.WriteString("}")
-		macb.WriteString("}")
-
-		cDefinesMap["VTEP_ENDPOINT"] = ipb.String()
-		cDefinesMap["VTEP_MAC"] = macb.String()
 	}
 
 	vlanFilter, err := vlanFilterMacros()
@@ -589,11 +588,18 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_ICMP_RULE"] = "1"
 	}
 
+	if option.Config.EnableL7Proxy {
+		cDefinesMap["ENABLE_L7_PROXY"] = "1"
+	}
+
+	cDefinesMap["CIDR_IDENTITY_RANGE_START"] = fmt.Sprintf("%d", identity.MinLocalIdentity)
+	cDefinesMap["CIDR_IDENTITY_RANGE_END"] = fmt.Sprintf("%d", identity.MaxLocalIdentity)
+
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent written format to the writer. This maintains
 	// the consistency when we try to calculate hash for a datapath after
 	// writing the config.
-	keys := []string{}
+	keys := make([]string, 0, len(cDefinesMap))
 	for key := range cDefinesMap {
 		keys = append(keys, key)
 	}
@@ -627,7 +633,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 // are written to node_config.h
 func vlanFilterMacros() (string, error) {
 	devices := make(map[int]bool)
-	for _, device := range option.Config.Devices {
+	for _, device := range option.Config.GetDevices() {
 		ifindex, err := link.GetIfIndex(device)
 		if err != nil {
 			return "", err
@@ -702,7 +708,7 @@ func devMacros() (string, string, error) {
 	macByIfIndex := make(map[int]string)
 	l3DevIfIndices := make([]int, 0)
 
-	for _, iface := range option.Config.Devices {
+	for _, iface := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
@@ -800,7 +806,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))
 
 		// Use templating for ETH_HLEN only if there is any L2-less device
-		if !mac.HaveMACAddrs(option.Config.Devices) {
+		if !mac.HaveMACAddrs(option.Config.GetDevices()) {
 			// L2 hdr len (for L2-less devices it will be replaced with "0")
 			fmt.Fprint(fw, defineUint32("ETH_HLEN", mac.EthHdrLen))
 		}
@@ -881,7 +887,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 			return err
 		}
 		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
-		if len(option.Config.Devices) == 1 {
+		if len(option.Config.GetDevices()) == 1 {
 			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
 		}
 	}
@@ -896,14 +902,10 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 
 	fmt.Fprintf(fw, "#define HOST_EP_ID %d\n", uint32(node.GetEndpointID()))
 
-	if !e.HasIpvlanDataPath() {
-		if e.RequireARPPassthrough() {
-			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
-		} else {
-			fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
-		}
-
-		fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
+	if e.RequireARPPassthrough() {
+		fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
+	} else {
+		fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
 	}
 
 	if e.ConntrackLocalLocked() {

@@ -38,7 +38,7 @@ var endpointListCmd = &cobra.Command{
 func init() {
 	endpointCmd.AddCommand(endpointListCmd)
 	endpointListCmd.Flags().BoolVar(&noHeaders, "no-headers", false, "Do not print headers")
-	command.AddJSONOutput(endpointListCmd)
+	command.AddOutputOption(endpointListCmd)
 }
 
 func endpointPolicyMode(ep *models.Endpoint) (string, string) {
@@ -143,7 +143,7 @@ func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
 		fmt.Fprintf(w, "\t%s\t%s\t\t\t\t\t\n", enforcementTitle, enforcementTitle)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(eps); err != nil {
 			os.Exit(1)
 		}

@@ -55,7 +55,6 @@ type CompileTimeConfiguration interface {
 	DeviceConfiguration
 
 	// TODO: Move this detail into the datapath
-	HasIpvlanDataPath() bool
 	ConntrackLocalLocked() bool
 
 	// RequireARPPassthrough returns true if the datapath must implement

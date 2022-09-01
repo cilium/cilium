@@ -1,15 +1,14 @@
 # syntax=docker/dockerfile:1.2
 
-# Copyright 2020-2021 Authors of Cilium
+# Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:ff6f18ae83fe9d80ac00e0204954cc27c73eecd0@sha256:87550fa6d231e660106bf8dd73609675213ff98621b02c2454d5f72125c13afd
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:efb92c208c5f1f190243b361cbb43413ca49d534@sha256:8ca66f05327b5affad2bfb09614636f2b0d3fa24a9f40d1b5f86c2ef9ca2e46a
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:d1290e43e11d57e210b135cfa10f8754bf1717e1@sha256:0ce2c8206ada06b534b3b81e19bfb48cceefb605217e0d3ad2a242fd07cc7a10
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:1d9a09fa9d641346b0fac05b7d9bc620cd52e044@sha256:fc2d789ed6631d447f886164da4667592394babf2f8e9da8eb2b2dcfb9b2279b
 
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM quay.io/cilium/cilium-envoy:12e3081cc292764b1308668cab1e7e523429bedc@sha256:3b43de6e585376cc8037b84b2b4d37bdf41242253987e7ff7f72e4e200e61fb5 as cilium-envoy
-
+FROM quay.io/cilium/cilium-envoy:5739e4be8ae7134fee683d920d25c3732ac6c819@sha256:01327ca121ca1e0c0f30d238d4eb86b5e513515e631c8ed77f28a1d17131eb0f as cilium-envoy
 #
 # Hubble CLI
 #
@@ -75,14 +74,13 @@ COPY images/cilium/init-container.sh \
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM ${CILIUM_RUNTIME_IMAGE}
+FROM ${CILIUM_RUNTIME_IMAGE} as release
 # TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
-RUN groupadd -f cilium \
-    && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
+RUN echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 COPY --from=cilium-envoy / /
 # When used within the Cilium container, Hubble CLI should target the
 # local unix domain socket instead of Hubble Relay.

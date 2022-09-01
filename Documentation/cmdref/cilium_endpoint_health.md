@@ -18,7 +18,7 @@ cilium endpoint health 5421
 
 ```
   -h, --help            help for health
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -31,5 +31,5 @@ cilium endpoint health 5421
 
 ### SEE ALSO
 
-* [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
+* [cilium endpoint](cilium_endpoint.md)	 - Manage endpoints
 

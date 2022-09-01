@@ -340,7 +340,7 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 	aset := map[string]*member{}
 
 	// populate the pod cidr advrts that must be present, universe a
-	for _, cidr := range cstate.Node.Spec.PodCIDRs {
+	for _, cidr := range cstate.PodCIDRs {
 		var (
 			m  *member
 			ok bool
@@ -405,7 +405,7 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 	// create new adverts
 	for _, advrt := range toAdvertise {
 		l.Debugf("Advertising pod CIDR %v for policy with local ASN: %v", advrt.Net.String(), newc.LocalASN)
-		advrt, err := sc.AdvertisePath(ctx, advrt.Net, cstate)
+		advrt, err := sc.AdvertisePath(ctx, advrt.Net)
 		if err != nil {
 			return fmt.Errorf("failed to advertise pod cidr prefix %v: %w", advrt.Net, err)
 		}

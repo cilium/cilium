@@ -28,7 +28,21 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
 
 	if params.Config.ID == 0 {
-		return api.Error(PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
+		if !params.Config.UpdateServices {
+			return api.Error(PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
+		}
+		backends := []*loadbalancer.Backend{}
+		for _, v := range params.Config.BackendAddresses {
+			b, err := loadbalancer.NewBackendFromBackendModel(v)
+			if err != nil {
+				return api.Error(PutServiceIDInvalidBackendCode, err)
+			}
+			backends = append(backends, b)
+		}
+		if err := h.svc.UpdateBackendsState(backends); err != nil {
+			return api.Error(PutServiceIDUpdateBackendFailureCode, err)
+		}
+		return NewPutServiceIDOK()
 	}
 
 	f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)
@@ -40,13 +54,13 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		L3n4Addr: *f,
 		ID:       loadbalancer.ID(params.Config.ID),
 	}
-	backends := []loadbalancer.Backend{}
+	backends := []*loadbalancer.Backend{}
 	for _, v := range params.Config.BackendAddresses {
 		b, err := loadbalancer.NewBackendFromBackendModel(v)
 		if err != nil {
 			return api.Error(PutServiceIDInvalidBackendCode, err)
 		}
-		backends = append(backends, *b)
+		backends = append(backends, b)
 	}
 
 	var svcType loadbalancer.SVCType
@@ -82,8 +96,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	}
 
 	p := &loadbalancer.SVC{
-		Name:                svcName,
-		Namespace:           svcNamespace,
+		Name:                loadbalancer.ServiceName{Name: svcName, Namespace: svcNamespace},
 		Type:                svcType,
 		Frontend:            frontend,
 		Backends:            backends,

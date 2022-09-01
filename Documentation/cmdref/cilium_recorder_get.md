@@ -12,7 +12,7 @@ cilium recorder get <recorder id> [flags]
 
 ```
   -h, --help            help for get
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium recorder get <recorder id> [flags]
 
 ### SEE ALSO
 
-* [cilium recorder](../cilium_recorder)	 - Introspect or mangle pcap recorder
+* [cilium recorder](cilium_recorder.md)	 - Introspect or mangle pcap recorder
 

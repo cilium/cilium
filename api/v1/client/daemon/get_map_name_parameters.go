@@ -58,7 +58,8 @@ func NewGetMapNameParamsWithHTTPClient(client *http.Client) *GetMapNameParams {
 	}
 }
 
-/*GetMapNameParams contains all the parameters to send to the API endpoint
+/*
+GetMapNameParams contains all the parameters to send to the API endpoint
 for the get map name operation typically these are written to a http.Request
 */
 type GetMapNameParams struct {

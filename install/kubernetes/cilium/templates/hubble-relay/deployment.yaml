@@ -1,4 +1,5 @@
 {{- if and .Values.hubble.enabled .Values.hubble.relay.enabled }}
+{{- $mountSocket := not .Values.hubble.peerService.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,6 +7,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: hubble-relay
+    app.kubernetes.io/name: hubble-relay
+    app.kubernetes.io/part-of: cilium
 spec:
   replicas: {{ .Values.hubble.relay.replicas }}
   selector:
@@ -27,6 +30,8 @@ spec:
         {{- end }}
       labels:
         k8s-app: hubble-relay
+        app.kubernetes.io/name: hubble-relay
+        app.kubernetes.io/part-of: cilium
         {{- with .Values.hubble.relay.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -53,6 +58,11 @@ spec:
           ports:
             - name: grpc
               containerPort: {{ .Values.hubble.relay.listenPort }}
+            {{- if .Values.hubble.relay.prometheus.enabled }}
+            - name: prometheus
+              containerPort: {{ .Values.hubble.relay.prometheus.port }}
+              protocol: TCP
+            {{- end }}
           readinessProbe:
             tcpSocket:
               port: grpc
@@ -68,9 +78,11 @@ spec:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
           volumeMounts:
+          {{- if $mountSocket }}
           - name: hubble-sock-dir
             mountPath: {{ dir .Values.hubble.socketPath }}
             readOnly: true
+          {{- end }}
           - name: config
             mountPath: /etc/hubble-relay
             readOnly: true
@@ -89,6 +101,17 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.hubble.relay.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $constraint := . }}
+      - {{ toYaml $constraint | nindent 8 | trim }}
+          {{- if not $constraint.labelSelector }}
+        labelSelector:
+          matchLabels:
+            k8s-app: hubble-relay
+          {{- end }}
+        {{- end }}
+      {{- end }}
       {{- with .Values.hubble.relay.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
@@ -104,10 +127,12 @@ spec:
           items:
           - key: config.yaml
             path: config.yaml
+      {{- if $mountSocket }}
       - name: hubble-sock-dir
         hostPath:
           path: {{ dir .Values.hubble.socketPath }}
           type: Directory
+      {{- end }}
       {{- if .Values.hubble.tls.enabled }}
       - name: tls
         projected:

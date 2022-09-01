@@ -15,6 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  cilium_cli_version: v0.12.2
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
@@ -25,19 +26,22 @@ env:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           persist-credentials: false
       - name: Check code changes
         uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
         id: tested-tree
         with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
           filters: |
             src:
               - '!(test|Documentation)/**'
@@ -48,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
           persist-credentials: false
 
@@ -78,7 +82,7 @@ jobs:
           sudo systemctl restart docker
 
       - name: Create kind cluster
-        uses: helm/kind-action@94729529f85113b88f4f819c17ce61382e6d8478
+        uses: helm/kind-action@d08cf6ff1575077dee99962540d77ce91c62387d
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -116,7 +120,8 @@ jobs:
             --set ipv4.enabled=false \
             --set tunnel=disabled \
             --set autoDirectNodeRoutes=true \
-            --set ipv6NativeRoutingCIDR=2001:db8:1::/64
+            --set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
+            --set ingressController.enabled=true
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.TIMEOUT }}
           # To make sure that cilium CRD is available (default timeout is 5m)
@@ -135,8 +140,8 @@ jobs:
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+          echo "=== Install Cilium CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
           sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
           rm cilium-linux-amd64.tar.gz{,.sha256sum}
@@ -148,7 +153,7 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         if: ${{ failure() }}
         with:
           name: cilium-sysdump-out.zip
@@ -156,7 +161,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
+        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

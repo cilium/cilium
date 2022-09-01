@@ -7,26 +7,48 @@ rules:
 - apiGroups:
   - ""
   resources:
-  # to automatically delete [core|kube]dns pods so that are starting to being
-  # managed by Cilium
   - pods
   verbs:
   - get
   - list
   - watch
+{{- if hasKey .Values "disableEndpointCRD" }}
+{{- if (eq (.Values.disableEndpointCRD | quote ) ( "false" | quote )) }}
+{{- if (and .Values.operator.unmanagedPodWatcher.restart (ne (.Values.operator.unmanagedPodWatcher.intervalSeconds | int64) 0 ) ) }}
+  # to automatically delete [core|kube]dns pods so that are starting to being
+  # managed by Cilium
   - delete
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus (include "hasDuration" .Values.operator.endpointGCInterval) }}
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - list
+  - watch
+{{- end }}
+{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus }}
+- apiGroups:
+  - ""
+  resources:
+{{- if .Values.operator.removeNodeTaints }}
+  # To remove node taints
+  - nodes
+{{- end }}
+{{- if .Values.operator.setNodeNetworkStatus }}
+  # To set NetworkUnavailable false on startup
+  - nodes/status
+{{- end }}
+  verbs:
+  - patch
+{{- end }}
 - apiGroups:
   - discovery.k8s.io
   resources:
   - endpointslices
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - services
   verbs:
   - get
   - list
@@ -43,7 +65,7 @@ rules:
   resources:
   # to check apiserver connectivity
   - namespaces
-{{- if .Values.enableIngressController }}
+{{- if .Values.ingressController.enabled }}
   - secrets
 {{- end }}
   verbs:
@@ -60,7 +82,7 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.enableIngressController }}
+{{- if .Values.ingressController.enabled }}
   - create
   - update
   - delete
@@ -69,33 +91,74 @@ rules:
   - cilium.io
   resources:
   - ciliumnetworkpolicies
-  - ciliumnetworkpolicies/status
-  - ciliumnetworkpolicies/finalizers
   - ciliumclusterwidenetworkpolicies
-  - ciliumclusterwidenetworkpolicies/status
-  - ciliumclusterwidenetworkpolicies/finalizers
-  - ciliumendpoints
-  - ciliumendpoints/status
-  - ciliumendpoints/finalizers
-  - ciliumnodes
-  - ciliumnodes/status
-  - ciliumnodes/finalizers
-  - ciliumidentities
-  - ciliumendpointslices
-  - ciliumidentities/status
-  - ciliumidentities/finalizers
-  - ciliumlocalredirectpolicies
-  - ciliumlocalredirectpolicies/status
-  - ciliumlocalredirectpolicies/finalizers
-  - ciliumenvoyconfigs
-  - ciliumbgppeeringpolicies
-  - ciliumbgploadbalancerippools
   verbs:
+  # Create auto-generated CNPs and CCNPs from Policies that have 'toGroups'
+  - create
+  - update
+  - deletecollection
+  # To update the status of the CNPs and CCNPs
+  - patch
   - get
   - list
   - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies/status
+  - ciliumclusterwidenetworkpolicies/status
+  verbs:
+  # Update the auto-generated CNPs and CCNPs status.
+  - patch
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumendpoints
+  - ciliumidentities
+  verbs:
+  # To perform garbage collection of such resources
+  - delete
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumidentities
+  verbs:
+  # To synchronize garbage collection of such resources
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnodes
+  verbs:
   - create
   - update
+  - get
+  - list
+  - watch
+{{- if include "hasDuration" .Values.operator.nodeGCInterval }}
+    # To perform CiliumNode garbage collector
+  - delete
+{{- end }}
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnodes/status
+  verbs:
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumendpointslices
+  - ciliumenvoyconfigs
+  verbs:
+  - create
+  - update
+  - get
+  - list
+  - watch
   - delete
 - apiGroups:
   - apiextensions.k8s.io
@@ -105,8 +168,28 @@ rules:
   - create
   - get
   - list
-  - update
   - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - update
+  resourceNames:
+  - ciliumbgploadbalancerippools.cilium.io
+  - ciliumbgppeeringpolicies.cilium.io
+  - ciliumclusterwideenvoyconfigs.cilium.io
+  - ciliumclusterwidenetworkpolicies.cilium.io
+  - ciliumegressgatewaypolicies.cilium.io
+  - ciliumegressnatpolicies.cilium.io
+  - ciliumendpoints.cilium.io
+  - ciliumendpointslices.cilium.io
+  - ciliumenvoyconfigs.cilium.io
+  - ciliumexternalworkloads.cilium.io
+  - ciliumidentities.cilium.io
+  - ciliumlocalredirectpolicies.cilium.io
+  - ciliumnetworkpolicies.cilium.io
+  - ciliumnodes.cilium.io
 # For cilium-operator running in HA mode.
 #
 # Cilium operator running in HA mode requires the use of ResourceLock for Leader Election
@@ -121,7 +204,7 @@ rules:
   - create
   - get
   - update
-{{- if .Values.enableIngressController }}
+{{- if .Values.ingressController.enabled }}
 - apiGroups:
   - networking.k8s.io
   resources:

@@ -14,12 +14,14 @@ cilium-operator-generic [flags]
       --bgp-announce-lb-ip                        Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 5m0s)
-      --cluster-id int                            Unique identifier of the cluster
+      --cilium-pod-labels string                  Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
+      --cilium-pod-namespace string               Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace
+      --cluster-id uint32                         Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")
-      --cluster-pool-ipv4-cidr strings            IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2' and 'enable-ipv4=true'
-      --cluster-pool-ipv4-mask-size int           Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2' and 'enable-ipv4=true' (default 24)
-      --cluster-pool-ipv6-cidr strings            IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2' and 'enable-ipv6=true'
-      --cluster-pool-ipv6-mask-size int           Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2' and 'enable-ipv6=true' (default 112)
+      --cluster-pool-ipv4-cidr strings            IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv4=true'
+      --cluster-pool-ipv4-mask-size int           Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv4=true' (default 24)
+      --cluster-pool-ipv6-cidr strings            IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv6=true'
+      --cluster-pool-ipv6-mask-size int           Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv6=true' (default 112)
       --cnp-node-status-gc-interval duration      GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
       --cnp-status-update-interval duration       Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                             Configuration file (default "$HOME/ciliumd.yaml")
@@ -39,6 +41,8 @@ cilium-operator-generic [flags]
       --identity-gc-rate-interval duration        Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration       Timeout after which identity expires on lack of heartbeat (default 30m0s)
+      --ingress-lb-annotations strings            IngressLBAnnotations are the annotations which are needed to propagate from Ingress to the Load Balancer (default [service.beta.kubernetes.io,service.kubernetes.io,cloud.google.com])
+      --instance-tags-filter map                  EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                               Backend to use for IPAM (default "cluster-pool")
       --k8s-api-server string                     Kubernetes API server URL
       --k8s-client-burst int                      Burst value allowed for the K8s client
@@ -56,14 +60,17 @@ cilium-operator-generic [flags]
       --limit-ipam-api-qps float                  Queries per second limit when accessing external IPAM APIs (default 20)
       --log-driver strings                        Logging endpoints to use for example syslog
       --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
+      --nodes-gc-interval duration                GC interval for CiliumNodes (default 5m0s)
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
-      --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":6942")
+      --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)
       --pprof                                     Enable pprof debugging endpoint
       --pprof-port int                            Port that the pprof listens on (default 6061)
+      --remove-cilium-node-taints                 Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
+      --set-cilium-is-up-condition                Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
       --skip-crd-creation                         When true, Kubernetes Custom Resource Definitions will not be created
       --subnet-ids-filter strings                 Subnets IDs (separated by commas)
-      --subnet-tags-filter stringToString         Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag (default [])
+      --subnet-tags-filter map                    Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --synchronize-k8s-nodes                     Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                  Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
@@ -72,6 +79,6 @@ cilium-operator-generic [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-generic completion](cilium-operator-generic_completion.html)	 - Generate the autocompletion script for the specified shell
-* [cilium-operator-generic metrics](cilium-operator-generic_metrics.html)	 - Access metric status of the operator
+* [cilium-operator-generic completion](cilium-operator-generic_completion.md)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator-generic metrics](cilium-operator-generic_metrics.md)	 - Access metric status of the operator
 

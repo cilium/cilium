@@ -59,6 +59,10 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 		}
 	}
 
+	if in.Preferred != other.Preferred {
+		return false
+	}
+
 	return true
 }
 
@@ -162,6 +166,9 @@ func (in *Service) deepEqual(other *Service) bool {
 		return false
 	}
 	if in.Shared != other.Shared {
+		return false
+	}
+	if in.ServiceAffinity != other.ServiceAffinity {
 		return false
 	}
 	if in.TrafficPolicy != other.TrafficPolicy {

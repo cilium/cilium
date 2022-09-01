@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -393,9 +392,6 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			oldcstate := agent.ControlPlaneState{
-				IPv4: net.ParseIP("127.0.0.1"),
-			}
 			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
 				ExportPodCIDR: tt.enabled,
@@ -407,7 +403,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			}
 			testSC.Config = oldc
 			for _, cidr := range tt.advertised {
-				advrt, err := testSC.AdvertisePath(context.Background(), cidr, &oldcstate)
+				advrt, err := testSC.AdvertisePath(context.Background(), cidr)
 				if err != nil {
 					t.Fatalf("failed to advertise initial pod cidr routes: %v", err)
 				}
@@ -420,12 +416,8 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
 			newcstate := agent.ControlPlaneState{
-				IPv4: net.ParseIP("127.0.0.1"),
-				Node: &v1.Node{
-					Spec: v1.NodeSpec{
-						PodCIDRs: tt.updated,
-					},
-				},
+				PodCIDRs: tt.updated,
+				IPv4:     net.ParseIP("127.0.0.1"),
 			}
 
 			err = exportPodCIDRReconciler(context.Background(), nil, testSC, newc, &newcstate)

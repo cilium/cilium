@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1.2
 
-# Copyright 2020-2021 Authors of Cilium
+# Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=scratch
-ARG GOLANG_IMAGE=docker.io/library/golang:1.18.0@sha256:b5a9ae5907066849cbb2b47af93713b1f030e3eb6b36d84f2ae5f354b25c80d4
-ARG ALPINE_IMAGE=docker.io/library/alpine:3.12.7@sha256:36553b10a4947067b9fbb7d532951066293a68eae893beba1d9235f7d11a20ad
+ARG GOLANG_IMAGE=docker.io/library/golang:1.19.0@sha256:d72a2944621f0f4027983e094bdf9464d26459c17efe732320043b84c91e51e7
+ARG ALPINE_IMAGE=docker.io/library/alpine:3.16.0@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -49,7 +49,7 @@ RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
     ./build-gops.sh
 
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} as release
 # TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.

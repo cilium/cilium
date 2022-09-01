@@ -24,7 +24,7 @@ var preFilterListCmd = &cobra.Command{
 
 func init() {
 	preFilterCmd.AddCommand(preFilterListCmd)
-	command.AddJSONOutput(preFilterListCmd)
+	command.AddOutputOption(preFilterListCmd)
 }
 
 func listFilters(cmd *cobra.Command, args []string) {
@@ -34,7 +34,7 @@ func listFilters(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get CIDR list: %s", err)
 	}
 
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(spec); err != nil {
 			os.Exit(1)
 		}

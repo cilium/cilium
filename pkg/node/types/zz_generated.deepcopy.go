@@ -83,6 +83,16 @@ func (in *Node) DeepCopyInto(out *Node) {
 		*out = make(net.IP, len(*in))
 		copy(*out, *in)
 	}
+	if in.IPv4IngressIP != nil {
+		in, out := &in.IPv4IngressIP, &out.IPv4IngressIP
+		*out = make(net.IP, len(*in))
+		copy(*out, *in)
+	}
+	if in.IPv6IngressIP != nil {
+		in, out := &in.IPv6IngressIP, &out.IPv6IngressIP
+		*out = make(net.IP, len(*in))
+		copy(*out, *in)
+	}
 	if in.Labels != nil {
 		in, out := &in.Labels, &out.Labels
 		*out = make(map[string]string, len(*in))

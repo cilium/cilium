@@ -10,8 +10,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -21,6 +21,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -49,11 +50,13 @@ type ingressServiceUpdatedEvent struct {
 
 // IngressController is a simple pattern that allows to perform the following
 // tasks:
-//   - Watch cilium Ingress object
-//   - Manage related child resources for this Ingress
-//   	- Service
-//      - Endpoint
-//      - CiliumEnvoyConfig
+//  1. Watch cilium Ingress object
+//  2. Manage related child resources for this Ingress
+//     - Service
+//     - Endpoint
+//     - CiliumEnvoyConfig
+//  3. Manage synced TLS secrets in given namespace
+//     - TLS secrets
 type IngressController struct {
 	ingressInformer cache.Controller
 	ingressStore    cache.Store
@@ -61,9 +64,15 @@ type IngressController struct {
 	serviceManager     *serviceManager
 	endpointManager    *endpointManager
 	envoyConfigManager *envoyConfigManager
+	secretManager      secretManager
 
 	queue      workqueue.RateLimitingInterface
 	maxRetries int
+
+	enforcedHTTPS      bool
+	enabledSecretsSync bool
+	secretsNamespace   string
+	lbAnnotations      []string
 }
 
 // NewIngressController returns a controller for ingress objects having ingressClassName as cilium
@@ -76,11 +85,15 @@ func NewIngressController(options ...Option) (*IngressController, error) {
 	}
 
 	ic := &IngressController{
-		queue:      workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		maxRetries: opts.MaxRetries,
+		queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		maxRetries:         opts.MaxRetries,
+		enforcedHTTPS:      opts.EnforcedHTTPS,
+		enabledSecretsSync: opts.EnabledSecretsSync,
+		secretsNamespace:   opts.SecretsNamespace,
+		lbAnnotations:      opts.LBAnnotations,
 	}
 	ic.ingressStore, ic.ingressInformer = informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.WatcherClient().NetworkingV1().RESTClient(), "ingresses", corev1.NamespaceAll, fields.Everything()),
+		utils.ListerWatcherFromTyped[*slim_networkingv1.IngressList](k8s.WatcherClient().NetworkingV1().Ingresses(corev1.NamespaceAll)),
 		&slim_networkingv1.Ingress{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -109,6 +122,15 @@ func NewIngressController(options ...Option) (*IngressController, error) {
 	}
 	ic.envoyConfigManager = envoyConfigManager
 
+	ic.secretManager = newNoOpsSecretManager()
+	if ic.enabledSecretsSync {
+		secretManager, err := newSyncSecretsManager(opts.SecretsNamespace, opts.MaxRetries)
+		if err != nil {
+			return nil, err
+		}
+		ic.secretManager = secretManager
+	}
+
 	return ic, nil
 }
 
@@ -121,6 +143,7 @@ func (ic *IngressController) Run() {
 	}
 
 	go ic.serviceManager.Run()
+	go ic.secretManager.Run()
 
 	for ic.processEvent() {
 	}
@@ -149,6 +172,8 @@ func (ic *IngressController) handleIngressAddedEvent(event ingressAddedEvent) er
 	if ingressClass == nil || *ingressClass != ciliumIngressClassName {
 		return nil
 	}
+
+	ic.secretManager.Add(event)
 	if err := ic.createEnvoyConfig(event.ingress); err != nil {
 		log.WithError(err).Warn("Failed to create CiliumEnvoyConfig")
 		return err
@@ -169,6 +194,7 @@ func (ic *IngressController) handleIngressUpdatedEvent(event ingressUpdatedEvent
 	if ingressClass == nil || *ingressClass != ciliumIngressClassName {
 		return nil
 	}
+	ic.secretManager.Add(event)
 	if err := ic.createEnvoyConfig(event.newIngress); err != nil {
 		log.WithError(err).Warn("Failed to update CiliumEnvoyConfig")
 		return err
@@ -185,9 +211,8 @@ func (ic *IngressController) handleIngressUpdatedEvent(event ingressUpdatedEvent
 }
 
 func (ic *IngressController) handleIngressDeletedEvent(event ingressDeletedEvent) error {
-	// as ciliumEnvoyConfig is non-namespace scoped, it should be removed manually.
-	// other resources (e.g service, endpoints) will be removed automatically via ownerReferences
 	log.WithField(logfields.Ingress, event.ingress.Name).Debug("Deleting CiliumEnvoyConfig for ingress")
+	ic.secretManager.Add(event)
 	if err := ic.deleteCiliumEnvoyConfig(event.ingress); err != nil {
 		log.WithError(err).Warn("Failed to delete cilium-envoy-config")
 		return err
@@ -304,7 +329,7 @@ func getIngressKeyForService(service *slim_corev1.Service) string {
 }
 
 func (ic *IngressController) createLoadBalancer(ingress *slim_networkingv1.Ingress) error {
-	svc := getServiceForIngress(ingress)
+	svc := getServiceForIngress(ingress, ic.lbAnnotations)
 	svcKey, err := cache.MetaNamespaceKeyFunc(svc)
 	if err != nil {
 		log.Warn("Failed to get service key for ingress")
@@ -363,7 +388,7 @@ func (ic *IngressController) createEndpoints(ingress *slim_networkingv1.Ingress)
 }
 
 func (ic *IngressController) createEnvoyConfig(ingress *slim_networkingv1.Ingress) error {
-	desired, err := getEnvoyConfigForIngress(k8s.Client(), ingress)
+	desired, err := getEnvoyConfigForIngress(ingress, ic.secretsNamespace, ic.enforcedHTTPS)
 	if err != nil {
 		return err
 	}
@@ -389,7 +414,7 @@ func (ic *IngressController) createEnvoyConfig(ingress *slim_networkingv1.Ingres
 		// Update existing CEC
 		newEnvoyConfig := existingEnvoyConfig.DeepCopy()
 		newEnvoyConfig.Spec = desired.Spec
-		_, err = k8s.CiliumClient().CiliumV2alpha1().CiliumEnvoyConfigs(ingress.Namespace).Update(context.Background(), newEnvoyConfig, metav1.UpdateOptions{})
+		_, err = k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(ingress.Namespace).Update(context.Background(), newEnvoyConfig, metav1.UpdateOptions{})
 		if err != nil {
 			scopedLog.WithError(err).Error("Failed to update CiliumEnvoyConfig for ingress")
 			return err
@@ -397,7 +422,7 @@ func (ic *IngressController) createEnvoyConfig(ingress *slim_networkingv1.Ingres
 		scopedLog.Debug("Updated CiliumEnvoyConfig for ingress")
 		return nil
 	}
-	_, err = k8s.CiliumClient().CiliumV2alpha1().CiliumEnvoyConfigs(ingress.Namespace).Create(context.Background(), desired, metav1.CreateOptions{})
+	_, err = k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(ingress.Namespace).Create(context.Background(), desired, metav1.CreateOptions{})
 	if err != nil {
 		scopedLog.WithError(err).Error("Failed to create CiliumEnvoyConfig for ingress")
 		return err
@@ -447,8 +472,8 @@ func (ic *IngressController) deleteCiliumEnvoyConfig(ingress *slim_networkingv1.
 		scopedLog.Debug("CiliumEnvoyConfig already deleted. Continuing...")
 		return nil
 	}
-	err = k8s.CiliumClient().CiliumV2alpha1().CiliumEnvoyConfigs(ingress.Namespace).Delete(context.Background(), resourceName, metav1.DeleteOptions{})
-	if err != nil {
+	err = k8s.CiliumClient().CiliumV2().CiliumEnvoyConfigs(ingress.Namespace).Delete(context.Background(), resourceName, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
 		scopedLog.Error("Failed to delete CiliumEnvoyConfig for ingress")
 		return err
 	}

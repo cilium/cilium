@@ -87,7 +87,7 @@ type CreateSecurityGroupRequest struct {
 
 // CreateSecurityGroupTag is a repeated param struct in CreateSecurityGroupRequest
 type CreateSecurityGroupTag struct {
-	Value string `name:"value"`
+	Value string `name:"Value"`
 	Key   string `name:"Key"`
 }
 

@@ -20,8 +20,8 @@ Manage XDP CIDR filters
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
-* [cilium prefilter delete](../cilium_prefilter_delete)	 - Delete CIDR filters
-* [cilium prefilter list](../cilium_prefilter_list)	 - List CIDR filters
-* [cilium prefilter update](../cilium_prefilter_update)	 - Update CIDR filters
+* [cilium](cilium.md)	 - CLI
+* [cilium prefilter delete](cilium_prefilter_delete.md)	 - Delete CIDR filters
+* [cilium prefilter list](cilium_prefilter_list.md)	 - List CIDR filters
+* [cilium prefilter update](cilium_prefilter_update.md)	 - Update CIDR filters
 

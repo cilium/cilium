@@ -16,6 +16,16 @@ const (
 	// rules
 	RouteTableWireguard = 201
 
+	// RouteTableVtep is the default table ID to use for VTEP routing rules
+	RouteTableVtep = 202
+
+	// RouteTableEgressGatewayInterfacesOffset is the offset for the per-ENI
+	// egress gateway routing tables.
+	// Each ENI interface will have its own table starting with this offset. It
+	// is 300 because it is highly unlikely to collide with the main routing
+	// table which is between 253-255. See ip-route(8).
+	RouteTableEgressGatewayInterfacesOffset = 300
+
 	// RouteTableInterfacesOffset is the offset for the per-ENI routing tables.
 	// Each ENI interface will have its own table starting with this offset. It
 	// is 10 because it is highly unlikely to collide with the main routing
@@ -57,6 +67,12 @@ const (
 	// RulePriorityWireguard is the priority of the rule used for routing packets to Wireguard device for encryption
 	RulePriorityWireguard = 1
 
+	// RulePriorityEgressGateway is the priority used in IP routes added by the manager.
+	// This value was picked as it's lower than the ones used by Cilium
+	// (RulePriorityEgressv2 = 111) or the AWS CNI (10) to install the IP
+	// rules for routing EP traffic to the correct ENI interface
+	RulePriorityEgressGateway = 8
+
 	// RulePriorityIngress is the priority of the rule used for ingress routing
 	// of endpoints. This priority is after encryption and proxy rules, and
 	// before the local table priority.
@@ -80,6 +96,9 @@ const (
 	// associated, but from the main routing table instead.
 	// This priority is before the egress priority.
 	RulePriorityNodeport = RulePriorityEgress - 1
+
+	// RulePriorityVtep is the priority of the rule used for routing packets to VTEP device
+	RulePriorityVtep = 112
 
 	// TunnelDeviceName the default name of the tunnel device when using vxlan
 	TunnelDeviceName = "cilium_vxlan"

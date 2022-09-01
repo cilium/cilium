@@ -29,5 +29,5 @@ cilium-operator-aws completion powershell [flags]
 
 ### SEE ALSO
 
-* [cilium-operator-aws completion](cilium-operator-aws_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator-aws completion](cilium-operator-aws_completion.md)	 - Generate the autocompletion script for the specified shell
 

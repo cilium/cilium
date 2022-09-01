@@ -7,20 +7,24 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
+
+var IngressLBAnnotationsDefault = []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"}
 
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
 	EndpointGCIntervalDefault = 5 * time.Minute
 
 	// PrometheusServeAddr is the default server address for operator metrics
-	PrometheusServeAddr = ":6942"
+	PrometheusServeAddr = ":9963"
 
 	// CESMaxCEPsInCESDefault is the maximum number of cilium endpoints allowed in a CES
 	CESMaxCEPsInCESDefault = 100
@@ -74,7 +78,7 @@ const (
 	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
 	IdentityHeartbeatTimeout = "identity-heartbeat-timeout"
 
-	// NodesGCInterval is the duration for which the nodes are GC in the KVStore.
+	// NodesGCInterval is the duration for which the cilium nodes are GC.
 	NodesGCInterval = "nodes-gc-interval"
 
 	// OperatorAPIServeAddr IP:Port on which to serve api requests in
@@ -113,6 +117,9 @@ const (
 
 	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags = "subnet-tags-filter"
+
+	// IPAMInstanceTagFilter are optional tags used to filter instances for ENI discovery ; only used with AWS IPAM mode for now
+	IPAMInstanceTags = "instance-tags-filter"
 
 	// ClusterPoolIPv4CIDR is the cluster's IPv4 CIDR to allocate
 	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
@@ -165,6 +172,10 @@ const (
 	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
 	EC2APIEndpoint = "ec2-api-endpoint"
 
+	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
+	// node
+	AWSUsePrimaryAddress = "aws-use-primary-address"
+
 	// Azure options
 
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
@@ -177,7 +188,7 @@ const (
 	// for retrieving Azure API credentials
 	AzureUserAssignedIdentityID = "azure-user-assigned-identity-id"
 
-	// AzureUsePrimaryAddress specify wether we should use or ignore the interface's
+	// AzureUsePrimaryAddress specifies whether we should use or ignore the interface's
 	// primary IPConfiguration
 	AzureUsePrimaryAddress = "azure-use-primary-address"
 
@@ -215,6 +226,36 @@ const (
 	// EnableIngressController enables cilium ingress controller
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableIngressController = "enable-ingress-controller"
+
+	// EnforceIngressHttps enforces https for host having matching TLS host in Ingress.
+	// Incoming traffic to http listener will return 308 http error code with respective location in header.
+	EnforceIngressHttps = "enforce-ingress-https"
+
+	// EnableIngressSecretsSync enables fan-in TLS secrets from multiple namespaces to singular namespace (specified
+	// by ingress-secrets-namespace flag
+	EnableIngressSecretsSync = "enable-ingress-secrets-sync"
+
+	// IngressSecretsNamespace is the namespace having tls secrets used by Ingress and CEC.
+	IngressSecretsNamespace = "ingress-secrets-namespace"
+
+	// CiliumK8sNamespace is the namespace where Cilium pods are running.
+	CiliumK8sNamespace = "cilium-pod-namespace"
+
+	// CiliumPodLabels specifies the pod labels that Cilium pods is running
+	// with.
+	CiliumPodLabels = "cilium-pod-labels"
+
+	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
+	// should be removed in Kubernetes nodes.
+	RemoveCiliumNodeTaints = "remove-cilium-node-taints"
+
+	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
+	// nodes.
+	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
+
+	// IngressLBAnnotations are the annotations which are needed to propagate
+	// from Ingress to the Load Balancer
+	IngressLBAnnotations = "ingress-lb-annotations"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -227,6 +268,9 @@ type OperatorConfig struct {
 	// CNPStatusUpdateInterval is the interval between status updates
 	// being sent to the K8s apiserver for a given CNP.
 	CNPStatusUpdateInterval time.Duration
+
+	// NodesGCInterval is the GC interval for CiliumNodes
+	NodesGCInterval time.Duration
 
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
@@ -307,6 +351,9 @@ type OperatorConfig struct {
 	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags map[string]string
 
+	// IPAMUInstanceTags are optional tags used to filter AWS EC2 instances, and interfaces (ENI) attached to them
+	IPAMInstanceTags map[string]string
+
 	// IPAM Operator options
 
 	// ClusterPoolIPv4CIDR is the cluster IPv4 podCIDR that should be used to
@@ -346,6 +393,10 @@ type OperatorConfig struct {
 	// AWSEnablePrefixDelegation allows operator to allocate prefixes to ENIs on nitro instances instead of individual
 	// IP addresses. Allows for increased pod density on nodes.
 	AWSEnablePrefixDelegation bool
+
+	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
+	// node
+	AWSUsePrimaryAddress bool
 
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the
 	// instancetype to adapter limit mapping.
@@ -397,36 +448,82 @@ type OperatorConfig struct {
 
 	// EnableIngressController enables cilium ingress controller
 	EnableIngressController bool
+
+	// EnforceIngressHTTPS enforces https if required
+	EnforceIngressHTTPS bool
+
+	// EnableIngressSecretsSync enables background TLS secret sync
+	EnableIngressSecretsSync bool
+
+	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
+	IngressSecretsNamespace string
+
+	// CiliumK8sNamespace is the namespace where Cilium pods are running.
+	CiliumK8sNamespace string
+
+	// CiliumPodLabels specifies the pod labels that Cilium pods is running
+	// with.
+	CiliumPodLabels string
+
+	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
+	// should be removed in Kubernetes nodes.
+	RemoveCiliumNodeTaints bool
+
+	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
+	// nodes.
+	SetCiliumIsUpCondition bool
+
+	// IngressLBAnnotations are the annotations which are needed to propagate
+	// from Ingress to the Load Balancer
+	IngressLBAnnotations []string
 }
 
 // Populate sets all options with the values from viper.
-func (c *OperatorConfig) Populate() {
-	c.CNPNodeStatusGCInterval = viper.GetDuration(CNPNodeStatusGCInterval)
-	c.CNPStatusUpdateInterval = viper.GetDuration(CNPStatusUpdateInterval)
-	c.EnableMetrics = viper.GetBool(EnableMetrics)
-	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
-	c.IdentityGCInterval = viper.GetDuration(IdentityGCInterval)
-	c.IdentityGCRateInterval = viper.GetDuration(IdentityGCRateInterval)
-	c.IdentityGCRateLimit = viper.GetInt64(IdentityGCRateLimit)
-	c.IdentityHeartbeatTimeout = viper.GetDuration(IdentityHeartbeatTimeout)
-	c.OperatorAPIServeAddr = viper.GetString(OperatorAPIServeAddr)
-	c.OperatorPrometheusServeAddr = viper.GetString(OperatorPrometheusServeAddr)
-	c.PProf = viper.GetBool(PProf)
-	c.PProfPort = viper.GetInt(PProfPort)
-	c.SyncK8sServices = viper.GetBool(SyncK8sServices)
-	c.SyncK8sNodes = viper.GetBool(SyncK8sNodes)
-	c.UnmanagedPodWatcherInterval = viper.GetInt(UnmanagedPodWatcherInterval)
-	c.NodeCIDRMaskSizeIPv4 = viper.GetInt(NodeCIDRMaskSizeIPv4)
-	c.NodeCIDRMaskSizeIPv6 = viper.GetInt(NodeCIDRMaskSizeIPv6)
-	c.ClusterPoolIPv4CIDR = viper.GetStringSlice(ClusterPoolIPv4CIDR)
-	c.ClusterPoolIPv6CIDR = viper.GetStringSlice(ClusterPoolIPv6CIDR)
-	c.LeaderElectionLeaseDuration = viper.GetDuration(LeaderElectionLeaseDuration)
-	c.LeaderElectionRenewDeadline = viper.GetDuration(LeaderElectionRenewDeadline)
-	c.LeaderElectionRetryPeriod = viper.GetDuration(LeaderElectionRetryPeriod)
-	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)
-	c.BGPConfigPath = viper.GetString(BGPConfigPath)
-	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
-	c.EnableIngressController = viper.GetBool(EnableIngressController)
+func (c *OperatorConfig) Populate(vp *viper.Viper) {
+	c.CNPNodeStatusGCInterval = vp.GetDuration(CNPNodeStatusGCInterval)
+	c.CNPStatusUpdateInterval = vp.GetDuration(CNPStatusUpdateInterval)
+	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
+	c.EnableMetrics = vp.GetBool(EnableMetrics)
+	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
+	c.IdentityGCInterval = vp.GetDuration(IdentityGCInterval)
+	c.IdentityGCRateInterval = vp.GetDuration(IdentityGCRateInterval)
+	c.IdentityGCRateLimit = vp.GetInt64(IdentityGCRateLimit)
+	c.IdentityHeartbeatTimeout = vp.GetDuration(IdentityHeartbeatTimeout)
+	c.OperatorAPIServeAddr = vp.GetString(OperatorAPIServeAddr)
+	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
+	c.PProf = vp.GetBool(PProf)
+	c.PProfPort = vp.GetInt(PProfPort)
+	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
+	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
+	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
+	c.NodeCIDRMaskSizeIPv4 = vp.GetInt(NodeCIDRMaskSizeIPv4)
+	c.NodeCIDRMaskSizeIPv6 = vp.GetInt(NodeCIDRMaskSizeIPv6)
+	c.ClusterPoolIPv4CIDR = vp.GetStringSlice(ClusterPoolIPv4CIDR)
+	c.ClusterPoolIPv6CIDR = vp.GetStringSlice(ClusterPoolIPv6CIDR)
+	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
+	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)
+	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
+	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
+	c.BGPConfigPath = vp.GetString(BGPConfigPath)
+	c.SkipCRDCreation = vp.GetBool(SkipCRDCreation)
+	c.EnableIngressController = vp.GetBool(EnableIngressController)
+	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
+	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
+	c.EnableIngressSecretsSync = vp.GetBool(EnableIngressSecretsSync)
+	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
+	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
+	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
+	c.IngressLBAnnotations = vp.GetStringSlice(IngressLBAnnotations)
+
+	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
+
+	if c.CiliumK8sNamespace == "" {
+		if option.Config.K8sNamespace == "" {
+			c.CiliumK8sNamespace = metav1.NamespaceDefault
+		} else {
+			c.CiliumK8sNamespace = option.Config.K8sNamespace
+		}
+	}
 
 	if c.BGPAnnounceLBIP {
 		c.SyncK8sServices = true
@@ -436,47 +533,54 @@ func (c *OperatorConfig) Populate() {
 
 	// AWS options
 
-	c.AWSReleaseExcessIPs = viper.GetBool(AWSReleaseExcessIPs)
-	c.AWSEnablePrefixDelegation = viper.GetBool(AWSEnablePrefixDelegation)
-	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
-	c.EC2APIEndpoint = viper.GetString(EC2APIEndpoint)
-	c.ExcessIPReleaseDelay = viper.GetInt(ExcessIPReleaseDelay)
+	c.AWSReleaseExcessIPs = vp.GetBool(AWSReleaseExcessIPs)
+	c.AWSEnablePrefixDelegation = vp.GetBool(AWSEnablePrefixDelegation)
+	c.AWSUsePrimaryAddress = vp.GetBool(AWSUsePrimaryAddress)
+	c.UpdateEC2AdapterLimitViaAPI = vp.GetBool(UpdateEC2AdapterLimitViaAPI)
+	c.EC2APIEndpoint = vp.GetString(EC2APIEndpoint)
+	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
 
 	// Azure options
 
-	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
-	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
-	c.AzureUsePrimaryAddress = viper.GetBool(AzureUsePrimaryAddress)
-	c.AzureUserAssignedIdentityID = viper.GetString(AzureUserAssignedIdentityID)
+	c.AzureSubscriptionID = vp.GetString(AzureSubscriptionID)
+	c.AzureResourceGroup = vp.GetString(AzureResourceGroup)
+	c.AzureUsePrimaryAddress = vp.GetBool(AzureUsePrimaryAddress)
+	c.AzureUserAssignedIdentityID = vp.GetString(AzureUserAssignedIdentityID)
 
 	// AlibabaCloud options
 
-	c.AlibabaCloudVPCID = viper.GetString(AlibabaCloudVPCID)
-	c.AlibabaCloudReleaseExcessIPs = viper.GetBool(AlibabaCloudReleaseExcessIPs)
+	c.AlibabaCloudVPCID = vp.GetString(AlibabaCloudVPCID)
+	c.AlibabaCloudReleaseExcessIPs = vp.GetBool(AlibabaCloudReleaseExcessIPs)
 
 	// CiliumEndpointSlice options
-	c.CESMaxCEPsInCES = viper.GetInt(CESMaxCEPsInCES)
-	c.CESSlicingMode = viper.GetString(CESSlicingMode)
+	c.CESMaxCEPsInCES = vp.GetInt(CESMaxCEPsInCES)
+	c.CESSlicingMode = vp.GetString(CESSlicingMode)
 
 	// Option maps and slices
 
-	if m := viper.GetStringSlice(IPAMSubnetsIDs); len(m) != 0 {
+	if m := vp.GetStringSlice(IPAMSubnetsIDs); len(m) != 0 {
 		c.IPAMSubnetsIDs = m
 	}
 
-	if m, err := command.GetStringMapStringE(viper.GetViper(), IPAMSubnetsTags); err != nil {
+	if m, err := command.GetStringMapStringE(vp, IPAMSubnetsTags); err != nil {
 		log.Fatalf("unable to parse %s: %s", IPAMSubnetsTags, err)
 	} else {
 		c.IPAMSubnetsTags = m
 	}
 
-	if m, err := command.GetStringMapStringE(viper.GetViper(), AWSInstanceLimitMapping); err != nil {
+	if m, err := command.GetStringMapStringE(vp, IPAMInstanceTags); err != nil {
+		log.Fatalf("unable to parse %s: %s", IPAMInstanceTags, err)
+	} else {
+		c.IPAMInstanceTags = m
+	}
+
+	if m, err := command.GetStringMapStringE(vp, AWSInstanceLimitMapping); err != nil {
 		log.Fatalf("unable to parse %s: %s", AWSInstanceLimitMapping, err)
 	} else {
 		c.AWSInstanceLimitMapping = m
 	}
 
-	if m, err := command.GetStringMapStringE(viper.GetViper(), ENITags); err != nil {
+	if m, err := command.GetStringMapStringE(vp, ENITags); err != nil {
 		log.Fatalf("unable to parse %s: %s", ENITags, err)
 	} else {
 		c.ENITags = m
@@ -487,6 +591,7 @@ func (c *OperatorConfig) Populate() {
 var Config = &OperatorConfig{
 	IPAMSubnetsIDs:          make([]string, 0),
 	IPAMSubnetsTags:         make(map[string]string),
+	IPAMInstanceTags:        make(map[string]string),
 	AWSInstanceLimitMapping: make(map[string]string),
 	ENITags:                 make(map[string]string),
 }

@@ -38,10 +38,10 @@ func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 // NewVisibilityPolicy generates the VisibilityPolicy that is encoded in the
 // annotation parameter.
 // Returns an error:
-// * if the annotation does not correspond to the expected
-//   format for a visibility annotation.
-// * if there is a conflict between the state encoded in the annotation (e.g.,
-//   different L7 protocols for the same L4 port / protocol / traffic direction.
+//   - if the annotation does not correspond to the expected
+//     format for a visibility annotation.
+//   - if there is a conflict between the state encoded in the annotation (e.g.,
+//     different L7 protocols for the same L4 port / protocol / traffic direction.
 func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 	if !annotationRegex.MatchString(anno) {
 		return nil, fmt.Errorf("annotation for proxy visibility did not match expected format %s", annotationRegex.String())

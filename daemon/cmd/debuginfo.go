@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
@@ -49,9 +48,9 @@ func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Resp
 	dr.CiliumMemoryMap = memoryMap(os.Getpid())
 
 	dr.EnvironmentVariables = []string{}
-	for _, k := range viper.AllKeys() {
+	for _, k := range Vp.AllKeys() {
 		// Assuming we are only getting strings
-		v := fmt.Sprintf("%s:%s", k, viper.GetString(k))
+		v := fmt.Sprintf("%s:%s", k, Vp.GetString(k))
 		dr.EnvironmentVariables = append(dr.EnvironmentVariables, v)
 	}
 

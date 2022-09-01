@@ -42,9 +42,6 @@ func agentCRDResourceNames() []string {
 		CRDResourceName(v2.CCNPName),
 		CRDResourceName(v2.CNName),
 		CRDResourceName(v2.CIDName),
-		CRDResourceName(v2.CIDName),
-		CRDResourceName(v2alpha1.BGPPName),
-		CRDResourceName(v2alpha1.BGPPoolName),
 	}
 
 	if !option.Config.DisableCiliumEndpointCRD {
@@ -56,13 +53,18 @@ func agentCRDResourceNames() []string {
 
 	if option.Config.EnableIPv4EgressGateway {
 		result = append(result, CRDResourceName(v2alpha1.CENPName))
+		result = append(result, CRDResourceName(v2.CEGPName))
 	}
 	if option.Config.EnableLocalRedirectPolicy {
 		result = append(result, CRDResourceName(v2.CLRPName))
 	}
 	if option.Config.EnableEnvoyConfig {
-		result = append(result, CRDResourceName(v2alpha1.CCECName))
-		result = append(result, CRDResourceName(v2alpha1.CECName))
+		result = append(result, CRDResourceName(v2.CCECName))
+		result = append(result, CRDResourceName(v2.CECName))
+	}
+	if option.Config.EnableBGPControlPlane {
+		result = append(result, CRDResourceName(v2alpha1.BGPPName))
+		result = append(result, CRDResourceName(v2alpha1.BGPPoolName))
 	}
 
 	return result

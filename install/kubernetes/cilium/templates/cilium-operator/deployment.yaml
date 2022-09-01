@@ -8,6 +8,8 @@ metadata:
   labels:
     io.cilium/app: operator
     name: cilium-operator
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-operator
 spec:
   # See docs on ServerCapabilities.LeasesResourceLock in file pkg/k8s/version/version.go
   # for more details.
@@ -37,6 +39,8 @@ spec:
       labels:
         io.cilium/app: operator
         name: cilium-operator
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: cilium-operator
         {{- with .Values.operator.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -207,6 +211,8 @@ spec:
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
       dnsPolicy: ClusterFirstWithHostNet
+      {{- else if .Values.operator.dnsPolicy }}
+      dnsPolicy: {{ .Values.operator.dnsPolicy }}
       {{- end }}
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.operator.priorityClassName "system-cluster-critical") }}
@@ -217,6 +223,18 @@ spec:
       # node as they will clash with each other.
       affinity:
         {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $constraint := . }}
+      - {{ toYaml $constraint | nindent 8 | trim }}
+          {{- if not $constraint.labelSelector }}
+        labelSelector:
+          matchLabels:
+            io.cilium/app: operator
+            name: cilium-operator
+          {{- end }}
+        {{- end }}
       {{- end }}
       {{- with .Values.operator.nodeSelector }}
       nodeSelector:

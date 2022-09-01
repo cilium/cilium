@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.0] - 2022-05-23
+
+### Added
+
+- Support = within double-quoted strings
+- Add support for multiline values
+
+### Changed
+
+- `OverLoad` prefer environment variables over local variables
+
 ## [1.2.0] - 2019-08-03
 
 ### Added

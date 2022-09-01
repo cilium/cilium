@@ -42,7 +42,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			app1Service    = "app1-service"
 			app1Labels     = "id=app1,zgroup=testapp"
 			apps           = []string{helpers.App1, helpers.App2, helpers.App3}
-			prometheusPort = "9091"
+			prometheusPort = "9965"
 
 			namespaceForTest string
 			appPods          map[string]string

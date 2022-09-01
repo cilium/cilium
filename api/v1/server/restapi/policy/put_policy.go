@@ -32,10 +32,10 @@ func NewPutPolicy(ctx *middleware.Context, handler PutPolicyHandler) *PutPolicy 
 	return &PutPolicy{Context: ctx, Handler: handler}
 }
 
-/*PutPolicy swagger:route PUT /policy policy putPolicy
+/*
+PutPolicy swagger:route PUT /policy policy putPolicy
 
 Create or update a policy (sub)tree
-
 */
 type PutPolicy struct {
 	Context *middleware.Context

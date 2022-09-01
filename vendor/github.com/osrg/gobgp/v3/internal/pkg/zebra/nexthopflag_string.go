@@ -12,20 +12,26 @@ func _() {
 	_ = x[nexthopFlagFIB-2]
 	_ = x[nexthopFlagRecursive-4]
 	_ = x[nexthopFlagOnlink-8]
-	_ = x[nexthopFlagMatched-16]
-	_ = x[nexthopFlagFiltered-32]
-	_ = x[nexthopFlagDuplicate-64]
-	_ = x[nexthopFlagEvpnRvtep-128]
+	_ = x[nexthopFlagDuplicate-16]
+	_ = x[nexthopFlagRnhFiltered-32]
+	_ = x[nexthopFlagHasBackup-64]
+	_ = x[nexthopFlagSRTE-128]
+	_ = x[zapi6Frr7dot3nexthopFlagMatched-16]
+	_ = x[zapi6Frr7dot3nexthopFlagDuplicate-32]
+	_ = x[zapi6Frr7dot3nexthopFlagRnhFiltered-64]
+	_ = x[zapi6Frr7nexthopFlagFiltered-32]
+	_ = x[zapi6Frr7nexthopFlagDuplicate-64]
+	_ = x[zapi6Frr7nexthopFlagEvpnRvtep-128]
 }
 
 const (
 	_nexthopFlag_name_0 = "nexthopFlagActivenexthopFlagFIB"
 	_nexthopFlag_name_1 = "nexthopFlagRecursive"
 	_nexthopFlag_name_2 = "nexthopFlagOnlink"
-	_nexthopFlag_name_3 = "nexthopFlagMatched"
-	_nexthopFlag_name_4 = "nexthopFlagFiltered"
-	_nexthopFlag_name_5 = "nexthopFlagDuplicate"
-	_nexthopFlag_name_6 = "nexthopFlagEvpnRvtep"
+	_nexthopFlag_name_3 = "nexthopFlagDuplicate"
+	_nexthopFlag_name_4 = "nexthopFlagRnhFiltered"
+	_nexthopFlag_name_5 = "nexthopFlagHasBackup"
+	_nexthopFlag_name_6 = "nexthopFlagSRTE"
 )
 
 var (

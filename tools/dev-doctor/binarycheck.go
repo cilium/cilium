@@ -13,7 +13,7 @@ import (
 )
 
 // A binaryCheck checks that a binary called name is installed and optionally at
-// least version minVersion.
+// least version minVersion (inclusive), and less than maxVersion (exclusive)
 type binaryCheck struct {
 	name           string
 	command        string
@@ -21,7 +21,8 @@ type binaryCheck struct {
 	ifNotFound     checkResult
 	versionArgs    []string
 	versionRegexp  *regexp.Regexp
-	minVersion     *semver.Version
+	minVersion     *semver.Version // inclusive
+	maxVersion     *semver.Version // exclusive
 	hint           string
 }
 
@@ -67,7 +68,7 @@ func (c *binaryCheck) Run() (checkResult, string) {
 		version = match[1]
 	}
 
-	if c.minVersion != nil {
+	if c.minVersion != nil || c.maxVersion != nil {
 		v, err := semver.ParseTolerant(string(version))
 		if err != nil {
 			return checkFailed, err.Error()
@@ -82,8 +83,13 @@ func (c *binaryCheck) Run() (checkResult, string) {
 			Minor: v.Minor,
 			Patch: v.Patch,
 		}
-		if effectiveVersion.LT(*c.minVersion) {
-			return checkError, fmt.Sprintf("found %s, version %s, need %s", path, version, c.minVersion)
+
+		if c.minVersion != nil && effectiveVersion.LT(*c.minVersion) {
+			return checkError, fmt.Sprintf("found %s, version %s, need at least %s", path, version, c.minVersion)
+		}
+
+		if c.maxVersion != nil && effectiveVersion.GTE(*c.maxVersion) {
+			return checkError, fmt.Sprintf("found %s, version %s, need less than %s", path, version, c.maxVersion)
 		}
 	}
 

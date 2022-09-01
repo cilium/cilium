@@ -147,7 +147,7 @@ var (
 		"cni.binPath":                 "/home/kubernetes/bin",
 		"gke.enabled":                 "true",
 		"loadBalancer.mode":           "snat",
-		"nativeRoutingCIDR":           GKENativeRoutingCIDR(),
+		"ipv4NativeRoutingCIDR":       GKENativeRoutingCIDR(),
 		"hostFirewall.enabled":        "false",
 		"ipam.mode":                   "kubernetes",
 		"devices":                     "", // Override "eth0 eth0\neth0"
@@ -648,7 +648,7 @@ func (kub *Kubectl) labelNodes() error {
 	if noCiliumNodeNames != "" {
 		// Prevent scheduling any pods on the node, as it will be used as an external client
 		// to send requests to k8s{1,2}
-		cmd := fmt.Sprintf("%s taint --overwrite nodes %s key=value:NoSchedule", KubectlCmd, noCiliumNodeNames)
+		cmd := fmt.Sprintf("%s taint --overwrite nodes %s prevent-scheduling:NoSchedule", KubectlCmd, noCiliumNodeNames)
 		res := kub.ExecMiddle(cmd)
 		if !res.WasSuccessful() {
 			return fmt.Errorf("unable to taint node with '%s': %s", cmd, res.OutputPrettyPrint())
@@ -1963,12 +1963,12 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 // ValidateKubernetesDNS validates that the Kubernetes DNS server has been
 // deployed correctly and can resolve DNS names. The following validations are
 // done:
-//  - The Kuberentes DNS deployment has at least one replica
-//  - All replicas are up-to-date and ready
-//  - All pods matching the deployment are represented by a CiliumEndpoint with an identity
-//  - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
-//  - The service "default/kubernetes" can be resolved via the KubernetesDNS
-//    and the IP returned matches the ClusterIP in the service
+//   - The Kubernetes DNS deployment has at least one replica
+//   - All replicas are up-to-date and ready
+//   - All pods matching the deployment are represented by a CiliumEndpoint with an identity
+//   - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
+//   - The service "default/kubernetes" can be resolved via the KubernetesDNS
+//     and the IP returned matches the ClusterIP in the service
 func (kub *Kubectl) ValidateKubernetesDNS() error {
 	// The deployment is always validated first and not in parallel. There
 	// is no point in validating correct plumbing if the DNS is not even up
@@ -2455,6 +2455,11 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
+	if RunsOn419OrLaterKernel() {
+		// To enable SA for both cases when KPR is enabled and disabled
+		addIfNotOverwritten(options, "sessionAffinity", "true")
+	}
+
 	// Disable unsupported features that will just generated unnecessary
 	// warnings otherwise.
 	if DoesNotRunOn419OrLaterKernel() {
@@ -2472,7 +2477,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 
 	if RunsWithKubeProxyReplacement() || options["hostFirewall.enabled"] == "true" {
 		// Set devices
-		privateIface, err := kub.GetPrivateIface()
+		privateIface, err := kub.GetPrivateIface(K8s1)
 		if err != nil {
 			return err
 		}
@@ -2522,29 +2527,29 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 // GetPrivateIface returns an interface name of a netdev which has InternalIP
 // addr.
 // Assumes that all nodes have identical interfaces.
-func (kub *Kubectl) GetPrivateIface() (string, error) {
-	ipAddr, err := kub.GetNodeIPByLabel(K8s1, false)
+func (kub *Kubectl) GetPrivateIface(label string) (string, error) {
+	ipAddr, err := kub.GetNodeIPByLabel(label, false)
 	if err != nil {
 		return "", err
 	} else if ipAddr == "" {
-		return "", fmt.Errorf("%s does not have InternalIP", K8s1)
+		return "", fmt.Errorf("%s does not have InternalIP", label)
 	}
 
-	return kub.getIfaceByIPAddr(K8s1, ipAddr)
+	return kub.getIfaceByIPAddr(label, ipAddr)
 }
 
 // GetPublicIface returns an interface name of a netdev which has ExternalIP
 // addr.
 // Assumes that all nodes have identical interfaces.
-func (kub *Kubectl) GetPublicIface() (string, error) {
-	ipAddr, err := kub.GetNodeIPByLabel(K8s1, true)
+func (kub *Kubectl) GetPublicIface(label string) (string, error) {
+	ipAddr, err := kub.GetNodeIPByLabel(label, true)
 	if err != nil {
 		return "", err
 	} else if ipAddr == "" {
-		return "", fmt.Errorf("%s does not have ExternalIP", K8s1)
+		return "", fmt.Errorf("%s does not have ExternalIP", label)
 	}
 
-	return kub.getIfaceByIPAddr(K8s1, ipAddr)
+	return kub.getIfaceByIPAddr(label, ipAddr)
 }
 
 func (kub *Kubectl) waitToDelete(name, label string) error {
@@ -2856,7 +2861,7 @@ func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, 
 	gomega.Expect(err).Should(gomega.BeNil(), "failed to retrieve Cilium pods")
 
 	for _, pod := range pods {
-		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription).
+		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription...).
 			ExpectSuccess("failed to execute %q on Cilium pod %s", cmd, pod)
 	}
 }
@@ -2916,9 +2921,9 @@ func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
 // to be annotated.
 func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	body := func() bool {
-		filter := `{range .items[*]}{@.metadata.name}{"="}{@.metadata.annotations.io\.cilium\.network\.ipv4-pod-cidr}{"\n"}{end}`
+		filter := `{range .items[*]}{@.metadata.name}{"="}{@.spec.addresses[?(@.type=="CiliumInternalIP")].ip}{"\n"}{end}`
 		data := kub.ExecShort(fmt.Sprintf(
-			"%s get nodes -o jsonpath='%s'", KubectlCmd, filter))
+			"%s get ciliumnodes -o jsonpath='%s'", KubectlCmd, filter))
 		if !data.WasSuccessful() {
 			return false
 		}
@@ -3682,7 +3687,7 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(ctx context.Context, reportC
 }
 
 // getCiliumPodOnNodeByName returns the name of the Cilium pod that is running on / in
-//the specified node / namespace.
+// the specified node / namespace.
 func (kub *Kubectl) getCiliumPodOnNodeByName(node string) (string, error) {
 	filter := fmt.Sprintf(
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
@@ -4565,7 +4570,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"clusterrolebinding": "cilium cilium-operator hubble-relay",
 			"clusterrole":        "cilium cilium-operator hubble-relay hubble-ui",
 			"serviceaccount":     "cilium cilium-operator hubble-relay",
-			"service":            "cilium-agent hubble-metrics hubble-relay",
+			"service":            "cilium-agent hubble-metrics hubble-relay hubble-peer",
 			"secret":             "hubble-relay-client-certs hubble-server-certs hubble-ca-secret cilium-ca",
 			"resourcequota":      "cilium-resource-quota cilium-operator-resource-quota",
 		}
@@ -4698,4 +4703,27 @@ func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
 	return WithTimeout(body,
 		fmt.Sprintf("backend entry for %s was not found in time", ipAddr),
 		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
+func (kub *Kubectl) AddVXLAN(nodeName, remote, dev, addr string, vxlanId int) *CmdRes {
+	cmd := fmt.Sprintf("ip link add vxlan%d type vxlan id %d remote %s dstport 4789 dev %s",
+		vxlanId, vxlanId, remote, dev)
+	res := kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+	if !res.WasSuccessful() {
+		return res
+	}
+
+	cmd = fmt.Sprintf("ip addr add dev vxlan%d %s", vxlanId, addr)
+	res = kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+	if !res.WasSuccessful() {
+		return res
+	}
+
+	cmd = fmt.Sprintf("ip link set dev vxlan%d up", vxlanId)
+	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+}
+
+func (kub *Kubectl) DelVXLAN(nodeName string, vxlanId int) *CmdRes {
+	cmd := fmt.Sprintf("ip link del dev vxlan%d", vxlanId)
+	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
 }

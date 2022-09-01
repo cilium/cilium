@@ -61,7 +61,8 @@ func NewPutRecorderIDParamsWithHTTPClient(client *http.Client) *PutRecorderIDPar
 	}
 }
 
-/*PutRecorderIDParams contains all the parameters to send to the API endpoint
+/*
+PutRecorderIDParams contains all the parameters to send to the API endpoint
 for the put recorder ID operation typically these are written to a http.Request
 */
 type PutRecorderIDParams struct {

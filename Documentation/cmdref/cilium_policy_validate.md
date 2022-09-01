@@ -26,5 +26,5 @@ cilium policy validate <path> [flags]
 
 ### SEE ALSO
 
-* [cilium policy](../cilium_policy)	 - Manage security policies
+* [cilium policy](cilium_policy.md)	 - Manage security policies
 

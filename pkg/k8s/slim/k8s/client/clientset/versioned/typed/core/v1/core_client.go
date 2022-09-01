@@ -19,10 +19,11 @@ type CoreV1Interface interface {
 	NamespacesGetter
 	NodesGetter
 	PodsGetter
+	SecretsGetter
 	ServicesGetter
 }
 
-// CoreV1Client is used to interact with features provided by the core group.
+// CoreV1Client is used to interact with features provided by the  group.
 type CoreV1Client struct {
 	restClient rest.Interface
 }
@@ -41,6 +42,10 @@ func (c *CoreV1Client) Nodes() NodeInterface {
 
 func (c *CoreV1Client) Pods(namespace string) PodInterface {
 	return newPods(c, namespace)
+}
+
+func (c *CoreV1Client) Secrets(namespace string) SecretInterface {
+	return newSecrets(c, namespace)
 }
 
 func (c *CoreV1Client) Services(namespace string) ServiceInterface {

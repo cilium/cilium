@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,6 +122,9 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		// Get list of open file descriptors managed by the agent
 		fmt.Sprintf("ls -la /proc/$(pidof %s)/fd", components.CiliumAgentName),
 		"lsmod",
+		// tc
+		"tc -s qdisc", // Show statistics on queuing disciplines
+		"tc qdisc show",
 	}
 
 	if bpffsMountpoint := bpffsMountpoint(); bpffsMountpoint != "" {
@@ -157,6 +161,13 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_throttle", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_encrypt_state", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_egress_gw_policy_v4", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_vrf_v4", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_vrf_v6", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_policy_v4", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_policy_v6", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_state_v4", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_state_v6", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_sid", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_services_v2", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_services", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_backends_v2", bpffsMountpoint),
@@ -194,6 +205,13 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	commands = append(commands, copyConfigCommands(confDir, k8sPods)...)
 	commands = append(commands, copyCiliumInfoCommands(cmdDir, k8sPods)...)
 
+	tcCommands, err := tcInterfaceCommands()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to generate per interface tc commands: %s\n", err)
+	} else {
+		commands = append(commands, tcCommands...)
+	}
+
 	return k8sCommands(commands, k8sPods)
 }
 
@@ -227,6 +245,23 @@ func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 	var c BugtoolConfiguration
 	err = json.Unmarshal(content, &c)
 	return &c, err
+}
+
+// Listing tc filter/chain/classes requires specific interface names.
+// Commands are generated per-interface.
+func tcInterfaceCommands() ([]string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("could not list network interfaces: %v", err)
+	}
+	commands := []string{}
+	for _, iface := range ifaces {
+		commands = append(commands,
+			fmt.Sprintf("tc filter show dev %s", iface.Name),
+			fmt.Sprintf("tc chain show dev %s", iface.Name),
+			fmt.Sprintf("tc class show dev %s", iface.Name))
+	}
+	return commands, nil
 }
 
 func catCommands() []string {
@@ -339,7 +374,9 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf lb list --revnat",
 		"cilium bpf lb list --frontends",
 		"cilium bpf lb list --backends",
+		"cilium bpf lb maglev list",
 		"cilium bpf egress list",
+		"cilium bpf vtep list",
 		"cilium bpf endpoint list",
 		"cilium bpf ct list global",
 		"cilium bpf nat list",
@@ -357,8 +394,10 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium status --verbose",
 		"cilium identity list",
 		"cilium-health status --verbose",
+		"cilium-health status -o json",
 		"cilium policy selectors -o json",
 		"cilium node list",
+		"cilium node list -o json",
 		"cilium lrp list",
 	}
 	var commands []string

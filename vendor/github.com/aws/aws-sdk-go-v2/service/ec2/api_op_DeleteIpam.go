@@ -12,13 +12,9 @@ import (
 )
 
 // Delete an IPAM. Deleting an IPAM removes all monitored data associated with the
-// IPAM including the historical data for CIDRs. You cannot delete an IPAM if there
-// are CIDRs provisioned to pools or if there are allocations in the pools within
-// the IPAM. To deprovision pool CIDRs, see DeprovisionIpamPoolCidr
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeprovisionIpamPoolCidr.html).
-// To release allocations, see ReleaseIpamPoolAllocation
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReleaseIpamPoolAllocation.html).
-// For more information, see Delete an IPAM in the Amazon VPC IPAM User Guide.
+// IPAM including the historical data for CIDRs. For more information, see Delete
+// an IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/delete-ipam.html) in the
+// Amazon VPC IPAM User Guide.
 func (c *Client) DeleteIpam(ctx context.Context, params *DeleteIpamInput, optFns ...func(*Options)) (*DeleteIpamOutput, error) {
 	if params == nil {
 		params = &DeleteIpamInput{}
@@ -40,6 +36,29 @@ type DeleteIpamInput struct {
 	//
 	// This member is required.
 	IpamId *string
+
+	// Enables you to quickly delete an IPAM, private scopes, pools in private scopes,
+	// and any allocations in the pools in private scopes. You cannot delete the IPAM
+	// with this option if there is a pool in your public scope. If you use this
+	// option, IPAM does the following:
+	//
+	// * Deallocates any CIDRs allocated to VPC
+	// resources (such as VPCs) in pools in private scopes. No VPC resources are
+	// deleted as a result of enabling this option. The CIDR associated with the
+	// resource will no longer be allocated from an IPAM pool, but the CIDR itself will
+	// remain unchanged.
+	//
+	// * Deprovisions all IPv4 CIDRs provisioned to IPAM pools in
+	// private scopes.
+	//
+	// * Deletes all IPAM pools in private scopes.
+	//
+	// * Deletes all
+	// non-default private scopes in the IPAM.
+	//
+	// * Deletes the default public and
+	// private scopes and the IPAM.
+	Cascade *bool
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the

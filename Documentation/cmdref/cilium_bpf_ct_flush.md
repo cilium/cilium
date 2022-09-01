@@ -24,5 +24,5 @@ cilium bpf ct flush ( <endpoint identifier> | global ) [flags]
 
 ### SEE ALSO
 
-* [cilium bpf ct](../cilium_bpf_ct)	 - Connection tracking tables
+* [cilium bpf ct](cilium_bpf_ct.md)	 - Connection tracking tables
 

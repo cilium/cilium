@@ -421,6 +421,16 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 	ipConfigurations = append(*netIfConfig.IPConfigurations, ipConfigurations...)
 	netIfConfig.IPConfigurations = &ipConfigurations
 
+	// Unset imageReference, because if this contains a reference to an image from the
+	// Azure Compute Gallery, including this reference in an update to the VMSS instance
+	// will cause a permissions error, because the reference includes an Azure-managed
+	// subscription ID.
+	// Removing the image reference indicates to the API that we don't want to change it.
+	// See https://github.com/Azure/AKS/issues/1819.
+	if result.StorageProfile != nil {
+		result.StorageProfile.ImageReference = nil
+	}
+
 	future, err := c.vmss.Update(ctx, c.resourceGroup, vmssName, instanceID, result)
 	if err != nil {
 		return fmt.Errorf("unable to update virtualmachinescaleset: %s", err)

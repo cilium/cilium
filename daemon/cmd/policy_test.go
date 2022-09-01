@@ -56,7 +56,8 @@ var (
 	lblJoe  = labels.ParseLabel("user=joe")
 	lblPete = labels.ParseLabel("user=pete")
 
-	testEndpointID = uint16(1)
+	testQAEndpointID   = uint16(1)
+	testProdEndpointID = uint16(2)
 
 	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
 		Reason:            "test",
@@ -176,19 +177,32 @@ func (ds *DaemonSuite) getXDSNetworkPolicies(c *C, resourceNames []string) map[s
 }
 
 func prepareEndpointDirs() (cleanup func(), err error) {
-	testEPDir := fmt.Sprintf("%d", testEndpointID)
-	if err = os.Mkdir(testEPDir, 0755); err != nil {
-		return func() {}, err
+	var testDirs []string
+	for testEndpointID := range []uint16{testQAEndpointID, testProdEndpointID} {
+		testEPDir := fmt.Sprintf("%d", testEndpointID)
+		if err = os.Mkdir(testEPDir, 0755); err != nil {
+			for _, dir := range testDirs {
+				os.RemoveAll(dir)
+			}
+			return func() {}, err
+		}
+		testDirs = append(testDirs, testEPDir)
 	}
 	return func() {
-		os.RemoveAll(fmt.Sprintf("%s/ep_config.h", testEPDir))
-		time.Sleep(1 * time.Second)
-		os.RemoveAll(testEPDir)
-		os.RemoveAll(fmt.Sprintf("%s_backup", testEPDir))
+		for _, testEPDir := range testDirs {
+			os.RemoveAll(fmt.Sprintf("%s/ep_config.h", testEPDir))
+			time.Sleep(1 * time.Second)
+			os.RemoveAll(testEPDir)
+			os.RemoveAll(fmt.Sprintf("%s_backup", testEPDir))
+		}
 	}, nil
 }
 
 func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa bool) *endpoint.Endpoint {
+	testEndpointID := testProdEndpointID
+	if qa {
+		testEndpointID = testQAEndpointID
+	}
 	e := endpoint.NewEndpointWithState(ds.d, ds.d, ipcache.NewIPCache(nil), ds.d.l7Proxy, ds.d.identityAllocator, testEndpointID, endpoint.StateWaitingForIdentity)
 	if qa {
 		e.IPv6 = QAIPv6Addr
@@ -276,23 +290,23 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	prodBarLbls := labels.Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
-	prodBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodBarLbls, true)
+	prodBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), prodBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 	prodFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
-	prodFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooLbls, true)
+	prodFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), prodFooSecLblsCtx, false)
 	prodFooJoeLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
-	prodFooJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooJoeLbls, true)
+	prodFooJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooJoeLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), prodFooJoeSecLblsCtx, false)
 
@@ -333,7 +347,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
 	})
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -376,7 +390,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	})
 
 	expectedNetworkPolicy = &cilium.NetworkPolicy{
-		Name:             ProdIPv4Addr.String(),
+		EndpointIps:      []string{ProdIPv6Addr.String(), ProdIPv4Addr.String()},
 		EndpointId:       uint64(eProdBar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -409,11 +423,11 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 
@@ -464,7 +478,7 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -493,11 +507,11 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 
@@ -548,7 +562,7 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -571,15 +585,15 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 	qaJoeLbls := labels.Labels{lblJoe.Key: lblJoe, lblQA.Key: lblQA}
-	qaJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaJoeLbls, true)
+	qaJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaJoeLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaJoeSecLblsCtx, false)
 
@@ -636,7 +650,7 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
@@ -733,7 +747,7 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 
 func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 
@@ -818,7 +832,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 
@@ -907,7 +921,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 
 	// Allocate identities needed for this test
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooID, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	qaFooID, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	c.Assert(err, Equals, nil)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooID, false)
 
@@ -928,7 +942,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	}, time.Second*1)
 	c.Assert(err, IsNil)
 	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, &cilium.NetworkPolicy{
-		Name:             QAIPv4Addr.String(),
+		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
 		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{

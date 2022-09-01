@@ -19,7 +19,8 @@ import (
 // DeleteFqdnCacheOKCode is the HTTP code returned for type DeleteFqdnCacheOK
 const DeleteFqdnCacheOKCode int = 200
 
-/*DeleteFqdnCacheOK Success
+/*
+DeleteFqdnCacheOK Success
 
 swagger:response deleteFqdnCacheOK
 */
@@ -43,7 +44,8 @@ func (o *DeleteFqdnCacheOK) WriteResponse(rw http.ResponseWriter, producer runti
 // DeleteFqdnCacheBadRequestCode is the HTTP code returned for type DeleteFqdnCacheBadRequest
 const DeleteFqdnCacheBadRequestCode int = 400
 
-/*DeleteFqdnCacheBadRequest Invalid request (error parsing parameters)
+/*
+DeleteFqdnCacheBadRequest Invalid request (error parsing parameters)
 
 swagger:response deleteFqdnCacheBadRequest
 */

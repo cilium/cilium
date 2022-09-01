@@ -555,6 +555,7 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 		},
 		Transport: &api.Transport{
 			RemotePort:    uint32(pconf.Transport.Config.RemotePort),
+			LocalPort:     uint32(pconf.Transport.Config.LocalPort),
 			LocalAddress:  localAddress,
 			PassiveMode:   pconf.Transport.Config.PassiveMode,
 			BindInterface: pconf.Transport.Config.BindInterface,

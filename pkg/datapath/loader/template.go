@@ -167,10 +167,10 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 		}
 	}
 
-	// The policy map is only used for the host endpoint if per-endpoint
-	// routes and the host firewall are enabled.
-	if !ep.IsHost() ||
-		(option.Config.EnableEndpointRoutes && option.Config.EnableHostFirewall) {
+	// Populate the policy map if the host firewall is enabled regardless of the per-endpoint route setting
+	// because all routing is performed by the Linux stack with the chaining mode
+	// even if the per-endpoint route is disabled in the agent
+	if !ep.IsHost() || option.Config.EnableHostFirewall {
 		result[policymap.CallString(templateLxcID)] = policymap.CallString(epID)
 	}
 	// Egress policy map is only used when Envoy Config CRDs are enabled.

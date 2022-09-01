@@ -78,6 +78,7 @@ type ReplaceSystemDiskRequest struct {
 	KeyPairName                 string           `position:"Query" name:"KeyPairName"`
 	Platform                    string           `position:"Query" name:"Platform"`
 	Password                    string           `position:"Query" name:"Password"`
+	LoginAsNonRoot              requests.Boolean `position:"Query" name:"LoginAsNonRoot"`
 	PasswordInherit             requests.Boolean `position:"Query" name:"PasswordInherit"`
 	DiskId                      string           `position:"Query" name:"DiskId"`
 	Architecture                string           `position:"Query" name:"Architecture"`

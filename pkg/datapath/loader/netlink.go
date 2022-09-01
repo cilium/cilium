@@ -5,17 +5,17 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
-	"strconv"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+
+	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -24,18 +24,21 @@ import (
 type baseDeviceMode string
 
 const (
-	ipvlanMode = baseDeviceMode("ipvlan")
 	directMode = baseDeviceMode("direct")
 	tunnelMode = baseDeviceMode("tunnel")
-
-	libbpfFixupMsg = "struct bpf_elf_map fixup performed due to size mismatch!"
 )
 
-func replaceQdisc(ifName string) error {
-	link, err := netlink.LinkByName(ifName)
-	if err != nil {
-		return err
+func directionToParent(dir string) uint32 {
+	switch dir {
+	case dirIngress:
+		return netlink.HANDLE_MIN_INGRESS
+	case dirEgress:
+		return netlink.HANDLE_MIN_EGRESS
 	}
+	return 0
+}
+
+func replaceQdisc(link netlink.Link) error {
 	attrs := netlink.QdiscAttrs{
 		LinkIndex: link.Attrs().Index,
 		Handle:    netlink.MakeHandle(0xffff, 0),
@@ -47,13 +50,7 @@ func replaceQdisc(ifName string) error {
 		QdiscType:  "clsact",
 	}
 
-	if err = netlink.QdiscReplace(qdisc); err != nil {
-		return fmt.Errorf("netlink: Replacing qdisc for %s failed: %s", ifName, err)
-	} else {
-		log.Debugf("netlink: Replacing qdisc for %s succeeded", ifName)
-	}
-
-	return nil
+	return netlink.QdiscReplace(qdisc)
 }
 
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
@@ -69,85 +66,126 @@ func replaceQdisc(ifName string) error {
 // For example, this is the case with from-netdev and to-netdev. If eth0:to-netdev
 // gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
 // will miss tail calls (and drop packets) until it has been replaced as well.
-func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirection string, xdp bool, xdpMode string) (func(), error) {
-	var (
-		loaderProg string
-		args       []string
-	)
+func replaceDatapath(ctx context.Context, ifName, objPath, progName, direction string, xdpMode string) (func(), error) {
+	// Avoid unnecessarily loading a prog.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
-	if !xdp {
-		if err := replaceQdisc(ifName); err != nil {
-			return nil, fmt.Errorf("Failed to replace Qdisc for %s: %s", ifName, err)
+	link, err := netlink.LinkByName(ifName)
+	if err != nil {
+		return nil, fmt.Errorf("getting interface %s by name: %w", ifName, err)
+	}
+
+	l := log.WithField("device", ifName).WithField("objPath", objPath).
+		WithField("progName", progName).WithField("direction", direction).
+		WithField("ifindex", link.Attrs().Index)
+
+	// Load the ELF from disk.
+	l.Debug("Loading CollectionSpec from ELF")
+	spec, err := bpf.LoadCollectionSpec(objPath)
+	if err != nil {
+		return nil, fmt.Errorf("loading eBPF ELF: %w", err)
+	}
+
+	if spec.Programs[progName] == nil {
+		return nil, fmt.Errorf("no program %s found in eBPF ELF", progName)
+	}
+
+	// Load the CollectionSpec into the kernel, picking up any pinned maps from
+	// bpffs in the process.
+	finalize := func() {}
+	opts := ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{PinPath: bpf.MapPrefixPath()},
+	}
+	l.Debug("Loading Collection into kernel")
+	coll, err := bpf.LoadCollection(spec, opts)
+	if errors.Is(err, ebpf.ErrMapIncompatible) {
+		// Temporarily rename bpffs pins of maps whose definitions have changed in
+		// a new version of a datapath ELF.
+		l.Debug("Starting bpffs map migration")
+		if err := bpf.StartBPFFSMigration(bpf.MapPrefixPath(), spec); err != nil {
+			return nil, fmt.Errorf("Failed to start bpffs map migration: %w", err)
 		}
-	}
 
-	// Temporarily rename bpffs pins of maps whose definitions have changed in
-	// a new version of a datapath ELF.
-	if err := bpf.StartBPFFSMigration(bpf.MapPrefixPath(), objPath); err != nil {
-		return nil, fmt.Errorf("Failed to start bpffs map migration: %w", err)
-	}
-
-	// FIXME: replace exec with native call
-	if xdp {
-		loaderProg = "ip"
-		args = []string{"-force", "link", "set", "dev", ifName, xdpMode,
-			"obj", objPath, "sec", progSec}
-	} else {
-		loaderProg = "tc"
-
-		tcPrio := strconv.Itoa(option.Config.TCFilterPriority)
-		log.Debugf("tc filter using priority %s for interface %s", tcPrio, ifName)
-		args = []string{"filter", "replace", "dev", ifName, progDirection,
-			"prio", tcPrio, "handle", "1", "bpf", "da", "obj", objPath,
-			"sec", progSec,
+		finalize = func() {
+			l.Debug("Finalizing bpffs map migration")
+			if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), spec, false); err != nil {
+				l.WithError(err).Error("Could not finalize bpffs map migration")
+			}
 		}
+
+		// Retry loading the Collection after starting map migration.
+		l.Debug("Retrying loading Collection into kernel after map migration")
+		coll, err = bpf.LoadCollection(spec, opts)
+	}
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		//TODO: Write this to a file in endpoint directory instead.
+		l.Debugf("Got verifier error: %+v", ve)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error loading eBPF collection into the kernel: %w", err)
+	}
+	defer coll.Close()
+
+	// Avoid attaching a prog to a stale interface.
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
-	// If the iproute2 call below is successful, any 'pending' map pins will be removed.
-	// If not, any pending maps will be re-pinned back to their initial paths.
-	cmd := exec.CommandContext(ctx, loaderProg, args...).WithFilters(libbpfFixupMsg)
-	if _, err := cmd.CombinedOutput(log, true); err != nil {
-		// Program/object replacement unsuccessful, revert bpffs migration.
-		if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), objPath, true); err != nil {
-			return nil, fmt.Errorf("Failed to revert bpffs map migration: %w", err)
+	l.Debug("Attaching program to interface")
+	if err := attachProgram(link, coll.Programs[progName], directionToParent(direction), xdpModeToFlag(xdpMode)); err != nil {
+		// Program replacement unsuccessful, revert bpffs migration.
+		l.Debug("Reverting bpffs map migration")
+		if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), spec, true); err != nil {
+			l.WithError(err).Error("Failed to revert bpffs map migration")
 		}
-		return nil, fmt.Errorf("Failed to load prog with %s: %w", loaderProg, err)
+
+		return nil, fmt.Errorf("program %s: %w", progName, err)
 	}
 
-	finalize := func() {
-		l := log.WithField("device", ifName).WithField("objPath", objPath)
-		l.Debug("Finalizing bpffs map migration")
-		if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), objPath, false); err != nil {
-			l.WithError(err).Error("Could not finalize bpffs map migration")
-		}
-	}
+	l.Debugf("Successfully attached program to interface")
 
 	return finalize, nil
 }
 
-// graftDatapath replaces obj in tail call map
-func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error {
-	if err := bpf.StartBPFFSMigration(bpf.MapPrefixPath(), objPath); err != nil {
-		return fmt.Errorf("Failed to start bpffs map migration: %w", err)
+// attachProgram attaches prog to link.
+// If xdpFlags is non-zero, attaches prog to XDP.
+func attachProgram(link netlink.Link, prog *ebpf.Program, qdiscParent uint32, xdpFlags uint32) error {
+	if prog == nil {
+		return errors.New("cannot attach a nil program")
 	}
 
-	var revert bool
-	defer func() {
-		if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), objPath, revert); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{logfields.BPFMapPath: mapPath, "objPath": objPath}).
-				Error("Could not finalize bpffs map migration")
+	if xdpFlags != 0 {
+		// Omitting XDP_FLAGS_UPDATE_IF_NOEXIST equals running 'ip' with -force,
+		// and will clobber any existing XDP attachment to the interface.
+		if err := netlink.LinkSetXdpFdWithFlags(link, prog.FD(), int(xdpFlags)); err != nil {
+			return fmt.Errorf("attaching XDP program to interface %s: %w", link.Attrs().Name, err)
 		}
-	}()
 
-	// FIXME: replace exec with native call
-	// FIXME: only key 0 right now, could be made more flexible
-	args := []string{"exec", "bpf", "graft", mapPath, "key", "0",
-		"obj", objPath, "sec", progSec,
+		return nil
 	}
-	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
-	if _, err := cmd.CombinedOutput(log, true); err != nil {
-		revert = true
-		return fmt.Errorf("Failed to graft tc object: %s", err)
+
+	if err := replaceQdisc(link); err != nil {
+		return fmt.Errorf("replacing clsact qdisc for interface %s: %w", link.Attrs().Name, err)
+	}
+
+	filter := &netlink.BpfFilter{
+		FilterAttrs: netlink.FilterAttrs{
+			LinkIndex: link.Attrs().Index,
+			Parent:    qdiscParent,
+			Handle:    1,
+			Protocol:  unix.ETH_P_ALL,
+			Priority:  option.Config.TCFilterPriority,
+		},
+		Fd:           prog.FD(),
+		Name:         fmt.Sprintf("cilium-%s", link.Attrs().Name),
+		DirectAction: true,
+	}
+
+	if err := netlink.FilterReplace(filter); err != nil {
+		return fmt.Errorf("replacing tc filter: %w", err)
 	}
 
 	return nil
@@ -247,78 +285,37 @@ func setupVethPair(name, peerName string) error {
 	return nil
 }
 
-func setupIpvlan(name string, nativeLink netlink.Link) (*netlink.IPVlan, error) {
-	hostLink, err := netlink.LinkByName(name)
-	if err == nil {
-		// Ignore the error.
-		netlink.LinkDel(hostLink)
-	}
-
-	ipvlan := &netlink.IPVlan{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:        name,
-			ParentIndex: nativeLink.Attrs().Index,
-			TxQLen:      1000,
-		},
-		Mode: netlink.IPVLAN_MODE_L3,
-	}
-	if err := netlink.LinkAdd(ipvlan); err != nil {
-		return nil, err
-	}
-
-	if err := setupDev(ipvlan); err != nil {
-		return nil, err
-	}
-
-	return ipvlan, nil
-}
-
-// setupBaseDevice decides which and what kind of interfaces should be set up as
+// SetupBaseDevice decides which and what kind of interfaces should be set up as
 // the first step of datapath initialization, then performs the setup (and
 // creation, if needed) of those interfaces. It returns two links and an error.
 // By default, it sets up the veth pair - cilium_host and cilium_net.
-// In ipvlan mode, it creates the cilium_host ipvlan with the native device as a
-// parent.
-func setupBaseDevice(nativeDevs []netlink.Link, mode baseDeviceMode, mtu int) (netlink.Link, netlink.Link, error) {
-	switch mode {
-	case ipvlanMode:
-		ipvlan, err := setupIpvlan(defaults.HostDevice, nativeDevs[0])
-		if err != nil {
-			return nil, nil, err
-		}
-		if err := netlink.LinkSetMTU(ipvlan, mtu); err != nil {
-			return nil, nil, err
-		}
-
-		return ipvlan, ipvlan, nil
-	default:
-		if err := setupVethPair(defaults.HostDevice, defaults.SecondHostDevice); err != nil {
-			return nil, nil, err
-		}
-
-		linkHost, err := netlink.LinkByName(defaults.HostDevice)
-		if err != nil {
-			return nil, nil, err
-		}
-		linkNet, err := netlink.LinkByName(defaults.SecondHostDevice)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if err := netlink.LinkSetARPOff(linkHost); err != nil {
-			return nil, nil, err
-		}
-		if err := netlink.LinkSetARPOff(linkNet); err != nil {
-			return nil, nil, err
-		}
-
-		if err := netlink.LinkSetMTU(linkHost, mtu); err != nil {
-			return nil, nil, err
-		}
-		if err := netlink.LinkSetMTU(linkNet, mtu); err != nil {
-			return nil, nil, err
-		}
-
-		return linkHost, linkNet, nil
+func SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error) {
+	if err := setupVethPair(defaults.HostDevice, defaults.SecondHostDevice); err != nil {
+		return nil, nil, err
 	}
+
+	linkHost, err := netlink.LinkByName(defaults.HostDevice)
+	if err != nil {
+		return nil, nil, err
+	}
+	linkNet, err := netlink.LinkByName(defaults.SecondHostDevice)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := netlink.LinkSetARPOff(linkHost); err != nil {
+		return nil, nil, err
+	}
+	if err := netlink.LinkSetARPOff(linkNet); err != nil {
+		return nil, nil, err
+	}
+
+	if err := netlink.LinkSetMTU(linkHost, mtu); err != nil {
+		return nil, nil, err
+	}
+	if err := netlink.LinkSetMTU(linkNet, mtu); err != nil {
+		return nil, nil, err
+	}
+
+	return linkHost, linkNet, nil
 }

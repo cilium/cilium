@@ -7,26 +7,24 @@ import (
 	"fmt"
 	"net"
 
-	current "github.com/containernetworking/cni/pkg/types/040"
+	current "github.com/containernetworking/cni/pkg/types/100"
 
 	"github.com/cilium/cilium/api/v1/models"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/ip"
 )
 
-func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf models.DaemonConfigurationStatus) error {
+func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
 	// If the gateway IP is not available, it is already set up
 	if ipam.Gateway == "" {
 		return nil
 	}
 
 	var masq bool
-	if ipConfig.Version == "4" {
+	if ipConfig.Address.IP.To4() != nil {
 		masq = conf.MasqueradeProtocols.IPV4
-	} else if ipConfig.Version == "6" {
-		masq = conf.MasqueradeProtocols.IPV6
 	} else {
-		return fmt.Errorf("Invalid IPConfig version: %s", ipConfig.Version)
+		masq = conf.MasqueradeProtocols.IPV6
 	}
 
 	allCIDRs := make([]*net.IPNet, 0, len(ipam.Cidrs))

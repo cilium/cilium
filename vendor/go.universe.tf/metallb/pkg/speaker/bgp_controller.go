@@ -32,49 +32,49 @@ import (
 	"github.com/go-kit/kit/log"
 )
 
-type peer struct {
+type Peer struct {
 	cfg *config.Peer
-	bgp Session
+	BGP Session
 }
 
 type BGPController struct {
 	Logger     log.Logger
 	MyNode     string
 	nodeLabels labels.Set
-	peers      []*peer
+	Peers      []*Peer
 	SvcAds     map[string][]*bgp.Advertisement
 }
 
 func (c *BGPController) SetConfig(l log.Logger, cfg *config.Config) error {
-	newPeers := make([]*peer, 0, len(cfg.Peers))
+	newPeers := make([]*Peer, 0, len(cfg.Peers))
 newPeers:
 	for _, p := range cfg.Peers {
-		for i, ep := range c.peers {
+		for i, ep := range c.Peers {
 			if ep == nil {
 				continue
 			}
 			if reflect.DeepEqual(p, ep.cfg) {
 				newPeers = append(newPeers, ep)
-				c.peers[i] = nil
+				c.Peers[i] = nil
 				continue newPeers
 			}
 		}
 		// No existing peers match, create a new one.
-		newPeers = append(newPeers, &peer{
+		newPeers = append(newPeers, &Peer{
 			cfg: p,
 		})
 	}
 
-	oldPeers := c.peers
-	c.peers = newPeers
+	oldPeers := c.Peers
+	c.Peers = newPeers
 
 	for _, p := range oldPeers {
 		if p == nil {
 			continue
 		}
 		l.Log("event", "peerRemoved", "peer", p.cfg.Addr, "reason", "removedFromConfig", "msg", "peer deconfigured, closing BGP session")
-		if p.bgp != nil {
-			if err := p.bgp.Close(); err != nil {
+		if p.BGP != nil {
+			if err := p.BGP.Close(); err != nil {
 				l.Log("op", "setConfig", "error", err, "peer", p.cfg.Addr, "msg", "failed to shut down BGP session")
 			}
 		}
@@ -139,7 +139,7 @@ func (c *BGPController) syncPeers(l log.Logger) error {
 		errs          int
 		needUpdateAds bool
 	)
-	for _, p := range c.peers {
+	for _, p := range c.Peers {
 		// First, determine if the peering should be active for this
 		// node.
 		shouldRun := false
@@ -151,14 +151,14 @@ func (c *BGPController) syncPeers(l log.Logger) error {
 		}
 
 		// Now, compare current state to intended state, and correct.
-		if p.bgp != nil && !shouldRun {
+		if p.BGP != nil && !shouldRun {
 			// Oops, session is running but shouldn't be. Shut it down.
 			l.Log("event", "peerRemoved", "peer", p.cfg.Addr, "reason", "filteredByNodeSelector", "msg", "peer deconfigured, closing BGP session")
-			if err := p.bgp.Close(); err != nil {
+			if err := p.BGP.Close(); err != nil {
 				l.Log("op", "syncPeers", "error", err, "peer", p.cfg.Addr, "msg", "failed to shut down BGP session")
 			}
-			p.bgp = nil
-		} else if p.bgp == nil && shouldRun {
+			p.BGP = nil
+		} else if p.BGP == nil && shouldRun {
 			// Session doesn't exist, but should be running. Create
 			// it.
 			l.Log("event", "peerAdded", "peer", p.cfg.Addr, "msg", "peer configured, starting BGP session")
@@ -171,14 +171,14 @@ func (c *BGPController) syncPeers(l log.Logger) error {
 				l.Log("op", "syncPeers", "error", err, "peer", p.cfg.Addr, "msg", "failed to create BGP session")
 				errs++
 			} else {
-				p.bgp = s
+				p.BGP = s
 				needUpdateAds = true
 			}
 		}
 	}
 	if needUpdateAds {
 		// Some new sessions came up, resync advertisement state.
-		if err := c.updateAds(); err != nil {
+		if err := c.UpdateAds(); err != nil {
 			l.Log("op", "updateAds", "error", err, "msg", "failed to update BGP advertisements")
 			return err
 		}
@@ -207,7 +207,7 @@ func (c *BGPController) SetBalancer(l log.Logger, name string, lbIP net.IP, pool
 		c.SvcAds[name] = append(c.SvcAds[name], ad)
 	}
 
-	if err := c.updateAds(); err != nil {
+	if err := c.UpdateAds(); err != nil {
 		return err
 	}
 
@@ -216,7 +216,7 @@ func (c *BGPController) SetBalancer(l log.Logger, name string, lbIP net.IP, pool
 	return nil
 }
 
-func (c *BGPController) updateAds() error {
+func (c *BGPController) UpdateAds() error {
 	var allAds []*bgp.Advertisement
 	for _, ads := range c.SvcAds {
 		// This list might contain duplicates, but that's fine,
@@ -243,7 +243,7 @@ func (c *BGPController) DeleteBalancer(l log.Logger, name, reason string) error 
 		return nil
 	}
 	delete(c.SvcAds, name)
-	return c.updateAds()
+	return c.UpdateAds()
 }
 
 // Session gives access to the BGP session.
@@ -268,9 +268,9 @@ func (c *BGPController) SetNodeLabels(l log.Logger, lbls map[string]string) erro
 
 // PeerSessions returns the underlying BGP sessions for direct use.
 func (c *BGPController) PeerSessions() []Session {
-	s := make([]Session, len(c.peers))
-	for i, peer := range c.peers {
-		s[i] = peer.bgp
+	s := make([]Session, len(c.Peers))
+	for i, peer := range c.Peers {
+		s[i] = peer.BGP
 	}
 	return s
 }

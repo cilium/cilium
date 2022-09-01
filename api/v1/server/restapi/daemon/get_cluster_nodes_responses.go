@@ -19,7 +19,8 @@ import (
 // GetClusterNodesOKCode is the HTTP code returned for type GetClusterNodesOK
 const GetClusterNodesOKCode int = 200
 
-/*GetClusterNodesOK Success
+/*
+GetClusterNodesOK Success
 
 swagger:response getClusterNodesOK
 */

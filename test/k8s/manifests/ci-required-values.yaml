@@ -1,3 +1,0 @@
-extraEnv:
-  - name: KUBE_CACHE_MUTATION_DETECTOR
-    value: true

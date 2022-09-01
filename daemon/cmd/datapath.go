@@ -13,12 +13,15 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -38,7 +41,10 @@ import (
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
+	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/maps/vtep"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -46,7 +52,7 @@ import (
 
 // LocalConfig returns the local configuration of the daemon's nodediscovery.
 func (d *Daemon) LocalConfig() *datapath.LocalNodeConfiguration {
-	<-d.nodeDiscovery.LocalStateInitialized
+	d.nodeDiscovery.WaitForLocalNodeInit()
 	return &d.nodeDiscovery.LocalConfig
 }
 
@@ -156,7 +162,7 @@ func endParallelMapMode() {
 	ipcachemap.IPCache.EndParallelMode()
 }
 
-// syncLXCMap adds local host enties to bpf lxcmap, as well as
+// syncEndpointsAndHostIPs adds local host enties to bpf lxcmap, as well as
 // ipcache, if needed, and also notifies the daemon and network policy
 // hosts cache if changes were made.
 func (d *Daemon) syncEndpointsAndHostIPs() error {
@@ -270,10 +276,15 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	}
 
 	if option.Config.EnableVTEP {
-		err := setupIPCacheVTEPMapping()
+		err := setupVTEPMapping()
 		if err != nil {
 			return err
 		}
+		err = setupRouteToVtepCidr()
+		if err != nil {
+			return err
+		}
+
 	}
 
 	return nil
@@ -331,9 +342,19 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
+	if option.Config.EnableSRv6 {
+		srv6map.CreateMaps()
+	}
+
+	if option.Config.EnableVTEP {
+		if _, err := vtep.VtepMAP.OpenOrCreate(); err != nil {
+			return err
+		}
+	}
+
 	pm := probes.NewProbeManager()
 	supportedMapTypes := pm.GetMapTypes()
-	createSockRevNatMaps := option.Config.EnableHostReachableServices &&
+	createSockRevNatMaps := option.Config.EnableSocketLB &&
 		option.Config.EnableHostServicesUDP && supportedMapTypes.HaveLruHashMapType
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
 		createSockRevNatMaps, option.Config.RestoreState); err != nil {
@@ -485,16 +506,13 @@ func setupIPSec() (int, uint8, error) {
 	return authKeySize, spi, nil
 }
 
-func setupIPCacheVTEPMapping() error {
-	encryptKey := uint8(0)                           // no encrypt support
-	vtepID := uint32(identity.ReservedIdentityWorld) //network policy identity for VTEP
-
+func setupVTEPMapping() error {
 	for i, ep := range option.Config.VtepEndpoints {
 		log.WithFields(logrus.Fields{
 			logfields.IPAddr: ep,
-		}).Debug("Updating ipcache map entry for VTEP")
+		}).Debug("Updating vtep map entry for VTEP")
 
-		err := ipcachemap.UpdateIPCacheVTEPMapping(option.Config.VtepCIDRs[i], ep, vtepID, encryptKey)
+		err := vtep.UpdateVTEPMapping(option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
 		if err != nil {
 			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
 		}
@@ -502,6 +520,93 @@ func setupIPCacheVTEPMapping() error {
 	}
 	return nil
 
+}
+
+func setupRouteToVtepCidr() error {
+	routeCidrs := []*cidr.CIDR{}
+
+	filter := &netlink.Route{
+		Table: linux_defaults.RouteTableVtep,
+	}
+
+	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, filter, netlink.RT_FILTER_TABLE)
+	if err != nil {
+		return fmt.Errorf("failed to list routes: %w", err)
+	}
+	for _, rt := range routes {
+		rtCIDR, err := cidr.ParseCIDR(rt.Dst.String())
+		if err != nil {
+			return fmt.Errorf("Invalid VTEP Route CIDR: %w", err)
+		}
+		routeCidrs = append(routeCidrs, rtCIDR)
+	}
+
+	addedVtepRoutes, removedVtepRoutes := cidr.DiffCIDRLists(routeCidrs, option.Config.VtepCIDRs)
+	vtepMTU := mtu.EthernetMTU - mtu.TunnelOverhead
+
+	if option.Config.EnableL7Proxy {
+		for _, prefix := range addedVtepRoutes {
+			ip4 := prefix.IP.To4()
+			if ip4 == nil {
+				return fmt.Errorf("Invalid VTEP CIDR IPv4 address: %v", ip4)
+			}
+			r := route.Route{
+				Device: defaults.HostDevice,
+				Prefix: *prefix.IPNet,
+				Scope:  netlink.SCOPE_LINK,
+				MTU:    vtepMTU,
+				Table:  linux_defaults.RouteTableVtep,
+			}
+			if err := route.Upsert(r); err != nil {
+				return fmt.Errorf("Update VTEP CIDR route error: %w", err)
+			}
+			log.WithFields(logrus.Fields{
+				logfields.IPAddr: r.Prefix.String(),
+			}).Info("VTEP route added")
+
+			rule := route.Rule{
+				Priority: linux_defaults.RulePriorityVtep,
+				To:       prefix.IPNet,
+				Table:    linux_defaults.RouteTableVtep,
+			}
+			if err := route.ReplaceRule(rule); err != nil {
+				return fmt.Errorf("Update VTEP CIDR rule error: %w", err)
+			}
+		}
+	} else {
+		removedVtepRoutes = routeCidrs
+	}
+
+	for _, prefix := range removedVtepRoutes {
+		ip4 := prefix.IP.To4()
+		if ip4 == nil {
+			return fmt.Errorf("Invalid VTEP CIDR IPv4 address: %v", ip4)
+		}
+		r := route.Route{
+			Device: defaults.HostDevice,
+			Prefix: *prefix.IPNet,
+			Scope:  netlink.SCOPE_LINK,
+			MTU:    vtepMTU,
+			Table:  linux_defaults.RouteTableVtep,
+		}
+		if err := route.Delete(r); err != nil {
+			return fmt.Errorf("Delete VTEP CIDR route error: %w", err)
+		}
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: r.Prefix.String(),
+		}).Info("VTEP route removed")
+
+		rule := route.Rule{
+			Priority: linux_defaults.RulePriorityVtep,
+			To:       prefix.IPNet,
+			Table:    linux_defaults.RouteTableVtep,
+		}
+		if err := route.DeleteRule(rule); err != nil {
+			return fmt.Errorf("Delete VTEP CIDR rule error: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // Datapath returns a reference to the datapath implementation.

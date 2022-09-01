@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2017-2021 Authors of Cilium
+# Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 set -o xtrace
@@ -19,9 +19,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-# Do not upgrade to alpine 3.13 as its nslookup tool returns 1, instead of 0
-# for domain name lookups.
-alpine_version=3.12.7
+alpine_version=3.16.0
 
 image="${1:-docker.io/library/alpine:${alpine_version}}"
 

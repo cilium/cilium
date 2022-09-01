@@ -142,6 +142,37 @@ func TestInsertAndRemoveCEPsInCache(t *testing.T) {
 		assert.Equal(t, m.getCESCount(), 0, "Total number of CESs allocated is 0")
 		assert.Equal(t, m.getTotalCEPCount(), 0, "Total number of CEPs inserted is 0")
 	})
+
+	t.Run("Test InsertCEPInCache always adds CEPs to the largest CES", func(*testing.T) {
+		m := newCESManagerFcfs(newQueue(), 10)
+		// Create a CES with a custom CEP list.
+		createCES := func(cesName, ns string, cepList []capi_v2a1.CoreCiliumEndpoint) *cesTracker {
+			newCES := m.createCES(cesName)
+			newCES.ces.Namespace = ns
+			for _, cep := range cepList {
+				m.addCEPtoCES(&cep, newCES)
+			}
+
+			m.updateCESInCache(newCES.ces, true)
+			return newCES
+		}
+
+		ces1 := createCES("ces1", "default", []capi_v2a1.CoreCiliumEndpoint{*cep1})
+		ces2 := createCES("ces2", "default", []capi_v2a1.CoreCiliumEndpoint{*cep2, *cep2b})
+		ces3 := createCES("ces3", "default", []capi_v2a1.CoreCiliumEndpoint{*cep3})
+
+		// All CEPs should be added to the same CES (ces2).
+		m.InsertCEPInCache(cep4, "default")
+		assert.Equal(t, 3, len(ces2.ces.Endpoints), "The largest CES has 3 CEPs")
+		m.InsertCEPInCache(cep5, "default")
+		assert.Equal(t, 4, len(ces2.ces.Endpoints), "The largest CES has 4 CEPs")
+		m.InsertCEPInCache(cep1a, "default")
+		assert.Equal(t, 5, len(ces2.ces.Endpoints), "The largest CES has 5 CEPs")
+
+		// The rest of CESs should have the same number of CEPs.
+		assert.Equal(t, 1, len(ces1.ces.Endpoints), "A smaller CES still has only 1 CEP")
+		assert.Equal(t, 1, len(ces3.ces.Endpoints), "A smaller CES still has only 1 CEP")
+	})
 }
 
 func TestDeepCopyCEPs(t *testing.T) {

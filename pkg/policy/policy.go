@@ -4,7 +4,6 @@
 package policy
 
 import (
-	"fmt"
 	"io"
 	stdlog "log"
 	"strconv"
@@ -69,28 +68,33 @@ type SearchContext struct {
 }
 
 func (s *SearchContext) String() string {
-	from := []string{}
-	to := []string{}
-	dports := []string{}
+	from := make([]string, 0, len(s.From))
+	to := make([]string, 0, len(s.To))
+	dports := make([]string, 0, len(s.DPorts))
 	for _, fromLabel := range s.From {
 		from = append(from, fromLabel.String())
 	}
 	for _, toLabel := range s.To {
 		to = append(to, toLabel.String())
 	}
+	// We should avoid to use `fmt.Sprintf()` since
+	// it is well-known for not being opimal in terms of
+	// CPU and memory allocations.
+	// See https://github.com/cilium/cilium/issues/19571
 	for _, dport := range s.DPorts {
-		if dport.Name != "" {
-			dports = append(dports, fmt.Sprintf("%s/%s", dport.Name, dport.Protocol))
-		} else {
-			dports = append(dports, fmt.Sprintf("%d/%s", dport.Port, dport.Protocol))
+		dportStr := dport.Name
+		if dportStr == "" {
+			dportStr = strconv.FormatUint(uint64(dport.Port), 10)
 		}
+		dports = append(dports, dportStr+"/"+dport.Protocol)
 	}
-	ret := fmt.Sprintf("From: [%s]", strings.Join(from, ", "))
-	ret += fmt.Sprintf(" => To: [%s]", strings.Join(to, ", "))
+	fromStr := strings.Join(from, ", ")
+	toStr := strings.Join(to, ", ")
 	if len(dports) != 0 {
-		ret += fmt.Sprintf(" Ports: [%s]", strings.Join(dports, ", "))
+		dportStr := strings.Join(dports, ", ")
+		return "From: [" + fromStr + "] => To: [" + toStr + "] Ports: [" + dportStr + "]"
 	}
-	return ret
+	return "From: [" + fromStr + "] => To: [" + toStr + "]"
 }
 
 func (s *SearchContext) CallDepth() string {

@@ -2,7 +2,6 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/tklauser/go-sysconf.svg)](https://pkg.go.dev/github.com/tklauser/go-sysconf)
 [![GitHub Action Status](https://github.com/tklauser/go-sysconf/workflows/Tests/badge.svg)](https://github.com/tklauser/go-sysconf/actions?query=workflow%3ATests)
-[![Go Report Card](https://goreportcard.com/badge/github.com/tklauser/go-sysconf)](https://goreportcard.com/report/github.com/tklauser/go-sysconf)
 
 `sysconf` for Go, without using cgo or external binaries (e.g. getconf).
 

@@ -7,7 +7,6 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -123,6 +122,9 @@ type BackendValue interface {
 	// Get backend port
 	GetPort() uint16
 
+	// Get backend flags
+	GetFlags() uint8
+
 	// Convert fields to network byte order.
 	ToNetwork() BackendValue
 
@@ -168,12 +170,6 @@ type RevNatValue interface {
 	ToHost() RevNatValue
 }
 
-// BackendIDByServiceIDSet is the type of a set for checking whether a backend
-// belongs to a given service
-type BackendIDByServiceIDSet map[uint16]map[loadbalancer.BackendID]struct{} // svc ID => backend ID
-
-type SourceRangeSetByServiceID map[uint16][]*cidr.CIDR // svc ID => src range CIDRs
-
 func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4AddrID {
 	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, svcKey.GetAddress(), svcKey.GetPort(), svcKey.GetScope())
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
@@ -187,6 +183,7 @@ func svcBackend(backendID loadbalancer.BackendID, backend BackendValue) *loadbal
 	beIP := backend.GetAddress()
 	bePort := backend.GetPort()
 	beProto := loadbalancer.NONE
-	beBackend := loadbalancer.NewBackend(backendID, beProto, beIP, bePort)
+	beState := loadbalancer.GetBackendStateFromFlags(backend.GetFlags())
+	beBackend := loadbalancer.NewBackendWithState(backendID, beProto, beIP, bePort, beState, true)
 	return beBackend
 }

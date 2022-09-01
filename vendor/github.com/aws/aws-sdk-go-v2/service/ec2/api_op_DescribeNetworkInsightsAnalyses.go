@@ -43,13 +43,13 @@ type DescribeNetworkInsightsAnalysesInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The filters. The following are possible values:
+	// The filters. The following are the possible values:
 	//
-	// * PathFound - A Boolean value
-	// that indicates whether a feasible path is found.
+	// * PathFound - A Boolean
+	// value that indicates whether a feasible path is found.
 	//
-	// * Status - The status of the
-	// analysis (running | succeeded | failed).
+	// * Status - The status of
+	// the analysis (running | succeeded | failed).
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the

@@ -13,10 +13,10 @@ cilium-operator-azure metrics list [flags]
 ```
   -h, --help                   help for list
   -p, --match-pattern string   Show only metrics whose names match matchpattern
-  -o, --output string          json| jsonpath='{}'
+  -o, --output string          json| yaml| jsonpath='{}'
 ```
 
 ### SEE ALSO
 
-* [cilium-operator-azure metrics](cilium-operator-azure_metrics.html)	 - Access metric status of the operator
+* [cilium-operator-azure metrics](cilium-operator-azure_metrics.md)	 - Access metric status of the operator
 

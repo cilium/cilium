@@ -25,14 +25,13 @@ import (
 	"k8s.io/client-go/util/connrotation"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/controller"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_apiextclientsetscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/scheme"
 	watcher_apiextclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-clientset"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slim_metav1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1"
-	watcher_client "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
@@ -40,12 +39,10 @@ import (
 
 var (
 	// k8sCLI is the default client.
-	k8sCLI = &K8sClient{
-		ctrlMgr: controller.NewManager(),
-	}
+	k8sCLI = &K8sClient{}
 
 	// k8sWatcherCLI is the client dedicated k8s structure watchers.
-	k8sWatcherCLI = &K8sClient{}
+	k8sWatcherCLI = &K8sSlimClient{}
 
 	// k8sCiliumCLI is the default Cilium client.
 	k8sCiliumCLI = &K8sCiliumClient{}
@@ -57,13 +54,21 @@ var (
 	k8sAPIExtWatcherCLI = &K8sAPIExtensionsClient{}
 )
 
+func SetClients(normal kubernetes.Interface, slim slimclientset.Interface, cilium clientset.Interface, apiext apiextclientset.Interface) {
+	k8sCLI.Interface = normal
+	k8sWatcherCLI.Interface = slim
+	k8sCiliumCLI.Interface = cilium
+	k8sAPIExtCLI = &K8sAPIExtensionsClient{apiext}
+	k8sAPIExtWatcherCLI = &K8sAPIExtensionsClient{apiext}
+}
+
 // Client returns the default Kubernetes client.
 func Client() *K8sClient {
 	return k8sCLI
 }
 
 // WatcherClient returns the client dedicated to K8s watchers.
-func WatcherClient() *K8sClient {
+func WatcherClient() *K8sSlimClient {
 	return k8sWatcherCLI
 }
 
@@ -136,7 +141,7 @@ func createDefaultClient(c *rest.Config, httpClient *http.Client) (rest.Interfac
 
 	k8sCLI.Interface = createdK8sClient
 
-	createK8sWatcherCli, err := watcher_client.NewForConfigAndClient(&restConfig, httpClient)
+	createK8sWatcherCli, err := slimclientset.NewForConfigAndClient(&restConfig, httpClient)
 	if err != nil {
 		return nil, err
 	}

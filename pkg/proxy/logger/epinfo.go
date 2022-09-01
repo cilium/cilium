@@ -19,7 +19,6 @@ type EndpointInfoSource interface {
 	GetIPv6Address() string
 	GetIdentityLocked() identity.NumericIdentity
 	GetLabels() []string
-	GetLabelsSHA() string
 	HasSidecarProxy() bool
 	// ConntrackName assumes that the caller has *not* acquired any mutexes
 	// that may be associated with this EndpointInfoSource. It is (unfortunately)
@@ -60,6 +59,5 @@ type EndpointInfoRegistry interface {
 	//  - info.IPv6           (if 'ip' is not IPv4)
 	//  - info.Identity       (defaults to WORLD if not known)
 	//  - info.Labels         (only if identity is found)
-	//  - info.LabelsSHA256   (only if identity is found)
 	FillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, id identity.NumericIdentity)
 }

@@ -14,6 +14,8 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -90,6 +92,7 @@ var (
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	cachedRemoteNodeIdentitySetting = option.Config.EnableRemoteNodeIdentity
 	option.Config.EnableRemoteNodeIdentity = true
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {
@@ -1552,10 +1555,9 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 }
 
 // Case 12: allow all at L3 in one rule with restrictions at L7. Determine that
-//          the host should always be allowed. From Host should go to proxy
-//          allow all; other L3 should restrict at L7 in a separate filter.
+// the host should always be allowed. From Host should go to proxy allow all;
+// other L3 should restrict at L7 in a separate filter.
 func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
-
 	// This test checks that when the AllowLocalhost=always option is
 	// enabled, we always wildcard the host at L7. That means we need to
 	// set the option in the config, and of course clean up afterwards so

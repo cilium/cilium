@@ -105,13 +105,13 @@ Return the appropriate apiVersion for podDisruptionBudget.
 {{/*
 Generate TLS CA for Cilium
 Note: Always use this template as follows:
-    {{- $_ := include "cilum.ca.setup" . -}}
+    {{- $_ := include "cilium.ca.setup" . -}}
 
 The assignment to `$_` is required because we store the generated CI in a global `commonCA`
 and `commonCASecretName` variables.
 
 */}}
-{{- define "cilum.ca.setup" }}
+{{- define "cilium.ca.setup" }}
   {{- if not .commonCA -}}
     {{- $ca := "" -}}
     {{- $secretName := "cilium-ca" -}}
@@ -132,3 +132,25 @@ and `commonCASecretName` variables.
     {{- $_ := set (set . "commonCA" $ca) "commonCASecretName" $secretName -}}
   {{- end -}}
 {{- end -}}
+
+{{/*
+Check if duration is non zero value, return duration, empty when zero.
+*/}}
+{{- define "hasDuration" }}
+{{- $now := now }}
+{{- if ne $now ($now | dateModify (toString .)) }}
+{{- . }}
+{{- end }}
+{{- end }}
+
+{{/*
+Validate duration field, return validated duration, 0s when provided duration is empty.
+*/}}
+{{- define "validateDuration" }}
+{{- if . }}
+{{- $_ := now | mustDateModify (toString .) }}
+{{- . }}
+{{- else -}}
+0s
+{{- end }}
+{{- end }}

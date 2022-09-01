@@ -28,9 +28,7 @@ func (p *PasserParserFactory) Create(connection *Connection) interface{} {
 	return &PasserParser{}
 }
 
-//
 // This simply passes all data in either direction.
-//
 func (p *PasserParser) OnData(reply, endStream bool, data [][]byte) (OpType, int) {
 	n_bytes := 0
 	for _, s := range data {

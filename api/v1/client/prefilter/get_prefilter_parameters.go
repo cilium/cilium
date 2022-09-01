@@ -58,7 +58,8 @@ func NewGetPrefilterParamsWithHTTPClient(client *http.Client) *GetPrefilterParam
 	}
 }
 
-/*GetPrefilterParams contains all the parameters to send to the API endpoint
+/*
+GetPrefilterParams contains all the parameters to send to the API endpoint
 for the get prefilter operation typically these are written to a http.Request
 */
 type GetPrefilterParams struct {

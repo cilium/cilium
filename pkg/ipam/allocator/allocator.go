@@ -12,8 +12,8 @@ import (
 // Allocator provides an IP allocator based on a list of Pools
 //
 // Implementations:
-//  - PoolGroupAllocator
-//  - NoOpAllocator
+//   - PoolGroupAllocator
+//   - NoOpAllocator
 type Allocator interface {
 	GetPoolQuota() types.PoolQuotaMap
 	FirstPoolWithAvailableQuota(preferredPoolIDs []types.PoolID) (types.PoolID, int)

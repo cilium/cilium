@@ -263,7 +263,7 @@ func filterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
 }
 
 func sortAndFilterLabels(log logrus.FieldLogger, labels []string, securityIdentity uint32) []string {
-	if securityIdentity&uint32(identity.LocalIdentityFlag) != 0 {
+	if identity.NumericIdentity(securityIdentity).HasLocalScope() {
 		labels = filterCIDRLabels(log, labels)
 	}
 	sort.Strings(labels)
@@ -337,7 +337,7 @@ func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb
 			p.log.WithError(err).WithField("identity", numericIdentity).
 				Debug("failed to resolve identity")
 		} else {
-			labels = sortAndFilterLabels(p.log, id.Labels, numericIdentity)
+			labels = sortAndFilterLabels(p.log, id.Labels.GetModel(), numericIdentity)
 		}
 	}
 
@@ -664,9 +664,12 @@ func (p *Parser) decodeNetworkInterface(tn *monitor.TraceNotify, dbg *monitor.De
 		return nil
 	}
 
-	// if the interface is not found, `name` will be an empty string and thus
-	// omitted in the protobuf message
-	name, _ := p.linkGetter.GetIfNameCached(int(ifIndex))
+	var name string
+	if p.linkGetter != nil {
+		// if the interface is not found, `name` will be an empty string and thus
+		// omitted in the protobuf message
+		name, _ = p.linkGetter.GetIfNameCached(int(ifIndex))
+	}
 	return &pb.NetworkInterface{
 		Index: ifIndex,
 		Name:  name,

@@ -20,7 +20,7 @@ Manage compiled BPF template objects
 
 ### SEE ALSO
 
-* [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
-* [cilium bpf sha get](../cilium_bpf_sha_get)	 - Get datapath SHA header
-* [cilium bpf sha list](../cilium_bpf_sha_list)	 - List BPF template objects.
+* [cilium bpf](cilium_bpf.md)	 - Direct access to local BPF maps
+* [cilium bpf sha get](cilium_bpf_sha_get.md)	 - Get datapath SHA header
+* [cilium bpf sha list](cilium_bpf_sha_list.md)	 - List BPF template objects.
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-openapi/strfmt"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	k8scache "k8s.io/client-go/tools/cache"
 
@@ -36,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/identity"
-	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -92,22 +92,35 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 
-	var observerOpts []observeroption.Option
+	var (
+		observerOpts []observeroption.Option
+		localSrvOpts []serveroption.Option
+	)
+
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
 			"metrics": option.Config.HubbleMetrics,
 		}).Info("Starting Hubble Metrics server")
-		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics); err != nil {
+		grpcMetrics := grpc_prometheus.NewServerMetrics()
+
+		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics, grpcMetrics); err != nil {
 			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
 			return
 		}
 
-		opt := observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
-			metrics.ProcessFlow(ctx, flow)
-			return false, nil
-		})
-		observerOpts = append(observerOpts, opt)
+		observerOpts = append(observerOpts,
+			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+				metrics.ProcessFlow(ctx, flow)
+				return false, nil
+			}),
+		)
+
+		localSrvOpts = append(localSrvOpts,
+			serveroption.WithGRPCMetrics(grpcMetrics),
+			serveroption.WithGRPCStreamInterceptor(grpcMetrics.StreamServerInterceptor()),
+			serveroption.WithGRPCUnaryInterceptor(grpcMetrics.UnaryServerInterceptor()),
+		)
 	}
 
 	d.linkCache = link.NewLinkCache()
@@ -161,14 +174,14 @@ func (d *Daemon) launchHubble() {
 	if option.Config.HubbleTLSDisabled {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
 	}
-
-	localSrvOpts := []serveroption.Option{
+	peerSvc := peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)
+	localSrvOpts = append(localSrvOpts,
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
-		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)),
+		serveroption.WithPeerService(peerSvc),
 		serveroption.WithInsecure(),
-	}
+	)
 
 	if option.Config.EnableRecorder && option.Config.EnableHubbleRecorderAPI {
 		dispatch, err := sink.NewDispatch(option.Config.HubbleRecorderSinkQueueSize)
@@ -192,13 +205,15 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 	logger.WithField("address", sockPath).Info("Starting local Hubble server")
-	if err := localSrv.Serve(); err != nil {
-		logger.WithError(err).Error("Failed to start local Hubble server")
-		return
-	}
+	go func() {
+		if err := localSrv.Serve(); err != nil {
+			logger.WithError(err).WithField("address", sockPath).Error("Error while serving from local Hubble server")
+		}
+	}()
 	go func() {
 		<-d.ctx.Done()
 		localSrv.Stop()
+		peerSvc.Close()
 	}()
 
 	// configure another hubble instance that serve fewer gRPC services
@@ -210,6 +225,7 @@ func (d *Daemon) launchHubble() {
 		options := []serveroption.Option{
 			serveroption.WithTCPListener(address),
 			serveroption.WithHealthService(),
+			serveroption.WithPeerService(peerSvc),
 			serveroption.WithObserverService(d.hubbleObserver),
 		}
 
@@ -251,13 +267,14 @@ func (d *Daemon) launchHubble() {
 		}
 
 		logger.WithField("address", address).Info("Starting Hubble server")
-		if err := srv.Serve(); err != nil {
-			logger.WithError(err).Error("Failed to start Hubble server")
-			if tlsServerConfig != nil {
-				tlsServerConfig.Stop()
+		go func() {
+			if err := srv.Serve(); err != nil {
+				logger.WithError(err).WithField("address", address).Error("Error while serving from Hubble server")
+				if tlsServerConfig != nil {
+					tlsServerConfig.Stop()
+				}
 			}
-			return
-		}
+		}()
 
 		go func() {
 			<-d.ctx.Done()
@@ -272,19 +289,19 @@ func (d *Daemon) launchHubble() {
 // GetIdentity looks up identity by ID from Cilium's identity cache. Hubble uses the identity info
 // to populate source and destination labels of flows.
 //
-//  - IdentityGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L40
-func (d *Daemon) GetIdentity(securityIdentity uint32) (*models.Identity, error) {
+//   - IdentityGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L40
+func (d *Daemon) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
 	ident := d.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
 	if ident == nil {
 		return nil, fmt.Errorf("identity %d not found", securityIdentity)
 	}
-	return identitymodel.CreateModel(ident), nil
+	return ident, nil
 }
 
 // GetEndpointInfo returns endpoint info for a given IP address. Hubble uses this function to populate
 // fields like namespace and pod name for local endpoints.
 //
-//  - EndpointGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L34
+//   - EndpointGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L34
 func (d *Daemon) GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
 	ep := d.endpointManager.LookupIP(ip)
 	if ep == nil {
@@ -309,7 +326,7 @@ func (d *Daemon) GetEndpoints() map[policy.Endpoint]struct{} {
 // GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given IP from the
 // FQDN cache of an endpoint specified by sourceEpID.
 //
-//  - DNSGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L27
+//   - DNSGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L27
 func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 	ep := d.endpointManager.LookupCiliumID(uint16(sourceEpID))
 	if ep == nil {
@@ -327,7 +344,7 @@ func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 // GetServiceByAddr looks up service by IP/port. Hubble uses this function to annotate flows
 // with service information.
 //
-//  - ServiceGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L52
+//   - ServiceGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L52
 func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) *flowpb.Service {
 	addr := loadbalancer.L3n4Addr{
 		IP: ip,

@@ -46,6 +46,11 @@ end
 
 $cleanup = <<SCRIPT
 i=1
+while [ "$i" -le "$((num_workers+1))" ]; do
+    VBoxManage natnetwork add --netname natnet$i --network 192.168.0.0/16 --ipv6 on --enable
+    i=$((i+1))
+done 2>/dev/null
+
 res=0
 while [ "$res" == "0" ]; do
     VBoxManage natnetwork remove --netname natnet$i
@@ -103,6 +108,11 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+# Add an exception for the cilium repo for the root user to fix the
+# "fatal: unsafe repository ('/home/vagrant/go/src/github.com/cilium/cilium' is owned by someone else)"
+# error condition when running `sudo make install`
+git config --global --add safe.directory /home/vagrant/go/src/github.com/cilium/cilium
+
 sudo -E make -C /home/vagrant/go/src/github.com/cilium/cilium/ install
 
 sudo mkdir -p /etc/sysconfig
@@ -115,10 +125,6 @@ sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium /et
 
 getent group cilium >/dev/null || sudo groupadd -r cilium
 sudo usermod -a -G cilium vagrant
-SCRIPT
-
-$testsuite = <<SCRIPT
-sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/cilium/cilium/ runtime-tests
 SCRIPT
 
 $node_ip_base = ENV['IPV4_BASE_ADDR'] || ""
@@ -217,7 +223,6 @@ Vagrant.configure(2) do |config|
         cm.vm.network "private_network",
             ip: "192.168.59.15"
         cm.vm.provider "virtualbox" do |vb|
-            vb.customize ["natnetwork", "add", "--netname", "natnet1", "--network", "fd08::/64", "--ipv6", "on", "--enable"]
             vb.customize ["modifyvm", :id, "--nic4", "natnetwork"]
             vb.customize ["modifyvm", :id, "--nat-network4", "natnet1"]
         end
@@ -252,9 +257,6 @@ Vagrant.configure(2) do |config|
                    path: k8sinstall
            end
         end
-        if ENV['RUN_TEST_SUITE'] then
-           cm.vm.provision "testsuite", run: "always", type: "shell", privileged: false, inline: $testsuite
-        end
     end
 
     $num_workers.times do |n|
@@ -280,7 +282,6 @@ Vagrant.configure(2) do |config|
             node.vm.network "private_network",
                 ip: "192.168.59.15"
             node.vm.provider "virtualbox" do |vb|
-                vb.customize ["natnetwork", "add", "--netname", "natnet#{n+2}", "--network", "fd08::/64", "--ipv6", "on", "--enable"]
                 vb.customize ["modifyvm", :id, "--nic4", "natnetwork"]
                 vb.customize ["modifyvm", :id, "--nat-network4", "natnet#{n+2}"]
             end
@@ -329,9 +330,7 @@ Vagrant.configure(2) do |config|
     config.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false
     # Don't forget to enable this ports on your host before starting the VM
     # in order to have nfs working
-    # iptables -I INPUT -p tcp -s 192.168.61.0/24 --dport 111 -j ACCEPT
-    # iptables -I INPUT -p tcp -s 192.168.61.0/24 --dport 2049 -j ACCEPT
-    # iptables -I INPUT -p tcp -s 192.168.61.0/24 --dport 20048 -j ACCEPT
+    # iptables -I INPUT -s 192.168.61.0/24 -j ACCEPT"
     # if using nftables, in Fedora (with firewalld), use:
     # nft -f ./contrib/vagrant/nftables.rules
 

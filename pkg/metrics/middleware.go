@@ -18,7 +18,7 @@ import (
 // It records the timestamp of an API call in the provided gauge.
 type APIEventTSHelper struct {
 	Next      http.Handler
-	TSGauge   prometheus.Gauge
+	TSGauge   GaugeVec
 	Histogram prometheus.ObserverVec
 }
 
@@ -34,9 +34,10 @@ func (rw *responderWrapper) WriteHeader(code int) {
 
 // getShortPath returns the API path trimmed after the 3rd slash.
 // examples:
-//  "/v1/config" -> "/v1/config"
-//  "/v1/endpoint/cilium-local:0" -> "/v1/endpoint"
-//  "/v1/endpoint/container-id:597.." -> "/v1/endpoint"
+//
+//	"/v1/config" -> "/v1/config"
+//	"/v1/endpoint/cilium-local:0" -> "/v1/endpoint"
+//	"/v1/endpoint/container-id:597.." -> "/v1/endpoint"
 func getShortPath(s string) string {
 	var idxSum int
 	for nThSlash := 0; nThSlash < 3; nThSlash++ {
@@ -52,12 +53,16 @@ func getShortPath(s string) string {
 // ServeHTTP implements the http.Handler interface. It records the timestamp
 // this API call began at, then chains to the next handler.
 func (m *APIEventTSHelper) ServeHTTP(r http.ResponseWriter, req *http.Request) {
-	m.TSGauge.SetToCurrentTime()
+	reqOk := req != nil && req.URL != nil && req.URL.Path != ""
+	var path string
+	if reqOk {
+		path = getShortPath(req.URL.Path)
+		m.TSGauge.WithLabelValues(LabelEventSourceAPI, path, req.Method).SetToCurrentTime()
+	}
 	duration := spanstat.Start()
 	rw := &responderWrapper{ResponseWriter: r}
 	m.Next.ServeHTTP(rw, req)
-	if req != nil && req.URL != nil && req.URL.Path != "" {
-		path := getShortPath(req.URL.Path)
+	if reqOk {
 		took := float64(duration.End(true).Total().Seconds())
 		m.Histogram.WithLabelValues(path, req.Method, strconv.Itoa(rw.code)).Observe(took)
 	}

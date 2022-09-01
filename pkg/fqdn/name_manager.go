@@ -28,7 +28,7 @@ import (
 // required via UpdateSelectors.
 // DNS information is cached, respecting TTL.
 type NameManager struct {
-	lock.Mutex
+	lock.RWMutex
 
 	// config is a copy from when this instance was initialized.
 	// It is read-only once set
@@ -46,8 +46,8 @@ type NameManager struct {
 
 // GetModel returns the API model of the NameManager.
 func (n *NameManager) GetModel() *models.NameManager {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	n.RWMutex.RLock()
+	defer n.RWMutex.RUnlock()
 
 	allSelectors := make([]*models.SelectorEntry, 0, len(n.allSelectors))
 	for fqdnSel, regex := range n.allSelectors {
@@ -66,13 +66,13 @@ func (n *NameManager) GetModel() *models.NameManager {
 // Lock must be held during any calls to RegisterForIdentityUpdatesLocked or
 // UnregisterForIdentityUpdatesLocked.
 func (n *NameManager) Lock() {
-	n.Mutex.Lock()
+	n.RWMutex.Lock()
 }
 
 // Unlock must be called after calls to RegisterForIdentityUpdatesLocked or
 // UnregisterForIdentityUpdatesLocked are done.
 func (n *NameManager) Unlock() {
-	n.Mutex.Unlock()
+	n.RWMutex.Unlock()
 }
 
 // RegisterForIdentityUpdatesLocked exposes this FQDNSelector so that identities
@@ -116,8 +116,8 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, map[string]*identity.Identity, error) {
-			return &sync.WaitGroup{}, nil, nil
+		config.UpdateSelectors = func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[string]*identity.Identity, error) {
+			return &sync.WaitGroup{}, nil, nil, nil
 		}
 	}
 
@@ -136,9 +136,9 @@ func (n *NameManager) GetDNSCache() *DNSCache {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
+	n.RWMutex.Lock()
+	defer n.RWMutex.Unlock()
 
 	// Update IPs in n
 	fqdnSelectorsToUpdate, updatedDNSNames := n.updateDNSIPs(lookupTime, updatedDNSIPs)
@@ -150,7 +150,7 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 		}).Debug("Updated FQDN with new IPs")
 	}
 
-	namesMissingIPs, selectorIPMapping := n.generateSelectorUpdates(fqdnSelectorsToUpdate)
+	namesMissingIPs, selectorIPMapping := n.MapSelectorsToIPsLocked(fqdnSelectorsToUpdate)
 	if len(namesMissingIPs) != 0 {
 		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
@@ -165,8 +165,8 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 // Note: This is used only when DNS entries are cleaned up, not when new results
 // are ingested.
 func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, err error) {
-	n.Mutex.Lock()
-	defer n.Mutex.Unlock()
+	n.RWMutex.Lock()
+	defer n.RWMutex.Unlock()
 
 	affectedFQDNSels := make(map[api.FQDNSelector]struct{}, 0)
 	for _, dnsName := range namesToRegen {
@@ -184,8 +184,8 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 	}
 
 	// Emit the new rules.
-	// Ignore newly allocated IDs (2nd result) as this is only used for deletes.
-	wg, _, err = n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	// Ignore newly allocated IDs (3rd result) as this is only used for deletes.
+	wg, _, _, err = n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
 	return wg, err
 }
 
@@ -204,7 +204,6 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
 	affectedSelectors = make(map[api.FQDNSelector]struct{}, len(updatedDNSIPs))
 
-perDNSName:
 	for dnsName, lookupIPs := range updatedDNSIPs {
 		updated := n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
 
@@ -214,7 +213,7 @@ perDNSName:
 				"dnsName":   dnsName,
 				"lookupIPs": lookupIPs,
 			}).Debug("FQDN: IPs didn't change for DNS name")
-			continue perDNSName
+			continue
 		}
 
 		// record the IPs that were different
@@ -236,14 +235,6 @@ perDNSName:
 	}
 
 	return affectedSelectors, updatedNames
-}
-
-// generateSelectorUpdates iterates over all names in the DNS cache managed by
-// gen and figures out to which FQDNSelectors managed by the cache these names
-// map. Returns the set of FQDNSelectors which map to no IPs, and a mapping
-// of FQDNSelectors to IPs.
-func (n *NameManager) generateSelectorUpdates(fqdnSelectors map[api.FQDNSelector]struct{}) (namesMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
-	return n.MapSelectorsToIPsLocked(fqdnSelectors)
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of

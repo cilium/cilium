@@ -11,13 +11,16 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a new version for a launch template. You can specify an existing version
+// Creates a new version of a launch template. You can specify an existing version
 // of launch template from which to base the new version. Launch template versions
 // are numbered in the order in which they are created. You cannot specify, change,
-// or replace the numbering of launch template versions. For more information, see
-// Managing launch template versions
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#manage-launch-template-versions)in
-// the Amazon Elastic Compute Cloud User Guide.
+// or replace the numbering of launch template versions. Launch templates are
+// immutable; after you create a launch template, you can't modify it. Instead, you
+// can create a new version of the launch template that includes any changes you
+// require. For more information, see Modify a launch template (manage launch
+// template versions)
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#manage-launch-template-versions)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateLaunchTemplateVersion(ctx context.Context, params *CreateLaunchTemplateVersionInput, optFns ...func(*Options)) (*CreateLaunchTemplateVersionOutput, error) {
 	if params == nil {
 		params = &CreateLaunchTemplateVersionInput{}
@@ -41,7 +44,7 @@ type CreateLaunchTemplateVersionInput struct {
 	LaunchTemplateData *types.RequestLaunchTemplateData
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of the
-	// request. For more information, see Ensuring Idempotency
+	// request. For more information, see Ensuring idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	// Constraint: Maximum 128 ASCII characters.
 	ClientToken *string
@@ -52,12 +55,12 @@ type CreateLaunchTemplateVersionInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
-	// The ID of the launch template. You must specify either the launch template ID or
-	// launch template name in the request.
+	// The ID of the launch template. You must specify either the LaunchTemplateId or
+	// the LaunchTemplateName, but not both.
 	LaunchTemplateId *string
 
-	// The name of the launch template. You must specify either the launch template ID
-	// or launch template name in the request.
+	// The name of the launch template. You must specify the LaunchTemplateName or the
+	// LaunchTemplateId, but not both.
 	LaunchTemplateName *string
 
 	// The version number of the launch template version on which to base the new

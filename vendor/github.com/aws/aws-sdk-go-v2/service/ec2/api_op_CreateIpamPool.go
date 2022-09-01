@@ -17,7 +17,9 @@ import (
 // organize your IP addresses according to your routing and security needs. For
 // example, if you have separate routing and security needs for development and
 // production applications, you can create a pool for each. For more information,
-// see Create a top-level pool in the Amazon VPC IPAM User Guide.
+// see Create a top-level pool
+// (https://docs.aws.amazon.com/vpc/latest/ipam/create-top-ipam.html) in the Amazon
+// VPC IPAM User Guide.
 func (c *Client) CreateIpamPool(ctx context.Context, params *CreateIpamPoolInput, optFns ...func(*Options)) (*CreateIpamPoolOutput, error) {
 	if params == nil {
 		params = &CreateIpamPoolInput{}
@@ -35,14 +37,16 @@ func (c *Client) CreateIpamPool(ctx context.Context, params *CreateIpamPoolInput
 
 type CreateIpamPoolInput struct {
 
+	// The IP protocol assigned to this IPAM pool. You must choose either IPv4 or IPv6
+	// protocol for a pool.
+	//
+	// This member is required.
+	AddressFamily types.AddressFamily
+
 	// The ID of the scope in which you would like to create the IPAM pool.
 	//
 	// This member is required.
 	IpamScopeId *string
-
-	// The IP protocol assigned to this IPAM pool. You must choose either IPv4 or IPv6
-	// protocol for a pool.
-	AddressFamily types.AddressFamily
 
 	// The default netmask length for allocations added to this pool. If, for example,
 	// the CIDR assigned to this pool is 10.0.0.0/8 and you enter 16 here, new

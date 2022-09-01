@@ -54,11 +54,6 @@ func (f *MockIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) 
 	return nil
 }
 
-// IsLocalIdentityAllocatorInitialized returns true.
-func (f *MockIdentityAllocator) IsLocalIdentityAllocatorInitialized() bool {
-	return true
-}
-
 // GetIdentities returns the identities from the identity cache.
 func (f *MockIdentityAllocator) GetIdentities() cache.IdentitiesModel {
 	result := cache.IdentitiesModel{}
@@ -67,7 +62,7 @@ func (f *MockIdentityAllocator) GetIdentities() cache.IdentitiesModel {
 
 // AllocateIdentity allocates a fake identity. It is meant to generally mock
 // the canonical identity allocator logic.
-func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.Labels, _ bool) (*identity.Identity, bool, error) {
+func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.Labels, _ bool, _ identity.NumericIdentity) (*identity.Identity, bool, error) {
 	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity, false, nil
 	}

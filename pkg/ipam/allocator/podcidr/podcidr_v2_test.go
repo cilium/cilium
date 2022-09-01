@@ -95,7 +95,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 					},
 					Status: v2.NodeStatus{
 						IPAM: ipamTypes.IPAMStatus{
-							UsedPodCIDRs: ipamTypes.UsedPodCIDRMap{
+							PodCIDRs: ipamTypes.PodCIDRMap{
 								"10.10.1.0/24": {Status: ipamTypes.PodCIDRStatusReleased},
 								"10.10.2.0/24": {Status: ipamTypes.PodCIDRStatusDepleted},
 							},
@@ -115,7 +115,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 				},
 				Status: v2.NodeStatus{
 					IPAM: ipamTypes.IPAMStatus{
-						UsedPodCIDRs: ipamTypes.UsedPodCIDRMap{
+						PodCIDRs: ipamTypes.PodCIDRMap{
 							"10.10.1.0/24": {Status: ipamTypes.PodCIDRStatusReleased},
 							"10.10.2.0/24": {Status: ipamTypes.PodCIDRStatusDepleted},
 						},
@@ -179,7 +179,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 					},
 					Status: v2.NodeStatus{
 						IPAM: ipamTypes.IPAMStatus{
-							UsedPodCIDRs: ipamTypes.UsedPodCIDRMap{
+							PodCIDRs: ipamTypes.PodCIDRMap{
 								"fd00::/80": {Status: ipamTypes.PodCIDRStatusInUse},
 								"fd01::/80": {Status: ipamTypes.PodCIDRStatusDepleted},
 							},
@@ -199,7 +199,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 				},
 				Status: v2.NodeStatus{
 					IPAM: ipamTypes.IPAMStatus{
-						UsedPodCIDRs: ipamTypes.UsedPodCIDRMap{
+						PodCIDRs: ipamTypes.PodCIDRMap{
 							"fd00::/80": {Status: ipamTypes.PodCIDRStatusInUse},
 							"fd01::/80": {Status: ipamTypes.PodCIDRStatusDepleted},
 						},
@@ -251,7 +251,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 						},
 						Status: v2.NodeStatus{
 							IPAM: ipamTypes.IPAMStatus{
-								UsedPodCIDRs: ipamTypes.UsedPodCIDRMap{
+								PodCIDRs: ipamTypes.PodCIDRMap{
 									"10.10.1.0/24": {Status: ipamTypes.PodCIDRStatusDepleted},
 									"10.10.2.0/24": {Status: ipamTypes.PodCIDRStatusReleased},
 								},
@@ -270,7 +270,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 					},
 					Status: v2.NodeStatus{
 						IPAM: ipamTypes.IPAMStatus{
-							UsedPodCIDRs: ipamTypes.UsedPodCIDRMap{
+							PodCIDRs: ipamTypes.PodCIDRMap{
 								"10.10.1.0/24": {Status: ipamTypes.PodCIDRStatusDepleted},
 								"10.10.2.0/24": {Status: ipamTypes.PodCIDRStatusReleased},
 							},
@@ -287,7 +287,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 				},
 				Status: v2.NodeStatus{
 					IPAM: ipamTypes.IPAMStatus{
-						UsedPodCIDRs: ipamTypes.UsedPodCIDRMap{
+						PodCIDRs: ipamTypes.PodCIDRMap{
 							"10.10.1.0/24": {Status: ipamTypes.PodCIDRStatusDepleted},
 							"10.10.2.0/24": {Status: ipamTypes.PodCIDRStatusReleased},
 						},
@@ -352,11 +352,11 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 					ObjectMeta: metav1.ObjectMeta{Name: "node-1"},
 					Status: v2.NodeStatus{
 						IPAM: ipamTypes.IPAMStatus{
-							UsedPodCIDRs: ipamTypes.UsedPodCIDRMap{
-								"fd00::/80": ipamTypes.UsedPodCIDR{
+							PodCIDRs: ipamTypes.PodCIDRMap{
+								"fd00::/80": ipamTypes.PodCIDRMapEntry{
 									Status: ipamTypes.PodCIDRStatusDepleted,
 								},
-								"10.10.0.0/24": ipamTypes.UsedPodCIDR{
+								"10.10.0.0/24": ipamTypes.PodCIDRMapEntry{
 									Status: ipamTypes.PodCIDRStatusDepleted,
 								},
 							},
@@ -375,11 +375,11 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 				},
 				Status: v2.NodeStatus{
 					IPAM: ipamTypes.IPAMStatus{
-						UsedPodCIDRs: ipamTypes.UsedPodCIDRMap{
-							"fd00::/80": ipamTypes.UsedPodCIDR{
+						PodCIDRs: ipamTypes.PodCIDRMap{
+							"fd00::/80": ipamTypes.PodCIDRMapEntry{
 								Status: ipamTypes.PodCIDRStatusDepleted,
 							},
-							"10.10.0.0/24": ipamTypes.UsedPodCIDR{
+							"10.10.0.0/24": ipamTypes.PodCIDRMapEntry{
 								Status: ipamTypes.PodCIDRStatusDepleted,
 							},
 						},

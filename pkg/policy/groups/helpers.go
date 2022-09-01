@@ -21,10 +21,6 @@ const (
 	cnpKindKey  = "io.cilium.network.policy.kind"
 )
 
-var (
-	blockOwnerDeletionPtr = true
-)
-
 func getDerivativeName(obj v1.Object) string {
 	return fmt.Sprintf("%s-togroups-%s",
 		obj.GetName(),
@@ -40,11 +36,10 @@ func createDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 			Name:      getDerivativeName(cnp),
 			Namespace: cnp.ObjectMeta.Namespace,
 			OwnerReferences: []v1.OwnerReference{{
-				APIVersion:         cilium_v2.SchemeGroupVersion.String(),
-				Kind:               cilium_v2.CNPKindDefinition,
-				Name:               cnp.ObjectMeta.Name,
-				UID:                cnp.ObjectMeta.UID,
-				BlockOwnerDeletion: &blockOwnerDeletionPtr,
+				APIVersion: cilium_v2.SchemeGroupVersion.String(),
+				Kind:       cilium_v2.CNPKindDefinition,
+				Name:       cnp.ObjectMeta.Name,
+				UID:        cnp.ObjectMeta.UID,
 			}},
 			Labels: map[string]string{
 				parentCNP:  string(cnp.ObjectMeta.UID),
@@ -89,11 +84,10 @@ func createDerivativeCCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolic
 			Name:      getDerivativeName(ccnp),
 			Namespace: ccnp.ObjectMeta.Namespace,
 			OwnerReferences: []v1.OwnerReference{{
-				APIVersion:         cilium_v2.SchemeGroupVersion.String(),
-				Kind:               cilium_v2.CCNPKindDefinition,
-				Name:               ccnp.ObjectMeta.Name,
-				UID:                ccnp.ObjectMeta.UID,
-				BlockOwnerDeletion: &blockOwnerDeletionPtr,
+				APIVersion: cilium_v2.SchemeGroupVersion.String(),
+				Kind:       cilium_v2.CCNPKindDefinition,
+				Name:       ccnp.ObjectMeta.Name,
+				UID:        ccnp.ObjectMeta.UID,
 			}},
 			Labels: map[string]string{
 				parentCNP:  string(ccnp.ObjectMeta.UID),

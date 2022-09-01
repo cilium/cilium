@@ -36,12 +36,12 @@ type ClientService interface {
 }
 
 /*
-  GetHealthz gets health of cilium node
+	GetHealthz gets health of cilium node
 
-  Returns health and status information of the local node including
+	Returns health and status information of the local node including
+
 load and uptime, as well as the status of related components including
 the Cilium daemon.
-
 */
 func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 	// TODO: Validate the params before sending

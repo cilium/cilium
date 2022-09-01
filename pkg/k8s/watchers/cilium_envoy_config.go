@@ -9,11 +9,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -24,25 +25,25 @@ import (
 
 func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) {
 	cecStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-
+	apiGroup := k8sAPIGroupCiliumEnvoyConfigV2
 	cecController := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2alpha1().RESTClient(),
-			cilium_v2alpha1.CECPluralName, v1.NamespaceAll, fields.Everything()),
-		&cilium_v2alpha1.CiliumEnvoyConfig{},
+		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
+			cilium_v2.CECPluralName, v1.NamespaceAll, fields.Everything()),
+		&cilium_v2.CiliumEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCEC, metricCreate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricCreate, valid, equal) }()
 				if cec := k8s.ObjToCEC(obj); cec != nil {
 					valid = true
 					err := k.addCiliumEnvoyConfig(cec)
-					k.K8sEventProcessed(metricCEC, metricCreate, err == nil)
+					k.K8sEventProcessed(metricCEC, resources.MetricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCEC, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricUpdate, valid, equal) }()
 
 				if oldCEC := k8s.ObjToCEC(oldObj); oldCEC != nil {
 					if newCEC := k8s.ObjToCEC(newObj); newCEC != nil {
@@ -52,20 +53,20 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) 
 							return
 						}
 						err := k.updateCiliumEnvoyConfig(oldCEC, newCEC)
-						k.K8sEventProcessed(metricCEC, metricUpdate, err == nil)
+						k.K8sEventProcessed(metricCEC, resources.MetricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(metricCEC, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricDelete, valid, equal) }()
 				cec := k8s.ObjToCEC(obj)
 				if cec == nil {
 					return
 				}
 				valid = true
 				err := k.deleteCiliumEnvoyConfig(cec)
-				k.K8sEventProcessed(metricCEC, metricDelete, err == nil)
+				k.K8sEventProcessed(metricCEC, resources.MetricDelete, err == nil)
 			},
 		},
 		k8s.ConvertToCiliumEnvoyConfig,
@@ -76,14 +77,14 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) 
 		wait.NeverStop,
 		nil,
 		cecController.HasSynced,
-		k8sAPIGroupCiliumEnvoyConfigV2Alpha1,
+		k8sAPIGroupCiliumEnvoyConfigV2,
 	)
 
 	go cecController.Run(wait.NeverStop)
-	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEnvoyConfigV2Alpha1)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEnvoyConfigV2)
 }
 
-func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig) error {
+func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: cec.ObjectMeta.Name,
 		logfields.K8sNamespace:          cec.ObjectMeta.Namespace,
@@ -104,7 +105,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig
 		return err
 	}
 
-	name := service.Name{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
+	name := loadbalancer.ServiceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
 	if err := k.addK8sServiceRedirects(name, &cec.Spec, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to redirect K8s services to Envoy")
 		return err
@@ -115,7 +116,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig
 }
 
 // getServiceName enforces namespacing for service references in Cilium Envoy Configs
-func getServiceName(resourceName service.Name, name, namespace string, isFrontend bool) service.Name {
+func getServiceName(resourceName loadbalancer.ServiceName, name, namespace string, isFrontend bool) loadbalancer.ServiceName {
 	if resourceName.Namespace == "" {
 		// nonNamespaced Cilium Clusterwide Envoy Config, default service references to
 		// "default" namespace.
@@ -130,10 +131,10 @@ func getServiceName(resourceName service.Name, name, namespace string, isFronten
 			namespace = resourceName.Namespace
 		}
 	}
-	return service.Name{Name: name, Namespace: namespace}
+	return loadbalancer.ServiceName{Name: name, Namespace: namespace}
 }
 
-func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.Name, spec *cilium_v2alpha1.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
+func (k *K8sWatcher) addK8sServiceRedirects(resourceName loadbalancer.ServiceName, spec *cilium_v2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
 	// Redirect k8s services to an Envoy listener
 	for _, svc := range spec.Services {
 		// Find the listener the service is to be redirected to
@@ -153,7 +154,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.Name, spec *cil
 
 		// Tell service manager to redirect the service to the port
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
-		err := k.svcManager.RegisterL7LBService(serviceName, resourceName, proxyPort)
+		err := k.svcManager.RegisterL7LBService(serviceName, resourceName, nil, proxyPort)
 		if err != nil {
 			return err
 		}
@@ -162,7 +163,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.Name, spec *cil
 	for _, svc := range spec.BackendServices {
 		// Tell service manager to sync backends for this service
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, false)
-		err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, resourceName)
+		err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, resourceName, svc.Ports)
 		if err != nil {
 			return err
 		}
@@ -171,7 +172,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.Name, spec *cil
 	return nil
 }
 
-func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2alpha1.CiliumEnvoyConfig, newCEC *cilium_v2alpha1.CiliumEnvoyConfig) error {
+func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig, newCEC *cilium_v2.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: newCEC.ObjectMeta.Name,
 		logfields.K8sNamespace:          newCEC.ObjectMeta.Namespace,
@@ -190,7 +191,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2alpha1.CiliumEnvoy
 		return err
 	}
 
-	name := service.Name{Name: oldCEC.ObjectMeta.Name, Namespace: oldCEC.ObjectMeta.Namespace}
+	name := loadbalancer.ServiceName{Name: oldCEC.ObjectMeta.Name, Namespace: oldCEC.ObjectMeta.Namespace}
 	if err = k.removeK8sServiceRedirects(name, &oldCEC.Spec, &newCEC.Spec, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update K8s service redirections")
 		return err
@@ -212,8 +213,8 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2alpha1.CiliumEnvoy
 	return nil
 }
 
-func (k *K8sWatcher) removeK8sServiceRedirects(resourceName service.Name, oldSpec, newSpec *cilium_v2alpha1.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
-	removedServices := []*cilium_v2alpha1.ServiceListener{}
+func (k *K8sWatcher) removeK8sServiceRedirects(resourceName loadbalancer.ServiceName, oldSpec, newSpec *cilium_v2.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
+	removedServices := []*cilium_v2.ServiceListener{}
 	for _, oldSvc := range oldSpec.Services {
 		found := false
 		for _, newSvc := range newSpec.Services {
@@ -245,7 +246,7 @@ func (k *K8sWatcher) removeK8sServiceRedirects(resourceName service.Name, oldSpe
 			return err
 		}
 	}
-	removedBackendServices := []*cilium_v2alpha1.Service{}
+	removedBackendServices := []*cilium_v2.Service{}
 	for _, oldSvc := range oldSpec.BackendServices {
 		found := false
 		for _, newSvc := range newSpec.BackendServices {
@@ -270,7 +271,7 @@ func (k *K8sWatcher) removeK8sServiceRedirects(resourceName service.Name, oldSpe
 	return nil
 }
 
-func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyConfig) error {
+func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: cec.ObjectMeta.Name,
 		logfields.K8sNamespace:          cec.ObjectMeta.Namespace,
@@ -284,7 +285,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyCon
 		return err
 	}
 
-	name := service.Name{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
+	name := loadbalancer.ServiceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
 	if err = k.deleteK8sServiceRedirects(name, &cec.Spec); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete K8s service redirections")
 		return err
@@ -301,7 +302,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2alpha1.CiliumEnvoyCon
 	return nil
 }
 
-func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName service.Name, spec *cilium_v2alpha1.CiliumEnvoyConfigSpec) error {
+func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName loadbalancer.ServiceName, spec *cilium_v2.CiliumEnvoyConfigSpec) error {
 	for _, svc := range spec.Services {
 		// Tell service manager to remove old service redirection
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)

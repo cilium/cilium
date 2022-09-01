@@ -13,7 +13,6 @@ import (
 	"golang.org/x/time/rate"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/workqueue"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -137,7 +136,7 @@ func Test_getServiceForIngress(t *testing.T) {
 		ingress := baseIngress.DeepCopy()
 		ingress.Spec.TLS = nil
 
-		res := getServiceForIngress(ingress)
+		res := getServiceForIngress(ingress, []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"})
 		assert.Equal(t, "cilium-ingress-dummy-ingress", res.Name)
 		assert.Equal(t, "dummy-namespace", res.Namespace)
 		assert.Equal(t, []metav1.OwnerReference{
@@ -152,14 +151,17 @@ func Test_getServiceForIngress(t *testing.T) {
 		assert.Equal(t, v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
-					Name:       "http",
-					Protocol:   "TCP",
-					Port:       80,
-					TargetPort: intstr.FromInt(8080),
+					Name:     "http",
+					Protocol: "TCP",
+					Port:     80,
 				},
 			},
 			Type: v1.ServiceTypeLoadBalancer,
 		}, res.Spec)
+		assert.Equal(t, map[string]string{
+			"service.beta.kubernetes.io/dummy-load-balancer-backend-protocol":   "http",
+			"service.beta.kubernetes.io/dummy-load-balancer-access-log-enabled": "true",
+		}, res.Annotations)
 	})
 
 	t.Run("with TLS", func(t *testing.T) {
@@ -171,7 +173,7 @@ func Test_getServiceForIngress(t *testing.T) {
 			},
 		}
 
-		res := getServiceForIngress(ingress)
+		res := getServiceForIngress(ingress, []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"})
 		assert.Equal(t, "cilium-ingress-dummy-ingress", res.Name)
 		assert.Equal(t, "dummy-namespace", res.Namespace)
 		assert.Equal(t, []metav1.OwnerReference{
@@ -186,14 +188,22 @@ func Test_getServiceForIngress(t *testing.T) {
 		assert.Equal(t, v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
-					Name:       "https",
-					Protocol:   "TCP",
-					Port:       443,
-					TargetPort: intstr.FromInt(8080),
+					Name:     "http",
+					Protocol: "TCP",
+					Port:     80,
+				},
+				{
+					Name:     "https",
+					Protocol: "TCP",
+					Port:     443,
 				},
 			},
 			Type: v1.ServiceTypeLoadBalancer,
 		}, res.Spec)
+		assert.Equal(t, map[string]string{
+			"service.beta.kubernetes.io/dummy-load-balancer-backend-protocol":   "http",
+			"service.beta.kubernetes.io/dummy-load-balancer-access-log-enabled": "true",
+		}, res.Annotations)
 	})
 }
 

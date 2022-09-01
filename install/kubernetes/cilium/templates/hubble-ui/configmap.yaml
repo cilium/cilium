@@ -3,8 +3,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hubble-ui-envoy
+  name: hubble-ui-nginx
   namespace: {{ .Release.Namespace }}
 data:
-  {{ (.Files.Glob "files/envoy/*").AsConfig | nindent 2 }}
+  nginx.conf: {{ include "hubble-ui.nginx.conf" . | trim | quote }}
 {{- end }}

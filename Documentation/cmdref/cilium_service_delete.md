@@ -25,5 +25,5 @@ cilium service delete { <service id> | --all } [flags]
 
 ### SEE ALSO
 
-* [cilium service](../cilium_service)	 - Manage services & loadbalancers
+* [cilium service](cilium_service.md)	 - Manage services & loadbalancers
 

@@ -56,6 +56,13 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			minVersion:    &minGoVersion,
 		},
 		&binaryCheck{
+			name:          "tparse",
+			ifNotFound:    checkWarning,
+			versionArgs:   []string{"-v"},
+			versionRegexp: regexp.MustCompile(`tparse version: v(\d+\.\d+\.\d+)`),
+			hint:          `Run "go install github.com/mfridman/tparse@latest"`,
+		},
+		&binaryCheck{
 			name:          "clang",
 			ifNotFound:    checkError,
 			versionArgs:   []string{"--version"},
@@ -90,6 +97,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionArgs:   []string{"version"},
 			versionRegexp: regexp.MustCompile(`Ginkgo Version (\d+\.\d+\S*)`),
 			minVersion:    &semver.Version{Major: 1, Minor: 4, Patch: 0},
+			maxVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
 			hint:          `Run "go install github.com/onsi/ginkgo/ginkgo@latest".`,
 		},
 		// FIXME add gomega check?
@@ -112,7 +120,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{"version"},
 			versionRegexp: regexp.MustCompile(`Version:"v(\d+\.\d+\.\d+)"`),
-			minVersion:    &semver.Version{Major: 3, Minor: 0, Patch: 0},
+			minVersion:    &semver.Version{Major: 3, Minor: 6, Patch: 0},
 		},
 		&binaryCheck{
 			name:          "llc",

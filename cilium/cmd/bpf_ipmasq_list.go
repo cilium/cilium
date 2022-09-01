@@ -32,9 +32,9 @@ var bpfIPMasqListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			if err := command.PrintOutput(cidrs); err != nil {
-				fmt.Fprintf(os.Stderr, "error getting output of map in JSON: %s\n", err)
+				fmt.Fprintf(os.Stderr, "error getting output of map in %s: %s\n", command.OutputOptionString(), err)
 				os.Exit(1)
 			}
 			return
@@ -55,5 +55,5 @@ var bpfIPMasqListCmd = &cobra.Command{
 
 func init() {
 	bpfIPMasqCmd.AddCommand(bpfIPMasqListCmd)
-	command.AddJSONOutput(bpfIPMasqListCmd)
+	command.AddOutputOption(bpfIPMasqListCmd)
 }

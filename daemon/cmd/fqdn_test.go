@@ -18,9 +18,11 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -36,6 +38,10 @@ type DaemonFQDNSuite struct {
 }
 
 var _ = Suite(&DaemonFQDNSuite{})
+
+func (ds *DaemonFQDNSuite) SetUpSuite(c *C) {
+	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
+}
 
 type FakeRefcountingIdentityAllocator struct {
 	*testidentity.MockIdentityAllocator
@@ -146,7 +152,7 @@ func (ds *DaemonSuite) BenchmarkFqdnCache(c *C) {
 	}
 	c.StartTimer()
 
-	extractDNSLookups(endpoints, "0.0.0.0/0", "*")
+	extractDNSLookups(endpoints, "0.0.0.0/0", "*", "")
 }
 
 func (ds *DaemonFQDNSuite) TestFQDNIdentityReferenceCounting(c *C) {
@@ -173,19 +179,19 @@ func (ds *DaemonFQDNSuite) TestFQDNIdentityReferenceCounting(c *C) {
 	nameManager.Unlock()
 
 	// poll DNS once, check that we only generate 1 IP for cilium.io
-	_, _, err := nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
+	_, _, _, err := nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
 	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
 	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 1,
 		Commentf("Unexpected number of identities allocated during DNS name event handler"))
 
 	// Same thing, new reference for same identity but otherwise the same.
-	_, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
+	_, _, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
 	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
 	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 1,
 		Commentf("Unexpected number of identities allocated during DNS name event handler"))
 
 	// poll DNS for ebpf.io, check that we now have two different identities referenced
-	_, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ebpfDNSRecord)
+	_, _, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ebpfDNSRecord)
 	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
 	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 2,
 		Commentf("Unexpected number of identities allocated during DNS name event handler"))

@@ -66,5 +66,5 @@ cilium completion [shell] [flags]
 
 ### SEE ALSO
 
-* [cilium](../cilium)	 - CLI
+* [cilium](cilium.md)	 - CLI
 

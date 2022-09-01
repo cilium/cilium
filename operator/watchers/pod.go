@@ -4,17 +4,19 @@
 package watchers
 
 import (
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 )
+
+const PodNodeNameIndex = "pod-node"
 
 var (
 	// PodStore has a minimal copy of all pods running in the cluster.
@@ -36,15 +38,29 @@ var (
 	UnmanagedPodStoreSynced = make(chan struct{})
 )
 
-func PodsInit(k8sClient kubernetes.Interface, stopCh <-chan struct{}) {
+// podNodeNameIndexFunc indexes pods by node name
+func podNodeNameIndexFunc(obj interface{}) ([]string, error) {
+	pod := obj.(*slim_corev1.Pod)
+	if pod.Spec.NodeName != "" {
+		return []string{pod.Spec.NodeName}, nil
+	}
+	return []string{}, nil
+}
+
+func PodsInit(slimClient *k8s.K8sSlimClient, stopCh <-chan struct{}) {
 	var podInformer cache.Controller
-	PodStore, podInformer = informer.NewInformer(
-		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"pods", v1.NamespaceAll, fields.Everything()),
+	PodStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
+		PodNodeNameIndex: podNodeNameIndexFunc,
+	})
+	podInformer = informer.NewInformerWithStore(
+		k8sUtils.ListerWatcherWithFields(
+			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](slimClient.CoreV1().Pods("")),
+			fields.Everything()),
 		&slim_corev1.Pod{},
 		0,
 		cache.ResourceEventHandlerFuncs{},
 		convertToPod,
+		PodStore,
 	)
 	go podInformer.Run(stopCh)
 
@@ -64,6 +80,9 @@ func convertToPod(obj interface{}) interface{} {
 				Name:            concreteObj.Name,
 				Namespace:       concreteObj.Namespace,
 				ResourceVersion: concreteObj.ResourceVersion,
+			},
+			Spec: slim_corev1.PodSpec{
+				NodeName: concreteObj.Spec.NodeName,
 			},
 			Status: slim_corev1.PodStatus{
 				Phase: concreteObj.Status.Phase,
@@ -85,6 +104,9 @@ func convertToPod(obj interface{}) interface{} {
 					Namespace:       pod.Namespace,
 					ResourceVersion: pod.ResourceVersion,
 				},
+				Spec: slim_corev1.PodSpec{
+					NodeName: pod.Spec.NodeName,
+				},
 				Status: slim_corev1.PodStatus{
 					Phase: pod.Status.Phase,
 				},
@@ -98,11 +120,12 @@ func convertToPod(obj interface{}) interface{} {
 	}
 }
 
-func UnmanagedKubeDNSPodsInit(k8sClient kubernetes.Interface) {
+func UnmanagedKubeDNSPodsInit(slimClient *k8s.K8sSlimClient) {
 	var unmanagedPodInformer cache.Controller
 	UnmanagedKubeDNSPodStore, unmanagedPodInformer = informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"pods", v1.NamespaceAll, func(options *metav1.ListOptions) {
+		k8sUtils.ListerWatcherWithModifier(
+			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](slimClient.CoreV1().Pods("")),
+			func(options *metav1.ListOptions) {
 				options.LabelSelector = "k8s-app=kube-dns"
 				options.FieldSelector = "status.phase=Running"
 			}),

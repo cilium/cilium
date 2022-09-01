@@ -92,7 +92,7 @@ func testReplaceRoute(c *C, prefixStr, nexthopStr string, lookupTest bool) {
 		Scope:  netlink.SCOPE_LINK,
 	})
 
-	_, err = Upsert(rt)
+	err = Upsert(rt)
 	c.Assert(err, IsNil)
 
 	if lookupTest {

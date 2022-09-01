@@ -59,6 +59,10 @@ type DescribeInstanceAttributeOutput struct {
 	// The block device mapping of the instance.
 	BlockDeviceMappings []types.InstanceBlockDeviceMapping
 
+	// To enable the instance for Amazon Web Services Stop Protection, set this
+	// parameter to true; otherwise, set it to false.
+	DisableApiStop *types.AttributeBooleanValue
+
 	// If the value is true, you can't terminate the instance through the Amazon EC2
 	// console, CLI, or API; otherwise, you can.
 	DisableApiTermination *types.AttributeBooleanValue

@@ -76,12 +76,14 @@ func TestLocalObserverServer_ServerStatus(t *testing.T) {
 func TestLocalObserverServer_GetFlows(t *testing.T) {
 	numFlows := 100
 	queueSize := 0
-	req := &observerpb.GetFlowsRequest{Number: uint64(10)}
 	i := 0
+
+	var output []*observerpb.Flow
 	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
 			assert.Equal(t, response.GetNodeName(), response.GetFlow().GetNodeName())
+			output = append(output, response.GetFlow())
 			i++
 			return nil
 		},
@@ -101,10 +103,12 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	go s.Start()
 
 	m := s.GetEventsChannel()
+	input := make([]*observerpb.Flow, numFlows)
+
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
-		m <- &observerTypes.MonitorEvent{
+		event := &observerTypes.MonitorEvent{
 			Timestamp: time.Unix(int64(i), 0),
 			NodeName:  fmt.Sprintf("node #%03d", i),
 			Payload: &observerTypes.PerfEvent{
@@ -112,12 +116,37 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 				CPU:  0,
 			},
 		}
+		m <- event
+		ev, err := pp.Decode(event)
+		require.NoError(t, err)
+		input[i] = ev.GetFlow()
 	}
 	close(s.GetEventsChannel())
 	<-s.GetStopped()
+
+	// testing getting recent events
+	req := &observerpb.GetFlowsRequest{Number: uint64(10)}
 	err = s.GetFlows(req, fakeServer)
 	assert.NoError(t, err)
 	assert.Equal(t, req.Number, uint64(i))
+
+	// instead of looking at exactly the last 10, we look at the last 10, minus
+	// 1, because the last event is inaccessible due to how the ring buffer
+	// works.
+	last10Input := input[numFlows-11 : numFlows-1]
+	assert.Equal(t, last10Input, output)
+
+	// Clear out the output slice, as we're making another request
+	output = nil
+	i = 0
+	// testing getting earliest events
+	req = &observerpb.GetFlowsRequest{Number: uint64(10), First: true}
+	err = s.GetFlows(req, fakeServer)
+	assert.NoError(t, err)
+	assert.Equal(t, req.Number, uint64(i))
+
+	first10Input := input[0:10]
+	assert.Equal(t, first10Input, output)
 }
 
 func TestLocalObserverServer_GetAgentEvents(t *testing.T) {

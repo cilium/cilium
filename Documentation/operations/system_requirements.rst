@@ -82,7 +82,7 @@ RancherOS_                 >= 1.5.5
 .. _RancherOS: https://rancher.com/rancher-os/
 
 .. [#centos_foot] CentOS 7 requires a third-party kernel provided by `ElRepo <http://elrepo.org/tiki/tiki-index.php>`_
-    whereas CentOS 8 ships with a supported kernel.
+    whereas CentOS 8 ships with a supported kernel. Note that some more advanced features may not be available on CentOS 7 even with a third-party kernel. For full details on which kernel config options must be enabled in order to use various features, see the section on :ref:`admin_kernel_version` requirements below.
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
@@ -229,24 +229,26 @@ additional kernel features continues to progress in the Linux community. Some
 of Cilium's features are dependent on newer kernel versions and are thus
 enabled by upgrading to more recent kernel versions as detailed below.
 
-=========================================== ===============================
-Cilium Feature                              Minimum Kernel Version
-=========================================== ===============================
-:ref:`concepts_fragmentation`               >= 4.10
-:ref:`cidr_limitations`                     >= 4.11
-:ref:`encryption_ipsec` in tunneling mode   >= 4.19
-:ref:`encryption_wg`                        >= 5.6
-:ref:`host-services`                        >= 4.19.57, >= 5.1.16,  >= 5.2
-:ref:`kubeproxy-free`                       >= 4.19.57, >= 5.1.16,  >= 5.2
-:ref:`bandwidth-manager`                    >= 5.1
-:ref:`local-redirect-policy`                >= 4.19.57, >= 5.1.16,  >= 5.2
-Full support for :ref:`session-affinity`    >= 5.7
-BPF-based proxy redirection                 >= 5.7
-BPF-based host routing                      >= 5.10
-Socket-level LB bypass in pod netns         >= 5.7
-:ref:`egress-gateway`                       >= 5.2
-VXLAN Tunnel Endpoint (VTEP) Integration    >= 5.2
-=========================================== ===============================
+====================================================== 	===============================
+Cilium Feature                                          Minimum Kernel Version
+====================================================== 	===============================
+:ref:`concepts_fragmentation`				>= 4.10
+:ref:`cidr_limitations`                     		>= 4.11
+:ref:`encryption_ipsec` in tunneling mode   		>= 4.19
+:ref:`encryption_wg`                        		>= 5.6
+Socket-level LB                        		        >= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`kubeproxy-free`                       		>= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`bandwidth-manager`                    		>= 5.1
+:ref:`local-redirect-policy`				>= 4.19.57, >= 5.1.16,  >= 5.2
+Full support for :ref:`session-affinity`		>= 5.7
+:ref:`session-affinity` for kube-proxy ClusterIP	>= 4.10
+BPF-based proxy redirection				>= 5.7
+BPF-based host routing                      		>= 5.10
+Socket-level LB bypass in pod netns         		>= 5.7
+:ref:`egress-gateway`                       		>= 5.2
+VXLAN Tunnel Endpoint (VTEP) Integration    		>= 5.2
+IPv6 BIG TCP support                                    >= 5.19
+====================================================== 	===============================
 
 .. _req_kvstore:
 
@@ -311,6 +313,8 @@ If you are running Cilium in an environment that requires firewall rules to enab
 
 It is recommended but optional that all nodes running Cilium in a given cluster must be able to ping each other so ``cilium-health`` can report and monitor connectivity among nodes. This requires ICMP Type 0/8, Code 0 open among all nodes. TCP 4240 should also be open among all nodes for ``cilium-health`` monitoring. Note that it is also an option to only use one of these two methods to enable health monitoring. If the firewall does not permit either of these methods, Cilium will still operate fine but will not be able to provide health information.
 
+For IPSec enabled Cilium deployments, you need to ensure that the firewall allows ESP traffic through. For example, AWS Security Groups doesn't allow ESP traffic by default.
+
 If you are using VXLAN overlay network mode, Cilium uses Linux's default VXLAN port 8472 over UDP, unless Linux has been configured otherwise. In this case, UDP 8472 must be open among all nodes to enable VXLAN overlay mode. The same applies to Geneve overlay network mode, except the port is UDP 6081.
 
 If you are running in direct routing mode, your network must allow routing of pod IPs.
@@ -364,24 +368,25 @@ ICMP 8/0                 egress          ``worker-sg`` (self) health checks
 
 The following ports should also be available on each node:
 
-======================== ===========================================================
+======================== ==================================================================
 Port Range / Protocol    Description
-======================== ===========================================================
+======================== ==================================================================
 4240/tcp                 cluster health checks (``cilium-health``)
 4244/tcp                 Hubble server
 4245/tcp                 Hubble Relay
 6060/tcp                 cilium-agent pprof server (listening on 127.0.0.1)
 6061/tcp                 cilium-operator pprof server (listening on 127.0.0.1)
 6062/tcp                 Hubble Relay pprof server (listening on 127.0.0.1)
-6942/tcp                 operator Prometheus metrics
-9090/tcp                 cilium-agent Prometheus metrics
-9876/tcp                 cilium-agent health status API
+9879/tcp                 cilium-agent health status API (listening on 127.0.0.1 and/or ::1)
 9890/tcp                 cilium-agent gops server (listening on 127.0.0.1)
 9891/tcp                 operator gops server (listening on 127.0.0.1)
 9892/tcp                 clustermesh-apiserver gops server (listening on 127.0.0.1)
 9893/tcp                 Hubble Relay gops server (listening on 127.0.0.1)
+9962/tcp                 cilium-agent Prometheus metrics
+9963/tcp                 cilium-operator Prometheus metrics
+9964/tcp                 cilium-proxy Prometheus metrics
 51871/udp                WireGuard encryption tunnel endpoint
-======================== ===========================================================
+======================== ==================================================================
 
 .. _admin_mount_bpffs:
 
@@ -429,7 +434,7 @@ Privileges
 ==========
 
 The following privileges are required to run Cilium. When running the standard
-Kubernetes `DaemonSet`, the privileges are automatically granted to Cilium.
+Kubernetes :term:`DaemonSet`, the privileges are automatically granted to Cilium.
 
 * Cilium interacts with the Linux kernel to install eBPF program which will then
   perform networking tasks and implement security rules. In order to install

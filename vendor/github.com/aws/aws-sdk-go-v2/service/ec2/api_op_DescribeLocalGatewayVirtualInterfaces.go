@@ -50,16 +50,13 @@ type DescribeLocalGatewayVirtualInterfacesInput struct {
 	// local-gateway-virtual-interface-id - The ID of the virtual interface.
 	//
 	// *
-	// local-gateway-virtual-interface-group-id - The ID of the virtual interface
-	// group.
-	//
-	// * owner-id - The ID of the Amazon Web Services account that owns the
-	// local gateway virtual interface.
+	// owner-id - The ID of the Amazon Web Services account that owns the local gateway
+	// virtual interface.
 	//
 	// * peer-address - The peer address.
 	//
-	// *
-	// peer-bgp-asn - The peer BGP ASN.
+	// * peer-bgp-asn - The
+	// peer BGP ASN.
 	//
 	// * vlan - The ID of the VLAN.
 	Filters []types.Filter

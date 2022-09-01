@@ -33,7 +33,7 @@ var bpfRecorderListCmd = &cobra.Command{
 
 func init() {
 	bpfRecorderCmd.AddCommand(bpfRecorderListCmd)
-	command.AddJSONOutput(bpfRecorderListCmd)
+	command.AddOutputOption(bpfRecorderListCmd)
 }
 
 func dumpRecorderEntries(maps []interface{}, args ...interface{}) {
@@ -55,7 +55,7 @@ func dumpRecorderEntries(maps []interface{}, args ...interface{}) {
 			Fatalf("Unable to open %s: %s", path, err)
 		}
 		defer m.(recorder.CaptureMap).Close()
-		if command.OutputJSON() {
+		if command.OutputOption() {
 			callback := func(key bpf.MapKey, value bpf.MapValue) {
 				record := recorder.MapRecord{Key: key.(recorder.RecorderKey), Value: value.(recorder.RecorderEntry)}
 				entries = append(entries, record)
@@ -71,7 +71,7 @@ func dumpRecorderEntries(maps []interface{}, args ...interface{}) {
 			fmt.Println(out)
 		}
 	}
-	if command.OutputJSON() {
+	if command.OutputOption() {
 		if err := command.PrintOutput(entries); err != nil {
 			os.Exit(1)
 		}

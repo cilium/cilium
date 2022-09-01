@@ -328,7 +328,7 @@ func (client *Client) DoAction(request requests.AcsRequest, response responses.A
 		v := reflect.ValueOf(request).Elem()
 		for i := 0; i < t.NumField(); i++ {
 			value := v.FieldByName(t.Field(i).Name)
-			if t.Field(i).Name == "requests.RoaRequest" {
+			if t.Field(i).Name == "requests.RoaRequest" || t.Field(i).Name == "RoaRequest" {
 				request.GetHeaders()["x-acs-proxy-source-ip"] = client.SourceIp
 				request.GetHeaders()["x-acs-proxy-secure-transport"] = client.SecureTransport
 				return client.DoActionWithSigner(request, response, nil)
@@ -598,11 +598,6 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 
 	var httpResponse *http.Response
 	for retryTimes := 0; retryTimes <= client.config.MaxRetryTime; retryTimes++ {
-		if proxy != nil && proxy.User != nil {
-			if password, passwordSet := proxy.User.Password(); passwordSet {
-				httpRequest.SetBasicAuth(proxy.User.Username(), password)
-			}
-		}
 		if retryTimes > 0 {
 			client.printLog(fieldMap, err)
 			initLogMsg(fieldMap)

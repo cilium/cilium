@@ -223,7 +223,7 @@ different value and then proceed with the steps below.
 
    .. code-block:: shell-session
 
-       $ git commit -s -a -m "update cilium-{runtime,builder}"
+       $ git commit -sam "images: update cilium-{runtime,builder}"
 
 #. Ping one of the members of `team/build <https://github.com/orgs/cilium/teams/build/members>`__
    to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`__.
@@ -239,7 +239,7 @@ different value and then proceed with the steps below.
 
    .. code-block:: shell-session
 
-       $ git commit --amend -s -a
+       $ git commit --amend -sa
 
 #. Ping one of the members of `team/build <https://github.com/orgs/cilium/teams/build/members>`__
    to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`__.
@@ -254,7 +254,7 @@ different value and then proceed with the steps below.
 
    .. code-block:: shell-session
 
-       $ git commit --amend -s -a
+       $ git commit --amend -sa
 
 #. Update the versions of the images that are pulled into the CI VMs.
 

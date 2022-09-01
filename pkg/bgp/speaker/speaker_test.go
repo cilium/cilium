@@ -351,9 +351,16 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 			atomic.AddInt32(&callCount, 1)
 			return types.SyncStateSuccess
 		},
-		PeerSession_: func() []metallbspr.Session {
+		GetBGPController_: func() *metallbspr.BGPController {
 			atomic.AddInt32(&callCount, 1)
-			return []metallbspr.Session{mockSession}
+			return &metallbspr.BGPController{
+				SvcAds: make(map[string][]*metallbbgp.Advertisement),
+				Peers: []*metallbspr.Peer{
+					{
+						BGP: mockSession,
+					},
+				},
+			}
 		},
 	}
 
@@ -449,6 +456,16 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 			atomic.AddInt32(&callCount, 1)
 			return []metallbspr.Session{mockSession}
 		},
+		GetBGPController_: func() *metallbspr.BGPController {
+			return &metallbspr.BGPController{
+				SvcAds: make(map[string][]*metallbbgp.Advertisement),
+				Peers: []*metallbspr.Peer{
+					{
+						BGP: mockSession,
+					},
+				},
+			}
+		},
 	}
 
 	spkr := &MetalLBSpeaker{
@@ -531,6 +548,16 @@ func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
 		},
 		PeerSession_: func() []metallbspr.Session {
 			return []metallbspr.Session{mockSession}
+		},
+		GetBGPController_: func() *metallbspr.BGPController {
+			return &metallbspr.BGPController{
+				SvcAds: make(map[string][]*metallbbgp.Advertisement),
+				Peers: []*metallbspr.Peer{
+					{
+						BGP: mockSession,
+					},
+				},
+			}
 		},
 	}
 

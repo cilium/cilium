@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
@@ -20,6 +21,7 @@ import (
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/flows-to-world"    // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/http"              // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/icmp"              // invoke init
+	_ "github.com/cilium/cilium/pkg/hubble/metrics/policy"            // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/port-distribution" // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/tcp"               // invoke init
 )
@@ -37,12 +39,14 @@ func ProcessFlow(ctx context.Context, flow *pb.Flow) {
 }
 
 // initMetrics initialies the metrics system
-func initMetrics(address string, enabled api.Map) (<-chan error, error) {
+func initMetrics(address string, enabled api.Map, grpcMetrics *grpc_prometheus.ServerMetrics) (<-chan error, error) {
 	e, err := api.DefaultRegistry().ConfigureHandlers(registry, enabled)
 	if err != nil {
 		return nil, err
 	}
 	enabledMetrics = e
+
+	registry.MustRegister(grpcMetrics)
 
 	errChan := make(chan error, 1)
 
@@ -61,8 +65,8 @@ func initMetrics(address string, enabled api.Map) (<-chan error, error) {
 
 // EnableMetrics starts the metrics server with a given list of metrics. This is the
 // function Cilium uses to configure Hubble metrics in embedded mode.
-func EnableMetrics(log logrus.FieldLogger, metricsServer string, m []string) error {
-	errChan, err := initMetrics(metricsServer, api.ParseMetricList(m))
+func EnableMetrics(log logrus.FieldLogger, metricsServer string, m []string, grpcMetrics *grpc_prometheus.ServerMetrics) error {
+	errChan, err := initMetrics(metricsServer, api.ParseMetricList(m), grpcMetrics)
 	if err != nil {
 		return fmt.Errorf("unable to setup metrics: %v", err)
 	}

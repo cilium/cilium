@@ -23,7 +23,7 @@ To load completions for every new session, execute once:
 
 #### macOS:
 
-	cilium-operator-azure completion bash > /usr/local/etc/bash_completion.d/cilium-operator-azure
+	cilium-operator-azure completion bash > $(brew --prefix)/etc/bash_completion.d/cilium-operator-azure
 
 You will need to start a new shell for this setup to take effect.
 
@@ -41,5 +41,5 @@ cilium-operator-azure completion bash
 
 ### SEE ALSO
 
-* [cilium-operator-azure completion](cilium-operator-azure_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator-azure completion](cilium-operator-azure_completion.md)	 - Generate the autocompletion script for the specified shell
 

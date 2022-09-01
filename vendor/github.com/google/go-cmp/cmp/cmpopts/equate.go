@@ -6,6 +6,7 @@
 package cmpopts
 
 import (
+	"errors"
 	"math"
 	"reflect"
 	"time"
@@ -145,4 +146,10 @@ func areConcreteErrors(x, y interface{}) bool {
 	_, ok1 := x.(error)
 	_, ok2 := y.(error)
 	return ok1 && ok2
+}
+
+func compareErrors(x, y interface{}) bool {
+	xe := x.(error)
+	ye := y.(error)
+	return errors.Is(xe, ye) || errors.Is(ye, xe)
 }

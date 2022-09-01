@@ -211,9 +211,9 @@ func getFields(u map[string]interface{}) ([]string, error) {
 
 // arbitraryLabelRegex matches any field path that includes "matchLabels" or
 // "matchExpressions". For example, it matches the following:
-//  - spec.endpointSelector.matchLabels.*
-//  - specs.0.ingress.0.fromEndpoints.0.matchLabels.*
-//  - specs.0.ingress.0.fromEndpoints.0.matchExpressions.*
+//   - spec.endpointSelector.matchLabels.*
+//   - specs.0.ingress.0.fromEndpoints.0.matchLabels.*
+//   - specs.0.ingress.0.fromEndpoints.0.matchExpressions.*
 var arbitraryLabelRegex = regexp.MustCompile(`^(.+\.(matchLabels|matchExpressions))\..+$`)
 
 func flattenObject(obj map[string]interface{}) (map[string]interface{}, error) {

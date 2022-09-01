@@ -32,13 +32,12 @@ func NewGetEndpointID(ctx *middleware.Context, handler GetEndpointIDHandler) *Ge
 	return &GetEndpointID{Context: ctx, Handler: handler}
 }
 
-/*GetEndpointID swagger:route GET /endpoint/{id} endpoint getEndpointId
+/*
+GetEndpointID swagger:route GET /endpoint/{id} endpoint getEndpointId
 
-Get endpoint by endpoint ID
+# Get endpoint by endpoint ID
 
 Returns endpoint information
-
-
 */
 type GetEndpointID struct {
 	Context *middleware.Context

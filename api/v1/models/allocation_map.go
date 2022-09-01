@@ -14,7 +14,6 @@ import (
 
 // AllocationMap Map of allocated IPs
 //
-//
 // swagger:model AllocationMap
 type AllocationMap map[string]string
 

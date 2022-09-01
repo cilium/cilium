@@ -13,14 +13,28 @@
  */
 #include "lib/utils.h"
 
+#ifndef NODE_MAC
 DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
 #define NODE_MAC fetch_mac(NODE_MAC)
+#endif
 
+#ifndef ROUTER_IP
 DEFINE_IPV6(ROUTER_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
+#endif
+
 #define HOST_IFINDEX 1
 #define CILIUM_IFINDEX 1
 #define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
+
+#ifndef HOST_IP
 DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x0, 0x2, 0xf, 0xff, 0xff);
+#endif
+
+DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
+#define SECCTX_FROM_IPCACHE fetch_u32(SECCTX_FROM_IPCACHE)
+
+#define TUNNEL_PORT 8472
+
 #define HOST_ID 1
 #define WORLD_ID 2
 #define UNMANAGED_ID 3
@@ -39,6 +53,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CT_CONNECTION_LIFETIME_NONTCP	60
 #define CT_SERVICE_LIFETIME_TCP		21600
 #define CT_SERVICE_LIFETIME_NONTCP	60
+#define CT_SERVICE_CLOSE_REBALANCE	30
 #define CT_SYN_TIMEOUT			60
 #define CT_CLOSE_TIMEOUT		10
 #define CT_REPORT_INTERVAL		5
@@ -57,6 +72,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
+#define IPV4_ENCRYPT_IFACE 0xfffff50a
 # ifdef ENABLE_MASQUERADE
 #  define IPV4_SNAT_EXCLUSION_DST_CIDR 0xffff0000
 #  define IPV4_SNAT_EXCLUSION_DST_CIDR_LEN 16
@@ -81,6 +97,13 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif /* ENABLE_IPV6 */
 
 #define EGRESS_POLICY_MAP test_cilium_egress_gw_policy_v4
+#define SRV6_VRF_MAP4 test_cilium_srv6_vrf_v4
+#define SRV6_VRF_MAP6 test_cilium_srv6_vrf_v6
+#define SRV6_POLICY_MAP4 test_cilium_srv6_policy_v4
+#define SRV6_POLICY_MAP6 test_cilium_srv6_policy_v6
+#define SRV6_SID_MAP test_cilium_srv6_sid
+#define SRV6_STATE_MAP4 test_cilium_srv6_state4
+#define SRV6_STATE_MAP6 test_cilium_srv6_state6
 #define ENDPOINTS_MAP test_cilium_lxc
 #define EVENTS_MAP test_cilium_events
 #define SIGNAL_MAP test_cilium_signals
@@ -90,6 +113,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define IPCACHE_MAP test_cilium_ipcache
 #define ENCRYPT_MAP test_cilium_encrypt_state
 #define TUNNEL_MAP test_cilium_tunnel_map
+#define VTEP_MAP test_cilium_vtep_map
 #define EP_POLICY_MAP test_cilium_ep_to_policy
 #define LB6_REVERSE_NAT_MAP test_cilium_lb6_reverse_nat
 #define LB6_SERVICES_MAP_V2 test_cilium_lb6_services
@@ -111,13 +135,23 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define THROTTLE_MAP_SIZE 65536
 #define ENABLE_ARP_RESPONDER
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
+#define VTEP_MAP_SIZE 8
 #define ENDPOINTS_MAP_SIZE 65536
 #define METRICS_MAP_SIZE 65536
 #define CILIUM_NET_MAC  { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x57 } }
-#define CILIUM_LB_MAP_MAX_ENTRIES	65536
+#define CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES	65536
+#define CILIUM_LB_SERVICE_MAP_MAX_ENTRIES	65536
+#define CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES	65536
+#define CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES	65536
+#define CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES	65536
+#define CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES	65536
 #define POLICY_MAP_SIZE 16384
 #define IPCACHE_MAP_SIZE 512000
 #define EGRESS_POLICY_MAP_SIZE 16384
+#define SRV6_VRF_MAP_SIZE 16384
+#define SRV6_POLICY_MAP_SIZE 16384
+#define SRV6_SID_MAP_SIZE 16384
+#define SRV6_STATE_MAP_SIZE 16384
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define IPV4_FRAG_DATAGRAMS_MAP test_cilium_ipv4_frag_datagrams
 #define CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES 8192
@@ -175,19 +209,12 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #ifndef LB_SELECTION
 # define LB_SELECTION_RANDOM	1
 # define LB_SELECTION_MAGLEV	2
+# define LB_SELECTION_FIRST	3
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
 #ifdef ENABLE_VTEP
-#define VTEP_ENDPOINT (__u32[]){0xeb48a90a, 0xec48a90a}
-/* HEX representation of VTEP IP
- * 10.169.72.235, 10.169.72.236
- */
-#define VTEP_MAC (__u64[]){0x562e984c3682, 0x552e984c3682}
-/* VTEP MAC address
- * 82:36:4c:89:2e:56, 82:36:4c:89:2e:55
- */
-#define VTEP_NUMS 2
+# define VTEP_MASK 0xffffff
 #endif
 
 /* It appears that we can support around the below number of prefixes in an
@@ -222,3 +249,6 @@ return true; \
 break; \
 } \
 return false;
+
+#define CIDR_IDENTITY_RANGE_START ((1 << 24) + 1)
+#define CIDR_IDENTITY_RANGE_END   ((1 << 24) + (1<<16) - 1)

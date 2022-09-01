@@ -23,7 +23,7 @@ To load completions for every new session, execute once:
 
 #### macOS:
 
-	cilium-operator-alibabacloud completion bash > /usr/local/etc/bash_completion.d/cilium-operator-alibabacloud
+	cilium-operator-alibabacloud completion bash > $(brew --prefix)/etc/bash_completion.d/cilium-operator-alibabacloud
 
 You will need to start a new shell for this setup to take effect.
 
@@ -41,5 +41,5 @@ cilium-operator-alibabacloud completion bash
 
 ### SEE ALSO
 
-* [cilium-operator-alibabacloud completion](cilium-operator-alibabacloud_completion.html)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator-alibabacloud completion](cilium-operator-alibabacloud_completion.md)	 - Generate the autocompletion script for the specified shell
 

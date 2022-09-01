@@ -41,6 +41,8 @@ func Test(t *testing.T) { TestingT(t) }
 type DaemonSuite struct {
 	d *Daemon
 
+	cancel context.CancelFunc
+
 	// oldPolicyEnabled is the policy enforcement mode that was set before the test,
 	// as returned by policy.GetPolicyEnabled().
 	oldPolicyEnabled string
@@ -49,6 +51,7 @@ type DaemonSuite struct {
 
 	// Owners interface mock
 	OnGetPolicyRepository  func() *policy.Repository
+	OnGetNamedPorts        func() (npm policy.NamedPortMultiMap)
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
 	OnGetCompilationLock   func() *lock.RWMutex
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
@@ -78,7 +81,7 @@ func TestMain(m *testing.M) {
 
 	// Set up all configuration options which are global to the entire test
 	// run.
-	option.Config.Populate()
+	option.Config.Populate(Vp)
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
@@ -132,7 +135,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	d, _, err := NewDaemon(ctx, cancel,
+	ds.cancel = cancel
+	d, _, err := NewDaemon(ctx, NewDaemonCleanup(),
 		WithCustomEndpointManager(&dummyEpSyncher{}),
 		fakedatapath.NewDatapath())
 	c.Assert(err, IsNil)
@@ -157,6 +161,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
+	ds.cancel()
+
 	controller.NewManager().RemoveAllAndWait()
 	ds.d.endpointManager.RemoveAll()
 
@@ -181,7 +187,6 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	identitymanager.RemoveAll()
 
 	ds.d.Close()
-	ds.d.cancel()
 }
 
 type DaemonEtcdSuite struct {
@@ -232,6 +237,13 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 		return ds.OnGetPolicyRepository()
 	}
 	panic("GetPolicyRepository should not have been called")
+}
+
+func (ds *DaemonSuite) GetNamedPorts() (npm policy.NamedPortMultiMap) {
+	if ds.OnGetNamedPorts != nil {
+		return ds.OnGetNamedPorts()
+	}
+	panic("GetNamedPorts should not have been called")
 }
 
 func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {

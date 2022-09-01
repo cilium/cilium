@@ -466,6 +466,21 @@ sdkv1check:
 	echo "$$sdkv1usage"; \
 	if [ "$$sdkv1usage" != "" ]; then exit 1; fi
 
+list-deps: list-deps-.
+
+list-deps-%:
+	@# command that uses the pattern to define the root path that the
+	@# module testing will start from. Strips off the "list-deps-" and
+	@# replaces all "_" with "/".
+	@#
+	@# Trim output to only include stdout for list of dependencies only.
+	@#    make list-deps 2>&-
+	@#
+	@# e.g. list-deps-internal_protocoltest
+	@cd ./internal/repotools/cmd/eachmodule \
+		&& go run . -p $(subst _,/,$(subst list-deps-,,$@)) ${EACHMODULE_FLAGS} \
+		"go list -m all | grep -v 'github.com/aws/aws-sdk-go-v2'" | sort -u
+
 ###################
 # Sandbox Testing #
 ###################

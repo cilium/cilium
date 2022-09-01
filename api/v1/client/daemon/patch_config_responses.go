@@ -55,7 +55,8 @@ func NewPatchConfigOK() *PatchConfigOK {
 	return &PatchConfigOK{}
 }
 
-/*PatchConfigOK handles this case with default header values.
+/*
+PatchConfigOK handles this case with default header values.
 
 Success
 */
@@ -76,7 +77,8 @@ func NewPatchConfigBadRequest() *PatchConfigBadRequest {
 	return &PatchConfigBadRequest{}
 }
 
-/*PatchConfigBadRequest handles this case with default header values.
+/*
+PatchConfigBadRequest handles this case with default header values.
 
 Bad configuration parameters
 */
@@ -107,7 +109,8 @@ func NewPatchConfigFailure() *PatchConfigFailure {
 	return &PatchConfigFailure{}
 }
 
-/*PatchConfigFailure handles this case with default header values.
+/*
+PatchConfigFailure handles this case with default header values.
 
 Recompilation failed
 */

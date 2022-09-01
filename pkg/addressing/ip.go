@@ -10,7 +10,6 @@ import (
 )
 
 type CiliumIP interface {
-	IPNet(ones int) *net.IPNet
 	EndpointPrefix() *net.IPNet
 	IP() net.IP
 	String() string
@@ -56,15 +55,11 @@ func (ip CiliumIPv6) IsIPv6() bool {
 	return true
 }
 
-func (ip CiliumIPv6) IPNet(ones int) *net.IPNet {
+func (ip CiliumIPv6) EndpointPrefix() *net.IPNet {
 	return &net.IPNet{
 		IP:   ip.IP(),
-		Mask: net.CIDRMask(ones, 128),
+		Mask: net.CIDRMask(128, 128),
 	}
-}
-
-func (ip CiliumIPv6) EndpointPrefix() *net.IPNet {
-	return ip.IPNet(128)
 }
 
 func (ip CiliumIPv6) IP() net.IP {
@@ -135,15 +130,11 @@ func (ip CiliumIPv4) IsIPv6() bool {
 	return false
 }
 
-func (ip CiliumIPv4) IPNet(ones int) *net.IPNet {
+func (ip CiliumIPv4) EndpointPrefix() *net.IPNet {
 	return &net.IPNet{
 		IP:   net.IP(ip),
-		Mask: net.CIDRMask(ones, 32),
+		Mask: net.CIDRMask(32, 32),
 	}
-}
-
-func (ip CiliumIPv4) EndpointPrefix() *net.IPNet {
-	return ip.IPNet(32)
 }
 
 func (ip CiliumIPv4) IP() net.IP {

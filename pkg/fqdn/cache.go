@@ -11,12 +11,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // cacheEntry objects hold data passed in via DNSCache.Update, nominally
@@ -290,7 +289,7 @@ func (c *DNSCache) cleanupOverLimitEntries() (affectedNames []string, removed ma
 		if overlimit <= 0 {
 			continue
 		}
-		sortedEntries := []IPEntry{}
+		sortedEntries := make([]IPEntry, 0, len(entries))
 		for ip, entry := range entries {
 			sortedEntries = append(sortedEntries, IPEntry{ip, entry})
 		}
@@ -302,7 +301,7 @@ func (c *DNSCache) cleanupOverLimitEntries() (affectedNames []string, removed ma
 		for i := 0; i < overlimit; i++ {
 			key := sortedEntries[i]
 			delete(entries, key.ip)
-			c.removeReverse(key.ip, key.entry)
+			c.remove(key.ip, key.entry)
 			removed[key.ip] = append(removed[key.ip], key.entry)
 		}
 		affectedNames = append(affectedNames, dnsName)
@@ -504,7 +503,7 @@ func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookups
 	for ip, entry := range entries {
 		if entry == nil || entry.isExpiredBy(now) || entry.LookupTime.Before(expireLookupsBefore) {
 			delete(entries, ip)
-			c.removeReverse(ip, entry)
+			c.remove(ip, entry)
 			removed[ip] = entry
 		}
 	}
@@ -525,11 +524,31 @@ func (c *DNSCache) upsertReverse(ip string, entry *cacheEntry) {
 	entries[entry.Name] = entry
 }
 
-// removeReverse removes the reference between ip and the name stored in entry.
+// remove removes the reference between ip and the name stored in entry from
+// the DNS cache (both in forward and reverse maps). This assumes the write
+// lock is taken.
+func (c *DNSCache) remove(ip string, entry *cacheEntry) {
+	c.removeForward(ip, entry)
+	c.removeReverse(ip, entry)
+}
+
+// removeForward removes the reference between ip and the name stored in entry.
 // When no more references from ip to any name exist, the map entry is deleted
 // outright.
 // It is assumed that entry includes ip.
-// This needs a write lock
+// This needs a write lock.
+func (c *DNSCache) removeForward(ip string, entry *cacheEntry) {
+	entries, exists := c.forward[entry.Name]
+	if entries == nil || !exists {
+		return
+	}
+	delete(entries, ip)
+	if len(entries) == 0 {
+		delete(c.forward, entry.Name)
+	}
+}
+
+// removeReverse is the equivalent of removeForward() but for the reverse map.
 func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
 	entries, exists := c.reverse[ip]
 	if entries == nil || !exists {
@@ -547,9 +566,11 @@ func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
 // Note that all parameters must match, if provided. `time.Time{}` is the
 // match-all time parameter.
 // For example:
-//   ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
-//   ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
-//   that expired before the current time.
+//
+//	ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
+//	ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
+//	that expired before the current time.
+//
 // expireLookupsBefore requires a lookup to have a LookupTime before it in
 // order to remove it.
 // nameMatch will remove any DNS names that match.
@@ -626,6 +647,25 @@ func (c *DNSCache) Dump() (lookups []*cacheEntry) {
 	return deduped
 }
 
+// Count returns two values, the count of still-valid FQDNs inside the DNS
+// cache and the count of the still-valid entries (IPs) in the DNS cache.
+//
+// The FQDN count returns the length of the DNS cache size.
+//
+// The IP count is not deduplicated, see Dump(). In other words, this value
+// represents an accurate tally of IPs associated with an FQDN in the DNS
+// cache.
+func (c *DNSCache) Count() (uint64, uint64) {
+	c.RLock()
+	defer c.RUnlock()
+
+	var ips uint64
+	for _, entries := range c.forward {
+		ips += uint64(len(entries))
+	}
+	return uint64(len(c.forward)), ips
+}
+
 // MarshalJSON serialises the set of DNS lookup cacheEntries needed to
 // reconstruct this cache instance.
 // Note: Expiration times are honored and the reconstructed cache instance is
@@ -666,12 +706,12 @@ func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 // Special handling exists when the count of zombies is large. Overlimit
 // zombies are deleted in GC with the following preferences (this is cumulative
 // and in order of precedence):
-// - Zombies with zero AliveAt are evicted before those with a non-zero value
-//   (i.e. known connections marked by CT GC are evicted last)
-// - Zombies with an earlier DeletePendingAtTime are evicted first.
-//   Note: Upsert sets DeletePendingAt on every update, thus making GC prefer
-//   to evict IPs with less DNS churn on them.
-// - Zombies with the lowest count of DNS names in them are evicted first
+//   - Zombies with zero AliveAt are evicted before those with a non-zero value
+//     (i.e. known connections marked by CT GC are evicted last)
+//   - Zombies with an earlier DeletePendingAtTime are evicted first.
+//     Note: Upsert sets DeletePendingAt on every update, thus making GC prefer
+//     to evict IPs with less DNS churn on them.
+//   - Zombies with the lowest count of DNS names in them are evicted first
 type DNSZombieMapping struct {
 	// Names is the list of names that had DNS lookups with this IP. These may
 	// derive from unrelated DNS lookups. The list is maintained de-duplicated.
@@ -716,13 +756,17 @@ type DNSZombieMappings struct {
 	deletes        map[string]*DNSZombieMapping // map[ip]toDelete
 	lastCTGCUpdate time.Time
 	max            int // max allowed zombies
+
+	// perHostLimit is the number of maximum number of IP per host.
+	perHostLimit int
 }
 
 // NewDNSZombieMappings constructs a DNSZombieMappings that is read to use
-func NewDNSZombieMappings(max int) *DNSZombieMappings {
+func NewDNSZombieMappings(max, perHostLimit int) *DNSZombieMappings {
 	return &DNSZombieMappings{
-		deletes: make(map[string]*DNSZombieMapping),
-		max:     max,
+		deletes:      make(map[string]*DNSZombieMapping),
+		max:          max,
+		perHostLimit: perHostLimit,
 	}
 }
 
@@ -760,14 +804,18 @@ func (zombies *DNSZombieMappings) isConnectionAlive(zombie *DNSZombieMapping) bo
 	return !(zombies.lastCTGCUpdate.After(zombie.DeletePendingAt) && zombies.lastCTGCUpdate.After(zombie.AliveAt))
 }
 
-// getAliveNames returns all the names that are alive
-//   a name is alive if at least one of the IPs that resolve to it is alive
-func (zombies *DNSZombieMappings) getAliveNames() map[string]struct{} {
-	var aliveNames map[string]struct{} = map[string]struct{}{}
+// getAliveNames returns all the names that are alive.
+// A name is alive if at least one of the IPs that resolve to it is alive.
+func (zombies *DNSZombieMappings) getAliveNames() map[string][]*DNSZombieMapping {
+	aliveNames := make(map[string][]*DNSZombieMapping)
+
 	for _, z := range zombies.deletes {
 		if zombies.isConnectionAlive(z) {
 			for _, name := range z.Names {
-				aliveNames[name] = struct{}{}
+				if _, ok := aliveNames[name]; !ok {
+					aliveNames[name] = make([]*DNSZombieMapping, 0, 5)
+				}
+				aliveNames[name] = append(aliveNames[name], z)
 			}
 		}
 	}
@@ -780,22 +828,40 @@ func (zombies *DNSZombieMappings) getAliveNames() map[string]struct{} {
 // A zombie is alive if its connection is alive or if one of its names is
 // alive. The function takes an argument that contains the aliveNames (can be
 // obtained via getAliveNames())
-func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveNames map[string]struct{}) bool {
+func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveNames map[string][]*DNSZombieMapping) (alive, overLimit bool) {
 	if zombies.isConnectionAlive(zombie) {
-		return true
-	}
-
-	for _, name := range zombie.Names {
-		if _, ok := aliveNames[name]; ok {
-			log.WithFields(logrus.Fields{
-				logfields.DNSName: name,
-				logfields.IPAddr:  zombie.IP,
-			}).Debug("FQDN has multiple IPs. One IP has an expired TTL.")
-			return true
+		alive = true
+		if zombies.perHostLimit == 0 {
+			return alive, overLimit
 		}
 	}
 
-	return false
+	for _, name := range zombie.Names {
+		if z, ok := aliveNames[name]; ok {
+			alive = true
+			if zombies.perHostLimit == 0 {
+				return alive, overLimit
+			} else if len(z) > zombies.perHostLimit {
+				overLimit = true
+				return alive, overLimit
+			}
+		}
+	}
+
+	return alive, overLimit
+}
+
+// sortZombieMappingSlice sorts the provided slice by whether the connection is
+// marked alive or not, the oldest created connections, and tie-break by the
+// number of DNS names for that IP.
+//
+// Important zombies shuffle to the end of the slice.
+func sortZombieMappingSlice(alive []*DNSZombieMapping) {
+	sort.Slice(alive, func(i, j int) bool {
+		return alive[i].AliveAt.Before(alive[j].AliveAt) ||
+			alive[i].DeletePendingAt.Before(alive[j].DeletePendingAt) ||
+			len(alive[i].Names) < len(alive[j].Names)
+	})
 }
 
 // GC returns alive and dead DNSZombieMapping entries. This removes dead
@@ -810,15 +876,66 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 	zombies.Lock()
 	defer zombies.Unlock()
 
-	var aliveNames map[string]struct{} = zombies.getAliveNames()
+	aliveNames := zombies.getAliveNames()
 
 	// Collect zombies we can delete
 	for _, zombie := range zombies.deletes {
-		if zombies.isZombieAlive(zombie, aliveNames) {
+		zombieAlive, overLimit := zombies.isZombieAlive(zombie, aliveNames)
+		if overLimit {
+			// No-op: This zombie is part of a name in 'aliveNames'
+			// that needs to impose a per-host IP limit. Decide
+			// whether to add to alive or dead in the next loop.
+		} else if zombieAlive {
 			alive = append(alive, zombie.DeepCopy())
 		} else {
 			// Emit the actual object here since we will no longer update it
 			dead = append(dead, zombie)
+		}
+	}
+
+	if zombies.perHostLimit > 0 {
+		warnActiveDNSEntries := false
+		deadIdx := len(dead)
+
+		// Find names which have too many IPs associated mark them dead.
+		//
+		// Multiple names can refer to the same IP, so if we expire the
+		// zombie by IP then we need to ensure that it doesn't get
+		// added to both 'alive' and 'dead'.
+		//
+		// 1) Assemble all of the 'dead', starting from 'deadIdx'.
+		//    Assemble alive candidates in 'possibleAlive'.
+		// 2) Ensure that 'possibleAlive' doesn't contain any of the
+		//    entries in 'dead[deadIdx:]'.
+		// 3) Add the remaining 'possibleAlive' to 'alive'.
+		possibleAlive := make(map[*DNSZombieMapping]struct{})
+		for _, aliveIPsForName := range aliveNames {
+			if len(aliveIPsForName) <= zombies.perHostLimit {
+				// Already handled in the loop above.
+				continue
+			}
+			overLimit := len(aliveIPsForName) - zombies.perHostLimit
+			sortZombieMappingSlice(aliveIPsForName)
+			dead = append(dead, aliveIPsForName[:overLimit]...)
+			for _, z := range aliveIPsForName[overLimit:] {
+				possibleAlive[z] = struct{}{}
+			}
+			if dead[len(dead)-1].AliveAt.IsZero() {
+				warnActiveDNSEntries = true
+			}
+		}
+		if warnActiveDNSEntries {
+			log.Warningf("Evicting expired DNS cache entries that may be in-use due to per-host limits. This may cause recently created connections to be disconnected. Raise %s to mitigate this.", option.ToFQDNsMaxIPsPerHost)
+		}
+
+		for _, dead := range dead[deadIdx:] {
+			if _, ok := possibleAlive[dead]; ok {
+				delete(possibleAlive, dead)
+			}
+		}
+
+		for zombie := range possibleAlive {
+			alive = append(alive, zombie.DeepCopy())
 		}
 	}
 
@@ -828,11 +945,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 	// that IP.
 	overLimit := len(alive) - zombies.max
 	if overLimit > 0 {
-		sort.Slice(alive, func(i, j int) bool {
-			return alive[i].AliveAt.Before(alive[j].AliveAt) ||
-				alive[i].DeletePendingAt.Before(alive[j].DeletePendingAt) ||
-				len(alive[i].Names) < len(alive[j].Names)
-		})
+		sortZombieMappingSlice(alive)
 		dead = append(dead, alive[:overLimit]...)
 		alive = alive[overLimit:]
 		if dead[len(dead)-1].AliveAt.IsZero() {
@@ -883,9 +996,11 @@ func (zombies *DNSZombieMappings) SetCTGCTime(ctGCStart time.Time) {
 // expireLookupsBefore requires an zombie to have been enqueued before the
 // specified time in order to remove it.
 // For example:
-//   ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
-//   ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
-//   that expired before the current time.
+//
+//	ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
+//	ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
+//	that expired before the current time.
+//
 // nameMatch will remove that specific DNS name from zombies that include it,
 // deleting it when no DNS names remain.
 func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *net.IPNet) (namesAffected []string) {
@@ -942,7 +1057,7 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 // never happen.
 func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...net.IP) error {
 	reStr := matchpattern.ToRegexp(name)
-	re, err := regexp.Compile(reStr)
+	re, err := re.CompileRegex(reStr)
 	if err != nil {
 		return err
 	}
@@ -968,7 +1083,7 @@ func (zombies *DNSZombieMappings) DumpAlive(cidrMatcher CIDRMatcherFunc) (alive 
 
 	aliveNames := zombies.getAliveNames()
 	for _, zombie := range zombies.deletes {
-		if !zombies.isZombieAlive(zombie, aliveNames) {
+		if alive, _ := zombies.isZombieAlive(zombie, aliveNames); !alive {
 			continue
 		}
 		// only proceed if zombie is alive and the IP matches the CIDR selector

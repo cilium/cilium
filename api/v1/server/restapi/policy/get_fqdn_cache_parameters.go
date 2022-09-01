@@ -41,6 +41,10 @@ type GetFqdnCacheParams struct {
 	  In: query
 	*/
 	Matchpattern *string
+	/*Source from which FQDN entries come from
+	  In: query
+	*/
+	Source *string
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -61,6 +65,11 @@ func (o *GetFqdnCacheParams) BindRequest(r *http.Request, route *middleware.Matc
 
 	qMatchpattern, qhkMatchpattern, _ := qs.GetOK("matchpattern")
 	if err := o.bindMatchpattern(qMatchpattern, qhkMatchpattern, route.Formats); err != nil {
+		res = append(res, err)
+	}
+
+	qSource, qhkSource, _ := qs.GetOK("source")
+	if err := o.bindSource(qSource, qhkSource, route.Formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -102,6 +111,24 @@ func (o *GetFqdnCacheParams) bindMatchpattern(rawData []string, hasKey bool, for
 	}
 
 	o.Matchpattern = &raw
+
+	return nil
+}
+
+// bindSource binds and validates parameter Source from query.
+func (o *GetFqdnCacheParams) bindSource(rawData []string, hasKey bool, formats strfmt.Registry) error {
+	var raw string
+	if len(rawData) > 0 {
+		raw = rawData[len(rawData)-1]
+	}
+
+	// Required: false
+	// AllowEmptyValue: false
+	if raw == "" { // empty values pass all other validations
+		return nil
+	}
+
+	o.Source = &raw
 
 	return nil
 }

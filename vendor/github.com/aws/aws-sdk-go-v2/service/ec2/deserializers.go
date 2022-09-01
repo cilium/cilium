@@ -2003,6 +2003,97 @@ func awsEc2query_deserializeOpErrorAssociateTransitGatewayMulticastDomain(respon
 	}
 }
 
+type awsEc2query_deserializeOpAssociateTransitGatewayPolicyTable struct {
+}
+
+func (*awsEc2query_deserializeOpAssociateTransitGatewayPolicyTable) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpAssociateTransitGatewayPolicyTable) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorAssociateTransitGatewayPolicyTable(response, &metadata)
+	}
+	output := &AssociateTransitGatewayPolicyTableOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentAssociateTransitGatewayPolicyTableOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorAssociateTransitGatewayPolicyTable(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
 type awsEc2query_deserializeOpAssociateTransitGatewayRouteTable struct {
 }
 
@@ -9350,6 +9441,97 @@ func awsEc2query_deserializeOpErrorCreateTransitGatewayPeeringAttachment(respons
 	}
 }
 
+type awsEc2query_deserializeOpCreateTransitGatewayPolicyTable struct {
+}
+
+func (*awsEc2query_deserializeOpCreateTransitGatewayPolicyTable) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpCreateTransitGatewayPolicyTable) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorCreateTransitGatewayPolicyTable(response, &metadata)
+	}
+	output := &CreateTransitGatewayPolicyTableOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentCreateTransitGatewayPolicyTableOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorCreateTransitGatewayPolicyTable(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
 type awsEc2query_deserializeOpCreateTransitGatewayPrefixListReference struct {
 }
 
@@ -9591,6 +9773,97 @@ func (m *awsEc2query_deserializeOpCreateTransitGatewayRouteTable) HandleDeserial
 }
 
 func awsEc2query_deserializeOpErrorCreateTransitGatewayRouteTable(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
+type awsEc2query_deserializeOpCreateTransitGatewayRouteTableAnnouncement struct {
+}
+
+func (*awsEc2query_deserializeOpCreateTransitGatewayRouteTableAnnouncement) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpCreateTransitGatewayRouteTableAnnouncement) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorCreateTransitGatewayRouteTableAnnouncement(response, &metadata)
+	}
+	output := &CreateTransitGatewayRouteTableAnnouncementOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentCreateTransitGatewayRouteTableAnnouncementOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorCreateTransitGatewayRouteTableAnnouncement(response *smithyhttp.Response, metadata *middleware.Metadata) error {
 	var errorBuffer bytes.Buffer
 	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
 		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
@@ -14624,6 +14897,97 @@ func awsEc2query_deserializeOpErrorDeleteTransitGatewayPeeringAttachment(respons
 	}
 }
 
+type awsEc2query_deserializeOpDeleteTransitGatewayPolicyTable struct {
+}
+
+func (*awsEc2query_deserializeOpDeleteTransitGatewayPolicyTable) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpDeleteTransitGatewayPolicyTable) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorDeleteTransitGatewayPolicyTable(response, &metadata)
+	}
+	output := &DeleteTransitGatewayPolicyTableOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentDeleteTransitGatewayPolicyTableOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorDeleteTransitGatewayPolicyTable(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
 type awsEc2query_deserializeOpDeleteTransitGatewayPrefixListReference struct {
 }
 
@@ -14865,6 +15229,97 @@ func (m *awsEc2query_deserializeOpDeleteTransitGatewayRouteTable) HandleDeserial
 }
 
 func awsEc2query_deserializeOpErrorDeleteTransitGatewayRouteTable(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
+type awsEc2query_deserializeOpDeleteTransitGatewayRouteTableAnnouncement struct {
+}
+
+func (*awsEc2query_deserializeOpDeleteTransitGatewayRouteTableAnnouncement) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpDeleteTransitGatewayRouteTableAnnouncement) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorDeleteTransitGatewayRouteTableAnnouncement(response, &metadata)
+	}
+	output := &DeleteTransitGatewayRouteTableAnnouncementOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentDeleteTransitGatewayRouteTableAnnouncementOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorDeleteTransitGatewayRouteTableAnnouncement(response *smithyhttp.Response, metadata *middleware.Metadata) error {
 	var errorBuffer bytes.Buffer
 	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
 		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
@@ -26498,6 +26953,188 @@ func awsEc2query_deserializeOpErrorDescribeTransitGatewayPeeringAttachments(resp
 	}
 }
 
+type awsEc2query_deserializeOpDescribeTransitGatewayPolicyTables struct {
+}
+
+func (*awsEc2query_deserializeOpDescribeTransitGatewayPolicyTables) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpDescribeTransitGatewayPolicyTables) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorDescribeTransitGatewayPolicyTables(response, &metadata)
+	}
+	output := &DescribeTransitGatewayPolicyTablesOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentDescribeTransitGatewayPolicyTablesOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorDescribeTransitGatewayPolicyTables(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
+type awsEc2query_deserializeOpDescribeTransitGatewayRouteTableAnnouncements struct {
+}
+
+func (*awsEc2query_deserializeOpDescribeTransitGatewayRouteTableAnnouncements) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpDescribeTransitGatewayRouteTableAnnouncements) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorDescribeTransitGatewayRouteTableAnnouncements(response, &metadata)
+	}
+	output := &DescribeTransitGatewayRouteTableAnnouncementsOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentDescribeTransitGatewayRouteTableAnnouncementsOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorDescribeTransitGatewayRouteTableAnnouncements(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
 type awsEc2query_deserializeOpDescribeTransitGatewayRouteTables struct {
 }
 
@@ -30364,6 +31001,97 @@ func awsEc2query_deserializeOpErrorDisassociateTransitGatewayMulticastDomain(res
 	}
 }
 
+type awsEc2query_deserializeOpDisassociateTransitGatewayPolicyTable struct {
+}
+
+func (*awsEc2query_deserializeOpDisassociateTransitGatewayPolicyTable) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpDisassociateTransitGatewayPolicyTable) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorDisassociateTransitGatewayPolicyTable(response, &metadata)
+	}
+	output := &DisassociateTransitGatewayPolicyTableOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentDisassociateTransitGatewayPolicyTableOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorDisassociateTransitGatewayPolicyTable(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
 type awsEc2query_deserializeOpDisassociateTransitGatewayRouteTable struct {
 }
 
@@ -33139,6 +33867,97 @@ func awsEc2query_deserializeOpErrorGetInstanceTypesFromInstanceRequirements(resp
 	}
 }
 
+type awsEc2query_deserializeOpGetInstanceUefiData struct {
+}
+
+func (*awsEc2query_deserializeOpGetInstanceUefiData) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpGetInstanceUefiData) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorGetInstanceUefiData(response, &metadata)
+	}
+	output := &GetInstanceUefiDataOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentGetInstanceUefiDataOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorGetInstanceUefiData(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
 type awsEc2query_deserializeOpGetIpamAddressHistory struct {
 }
 
@@ -34563,6 +35382,188 @@ func (m *awsEc2query_deserializeOpGetTransitGatewayMulticastDomainAssociations) 
 }
 
 func awsEc2query_deserializeOpErrorGetTransitGatewayMulticastDomainAssociations(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
+type awsEc2query_deserializeOpGetTransitGatewayPolicyTableAssociations struct {
+}
+
+func (*awsEc2query_deserializeOpGetTransitGatewayPolicyTableAssociations) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpGetTransitGatewayPolicyTableAssociations) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorGetTransitGatewayPolicyTableAssociations(response, &metadata)
+	}
+	output := &GetTransitGatewayPolicyTableAssociationsOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentGetTransitGatewayPolicyTableAssociationsOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorGetTransitGatewayPolicyTableAssociations(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
+type awsEc2query_deserializeOpGetTransitGatewayPolicyTableEntries struct {
+}
+
+func (*awsEc2query_deserializeOpGetTransitGatewayPolicyTableEntries) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpGetTransitGatewayPolicyTableEntries) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorGetTransitGatewayPolicyTableEntries(response, &metadata)
+	}
+	output := &GetTransitGatewayPolicyTableEntriesOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentGetTransitGatewayPolicyTableEntriesOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorGetTransitGatewayPolicyTableEntries(response *smithyhttp.Response, metadata *middleware.Metadata) error {
 	var errorBuffer bytes.Buffer
 	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
 		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
@@ -37292,6 +38293,97 @@ func (m *awsEc2query_deserializeOpModifyInstanceEventWindow) HandleDeserialize(c
 }
 
 func awsEc2query_deserializeOpErrorModifyInstanceEventWindow(response *smithyhttp.Response, metadata *middleware.Metadata) error {
+	var errorBuffer bytes.Buffer
+	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
+		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
+	}
+	errorBody := bytes.NewReader(errorBuffer.Bytes())
+
+	errorCode := "UnknownError"
+	errorMessage := errorCode
+
+	errorComponents, err := ec2query.GetErrorResponseComponents(errorBody)
+	if err != nil {
+		return err
+	}
+	awsmiddleware.SetRequestIDMetadata(metadata, errorComponents.RequestID)
+	if len(errorComponents.Code) != 0 {
+		errorCode = errorComponents.Code
+	}
+	if len(errorComponents.Message) != 0 {
+		errorMessage = errorComponents.Message
+	}
+	errorBody.Seek(0, io.SeekStart)
+	switch {
+	default:
+		genericError := &smithy.GenericAPIError{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+		return genericError
+
+	}
+}
+
+type awsEc2query_deserializeOpModifyInstanceMaintenanceOptions struct {
+}
+
+func (*awsEc2query_deserializeOpModifyInstanceMaintenanceOptions) ID() string {
+	return "OperationDeserializer"
+}
+
+func (m *awsEc2query_deserializeOpModifyInstanceMaintenanceOptions) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	if err != nil {
+		return out, metadata, err
+	}
+
+	response, ok := out.RawResponse.(*smithyhttp.Response)
+	if !ok {
+		return out, metadata, &smithy.DeserializationError{Err: fmt.Errorf("unknown transport type %T", out.RawResponse)}
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return out, metadata, awsEc2query_deserializeOpErrorModifyInstanceMaintenanceOptions(response, &metadata)
+	}
+	output := &ModifyInstanceMaintenanceOptionsOutput{}
+	out.Result = output
+
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		return out, metadata, &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentModifyInstanceMaintenanceOptionsOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
+	}
+
+	return out, metadata, err
+}
+
+func awsEc2query_deserializeOpErrorModifyInstanceMaintenanceOptions(response *smithyhttp.Response, metadata *middleware.Metadata) error {
 	var errorBuffer bytes.Buffer
 	if _, err := io.Copy(&errorBuffer, response.Body); err != nil {
 		return &smithy.DeserializationError{Err: fmt.Errorf("failed to copy error response body, %w", err)}
@@ -47186,6 +48278,129 @@ func awsEc2query_deserializeDocumentActiveInstanceSetUnwrapped(v *[]types.Active
 		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 		destAddr := &mv
 		if err := awsEc2query_deserializeDocumentActiveInstance(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentAdditionalDetail(v **types.AdditionalDetail, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.AdditionalDetail
+	if *v == nil {
+		sv = &types.AdditionalDetail{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("additionalDetailType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AdditionalDetailType = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("component", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAnalysisComponent(&sv.Component, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentAdditionalDetailList(v *[]types.AdditionalDetail, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.AdditionalDetail
+	if *v == nil {
+		sv = make([]types.AdditionalDetail, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.AdditionalDetail
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentAdditionalDetail(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentAdditionalDetailListUnwrapped(v *[]types.AdditionalDetail, decoder smithyxml.NodeDecoder) error {
+	var sv []types.AdditionalDetail
+	if *v == nil {
+		sv = make([]types.AdditionalDetail, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.AdditionalDetail
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentAdditionalDetail(&destAddr, nodeDecoder); err != nil {
 			return err
 		}
 		mv = *destAddr
@@ -59391,6 +60606,55 @@ func awsEc2query_deserializeDocumentDnsEntrySetUnwrapped(v *[]types.DnsEntry, de
 	*v = sv
 	return nil
 }
+func awsEc2query_deserializeDocumentDnsOptions(v **types.DnsOptions, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.DnsOptions
+	if *v == nil {
+		sv = &types.DnsOptions{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("dnsRecordIpType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.DnsRecordIpType = types.DnsRecordIpType(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeDocumentEbsBlockDevice(v **types.EbsBlockDevice, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -61980,6 +63244,30 @@ func awsEc2query_deserializeDocumentExplanation(v **types.Explanation, decoder s
 		case strings.EqualFold("subnetRouteTable", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentAnalysisComponent(&sv.SubnetRouteTable, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("transitGateway", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAnalysisComponent(&sv.TransitGateway, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("transitGatewayAttachment", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAnalysisComponent(&sv.TransitGatewayAttachment, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("transitGatewayRouteTable", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAnalysisComponent(&sv.TransitGatewayRouteTable, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("transitGatewayRouteTableRoute", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayRouteTableRoute(&sv.TransitGatewayRouteTableRoute, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -66218,6 +67506,19 @@ func awsEc2query_deserializeDocumentHost(v **types.Host, decoder smithyxml.NodeD
 				sv.MemberOfServiceLinkedResourceGroup = ptr.Bool(xtv)
 			}
 
+		case strings.EqualFold("outpostArn", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.OutpostArn = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("ownerId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -68057,6 +69358,19 @@ func awsEc2query_deserializeDocumentImage(v **types.Image, decoder smithyxml.Nod
 				return err
 			}
 
+		case strings.EqualFold("tpmSupport", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TpmSupport = types.TpmSupportValues(xtv)
+			}
+
 		case strings.EqualFold("usageOperation", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -69832,6 +71146,12 @@ func awsEc2query_deserializeDocumentInstance(v **types.Instance, decoder smithyx
 				return err
 			}
 
+		case strings.EqualFold("maintenanceOptions", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentInstanceMaintenanceOptions(&sv.MaintenanceOptions, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("metadataOptions", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentInstanceMetadataOptionsResponse(&sv.MetadataOptions, nodeDecoder); err != nil {
@@ -70088,6 +71408,19 @@ func awsEc2query_deserializeDocumentInstance(v **types.Instance, decoder smithyx
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
 				return err
+			}
+
+		case strings.EqualFold("tpmSupport", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TpmSupport = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("usageOperation", t.Name.Local):
@@ -71947,6 +73280,55 @@ func awsEc2query_deserializeDocumentInstanceListUnwrapped(v *[]types.Instance, d
 	*v = sv
 	return nil
 }
+func awsEc2query_deserializeDocumentInstanceMaintenanceOptions(v **types.InstanceMaintenanceOptions, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.InstanceMaintenanceOptions
+	if *v == nil {
+		sv = &types.InstanceMaintenanceOptions{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("autoRecovery", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AutoRecovery = types.InstanceAutoRecoveryState(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeDocumentInstanceMetadataOptionsResponse(v **types.InstanceMetadataOptionsResponse, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -79356,6 +80738,23 @@ func awsEc2query_deserializeDocumentKeyPairInfo(v **types.KeyPairInfo, decoder s
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("createTime", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				t, err := smithytime.ParseDateTime(xtv)
+				if err != nil {
+					return err
+				}
+				sv.CreateTime = ptr.Time(t)
+			}
+
 		case strings.EqualFold("keyFingerprint", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -79406,6 +80805,19 @@ func awsEc2query_deserializeDocumentKeyPairInfo(v **types.KeyPairInfo, decoder s
 			{
 				xtv := string(val)
 				sv.KeyType = types.KeyType(xtv)
+			}
+
+		case strings.EqualFold("publicKey", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.PublicKey = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("tagSet", t.Name.Local):
@@ -80986,6 +82398,55 @@ func awsEc2query_deserializeDocumentLaunchTemplateIamInstanceProfileSpecificatio
 			{
 				xtv := string(val)
 				sv.Name = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentLaunchTemplateInstanceMaintenanceOptions(v **types.LaunchTemplateInstanceMaintenanceOptions, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.LaunchTemplateInstanceMaintenanceOptions
+	if *v == nil {
+		sv = &types.LaunchTemplateInstanceMaintenanceOptions{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("autoRecovery", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AutoRecovery = types.LaunchTemplateAutoRecoveryState(xtv)
 			}
 
 		default:
@@ -88834,6 +90295,12 @@ func awsEc2query_deserializeDocumentPathComponent(v **types.PathComponent, decod
 				return err
 			}
 
+		case strings.EqualFold("additionalDetailSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAdditionalDetailList(&sv.AdditionalDetails, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("attachedTo", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentAnalysisComponent(&sv.AttachedTo, nodeDecoder); err != nil {
@@ -88902,6 +90369,18 @@ func awsEc2query_deserializeDocumentPathComponent(v **types.PathComponent, decod
 		case strings.EqualFold("subnet", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentAnalysisComponent(&sv.Subnet, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("transitGateway", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAnalysisComponent(&sv.TransitGateway, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("transitGatewayRouteTableRoute", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayRouteTableRoute(&sv.TransitGatewayRouteTableRoute, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -89297,6 +90776,19 @@ func awsEc2query_deserializeDocumentPeeringTgwInfo(v **types.PeeringTgwInfo, dec
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("coreNetworkId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.CoreNetworkId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("ownerId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -90280,6 +91772,19 @@ func awsEc2query_deserializeDocumentPlacementGroup(v **types.PlacementGroup, dec
 					return err
 				}
 				sv.PartitionCount = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("spreadLevel", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SpreadLevel = types.SpreadLevel(xtv)
 			}
 
 		case strings.EqualFold("state", t.Name.Local):
@@ -96207,6 +97712,22 @@ func awsEc2query_deserializeDocumentResponseLaunchTemplateData(v **types.Respons
 				return err
 			}
 
+		case strings.EqualFold("disableApiStop", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
+				}
+				sv.DisableApiStop = ptr.Bool(xtv)
+			}
+
 		case strings.EqualFold("disableApiTermination", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -96349,6 +97870,12 @@ func awsEc2query_deserializeDocumentResponseLaunchTemplateData(v **types.Respons
 		case strings.EqualFold("licenseSet", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentLaunchTemplateLicenseList(&sv.LicenseSpecifications, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("maintenanceOptions", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentLaunchTemplateInstanceMaintenanceOptions(&sv.MaintenanceOptions, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -99009,6 +100536,12 @@ func awsEc2query_deserializeDocumentServiceConfiguration(v **types.ServiceConfig
 				return err
 			}
 
+		case strings.EqualFold("supportedIpAddressTypeSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentSupportedIpAddressTypes(&sv.SupportedIpAddressTypes, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("tagSet", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
@@ -99250,6 +100783,12 @@ func awsEc2query_deserializeDocumentServiceDetail(v **types.ServiceDetail, decod
 		case strings.EqualFold("serviceType", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentServiceTypeDetailSet(&sv.ServiceType, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("supportedIpAddressTypeSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentSupportedIpAddressTypes(&sv.SupportedIpAddressTypes, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -104948,6 +106487,86 @@ func awsEc2query_deserializeDocumentSuccessfulQueuedPurchaseDeletionSetUnwrapped
 	*v = sv
 	return nil
 }
+func awsEc2query_deserializeDocumentSupportedIpAddressTypes(v *[]types.ServiceConnectivityType, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.ServiceConnectivityType
+	if *v == nil {
+		sv = make([]types.ServiceConnectivityType, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		memberDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		decoder = memberDecoder
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.ServiceConnectivityType
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				col = types.ServiceConnectivityType(xtv)
+			}
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentSupportedIpAddressTypesUnwrapped(v *[]types.ServiceConnectivityType, decoder smithyxml.NodeDecoder) error {
+	var sv []types.ServiceConnectivityType
+	if *v == nil {
+		sv = make([]types.ServiceConnectivityType, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.ServiceConnectivityType
+		t := decoder.StartEl
+		_ = t
+		val, err := decoder.Value()
+		if err != nil {
+			return err
+		}
+		if val == nil {
+			break
+		}
+		{
+			xtv := string(val)
+			mv = types.ServiceConnectivityType(xtv)
+		}
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
 func awsEc2query_deserializeDocumentTag(v **types.Tag, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -107193,6 +108812,19 @@ func awsEc2query_deserializeDocumentTrafficMirrorTarget(v **types.TrafficMirrorT
 			{
 				xtv := string(val)
 				sv.Description = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("gatewayLoadBalancerEndpointId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.GatewayLoadBalancerEndpointId = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("networkInterfaceId", t.Name.Local):
@@ -109991,6 +111623,19 @@ func awsEc2query_deserializeDocumentTransitGatewayPeeringAttachment(v **types.Tr
 				return err
 			}
 
+		case strings.EqualFold("accepterTransitGatewayAttachmentId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AccepterTransitGatewayAttachmentId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("creationTime", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -110006,6 +111651,12 @@ func awsEc2query_deserializeDocumentTransitGatewayPeeringAttachment(v **types.Tr
 					return err
 				}
 				sv.CreationTime = ptr.Time(t)
+			}
+
+		case strings.EqualFold("options", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPeeringAttachmentOptions(&sv.Options, nodeDecoder); err != nil {
+				return err
 			}
 
 		case strings.EqualFold("requesterTgwInfo", t.Name.Local):
@@ -110126,6 +111777,695 @@ func awsEc2query_deserializeDocumentTransitGatewayPeeringAttachmentListUnwrapped
 		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 		destAddr := &mv
 		if err := awsEc2query_deserializeDocumentTransitGatewayPeeringAttachment(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentTransitGatewayPeeringAttachmentOptions(v **types.TransitGatewayPeeringAttachmentOptions, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.TransitGatewayPeeringAttachmentOptions
+	if *v == nil {
+		sv = &types.TransitGatewayPeeringAttachmentOptions{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("dynamicRouting", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.DynamicRouting = types.DynamicRoutingValue(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayPolicyRule(v **types.TransitGatewayPolicyRule, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.TransitGatewayPolicyRule
+	if *v == nil {
+		sv = &types.TransitGatewayPolicyRule{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("destinationCidrBlock", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.DestinationCidrBlock = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("destinationPortRange", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.DestinationPortRange = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("metaData", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyRuleMetaData(&sv.MetaData, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("protocol", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.Protocol = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("sourceCidrBlock", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SourceCidrBlock = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("sourcePortRange", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SourcePortRange = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayPolicyRuleMetaData(v **types.TransitGatewayPolicyRuleMetaData, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.TransitGatewayPolicyRuleMetaData
+	if *v == nil {
+		sv = &types.TransitGatewayPolicyRuleMetaData{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("metaDataKey", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.MetaDataKey = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("metaDataValue", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.MetaDataValue = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayPolicyTable(v **types.TransitGatewayPolicyTable, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.TransitGatewayPolicyTable
+	if *v == nil {
+		sv = &types.TransitGatewayPolicyTable{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("creationTime", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				t, err := smithytime.ParseDateTime(xtv)
+				if err != nil {
+					return err
+				}
+				sv.CreationTime = ptr.Time(t)
+			}
+
+		case strings.EqualFold("state", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.State = types.TransitGatewayPolicyTableState(xtv)
+			}
+
+		case strings.EqualFold("tagSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("transitGatewayId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("transitGatewayPolicyTableId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayPolicyTableId = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayPolicyTableAssociation(v **types.TransitGatewayPolicyTableAssociation, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.TransitGatewayPolicyTableAssociation
+	if *v == nil {
+		sv = &types.TransitGatewayPolicyTableAssociation{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("resourceId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ResourceId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("resourceType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ResourceType = types.TransitGatewayAttachmentResourceType(xtv)
+			}
+
+		case strings.EqualFold("state", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.State = types.TransitGatewayAssociationState(xtv)
+			}
+
+		case strings.EqualFold("transitGatewayAttachmentId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayAttachmentId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("transitGatewayPolicyTableId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayPolicyTableId = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayPolicyTableAssociationList(v *[]types.TransitGatewayPolicyTableAssociation, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.TransitGatewayPolicyTableAssociation
+	if *v == nil {
+		sv = make([]types.TransitGatewayPolicyTableAssociation, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.TransitGatewayPolicyTableAssociation
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTableAssociation(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayPolicyTableAssociationListUnwrapped(v *[]types.TransitGatewayPolicyTableAssociation, decoder smithyxml.NodeDecoder) error {
+	var sv []types.TransitGatewayPolicyTableAssociation
+	if *v == nil {
+		sv = make([]types.TransitGatewayPolicyTableAssociation, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.TransitGatewayPolicyTableAssociation
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTableAssociation(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentTransitGatewayPolicyTableEntry(v **types.TransitGatewayPolicyTableEntry, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.TransitGatewayPolicyTableEntry
+	if *v == nil {
+		sv = &types.TransitGatewayPolicyTableEntry{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("policyRule", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyRule(&sv.PolicyRule, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("policyRuleNumber", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.PolicyRuleNumber = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("targetRouteTableId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TargetRouteTableId = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayPolicyTableEntryList(v *[]types.TransitGatewayPolicyTableEntry, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.TransitGatewayPolicyTableEntry
+	if *v == nil {
+		sv = make([]types.TransitGatewayPolicyTableEntry, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.TransitGatewayPolicyTableEntry
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTableEntry(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayPolicyTableEntryListUnwrapped(v *[]types.TransitGatewayPolicyTableEntry, decoder smithyxml.NodeDecoder) error {
+	var sv []types.TransitGatewayPolicyTableEntry
+	if *v == nil {
+		sv = make([]types.TransitGatewayPolicyTableEntry, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.TransitGatewayPolicyTableEntry
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTableEntry(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentTransitGatewayPolicyTableList(v *[]types.TransitGatewayPolicyTable, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.TransitGatewayPolicyTable
+	if *v == nil {
+		sv = make([]types.TransitGatewayPolicyTable, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.TransitGatewayPolicyTable
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTable(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayPolicyTableListUnwrapped(v *[]types.TransitGatewayPolicyTable, decoder smithyxml.NodeDecoder) error {
+	var sv []types.TransitGatewayPolicyTable
+	if *v == nil {
+		sv = make([]types.TransitGatewayPolicyTable, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.TransitGatewayPolicyTable
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTable(&destAddr, nodeDecoder); err != nil {
 			return err
 		}
 		mv = *destAddr
@@ -110461,6 +112801,19 @@ func awsEc2query_deserializeDocumentTransitGatewayPropagation(v **types.TransitG
 				sv.TransitGatewayAttachmentId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("transitGatewayRouteTableAnnouncementId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayRouteTableAnnouncementId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("transitGatewayRouteTableId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -110553,6 +112906,19 @@ func awsEc2query_deserializeDocumentTransitGatewayRoute(v **types.TransitGateway
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTransitGatewayRouteAttachmentList(&sv.TransitGatewayAttachments, nodeDecoder); err != nil {
 				return err
+			}
+
+		case strings.EqualFold("transitGatewayRouteTableAnnouncementId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayRouteTableAnnouncementId = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("type", t.Name.Local):
@@ -110923,6 +113289,250 @@ func awsEc2query_deserializeDocumentTransitGatewayRouteTable(v **types.TransitGa
 	return nil
 }
 
+func awsEc2query_deserializeDocumentTransitGatewayRouteTableAnnouncement(v **types.TransitGatewayRouteTableAnnouncement, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.TransitGatewayRouteTableAnnouncement
+	if *v == nil {
+		sv = &types.TransitGatewayRouteTableAnnouncement{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("announcementDirection", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AnnouncementDirection = types.TransitGatewayRouteTableAnnouncementDirection(xtv)
+			}
+
+		case strings.EqualFold("coreNetworkId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.CoreNetworkId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("creationTime", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				t, err := smithytime.ParseDateTime(xtv)
+				if err != nil {
+					return err
+				}
+				sv.CreationTime = ptr.Time(t)
+			}
+
+		case strings.EqualFold("peerCoreNetworkId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.PeerCoreNetworkId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("peeringAttachmentId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.PeeringAttachmentId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("peerTransitGatewayId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.PeerTransitGatewayId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("state", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.State = types.TransitGatewayRouteTableAnnouncementState(xtv)
+			}
+
+		case strings.EqualFold("tagSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("transitGatewayId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("transitGatewayRouteTableAnnouncementId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayRouteTableAnnouncementId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("transitGatewayRouteTableId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayRouteTableId = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayRouteTableAnnouncementList(v *[]types.TransitGatewayRouteTableAnnouncement, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.TransitGatewayRouteTableAnnouncement
+	if *v == nil {
+		sv = make([]types.TransitGatewayRouteTableAnnouncement, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.TransitGatewayRouteTableAnnouncement
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentTransitGatewayRouteTableAnnouncement(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentTransitGatewayRouteTableAnnouncementListUnwrapped(v *[]types.TransitGatewayRouteTableAnnouncement, decoder smithyxml.NodeDecoder) error {
+	var sv []types.TransitGatewayRouteTableAnnouncement
+	if *v == nil {
+		sv = make([]types.TransitGatewayRouteTableAnnouncement, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.TransitGatewayRouteTableAnnouncement
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentTransitGatewayRouteTableAnnouncement(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
 func awsEc2query_deserializeDocumentTransitGatewayRouteTableAssociation(v **types.TransitGatewayRouteTableAssociation, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -111221,6 +113831,19 @@ func awsEc2query_deserializeDocumentTransitGatewayRouteTablePropagation(v **type
 				sv.TransitGatewayAttachmentId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("transitGatewayRouteTableAnnouncementId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayRouteTableAnnouncementId = ptr.String(xtv)
+			}
+
 		default:
 			// Do nothing and ignore the unexpected tag element
 			err = decoder.Decoder.Skip()
@@ -111303,6 +113926,133 @@ func awsEc2query_deserializeDocumentTransitGatewayRouteTablePropagationListUnwra
 	*v = sv
 	return nil
 }
+func awsEc2query_deserializeDocumentTransitGatewayRouteTableRoute(v **types.TransitGatewayRouteTableRoute, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.TransitGatewayRouteTableRoute
+	if *v == nil {
+		sv = &types.TransitGatewayRouteTableRoute{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("attachmentId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AttachmentId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("destinationCidr", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.DestinationCidr = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("prefixListId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.PrefixListId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("resourceId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ResourceId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("resourceType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ResourceType = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("routeOrigin", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.RouteOrigin = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("state", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.State = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeDocumentTransitGatewayVpcAttachment(v **types.TransitGatewayVpcAttachment, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -115924,10 +118674,29 @@ func awsEc2query_deserializeDocumentVpcEndpoint(v **types.VpcEndpoint, decoder s
 				return err
 			}
 
+		case strings.EqualFold("dnsOptions", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentDnsOptions(&sv.DnsOptions, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("groupSet", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentGroupIdentifierSet(&sv.Groups, nodeDecoder); err != nil {
 				return err
+			}
+
+		case strings.EqualFold("ipAddressType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.IpAddressType = types.IpAddressType(xtv)
 			}
 
 		case strings.EqualFold("lastError", t.Name.Local):
@@ -116146,6 +118915,19 @@ func awsEc2query_deserializeDocumentVpcEndpointConnection(v **types.VpcEndpointC
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentValueStringList(&sv.GatewayLoadBalancerArns, nodeDecoder); err != nil {
 				return err
+			}
+
+		case strings.EqualFold("ipAddressType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.IpAddressType = types.IpAddressType(xtv)
 			}
 
 		case strings.EqualFold("networkLoadBalancerArnSet", t.Name.Local):
@@ -117487,6 +120269,19 @@ func awsEc2query_deserializeDocumentVpnConnectionOptions(v **types.VpnConnection
 				sv.LocalIpv6NetworkCidr = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("outsideIpAddressType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.OutsideIpAddressType = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("remoteIpv4NetworkCidr", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -117527,6 +120322,19 @@ func awsEc2query_deserializeDocumentVpnConnectionOptions(v **types.VpnConnection
 					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
 				}
 				sv.StaticRoutesOnly = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("transportTransitGatewayAttachmentId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransportTransitGatewayAttachmentId = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("tunnelInsideIpVersion", t.Name.Local):
@@ -118977,6 +121785,48 @@ func awsEc2query_deserializeOpDocumentAssociateTransitGatewayMulticastDomainOutp
 		case strings.EqualFold("associations", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTransitGatewayMulticastDomainAssociations(&sv.Associations, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeOpDocumentAssociateTransitGatewayPolicyTableOutput(v **AssociateTransitGatewayPolicyTableOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *AssociateTransitGatewayPolicyTableOutput
+	if *v == nil {
+		sv = &AssociateTransitGatewayPolicyTableOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("association", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTableAssociation(&sv.Association, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -123168,6 +126018,48 @@ func awsEc2query_deserializeOpDocumentCreateTransitGatewayPeeringAttachmentOutpu
 	return nil
 }
 
+func awsEc2query_deserializeOpDocumentCreateTransitGatewayPolicyTableOutput(v **CreateTransitGatewayPolicyTableOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *CreateTransitGatewayPolicyTableOutput
+	if *v == nil {
+		sv = &CreateTransitGatewayPolicyTableOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("transitGatewayPolicyTable", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTable(&sv.TransitGatewayPolicyTable, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeOpDocumentCreateTransitGatewayPrefixListReferenceOutput(v **CreateTransitGatewayPrefixListReferenceOutput, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -123235,6 +126127,48 @@ func awsEc2query_deserializeOpDocumentCreateTransitGatewayRouteOutput(v **Create
 		case strings.EqualFold("route", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTransitGatewayRoute(&sv.Route, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeOpDocumentCreateTransitGatewayRouteTableAnnouncementOutput(v **CreateTransitGatewayRouteTableAnnouncementOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *CreateTransitGatewayRouteTableAnnouncementOutput
+	if *v == nil {
+		sv = &CreateTransitGatewayRouteTableAnnouncementOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("transitGatewayRouteTableAnnouncement", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayRouteTableAnnouncement(&sv.TransitGatewayRouteTableAnnouncement, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -125473,6 +128407,48 @@ func awsEc2query_deserializeOpDocumentDeleteTransitGatewayPeeringAttachmentOutpu
 	return nil
 }
 
+func awsEc2query_deserializeOpDocumentDeleteTransitGatewayPolicyTableOutput(v **DeleteTransitGatewayPolicyTableOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *DeleteTransitGatewayPolicyTableOutput
+	if *v == nil {
+		sv = &DeleteTransitGatewayPolicyTableOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("transitGatewayPolicyTable", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTable(&sv.TransitGatewayPolicyTable, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeOpDocumentDeleteTransitGatewayPrefixListReferenceOutput(v **DeleteTransitGatewayPrefixListReferenceOutput, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -125540,6 +128516,48 @@ func awsEc2query_deserializeOpDocumentDeleteTransitGatewayRouteOutput(v **Delete
 		case strings.EqualFold("route", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTransitGatewayRoute(&sv.Route, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeOpDocumentDeleteTransitGatewayRouteTableAnnouncementOutput(v **DeleteTransitGatewayRouteTableAnnouncementOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *DeleteTransitGatewayRouteTableAnnouncementOutput
+	if *v == nil {
+		sv = &DeleteTransitGatewayRouteTableAnnouncementOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("transitGatewayRouteTableAnnouncement", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayRouteTableAnnouncement(&sv.TransitGatewayRouteTableAnnouncement, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -128183,6 +131201,12 @@ func awsEc2query_deserializeOpDocumentDescribeImageAttributeOutput(v **DescribeI
 				return err
 			}
 
+		case strings.EqualFold("lastLaunchedTime", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAttributeValue(&sv.LastLaunchedTime, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("launchPermission", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentLaunchPermissionList(&sv.LaunchPermissions, nodeDecoder); err != nil {
@@ -128204,6 +131228,18 @@ func awsEc2query_deserializeOpDocumentDescribeImageAttributeOutput(v **DescribeI
 		case strings.EqualFold("sriovNetSupport", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentAttributeValue(&sv.SriovNetSupport, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("tpmSupport", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAttributeValue(&sv.TpmSupport, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("uefiData", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAttributeValue(&sv.UefiData, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -128398,6 +131434,12 @@ func awsEc2query_deserializeOpDocumentDescribeInstanceAttributeOutput(v **Descri
 		case strings.EqualFold("blockDeviceMapping", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentInstanceBlockDeviceMappingList(&sv.BlockDeviceMappings, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("disableApiStop", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentAttributeBooleanValue(&sv.DisableApiStop, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -132287,6 +135329,116 @@ func awsEc2query_deserializeOpDocumentDescribeTransitGatewayPeeringAttachmentsOu
 	return nil
 }
 
+func awsEc2query_deserializeOpDocumentDescribeTransitGatewayPolicyTablesOutput(v **DescribeTransitGatewayPolicyTablesOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *DescribeTransitGatewayPolicyTablesOutput
+	if *v == nil {
+		sv = &DescribeTransitGatewayPolicyTablesOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("nextToken", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.NextToken = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("transitGatewayPolicyTables", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTableList(&sv.TransitGatewayPolicyTables, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeOpDocumentDescribeTransitGatewayRouteTableAnnouncementsOutput(v **DescribeTransitGatewayRouteTableAnnouncementsOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *DescribeTransitGatewayRouteTableAnnouncementsOutput
+	if *v == nil {
+		sv = &DescribeTransitGatewayRouteTableAnnouncementsOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("nextToken", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.NextToken = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("transitGatewayRouteTableAnnouncements", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayRouteTableAnnouncementList(&sv.TransitGatewayRouteTableAnnouncements, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeOpDocumentDescribeTransitGatewayRouteTablesOutput(v **DescribeTransitGatewayRouteTablesOutput, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -134431,6 +137583,48 @@ func awsEc2query_deserializeOpDocumentDisassociateTransitGatewayMulticastDomainO
 	return nil
 }
 
+func awsEc2query_deserializeOpDocumentDisassociateTransitGatewayPolicyTableOutput(v **DisassociateTransitGatewayPolicyTableOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *DisassociateTransitGatewayPolicyTableOutput
+	if *v == nil {
+		sv = &DisassociateTransitGatewayPolicyTableOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("association", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTableAssociation(&sv.Association, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeOpDocumentDisassociateTransitGatewayRouteTableOutput(v **DisassociateTransitGatewayRouteTableOutput, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -136270,6 +139464,68 @@ func awsEc2query_deserializeOpDocumentGetInstanceTypesFromInstanceRequirementsOu
 	return nil
 }
 
+func awsEc2query_deserializeOpDocumentGetInstanceUefiDataOutput(v **GetInstanceUefiDataOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *GetInstanceUefiDataOutput
+	if *v == nil {
+		sv = &GetInstanceUefiDataOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("instanceId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.InstanceId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("uefiData", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.UefiData = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeOpDocumentGetIpamAddressHistoryOutput(v **GetIpamAddressHistoryOutput, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -137238,6 +140494,103 @@ func awsEc2query_deserializeOpDocumentGetTransitGatewayMulticastDomainAssociatio
 			{
 				xtv := string(val)
 				sv.NextToken = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeOpDocumentGetTransitGatewayPolicyTableAssociationsOutput(v **GetTransitGatewayPolicyTableAssociationsOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *GetTransitGatewayPolicyTableAssociationsOutput
+	if *v == nil {
+		sv = &GetTransitGatewayPolicyTableAssociationsOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("associations", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTableAssociationList(&sv.Associations, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("nextToken", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.NextToken = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeOpDocumentGetTransitGatewayPolicyTableEntriesOutput(v **GetTransitGatewayPolicyTableEntriesOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *GetTransitGatewayPolicyTableEntriesOutput
+	if *v == nil {
+		sv = &GetTransitGatewayPolicyTableEntriesOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("transitGatewayPolicyTableEntries", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTransitGatewayPolicyTableEntryList(&sv.TransitGatewayPolicyTableEntries, nodeDecoder); err != nil {
+				return err
 			}
 
 		default:
@@ -138801,6 +142154,68 @@ func awsEc2query_deserializeOpDocumentModifyInstanceEventWindowOutput(v **Modify
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentInstanceEventWindow(&sv.InstanceEventWindow, nodeDecoder); err != nil {
 				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeOpDocumentModifyInstanceMaintenanceOptionsOutput(v **ModifyInstanceMaintenanceOptionsOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *ModifyInstanceMaintenanceOptionsOutput
+	if *v == nil {
+		sv = &ModifyInstanceMaintenanceOptionsOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("autoRecovery", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AutoRecovery = types.InstanceAutoRecoveryState(xtv)
+			}
+
+		case strings.EqualFold("instanceId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.InstanceId = ptr.String(xtv)
 			}
 
 		default:

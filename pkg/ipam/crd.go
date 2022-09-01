@@ -16,7 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -30,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -105,18 +105,19 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	// Create the CiliumNode custom resource. This call will block until
 	// the custom resource has been created
 	owner.UpdateCiliumNodeResource()
-
+	apiGroup := "cilium/v2::CiliumNode"
 	ciliumNodeSelector := fields.ParseSelectorOrDie("metadata.name=" + nodeName)
 	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	ciliumNodeInformer := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumClient.CiliumV2().RESTClient(),
-			ciliumv2.CNPluralName, corev1.NamespaceAll, ciliumNodeSelector),
+		utils.ListerWatcherWithFields(
+			utils.ListerWatcherFromTyped[*ciliumv2.CiliumNodeList](ciliumClient.CiliumV2().CiliumNodes()),
+			ciliumNodeSelector),
 		&ciliumv2.CiliumNode{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "create", valid, equal) }()
+				defer func() { k8sEventReg.K8sEventReceived(apiGroup, "CiliumNode", "create", valid, equal) }()
 				if node, ok := obj.(*ciliumv2.CiliumNode); ok {
 					valid = true
 					store.updateLocalNodeResource(node.DeepCopy())
@@ -127,7 +128,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "update", valid, equal) }()
+				defer func() { k8sEventReg.K8sEventReceived(apiGroup, "CiliumNode", "update", valid, equal) }()
 				if oldNode, ok := oldObj.(*ciliumv2.CiliumNode); ok {
 					if newNode, ok := newObj.(*ciliumv2.CiliumNode); ok {
 						valid = true
@@ -159,7 +160,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 				// removed. No attempt to cast is required.
 				store.deleteLocalNodeResource()
 				k8sEventReg.K8sEventProcessed("CiliumNode", "delete", true)
-				k8sEventReg.K8sEventReceived("CiliumNode", "delete", true, false)
+				k8sEventReg.K8sEventReceived(apiGroup, "CiliumNode", "delete", true, false)
 			},
 		},
 		nil,

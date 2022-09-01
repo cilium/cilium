@@ -12,7 +12,7 @@ cilium node list [flags]
 
 ```
   -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -o, --output string   json| yaml| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +25,5 @@ cilium node list [flags]
 
 ### SEE ALSO
 
-* [cilium node](../cilium_node)	 - Manage cluster nodes
+* [cilium node](cilium_node.md)	 - Manage cluster nodes
 

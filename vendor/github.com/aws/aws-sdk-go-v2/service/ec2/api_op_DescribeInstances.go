@@ -32,7 +32,11 @@ import (
 // rare case where an Availability Zone is experiencing a service disruption and
 // you specify instance IDs that are in the affected zone, or do not specify any
 // instance IDs at all, the call fails. If you describe instances and specify only
-// instance IDs that are in an unaffected zone, the call works normally.
+// instance IDs that are in an unaffected zone, the call works normally. We are
+// retiring EC2-Classic on August 15, 2022. We recommend that you migrate from
+// EC2-Classic to a VPC. For more information, see Migrate from EC2-Classic to a
+// VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in
+// the Amazon EC2 User Guide.
 func (c *Client) DescribeInstances(ctx context.Context, params *DescribeInstancesInput, optFns ...func(*Options)) (*DescribeInstancesOutput, error) {
 	if params == nil {
 		params = &DescribeInstancesInput{}
@@ -85,45 +89,48 @@ type DescribeInstancesInput struct {
 	// block-device-mapping.volume-id - The volume ID of the EBS volume.
 	//
 	// *
-	// client-token - The idempotency token you provided when you launched the
-	// instance.
+	// capacity-reservation-id - The ID of the Capacity Reservation into which the
+	// instance was launched.
+	//
+	// * client-token - The idempotency token you provided when
+	// you launched the instance.
 	//
 	// * dns-name - The public DNS name of the instance.
 	//
-	// * group-id - The
-	// ID of the security group for the instance. EC2-Classic only.
-	//
-	// * group-name - The
-	// name of the security group for the instance. EC2-Classic only.
+	// *
+	// group-id - The ID of the security group for the instance. EC2-Classic only.
 	//
 	// *
-	// hibernation-options.configured - A Boolean that indicates whether the instance
-	// is enabled for hibernation. A value of true means that the instance is enabled
-	// for hibernation.
+	// group-name - The name of the security group for the instance. EC2-Classic
+	// only.
 	//
-	// * host-id - The ID of the Dedicated Host on which the instance
-	// is running, if applicable.
+	// * hibernation-options.configured - A Boolean that indicates whether the
+	// instance is enabled for hibernation. A value of true means that the instance is
+	// enabled for hibernation.
 	//
-	// * hypervisor - The hypervisor type of the instance
-	// (ovm | xen). The value xen is used for both Xen and Nitro hypervisors.
+	// * host-id - The ID of the Dedicated Host on which the
+	// instance is running, if applicable.
 	//
-	// *
-	// iam-instance-profile.arn - The instance profile associated with the instance.
-	// Specified as an ARN.
+	// * hypervisor - The hypervisor type of the
+	// instance (ovm | xen). The value xen is used for both Xen and Nitro
+	// hypervisors.
 	//
-	// * image-id - The ID of the image used to launch the
-	// instance.
+	// * iam-instance-profile.arn - The instance profile associated with
+	// the instance. Specified as an ARN.
+	//
+	// * image-id - The ID of the image used to
+	// launch the instance.
 	//
 	// * instance-id - The ID of the instance.
 	//
-	// * instance-lifecycle -
-	// Indicates whether this is a Spot Instance or a Scheduled Instance (spot |
-	// scheduled).
+	// *
+	// instance-lifecycle - Indicates whether this is a Spot Instance or a Scheduled
+	// Instance (spot | scheduled).
 	//
-	// * instance-state-code - The state of the instance, as a 16-bit
-	// unsigned integer. The high byte is used for internal purposes and should be
-	// ignored. The low byte is set based on the state represented. The valid values
-	// are: 0 (pending), 16 (running), 32 (shutting-down), 48 (terminated), 64
+	// * instance-state-code - The state of the instance,
+	// as a 16-bit unsigned integer. The high byte is used for internal purposes and
+	// should be ignored. The low byte is set based on the state represented. The valid
+	// values are: 0 (pending), 16 (running), 32 (shutting-down), 48 (terminated), 64
 	// (stopping), and 80 (stopped).
 	//
 	// * instance-state-name - The state of the instance

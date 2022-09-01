@@ -124,6 +124,14 @@ func LinkSetTxQLen(link Link, qlen int) error {
 	return ErrNotImplemented
 }
 
+func LinkSetGSOMaxSize(link Link, maxSize int) error {
+	return ErrNotImplemented
+}
+
+func LinkSetGROMaxSize(link Link, maxSize int) error {
+	return ErrNotImplemented
+}
+
 func LinkAdd(link Link) error {
 	return ErrNotImplemented
 }

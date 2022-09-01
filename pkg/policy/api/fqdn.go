@@ -6,6 +6,7 @@ package api
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -49,8 +50,9 @@ type FQDNSelector struct {
 	// Examples:
 	// `*.cilium.io` matches subomains of cilium at that level
 	//   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
-	// `*cilium.io` matches cilium.io and all subdomains 1 level below
-	//   www.cilium.io, blog.cilium.io and cilium.io match, google.com does not
+	// `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
+	//   except those containing "." separator, subcilium.io and sub-cilium.io match,
+	//   www.cilium.io and blog.cilium.io does not
 	// sub*.cilium.io matches subdomains of cilium where the subdomain component
 	// begins with "sub"
 	//   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
@@ -61,7 +63,15 @@ type FQDNSelector struct {
 }
 
 func (s *FQDNSelector) String() string {
-	return fmt.Sprintf("MatchName: %s, MatchPattern: %s", s.MatchName, s.MatchPattern)
+	const m = "MatchName: "
+	const mm = ", MatchPattern: "
+	var str strings.Builder
+	str.Grow(len(m) + len(mm) + len(s.MatchName) + len(s.MatchPattern))
+	str.WriteString(m)
+	str.WriteString(s.MatchName)
+	str.WriteString(mm)
+	str.WriteString(s.MatchPattern)
+	return str.String()
 }
 
 // sanitize for FQDNSelector is a little wonky. While we do more processing
