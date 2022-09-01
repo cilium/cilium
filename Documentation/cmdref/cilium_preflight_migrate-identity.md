@@ -22,11 +22,15 @@ cilium preflight migrate-identity [flags]
 ### Options
 
 ```
-  -h, --help                         help for migrate-identity
-      --k8s-api-server string        Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
-      --k8s-kubeconfig-path string   Absolute path of the kubernetes kubeconfig file
-      --kvstore string               Key-value store type
-      --kvstore-opt map              Key-value store options e.g. etcd.address=127.0.0.1:4001
+      --enable-k8s-api-discovery         Enable discovery of Kubernetes API groups and resources with the discovery API
+  -h, --help                             help for migrate-identity
+      --k8s-api-server string            Kubernetes API server URL
+      --k8s-client-burst int             Burst value allowed for the K8s client
+      --k8s-client-qps float32           Queries per second limit for the K8s client
+      --k8s-heartbeat-timeout duration   Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
+      --k8s-kubeconfig-path string       Absolute path of the kubernetes kubeconfig file
+      --kvstore string                   Key-value store type
+      --kvstore-opt map                  Key-value store options e.g. etcd.address=127.0.0.1:4001
 ```
 
 ### Options inherited from parent commands

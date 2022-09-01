@@ -6,38 +6,50 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"github.com/spf13/viper"
+	"go.uber.org/fx"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/hive"
 	v2_validation "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
-	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var validateCNP = &cobra.Command{
-	Use:   "validate-cnp",
-	Short: "Validate Cilium Network Policies deployed in the cluster",
-	Long: `Before upgrading Cilium it is recommended to run this validation checker
+func validateCNPCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "validate-cnp",
+		Short: "Validate Cilium Network Policies deployed in the cluster",
+		Long: `Before upgrading Cilium it is recommended to run this validation checker
 to make sure the policies deployed are valid. The validator will verify if all policies
 deployed in the cluster are valid, in case they are not, an error is printed and the
 has an exit code 1 is returned.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		err := validateCNPs()
-		if err != nil {
-			log.Error(err)
-			os.Exit(1)
-		}
-	},
+	}
+
+	hive := hive.New(
+		viper.GetViper(),
+		cmd.Flags(),
+
+		k8sClient.Cell,
+		hive.OnStart(validateCNPs),
+	)
+	hive.SetTimeouts(validateK8sPoliciesTimeout, validateK8sPoliciesTimeout)
+	cmd.Run = func(cmd *cobra.Command, args []string) {
+		// The internal packages log things. Make sure they follow the setup of of
+		// the CLI tool.
+		logging.DefaultLogger.SetFormatter(log.Formatter)
+
+		hive.Run()
+	}
+	return cmd
 }
 
 const (
@@ -45,23 +57,13 @@ const (
 	ciliumGroup                = "cilium.io"
 )
 
-func validateCNPs() error {
-	// The internal packages log things. Make sure they follow the setup of of
-	// the CLI tool.
-	logging.DefaultLogger.SetFormatter(log.Formatter)
+func validateCNPs(clientset k8sClient.Clientset, shutdowner fx.Shutdowner) error {
+	defer shutdowner.Shutdown()
 
-	log.Info("Setting up Kubernetes client")
-
-	k8sClientQPSLimit := vp.GetFloat64(option.K8sClientQPSLimit)
-	k8sClientBurst := vp.GetInt(option.K8sClientBurst)
-
-	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
-
-	if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
-		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
+	if !clientset.IsEnabled() {
+		return fmt.Errorf("Kubernetes client not configured. Please provide configuration via --%s or --%s",
+			option.K8sAPIServer, option.K8sKubeConfigPath)
 	}
-
-	apiExtensionsClient := k8s.APIExtClient()
 
 	npValidator, err := v2_validation.NewNPValidator()
 	if err != nil {
@@ -70,11 +72,11 @@ func validateCNPs() error {
 
 	ctx, initCancel := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel()
-	cnpErr := validateNPResources(ctx, apiExtensionsClient, npValidator.ValidateCNP, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
+	cnpErr := validateNPResources(ctx, clientset, npValidator.ValidateCNP, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
 
 	ctx, initCancel2 := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel2()
-	ccnpErr := validateNPResources(ctx, apiExtensionsClient, npValidator.ValidateCCNP, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
+	ccnpErr := validateNPResources(ctx, clientset, npValidator.ValidateCCNP, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
 
 	if cnpErr != nil {
 		return cnpErr
@@ -88,7 +90,7 @@ func validateCNPs() error {
 
 func validateNPResources(
 	ctx context.Context,
-	apiExtensionsClient apiextensionsclient.Interface,
+	clientset k8sClient.Clientset,
 	validator func(cnp *unstructured.Unstructured) error,
 	name,
 	shortName string,
@@ -96,13 +98,13 @@ func validateNPResources(
 	// Check if the crd is installed at all.
 	var err error
 	if k8sversion.Capabilities().APIExtensionsV1CRD {
-		_, err = apiExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(
+		_, err = clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
 			ctx,
 			name+"."+ciliumGroup,
 			metav1.GetOptions{},
 		)
 	} else {
-		_, err = apiExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(
+		_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(
 			ctx,
 			name+"."+ciliumGroup,
 			metav1.GetOptions{},
@@ -126,8 +128,7 @@ func validateNPResources(
 			Limit:    25,
 			Continue: cnps.GetContinue(),
 		}
-		err = k8s.CiliumClient().
-			Interface.
+		err = clientset.
 			CiliumV2().
 			RESTClient().
 			Get().
