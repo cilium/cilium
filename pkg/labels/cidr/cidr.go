@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -94,7 +95,7 @@ func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 	// to generate the set of prefixes starting from the /0 up to the
 	// specified prefix length.
 	if ones > 0 {
-		ip, _ := netip.AddrFromSlice(cidr.IP)
+		ip, _ := ip.AddrFromIP(cidr.IP)
 		for i := 0; i <= ones; i++ {
 			prefix := netip.PrefixFrom(ip, i)
 			label := maskedIPToLabelString(prefix.Masked().Addr(), i)
