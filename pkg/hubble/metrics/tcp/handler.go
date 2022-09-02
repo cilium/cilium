@@ -41,19 +41,23 @@ func (h *tcpHandler) Status() string {
 	return h.context.Status()
 }
 
-func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
+func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if (flow.GetVerdict() != flowpb.Verdict_FORWARDED && flow.GetVerdict() != flowpb.Verdict_REDIRECTED) ||
 		flow.GetL4() == nil {
-		return
+		return nil
 	}
 
 	ip := flow.GetIP()
 	tcp := flow.GetL4().GetTCP()
 	if ip == nil || tcp == nil || tcp.Flags == nil {
-		return
+		return nil
 	}
 
-	labels := append([]string{"", ip.IpVersion.String()}, h.context.GetLabelValues(flow)...)
+	labels, err := h.context.GetLabelValues(flow)
+	if err != nil {
+		return err
+	}
+	labels = append(labels, "", ip.IpVersion.String())
 
 	if tcp.Flags.FIN {
 		labels[0] = "FIN"
@@ -74,4 +78,6 @@ func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 		labels[0] = "RST"
 		h.tcpFlags.WithLabelValues(labels...).Inc()
 	}
+
+	return nil
 }

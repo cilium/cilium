@@ -43,13 +43,18 @@ func (d *dropHandler) Status() string {
 	return d.context.Status()
 }
 
-func (d *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
+func (d *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if flow.GetVerdict() != flowpb.Verdict_DROPPED {
-		return
+		return nil
 	}
 
-	labels := []string{monitorAPI.DropReason(uint8(flow.GetDropReason())), v1.FlowProtocol(flow)}
-	labels = append(labels, d.context.GetLabelValues(flow)...)
+	labels, err := d.context.GetLabelValues(flow)
+	if err != nil {
+		return err
+	}
+
+	labels = append(labels, monitorAPI.DropReason(uint8(flow.GetDropReason())), v1.FlowProtocol(flow))
 
 	d.drops.WithLabelValues(labels...).Inc()
+	return nil
 }

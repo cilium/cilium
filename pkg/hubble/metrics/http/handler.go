@@ -55,16 +55,19 @@ func (h *httpHandler) Status() string {
 	return h.context.Status()
 }
 
-func (h *httpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
+func (h *httpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	l7 := flow.GetL7()
 	if l7 == nil {
-		return
+		return nil
 	}
 	http := l7.GetHttp()
 	if http == nil {
-		return
+		return nil
 	}
-	labelValues := h.context.GetLabelValues(flow)
+	labelValues, err := h.context.GetLabelValues(flow)
+	if err != nil {
+		return err
+	}
 	reporter := "unknown"
 	switch flow.GetTrafficDirection() {
 	case flowpb.TrafficDirection_EGRESS:
@@ -79,4 +82,5 @@ func (h *httpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 		h.responses.WithLabelValues(append(labelValues, status, http.Method, reporter)...).Inc()
 		h.duration.WithLabelValues(append(labelValues, http.Method, reporter)...).Observe(float64(l7.LatencyNs) / float64(time.Second))
 	}
+	return nil
 }

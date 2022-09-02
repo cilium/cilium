@@ -89,21 +89,24 @@ func (d *dnsHandler) Status() string {
 	return strings.Join(append(status, d.context.Status()), ",")
 }
 
-func (d *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
+func (d *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if flow.GetL7() == nil {
-		return
+		return nil
 	}
 
 	dns := flow.GetL7().GetDns()
 	if dns == nil {
-		return
+		return nil
 	}
 
 	if d.ignoreAAAA && len(dns.Qtypes) == 1 && dns.Qtypes[0] == "AAAA" {
-		return
+		return nil
 	}
 
-	labelValues := d.context.GetLabelValues(flow)
+	labelValues, err := d.context.GetLabelValues(flow)
+	if err != nil {
+		return err
+	}
 	labels := []string{"", strings.Join(dns.Qtypes, ","), fmt.Sprintf("%d", len(dns.Ips))}
 	if d.includeQuery {
 		labels = append(labels, dns.Query)
@@ -120,19 +123,21 @@ func (d *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 			d.responses.WithLabelValues(labels...).Inc()
 
 			if len(dns.Rrtypes) > 0 {
-				labels := []string{"", strings.Join(dns.Qtypes, ",")}
+				newLabels := []string{"", strings.Join(dns.Qtypes, ",")}
 				if d.includeQuery {
-					labels = append(labels, dns.Query)
+					newLabels = append(newLabels, dns.Query)
 				}
-				labels = append(labels, d.context.GetLabelValues(flow)...)
+				newLabels = append(newLabels, labelValues...)
 
 				for _, t := range dns.Rrtypes {
-					labels[0] = t
-					d.responseTypes.WithLabelValues(labels...).Inc()
+					newLabels[0] = t
+					d.responseTypes.WithLabelValues(newLabels...).Inc()
 				}
 			}
 		} else {
 			d.queries.WithLabelValues(labels...).Inc()
 		}
 	}
+
+	return nil
 }
