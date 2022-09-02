@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/netip"
 	"os"
 	"sort"
 	"strconv"
@@ -20,6 +19,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/ip"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/test/controlplane/suite"
@@ -78,8 +78,8 @@ func diffStrings(file string, expected, actual string) (string, bool) {
 }
 
 func ipLess(a, b net.IP) bool {
-	nipA, _ := netip.AddrFromSlice(a)
-	nipB, _ := netip.AddrFromSlice(b)
+	nipA, _ := ip.AddrFromIP(a)
+	nipB, _ := ip.AddrFromIP(b)
 	return nipA.Compare(nipB) < 0
 }
 

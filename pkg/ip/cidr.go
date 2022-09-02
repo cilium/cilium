@@ -49,11 +49,14 @@ func PrefixToIPNet(prefix netip.Prefix) *net.IPNet {
 // IPNetToPrefix is a convenience helper for migrating from the older 'net'
 // standard library types to the newer 'netip' types. Use this to plug the
 // new types in newer code into older types in older code during the migration.
+//
+// Note: This function assumes given prefix.IP is not an IPv4 mapped IPv6
+// address. See the comment of AddrFromIP for more details.
 func IPNetToPrefix(prefix *net.IPNet) netip.Prefix {
 	if prefix == nil {
 		return netip.Prefix{}
 	}
-	ip, ok := netip.AddrFromSlice(prefix.IP)
+	ip, ok := AddrFromIP(prefix.IP)
 	if !ok {
 		return netip.Prefix{}
 	}
@@ -69,12 +72,10 @@ func IPNetToPrefix(prefix *net.IPNet) netip.Prefix {
 // standard library types to the newer 'netip' types. Use this to plug the new
 // types in newer code into older types in older code during the migration.
 //
-// Note: This function assumes that the result of net.IP.To4() or net.IP.To16()
-// are passed in. This is because the net package always creates net.IP with a
-// length of 16 (IPv6) which causes this function to return an IPv6
-// netip.Prefix.
+// Note: This function assumes given ip is not an IPv4 mapped IPv6 address.
+// See the comment of AddrFromIP for more details.
 func IPToNetPrefix(ip net.IP) netip.Prefix {
-	a, ok := netip.AddrFromSlice(ip)
+	a, ok := AddrFromIP(ip)
 	if !ok {
 		return netip.Prefix{}
 	}

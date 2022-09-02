@@ -6,7 +6,6 @@ package cmd
 import (
 	"fmt"
 	"net"
-	"net/netip"
 	"os"
 	"strings"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -293,7 +293,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 }
 
 func (d *Daemon) sourceByIP(ip net.IP, defaultSrc source.Source) source.Source {
-	if addr, ok := netip.AddrFromSlice(ip); ok {
+	if addr, ok := ippkg.AddrFromIP(ip); ok {
 		lbls := d.ipcache.GetIDMetadataByIP(addr)
 		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
 			return source.KubeAPIServer
