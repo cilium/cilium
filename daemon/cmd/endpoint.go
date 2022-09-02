@@ -292,6 +292,10 @@ func (m *endpointCreationManager) DebugStatus() (output string) {
 	return
 }
 
+func (d *Daemon) CreateEndpoint(ctx context.Context, owner regeneration.Owner, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
+	return d.createEndpoint(ctx, owner, epTemplate)
+}
+
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
 func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {

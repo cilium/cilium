@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	agentOption "github.com/cilium/cilium/pkg/option"
 
+	"github.com/cilium/cilium/daemon/cmd"
 	agentCmd "github.com/cilium/cilium/daemon/cmd"
 	operatorCmd "github.com/cilium/cilium/operator/cmd"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
@@ -59,6 +60,7 @@ type ControlPlaneTest struct {
 	trackers       []trackerAndDecoder
 	agentHandle    *agentHandle
 	operatorHandle *operatorHandle
+	Daemon         *cmd.Daemon
 	Datapath       *fakeDatapath.FakeDatapath
 }
 
@@ -144,6 +146,7 @@ func (cpt *ControlPlaneTest) StartAgent() *ControlPlaneTest {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
 	cpt.agentHandle = &agentHandle
+	cpt.Daemon = agentHandle.d
 	cpt.Datapath = datapath
 	return cpt
 }
