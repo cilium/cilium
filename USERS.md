@@ -274,6 +274,11 @@ Users (Alphabetically)
       L: http://liquidreply.com
       Q: @mkorbi
 
+    * N: Magic Leap
+      D: Magic Leap is using Hubble plugged to GKE Dataplane v2 clusters
+      U: Hubble
+      Q: @romachalm
+
     * N: Melenion Inc
       D: Melenion is using Cilium as the CNI for its on-premise production clusters
       U: Service Load Balancing, Hubble
