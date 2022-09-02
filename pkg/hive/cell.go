@@ -10,10 +10,10 @@ import (
 	"go.uber.org/fx"
 )
 
-// CellConfig is implemented by configuration structs to provide configuration
-// for a cell.
+// CellConfigFlags is implemented by configuration structs for registering
+// their command-line flags.
 type CellConfig interface {
-	// CellFlags registers the configuration options as command-line flags.
+	// Flags registers the configuration options as command-line flags.
 	//
 	// By convention a flag name matches the field name
 	// if they're the same under case-insensitive comparison when dashes are
@@ -25,27 +25,69 @@ type CellConfig interface {
 	// hive.Run() to fail. Unexported fields are ignored.
 	//
 	// See https://pkg.go.dev/github.com/mitchellh/mapstructure for more info.
-	CellFlags(*pflag.FlagSet)
+	Flags(*pflag.FlagSet)
+
+	// Validate is called after the struct has been populated to
+	// validate that fields have valid values. Validate can also
+	// modify fields (if implemented as pointer receiver), or fill in
+	// unexported fields to provide pre-parsed values for getters.
+	Validate() error
+}
+
+type Cells interface {
+	Cells() []*Cell
+}
+
+type CellGroup []*Cell
+
+func (g CellGroup) Cells() []*Cell {
+	return g
 }
 
 // Cell is a modular component of the hive, consisting of configuration and
 // a set of constructors and objects (as fx.Options).
 type Cell struct {
-	newConfig     func() any
-	registerFlags func(*pflag.FlagSet)
-	name          string
-	opts          []fx.Option
-	flags         []string // Flags registered for the cell. Populated after call to registerFlags().
+	flags     *pflag.FlagSet
+	config    CellConfig
+	hasConfig bool
+	name      string
+	opts      []fx.Option
+}
+
+func (c *Cell) Cells() []*Cell {
+	return []*Cell{c}
 }
 
 // NewCell constructs a new cell with the given name and options.
 func NewCell(name string, opts ...fx.Option) *Cell {
 	return &Cell{
-		name:          name,
-		opts:          opts,
-		registerFlags: func(*pflag.FlagSet) {},
-		newConfig:     nil,
+		name: name,
+		opts: opts,
 	}
+}
+
+// NewCellWithConfig constructs a new cell with the name, configuration
+// and options
+//
+// The structure is populated and provided via dependency
+// injection by Hive.Run(). The underlying mechanism for populating the struct
+// is via mapstructure library, with settings from viper, e.g. they can be
+// set either via command-line flags or via viper (config files etc.).
+func NewCellWithConfig(name string, config CellConfig, opts ...fx.Option) *Cell {
+	c := &Cell{
+		name:      name,
+		opts:      opts,
+		config:    config,
+		hasConfig: true,
+		flags: pflag.NewFlagSet("", pflag.ContinueOnError),
+	}
+	config.Flags(c.flags)
+	return c
+}
+
+// NewConfigCell constructs an anonymous cell with only a configuration.
+func NewConfigCell(config CellConfig) *Cell {
+	return NewCellWithConfig("", config)
 }
 
 // Invoke constructs an unnamed cell for an invoke function.
@@ -64,21 +106,4 @@ func Require[T any]() *Cell {
 		return []reflect.Value{}
 	})
 	return Invoke(funVal.Interface())
-}
-
-// NewCellWithConfig constructs a new cell with the name, configuration
-// and options
-//
-// The configuration struct `T` needs to implement CellFlags method that
-// registers the flags. The structure is populated and provided via dependency
-// injection by Hive.Run(). The underlying mechanism for populating the struct
-// is viper's Unmarshal().
-func NewCellWithConfig[T CellConfig](name string, opts ...fx.Option) *Cell {
-	var emptyConfig T
-	return &Cell{
-		name:          name,
-		opts:          opts,
-		registerFlags: emptyConfig.CellFlags,
-		newConfig:     func() any { return emptyConfig },
-	}
 }

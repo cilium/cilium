@@ -20,8 +20,9 @@ import (
 
 // Gops runs the gops agent, a tool to list and diagnose Go processes.
 // See https://github.com/google/gops.
-var Cell = hive.NewCellWithConfig[GopsConfig](
+var Cell = hive.NewCellWithConfig(
 	"gops",
+	GopsConfig{},
 	fx.Invoke(registerGopsHooks),
 )
 
@@ -29,8 +30,12 @@ type GopsConfig struct {
 	GopsPort uint16 // Port for gops server to listen on
 }
 
-func (GopsConfig) CellFlags(flags *pflag.FlagSet) {
+func (GopsConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint16(option.GopsPort, defaults.GopsPortAgent, "Port for gops server to listen on")
+}
+
+func (GopsConfig) Validate() error {
+	return nil
 }
 
 func registerGopsHooks(lc fx.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {

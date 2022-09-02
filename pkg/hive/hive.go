@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
@@ -40,6 +41,8 @@ const (
 	// defaultEnvPrefix is the default prefix for environment variables, e.g.
 	// flag "foo" can be set with environment variable "CILIUM_FOO".
 	defaultEnvPrefix = "CILIUM_"
+
+	errorHint = "Hint: field 'FooBar' matches flag 'foo-bar', or use tag `mapstructure:\"flag-name\"` to match field with flag"
 )
 
 // Hive is a modular application built from cells.
@@ -60,11 +63,11 @@ type Hive struct {
 //
 // The object graph is not constructed until methods of the hive are
 // invoked.
-func New(v *viper.Viper, flags *pflag.FlagSet, cells ...*Cell) *Hive {
+func New(v *viper.Viper, flags *pflag.FlagSet, cells ...Cells) *Hive {
 	h := &Hive{
 		envPrefix:    defaultEnvPrefix,
 		fxLogger:     logging.NewFxLogger(log),
-		cells:        cells,
+		cells:        flattenCells(cells),
 		viper:        v,
 		flags:        pflag.NewFlagSet("", pflag.ContinueOnError),
 		startTimeout: defaultStartTimeout,
@@ -74,6 +77,13 @@ func New(v *viper.Viper, flags *pflag.FlagSet, cells ...*Cell) *Hive {
 		log.Fatal(err)
 	}
 	return h
+}
+
+func flattenCells(cells []Cells) (out []*Cell) {
+	for _, cs := range cells {
+		out = append(out, cs.Cells()...)
+	}
+	return
 }
 
 func (h *Hive) SetTimeouts(start, stop time.Duration) {
@@ -139,9 +149,9 @@ func (h *Hive) PrintObjects() {
 	fmt.Printf("\nConfigurations:\n\n")
 	allSettings := h.viper.AllSettings()
 	for _, cell := range h.cells {
-		if cell.newConfig != nil {
-			cfg := cell.newConfig()
-			h.unmarshalConfig(allSettings, cell, &cfg)
+		if cell.hasConfig {
+			cfg := newConfigValue(cell).Interface()
+			h.unmarshalConfig(allSettings, cell, cfg)
 			fmt.Printf("  ⚙ %s: %#v\n", cell.name, cfg)
 		}
 	}
@@ -164,12 +174,9 @@ func (h *Hive) getEnvName(option string) string {
 // registerCells registers the command-line flags from all the cells.
 func (h *Hive) registerFlags(parent *pflag.FlagSet) error {
 	for _, cell := range h.cells {
-		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-		cell.registerFlags(flags)
-		h.flags.AddFlagSet(flags)
-		flags.VisitAll(func(f *pflag.Flag) {
-			cell.flags = append(cell.flags, f.Name)
-		})
+		if cell.flags != nil {
+			h.flags.AddFlagSet(cell.flags)
+		}
 	}
 	var err error
 	h.flags.VisitAll(func(f *pflag.Flag) {
@@ -189,12 +196,25 @@ func (h *Hive) registerFlags(parent *pflag.FlagSet) error {
 	return h.viper.BindPFlags(h.flags)
 }
 
+func newConfigValue(cell *Cell) reflect.Value {
+	typ := reflect.TypeOf(cell.config)
+
+	// Construct a fresh config. All we know is that it implements
+	// CellConfig, but not whether it's a struct or pointer to a struct
+	// so handle both cases here. configValue will be a pointer to a
+	// struct.
+	if typ.Kind() == reflect.Pointer {
+		return reflect.New(typ.Elem())
+	}
+	return reflect.New(typ)
+}
+
 // populate creates the cell configurations from viper and returns the combined
 // fx option for all cells and their configurations.
-func (h *Hive) populate(overrides ...any) (fx.Option, error) {
+func (h *Hive) populate(overrides ...CellConfig) (fx.Option, error) {
 	allSettings := h.viper.AllSettings()
 
-	overridesMap := map[reflect.Type]any{}
+	overridesMap := map[reflect.Type]CellConfig{}
 	for _, cfg := range overrides {
 		overridesMap[reflect.TypeOf(cfg)] = cfg
 	}
@@ -204,17 +224,28 @@ func (h *Hive) populate(overrides ...any) (fx.Option, error) {
 		cell := cell
 
 		cellOpts := cell.opts
-		if cell.newConfig != nil {
-			cfg := cell.newConfig()
-
-			if override, ok := overridesMap[reflect.TypeOf(cfg)]; ok {
-				cfg = override
+		if cell.hasConfig {
+			var config any
+			if override, ok := overridesMap[reflect.TypeOf(cell.config)]; ok {
+				config = override
 			} else {
-				if err := h.unmarshalConfig(allSettings, cell, &cfg); err != nil {
+				configValue := newConfigValue(cell)
+
+				if err := h.unmarshalConfig(allSettings, cell, configValue.Interface()); err != nil {
 					return nil, err
 				}
+
+				configPtr := configValue.Interface().(CellConfig)
+				if err := configPtr.Validate(); err != nil {
+					return nil, err
+				}
+
+				// Dereference the unmarshalled and validated configuration
+				// and supply it by-value to the application. This ensures
+				// it cannot be mutated.
+				config = configValue.Elem().Interface()
 			}
-			cellOpts = append(cellOpts, fx.Supply(cfg))
+			cellOpts = append(cellOpts, fx.Supply(config))
 		}
 
 		var cellOpt fx.Option
@@ -260,7 +291,7 @@ func (h *Hive) createApp() error {
 
 // TestApp constructs a test application for the hive with given configuration
 // overrides.
-func (h *Hive) TestApp(tb fxtest.TB, configs ...any) (*fxtest.App, error) {
+func (h *Hive) TestApp(tb fxtest.TB, configs ...CellConfig) (*fxtest.App, error) {
 	opts, err := h.populate(configs...)
 	if err != nil {
 		return nil, err
@@ -270,33 +301,61 @@ func (h *Hive) TestApp(tb fxtest.TB, configs ...any) (*fxtest.App, error) {
 		opts), nil
 }
 
-func (h *Hive) unmarshalConfig(allSettings map[string]any, cell *Cell, target *any) error {
-	decoder, err := mapstructure.NewDecoder(decoderConfig(target))
+func (h *Hive) unmarshalConfig(allSettings map[string]any, cell *Cell, target any) error {
+	var meta mapstructure.Metadata
+	decoder, err := mapstructure.NewDecoder(decoderConfig(&meta, target))
 	if err != nil {
 		return fmt.Errorf("failed to create config decoder: %w", err)
 	}
 
 	// As input, only consider the flags declared by CellFlags.
 	input := make(map[string]any)
-	for _, flag := range cell.flags {
-		if v, ok := allSettings[flag]; ok {
-			input[flag] = v
-		} else {
-			return fmt.Errorf("internal error: cell flag %s not found from settings", flag)
+	cell.flags.VisitAll(func(f *pflag.Flag) {
+		if err != nil {
+			return
 		}
+
+		if v, ok := allSettings[f.Name]; ok {
+			input[f.Name] = v
+		} else {
+			err = fmt.Errorf("internal error: cell flag %s not found from settings", f.Name)
+		}
+	})
+	if err != nil {
+		return err
 	}
 
 	if err := decoder.Decode(input); err != nil {
-		return fmt.Errorf("failed to unmarshal config struct %T: %w.\n"+
-			"Hint: field 'FooBar' matches flag 'foo-bar', or use tag `mapstructure:\"flag-name\"` to match field with flag",
-			*target, err)
+		return fmt.Errorf("failed to unmarshal %T: %w.\n"+errorHint,
+			target, err)
+	}
+
+	var unsetFields []string
+	// Check if there were any unset exported fields
+	for _, field := range meta.Unset {
+		if unicode.IsUpper([]rune(field)[0]) {
+			unsetFields = append(unsetFields, field)
+		}
+	}
+	var unsetUnusedErrors []string
+	if len(unsetFields) > 0 {
+		unsetUnusedErrors = append(unsetUnusedErrors,
+			"unset fields (no setting matches field name): "+strings.Join(unsetFields, ", "))
+	}
+	if len(meta.Unused) > 0 {
+		unsetUnusedErrors = append(unsetUnusedErrors,
+			"unused keys (no matching struct field): "+strings.Join(meta.Unused, ", "))
+	}
+	if len(unsetUnusedErrors) > 0 {
+		return fmt.Errorf("failed to unmarshal %T:\n%s\n"+errorHint,
+			target, strings.Join(unsetUnusedErrors, "\n"))
 	}
 	return nil
 }
 
-func decoderConfig(target *any) *mapstructure.DecoderConfig {
+func decoderConfig(meta *mapstructure.Metadata, target any) *mapstructure.DecoderConfig {
 	return &mapstructure.DecoderConfig{
-		Metadata:         nil,
+		Metadata:         meta,
 		Result:           target,
 		WeaklyTypedInput: true,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
@@ -304,11 +363,10 @@ func decoderConfig(target *any) *mapstructure.DecoderConfig {
 			mapstructure.StringToSliceHookFunc(","),
 		),
 		ZeroFields: true,
-		// Error out if the config struct has fields that are
-		// not found from input.
-		ErrorUnset: true,
-		// Error out also if settings from input are not used.
-		ErrorUnused: true,
+		// We handle unset fields and unused keys by checking the metadata as mapstructure
+		// would fail on unset private fields by default.
+		ErrorUnset:  false,
+		ErrorUnused: false,
 		// Match field FooBarBaz with "foo-bar-baz" by removing
 		// the dashes from the flag.
 		MatchName: func(mapKey, fieldName string) bool {
