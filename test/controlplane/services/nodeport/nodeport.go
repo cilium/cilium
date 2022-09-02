@@ -81,7 +81,7 @@ func validateExternalTrafficPolicyLocal(dp *fake.FakeDatapath) error {
 
 	// Check that all expected service entries exist with the expected frontends.
 	for _, svc := range localServices {
-		ip := svc.Frontend.IP.String()
+		ip := svc.Frontend.AddrCluster.String()
 		if _, ok := expectedFrontendIPs[ip]; !ok {
 			return fmt.Errorf("unexpected frontend IP %q for service %s, expected one of %v", ip, svc.Name, expectedFrontendIPs)
 		}

@@ -122,7 +122,7 @@ func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 	}
 
 	for _, port := range svc.Ports {
-		return loadbalancer.NewL3n4Addr(port.Protocol, feIP, port.Port,
+		return loadbalancer.NewL3n4Addr(port.Protocol, cmtypes.MustAddrClusterFromIP(feIP), port.Port,
 			loadbalancer.ScopeExternal)
 	}
 	return nil
@@ -157,7 +157,7 @@ func (s *ServiceCache) GetServiceAddrsWithType(svcID ServiceID,
 		addrs := make([]*loadbalancer.L3n4Addr, 0, len(svc.FrontendIPs))
 		for _, feIP := range svc.FrontendIPs {
 			if isValidServiceFrontendIP(feIP) {
-				addrs = append(addrs, loadbalancer.NewL3n4Addr(l4Addr.Protocol, feIP, l4Addr.Port, loadbalancer.ScopeExternal))
+				addrs = append(addrs, loadbalancer.NewL3n4Addr(l4Addr.Protocol, cmtypes.MustAddrClusterFromIP(feIP), l4Addr.Port, loadbalancer.ScopeExternal))
 			}
 		}
 
@@ -407,9 +407,9 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 		for _, feIP := range svc.FrontendIPs {
 			for _, p := range svc.Ports {
 				address := loadbalancer.L3n4Addr{
-					IP:     feIP,
-					L4Addr: *p,
-					Scope:  loadbalancer.ScopeExternal,
+					AddrCluster: cmtypes.MustAddrClusterFromIP(feIP),
+					L4Addr:      *p,
+					Scope:       loadbalancer.ScopeExternal,
 				}
 				uniqueFrontends[address.StringWithProtocol()] = struct{}{}
 			}

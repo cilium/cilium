@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/k8s"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -365,7 +366,8 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 			// The LRP will be applied when the selected service is added later.
 			return
 		}
-		config.frontendMappings[0].feAddr.IP = ip
+		addrCluster := cmtypes.MustAddrClusterFromIP(ip)
+		config.frontendMappings[0].feAddr.AddrCluster = addrCluster
 		rpm.updateConfigSvcFrontend(config, config.frontendMappings[0].feAddr)
 
 	case svcFrontendNamedPorts:
@@ -379,8 +381,9 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 			// The LRP will be applied when the selected service is added later.
 			return
 		}
+		addrCluster := cmtypes.MustAddrClusterFromIP(ip)
 		for _, feM := range config.frontendMappings {
-			feM.feAddr.IP = ip
+			feM.feAddr.AddrCluster = addrCluster
 			rpm.updateConfigSvcFrontend(config, feM.feAddr)
 		}
 	}
@@ -483,7 +486,7 @@ func (rpm *Manager) deletePolicyService(config *LRPConfig) {
 		fallthrough
 	case svcFrontendNamedPorts:
 		for _, feM := range config.frontendMappings {
-			feM.feAddr.IP = net.IP{}
+			feM.feAddr.AddrCluster = cmtypes.AddrCluster{}
 		}
 	}
 	// Retores the svc backends if there's still such a k8s svc.
@@ -516,7 +519,7 @@ func (rpm *Manager) deleteService(svcID k8s.ServiceID) {
 		fallthrough
 	case svcFrontendNamedPorts:
 		for _, feM := range config.frontendMappings {
-			feM.feAddr.IP = net.IP{}
+			feM.feAddr.AddrCluster = cmtypes.AddrCluster{}
 		}
 	}
 }
@@ -666,18 +669,18 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 			}
 			be := backend{
 				lb.L3n4Addr{
-					IP: net.ParseIP(ip),
+					AddrCluster: cmtypes.MustParseAddrCluster(ip),
 					L4Addr: lb.L4Addr{
 						Protocol: bePort.l4Addr.Protocol,
 						Port:     bePort.l4Addr.Port,
 					},
 				}, pod.id,
 			}
-			if feM.feAddr.IP.To4() != nil && be.IP.To4() != nil {
+			if feM.feAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
 				if option.Config.EnableIPv4 {
 					bes4 = append(bes4, be)
 				}
-			} else if feM.feAddr.IP.To4() == nil && be.IP.To4() == nil {
+			} else if feM.feAddr.AddrCluster.Is6() && be.AddrCluster.Is6() {
 				if option.Config.EnableIPv6 {
 					bes6 = append(bes6, be)
 				}
@@ -726,7 +729,7 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 					}
 					be := backend{
 						lb.L3n4Addr{
-							IP: net.ParseIP(ip),
+							AddrCluster: cmtypes.MustParseAddrCluster(ip),
 							L4Addr: lb.L4Addr{
 								Protocol: bePort.l4Addr.Protocol,
 								Port:     bePort.l4Addr.Port,
@@ -734,11 +737,11 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 						},
 						pod.id,
 					}
-					if feM.feAddr.IP.To4() != nil && be.IP.To4() != nil {
+					if feM.feAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
 						if option.Config.EnableIPv4 {
 							bes4 = append(bes4, be)
 						}
-					} else if feM.feAddr.IP.To4() == nil && be.IP.To4() == nil {
+					} else if feM.feAddr.AddrCluster.Is6() && be.AddrCluster.Is6() {
 						if option.Config.EnableIPv6 {
 							bes6 = append(bes6, be)
 						}

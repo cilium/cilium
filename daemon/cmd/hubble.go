@@ -18,6 +18,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -349,8 +350,12 @@ func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 //
 //   - ServiceGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L52
 func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) *flowpb.Service {
+	addrCluster, ok := cmtypes.AddrClusterFromIP(ip)
+	if !ok {
+		return nil
+	}
 	addr := loadbalancer.L3n4Addr{
-		IP: ip,
+		AddrCluster: addrCluster,
 		L4Addr: loadbalancer.L4Addr{
 			Port: port,
 		},

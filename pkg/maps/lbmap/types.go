@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -171,7 +172,9 @@ type RevNatValue interface {
 }
 
 func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4AddrID {
-	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, svcKey.GetAddress(), svcKey.GetPort(), svcKey.GetScope())
+	feIP := svcKey.GetAddress()
+	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
+	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
 		ID:       loadbalancer.ID(svcValue.GetRevNat()),
@@ -181,9 +184,10 @@ func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4Add
 
 func svcBackend(backendID loadbalancer.BackendID, backend BackendValue) *loadbalancer.Backend {
 	beIP := backend.GetAddress()
+	beAddrCluster := cmtypes.MustAddrClusterFromIP(beIP)
 	bePort := backend.GetPort()
 	beProto := loadbalancer.NONE
 	beState := loadbalancer.GetBackendStateFromFlags(backend.GetFlags())
-	beBackend := loadbalancer.NewBackendWithState(backendID, beProto, beIP, bePort, beState)
+	beBackend := loadbalancer.NewBackendWithState(backendID, beProto, beAddrCluster, bePort, beState)
 	return beBackend
 }

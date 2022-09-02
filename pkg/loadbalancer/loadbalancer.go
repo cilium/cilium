@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
 // SVCType is a type of a service.
@@ -513,8 +514,7 @@ func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type L3n4Addr struct {
-	// +deepequal-gen=false
-	IP net.IP
+	AddrCluster cmtypes.AddrCluster
 	L4Addr
 	Scope uint8
 }
@@ -524,14 +524,14 @@ func (l *L3n4Addr) DeepEqual(o *L3n4Addr) bool {
 	if l == nil {
 		return o == nil
 	}
-	return l.IP.Equal(o.IP) && l.deepEqual(o)
+	return l.AddrCluster.Equal(o.AddrCluster) && l.deepEqual(o)
 }
 
 // NewL3n4Addr creates a new L3n4Addr.
-func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16, scope uint8) *L3n4Addr {
+func NewL3n4Addr(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8) *L3n4Addr {
 	lbport := NewL4Addr(protocol, portNumber)
 
-	addr := L3n4Addr{IP: ip, L4Addr: *lbport, Scope: scope}
+	addr := L3n4Addr{AddrCluster: addrCluster, L4Addr: *lbport, Scope: scope}
 
 	return &addr
 }
@@ -557,9 +557,9 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 	}
 
 	l4addr := NewL4Addr(proto, base.Port)
-	ip := net.ParseIP(base.IP)
-	if ip == nil {
-		return nil, fmt.Errorf("invalid IP address \"%s\"", base.IP)
+	addrCluster, err := cmtypes.ParseAddrCluster(base.IP)
+	if err != nil {
+		return nil, err
 	}
 
 	if base.Scope == models.FrontendAddressScopeExternal {
@@ -570,16 +570,16 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, fmt.Errorf("invalid scope \"%s\"", base.Scope)
 	}
 
-	return &L3n4Addr{IP: ip, L4Addr: *l4addr, Scope: scope}, nil
+	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr, Scope: scope}, nil
 }
 
 // NewBackend creates the Backend struct instance from given params.
 // The default state for the returned Backend is BackendStateActive.
-func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
+func NewBackend(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
 		ID:        id,
-		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *lbport},
+		L3n4Addr:  L3n4Addr{AddrCluster: addrCluster, L4Addr: *lbport},
 		State:     BackendStateActive,
 		Preferred: Preferred(false),
 		Weight:    DefaultBackendWeight,
@@ -589,12 +589,12 @@ func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Ba
 }
 
 // NewBackendWithState creates the Backend struct instance from given params.
-func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber uint16,
+func NewBackendWithState(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16,
 	state BackendState) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
 		ID:       id,
-		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
+		L3n4Addr: L3n4Addr{AddrCluster: addrCluster, L4Addr: *lbport},
 		State:    state,
 		Weight:   DefaultBackendWeight,
 	}
@@ -609,9 +609,9 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 
 	// FIXME: Should this be NONE ?
 	l4addr := NewL4Addr(NONE, base.Port)
-	ip := net.ParseIP(*base.IP)
-	if ip == nil {
-		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
+	addrCluster, err := cmtypes.ParseAddrCluster(*base.IP)
+	if err != nil {
+		return nil, err
 	}
 	state, err := GetBackendState(base.State)
 	if err != nil {
@@ -620,7 +620,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 
 	b := &Backend{
 		NodeName:  base.NodeName,
-		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *l4addr},
+		L3n4Addr:  L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr},
 		State:     state,
 		Preferred: Preferred(base.Preferred),
 	}
@@ -643,11 +643,11 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 
 	// FIXME: Should this be NONE ?
 	l4addr := NewL4Addr(NONE, base.Port)
-	ip := net.ParseIP(*base.IP)
-	if ip == nil {
-		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
+	addrCluster, err := cmtypes.ParseAddrCluster(*base.IP)
+	if err != nil {
+		return nil, err
 	}
-	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
+	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr}, nil
 }
 
 func (a *L3n4Addr) GetModel() *models.FrontendAddress {
@@ -660,7 +660,7 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 		scope = models.FrontendAddressScopeInternal
 	}
 	return &models.FrontendAddress{
-		IP:    a.IP.String(),
+		IP:    a.AddrCluster.String(),
 		Port:  a.Port,
 		Scope: scope,
 	}
@@ -671,10 +671,10 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 		return nil
 	}
 
-	ip := b.IP.String()
+	addrClusterStr := b.AddrCluster.String()
 	stateStr, _ := b.State.String()
 	return &models.BackendAddress{
-		IP:        &ip,
+		IP:        &addrClusterStr,
 		Port:      b.Port,
 		NodeName:  b.NodeName,
 		State:     stateStr,
@@ -691,9 +691,9 @@ func (a *L3n4Addr) String() string {
 		scope = "/i"
 	}
 	if a.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d%s", a.IP.String(), a.Port, scope)
+		return fmt.Sprintf("[%s]:%d%s", a.AddrCluster.String(), a.Port, scope)
 	}
-	return fmt.Sprintf("%s:%d%s", a.IP.String(), a.Port, scope)
+	return fmt.Sprintf("%s:%d%s", a.AddrCluster.String(), a.Port, scope)
 }
 
 // StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
@@ -704,9 +704,9 @@ func (a *L3n4Addr) StringWithProtocol() string {
 		scope = "/i"
 	}
 	if a.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d/%s%s", a.IP.String(), a.Port, a.Protocol, scope)
+		return fmt.Sprintf("[%s]:%d/%s%s", a.AddrCluster.String(), a.Port, a.Protocol, scope)
 	}
-	return fmt.Sprintf("%s:%d/%s%s", a.IP.String(), a.Port, a.Protocol, scope)
+	return fmt.Sprintf("%s:%d/%s%s", a.AddrCluster.String(), a.Port, a.Protocol, scope)
 }
 
 // StringID returns the L3n4Addr as string to be used for unique identification
@@ -724,8 +724,9 @@ func (a L3n4Addr) Hash() string {
 	const lenScope = 1 // scope is uint8 which is an alias for byte
 	const lenPort = 2  // port is uint16 which is 2 bytes
 
-	b := make([]byte, net.IPv6len+lenProto+lenScope+lenPort)
-	copy(b, a.IP.To16())
+	b := make([]byte, cmtypes.AddrClusterLen+lenProto+lenScope+lenPort)
+	ac20 := a.AddrCluster.As20()
+	copy(b, ac20[:])
 	// FIXME: add Protocol once we care about protocols
 	// scope is a uint8 which is an alias for byte so a cast is safe
 	b[net.IPv6len+lenProto] = byte(a.Scope)
@@ -737,7 +738,7 @@ func (a L3n4Addr) Hash() string {
 
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
 func (a *L3n4Addr) IsIPv6() bool {
-	return a.IP.To4() == nil
+	return a.AddrCluster.Is6()
 }
 
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
@@ -759,8 +760,8 @@ func (l *L3n4AddrID) DeepEqual(o *L3n4AddrID) bool {
 }
 
 // NewL3n4AddrID creates a new L3n4AddrID.
-func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, scope uint8, id ID) *L3n4AddrID {
-	l3n4Addr := NewL3n4Addr(protocol, ip, portNumber, scope)
+func NewL3n4AddrID(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8, id ID) *L3n4AddrID {
+	l3n4Addr := NewL3n4Addr(protocol, addrCluster, portNumber, scope)
 	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}
 }
 

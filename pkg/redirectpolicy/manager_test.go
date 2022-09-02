@@ -6,13 +6,13 @@
 package redirectpolicy
 
 import (
-	"net"
 	"testing"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/checker"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -103,17 +103,17 @@ var (
 	proto2, _ = lb.NewL4Type(udpStr)
 	fe1       = lb.NewL3n4Addr(
 		proto1,
-		net.ParseIP("1.1.1.1"),
+		cmtypes.MustParseAddrCluster("1.1.1.1"),
 		80,
 		lb.ScopeExternal)
 	fe2 = lb.NewL3n4Addr(
 		proto2,
-		net.ParseIP("2.2.2.2"),
+		cmtypes.MustParseAddrCluster("2.2.2.2"),
 		81,
 		lb.ScopeExternal)
 	fe3v6 = lb.NewL3n4Addr(
 		proto1,
-		net.ParseIP("fd00::2"),
+		cmtypes.MustParseAddrCluster("fd00::2"),
 		80,
 		lb.ScopeExternal)
 	portName1 = "test1"
@@ -316,7 +316,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigSinglePort(c *C) {
 	expectedbes := make([]backend, len(podIPs))
 	for i := range podIPs {
 		expectedbes[i] = backend{
-			L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(podIPs[i]), L4Addr: beP1.l4Addr},
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(podIPs[i]), L4Addr: beP1.l4Addr},
 			podID:    pod1ID,
 		}
 	}
@@ -350,7 +350,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigSinglePort(c *C) {
 	expectedbes2 = append(expectedbes2, expectedbes...)
 	for i := range podIPs {
 		expectedbes2 = append(expectedbes2, backend{
-			L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(podIPs[i]), L4Addr: beP1.l4Addr},
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(podIPs[i]), L4Addr: beP1.l4Addr},
 			podID:    pod3ID,
 		})
 	}
@@ -428,7 +428,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigMultiplePorts(c *C) {
 	expectedbes := make([]backend, 0, len(podIPs))
 	for i := range podIPs {
 		expectedbes = append(expectedbes, backend{
-			L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(podIPs[i]), L4Addr: beP1.l4Addr},
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(podIPs[i]), L4Addr: beP1.l4Addr},
 			podID:    pod1ID,
 		})
 	}
@@ -453,7 +453,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigMultiplePorts(c *C) {
 			c.Assert(len(feM.podBackends), Equals, 2)
 			for i := range podIPs {
 				expectedbes[i] = backend{
-					L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(podIPs[i]), L4Addr: beP1.l4Addr},
+					L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(podIPs[i]), L4Addr: beP1.l4Addr},
 					podID:    pod1ID,
 				}
 			}
@@ -464,7 +464,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigMultiplePorts(c *C) {
 			c.Assert(len(feM.podBackends), Equals, 2)
 			for i := range podIPs {
 				expectedbes[i] = backend{
-					L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(podIPs[i]), L4Addr: beP2.l4Addr},
+					L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(podIPs[i]), L4Addr: beP2.l4Addr},
 					podID:    pod1ID,
 				}
 			}
@@ -498,13 +498,13 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigDualStack(c *C) {
 	expectedbes4 := make([]backend, 0, len(podIPs))
 	for i := range podIPs {
 		expectedbes4 = append(expectedbes4, backend{
-			L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(podIPs[i]), L4Addr: beP1.l4Addr},
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(podIPs[i]), L4Addr: beP1.l4Addr},
 			podID:    pod3ID,
 		})
 	}
 	pod3v6 := slimcorev1.PodIP{IP: "fd00::40"}
 	expectedbes6 := []backend{{
-		L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(pod3v6.IP), L4Addr: beP1.l4Addr},
+		L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(pod3v6.IP), L4Addr: beP1.l4Addr},
 		podID:    pod3ID,
 	}}
 	pod3.Status.PodIPs = append(pod3.Status.PodIPs, pod3v6)

@@ -5,9 +5,12 @@ package types
 
 import (
 	"fmt"
+	"net"
 	"net/netip"
 	"strconv"
 	"strings"
+
+	ippkg "github.com/cilium/cilium/pkg/ip"
 )
 
 //
@@ -33,6 +36,8 @@ type AddrCluster struct {
 	addr      netip.Addr
 	clusterID uint32
 }
+
+const AddrClusterLen = 20
 
 // ParseAddrCluster parses s as an IP + ClusterID and returns AddrCluster.
 // The string s can be a bare IP string (any IP address format allowed in
@@ -88,6 +93,24 @@ func MustParseAddrCluster(s string) AddrCluster {
 	return addrCluster
 }
 
+// AddrClusterFromIP parses the given net.IP using ip.AddrFromIP and returns
+// AddrCluster with ClusterID = 0.
+func AddrClusterFromIP(ip net.IP) (AddrCluster, bool) {
+	addr, ok := ippkg.AddrFromIP(ip)
+	if !ok {
+		return AddrCluster{}, false
+	}
+	return AddrCluster{addr: addr, clusterID: 0}, true
+}
+
+func MustAddrClusterFromIP(ip net.IP) AddrCluster {
+	addr, ok := AddrClusterFromIP(ip)
+	if !ok {
+		panic("cannot convert net.IP to AddrCluster")
+	}
+	return addr
+}
+
 // Addr returns IP address part of AddrCluster as netip.Addr. This function
 // exists for keeping backward compatibility between the existing components
 // which are not aware of the cluster-aware addressing. Calling this function
@@ -95,4 +118,91 @@ func MustParseAddrCluster(s string) AddrCluster {
 // information. It should be used with an extra care.
 func (ac AddrCluster) Addr() netip.Addr {
 	return ac.addr
+}
+
+// Equal returns true when given AddrCluster has a same IP address and ClusterID
+func (ac0 AddrCluster) Equal(ac1 AddrCluster) bool {
+	return ac0.addr == ac1.addr && ac0.clusterID == ac1.clusterID
+}
+
+// Less compares ac0 and ac1 and returns true if ac0 is lesser than ac1
+func (ac0 AddrCluster) Less(ac1 AddrCluster) bool {
+	// First, compare the IP address part
+	if ret := ac0.addr.Compare(ac1.addr); ret == -1 {
+		return true
+	} else if ret == 1 {
+		return false
+	} else {
+		// If IP address is the same, compare ClusterID
+		return ac0.clusterID < ac1.clusterID
+	}
+}
+
+// This is an alias of Equal which only exists for satisfying deepequal-gen
+func (ac0 *AddrCluster) DeepEqual(ac1 *AddrCluster) bool {
+	return ac0.Equal(*ac1)
+}
+
+// DeepCopyInto copies in to out
+func (in *AddrCluster) DeepCopyInto(out *AddrCluster) {
+	if out == nil {
+		return
+	}
+	out.addr = in.addr
+	out.clusterID = in.clusterID
+}
+
+// DeepCopy returns a new copy of AddrCluster
+func (in *AddrCluster) DeepCopy() *AddrCluster {
+	out := new(AddrCluster)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// String returns the string representation of the AddrCluster. If
+// AddrCluster.clusterID = 0, it returns bare IP address string. Otherwise, it
+// returns IP string + "@" + ClusterID (e.g. 10.0.0.1@1)
+func (ac AddrCluster) String() string {
+	if ac.clusterID == 0 {
+		return ac.addr.String()
+	}
+	return ac.addr.String() + "@" + strconv.FormatUint(uint64(ac.clusterID), 10)
+}
+
+// Is4 reports whether IP address part of AddrCluster is an IPv4 address.
+func (ac AddrCluster) Is4() bool {
+	return ac.addr.Is4()
+}
+
+// Is6 reports whether IP address part of AddrCluster is an IPv6 address.
+func (ac AddrCluster) Is6() bool {
+	return ac.addr.Is6()
+}
+
+// IsUnspecified reports whether IP address part of the AddrCluster is an
+// unspecified address, either the IPv4 address "0.0.0.0" or the IPv6
+// address "::".
+func (ac AddrCluster) IsUnspecified() bool {
+	return ac.addr.IsUnspecified()
+}
+
+// As20 returns the AddrCluster in its 20-byte representation which consists
+// of 16-byte IP address part from netip.Addr.As16 and 4-byte ClusterID part.
+func (ac AddrCluster) As20() (ac20 [20]byte) {
+	addr16 := ac.addr.As16()
+	copy(ac20[:16], addr16[:])
+	ac20[16] = byte(ac.clusterID >> 24)
+	ac20[17] = byte(ac.clusterID >> 16)
+	ac20[18] = byte(ac.clusterID >> 8)
+	ac20[19] = byte(ac.clusterID)
+	return ac20
+}
+
+// AsNetIP returns the IP address part of AddCluster as a net.IP type. This
+// function exists for keeping backward compatibility between the existing
+// components which are not aware of the cluster-aware addressing. Calling
+// this function against the AddrCluster which has non-zero clusterID will
+// lose the ClusterID information. It should be used with an extra care.
+func (ac AddrCluster) AsNetIP() net.IP {
+	return ac.addr.AsSlice()
 }

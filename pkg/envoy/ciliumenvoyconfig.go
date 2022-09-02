@@ -676,7 +676,7 @@ func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap 
 						Address: &envoy_config_core.Address{
 							Address: &envoy_config_core.Address_SocketAddress{
 								SocketAddress: &envoy_config_core.SocketAddress{
-									Address: be.L3n4Addr.IP.String(),
+									Address: be.L3n4Addr.AddrCluster.String(),
 									PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
 										PortValue: uint32(be.L3n4Addr.L4Addr.Port),
 									},

@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -198,13 +199,17 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		},
 	}
 
+	ipv4ZeroAddrCluster := cmtypes.MustParseAddrCluster("0.0.0.0")
+	ipv4InternalAddrCluster := cmtypes.MustAddrClusterFromIP(fakeDatapath.IPv4InternalAddress)
+	ipv4NodePortAddrCluster := cmtypes.MustAddrClusterFromIP(fakeDatapath.IPv4NodePortAddress)
+
 	lbID := loadbalancer.ID(0)
 	tcpProto := loadbalancer.L4Type(slim_corev1.ProtocolTCP)
-	zeroFE := loadbalancer.NewL3n4AddrID(tcpProto, net.IPv4(0, 0, 0, 0), 31111,
+	zeroFE := loadbalancer.NewL3n4AddrID(tcpProto, ipv4ZeroAddrCluster, 31111,
 		loadbalancer.ScopeExternal, lbID)
-	internalFE := loadbalancer.NewL3n4AddrID(tcpProto, fakeDatapath.IPv4InternalAddress, 31111,
+	internalFE := loadbalancer.NewL3n4AddrID(tcpProto, ipv4InternalAddrCluster, 31111,
 		loadbalancer.ScopeExternal, lbID)
-	nodePortFE := loadbalancer.NewL3n4AddrID(tcpProto, fakeDatapath.IPv4NodePortAddress, 31111,
+	nodePortFE := loadbalancer.NewL3n4AddrID(tcpProto, ipv4NodePortAddrCluster, 31111,
 		loadbalancer.ScopeExternal, lbID)
 
 	id, svc = ParseService(k8sSvc, fakeDatapath.NewIPv4OnlyNodeAddressing())
@@ -307,7 +312,7 @@ func TestService_Equals(t *testing.T) {
 									Protocol: loadbalancer.NONE,
 									Port:     31000,
 								},
-								IP: net.IPv4(0, 0, 0, 0),
+								AddrCluster: cmtypes.MustParseAddrCluster("0.0.0.0"),
 							},
 							ID: 1,
 						},
@@ -341,7 +346,7 @@ func TestService_Equals(t *testing.T) {
 										Protocol: loadbalancer.NONE,
 										Port:     31000,
 									},
-									IP: net.IPv4(0, 0, 0, 0),
+									AddrCluster: cmtypes.MustParseAddrCluster("0.0.0.0"),
 								},
 								ID: 1,
 							},
@@ -631,7 +636,7 @@ func TestService_Equals(t *testing.T) {
 									Protocol: loadbalancer.NONE,
 									Port:     31000,
 								},
-								IP: net.IPv4(1, 1, 1, 1),
+								AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
 							},
 							ID: 1,
 						},
@@ -663,7 +668,7 @@ func TestService_Equals(t *testing.T) {
 										Protocol: loadbalancer.NONE,
 										Port:     31000,
 									},
-									IP: net.IPv4(0, 0, 0, 0),
+									AddrCluster: cmtypes.MustParseAddrCluster("0.0.0.0"),
 								},
 								ID: 1,
 							},

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -57,7 +58,7 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 	}
 	svc, found := m.ServiceByID[p.ID]
 	if !found {
-		frontend := lb.NewL3n4AddrID(lb.NONE, p.IP, p.Port, p.Scope, lb.ID(p.ID))
+		frontend := lb.NewL3n4AddrID(lb.NONE, cmtypes.MustAddrClusterFromIP(p.IP), p.Port, p.Scope, lb.ID(p.ID))
 		svc = &lb.SVC{Frontend: *frontend}
 	} else {
 		if p.PrevBackendsCount != len(svc.Backends) {
@@ -112,7 +113,6 @@ func (m *LBMockMap) AddBackend(b *lb.Backend, ipv6 bool) error {
 	m.Lock()
 	defer m.Unlock()
 	id := b.ID
-	ip := b.IP
 	port := b.Port
 
 	// Backends can be added to both v4 and v6 lb maps (when nat64 policies
@@ -121,7 +121,7 @@ func (m *LBMockMap) AddBackend(b *lb.Backend, ipv6 bool) error {
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	be := lb.NewBackendWithState(id, b.Protocol, ip, port, b.State)
+	be := lb.NewBackendWithState(id, b.Protocol, b.AddrCluster, port, b.State)
 	m.BackendByID[id] = be
 
 	return nil
@@ -136,7 +136,7 @@ func (m *LBMockMap) UpdateBackendWithState(b *lb.Backend) error {
 	if !found {
 		return fmt.Errorf("update failed : backend %d doesn't exist", id)
 	}
-	if b.ID != be.ID || b.Port != be.Port || !b.IP.Equal(be.IP) {
+	if b.ID != be.ID || b.Port != be.Port || !b.AddrCluster.Equal(be.AddrCluster) {
 		return fmt.Errorf("backend in the map  %+v doesn't match %+v: only backend"+
 			"state can be updated", be.String(), b.String())
 	}
