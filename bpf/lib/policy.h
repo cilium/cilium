@@ -52,8 +52,18 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	}
 	key.sec_label = identity;
 
-	/* If L4 policy check misses, fall back to L3. */
+	/* Check L4 any port policy */
 	key.dport = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		/* FIXME: Need byte counter */
+		__sync_fetch_and_add(&policy->packets, 1);
+		if (unlikely(policy->deny))
+			return DROP_POLICY_DENY;
+		return CTX_ACT_OK;
+	}
+
+	/* If L4 policy check misses, fall back to L3. */
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
@@ -185,6 +195,17 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 			if (unlikely(policy->deny))
 				return DROP_POLICY_DENY;
 			return policy->proxy_port;
+		}
+
+		/* Check L4 any port policy */
+		key.dport = 0;
+		policy = map_lookup_elem(map, &key);
+		if (likely(policy)) {
+			account(ctx, policy);
+			*match_type = POLICY_MATCH_L4_ONLY;
+			if (unlikely(policy->deny))
+				return DROP_POLICY_DENY;
+			return CTX_ACT_OK;
 		}
 		key.sec_label = remote_id;
 	}
