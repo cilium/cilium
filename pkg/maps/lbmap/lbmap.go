@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -197,10 +198,10 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 	)
 
 	if ipv6 {
-		svcKey = NewService6Key(svc.IP, svc.Port, u8proto.ANY, svc.Scope, 0)
+		svcKey = NewService6Key(svc.AddrCluster.AsNetIP(), svc.Port, u8proto.ANY, svc.Scope, 0)
 		revNATKey = NewRevNat6Key(uint16(svc.ID))
 	} else {
-		svcKey = NewService4Key(svc.IP, svc.Port, u8proto.ANY, svc.Scope, 0)
+		svcKey = NewService4Key(svc.AddrCluster.AsNetIP(), svc.Port, u8proto.ANY, svc.Scope, 0)
 		revNATKey = NewRevNat4Key(uint16(svc.ID))
 	}
 
@@ -490,7 +491,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	newSVCList := make([]*loadbalancer.SVC, 0, len(newSVCMap))
 	for hash := range newSVCMap {
 		svc := newSVCMap[hash]
-		addrStr := svc.Frontend.IP.String()
+		addrStr := svc.Frontend.AddrCluster.String()
 		portStr := strconv.Itoa(int(svc.Frontend.Port))
 		host := net.JoinHostPort(addrStr, portStr)
 		svc.Type = flagsCache[host].SVCType()
@@ -531,10 +532,11 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 
 	for backendID, backendVal := range backendValueMap {
 		ip := backendVal.GetAddress()
+		addrCluster := cmtypes.MustAddrClusterFromIP(ip)
 		port := backendVal.GetPort()
 		proto := loadbalancer.NONE
 		state := loadbalancer.GetBackendStateFromFlags(backendVal.GetFlags())
-		lbBackend := loadbalancer.NewBackendWithState(backendID, proto, ip, port, state)
+		lbBackend := loadbalancer.NewBackendWithState(backendID, proto, addrCluster, port, state)
 		lbBackends = append(lbBackends, lbBackend)
 	}
 
@@ -597,15 +599,15 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 	}
 
 	if ipv6 {
-		lbBackend, err = NewBackend6V2(backend.ID, backend.IP, backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend6V2(backend.ID, backend.AddrCluster.AsNetIP(), backend.Port, u8proto.ANY,
 			backend.State)
 	} else {
-		lbBackend, err = NewBackend4V2(backend.ID, backend.IP, backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend4V2(backend.ID, backend.AddrCluster.AsNetIP(), backend.Port, u8proto.ANY,
 			backend.State)
 	}
 	if err != nil {
 		return lbBackend, fmt.Errorf("unable to create lbBackend (%d, %s, %d, %t): %s",
-			backend.ID, backend.IP, backend.Port, ipv6, err)
+			backend.ID, backend.AddrCluster.String(), backend.Port, ipv6, err)
 	}
 
 	return lbBackend, nil

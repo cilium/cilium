@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"sort"
 	"strconv"
@@ -19,7 +18,6 @@ import (
 	"golang.org/x/exp/slices"
 
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/ip"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/test/controlplane/suite"
@@ -77,19 +75,13 @@ func diffStrings(file string, expected, actual string) (string, bool) {
 	return "", true
 }
 
-func ipLess(a, b net.IP) bool {
-	nipA, _ := ip.AddrFromIP(a)
-	nipB, _ := ip.AddrFromIP(b)
-	return nipA.Compare(nipB) < 0
-}
-
 func l3n4AddrLess(a, b *lb.L3n4Addr) bool {
 	if a.Protocol < b.Protocol {
 		return true
 	} else if a.Protocol > b.Protocol {
 		return false
 	}
-	if ipLess(a.IP, b.IP) {
+	if a.AddrCluster.Less(b.AddrCluster) {
 		return true
 	}
 	return a.Port < b.Port

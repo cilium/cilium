@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
@@ -215,7 +216,7 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 					utils.GetClusterIPByFamily(slim_corev1.IPv4Protocol, svc) != "" {
 
 					for _, ip := range nodeAddressing.IPv4().LoadBalancerNodeAddresses() {
-						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port,
+						nodePortFE := loadbalancer.NewL3n4AddrID(proto, cmtypes.MustAddrClusterFromIP(ip), port,
 							loadbalancer.ScopeExternal, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}
@@ -224,7 +225,7 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 					utils.GetClusterIPByFamily(slim_corev1.IPv6Protocol, svc) != "" {
 
 					for _, ip := range nodeAddressing.IPv6().LoadBalancerNodeAddresses() {
-						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port,
+						nodePortFE := loadbalancer.NewL3n4AddrID(proto, cmtypes.MustAddrClusterFromIP(ip), port,
 							loadbalancer.ScopeExternal, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}

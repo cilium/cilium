@@ -6,10 +6,11 @@
 package loadbalancer
 
 import (
-	"net"
 	"testing"
 
 	"gopkg.in/check.v1"
+
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -102,7 +103,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 						Protocol: NONE,
 						Port:     1,
 					},
-					IP: net.IPv4(1, 1, 1, 1),
+					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
 				},
 				ID: 1,
 			},
@@ -113,7 +114,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 							Protocol: NONE,
 							Port:     1,
 						},
-						IP: net.IPv4(1, 1, 1, 1),
+						AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
 					},
 					ID: 1,
 				},
@@ -128,7 +129,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 						Protocol: NONE,
 						Port:     1,
 					},
-					IP: net.IPv4(1, 1, 1, 1),
+					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
 				},
 				ID: 1,
 			},
@@ -139,7 +140,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 							Protocol: NONE,
 							Port:     1,
 						},
-						IP: net.IPv4(1, 1, 1, 1),
+						AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
 					},
 					ID: 2,
 				},
@@ -154,7 +155,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 						Protocol: NONE,
 						Port:     1,
 					},
-					IP: net.IPv4(2, 2, 2, 2),
+					AddrCluster: cmtypes.MustParseAddrCluster("2.2.2.2"),
 				},
 				ID: 1,
 			},
@@ -165,7 +166,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 							Protocol: NONE,
 							Port:     1,
 						},
-						IP: net.IPv4(1, 1, 1, 1),
+						AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
 					},
 					ID: 1,
 				},
@@ -180,7 +181,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 						Protocol: NONE,
 						Port:     2,
 					},
-					IP: net.IPv4(1, 1, 1, 1),
+					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
 				},
 				ID: 1,
 			},
@@ -191,7 +192,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 							Protocol: NONE,
 							Port:     1,
 						},
-						IP: net.IPv4(1, 1, 1, 1),
+						AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
 					},
 					ID: 1,
 				},
@@ -368,26 +369,21 @@ func benchmarkHash(b *testing.B, addr *L3n4Addr) {
 }
 
 func BenchmarkL3n4Addr_Hash_IPv4(b *testing.B) {
-	addr := NewL3n4Addr(TCP, net.IPv4(1, 2, 3, 4), 8080, ScopeInternal)
-	benchmarkHash(b, addr)
-}
-
-func BenchmarkL3n4Addr_Hash_IPv4_4bytes(b *testing.B) {
-	addr := NewL3n4Addr(TCP, net.IPv4(1, 2, 3, 4).To4(), 8080, ScopeInternal)
+	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("1.2.3.4"), 8080, ScopeInternal)
 	benchmarkHash(b, addr)
 }
 
 func BenchmarkL3n4Addr_Hash_IPv6_Short(b *testing.B) {
-	addr := NewL3n4Addr(TCP, net.ParseIP("fd00::1:36c6"), 8080, ScopeInternal)
+	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("fd00::1:36c6"), 8080, ScopeInternal)
 	benchmarkHash(b, addr)
 }
 
 func BenchmarkL3n4Addr_Hash_IPv6_Long(b *testing.B) {
-	addr := NewL3n4Addr(TCP, net.ParseIP("2001:0db8:85a3::8a2e:0370:7334"), 8080, ScopeInternal)
+	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("2001:0db8:85a3::8a2e:0370:7334"), 8080, ScopeInternal)
 	benchmarkHash(b, addr)
 }
 
 func BenchmarkL3n4Addr_Hash_IPv6_Max(b *testing.B) {
-	addr := NewL3n4Addr(TCP, net.ParseIP("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"), 30303, 100)
+	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"), 30303, 100)
 	benchmarkHash(b, addr)
 }

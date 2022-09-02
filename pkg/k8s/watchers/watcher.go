@@ -21,6 +21,7 @@ import (
 	k8s_metrics "k8s.io/client-go/tools/metrics"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/egressgateway"
@@ -665,7 +666,7 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 		repPorts[svcPort.Port] = false
 
 		for _, feIP := range svcInfo.FrontendIPs {
-			fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, feIP, svcPort.Port, loadbalancer.ScopeExternal)
+			fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, cmtypes.MustAddrClusterFromIP(feIP), svcPort.Port, loadbalancer.ScopeExternal)
 			frontends = append(frontends, fe)
 		}
 
@@ -679,13 +680,14 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 		}
 
 		for _, k8sExternalIP := range svcInfo.K8sExternalIPs {
-			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, k8sExternalIP, svcPort.Port, loadbalancer.ScopeExternal))
+			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, cmtypes.MustAddrClusterFromIP(k8sExternalIP), svcPort.Port, loadbalancer.ScopeExternal))
 		}
 
 		for _, ip := range svcInfo.LoadBalancerIPs {
-			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, ip, svcPort.Port, loadbalancer.ScopeExternal))
+			addrCluster := cmtypes.MustAddrClusterFromIP(ip)
+			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeExternal))
 			if svcInfo.TrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
-				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, ip, svcPort.Port, loadbalancer.ScopeInternal))
+				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeInternal))
 			}
 		}
 	}
@@ -697,7 +699,7 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 		} else if !found {
 			scopedLog.WithField(logfields.Object, logfields.Repr(fe)).Warn("service not found")
 		} else {
-			scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.IP, fe.Port)
+			scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port)
 		}
 	}
 	return nil
@@ -727,9 +729,7 @@ func genCartesianProduct(
 	for fePortName, fePort := range ports {
 		var besValues []*loadbalancer.Backend
 		for addrCluster, backend := range bes.Backends {
-			parsedIP := net.ParseIP(addrCluster.Addr().String())
-
-			if backendPort := backend.Ports[string(fePortName)]; backendPort != nil && feFamilyIPv6 == ip.IsIPv6(parsedIP) {
+			if backendPort := backend.Ports[string(fePortName)]; backendPort != nil && feFamilyIPv6 == addrCluster.Is6() {
 				backendState := loadbalancer.BackendStateActive
 				if backend.Terminating {
 					backendState = loadbalancer.BackendStateTerminating
@@ -738,8 +738,8 @@ func genCartesianProduct(
 					FEPortName: string(fePortName),
 					NodeName:   backend.NodeName,
 					L3n4Addr: loadbalancer.L3n4Addr{
-						IP:     parsedIP,
-						L4Addr: *backendPort,
+						AddrCluster: addrCluster,
+						L4Addr:      *backendPort,
 					},
 					State:     backendState,
 					Preferred: loadbalancer.Preferred(backend.Preferred),
@@ -748,12 +748,14 @@ func genCartesianProduct(
 			}
 		}
 
+		addrCluster := cmtypes.MustAddrClusterFromIP(fe)
+
 		// External scoped entry.
 		svcs = append(svcs,
 			loadbalancer.SVC{
 				Frontend: loadbalancer.L3n4AddrID{
 					L3n4Addr: loadbalancer.L3n4Addr{
-						IP: fe,
+						AddrCluster: addrCluster,
 						L4Addr: loadbalancer.L4Addr{
 							Protocol: fePort.Protocol,
 							Port:     fePort.Port,
@@ -772,7 +774,7 @@ func genCartesianProduct(
 				loadbalancer.SVC{
 					Frontend: loadbalancer.L3n4AddrID{
 						L3n4Addr: loadbalancer.L3n4Addr{
-							IP: fe,
+							AddrCluster: addrCluster,
 							L4Addr: loadbalancer.L4Addr{
 								Protocol: fePort.Protocol,
 								Port:     fePort.Port,
@@ -822,7 +824,7 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 			nodePortPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 				fePortName: &nodePortFE.L4Addr,
 			}
-			dpSVC := genCartesianProduct(nodePortFE.IP, svc.TrafficPolicy, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
+			dpSVC := genCartesianProduct(nodePortFE.AddrCluster.Addr().AsSlice(), svc.TrafficPolicy, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
 			svcs = append(svcs, dpSVC...)
 		}
 	}
@@ -885,7 +887,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 				} else if !found {
 					scopedLog.WithField(logfields.Object, logfields.Repr(oldSvc)).Warn("service not found")
 				} else {
-					scopedLog.Debugf("# cilium lb delete-service %s %d 0", oldSvc.IP, oldSvc.Port)
+					scopedLog.Debugf("# cilium lb delete-service %s %d 0", oldSvc.AddrCluster.String(), oldSvc.Port)
 				}
 			}
 		}

@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bandwidth"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -510,14 +511,14 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 			for _, podIP := range podIPs {
 				be := loadbalancer.Backend{
 					L3n4Addr: loadbalancer.L3n4Addr{
-						IP: net.ParseIP(podIP),
+						AddrCluster: cmtypes.MustParseAddrCluster(podIP),
 						L4Addr: loadbalancer.L4Addr{
 							Protocol: proto,
 							Port:     uint16(p.ContainerPort),
 						},
 					},
 				}
-				if be.L3n4Addr.IP.To4() != nil {
+				if be.L3n4Addr.AddrCluster.Is4() {
 					bes4 = append(bes4, &be)
 				} else {
 					bes6 = append(bes6, &be)
@@ -544,7 +545,7 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				for _, ip := range addrs {
 					fe := loadbalancer.L3n4AddrID{
 						L3n4Addr: loadbalancer.L3n4Addr{
-							IP: ip,
+							AddrCluster: cmtypes.MustParseAddrCluster(ip.String()),
 							L4Addr: loadbalancer.L4Addr{
 								Protocol: proto,
 								Port:     uint16(p.HostPort),

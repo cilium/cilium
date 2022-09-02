@@ -15,6 +15,10 @@ func (in *L3n4Addr) deepEqual(other *L3n4Addr) bool {
 		return false
 	}
 
+	if !in.AddrCluster.DeepEqual(&other.AddrCluster) {
+		return false
+	}
+
 	if in.L4Addr != other.L4Addr {
 		return false
 	}
