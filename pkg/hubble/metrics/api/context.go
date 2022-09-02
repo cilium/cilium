@@ -227,7 +227,7 @@ func (ls labelsSet) String() string {
 	return b.String()
 }
 
-func labelsContext(wantedLabels labelsSet, flow *pb.Flow) (outputLabels []string) {
+func labelsContext(wantedLabels labelsSet, flow *pb.Flow) (outputLabels []string, err error) {
 	// Iterate over contextLabelsList so that the label order is stable,
 	// otherwise GetLabelNames and GetLabelValues might be mismatched
 	for _, label := range contextLabelsList {
@@ -264,12 +264,12 @@ func labelsContext(wantedLabels labelsSet, flow *pb.Flow) (outputLabels []string
 			default:
 				// Label is in contextLabelsList but isn't handled in the switch
 				// statement. Programmer error.
-				panic(fmt.Sprintf("label %s not mapped in labelsContext, please update labelsContext", label))
+				return nil, fmt.Errorf("BUG: Label %s not mapped in labelsContext. Please report this bug to Cilium developers.", label)
 			}
 			outputLabels = append(outputLabels, labelValue)
 		}
 	}
-	return outputLabels
+	return outputLabels, nil
 }
 
 func sourceNamespaceContext(flow *pb.Flow) (context string) {
@@ -415,9 +415,13 @@ func getK8sAppFromLabels(labels []string) string {
 // GetLabelValues returns the values of the context relevant labels according
 // to the configured options. The order of the values is the same as the order
 // of the label names returned by GetLabelNames()
-func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
+func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string, err error) {
 	if len(o.Labels) != 0 {
-		labels = append(labels, labelsContext(o.Labels, flow)...)
+		labelsContextLabels, err := labelsContext(o.Labels, flow)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, labelsContextLabels...)
 	}
 
 	if len(o.Source) != 0 {

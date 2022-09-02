@@ -14,6 +14,14 @@ import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 )
 
+func mustGetLabelValues(opts *ContextOptions, flow *pb.Flow) []string {
+	labels, err := opts.GetLabelValues(flow)
+	if err != nil {
+		panic(err)
+	}
+	return labels
+}
+
 func TestParseContextOptions(t *testing.T) {
 	opts, err := ParseContextOptions(Options{"unknown": ""})
 	assert.Nil(t, err)
@@ -80,54 +88,54 @@ func TestParseContextOptions(t *testing.T) {
 func TestParseGetLabelValues(t *testing.T) {
 	opts, err := ParseContextOptions(Options{"sourceContext": "namespace"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{Source: &pb.Endpoint{Namespace: "foo"}}), []string{"foo"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo"}}), []string{"foo"})
 
 	opts, err = ParseContextOptions(Options{"destinationContext": "namespace"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{Destination: &pb.Endpoint{Namespace: "foo"}}), []string{"foo"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo"}}), []string{"foo"})
 
 	opts, err = ParseContextOptions(Options{"sourceContext": "namespace", "destinationContext": "identity"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Namespace: "foo"},
 		Destination: &pb.Endpoint{Labels: []string{"a", "b"}},
 	}), []string{"foo", "a,b"})
 
 	opts, err = ParseContextOptions(Options{"sourceContext": "pod"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo"}}), []string{"foo/foo"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo"}}), []string{"foo/foo"})
 
 	opts, err = ParseContextOptions(Options{"destinationContext": "pod"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar"}}), []string{"foo/bar"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar"}}), []string{"foo/bar"})
 
 	opts, err = ParseContextOptions(Options{"sourceContext": "pod-short"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}}), []string{"foo/foo"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}}), []string{"foo/foo"})
 
 	opts, err = ParseContextOptions(Options{"destinationContext": "pod-short"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-bar-123-123"}}), []string{"foo/bar-bar"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-bar-123-123"}}), []string{"foo/bar-bar"})
 
 	opts, err = ParseContextOptions(Options{"sourceContext": "dns"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{SourceNames: []string{"foo", "bar"}}), []string{"foo,bar"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{SourceNames: []string{"foo", "bar"}}), []string{"foo,bar"})
 
 	opts, err = ParseContextOptions(Options{"destinationContext": "dns"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{DestinationNames: []string{"bar"}}), []string{"bar"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{DestinationNames: []string{"bar"}}), []string{"bar"})
 
 	opts, err = ParseContextOptions(Options{"sourceContext": "ip"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{IP: &pb.IP{Source: "1.1.1.1"}}), []string{"1.1.1.1"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{IP: &pb.IP{Source: "1.1.1.1"}}), []string{"1.1.1.1"})
 
 	opts, err = ParseContextOptions(Options{"destinationContext": "ip"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{IP: &pb.IP{Destination: "10.0.0.2"}}), []string{"10.0.0.2"})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{IP: &pb.IP{Destination: "10.0.0.2"}}), []string{"10.0.0.2"})
 
 	opts, err = ParseContextOptions(Options{"sourceContext": "namespace|dns", "destinationContext": "identity|pod-short|ip"})
 	assert.Nil(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
 		IP: &pb.IP{
 			Destination: "10.0.0.2",
 		},
@@ -140,7 +148,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			PodName:   "foo-123",
 		},
 	}), []string{"foo", "bar/foo"})
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
 		IP: &pb.IP{
 			Destination: "10.0.0.2",
 		},
@@ -151,7 +159,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			Labels:    []string{"a", "b"},
 		},
 	}), []string{"cilium.io", "a,b"})
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
 		IP: &pb.IP{
 			Destination: "10.0.0.2",
 		},
@@ -183,7 +191,7 @@ func TestParseGetLabelValues(t *testing.T) {
 	}
 	flow := &pb.Flow{Source: sourceEndpoint, Destination: destinationEndpoint, TrafficDirection: pb.TrafficDirection_INGRESS}
 	assert.EqualValues(t,
-		opts.GetLabelValues(flow),
+		mustGetLabelValues(opts, flow),
 		[]string{
 			// source_pod, source_namespace, source_workload, source_app
 			"foo-deploy-pod", "foo-ns", "foo-deploy", "fooapp",
@@ -197,7 +205,7 @@ func TestParseGetLabelValues(t *testing.T) {
 	// Empty flow should just produce empty values for source/destination labels,
 	// and set traffic_direction to "unknown"
 	assert.EqualValues(t,
-		opts.GetLabelValues(&pb.Flow{}),
+		mustGetLabelValues(opts, &pb.Flow{}),
 		[]string{
 			"", "", "", "",
 			"", "", "", "",
@@ -215,15 +223,15 @@ func TestShortenPodName(t *testing.T) {
 func Test_reservedIdentityContext(t *testing.T) {
 	opts, err := ParseContextOptions(Options{"sourceContext": "reserved-identity", "destinationContext": "reserved-identity"})
 	assert.NoError(t, err)
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Labels: []string{"a", "b"}},
 		Destination: &pb.Endpoint{Labels: []string{"c", "d"}},
 	}), []string{"", ""})
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Labels: []string{"reserved:world", "reserved:kube-apiserver", "cidr:1.2.3.4/32"}},
 		Destination: &pb.Endpoint{Labels: []string{"reserved:world", "cidr:1.2.3.4/32"}},
 	}), []string{"reserved:kube-apiserver", "reserved:world"})
-	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Labels: []string{"a", "b", "reserved:host"}},
 		Destination: &pb.Endpoint{Labels: []string{"c", "d", "reserved:remote-node"}},
 	}), []string{"reserved:host", "reserved:remote-node"})

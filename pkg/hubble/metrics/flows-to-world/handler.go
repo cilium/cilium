@@ -68,23 +68,28 @@ func (h *flowsToWorldHandler) isReservedWorld(endpoint *flowpb.Endpoint) bool {
 	return false
 }
 
-func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) {
+func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) error {
 	l4 := flow.GetL4()
 	if flow.GetDestination() == nil ||
 		!h.isReservedWorld(flow.GetDestination()) ||
 		flow.GetEventType() == nil ||
 		l4 == nil {
-		return
+		return nil
 	}
 	// if "any-drop" option is not set, non-policy drops are ignored.
 	if flow.GetVerdict() == flowpb.Verdict_DROPPED && !h.anyDrop && flow.GetDropReasonDesc() != flowpb.DropReason_POLICY_DENIED {
-		return
+		return nil
 	}
 	// if this is potentially a forwarded reply packet, ignore it to avoid collecting statistics about ephemeral ports
 	isReply := flow.GetIsReply() == nil || flow.GetIsReply().GetValue()
 	if flow.GetVerdict() != flowpb.Verdict_DROPPED && isReply {
-		return
+		return nil
 	}
+	labelValues, err := h.context.GetLabelValues(flow)
+	if err != nil {
+		return err
+	}
+
 	labels := []string{v1.FlowProtocol(flow), flow.GetVerdict().String()}
 
 	// if "port" option is set, add port to the label.
@@ -97,6 +102,7 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 		}
 		labels = append(labels, port)
 	}
-	labels = append(labels, h.context.GetLabelValues(flow)...)
+	labels = append(labels, labelValues...)
 	h.flowsToWorld.WithLabelValues(labels...).Inc()
+	return nil
 }

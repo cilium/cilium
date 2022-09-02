@@ -32,10 +32,11 @@ var (
 )
 
 // ProcessFlow processes a flow and updates metrics
-func ProcessFlow(ctx context.Context, flow *pb.Flow) {
+func ProcessFlow(ctx context.Context, flow *pb.Flow) error {
 	if enabledMetrics != nil {
-		enabledMetrics.ProcessFlow(ctx, flow)
+		return enabledMetrics.ProcessFlow(ctx, flow)
 	}
+	return nil
 }
 
 // initMetrics initialies the metrics system

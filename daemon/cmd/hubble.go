@@ -111,7 +111,10 @@ func (d *Daemon) launchHubble() {
 
 		observerOpts = append(observerOpts,
 			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
-				metrics.ProcessFlow(ctx, flow)
+				err := metrics.ProcessFlow(ctx, flow)
+				if err != nil {
+					logger.WithError(err).Error("Failed to ProcessFlow in metrics handler")
+				}
 				return false, nil
 			}),
 		)
