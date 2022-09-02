@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"math/rand"
 	"net"
+	"net/netip"
 	"sort"
 	"testing"
 
@@ -912,5 +913,41 @@ func (s *IPTestSuite) TestGetIPAtIndex(c *C) {
 			c.Errorf("GetIPAtIndex() = %v, want %v", got, tt.want)
 		}
 
+	}
+}
+
+func (s *IPTestSuite) TestAddrFromIP(c *C) {
+	type args struct {
+		ip       net.IP
+		wantAddr netip.Addr
+		wantOk   bool
+	}
+
+	tests := []args{
+		{
+			net.ParseIP("10.0.0.1"),
+			netip.MustParseAddr("10.0.0.1"),
+			true,
+		},
+		{
+			net.ParseIP("a::1"),
+			netip.MustParseAddr("a::1"),
+			true,
+		},
+		{
+			net.ParseIP("::ffff:10.0.0.1"),
+			netip.MustParseAddr("10.0.0.1"),
+			true,
+		},
+	}
+	for _, tt := range tests {
+		addr, ok := AddrFromIP(tt.ip)
+		if ok != tt.wantOk {
+			c.Errorf("AddrFromIP(net.IP(%v)) should success", []byte(tt.ip))
+		}
+
+		if addr != tt.wantAddr {
+			c.Errorf("AddrFromIP(net.IP(%v)) = %v want %v", []byte(tt.ip), addr, tt.wantAddr)
+		}
 	}
 }
