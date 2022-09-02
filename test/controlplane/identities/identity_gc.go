@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,6 +69,21 @@ var (
 					{Type: corev1.NodeInternalIP, Address: "172.18.0.2"},
 					{Type: corev1.NodeHostName, Address: "identity-worker"},
 				},
+			},
+		},
+		&slimcorev1.Pod{
+			TypeMeta: slimmetav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Pod",
+			},
+			ObjectMeta: slimmetav1.ObjectMeta{
+				Namespace: "default",
+				Name:      "pod-1",
+				Labels:    map[string]string{},
+			},
+			Spec: slimcorev1.PodSpec{},
+			Status: slimcorev1.PodStatus{
+				PodIP: "10.1.1.101",
 			},
 		},
 	}
