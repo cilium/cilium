@@ -284,9 +284,9 @@ func deleteBackendByIDFamily(id loadbalancer.BackendID, ipv6 bool) error {
 	var key BackendKey
 
 	if ipv6 {
-		key = NewBackend6KeyV2(loadbalancer.BackendID(id))
+		key = NewBackend6KeyV3(loadbalancer.BackendID(id))
 	} else {
-		key = NewBackend4KeyV2(loadbalancer.BackendID(id))
+		key = NewBackend4KeyV3(loadbalancer.BackendID(id))
 	}
 
 	if err := deleteBackendLocked(key); err != nil {
@@ -466,7 +466,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	if option.Config.EnableIPv4 {
 		// TODO(brb) optimization: instead of dumping the backend map, we can
 		// pass its content to the function.
-		err := Backend4MapV2.DumpWithCallback(parseBackendEntries)
+		err := Backend4MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -478,7 +478,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 
 	if option.Config.EnableIPv6 {
 		// TODO(brb) same ^^ optimization applies here as well.
-		err := Backend6MapV2.DumpWithCallback(parseBackendEntries)
+		err := Backend6MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -517,14 +517,14 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	}
 
 	if option.Config.EnableIPv4 {
-		err := Backend4MapV2.DumpWithCallback(parseBackendEntries)
+		err := Backend4MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to dump lb4 backends map: %s", err)
 		}
 	}
 
 	if option.Config.EnableIPv6 {
-		err := Backend6MapV2.DumpWithCallback(parseBackendEntries)
+		err := Backend6MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to dump lb6 backends map: %s", err)
 		}
@@ -600,10 +600,10 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 	}
 
 	if ipv6 {
-		lbBackend, err = NewBackend6V2(backend.ID, backend.AddrCluster.AsNetIP(), backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend6V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
 			backend.State)
 	} else {
-		lbBackend, err = NewBackend4V2(backend.ID, backend.AddrCluster.AsNetIP(), backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend4V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
 			backend.State)
 	}
 	if err != nil {

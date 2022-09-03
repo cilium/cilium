@@ -120,6 +120,9 @@ type BackendValue interface {
 	// Get backend address
 	GetAddress() net.IP
 
+	// Get backend IP + clusterID
+	GetIPCluster() cmtypes.AddrCluster
+
 	// Get backend port
 	GetPort() uint16
 
