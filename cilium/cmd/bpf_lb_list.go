@@ -55,10 +55,10 @@ func dumpFrontends(serviceList map[string][]string) {
 }
 
 func dumpBackends(serviceList map[string][]string) {
-	if err := lbmap.Backend4MapV2.DumpIfExists(serviceList); err != nil {
+	if err := lbmap.Backend4MapV3.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv4 backend table: %s", err)
 	}
-	if err := lbmap.Backend6MapV2.DumpIfExists(serviceList); err != nil {
+	if err := lbmap.Backend6MapV3.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 backend table: %s", err)
 	}
 }
@@ -72,10 +72,10 @@ func dumpSVC(serviceList map[string][]string) {
 		id := key.(lbmap.BackendKey).GetID()
 		backendMap[id] = value.DeepCopyMapValue().(lbmap.BackendValue).ToHost()
 	}
-	if err := lbmap.Backend4MapV2.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
+	if err := lbmap.Backend4MapV3.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv4 backends table: %s", err)
 	}
-	if err := lbmap.Backend6MapV2.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
+	if err := lbmap.Backend6MapV3.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv6 backends table: %s", err)
 	}
 
