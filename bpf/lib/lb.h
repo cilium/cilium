@@ -37,7 +37,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB6_BACKEND_MAP_V2 __section_maps_btf;
+} LB6_BACKEND_MAP __section_maps_btf;
 
 #ifdef ENABLE_SESSION_AFFINITY
 struct {
@@ -115,7 +115,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB4_BACKEND_MAP_V2 __section_maps_btf;
+} LB4_BACKEND_MAP __section_maps_btf;
 
 #ifdef ENABLE_SESSION_AFFINITY
 struct {
@@ -596,7 +596,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 
 static __always_inline struct lb6_backend *__lb6_lookup_backend(__u32 backend_id)
 {
-	return map_lookup_elem(&LB6_BACKEND_MAP_V2, &backend_id);
+	return map_lookup_elem(&LB6_BACKEND_MAP, &backend_id);
 }
 
 static __always_inline struct lb6_backend *
@@ -1243,7 +1243,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 
 static __always_inline struct lb4_backend *__lb4_lookup_backend(__u32 backend_id)
 {
-	return map_lookup_elem(&LB4_BACKEND_MAP_V2, &backend_id);
+	return map_lookup_elem(&LB4_BACKEND_MAP, &backend_id);
 }
 
 static __always_inline struct lb4_backend *

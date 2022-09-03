@@ -153,7 +153,7 @@ int test1_setup(struct __ctx_buff *ctx)
 		.proto = IPPROTO_TCP,
 		.flags = 0,
 	};
-	map_update_elem(&LB4_BACKEND_MAP_V2, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, 0);

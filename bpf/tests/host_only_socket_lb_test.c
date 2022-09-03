@@ -85,7 +85,7 @@ int test1_check(__maybe_unused struct xdp_md *ctx)
 				BPF_ANY);
 
 	for (i = 0; i < ARRAY_SIZE(backends); i++)
-		map_update_elem(&LB4_BACKEND_MAP_V2, &backends[i].key, &backends[i].value,
+		map_update_elem(&LB4_BACKEND_MAP, &backends[i].key, &backends[i].value,
 				BPF_ANY);
 
 	test_init();

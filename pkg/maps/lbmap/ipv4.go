@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -31,6 +32,8 @@ const (
 	Backend4MapName = "cilium_lb4_backends"
 	// Backend4MapV2Name is the name of the IPv4 LB backends v2 BPF map.
 	Backend4MapV2Name = "cilium_lb4_backends_v2"
+	// Backend4MapV2Name is the name of the IPv4 LB backends v3 BPF map.
+	Backend4MapV3Name = "cilium_lb4_backends_v3"
 	// RevNat4MapName is the name of the IPv4 LB reverse NAT BPF map.
 	RevNat4MapName = "cilium_lb4_reverse_nat"
 )
@@ -48,6 +51,8 @@ var (
 	Backend4Map *bpf.Map
 	// Backend4MapV2 is the IPv4 LB backends v2 BPF map.
 	Backend4MapV2 *bpf.Map
+	// Backend4MapV2 is the IPv4 LB backends v2 BPF map.
+	Backend4MapV3 *bpf.Map
 	// RevNat4Map is the IPv4 LB reverse NAT BPF map.
 	RevNat4Map *bpf.Map
 )
@@ -83,10 +88,20 @@ func initSVC(params InitParams) {
 		).WithCache().WithPressureMetric()
 		Backend4MapV2 = bpf.NewMap(Backend4MapV2Name,
 			bpf.MapTypeHash,
-			&Backend4KeyV2{},
-			int(unsafe.Sizeof(Backend4KeyV2{})),
+			&Backend4KeyV3{},
+			int(unsafe.Sizeof(Backend4KeyV3{})),
 			&Backend4Value{},
 			int(unsafe.Sizeof(Backend4Value{})),
+			ServiceBackEndMapMaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+		Backend4MapV3 = bpf.NewMap(Backend4MapV3Name,
+			bpf.MapTypeHash,
+			&Backend4KeyV3{},
+			int(unsafe.Sizeof(Backend4KeyV3{})),
+			&Backend4ValueV3{},
+			int(unsafe.Sizeof(Backend4ValueV3{})),
 			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
@@ -126,10 +141,20 @@ func initSVC(params InitParams) {
 		).WithCache().WithPressureMetric()
 		Backend6MapV2 = bpf.NewMap(Backend6MapV2Name,
 			bpf.MapTypeHash,
-			&Backend6KeyV2{},
-			int(unsafe.Sizeof(Backend6KeyV2{})),
+			&Backend6KeyV3{},
+			int(unsafe.Sizeof(Backend6KeyV3{})),
 			&Backend6Value{},
 			int(unsafe.Sizeof(Backend6Value{})),
+			ServiceBackEndMapMaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+		Backend6MapV3 = bpf.NewMap(Backend6MapV3Name,
+			bpf.MapTypeHash,
+			&Backend6KeyV3{},
+			int(unsafe.Sizeof(Backend6KeyV3{})),
+			&Backend6ValueV3{},
+			int(unsafe.Sizeof(Backend6ValueV3{})),
 			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
@@ -153,10 +178,12 @@ var _ RevNatValue = (*RevNat4Value)(nil)
 var _ ServiceKey = (*Service4Key)(nil)
 var _ ServiceValue = (*Service4Value)(nil)
 var _ BackendKey = (*Backend4Key)(nil)
-var _ BackendKey = (*Backend4KeyV2)(nil)
+var _ BackendKey = (*Backend4KeyV3)(nil)
 var _ BackendValue = (*Backend4Value)(nil)
+var _ BackendValue = (*Backend4ValueV3)(nil)
 var _ Backend = (*Backend4)(nil)
 var _ Backend = (*Backend4V2)(nil)
+var _ Backend = (*Backend4V3)(nil)
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -220,6 +247,14 @@ type pad2uint8 [2]uint8
 
 // DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
 func (in *pad2uint8) DeepCopyInto(out *pad2uint8) {
+	copy(out[:], in[:])
+	return
+}
+
+type pad3uint8 [3]uint8
+
+// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *pad3uint8) DeepCopyInto(out *pad3uint8) {
 	copy(out[:], in[:])
 	return
 }
@@ -358,20 +393,20 @@ func (s *Service4Value) ToHost() ServiceValue {
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type Backend4KeyV2 struct {
+type Backend4KeyV3 struct {
 	ID loadbalancer.BackendID
 }
 
-func NewBackend4KeyV2(id loadbalancer.BackendID) *Backend4KeyV2 {
-	return &Backend4KeyV2{ID: id}
+func NewBackend4KeyV3(id loadbalancer.BackendID) *Backend4KeyV3 {
+	return &Backend4KeyV3{ID: id}
 }
 
-func (k *Backend4KeyV2) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend4KeyV2) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
-func (k *Backend4KeyV2) NewValue() bpf.MapValue          { return &Backend4Value{} }
-func (k *Backend4KeyV2) Map() *bpf.Map                   { return Backend4MapV2 }
-func (k *Backend4KeyV2) SetID(id loadbalancer.BackendID) { k.ID = id }
-func (k *Backend4KeyV2) GetID() loadbalancer.BackendID   { return k.ID }
+func (k *Backend4KeyV3) String() string                  { return fmt.Sprintf("%d", k.ID) }
+func (k *Backend4KeyV3) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
+func (k *Backend4KeyV3) NewValue() bpf.MapValue          { return &Backend4ValueV3{} }
+func (k *Backend4KeyV3) Map() *bpf.Map                   { return Backend4MapV3 }
+func (k *Backend4KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
+func (k *Backend4KeyV3) GetID() loadbalancer.BackendID   { return k.ID }
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -421,8 +456,11 @@ func (v *Backend4Value) String() string {
 func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
-func (b *Backend4Value) GetPort() uint16    { return b.Port }
-func (b *Backend4Value) GetFlags() uint8    { return b.Flags }
+func (b *Backend4Value) GetIPCluster() cmtypes.AddrCluster {
+	return cmtypes.AddrClusterFrom(b.Address.Addr(), 0)
+}
+func (b *Backend4Value) GetPort() uint16 { return b.Port }
+func (b *Backend4Value) GetFlags() uint8 { return b.Flags }
 
 func (v *Backend4Value) ToNetwork() BackendValue {
 	n := *v
@@ -437,8 +475,94 @@ func (v *Backend4Value) ToHost() BackendValue {
 	return &h
 }
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+type Backend4ValueV3 struct {
+	Address   types.IPv4      `align:"address"`
+	Port      uint16          `align:"port"`
+	Proto     u8proto.U8proto `align:"proto"`
+	Flags     uint8           `align:"flags"`
+	ClusterID uint8           `align:"cluster_id"`
+	Pad       pad3uint8       `align:"pad"`
+}
+
+func NewBackend4ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend4ValueV3, error) {
+	addr := addrCluster.Addr()
+	if !addr.Is4() {
+		return nil, fmt.Errorf("Not an IPv4 address")
+	}
+
+	clusterID := addrCluster.ClusterID()
+	if addrCluster.ClusterID() > cmtypes.ClusterIDMax {
+		return nil, fmt.Errorf("ClusterID %d is too large. ClusterID > %d is not supported with Backend4ValueV3", clusterID, cmtypes.ClusterIDMax)
+	}
+
+	flags := loadbalancer.NewBackendFlags(state)
+
+	val := Backend4ValueV3{
+		Port:      port,
+		Proto:     proto,
+		Flags:     flags,
+		ClusterID: uint8(clusterID),
+	}
+
+	ip4Array := addr.As4()
+	copy(val.Address[:], ip4Array[:])
+
+	return &val, nil
+}
+
+func (v *Backend4ValueV3) String() string {
+	vHost := v.ToHost().(*Backend4ValueV3)
+	return fmt.Sprintf("%s://%s", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)).String())
+}
+
+func (v *Backend4ValueV3) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
+func (b *Backend4ValueV3) GetAddress() net.IP { return b.Address.IP() }
+func (b *Backend4ValueV3) GetIPCluster() cmtypes.AddrCluster {
+	return cmtypes.AddrClusterFrom(b.Address.Addr(), uint32(b.ClusterID))
+}
+func (b *Backend4ValueV3) GetPort() uint16 { return b.Port }
+func (b *Backend4ValueV3) GetFlags() uint8 { return b.Flags }
+
+func (v *Backend4ValueV3) ToNetwork() BackendValue {
+	n := *v
+	n.Port = byteorder.HostToNetwork16(n.Port)
+	return &n
+}
+
+// ToHost converts Backend4Value to host byte order.
+func (v *Backend4ValueV3) ToHost() BackendValue {
+	h := *v
+	h.Port = byteorder.NetworkToHost16(h.Port)
+	return &h
+}
+
+type Backend4V3 struct {
+	Key   *Backend4KeyV3
+	Value *Backend4ValueV3
+}
+
+func NewBackend4V3(id loadbalancer.BackendID, addrCluster cmtypes.AddrCluster, port uint16,
+	proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend4V3, error) {
+	val, err := NewBackend4ValueV3(addrCluster, port, proto, state)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Backend4V3{
+		Key:   NewBackend4KeyV3(id),
+		Value: val,
+	}, nil
+}
+
+func (b *Backend4V3) Map() *bpf.Map          { return Backend4MapV3 }
+func (b *Backend4V3) GetKey() BackendKey     { return b.Key }
+func (b *Backend4V3) GetValue() BackendValue { return b.Value }
+
 type Backend4V2 struct {
-	Key   *Backend4KeyV2
+	Key   *Backend4KeyV3
 	Value *Backend4Value
 }
 
@@ -450,7 +574,7 @@ func NewBackend4V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8pr
 	}
 
 	return &Backend4V2{
-		Key:   NewBackend4KeyV2(id),
+		Key:   NewBackend4KeyV3(id),
 		Value: val,
 	}, nil
 }
