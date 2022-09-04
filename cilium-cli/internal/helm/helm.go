@@ -7,7 +7,11 @@ package helm
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -29,6 +33,8 @@ import (
 	"helm.sh/helm/v3/pkg/strvals"
 	corev1 "k8s.io/api/core/v1"
 )
+
+const ciliumChart = "https://helm.cilium.io"
 
 var settings = cli.New()
 
@@ -186,7 +192,7 @@ func newClient(namespace, k8sVersion string) (*action.Install, error) {
 func newChartFromEmbeddedFile(ciliumVersion semver2.Version) (*chart.Chart, error) {
 	helmTgz, err := helm.HelmFS.ReadFile(fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
 	if err != nil {
-		return nil, fmt.Errorf("cilium version not found: %s", err)
+		return nil, fmt.Errorf("cilium version not found: %w", err)
 	}
 
 	// Check chart dependencies to make sure all are present in /charts
@@ -195,6 +201,55 @@ func newChartFromEmbeddedFile(ciliumVersion semver2.Version) (*chart.Chart, erro
 
 func newChartFromDirectory(directory string) (*chart.Chart, error) {
 	return loader.LoadDir(directory)
+}
+
+// newChartFromRemoteWithCache fetches the chart from remote repository, the chart file
+// is then stored in the local cache directory for future usage.
+func newChartFromRemoteWithCache(ciliumVersion semver2.Version) (*chart.Chart, error) {
+	cacheDir, err := ciliumCacheDir()
+	if err != nil {
+		return nil, err
+	}
+
+	file := path.Join(cacheDir, fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
+	if _, err = os.Stat(file); err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+
+		// Download the chart from remote repository
+		pull := action.NewPullWithOpts(action.WithConfig(new(action.Configuration)))
+		pull.Settings = settings
+		pull.RepoURL = ciliumChart
+		pull.Version = ciliumVersion.String()
+		pull.DestDir = cacheDir
+
+		if _, err = pull.Run("cilium"); err != nil {
+			return nil, err
+		}
+	}
+
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return loader.LoadArchive(f)
+}
+
+func ciliumCacheDir() (string, error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+
+	res := path.Join(cacheDir, "cilium-cli")
+	err = os.MkdirAll(res, 0755)
+	if err != nil && !os.IsExist(err) {
+		return "", err
+	}
+
+	return res, nil
 }
 
 // GenManifests returns the generated manifests in a map that maps the manifest
@@ -218,7 +273,13 @@ func GenManifests(
 	} else {
 		helmChart, err = newChartFromEmbeddedFile(ciliumVer)
 		if err != nil {
-			return nil, err
+			if !errors.Is(err, fs.ErrNotExist) {
+				return nil, err
+			}
+			helmChart, err = newChartFromRemoteWithCache(ciliumVer)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -328,14 +389,7 @@ func ListVersions() ([]string, error) {
 func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag string) (semver2.Version, error) {
 	if chartDirectoryFlag == "" {
 		// If --chart-directory flag is not specified, use the version specified with --version flag.
-		version, err := utils.ParseCiliumVersion(versionFlag)
-		if err != nil {
-			return semver2.Version{}, err
-		}
-		if _, err = newChartFromEmbeddedFile(version); err != nil {
-			return semver2.Version{}, err
-		}
-		return version, nil
+		return resolveChartVersion(versionFlag)
 	}
 
 	// Get the chart version from the local Helm chart specified with --chart-directory flag.
@@ -344,4 +398,26 @@ func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag string) (semver2.Ve
 		return semver2.Version{}, fmt.Errorf("failed to load Helm chart directory %s: %s", chartDirectoryFlag, err)
 	}
 	return versioncheck.MustVersion(localChart.Metadata.Version), nil
+}
+
+func resolveChartVersion(versionFlag string) (semver2.Version, error) {
+	version, err := utils.ParseCiliumVersion(versionFlag)
+	if err != nil {
+		return semver2.Version{}, err
+	}
+
+	_, err = newChartFromEmbeddedFile(version)
+	if err == nil {
+		return version, nil
+	}
+
+	if !errors.Is(err, fs.ErrNotExist) {
+		return semver2.Version{}, err
+	}
+
+	_, err = newChartFromRemoteWithCache(version)
+	if err != nil {
+		return semver2.Version{}, err
+	}
+	return version, nil
 }
