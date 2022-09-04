@@ -122,6 +122,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Checkout master branch to access local actions
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
       - name: Set up job variables
         id: vars
         run: |
@@ -138,15 +146,15 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.name }} \
-            --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
-            --operator-image=quay.io/${{ github.repository_owner }}/operator-azure-ci \
+            --agent-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-azure-ci \
             --version=${SHA} \
             --azure-resource-group ${{ env.name }} \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
             --base-version=v1.10.12"
-          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10.12 \
             --flow-validation=disabled"
@@ -214,7 +222,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-azure-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Install Cilium
