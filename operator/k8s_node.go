@@ -62,7 +62,7 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 			AddFunc: func(obj interface{}) {
 				if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
 					nodeNew := nodeTypes.ParseCiliumNode(ciliumNode)
-					ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
+					ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew, false)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -73,7 +73,7 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 						}
 
 						nodeNew := nodeTypes.ParseCiliumNode(newNode)
-						ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew)
+						ciliumNodeKVStore.UpdateKeySync(context.TODO(), &nodeNew, false)
 					}
 				}
 			},
