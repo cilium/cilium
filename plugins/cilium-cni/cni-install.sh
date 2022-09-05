@@ -18,7 +18,7 @@ case "$CILIUM_CNI_CHAINING_MODE" in
 	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
 	;;
 *)
-	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
+	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conf}
 	;;
 esac
 
@@ -142,7 +142,7 @@ case "$CILIUM_CNI_CHAINING_MODE" in
 "flannel")
 	cat > "${CNI_CONF_NAME}" <<EOF
 {
-  "cniVersion": "0.4.0",
+  "cniVersion": "0.3.1",
   "name": "flannel",
   "plugins": [
     {
@@ -172,7 +172,7 @@ EOF
 "portmap")
 	cat > "${CNI_CONF_NAME}" <<EOF
 {
-  "cniVersion": "0.4.0",
+  "cniVersion": "0.3.1",
   "name": "portmap",
   "plugins": [
     {
@@ -198,7 +198,7 @@ EOF
   else
     cat > "${CNI_CONF_NAME}" <<EOF
 {
-  "cniVersion": "0.4.0",
+  "cniVersion": "0.3.1",
   "name": "aws-cni",
   "plugins": [
     {
@@ -229,15 +229,11 @@ EOF
 *)
 	cat > "${CNI_CONF_NAME}" <<EOF
 {
-  "cniVersion": "0.4.0",
+  "cniVersion": "0.3.1",
   "name": "cilium",
-  "plugins": [
-    {
-      "type": "cilium-cni",
-      "enable-debug": ${ENABLE_DEBUG},
-      "log-file": "${LOG_FILE}"
-    }
-  ]
+  "type": "cilium-cni",
+  "enable-debug": ${ENABLE_DEBUG},
+  "log-file": "${LOG_FILE}"
 }
 EOF
 	;;
