@@ -16,7 +16,9 @@ export LC_ALL=C
 
 get_schema_of_tag(){
    tag="${1}"
+   set +o pipefail
    git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${tag} -- pkg/k8s | head -n1 | sed 's/.*=\ "//;s/"//'
+   set -o pipefail
 }
 
 get_line_of_schema_version(){
@@ -26,7 +28,9 @@ get_line_of_schema_version(){
 
 get_schema_of_branch(){
    stable_branch="${1}"
-   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${stable_branch} -- pkg/k8s | sed 's/.*=\ "//;s/"//' | uniq
+   set +o pipefail
+   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${stable_branch} -- pkg/k8s | sed 's/.*=\ "//;s/"//' | uniq  | head -n1
+   set -o pipefail
 }
 
 get_stable_branches(){
