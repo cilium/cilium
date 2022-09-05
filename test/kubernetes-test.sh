@@ -103,9 +103,9 @@ ${HOME}/go/bin/kubetest --provider=local --test \
 #   - TL;DR Cilium does not allow to specify pod CIDRs as part of the policy
 #     because it conflicts with the pod's security identity.
 #   - More info at https://github.com/cilium/cilium/issues/9209
+# - should enforce ingress policy allowing any port traffic to a server on a specific protocol
 #   - Cilium does not distinguish between UDP and TCP
 #   - More info at https://github.com/cilium/cilium/issues/9207
-# - should enforce ingress policy allowing any port traffic to a server on a specific protocol
 # - should respect internalTrafficPolicy=Local Pod to Pod [Feature:ServiceInternalTrafficPolicy]
 #   - Cilium does not support internalTrafficPolicy as Local Redirect Policy allows user to enable node-local redirection.
 #   - More info at https://github.com/cilium/cilium/issues/17796
