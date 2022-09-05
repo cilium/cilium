@@ -191,7 +191,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 				nk.IPAddresses = nil
 
 				// Update the registration, now with the node identity and overridden fields
-				if err := ciliumNodeRegisterStore.UpdateKeySync(context.Background(), nk); err != nil {
+				if err := ciliumNodeRegisterStore.UpdateKeySync(context.Background(), nk, true); err != nil {
 					log.WithError(err).Warning("CEW: Unable to update register node in etcd")
 				} else {
 					log.Debugf("CEW: Updated register node in etcd (nid: %d): %v", nid, nk)
