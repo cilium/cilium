@@ -136,7 +136,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 			},
 			func(node *cilium_v2.CiliumNode) {
 				nodeNew := nodeTypes.ParseCiliumNode(node)
-				ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew)
+				ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew, false)
 			})
 	}
 
