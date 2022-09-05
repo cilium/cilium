@@ -374,8 +374,8 @@ func (m *Manager) legacyNodeIpBehavior() bool {
 	if m.conf.NodeEncryptionEnabled() {
 		return false
 	}
-	// Needed to store the SPI for pod->remote node in the ipcache since
-	// that path goes through the tunnel.
+	// Needed to store the tunnel endpoint for pod->remote node in the
+	// ipcache so that this traffic goes through the tunnel.
 	if m.conf.EncryptionEnabled() && m.conf.TunnelingEnabled() {
 		return false
 	}
