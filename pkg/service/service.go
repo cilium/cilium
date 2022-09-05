@@ -1367,9 +1367,12 @@ func (s *Service) restoreServicesLocked() error {
 		if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly &&
 			newSVC.useMaglev() && recreated {
 
-			_, activeBackends, _ := segregateBackends(newSVC.backends)
-			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), activeBackends,
-				false); err != nil {
+			backends := make(map[string]*lb.Backend, len(newSVC.backends))
+			for _, b := range newSVC.backends {
+				backends[b.String()] = b
+			}
+			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends,
+				ipv6); err != nil {
 				scopedLog.WithError(err).Warning("Unable to upsert into the Maglev BPF map.")
 				continue
 			}
