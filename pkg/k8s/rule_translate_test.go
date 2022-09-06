@@ -246,8 +246,14 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	c.Assert(err, IsNil)
 	_, epIP2Prefix, err := net.ParseCIDR(epIP2 + "/32")
 	c.Assert(err, IsNil)
-	c.Assert(prefixesToAllocate[0].String(), Equals, epIP1Prefix.String())
-	c.Assert(prefixesToAllocate[1].String(), Equals, epIP2Prefix.String())
+	prefixStrings := []string{}
+	for _, ipnet := range prefixesToAllocate {
+		prefixStrings = append(prefixStrings, ipnet.String())
+	}
+	c.Assert(len(prefixesToAllocate), Equals, 2)
+	sort.Strings(prefixStrings)
+	c.Assert(prefixStrings[0], Equals, epIP1Prefix.String())
+	c.Assert(prefixStrings[1], Equals, epIP2Prefix.String())
 
 	cidrs = rule.ToCIDRSet.StringSlice()
 	sort.Strings(cidrs)
