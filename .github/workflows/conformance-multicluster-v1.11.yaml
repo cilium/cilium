@@ -67,6 +67,7 @@ env:
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
   cilium_cli_version: v0.12.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
 jobs:
   check_changes:
@@ -184,6 +185,13 @@ jobs:
           state: pending
           target_url: ${{ env.check_url }}
 
+      # Checkout source code to install Cilium using local Helm chart.
+      - name: Checkout code
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
       - name: Install Cilium CLI
         run: |
           curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
@@ -192,12 +200,20 @@ jobs:
           rm cilium-linux-amd64.tar.gz{,.sha256sum}
           cilium version
 
+      - name: Set up gcloud credentials
+        id: 'auth'
+        uses: 'google-github-actions/auth@dac4e13deb3640f22e3ffe758fd3f95e6e89f712'
+        with:
+          credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
+
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@877d4953d2c70a0ba7ef3290ae968eb24af233bb
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_PR_SA_KEY }}
-          export_default_credentials: true
+
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
 
       - name: Display gcloud CLI info
         run: |
@@ -259,13 +275,6 @@ jobs:
           for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci ; do
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
-
-      # Checkout source code to install Cilium using local Helm chart.
-      - name: Checkout code
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-        with:
-          ref: ${{ steps.vars.outputs.sha }}
-          persist-credentials: false
 
       - name: Install Cilium in cluster1
         run: |
