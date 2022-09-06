@@ -1629,7 +1629,8 @@ func init() {
         "weight": {
           "description": "Backend weight",
           "type": "integer",
-          "format": "uint16"
+          "format": "uint16",
+          "x-nullable": true
         }
       }
     },
@@ -6122,7 +6123,8 @@ func init() {
         "weight": {
           "description": "Backend weight",
           "type": "integer",
-          "format": "uint16"
+          "format": "uint16",
+          "x-nullable": true
         }
       }
     },

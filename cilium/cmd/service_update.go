@@ -53,7 +53,7 @@ func init() {
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port>)")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backendStates, "states", "", []string{}, "Backend state(s) as {active(default),terminating,quarantined,maintenance}")
-	serviceUpdateCmd.Flags().UintSliceVarP(&backendWeights, "backend-weights", "", []uint{}, "Backend weights (1 default, 0 means maintenance state, only for maglev mode)")
+	serviceUpdateCmd.Flags().UintSliceVarP(&backendWeights, "backend-weights", "", []uint{}, "Backend weights (100 default, 0 means maintenance state, only for maglev mode)")
 }
 
 func parseFrontendAddress(address string) *models.FrontendAddress {
@@ -197,9 +197,8 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 
 		if i < len(backendWeights) {
-			ba.Weight = uint16(backendWeights[i])
-		} else {
-			ba.Weight = 1
+			w := uint16(backendWeights[i])
+			ba.Weight = &w
 		}
 
 		spec.BackendAddresses = append(spec.BackendAddresses, ba)

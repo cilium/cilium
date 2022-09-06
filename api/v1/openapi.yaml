@@ -2514,6 +2514,7 @@ definitions:
         description: Backend weight
         type: integer
         format: uint16
+        x-nullable: true
   LRPBackend:
     description: Pod backend of an LRP
     type: object

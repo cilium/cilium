@@ -282,6 +282,9 @@ func GetBackendStateFromFlags(flags uint8) BackendState {
 	}
 }
 
+// DefaultBackendWeight is used when backend weight is not set in ServiceSpec
+const DefaultBackendWeight = 100
+
 var (
 	// AllProtocols is the list of all supported L4 protocols
 	AllProtocols = []L4Type{TCP, UDP, SCTP}
@@ -579,6 +582,7 @@ func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Ba
 		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *lbport},
 		State:     BackendStateActive,
 		Preferred: Preferred(false),
+		Weight:    DefaultBackendWeight,
 	}
 
 	return &b
@@ -592,7 +596,7 @@ func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber ui
 		ID:       id,
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 		State:    state,
-		Weight:   1,
+		Weight:   DefaultBackendWeight,
 	}
 
 	return &b
@@ -619,7 +623,10 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *l4addr},
 		State:     state,
 		Preferred: Preferred(base.Preferred),
-		Weight:    base.Weight,
+	}
+
+	if base.Weight != nil {
+		b.Weight = *base.Weight
 	}
 
 	if b.Weight == 0 {
@@ -672,6 +679,7 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 		NodeName:  b.NodeName,
 		State:     stateStr,
 		Preferred: bool(b.Preferred),
+		Weight:    &b.Weight,
 	}
 }
 
