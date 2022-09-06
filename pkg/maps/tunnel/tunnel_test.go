@@ -43,11 +43,11 @@ func (s *TunnelMapTestSuite) TestClusterAwareAddressing(c *C) {
 	endpoint1 := net.ParseIP("192.168.1.1")
 
 	// Test insertion with bare IP
-	err = m.SetTunnelEndpoint(0, prefix0, endpoint0)
+	err = m.SetTunnelEndpoint(0, 0, prefix0, endpoint0)
 	c.Assert(err, IsNil)
 
 	// Test insertion with AddrCluster
-	err = m.SetTunnelEndpoint(0, prefix1, endpoint1)
+	err = m.SetTunnelEndpoint(0, 0, prefix1, endpoint1)
 	c.Assert(err, IsNil)
 
 	// Test if tunnel map can distinguish prefix0 and prefix1
