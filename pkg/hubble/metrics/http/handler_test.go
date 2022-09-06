@@ -42,6 +42,7 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	}})
 	// should count for request
 	handler.ProcessFlow(ctx, &pb.Flow{
+		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type: pb.L7FlowType_REQUEST,
 			Record: &pb.Layer7_Http{Http: &pb.HTTP{
@@ -51,6 +52,7 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	})
 	// should count for response
 	handler.ProcessFlow(ctx, &pb.Flow{
+		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type:      pb.L7FlowType_RESPONSE,
 			LatencyNs: 12345678,
@@ -63,33 +65,33 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	requestsExpected := `
         # HELP hubble_http_requests_total Count of HTTP requests
         # TYPE hubble_http_requests_total counter
-	hubble_http_requests_total{method="GET",protocol=""} 1
+	hubble_http_requests_total{method="GET",protocol="",reporter="server"} 1
 	`
 	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).requests, strings.NewReader(requestsExpected)))
 	responsesExpected := `
        # HELP hubble_http_responses_total Count of HTTP responses
        # TYPE hubble_http_responses_total counter
-       hubble_http_responses_total{method="GET",status="200"} 1
+       hubble_http_responses_total{method="GET",reporter="server",status="200"} 1
 	`
 	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).responses, strings.NewReader(responsesExpected)))
 
 	durationExpected := `
         # HELP hubble_http_request_duration_seconds Quantiles of HTTP request duration in seconds
         # TYPE hubble_http_request_duration_seconds histogram
-        hubble_http_request_duration_seconds_bucket{method="GET",le="0.005"} 0
-        hubble_http_request_duration_seconds_bucket{method="GET",le="0.01"} 0
-        hubble_http_request_duration_seconds_bucket{method="GET",le="0.025"} 1
-        hubble_http_request_duration_seconds_bucket{method="GET",le="0.05"} 1
-        hubble_http_request_duration_seconds_bucket{method="GET",le="0.1"} 1
-        hubble_http_request_duration_seconds_bucket{method="GET",le="0.25"} 1
-        hubble_http_request_duration_seconds_bucket{method="GET",le="0.5"} 1
-        hubble_http_request_duration_seconds_bucket{method="GET",le="1"} 1
-        hubble_http_request_duration_seconds_bucket{method="GET",le="2.5"} 1
-        hubble_http_request_duration_seconds_bucket{method="GET",le="5"} 1
-        hubble_http_request_duration_seconds_bucket{method="GET",le="10"} 1
-        hubble_http_request_duration_seconds_bucket{method="GET",le="+Inf"} 1
-        hubble_http_request_duration_seconds_sum{method="GET"} 0.012345678
-        hubble_http_request_duration_seconds_count{method="GET"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="0.005"} 0
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="0.01"} 0
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="0.025"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="0.05"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="0.1"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="0.25"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="0.5"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="1"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="2.5"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="5"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="10"} 1
+        hubble_http_request_duration_seconds_bucket{method="GET",reporter="server",le="+Inf"} 1
+        hubble_http_request_duration_seconds_sum{method="GET",reporter="server"} 0.012345678
+        hubble_http_request_duration_seconds_count{method="GET",reporter="server"} 1
 	`
 	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).duration, strings.NewReader(durationExpected)))
 }
