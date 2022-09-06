@@ -58,7 +58,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	}
 	backends := []*loadbalancer.Backend{}
 	for _, v := range params.Config.BackendAddresses {
-		if v.Weight != 1 && option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		if v.Weight != nil && option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 			return api.Error(PutServiceIDInvalidBackendCode, fmt.Errorf("backend weights are supported currently only in lb-only mode"))
 		}
 		b, err := loadbalancer.NewBackendFromBackendModel(v)

@@ -41,7 +41,7 @@ type BackendAddress struct {
 	State string `json:"state,omitempty"`
 
 	// Backend weight
-	Weight uint16 `json:"weight,omitempty"`
+	Weight *uint16 `json:"weight,omitempty"`
 }
 
 // Validate validates this backend address
