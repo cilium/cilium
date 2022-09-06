@@ -4,9 +4,10 @@
 package allocator
 
 const (
-	fieldID      = "id"
-	fieldKey     = "key"
-	fieldPrefix  = "prefix"
-	fieldValue   = "value"
-	fieldLeaseID = "leaseID"
+	fieldID        = "id"
+	fieldKey       = "key"
+	fieldPrefix    = "prefix"
+	fieldValue     = "value"
+	fieldLeaseID   = "leaseID"
+	fieldEventType = "eventType"
 )
