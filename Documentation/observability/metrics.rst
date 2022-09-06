@@ -650,13 +650,21 @@ This metric supports :ref:`Context Options<hubble_context_options>`.
 ``http``
 ~~~~~~~~
 
-================================= ============================= ========== ==============================================
-Name                              Labels                        Default     Description
-================================= ============================= ========== ==============================================
-``http_requests_total``           ``method``, ``protocol``      Disabled   Count of HTTP requests
-``http_responses_total``          ``method``, ``status``        Disabled   Count of HTTP responses
-``http_request_duration_seconds`` ``method``                    Disabled   Quantiles of HTTP request duration in seconds
-================================= ============================= ========== ==============================================
+================================= ======================================= ========== ==============================================
+Name                              Labels                                  Default     Description
+================================= ======================================= ========== ==============================================
+``http_requests_total``           ``method``, ``protocol``, ``reporter``  Disabled   Count of HTTP requests
+``http_responses_total``          ``method``, ``status``, ``reporter``    Disabled   Count of HTTP responses
+``http_request_duration_seconds`` ``method``, ``reporter``                Disabled   Quantiles of HTTP request duration in seconds
+================================= ======================================= ========== ==============================================
+
+Labels
+""""""
+
+- ``method`` is the HTTP method of the request/response.
+- ``protocol`` is the HTTP protocol of the request, (For example: ``HTTP/1.1``, ``HTTP/2``).
+- ``status`` is the HTTP status code of the response.
+- ``reporter`` identifies the origin of the request/response. It is set to ``client`` if it originated from the client, ``server`` if it originated from the server, or ``unknown`` if it's origin isn't known.
 
 Options
 """""""
