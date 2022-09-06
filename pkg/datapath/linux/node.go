@@ -331,11 +331,14 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) {
 // 10.10.0.0/24 via 10.10.0.1 dev cilium_host src 10.10.0.1
 // f00d::a0a:0:0:0/112 via f00d::a0a:0:0:1 dev cilium_host src fd04::11 metric 1024 pref medium
 //
-func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bool) (route.Route, error) {
+func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bool, isSecondaryNetwork bool) (route.Route, error) {
 	var (
 		local, nexthop net.IP
 		mtu            int
 	)
+
+	prefix = prefix.DeepCopy()
+
 	if prefix.IP.To4() != nil {
 		if n.nodeAddressing.IPv4() == nil {
 			return route.Route{}, fmt.Errorf("IPv4 addressing unavailable")
@@ -347,6 +350,11 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 
 		nexthop = n.nodeAddressing.IPv4().Router()
 		local = nexthop
+
+		if isSecondaryNetwork {
+			prefix.IP.To4()[1] += 1
+			nexthop.To4()[1] += 1
+		}
 	} else {
 		if n.nodeAddressing.IPv6() == nil {
 			return route.Route{}, fmt.Errorf("IPv6 addressing unavailable")
@@ -384,7 +392,7 @@ func (n *linuxNodeHandler) lookupNodeRoute(prefix *cidr.CIDR, isLocalNode bool) 
 		return nil, nil
 	}
 
-	routeSpec, err := n.createNodeRouteSpec(prefix, isLocalNode)
+	routeSpec, err := n.createNodeRouteSpec(prefix, isLocalNode, false)
 	if err != nil {
 		return nil, err
 	}
@@ -397,13 +405,26 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 		return nil
 	}
 
-	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
+	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode, false)
 	if err != nil {
 		return err
 	}
+
 	if err := route.Upsert(nodeRoute); err != nil {
 		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to update route")
 		return err
+	}
+
+	// TODO(brb) multi-homing route as a dirty hack
+	if option.Config.EnableMultiHoming && isLocalNode && prefix.IP.To4() != nil {
+		nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode, true)
+		if err != nil {
+			return err
+		}
+		if err := route.Upsert(nodeRoute); err != nil {
+			log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to update route")
+			return err
+		}
 	}
 
 	return nil
@@ -414,7 +435,7 @@ func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR, isLocalNode bool) 
 		return nil
 	}
 
-	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
+	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode, false)
 	if err != nil {
 		return err
 	}

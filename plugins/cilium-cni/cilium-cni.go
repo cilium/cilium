@@ -621,17 +621,17 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 		// check whether pod has network interface attachment labels
 		for _, lbl := range eps.Status.Identity.Labels {
-			if !strings.HasPrefix(lbl, networkInterfaceAttachPrefix) {
+			if !strings.HasPrefix(lbl, secondaryNetworkAttachPrefix) {
 				continue
 			}
 
 			logger.Infof("Found network interface attachment label %q", lbl)
-			s := strings.Split(strings.TrimPrefix(lbl, networkInterfaceAttachPrefix), "=")
+			s := strings.Split(strings.TrimPrefix(lbl, secondaryNetworkAttachPrefix), "=")
 			if len(s) != 2 {
 				log.Infof("Invalid multi-homing configuration format %q", lbl)
 				continue
 			}
-			hostIfaceName, attachIfaceName := s[0], s[1]
+			networkName, attachIfaceName := s[0], s[1]
 
 			var res2 *cniTypesVer.Result
 			res2, err = attachInterfaceInPod(
@@ -639,7 +639,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 				cniArgs,
 				args,
 				conf,
-				hostIfaceName,
+				networkName,
 				attachIfaceName,
 				state.IP4.IP(),
 				state.IP6.IP(),
@@ -741,12 +741,12 @@ func cmdDel(args *skel.CmdArgs) error {
 
 		// check whether pod has network interface attachment labels
 		for _, lbl := range ep.Status.Identity.Labels {
-			if !strings.HasPrefix(lbl, networkInterfaceAttachPrefix) {
+			if !strings.HasPrefix(lbl, secondaryNetworkAttachPrefix) {
 				continue
 			}
 
 			logger.Debugf("Found network interface attachment label %q", lbl)
-			s := strings.Split(strings.TrimPrefix(lbl, networkInterfaceAttachPrefix), "=")
+			s := strings.Split(strings.TrimPrefix(lbl, secondaryNetworkAttachPrefix), "=")
 			if len(s) != 2 {
 				log.Debugf("Invalid multi-homing configuration format %q", lbl)
 				continue

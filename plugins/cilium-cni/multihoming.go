@@ -15,6 +15,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -25,14 +26,14 @@ import (
 
 // TODO: define in pkg/k8s/apis/cilium.io
 const (
-	networkInterfaceAttach               = "io.cilium.network-interface.attach"
-	networkInterfaceAttachPrefix         = labels.LabelSourceK8s + ":" + networkInterfaceAttach + "/"
-	networkInterfaceAttachRealized       = networkInterfaceAttach + ".realized"
-	networkInterfaceAttachRealizedPrefix = labels.LabelSourceCNI + ":" + networkInterfaceAttachRealized + "/"
+	secondaryNetworkAttach               = "io.cilium.secondary-network.attach"
+	secondaryNetworkAttachPrefix         = labels.LabelSourceK8s + ":" + secondaryNetworkAttach + "/"
+	secondaryNetworkAttachRealized       = secondaryNetworkAttach + ".realized"
+	secondaryNetworkAttachRealizedPrefix = labels.LabelSourceCNI + ":" + secondaryNetworkAttachRealized + "/"
 )
 
-func getMultiHomingEndpointID(containerID, hostIfaceName, attachIfaceName string) string {
-	return containerID + "+" + hostIfaceName + "=" + attachIfaceName
+func getMultiHomingEndpointID(containerID, networkName, attachIfaceName string) string {
+	return containerID + "+" + networkName + "=" + attachIfaceName
 }
 
 func getHostIfaceAddrs(hostIfaceName string) (net.IP, net.IP, error) {
@@ -84,20 +85,20 @@ func attachInterfaceInPod(
 	cniArgs types.ArgsSpec,
 	args *skel.CmdArgs,
 	conf *models.DaemonConfigurationStatus,
-	hostIfaceName, attachIfaceName string,
+	networkName, attachIfaceName string,
 	podIPv4, podIPv6 net.IP,
 	netNs ns.NetNS,
 	logger *logrus.Entry) (*cniTypesVer.Result, error) {
-	logger.Debugf("Attaching interface %q in pod to host interface %q", attachIfaceName, hostIfaceName)
+	logger.Debugf("Attaching interface %q in pod to network %q", attachIfaceName, networkName)
 
-	labelName := networkInterfaceAttachRealizedPrefix + hostIfaceName
+	labelName := secondaryNetworkAttachRealizedPrefix + networkName
 	epLabels := labels.Labels{
 		labelName: labels.NewLabel(labelName, attachIfaceName, labels.LabelSourceCNI),
 	}
-	epID := getMultiHomingEndpointID(args.ContainerID, hostIfaceName, attachIfaceName)
+	epID := getMultiHomingEndpointID(args.ContainerID, networkName, attachIfaceName)
 	ep := &models.EndpointChangeRequest{
 		ContainerID:   epID,
-		InterfaceName: hostIfaceName,
+		InterfaceName: attachIfaceName,
 		Labels:        epLabels.GetModel(),
 		State:         models.EndpointStateWaitingForIdentity,
 		Addressing:    &models.AddressPair{},
@@ -229,8 +230,17 @@ func attachInterfaceInPod(
 			return nil, fmt.Errorf("unable to prepare IPv4 addressing for %q: %s", ep.Addressing.IPV4, err)
 		}
 
+		m := conf.DaemonConfigurationMap["IPv4NativeRoutingCIDR"].(string)
+		dst := cidr.MustParseCIDR(m)
+		dst.IP.To4()[1] += 1
+		r := &route.Route{
+			Prefix: *dst.IPNet,
+			Device: attachIfaceName,
+		}
+		podRoute := r
+
 		// TODO: address & netmask (?) should come from IPAM. Might also want a separate MTU.
-		podRoute := getMultiHomingPodRoute(podIPv4, mtu)
+		//podRoute := getMultiHomingPodRoute(podIPv4, mtu)
 		state.IP4routes = append(state.IP4routes, *podRoute)
 		res.IPs = append(res.IPs, ipConfig)
 		res.Routes = append(res.Routes, routes...)

@@ -174,6 +174,9 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	// Manually add fields that are behind accessors.
 	m["Devices"] = option.Config.GetDevices()
 
+	// TODO(brb) fix ipv4-native-routing-cidr
+	m["IPv4NativeRoutingCIDR"] = option.Config.IPv4NativeRoutingCIDR.String()
+
 	spec := &models.DaemonConfigurationSpec{
 		Options:           *option.Config.Opts.GetMutableModel(),
 		PolicyEnforcement: policy.GetPolicyEnabled(),
