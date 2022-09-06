@@ -46,9 +46,9 @@ function annotate_section_names {
 	    -e "s/\(section '2\/32'\)/\1 (tail_call IPV6_CT_EGRESS)/" \
 	    -e "s/\(section '2\/33'\)/\1 (tail_call SRV6_ENCAP)/" \
 	    -e "s/\(section '2\/34'\)/\1 (tail_call SRV6_DECAP)/" \
-	    -e "s/\(section '2\/35'\)/\1 (tail_call SRV6_REPLY)/"
+	    -e "s/\(section '2\/35'\)/\1 (tail_call SRV6_REPLY)/" \
 	    -e "s/\(section '2\/36'\)/\1 (tail_call IPV4_NODEPORT_NAT_INGRESS)/" \
-	    -e "s/\(section '2\/37'\)/\1 (tail_call IPV6_NODEPORT_NAT_INGRESS)/" \
+	    -e "s/\(section '2\/37'\)/\1 (tail_call IPV6_NODEPORT_NAT_INGRESS)/"
 }
 
 if ! grep -q "CILIUM_CALL_SIZE.*38" "$BPFDIR/lib/common.h" ; then
