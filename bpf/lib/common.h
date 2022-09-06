@@ -254,7 +254,7 @@ struct tunnel_value {
 	};
 	__u8 family;
 	__u8 key;
-	__u16 pad;
+	__u16 node_id;
 } __packed;
 
 #define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */
