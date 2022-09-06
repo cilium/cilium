@@ -12,6 +12,7 @@ const (
 	fieldEndpoint = "endpoint"
 	fieldPrefix   = "prefix"
 	fieldKey      = "key"
+	fieldNodeID   = "nodeID"
 )
 
 var (
