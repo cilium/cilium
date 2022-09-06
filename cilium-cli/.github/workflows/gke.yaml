@@ -30,6 +30,7 @@ env:
   zone: us-west2-a
   cilium_version: v1.12.1
   kubectl_version: v1.23.6
+  USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
 jobs:
   installation-and-connectivity:
@@ -48,12 +49,20 @@ jobs:
           sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
           kubectl version --client
 
+      - name: Set up gcloud credentials
+        id: 'auth'
+        uses: 'google-github-actions/auth@dac4e13deb3640f22e3ffe758fd3f95e6e89f712'
+        with:
+          credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
+
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@877d4953d2c70a0ba7ef3290ae968eb24af233bb
         with:
           project_id: ${{ secrets.GCP_PR_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_PR_SA_KEY }}
-          export_default_credentials: true
+
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
 
       - name: Display gcloud CLI info
         run: |
