@@ -598,7 +598,7 @@ func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber ui
 	return &b
 }
 
-func NewBackendFromBackendModel(base *models.BackendAddress, bw *models.BackendWeight) (*Backend, error) {
+func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 	if base.IP == nil {
 		return nil, fmt.Errorf("missing IP address")
 	}
@@ -619,12 +619,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress, bw *models.BackendW
 		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *l4addr},
 		State:     state,
 		Preferred: Preferred(base.Preferred),
-	}
-
-	if bw != nil {
-		b.Weight = bw.Weight
-	} else {
-		b.Weight = 1
+		Weight:    base.Weight,
 	}
 
 	if b.Weight == 0 {
@@ -678,14 +673,6 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 		State:     stateStr,
 		Preferred: bool(b.Preferred),
 	}
-}
-
-func (b *Backend) GetBackendWeightModel() *models.BackendWeight {
-	if b == nil {
-		return nil
-	}
-
-	return &models.BackendWeight{Weight: b.Weight}
 }
 
 // String returns the L3n4Addr in the "IPv4:Port[/Scope]" format for IPv4 and

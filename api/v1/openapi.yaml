@@ -2510,10 +2510,6 @@ definitions:
           Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based
           on related annotation of global service. Applicable for active state only.
         type: boolean
-  BackendWeight:
-    description: Service backend weight
-    type: object
-    properties:
       weight:
         description: Backend weight
         type: integer
@@ -2590,11 +2586,6 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/BackendAddress"
-      backend-weights:
-        description: List of backend weights
-        type: array
-        items:
-          "$ref": "#/definitions/BackendWeight"
       flags:
         description: Optional service configuration flags
         type: object
