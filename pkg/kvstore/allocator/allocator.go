@@ -601,8 +601,17 @@ func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.Cac
 							fieldKey:   event.Key,
 							fieldValue: event.Value,
 						}).Warning("Unable to decode key value")
-					} else {
-						key = k.keyType.PutKey(string(s))
+						continue
+					}
+
+					key = k.keyType.PutKey(string(s))
+				} else {
+					if event.Typ != kvstore.EventTypeDelete {
+						log.WithFields(logrus.Fields{
+							fieldKey:       event.Key,
+							fieldEventType: event.Typ,
+						}).Error("Received a key with an empty value")
+						continue
 					}
 				}
 
