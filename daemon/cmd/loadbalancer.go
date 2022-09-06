@@ -35,7 +35,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		}
 		backends := []*loadbalancer.Backend{}
 		for _, v := range params.Config.BackendAddresses {
-			b, err := loadbalancer.NewBackendFromBackendModel(v, nil)
+			b, err := loadbalancer.NewBackendFromBackendModel(v)
 			if err != nil {
 				return api.Error(PutServiceIDInvalidBackendCode, err)
 			}
@@ -57,11 +57,11 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		ID:       loadbalancer.ID(params.Config.ID),
 	}
 	backends := []*loadbalancer.Backend{}
-	for i, v := range params.Config.BackendAddresses {
-		if params.Config.BackendWeights[i] != nil && option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+	for _, v := range params.Config.BackendAddresses {
+		if v.Weight != 1 && option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 			return api.Error(PutServiceIDInvalidBackendCode, fmt.Errorf("backend weights are supported currently only in lb-only mode"))
 		}
-		b, err := loadbalancer.NewBackendFromBackendModel(v, params.Config.BackendWeights[i])
+		b, err := loadbalancer.NewBackendFromBackendModel(v)
 		if err != nil {
 			return api.Error(PutServiceIDInvalidBackendCode, err)
 		}

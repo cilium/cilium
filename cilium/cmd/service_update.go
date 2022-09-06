@@ -159,7 +159,6 @@ func updateService(cmd *cobra.Command, args []string) {
 	}
 
 	spec.BackendAddresses = nil
-	spec.BackendWeights = nil
 	backendState, _ := loadbalancer.BackendStateActive.String()
 
 	switch {
@@ -197,15 +196,13 @@ func updateService(cmd *cobra.Command, args []string) {
 			ba.State = backendState
 		}
 
-		spec.BackendAddresses = append(spec.BackendAddresses, ba)
-
-		var bw *models.BackendWeight
-		if len(backendWeights) > 0 {
-			bw = &models.BackendWeight{
-				Weight: uint16(backendWeights[i]),
-			}
+		if i < len(backendWeights) {
+			ba.Weight = uint16(backendWeights[i])
+		} else {
+			ba.Weight = 1
 		}
-		spec.BackendWeights = append(spec.BackendWeights, bw)
+
+		spec.BackendAddresses = append(spec.BackendAddresses, ba)
 	}
 
 	if created, err := client.PutServiceID(id, spec); err != nil {
