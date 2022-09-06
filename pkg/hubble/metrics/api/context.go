@@ -71,12 +71,12 @@ var (
 
 	podAppLabels = []string{
 		// k8s recommend app label
-		ciliumLabels.LabelSourceK8sKeyPrefix + k8sConst.AppKubernetes + "/name",
+		ciliumLabels.LabelSourceK8s + ":" + k8sConst.AppKubernetes + "/name",
 		// legacy k8s app label
-		ciliumLabels.LabelSourceK8sKeyPrefix + "k8s-app",
+		ciliumLabels.LabelSourceK8s + ":" + "k8s-app",
 		// app label that is often used before people realize there's a recommended
 		// label
-		ciliumLabels.LabelSourceK8sKeyPrefix + "app",
+		ciliumLabels.LabelSourceK8s + ":" + "app",
 	}
 )
 
@@ -401,12 +401,14 @@ func destinationIPContext(flow *pb.Flow) (context string) {
 }
 
 func getK8sAppFromLabels(labels []string) string {
-	ls := ciliumLabels.ParseLabelArrayFromArray(labels)
-	// Iterate over the set of pod app labels we source from and return the first
-	// app label that is non-empty.
-	for _, label := range podAppLabels {
-		if labelValue := ls.Get(label); labelValue != "" {
-			return labelValue
+	for _, label := range labels {
+		for _, appLabel := range podAppLabels {
+			if strings.HasPrefix(label, appLabel+"=") {
+				l := ciliumLabels.ParseLabel(label)
+				if l.Value != "" {
+					return l.Value
+				}
+			}
 		}
 	}
 	return ""
