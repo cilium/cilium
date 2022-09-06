@@ -970,7 +970,7 @@ func (n *linuxNodeHandler) deleteNeighbor4(oldNode *nodeTypes.Node) {
 	if !found {
 		return
 	}
-	defer func() { delete(n.neighNextHopByNode4, oldNode.Identity()) }()
+	defer delete(n.neighNextHopByNode4, oldNode.Identity())
 	for _, nextHopStr := range nextHopByLink {
 		n.deleteNeighborCommon(nextHopStr)
 	}
@@ -983,7 +983,7 @@ func (n *linuxNodeHandler) deleteNeighbor6(oldNode *nodeTypes.Node) {
 	if !found {
 		return
 	}
-	defer func() { delete(n.neighNextHopByNode6, oldNode.Identity()) }()
+	defer delete(n.neighNextHopByNode6, oldNode.Identity())
 	for _, nextHopStr := range nextHopByLink {
 		n.deleteNeighborCommon(nextHopStr)
 	}

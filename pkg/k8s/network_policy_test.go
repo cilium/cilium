@@ -164,7 +164,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 
 	epSelector := api.NewESFromLabels(fromEndpoints...)
 	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, epSelector)
-	defer func() { repo.GetSelectorCache().RemoveSelector(cachedEPSelector, dummySelectorCacheUser) }()
+	defer repo.GetSelectorCache().RemoveSelector(cachedEPSelector, dummySelectorCacheUser)
 
 	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(ingressL4Policy, Not(IsNil))
@@ -493,7 +493,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 
 	epSelector := api.NewESFromLabels(toEndpoints...)
 	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, epSelector)
-	defer func() { repo.GetSelectorCache().RemoveSelector(cachedEPSelector, dummySelectorCacheUser) }()
+	defer repo.GetSelectorCache().RemoveSelector(cachedEPSelector, dummySelectorCacheUser)
 
 	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
 	c.Assert(egressL4Policy, Not(IsNil))

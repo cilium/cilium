@@ -42,7 +42,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					var valid, equal bool
-					defer func() { k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricCreate, valid, equal) }()
+					defer k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricCreate, valid, equal)
 					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
@@ -59,7 +59,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
-					defer func() { k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricUpdate, valid, equal) }()
+					defer k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricUpdate, valid, equal)
 					if oldCN := k8s.ObjToCiliumNode(oldObj); oldCN != nil {
 						if ciliumNode := k8s.ObjToCiliumNode(newObj); ciliumNode != nil {
 							valid = true
@@ -91,7 +91,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 				},
 				DeleteFunc: func(obj interface{}) {
 					var valid, equal bool
-					defer func() { k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricDelete, valid, equal) }()
+					defer k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricDelete, valid, equal)
 					ciliumNode := k8s.ObjToCiliumNode(obj)
 					if ciliumNode == nil {
 						return

@@ -96,9 +96,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 
 	epsWanted, _ := ds.createEndpoints()
 	tmpDir, err := os.MkdirTemp("", "cilium-tests")
-	defer func() {
-		os.RemoveAll(tmpDir)
-	}()
+	defer os.RemoveAll(tmpDir)
 
 	os.Chdir(tmpDir)
 	c.Assert(err, IsNil)
@@ -168,9 +166,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 	ep := eps[0]
 	c.Assert(ep, NotNil)
 	tmpDir, err := os.MkdirTemp("", "cilium-tests")
-	defer func() {
-		os.RemoveAll(tmpDir)
-	}()
+	defer os.RemoveAll(tmpDir)
 
 	os.Chdir(tmpDir)
 	c.Assert(err, IsNil)
@@ -232,9 +228,7 @@ func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 
 	epsWanted, _ := ds.createEndpoints()
 	tmpDir, err := os.MkdirTemp("", "cilium-tests")
-	defer func() {
-		os.RemoveAll(tmpDir)
-	}()
+	defer os.RemoveAll(tmpDir)
 
 	os.Chdir(tmpDir)
 	c.Assert(err, IsNil)

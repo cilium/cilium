@@ -47,9 +47,7 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 				close(hasEndpointSlices)
 			})
 			var valid, equal bool
-			defer func() {
-				k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricCreate, valid, equal)
-			}()
+			defer k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricCreate, valid, equal)
 			if k8sEP := k8s.ObjToV1EndpointSlice(obj); k8sEP != nil {
 				valid = true
 				k.updateK8sEndpointSliceV1(k8sEP, swgEps)
@@ -58,9 +56,7 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 		}
 		updateFunc = func(oldObj, newObj interface{}) {
 			var valid, equal bool
-			defer func() {
-				k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricUpdate, valid, equal)
-			}()
+			defer k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricUpdate, valid, equal)
 			if oldk8sEP := k8s.ObjToV1EndpointSlice(oldObj); oldk8sEP != nil {
 				if newk8sEP := k8s.ObjToV1EndpointSlice(newObj); newk8sEP != nil {
 					valid = true
@@ -76,9 +72,7 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 		}
 		delFunc = func(obj interface{}) {
 			var valid, equal bool
-			defer func() {
-				k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricDelete, valid, equal)
-			}()
+			defer k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricDelete, valid, equal)
 			k8sEP := k8s.ObjToV1EndpointSlice(obj)
 			if k8sEP == nil {
 				return
@@ -99,9 +93,7 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 				close(hasEndpointSlices)
 			})
 			var valid, equal bool
-			defer func() {
-				k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricCreate, valid, equal)
-			}()
+			defer k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricCreate, valid, equal)
 			if k8sEP := k8s.ObjToV1Beta1EndpointSlice(obj); k8sEP != nil {
 				valid = true
 				k.updateK8sEndpointSliceV1Beta1(k8sEP, swgEps)
@@ -110,9 +102,7 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 		}
 		updateFunc = func(oldObj, newObj interface{}) {
 			var valid, equal bool
-			defer func() {
-				k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricUpdate, valid, equal)
-			}()
+			defer k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricUpdate, valid, equal)
 			if oldk8sEP := k8s.ObjToV1Beta1EndpointSlice(oldObj); oldk8sEP != nil {
 				if newk8sEP := k8s.ObjToV1Beta1EndpointSlice(newObj); newk8sEP != nil {
 					valid = true
@@ -128,9 +118,7 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 		}
 		delFunc = func(obj interface{}) {
 			var valid, equal bool
-			defer func() {
-				k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricDelete, valid, equal)
-			}()
+			defer k.K8sEventReceived(apiGroup, resources.MetricEndpointSlice, resources.MetricDelete, valid, equal)
 			k8sEP := k8s.ObjToV1Beta1EndpointSlice(obj)
 			if k8sEP == nil {
 				return

@@ -271,9 +271,7 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
 		}
 		return
 	}
-	defer func() {
-		e.unlock()
-	}()
+	defer e.unlock()
 
 	bandwidthEgress, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
 	if err != nil || !option.Config.EnableBandwidthManager {

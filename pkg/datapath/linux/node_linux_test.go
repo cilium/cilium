@@ -1083,7 +1083,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	err = sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", 2500))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(baseIPv6Time, baseTimeOld) }()
+	defer sysctl.Write(baseIPv6Time, baseTimeOld)
 
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
@@ -1887,7 +1887,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	err = sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", 2500))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(baseIPv6Time, baseTimeOld) }()
+	defer sysctl.Write(baseIPv6Time, baseTimeOld)
 
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    Each node has two devices and the other node in the different netns
@@ -2024,7 +2024,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
 	option.Config.DirectRoutingDevice = "veth0"
 	prevDevices := option.Config.GetDevices()
-	defer func() { option.Config.SetDevices(prevDevices) }()
+	defer option.Config.SetDevices(prevDevices)
 	option.Config.SetDevices([]string{"veth0", "veth2"})
 	prevNP := option.Config.EnableNodePort
 	defer func() { option.Config.EnableNodePort = prevNP }()
@@ -2242,7 +2242,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	err = sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", 2500))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(baseIPv4Time, baseTimeOld) }()
+	defer sysctl.Write(baseIPv4Time, baseTimeOld)
 
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
@@ -3046,7 +3046,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	err = sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", 2500))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(baseIPv4Time, baseTimeOld) }()
+	defer sysctl.Write(baseIPv4Time, baseTimeOld)
 
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    Each node has two devices and the other node in the different netns
@@ -3183,7 +3183,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
 	option.Config.DirectRoutingDevice = "veth0"
 	prevDevices := option.Config.GetDevices()
-	defer func() { option.Config.SetDevices(prevDevices) }()
+	defer option.Config.SetDevices(prevDevices)
 	option.Config.SetDevices([]string{"veth0", "veth2"})
 	prevNP := option.Config.EnableNodePort
 	defer func() { option.Config.EnableNodePort = prevNP }()

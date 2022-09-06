@@ -38,7 +38,7 @@ func (k *K8sWatcher) namespacesInit(slimClient slimclientset.Interface, asyncCon
 			// pods belonging to that namespace are also deleted.
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricNS, resources.MetricUpdate, valid, equal) }()
+				defer k.K8sEventReceived(apiGroup, metricNS, resources.MetricUpdate, valid, equal)
 				if oldNS := k8s.ObjToV1Namespace(oldObj); oldNS != nil {
 					if newNS := k8s.ObjToV1Namespace(newObj); newNS != nil {
 						valid = true

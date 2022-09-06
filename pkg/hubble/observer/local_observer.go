@@ -249,15 +249,13 @@ func (s *LocalObserverServer) GetFlows(
 	ring := s.GetRingBuffer()
 
 	i := uint64(0)
-	defer func() {
-		log.WithFields(logrus.Fields{
-			"number_of_flows": i,
-			"buffer_size":     ring.Cap(),
-			"whitelist":       logFilters(req.Whitelist),
-			"blacklist":       logFilters(req.Blacklist),
-			"took":            time.Since(start),
-		}).Debug("GetFlows finished")
-	}()
+	defer log.WithFields(logrus.Fields{
+		"number_of_flows": i,
+		"buffer_size":     ring.Cap(),
+		"whitelist":       logFilters(req.Whitelist),
+		"blacklist":       logFilters(req.Blacklist),
+		"took":            time.Since(start),
+	}).Debug("GetFlows finished")
 
 	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
 	if err != nil {
@@ -348,13 +346,11 @@ func (s *LocalObserverServer) GetAgentEvents(
 	ring := s.GetRingBuffer()
 
 	i := uint64(0)
-	defer func() {
-		log.WithFields(logrus.Fields{
-			"number_of_agent_events": i,
-			"buffer_size":            ring.Cap(),
-			"took":                   time.Since(start),
-		}).Debug("GetAgentEvents finished")
-	}()
+	defer log.WithFields(logrus.Fields{
+		"number_of_agent_events": i,
+		"buffer_size":            ring.Cap(),
+		"took":                   time.Since(start),
+	}).Debug("GetAgentEvents finished")
 
 	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
 	if err != nil {
@@ -413,13 +409,11 @@ func (s *LocalObserverServer) GetDebugEvents(
 	ring := s.GetRingBuffer()
 
 	i := uint64(0)
-	defer func() {
-		log.WithFields(logrus.Fields{
-			"number_of_debug_events": i,
-			"buffer_size":            ring.Cap(),
-			"took":                   time.Since(start),
-		}).Debug("GetDebugEvents finished")
-	}()
+	defer log.WithFields(logrus.Fields{
+		"number_of_debug_events": i,
+		"buffer_size":            ring.Cap(),
+		"took":                   time.Since(start),
+	}).Debug("GetDebugEvents finished")
 
 	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
 	if err != nil {

@@ -905,7 +905,7 @@ func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error
 }
 
 func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) {
-	defer func() { Trace("DeletePrefix", err, logrus.Fields{fieldPrefix: path}) }()
+	defer Trace("DeletePrefix", err, logrus.Fields{fieldPrefix: path})
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
@@ -1177,7 +1177,7 @@ func (e *etcdClient) Status() (string, error) {
 
 // GetIfLocked returns value of key if the client is still holding the given lock.
 func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker) (bv []byte, err error) {
-	defer func() { Trace("GetIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)}) }()
+	defer Trace("GetIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)})
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
@@ -1202,7 +1202,7 @@ func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker)
 
 // Get returns value of key
 func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error) {
-	defer func() { Trace("Get", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)}) }()
+	defer Trace("Get", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)})
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
@@ -1220,9 +1220,7 @@ func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error)
 
 // GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
 func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
+	defer Trace("GetPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
@@ -1246,9 +1244,7 @@ func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock 
 
 // GetPrefix returns the first key which matches the prefix and its value
 func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
+	defer Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
@@ -1266,7 +1262,7 @@ func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (k string, bv
 
 // Set sets value of key
 func (e *etcdClient) Set(ctx context.Context, key string, value []byte) (err error) {
-	defer func() { Trace("Set", err, logrus.Fields{fieldKey: key, fieldValue: string(value)}) }()
+	defer Trace("Set", err, logrus.Fields{fieldKey: key, fieldValue: string(value)})
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
@@ -1277,7 +1273,7 @@ func (e *etcdClient) Set(ctx context.Context, key string, value []byte) (err err
 
 // DeleteIfLocked deletes a key if the client is still holding the given lock.
 func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) (err error) {
-	defer func() { Trace("DeleteIfLocked", err, logrus.Fields{fieldKey: key}) }()
+	defer Trace("DeleteIfLocked", err, logrus.Fields{fieldKey: key})
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
@@ -1293,7 +1289,7 @@ func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLock
 
 // Delete deletes a key
 func (e *etcdClient) Delete(ctx context.Context, key string) (err error) {
-	defer func() { Trace("Delete", err, logrus.Fields{fieldKey: key}) }()
+	defer Trace("Delete", err, logrus.Fields{fieldKey: key})
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
@@ -1370,9 +1366,7 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 
 // UpdateIfDifferentIfLocked updates a key if the value is different and if the client is still holding the given lock.
 func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (recreated bool, err error) {
-	defer func() {
-		Trace("UpdateIfDifferentIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
-	}()
+	defer Trace("UpdateIfDifferentIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
 
 	if err = e.waitForInitialSession(ctx); err != nil {
 		return false, err
@@ -1417,9 +1411,7 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 
 // UpdateIfDifferent updates a key if the value is different
 func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (recreated bool, err error) {
-	defer func() {
-		Trace("UpdateIfDifferent", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
-	}()
+	defer Trace("UpdateIfDifferent", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
 
 	if err = e.waitForInitialSession(ctx); err != nil {
 		return false, err
@@ -1451,9 +1443,7 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 
 // CreateOnlyIfLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
 func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (success bool, err error) {
-	defer func() {
-		Trace("CreateOnlyIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "success": success})
-	}()
+	defer Trace("CreateOnlyIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "success": success})
 
 	duration := spanstat.Start()
 	var leaseID client.LeaseID
@@ -1509,9 +1499,7 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 
 // CreateOnly creates a key with the value and will fail if the key already exists
 func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) (success bool, err error) {
-	defer func() {
-		Trace("CreateOnly", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "success": success})
-	}()
+	defer Trace("CreateOnly", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "success": success})
 
 	duration := spanstat.Start()
 	var leaseID client.LeaseID
@@ -1534,9 +1522,7 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 
 // CreateIfExists creates a key with the value only if key condKey exists
 func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) (err error) {
-	defer func() {
-		Trace("CreateIfExists", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldCondition: condKey, fieldAttachLease: lease})
-	}()
+	defer Trace("CreateIfExists", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldCondition: condKey, fieldAttachLease: lease})
 
 	duration := spanstat.Start()
 	var leaseID client.LeaseID
@@ -1582,7 +1568,7 @@ func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, va
 
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
 func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (v KeyValuePairs, err error) {
-	defer func() { Trace("ListPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)}) }()
+	defer Trace("ListPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)})
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
@@ -1612,7 +1598,7 @@ func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock
 
 // ListPrefix returns a map of matching keys
 func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValuePairs, err error) {
-	defer func() { Trace("ListPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)}) }()
+	defer Trace("ListPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)})
 
 	duration := spanstat.Start()
 
@@ -1671,13 +1657,13 @@ func (e *etcdClient) GetCapabilities() Capabilities {
 
 // Encode encodes a binary slice into a character set that the backend supports
 func (e *etcdClient) Encode(in []byte) (out string) {
-	defer func() { Trace("Encode", nil, logrus.Fields{"in": in, "out": out}) }()
+	defer Trace("Encode", nil, logrus.Fields{"in": in, "out": out})
 	return string(in)
 }
 
 // Decode decodes a key previously encoded back into the original binary slice
 func (e *etcdClient) Decode(in string) (out []byte, err error) {
-	defer func() { Trace("Decode", err, logrus.Fields{"in": in, "out": out}) }()
+	defer Trace("Decode", err, logrus.Fields{"in": in, "out": out})
 	return []byte(in), nil
 }
 
