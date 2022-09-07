@@ -260,11 +260,12 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 {
 	struct dsr_opt_v6 opt __align_stack_8 = {};
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(opt);
+	__u16 total_len = bpf_ntohs(ip6->payload_len) + sizeof(struct ipv6hdr) + sizeof(opt);
 
 	/* The IPv6 extension should be 8-bytes aligned */
 	build_bug_on((sizeof(struct dsr_opt_v6) % 8) != 0);
 
-	if (dsr_is_too_big(ctx, payload_len)) {
+	if (dsr_is_too_big(ctx, total_len)) {
 		*ohead = sizeof(opt);
 		return DROP_FRAG_NEEDED;
 	}
@@ -381,11 +382,13 @@ static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 
 static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 					   const struct ipv6hdr *ip6 __maybe_unused,
+					   const union v6addr *svc_addr __maybe_unused,
+					   __u16 dport __maybe_unused,
 					   int code, int ohead __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
 	const __s32 orig_dgram = 64, off = ETH_HLEN;
-	const __u32 l3_max = sizeof(*ip6) + orig_dgram;
+	__u8 orig_ipv6_hdr[orig_dgram];
 	__be16 type = bpf_htons(ETH_P_IPV6);
 	__u64 len_new = off + sizeof(*ip6) + orig_dgram;
 	__u64 len_old = ctx_full_len(ctx);
@@ -411,6 +414,27 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		.daddr		= ip6->saddr,
 		.payload_len	= bpf_htons((__u16)payload_len),
 	};
+	struct ipv6hdr inner_ipv6_hdr __align_stack_8 = *ip6;
+	__s32 l4_dport_offset;
+
+	/* DSR changes the destination address from service ip to pod ip and
+	 * destination port from service port to pod port. While resppnding
+	 * back with ICMP error, it is necessary to set it to original ip and
+	 * port.
+	 */
+	ipv6_addr_copy((union v6addr *)&inner_ipv6_hdr.daddr, svc_addr);
+
+	if (inner_ipv6_hdr.nexthdr == IPPROTO_UDP)
+		l4_dport_offset = UDP_DPORT_OFF;
+	else if (inner_ipv6_hdr.nexthdr == IPPROTO_TCP)
+		l4_dport_offset = TCP_DPORT_OFF;
+	else
+		goto drop_err;
+
+	if (ctx_load_bytes(ctx, off + sizeof(inner_ipv6_hdr), orig_ipv6_hdr,
+			   sizeof(orig_ipv6_hdr)) < 0)
+		goto drop_err;
+	memcpy(orig_ipv6_hdr + l4_dport_offset, &dport, sizeof(dport));
 
 	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, reason);
 
@@ -423,9 +447,11 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 
 	wsum = ipv6_pseudohdr_checksum(&ip, IPPROTO_ICMPV6,
 				       bpf_ntohs(ip.payload_len), 0);
-	icmp.icmp6_cksum = csum_fold(csum_diff(NULL, 0, data + off, l3_max,
-					       csum_diff(NULL, 0, &icmp,
-							 sizeof(icmp), wsum)));
+	icmp.icmp6_cksum = csum_fold(csum_diff(NULL, 0, orig_ipv6_hdr, sizeof(orig_ipv6_hdr),
+					       csum_diff(NULL, 0, &inner_ipv6_hdr,
+							 sizeof(inner_ipv6_hdr),
+							 csum_diff(NULL, 0, &icmp,
+								   sizeof(icmp), wsum))));
 
 	if (ctx_adjust_troom(ctx, -(len_old - len_new)) < 0)
 		goto drop_err;
@@ -444,6 +470,13 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		goto drop_err;
 	if (ctx_store_bytes(ctx, off + sizeof(ip), &icmp,
 			    sizeof(icmp), 0) < 0)
+		goto drop_err;
+	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp), &inner_ipv6_hdr,
+			    sizeof(inner_ipv6_hdr), 0) < 0)
+		goto drop_err;
+	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp) +
+			    sizeof(inner_ipv6_hdr) + l4_dport_offset,
+			    &dport, sizeof(dport), 0) < 0)
 		goto drop_err;
 
 	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
@@ -480,18 +513,18 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	addr.p3 = ctx_load_meta(ctx, CB_ADDR_V6_3);
 	addr.p4 = ctx_load_meta(ctx, CB_ADDR_V6_4);
 
+	port = (__u16)ctx_load_meta(ctx, CB_PORT);
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip6(ctx, ip6, &addr,
 			    ctx_load_meta(ctx, CB_HINT), &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
-	port = (__u16)ctx_load_meta(ctx, CB_PORT);
 	ret = dsr_set_ext6(ctx, ip6, &addr, port, &ohead);
 #else
 # error "Invalid load balancer DSR encapsulation mode!"
 #endif
 	if (unlikely(ret)) {
 		if (dsr_fail_needs_reply(ret))
-			return dsr_reply_icmp6(ctx, ip6, ret, ohead);
+			return dsr_reply_icmp6(ctx, ip6, &addr, port, ret, ohead);
 		goto drop_err;
 	}
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -1269,6 +1302,8 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 
 static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 					   struct iphdr *ip4 __maybe_unused,
+					   __u32 svc_addr __maybe_unused,
+					   __u16 dport __maybe_unused,
 					   int code, __be16 ohead __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
@@ -1303,6 +1338,26 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		.tot_len	= bpf_htons((__u16)tot_len),
 	};
 
+	struct iphdr inner_ip_hdr __align_stack_8 = *ip4;
+	__s32 l4_dport_offset;
+
+	/* DSR changes the destination address from service ip to pod ip and
+	 * destination port from service port to pod port. While resppnding
+	 * back with ICMP error, it is necessary to set it to original ip and
+	 * port.
+	 * We do recompute the whole checksum here. Another way would be to
+	 * unfold checksum and then do the math adding the diff.
+	 */
+	inner_ip_hdr.daddr = svc_addr;
+	inner_ip_hdr.check = 0;
+	inner_ip_hdr.check = csum_fold(csum_diff(NULL, 0, &inner_ip_hdr,
+						 sizeof(inner_ip_hdr), 0));
+
+	if (inner_ip_hdr.protocol == IPPROTO_UDP)
+		l4_dport_offset = UDP_DPORT_OFF;
+	else if (inner_ip_hdr.protocol == IPPROTO_TCP)
+		l4_dport_offset = TCP_DPORT_OFF;
+
 	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, reason);
 
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
@@ -1321,6 +1376,9 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		goto drop_err;
 	if (ctx_load_bytes(ctx, off, tmp, sizeof(tmp)) < 0)
 		goto drop_err;
+
+	memcpy(tmp, &inner_ip_hdr, sizeof(inner_ip_hdr));
+	memcpy(tmp + sizeof(inner_ip_hdr) + l4_dport_offset, &dport, sizeof(dport));
 
 	icmp.checksum = csum_fold(csum_diff(NULL, 0, tmp, sizeof(tmp),
 					    csum_diff(NULL, 0, &icmp,
@@ -1344,6 +1402,13 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 	if (ctx_store_bytes(ctx, off + sizeof(ip), &icmp,
 			    sizeof(icmp), 0) < 0)
 		goto drop_err;
+	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp),
+			    &inner_ip_hdr, sizeof(inner_ip_hdr), 0) < 0)
+		goto drop_err;
+	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp)
+			    + sizeof(inner_ip_hdr) + l4_dport_offset,
+			    &dport, sizeof(dport), 0) < 0)
+		goto drop_err;
 
 	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
 drop_err:
@@ -1364,6 +1429,8 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	bool l2_hdr_required = true;
 	void *data, *data_end;
 	struct iphdr *ip4;
+	__u32 addr;
+	__u16 port;
 	__be16 ohead = 0;
 	int ret, ext_err = 0;
 
@@ -1372,20 +1439,22 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
+	addr = ctx_load_meta(ctx, CB_ADDR_V4);
+	port = (__u16)ctx_load_meta(ctx, CB_PORT);
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip4(ctx, ip4,
-			    ctx_load_meta(ctx, CB_ADDR_V4),
+			    addr,
 			    ctx_load_meta(ctx, CB_HINT), &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_opt4(ctx, ip4,
-			   ctx_load_meta(ctx, CB_ADDR_V4),
-			   ctx_load_meta(ctx, CB_PORT), &ohead);
+			   addr,
+			   port, &ohead);
 #else
 # error "Invalid load balancer DSR encapsulation mode!"
 #endif
 	if (unlikely(ret)) {
 		if (dsr_fail_needs_reply(ret))
-			return dsr_reply_icmp4(ctx, ip4, ret, ohead);
+			return dsr_reply_icmp4(ctx, ip4, addr, port, ret, ohead);
 		goto drop_err;
 	}
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
