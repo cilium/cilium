@@ -338,8 +338,8 @@ func init() {
 	option.BindEnv(option.KVstoreLeaseTTL)
 
 	viper.BindPFlags(flags)
-	flags.StringSlice(operatorOption.IngressLBAnnotations, operatorOption.IngressLBAnnotationsDefault, "IngressLBAnnotations are the annotations which are needed to propagate from Ingress to the Load Balancer")
-	option.BindEnv(operatorOption.IngressLBAnnotations)
+	flags.StringSlice(operatorOption.IngressLBAnnotationPrefixes, operatorOption.IngressLBAnnotationsDefault, "IngressLBAnnotations are the annotations which are needed to propagate from Ingress to the Load Balancer")
+	option.BindEnv(operatorOption.IngressLBAnnotationPrefixes)
 
 	viper.BindPFlags(flags)
 }

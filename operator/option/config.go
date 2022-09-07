@@ -253,9 +253,9 @@ const (
 	// nodes.
 	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
 
-	// IngressLBAnnotations are the annotations which are needed to propagate
+	// IngressLBAnnotationPrefixes are the annotations which are needed to propagate
 	// from Ingress to the Load Balancer
-	IngressLBAnnotations = "ingress-lb-annotations"
+	IngressLBAnnotationPrefixes = "ingress-lb-annotation-prefixes"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -473,9 +473,9 @@ type OperatorConfig struct {
 	// nodes.
 	SetCiliumIsUpCondition bool
 
-	// IngressLBAnnotations are the annotations which are needed to propagate
-	// from Ingress to the Load Balancer
-	IngressLBAnnotations []string
+	// IngressLBAnnotationPrefixes IngressLBAnnotations are the annotation prefixes,
+	// which are used to filter annotations to propagate from Ingress to the Load Balancer
+	IngressLBAnnotationPrefixes []string
 }
 
 // Populate sets all options with the values from viper.
@@ -513,7 +513,7 @@ func (c *OperatorConfig) Populate() {
 	c.CiliumPodLabels = viper.GetString(CiliumPodLabels)
 	c.RemoveCiliumNodeTaints = viper.GetBool(RemoveCiliumNodeTaints)
 	c.SetCiliumIsUpCondition = viper.GetBool(SetCiliumIsUpCondition)
-	c.IngressLBAnnotations = viper.GetStringSlice(IngressLBAnnotations)
+	c.IngressLBAnnotationPrefixes = viper.GetStringSlice(IngressLBAnnotationPrefixes)
 
 	c.CiliumK8sNamespace = viper.GetString(CiliumK8sNamespace)
 	if c.CiliumK8sNamespace == "" {
