@@ -69,7 +69,7 @@ func newListener(m *ipcacheMap.Map, d datapath, mn monitorNotify, ipc *ipcache.I
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
 func NewListener(d datapath, mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
-	return newListener(ipcacheMap.IPCache, d, mn, ipc)
+	return newListener(ipcacheMap.IPCacheMap(), d, mn, ipc)
 }
 
 func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,

@@ -98,7 +98,8 @@ func NewMap(name string) *Map {
 			MaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric().WithNonPersistent(),
+		).WithCache().WithPressureMetric().WithNonPersistent().
+			WithEvents(option.Config.GetEventBufferConfig(name)),
 	}
 }
 
