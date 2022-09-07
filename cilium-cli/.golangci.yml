@@ -16,10 +16,8 @@ linters:
     - misspell
     - revive
     - staticcheck
-    - structcheck
     - typecheck
     - unused
-    - varcheck
 
 linters-settings:
   goimports:
