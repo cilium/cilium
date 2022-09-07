@@ -55,11 +55,11 @@ const (
 	// MarkMultinodeNodeport is used for AWS ENI to mark traffic from
 	// another node, so that it gets routed back through the relevant
 	// interface.
-	MarkMultinodeNodeport = 0x80
+	MarkMultinodeNodeport = 0x8000
 
 	// MaskMultinodeNodeport is the mask associated with the
 	// RouterMarkNodePort
-	MaskMultinodeNodeport = 0x80
+	MaskMultinodeNodeport = 0x8000
 
 	// IPSecProtocolID IP protocol ID for IPSec defined in RFC4303
 	RouteProtocolIPSec = 50
