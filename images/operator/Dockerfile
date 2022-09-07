@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=scratch
-ARG GOLANG_IMAGE=docker.io/library/golang:1.19.0@sha256:d72a2944621f0f4027983e094bdf9464d26459c17efe732320043b84c91e51e7
+ARG GOLANG_IMAGE=docker.io/library/golang:1.19.1@sha256:4c8f4b8402a868dc6fb3902c97032b971d0179fbe007be408b455697e98d194a
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.16.0@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
