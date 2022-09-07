@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package clusterpool
+package cidralloc
 
 import (
 	"errors"
 	"testing"
 )
 
-func Test_newCIDRSets(t *testing.T) {
+func TestNewCIDRSets(t *testing.T) {
 	type args struct {
 		isV6     bool
 		strCIDRs []string
@@ -80,7 +80,7 @@ func Test_newCIDRSets(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := newCIDRSets(tt.args.isV6, tt.args.strCIDRs, tt.args.maskSize)
+			_, err := NewCIDRSets(tt.args.isV6, tt.args.strCIDRs, tt.args.maskSize)
 			if (err != nil) != (tt.wantErr != nil) {
 				t.Errorf("newCIDRSets() error = %v, wantErr %v", err, tt.wantErr)
 				return
