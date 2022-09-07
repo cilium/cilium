@@ -27,7 +27,7 @@ release:
 	docker run \
 		--rm \
 		--workdir /cilium \
-		--volume `pwd`:/cilium docker.io/library/golang:1.19.0-alpine3.16 \
+		--volume `pwd`:/cilium docker.io/library/golang:1.19.1-alpine3.16 \
 		sh -c "apk add --no-cache make git && \
 			addgroup -g $(RELEASE_GID) release && \
 			adduser -u $(RELEASE_UID) -D -G release release && \
