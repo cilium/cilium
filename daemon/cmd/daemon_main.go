@@ -1569,6 +1569,10 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner) error {
 	cleaner := NewDaemonCleanup()
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
+			bootstrapStats.earlyInit.Start()
+			initEnv()
+			bootstrapStats.earlyInit.End(true)
+
 			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
 			// of the start hooks to run.
 			go runDaemon(ctx, cleaner, shutdowner)
@@ -1585,10 +1589,6 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner) error {
 
 // runDaemon runs the old unmodular part of the cilium-agent.
 func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner) {
-	bootstrapStats.earlyInit.Start()
-	initEnv()
-	bootstrapStats.earlyInit.End(true)
-
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
