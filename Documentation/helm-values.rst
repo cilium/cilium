@@ -1121,8 +1121,8 @@
      - Enforce https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header.
      - bool
      - ``true``
-   * - ingressController.ingressLBAnnotations
-     - IngressLBAnnotations are the annotations which are needed to propagate from Ingress to the Load Balancer
+   * - ingressController.ingressLBAnnotationPrefixes
+     - IngressLBAnnotations are the annotation prefixes, which are used to filter annotations to propagate from Ingress to the Load Balancer service
      - list
      - ``["service.beta.kubernetes.io","service.kubernetes.io","cloud.google.com"]``
    * - ingressController.secretsNamespace

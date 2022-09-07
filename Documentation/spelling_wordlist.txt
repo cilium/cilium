@@ -506,7 +506,7 @@ imagePullSecrets
 incrementing
 indices
 ingressController
-ingressLBAnnotations
+ingressLBAnnotationPrefixes
 ingressing
 init
 initContainer
