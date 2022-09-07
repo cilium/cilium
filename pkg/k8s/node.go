@@ -38,6 +38,7 @@ func ParseNodeAddressType(k8sAddress slim_corev1.NodeAddressType) (addressing.Ad
 
 // ParseNode parses a kubernetes node to a cilium node
 func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node {
+	addressTypes := make(map[slim_corev1.NodeAddressType]struct{})
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:  k8sNode.Name,
 		logfields.K8sNodeID: k8sNode.UID,
@@ -60,9 +61,18 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 		if ip == nil {
 			scopedLog.WithFields(logrus.Fields{
 				logfields.IPAddr: addr.Address,
-				"type":           addr.Type,
+				logfields.Type:   addr.Type,
 			}).Warn("Ignoring invalid node IP")
 			continue
+		}
+		_, typeFound := addressTypes[addr.Type]
+		if typeFound && len(k8sNode.Spec.PodCIDRs) != 2 {
+			scopedLog.WithFields(logrus.Fields{
+				logfields.Node: k8sNode.Name,
+				logfields.Type: addr.Type,
+			}).Warn("Detected multiple IPs of the same address type, Cilium will only consider the first IP in the Node resource")
+		} else {
+			addressTypes[addr.Type] = struct{}{}
 		}
 
 		addressType, err := ParseNodeAddressType(addr.Type)

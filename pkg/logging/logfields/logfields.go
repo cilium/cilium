@@ -337,6 +337,9 @@ const (
 	// Tunnel is the tunnel name
 	Tunnel = "tunnel"
 
+	// Type is the address type
+	Type = "type"
+
 	// Selector is a selector of any sort: endpoint, CIDR, toFQDNs
 	Selector = "Selector"
 
