@@ -161,7 +161,7 @@ func (e *EndpointMapManager) RemoveMapPath(path string) {
 }
 
 func endParallelMapMode() {
-	ipcachemap.IPCache.EndParallelMode()
+	ipcachemap.IPCacheMap().EndParallelMode()
 }
 
 // syncEndpointsAndHostIPs adds local host enties to bpf lxcmap, as well as
@@ -314,7 +314,7 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
-	if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
+	if _, err := lxcmap.LXCMap().OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -328,7 +328,7 @@ func (d *Daemon) initMaps() error {
 	// updated with new identities. This is fine as any new identity
 	// appearing would require a regeneration of the endpoint anyway in
 	// order for the endpoint to gain the privilege of communication.
-	if _, err := ipcachemap.IPCache.OpenParallel(); err != nil {
+	if _, err := ipcachemap.IPCacheMap().OpenParallel(); err != nil {
 		return err
 	}
 
@@ -435,7 +435,7 @@ func (d *Daemon) initMaps() error {
 	})
 
 	if option.Config.EnableIPv4 && option.Config.EnableIPMasqAgent {
-		if _, err := ipmasq.IPMasq4Map.OpenOrCreate(); err != nil {
+		if _, err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
 			return err
 		}
 	}
@@ -452,7 +452,7 @@ func (d *Daemon) initMaps() error {
 	if !option.Config.RestoreState {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap.DeleteAll()
+		lxcmap.LXCMap().DeleteAll()
 	}
 
 	if option.Config.EnableSessionAffinity {

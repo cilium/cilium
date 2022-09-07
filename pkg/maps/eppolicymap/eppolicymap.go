@@ -72,7 +72,9 @@ func CreateWithName(mapName string) error {
 			0,
 			0,
 			bpf.ConvertKeyValue,
-		).WithCache()
+		).WithCache().
+			WithEvents(option.Config.GetEventBufferConfig(mapName))
+
 		EpPolicyMap.InnerID = uint32(fd)
 	})
 
