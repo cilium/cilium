@@ -50,6 +50,10 @@ Supported Ingress Annotations
      - Enable websocket
      - 0 (disabled)
 
+Additionally, cloud-provider specific annotations for the LoadBalancer service
+are supported. Please refer to the `Kubernetes documentation <https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer>`_
+for more details.
+
 Examples
 ########
 
